@@ -69,6 +69,10 @@ Assert-True ($r.Account -eq 'maikel-bwj' -and -not $r.Split) 'a display name is 
 $r = Resolve-ClaimAccount -GhAccount 'maikel-bwj' -GitUserName ('a' * 40)
 Assert-True (-not $r.Split) '40 characters is not a GitHub login -- outside the shape, so no split'
 
+# U+212A KELVIN SIGN folds to `k` under a plain -match, which admitted it into the login class (#2520).
+Assert-True (-not (Test-GitHubLoginShape -Value ('maikel-bw' + [char]0x212A))) 'Test-GitHubLoginShape refuses a login carrying the Kelvin sign (#2520)'
+Assert-True (Test-GitHubLoginShape -Value 'DaveKJohn') '...and still admits a mixed-case ASCII login'
+
 $r = Resolve-ClaimAccount -GhAccount 'maikel-bwj' -GitUserName ('a' * 39)
 Assert-True ($r.Split -and $r.Account -eq ('a' * 39)) '39 characters IS a GitHub login -- the shape boundary is walked at both edges'
 
@@ -978,8 +982,10 @@ Assert-True ($body -match '\$foreignParked\s*=\s*\$false') 'the flag has a defau
 # NOT PINNED TO THE SINGLE-FLAG SPELLING: #2064 added a second verdict to the same headline, so the
 # first arm is now `if ($foreignParked -and $prerequisiteFound)`. What #1878 holds is that the
 # headline BRANCHES on this flag at all -- the spelling of the chain is the other issue's business.
-Assert-True ($body -match '\$opening\s*=\s*if\s*\(\$foreignParked') 'the closing headline reads the flag'
-Assert-True ($body -match 'read the parked-fix verdict above before you start') 'and says so rather than asserting the work starts here'
+# THE HEADLINE MOVED INTO THE LIB WHEN #2518 ADDED A THIRD VERDICT, so it is held behaviourally now
+# (Format-ClaimOpening, below) and here only that the script hands it this flag.
+Assert-True ($body -match '\$opening\s*=\s*Format-ClaimOpening[^\r\n]*-ForeignParked:\$foreignParked') 'the closing headline reads the flag'
+Assert-True ((Format-ClaimOpening -ForeignParked) -match 'read the parked-fix verdict above before you start') 'and says so rather than asserting the work starts here'
 Assert-True ($body -match 'BUT NOT THAT BRANCH') 'the resume verdict carries it too -- where the other session branch is already in the working copy'
 
 
@@ -1119,8 +1125,9 @@ Assert-True ($body -match "--json', \`$viewFields") 'and the read is made from t
 Assert-True ($body -match 'Get-IssuePathCitations -Text \(\[string\]\$facts\.body\)') 'and the body is read for its citations rather than printed'
 
 Assert-True ($body -match '\$prerequisiteFound\s*=\s*\$false') 'the flag has a default, so a scan that never ran cannot leave it undefined'
-Assert-True ($body -match '(?s)\$opening\s*=\s*if\s*\(\$foreignParked\s+-and\s+\$prerequisiteFound\)') 'the closing headline names BOTH verdicts where both fired'
-Assert-True ($body -match 'read the prerequisite verdict above before you start') 'and names this one where it fired alone'
+Assert-True ($body -match '\$opening\s*=\s*Format-ClaimOpening[^\r\n]*-PrerequisiteFound:\$prerequisiteFound') 'the closing headline is handed this flag too'
+Assert-True ((Format-ClaimOpening -ForeignParked -PrerequisiteFound) -match 'read the parked-fix and prerequisite verdicts above before you start') 'the closing headline names BOTH verdicts where both fired'
+Assert-True ((Format-ClaimOpening -PrerequisiteFound) -match 'read the prerequisite verdict above before you start') 'and names this one where it fired alone'
 Assert-True ($body -match 'AND CHECK THE ORDER') 'the resume verdict carries it too -- an ordering bites hardest on a branch already in the working copy'
 
 # IT WEIGHS WHAT THE READER WAS POINTED AT, which is what keeps a quiet claim free: both scans feed
@@ -1480,6 +1487,44 @@ Assert-True ((@(Get-SweepCandidates -Json '')).Count -eq 0) 'empty input -- noth
 Assert-True ((@(Get-SweepCandidates -Json 'nonsense')).Count -eq 0) 'unparseable input -- nothing'
 
 Write-Host ''
+Write-Host 'The parking label on the single-issue route (#2518)' -ForegroundColor Cyan
+
+# ONE READER FOR BOTH ROUTES: the sweep skipped on a label the single-issue claim never read.
+$viewParked = '{"number":12,"title":"t","state":"OPEN","labels":[{"name":"prio-2"},{"name":"Needs-Info"},{"name":" "}]}' | ConvertFrom-Json
+$names = @(Get-IssueLabelNames -Issue $viewParked)
+Assert-True (($names -join ',') -eq 'prio-2,Needs-Info') 'a gh issue view record yields its label names, empties dropped'
+Assert-True ((@(Get-IssueLabelNames -Issue ('{"number":1}' | ConvertFrom-Json))).Count -eq 0) 'a record with no labels field yields none -- not an error'
+Assert-True ((@(Get-IssueLabelNames -Issue $null)).Count -eq 0) 'and a null record yields none'
+
+$hit = @(Select-ParkingLabels -Labels $names -SkipLabel @('needs-info'))
+Assert-True ($hit.Count -eq 1 -and $hit[0] -eq 'Needs-Info') 'the skip list matches case-insensitively and returns the issue''s own spelling'
+Assert-True ((@(Select-ParkingLabels -Labels $names -SkipLabel @())).Count -eq 0) 'an empty skip list parks nothing'
+Assert-True ((@(Select-ParkingLabels -Labels @('prio-2') -SkipLabel @('needs-info'))).Count -eq 0) 'an unparked issue matches nothing'
+
+$note = @(Format-ParkingLabelNote -Issue 12 -Labels @('needs-info'))
+Assert-True ($note.Count -gt 0 -and $note[0] -match "^PARKED: #12 carries 'needs-info'") 'a parked issue gets the verdict, naming the label'
+Assert-True (($note -join ' ') -match 'not yours to give') 'and it says the answer is not the claimant''s to give -- the measured failure was a session choosing between the owner''s options'
+Assert-True ((@(Format-ParkingLabelNote -Issue 12 -Labels @())).Count -eq 0) 'no label, no note -- the common case stays silent'
+$esc = [string][char]0x1b
+Assert-True (-not ((@(Format-ParkingLabelNote -Issue 12 -Labels @("x${esc}[31m")) -join ' ').Contains($esc))) 'a label name is tracker text and is stripped before printing'
+
+# THE HEADLINE NAMES EVERY VERDICT THAT FIRED, and 'the work starts here' only where none did.
+Assert-True ((Format-ClaimOpening) -eq ' -- the work starts here.') 'nothing fired -- the work starts here'
+Assert-True ((Format-ClaimOpening -Parked) -match 'read the parking-label verdict above before you start') 'the parking label alone redirects the headline'
+Assert-True ((Format-ClaimOpening -ForeignParked -PrerequisiteFound -Parked) -match 'read the parked-fix, prerequisite and parking-label verdicts above') 'all three fired -- all three named'
+
+# THE WIRING: read on the view, defaulted on the single-issue route, and handed to the headline.
+Assert-True ($body -match "else \{ 'number,title,state,url,assignees,body,labels' \}") 'the default-route issue read asks for the labels'
+Assert-True ($body -match "ParameterSetName -eq 'Issue' -and -not \`$PSBoundParameters\.ContainsKey\('SkipLabel'\)") 'the single-issue route defaults its skip list only when none was passed'
+Assert-True ($body -match "\`$SkipLabel = @\('needs-info', 'needs-decision'\)") 'and the default is the two labels sweep-issues skips on -- blocked on the submitter, and waiting on the owner (#2519)'
+Assert-True ($body -match 'Select-ParkingLabels -Labels @\(Get-IssueLabelNames -Issue \$facts\) -SkipLabel \$SkipLabel') 'the view''s labels are held against the skip list'
+Assert-True ($body -match '\$opening\s*=\s*Format-ClaimOpening[^\r\n]*-Parked:\$parked') 'and the headline is told when the issue is parked'
+Assert-True ($body -match 'AND IT IS PARKED') 'the resume verdict carries it too'
+$parkArm = if ($body -match '(?s)# --- IS IT PARKED WITH SOMEBODY ELSE.*?\n\}\r?\n') { $Matches[0] } else { '' }
+Assert-True ($parkArm -ne '') 'the parking arm is findable as a block'
+Assert-True (($parkArm -replace '(?m)#.*$', '') -notmatch '\bexit\b') 'and it never refuses -- a claim that blocks costs the whole assignment (#1485)'
+
+Write-Host ''
 Write-Host 'Get-OwnTagClaims -- what -ReleaseAll may release, and the bound on it (#2395)' -ForegroundColor Cyan
 
 $ownBacklog = @'
@@ -1606,7 +1651,7 @@ Assert-True ($candidatesArm -notmatch "'issue', 'comment'" -and $candidatesArm -
     '-Candidates writes nothing -- choosing and claiming are two steps, and the ownership question sits between them'
 
 # THE COMMENTS ARE PAID FOR ONLY WHERE THEY ARE READ.
-Assert-True ($body -match [regex]::Escape('if ($Tag) { ''number,title,state,url,assignees,body,comments'' }')) `
+Assert-True ($body -match [regex]::Escape('if ($Tag) { ''number,title,state,url,assignees,body,comments,labels'' }')) `
     'the comments field is asked for in tag mode only -- unbounded text on a call every pickup makes'
 
 # A MARKER IS FOREIGN TEXT. It comes out of an issue comment, which anybody with access to the tracker

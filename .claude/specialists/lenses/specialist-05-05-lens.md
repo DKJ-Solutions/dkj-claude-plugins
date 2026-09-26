@@ -1135,6 +1135,15 @@ instead of a new issue, `part of #<n>` instead of a keyword, close only on the r
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
+### The parking label — `needs-decision`, set when the issue is filed
+
+**`needs-decision` (`BFD4F2`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
+nor a sweep treats it as work that is ready (Dave, September 26, 2026,
+[#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)). It is set in the same
+`gh issue create` as the `prio-N`, and it is not `needs-info`, which `dkj-policy-bwj` reserves for
+*blocked on the submitter*. It ships in `Get-TriageLabels`, and the filing rule is in
+[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
+
 ### The reach label — `minor`, and it is a second axis, not a fifth rung
 
 **`minor` is the reach label, and it answers a different question from `prio-N`.** Priority says *when

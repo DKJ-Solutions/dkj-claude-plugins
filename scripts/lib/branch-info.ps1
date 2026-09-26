@@ -183,7 +183,7 @@ function Test-BranchName {
     # pattern, so it refuses nothing anybody here has ever wanted. The first character is pinned to a
     # letter or digit so a name cannot read as a flag; git already rejects a leading '-' (exit 128), which
     # makes that half belt-and-braces rather than load-bearing.
-    if ($Branch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$') {
+    if ($Branch -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$') {
         return [pscustomobject]@{
             IsValid = $false
             Reason  = "Branch name may only contain letters, digits, '.', '_', '-' and '/', and must start with a letter or a digit. This workflow prints the branch name into commands that get pasted into a shell, and a character like ';', '&', '|', '`$' or a quote is not made safe by quoting it (issue #1594). Rename it using those characters only."

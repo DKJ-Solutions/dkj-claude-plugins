@@ -923,9 +923,11 @@ Assert-Equal ([datetime]'2026-09-21') (Get-NextReleaseDate -From ([datetime]'202
 Assert-Equal ([datetime]'2026-09-21') (Get-NextReleaseDate -From ([datetime]'2026-09-18 23:59')) 'the time of day is discarded'
 Assert-Equal ([datetime]'2026-09-25') (Get-NextReleaseDate -From ([datetime]'2026-09-21') -ReleaseDay ([System.DayOfWeek]::Friday)) 'another cadence is a parameter, not a fork'
 
-# INVARIANT CULTURE: it is the workflow speaking, not the subject, so a machine's locale must not
-# decide which language a colleague's ticket is written in.
-Assert-Equal 'Monday 21 September 2026' (Format-GoLiveDate -Date ([datetime]'2026-09-21')) 'the date reads as a colleague reads it'
+# THE LANGUAGE IS THE COLLEAGUE'S, passed in and never read off the machine's locale (#2507). Dutch by
+# default: BWJ's board is Dutch, and the reference block the shape comes from is too.
+Assert-Equal 'maandag 21 september 2026' (Format-GoLiveDate -Date ([datetime]'2026-09-21')) 'the date reads as a Dutch colleague reads it'
+Assert-Equal 'zondag 4 oktober 2026' (Format-GoLiveDate -Date ([datetime]'2026-10-04')) 'the day and month names come from the table, not the host culture'
+Assert-Equal 'Monday 21 September 2026' (Format-GoLiveDate -Date ([datetime]'2026-09-21') -Language en) 'and in English for a task written in English'
 
 # THE TALLY LINE IS THE SOURCE FOR THE BUMP, never a second copy of the tier arithmetic -- which this
 # plugin could not reach anyway, since the tier parser lives in dkj-policy's own libs.
@@ -948,60 +950,101 @@ Assert-Throws { Step-SemVer -Current 'v1.3.4' -Bump 'patch' } 'a non-X.Y.Z curre
 # PREDICTS a version may produce one.
 Assert-Throws { Step-SemVer -Current '1.3.4' -Bump 'major' } 'major is not a bump this may predict'
 
+$glDash = [string][char]0x2014
 $goLiveBlock = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef 'BWJ-Development/smartwatchbanden#500' `
-    -GoLiveDate 'Monday 21 September 2026' -ResultLink 'https://example.invalid/preview' -Version '1.4.0' `
+    -GoLiveDate 'maandag 21 september 2026' -ResultLink 'https://example.invalid/preview' -Version '1.4.0' `
     -LiveUrl @([pscustomobject]@{ Market = 'NL'; Url = 'https://example.invalid/nl/p' },
-               [pscustomobject]@{ Market = 'DE'; Url = 'https://example.invalid/de/p' })
+               [pscustomobject]@{ Market = 'DE'; Url = 'https://example.invalid/de/p' }) `
+    -Changed @('Er is een SEO-intro per collectie.') -WhereToLook @('Kijk onder de titel.') -NotIncluded @('Geen A/B-test.')
 
 # ONE SPELLING OF THE MARKER, and this is the assert that holds it: the driver reads
 # Get-AsanaPasteBlockMarker and hands it to a lib that hard-codes nothing, so the CI backstop's
 # de-duplication cannot start posting a duplicate under a block this route already wrote.
 Assert-True ($goLiveBlock.Contains((Get-AsanaPasteBlockMarker))) 'the block carries the marker the backstop de-duplicates on'
 Assert-True ($goLiveBlock -notmatch '\[ADD LINK\]') 'it never writes the backstop placeholder -- this route knows the link'
-Assert-True ($goLiveBlock.Contains('Planned to go live')) 'the release fact is worded as a plan'
-Assert-True ($goLiveBlock -notmatch '(?m)will go live') 'and never as a promise'
-Assert-True ($goLiveBlock.Contains('as version v1.4.0.')) 'it names the version it is on course for'
-Assert-True ($goLiveBlock.Contains('- NL -- https://example.invalid/nl/p')) 'one live URL per market, labelled by market'
-Assert-True ($goLiveBlock.Contains('- DE -- https://example.invalid/de/p')) 'and the market order is the table order'
+Assert-True ($goLiveBlock.Contains('Het staat gepland voor de release van')) 'the release fact is worded as a plan'
+Assert-True ($goLiveBlock.Contains('als versie v1.4.0.')) 'it names the version it is on course for'
+Assert-True ($goLiveBlock.Contains("NL $glDash https://example.invalid/nl/p")) 'one live URL per market, labelled by market'
+Assert-True ($goLiveBlock.IndexOf("NL $glDash") -lt $goLiveBlock.IndexOf("DE $glDash")) 'and the market order is the table order'
+
+# THE SHAPE BWJ SENDS (#2507): the opening line says where the message comes from, then five fixed
+# headings, in the reference block's order.
+$goLivePasted = ($goLiveBlock -split '(?m)^---$')[1]
+Assert-True ($goLivePasted.TrimStart().StartsWith("$glDash automatisch bericht vanuit GitHub #500")) 'the pasted block opens by naming where it comes from'
+$glHeadings = @('WAT ER NU ANDERS IS', 'TE BEKIJKEN OP', 'WANNEER HET LIVE KOMT', 'WAT ER BEWUST NIET IN ZIT', 'WAT WE VAN JE VRAGEN')
+$glAt = -1
+foreach ($h in $glHeadings) {
+    $i = $goLivePasted.IndexOf("`n$h`n")
+    Assert-True ($i -gt $glAt) "the heading '$h' is its own line, in the reference order"
+    $glAt = $i
+}
+Assert-True ($goLivePasted.IndexOf('Er is een SEO-intro') -gt $goLivePasted.IndexOf('WAT ER NU ANDERS IS')) 'the session''s prose sits under its own heading'
+Assert-True ($goLivePasted.IndexOf('Kijk onder de titel.') -gt $goLivePasted.IndexOf('Het resultaat is hier te bekijken')) 'and the where-to-look prose follows the link'
+Assert-True ($goLivePasted -notmatch 'Planned to|What we ask|The fix for') 'the Dutch block carries no English words of the old shape'
+Assert-True ($goLiveBlock.Contains('Paste the block into the Asana task')) 'while the framing sentence, read on GitHub, stays English'
 
 # AN UNPINNED LIST BESIDE A RESULT LINK SAYS HOW TO READ IT BEFORE THE RELEASE (#2477): a bare URL
 # renders the preview in any browser that opened the result link first, so both tabs would agree.
-Assert-True ($goLiveBlock.Contains('open these in a private window')) 'unpinned, beside a result link, the list carries the cookie caveat'
-Assert-True ($goLiveBlock -notmatch 'to compare against') 'and does not call itself a comparison'
-$goLivePinned = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'Monday 21 September 2026' `
+Assert-True ($goLiveBlock.Contains('venster: een browser die de link hierboven al heeft geopend')) 'unpinned, beside a result link, the list carries the cookie caveat'
+Assert-True ($goLiveBlock -notmatch 'om mee te vergelijken') 'and does not call itself a comparison'
+$goLivePinned = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'maandag 21 september 2026' `
     -ResultLink 'https://example.invalid/preview' -LivePinned `
     -LiveUrl @([pscustomobject]@{ Market = 'NL'; Url = 'https://example.invalid/nl/p?preview_theme_id=9' })
-Assert-True ($goLivePinned.Contains('what is live now, to compare against')) 'pinned to the live id, the list is labelled as a comparison now'
-Assert-True ($goLivePinned.Contains('once it is live, you can see the change here')) 'and as the live page after the release'
-Assert-True ($goLivePinned -notmatch 'private window') 'and needs no caveat'
-$goLiveNoLink = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'Monday 21 September 2026' `
+Assert-True ($goLivePinned.Contains('wat er nu live staat, om mee te vergelijken')) 'pinned to the live id, the list is labelled as a comparison now'
+Assert-True ($goLivePinned.Contains('zodra het live is, zie je de wijziging hier')) 'and as the live page after the release'
+Assert-True ($goLivePinned -notmatch 'venster') 'and needs no caveat'
+$goLiveNoLink = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'maandag 21 september 2026' `
     -LiveUrl @([pscustomobject]@{ Market = 'NL'; Url = 'https://example.invalid/nl/p' })
-Assert-True ($goLiveNoLink.Contains("Once it is live you can see it here:`n")) 'with no result link there is no link of its own to set the cookie, so no caveat'
+Assert-True ($goLiveNoLink.Contains("Zodra het live is, zie je het hier:`n")) 'with no result link there is no link of its own to set the cookie, so no caveat'
 
 # THE MARKER SITS OUTSIDE THE PASTED BLOCK -- the same property the backstop's own copy is held to,
 # for the same reason: everything between the rules lands in a colleague's ticket.
-$goLivePasted = ($goLiveBlock -split '(?m)^---$')[1]
 Assert-True ($goLivePasted -notmatch [regex]::Escape((Get-AsanaPasteBlockMarker))) 'the marker is outside the block that gets pasted'
-Assert-True ($goLivePasted.Contains('Planned to go live')) 'and the go-live half is INSIDE it -- it is what the requester reads'
+Assert-True ($goLivePasted.Contains('WANNEER HET LIVE KOMT')) 'and the go-live half is INSIDE it -- it is what the requester reads'
 
 # THE BLOCK ASKS FOR THE REQUESTER'S OWN LOOK (#2352), inside the pasted part, and after the facts.
-Assert-True ($goLivePasted.Contains('What we ask of you:')) 'with a link, the pasted block asks the requester to look'
-Assert-True ($goLivePasted.IndexOf('What we ask of you:') -gt $goLivePasted.IndexOf('- DE --')) 'and the ask comes after the live URLs'
-Assert-True ($goLivePasted.Contains('tick off this task')) 'an approval closes the TASK, and the requester is the one who closes it'
-Assert-True ($goLivePasted -match 'what is not right yet, and what exactly should change') 'a rejection asks for BOTH things, not only what is wrong'
-Assert-True ($goLivePasted.Contains('reopened')) 'and says the issue is reopened for a new round'
+Assert-True ($goLivePasted.IndexOf('WAT WE VAN JE VRAGEN') -gt $goLivePasted.IndexOf("DE $glDash")) 'the ask comes after the live URLs'
+Assert-True ($goLivePasted.Contains('vink deze taak af')) 'an approval closes the TASK, and the requester is the one who closes it'
+Assert-True ($goLivePasted.Contains("wat er niet goed is, $([char]0x00E9)n wat er precies anders moet")) 'a rejection asks for BOTH things, not only what is wrong'
+Assert-True ($goLivePasted.Contains('volgende ronde')) 'and says it starts a new round'
 # THE RELEASE IS NOT A REWARD: nothing in the block makes going live conditional on the answer.
-Assert-True ($goLivePasted.Contains('either way')) 'the ask says the work goes live either way'
-Assert-True ($goLivePasted -notmatch '(?i)\bif (it is|you) (right|approve)[^.]*(release|live)') 'and never ties the release to an approval'
+Assert-True ($goLivePasted.Contains('hoe dan ook mee met die release')) 'the ask says the work goes live either way'
 
-# A FACT THAT CANNOT BE DERIVED IS LEFT OUT, NEVER GUESSED.
-$goLiveBare = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'Monday 21 September 2026'
-Assert-True ($goLiveBare.Contains('The fix for o/r#1 is done.')) 'with no link, the block still says the work is done'
-Assert-True ($goLiveBare -notmatch 'view the result here') 'and simply omits the sentence rather than placeholdering it'
-Assert-True ($goLiveBare.Contains('release of Monday 21 September 2026.')) 'with no version, the sentence names the day alone'
-Assert-True ($goLiveBare -notmatch 'as version') 'and no version clause at all'
-Assert-True ($goLiveBare -notmatch 'Once it is live') 'with no markets, there is no live-URL list'
-Assert-True ($goLiveBare -notmatch 'What we ask of you') 'with no link, there is nothing to look at, so no ask'
+# THE SAME SHAPE IN ENGLISH, for a task written in English -- the words follow the task, not the repo.
+$goLiveEn = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#3' -GoLiveDate 'Monday 21 September 2026' `
+    -ResultLink 'https://example.invalid/preview' -Version '2.0.1' -Language en -Changed @('A thing changed.')
+Assert-True ($goLiveEn.Contains("$glDash automated message from GitHub #3")) 'English opens the same way'
+Assert-True ($goLiveEn.Contains("`nWHAT IS DIFFERENT NOW`n") -and $goLiveEn.Contains("`nWHAT WE ASK OF YOU`n")) 'with the same sections'
+Assert-True ($goLiveEn.Contains('planned to go live with the release of Monday 21 September 2026, as version v2.0.1.')) 'and the plan wording'
+Assert-True ($goLiveEn -notmatch '(?m)will go live') 'never as a promise'
+Assert-True ($goLiveEn -match 'what is not right yet, and what exactly should change') 'a rejection asks for both things in English too'
+Assert-True ($goLiveEn -notmatch '(?i)\bif (it is|you) (right|approve)[^.]*(release|live)') 'and never ties the release to an approval'
+
+# A FACT THAT CANNOT BE DERIVED IS LEFT OUT, NEVER GUESSED -- and a section with nothing in it is not
+# written at all, heading included.
+$goLiveBare = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'maandag 21 september 2026'
+Assert-True ($goLiveBare -notmatch 'hier te bekijken') 'with no link, the block omits the link sentence rather than placeholdering it'
+Assert-True ($goLiveBare -notmatch 'TE BEKIJKEN OP') 'and with no where-prose either, the whole section'
+Assert-True ($goLiveBare -notmatch 'WAT ER NU ANDERS IS|WAT ER BEWUST NIET IN ZIT') 'no prose, no prose sections'
+Assert-True ($goLiveBare.Contains('release van maandag 21 september 2026.')) 'with no version, the sentence names the day alone'
+Assert-True ($goLiveBare -notmatch 'als versie') 'and no version clause at all'
+Assert-True ($goLiveBare -notmatch 'Zodra het live is') 'with no markets, there is no live-URL list'
+Assert-True ($goLiveBare -notmatch 'WAT WE VAN JE VRAGEN') 'with no link, there is nothing to look at, so no ask'
+
+# THE SESSION'S PROSE ARRIVES THROUGH A FILE, parsed strictly -- a misspelled section line must not
+# silently drop the paragraph under it.
+$glProse = ConvertFrom-GoLiveProse -Text "[changed]`r`nEen.`r`nnog een regel`r`n`r`nTwee.`r`n[where]`r`n`r`nKijk.`r`n[not-included]`r`nNiets.`r`n"
+Assert-Equal 2 @($glProse.Changed).Count 'paragraphs are split on a blank line'
+Assert-Equal "Een.`nnog een regel" @($glProse.Changed)[0] 'and a paragraph keeps its own line breaks'
+Assert-Equal 'Kijk.' @($glProse.WhereToLook)[0] '[where] fills the where-to-look prose'
+Assert-Equal 'Niets.' @($glProse.NotIncluded)[0] '[not-included] fills its own section'
+Assert-Equal 0 @((ConvertFrom-GoLiveProse -Text "[changed]`n").NotIncluded).Count 'a section nobody wrote is empty, not absent'
+Assert-Throws { ConvertFrom-GoLiveProse -Text "[chnaged]`nEen." } 'an unknown section line is refused'
+Assert-Throws { ConvertFrom-GoLiveProse -Text "Een.`n[changed]`nTwee." } 'text above the first section line is refused'
+$glBrackets = ConvertFrom-GoLiveProse -Text "[changed]`nZie noot.`n[1]`n[ ]`n[TBD]"
+Assert-Equal "Zie noot.`n[1]`n[ ]`n[TBD]" @($glBrackets.Changed)[0] 'a bracketed line that is not section-shaped stays prose'
+Assert-Throws { ConvertFrom-GoLiveProse -Text "[changed]`nEen.`n---`nTwee." } 'a bare --- line is refused -- it would be a third rule inside the pasted block'
+Assert-Throws { ConvertFrom-GoLiveProse -Text "[changed]`n<!-- asana-paste-block -->" } 'and so is an HTML comment, the marker included'
 
 # A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
 # the handover page is the reviewer's surface. Both published shapes, and nothing that merely resembles one.
@@ -1016,6 +1059,10 @@ Assert-True (-not (Test-PrivateResultLink -Link '')) 'no link is not a private l
 $goLiveDriver = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\build-golive-block.ps1'))
 Assert-True ($goLiveDriver -match 'Test-PrivateResultLink -Link \$LinkArg\) -and -not \$AllowPrivateLink') 'the driver refuses a private link unless -AllowPrivateLink says it was shared'
 Assert-True ($goLiveDriver.IndexOf('Test-PrivateResultLink -Link') -lt $goLiveDriver.IndexOf('Format-GoLiveBlock -Marker')) 'and it refuses before the block is built'
+# THE POST GOES THROUGH A UTF-8 FILE, NEVER A PIPE (#2507): Windows PowerShell 5.1 encodes a pipe into a
+# native command as ASCII, which posted every accent and dash of the colleague's language as '?'.
+Assert-True ($goLiveDriver -notmatch '\|\s*&?\s*gh issue comment') 'the driver never pipes the block into gh'
+Assert-True ($goLiveDriver -match 'gh issue comment \$issueNumber --repo \$StoreRepo --body-file \$bodyFile') 'it posts from the UTF-8 body file'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
 # to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path
@@ -1034,7 +1081,7 @@ try {
     $glText = (@($glOut | ForEach-Object { "$_" }) -join "`n")
     Assert-Equal 0 $glCode 'the driver run with -File and -Path exits 0 in a store that declares its markets'
     Assert-True ($glText -notmatch 'has not declared its markets') 'and does not claim the store declared none'
-    Assert-True ($glText.Contains('- NL -- https://seam.example/pages/p')) 'the live URL comes from the repo-config the driver read itself'
+    Assert-True ($glText.Contains('https://seam.example/pages/p')) 'the live URL comes from the repo-config the driver read itself'
     Assert-True ($glText -notmatch 'preview_theme_id') 'with no live theme id anywhere, the live URL stays bare -- never a guessed id'
     Assert-True ($glText.Contains('bare -- no live theme id')) 'and the run says why it is bare'
 
@@ -1044,12 +1091,37 @@ try {
         ("function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'seam.example' }) }`r`n" +
          "function Get-ShopifyLiveThemeId { '4242' }`r`n"),
         (New-Object System.Text.UTF8Encoding $false))
-    $glPinOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
-        -Path '/pages/p' -Link 'https://seam.example/pages/p?preview_theme_id=1&_ab=0&_fd=0&_sc=1' -RootOverride $glRoot 2>&1
-    $glPinText = (@($glPinOut | ForEach-Object { "$_" }) -join "`n")
+    # READ BACK THROUGH -OutFile, as UTF-8: the block now carries characters a console code page may not
+    # (#2507), so the console capture is the wrong witness for its exact words.
+    $glOutFile = Join-Path $glRoot 'block.md'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -Path '/pages/p' -Link 'https://seam.example/pages/p?preview_theme_id=1&_ab=0&_fd=0&_sc=1' -RootOverride $glRoot `
+        -OutFile $glOutFile 2>&1 | Out-Null
     Assert-Equal 0 $LASTEXITCODE 'the driver run with a live-id seam exits 0'
-    Assert-True ($glPinText.Contains('- NL -- https://seam.example/pages/p?preview_theme_id=4242&')) 'the live URL names the live theme id the seam answers'
-    Assert-True ($glPinText.Contains('what is live now, to compare against')) 'and the list is labelled as the comparison it now is'
+    $glPinText = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
+    Assert-True ($glPinText.Contains("NL $glDash https://seam.example/pages/p?preview_theme_id=4242&")) 'the live URL names the live theme id the seam answers'
+    Assert-True ($glPinText.Contains('wat er nu live staat, om mee te vergelijken')) 'and the list is labelled as the comparison it now is'
+    $glBytes = [System.IO.File]::ReadAllBytes($glOutFile)
+    Assert-True (-not ($glBytes.Length -ge 3 -and $glBytes[0] -eq 0xEF -and $glBytes[1] -eq 0xBB)) '-OutFile writes no BOM, which would arrive in a pasted comment as a stray character'
+
+    # THE SESSION'S PROSE, IN THE COLLEAGUE'S LANGUAGE, SURVIVES THE ROUND TRIP (#2507): in through a UTF-8
+    # -ProseFile, out through -OutFile, accents intact.
+    $glProseFile = Join-Path $glRoot 'prose.txt'
+    $glAccent = "Twee dingen: $([char]0x00E9)$([char]0x00E9)n veld, g$([char]0x00E9)$([char]0x00E9)n test."
+    [System.IO.File]::WriteAllText($glProseFile, "[changed]`r`n$glAccent`r`n", (New-Object System.Text.UTF8Encoding $true))
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -RootOverride $glRoot -ProseFile $glProseFile -OutFile $glOutFile 2>&1 | Out-Null
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with a -ProseFile exits 0'
+    Assert-True ([System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8).Contains("WAT ER NU ANDERS IS`n`n$glAccent")) 'the prose lands under its heading with every accent intact, BOM or no BOM on the way in'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -RootOverride $glRoot -ProseFile $glProseFile -Language en -OutFile $glOutFile 2>&1 | Out-Null
+    $glEnText = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
+    Assert-True ($glEnText.Contains("$glDash automated message from GitHub #7") -and $glEnText.Contains("`nWHAT IS DIFFERENT NOW`n")) 'the driver passes -Language en through to the block'
+    Assert-True ($glEnText.Contains('as version v1.0.0.') -and $glEnText -notmatch 'maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag') 'and the date follows it too'
+    [System.IO.File]::WriteAllText($glProseFile, "[wat]`r`nx`r`n", (New-Object System.Text.UTF8Encoding $false))
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -RootOverride $glRoot -ProseFile $glProseFile 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE 'a -ProseFile with an unknown section line is refused, not half-used'
     $glArgOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
         -Path '/pages/p' -LiveThemeId '99' -RootOverride $glRoot 2>&1
     $glArgText = (@($glArgOut | ForEach-Object { "$_" }) -join "`n")

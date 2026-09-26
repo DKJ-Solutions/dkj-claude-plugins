@@ -718,6 +718,47 @@ if (-not $gitCmd) {
 }
 
 Write-Host ''
+Write-Host 'Get-UnshippedPrVerdict -- green, settled, and handed to no sweep (#2525)' -ForegroundColor Cyan
+
+# THE CASE #2525 MEASURED: PR #2515, never armed, green for hours. Unarmed is the ordinary shape here,
+# so the fixture carries no arming label.
+$unarmed = New-PrRecord -Labels @('bug')
+Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $true).Unshipped `
+    'unarmed + green + settled, with a sweep present -- unshipped'
+Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $false).Unshipped `
+    'and the same without a sweep -- unshipped'
+
+# ARMED IS THE SWEEP'S QUESTION ONLY WHERE A SWEEP EXISTS.
+$armedRec = New-PrRecord
+$armedVerdict = Get-UnshippedPrVerdict -Record $armedRec -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $true
+Assert-True (-not $armedVerdict.Unshipped) 'armed, with merge-on-green.yml present -- not reported, the sweep (or check-stranded-sweep) owns it'
+Assert-True ($armedVerdict.Reason -like '*sweep owns it*') 'and the Reason says why'
+Assert-True (Get-UnshippedPrVerdict -Record $armedRec -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $false).Unshipped `
+    'armed, with NO sweep in this repo -- the label is inert, so it is unshipped all the same'
+
+Assert-True (-not (Get-UnshippedPrVerdict -Record (New-PrRecord -Labels @() -Draft $true) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Unshipped) `
+    'a draft is never unshipped -- nobody said it was ready'
+Assert-True (-not (Get-UnshippedPrVerdict -Record (New-PrRecord -Labels @() -CrossRepo $true) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Unshipped) `
+    'a fork pull request is never unshipped -- ship-pr cannot run from its head'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $null -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Unshipped) `
+    'a null record is never unshipped'
+
+# THE REQUIRED-CHECK STATE AND THE SETTLE WINDOW -- the shared block, so the boundary is the picker's.
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict $null -GreenAgeMinutes 30).Unshipped) `
+    'an unreadable required-check state is not unshipped -- fail closed'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict ([pscustomobject]@{ Blocked = $true; Reason = 'red'; UnfinishedRequired = @() }) -GreenAgeMinutes 30).Unshipped) `
+    'a red required check is not unshipped -- it is owed a fix, not a merge'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict ([pscustomobject]@{ Blocked = $false; Reason = 'ok'; UnfinishedRequired = @('lint-en-tests') }) -GreenAgeMinutes 30).Unshipped) `
+    'a required check still running is not unshipped'
+$settleMin = Get-MergeOnGreenSettleMinutes
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes ($settleMin - 1)).Unshipped) `
+    'green for less than the settle window is not unshipped -- a live ship-pr may still be merging it'
+Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes $settleMin).Unshipped `
+    'green for exactly the settle window is unshipped -- the same boundary the picker uses'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green)).Unshipped) `
+    'no green age passed -- not unshipped, fail closed'
+
+Write-Host ''
 Write-Host 'The lib, the script and the runner are ASCII' -ForegroundColor Cyan
 
 $rawLib = Get-Content -LiteralPath $LibPath -Raw

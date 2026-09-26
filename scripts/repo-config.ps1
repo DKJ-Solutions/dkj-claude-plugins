@@ -1232,18 +1232,27 @@ function Get-ExpectedRepoSettings {
 # its own like any other issue. Dave ruled it a shared way of working rather than this repo's own label,
 # which is what puts it in this seam -- the same 'copy' reasoning as the rungs, since what a dossier is
 # asserts nothing about the adopting repo. The handling rule lives in CONTRIBUTING-portable.md.
+#
+# AND A SIXTH, A PARKING LABEL: 'needs-decision' (issue #2519, Dave September 26, 2026). An issue that
+# ends in an open choice for the owner is not work anybody can pick up yet, and the claim and sweep
+# routes skip it by default. It is deliberately NOT 'needs-info': in dkj-policy-bwj that label means
+# blocked on the SUBMITTER -- it moves the mirrored Asana card to the blocked column and obliges a
+# question comment to the person who filed it -- and neither is true of a decision that is the owner's.
+# Same 'copy' reasoning: "waiting on the owner" asserts nothing about the adopting repo.
 $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'prio-1'; Color = '006B75'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
     [pscustomobject]@{ Name = 'prio-2'; Color = 'FBCA04'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
     [pscustomobject]@{ Name = 'prio-3'; Color = 'D93F0B'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     [pscustomobject]@{ Name = 'dossier'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
+    [pscustomobject]@{ Name = 'needs-decision'; Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
 )
 
 function Get-TriageLabels {
     <# The canonical triage labels this workflow's consumers are invited to share -- the four
        priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'dossier', the kind label for
-       a collecting issue -- as an array of objects with Name, Color and Description (the exact fields
+       a collecting issue, and 'needs-decision', the parking label for an issue awaiting the owner's
+       choice -- as an array of objects with Name, Color and Description (the exact fields
        a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the
        create command for whichever of them this repo's tracker is missing; it never creates a label
        itself. Optional in the script contract -- a consumer that has not answered this seam gets the

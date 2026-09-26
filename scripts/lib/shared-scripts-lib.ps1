@@ -960,6 +960,19 @@ function Get-SharedScriptPairs {
             # over the network rather than a timeable unit of work.
         },
         @{
+            # THE UNSHIPPED-PR REPORT (issue #2525): the sibling of check-stranded-sweep above, for the
+            # pull request that row cannot see -- green, settled, authored by this account, and NOT armed,
+            # so no sweep will ever merge it. A ship that dies before arming, or a repo with no sweep at
+            # all, leaves exactly that, and nothing reported it (measured on PR #2515). Same posture as
+            # its sibling on every axis: advisory, fails quiet, never blocks a session start, one
+            # automatic caller (the SessionStart hook unshipped-pr-sessioncheck.ps1), no CI leg, no skill.
+            Name   = 'check-unshipped-pr'
+            Source = 'scripts\lint\check-unshipped-pr.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = ''
+            SkillParamsExempt = @('RootOverride')
+        },
+        @{
             # THE LAST FETCH ATTEMPT PER REMOTE (issue #1860, September 11, 2026) -- what was asked for
             # and how it went. claim-issue.ps1 and new-branch.ps1 both fetch the same remote at the
             # opening of an assignment, seconds apart by design, so against an UNREACHABLE remote a
@@ -1434,7 +1447,7 @@ function Get-SharedScriptPairs {
         @{
             # The triage-priority label adopter (issue #1895, split from #1843). Print-only, the same
             # shape Get-MissingLabelNote already established for a PR label: composes a paste-ready
-            # `gh label create` for whichever of the canonical triage labels ('prio-*' and 'dossier') this repo's tracker
+            # `gh label create` for whichever of the canonical triage labels ('prio-*', 'dossier', 'needs-decision') this repo's tracker
             # is missing, and never runs it. Shared for the same reason every entry here is -- the
             # alternative is each consumer retyping four names and four colours out of a page instead
             # of a seam.

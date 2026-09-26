@@ -169,7 +169,7 @@ function Get-DurablePersonaDir([string]$PersonaDir, [string]$Plugin) {
     if ($cacheIdx -lt 1 -or ($cacheIdx + 1) -ge $parts.Count) { return $PersonaDir }
     if ($parts[$cacheIdx - 1] -ne 'plugins') { return $PersonaDir }
     $marketplace = $parts[$cacheIdx + 1]
-    if ($marketplace -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { return $PersonaDir }
+    if ($marketplace -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { return $PersonaDir }
     $clone = Join-Path (($parts[0..($cacheIdx - 1)] -join '\')) (Join-Path 'marketplaces' $marketplace)
     if (-not (Test-Path -LiteralPath $clone -PathType Container)) { return $PersonaDir }
     # Search clone for personas directory under a directory named exactly as the plugin and carrying
@@ -497,7 +497,7 @@ if ($null -ne $enabledPlugins -and $enabledPlugins.Ids.Count -gt 0 -and (Get-Com
 
 $scaffolded = 0; $lensKept = 0
 foreach ($pluginName in ($pluginNames | Sort-Object -Unique)) {
-    if ($pluginName -notmatch '^[a-z0-9][a-z0-9-]*$') {
+    if ($pluginName -cnotmatch '^[a-z0-9][a-z0-9-]*$') {
         Write-Host "  [notice] plugin name '$pluginName' is not a valid slug -- skipped." -ForegroundColor Yellow
         continue
     }
@@ -1647,7 +1647,7 @@ if (-not $ownMarketplace) {
     Write-Host "  [notice] this script's own plugin id is not in the settings chain, so the rows below could not be limited to one marketplace -- drop any plugin that is not part of this family before saving." -ForegroundColor Yellow
 }
 $registerPlugins = @($pluginNames | Sort-Object -Unique |
-    Where-Object { $_ -match '^[a-z0-9][a-z0-9-]*$' } |
+    Where-Object { $_ -cmatch '^[a-z0-9][a-z0-9-]*$' } |
     Where-Object { Test-OurMarketplace $_ })
 if ($registerPlugins.Count -eq 0) {
     Write-Host "  [notice] no enabled plugin of this marketplace was resolved -- nothing to register yet." -ForegroundColor Yellow

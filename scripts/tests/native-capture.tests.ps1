@@ -1370,6 +1370,9 @@ function Test-ScratchThrows { param([scriptblock]$Body) try { & $Body | Out-Null
 Assert-True (Test-ScratchThrows { New-ScratchPath -Label '..' }) 'a label of ".." is refused'
 Assert-True (Test-ScratchThrows { New-ScratchPath -Label 'a/../../b' }) 'and so is one carrying a separator, so no label can leave the temp directory'
 Assert-True (Test-ScratchThrows { New-ScratchPath -Label 'ok' -Extension 'md' }) 'an extension missing its dot is refused rather than silently glued to the guid'
+# U+212A KELVIN SIGN folds to `k` under a plain -notmatch, which admitted it into [A-Za-z0-9] (#2520).
+Assert-True (Test-ScratchThrows { New-ScratchPath -Label ('ship-' + [char]0x212A) }) 'a label carrying the Kelvin sign is refused (case-sensitive allowlist, #2520)'
+Assert-True (Test-ScratchThrows { New-ScratchPath -Label 'ok' -Extension ('.m' + [char]0x212A) }) '...and so is an extension carrying it'
 
 Write-Host ''
 Write-Host 'Every temp path the SHIPPING scripts compose carries a guid (#1659)' -ForegroundColor Cyan
@@ -1893,7 +1896,11 @@ foreach ($af in $auditFiles) {
 # direction is narrower: it counts only THAT one armed pull request as unjudged (a `continue`, folded
 # into the honest judged/unjudged report this issue's review added) rather than abandoning the whole scan
 # over one bad read.
-Assert-Equal 83 $boundedTotal 'the parser still counts 83 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 83 -> 85 (#2525): check-unshipped-pr.ps1's two reads, the same pair and the same failure directions as
+# check-stranded-sweep.ps1's above: $listRead (`gh pr list --author <account>`) fails to [SKIP], exit 0;
+# $requiredRead (`gh pr checks --required`, one per candidate pull request) counts only that one as
+# unjudged. Both ask Test-NativeExitMeasured about their own capture.
+Assert-Equal 85 $boundedTotal 'the parser still counts 85 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
