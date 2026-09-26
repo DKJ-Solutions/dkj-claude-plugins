@@ -292,6 +292,31 @@ session posts without the line stays that way. **A block a person pastes by hand
 paste-ready block, the `needs-info` question) is that person's own message once they post it, and it
 takes no header: the rule covers what an agent writes, not what a person chooses to send.
 
+#### A task is read before it is offered for deletion, and a task a person has worked is never deleted
+
+**No agent offers or performs a delete on an Asana task until it has read that task's state on the
+Asana side** (inbound [#2508](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2508)). The
+GitHub side says whether a card *should* exist. It says nothing about what has happened to the card
+since, and that is what a delete destroys. The read covers four things: whether the task is
+`completed`, whether it carries comments a person wrote, which projects it is multi-homed in, and who
+created it.
+
+- **A task that is completed, or carries a human comment, is not offered for deletion at all.** It is
+  the colleague's record of a request and what became of it, and a card that should not have existed
+  is repaired by **unlinking** it: remove the `Asana:` line and the `asana-task` marker from the
+  GitHub issue (step 3) and leave the task where it is. The same goes for a task someone other than
+  the agent's own account created, or one that also sits in a project other than the board.
+- **Any other task can be offered, and the offer shows the state it was read with.** Each option
+  names the task's state (open, no comments, the board only, created by whom) beside its title. A
+  question built from the issue's labels alone asks the owner to judge a card they cannot see.
+
+**Deleting is irreversible from the agent's side, and the answer is only as good as the question.**
+Measured in `smartwatchbanden` on September 23, 2026, while a session was tidying up after #2360: it
+asked the owner which cards *"of issues without the minor label"* it could delete, then deleted three.
+One had been completed by the owner, with a comment, as the record of a colleague's request. Its option
+read only *"technical research into content_for_header placement, no label"*. The owner answered the
+question as it was put. Nobody noticed for two days, until the task could not be found.
+
 ### 3. Cross-link both ways
 
 The link is stored on both sides, and one half is machine-readable because the automation in step 4

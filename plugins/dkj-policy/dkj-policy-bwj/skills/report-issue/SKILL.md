@@ -133,8 +133,16 @@ them. It was needed because the sentence above was missed on the version that ca
 `smartwatchbanden#770`, filed with only `documentation`, still got a card. A refusal means step 1's
 answer was *tier 0*, so skip to step 4. Where a colleague genuinely will notice the issue, the label is
 what was missing: add it, then create the task again. Where `gh` cannot answer, the hook lets the call
-through with a warning naming the issue it could not check. A wrong card is deleted by hand, while a
+through with a warning naming the issue it could not check. A wrong card is cheap to remove, while a
 board that stalls whenever the tracker is unreachable costs the whole colleague-facing half.
+
+**Removing a wrong card means reading it first, and sometimes only unlinking it** (inbound
+[#2508](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2508)). Before you offer or run a
+delete, read the task on the Asana side: whether it is completed, whether it has human comments, which
+projects it sits in, and who created it. A task that is completed or carries a human comment is never
+offered for deletion. Unlink it from the issue instead. Any other offer shows that state beside the
+title. The rule and the task it cost are in
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#a-task-is-read-before-it-is-offered-for-deletion-and-a-task-a-person-has-worked-is-never-deleted).
 
 Compose the task body from the fixed skeleton -- plain language, outcome-framed, no code or repo
 jargon:

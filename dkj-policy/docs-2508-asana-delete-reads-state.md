@@ -39,19 +39,48 @@
 
 ### PLAN
 
+Inbound #2508: a smartwatchbanden session offered Asana cards for deletion based only on the GitHub
+issue's labels, and deleted one the owner had completed and commented on. The six checks hold: nothing
+in `dkj-policy-bwj` says anything about deleting a task (grepped `delete_task` / `delet`), the subject
+(the ticket chapter) exists, and the proposed repair is one rule beside #2360's gate.
+
+A hook was considered and not built. A PreToolUse hook on `delete_task` sees only the task gid, and it
+cannot read the task's state without an Asana credential the session does not hand it. So it could
+refuse every delete or none, not the case this issue is about. The rule is the repair the report asks
+for.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `WORKFLOW-portable.md` step 2: a new `####` rule. Read the task's state before offering or
+  running a delete. A completed task, or one with a human comment, is unlinked and never deleted.
+  Every other offer shows the state beside the title.
+- [x] `report-issue` SKILL step 2: "a wrong card is deleted by hand" no longer reads as a licence. It
+  points to the rule.
 
 ### TEST
 
+- [x] Lint gate via open-pr (`-SkipTests`, per this machine's memory limit; CI runs the suites).
+
 ### DEPLOY: docs/2508-asana-delete-reads-state
 
-**Score:**
+An agent no longer offers or deletes an Asana task on the strength of the GitHub issue alone
+([#2508](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2508)). The ticket chapter now
+requires it to read the task first: whether it is completed, whether it has human comments, which
+projects it sits in, and who created it. A task that is completed or carries a human comment is never
+offered for deletion. The card is unlinked from the issue instead. Every other offer shows that state
+beside the title. `report-issue` points to the rule where it used to say that a wrong card is deleted
+by hand. This prevents a repeat of the smartwatchbanden case, where a colleague's completed request was
+deleted and nobody noticed for two days.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a working rule for the agent in a BWJ repo; no subscriber of a service runs anything new.
+
+**Score:** N/A
 
 #### Pull Request
+
+An Asana task is read before it is offered for deletion
 
