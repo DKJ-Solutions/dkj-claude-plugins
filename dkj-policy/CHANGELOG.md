@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**9 / 43 minor entries** <!-- pending-tally -->
+**9 / 44 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2538-warn-missing-bwj-extension-import · 20260926-230914Z
+
+`consumer-prose-sessioncheck` now warns at session start when a repo enables `dkj-policy-bwj` in its own
+settings but its `CLAUDE.md` does not import that plugin's extension. Until now the four BWJ chapters
+could be missing from context with no signal at all. The warning names step 6 of
+`adopt-dkj-policy-bwj`, which writes the line (`adopt-extension-import.ps1 -Apply`), and prints the line to
+add by hand. An enable arriving only from the machine-wide user settings is not judged, and the warning
+never changes the exit code.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. A session-start check does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+consumer-prose-sessioncheck warns when a dkj-policy-bwj repo lacks the extension import
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2551](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2551)
+
+---
 
 ### DEPLOY: fix/2545-guard-settings-artifacts · 20260926-195400Z
 
