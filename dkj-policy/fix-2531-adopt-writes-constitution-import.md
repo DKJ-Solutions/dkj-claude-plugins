@@ -59,12 +59,20 @@ same gap for the BWJ extension import is filed as #2532.
 - [x] Script header: the "strictly additive" paragraph now names both writes into existing files.
 - [x] `adopt-dkj-policy` SKILL.md: the section says the run writes the line.
 - [x] Filed #2532 for the BWJ extension import.
+- [x] Review pass: Victor, Sebastian and Edith. Victor's three findings are fixed. The scan is now
+  fence-aware for the "already imported" check too, and tracks fences the CommonMark way (a nested
+  four-backtick block no longer closes early). Lines keep their own terminators, so mixed LF/CRLF
+  survives byte for byte. Sebastian's advisory is fixed: the marketplace slug is anchored with `\z`
+  instead of `$` in `consumer-check-lib.ps1` (both copies), so a trailing LF can no longer reach the
+  written line. Edith's three wording points are applied. Filed #2533 (writes follow symlinks,
+  pre-existing class) and #2534 (the walker's `Test-IsFenceLine` toggle has the same nesting defect).
 
 ### TEST
 
-- [x] `adopt-workflow-folder.tests.ps1`: new section, green at 133 asserts. It covers no CLAUDE.md, a
+- [x] `adopt-workflow-folder.tests.ps1`: new section, green at 140 asserts. It covers no CLAUDE.md, a
   CRLF+BOM file with imports (line placement, BOM kept, no lone LF, re-run unchanged), prose only
-  (appended), already imported under the old marketplace name (untouched), and the dry run.
+  (appended), already imported under the old marketplace name (untouched), a nested fence, the line
+  quoted inside a fence (still added), mixed line endings (byte for byte), and the dry run.
 - [x] Manual smoke run in four fixture consumers, output inspected with `cat -A`.
 
 ### DEPLOY: fix/2531-adopt-writes-constitution-import

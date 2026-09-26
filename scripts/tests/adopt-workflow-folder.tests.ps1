@@ -4,7 +4,7 @@
     root folder (dkj-policy/) in a consuming repo.
 
 .DESCRIPTION
-    What is covered, and why these five:
+    What is covered, and why these six:
       1. the DRY RUN default writes nothing -- the same contract adopt-config is trusted on;
       2. -Apply places every file the folder promises, with the branch files in the reset shape the
          shared formatters write -- and the releases page carrying NO history table, since the list
@@ -693,6 +693,39 @@ try {
     Assert-Equal $cC4Text ([System.IO.File]::ReadAllText($cC4Md)) `
         'constitution, already imported under another marketplace name: the file is untouched'
     Assert-Match '\[keep\]\s+CLAUDE\.md already imports' $rC4.Flat 'constitution, already imported: says it kept it'
+
+    # A FOUR-BACKTICK BLOCK WRAPPING A THREE-BACKTICK EXAMPLE: the inner fence must not close the outer
+    # one, or the line lands inside the quoted example and imports nothing (Victor's review of #2531).
+    $cC6 = New-FixtureConsumer -Label 'const-nested'
+    $cC6Md = Join-Path $cC6 'CLAUDE.md'
+    $bt3 = '`' * 3; $bt4 = '`' * 4
+    [System.IO.File]::WriteAllText($cC6Md, (@('# Title', "${bt4}markdown", $bt3, '@fake/inside.md', $bt3, $bt4, '@real/import.md', '') -join "`n"))
+    $null = Invoke-Adopt -Dir $cC6 -ScriptArgs @('-Apply')
+    $cC6Lines = @([System.IO.File]::ReadAllText($cC6Md) -split "`n")
+    Assert-Equal '@fake/inside.md' $cC6Lines[3] 'constitution, nested fence: the quoted example is untouched'
+    Assert-Match $constRx $cC6Lines[6] 'constitution, nested fence: the line lands above the first REAL import'
+    Assert-Equal '@real/import.md' $cC6Lines[7] 'constitution, nested fence: and that import follows it'
+
+    # THE LINE QUOTED IN A FENCE IS NOT AN IMPORT -- the skill page itself shows it that way, so a consumer
+    # copying the example must still get the real line.
+    $cC7 = New-FixtureConsumer -Label 'const-quoted'
+    $cC7Md = Join-Path $cC7 'CLAUDE.md'
+    [System.IO.File]::WriteAllText($cC7Md, (@('# Ours', $bt3, '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md', $bt3, '') -join "`n"))
+    $rC7 = Invoke-Adopt -Dir $cC7 -ScriptArgs @('-Apply')
+    Assert-Match '\[added\]' $rC7.Flat 'constitution, quoted in a fence: not mistaken for an import -- the line is added'
+    $cC7Lines = @(([System.IO.File]::ReadAllText($cC7Md)).TrimEnd() -split "`n")
+    Assert-Match $constRx $cC7Lines[-1] 'constitution, quoted in a fence: appended after the block, not inside it'
+
+    # MIXED LINE ENDINGS SURVIVE BYTE FOR BYTE: only the inserted line is new.
+    $cC8 = New-FixtureConsumer -Label 'const-mixed'
+    $cC8Md = Join-Path $cC8 'CLAUDE.md'
+    $cC8Before = "# T`n`n@~/.claude/a.md`r`n@~/.claude/b.md`n"
+    [System.IO.File]::WriteAllText($cC8Md, $cC8Before)
+    $null = Invoke-Adopt -Dir $cC8 -ScriptArgs @('-Apply')
+    $cC8After = [System.IO.File]::ReadAllText($cC8Md)
+    $cC8Line = ([regex]::Match($cC8After, '@~/\.claude/plugins/[^\r\n]*\r\n')).Value
+    Assert-True ($cC8Line.Length -gt 0) 'constitution, mixed EOL: the line takes the CRLF of the import it lands above'
+    Assert-Equal $cC8Before ($cC8After.Replace($cC8Line, '')) 'constitution, mixed EOL: every other byte is unchanged'
 
     $cC5 = New-FixtureConsumer -Label 'const-dry'
     $rC5 = Invoke-Adopt -Dir $cC5

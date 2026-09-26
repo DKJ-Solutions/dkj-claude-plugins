@@ -563,15 +563,24 @@ if ($writeNoteRootSeam) {
 #
 # THE SAME DETECTOR THE WARNING USES, so the two can never disagree about whether the line is there:
 # Test-ConstitutionImported over the '@'-import closure (consumer-check-lib.ps1), which also counts the
-# line when it sits in a file CLAUDE.md imports. A plain text match on CLAUDE.md itself is ORed in,
-# because the closure walk degrades to @() where the measure lib is missing -- and reading that as
-# "not imported" would write the line a second time.
+# line when it sits in a file CLAUDE.md imports. The scan of CLAUDE.md itself below is ORed in, because
+# the closure walk degrades to @() where the measure lib is missing -- and reading that as "not
+# imported" would write the line a second time.
+#
+# ONE SCAN, FENCE-AWARE, FOR BOTH QUESTIONS -- is the line already there, and where does it go. A fenced
+# block is quoted text: the adopt-dkj-policy skill page itself shows this very line inside one, so a
+# consumer quoting it must not read as having imported it, and the line must never be inserted into a
+# quoted example. Fences are tracked the CommonMark way -- a block closes only on a run of the SAME
+# character at least as long as the one that opened it -- because a four-backtick block routinely wraps a
+# three-backtick example, and a plain toggle (Test-IsFenceLine's) reads the inner fence as the end.
 #
 # INSERTED, NEVER REWRITTEN. The line goes directly above the first '@'-import, because the constitution
 # names its own import first and a companion extension on the line below it; with no import at all it is
-# appended. Nothing else in the file moves: its line endings are matched and a byte-order mark is kept,
-# for the reason the seam append above gives. A CLAUDE.md that does not exist is created holding only
-# this line -- specialists-init appends the orchestrator import to it afterwards, as it does to any
+# appended. The file is split with each line KEEPING its own terminator and joined back with nothing, so
+# not one existing byte changes -- a file that mixes LF and CRLF keeps both. The new line takes the
+# terminator of the line it lands above (or the file's first one when appended), and a byte-order mark is
+# kept, for the reason the seam append above gives. A CLAUDE.md that does not exist is created holding
+# only this line -- specialists-init appends the orchestrator import to it afterwards, as it does to any
 # existing file.
 . (Join-Path $PSScriptRoot '..\lib\consumer-check-lib.ps1')
 $constitutionLine = Get-ConstitutionImportLine
@@ -579,9 +588,25 @@ $claudeMdPath     = Join-Path $repoRoot 'CLAUDE.md'
 $claudeMdExists   = Test-Path -LiteralPath $claudeMdPath -PathType Leaf
 $constitutionImported = $false
 if ($claudeMdExists) {
-    $claudeMdText = [System.IO.File]::ReadAllText($claudeMdPath)
-    $constitutionImported = ($claudeMdText -imatch '(?m)^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$') -or
-        (Test-ConstitutionImported -Documents @(Get-CheckProseCorpus -RepoRoot $repoRoot))
+    $claudeMdText  = [System.IO.File]::ReadAllText($claudeMdPath)
+    $claudeMdLines = [System.Collections.Generic.List[string]]::new([string[]]@($claudeMdText -split '(?<=\n)' | Where-Object { $_ -ne '' }))
+    $firstImport = -1
+    $fence = $null
+    for ($i = 0; $i -lt $claudeMdLines.Count; $i++) {
+        $bare = $claudeMdLines[$i].TrimEnd("`r", "`n")
+        if ($bare -match '^\s{0,3}(`{3,}|~{3,})') {
+            $run = $Matches[1]
+            if ($null -eq $fence) { $fence = $run; continue }
+            if ($run[0] -eq $fence[0] -and $run.Length -ge $fence.Length -and $bare.Trim() -eq $run) { $fence = $null }
+            continue
+        }
+        if ($null -ne $fence -or $bare -notmatch '^\s*@\S') { continue }
+        if ($firstImport -lt 0) { $firstImport = $i }
+        if ($bare -imatch '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$') { $constitutionImported = $true; break }
+    }
+    if (-not $constitutionImported) {
+        $constitutionImported = Test-ConstitutionImported -Documents @(Get-CheckProseCorpus -RepoRoot $repoRoot)
+    }
 }
 
 if ($constitutionImported) {
@@ -597,23 +622,16 @@ if ($constitutionImported) {
     if ($Apply) {
         $claudeMdBytes = [System.IO.File]::ReadAllBytes($claudeMdPath)
         $claudeMdBom   = $claudeMdBytes.Length -ge 3 -and $claudeMdBytes[0] -eq 0xEF -and $claudeMdBytes[1] -eq 0xBB -and $claudeMdBytes[2] -eq 0xBF
-        $claudeMdEol   = if ($claudeMdText -match "`r`n") { "`r`n" } else { "`n" }
-        $claudeMdLines = [System.Collections.Generic.List[string]]::new([string[]]($claudeMdText -split "`r?`n"))
-        # The first '@'-line OUTSIDE a fenced block: a fence is quoted text, and an '@' inside one imports
-        # nothing -- the same skip Get-AlwaysOnDocuments makes when it walks the closure.
-        $firstImport = -1
-        $inFence = $false
-        for ($i = 0; $i -lt $claudeMdLines.Count; $i++) {
-            if ($claudeMdLines[$i] -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-            if (-not $inFence -and $claudeMdLines[$i] -match '^\s*@\S') { $firstImport = $i; break }
-        }
+        $firstEol      = if ($claudeMdText -match '\r?\n') { $Matches[0] } else { "`n" }
         if ($firstImport -ge 0) {
-            $claudeMdLines.Insert($firstImport, $constitutionLine)
-            $newClaudeMd = $claudeMdLines -join $claudeMdEol
+            $anchorEol = if ($claudeMdLines[$firstImport] -match '\r?\n$') { $Matches[0] } else { $firstEol }
+            $claudeMdLines.Insert($firstImport, $constitutionLine + $anchorEol)
+            $newClaudeMd = $claudeMdLines -join ''
         } elseif ($claudeMdText.Trim().Length -eq 0) {
-            $newClaudeMd = $constitutionLine + $claudeMdEol
+            $newClaudeMd = $constitutionLine + $firstEol
         } else {
-            $newClaudeMd = $claudeMdText.TrimEnd() + $claudeMdEol + $claudeMdEol + $constitutionLine + $claudeMdEol
+            $lead = if ($claudeMdText -match '\n$') { $firstEol } else { $firstEol + $firstEol }
+            $newClaudeMd = $claudeMdText + $lead + $constitutionLine + $firstEol
         }
         [System.IO.File]::WriteAllText($claudeMdPath, $newClaudeMd, (New-Object System.Text.UTF8Encoding($claudeMdBom)))
         Write-Host "  [added]    the constitution import to CLAUDE.md: $constitutionLine" -ForegroundColor Green
