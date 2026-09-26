@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#2540 left bootstrap's two settings proposals unguarded, because the reporting after each write
+assumes the file exists. Verified by reading: `.claude/settings.suggested.jsonc` and
+`.claude/settings.proposed.json` are written unconditionally, the `.claude/` directory is created with a
+plain `New-Item`, and the next steps name both files. The merged proposal can hold a copy of the
+consumer's `settings.json`, so it is the one that matters most.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.claude/` is created through `New-DirectoryInside`, so never through a junction
+- [x] each proposal is written only when `Test-WriteRefused` passes; `$suggestWritten` / `$proposedWritten` record which were, and the `[create]` line, the git-ignore reading and the settings.json ignore notice run only for a file that was written
+- [x] next steps: step 3 gets a branch for when neither proposal was written, and the hand-merge branch points at a `[refused]` line as well as a `[notice]`
 
 ### TEST
 
+- [x] `bootstrap-drift.tests.ps1`: `.claude/` itself a junction -- nothing lands outside, both proposals are reported refused and neither is announced as placed, and step 3 says there is nothing to copy from (227 asserts green)
+- [x] `teardown.tests.ps1` and `test-suite-gate.tests.ps1` green; `check-plugin-integrity.ps1`: 0 errors
+
 ### DEPLOY: fix/2545-guard-settings-artifacts
 
-**Score:**
+`specialists-init`'s bootstrap no longer writes its two settings proposals through a symlink or junction.
+`.claude/settings.suggested.jsonc` and `.claude/settings.proposed.json` were written without a check, so
+a junctioned `.claude/` put both outside the repo. The merged proposal can carry a copy of the repo's
+own `settings.json`. Both now go through the same `[refused]` check as every other file the bootstrap
+creates since #2540, and `.claude/` is no longer created through a junction either. A refused proposal
+is not announced as placed, and the next steps no longer tell you to copy from a file that was never
+written.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
+
+The bootstrap's settings proposals refuse a symlink or junction too
 
