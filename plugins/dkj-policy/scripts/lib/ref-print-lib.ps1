@@ -148,6 +148,9 @@
 #>
 
 # The one definition of "safe to paste". Anchored at both ends, first character pinned to alphanumeric.
+# Both patterns are matched with -cmatch, NEVER -match (issue #2516): -match is case-INsensitive, and under
+# case folding U+212A KELVIN SIGN matches `k` in [A-Za-z0-9], so a look-alike letter passed as safe. The
+# classes already list both cases, so -cmatch admits nothing less that is genuinely ASCII.
 $script:RefPasteSafePattern = '^[A-Za-z0-9][A-Za-z0-9._/-]*$'
 
 # The path variant (issue #1762). The ref pattern plus exactly the two characters an ABSOLUTE path
@@ -167,7 +170,7 @@ function Test-RefPasteSafe {
     param([AllowEmptyString()][AllowNull()][string]$Ref)
 
     if ([string]::IsNullOrEmpty($Ref)) { return $false }
-    return [bool]($Ref -match $script:RefPasteSafePattern)
+    return [bool]($Ref -cmatch $script:RefPasteSafePattern)
 }
 
 function ConvertTo-PastePath {
@@ -197,7 +200,7 @@ function Test-PathPasteSafe {
     param([AllowEmptyString()][AllowNull()][string]$Path)
 
     if ([string]::IsNullOrEmpty($Path)) { return $false }
-    return [bool]((ConvertTo-PastePath -Path $Path) -match $script:PathPasteSafePattern)
+    return [bool]((ConvertTo-PastePath -Path $Path) -cmatch $script:PathPasteSafePattern)
 }
 
 $script:ConsoleDeceptiveCategories = @(

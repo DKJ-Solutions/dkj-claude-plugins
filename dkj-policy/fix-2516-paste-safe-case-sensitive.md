@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Switch `Test-RefPasteSafe` and `Test-PathPasteSafe` in `scripts/lib/ref-print-lib.ps1` from `-match` to
+`-cmatch`, mirror the lib into both plugin copies, and pin the Kelvin sign in `ref-print-lib.tests.ps1`.
+The same defect at four other allowlist sites is out of scope and filed as #2520.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Both guards match case-sensitively; a comment above the patterns says why (#2516)
+- [x] `ref-print-lib.ps1` copied byte-identical into the `dkj-policy` and `dkj-subagents-shopify` mirrors
+- [x] Kelvin-sign asserts on both axes, plus upper-case ASCII still admitted, in `ref-print-lib.tests.ps1`
 
 ### TEST
 
+- [x] `ref-print-lib.tests.ps1`: 478 pass, 0 fail
+- [x] Reproduced first: `'assets/' + [char]0x212A + '.css'` passed `-match` and fails `-cmatch`; git accepts a branch name carrying that character, so it is reachable through a ref
+
 ### DEPLOY: fix/2516-paste-safe-case-sensitive
 
-**Score:**
+The two shared "safe to paste" guards no longer let a look-alike letter through
+([#2516](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2516)). `Test-RefPasteSafe` and
+`Test-PathPasteSafe` matched their ASCII allowlists case-insensitively. Under case folding the Kelvin
+sign (U+212A) matches `k`, so a branch name or path carrying it was judged safe to print into a command
+line. Git accepts that character in a branch name. Both guards now match case-sensitively, like
+`live-preflight`'s newer check already did. Every value that passed before still passes.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- an internal guard in the workflow scripts; no subscriber of a service runs anything new.
+
+**Score:** N/A
 
 #### Pull Request
 
+The paste-safe guards match case-sensitively, so the Kelvin sign is refused
