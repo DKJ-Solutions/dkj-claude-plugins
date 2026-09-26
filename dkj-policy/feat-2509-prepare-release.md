@@ -39,10 +39,28 @@
 
 ### PLAN
 
+Inbound #2509: a read-only `prepare-release` skill in dkj-policy-bwj that stages a store release days
+ahead of release day. Verified on pickup: the subject did not exist; `Get-ReleaseAudienceTier` and
+`live-preflight` exist as named. Two parts of the proposal did not hold as written and are built
+differently, with the reasons on the skill page: the bump comes from the fold's pending tally rather than
+from `Get-ReleaseAudienceTier`, and the "tier-2 score where tier 2 is off" check is not built, because an
+entry carries no tier number this plugin can read without dkj-policy's parser.
+
+The one design conflict: the issue asks to reuse live-preflight's push-list derivation, and dkj-policy-bwj
+scripts may not reach another plugin's libs. Resolved with the registry: `live-push-rules` and
+`git-porcelain-lib` are mirrored into dkj-policy-bwj as well, one source each.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
-
+- [x] Sync provenance moved out of live-preflight.ps1 into two pure functions in live-push-rules.ps1
+  (`Get-SyncMergeCommits`, `Get-SyncOwnedPaths`), called by both scripts
+- [x] `Get-LivePushRows` no longer throws under a StrictMode caller given no directories
+- [x] `live-push-rules-bwj` and `git-porcelain-lib-bwj` registered as mirrors; mirrors rebuilt
+- [x] `prepare-release-rules.ps1`: pending entries, the tier-1 fix/ score note, go-live obligations, the
+  verification pull and the runbook
+- [x] `prepare-release.ps1`: the eight read-only steps and the runbook, `-OutFile`
+- [x] `skills/prepare-release/SKILL.md` and the README skill row
+- [ ] Review findings from the code, security and copy passes applied
 ### TEST
 
 ### DEPLOY: feat/2509-prepare-release
