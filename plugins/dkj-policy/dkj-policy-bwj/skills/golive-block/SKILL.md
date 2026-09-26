@@ -42,7 +42,42 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    should change and reopens the issue, and the release happens either way
    ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The five rules behind it
    are in `WORKFLOW-portable.md`, under *What the block asks of the requester*.
-6. Prints the block. With `-Post`, comments it on the issue.
+6. **The shape and the language** -- the block BWJ actually sends: an opening line naming it an
+   automated message from the issue, then five fixed headings (`WAT ER NU ANDERS IS` / `TE BEKIJKEN OP`
+   / `WANNEER HET LIVE KOMT` / `WAT ER BEWUST NIET IN ZIT` / `WAT WE VAN JE VRAGEN`), in the language
+   of the Asana task -- Dutch by default, `-Language en` for a task written in English
+   ([#2507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2507)). The prose sections are
+   **yours to write**, and they come in through `-ProseFile` (below). The script fills in the facts.
+7. Prints the block. With `-OutFile`, also writes it as UTF-8; with `-Post`, comments it on the issue.
+
+## The prose file
+
+What changed, where exactly to look, and what was deliberately left out are judgements about the work,
+so the session writes them. They go in a UTF-8 text file, one section line per part:
+
+```text
+[changed]
+Je kunt vanaf nu per collectiepagina zelf een SEO-introductietekst plaatsen, direct onder de titel.
+
+Opmaak mag daarin: vet, cursief, links.
+
+[where]
+Kijk direct onder de paginatitel, en bekijk het ook op je telefoon.
+
+[not-included]
+Er is geen A/B-test opgezet; de afspraak was om de impact via de rankings te volgen.
+```
+
+A blank line separates paragraphs. Every part is optional, and a missing part's heading is left out
+too; a missing `[changed]` is warned about, because it is the first thing the reader looks for. An
+unknown section line, or text above the first one, is **refused**: a misspelled heading that silently
+dropped its paragraph would ship a block without the part you wrote. It is a file and not a parameter
+because `powershell -File` delivers a `string[]` as one string, and a paragraph's newlines do not
+survive the command line.
+
+**Use `-OutFile` for any copy that is not read by eye.** The block now carries accents and dashes. The
+console printout may lose them to its code page, and a pipe from Windows PowerShell 5.1 into a native
+command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 file.
 
 ## The parameters
 
@@ -56,6 +91,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 | `-Version <X.Y.Z>` | override the prediction, or supply one where it cannot be derived |
 | `-ReleaseDay <day>` | the weekday releases are cut on. `Monday` |
 | `-From <date>` | the day the next release day is counted from. Today |
+| `-Language nl\|en` | the language of the Asana task, and so of the block between the rules. `nl` |
+| `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below |
+| `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
 | `-Force` | post although a block already appears to be there, or its comments could not be read |
 | `-AllowPrivateLink` | accept a `claude.ai` Artifact as `-Link` once it has actually been shared with the requester. Kept apart from `-Force` so that posting a second block never also lets a private link through |
@@ -72,7 +110,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 - **It never touches Asana.** A person pastes the block into the task, and closing the issue is their
   confirmation that it landed there. That is the one decision this chapter keeps with the colleague
   who asked for the work, and a script cannot reach the Asana MCP anyway.
-- **It never promises.** *"Planned to go live with the release of Monday 22 September 2026, as version
+- **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026, als versie
   v1.4.0"* is a cadence and a projection: a tier-1 entry landing on the Friday turns that patch into a
   minor, and a release can slip. This block is the one surface a colleague quotes back, so it must not
   read as a commitment nobody made.
@@ -100,9 +138,9 @@ past it.
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md), chapter one, under *The paste-ready block*. The
 other cycle step this plugin adds -- the storefront-visibility step, last under `### CREATE` -- is in
 [`PREVIEW-portable.md`](../../PREVIEW-portable.md), and both are indexed in
-[the README](../../README.md#what-the-cycle-gains-here). **The same printout is that page's fourth
+[the README](../../README.md#what-the-cycle-gains-here). **The same output is that page's fourth
 block** -- a preview handover embeds it, with a copy button, rather than composing its own
-([#2474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2474)), so run it without `-Post`
+([#2474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2474)), so run it with `-OutFile`
 for the page and with `-Post` for the issue.
 
 ## Requirements in the consumer
