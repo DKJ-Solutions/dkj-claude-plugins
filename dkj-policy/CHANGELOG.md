@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**9 / 37 minor entries** <!-- pending-tally -->
+**9 / 38 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2533-adoption-write-reparse-guard · 20260926-150037Z
+
+The adoptions no longer write through a symlink or junction. Before each write into a file the consumer
+already has, `adopt-dkj-policy`, `adopt-dkj-policy-bwj` and `specialists-init` check whether the file,
+or any directory between it and the repo root, is a reparse point. When it is, nothing is written and
+the run says what to add by hand. Before this, a `CLAUDE.md` that was a symlink, or a `scripts/`
+directory that was a junction, would have had the write land outside the repo. The check is
+`Get-WriteTargetReparsePoint` in `write-target-lib.ps1`, and it also catches a symlink whose target does
+not exist. No consumer is known to link its governance files this way; this closes the path before one
+does.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+Adoption refuses to write into CLAUDE.md or repo-config.ps1 through a symlink or junction
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha
+
+[PR #2541](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2541)
+
+---
 
 ### DEPLOY: fix/2532-bwj-extension-import · 20260926-143216Z
 
