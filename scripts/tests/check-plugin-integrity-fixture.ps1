@@ -360,6 +360,8 @@ function New-IntegrityFixture {
     # before printing a single finding. fixture-lib-deps.tests.ps1 (#1693) is the gate for this class and
     # did not catch it -- it walks *.tests.ps1, and this shared builder is not one.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1') -Destination (Join-Path $Fixture 'scripts\lib\fetch-attempt-lib.ps1') -Force
+    # fence-lib.ps1 likewise (#2536): entry-scaffold-lib.ps1, pr-body-lib.ps1 and pr-issues-lib.ps1 dot-source it.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fence-lib.ps1') -Destination (Join-Path $Fixture 'scripts\lib\fence-lib.ps1') -Force
 
     # The reference PR template check 24 holds, written from the same function the check compares against
     # -- never typed out here, for the reason stated at the dot-source above.

@@ -2586,13 +2586,13 @@ if ($existingPr) {
         $templateForHeading = Join-Path $repoRoot ".github\pull_request_template.md"
         $templateFound = Test-Path -LiteralPath $templateForHeading
         if ($templateFound) {
-            $tplFence = $false
+            $tplFence = ''
             $tplSeenPlaceholder = $false
             $tplAbove = @()
             $tplBelow = @()
             foreach ($tplLine in @(Get-Content -LiteralPath $templateForHeading -Encoding UTF8)) {
-                if ($tplLine -match '^\s*(```|~~~)') { $tplFence = -not $tplFence; continue }
-                if ($tplFence) { continue }
+                $tplWas = $tplFence; $tplFence = Get-NextFenceState -Line $tplLine -Fence $tplFence -AnyIndent
+                if ($tplWas -or $tplFence) { continue }
                 if ($descPlaceholders -contains $tplLine) { $tplSeenPlaceholder = $true; continue }
                 if ($tplLine -match '^#{1,6}\s+\S') {
                     if ($tplSeenPlaceholder) { $tplBelow += $tplLine.TrimEnd() } else { $tplAbove += $tplLine.TrimEnd() }

@@ -333,6 +333,8 @@ function New-Fixture {
     # fetch-attempt-lib.ps1 likewise (#1860): entry-scaffold-lib.ps1 dot-sources it for
     # Invoke-RecordedRemoteFetch, which Get-TrunkGap's fetch runs through -- so the fixture owes it too.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\fetch-attempt-lib.ps1') -Force
+    # fence-lib.ps1 likewise (#2536): entry-scaffold-lib.ps1, pr-body-lib.ps1 and pr-issues-lib.ps1 dot-source it.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fence-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\fence-lib.ps1') -Force
     # git-identity-lib.ps1 likewise (inbound #1867): new-branch.ps1 dot-sources it for Test-GitCanCommit,
     # the probe behind its "this checkout cannot commit" refusal -- so the fixture owes it too. That
     # dot-source is GUARDED, which is exactly why the fixture has to carry it: without the file the

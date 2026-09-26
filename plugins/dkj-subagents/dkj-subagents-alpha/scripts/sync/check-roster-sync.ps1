@@ -160,6 +160,10 @@ param(
 # resolves in the plugin mirror as well as here.
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 
+# Get-NextFenceState (issue #2536): the import scan skips fenced blocks the CommonMark way. Mirrored
+# beside this script into dkj-subagents-alpha, so the relative path resolves there too.
+. (Join-Path $PSScriptRoot '..\lib\fence-lib.ps1')
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -477,10 +481,10 @@ function Get-LensIds {
 function Get-MarkdownImports {
     param([string]$Text)
     $found = @()
-    $inFence = $false
+    $fence = ''
     foreach ($line in ($Text -split "`r?`n")) {
-        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         $m = [regex]::Match($line, '^\s*@(?<p>[^\s`]+\.md)\s*$')
         if ($m.Success) { $found += $m.Groups['p'].Value }
     }

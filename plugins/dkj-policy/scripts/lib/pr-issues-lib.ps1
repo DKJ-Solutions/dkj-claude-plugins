@@ -40,6 +40,9 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
+# Get-NextFenceState (issue #2536), itself a pure leaf, so this lib stays a pure function of its input.
+. (Join-Path $PSScriptRoot 'fence-lib.ps1')
+
 # GitHub's own closing keywords, as accepted in a PR body. Kept in one place so the writer
 # (New-ResolvesBlock) and the recogniser (Test-HasClosingKeyword) cannot drift apart -- a
 # hand-mirrored literal is exactly what produced the accumulation bugs this repo keeps finding.
@@ -807,10 +810,10 @@ function Add-ResolvesBlock {
     $missing = @($Issues | Where-Object { $_ -gt 0 -and $already -notcontains $_ } | Sort-Object -Unique)
 
     $level = 2
-    $inFence = $false
+    $fence = ''
     foreach ($line in ($Body -split "\r?\n")) {
-        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         $m = [regex]::Match($line, '^(#+)\s+\S')
         if ($m.Success) { $level = [Math]::Min(6, $m.Groups[1].Value.Length); break }
     }
