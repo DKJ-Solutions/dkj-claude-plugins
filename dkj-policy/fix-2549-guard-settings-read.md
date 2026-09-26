@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#2545 guarded the WRITES of bootstrap's two settings proposals; #2549 found the READ that feeds the
+merged one still unguarded. Verified by reading: `Test-Path` and `ReadAllText` on `.claude/settings.json`
+both follow a reparse point, and every top-level key of the parsed file is copied into `$merged`, which is
+then written as a real file inside the repo.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `bootstrap.ps1`: `Get-WriteReparse` on `$settingsPath` before the read; a reparse point sets `$settingsRefusal` (naming it), so no merged proposal is composed and the annotated one is still offered
+- [x] the `[notice]` gives the reason that fits a link (a merge would copy what the link reaches into the repo) instead of the parse-failure reason
 
 ### TEST
 
+- [x] `bootstrap-drift.tests.ps1`: a junctioned `.claude/` holding a `settings.json` -- the read is refused and named, nothing is written beside it; a symlinked `settings.json` -- no merged proposal, the annotated one still written (skipped on this machine: no Developer Mode); the #2545 junction case now asserts the read refusal instead of the write refusal (237 asserts green)
+
 ### DEPLOY: fix/2549-guard-settings-read
 
-**Score:**
+`specialists-init`'s bootstrap no longer reads `.claude/settings.json` through a symlink or junction.
+Every key of that file is copied into the merged proposal, `.claude/settings.proposed.json`, a real file
+inside the repo, so a `settings.json` linked to a JSON file outside the repo would have carried that
+file's content into the tree. #2545 guarded the writes; the read now takes the same check, and a link
+there is refused like a file that does not parse: no merged proposal, a `[notice]` naming the link, and
+the annotated proposal still offered.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
+
+The bootstrap no longer reads settings.json through a symlink or junction
 

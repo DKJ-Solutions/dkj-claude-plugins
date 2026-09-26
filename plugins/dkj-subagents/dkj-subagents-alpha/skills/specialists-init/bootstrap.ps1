@@ -1392,7 +1392,15 @@ $existingSettings = [pscustomobject]@{}
 # The reason, not a boolean: the notice below has to name WHICH shape it refused, or it sends a reader
 # hunting for a syntax error in a file that parses perfectly.
 $settingsRefusal = $null
-if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
+# AND NEVER READ THROUGH A SYMLINK OR JUNCTION EITHER (issue #2549). Test-Path and ReadAllText both follow
+# a reparse point, and every top-level key of what they reach is copied into the merged proposal -- a REAL
+# file inside the repo. So a settings.json linked to a JSON-shaped file outside the repo would have that
+# file's content land in the tree. The writes were guarded in #2545; this is the same check on the read,
+# refused exactly like a file that does not parse: no merged proposal, the annotated one still offered.
+$settingsReparse = Get-WriteReparse $settingsPath
+if ($settingsReparse) {
+    $settingsRefusal = "is reached through a symlink or junction ($settingsReparse), so it was not read"
+} elseif (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
     $parsed = $null
     try {
         $rawSettings = [System.IO.File]::ReadAllText($settingsPath, [System.Text.Encoding]::UTF8)
@@ -1438,7 +1446,12 @@ if ($settingsRefusal) {
     # not fully read is the very data loss this whole block exists to prevent -- and it would arrive
     # wearing the label 'safe to paste'. The reader is told what to fix and still has the annotated
     # proposal, so nothing is taken away from them.
-    Write-Host "  [notice] $settingsPath $settingsRefusal, so no merged proposal was written -- a merge built from a file that cannot be read whole would silently drop part of it. Repair that file and re-run, or copy from the annotated proposal by hand." -ForegroundColor Yellow
+    $refusalWhy = if ($settingsReparse) {
+        'a merge would copy whatever the link reaches into a real file inside the repo. Make settings.json a plain file and re-run, or copy from the annotated proposal by hand.'
+    } else {
+        'a merge built from a file that cannot be read whole would silently drop part of it. Repair that file and re-run, or copy from the annotated proposal by hand.'
+    }
+    Write-Host "  [notice] $settingsPath $settingsRefusal, so no merged proposal was written -- $refusalWhy" -ForegroundColor Yellow
 } else {
     # Every key the consumer already has, in the order they had it; then the two permission halves folded
     # into whatever 'permissions' they had (their own rules first, ours appended, no duplicates). Any
