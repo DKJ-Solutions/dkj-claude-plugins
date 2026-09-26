@@ -14,7 +14,9 @@
          August 14, 2026), so the scaffold must not build the layout its owner declined;
       5. the LEGACY REPORT: a consumer who still carries dkj-policy/README.md or
          dkj-policy/CONTRIBUTING.md from before #2171 is told this command no longer writes or
-         refreshes them, and nothing here is ever created, deleted, or rewritten because of it.
+         refreshes them, and nothing here is ever created, deleted, or rewritten because of it;
+      6. the CONSTITUTION IMPORT (#2531): CLAUDE.md gets the one '@'-line that loads the plugin's rules
+         -- created, inserted above the first import, or appended -- once, and never twice.
 
     The repo root is pinned per child run via CLAUDE_PROJECT_DIR, the same dual-context branch every
     mirrored script resolves first, so the fixtures need no git of their own.
@@ -637,6 +639,65 @@ try {
     }
     Assert-True (-not ($rMirror.Flat -match 'could not be found')) `
         'mirror: no "reference could not be found" warning -- the silent branch this resolution fails through did not fire'
+
+    # --- The constitution import in CLAUDE.md (issue #2531) ----------------------------------------
+    # The line used to be an instruction plus a session-start warning, and a consumer ran for weeks
+    # without it. Five shapes: no CLAUDE.md, an existing one with imports (CRLF + BOM, the harder path),
+    # one with prose and no import, one that already imports it, and the dry run that writes nothing.
+    Write-Host ''
+    Write-Host 'The constitution import'
+    $constRx = '^@~/\.claude/plugins/marketplaces/[^/]+/plugins/dkj-policy/CLAUDE\.md$'
+
+    $cC1 = New-FixtureConsumer -Label 'const-none'
+    $rC1 = Invoke-Adopt -Dir $cC1 -ScriptArgs @('-Apply')
+    Assert-Equal 0 $rC1.Code 'constitution, no CLAUDE.md: exit 0'
+    $cC1Md = Join-Path $cC1 'CLAUDE.md'
+    Assert-True (Test-Path -LiteralPath $cC1Md -PathType Leaf) 'constitution, no CLAUDE.md: CLAUDE.md is created'
+    if (Test-Path -LiteralPath $cC1Md) {
+        $cC1Lines = @(([System.IO.File]::ReadAllText($cC1Md)).TrimEnd() -split "`r?`n")
+        Assert-Equal 1 $cC1Lines.Count 'constitution, no CLAUDE.md: it holds exactly one line'
+        Assert-Match $constRx $cC1Lines[0] 'constitution, no CLAUDE.md: and that line is the constitution import'
+    }
+
+    $cC2 = New-FixtureConsumer -Label 'const-crlf'
+    $cC2Md = Join-Path $cC2 'CLAUDE.md'
+    [System.IO.File]::WriteAllText($cC2Md, "# Title`r`n`r`n@~/.claude/other.md`r`n", (New-Object System.Text.UTF8Encoding($true)))
+    $rC2 = Invoke-Adopt -Dir $cC2 -ScriptArgs @('-Apply')
+    Assert-Equal 0 $rC2.Code 'constitution, existing imports: exit 0'
+    $cC2Bytes = [System.IO.File]::ReadAllBytes($cC2Md)
+    Assert-True ($cC2Bytes.Length -ge 3 -and $cC2Bytes[0] -eq 0xEF -and $cC2Bytes[1] -eq 0xBB -and $cC2Bytes[2] -eq 0xBF) `
+        'constitution, existing imports: the byte-order mark is kept'
+    $cC2Text = [System.IO.File]::ReadAllText($cC2Md)
+    Assert-True (($cC2Text -replace "`r`n", '') -notmatch "`n") 'constitution, existing imports: no lone LF lands in a CRLF file'
+    $cC2Lines = @($cC2Text -split "`r`n")
+    Assert-Equal '# Title' $cC2Lines[0] 'constitution, existing imports: the title stays first'
+    Assert-Match $constRx $cC2Lines[2] 'constitution, existing imports: the line lands directly above the first import'
+    Assert-Equal '@~/.claude/other.md' $cC2Lines[3] 'constitution, existing imports: and the existing import follows it unchanged'
+    $rC2b = Invoke-Adopt -Dir $cC2 -ScriptArgs @('-Apply')
+    Assert-Equal $cC2Text ([System.IO.File]::ReadAllText($cC2Md)) 'constitution, existing imports: a re-run changes nothing'
+    Assert-Match '\[keep\]\s+CLAUDE\.md already imports' $rC2b.Flat 'constitution, existing imports: and the re-run says it kept it'
+
+    $cC3 = New-FixtureConsumer -Label 'const-prose'
+    $cC3Md = Join-Path $cC3 'CLAUDE.md'
+    [System.IO.File]::WriteAllText($cC3Md, "# Prose`n`nSome text.`n")
+    $null = Invoke-Adopt -Dir $cC3 -ScriptArgs @('-Apply')
+    $cC3Lines = @(([System.IO.File]::ReadAllText($cC3Md)).TrimEnd() -split "`n")
+    Assert-Equal 'Some text.' $cC3Lines[2] 'constitution, prose only: the existing text is left in place'
+    Assert-Match $constRx $cC3Lines[-1] 'constitution, prose only: the line is appended at the end'
+
+    $cC4 = New-FixtureConsumer -Label 'const-done'
+    $cC4Md = Join-Path $cC4 'CLAUDE.md'
+    $cC4Text = "@~/.claude/plugins/marketplaces/claude-code-specialists/plugins/dkj-policy/CLAUDE.md`n"
+    [System.IO.File]::WriteAllText($cC4Md, $cC4Text)
+    $rC4 = Invoke-Adopt -Dir $cC4 -ScriptArgs @('-Apply')
+    Assert-Equal $cC4Text ([System.IO.File]::ReadAllText($cC4Md)) `
+        'constitution, already imported under another marketplace name: the file is untouched'
+    Assert-Match '\[keep\]\s+CLAUDE\.md already imports' $rC4.Flat 'constitution, already imported: says it kept it'
+
+    $cC5 = New-FixtureConsumer -Label 'const-dry'
+    $rC5 = Invoke-Adopt -Dir $cC5
+    Assert-Match '\[create\]\s+CLAUDE\.md, holding the constitution import' $rC5.Flat 'constitution, dry run: lists CLAUDE.md as to-create'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $cC5 'CLAUDE.md'))) 'constitution, dry run: and does not write it'
 
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

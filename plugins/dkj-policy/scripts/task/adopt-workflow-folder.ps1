@@ -52,16 +52,25 @@
     check-script-contract.ps1 (surfaced by the script-contract session hook) reports at session start
     while it is missing.
 
-    STRICTLY ADDITIVE, NEVER OVERWRITES. Every file that already exists is left exactly as it is,
-    whatever it contains -- the same rule specialists-init and adopt-config follow, and what makes a
-    re-run find nothing to do. The scaffolded docs carry VUL-IN markers where only this repo can answer.
+    AND THE CONSTITUTION IMPORT IN CLAUDE.md (issue #2531). The one '@'-line that loads the plugin's
+    rules into every session is written by this run -- inserted above the first import of an existing
+    CLAUDE.md, or as the whole of a new one -- where it used to be an instruction plus a session-start
+    warning that a consumer could live with for weeks. The block that writes it carries the measurement.
+
+    STRICTLY ADDITIVE, NEVER OVERWRITES. Every file this run places is left exactly as it is once it
+    exists, whatever it contains -- the same rule specialists-init and adopt-config follow, and what makes
+    a re-run find nothing to do. TWO WRITES REACH INTO A FILE THAT ALREADY EXISTS, and both only ADD: the
+    note-root seam appended to scripts/repo-config.ps1 (#1150), and the constitution line inserted into
+    CLAUDE.md (#2531). Neither changes or removes a byte that was there, and each is skipped where its
+    answer is already present. The scaffolded docs carry VUL-IN markers where only this repo can answer.
 
     AND SINCE #2171 THERE IS NO EXCEPTION AT ALL. One remained until then: the UPDATE section of the
     folder README, a fenced region this run replaced on every -Apply, because a page scaffolded once is
     never corrected afterwards -- "right owner, wrong reach", the shape recorded for PR #734 and stated
     for CLAUDE.md below. That answer went with the page it was written into: this command no longer
     scaffolds the folder's README.md or CONTRIBUTING.md, so there is nothing here it owns a region of,
-    and "nothing that already exists is ever touched" is now true without qualification.
+    and nothing it placed is ever rewritten. (The two additive writes above are not regions it owns: each
+    adds its line once and never looks at it again.)
 
     NOTHING HERE IS EVER REWRITTEN, INCLUDING THE BRANCH DOCUMENT. Until August 23, 2026 this command also
     placed branch/templates/ and new-branch refreshed those on drift -- the one exception to "additive
@@ -540,6 +549,77 @@ if ($writeNoteRootSeam) {
     Write-Host "  [seam]     Get-ReleaseNoteRoot left UNANSWERED -- you already have notes at $noteRootFallback/" -ForegroundColor Yellow
 } else {
     Write-Host '  [seam]     Get-ReleaseNoteRoot left unanswered -- this repo has no scripts/repo-config.ps1' -ForegroundColor Yellow
+}
+
+# --- The constitution import in CLAUDE.md (issue #2531) --------------------------------------------
+# THE RULES THIS REPO RUNS UNDER ARRIVE THROUGH ONE '@'-LINE, AND THIS RUN WRITES IT. Until #2531 the line
+# was an instruction on the skill page plus a session-start [WARNING], on the ground that this command
+# "never edits a file that already exists" -- a ground the note-root seam above had already given up
+# for scripts/repo-config.ps1 (#1150). Measured in dkj-etf-tracker: the line was never added, the
+# warning fired at every session start for weeks, and a warning changes nothing a session KNOWS -- so the
+# constitution's "by default, it does not wait" rule was never in context, and a finished PR sat
+# unmerged until the owner asked why. A warning is the right tool for a line only a person can write;
+# this line is the same for every consumer, so the adoption writes it.
+#
+# THE SAME DETECTOR THE WARNING USES, so the two can never disagree about whether the line is there:
+# Test-ConstitutionImported over the '@'-import closure (consumer-check-lib.ps1), which also counts the
+# line when it sits in a file CLAUDE.md imports. A plain text match on CLAUDE.md itself is ORed in,
+# because the closure walk degrades to @() where the measure lib is missing -- and reading that as
+# "not imported" would write the line a second time.
+#
+# INSERTED, NEVER REWRITTEN. The line goes directly above the first '@'-import, because the constitution
+# names its own import first and a companion extension on the line below it; with no import at all it is
+# appended. Nothing else in the file moves: its line endings are matched and a byte-order mark is kept,
+# for the reason the seam append above gives. A CLAUDE.md that does not exist is created holding only
+# this line -- specialists-init appends the orchestrator import to it afterwards, as it does to any
+# existing file.
+. (Join-Path $PSScriptRoot '..\lib\consumer-check-lib.ps1')
+$constitutionLine = Get-ConstitutionImportLine
+$claudeMdPath     = Join-Path $repoRoot 'CLAUDE.md'
+$claudeMdExists   = Test-Path -LiteralPath $claudeMdPath -PathType Leaf
+$constitutionImported = $false
+if ($claudeMdExists) {
+    $claudeMdText = [System.IO.File]::ReadAllText($claudeMdPath)
+    $constitutionImported = ($claudeMdText -imatch '(?m)^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$') -or
+        (Test-ConstitutionImported -Documents @(Get-CheckProseCorpus -RepoRoot $repoRoot))
+}
+
+if ($constitutionImported) {
+    Write-Host '  [keep]     CLAUDE.md already imports the dkj-policy constitution -- left as it is' -ForegroundColor DarkGray
+} elseif (-not $claudeMdExists) {
+    if ($Apply) {
+        [System.IO.File]::WriteAllText($claudeMdPath, ($constitutionLine + $nl), $Utf8NoBom)
+        Write-Host "  [created]  CLAUDE.md, holding the constitution import: $constitutionLine" -ForegroundColor Green
+    } else {
+        Write-Host "  [create]   CLAUDE.md, holding the constitution import: $constitutionLine" -ForegroundColor Green
+    }
+} else {
+    if ($Apply) {
+        $claudeMdBytes = [System.IO.File]::ReadAllBytes($claudeMdPath)
+        $claudeMdBom   = $claudeMdBytes.Length -ge 3 -and $claudeMdBytes[0] -eq 0xEF -and $claudeMdBytes[1] -eq 0xBB -and $claudeMdBytes[2] -eq 0xBF
+        $claudeMdEol   = if ($claudeMdText -match "`r`n") { "`r`n" } else { "`n" }
+        $claudeMdLines = [System.Collections.Generic.List[string]]::new([string[]]($claudeMdText -split "`r?`n"))
+        # The first '@'-line OUTSIDE a fenced block: a fence is quoted text, and an '@' inside one imports
+        # nothing -- the same skip Get-AlwaysOnDocuments makes when it walks the closure.
+        $firstImport = -1
+        $inFence = $false
+        for ($i = 0; $i -lt $claudeMdLines.Count; $i++) {
+            if ($claudeMdLines[$i] -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
+            if (-not $inFence -and $claudeMdLines[$i] -match '^\s*@\S') { $firstImport = $i; break }
+        }
+        if ($firstImport -ge 0) {
+            $claudeMdLines.Insert($firstImport, $constitutionLine)
+            $newClaudeMd = $claudeMdLines -join $claudeMdEol
+        } elseif ($claudeMdText.Trim().Length -eq 0) {
+            $newClaudeMd = $constitutionLine + $claudeMdEol
+        } else {
+            $newClaudeMd = $claudeMdText.TrimEnd() + $claudeMdEol + $claudeMdEol + $constitutionLine + $claudeMdEol
+        }
+        [System.IO.File]::WriteAllText($claudeMdPath, $newClaudeMd, (New-Object System.Text.UTF8Encoding($claudeMdBom)))
+        Write-Host "  [added]    the constitution import to CLAUDE.md: $constitutionLine" -ForegroundColor Green
+    } else {
+        Write-Host "  [add]      the constitution import to CLAUDE.md: $constitutionLine" -ForegroundColor Green
+    }
 }
 
 Write-Host ''

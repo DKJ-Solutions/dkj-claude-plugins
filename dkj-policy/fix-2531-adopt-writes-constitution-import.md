@@ -39,19 +39,55 @@
 
 ### PLAN
 
+Inbound #2531 (from dkj-etf-tracker): adoption never writes the `dkj-policy` constitution import into a
+consumer's `CLAUDE.md`. Verified on pickup: `adopt-dkj-policy` Part 1 said *"This run does not write the
+line, because it never edits a file that already exists"*. That ground had already lapsed, because the
+same run appends the note-root seam to an existing `scripts/repo-config.ps1` (#1150). The detector
+(`Test-ConstitutionImported`) and the line builder (`Get-ConstitutionImportLine`) already existed in
+`consumer-check-lib.ps1`, and were used only for the session-start warning.
+
+The repair goes in `adopt-workflow-folder.ps1` (Part 1), not in `bootstrap.ps1`. The line is
+dkj-policy's own, and `bootstrap.ps1` belongs to the core team, which runs without dkj-policy too. The
+same gap for the BWJ extension import is filed as #2532.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `adopt-workflow-folder.ps1` (root copy and plugin mirror): write the constitution import. It is
+  inserted above the first `@`-import outside a fence, appended when there is no import yet, or written
+  as a new `CLAUDE.md`. Line endings and BOM are kept. The write is skipped when the closure detector
+  or a direct text match already finds the line. The dry run lists the write and does not make it.
+- [x] Script header: the "strictly additive" paragraph now names both writes into existing files.
+- [x] `adopt-dkj-policy` SKILL.md: the section says the run writes the line.
+- [x] Filed #2532 for the BWJ extension import.
 
 ### TEST
 
+- [x] `adopt-workflow-folder.tests.ps1`: new section, green at 133 asserts. It covers no CLAUDE.md, a
+  CRLF+BOM file with imports (line placement, BOM kept, no lone LF, re-run unchanged), prose only
+  (appended), already imported under the old marketplace name (untouched), and the dry run.
+- [x] Manual smoke run in four fixture consumers, output inspected with `cat -A`.
+
 ### DEPLOY: fix/2531-adopt-writes-constitution-import
 
-**Score:**
+`adopt-workflow-folder.ps1`, Part 1 of `adopt-dkj-policy`, now writes the constitution import
+(`@~/.claude/plugins/marketplaces/<marketplace>/plugins/dkj-policy/CLAUDE.md`) into the consumer's
+`CLAUDE.md`. Until now it only asked for the line and left the rest to a session-start warning. The line
+goes directly above the first `@`-import, is appended when the file has no import, or becomes the whole
+of a new `CLAUDE.md`. The file's line endings and byte-order mark are kept. When the constitution is
+already imported, under any marketplace name or through a file `CLAUDE.md` imports, nothing is written.
+Before this, a consumer could run for weeks without the rules in context, because a warning does not
+change what a session knows. The same gap for the BWJ extension import is filed as
+[#2532](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2532).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
+
+adopt-dkj-policy writes the constitution import into CLAUDE.md instead of asking for it
 

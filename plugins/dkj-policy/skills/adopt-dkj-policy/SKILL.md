@@ -277,11 +277,18 @@ lens instead. **Remove any rule the constitution already states, wherever it cur
 rule does not fail on the day it is written. It fails on the day the plugin's answer moves and the copy
 stays behind, and that is the contradiction #2374 was filed about.
 
-This run does not write the line, because it never edits a file that already exists. The
-`consumer-prose-sessioncheck` hook raises a `[WARNING]` at every session start until the line is there,
-and that warning prints the exact line for **your** marketplace name. A consumer registered before the
-September 10, 2026 rename still has its clone under `claude-code-specialists`. The line resolves after a
-`claude plugin marketplace update`: an `@`-import reads the marketplace clone, not the plugin cache.
+**This run writes the line**
+([#2531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2531)). It inserts the line directly
+above the first `@`-import of an existing `CLAUDE.md`, appends it where there is no import yet, or
+creates `CLAUDE.md` holding only this line. Where the constitution is already imported, under any
+marketplace name, the file is left alone. It only ever adds: the file's line endings and byte-order mark
+are kept. The run used to leave the line to you, and a consumer then ran for weeks on a session-start
+warning without the rules ever being in context. The line carries **your** marketplace name: a consumer
+registered before the September 10, 2026 rename still has its clone under `claude-code-specialists`, and
+the run reads that name off the plugin's own install path. The line resolves after a
+`claude plugin marketplace update`, because an `@`-import reads the marketplace clone, not the plugin
+cache. The prose moves out of `CLAUDE.md` are still yours to do. The `consumer-prose-sessioncheck` hook
+keeps warning at session start while a line is missing or prose sits beside the imports.
 
 ### After the scaffold: the note-root seam, which this run usually answers for you
 
