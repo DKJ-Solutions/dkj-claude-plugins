@@ -39,19 +39,58 @@
 
 ### PLAN
 
+#2525: PR #2515 sat green, unmerged and unfolded for about two and a half hours while three later
+pull requests shipped past it, and no session start reported it. `stranded-sweep-sessioncheck` (#2438)
+reads only armed pull requests.
+
+Verified on pickup: the PR's timeline shows `merge-when-green` added only at 11:05 UTC, by the hand
+resume, so the original ship never armed it. Whether that ship died before arming or ran `-NoMerge`
+cannot be read from the tracker. Either way the gap in the report stands, and the check has to word
+both readings.
+
+Chosen: a sibling check and hook rather than widening `check-stranded-sweep.ps1`. That check is gated on
+`merge-on-green.yml`, and this hole also exists in a repo with no sweep. The judging is a pure function
+beside the stranded verdict, sharing its settle block.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-UnshippedPrVerdict` in `merge-on-green-lib.ps1`: not a draft, not a fork, not armed where a
+  sweep exists, and required checks green for the settle window.
+- [x] `scripts/lint/check-unshipped-pr.ps1`: this account's open pull requests (`--author <login>`),
+  the cheap disqualifiers before any `gh pr checks`, bounded per call and in total, untrusted names
+  scrubbed and the checkout line through `Get-PasteableRef`.
+- [x] `plugins/dkj-policy/hooks/unshipped-pr-sessioncheck.ps1`, registered in `hooks.json`.
+- [x] Registered as a shared script and mirrored; exempted in `source-repo-guard.tests.ps1`; the
+  bounded-capture count moved 83 -> 85; a README row.
 
 ### TEST
 
+- [x] `merge-on-green-lib.tests.ps1`: 14 new asserts on the verdict, 208 green.
+- [x] `unshipped-pr-gate.tests.ps1` (new): 42 asserts against a fake `gh` and stub checks, green.
+- [x] Live run against this repo: `[OK]`, 1.6 s.
+
 ### DEPLOY: fix/2525-unarmed-stranded-pr-sessioncheck
 
-**Score:**
+A new SessionStart hook, `unshipped-pr-sessioncheck`, lists your own open pull requests that are green,
+settled and not armed with `merge-when-green`, with the command that resumes each ship
+([#2525](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2525)). Until now a ship that died
+before arming left such a pull request, with its branch document stranded off the trunk, and nothing
+reported it: `stranded-sweep-sessioncheck` reads armed pull requests only. PR #2515 sat that way for
+about two and a half hours. The report also says the pull request may be held back on purpose
+(`ship-pr -NoMerge`), because the tracker cannot tell the two apart. It runs in a repo without a
+merge-on-green sweep too, where the label changes nothing.
+
+Scored for a session starting in a repo that runs this workflow. It sees a line only when a
+pull request is actually owed a merge.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. It is a session-start report, and nothing reaches a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
+A session start now reports your green pull requests that no sweep will merge

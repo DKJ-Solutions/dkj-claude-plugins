@@ -352,6 +352,9 @@ $guardExempt = @(
     # own row gives: this reads the tracker, not this repo's own trunk, so a runner would gain nothing a
     # session cannot already do, and there is none.
     'scripts\lint\check-stranded-sweep.ps1',
+    # SessionStart: unshipped-pr-sessioncheck (#2525) -- check-stranded-sweep's sibling, exempt for the
+    # identical reason: the hook runs the released copy from '${CLAUDE_PLUGIN_ROOT}/scripts/lint/'.
+    'scripts\lint\check-unshipped-pr.ps1',
     'scripts\task\park-cycle.ps1',             # Stop: cycle-autopark (#900)
     # statusLine: the command Claude Code runs on its own clock (#2103). THE FIRST ENTRY HERE THAT IS
     # NOT A HOOK, and it is on this list for the hooks' own reason one settings key over: nobody invokes
