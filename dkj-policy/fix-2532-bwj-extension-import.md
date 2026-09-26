@@ -61,13 +61,17 @@ called. The issue's side question, whether a session check should also warn, is 
   dkj-policy-bwj. Mirrors rebuilt; row added to `plugins/dkj-policy/scripts/README.md`.
 - [x] `adopt-dkj-policy-bwj` SKILL.md: step 6 runs the script, and the description names the write.
 - [x] Filed #2538 for the session-check question.
+- [x] Review pass: Victor found that the scan accepted an indented `@`-line as an import, a pre-existing
+  looseness of the #2531 writer. Claude Code reads only a column-0 `@`, so the scan now uses
+  `Get-ImportLinePath`, the rule the closure walk applies. Covered by a new test.
 
 ### TEST
 
 - [x] `bwj-extension-import.tests.ps1` (new): no CLAUDE.md, below the constitution in a CRLF+BOM file,
   re-run unchanged, a constitution line with no terminator, no constitution yet (and a later constitution
   write landing above the extension), already imported under an older marketplace name, a nested fence,
-  the dry run, and the marketplace segment read from a bwj payload path. 25 passed.
+  an indented look-alike line, the dry run, and the marketplace segment read from a bwj payload path.
+  27 passed.
 - [x] `adopt-workflow-folder.tests.ps1` 140 passed; `consumer-prose-gate.tests.ps1` 129 passed;
   `shared-scripts.tests.ps1` 1071 passed; `check-plugin-integrity.ps1` 0 errors.
 
