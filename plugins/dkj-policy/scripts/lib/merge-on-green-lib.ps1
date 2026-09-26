@@ -640,3 +640,79 @@ function Get-MergeOnGreenStrandedVerdict {
 
     return [pscustomobject]@{ Stranded = $true; Reason = "$hit -- ship it from a session" }
 }
+
+function Get-UnshippedPrVerdict {
+    <#
+    .SYNOPSIS
+        Is this open pull request UNSHIPPED -- green, settled, and owed a merge that nothing will ever
+        make, because no arming label hands it to a sweep (issue #2525)?
+
+    .DESCRIPTION
+        THE HOLE Get-MergeOnGreenStrandedVerdict CANNOT SEE. That verdict, and the check that reads it,
+        only ever look at ARMED pull requests. A ship that dies BEFORE ship-pr.ps1 writes the label --
+        or a repo with no merge-on-green sweep at all, where the label buys nothing -- leaves an open,
+        green, unmerged pull request with its branch document stranded off the trunk and no session
+        start that reports it. Measured on PR #2515, September 26, 2026: green by 08:36 UTC, never
+        armed, found by the owner noticing it at ~11:10 UTC while three later pull requests shipped
+        past it.
+
+        WHAT COUNTS AS NOBODY SHIPPING IT: not a draft, not from a fork, and every required check green
+        for at least Get-MergeOnGreenSettleMinutes -- read through Test-MergeOnGreenRequiredChecksSettled,
+        the one block the picker and the stranded verdict already share, so "a live ship-pr may still be
+        merging it" means the same thing in all three. A live ship merges seconds after green.
+
+        AN ARMED PULL REQUEST IS SOMEBODY ELSE'S QUESTION ONLY WHERE A SWEEP EXISTS. With
+        merge-on-green.yml present the sweep finishes an armed one, or check-stranded-sweep.ps1 reports
+        why it never will, so this verdict declines it. Without the workflow the label is inert, so an
+        armed pull request is as unshipped as an unarmed one and is judged the same way.
+
+        IT IS NOT AN ASSERTION THAT A SHIP DIED. A pull request held back for the owner's own word (a
+        visible result, `ship-pr.ps1 -NoMerge`) satisfies the same facts, and nothing on the tracker
+        tells the two apart. The caller's wording says so rather than claiming a history it cannot read.
+
+        PURE: every fact is a parameter. The reads live in the caller.
+
+    .PARAMETER Record
+        A pull request record carrying isDraft, isCrossRepository and labels.
+
+    .PARAMETER MergeBlockVerdict
+        Get-MergeBlockVerdict's object for THIS pull request. $null reads as not-green.
+
+    .PARAMETER GreenAgeMinutes
+        Get-RequiredGreenAgeMinutes' answer for THIS pull request. $null reads as not-settled.
+
+    .PARAMETER SweepExists
+        Whether this repo carries .github/workflows/merge-on-green.yml.
+
+    .PARAMETER Label
+        The arming label; defaults to Get-MergeOnGreenArmLabel.
+
+    .OUTPUTS
+        [pscustomobject] Unshipped (bool), Reason (string -- why not, when Unshipped is $false).
+    #>
+    param(
+        $Record,
+        $MergeBlockVerdict,
+        $GreenAgeMinutes = $null,
+        [bool]$SweepExists = $false,
+        [string]$Label = (Get-MergeOnGreenArmLabel)
+    )
+
+    if ($null -eq $Record) { return [pscustomobject]@{ Unshipped = $false; Reason = 'no record' } }
+    if ($Record.PSObject.Properties['isDraft'] -and $Record.isDraft) {
+        return [pscustomobject]@{ Unshipped = $false; Reason = 'a draft' }
+    }
+    # A FORK'S PULL REQUEST IS NOT THIS ACCOUNT'S TO SHIP: ship-pr.ps1 runs from a branch of this
+    # checkout, and a fork's head is not one.
+    if ($Record.PSObject.Properties['isCrossRepository'] -and $Record.isCrossRepository) {
+        return [pscustomobject]@{ Unshipped = $false; Reason = 'from a fork' }
+    }
+    if ($SweepExists -and (Test-MergeOnGreenArmed -Record $Record -Label $Label)) {
+        return [pscustomobject]@{ Unshipped = $false; Reason = "armed with '$Label' -- the merge-on-green sweep owns it" }
+    }
+
+    $settled = Test-MergeOnGreenRequiredChecksSettled -MergeBlockVerdict $MergeBlockVerdict -GreenAgeMinutes $GreenAgeMinutes
+    if (-not $settled.Ready) { return [pscustomobject]@{ Unshipped = $false; Reason = $settled.Reason } }
+
+    return [pscustomobject]@{ Unshipped = $true; Reason = '' }
+}
