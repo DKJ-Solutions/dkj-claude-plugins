@@ -1370,6 +1370,9 @@ function Test-ScratchThrows { param([scriptblock]$Body) try { & $Body | Out-Null
 Assert-True (Test-ScratchThrows { New-ScratchPath -Label '..' }) 'a label of ".." is refused'
 Assert-True (Test-ScratchThrows { New-ScratchPath -Label 'a/../../b' }) 'and so is one carrying a separator, so no label can leave the temp directory'
 Assert-True (Test-ScratchThrows { New-ScratchPath -Label 'ok' -Extension 'md' }) 'an extension missing its dot is refused rather than silently glued to the guid'
+# U+212A KELVIN SIGN folds to `k` under a plain -notmatch, which admitted it into [A-Za-z0-9] (#2520).
+Assert-True (Test-ScratchThrows { New-ScratchPath -Label ('ship-' + [char]0x212A) }) 'a label carrying the Kelvin sign is refused (case-sensitive allowlist, #2520)'
+Assert-True (Test-ScratchThrows { New-ScratchPath -Label 'ok' -Extension ('.m' + [char]0x212A) }) '...and so is an extension carrying it'
 
 Write-Host ''
 Write-Host 'Every temp path the SHIPPING scripts compose carries a guid (#1659)' -ForegroundColor Cyan

@@ -69,6 +69,10 @@ Assert-True ($r.Account -eq 'maikel-bwj' -and -not $r.Split) 'a display name is 
 $r = Resolve-ClaimAccount -GhAccount 'maikel-bwj' -GitUserName ('a' * 40)
 Assert-True (-not $r.Split) '40 characters is not a GitHub login -- outside the shape, so no split'
 
+# U+212A KELVIN SIGN folds to `k` under a plain -match, which admitted it into the login class (#2520).
+Assert-True (-not (Test-GitHubLoginShape -Value ('maikel-bw' + [char]0x212A))) 'Test-GitHubLoginShape refuses a login carrying the Kelvin sign (#2520)'
+Assert-True (Test-GitHubLoginShape -Value 'DaveKJohn') '...and still admits a mixed-case ASCII login'
+
 $r = Resolve-ClaimAccount -GhAccount 'maikel-bwj' -GitUserName ('a' * 39)
 Assert-True ($r.Split -and $r.Account -eq ('a' * 39)) '39 characters IS a GitHub login -- the shape boundary is walked at both edges'
 

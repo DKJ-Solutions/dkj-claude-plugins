@@ -209,7 +209,7 @@ function Resolve-RepoRoot {
 function Resolve-TargetUrl {
     param([string] $Value)
 
-    if ($Value -match '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$') {
+    if ($Value -cmatch '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$') {
         return "https://github.com/$Value.git"
     }
     return $Value

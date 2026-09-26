@@ -180,7 +180,7 @@ if ($pick.Sha -notmatch '^[0-9a-f]{40}$') {
     Write-PickVerdict -Picked $false -Reason "PR #$($pick.Number)'s head commit could not be read, so there is no commit to pin the ship to -- the next sweep asks again"
     exit 0
 }
-if ($pick.Branch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$') {
+if ($pick.Branch -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$') {
     Write-PickVerdict -Picked $false -Reason "PR #$($pick.Number)'s head branch is not a plain name this runner will put on a command line -- merge it by hand"
     exit 0
 }

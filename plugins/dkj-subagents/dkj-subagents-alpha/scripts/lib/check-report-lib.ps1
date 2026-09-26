@@ -645,7 +645,7 @@ function Test-GitHubOwnerNameSlug {
     }
     $owner = $Slug.Substring(0, $slash)
     $name  = $Slug.Substring($slash + 1)
-    if ($owner -notmatch '^[A-Za-z0-9][A-Za-z0-9-]*$' -or $name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+    if ($owner -cnotmatch '^[A-Za-z0-9][A-Za-z0-9-]*$' -or $name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
         return @{ Ok = $false; Reason = 'not a valid GitHub owner/name slug -- rejected before it became an API call' }
     }
     return @{ Ok = $true; Reason = '' }
@@ -655,14 +655,14 @@ function Test-PluginNameSlug {
     <# The plugin-name part of a plugin id (before '@') must be a simple lowercase slug before it
        becomes a path segment. #>
     param([Parameter(Mandatory = $true)][string]$Name)
-    return ($Name -match '^[a-z0-9][a-z0-9-]*$')
+    return ($Name -cmatch '^[a-z0-9][a-z0-9-]*$')
 }
 
 function Test-PluginMarketplaceSlug {
     <# The marketplace part of a plugin id (after '@') must be a simple slug before it becomes a
        path segment. #>
     param([Parameter(Mandatory = $true)][string]$Marketplace)
-    return ($Marketplace -match '^[A-Za-z0-9][A-Za-z0-9._-]*$')
+    return ($Marketplace -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$')
 }
 
 # --- Which plugins are enabled here? (inbound #294) ----------------------------------------------
