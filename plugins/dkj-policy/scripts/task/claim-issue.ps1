@@ -1413,8 +1413,8 @@ switch ($verdict.Code) {
             Write-Host '     does not -- see the prerequisite verdict before you carry this any further.' -ForegroundColor Yellow
         }
         if ($parked) {
-            Write-Host '     AND IT IS PARKED: see the parking-label verdict above -- an answer is owed before' -ForegroundColor Yellow
-            Write-Host '     the work is, and it is not yours to give.' -ForegroundColor Yellow
+            Write-Host '     AND IT IS PARKED: see the parking-label verdict above -- the answer is owed before' -ForegroundColor Yellow
+            Write-Host '     you carry this any further, and it is not yours to give.' -ForegroundColor Yellow
         }
         Write-Host "     $($facts.url)"
         exit 0

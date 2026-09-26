@@ -2401,8 +2401,10 @@ function Format-ParkingLabelNote {
             the single-issue route used to claim it and print "the work starts here", and a session took
             that literally and chose between the owner's options itself.
 
-            The label names are passed through Format-ForConsole: they come off the tracker, which is
-            written by anybody who can open an issue.
+            The label names are passed through Format-ForConsole anyway. Only a name that equals a skip
+            label (case-insensitively) reaches this function, and applying a label takes triage access
+            rather than merely opening an issue -- but it is still tracker text, and the one stripping
+            policy is cheaper to apply than to argue an exception to.
 
         .OUTPUTS
             A string array of lines; EMPTY when no label matched.
