@@ -1669,7 +1669,7 @@ $agentDefs | ForEach-Object {
 
         $text = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8)
         $nm = [regex]::Match($text, '(?m)^name:\s*(\S+)\s*$')
-        if ($nm.Success -and ($nm.Groups[1].Value.Trim() -notmatch '^[a-z0-9-]+$')) {
+        if ($nm.Success -and ($nm.Groups[1].Value.Trim() -cnotmatch '^[a-z0-9-]+$')) {
             Add-Error "[specialist] ${rel}: 'name: $($nm.Groups[1].Value.Trim())' must consist of lowercase letters/digits/hyphens (Claude Code call name)."
         }
 

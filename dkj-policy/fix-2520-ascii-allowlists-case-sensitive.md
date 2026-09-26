@@ -39,19 +39,47 @@
 
 ### PLAN
 
+#2520 names four ASCII allowlists that use case-insensitive `-match`. A sweep of the tree found the
+same defect in more identifier allowlists that gate a value before it becomes a path segment, a
+command-line argument or an API call. All of them are one subject, so they are repaired together.
+Regex *parsers* that only extract text and do not gate a value stay as they are. So do the hex-SHA
+checks: no non-ASCII character case-folds into `a-f`, and git accepts an upper-case SHA.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `-cmatch`/`-cnotmatch` at the four named sites: `Test-BranchName`, `Test-PluginNameSlug`,
+  `Test-PluginMarketplaceSlug`, `Test-GitHubLoginShape`
+- [x] ...and at the same-class sites the sweep found: `Test-GitHubOwnerNameSlug`,
+  `pick-merge-on-green.ps1`'s branch check, `New-ScratchPath`'s label and extension,
+  `Get-IssuePathCitations`' path token, `check-plugin-integrity.ps1`'s specialist `name:` check,
+  `publish-to-business.ps1`'s slug detection, `bootstrap.ps1`'s three slug checks, and
+  `page-publish-rules.ps1`'s BaseUrl check
+- [x] Plugin mirrors synced with `build-shared-scripts.ps1`
 
 ### TEST
 
+- [x] Kelvin-sign assertions in `branch-info`, `check-report-lib`, `claim-issue` and `native-capture`
+  suites, plus an upper-case refusal for the lowercase plugin-name slug; all four suites green
+
 ### DEPLOY: fix/2520-ascii-allowlists-case-sensitive
 
-**Score:**
+The workflow scripts' ASCII allowlists no longer let a look-alike letter through
+([#2520](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2520)). They follow the paste-safe
+guards #2516 repaired. Branch names, plugin and marketplace slugs, GitHub logins and `owner/name` slugs,
+scratch-path labels, and paths cited in an issue body were all checked against an explicit ASCII class
+with a case-insensitive match. So the Kelvin sign (U+212A) passed as `k`, and the "lowercase" plugin-name
+check admitted upper case. Every one now matches case-sensitively. Every plain-ASCII value that
+was valid before is still valid. The only newly refused values are non-ASCII look-alikes and upper
+case where a check says lowercase.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- internal guards in the workflow scripts; no subscriber of a service runs anything new.
+
+**Score:** N/A
 
 #### Pull Request
 
+The ASCII allowlists match case-sensitively, so the Kelvin sign is refused

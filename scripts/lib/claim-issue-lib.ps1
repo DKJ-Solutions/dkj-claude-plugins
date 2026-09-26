@@ -1342,7 +1342,7 @@ function Get-IssuePathCitations {
         if (-not $token -or $token.Length -gt 200) { continue }
         if ($token.StartsWith('-') -or $token.StartsWith('/')) { continue }
         if ($token.Contains('..')) { continue }
-        if ($token -notmatch '^(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6}$') { continue }
+        if ($token -cnotmatch '^(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6}$') { continue }
         if ($seen.Add($token)) {
             $results.Add($token) | Out-Null
             if ($results.Count -ge $cap) { break }
