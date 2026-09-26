@@ -58,9 +58,10 @@ proposed: only where the plugin is enabled, through `Test-BwjExtensionImported`,
 
 `consumer-prose-sessioncheck` now warns at session start when a repo enables `dkj-policy-bwj` in its own
 settings but its `CLAUDE.md` does not import that plugin's extension. Until now the four BWJ chapters
-could be missing from context with no signal at all. The warning names the `adopt-dkj-policy-bwj` step
-that writes the line (`adopt-extension-import.ps1 -Apply`) and prints the line to add by hand. An enable
-arriving only from the machine-wide user settings is not judged, and the warning never changes the exit code.
+could be missing from context with no signal at all. The warning names step 6 of
+`adopt-dkj-policy-bwj`, which writes the line (`adopt-extension-import.ps1 -Apply`), and prints the line to
+add by hand. An enable arriving only from the machine-wide user settings is not judged, and the warning
+never changes the exit code.
 
 **Score:** 2
 
