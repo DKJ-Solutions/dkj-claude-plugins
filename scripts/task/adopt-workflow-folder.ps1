@@ -562,81 +562,31 @@ if ($writeNoteRootSeam) {
 # this line is the same for every consumer, so the adoption writes it.
 #
 # THE SAME DETECTOR THE WARNING USES, so the two can never disagree about whether the line is there:
-# Test-ConstitutionImported over the '@'-import closure (consumer-check-lib.ps1), which also counts the
-# line when it sits in a file CLAUDE.md imports. The scan of CLAUDE.md itself below is ORed in, because
-# the closure walk degrades to @() where the measure lib is missing -- and reading that as "not
-# imported" would write the line a second time.
+# Test-ConstitutionImported over the '@'-import closure, which also counts the line when it sits in a
+# file CLAUDE.md imports.
 #
-# ONE SCAN, FENCE-AWARE, FOR BOTH QUESTIONS -- is the line already there, and where does it go. A fenced
-# block is quoted text: the adopt-dkj-policy skill page itself shows this very line inside one, so a
-# consumer quoting it must not read as having imported it, and the line must never be inserted into a
-# quoted example. Fences are tracked by Get-NextFenceState (measure-context-lib.ps1), the one CommonMark
-# tracker the always-on walk uses too (#2534) -- a block closes only on a run of the SAME character at
-# least as long as the one that opened it, because a four-backtick block routinely wraps a three-backtick
-# example. Loaded at file scope rather than through Get-CheckProseCorpus, which dot-sources it into its
-# own function scope and so leaves nothing defined here.
-#
-# INSERTED, NEVER REWRITTEN. The line goes directly above the first '@'-import, because the constitution
-# names its own import first and a companion extension on the line below it; with no import at all it is
-# appended. The file is split with each line KEEPING its own terminator and joined back with nothing, so
-# not one existing byte changes -- a file that mixes LF and CRLF keeps both. The new line takes the
-# terminator of the line it lands above (or the file's first one when appended), and a byte-order mark is
-# kept, for the reason the seam append above gives. A CLAUDE.md that does not exist is created holding
-# only this line -- specialists-init appends the orchestrator import to it afterwards, as it does to any
-# existing file.
+# THE WRITE ITSELF IS Add-ClaudeMdImportLine (claude-md-import-lib.ps1, #2532), shared with
+# dkj-policy-bwj's adopt-extension-import.ps1 so the two adoptions cannot drift apart. It scans CLAUDE.md
+# fence-aware (a line quoted in an example is neither "already there" nor a place to insert), inserts the
+# line directly above the first '@'-import -- the constitution names its own import first and a companion
+# extension on the line below it -- appends it when there is no import, and creates CLAUDE.md holding
+# only this line when there is none. Not one existing byte changes: line endings, mixed or not, and a
+# byte-order mark are kept. specialists-init appends the orchestrator import afterwards, as it does to
+# any existing file.
 . (Join-Path $PSScriptRoot '..\lib\consumer-check-lib.ps1')
-. (Join-Path $PSScriptRoot '..\lib\measure-context-lib.ps1')
 $constitutionLine = Get-ConstitutionImportLine
 $claudeMdPath     = Join-Path $repoRoot 'CLAUDE.md'
-$claudeMdExists   = Test-Path -LiteralPath $claudeMdPath -PathType Leaf
-$constitutionImported = $false
-if ($claudeMdExists) {
-    $claudeMdText  = [System.IO.File]::ReadAllText($claudeMdPath)
-    $claudeMdLines = [System.Collections.Generic.List[string]]::new([string[]]@($claudeMdText -split '(?<=\n)' | Where-Object { $_ -ne '' }))
-    $firstImport = -1
-    $fence = ''
-    for ($i = 0; $i -lt $claudeMdLines.Count; $i++) {
-        $bare = $claudeMdLines[$i].TrimEnd("`r", "`n")
-        $wasFence = $fence
-        $fence = Get-NextFenceState -Line $bare -Fence $fence
-        if ($wasFence -or $fence -or $bare -notmatch '^\s*@\S') { continue }
-        if ($firstImport -lt 0) { $firstImport = $i }
-        if ($bare -imatch '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$') { $constitutionImported = $true; break }
-    }
-    if (-not $constitutionImported) {
-        $constitutionImported = Test-ConstitutionImported -Documents @(Get-CheckProseCorpus -RepoRoot $repoRoot)
-    }
-}
+$constitutionElsewhere = (Test-Path -LiteralPath $claudeMdPath -PathType Leaf) -and
+    (Test-ConstitutionImported -Documents @(Get-CheckProseCorpus -RepoRoot $repoRoot))
+$constitutionAction = Add-ClaudeMdImportLine -Path $claudeMdPath -Line $constitutionLine `
+    -ImportedPattern '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$' -ImportedElsewhere:$constitutionElsewhere -Apply:$Apply
 
-if ($constitutionImported) {
-    Write-Host '  [keep]     CLAUDE.md already imports the dkj-policy constitution -- left as it is' -ForegroundColor DarkGray
-} elseif (-not $claudeMdExists) {
-    if ($Apply) {
-        [System.IO.File]::WriteAllText($claudeMdPath, ($constitutionLine + $nl), $Utf8NoBom)
-        Write-Host "  [created]  CLAUDE.md, holding the constitution import: $constitutionLine" -ForegroundColor Green
-    } else {
-        Write-Host "  [create]   CLAUDE.md, holding the constitution import: $constitutionLine" -ForegroundColor Green
-    }
-} else {
-    if ($Apply) {
-        $claudeMdBytes = [System.IO.File]::ReadAllBytes($claudeMdPath)
-        $claudeMdBom   = $claudeMdBytes.Length -ge 3 -and $claudeMdBytes[0] -eq 0xEF -and $claudeMdBytes[1] -eq 0xBB -and $claudeMdBytes[2] -eq 0xBF
-        $firstEol      = if ($claudeMdText -match '\r?\n') { $Matches[0] } else { "`n" }
-        if ($firstImport -ge 0) {
-            $anchorEol = if ($claudeMdLines[$firstImport] -match '\r?\n$') { $Matches[0] } else { $firstEol }
-            $claudeMdLines.Insert($firstImport, $constitutionLine + $anchorEol)
-            $newClaudeMd = $claudeMdLines -join ''
-        } elseif ($claudeMdText.Trim().Length -eq 0) {
-            $newClaudeMd = $constitutionLine + $firstEol
-        } else {
-            $lead = if ($claudeMdText -match '\n$') { $firstEol } else { $firstEol + $firstEol }
-            $newClaudeMd = $claudeMdText + $lead + $constitutionLine + $firstEol
-        }
-        [System.IO.File]::WriteAllText($claudeMdPath, $newClaudeMd, (New-Object System.Text.UTF8Encoding($claudeMdBom)))
-        Write-Host "  [added]    the constitution import to CLAUDE.md: $constitutionLine" -ForegroundColor Green
-    } else {
-        Write-Host "  [add]      the constitution import to CLAUDE.md: $constitutionLine" -ForegroundColor Green
-    }
+switch ($constitutionAction) {
+    'kept'   { Write-Host '  [keep]     CLAUDE.md already imports the dkj-policy constitution -- left as it is' -ForegroundColor DarkGray }
+    'create' { $verb = if ($Apply) { '[created]' } else { '[create] ' }
+               Write-Host "  $verb  CLAUDE.md, holding the constitution import: $constitutionLine" -ForegroundColor Green }
+    default  { $verb = if ($Apply) { '[added]  ' } else { '[add]    ' }
+               Write-Host "  $verb  the constitution import to CLAUDE.md: $constitutionLine" -ForegroundColor Green }
 }
 
 Write-Host ''

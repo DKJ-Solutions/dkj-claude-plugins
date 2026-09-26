@@ -490,6 +490,31 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE CLAUDE.md IMPORT LINES AND THEIR ONE WRITER (#2532). Two mirrors, one per plugin with an
+            # adoption that writes a line: dkj-policy's adopt-workflow-folder.ps1 (the constitution, loaded
+            # through consumer-check-lib) and dkj-policy-bwj's adopt-extension-import.ps1 (the extension).
+            # Its writer loads measure-context-lib from its own directory, so that lib travels into
+            # dkj-policy-bwj too (measure-context-lib-bwj below).
+            Name    = 'claude-md-import-lib'
+            Source  = 'scripts\lib\claude-md-import-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'claude-md-import-lib-bwj'
+            Source  = 'scripts\lib\claude-md-import-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
+            # Get-NextFenceState for claude-md-import-lib-bwj's writer (#2532); nothing else in
+            # dkj-policy-bwj loads it.
+            Name    = 'measure-context-lib-bwj'
+            Source  = 'scripts\lib\measure-context-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
             # WHERE THE REPO ROOT COMES FROM (issue #2115). Three mirrors, one per plugin that carries a
             # reader of it, on check-report-lib-shopify's own reasoning below: a script may only
             # dot-source a lib that ships in ITS OWN plugin, because the mirror resolves the sibling

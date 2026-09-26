@@ -6,9 +6,10 @@ description: >-
   dkj-claude-plugins -- it refuses to run anywhere else -- both chapters: copy the asana-mirror CI
   mechanism into .github/, propose the Asana config seam for scripts/repo-config.ps1, print the repo
   secret and variables the CI needs, check that the classification labels exist, report whether the
-  board's sections are numbered so the stage model can read them, and scaffold chapter two's
-  dkj-policy-bwj/SYNC-LOG.md with its masthead, ready for the first sync branch. Strictly additive
-  and dry-run by default; it never overwrites an existing file, and it renames nothing on the board.
+  board's sections are numbered so the stage model can read them, write the BWJ extension import into
+  CLAUDE.md, and scaffold chapter two's dkj-policy-bwj/SYNC-LOG.md with its masthead, ready for the
+  first sync branch. Strictly additive and dry-run by default; it never overwrites an existing file,
+  only adds the one import line to CLAUDE.md, and it renames nothing on the board.
   Run this right after enabling the plugin, or when report-issue reports the Asana config seam
   missing.
 ---
@@ -509,18 +510,32 @@ the model reads a stale column -- which looks exactly like a board that works.
 
 ## 6 -- point the repo's governance at the rule
 
-Import the BWJ extension of the constitution in the repo's `CLAUDE.md`, on the line **directly
-below** the `dkj-policy` import that `adopt-dkj-policy` asks for
+The repo's `CLAUDE.md` imports the BWJ extension of the constitution on the line **directly below**
+the `dkj-policy` import that `adopt-dkj-policy` writes
 ([#2374](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2374)):
 
 ```
 @~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md
 ```
 
+**This step writes that line** ([#2532](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2532)).
+It used to ask a person to add it, and #2531 measured what that costs for the constitution line: a
+consumer ran for weeks without the rules in context. Run it dry first, then with `-Apply`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-extension-import.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-extension-import.ps1" -Apply
+```
+
+It puts the line directly below the constitution import. Without one it goes where the constitution
+would, so a later `adopt-dkj-policy` still lands the constitution above it. It takes the marketplace
+name the repo's clone sits under, keeps the file's line endings and byte-order mark, and writes
+nothing when the line is already imported, under any marketplace name or through a file `CLAUDE.md`
+imports. A line quoted inside a code fence counts neither as imported nor as a place to insert.
+
 That file points at all four chapters, so a session reads the BWJ rules the same way it reads the
-constitution. Where the repo's clone sits under an older marketplace name, use that name, as the
-`dkj-policy` import does. Remove any older line that pointed at `WORKFLOW-portable.md` directly,
-because the extension replaces it.
+constitution. **The one thing left to you:** remove any older line that pointed at
+`WORKFLOW-portable.md` directly, because the extension replaces it. The script only adds.
 
 ## 7 -- scaffold the sync-log folder (chapter two)
 
