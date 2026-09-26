@@ -109,7 +109,7 @@ try {
     Assert-Equal $Ext $c4Lines[2] 'the extension lands above the first import, where the constitution would'
     # The other order of the two adoptions: adopt-dkj-policy running afterwards must still put the
     # constitution first. Same call adopt-workflow-folder.ps1 makes.
-    Add-ClaudeMdImportLine -Path $c4Md -Line $Const -ImportedPattern '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$' -Apply | Out-Null
+    Add-ClaudeMdImportLine -Path $c4Md -Root $c4 -Line $Const -ImportedPattern '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$' -Apply | Out-Null
     $c4Lines = Get-Lines $c4Md
     Assert-Equal "$Const|$Ext" (($c4Lines[2], $c4Lines[3]) -join '|') 'a later constitution write lands directly above the extension'
 

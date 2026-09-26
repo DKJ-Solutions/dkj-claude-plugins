@@ -507,6 +507,28 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE REPARSE-POINT GUARD (#2533), checked before every write into a file a consumer already
+            # has. A leaf with no dependencies, mirrored into each plugin that carries such a writer:
+            # dkj-policy (adopt-workflow-folder, claude-md-import-lib), dkj-policy-bwj
+            # (claude-md-import-lib-bwj) and dkj-subagents-alpha (specialists-init's bootstrap.ps1).
+            Name    = 'write-target-lib'
+            Source  = 'scripts\lib\write-target-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'write-target-lib-bwj'
+            Source  = 'scripts\lib\write-target-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'write-target-lib-alpha'
+            Source  = 'scripts\lib\write-target-lib.ps1'
+            Plugin  = 'dkj-subagents-alpha'
+            LibOnly = $true
+        },
+        @{
             # Get-NextFenceState for claude-md-import-lib-bwj's writer (#2532); nothing else in
             # dkj-policy-bwj loads it.
             Name    = 'measure-context-lib-bwj'
