@@ -812,7 +812,7 @@ function Add-ResolvesBlock {
     $level = 2
     $fence = ''
     foreach ($line in ($Body -split "\r?\n")) {
-        $was = $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
         if ($was -or $fence) { continue }
         $m = [regex]::Match($line, '^(#+)\s+\S')
         if ($m.Success) { $level = [Math]::Min(6, $m.Groups[1].Value.Length); break }

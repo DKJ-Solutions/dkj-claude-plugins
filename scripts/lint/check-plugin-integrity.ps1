@@ -1030,7 +1030,7 @@ function Get-HeadingSlugs {
     $counts = @{}
     $fence = ''
     foreach ($line in $lines) {
-        $was = $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
         if ($was -or $fence) { continue }
         if ($line -match '^#{1,6}\s+(.*)$') {
             $base = ConvertTo-GhSlug -Text $Matches[1]
@@ -1845,7 +1845,7 @@ function Get-FenceMaskedText {
     $parts = [regex]::Split($Text, '(\r\n|\r|\n)')
     $fence = ''
     for ($k = 0; $k -lt $parts.Length; $k += 2) {
-        $was = $fence; $fence = Get-NextFenceState -Line $parts[$k] -Fence $fence -AnyIndent
+        $was = Resolve-FenceState -Line $parts[$k] -Fence $fence; $fence = Get-NextFenceState -Line $parts[$k] -Fence $fence -AnyIndent
         if ($was -or $fence) {
             $parts[$k] = ($parts[$k] -replace '.', ' ')
         }
@@ -2254,7 +2254,9 @@ foreach ($lf in ($lifecycleFiles | Sort-Object -Unique)) {
     $blockBody = @()
     $blockLine = 0
     for ($i = 0; $i -lt $irLines.Count; $i++) {
-        $was = $fence; $fence = Get-NextFenceState -Line $irLines[$i] -Fence $fence -AnyIndent
+        # A deep block ended by its indent (#2542) never reads as a close here, so it goes unjudged: it is an
+        # indented code block on GitHub, not a fence, and the next opener resets the state.
+        $was = Resolve-FenceState -Line $irLines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $irLines[$i] -Fence $fence -AnyIndent
         if ($was -xor $fence) {
             if ($fence) {
                 $blockBody = @()
@@ -2814,7 +2816,9 @@ foreach ($rel in $consumerDocs) {
     $open = -1
     $fence = ''
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        $was = $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
+        # A deep block ended by its indent (#2542) never reads as a close here, so it goes unjudged: it is an
+        # indented code block on GitHub, not a fence, and the next opener resets the state.
+        $was = Resolve-FenceState -Line $lines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
         if (-not $was -and $fence) { $open = $i; continue }
         if (-not $was -or $fence) { continue }
         $close = $i
@@ -2900,7 +2904,7 @@ foreach ($rel in $consumerDocs) {
     # also flag command output that is deliberately verbatim.
     $fence = ''
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        $was = $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
+        $was = Resolve-FenceState -Line $lines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
         if ($was -or $fence) { continue }
         if ($lines[$i] -notmatch $figurePattern) { continue }
         $figureChecked++

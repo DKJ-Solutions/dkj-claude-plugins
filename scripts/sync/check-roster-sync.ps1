@@ -483,7 +483,7 @@ function Get-MarkdownImports {
     $found = @()
     $fence = ''
     foreach ($line in ($Text -split "`r?`n")) {
-        $was = $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
         if ($was -or $fence) { continue }
         $m = [regex]::Match($line, '^\s*@(?<p>[^\s`]+\.md)\s*$')
         if ($m.Success) { $found += $m.Groups['p'].Value }
