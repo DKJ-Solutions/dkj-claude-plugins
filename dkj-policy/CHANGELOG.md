@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**6 / 23 minor entries** <!-- pending-tally -->
+**6 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2508-asana-delete-reads-state · 20260926-081811Z
+
+An agent no longer offers or deletes an Asana task on the strength of the GitHub issue alone
+([#2508](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2508)). The ticket chapter now
+requires it to read the task first: whether it is completed, whether it has human comments, which
+projects it sits in, and who created it. A task that is completed or carries a human comment is never
+offered for deletion. The card is unlinked from the issue instead. Every other offer shows that state
+beside the title. `report-issue` points to the rule where it used to say that a wrong card is deleted
+by hand. This prevents a repeat of the `smartwatchbanden` case, where a colleague's completed request was
+deleted and nobody noticed for two days.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a working rule for the agent in a BWJ repo; no subscriber of a service runs anything new.
+
+**Score:** N/A
+
+#### Pull Request
+
+An Asana task is read before it is offered for deletion
+
+Plugins: dkj-policy-bwj
+
+[PR #2512](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2512)
+
+---
 
 ### DEPLOY: fix/2505-statusline-additive-write · 20260925-150200Z
 
