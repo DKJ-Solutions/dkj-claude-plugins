@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**9 / 40 minor entries** <!-- pending-tally -->
+**9 / 41 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2540-guard-created-write-targets · 20260926-184915Z
+
+The adoption commands no longer create files through a symlink or junction. `adopt-workflow-folder` and
+`specialists-init`'s bootstrap tested whether a file they were about to create existed with `Test-Path`,
+which follows a reparse point. So a junctioned `.github/`, `dkj-policy/`, `.claude/specialists/` or
+`scripts/` had the new file written outside the repo, and a dangling symlink at the target read as
+absent, so the write created whatever it pointed at. Every such create now goes through
+`Get-WriteTargetReparsePoint` first, as the writes into existing files have since #2533. A hit is
+reported as `[refused]`, the file is left for placing by hand, and the run's summary counts the
+refusals. The rest of the run carries on. Bootstrap also no longer creates a missing lens directory
+through a junction. The two `.claude/settings.*` suggestion files are not covered yet (#2545).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+Adoption writes that create a file refuse a symlink or junction too
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2547](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2547)
+
+---
 
 ### DEPLOY: fix/2542-deep-fence-closes-on-dedent · 20260926-181635Z
 
