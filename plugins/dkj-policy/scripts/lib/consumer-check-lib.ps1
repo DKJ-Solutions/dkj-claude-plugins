@@ -161,7 +161,7 @@ function Get-ConstitutionImportLine {
             # A SLUG OR NOTHING. The segment is the name a repo's own committed settings.json registered
             # the marketplace under, and this line is forwarded into session context by the hook -- so
             # anything but a plain slug falls back to the canonical name rather than being printed.
-            if ($parts[$i + 1] -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { $marketplace = $parts[$i + 1] }
+            if ($parts[$i + 1] -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z') { $marketplace = $parts[$i + 1] }
             break
         }
     }
