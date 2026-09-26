@@ -1112,7 +1112,7 @@ $importBlock
 # recommending a configuration it could not see. Keep the two in step: widening this hint again means
 # widening Get-SettingsChainPaths first.
 $claudeDir = Join-Path $ConsumerRoot '.claude'
-if (-not (Test-Path -LiteralPath $claudeDir)) { New-Item -ItemType Directory -Path $claudeDir -Force | Out-Null }
+New-DirectoryInside $claudeDir
 # BOTH artifact names come from Get-SettingsArtifactNames, so this writer and specialists-teardown's
 # remover cannot drift apart -- see that function for why a name typed twice is the shape this repo has
 # already been bitten by three times. The fallback keeps a missing lib from stopping the one script whose
@@ -1255,7 +1255,14 @@ $denyJsonc
 # nothing (inbound #363). Same defect the #337.2 warning names for CLAUDE.md, one file over -- and that
 # warning does not cover this one, so nothing pointed at it.
 $suggestion = $suggestion.TrimEnd("`r", "`n") + "`n"
-[System.IO.File]::WriteAllText($suggestPath, $suggestion, $Utf8NoBom)
+# NEVER THROUGH A SYMLINK OR JUNCTION (issue #2545), like every other file this run writes: a junctioned
+# .claude/ would put both proposals outside the repo. A refusal leaves $suggestWritten false, and every
+# line below that names the file reads it rather than assuming the write happened.
+$suggestWritten = $false
+if (-not (Test-WriteRefused -Path $suggestPath -Label $settingsArtifacts.Suggested)) {
+    [System.IO.File]::WriteAllText($suggestPath, $suggestion, $Utf8NoBom)
+    $suggestWritten = $true
+}
 # The FULL path, not the relative name (#241). This file is the one artifact that can go completely
 # unnoticed: many consumers gitignore '.claude/*' (measured in davekokbwj/smartwatchbanden), so it
 # never shows up in 'git status' and 'git checkout .' does not clean it up either -- an operator
@@ -1281,16 +1288,19 @@ function Test-PathGitIgnored([string]$Root, [string]$Path) {
     } catch { }
     return $null   # git absent or erroring: say so, rather than claiming either way
 }
-$suggestIgnored = Test-PathGitIgnored -Root $ConsumerRoot -Path $suggestPath
+$suggestIgnored = $null
+if ($suggestWritten) {
+    $suggestIgnored = Test-PathGitIgnored -Root $ConsumerRoot -Path $suggestPath
 
-$suggestNote = if ($suggestIgnored -eq $true) {
-    'gitignored in this repo, so this path is your only pointer to it'
-} elseif ($suggestIgnored -eq $false) {
-    'NOT gitignored in this repo, so it will show up in git status until you delete it'
-} else {
-    'gitignored in many repos, so this path may be your only pointer to it'
+    $suggestNote = if ($suggestIgnored -eq $true) {
+        'gitignored in this repo, so this path is your only pointer to it'
+    } elseif ($suggestIgnored -eq $false) {
+        'NOT gitignored in this repo, so it will show up in git status until you delete it'
+    } else {
+        'gitignored in many repos, so this path may be your only pointer to it'
+    }
+    Write-Host "  [create] $suggestPath placed (annotated proposal -- not active; $suggestNote)." -ForegroundColor Green
 }
-Write-Host "  [create] $suggestPath placed (annotated proposal -- not active; $suggestNote)." -ForegroundColor Green
 
 function Format-JsonIndented {
     <# Re-indent COMPRESSED JSON with two spaces per level. Windows PowerShell 5.1's own pretty-printer
@@ -1492,29 +1502,33 @@ if ($settingsRefusal) {
         if ($code -lt 0x20) { return $text }
         return $slashes.Substring(0, $slashes.Length - 1) + [string][char]$code
     })
-    [System.IO.File]::WriteAllText($proposedPath, ((Format-JsonIndented -Json $proposedJson).TrimEnd("`r", "`n") + "`n"), $Utf8NoBom)
-    $proposedWritten = $true
+    # Refused through a symlink or junction (#2545): $proposedWritten stays false, so the next steps give
+    # the no-merged-file instruction, and nothing below claims a file that was never placed.
+    if (-not (Test-WriteRefused -Path $proposedPath -Label $settingsArtifacts.Proposed)) {
+        [System.IO.File]::WriteAllText($proposedPath, ((Format-JsonIndented -Json $proposedJson).TrimEnd("`r", "`n") + "`n"), $Utf8NoBom)
+        $proposedWritten = $true
 
-    # SAY WHICH CASE THIS IS, rather than promising preservation in a repo that had nothing to preserve.
-    # 'your keys are kept' is reassuring and, on a repo whose enable sits in settings.local.json or the
-    # user layer, simply not a statement about anything -- and a reader who trusts it stops checking.
-    $carried = @($existingSettings.PSObject.Properties | ForEach-Object { $_.Name } | Where-Object { $_ -ne 'permissions' })
-    $carriedNote = if ($carried.Count -gt 0) {
-        "your settings.json plus the permissions -- it keeps $($carried -join ', ')"
-    } else {
-        'permissions only -- .claude/settings.json holds nothing else here, so there was nothing to carry over'
-    }
-    Write-Host "  [create] $proposedPath placed (merged, strict JSON, ready to replace settings.json: $carriedNote)." -ForegroundColor Green
+        # SAY WHICH CASE THIS IS, rather than promising preservation in a repo that had nothing to preserve.
+        # 'your keys are kept' is reassuring and, on a repo whose enable sits in settings.local.json or the
+        # user layer, simply not a statement about anything -- and a reader who trusts it stops checking.
+        $carried = @($existingSettings.PSObject.Properties | ForEach-Object { $_.Name } | Where-Object { $_ -ne 'permissions' })
+        $carriedNote = if ($carried.Count -gt 0) {
+            "your settings.json plus the permissions -- it keeps $($carried -join ', ')"
+        } else {
+            'permissions only -- .claude/settings.json holds nothing else here, so there was nothing to carry over'
+        }
+        Write-Host "  [create] $proposedPath placed (merged, strict JSON, ready to replace settings.json: $carriedNote)." -ForegroundColor Green
 
-    # THE MERGED FILE IS A COPY OF SETTINGS.JSON, SO IT INHERITS WHATEVER THAT FILE WAS HIDING. A repo
-    # that gitignores '.claude/settings.json' by name -- the usual reason being an 'env' block with a
-    # token in it -- has an ignore rule that does NOT match a new neighbouring path, so this run would
-    # otherwise drop an untracked, un-ignored second copy of that secret into the tree and say nothing.
-    # The bootstrap cannot know what is in there and must not guess, so it reports the fact rather than
-    # the risk, and only in the one combination where the two files disagree.
-    $proposedIgnored = Test-PathGitIgnored -Root $ConsumerRoot -Path $proposedPath
-    if ((Test-PathGitIgnored -Root $ConsumerRoot -Path $settingsPath) -eq $true -and $proposedIgnored -eq $false) {
-        Write-Host "  [notice] .claude/settings.json is gitignored here and the merged copy beside it is NOT -- it holds every key that file held. If it was ignored to keep something out of the repo, adopt the file and delete it before you commit, or extend the ignore rule to cover it." -ForegroundColor Yellow
+        # THE MERGED FILE IS A COPY OF SETTINGS.JSON, SO IT INHERITS WHATEVER THAT FILE WAS HIDING. A repo
+        # that gitignores '.claude/settings.json' by name -- the usual reason being an 'env' block with a
+        # token in it -- has an ignore rule that does NOT match a new neighbouring path, so this run would
+        # otherwise drop an untracked, un-ignored second copy of that secret into the tree and say nothing.
+        # The bootstrap cannot know what is in there and must not guess, so it reports the fact rather than
+        # the risk, and only in the one combination where the two files disagree.
+        $proposedIgnored = Test-PathGitIgnored -Root $ConsumerRoot -Path $proposedPath
+        if ((Test-PathGitIgnored -Root $ConsumerRoot -Path $settingsPath) -eq $true -and $proposedIgnored -eq $false) {
+            Write-Host "  [notice] .claude/settings.json is gitignored here and the merged copy beside it is NOT -- it holds every key that file held. If it was ignored to keep something out of the repo, adopt the file and delete it before you commit, or extend the ignore rule to cover it." -ForegroundColor Yellow
+        }
     }
 }
 
@@ -1576,14 +1590,25 @@ $reminderTemplate = if ($bothIgnored -eq $true) { 'gitignored here, so git will 
 # (#363 the hook stub, #1075 what the permissions block now does, #1097 the comments) and none of them
 # made the file pasteable. Now there IS a pasteable file, so the step names the replacement first and
 # keeps the caveats only for the reader who declines it.
-if ($proposedWritten) {
+# FOUR CASES, NOT TWO (#2545): either proposal can be refused on its own -- a symlink at one leaf -- and
+# the merged one can also be missing for its own reason (the [notice] above), so each branch names only
+# the files that were actually written and claims no single cause for a file that was not.
+if ($proposedWritten -and $suggestWritten) {
     Write-Host "  3. Replace .claude/settings.json with $proposedPath -- one move, no merging. Then delete both proposals ($($reminderTemplate -f 'them'))." -ForegroundColor Gray
     Write-Host "     That file is your settings.json with the permissions already folded in: strict JSON," -ForegroundColor Gray
     Write-Host "     no comments to strip, no hooks stub, and every key you had is still in it. The" -ForegroundColor Gray
     Write-Host "     annotated $(Split-Path -Leaf $suggestPath) stays for WHY each rule is there." -ForegroundColor Gray
+} elseif ($proposedWritten) {
+    Write-Host "  3. Replace .claude/settings.json with $proposedPath -- one move, no merging. Then delete it ($($reminderTemplate -f 'it'))." -ForegroundColor Gray
+    Write-Host "     That file is your settings.json with the permissions already folded in: strict JSON," -ForegroundColor Gray
+    Write-Host "     no comments to strip, no hooks stub, and every key you had is still in it. The annotated" -ForegroundColor Gray
+    Write-Host "     proposal was NOT written -- see the [refused] line above." -ForegroundColor Gray
+} elseif (-not $suggestWritten) {
+    Write-Host "  3. No settings proposal was written this run -- see the [refused] and [notice] lines above for" -ForegroundColor Gray
+    Write-Host "     why each one was not. Resolve what they name, then re-run this bootstrap for them." -ForegroundColor Gray
 } else {
     Write-Host "  3. Copy desired parts from $suggestPath to settings.json and delete proposal ($($reminderTemplate -f 'it'))." -ForegroundColor Gray
-    Write-Host "     No merged file was written this run -- see the [notice] above -- so this one IS a" -ForegroundColor Gray
+    Write-Host "     No merged file was written this run -- see the [notice] or [refused] line above -- so this one IS a" -ForegroundColor Gray
     Write-Host "     hand-merge. Keep 'enabledPlugins' and 'extraKnownMarketplaces': they are already in" -ForegroundColor Gray
     Write-Host "     settings.json, they are what makes the plugins load, and the proposal does not" -ForegroundColor Gray
     Write-Host "     contain them. Overwrite the file with the proposal and you lose both silently." -ForegroundColor Gray

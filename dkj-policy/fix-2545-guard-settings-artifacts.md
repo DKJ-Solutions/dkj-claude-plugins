@@ -50,10 +50,12 @@ consumer's `settings.json`, so it is the one that matters most.
 - [x] `.claude/` is created through `New-DirectoryInside`, so never through a junction
 - [x] each proposal is written only when `Test-WriteRefused` passes; `$suggestWritten` / `$proposedWritten` record which were, and the `[create]` line, the git-ignore reading and the settings.json ignore notice run only for a file that was written
 - [x] next steps: step 3 gets a branch for when neither proposal was written, and the hand-merge branch points at a `[refused]` line as well as a `[notice]`
+- [x] after Victor's review: step 3 has four cases rather than two. Only the annotated proposal refused now reads "delete it" and says the annotated file was not written; neither written names the `[refused]` and `[notice]` lines instead of claiming a junction as the one cause
 
 ### TEST
 
-- [x] `bootstrap-drift.tests.ps1`: `.claude/` itself a junction -- nothing lands outside, both proposals are reported refused and neither is announced as placed, and step 3 says there is nothing to copy from (227 asserts green)
+- [x] `bootstrap-drift.tests.ps1`: `.claude/` itself a junction -- nothing lands outside, both proposals are reported refused and neither is announced as placed, and step 3 says there is nothing to copy from; and only the annotated leaf a reparse point -- the merged proposal is still written and step 3 names one proposal, not both (234 asserts green)
+- [x] Victor (code review) and Sebastian (security review): Victor's step-3 finding repaired above; Sebastian found the read side of the merge unguarded, outside this diff, filed as #2549
 - [x] `teardown.tests.ps1` and `test-suite-gate.tests.ps1` green; `check-plugin-integrity.ps1`: 0 errors
 
 ### DEPLOY: fix/2545-guard-settings-artifacts
