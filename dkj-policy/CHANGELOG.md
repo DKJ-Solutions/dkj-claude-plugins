@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**7 / 27 minor entries** <!-- pending-tally -->
+**7 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2520-ascii-allowlists-case-sensitive · 20260926-103156Z
+
+The workflow scripts' ASCII allowlists no longer let a look-alike letter through
+([#2520](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2520)). They follow the paste-safe
+guards #2516 repaired. Branch names, plugin and marketplace slugs, GitHub logins and `owner/name` slugs,
+scratch-path labels, and paths cited in an issue body were all checked against an explicit ASCII class
+with a case-insensitive match. So the Kelvin sign (U+212A) passed as `k`, and the "lowercase" plugin-name
+check admitted upper case. Every one now matches case-sensitively. Every plain-ASCII value that
+was valid before is still valid. The only newly refused values are non-ASCII look-alikes and upper
+case where a check says lowercase.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- internal guards in the workflow scripts; no subscriber of a service runs anything new.
+
+**Score:** N/A
+
+#### Pull Request
+
+The ASCII allowlists match case-sensitively, so the Kelvin sign is refused
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2523](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2523)
+
+---
 
 ### DEPLOY: fix/2516-paste-safe-case-sensitive · 20260926-095203Z
 
