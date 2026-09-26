@@ -152,8 +152,8 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs and `dossier`), so adopting the convention costs one command
-instead of five typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `dossier` and `needs-decision`), so adopting the convention
+costs one command instead of six typed by hand.
 
 **`dossier` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A dossier gathers every
@@ -171,6 +171,23 @@ it carries a `prio-N` of its own like any other issue. Three things follow from 
 - **The dossier is closed only when the root cause is repaired.** The closing comment names that repair,
   so a reader of the thread can see which of its instances the repair explains. Because `open-pr` refuses
   to close it, even that PR ships with `-NoResolves`, and the dossier is closed by hand after the merge.
+
+**`needs-decision` parks an issue that ends in the owner's choice, and it is set when the issue is filed**
+(Dave, September 26, 2026, [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)).
+A finding whose next step is a decision rather than a repair (*reuse A or introduce B*) is filed like any
+other, with its `prio-N`, and carries `needs-decision` from the moment it is created. That is the label
+both pickup routes skip by default: `claim-issue <n>` warns that the issue is parked instead of saying the
+work starts, and `sweep-issues` leaves it alone. The owner removes the label when they answer, and the
+answer goes on the issue as a comment, so whoever picks it up next finds the decision in the thread
+rather than in a conversation that has since been cleared.
+
+- **It is not `needs-info`.** Where [`dkj-policy-bwj`](dkj-policy-bwj/WORKFLOW-portable.md) is installed,
+  `needs-info` means *blocked on the submitter*: it moves the mirrored Asana card to the blocked column and
+  obliges a question comment addressed to the person who filed it. Neither is true of a decision that is
+  the owner's, so the two labels stay separate, and both are skipped.
+- **An issue that is only the question has one answer route.** Once the owner answers, the label comes off
+  and the issue is ordinary work. Where the answer is *"neither"*, the issue closes as `not_planned` with
+  that reason.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where

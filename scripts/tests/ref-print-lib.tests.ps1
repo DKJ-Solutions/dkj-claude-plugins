@@ -742,6 +742,22 @@ Assert-True  (-not (Test-PathPasteSafe -Path 'C:\Users\Ada Lovelace\x')) '...and
 Assert-True  (-not (Test-PathPasteSafe -Path '')) 'an empty path is not paste-safe'
 Assert-True  (-not (Test-PathPasteSafe -Path $null)) 'a null path is not paste-safe'
 
+# --- a case-folded look-alike letter is refused on both axes (#2516) ------------------------------
+# U+212A KELVIN SIGN folds to `k` under case-insensitive matching, so the plain -match these two guards
+# used to run judged it inside [A-Za-z0-9]. git accepts it in a branch name, so it is reachable through
+# a ref, not only through a seam answer. Written as a code point: the script layer is ASCII.
+Write-Host ''
+Write-Host 'A case-folded look-alike letter -- refused on both axes (#2516)' -ForegroundColor Cyan
+
+$kelvin = [string][char]0x212A
+Assert-True  (-not ($kelvin -cmatch '^[A-Za-z0-9]$')) 'the premise: the Kelvin sign is not an ASCII letter under a case-sensitive match'
+Assert-True  (-not (Test-RefPasteSafe -Ref ('fix/' + $kelvin)))  'Test-RefPasteSafe refuses a ref carrying the Kelvin sign'
+Assert-True  (-not (Test-RefPasteSafe -Ref $kelvin))             '...and a ref that IS the Kelvin sign, where the first-character pin applies'
+Assert-True  (-not (Test-PathPasteSafe -Path ('assets/' + $kelvin + '.css'))) 'Test-PathPasteSafe refuses a path carrying the Kelvin sign'
+Assert-True  (-not (Get-PasteableRef -Ref ('fix/' + $kelvin)).IsSafe) '...and Get-PasteableRef does not hand it to a command'
+Assert-True  (Test-RefPasteSafe -Ref 'Fix/K-Upper')              'case-sensitive matching still admits an upper-case ASCII ref'
+Assert-True  (Test-PathPasteSafe -Path 'C:\Users\Dave\X')        '...and an upper-case ASCII path'
+
 # --- the four sync-main sites the two issues measured ---------------------------------------------
 Write-Host ''
 Write-Host 'The path call sites in sync-main.ps1' -ForegroundColor Cyan

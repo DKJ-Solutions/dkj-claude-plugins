@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
     Reports which of this workflow's canonical triage labels (the priority rungs 'prio-1' through
-    'prio-4', plus the 'dossier' kind label, #2462) this repository's tracker is missing, and prints a
-    paste-ready `gh label create` line for each one -- never creates a label itself. Issue #1895, split from #1843.
+    'prio-4', plus the 'dossier' kind label, #2462, and the 'needs-decision' parking label, #2519)
+    this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
+    -- never creates a label itself. Issue #1895, split from #1843.
 
 .DESCRIPTION
     THE GAP THIS CLOSES. `.claude/specialists/lenses/specialist-01-01-lens.md` (this workflow's own source
@@ -136,6 +137,8 @@ $builtInTriageLabels = @(
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     # Not a rung: the kind label for a collecting issue (#2462) -- see Get-TriageLabels' own comment.
     [pscustomobject]@{ Name = 'dossier'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
+    # Not a rung either: the parking label for an issue awaiting the owner's choice (#2519).
+    [pscustomobject]@{ Name = 'needs-decision'; Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
 )
 
 # @(...) WRAPS THE WHOLE if/else, NOT JUST EACH BRANCH -- the trap this repo's own manual catalogues
@@ -188,8 +191,8 @@ function Format-SingleQuotedArg {
         single quote -- the exact escape PowerShell itself reads back as one literal quote inside a
         '...' string.
 
-        WHY THIS EXISTS AT ALL (security review finding on issue #1895's own PR). The five BUILT-IN
-        canonical labels happen to carry no apostrophe, which is why this bug shipped unnoticed through
+        WHY THIS EXISTS AT ALL (security review finding on issue #1895's own PR). The BUILT-IN canonical
+        labels carried no apostrophe at first, which is why this bug shipped unnoticed through
         this script's own first test pass: nothing exercised it. But Get-TriageLabels is
         Adopt = 'copy' and Optional, which means a consumer is free to answer the seam with their own
         Name/Color/Description -- arbitrary free text, and test 6 in adopt-triage-labels.tests.ps1
@@ -198,7 +201,8 @@ function Format-SingleQuotedArg {
         composed `gh label create` line, and the rest of that line would spill out as separate,
         unintended shell tokens the moment a person pastes it -- which is the entire point of this
         script: it never runs the command itself, so the printed line IS the product, and it has to be
-        safe to paste unmodified.
+        safe to paste unmodified. Since #2519 a built-in label carries one too ('needs-decision': the
+        owner's choice), so the canonical set itself now exercises the escape, not only a consumer's answer.
 
         NOT NEEDED ON THE '[ok]'/'[missing]' DISPLAY LINES, deliberately: those are prose read by a
         person, never composed into something a shell parses, so escaping there would only make an
@@ -250,7 +254,7 @@ foreach ($label in $triageLabels) {
     Write-Host "  [missing] '$($label.Name)' -- $($label.Description)" -ForegroundColor Yellow
     # ESCAPED HERE, AND ONLY HERE (see Format-SingleQuotedArg's own docstring): this is the one line
     # that composes an actual command a person pastes, and Name/Color/Description all come from
-    # $triageLabels -- the built-in five today, but a consumer's own free-text Get-TriageLabels answer
+    # $triageLabels -- the built-in six today, but a consumer's own free-text Get-TriageLabels answer
     # tomorrow, which test 6 in adopt-triage-labels.tests.ps1 proves fully replaces them.
     $qName = Format-SingleQuotedArg -Value $label.Name
     $qColor = Format-SingleQuotedArg -Value $label.Color

@@ -71,7 +71,7 @@ function Test-GitHubLoginShape {
     #>
     param([string]$Value)
     if (-not $Value) { return $false }
-    return ($Value -match '^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$')
+    return ($Value -cmatch '^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$')
 }
 
 function ConvertFrom-GhAuthStatus {

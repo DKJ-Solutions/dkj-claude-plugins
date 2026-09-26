@@ -248,7 +248,7 @@ function Resolve-BwjPagesConfig {
                    "dashboard rather than from memory.")
         }
     }
-    if ($baseUrl -notmatch '^https://[A-Za-z0-9.-]+$') {
+    if ($baseUrl -cnotmatch '^https://[A-Za-z0-9.-]+$') {
         throw ("Get-BwjPagesConfig's BaseUrl is not the worker's origin: '$baseUrl'. It is a scheme " +
                "and a host and nothing else -- no path, no query, no trailing slash -- because the " +
                "path is this lib's to build. https is not negotiable: the token in the path IS the " +

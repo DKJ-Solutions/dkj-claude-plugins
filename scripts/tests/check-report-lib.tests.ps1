@@ -1381,6 +1381,21 @@ finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }
 
+# --- the slug allowlists match case-SENSITIVELY (#2520) -------------------------------------------
+# U+212A KELVIN SIGN folds to `k` under a plain -match, so an explicit ASCII class admitted it; and the
+# "lowercase" plugin-name check admitted upper case outright. Written as a code point: ASCII script layer.
+Write-Host ''
+Write-Host 'Slug allowlists -- case-sensitive, so a case-folded look-alike is refused (#2520)' -ForegroundColor Cyan
+$kelvin = [string][char]0x212A
+Assert-True (-not (Test-PluginNameSlug -Name ('dkj-' + $kelvin))) 'Test-PluginNameSlug refuses a name carrying the Kelvin sign'
+Assert-True (-not (Test-PluginNameSlug -Name 'ABC')) '...and refuses upper case, which a lowercase slug check must'
+Assert-True (Test-PluginNameSlug -Name 'dkj-policy') '...and still admits a real plugin name'
+Assert-True (-not (Test-PluginMarketplaceSlug -Marketplace ('mar' + $kelvin + 'et'))) 'Test-PluginMarketplaceSlug refuses the Kelvin sign'
+Assert-True (Test-PluginMarketplaceSlug -Marketplace 'Dkj-Claude.Plugins_2') '...and still admits mixed-case ASCII'
+Assert-True (-not (Test-GitHubOwnerNameSlug -Slug ('DKJ-Solutions/' + $kelvin)).Ok) 'Test-GitHubOwnerNameSlug refuses a name carrying the Kelvin sign'
+Assert-True (-not (Test-GitHubOwnerNameSlug -Slug ($kelvin + '/repo')).Ok) '...and an owner carrying it'
+Assert-True (Test-GitHubOwnerNameSlug -Slug 'DKJ-Solutions/dkj-claude-plugins').Ok '...and still admits this repo'
+
 Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 if ($script:fail -gt 0) { exit 1 }

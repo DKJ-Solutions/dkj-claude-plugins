@@ -2,7 +2,182 @@
 
 ## [Unreleased]
 
-**6 / 23 minor entries** <!-- pending-tally -->
+**7 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2519-needs-decision-parking-label · 20260926-104922Z
+
+`adopt-triage-labels` now also prints a `gh label create` line for `needs-decision`, a parking label for an
+issue that ends in the owner's choice. `claim-issue <n>` skips it by default next to `needs-info`: it warns
+that the issue is parked instead of saying the work starts. `sweep-issues` skips both.
+`CONTRIBUTING-portable.md` now says to set the label when such an issue is filed. It is a separate
+label because `needs-info` already means *blocked on the submitter* in `dkj-policy-bwj`, where it moves
+the mirrored Asana card to the blocked column.
+
+Tier 0 is scored for a session filing an issue that ends in a decision, or picking one up. Until now the
+filing rule named no label for it, so the decision stayed in prose and a pickup went straight past it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. It is a label definition, a filing convention and a default skip list, and nothing reaches a
+subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+A needs-decision parking label for an issue awaiting the owner's choice
+
+Plugins: dkj-policy
+
+[PR #2524](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2524)
+
+---
+
+### DEPLOY: fix/2520-ascii-allowlists-case-sensitive · 20260926-103156Z
+
+The workflow scripts' ASCII allowlists no longer let a look-alike letter through
+([#2520](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2520)). They follow the paste-safe
+guards #2516 repaired. Branch names, plugin and marketplace slugs, GitHub logins and `owner/name` slugs,
+scratch-path labels, and paths cited in an issue body were all checked against an explicit ASCII class
+with a case-insensitive match. So the Kelvin sign (U+212A) passed as `k`, and the "lowercase" plugin-name
+check admitted upper case. Every one now matches case-sensitively. Every plain-ASCII value that
+was valid before is still valid. The only newly refused values are non-ASCII look-alikes and upper
+case where a check says lowercase.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- internal guards in the workflow scripts; no subscriber of a service runs anything new.
+
+**Score:** N/A
+
+#### Pull Request
+
+The ASCII allowlists match case-sensitively, so the Kelvin sign is refused
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2523](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2523)
+
+---
+
+### DEPLOY: fix/2516-paste-safe-case-sensitive · 20260926-095203Z
+
+The two shared "safe to paste" guards no longer let a look-alike letter through
+([#2516](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2516)). `Test-RefPasteSafe` and
+`Test-PathPasteSafe` matched their ASCII allowlists case-insensitively. Under case folding the Kelvin
+sign (U+212A) matches `k`, so a branch name or path carrying it was judged safe to print into a command
+line. Git accepts that character in a branch name. Both guards now match case-sensitively, like
+`live-preflight`'s newer check already did. Every plain-ASCII value that passed before still passes.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- an internal guard in the workflow scripts; no subscriber of a service runs anything new.
+
+**Score:** N/A
+
+#### Pull Request
+
+The paste-safe guards match case-sensitively, so the Kelvin sign is refused
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2522](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2522)
+
+---
+
+### DEPLOY: fix/2518-claim-issue-reads-parking-label · 20260926-094216Z
+
+`claim-issue` on a single issue now reads the issue's labels. Where one parks the issue with somebody
+else -- `needs-info` by default, the label `sweep-issues` already skips on; `-SkipLabel` replaces the
+default -- it prints a `PARKED:` verdict, and the closing `[OK]` points at that verdict instead of
+saying *the work starts here*. It still claims: a label can be stale, so this warns and never refuses
+([#2518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2518)). Which label an owner's
+open choice should carry when it is filed is
+[#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a pickup step inside the workflow; no subscriber of a service sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+claim-issue warns when the named issue carries a parking label
+
+Plugins: dkj-policy
+
+[PR #2521](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2521)
+
+---
+
+### DEPLOY: fix/2514-live-push-paths-paste-safe · 20260926-085714Z
+
+The live push command `live-preflight` prints can no longer carry a theme path that runs something
+when the line is pasted. Step 3 now refuses a push list holding a path outside letters (Latin accents
+included), digits, `.`, `_`, `/` and `-`, and names each such path with its control characters
+stripped. That happens before the backup, so a refused run costs no theme slot.
+`Format-LivePushCommand` throws on such a path too, so no other caller can print one. The check is
+`Get-LivePushUnsafePaths` in `live-push-rules.ps1`
+([#2514](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2514)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store running `live-preflight` is no longer handed a push command that could run a crafted theme
+filename such as `assets/$(calc.exe).css` when somebody pastes it. That filename can arrive through a
+theme-editor sync without anyone having push rights. Nothing has exploited this yet, and ordinary and
+accented filenames push exactly as before.
+
+**Score:** 1
+
+#### Pull Request
+
+live-preflight refuses a push list whose paths are not safe to paste
+
+Plugins: dkj-subagents-shopify
+
+[PR #2517](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2517)
+
+---
+
+### DEPLOY: docs/2508-asana-delete-reads-state · 20260926-081811Z
+
+An agent no longer offers or deletes an Asana task on the strength of the GitHub issue alone
+([#2508](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2508)). The ticket chapter now
+requires it to read the task first: whether it is completed, whether it has human comments, which
+projects it sits in, and who created it. A task that is completed or carries a human comment is never
+offered for deletion. The card is unlinked from the issue instead. Every other offer shows that state
+beside the title. `report-issue` points to the rule where it used to say that a wrong card is deleted
+by hand. This prevents a repeat of the `smartwatchbanden` case, where a colleague's completed request was
+deleted and nobody noticed for two days.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a working rule for the agent in a BWJ repo; no subscriber of a service runs anything new.
+
+**Score:** N/A
+
+#### Pull Request
+
+An Asana task is read before it is offered for deletion
+
+Plugins: dkj-policy-bwj
+
+[PR #2512](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2512)
+
+---
 
 ### DEPLOY: fix/2505-statusline-additive-write · 20260925-150200Z
 
