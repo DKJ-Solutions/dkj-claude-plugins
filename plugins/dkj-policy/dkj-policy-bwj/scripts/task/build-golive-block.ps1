@@ -250,7 +250,7 @@ if ($ProseArg) {
     try {
         $prose = ConvertFrom-GoLiveProse -Text ([System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $ProseArg).ProviderPath, [System.Text.Encoding]::UTF8))
     } catch {
-        Write-Host "[ERROR] -ProseFile: $($_.Exception.Message) Nothing written." -ForegroundColor Red
+        Write-Host "[ERROR] -ProseFile: $(Format-ForConsole -Text $_.Exception.Message) Nothing written." -ForegroundColor Red
         exit 1
     }
 }
@@ -354,7 +354,7 @@ if ($OutFileArg) {
     try {
         [System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($OutFileArg), $block, $utf8)
     } catch {
-        Write-Host "[ERROR] -OutFile '$OutFileArg' could not be written: $($_.Exception.Message) Nothing posted." -ForegroundColor Red
+        Write-Host "[ERROR] -OutFile '$OutFileArg' could not be written: $(Format-ForConsole -Text $_.Exception.Message) Nothing posted." -ForegroundColor Red
         exit 1
     }
     Write-Host "  written  : $OutFileArg (UTF-8 -- the faithful copy; the console above may have lost characters)" -ForegroundColor DarkGray
