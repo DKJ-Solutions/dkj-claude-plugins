@@ -13,10 +13,12 @@
 
     ONE PURE FUNCTION DOES THE JUDGING, REUSED RATHER THAN RESTATED: Get-MergeOnGreenStrandedVerdict in
     merge-on-green-lib.ps1 -- the same lib pick-merge-on-green.ps1 already dot-sources, holding the one
-    spelling of the arming label, the executed-path rule and the settle window. This script's own job is
-    only the three `gh` reads that function needs (which pull requests are armed, whether each one's
-    required checks are green, and since when) -- the identical reads pick-merge-on-green.ps1 already
-    makes, so a repo running this check sees exactly what the next sweep would see.
+    spelling of the arming label, the executed-path rule and the settle window. The `gh` reads that
+    function needs (which pull requests are armed, whether each one's required checks are green, and
+    since when) are the identical reads pick-merge-on-green.ps1 already makes, so a repo running this
+    check sees exactly what the next sweep would see -- and they are made by Invoke-BoundedPrScan
+    (pr-scan-lib.ps1, issue #2526), shared with check-unshipped-pr.ps1, so this script keeps only its
+    filter, its verdict and its prose.
 
     THREE WAYS THIS STAYS SILENT, DELIBERATELY, BECAUSE IT MUST NEVER BLOCK A SESSION START:
       - no .github/workflows/merge-on-green.yml in this repo -- the sweep this issue is about does not
@@ -155,6 +157,7 @@ if (-not (Get-ActiveGhAccount)) {
 # the explaining note when it may not -- ship-pr.ps1's own answer to a pushed branch name carrying a
 # shell metacharacter, reused rather than restated. Same unguarded dot-source as its siblings above.
 . (Join-Path $PSScriptRoot '..\lib\ref-print-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\pr-scan-lib.ps1')
 $configPath = if ($repoRoot) { Join-Path $repoRoot 'scripts\repo-config.ps1' } else { '' }
 if ($configPath -and (Test-Path -LiteralPath $configPath -PathType Leaf)) { . $configPath }
 
@@ -170,119 +173,45 @@ if (-not $repo) {
     exit 0
 }
 
-# THE TOTAL BUDGET STARTS HERE, not at the top of the script -- everything before this point is local
-# feature-detection (file existence, Get-Command, the keyring read), none of it network-bound, so
-# counting it would only make the budget less generous for no reason (issue #2438).
-$scanStart = Get-Date
+# THE BOUNDED SCAN IS SHARED WITH check-unshipped-pr.ps1 (issue #2526): the list read, the per-PR
+# required-check read, both budgets and the honest judged/unjudged split, the display scrub and the
+# checkout token live in Invoke-BoundedPrScan. What is this check's own is the filter (the arming label),
+# the verdict, and the prose. The --json fields are the picker's plus 'title', which only this check prints.
+$scan = Invoke-BoundedPrScan -Repo $repo -ListFilter @('--label', $label) `
+    -JsonFields 'number,headRefName,headRefOid,title,isDraft,mergeable,labels,isCrossRepository,files,changedFiles' `
+    -TimeoutSeconds $TimeoutSeconds -MaxElapsedSeconds $MaxElapsedSeconds -Judge {
+        param($Record, $MergeBlockVerdict, $GreenAgeMinutes)
+        $verdict = Get-MergeOnGreenStrandedVerdict -Record $Record -MergeBlockVerdict $MergeBlockVerdict -GreenAgeMinutes $GreenAgeMinutes -Label $label
+        if ($verdict.Stranded) { return @{} }
+        return $null
+    }
 
-# ONE READ, BOUNDED. The same --json fields the picker asks for, plus 'title' -- this check prints one,
-# the picker never needs to.
-$listRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -TimeoutSeconds $TimeoutSeconds -Arguments @(
-    'pr', 'list', '--state', 'open', '--label', $label, '--limit', '100', '--repo', $repo,
-    '--json', 'number,headRefName,headRefOid,title,isDraft,mergeable,labels,isCrossRepository,files,changedFiles')
-if (-not (Test-NativeCommandStarted -Capture $listRead) -or -not (Test-NativeExitMeasured -Capture $listRead) `
-        -or $listRead.TimedOut -or $listRead.ExitCode -ne 0) {
+if ($scan.Status -eq 'ListFailed') {
     # FAIL QUIET, NOT FAIL LOUD (this file's own docstring): offline, a rate limit, a transient outage --
     # none of it is a finding, and the worst this check can be wrong about is one more session without an
     # answer, which is the state today.
     Write-Host '[SKIP] the list of armed pull requests could not be read -- offline, or a transient gh/API problem.'
     exit 0
 }
-
-$armed = @()
-try {
-    $armed = @(ConvertFrom-MergeOnGreenListJson -Json ($listRead.Output -join "`n"))
-} catch {
+if ($scan.Status -eq 'ParseFailed') {
     Write-Host '[SKIP] the list of armed pull requests could not be parsed.'
     exit 0
 }
-
-if ($armed.Count -eq 0) {
+if ($scan.Total -eq 0) {
     Write-Host "[OK] no open pull request carries '$label' -- nothing can be stranded."
     exit 0
 }
 
-$stranded = @()
-$judgedCount = 0
-$unjudgedCount = 0
-$budgetExceeded = $false
-foreach ($record in $armed) {
-    # THE TOTAL BUDGET, CHECKED ONCE PER ARMED PULL REQUEST, BEFORE ITS OWN gh CALL (issue #2438): once
-    # spent, every remaining record is counted as unjudged rather than attempted -- this is what keeps
-    # the loop's own worst case bounded, on top of -TimeoutSeconds bounding each individual call.
-    if (-not $budgetExceeded -and ((Get-Date) - $scanStart).TotalSeconds -ge $MaxElapsedSeconds) {
-        $budgetExceeded = $true
-    }
-    if ($budgetExceeded) { $unjudgedCount++; continue }
-
-    if ($null -eq $record -or -not $record.PSObject.Properties['number']) { $unjudgedCount++; continue }
-    $number = [string]$record.number
-
-    $requiredRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -TimeoutSeconds $TimeoutSeconds -Arguments @(
-        'pr', 'checks', $number, '--repo', $repo, '--required', '--json', 'name,bucket,state,link,completedAt')
-    if (-not (Test-NativeCommandStarted -Capture $requiredRead) -or -not (Test-NativeExitMeasured -Capture $requiredRead) `
-            -or $requiredRead.TimedOut -or $requiredRead.ExitCode -ne 0) {
-        # THIS ONE PULL REQUEST'S REQUIRED-CHECK READ FAILED -- fail closed for IT alone (read as
-        # not-green, exactly as Get-MergeOnGreenPrVerdict itself reads an unreadable payload), rather
-        # than abandoning every other armed pull request in the list over one bad read. Counted as
-        # unjudged (issue #2438, Victor): this pull request was never actually checked for stranding,
-        # so a summary that folded it silently into "none stranded" would be reporting more than it knows.
-        $unjudgedCount++
-        continue
-    }
-    $requiredJson = ($requiredRead.Output -join "`n")
-
-    $blockVerdict = $null
-    try { $blockVerdict = Get-MergeBlockVerdict -RequiredChecksJson $requiredJson } catch { $blockVerdict = $null }
-    $greenAge = $null
-    try { $greenAge = Get-RequiredGreenAgeMinutes -RequiredChecksJson $requiredJson -Now (Get-Date) } catch { $greenAge = $null }
-
-    $verdict = Get-MergeOnGreenStrandedVerdict -Record $record -MergeBlockVerdict $blockVerdict -GreenAgeMinutes $greenAge -Label $label
-    $judgedCount++
-    if (-not $verdict.Stranded) { continue }
-
-    $branch = ''
-    if ($record.PSObject.Properties['headRefName']) { $branch = [string]$record.headRefName }
-    $title = ''
-    if ($record.PSObject.Properties['title']) { $title = [string]$record.title }
-
-    # UNTRUSTED DATA, SCRUBBED BEFORE IT REACHES A PRINTED LINE -- the same [^\x20-\x7E] pattern
-    # Get-MergeOnGreenExecutedPathHit already applies to a pushed path, applied here uniformly to every
-    # value a pull request's own author chose (branch name, title), on a repository anybody may open one
-    # against. THIS SCRUB IS FOR PROSE, NOT FOR A COMMAND LINE (Sebastian, issue #2438) -- see
-    # Get-PasteableRef below for the separate judgement the printed `git checkout` needs.
-    $branchSafe = $branch -replace '[^\x20-\x7E]', '?'
-    $titleSafe  = $title -replace '[^\x20-\x7E]', '?'
-
-    # THE CHECKOUT LINE JUDGES THE RAW BRANCH NAME, NOT $branchSafe (issue #1594). Scrubbing control
-    # characters to '?' leaves every printable ASCII shell metacharacter -- '$', '(', ')', '`', ';', '|'
-    # -- untouched, so a branch carrying one would still reach a command line a reader is invited to
-    # paste. Get-PasteableRef is the allowlist that actually answers "is this safe to paste": the branch
-    # name itself when it is, else a placeholder plus a note naming the real branch as prose.
-    $branchPaste = Get-PasteableRef -Ref $branch
-
-    $stranded += [pscustomobject]@{
-        Number = $number; Branch = $branchSafe; Title = $titleSafe
-        CheckoutToken = $branchPaste.Token; CheckoutNote = $branchPaste.Note
-    }
-}
-
-# HONEST, EVEN WHEN THERE IS NOTHING STRANDED TO REPORT (Victor, issue #2438): $armed.Count alone used to
-# stand in for "none stranded", which folded a per-PR read failure or a budget cut-off silently into that
-# claim. $judgedCount + $unjudgedCount always equals $armed.Count, so the two together say exactly what
-# was actually checked.
-$total = $armed.Count
-$incompleteLine = ''
-if ($unjudgedCount -gt 0) {
-    $incompleteLine = "[INCOMPLETE] judged $judgedCount of $total armed pull request(s); $unjudgedCount not checked (a per-PR required-check read failed, or the ${MaxElapsedSeconds}s scan budget ran out) -- the rest were not checked, so run this again to cover them."
-}
+# HONEST, EVEN WHEN THERE IS NOTHING STRANDED TO REPORT (Victor, issue #2438): the armed count alone used
+# to stand in for "none stranded", which folded a per-PR read failure or a budget cut-off silently into
+# that claim. JudgedCount + UnjudgedCount always equals Total, so the two together say exactly what was
+# actually checked.
+$incompleteLine = Get-PrScanIncompleteLine -Scan $scan -Noun 'armed' -MaxElapsedSeconds $MaxElapsedSeconds
+$stranded = @($scan.Findings)
 
 if ($stranded.Count -eq 0) {
-    if ($unjudgedCount -eq 0) {
-        Write-Host "[OK] $total armed pull request(s), none stranded on the executed-path reason."
-    } else {
-        Write-Host $incompleteLine
-    }
+    if ($incompleteLine) { Write-Host $incompleteLine }
+    else { Write-Host "[OK] $($scan.Total) armed pull request(s), none stranded on the executed-path reason." }
     exit 0
 }
 
@@ -290,13 +219,7 @@ Write-Host "[STRANDED] $($stranded.Count) armed pull request(s) the sweep will n
 foreach ($s in ($stranded | Sort-Object { [int]$_.Number })) {
     $titlePart = if ($s.Title) { " -- $($s.Title)" } else { '' }
     Write-Host "  #$($s.Number) ($($s.Branch))$titlePart"
-    # SHIP-PR.PS1 TAKES NO -Pr OR -Branch PARAMETER (verified against its own param block, issue #2438):
-    # it looks up the open pull request for the CURRENT branch (gh pr list --head <branch>), so the
-    # resume form is a checkout followed by a bare run -- two commands, not one chained with '&&', which
-    # Windows PowerShell 5.1 does not have.
-    Write-Host "    git checkout $($s.CheckoutToken)"
-    if ($s.CheckoutNote) { Write-Host $s.CheckoutNote }
-    Write-Host '    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/ship-pr.ps1'
+    Get-PrScanResumeLines -Finding $s | ForEach-Object { Write-Host $_ }
 }
 if ($incompleteLine) { Write-Host $incompleteLine }
 exit 0

@@ -2,7 +2,67 @@
 
 ## [Unreleased]
 
-**7 / 31 minor entries** <!-- pending-tally -->
+**8 / 33 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2513-backstop-dutch-paste-block · 20260926-124431Z
+
+The CI backstop in `asana-mirror.ps1` no longer posts the old English sentence (`The fix for
+<repo>#<n> is done. You can view the result here: [ADD LINK]`). It posts the frame the session route
+writes since #2507: the Dutch opening line `— automatisch bericht vanuit GitHub #<n>` and the
+`TE BEKIJKEN OP` section, with `[ADD LINK]` still standing where the link goes. The sections CI cannot
+fill are left out rather than placeholdered. The template carries a copy of those words, because it
+ships without the plugin's libs, and `dkj-policy-bwj.tests.ps1` now holds that copy equal to
+`Get-GoLiveBlockText`. The two writers of one block therefore cannot drift apart again. The marker and
+the lead sentence the de-duplication matches on are unchanged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store that re-adopts the template gets a backstop block in its colleagues' language and in the
+same shape as the session's own. So a person no longer has to rewrite it before pasting it into Asana.
+It reaches the store only on that re-adoption, and only on the rare close where the session skipped
+its own block.
+
+**Score:** 2
+
+#### Pull Request
+
+asana-mirror's backstop writes the Dutch sectioned paste block, not the old English one
+
+Plugins: dkj-policy-bwj
+
+[PR #2529](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2529)
+
+---
+
+### DEPLOY: fix/2526-shared-bounded-pr-scan · 20260926-122316Z
+
+`check-stranded-sweep.ps1` and `check-unshipped-pr.ps1` no longer carry the same ~100-line bounded
+PR-scan scaffold twice. It now lives once, in `scripts/lib/pr-scan-lib.ps1` (`Invoke-BoundedPrScan`):
+the filtered list read, the per-PR required-check read under a per-call and a total budget, the honest
+judged/unjudged split, the display scrub and the paste-safe checkout token. Each check keeps only its
+list filter, its verdict and its report prose, so a repair to the pattern now lands once. What the checks
+report is unchanged, apart from the `[INCOMPLETE]` line: the two checks worded it slightly differently,
+and both now print one shared wording.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: an internal refactor of two session-start checks. A subscriber sees the same report as before.
+
+**Score:** N/A
+
+#### Pull Request
+
+The two session-start PR scans share one bounded scan helper
+
+Plugins: dkj-policy
+
+[PR #2528](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2528)
+
+---
 
 ### DEPLOY: fix/2525-unarmed-stranded-pr-sessioncheck · 20260926-114854Z
 
