@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**9 / 42 minor entries** <!-- pending-tally -->
+**9 / 43 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2545-guard-settings-artifacts · 20260926-195400Z
+
+`specialists-init`'s bootstrap no longer writes its two settings proposals through a symlink or junction.
+`.claude/settings.suggested.jsonc` and `.claude/settings.proposed.json` were written without a check, so
+a junctioned `.claude/` put both outside the repo. The merged proposal can carry a copy of the repo's
+own `settings.json`. Both now go through the same `[refused]` check as every other file the bootstrap
+creates since #2540, and `.claude/` is no longer created through a junction either. A refused proposal
+is not announced as placed, and the next steps no longer tell you to copy from a file that was never
+written.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+The bootstrap's settings proposals refuse a symlink or junction too
+
+Plugins: dkj-subagents-alpha
+
+[PR #2550](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2550)
+
+---
 
 ### DEPLOY: fix/2546-guard-sibling-adopter-creates · 20260926-192605Z
 
