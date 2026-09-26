@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**7 / 28 minor entries** <!-- pending-tally -->
+**7 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2519-needs-decision-parking-label · 20260926-104922Z
+
+`adopt-triage-labels` now also prints a `gh label create` line for `needs-decision`, a parking label for an
+issue that ends in the owner's choice. `claim-issue <n>` skips it by default next to `needs-info`: it warns
+that the issue is parked instead of saying the work starts. `sweep-issues` skips both.
+`CONTRIBUTING-portable.md` now says to set the label when such an issue is filed. It is a separate
+label because `needs-info` already means *blocked on the submitter* in `dkj-policy-bwj`, where it moves
+the mirrored Asana card to the blocked column.
+
+Tier 0 is scored for a session filing an issue that ends in a decision, or picking one up. Until now the
+filing rule named no label for it, so the decision stayed in prose and a pickup went straight past it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. It is a label definition, a filing convention and a default skip list, and nothing reaches a
+subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+A needs-decision parking label for an issue awaiting the owner's choice
+
+Plugins: dkj-policy
+
+[PR #2524](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2524)
+
+---
 
 ### DEPLOY: fix/2520-ascii-allowlists-case-sensitive · 20260926-103156Z
 
