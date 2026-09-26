@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**9 / 41 minor entries** <!-- pending-tally -->
+**9 / 42 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2546-guard-sibling-adopter-creates · 20260926-192605Z
+
+Three more adoption commands no longer write through a symlink or junction: `adopt-ci-floor`,
+`adopt-config` and `adopt-statusline`. Each checked whether its target existed with `Test-Path`, which
+follows a reparse point. So a junctioned `.github/`, `scripts/` or `.claude/` had the write land outside
+the repo, and a dangling symlink read as absent, so the write created whatever it pointed at. Each write
+now goes through `Get-WriteTargetReparsePoint` first, as `adopt-workflow-folder` and `specialists-init`
+do since #2533 and #2540. That covers `adopt-config`'s append into an existing seam lib too. A hit is
+reported as `[refused]` and the file is left for placing by hand; the rest of the run carries on.
+`adopt-config` also refuses a `-ProposalPath` that points outside the repo, where a drive-rooted one used
+to crash the run, and its dry run now names the refusals `-Apply` would make.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+Three more adopters refuse to write through a symlink or junction
+
+Plugins: dkj-policy
+
+[PR #2548](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2548)
+
+---
 
 ### DEPLOY: fix/2540-guard-created-write-targets · 20260926-184915Z
 
