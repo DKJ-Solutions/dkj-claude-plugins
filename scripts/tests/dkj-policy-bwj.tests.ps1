@@ -1039,6 +1039,10 @@ Assert-Equal 'Niets.' @($glProse.NotIncluded)[0] '[not-included] fills its own s
 Assert-Equal 0 @((ConvertFrom-GoLiveProse -Text "[changed]`n").NotIncluded).Count 'a section nobody wrote is empty, not absent'
 Assert-Throws { ConvertFrom-GoLiveProse -Text "[chnaged]`nEen." } 'an unknown section line is refused'
 Assert-Throws { ConvertFrom-GoLiveProse -Text "Een.`n[changed]`nTwee." } 'text above the first section line is refused'
+$glBrackets = ConvertFrom-GoLiveProse -Text "[changed]`nZie noot.`n[1]`n[ ]`n[TBD]"
+Assert-Equal "Zie noot.`n[1]`n[ ]`n[TBD]" @($glBrackets.Changed)[0] 'a bracketed line that is not section-shaped stays prose'
+Assert-Throws { ConvertFrom-GoLiveProse -Text "[changed]`nEen.`n---`nTwee." } 'a bare --- line is refused -- it would be a third rule inside the pasted block'
+Assert-Throws { ConvertFrom-GoLiveProse -Text "[changed]`n<!-- asana-paste-block -->" } 'and so is an HTML comment, the marker included'
 
 # A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
 # the handover page is the reviewer's surface. Both published shapes, and nothing that merely resembles one.
@@ -1107,6 +1111,11 @@ try {
         -RootOverride $glRoot -ProseFile $glProseFile -OutFile $glOutFile 2>&1 | Out-Null
     Assert-Equal 0 $LASTEXITCODE 'the driver run with a -ProseFile exits 0'
     Assert-True ([System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8).Contains("WAT ER NU ANDERS IS`n`n$glAccent")) 'the prose lands under its heading with every accent intact, BOM or no BOM on the way in'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -RootOverride $glRoot -ProseFile $glProseFile -Language en -OutFile $glOutFile 2>&1 | Out-Null
+    $glEnText = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
+    Assert-True ($glEnText.Contains("$glDash automated message from GitHub #7") -and $glEnText.Contains("`nWHAT IS DIFFERENT NOW`n")) 'the driver passes -Language en through to the block'
+    Assert-True ($glEnText.Contains('as version v1.0.0.') -and $glEnText -notmatch 'maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag') 'and the date follows it too'
     [System.IO.File]::WriteAllText($glProseFile, "[wat]`r`nx`r`n", (New-Object System.Text.UTF8Encoding $false))
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
         -RootOverride $glRoot -ProseFile $glProseFile 2>&1 | Out-Null

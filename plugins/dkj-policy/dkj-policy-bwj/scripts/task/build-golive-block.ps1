@@ -351,7 +351,12 @@ Write-Host ""
 # arrive in a pasted comment as an invisible first character.
 $utf8 = New-Object System.Text.UTF8Encoding $false
 if ($OutFileArg) {
-    [System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($OutFileArg), $block, $utf8)
+    try {
+        [System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($OutFileArg), $block, $utf8)
+    } catch {
+        Write-Host "[ERROR] -OutFile '$OutFileArg' could not be written: $($_.Exception.Message) Nothing posted." -ForegroundColor Red
+        exit 1
+    }
     Write-Host "  written  : $OutFileArg (UTF-8 -- the faithful copy; the console above may have lost characters)" -ForegroundColor DarkGray
 }
 

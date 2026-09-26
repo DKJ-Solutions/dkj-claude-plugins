@@ -255,14 +255,22 @@ function ConvertFrom-GoLiveProse {
     $lineNo  = 0
     foreach ($line in ($Text -split "`r?`n")) {
         $lineNo++
-        if ($line -match '^\s*\[([^\]]+)\]\s*$') {
-            $name = $Matches[1].Trim().ToLowerInvariant()
+        # SECTION-SHAPED MEANS lowercase letters and hyphens, matched case-sensitively: a misspelled
+        # '[chnaged]' is still refused, while prose that happens to put '[1]', '[ ]' or '[TBD]' on a
+        # line of its own stays prose.
+        if ($line -cmatch '^\s*\[([a-z][a-z-]*)\]\s*$') {
+            $name = $Matches[1]
             if (-not $known.ContainsKey($name)) {
                 throw "Prose line ${lineNo}: unknown section '[$name]'. Known: [changed], [where], [not-included]."
             }
             $current = $known[$name]
             continue
         }
+        # THE BLOCK'S OWN BOUNDARIES MAY NOT APPEAR IN IT: a bare '---' line is a third rule, which cuts
+        # the pasted block short, and an HTML comment would arrive in the colleague's ticket as junk --
+        # the marker the backstop matches on being the one that matters.
+        if ($line -match '^\s*---\s*$') { throw "Prose line ${lineNo}: a bare '---' line is the block's own rule and would cut the pasted block short." }
+        if ($line.Contains('<!--')) { throw "Prose line ${lineNo}: an HTML comment would arrive in the Asana task as visible text." }
         if (-not $current) {
             if ($line.Trim()) { throw "Prose line ${lineNo}: text before the first section line ([changed], [where] or [not-included])." }
             continue
@@ -304,10 +312,11 @@ function Get-GoLiveBlockAsk {
     #>
     param(
         [string]$ResultLink,
-        [ValidateSet('nl', 'en')][string]$Language = 'nl'
+        [ValidateSet('nl', 'en')][string]$Language = 'nl',
+        [hashtable]$Text
     )
     if (-not $ResultLink) { return @() }
-    $t = Get-GoLiveBlockText -Language $Language
+    $t = if ($Text) { $Text } else { Get-GoLiveBlockText -Language $Language }
     return @('', $t.Ask, '', $t.AskLook, '', $t.AskYes, '', $t.AskNo)
 }
 
@@ -414,7 +423,7 @@ function Format-GoLiveBlock {
     $notParas = @($NotIncluded | Where-Object { $_ -and $_.Trim() })
     if ($notParas.Count -gt 0) { $lines += & $addSection $t.NotIncluded $notParas }
 
-    $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink -Language $Language
+    $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink -Text $t
     $lines += '---'
 
     return ($lines -join "`n")
