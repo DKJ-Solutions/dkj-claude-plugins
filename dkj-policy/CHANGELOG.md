@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**9 / 44 minor entries** <!-- pending-tally -->
+**9 / 45 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2549-guard-settings-read · 20260926-232304Z
+
+`specialists-init`'s bootstrap no longer reads `.claude/settings.json` through a symlink or junction.
+Every key of that file is copied into the merged proposal, `.claude/settings.proposed.json`, a real file
+inside the repo, so a `settings.json` linked to a JSON file outside the repo would have carried that
+file's content into the tree. #2545 guarded the writes; the read now takes the same check, and a link
+there is refused like a file that does not parse: no merged proposal, a `[notice]` naming the link, and
+the annotated proposal still offered.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+The bootstrap no longer reads settings.json through a symlink or junction
+
+Plugins: dkj-subagents-alpha
+
+[PR #2552](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2552)
+
+---
 
 ### DEPLOY: feat/2538-warn-missing-bwj-extension-import · 20260926-230914Z
 
