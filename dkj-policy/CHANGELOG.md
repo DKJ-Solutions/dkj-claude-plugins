@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**8 / 33 minor entries** <!-- pending-tally -->
+**9 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2509-prepare-release · 20260926-125520Z
+
+A new dkj-policy-bwj skill, `prepare-release`, stages a store release days ahead of release day
+([#2509](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2509)). It is read-only. It checks the
+trunk, lists what is pending and the bump it makes, derives the theme push list by `live-preflight`'s own
+rules, runs an early drift read, collects the go-live obligations out of entry prose, lists open pull
+requests, and prints the release-day runbook. Its runbook composes no command around a theme path that
+is not paste-safe. `live-preflight`'s sync provenance now comes from two shared lib functions, with
+unchanged behaviour, and `Get-LivePushRows` no longer throws under a StrictMode caller.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store gets its release day prepared on the Friday by one command, instead of assembling it from five
+lens sections and a hand-run diff. A third-party edit on live, or a go-live obligation such as stopping an
+experiment, is found before the weekend rather than on the morning.
+
+**Score:** 3
+
+#### Pull Request
+
+prepare-release stages a store release ahead of release day
+
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2530](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2530)
+
+---
 
 ### DEPLOY: fix/2513-backstop-dutch-paste-block · 20260926-124431Z
 
