@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**7 / 29 minor entries** <!-- pending-tally -->
+**7 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2507-golive-block-colleague-language · 20260926-111318Z
+
+The paste-ready block `golive-block` writes for the Asana task now has the shape BWJ actually sends its
+colleagues, in their language ([#2507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2507)).
+It opens with `— automatisch bericht vanuit GitHub #<n>` and is set under five headings: `WAT ER NU
+ANDERS IS`, `TE BEKIJKEN OP`, `WANNEER HET LIVE KOMT`, `WAT ER BEWUST NIET IN ZIT` and `WAT WE VAN JE
+VRAGEN`. It used to be fixed English with no sections. Dutch is the default, and `-Language en`
+writes the same shape for a task written in English. The date, version, live URLs and ask are still
+the script's. What changed, where exactly to look and what was left out are the session's to write, in
+a `-ProseFile`. `-OutFile` writes a UTF-8 copy for the preview handover page. `-Post` now sends the
+body through a UTF-8 file: piped from Windows PowerShell 5.1, every accent and dash would have arrived
+as `?`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the block is carried into Asana by the store's own team; nothing a subscriber runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+golive-block writes BWJ's Dutch sectioned block, in the colleague's language
+
+Plugins: dkj-policy-bwj
+
+[PR #2515](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2515)
+
+---
 
 ### DEPLOY: feat/2519-needs-decision-parking-label · 20260926-104922Z
 
