@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**9 / 36 minor entries** <!-- pending-tally -->
+**9 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2532-bwj-extension-import · 20260926-143216Z
+
+`adopt-dkj-policy-bwj` now writes the BWJ extension import into the consumer's `CLAUDE.md`. Step 6 runs
+`adopt-extension-import.ps1`, which puts
+`@~/.claude/plugins/marketplaces/<marketplace>/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md` directly
+below the constitution import. Until now the step asked a person to add it, so a BWJ repo could run
+without its four chapters in context, the same gap
+[#2531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2531) closed for the constitution.
+The line keeps the file's line endings and byte-order mark, and nothing is written when it is already
+imported. Both adoptions now use one writer, `Add-ClaudeMdImportLine` in `claude-md-import-lib.ps1`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
+
+#### Pull Request
+
+adopt-dkj-policy-bwj writes the BWJ extension import into CLAUDE.md instead of asking for it
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2539](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2539)
+
+---
 
 ### DEPLOY: fix/2534-commonmark-fence-tracker · 20260926-140401Z
 
