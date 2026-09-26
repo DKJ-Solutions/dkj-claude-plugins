@@ -39,19 +39,50 @@
 
 ### PLAN
 
+#### Scope
+
+Inbound #2518, half 1: the single-issue route of `claim-issue` reads the issue's labels and warns on a
+parking label (`needs-info` by default, the label `sweep-issues` skips on). Half 2 -- which label an
+owner's choice gets at filing -- is split out as #2519, because `needs-info` already means *blocked on
+the submitter* in `dkj-policy-bwj` and prescribing it is a decision, not a sentence.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `claim-issue-lib.ps1`: `Get-IssueLabelNames`, `Select-ParkingLabels` (now also used by
+  `Get-SweepCandidates`), `Format-ParkingLabelNote`, and `Format-ClaimOpening` (the closing headline,
+  moved out of the script's if-chain now that there are three verdicts to name).
+- [x] `claim-issue.ps1`: `labels` on the issue read, `-SkipLabel` bound on the single-issue route with
+  a `needs-info` default, the `PARKED:` verdict on claim and resume, and the headline / forward line
+  pointing at it. Warns, never refuses (#1485).
+- [x] Plugin mirrors of both files synced.
+- [x] `claim-issue/SKILL.md`: the step list, the parameter, and a section on the parking label.
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: 534 passed, 0 failed -- new asserts for the label reader, the
+  case-insensitive match, the stripped label name, the three-verdict headline, the wiring and the
+  no-`exit` bound; the old headline asserts rewritten behaviourally against `Format-ClaimOpening`.
+- [x] Live dry run on #2518 with `-SkipLabel inbound`: the `PARKED:` verdict and the resume line print;
+  without it the run is unchanged.
+
 ### DEPLOY: fix/2518-claim-issue-reads-parking-label
 
-**Score:**
+`claim-issue` on a single issue now reads the issue's labels. Where one parks the issue with somebody
+else -- `needs-info` by default, the label `sweep-issues` already skips on; `-SkipLabel` replaces the
+default -- it prints a `PARKED:` verdict, and the closing `[OK]` points at that verdict instead of
+saying *the work starts here*. It still claims: a label can be stale, so this warns and never refuses
+([#2518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2518)). Which label an owner's
+open choice should carry when it is filed is
+[#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a pickup step inside the workflow; no subscriber of a service sees it.
+
+**Score:** N/A
 
 #### Pull Request
 
+claim-issue warns when the named issue carries a parking label

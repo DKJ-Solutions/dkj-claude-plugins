@@ -2337,6 +2337,124 @@ function Format-HandoverComment {
         "A session under $old that runs ``claim-issue.ps1 $Issue -Tag -Verify`` now reads [NO] and stops."
 }
 
+function Get-IssueLabelNames {
+    <#
+        .SYNOPSIS
+            The label names on one issue record -- an element of `gh issue list --json labels` or the
+            root of `gh issue view --json labels` -- trimmed, empties dropped.
+
+        .DESCRIPTION
+            ONE READER FOR BOTH ROUTES (issue #2518). The sweep read labels off each list element and the
+            single-issue route read none at all, so the one label this workflow uses to park an issue was
+            honoured on one route and invisible on the other. Both now read it here.
+
+        .OUTPUTS
+            A string array; EMPTY when the record carries no 'labels' field or it is empty.
+    #>
+    param([AllowNull()][object]$Issue)
+
+    $names = @()
+    if ($null -eq $Issue -or -not $Issue.PSObject.Properties['labels']) { return @() }
+    foreach ($label in @(@($Issue.labels) | Where-Object { $_ })) {
+        if ($label.PSObject.Properties['name']) {
+            $name = ([string]$label.name).Trim()
+            if ($name) { $names += $name }
+        }
+    }
+    return $names
+}
+
+function Select-ParkingLabels {
+    <#
+        .SYNOPSIS
+            The labels on an issue that park it with somebody else -- those named in the skip list,
+            compared case-insensitively, returned as the issue spells them.
+
+        .PARAMETER Labels
+            The issue's label names (Get-IssueLabelNames).
+
+        .PARAMETER SkipLabel
+            The label names that park an issue.
+
+        .OUTPUTS
+            A string array, in the issue's own order; EMPTY when nothing matches.
+    #>
+    param(
+        [AllowNull()][string[]]$Labels = @(),
+        [AllowNull()][string[]]$SkipLabel = @()
+    )
+
+    $skip = @(@($SkipLabel) | Where-Object { $_ -and ([string]$_).Trim() } | ForEach-Object { ([string]$_).Trim() })
+    if ($skip.Count -eq 0) { return @() }
+    return @(@($Labels) | Where-Object { $_ } | Where-Object { $lbl = $_; @($skip | Where-Object { $_ -ieq $lbl }).Count -gt 0 })
+}
+
+function Format-ParkingLabelNote {
+    <#
+        .SYNOPSIS
+            The warning a single-issue claim prints when the issue carries a parking label (issue #2518).
+
+        .DESCRIPTION
+            WARNS, NEVER REFUSES -- the same bound as every pickup signal in this script (#1485): a label
+            can be stale, and a claim that blocks costs the whole assignment. What it changes is the
+            reading. The sweep route skips such an issue outright (`-Candidates -SkipLabel needs-info`);
+            the single-issue route used to claim it and print "the work starts here", and a session took
+            that literally and chose between the owner's options itself.
+
+            The label names are passed through Format-ForConsole: they come off the tracker, which is
+            written by anybody who can open an issue.
+
+        .OUTPUTS
+            A string array of lines; EMPTY when no label matched.
+    #>
+    param(
+        [int]$Issue,
+        [AllowNull()][string[]]$Labels = @()
+    )
+
+    $hit = @(@($Labels) | Where-Object { $_ })
+    if ($hit.Count -eq 0) { return @() }
+    $named = (@($hit | ForEach-Object { "'$(Format-ForConsole -Text ([string]$_))'" }) -join ', ')
+    return @(
+        "PARKED: #$Issue carries $named -- a label that parks an issue with somebody else, and the"
+        'label a sweep skips this issue on. It is waiting on an ANSWER, not on a builder: read the'
+        'issue for the open question and who it is addressed to. Where the answer is not on the'
+        'thread yet, it is not yours to give -- do not pick one of the options and build it.'
+        'If the label is stale (the answer is already there), remove it, then carry on.'
+    )
+}
+
+function Format-ClaimOpening {
+    <#
+        .SYNOPSIS
+            The tail of the claim's closing '[OK]' line: 'the work starts here', or a pointer naming
+            every pickup verdict that fired above it.
+
+        .DESCRIPTION
+            THE HEADLINE MAY NOT CONTRADICT A BLOCK PRINTED ABOVE IT (#1878), and where several fired it
+            names them all (#2064) -- naming one of two sends the reader to the block that settles the
+            other question. #2518 added a third, the parking label, which is what moved this out of an
+            if-chain in the script: three flags would need seven arms there.
+
+        .OUTPUTS
+            A string starting with ' -- '.
+    #>
+    param(
+        [switch]$ForeignParked,
+        [switch]$PrerequisiteFound,
+        [switch]$Parked
+    )
+
+    $pending = @()
+    if ($ForeignParked) { $pending += 'parked-fix' }
+    if ($PrerequisiteFound) { $pending += 'prerequisite' }
+    if ($Parked) { $pending += 'parking-label' }
+    if ($pending.Count -eq 0) { return ' -- the work starts here.' }
+    if ($pending.Count -eq 1) { return " -- but read the $($pending[0]) verdict above before you start." }
+    $leading = @($pending[0..($pending.Count - 2)]) -join ', '
+    return " -- but read the $leading and $($pending[-1]) verdicts above before you start."
+}
+
 function Get-SweepCandidates {
     <#
         .SYNOPSIS
@@ -2416,12 +2534,7 @@ function Get-SweepCandidates {
         $number = [int]$issue.number
         $title = if ($issue.PSObject.Properties['title']) { [string]$issue.title } else { '' }
 
-        $labels = @()
-        if ($issue.PSObject.Properties['labels']) {
-            foreach ($label in @(@($issue.labels) | Where-Object { $_ })) {
-                if ($label.PSObject.Properties['name']) { $labels += ([string]$label.name).Trim() }
-            }
-        }
+        $labels = @(Get-IssueLabelNames -Issue $issue)
 
         $verdict = 'free'
         $holder = ''
@@ -2431,7 +2544,7 @@ function Get-SweepCandidates {
             $verdict = 'skipped'
             $reason = 'held out of this round by number'
         } else {
-            $hit = @($labels | Where-Object { $lbl = $_; @($skipLabels | Where-Object { $_ -ieq $lbl }).Count -gt 0 })
+            $hit = @(Select-ParkingLabels -Labels $labels -SkipLabel $skipLabels)
             if ($hit.Count -gt 0) {
                 $verdict = 'skipped'
                 $reason = "label '$($hit[0])'"
