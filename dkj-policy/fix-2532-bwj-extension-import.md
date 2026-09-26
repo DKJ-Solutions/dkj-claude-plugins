@@ -39,19 +39,56 @@
 
 ### PLAN
 
+#2532, filed from the #2531 branch: `adopt-dkj-policy-bwj` step 6 still asked a person to add the BWJ
+extension import by hand, the gap #2531 closed for the constitution import. Verified on pickup: step 6
+is prose only, and no script in `dkj-policy-bwj` writes the line.
+
+The bwj adopter has no script of its own, so step 6 gets one, `adopt-extension-import.ps1`. The #2531
+writer is extracted into a shared lib so the two adoptions cannot drift, as the issue proposes. The lib
+is `claude-md-import-lib.ps1` rather than `consumer-check-lib.ps1`: that lib's `Resolve-CheckRepoRoot`
+loads a sibling `repo-root-lib.ps1`, and `dkj-policy-bwj` ships its own file under that name with
+different functions, so mirroring `consumer-check-lib` there would leave a function that breaks when
+called. The issue's side question, whether a session check should also warn, is filed as #2538.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/claude-md-import-lib.ps1`: the constitution pair moved out of `consumer-check-lib.ps1`,
+  the extension pair, and `Add-ClaudeMdImportLine` with `-AfterPattern` placement. `consumer-check-lib`
+  loads it at file scope, guarded, so existing callers still reach the constitution pair.
+- [x] `adopt-workflow-folder.ps1` calls the shared writer instead of its inline copy.
+- [x] `plugins/dkj-policy/dkj-policy-bwj/scripts/task/adopt-extension-import.ps1`: new, dry run by default.
+- [x] Registry: `claude-md-import-lib` into dkj-policy and dkj-policy-bwj, `measure-context-lib` into
+  dkj-policy-bwj. Mirrors rebuilt; row added to `plugins/dkj-policy/scripts/README.md`.
+- [x] `adopt-dkj-policy-bwj` SKILL.md: step 6 runs the script, and the description names the write.
+- [x] Filed #2538 for the session-check question.
 
 ### TEST
 
+- [x] `bwj-extension-import.tests.ps1` (new): no CLAUDE.md, below the constitution in a CRLF+BOM file,
+  re-run unchanged, a constitution line with no terminator, no constitution yet (and a later constitution
+  write landing above the extension), already imported under an older marketplace name, a nested fence,
+  the dry run, and the marketplace segment read from a bwj payload path. 25 passed.
+- [x] `adopt-workflow-folder.tests.ps1` 140 passed; `consumer-prose-gate.tests.ps1` 129 passed;
+  `shared-scripts.tests.ps1` 1071 passed; `check-plugin-integrity.ps1` 0 errors.
+
 ### DEPLOY: fix/2532-bwj-extension-import
 
-**Score:**
+`adopt-dkj-policy-bwj` now writes the BWJ extension import into the consumer's `CLAUDE.md`. Step 6 runs
+`adopt-extension-import.ps1`, which puts
+`@~/.claude/plugins/marketplaces/<marketplace>/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md` directly
+below the constitution import. Until now the step asked a person to add it, so a BWJ repo could run
+without its four chapters in context, the same gap
+[#2531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2531) closed for the constitution.
+The line keeps the file's line endings and byte-order mark, and nothing is written when it is already
+imported. Both adoptions now use one writer, `Add-ClaudeMdImportLine` in `claude-md-import-lib.ps1`.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Adoption tooling does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
 
