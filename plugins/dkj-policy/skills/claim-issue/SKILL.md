@@ -50,8 +50,8 @@ The script:
 6. **Weighs whatever those scans surfaced** -- how far ahead of the trunk each branch is, and whether
    anything the issue names sits there and not on the trunk (below). A warning, never a refusal, and
    no git call at all where nothing was surfaced.
-7. **Warns when the issue carries a parking label** -- `needs-info` by default, the label a sweep skips
-   on (below). A warning, never a refusal.
+7. **Warns when the issue carries a parking label** -- `needs-info` and `needs-decision` by default,
+   the labels a sweep skips on (below). A warning, never a refusal.
 8. Writes the assignee, then **reads the claim back** and fails if it did not land.
 
 ## The parameters
@@ -63,7 +63,7 @@ The script:
 - **`-DryRun`** -- read and judge, write nothing. Prints the verdict it would act on, so you can see
   **who holds an issue without taking it**.
 - **`-SkipLabel`** -- the labels that park an issue with somebody else. On this route it defaults to
-  `needs-info`; passing it replaces that default (below).
+  `needs-info` and `needs-decision`; passing it replaces that default (below).
 
 ## And a second claim, for a backlog worked by several machines (`-Tag`)
 
@@ -530,15 +530,15 @@ question the owner is for.
 ## A parking label: the issue waits on an answer, not a builder
 
 **The sweep route and this route used to disagree about one label.** [`sweep-issues`](../sweep-issues/SKILL.md)
-chooses with `-Candidates -SkipLabel needs-info`, so an issue parked with somebody else is skipped
+chooses with `-Candidates -SkipLabel needs-info,needs-decision`, so an issue parked with somebody else is skipped
 there. This route read no labels at all, so the same issue came back `[OK] ... the work starts here`
 the moment a person named it. Measured in a consumer, September 26, 2026
 ([#2518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2518)): an issue ending in an open
 choice for the owner was left alone by a sweep, and claimed through this route by a session that then
 picked one of the two options itself and shipped it.
 
-**So the issue read asks for `labels` too, and holds them against `-SkipLabel`** -- `needs-info` by
-default on this route, the label the sweep skips on; passing `-SkipLabel` replaces the default. On a
+**So the issue read asks for `labels` too, and holds them against `-SkipLabel`** -- `needs-info` and
+`needs-decision` by default on this route, the labels the sweep skips on; passing `-SkipLabel` replaces the default. On a
 claim or a resume where one matches, it prints a `PARKED:` verdict naming the label, the closing
 `[OK]` points at that verdict instead of *the work starts here*, and the forward line says to read the
 issue for its open question rather than to open the branch.
@@ -549,9 +549,11 @@ the answer is already on the thread, remove the label and carry on; where it is 
 first, and it is not the claimant's to give.
 
 **It sees only a label.** An issue whose open choice lives in prose alone reads as unparked here, which
-was the case in the measurement too. Which label an owner's choice should carry when it is filed is
-[#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519): `needs-info` already means
-*blocked on the submitter* in `dkj-policy-bwj`, so prescribing it there is a decision, not a sentence.
+was the case in the measurement too. So an owner's choice carries `needs-decision` from the moment it
+is filed ([#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)), and the filing
+rule is in [`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
+It is a label of its own because `needs-info` already means *blocked on the submitter* in
+`dkj-policy-bwj`, where it moves the mirrored Asana card to the blocked column.
 
 ## Every `gh` call is bounded, so a stall is reported rather than waited out
 

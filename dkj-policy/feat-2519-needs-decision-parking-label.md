@@ -43,17 +43,36 @@ Owner chose a separate needs-decision label (not needs-info). Next: claim-issue/
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Create the live `needs-decision` label on this tracker (`BFD4F2`)
+- [x] Add it to `Get-TriageLabels` and `adopt-triage-labels`' built-in fallback, contract record and blueprint
+- [x] `claim-issue`'s single-issue route skips `needs-info` and `needs-decision` by default; `sweep-issues` passes both
+- [x] Write the filing rule in `CONTRIBUTING-portable.md` step 1, and update the claim-issue and sweep-issues pages, the scripts README and Derek's lens
+- [x] Widen the test's literal extractor to read a doubled quote, which the new description is the first to carry
 
 ### TEST
 
+- [x] `adopt-triage-labels`, `repo-config`, `script-contract`, `claim-issue` and `config-blueprint` suites green locally
+
 ### DEPLOY: feat/2519-needs-decision-parking-label
 
-**Score:**
+`adopt-triage-labels` now also prints a `gh label create` line for `needs-decision`, a parking label for an
+issue that ends in the owner's choice. `claim-issue <n>` skips it by default next to `needs-info`: it warns
+that the issue is parked instead of saying the work starts. `sweep-issues` skips both.
+`CONTRIBUTING-portable.md` now says to set the label when such an issue is filed. It is a separate
+label because `needs-info` already means *blocked on the submitter* in `dkj-policy-bwj`, where it moves
+the mirrored Asana card to the blocked column.
+
+Tier 0 is scored for a session filing an issue that ends in a decision, or picking one up. Until now the
+filing rule named no label for it, so the decision stayed in prose and a pickup went straight past it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. It is a label definition, a filing convention and a default skip list, and nothing reaches a
+subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 

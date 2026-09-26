@@ -188,18 +188,18 @@ $mlPaths = @(Get-MachineLocalPaths)
 Assert-True ($mlPaths -contains '.claude/settings.json') 'Get-MachineLocalPaths watches the shared harness settings file'
 Assert-Equal 0 (@($mlPaths | Where-Object { $_ -match '^[\\/]|^[A-Za-z]:' }).Count) 'Get-MachineLocalPaths entries are repo-root-relative, not absolute'
 
-# The shared triage labels (issue #1895; 'dossier' added by #2462), Adopt='copy' in the script contract -- this repo's
-# own live answer, and the same five values adopt-triage-labels.ps1 carries as its own built-in
+# The shared triage labels (issue #1895; 'dossier' added by #2462, 'needs-decision' by #2519), Adopt='copy' in the script contract -- this repo's
+# own live answer, and the same six values adopt-triage-labels.ps1 carries as its own built-in
 # fallback (asserted there, against this repo's REAL gh labels, since that duality is the whole point
 # of the two copies never being allowed to disagree).
 $triageLabels = @(Get-TriageLabels)
-Assert-Equal 5 $triageLabels.Count 'Get-TriageLabels names exactly five labels -- four rungs and the dossier kind'
+Assert-Equal 6 $triageLabels.Count 'Get-TriageLabels names exactly six labels -- four rungs, the dossier kind and the needs-decision parking label'
 # Joined into one string rather than compared as two arrays: PowerShell's -eq on two arrays compares
 # elementwise against the WHOLE right-hand array per element, never a deep sequence equality, so
 # Assert-Equal would silently pass or fail on the wrong thing. Same join-then-compare shape
 # script-contract.tests.ps1 already uses for its own Scripts-list assertions.
-Assert-Equal 'prio-1,prio-2,prio-3,prio-4,dossier' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
-    'Get-TriageLabels names prio-1 through prio-4, then dossier, in that order'
+Assert-Equal 'prio-1,prio-2,prio-3,prio-4,dossier,needs-decision' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
+    'Get-TriageLabels names prio-1 through prio-4, then dossier, then needs-decision, in that order'
 foreach ($l in $triageLabels) {
     Assert-Match $l.Color '^[0-9A-Fa-f]{6}$' "Get-TriageLabels: '$($l.Name)' has a 6-digit hex colour"
     Assert-True ([bool]$l.Description) "Get-TriageLabels: '$($l.Name)' has a non-empty description"
@@ -213,6 +213,7 @@ $expectedTriage = @{
     'prio-3' = @{ Color = 'D93F0B'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     'prio-4' = @{ Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     'dossier' = @{ Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
+    'needs-decision' = @{ Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
 }
 foreach ($l in $triageLabels) {
     Assert-Equal $expectedTriage[$l.Name].Color $l.Color "Get-TriageLabels: '$($l.Name)' colour matches this repo's own live label"

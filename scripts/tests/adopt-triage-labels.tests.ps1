@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Tests for scripts/task/adopt-triage-labels.ps1 -- the print-only adopter for the canonical triage
-    labels -- the 'prio-1'..'prio-4' rungs (issue #1895, split from #1843) plus 'dossier' (#2462).
+    labels -- the 'prio-1'..'prio-4' rungs (issue #1895, split from #1843) plus 'dossier' (#2462) and 'needs-decision' (#2519).
 
 .DESCRIPTION
     WHAT IS COVERED, AND WHY THESE PROPERTIES:
@@ -77,7 +77,7 @@ function Assert-Equal {
 # two of THOSE (and none of the four canonical ones) is the realistic shape of "this repo has not
 # adopted the convention yet", and it is what lets this scenario reach the [missing] branch at all.
 $LabelsNone    = '[{"name":"bug","color":"d73a4a","description":"unrelated default label"},{"name":"enhancement","color":"a2eeef","description":"unrelated default label"}]'
-$LabelsAll     = '[{"name":"prio-1","color":"006B75","description":"old text"},{"name":"prio-2","color":"FBCA04","description":"old text"},{"name":"PRIO-3","color":"D93F0B","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Dossier","color":"5319E7","description":"old text"}]'
+$LabelsAll     = '[{"name":"prio-1","color":"006B75","description":"old text"},{"name":"prio-2","color":"FBCA04","description":"old text"},{"name":"PRIO-3","color":"D93F0B","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Dossier","color":"5319E7","description":"old text"},{"name":"needs-decision","color":"BFD4F2","description":"old text"}]'
 $LabelsPartial = '[{"name":"prio-1","color":"006B75","description":"old text"},{"name":"PRIO-3","color":"D93F0B","description":"old text"}]'
 $LabelsBad     = 'not json'
 
@@ -149,12 +149,12 @@ try {
     Assert-True ($scriptSrc -match "Write-Host\s+`"\s*gh label create") `
         'and it is printed via Write-Host, not passed to a native call'
 
-    # --- 2. All five missing: the built-in fallback, five paste-ready commands, exit 0 --------------
-    Write-Host '-- 2. all five missing (built-in fallback, no seam defined) --' -ForegroundColor Cyan
+    # --- 2. All six missing: the built-in fallback, six paste-ready commands, exit 0 ----------------
+    Write-Host '-- 2. all six missing (built-in fallback, no seam defined) --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'allmissing'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fNone
     Assert-Equal 0 $r.Code 'all missing: exit-code 0 -- this is a report, never a gate'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'dossier')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'dossier', 'needs-decision')) {
         Assert-True ($r.Out -like "*[missing]*'$name'*") "all missing: '$name' reported [missing]"
     }
     Assert-True ($r.Flat -like "*READ-ONLY*never runs gh label create*") 'all missing: the header states the print-only contract on every run'
@@ -163,35 +163,35 @@ try {
     Assert-True ($r.Flat -like "*gh label create 'prio-2' --color 'FBCA04' --description 'Priority 2 of 4 -- worth doing, no pressure' --repo fixture-org/fixture-repo*") `
         "all missing: the composed command for 'prio-2' is exact and paste-ready, including --repo"
     Assert-Equal 0 (@([regex]::Matches($r.Out, '\[ok\]')).Count) 'all missing: zero [ok] lines'
-    Assert-True ($r.Flat -like '*5 of 5 canonical triage label(s) missing*') 'all missing: the summary line counts 5 of 5'
+    Assert-True ($r.Flat -like '*6 of 6 canonical triage label(s) missing*') 'all missing: the summary line counts 6 of 6'
 
-    # --- 3. All five present (two in a different case): all [ok], nothing printed to create ---------
-    Write-Host '-- 3. all five already exist (two case-differently) --' -ForegroundColor Cyan
+    # --- 3. All six present (two in a different case): all [ok], nothing printed to create ----------
+    Write-Host '-- 3. all six already exist (two case-differently) --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'allpresent'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fAll
     Assert-Equal 0 $r.Code 'all present: exit-code 0'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'dossier')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'dossier', 'needs-decision')) {
         Assert-True ($r.Out -like "*[ok]*'$name' already exists*") "all present: '$name' reported [ok]"
     }
     Assert-Equal 0 (@([regex]::Matches($r.Out, '\[missing\]')).Count) 'all present: zero [missing] lines'
-    Assert-True ($r.Flat -like '*Done: all 5 canonical triage label(s) already exist*') 'all present: the summary line says done'
+    Assert-True ($r.Flat -like '*Done: all 6 canonical triage label(s) already exist*') 'all present: the summary line says done'
     # THE CASE-INSENSITIVE MATCH, explicitly: 'PRIO-3' in the payload must satisfy 'prio-3' in the
     # canonical set -- GitHub itself treats the two as the same label, and a case-sensitive compare
     # here would print a create command gh would refuse as a duplicate.
     Assert-True ($r.Out -like "*[ok]*'prio-3' already exists*") "case-insensitive: the payload's 'PRIO-3' satisfies the canonical 'prio-3'"
 
-    # --- 4. Two of five present: a mixed report, correct counts -------------------------------------
-    Write-Host '-- 4. two of five already exist --' -ForegroundColor Cyan
+    # --- 4. Two of six present: a mixed report, correct counts --------------------------------------
+    Write-Host '-- 4. two of six already exist --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'partial'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fPartial
     Assert-Equal 0 $r.Code 'partial: exit-code 0'
     foreach ($name in @('prio-1', 'prio-3')) {
         Assert-True ($r.Out -like "*[ok]*'$name' already exists*") "partial: '$name' reported [ok]"
     }
-    foreach ($name in @('prio-2', 'prio-4', 'dossier')) {
+    foreach ($name in @('prio-2', 'prio-4', 'dossier', 'needs-decision')) {
         Assert-True ($r.Out -like "*[missing]*'$name'*") "partial: '$name' reported [missing]"
     }
-    Assert-True ($r.Flat -like '*3 of 5 canonical triage label(s) missing*2 already exist*') 'partial: the summary line counts both halves'
+    Assert-True ($r.Flat -like '*4 of 6 canonical triage label(s) missing*2 already exist*') 'partial: the summary line counts both halves'
 
     # --- 5. An unreadable payload: [skip], never a false [missing] or [ok] -------------------------
     Write-Host '-- 5. an unreadable label payload --' -ForegroundColor Cyan
@@ -215,7 +215,7 @@ try {
     Assert-True ($r.Out -like "*[missing]*'foo-team-label'*") 'custom seam: the CONSUMER''s own label is what gets reported'
     Assert-True ($r.Flat -like "*gh label create 'foo-team-label' --color 'abcdef' --description 'a made-up team convention' --repo fixture-org/fixture-repo*") `
         'custom seam: and the exact command composes from the seam''s own values'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'dossier')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'dossier', 'needs-decision')) {
         Assert-True ($r.Out -notlike "*'$name'*") "custom seam: the built-in canonical '$name' is NOT reported -- the seam fully replaced it"
     }
 
@@ -262,7 +262,7 @@ try {
     }
 
     # --- 8. The two canonical copies never disagree: this script's built-in fallback and ------------
-    #        scripts/repo-config.ps1's Get-TriageLabels must be the SAME five literal records, because
+    #        scripts/repo-config.ps1's Get-TriageLabels must be the SAME six literal records, because
     #        an unanswered consumer and an answered one must be told the same set (see both files'
     #        headers for why).
     Write-Host '-- 8. the built-in fallback and Get-TriageLabels agree, byte for byte --' -ForegroundColor Cyan
@@ -271,16 +271,18 @@ try {
     # shape, so a plain line match is exact and does not need a PowerShell parse.
     function Get-TriageLiteralLines {
         param([string]$Text)
-        return @([regex]::Matches($Text, "\[pscustomobject\]@\{\s*Name\s*=\s*'[^']*';\s*Color\s*=\s*'[^']*';\s*Description\s*=\s*'[^']*'\s*\}") |
+        # '(?:[^']|'')*' and not '[^']*': a literal may carry a doubled quote (needs-decision's "owner''s",
+        # #2519), and the narrower class silently stopped matching that record instead of failing on it.
+        return @([regex]::Matches($Text, "\[pscustomobject\]@\{\s*Name\s*=\s*'(?:[^']|'')*';\s*Color\s*=\s*'(?:[^']|'')*';\s*Description\s*=\s*'(?:[^']|'')*'\s*\}") |
             ForEach-Object { $_.Value })
     }
     $repoConfigText = [System.IO.File]::ReadAllText($RepoConfigSrc)
     $scriptLiterals      = @(Get-TriageLiteralLines -Text $scriptSrc)
     $repoConfigLiterals  = @(Get-TriageLiteralLines -Text $repoConfigText)
-    Assert-Equal 5 $scriptLiterals.Count 'the script''s own built-in fallback declares exactly five label literals'
-    Assert-Equal 5 $repoConfigLiterals.Count 'scripts/repo-config.ps1''s Get-TriageLabels declares exactly five label literals'
+    Assert-Equal 6 $scriptLiterals.Count 'the script''s own built-in fallback declares exactly six label literals'
+    Assert-Equal 6 $repoConfigLiterals.Count 'scripts/repo-config.ps1''s Get-TriageLabels declares exactly six label literals'
     Assert-Equal ($repoConfigLiterals -join "`n") ($scriptLiterals -join "`n") `
-        'the built-in fallback and Get-TriageLabels are the exact same five literal records -- an unanswered consumer and an answered one are told the same set'
+        'the built-in fallback and Get-TriageLabels are the exact same six literal records -- an unanswered consumer and an answered one are told the same set'
 
     # --- 9. The contract record itself (Get-ScriptContract), the same shape reach-label.tests.ps1 ----
     #        already asserts for its neighbouring axis.
