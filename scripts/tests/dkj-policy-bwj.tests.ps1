@@ -376,6 +376,14 @@ Assert-True ($pasteComment -notmatch 'CRO')                                'and 
 $between = ($pasteComment -split '(?m)^---$')[1]
 Assert-True ($between -notmatch [regex]::Escape($pasteMarker)) 'the marker is outside the block that gets pasted into Asana'
 Assert-True ($between -match '\[ADD LINK\]')              'and the pasted half is the sentence carrying the link'
+# THE SESSION ROUTE'S SHAPE, NOT THE OLD ENGLISH SENTENCE (#2513): the opening line, then the one
+# section CI can write -- the others are not placeholdered, they are left out.
+$betweenLines = @(($between.Trim()) -split "`n")
+Assert-Equal "$([char]0x2014) automatisch bericht vanuit GitHub #500" $betweenLines[0] 'the pasted block opens with the session route''s header line'
+Assert-Equal 'TE BEKIJKEN OP' $betweenLines[2] 'then the where-to-look heading'
+Assert-Equal 'Het resultaat is hier te bekijken: [ADD LINK]' $betweenLines[4] 'and the link sentence, in Dutch, with the placeholder'
+Assert-Equal 5 $betweenLines.Count 'and no further section -- nothing is placeholdered but the link'
+Assert-True ($between -notmatch 'The fix for')             'the old English sentence is gone'
 
 # The two matchers are what a session-written block has to carry, so they are asserted against the
 # shape WORKFLOW-portable.md publishes rather than only against this script's own output.
@@ -968,6 +976,16 @@ Assert-True ($goLiveBlock.IndexOf("NL $glDash") -lt $goLiveBlock.IndexOf("DE $gl
 # THE SHAPE BWJ SENDS (#2507): the opening line says where the message comes from, then five fixed
 # headings, in the reference block's order.
 $goLivePasted = ($goLiveBlock -split '(?m)^---$')[1]
+
+# TWO WRITERS OF ONE BLOCK, ONE SET OF WORDS (#2513). asana-mirror.ps1 ships standalone and so
+# carries a copy of the words rather than a call; this holds the copy equal to the source, so the
+# backstop cannot drift back to a shape the session route no longer writes.
+$glTextNl       = Get-GoLiveBlockText -Language nl
+$backstopPasted = ((New-AsanaPasteBlockComment -IssueRef 'BWJ-Development/smartwatchbanden#500') -split '(?m)^---$')[1]
+Assert-True ($backstopPasted.Contains(($glTextNl.Header -f '500')))            'the backstop''s header line is Get-GoLiveBlockText''s'
+Assert-True ($backstopPasted.Contains($glTextNl.Where))                         'its heading is the where-to-look heading'
+Assert-True ($backstopPasted.Contains(($glTextNl.ResultLink -f '[ADD LINK]'))) 'and its link sentence is the session route''s, with the placeholder in the link''s place'
+Assert-True ($goLivePasted.TrimStart().StartsWith(($glTextNl.Header -f '500'))) 'the session route opens with the same header line'
 Assert-True ($goLivePasted.TrimStart().StartsWith("$glDash automatisch bericht vanuit GitHub #500")) 'the pasted block opens by naming where it comes from'
 $glHeadings = @('WAT ER NU ANDERS IS', 'TE BEKIJKEN OP', 'WANNEER HET LIVE KOMT', 'WAT ER BEWUST NIET IN ZIT', 'WAT WE VAN JE VRAGEN')
 $glAt = -1

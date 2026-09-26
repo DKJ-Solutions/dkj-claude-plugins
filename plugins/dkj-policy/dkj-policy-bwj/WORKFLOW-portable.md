@@ -611,6 +611,14 @@ Where an Asana-linked issue closes and **no block is on it**, `asana-mirror` pos
 `[ADD LINK]`, because CI genuinely cannot know the link. It is the safety net under the rule above and
 not the route to it.
 
+**It writes the same block as the session, cut down to what CI can know** (#2513). Between the rules
+it carries the opening line and the `TE BEKIJKEN OP` section with `Het resultaat is hier te bekijken:
+[ADD LINK]`, in the same Dutch words, because the block is addressed to the colleague. It writes
+nothing else. The other sections hold the session's prose, or facts this standalone template does not
+derive, and a section with nothing to say is left out rather than filled with a placeholder. The
+template ships without the plugin's libs, so it holds a copy of those words. The plugin's suite keeps
+that copy equal to `Get-GoLiveBlockText`.
+
 **It de-duplicates on the block's own marker, and on its lead sentence for one somebody typed by
 hand** -- the same two-matcher shape, in the same order, as the task link itself: the machine marker
 first and unconditionally, prose second. So a session that did its job never sees a second,
