@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**7 / 31 minor entries** <!-- pending-tally -->
+**7 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2526-shared-bounded-pr-scan · 20260926-122316Z
+
+`check-stranded-sweep.ps1` and `check-unshipped-pr.ps1` no longer carry the same ~100-line bounded
+PR-scan scaffold twice. It now lives once, in `scripts/lib/pr-scan-lib.ps1` (`Invoke-BoundedPrScan`):
+the filtered list read, the per-PR required-check read under a per-call and a total budget, the honest
+judged/unjudged split, the display scrub and the paste-safe checkout token. Each check keeps only its
+list filter, its verdict and its report prose, so a repair to the pattern now lands once. What the checks
+report is unchanged, apart from the `[INCOMPLETE]` line: the two checks worded it slightly differently,
+and both now print one shared wording.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: an internal refactor of two session-start checks. A subscriber sees the same report as before.
+
+**Score:** N/A
+
+#### Pull Request
+
+The two session-start PR scans share one bounded scan helper
+
+Plugins: dkj-policy
+
+[PR #2528](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2528)
+
+---
 
 ### DEPLOY: fix/2525-unarmed-stranded-pr-sessioncheck · 20260926-114854Z
 
