@@ -61,7 +61,7 @@ The two shared "safe to paste" guards no longer let a look-alike letter through
 `Test-PathPasteSafe` matched their ASCII allowlists case-insensitively. Under case folding the Kelvin
 sign (U+212A) matches `k`, so a branch name or path carrying it was judged safe to print into a command
 line. Git accepts that character in a branch name. Both guards now match case-sensitively, like
-`live-preflight`'s newer check already did. Every value that passed before still passes.
+`live-preflight`'s newer check already did. Every plain-ASCII value that passed before still passes.
 
 **Score:** 1
 
