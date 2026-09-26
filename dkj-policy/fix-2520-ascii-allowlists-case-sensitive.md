@@ -54,7 +54,7 @@ checks: no non-ASCII character case-folds into `a-f`, and git accepts an upper-c
   `Get-IssuePathCitations`' path token, `check-plugin-integrity.ps1`'s specialist `name:` check,
   `publish-to-business.ps1`'s slug detection, `bootstrap.ps1`'s three slug checks, and
   `page-publish-rules.ps1`'s BaseUrl check
-- [x] Plugin mirrors synced with `build-shared-scripts.ps1`
+- [x] Plugin mirrors synced with `build-shared-scripts.ps1`, and the config blueprint rebuilt (it carries `Test-BranchName`)
 
 ### TEST
 
