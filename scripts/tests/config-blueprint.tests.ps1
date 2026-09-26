@@ -415,6 +415,38 @@ Assert-Equal 1 $r.Code 'missing seam lib: exits non-zero'
 Assert-Match 'specialists-init' $r.Out 'missing seam lib: points at the bootstrap rather than half-creating one'
 Remove-Item -Recurse -Force -LiteralPath $bare -ErrorAction SilentlyContinue
 
+# --- A junctioned scripts/ and a proposal path outside the repo (issue #2546) ----------------------
+# The append into the seam lib and the proposal write are both refused. The fixture's scripts/ is moved
+# out and replaced by a junction to it, so the run still reads the libs it needs. A junction needs no
+# privilege; it is removed with rmdir, never recursively, or the delete would empty its target.
+$jFixture = Join-Path $Fixture '..\config-blueprint-test-junction'
+$jOutside = Join-Path $Fixture '..\config-blueprint-test-junction-outside'
+New-ConsumerFixture -Path $jFixture
+if (Test-Path -LiteralPath $jOutside) { Remove-Item -Recurse -Force -LiteralPath $jOutside }
+Move-Item -LiteralPath (Join-Path $jFixture 'scripts') -Destination $jOutside
+& cmd /c mklink /J "$(Join-Path $jFixture 'scripts')" "$((Resolve-Path -LiteralPath $jOutside).Path)" | Out-Null
+try {
+    $jBefore = [System.IO.File]::ReadAllText((Join-Path $jOutside 'repo-config.ps1'))
+    # The dry run shows the refusal -Apply will make, rather than a plan that silently will not happen.
+    $r = Invoke-Adopt -ConsumerRoot (Resolve-Path -LiteralPath $jFixture).Path
+    Assert-Match '\[refused\] scripts[\\/]repo-config\.ps1' $r.Out 'junction: the dry run already names the refusal'
+    # A drive-rooted -ProposalPath is refused as outside the repo; Join-Path used to glue it onto the root
+    # as a two-drive string that crashed the run in GetFullPath.
+    $absProposal = Join-Path ([System.IO.Path]::GetTempPath()) "config-blueprint-abs-$PID.md"
+    $r = Invoke-Adopt -ConsumerRoot (Resolve-Path -LiteralPath $jFixture).Path -ScriptArgs @('-ProposalPath', $absProposal)
+    Assert-Equal 0 $r.Code 'junction: an absolute proposal path does not crash the run'
+    Assert-Match ('\[refused\] ' + [regex]::Escape($absProposal)) $r.Out 'junction: and it is refused as outside the repo'
+    $r = Invoke-Adopt -ConsumerRoot (Resolve-Path -LiteralPath $jFixture).Path -ScriptArgs @('-Apply', '-ProposalPath', '..\config-blueprint-escape.md')
+    Assert-Equal 0 $r.Code 'junction: exit 0 -- a refusal is not a failed run'
+    Assert-Equal $jBefore ([System.IO.File]::ReadAllText((Join-Path $jOutside 'repo-config.ps1'))) 'junction: the lib outside the repo is untouched'
+    Assert-Match '\[refused\] scripts[\\/]repo-config\.ps1' $r.Out 'junction: the seam append is reported refused'
+    Assert-Match '\[refused\] \.\.\\config-blueprint-escape\.md' $r.Out 'junction: a proposal path outside the repo is refused'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $Fixture '..\config-blueprint-escape.md'))) 'junction: and nothing was written there'
+} finally {
+    & cmd /c rmdir "$(Join-Path $jFixture 'scripts')" | Out-Null
+    foreach ($d in $jFixture, $jOutside) { Remove-Item -Recurse -Force -LiteralPath $d -ErrorAction SilentlyContinue }
+}
+
 # --- The plugin mirror, run from its OWN depth (issue #1857) ---------------------------------------
 # check-plugin-integrity's check 8 proves this script and its mirror are byte-identical, and that is
 # exactly what hides the difference here: Resolve-Blueprint's FIRST candidate is

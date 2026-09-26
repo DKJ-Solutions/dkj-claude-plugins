@@ -123,6 +123,14 @@ $shimRel     = '.claude/statusline/dkj-progress.ps1'
 $settingsAbs = Join-Path $repoRoot ($settingsRel -replace '/', '\')
 $shimAbs     = Join-Path $repoRoot ($shimRel -replace '/', '\')
 
+# NEVER THROUGH A SYMLINK OR JUNCTION (issue #2546). Test-Path follows a reparse point, so a junctioned
+# .claude/ or statusline/ would take either write below outside the repo, and a dangling symlink would read
+# as absent and have the write create its target. Both paths are judged once, up front, so the dry run
+# reports the same refusals -Apply would make.
+. (Join-Path $PSScriptRoot '..\lib\write-target-lib.ps1')
+$shimReparse     = Get-WriteTargetReparsePoint -Path $shimAbs -Root $repoRoot
+$settingsReparse = Get-WriteTargetReparsePoint -Path $settingsAbs -Root $repoRoot
+
 # FORWARD SLASHES IN THE COMMAND STRING, DELIBERATELY. The statusline documentation names this trap by
 # itself: Git Bash treats unquoted backslashes as escape characters, so a Windows-style path reaches
 # the script runner with its separators removed and the command fails with nothing visible to say so.
@@ -250,7 +258,9 @@ Write-Host ''
 # Additive, like every file this family places: one that is already there is left exactly as it is,
 # whatever it contains. A re-run therefore finds nothing to do, which is what makes running this again
 # after a plugin update harmless -- and correct, since the shim is the half that never needs updating.
-if (Test-Path -LiteralPath $shimAbs -PathType Leaf) {
+if ($shimReparse) {
+    Write-Host "  [refused] $shimRel -- reached through a symlink or junction ($shimReparse), so writing it would land outside the repo; place it by hand" -ForegroundColor Yellow
+} elseif (Test-Path -LiteralPath $shimAbs -PathType Leaf) {
     Write-Host "  [keep]  $shimRel -- already here, left untouched"
 } elseif ($Apply) {
     $shimDir = Split-Path -Parent $shimAbs
@@ -355,7 +365,12 @@ if (-not $settingsReadable) {
 $hasStatusLine = $false
 if (@(Get-MemberNames $existingSettings) -contains 'statusLine') { $hasStatusLine = $true }
 
-if ($hasStatusLine) {
+if ($settingsReparse) {
+    Write-Host "  [refused] $settingsRel -- reached through a symlink or junction ($settingsReparse), so it was NOT changed:" -ForegroundColor Yellow
+    Write-Host '            writing it would land outside the repo. The block to place by hand:'
+    Write-Host ''
+    Write-Host $blockForPrinting
+} elseif ($hasStatusLine) {
     Write-Host "  [keep]  $settingsRel already defines a statusLine -- left exactly as it is." -ForegroundColor Yellow
     Write-Host '          There is one such key per settings file, so placing this one would REPLACE'
     Write-Host '          yours. Merging two status lines is a decision only you can make. The block:'

@@ -48,6 +48,7 @@ that is the #2533 class, missed there because #2533 covered other scripts, and i
 ### CREATE
 
 - [x] adopt-ci-floor: each runner target is checked before the existence test; a hit prints `[refused]`, is counted, and the summary names the count
+- [x] adopt-ci-floor, after Victor's review: with the queue active a refused queue runner counts as a live defect in both modes, so an incomplete floor still exits 1
 - [x] adopt-config: the seam-lib append and the proposal document are refused through a reparse point, and a `-ProposalPath` outside the repo is refused as well
 - [x] adopt-config, after Sebastian's review: both are judged before the dry run stops, so the plan names the refusals `-Apply` would make; and the proposal path is built with `[IO.Path]::Combine`, since `Join-Path` glued a drive-rooted `-ProposalPath` onto the root and `GetFullPath` crashed on the result
 - [x] adopt-statusline: the shim and settings.json are judged once up front, so the dry run and `-Apply` refuse the same way; a refused settings.json prints the block to place by hand
@@ -55,7 +56,8 @@ that is the #2533 class, missed there because #2533 covered other scripts, and i
 
 ### TEST
 
-- [x] `adopt-ci-floor.tests.ps1`: a junctioned `.github/workflows` -- nothing lands outside, the refusal is named and counted (250 passed)
+- [x] `adopt-ci-floor.tests.ps1`: a junctioned `.github/workflows` -- nothing lands outside, the refusal is named and counted, and with the queue on it exits 1 (251 passed)
+- [x] Victor (code review) and Sebastian (security review): their three findings are repaired above; no other findings
 - [x] `config-blueprint.tests.ps1`: a junctioned `scripts/` and a proposal path outside the repo -- the lib outside is untouched, both refusals are named, the dry run names them too, and a drive-rooted proposal path is refused rather than crashing (214 passed)
 - [x] `adopt-statusline.tests.ps1`: a junctioned `.claude/` -- nothing lands outside, both refusals are named, the block is printed (73 passed)
 - [x] `check-plugin-integrity.ps1`: 0 errors
