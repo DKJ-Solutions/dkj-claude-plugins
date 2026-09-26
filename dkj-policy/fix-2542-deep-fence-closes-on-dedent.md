@@ -39,19 +39,60 @@
 
 ### PLAN
 
+#### Scope
+
+Issue #2542: under `-AnyIndent`, a line indented four or more spaces that starts with three backticks
+(pasted terminal output under a paragraph) opened a fence that never closed. On GitHub it is an indented
+code block that ends when the indentation drops. `Get-GateBypassLines` then read nothing below it, and
+`Add-GateBypassLines` returned the body unchanged, so a new bypass line was dropped silently.
+
+#### The decision
+
+The issue offered two directions: bound the lifted indent by the list container, or drop `-AnyIndent` in
+the PR-body readers. The first is taken, because it fixes the one shared primitive for every reader and
+not just the PR-body ones. The tracker sees no containers, but it does not need to. A fence opened at
+N > 3 spaces can only sit in a container whose content starts at N-3 or deeper, so a non-blank line
+indented less than that ends the block. The state carries N (the indent in spaces plus the run), and a
+new `Resolve-FenceState` gives callers the state *at* a line, so the line that ends the block is not
+skipped as part of it. A valid closer below the bound still closes. Reading it as a new, unclosed opener
+(strict CommonMark) is the same swallow-the-rest failure.
+
+`Add-GateBypassLines` now decides between insert and append from one fence-aware scan. A body that only
+quotes the heading in a fence gets a new section instead of a silent no-op.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `fence-lib.ps1`: deep opener carries its depth; `Resolve-FenceState` and `Get-FenceIndentWidth` added
+- [x] All 17 `-AnyIndent` call sites read their state-before through `Resolve-FenceState` (pr-body-lib 8, check-plugin-integrity 5, pr-issues-lib, entry-scaffold-lib, open-pr, check-roster-sync)
+- [x] check-plugin-integrity's two transition loops (record-query, consumer-doc samples) annotated: a block ended by indent goes unjudged
+- [x] `Add-GateBypassLines`: the append branch reads the same fence-aware scan as the insert branch
+- [x] Mirrors regenerated (`build-shared-scripts.ps1`)
 
 ### TEST
 
+- [x] `fence-lib.tests.ps1`: the deep-block bound, the column-0 closer, tabs, the measured gate-bypass case through both readers, the quoted-heading append, and a tree-wide guard against a bare `$was = $fence` beside `-AnyIndent` (falsified against the old shape)
+- [x] fence-lib, pr-body and measure-always-on green locally
+
 ### DEPLOY: fix/2542-deep-fence-closes-on-dedent
 
-**Score:**
+A PR body's gate-bypass section is no longer lost below a line of pasted output. Terminal output indented
+four spaces and starting with three backticks is an indented code block on GitHub, but the workflow's
+markdown readers treated it as a fence that never closed. Everything below it counted as quoted. So
+`Get-GateBypassLines` read no bypass section, and `Add-GateBypassLines` dropped a new bypass line without
+an error. A fence opened deeper than three spaces now ends at the first line indented less than any list
+container could allow. That applies to every reader sharing `Get-NextFenceState`: the PR-body scans, the
+resolves reader, the entry format, open-pr's template scan, the roster check and the lint gate. Separately,
+a body that only quotes the gate-bypass heading in a code block now gets a real section appended instead
+of an unchanged body.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Workflow tooling does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
 
+A deep fence ends when its container does, so a gate-bypass line is not dropped

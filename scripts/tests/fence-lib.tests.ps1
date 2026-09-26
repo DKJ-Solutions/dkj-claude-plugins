@@ -10,7 +10,9 @@
 
     The tracker's CommonMark rules without -AnyIndent are asserted where the always-on walk uses them, in
     measure-always-on.tests.ps1. This suite holds what #2536 added: the -AnyIndent switch, one reader per
-    lib proving the nested case now stays quoted, and a tree-wide guard that no plain toggle comes back.
+    lib proving the nested case now stays quoted, and a tree-wide guard that no plain toggle comes back --
+    plus what #2542 added: a deep opener ends when its container does, and every -AnyIndent caller reads
+    its state-before through Resolve-FenceState.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -36,11 +38,69 @@ Write-Host '-AnyIndent: a fence inside a list item'
 # The measured case: cut-release's SKILL.md fences a '### DEPLOY:' example at five spaces inside a
 # numbered item. Without the switch that opener is not a fence, and the heading inside it reads as real.
 Assert-True ((Get-NextFenceState -Line ('     ' + $t3 + 'text') -Fence '') -eq '') 'without -AnyIndent, five spaces of indent does not open'
-Assert-True ((Get-NextFenceState -Line ('     ' + $t3 + 'text') -Fence '' -AnyIndent) -eq $t3) 'with -AnyIndent it opens'
+Assert-True ((Get-NextFenceState -Line ('     ' + $t3 + 'text') -Fence '' -AnyIndent) -eq ('     ' + $t3)) 'with -AnyIndent it opens, and the state carries the depth it opened at'
 Assert-True ((Get-NextFenceState -Line ('     ' + $t3) -Fence $t3 -AnyIndent) -eq '') 'and a closer at the same depth closes'
 Assert-True ((Get-NextFenceState -Line ('     ' + $t3) -Fence $t4 -AnyIndent) -eq $t4) 'the length rule still holds under -AnyIndent'
 Assert-True ((Get-NextFenceState -Line '     ~~~' -Fence $t3 -AnyIndent) -eq $t3) 'and so does the same-character rule'
 
+Write-Host ''
+Write-Host '-AnyIndent: a deep opener ends when its container does (#2542)'
+# The measured case: terminal output pasted four spaces deep under a paragraph is an INDENTED code block
+# on GitHub, which ends when the indentation drops. Read as a fence it never closed, and a real
+# '## Gate bypass' section below it went unread.
+$deep = Get-NextFenceState -Line ('    ' + $t3 + ' not a fence on GitHub') -Fence '' -AnyIndent
+Assert-True ($deep -eq ('    ' + $t3)) 'a four-space opener opens, carrying its depth'
+Assert-True ((Resolve-FenceState -Line '    more output' -Fence $deep) -eq $deep) 'a line still at its depth stays inside'
+Assert-True ((Resolve-FenceState -Line '' -Fence $deep) -eq $deep) 'and so does a blank line'
+Assert-True ((Resolve-FenceState -Line '## Gate bypass' -Fence $deep) -eq '') 'a column-0 line ends the block before it is read'
+Assert-True ((Get-NextFenceState -Line '## Gate bypass' -Fence $deep -AnyIndent) -eq '') 'and the state after it is outside too'
+Assert-True ((Get-NextFenceState -Line $t3 -Fence $deep -AnyIndent) -eq '') 'a column-0 closer still closes, rather than opening a block that swallows the rest'
+Assert-True ((Resolve-FenceState -Line $t3 -Fence $deep) -eq $deep) 'and that closer counts as part of the block it closes'
+Assert-True ((Get-NextFenceState -Line ($t3 + 'ps1') -Fence $deep -AnyIndent) -eq $t3) 'a column-0 opener past the bound ends the old block and opens a new one'
+# The loosest bound the line allows: five spaces deep can sit in a container whose content starts at 2.
+$five = '     ' + $t3
+Assert-True ((Resolve-FenceState -Line '  inside a list item at two' -Fence $five) -eq $five) 'a line at depth-3 or deeper stays inside a deep block'
+Assert-True ((Resolve-FenceState -Line ' one space' -Fence $five) -eq '') 'a line shallower than depth-3 ends it'
+Assert-True ((Resolve-FenceState -Line '## x' -Fence $t3) -eq $t3) 'a shallow block never ends by indent'
+Assert-True ((Get-FenceIndentWidth -Text ("`t")) -eq 4 -and (Get-FenceIndentWidth -Text ("  `t")) -eq 4) 'a tab advances to the next multiple of four'
+
+$pasted = @(
+    '## Summary',
+    'The run printed:',
+    ('    ' + $t3 + ' output'),
+    '    line two',
+    '',
+    '## Gate bypass',
+    '',
+    '- `-SkipTests` -- the real one'
+) -join "`n"
+$read = @(Get-GateBypassLines -Body $pasted)
+Assert-True ($read.Count -eq 1 -and $read[0] -eq '- `-SkipTests` -- the real one') 'Get-GateBypassLines reads the real section below a four-space pasted line'
+$added = Add-GateBypassLines -Body $pasted -Lines @('- `-SkipLint` -- second')
+Assert-True ($added -ne $pasted -and $added.Contains('- `-SkipLint` -- second')) 'Add-GateBypassLines adds to it instead of returning the body unchanged'
+Assert-True (([regex]::Matches($added, '(?m)^## Gate bypass')).Count -eq 1) 'into the existing section, not a second one'
+
+# The other half of the drop: a body that only QUOTES the heading in a fence has no section, so a new
+# line opens one rather than vanishing into the insert branch.
+$quoted = @('## Summary', $t3, '## Gate bypass', $t3) -join "`n"
+$fresh = Add-GateBypassLines -Body $quoted -Lines @('- `-SkipTests` -- new')
+Assert-True ($fresh.EndsWith("## Gate bypass`n`n- ``-SkipTests`` -- new`n")) 'a quoted heading only: the section is appended, not dropped'
+Assert-True (@(Get-GateBypassLines -Body $fresh).Count -eq 1) 'and the appended line reads back'
+
+Write-Host ''
+Write-Host 'Every -AnyIndent caller reads its state-before through Resolve-FenceState (#2542)'
+# '$was = $fence' next to an -AnyIndent call skips the line that ends a deep block -- the heading below a
+# pasted line, the exact line #2542 lost.
+$bareRx = '\$\w+\s*=\s*\$(\w+);\s*\$\1\s*=\s*Get-NextFenceState\b[^\r\n]*-AnyIndent'
+$bare = @()
+foreach ($root in @('scripts', 'plugins')) {
+    foreach ($f in Get-ChildItem -LiteralPath (Join-Path $RepoRoot $root) -Recurse -Filter '*.ps1' -File) {
+        if ($f.FullName -eq $PSCommandPath) { continue }
+        if ([System.IO.File]::ReadAllText($f.FullName) -match $bareRx) { $bare += $f.FullName.Substring($RepoRoot.Length + 1) }
+    }
+}
+Assert-True ($bare.Count -eq 0) "no -AnyIndent caller reads the bare previous state$(if ($bare) { ': ' + ($bare -join ', ') })"
+Assert-True ('$was = $fence; $fence = Get-NextFenceState -Line $l -Fence $fence -AnyIndent' -match $bareRx) 'the guard fires on the old shape'
 # The document every reader below is handed: a four-backtick block quoting a three-backtick example that
 # itself carries structure, then the real structure after it.
 $nested = @(

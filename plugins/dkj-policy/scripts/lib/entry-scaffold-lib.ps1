@@ -242,7 +242,7 @@ function Get-FencedLineFlags {
     $fence = ''
     for ($i = 0; $i -lt $Lines.Count; $i++) {
         # Before OR after: the opener and the closer belong to the block, as the body does.
-        $was = $fence; $fence = Get-NextFenceState -Line $Lines[$i] -Fence $fence -AnyIndent
+        $was = Resolve-FenceState -Line $Lines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $Lines[$i] -Fence $fence -AnyIndent
         $flags[$i] = [bool]($was -or $fence)
     }
     return $flags

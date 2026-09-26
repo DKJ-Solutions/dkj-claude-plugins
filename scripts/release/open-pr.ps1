@@ -2591,7 +2591,7 @@ if ($existingPr) {
             $tplAbove = @()
             $tplBelow = @()
             foreach ($tplLine in @(Get-Content -LiteralPath $templateForHeading -Encoding UTF8)) {
-                $tplWas = $tplFence; $tplFence = Get-NextFenceState -Line $tplLine -Fence $tplFence -AnyIndent
+                $tplWas = Resolve-FenceState -Line $tplLine -Fence $tplFence; $tplFence = Get-NextFenceState -Line $tplLine -Fence $tplFence -AnyIndent
                 if ($tplWas -or $tplFence) { continue }
                 if ($descPlaceholders -contains $tplLine) { $tplSeenPlaceholder = $true; continue }
                 if ($tplLine -match '^#{1,6}\s+\S') {
