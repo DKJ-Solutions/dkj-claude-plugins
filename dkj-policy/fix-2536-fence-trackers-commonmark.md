@@ -39,19 +39,55 @@
 
 ### PLAN
 
+#### Scope
+
+Every plain fence toggle in the tree moves onto `Get-NextFenceState`, which moves out of
+`measure-context-lib.ps1` into a dependency-free `fence-lib.ps1` so the PR-body libs and the roster check
+can load it without the measuring lib. `Test-FenceDelimiterLine` goes. Three sites the issue's grep missed
+come along: open-pr's template scan, entry-scaffold-lib's branch-document shape check, and one inline walk
+in `entry-scaffold.tests.ps1`.
+
+#### The indent decision
+
+`Get-NextFenceState` opens a fence only at 0-3 spaces, counted from the document edge because it sees no
+containers. The migrated readers accepted any indent, and the tree needs that: `cut-release/SKILL.md`
+fences a `### DEPLOY:` example at five spaces inside a numbered item. So the function gets `-AnyIndent`,
+the migrated readers pass it, and the always-on walk keeps #2534's rule. The two readers that already
+used `\s{0,3}` (the branch-document shape check and its test) keep it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/fence-lib.ps1`: `Get-NextFenceState` with `-AnyIndent`; `measure-context-lib.ps1` dot-sources it
+- [x] pr-body-lib (8 sites), pr-issues-lib, check-roster-sync, open-pr, entry-scaffold-lib (`Get-FencedLineFlags` + the shape check) and check-plugin-integrity (5 sites) moved onto it
+- [x] `Test-FenceDelimiterLine` removed; `Get-FencedLineFlags`' premise about nested fences corrected
+- [x] Mirrored into dkj-policy, dkj-policy-bwj and dkj-subagents-alpha (`shared-scripts-lib.ps1`, `build-shared-scripts.ps1`)
+- [x] The eight fixtures that copy entry-scaffold-lib's siblings copy fence-lib too
 
 ### TEST
 
+- [x] New `fence-lib.tests.ps1`: `-AnyIndent`, a nested block through `Get-FencedLineFlags` and `Get-GateBypassLines`, and a tree-wide guard against a plain toggle coming back (falsified against the old shapes)
+- [x] `entry-scaffold.tests.ps1`: the one-owner assert now expects zero rule copies in the lib. A fixture whose closing fence read `` ```\n `` (a literal backslash-n) passed only because the toggle closed on it; fixed
+- [x] measure-always-on, pr-body, pr-issues, release-lib, entry-scaffold, fence-lib green locally
+
 ### DEPLOY: fix/2536-fence-trackers-commonmark
 
-**Score:**
+The workflow's markdown readers now track fenced code blocks the CommonMark way. A block closes only on
+a run of the same character at least as long as the one that opened it. Before this, a four-backtick
+block quoting a three-backtick example closed at the inner fence, and the rest of the example was read
+as real structure. That covered PR-body section and heading scans, the resolves reader, the changelog
+entry format, open-pr's template scan, the roster check's import scan and the lint gate's anchor and
+sample checks. Tilde fences are now recognised by the lint gate, which knew only backticks. All of them
+share one definition, `Get-NextFenceState` in `fence-lib.ps1`. No real document is known to have been
+misread; the repo's own test fixtures quote nested fences, so a PR body or entry quoting them was the
+likeliest place for it to happen.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Workflow tooling does not reach a subscriber of a service.
+
+**Score:** N/A
 
 #### Pull Request
 
