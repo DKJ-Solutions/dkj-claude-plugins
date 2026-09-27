@@ -77,8 +77,8 @@
                         "optional":  true,
                         "default":  "no extra commands -- the *.tests.ps1 suites in scripts/tests are the whole gate, unchanged from before the seam existed",
                         "returns":  "extra command lines the test gate runs alongside the *.tests.ps1 suites, e.g. @(\u0027npm test\u0027) -- each runs as its own child with the exit code propagated, and a non-zero exit fails the gate exactly like a failing suite",
-                        "declared":  false,
-                        "text":  ""
+                        "declared":  true,
+                        "text":  "# --- THE FOUR \u0027decide\u0027 SEAMS WHOSE FALLBACK IS THIS REPO\u0027S ANSWER (inbound #2555) -----------------\n#\n# Each of these used to be left undefined on purpose, because the shared fallback already says what this\n# repo means -- and check-script-contract could not tell that considered silence from a question nobody\n# ever put. Since #2555 it rolls every undefined \u0027decide\u0027 seam into one [UNANSWERED] line the session hook\n# forwards, so a considered answer has to be STATED to be told apart. Each function returns the fallback\n# on purpose; the reason is the one the contract record gives, restated in one line here.\n\nfunction Get-TestCommands {\n    \u003c# No extra commands: every suite here is a *.tests.ps1, and the gate already runs those. #\u003e\n    return @()\n}"
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
@@ -374,8 +374,8 @@
                         "optional":  true,
                         "default":  "no matchers at all -- the gate is silent, judges nothing, and makes no gh call. A repo that has never answered this keeps exactly the resolves gate it had before the seam existed",
                         "returns":  "an array of matchers, each a string (the regex) or an object with Pattern (required), Name (what it recognises, printed in the refusal) and Why (one line: why a merge must not close such an issue, and what to do instead). Matched CASE-INSENSITIVELY against the body of every issue the PR would close, most-authoritative first -- the first match wins and open-pr REFUSES, naming -NoResolves as the way through. A pattern that does not compile is reported and skipped rather than taking the gate with it",
-                        "declared":  false,
-                        "text":  ""
+                        "declared":  true,
+                        "text":  "function Get-ResolvesExemptMatchers {\n    \u003c# No matchers: this repo mirrors its issues into no second tracker, so no class of issue must stay\n       open past the merge that resolves it. #\u003e\n    return @()\n}"
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
@@ -440,8 +440,8 @@
                         "optional":  true,
                         "default":  "no marks -- the masthead is the eyebrow, the title and the subtitle, as shipped",
                         "returns":  "one or more inline images for the masthead, above the page title: a \u0027data:image/\u003ctype\u003e;base64,\u003cpayload\u003e\u0027 string, or a map with Src and Alt, or a list of either. DATA-URIs ONLY, and base64 only: the page is deliberately self-contained (a request to a third party leaks who is reading it) and a raw svg payload would be markup inside an attribute. Three documented ceilings, each enforced with a warning rather than a build failure -- at most 2 marks (measured: a consumer tried five and cut back to two, because five read as a page about the brands rather than about the releases), 32 KB per mark and 64 KB in total. Alt defaults to empty, which is correct for a mark beside a title that already names the repo",
-                        "declared":  false,
-                        "text":  ""
+                        "declared":  true,
+                        "text":  "function Get-ReleasePageMasthead {\n    \u003c# No marks: this repo has no wordmark, so the masthead stays the eyebrow, title and subtitle. #\u003e\n    return @()\n}"
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
@@ -484,8 +484,8 @@
                         "optional":  true,
                         "default":  "nothing is declined -- every adopt-* command with files missing from the tree is reported, and a repo that meant to skip one answers this seam to say so",
                         "returns":  "an array of adopt-* command names this repo has deliberately not run, spelled as Get-AdoptionInventory spells them (\u0027adopt-workflow-folder\u0027, \u0027adopt-ci-floor\u0027, \u0027adopt-statusline\u0027) and matched case-insensitively. An unknown name silences nothing and is not an error, so a typo shows up as the advisory still being printed rather than as a failure somewhere else",
-                        "declared":  false,
-                        "text":  ""
+                        "declared":  true,
+                        "text":  "function Get-DeclinedAdoptions {\n    \u003c# Nothing declined. The adoption section that reads this is skipped in the repo that publishes the\n       workflow, so the answer is inert here -- stated anyway, because an unstated one reads as unasked. #\u003e\n    return @()\n}"
                     }
                 ]
 }
