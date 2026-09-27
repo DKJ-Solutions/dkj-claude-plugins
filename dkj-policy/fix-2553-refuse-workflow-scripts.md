@@ -39,19 +39,48 @@
 
 ### PLAN
 
+This is the stop-gap for #2553. It goes before #2449, by Dave's choice on September 27, 2026. #2449 remains
+the structural fix: a token-free second checkout in the consumer template.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-MergeOnGreenExecutedPathHit` refuses the `.workflow-scripts/` prefix again: normalised,
+      case-insensitive, and the bare name counts too. It gives its own reason.
+- [x] The lib's docstring says why this one prefix survived #2437's shrink.
+- [x] The consumer template comment in `adopt-ci-floor.ps1` no longer claims the picker refuses
+      `scripts/` and `.github/`.
+- [x] Both files are mirrored into `plugins/dkj-policy/scripts/`.
 
 ### TEST
 
+- [x] `merge-on-green-lib.tests.ps1`: the #2437 assert that the path is ELIGIBLE becomes a refusal
+      across six spellings, plus three near-miss negative controls. 222 pass, 0 fail.
+- [x] Review: Victor, Sebastian and Edith.
+
 ### DEPLOY: fix/2553-refuse-workflow-scripts
 
-**Score:**
+The merge-on-green picker refuses a pull request whose diff touches `.workflow-scripts/` again. v5.8.0
+had dropped that refusal together with the other executed-path prefixes when #2437 moved this repo's own
+runner onto a trusted tree. The runner that `adopt-ci-floor` scaffolds for consumers had no such tree.
+That runner still checks the pinned plugin scripts out at `.workflow-scripts/` inside its token-bearing
+workspace, then switches that workspace to the picked branch. So a branch that committed a file there
+replaced the trusted `ship-pr.ps1` and ran with `FOLD_PUSH_TOKEN`
+([#2553](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2553)). The refusal matches every
+spelling git or the Windows runner could deliver, and it names the path in its reason. The template
+comment that described the picker's list is corrected as well. The structural repair is still
+[#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running the scaffolded merge-on-green sweep pinned at v5.8.0 can have its push token used by
+any pull request that reaches the sweep. The fix reaches that consumer only once the runner's plugin
+checkout is re-pinned to the release carrying it. `adopt-ci-floor` never overwrites an existing runner,
+so the consumer has to act: edit the pin in its `merge-on-green.yml`, or remove the file and re-run
+Part 3.
+
+**Score:** 5
 
 #### Pull Request
 
