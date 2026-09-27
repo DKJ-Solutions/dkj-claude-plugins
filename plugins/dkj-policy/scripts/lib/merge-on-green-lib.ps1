@@ -243,12 +243,24 @@ function Get-MergeOnGreenExecutedPathHit {
         call itself" and "which branch prefixes exist", so a PR that renames the repo or adds a prefix in
         the same breath as it fixes something else has that rename take effect only once IT lands, not
         while it merges. That is a staleness risk worth a session's judgement, not a security one -- which
-        is why these two stay on the list while the other three came off it (Sebastian #23's design
+        is why these two stay on the list while scripts/, .github/ and plugins/**/scripts/ came off it
+        (only .workflow-scripts/ survives, for the safety reason below; Sebastian #23's design
         review on #2437: "the rule shrinks to the seam files, not to none").
 
         NEITHER FILE EXISTS IN THE SOURCE REPO'S OWN SHAPE ONLY -- every consumer running this workflow
         carries its own `scripts/repo-config.ps1` and `scripts/lib/branch-info.ps1`, so the two-name list
         below is not source-repo-specific.
+
+        AND ONE PREFIX SURVIVES AS WELL: `.workflow-scripts/` (issue #2553). That prefix is not the source
+        repo's shape at all. It is the path where the CONSUMER runner that adopt-ci-floor.ps1 scaffolds
+        checks the pinned plugin tree out, INSIDE its PAT-bearing workspace, before it runs `git checkout`
+        of the picked branch in place. That runner has no trusted second tree (#2449 is the structural
+        fix), and git overwrites an ignored file on checkout. So a branch that commits
+        `.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1` REPLACES the trusted copy, and
+        the runner then executes the branch's copy while holding FOLD_PUSH_TOKEN. #2437 dropped this prefix
+        together with the other three and v5.8.0 shipped without it, so this is a SAFETY refusal, not a
+        currency one. The source repo has no such directory, so the prefix costs nothing there. It stays
+        until the consumer template stops sharing one workspace between the plugin tree and the branch.
 
         THE MATCH IS NORMALISED, NOT EXACT. Separators, doubled slashes, a leading './' or '/',
         surrounding whitespace and CASE are all folded before the comparison, because a `git mv` to
@@ -264,7 +276,7 @@ function Get-MergeOnGreenExecutedPathHit {
         A pull request record carrying `files` and `changedFiles`.
 
     .OUTPUTS
-        [string] the reason, or '' where the diff touches neither seam file.
+        [string] the reason, or '' where the diff touches neither seam file nor the plugin checkout path.
     #>
     param($Record)
 
@@ -277,15 +289,39 @@ function Get-MergeOnGreenExecutedPathHit {
     if ($total -lt 0 -or $paths.Count -lt $total) {
         return "only $($paths.Count) of its changed files could be listed"
     }
-    # THE ENUMERATED LIST -- ONLY THESE TWO, since #2437's trusted-tree ship. Both are repo-owned
-    # config, never plugin payload, which is why -TrustedRoot/-SeamRoot cannot load them from a trusted
-    # tree unconditionally: a repo's OWN answer to Get-RepoName lives only on its own branches.
+    # THE ENUMERATED LIST -- ONLY THESE TWO FILES, since #2437's trusted-tree ship, plus the
+    # .workflow-scripts/ prefix checked in the loop below (#2553). Both files are repo-owned config,
+    # never plugin payload, which is why -TrustedRoot/-SeamRoot cannot load them from a trusted tree
+    # unconditionally: a repo's OWN answer to Get-RepoName lives only on its own branches.
     $seamFiles = @('scripts/repo-config.ps1', 'scripts/lib/branch-info.ps1')
     foreach ($p in $paths) {
         # Fail closed on every spelling git or a case-insensitive filesystem could deliver for the same
         # file: separators, a leading './' or '/', doubled slashes, surrounding whitespace, and CASE --
         # a `git mv` to 'Scripts/Repo-Config.ps1' is the same seam on Windows and macOS.
         $norm = (($p.Trim() -replace '\\', '/') -replace '/{2,}', '/') -replace '^(\./|/)+', ''
+        # AND FOLD WHAT WIN32 FOLDS, PER SEGMENT (#2553 review): Windows drops a trailing '.' or ' ' from
+        # every path segment, so '.workflow-scripts./x.ps1' names a file INSIDE '.workflow-scripts/'. Git
+        # allows that spelling, and a POSIX machine commits it happily. The aliasing was measured with
+        # Windows file APIs in review. A real checkout was not run: Git for Windows may refuse such a
+        # path outright, and the guard does not rely on that. A segment made only of dots ('..') is left
+        # alone, because it is a different path.
+        $norm = (@($norm -split '/') | ForEach-Object { if ($_ -match '^\.+$') { $_ } else { $_.TrimEnd('. ') } }) -join '/'
+        # The plugin checkout's FIRST segment, as NTFS would resolve it. An alternate-data-stream suffix
+        # (':...') names the same directory, and so, where 8.3 names are generated, does a short name
+        # ('WORKFL~1'). Neither was measured on a runner. Both are refused because a guard that fails
+        # open on a spelling is no guard. The short-name test is ANCHORED to the one shape that can alias
+        # this directory: up to six characters that begin 'workflow-scripts', then '~' and digits. A bare
+        # '~\d' also refused 'IMG~1.JPG' at the root (review).
+        $first = (($norm -split '/')[0] -replace ':.*$', '').TrimEnd('. ')
+        $isShortName = ($first -match '^\.?([^~.]{1,6})~\d+$') -and
+            'workflow-scripts'.StartsWith($Matches[1].ToLowerInvariant())
+        # -like is case-insensitive, like -contains below: '.Workflow-Scripts/' is the same directory on
+        # the windows-latest runner's filesystem. The bare directory name is matched as well, in case a
+        # file of that name is committed and turns the checkout path into a conflict.
+        if ($first -eq '.workflow-scripts' -or $isShortName) {
+            $shown = $norm -replace '[^\x20-\x7E]', '?'
+            return "it changes '$shown', inside the plugin checkout path a consumer runner executes with the push token (#2553)"
+        }
         if ($seamFiles -contains $norm) {
             # A path is chosen by whoever pushed the branch, and this reason is printed into a CI log.
             $shown = $norm -replace '[^\x20-\x7E]', '?'
