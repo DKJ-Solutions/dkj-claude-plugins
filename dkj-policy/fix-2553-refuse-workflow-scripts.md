@@ -50,11 +50,15 @@ the structural fix: a token-free second checkout in the consumer template.
 - [x] The consumer template comment in `adopt-ci-floor.ps1` no longer claims the picker refuses
       `scripts/` and `.github/`.
 - [x] Both files are mirrored into `plugins/dkj-policy/scripts/`.
+- [x] Review round: the path is folded the way Win32 folds it. Each segment drops trailing dots and
+      spaces, and in the first segment a stream suffix is stripped and an 8.3 short name is refused.
+      Victor and Sebastian both found `.workflow-scripts./...` evading the prefix.
 
 ### TEST
 
 - [x] `merge-on-green-lib.tests.ps1`: the #2437 assert that the path is ELIGIBLE becomes a refusal
-      across six spellings, plus three near-miss negative controls. 222 pass, 0 fail.
+      across ten spellings, plus three near-miss negative controls. The Win32 folding is also covered
+      for the seam files. 232 pass, 0 fail.
 - [x] Review: Victor, Sebastian and Edith.
 
 ### DEPLOY: fix/2553-refuse-workflow-scripts
@@ -65,8 +69,9 @@ runner onto a trusted tree. The runner that `adopt-ci-floor` scaffolds for consu
 That runner still checks the pinned plugin scripts out at `.workflow-scripts/` inside its token-bearing
 workspace, then switches that workspace to the picked branch. So a branch that committed a file there
 replaced the trusted `ship-pr.ps1`, and the runner then ran that copy holding `FOLD_PUSH_TOKEN`
-([#2553](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2553)). The refusal matches every
-spelling git or the Windows runner could deliver, and it names the path in its reason. The template
+([#2553](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2553)). The refusal folds a path the way the
+Windows runner resolves it: case, separators, and a trailing dot or space on any segment. It also refuses a
+stream suffix or an 8.3 short name on the checkout directory, and it names the path in its reason. The template
 comment that described the picker's list is corrected as well. The structural repair is still
 [#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449).
 
