@@ -2,7 +2,43 @@
 
 ## [Unreleased]
 
-**9 / 45 minor entries** <!-- pending-tally -->
+**10 / 46 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2553-refuse-workflow-scripts · 20260927-072638Z
+
+The merge-on-green picker refuses a pull request whose diff touches `.workflow-scripts/` again. v5.8.0
+had dropped that refusal together with the other executed-path prefixes when #2437 moved this repo's own
+runner onto a trusted tree. The runner that `adopt-ci-floor` scaffolds for consumers had no such tree.
+That runner still checks the pinned plugin scripts out at `.workflow-scripts/` inside its token-bearing
+workspace, then switches that workspace to the picked branch. So a branch that committed a file there
+replaced the trusted `ship-pr.ps1`, and the runner then ran that copy holding `FOLD_PUSH_TOKEN`
+([#2553](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2553)). The refusal folds a path the way the
+Windows runner resolves it: case, separators, and a trailing dot or space on any segment. It also refuses a
+stream suffix or an 8.3 short name on the checkout directory, and it names the path in its reason. The template
+comment that described the picker's list is corrected as well. The structural repair is still
+[#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer running the scaffolded merge-on-green sweep pinned at v5.8.0 can have its push token used by
+any pull request that reaches the sweep. The fix reaches that consumer only once the runner's plugin
+checkout is re-pinned to the release carrying it. `adopt-ci-floor` never overwrites an existing runner,
+so the consumer has to act: edit the pin in its `merge-on-green.yml`, or remove the file and re-run
+Part 3.
+
+**Score:** 5
+
+#### Pull Request
+
+merge-on-green refuses .workflow-scripts/ again, closing the plugin-tree overwrite in consumer runners
+
+Plugins: dkj-policy
+
+[PR #2554](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2554)
+
+---
 
 ### DEPLOY: fix/2549-guard-settings-read · 20260926-232304Z
 
