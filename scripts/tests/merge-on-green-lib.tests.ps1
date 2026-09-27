@@ -201,7 +201,9 @@ foreach ($variant in @(
     ' scripts/repo-config.ps1 ',        # surrounding whitespace
     './scripts/repo-config.ps1',        # a leading './'
     '/scripts/repo-config.ps1',         # a leading '/'
-    'SCRIPTS\Lib\Branch-Info.PS1'       # the SECOND seam file, backslash AND case together
+    'SCRIPTS\Lib\Branch-Info.PS1',      # the SECOND seam file, backslash AND case together
+    'scripts./repo-config.ps1',         # a trailing dot on a segment, which Win32 drops (#2553 review)
+    'scripts/repo-config.ps1. '         # trailing dot and space on the leaf
 )) {
     $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $variant)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
     Assert-True (-not $v.Eligible) "a diff touching '$variant' is refused -- same seam file, a different spelling"
@@ -241,7 +243,11 @@ foreach ($variant in @(
     '.Workflow-Scripts/x.ps1',                                         # case: same dir on windows-latest
     '.workflow-scripts\plugins\x.ps1',                                 # backslash separators
     './.workflow-scripts/x.ps1',                                       # a leading './'
-    '.workflow-scripts'                                                # a FILE of that name
+    '.workflow-scripts',                                               # a FILE of that name
+    '.workflow-scripts./plugins/dkj-policy/scripts/release/ship-pr.ps1', # trailing dot: Win32 drops it (review)
+    '.workflow-scripts /x.ps1',                                        # trailing space, same folding
+    '.workflow-scripts::$INDEX_ALLOCATION/x.ps1',                      # an NTFS stream suffix on the dir
+    'WORKFL~1/plugins/x.ps1'                                           # an 8.3 short name
 )) {
     $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $variant)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
     Assert-True (-not $v.Eligible) "a diff touching '$variant' is refused -- the consumer runner's plugin checkout path (#2553)"
