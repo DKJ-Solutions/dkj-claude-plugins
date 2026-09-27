@@ -64,7 +64,7 @@ had dropped that refusal together with the other executed-path prefixes when #24
 runner onto a trusted tree. The runner that `adopt-ci-floor` scaffolds for consumers had no such tree.
 That runner still checks the pinned plugin scripts out at `.workflow-scripts/` inside its token-bearing
 workspace, then switches that workspace to the picked branch. So a branch that committed a file there
-replaced the trusted `ship-pr.ps1` and ran with `FOLD_PUSH_TOKEN`
+replaced the trusted `ship-pr.ps1`, and the runner then ran that copy holding `FOLD_PUSH_TOKEN`
 ([#2553](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2553)). The refusal matches every
 spelling git or the Windows runner could deliver, and it names the path in its reason. The template
 comment that described the picker's list is corrected as well. The structural repair is still
