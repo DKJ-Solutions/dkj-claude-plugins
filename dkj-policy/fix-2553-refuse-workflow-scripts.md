@@ -58,7 +58,7 @@ the structural fix: a token-free second checkout in the consumer template.
 
 - [x] `merge-on-green-lib.tests.ps1`: the #2437 assert that the path is ELIGIBLE becomes a refusal
       across ten spellings, plus three near-miss negative controls. The Win32 folding is also covered
-      for the seam files. 232 pass, 0 fail.
+      for the seam files, and four tilde-digit names that are not an 8.3 alias stay eligible. 236 pass, 0 fail.
 - [x] Review: Victor, Sebastian and Edith.
 
 ### DEPLOY: fix/2553-refuse-workflow-scripts

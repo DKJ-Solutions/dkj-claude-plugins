@@ -253,7 +253,8 @@ foreach ($variant in @(
     Assert-True (-not $v.Eligible) "a diff touching '$variant' is refused -- the consumer runner's plugin checkout path (#2553)"
     Assert-True ($v.Reason -match 'plugin checkout path') "...and the refusal names the plugin checkout path for '$variant'"
 }
-foreach ($near in @('.workflow-scripts2/x.ps1', 'docs/.workflow-scripts/x.ps1', 'workflow-scripts/x.ps1')) {
+foreach ($near in @('.workflow-scripts2/x.ps1', 'docs/.workflow-scripts/x.ps1', 'workflow-scripts/x.ps1',
+        'IMG~1.JPG', 'notes~1.txt', 'archive~2020.zip', 'BACKUP~1/x.sql')) {  # a tilde-digit that is not this dir's 8.3 name
     Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @($near)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
         "'$near' only resembles the plugin checkout path and is NOT a hit"
 }

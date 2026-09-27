@@ -308,13 +308,17 @@ function Get-MergeOnGreenExecutedPathHit {
         $norm = (@($norm -split '/') | ForEach-Object { if ($_ -match '^\.+$') { $_ } else { $_.TrimEnd('. ') } }) -join '/'
         # The plugin checkout's FIRST segment, as NTFS would resolve it. An alternate-data-stream suffix
         # (':...') names the same directory, and so, where 8.3 names are generated, does a short name
-        # ('WORKFL~1'). Neither was measured on a runner: both are refused because a guard that fails
-        # open on a spelling is no guard, and no legitimate path in a pull request carries either.
+        # ('WORKFL~1'). Neither was measured on a runner. Both are refused because a guard that fails
+        # open on a spelling is no guard. The short-name test is ANCHORED to the one shape that can alias
+        # this directory: up to six characters that begin 'workflow-scripts', then '~' and digits. A bare
+        # '~\d' also refused 'IMG~1.JPG' at the root (review).
         $first = (($norm -split '/')[0] -replace ':.*$', '').TrimEnd('. ')
+        $isShortName = ($first -match '^\.?([^~.]{1,6})~\d+$') -and
+            'workflow-scripts'.StartsWith($Matches[1].ToLowerInvariant())
         # -like is case-insensitive, like -contains below: '.Workflow-Scripts/' is the same directory on
         # the windows-latest runner's filesystem. The bare directory name is matched as well, in case a
         # file of that name is committed and turns the checkout path into a conflict.
-        if ($first -eq '.workflow-scripts' -or $first -match '~\d') {
+        if ($first -eq '.workflow-scripts' -or $isShortName) {
             $shown = $norm -replace '[^\x20-\x7E]', '?'
             return "it changes '$shown', inside the plugin checkout path a consumer runner executes with the push token (#2553)"
         }
