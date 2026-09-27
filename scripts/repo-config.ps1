@@ -1314,3 +1314,33 @@ function Get-CloseOutGateBand {
        real answer and switches the gate off without deleting this function. #>
     return $script:CloseOutGateBand
 }
+
+# --- THE FOUR 'decide' SEAMS WHOSE FALLBACK IS THIS REPO'S ANSWER (inbound #2555) -----------------
+#
+# Each of these used to be left undefined on purpose, because the shared fallback already says what this
+# repo means -- and check-script-contract could not tell that considered silence from a question nobody
+# ever put. Since #2555 it rolls every undefined 'decide' seam into one [UNANSWERED] line the session hook
+# forwards, so a considered answer has to be STATED to be told apart. Each function returns the fallback
+# on purpose; the reason is the one the contract record gives, restated in one line here.
+
+function Get-TestCommands {
+    <# No extra commands: every suite here is a *.tests.ps1, and the gate already runs those. #>
+    return @()
+}
+
+function Get-ResolvesExemptMatchers {
+    <# No matchers: this repo mirrors its issues into no second tracker, so no class of issue must stay
+       open past the merge that resolves it. #>
+    return @()
+}
+
+function Get-ReleasePageMasthead {
+    <# No marks: this repo has no wordmark, so the masthead stays the eyebrow, title and subtitle. #>
+    return @()
+}
+
+function Get-DeclinedAdoptions {
+    <# Nothing declined. The adoption section that reads this is skipped in the repo that publishes the
+       workflow, so the answer is inert here -- stated anyway, because an unstated one reads as unasked. #>
+    return @()
+}

@@ -314,8 +314,18 @@ Assert-Equal 0 $shared.Count "no `$script: variable is assigned by more than one
 # publishes this workflow -- so an answer would be dead text declining commands that refuse anyway.
 # Recorded as declared=false, which tells a consumer the useful thing: the source states nothing, and the
 # reason is peculiar to the source rather than advice a consumer should copy.
+#
+# SIX SINCE SEPTEMBER 28, 2026 (inbound #2555), and four of the paragraphs above are now history rather
+# than current state. Get-TestCommands, Get-ReleasePageMasthead, Get-ResolvesExemptMatchers and
+# Get-DeclinedAdoptions are all 'decide' records, and check-script-contract now rolls every undefined
+# 'decide' seam into one [UNANSWERED] line the session hook forwards -- so a considered silence could no
+# longer be told apart from a question nobody put, in the source as much as in a consumer. The source
+# therefore STATES each one, returning the fallback; their reasons above still explain the VALUE. Being
+# 'decide', the stated text ships as guidance and is never written into a consumer's file. The six left
+# are all 'copy' seams, where an unstated answer IS the shared way of working.
 $undeclared = @($bp.records | Where-Object { -not $_.declared })
-Assert-Equal 10 $undeclared.Count 'the ten functions the source itself leaves at the fallback are recorded, not dropped'
+Assert-Equal 6 $undeclared.Count 'the six functions the source itself leaves at the fallback are recorded, not dropped'
+Assert-Equal 0 @($undeclared | Where-Object { $_.adopt -eq 'decide' }).Count "the source leaves no 'decide' record unstated -- an unstated one reads as unanswered (#2555)"
 foreach ($rec in $undeclared) {
     Assert-Equal '' $rec.text "$($rec.function): an undeclared record carries no text to copy"
 }

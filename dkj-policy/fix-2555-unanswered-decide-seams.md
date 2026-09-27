@@ -41,17 +41,26 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `check-script-contract` rolls every optional `decide` seam this repo leaves undefined into one non-counting `[UNANSWERED]` line; the per-record `[INFO]` lines are unchanged
+- [x] `script-contract-sessioncheck` forwards that line and prints its own verdict instead of `in sync`
+- [x] This repo states its four `decide` seams whose fallback is its answer (`Get-TestCommands`, `Get-ReleasePageMasthead`, `Get-ResolvesExemptMatchers`, `Get-DeclinedAdoptions`); blueprint regenerated, plugin mirror synced
 
 ### TEST
 
+- [x] `script-contract.tests.ps1`: 401 pass -- new scenarios for one and two unanswered seams, a missing `copy` seam (not rolled up), and the hook's verdict; three info counts moved down by four
+- [x] `config-blueprint.tests.ps1`: 219 pass -- undeclared count 10 to 6, plus an assert that the source leaves no `decide` record unstated
+
 ### DEPLOY: fix/2555-unanswered-decide-seams
 
-**Score:**
+`check-script-contract` now tells an unanswered `decide` seam apart from a harmless optional one. A `decide` seam states what the repo IS, so its fallback is an answer nobody chose; until now it printed the same `[INFO]` as a `copy` seam, and the session check called the repo `in sync`. It now adds one non-counting `[UNANSWERED]` line naming every such seam, and the session check forwards it in place of the in-sync verdict. Exit codes and tallies are unchanged. This repo now states the four `decide` seams it used to leave undefined on purpose, each returning its fallback, so a considered answer can be told from an unasked one here too ([#2555](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2555)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo on this workflow now sees, at session start, the questions only it can answer that it never has -- named in one line, such as `Get-ReleaseAudienceTier`, whose silence costs every changelog entry two empty tier sections. Answering each one, with any value including the fallback, clears the line.
+
+**Score:** 3
 
 #### Pull Request
 
