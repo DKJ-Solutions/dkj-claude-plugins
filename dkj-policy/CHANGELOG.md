@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**15 / 20 minor entries** <!-- pending-tally -->
+**16 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2591-lens-retired-spelling-finding · 20260928-181727Z
+
+`check-connectors` check 7 now reports a consumer lens still named `<g>-<id>-extension.md`. It is an
+error when that specialist has no current-spelling lens, because since #2292 no reader loads the old
+name and the lens is silently gone. It is a note when a current copy sits beside it. The
+`[LENS-RETIREMENT]` roll-up that led up to the retirement is removed, which closes
+[#2591](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2591).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that keeps a lens under the old name now gets a red line at session start with the `git mv`
+that fixes it, where before its specialist quietly ran without that lens. All six registered consumers
+are already over, so this reaches nobody we know of.
+
+**Score:** 1
+
+#### Pull Request
+
+check-connectors reports a lens under the retired spelling instead of the retirement roll-up
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2603](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2603)
+
+---
 
 ### DEPLOY: fix/2595-plugin-link-illegal-path-chars · 20260928-162145Z
 
