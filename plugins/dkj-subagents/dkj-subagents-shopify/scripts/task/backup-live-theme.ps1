@@ -352,7 +352,9 @@ if ($DryRun) {
         $shortfall = $null
         if ($null -ne $verdict -and $verdict.Verdict -eq 'short') {
             $missing = Get-ThemeShortfallPaths -SourcePaths $source.Paths -CopyPaths $copyPaths
-            $trunkState = @{}
+            # ORDINAL, NOT @{}: a hashtable literal is case-insensitive, and two live paths differing only in
+            # case would collapse onto one key and share one state -- a refusal read as a pass (review of #2568).
+            $trunkState = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::Ordinal)
             foreach ($p in $missing) {
                 $liveFile = Join-Path $livePull ($p.Replace('/', '\'))
                 $bytes = $null

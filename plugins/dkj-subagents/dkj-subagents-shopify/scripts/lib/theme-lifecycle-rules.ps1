@@ -369,13 +369,15 @@ function Get-ThemeShortfallVerdict {
     #>
     param(
         [AllowNull()][AllowEmptyCollection()][string[]]$MissingPaths,
-        [hashtable]$TrunkState = @{},
+        # A Dictionary[string,string] with an ORDINAL comparer, not a @{} literal: that one is
+        # case-insensitive, so two paths differing only in case would share one state.
+        [AllowNull()]$TrunkState = $null,
         [int]$MaxExceptions = 10
     )
 
     $missing = @($MissingPaths | Where-Object { $_ })
     $rows = @(foreach ($p in $missing) {
-        $state = if ($TrunkState.ContainsKey($p)) { [string]$TrunkState[$p] } else { 'unreadable' }
+        $state = if ($null -ne $TrunkState -and $TrunkState.ContainsKey($p)) { [string]$TrunkState[$p] } else { 'unreadable' }
         [pscustomobject]@{ Path = $p; State = $state }
     })
 

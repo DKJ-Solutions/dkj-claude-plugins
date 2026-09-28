@@ -396,6 +396,22 @@ $backupText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\task\b
 Assert-True ($backupText.Contains('Get-ThemeShortfallVerdict -MissingPaths')) 'backup-live-theme judges a short copy with Get-ThemeShortfallVerdict'
 Assert-True ($backupText.Contains("Get-GitStoredBlobId -Rev 'HEAD'")) '...against what the trunk stores at HEAD'
 Assert-True ($backupText.Contains('-KeepAt $livePull')) '...using the live pull it already took, kept rather than thrown away'
+Assert-True ($backupText.Contains("Dictionary[string,string]' ([System.StringComparer]::Ordinal)")) '...keyed ordinally, never through a case-insensitive @{} literal'
+
+# TWO PATHS DIFFERING ONLY IN CASE KEEP THEIR OWN STATES. Through a @{} literal the second write would
+# overwrite the first and a 'differs' would read as 'identical' -- a refusal passing (review of #2568).
+$caseState = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::Ordinal)
+$caseState['A.json'] = 'differs'
+$caseState['a.json'] = 'identical'
+$v = Get-ThemeShortfallVerdict -MissingPaths @('A.json', 'a.json') -TrunkState $caseState
+Assert-True (-not $v.Accepted) 'a case-only pair, one of them differing, refuses'
+Assert-Equal 'differs' (@($v.Rows | Where-Object { $_.Path -ceq 'A.json' })[0].State) '...and each path keeps its own state'
+
+# THE SENTINEL live-preflight READS OFF THE BACKUP'S OUTPUT is one phrase in two files; a wording edit to
+# either would make preflight report 'proven complete' for a backup with exceptions.
+$preflightText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\task\live-preflight.ps1'))
+Assert-True ($backupText.Contains('verified WITH EXCEPTIONS:')) 'backup-live-theme prints the WITH EXCEPTIONS sentinel'
+Assert-True ($preflightText.Contains("-match 'verified WITH EXCEPTIONS'")) '...and live-preflight matches that same phrase'
 
 if ($script:fail -eq 0) {
     Write-Host ''

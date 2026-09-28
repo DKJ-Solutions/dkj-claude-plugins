@@ -72,7 +72,7 @@ There are now **three** standing approvals, and nothing else:
    exact-name-match script that refuses anything live or not `unpublished`.
 2. **The sweep of this repo's spent preview themes, after a live push.**
 3. **The rotation of the previous backup, at the release cut** -- and *only* after its replacement has
-   been created **and verified complete**. That includes a copy **verified with exceptions**, where
+   been created **and verified complete**. That includes a copy **verified WITH EXCEPTIONS**, where
    every file Shopify would not duplicate is held by the trunk exactly as live holds it
    ([#2568](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2568)).
 
