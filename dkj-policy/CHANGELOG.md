@@ -2,7 +2,28 @@
 
 ## [Unreleased]
 
-**17 / 24 minor entries** <!-- pending-tally -->
+**17 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2605-connector-notes-english · 20260928-191948Z
+
+The `#1769` migration passage in five connector records' `notes` is now in English, as the repo's
+content-language rule requires. It was the Dutch passage #2605 named, and the word check in TEST finds no other Dutch under `connectors/`.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Five connector records carry their #1769 migration note in English
+
+[PR #2610](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2610)
+
+---
 
 ### DEPLOY: fix/2602-merge-on-green-pr-branch-identity · 20260928-185959Z
 
