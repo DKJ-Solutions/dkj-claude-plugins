@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Dave (#2604) asked for the labels that keep an issue open for a while to share one colour. He chose
+`dossier`'s purple (`5319E7`) for `awaiting-recurrence`, with `needs-decision` keeping its own colour.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The canonical colour in `Get-TriageLabels` (`scripts/repo-config.ps1`), the built-in fallback in
+  `adopt-triage-labels.ps1` and its plugin mirror, the regenerated config blueprint, and both suites.
+- [x] Derek's lens records the colour and why it is shared.
+- [x] The live `awaiting-recurrence` label here recoloured with `gh label edit` (a tracker write, not a tree change).
 
 ### TEST
 
+- [x] The lint and test gate, run by `open-pr`.
+
 ### DEPLOY: fix/2604-parking-label-shares-dossier-color
 
-**Score:**
+The `awaiting-recurrence` parking label now has `dossier`'s colour (`5319E7`) instead of its own grey. An
+issue meant to stay open for a while now looks the same on the tracker, whichever of the two it carries (#2604).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that runs `adopt-triage-labels` now gets `awaiting-recurrence` printed with `dossier`'s colour.
+The script does not compare the colours of labels that already exist, so if you already have the label
+and want the same look, run `gh label edit awaiting-recurrence --color 5319E7`.
+
+**Score:** 1
 
 #### Pull Request
+
+awaiting-recurrence takes dossier's colour, so the labels that keep an issue open look alike
 

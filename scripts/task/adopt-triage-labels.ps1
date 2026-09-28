@@ -140,7 +140,7 @@ $builtInTriageLabels = @(
     # Not a rung either: the parking label for an issue awaiting the owner's choice (#2519).
     [pscustomobject]@{ Name = 'needs-decision'; Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on its first reproducible recurrence (#2587).
-    [pscustomobject]@{ Name = 'awaiting-recurrence'; Color = 'EDEDED'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-recurrence'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )
 
 # @(...) WRAPS THE WHOLE if/else, NOT JUST EACH BRANCH -- the trap this repo's own manual catalogues
