@@ -90,7 +90,7 @@ try {
     # Reachable ONLY through a -PluginNames candidate -- the pre-seam per-plugin layout
     # Get-LensDirCandidates composes from a plugin NAME, which is exactly what the guard stands in
     # front of.
-    $preSeamRel = ".claude/plugins/$(Get-LensFamily)/dkj-policy/05-15-extension.md"
+    $preSeamRel = ".claude/plugins/$(Get-LensFamily)/dkj-policy/specialist-05-15-lens.md"
     Set-Text -Dir $guardTree -Rel $preSeamRel -Text '# A pre-seam lens, reachable only through a PluginName candidate'
     # Reachable with NO -PluginNames at all -- added unconditionally from Get-SeamPaths, outside the
     # loop the guard sits in. This is what proves the degradation is narrow rather than total.
@@ -158,7 +158,7 @@ try {
     # must not produce a duplicated finding even with nothing to dedupe against but the function's own
     # fresh set.
     $dupTree = New-Tree -Label 'dup'
-    $dupRel = ".claude/plugins/$(Get-LensFamily)/dkj-policy/05-06-extension.md"
+    $dupRel = ".claude/plugins/$(Get-LensFamily)/dkj-policy/specialist-05-06-lens.md"
     Set-Text -Dir $dupTree -Rel $dupRel -Text '# reachable via one plugin name, given twice'
     $dupOut = @(Get-ConsumerLensPaths -RepoRoot $dupTree -PluginNames @('dkj-policy', 'dkj-policy'))
     Assert-True (@($dupOut | Where-Object { $_ -eq $dupRel }).Count -eq 1) `

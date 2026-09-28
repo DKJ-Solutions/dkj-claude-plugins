@@ -2,7 +2,57 @@
 
 ## [Unreleased]
 
-**14 / 17 minor entries** <!-- pending-tally -->
+**15 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2594-contract-count-message · 20260928-160645Z
+
+The record-count assert in `script-contract.tests.ps1` no longer names stale inner figures in its message. It said the
+table pins 25 records and the test file names 26 of 43, against a real 27 and 28 of 46. Nothing asserts prose, so the
+figures fell one further behind with every new record. Both are now computed from the table and the record count (#2594).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+The script-contract record-count message computes its inner figures instead of naming stale ones
+
+[PR #2598](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2598)
+
+---
+
+### DEPLOY: feat/2292-retire-lens-alsoread · 20260928-153758Z
+
+The lens file of a specialist has one name now: `specialist-<g>-<id>-lens.md`. The old
+`<g>-<id>-extension.md` spelling that readers had tolerated since the #2130 rename is retired, which
+closes [#2292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2292). Every registered
+consumer had already migrated when this was measured on September 28, 2026. The manual, persona and
+subagent spellings are untouched.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer that still keeps a lens under `<g>-<id>-extension.md` will find that no check or scaffold
+reads it any more, and has to `git mv` it to `specialist-<g>-<id>-lens.md`. All six registered consumers
+were already over, so this reaches nobody we know of.
+
+**Score:** 1
+
+#### Pull Request
+
+Retire the '<g>-<id>-extension.md' lens spelling now that every consumer is over the rename
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2597](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2597)
+
+---
 
 ### DEPLOY: feat/2586-audience-note-solved-tasks · 20260928-152810Z
 
