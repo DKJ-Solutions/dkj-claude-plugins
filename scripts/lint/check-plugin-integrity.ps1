@@ -1293,6 +1293,9 @@ $changelogFull   = Join-Path $RepoRoot $changelogRelWin
 $changelogDirForLinks = Split-Path -Parent $changelogFull
 
 $linkRegex = [regex]'\[(?:[^\]]*)\]\(([^)]+)\)'
+# The characters .NET Framework refuses in a path: '<', '>', '"', '|' and the control characters. Both link
+# scans (check 4 and [plugin-link]) test a target against these BEFORE any path API sees it (#2595).
+$invalidLinkPathChars = [System.IO.Path]::GetInvalidPathChars()
 $slugCache = @{}
 foreach ($lf in $linkFiles) {
     $content = [System.IO.File]::ReadAllText($lf, [System.Text.Encoding]::UTF8)
@@ -1372,6 +1375,12 @@ foreach ($lf in $linkFiles) {
         # Determine target file: empty pathPart = this same file (pure #anchor).
         if (-not $pathPart) {
             $targetFile = $lf
+        } elseif ($pathPart.IndexOfAny($invalidLinkPathChars) -ge 0) {
+            # A FINDING, NOT A CRASH (#2595). Under $ErrorActionPreference = 'Stop' the Test-Path below
+            # THROWS on '<', '>', '"' or '|' (Windows PowerShell 5.1), which ended the whole lint with an
+            # error naming no file. No file path carries those characters, so the link is dead by definition.
+            Add-Error "[link] $rel -> '$target' holds a character no file path can carry (< > "" |). A placeholder such as '(<url>)' belongs inside a code span that opens and closes on one line."
+            continue
         } else {
             $resolved = Join-Path $dir ($pathPart -replace '/', '\')
             if (-not (Test-Path -LiteralPath $resolved)) {
@@ -4041,6 +4050,17 @@ foreach ($plugin in $publishedPlugins) {
             if ($pluginTarget.Contains('${') -or $pluginTarget.StartsWith('~')) { continue }
             $pluginPathPart = ($pluginTarget -split '#', 2)[0]
             if (-not $pluginPathPart) { continue }
+            # A FINDING WITH ITS FILE AND LINE, NOT A CRASH (#2595). IsPathRooted THROWS on '<', '>', '"'
+            # and '|' under Windows PowerShell 5.1, and that ended the whole lint naming no file. Measured
+            # on a placeholder '[<Label>](<url>)' inside a code span that opened on the line before: the
+            # mask above cannot span a newline, so the placeholder reached this line.
+            if ($pluginPathPart.IndexOfAny($invalidLinkPathChars) -ge 0) {
+                $pluginBadLineNo = 1 + [regex]::Matches($pluginScan.Substring(0, $m.Index), "`n").Count
+                Add-Error ("[plugin-link] ${pfRel}:${pluginBadLineNo} -> '$pluginTarget' holds a character no" +
+                    " file path can carry (< > `" |). A placeholder such as '(<url>)' belongs inside a code span" +
+                    " that opens and closes on one line.")
+                continue
+            }
             if ([System.IO.Path]::IsPathRooted($pluginPathPart)) { continue }
             $pluginLinkChecked++
             $pluginResolved = $null

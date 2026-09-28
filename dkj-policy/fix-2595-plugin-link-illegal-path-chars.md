@@ -39,19 +39,33 @@
 
 ### PLAN
 
+- [x] Verify the reason in #2595: under Windows PowerShell 5.1, `IsPathRooted`, `GetFullPath` and `Test-Path -LiteralPath`
+  (under `Stop`) all throw on `<`. Check 4 has the same shape, so both scans are repaired.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `check-plugin-integrity.ps1`: both link scans test a target against `GetInvalidPathChars()` before any path API sees it,
+  and report it as a finding. `[plugin-link]` gives the line.
 
 ### TEST
 
+- [x] Scenario 41c in `check-plugin-integrity-plugin-links.tests.ps1` covers the measured multi-line code span and a plain
+  prose placeholder. It fails on the old script (the run printed no Summary) and passes on the new one.
+
 ### DEPLOY: fix/2595-plugin-link-illegal-path-chars
 
-**Score:**
+A link target holding `<`, `>`, `"` or `|` no longer crashes `check-plugin-integrity.ps1`. Under Windows PowerShell 5.1 the
+path calls in check 4 and `[plugin-link]` threw on those characters. That ended the whole lint with an error that named no
+file. Both scans now report such a target as a finding, and `[plugin-link]` gives its line. The measured trigger was a
+placeholder `(<url>)` inside a code span that opened on the line before (#2595).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
