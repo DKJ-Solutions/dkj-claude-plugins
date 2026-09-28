@@ -483,24 +483,52 @@ try {
     Write-Host '-- 2e. the merge-on-green runner reaches the plugin scripts and acts on THIS tree --' -ForegroundColor Cyan
     Assert-True ($mergeOnGreen -like '*.workflow-scripts/plugins/dkj-policy/scripts/ci/pick-merge-on-green.ps1*') `
         'the sweep calls the plugin mirror of pick-merge-on-green, not the source''s scripts/ci path'
-    Assert-True ($mergeOnGreen -like '*.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1 -SkipLint -SkipTests*') `
+    Assert-True ($mergeOnGreen -like '*.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1 -TrustedRoot*-SkipLint -SkipTests*') `
         'and ships through the plugin mirror of ship-pr, with the local gates skipped on the green certificate'
-    Assert-Equal 2 (@([regex]::Matches($mergeOnGreen, 'CLAUDE_PROJECT_DIR: \$\{\{ github\.workspace \}\}')).Count) `
-        'BOTH steps point the mirrored scripts at the consumer tree -- the picker would otherwise read the source repo''s Get-RepoName'
-    Assert-True ($mergeOnGreen -match '(?ms)id: pick.*?GH_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}') `
-        'the picker reads with the job-scoped token, not the standing PAT'
-    Assert-True ($mergeOnGreen -match '(?ms)- name: Ship it.*?GH_TOKEN: \$\{\{ secrets\.FOLD_PUSH_TOKEN \}\}') `
-        'the ship merges with FOLD_PUSH_TOKEN -- a GITHUB_TOKEN merge would start no workflow runs'
+    Assert-True ($mergeOnGreen -notmatch '(?m)CLAUDE_PROJECT_DIR: \$\{\{ github\.workspace \}\}\s*$') `
+        'no step points a script at the bare workspace root, which holds no checkout any more (#2449)'
+    Assert-True ($mergeOnGreen -match '(?m)^\s+ref: main\r?\n\s+path: trusted-main\s*$') `
+        'the trusted tree is a checkout of the TRUNK, not of the event''s head'
+    Assert-True ($mergeOnGreen -notmatch '(?m)^\s*path:\s*\.workflow-scripts/') `
+        'and the plugin tree is a sibling of the other two, nested in neither'
+    # THE BRANCH IS ONLY EVER A with: INPUT OR AN env: VALUE (#2449 made it two). Never ${{ }} inside a
+    # run: body: a head ref is the one attacker-chosen value in the file.
     Assert-True ($mergeOnGreen -like '*SHIP_BRANCH: ${{ steps.pick.outputs.branch }}*') 'the head branch arrives through env:'
-    Assert-Equal 1 (@([regex]::Matches($mergeOnGreen, 'steps\.pick\.outputs\.branch')).Count) `
-        'and that env: line is its ONLY expression -- never ${{ }} interpolated into a run: body, the one attacker-chosen value in the file'
-    # PINNED TO THE COMMIT THE PICKER JUDGED (#2338): ship-pr dot-sources the checkout's repo-config.ps1,
-    # so a push after the pick must stop the job rather than run unjudged code with the PAT.
+    $branchRefs = @([regex]::Matches($mergeOnGreen, '(?m)^.*steps\.pick\.outputs\.branch.*$') | ForEach-Object { $_.Value })
+    Assert-Equal 2 $branchRefs.Count 'the head branch is named exactly twice: the pr-branch checkout''s ref: and the ship step''s env:'
+    Assert-Equal 0 @($branchRefs | Where-Object { $_ -notmatch '^\s+(ref|SHIP_BRANCH): \$\{\{ steps\.pick\.outputs\.branch \}\}\s*$' }).Count `
+        'and neither of the two sits inside a run: body'
+    # PINNED TO THE COMMIT THE PICKER JUDGED (#2338): a push after the pick must stop the job rather than
+    # ship a head nobody judged.
     Assert-True ($mergeOnGreen -like '*SHIP_SHA: ${{ steps.pick.outputs.sha }}*') 'the judged head commit arrives through env: too'
-    Assert-True ($mergeOnGreen -match '(?ms)git checkout --quiet \$env:SHIP_BRANCH.*?\$head -ne \$env:SHIP_SHA.*?ship-pr\.ps1 -SkipLint') `
-        'and the checkout is held to it BEFORE ship-pr runs, not after'
-    Assert-True ($mergeOnGreen -like '*.git/info/exclude*') `
-        'the plugin checkout is excluded locally, so ship-pr does not read the tree as dirty and detour the fold'
+    Assert-True ($mergeOnGreen -match '(?ms)git -C pr-branch rev-parse HEAD.*?\$head -ne \$env:SHIP_SHA.*?ship-pr\.ps1 -TrustedRoot') `
+        'and the branch checkout is held to it BEFORE ship-pr runs, not after'
+
+    # --- 2e-2. Three sibling checkouts, none switched in place (#2449) --------------------------------
+    # The older shape checked the trunk out ONCE with FOLD_PUSH_TOKEN persisted and switched that same
+    # workspace to the branch, so the branch's own seams ran beside the token, and a branch committing a
+    # file under the plugin path overwrote the trusted copy (#2553). Each assert below pins one half of
+    # the structural fix; Sebastian #23's review on #2449 names the literal trusted-main as load-bearing.
+    Write-Host '-- 2e-2. the merge-on-green runner uses three sibling checkouts, none holding a credential --' -ForegroundColor Cyan
+    Assert-True ($mergeOnGreen -notlike '*.git/info/exclude*') 'no .git/info/exclude line -- nothing is nested in a workspace that gets switched'
+    Assert-True ($mergeOnGreen -notmatch 'git\s+checkout\s+(--quiet\s+)?\$env:SHIP_BRANCH') 'no in-place git checkout of the branch'
+    Assert-True ($mergeOnGreen -notmatch '(?m)^\s+token:') 'no checkout takes a token: input'
+    foreach ($p in @('trusted-main', 'pr-branch', '.workflow-scripts')) {
+        Assert-True ($mergeOnGreen -match ('(?m)^\s+path: ' + [regex]::Escape($p) + '\r?\n\s+persist-credentials: false\s*$')) `
+            "the '$p' checkout persists no credential"
+    }
+    Assert-Equal 3 (@([regex]::Matches($mergeOnGreen, '(?m)^\s+persist-credentials: false\s*$')).Count) 'and those are the only three checkouts, all credential-free'
+    # LOAD-BEARING: pointed at .workflow-scripts the picker would read the SOURCE repo's repo-config.ps1.
+    Assert-True ($mergeOnGreen -match '(?ms)id: pick.*?CLAUDE_PROJECT_DIR: \$\{\{ github\.workspace \}\}/trusted-main\s*$') `
+        'the picker reads THIS repo''s identity from the literal trusted-main'
+    Assert-True ($mergeOnGreen -match '(?ms)- name: Ship it.*?CLAUDE_PROJECT_DIR: \$\{\{ github\.workspace \}\}/pr-branch\s*$') `
+        'the ship acts on the literal pr-branch'
+    Assert-True ($mergeOnGreen -like "*-TrustedRoot (Join-Path `$env:GITHUB_WORKSPACE 'trusted-main')*") `
+        'and reads its seams and folds in the literal trusted-main, not the plugin tree'
+    Assert-True ($mergeOnGreen -match '(?m)^\s+\$env:GIT_CONFIG_COUNT = ''1''\s*$') 'the push credential is the ephemeral GIT_CONFIG_* overlay'
+    Assert-True ($mergeOnGreen -match '(?m)^\s+\$env:GIT_CONFIG_KEY_0 = ''http\.https://github\.com/\.extraheader''\s*$') 'on the extraheader key actions/checkout itself uses'
+    Assert-True ($mergeOnGreen -match '(?ms)- name: Ship it.*GIT_CONFIG_COUNT') 'and it is built in the ship step, the only one holding FOLD_PUSH_TOKEN'
+    Assert-True ($mergeOnGreen -like '*NO CHECKOUT PERSISTS A CREDENTIAL*') 'the header argues the one-credential-for-both-trees trade itself (Sebastian #23, #2449)'
     Assert-True ($mergeOnGreen -notmatch '(?m)^\s*issues:\s*write\s*$') 'it holds no issues: write beside the standing credential'
     Assert-True ($mergeOnGreen -match '(?m)^\s*group:\s*merge-on-green\s*$') 'one sweep at a time, repo-wide'
     Assert-True ($mergeOnGreen -like '*cancel-in-progress: false*') 'and never cancelled -- it merges and folds'
@@ -1172,6 +1200,21 @@ try {
     Assert-True ($rPin.Flat -notlike "*at v$pluginVersion, behind*") 'a write runner pinned at this release says nothing'
     Assert-Equal 2 ([regex]::Matches($rPin.Flat, '\[pin\] it fetches')).Count 'exactly the two stale runners are reported -- not the current one, not repo-settings'
     Assert-Equal $before ([System.IO.File]::ReadAllText((Join-Path $pinDir '.github\workflows\fold-on-merge.yml'))) 'and the file itself is left exactly as it was'
+    Assert-True ($rPin.Flat -notlike '*`[shape`]*') 'a merge-on-green.yml of the current three-checkout shape draws no shape advisory'
+
+    # THE OLD SINGLE-WORKSPACE SHAPE IS NAMED ON A RE-RUN (#2449, Sebastian #23's condition): this
+    # scaffolder never rewrites an existing runner, so a re-run is the one moment it can say so. The
+    # fixture is the two lines the reader keys on, in the ten-space shape the pre-#2449 template wrote.
+    $mogPath = Join-Path $pinDir '.github\workflows\merge-on-green.yml'
+    $oldShape = "name: Merge on green`n    steps:`n      - uses: actions/checkout@x`n        with:`n          ref: main`n          token: `${{ secrets.FOLD_PUSH_TOKEN }}`n`n      - uses: actions/checkout@x`n        with:`n          repository: DKJ-Solutions/dkj-claude-plugins`n          ref: main`n          path: .workflow-scripts`n          persist-credentials: false`n"
+    [System.IO.File]::WriteAllText($mogPath, $oldShape)
+    $rShape = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-True ($rShape.Flat -like '*`[shape`] it checks the trunk out ONCE with FOLD_PUSH_TOKEN*') 'a pre-#2449 merge-on-green.yml is reported as the single-workspace shape'
+    Assert-True ($rShape.Flat -like '*Re-scaffold it: delete this file and re-run adopt-ci-floor -Apply*') 'and the advisory says how to fix it'
+    Assert-Equal $oldShape ([System.IO.File]::ReadAllText($mogPath)) 'and the runner itself is left exactly as it was'
+    [System.IO.File]::WriteAllText($mogPath, "name: Merge on green`n# hand-written`n")
+    $rUnread = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-True ($rUnread.Flat -like '*its checkout shape could not be read*') 'a runner of neither shape is said to be unread, never judged clean'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
