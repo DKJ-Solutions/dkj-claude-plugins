@@ -733,7 +733,9 @@ if ($pushCommand) {
     # documents lose their input, and the cut says so when it is run without one.
     $headCap = Invoke-Git -Arguments @('rev-parse', '--short', 'HEAD')
     $head = if ((Test-NativeExitMeasured -Capture $headCap) -and $headCap.ExitCode -eq 0) { (@(Get-GitLines $headCap) | Select-Object -First 1) } else { 'HEAD' }
-    $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) ("live-push-record-{0}-{1}.txt" -f (Split-Path -Leaf $repoRoot), $head)
+    # A GUID in the name, as every temp path a shipping script composes carries one: two checkouts with the
+    # same folder name at the same commit would otherwise write one record over the other's edits.
+    $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) ("live-push-record-{0}-{1}-{2}.txt" -f (Split-Path -Leaf $repoRoot), $head, [guid]::NewGuid().ToString('N').Substring(0, 8))
     try {
         [System.IO.File]::WriteAllText($recordPath, (Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head"), (New-Object System.Text.UTF8Encoding($false)))
         Write-Host ''

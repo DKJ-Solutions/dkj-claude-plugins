@@ -1904,7 +1904,13 @@ foreach ($af in $auditFiles) {
 # Invoke-BoundedPrScan, which both checks call. Same two reads, same failure directions ($listRead ->
 # Status 'ListFailed', which each caller prints as [SKIP], exit 0; $requiredRead -> that one record
 # unjudged), both judged through Test-PrScanReadAnswered, which asks Test-NativeExitMeasured.
-Assert-Equal 83 $boundedTotal 'the parser still counts 83 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 83 -> 85 (#2586): cut-release.ps1's Get-PullRequestClosedIssues, $prCap (`gh pr view --json
+# closingIssuesReferences`) and $isCap (`gh issue view --json number,title,body`, one per closed issue),
+# both at the shared network bound and -Utf8 (titles are data). Both ask Test-NativeExitMeasured, and both
+# fail by THROWING, which the caller turns into a refusal before anything is written: a task-form note
+# built past an unread PR would silently drop a solved task. Reached only where Get-ReleaseNoteTaskLink
+# is answered.
+Assert-Equal 85 $boundedTotal 'the parser still counts 85 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
