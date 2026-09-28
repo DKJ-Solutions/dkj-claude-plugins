@@ -572,6 +572,10 @@ function Get-BackupRotationPlan {
         the store disagree about what exists, and a delete list computed from a list that does not
         contain the survivor is a delete list for everything.
 
+        AND A BACKUP THE STORE REPORTS AS LIVE IS KEPT (#2589). A restore publishes a backup and it keeps
+        its name, so role 'main' or 'live' marks the live theme sitting in the backup namespace -- never
+        'the previous backup'.
+
         A THEME THAT IS NOT ONE OF OUR BACKUPS IS NOT IN THE PLAN AT ALL -- not as a 'keep' row, not
         as anything. Rotation's subject is the backup namespace and nothing else; previews are the
         sweep's, and every other theme is somebody's.
@@ -600,8 +604,15 @@ function Get-BackupRotationPlan {
     foreach ($b in $backups) {
         $id   = ([string]$b.id).Trim()
         $name = ([string]$b.name).Trim()
+        $role = ([string]$b.role).Trim().ToLower()
         if ($id -eq $keep) {
             $plan += [pscustomobject]@{ Id = $id; Name = $name; Delete = $false; Reason = 'the backup just created and verified -- this is the one that is retained' }
+        } elseif ($role -eq 'live' -or $role -eq 'main') {
+            # A RESTORE PUBLISHES A BACKUP, AND IT KEEPS ITS NAME (#2589). From then on the live theme is in
+            # the backup namespace, so the next run's plan would name live as 'the previous backup'. The
+            # delete guard refuses the live id only once repo-config names the new one, so the store's own
+            # answer is checked here too, the pairing the sweep already makes.
+            $plan += [pscustomobject]@{ Id = $id; Name = $name; Delete = $false; Reason = "the STORE reports role '$role' -- a backup restored to live is the live theme now, not a backup to rotate" }
         } else {
             $plan += [pscustomobject]@{ Id = $id; Name = $name; Delete = $true; Reason = 'the previous backup -- exactly one is retained, and the cut is what rotates it' }
         }

@@ -328,6 +328,21 @@ Assert-Throws { Get-BackupRotationPlan -Themes $withBackups -KeepId '' } `
 Assert-Throws { Get-BackupRotationPlan -Themes $withBackups -KeepId '999' } `
     'rotation refuses when the survivor is not in the list it was given -- caller and store disagree' -Contains 'delete every backup'
 
+# A BACKUP RESTORED TO LIVE KEEPS ITS NAME (#2589), so it sits in the backup namespace with the store's
+# live role -- and the next run must not plan it as 'the previous backup'.
+$restored = @(
+    [pscustomobject]@{ id = '400'; name = ($prefix + 'backup-20260914-013000'); role = 'main' },
+    [pscustomobject]@{ id = '401'; name = ($prefix + 'backup-20260915-013000'); role = 'unpublished' }
+)
+$rr = Get-BackupRotationPlan -Themes $restored -KeepId '401'
+Assert-True  (-not (@($rr | Where-Object { $_.Id -eq '400' })[0].Delete)) 'a backup the store reports as role main is the restored live theme, and it is never rotated out'
+Assert-True  ((@($rr | Where-Object { $_.Id -eq '400' })[0].Reason) -match 'restored') '...and the row says why'
+$rrLive = Get-BackupRotationPlan -Themes @(
+    [pscustomobject]@{ id = '400'; name = ($prefix + 'backup-20260914-013000'); role = 'live' },
+    [pscustomobject]@{ id = '401'; name = ($prefix + 'backup-20260915-013000'); role = 'unpublished' }
+) -KeepId '401'
+Assert-True  (-not $rrLive[0].Delete) 'the role spelled live is refused the same way'
+
 # A FIRST-EVER CUT HAS ONE BACKUP AND NOTHING TO ROTATE.
 $first = Get-BackupRotationPlan -Themes @([pscustomobject]@{ id = '401'; name = ($prefix + 'backup-20260914-013000'); role = 'unpublished' }) -KeepId '401'
 Assert-Equal 1 $first.Count            'the first cut plans one row'
@@ -394,7 +409,11 @@ Assert-True $v.Accepted 'ten, all identical, is inside the ceiling'
 # The caller wires it: backup-live-theme judges a 'short' copy by its paths and compares against HEAD.
 $backupText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\task\backup-live-theme.ps1'))
 Assert-True ($backupText.Contains('Get-ThemeShortfallVerdict -MissingPaths')) 'backup-live-theme judges a short copy with Get-ThemeShortfallVerdict'
-Assert-True ($backupText.Contains("Get-GitStoredBlobId -Rev 'HEAD'")) '...against what the trunk stores at HEAD'
+Assert-True ($backupText.Contains('Invoke-SyncGitQuiet rev-parse HEAD')) '...against what the trunk stores at HEAD'
+# #2589: HEAD is resolved once to a commit id, every compare uses it, and the output names it -- a restore
+# reads these paths back later, when HEAD has moved.
+Assert-True ($backupText.Contains('Get-GitStoredBlobId -Rev $verifiedAt')) '...pinned to one commit id rather than re-read as HEAD per path'
+Assert-True ($backupText.Contains('the repo at $verifiedAt')) '...and the WITH EXCEPTIONS line names that commit'
 Assert-True ($backupText.Contains('-KeepAt $livePull')) '...using the live pull it already took, kept rather than thrown away'
 Assert-True ($backupText.Contains("Dictionary[string,string]' ([System.StringComparer]::Ordinal)")) '...keyed ordinally, never through a case-insensitive @{} literal'
 
