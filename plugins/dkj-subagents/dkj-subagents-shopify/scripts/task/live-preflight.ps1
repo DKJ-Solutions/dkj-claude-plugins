@@ -641,7 +641,13 @@ if ($alreadyRefused.Count -gt 0 -and -not $SkipBackup) {
     $backup = Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $backupScript, '-Store', $store) -TimeoutSeconds 2700
     Write-Host ($backup.Output | Out-String)
     if ((Test-NativeExitMeasured -Capture $backup) -and $backup.ExitCode -eq 0) {
-        Add-Step -Name 'backup' -State 'pass' -Detail 'a verified backup of live is standing, and the previous one was rotated out only after it was proven complete.'
+        # A PASS WITH EXCEPTIONS IS STILL NAMED AS ONE (#2568): the summary is what gets read, and 'proven
+        # complete' would be false of a copy that lacks files the trunk holds for it.
+        if (($backup.Output | Out-String) -match 'verified WITH EXCEPTIONS') {
+            Add-Step -Name 'backup' -State 'pass' -Detail 'a verified backup of live is standing WITH EXCEPTIONS: some paths Shopify did not copy, each held by the trunk exactly as live holds it (listed in the backup output above). The previous one was rotated out only after that verdict.'
+        } else {
+            Add-Step -Name 'backup' -State 'pass' -Detail 'a verified backup of live is standing, and the previous one was rotated out only after it was proven complete.'
+        }
     } else {
         Add-Step -Name 'backup' -State 'refuse' -Detail "backup-live-theme: $(Get-NativeExitLabel -Capture $backup). It fails loudly and rotates nothing, so the PREVIOUS backup is still standing -- but this push would have no rollback point taken from this stand."
     }

@@ -39,19 +39,49 @@
 
 ### PLAN
 
+Inbound #2568: in one consumer every duplicate of live settles at 535 of 539 files, short the same four
+templates each time, so `backup-live-theme` can never verify and `live-preflight` can never go green.
+The six inbound checks all hold. The count-only code cannot name what is missing.
+
+The pickup comment's design point was that "byte-identical in the trunk" needs live's own bytes for
+paths the copy lacks. They are already in this run: the source count is a full pull of live, which
+was thrown away after counting. Keeping that pull until the verdict is in answers the point without
+a second pull. The comment's weaker point was that the two unexplained `blog.context.*` files are
+admitted on the trunk comparison alone. That is by design. The rule is about where the rollback bytes
+are, and that holds whatever Shopify's reason for dropping a file was.
+
+A ceiling (10 missing paths) keeps trunk-identical from admitting a copy that simply stalled early.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ThemeFileSnapshot` (shopify-cli-lib): the pull `Get-ThemeFileCount` counts, returned as sorted theme paths; `-KeepAt` keeps it standing. `Get-ThemeFileCount` delegates to it
+- [x] `Get-ThemeShortfallPaths` + `Get-ThemeShortfallVerdict` (theme-lifecycle-rules, pure): the missing paths, and accepted only when every one is `identical` to the trunk and there are at most 10
+- [x] `backup-live-theme.ps1`: keeps live's pull, and on `short` after the whole wait compares each missing path's live bytes with git's stored blob at HEAD (raw or CR-stripped id, sync-rules' functions). It prints each path's state and passes as `verified WITH EXCEPTIONS` or refuses as before
+- [x] `live-preflight.ps1`: the backup step's pass detail says WITH EXCEPTIONS when the backup did
+- [x] theme-lifecycle skill page and `THEME-LIFECYCLE-portable.md` describe the exception; mirrors rebuilt
 
 ### TEST
 
+- [x] `theme-lifecycle-rules.tests.ps1` standalone: 124 pass, 0 fail, including the shortfall paths, every refusing state, the ceiling, and the caller's wiring
+- [x] blob-id comparison checked by hand against a tracked file: stored, raw and CRLF-then-stripped ids agree; an absent path returns ''
+- [~] `backup-live-theme.ps1` itself is not driven: every path reaches a real store, as its NOTES state. The consumer's next preflight is the live test
+
 ### DEPLOY: fix/2568-backup-trunk-held-shortfall
 
-**Score:**
+`backup-live-theme` no longer refuses a copy that is short only on files the trunk holds exactly as
+live holds them. After the wait it names each path live has and the copy lacks, and compares it with
+the trunk at HEAD. It passes as verified WITH EXCEPTIONS only when all of them match and there are at
+most 10. Any other state still refuses, as before. (#2568)
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store whose duplicates Shopify always leaves a few templates short, the backup step, and with it
+`live-preflight`, could never pass. They now can, path by path, and a missing file the repo cannot
+restore still stops the push.
+
+**Score:** 4
 
 #### Pull Request
 
