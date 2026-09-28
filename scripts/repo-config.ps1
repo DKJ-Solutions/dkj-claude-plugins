@@ -1256,9 +1256,9 @@ function Get-ExpectedRepoSettings {
 # recurrence arrives the label comes off and the issue is worked, or becomes a dossier if it keeps
 # recurring. Same 'copy' reasoning: "waiting on evidence" asserts nothing about the adopting repo.
 $script:TriageLabels = @(
-    [pscustomobject]@{ Name = 'prio-1'; Color = '006B75'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
-    [pscustomobject]@{ Name = 'prio-2'; Color = 'FBCA04'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
-    [pscustomobject]@{ Name = 'prio-3'; Color = 'D93F0B'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
+    [pscustomobject]@{ Name = 'prio-1'; Color = 'FFE033'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
+    [pscustomobject]@{ Name = 'prio-2'; Color = 'F9A825'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
+    [pscustomobject]@{ Name = 'prio-3'; Color = 'E0321A'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     [pscustomobject]@{ Name = 'dossier'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
     [pscustomobject]@{ Name = 'needs-decision'; Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }

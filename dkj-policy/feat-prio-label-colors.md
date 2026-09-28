@@ -41,17 +41,32 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Canonical hexes in `scripts/repo-config.ps1`, both copies of `adopt-triage-labels.ps1` and the blueprint
+- [x] `adopt-dkj-policy-bwj` step 4 hexes, and its `fbca04` collision note replaced
+- [x] Derek's lens: the colour table and the ramp sentence
+- [x] Live labels in this repo re-coloured with `gh label edit`
 
 ### TEST
 
+- [x] `repo-config`, `adopt-triage-labels` and `dkj-policy-bwj` suites green
+
 ### DEPLOY: feat/prio-label-colors
 
-**Score:**
+The four `prio-` labels now read as two yellows and two reds, on Dave's request: `prio-1` is yellow
+(`FFE033`), `prio-2` a yellow leaning to orange (`F9A825`), `prio-3` a red leaning to orange (`E0321A`)
+and `prio-4` stays red (`B60205`). They replace the teal → yellow → orange → red ramp. The canonical set
+`adopt-triage-labels` prints and the BWJ adopt skill's step 4 carry the new hexes, and this repo's live
+labels were re-coloured. Moving `prio-2` off `FBCA04` also ends its shared badge colour with `tier-1`
+in a BWJ repo (#1844). A repo that already has the labels keeps its old colours until someone runs
+`gh label edit --color`, because the adopt steps never rewrite an existing label.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a badge colour on the issue tracker. No release document reader acts on it.
+
+**Score:** N/A
 
 #### Pull Request
 
