@@ -260,17 +260,16 @@ function Invoke-Adopt {
     # it apart, because a terminating error exits 1, which is also this script's own live-defect verdict;
     # stderr can, because the script writes nothing there on any path this suite drives. So stderr goes
     # to a file, and a byte in it is a [FAIL] naming the child's first error line.
-    # 'Continue' for this call only: under the suite's 'Stop', Windows PowerShell 5.1 turns a native
-    # command's first redirected stderr line into a terminating NativeCommandError.
+    # 'Continue' because under the suite's 'Stop', Windows PowerShell 5.1 turns a native command's
+    # first redirected stderr line into a terminating NativeCommandError. Assigned inside this function,
+    # it shadows the suite's preference for this call only and is gone on return.
+    $ErrorActionPreference = 'Continue'
     $errPath = Join-Path $Fixture "stderr-$([guid]::NewGuid().ToString('n')).txt"
-    $prevEap = $ErrorActionPreference
     try {
         $env:CLAUDE_PROJECT_DIR = $Dir
-        $ErrorActionPreference = 'Continue'
         $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script @ScriptArgs 2> $errPath
         $code = $LASTEXITCODE
-        $ErrorActionPreference = $prevEap
-        $errText = if (Test-Path -LiteralPath $errPath) { ([System.IO.File]::ReadAllText($errPath)).Trim() } else { '' }
+        $errText = ([System.IO.File]::ReadAllText($errPath)).Trim()
         if ($errText) {
             $firstErr = @($errText -split "`r?`n" | Where-Object { $_.Trim() })[0]
             Assert-True $false "the adopt-ci-floor child wrote to stderr, so it died mid-run (exit $code): $firstErr"
@@ -287,7 +286,6 @@ function Invoke-Adopt {
             Flat = (($out | ForEach-Object { [string]$_ }) -join '')
         }
     } finally {
-        $ErrorActionPreference = $prevEap
         Remove-Item -LiteralPath $errPath -ErrorAction SilentlyContinue
         if ($null -eq $prevPd) { Remove-Item Env:CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue }
         else { $env:CLAUDE_PROJECT_DIR = $prevPd }
