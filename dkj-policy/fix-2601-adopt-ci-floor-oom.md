@@ -51,8 +51,8 @@ when measured here (September 28, 2026, a 15.6 GB machine):
 
 What the tree does get wrong is the half that makes the verdict unreliable. `Invoke-Adopt` ran the child
 as `$out = & powershell ...`, which never captured the child's **stderr**. So a child that died on an
-exception left a shortened `$out` behind, and every negative assert (`-notlike`, `-notmatch`) passes on
-shortened output. That is the reported `270 passed, 0 failed` with a `Get-WorkflowFacts : ...
+exception left a truncated `$out` behind, and every negative assert (`-notlike`, `-notmatch`) passes on
+truncated output. That is the reported `270 passed, 0 failed` with a `Get-WorkflowFacts : ...
 OutOfMemoryException` printed above it. The other symptom, a run that ends with no summary line, is a
 parent that died with a non-zero exit. The gate already treats that as a crash and re-runs the suite on
 its own (#1723), so that half was never green.
