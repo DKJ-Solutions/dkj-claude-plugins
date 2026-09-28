@@ -41,17 +41,24 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Constitution (`plugins/dkj-policy/CLAUDE.md`): the visible-result bullet says the checkout stays on the branch until the owner has looked (#2559)
+- [x] Chris's persona: a branch parked for the owner's eye is not a finished chain, so the trunk rule does not fire; the sweep exception is named (#2558)
 
 ### TEST
 
+- [~] No suite covers this prose; the full gate runs at ship (always-on budget included)
+
 ### DEPLOY: docs/2558-visible-result-stays-on-branch
 
-**Score:**
+A branch parked for the owner's visual review now keeps the checkout on that branch. The constitution's visible-result rule says so, and Chris's "it ends on the trunk" rule no longer fires on a park: that chain is not finished, since its next step is the owner looking at the working copy. The trunk follows the merge. A session that moves on to other work in the same checkout, like a sweep, hands over through the repo's own preview route instead ([#2558](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2558), [#2559](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2559)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+An owner reviewing a UI change can look at it straight away. The session no longer switches to the trunk after parking, which reverted the running app to the old screen and left them nothing to judge.
+
+**Score:** 3
 
 #### Pull Request
 
