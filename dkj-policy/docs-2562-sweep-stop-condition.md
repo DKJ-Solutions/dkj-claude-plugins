@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Issue #2562: the skill said "Back to step 1" but never when the loop ends, so `ship-pr`'s close-out
+template read as the sweep's own. The repair is the issue's first two bullets, in the skill. The
+optional `ship-pr` switch is left out, because the skill text alone answers the question.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `sweep-issues/SKILL.md`: a section after step 7 with the stop condition, a note that `ship-pr`'s
+      template is one issue's receipt, and what the single close-out names.
 
 ### TEST
 
+- [x] Doc-only; the gates in `ship-pr` cover links and prose checks.
+
 ### DEPLOY: docs/2562-sweep-stop-condition
 
-**Score:**
+Inside this repo: the `sweep-issues` skill page gains a short section naming when the loop ends.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+For whoever runs `/dkj-policy:sweep-issues`: the skill now states that the sweep goes on until no
+`free` issue is left, and that the close-out `ship-pr` prints after each issue is not the end of the
+sweep. It used to stop after the first shipped issue.
+
+**Score:** 3
 
 #### Pull Request
 
