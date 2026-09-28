@@ -193,9 +193,13 @@ jobs:
           # Commit-metadata identity only -- who authored ship-pr's fold commit. It is independent of the
           # push credential set up below: a ruleset bypass is checked against the PUSHING token's identity,
           # not against the commit author. Same pair, same reason, as fold-on-merge.yml sets. Set in
-          # 'trusted-main', which is the tree the fold's own push runs from.
-          git -C trusted-main config user.name "github-actions[bot]"
-          git -C trusted-main config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # BOTH trees: 'trusted-main' commits the fold, and open-pr.ps1 commits a dirty branch document
+          # in 'pr-branch' (issue #2602). The two checkouts share no .git/config, and a hosted runner has
+          # no global identity -- the consumer template sets the same pair in both (#2449).
+          foreach ($tree in @('trusted-main', 'pr-branch')) {
+            git -C $tree config user.name "github-actions[bot]"
+            git -C $tree config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          }
 
           # THE EPHEMERAL PUSH CREDENTIAL (issue #2437, condition (d)). Neither checkout above persisted
           # FOLD_PUSH_TOKEN to disk (both used persist-credentials: false), so as of this line NEITHER

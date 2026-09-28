@@ -1,4 +1,4 @@
-## fix/2602-merge-on-green-pr-branch-identity
+﻿## fix/2602-merge-on-green-pr-branch-identity
 
 > **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
 > `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
@@ -39,19 +39,27 @@
 
 ### PLAN
 
+Issue #2602: this repo's own `merge-on-green.yml` set the commit identity only in `trusted-main`, while `open-pr.ps1` (run by `ship-pr` with `CLAUDE_PROJECT_DIR` = `pr-branch`) can commit a dirty branch document there. Repair: the same two lines in both trees, the shape the consumer template got on #2449.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.github/workflows/merge-on-green.yml`: the Ship step sets `user.name`/`user.email` in both `trusted-main` and `pr-branch`.
 
 ### TEST
 
+- [x] No suite pins those lines (grep); the lint + test gate runs at open-pr.
+
 ### DEPLOY: fix/2602-merge-on-green-pr-branch-identity
 
-**Score:**
+This repo's merge-on-green runner now gives the `pr-branch` checkout a commit identity too, so an `open-pr` commit of a dirty branch document during a CI ship cannot fail with *Please tell me who you are*. Latent until now, since `pr-branch` is a fresh checkout; it brings the runner level with the consumer template.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- this is the source repo's own CI runner; nothing a consumer takes changes.
+
+**Score:** N/A
 
 #### Pull Request
 
