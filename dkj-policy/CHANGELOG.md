@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**7 / 7 minor entries** <!-- pending-tally -->
+**8 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2558-visible-result-stays-on-branch · 20260928-104254Z
+
+A branch parked for the owner's visual review now keeps the checkout on that branch. The constitution's visible-result rule says so, and Chris's "it ends on the trunk" rule no longer fires on a park: that chain is not finished, since its next step is the owner looking at the working copy. The trunk follows the merge. A session that moves on to other work in the same checkout, like a sweep, hands over through the repo's own preview route instead ([#2558](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2558), [#2559](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2559)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+An owner reviewing a UI change can look at it straight away. The session no longer switches to the trunk after parking, which reverted the running app to the old screen and left them nothing to judge.
+
+**Score:** 3
+
+#### Pull Request
+
+A branch parked for the owner's visual review keeps the checkout on that branch, in the constitution and in Chris's trunk rule
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2579](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2579)
+
+---
 
 ### DEPLOY: fix/2569-publish-page-wrangler-oauth · 20260928-103105Z
 
