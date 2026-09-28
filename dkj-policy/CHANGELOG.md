@@ -2,7 +2,59 @@
 
 ## [Unreleased]
 
-**3 / 3 minor entries** <!-- pending-tally -->
+**5 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2565-prepare-release-reads-repo-config · 20260928-100738Z
+
+`prepare-release` reads the store's `scripts/repo-config.ps1` again (inbound
+[#2565](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2565)). Since the #2509 hardening it had
+dropped the dot-source, so every seam read its default: no store domain, no live theme id, the changelog
+looked for at `CHANGELOG.md`, and each step then reported a plausible skip instead of a fault. A fixture run
+now pins that the repo's own seams are read, and that a config which throws degrades to a warning naming
+only the exception's type.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store running `prepare-release` on 5.9.0 got a runbook with no push command and every scoped step
+skipped, in a repo that had answered every seam. After this release the skill works as documented there.
+
+**Score:** 3
+
+#### Pull Request
+
+prepare-release dot-sources repo-config.ps1 again
+
+Plugins: dkj-policy-bwj
+
+[PR #2575](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2575)
+
+---
+
+### DEPLOY: docs/2562-sweep-stop-condition · 20260928-095412Z
+
+Inside this repo: the `sweep-issues` skill page gains a short section naming when the loop ends.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+For whoever runs `/dkj-policy:sweep-issues`: the skill now states that the sweep goes on until no
+`free` issue is left, and that the close-out `ship-pr` prints after each issue is not the end of the
+sweep. It used to stop after the first shipped issue.
+
+**Score:** 3
+
+#### Pull Request
+
+sweep-issues states its stop condition, so one shipped issue is not the sweep's close-out
+
+Plugins: dkj-policy
+
+[PR #2573](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2573)
+
+---
 
 ### DEPLOY: fix/2560-update-plugins-install-when-no-record · 20260928-093321Z
 

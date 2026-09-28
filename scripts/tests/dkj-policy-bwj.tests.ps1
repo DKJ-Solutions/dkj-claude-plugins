@@ -1246,6 +1246,32 @@ $prRun = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Plugi
 Assert-Equal 1 $LASTEXITCODE 'run in the plugin''s own source repo, the driver refuses'
 Assert-True ((@($prRun | ForEach-Object { "$_" }) -join "`n").Contains('publishes plugins')) '...and says why'
 
+# THE SEAMS ARE READ (inbound #2565). The #2509 edit replaced the dot-source of repo-config.ps1 with a comment
+# line, and no assert noticed: every seam fell back to its default and each step then reported a plausible
+# skip. So a fixture root answers two seams with values no default could produce, and the run must print both.
+# Get-RepoName is answered too so the run makes no 'gh repo view'; the root is no git repo, so no check-run read.
+$prRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-prepare-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    New-Item -ItemType Directory -Path (Join-Path $prRoot 'scripts') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $prRoot 'scripts\repo-config.ps1'), (@(
+        "function Get-ShopifyThemeEstateStore { 'seam-fixture-2565.myshopify.com' }",
+        "function Get-ChangelogPath { 'seam-fixture/CHANGELOG-2565.md' }",
+        "function Get-RepoName { 'fixture/prepare-release-2565' }"
+    ) -join "`n"))
+    $prSeamRun = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PluginRoot 'scripts\task\prepare-release.ps1') -RootOverride $prRoot -SkipDrift 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-True $prSeamRun.Contains('seam-fixture-2565.myshopify.com') 'the store domain is read from the repo''s own seam, not defaulted'
+    Assert-True $prSeamRun.Contains("no changelog at 'seam-fixture/CHANGELOG-2565.md'") 'the changelog path is read from the repo''s own seam, not defaulted'
+
+    # A FAULTY CONFIG DEGRADES, and names the exception's type rather than the consumer's own text (#2509).
+    [System.IO.File]::WriteAllText((Join-Path $prRoot 'scripts\repo-config.ps1'), "throw 'consumer-secret-text-2565'")
+    $prBadRun = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PluginRoot 'scripts\task\prepare-release.ps1') -RootOverride $prRoot -SkipDrift 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-True $prBadRun.Contains('[8/8]') 'a repo-config that throws does not take the run down'
+    Assert-True $prBadRun.Contains('scripts/repo-config.ps1 threw') '...it is named as the file that threw'
+    Assert-True (-not $prBadRun.Contains('consumer-secret-text-2565')) '...and its own message never reaches the output'
+} finally {
+    if (Test-Path -LiteralPath $prRoot) { Remove-Item -LiteralPath $prRoot -Recurse -Force -ErrorAction SilentlyContinue }
+}
+
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""
 if ($script:fail -gt 0) {

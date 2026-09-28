@@ -122,11 +122,15 @@ if (-not $RootArg -and (Test-Path -LiteralPath (Join-Path $repoRoot '.claude-plu
 # THE SEAMS, AT SCRIPT SCOPE -- the #2339 lesson build-golive-block.ps1 records: a config dot-sourced
 # inside a scriptblock loses every function it defined when that scope ends. StrictMode is off for the
 # read only, because repo-config.ps1 is written on the assumption that it is.
+# THE EXCEPTION'S TYPE, NEVER ITS MESSAGE, in this warning and the two below (#2509): a message is text the
+# consumer's own file wrote, and it would reach session context verbatim.
+# THE DOT-SOURCE ITSELF IS PINNED BY A FIXTURE RUN (#2565): the #2509 edit that introduced the comment above
+# replaced this line instead of the warning in it, and every seam then read its default without a sound.
 $configPath = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $configPath -PathType Leaf) {
     Set-StrictMode -Off
     $resolvedRoot = $repoRoot
-    # THE EXCEPTION'S TYPE, NEVER ITS MESSAGE, in all three warnings below: a message is text the consumer's
+    try { . $configPath } catch { Write-Warning "scripts/repo-config.ps1 threw $($_.Exception.GetType().Name) while being read -- dot-source it directly to see the error." }
     Set-StrictMode -Version Latest
     $repoRoot = $resolvedRoot
 }
