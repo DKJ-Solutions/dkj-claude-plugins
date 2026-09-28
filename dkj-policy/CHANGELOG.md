@@ -2,7 +2,82 @@
 
 ## [Unreleased]
 
-**5 / 5 minor entries** <!-- pending-tally -->
+**8 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2558-visible-result-stays-on-branch · 20260928-104254Z
+
+A branch parked for the owner's visual review now keeps the checkout on that branch. The constitution's visible-result rule says so, and Chris's "it ends on the trunk" rule no longer fires on a park: that chain is not finished, since its next step is the owner looking at the working copy. The trunk follows the merge. A session that moves on to other work in the same checkout, like a sweep, hands over through the repo's own preview route instead ([#2558](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2558), [#2559](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2559)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+An owner reviewing a UI change can look at it straight away. The session no longer switches to the trunk after parking, which reverted the running app to the old screen and left them nothing to judge.
+
+**Score:** 3
+
+#### Pull Request
+
+A branch parked for the owner's visual review keeps the checkout on that branch, in the constitution and in Chris's trunk rule
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2579](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2579)
+
+---
+
+### DEPLOY: fix/2569-publish-page-wrangler-oauth · 20260928-103105Z
+
+Inside this repo: `publish-page.ps1` gained a second publish route for when `CLOUDFLARE_API_TOKEN`
+is absent, with two small functions in `page-publish-rules.ps1` and end-to-end tests against an
+`npx.cmd` shim.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For whoever publishes a BWJ page from a machine that is logged in with `npx wrangler login`: the
+publish now works without an API token. It goes through `wrangler kv key put/get --remote` and is
+proved with the same SHA-256 read-back. A login to a different account is refused, and the message
+names both routes.
+
+**Score:** 3
+
+#### Pull Request
+
+publish-page publishes through a wrangler OAuth session when CLOUDFLARE_API_TOKEN is absent
+
+Plugins: dkj-policy-bwj
+
+[PR #2578](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2578)
+
+---
+
+### DEPLOY: docs/2567-audience-asana-link-from-marker · 20260928-102112Z
+
+The BWJ ticket-handling page now says which Asana task an audience release item links to (inbound
+[#2567](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2567)). It is the task the mirror's
+three matchers resolve, marker first, and never the first Asana URL in the issue body. A reference line
+naming the CRO test a build came from is context, not the ticket.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A colleague reading a store's release notes finds their own development ticket linked, and not the CRO
+test it came out of.
+
+**Score:** 2
+
+#### Pull Request
+
+An audience item's Asana link is resolved by the mirror's matchers, never the first URL
+
+Plugins: dkj-policy-bwj
+
+[PR #2577](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2577)
+
+---
 
 ### DEPLOY: fix/2565-prepare-release-reads-repo-config · 20260928-100738Z
 

@@ -31,7 +31,9 @@ These rules take precedence over any convenience.
 
 - **Merging work with a visible result.** If a change produces something the owner has to judge by
   eye (a frontend, styling, rendered output, an artifact), the branch stops and reports instead of
-  merging. No automated gate can prove that something *looks* right.
+  merging, **and the checkout stays on that branch until the owner has looked**. The owner judges the
+  working copy, so switching to the trunk removes the very thing waiting to be judged. No automated gate
+  can prove that something *looks* right.
 - **A release or version bump** (raising a plugin or package `version`, creating a tag) is done only
   on explicit request. **The closing steps of a cut that was asked for are covered by that request**,
   up to and including publishing the release document. The bump and the tag are the irreversible act,
