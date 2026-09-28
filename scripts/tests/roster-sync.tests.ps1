@@ -217,11 +217,11 @@ function New-FixtureConsumer {
         # scaffolds -- the state in which the repo IS being maintained and drift must error again.
         [hashtable]$SeamLensContent = @{},
         # Lens files in the SEAM under a spelling no reader here recognises -- 'specialist-<id>.md', a
-        # hypothetical NEXT naming generation (issue #2219). It has to be hypothetical: the two spellings
-        # Get-SpecialistFileShapes holds are both recognised by construction, so the only way to build a
-        # tree this check has no vocabulary for is to name one it has not been taught yet. That is exactly
-        # the state a consumer is in between a rename in the source and their own plugin update, which is
-        # what [LENS-NAMING] exists for.
+        # hypothetical NEXT naming generation (issue #2219). It has to be hypothetical: whatever spelling(s)
+        # Get-SpecialistFileShapes holds for Lens are recognised by construction (one, since #2292 retired
+        # the also-read row), so the only way to build a tree this check has no vocabulary for is to name
+        # one it has not been taught yet. That is exactly the state a consumer is in between a rename in
+        # the source and their own plugin update, which is what [LENS-NAMING] exists for.
         [string[]]$UnknownNamingLensIds = @(),
         [string[]]$LegacyLensIds = @(),
         [string[]]$OffPathLensIds = @(),
@@ -274,7 +274,7 @@ function New-FixtureConsumer {
     }
 
     $lines = @('# Roster', '')
-    foreach ($id in $RosterIds) { $lines += "| $id | [$id-extension.md](x) |" }
+    foreach ($id in $RosterIds) { $lines += "| $id | [specialist-$id-lens.md](x) |" }
     foreach ($line in $ExtraRosterLines) { $lines += $line }
     [System.IO.File]::WriteAllText((Join-Path $root $RosterFile), ($lines -join "`n"))
 
@@ -283,7 +283,7 @@ function New-FixtureConsumer {
         New-Item -ItemType Directory -Path $pdir -Force | Out-Null
         foreach ($id in $LensIds) {
             $body = if ($LensContent.ContainsKey($id)) { $LensContent[$id] } else { 'lens' }
-            [System.IO.File]::WriteAllText((Join-Path $pdir "$id-extension.md"), $body)
+            [System.IO.File]::WriteAllText((Join-Path $pdir "specialist-$id-lens.md"), $body)
         }
     }
     if ($SeamLensIds.Count -gt 0) {
@@ -291,7 +291,7 @@ function New-FixtureConsumer {
         New-Item -ItemType Directory -Path $sdir -Force | Out-Null
         foreach ($id in $SeamLensIds) {
             $txt = if ($SeamLensContent.ContainsKey($id)) { $SeamLensContent[$id] } else { $SeamLensText }
-            [System.IO.File]::WriteAllText((Join-Path $sdir "$id-extension.md"), $txt)
+            [System.IO.File]::WriteAllText((Join-Path $sdir "specialist-$id-lens.md"), $txt)
         }
     }
     if ($UnknownNamingLensIds.Count -gt 0) {
@@ -304,17 +304,17 @@ function New-FixtureConsumer {
     if ($LegacyLensIds.Count -gt 0) {
         $ldir = Join-Path $root '.claude\extensions'
         New-Item -ItemType Directory -Path $ldir -Force | Out-Null
-        foreach ($id in $LegacyLensIds) { [System.IO.File]::WriteAllText((Join-Path $ldir "$id-extension.md"), "lens") }
+        foreach ($id in $LegacyLensIds) { [System.IO.File]::WriteAllText((Join-Path $ldir "specialist-$id-lens.md"), "lens") }
     }
     if ($OffPathLensIds.Count -gt 0) {
         $odir = Join-Path $root ".claude\plugins\$OffPathFamily\$PluginName"
         New-Item -ItemType Directory -Path $odir -Force | Out-Null
-        foreach ($id in $OffPathLensIds) { [System.IO.File]::WriteAllText((Join-Path $odir "$id-extension.md"), "lens") }
+        foreach ($id in $OffPathLensIds) { [System.IO.File]::WriteAllText((Join-Path $odir "specialist-$id-lens.md"), "lens") }
     }
     foreach ($pn in $ExtraLensesByPlugin.Keys) {
         $edir = Join-Path $root ".claude\plugins\claude-specialists\$pn"
         New-Item -ItemType Directory -Path $edir -Force | Out-Null
-        foreach ($id in $ExtraLensesByPlugin[$pn]) { [System.IO.File]::WriteAllText((Join-Path $edir "$id-extension.md"), "lens") }
+        foreach ($id in $ExtraLensesByPlugin[$pn]) { [System.IO.File]::WriteAllText((Join-Path $edir "specialist-$id-lens.md"), "lens") }
     }
     if ($RepoConfig) {
         New-Item -ItemType Directory -Path (Join-Path $root 'scripts') -Force | Out-Null

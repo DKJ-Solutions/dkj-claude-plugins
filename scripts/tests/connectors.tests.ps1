@@ -119,7 +119,10 @@ function New-FixtureConsumer {
     $settings = '{ "enabledPlugins": ' + $enabled + ' }'
     [System.IO.File]::WriteAllText((Join-Path $Root '.claude\settings.json'), $settings)
     foreach ($id in $ExtensionIds) {
-        $p = Join-Path $extDir "$id-extension.md"
+        # Written spelling only ('<g>-<id>-extension.md' is RETIRED for Lens, #2292): this helper builds
+        # an ordinary fixture consumer, not one exercising the retired-spelling state, which section 14
+        # builds for itself.
+        $p = Join-Path $extDir "specialist-$id-lens.md"
         [System.IO.File]::WriteAllText($p, "---`nid: $($id.Split('-')[1])`ngroup: $($id.Split('-')[0])`n---`nfixture")
     }
 }
@@ -1928,9 +1931,13 @@ exit 1
     # THE SPELLINGS ARE LITERALS HERE, DELIBERATELY, against this tree's own rule that a caller asks
     # Get-SpecialistFileShapes rather than composing a name. A fixture that asks the code under test
     # what a spelling is asserts nothing -- it would agree with a wrong table as readily as a right
-    # one. The cost is stated rather than hidden: on the day the Lens row's AlsoRead empties (#2292),
-    # 14b and 14e stop having a subject and fail. That is the correct signal at exactly that moment,
-    # and the retirement's own checklist is where it is answered.
+    # one. The cost was stated rather than hidden, and the day has come: the Lens row's AlsoRead emptied
+    # on September 28, 2026 (#2292). 14b and 14e lost their subject exactly as predicted -- a retired-
+    # spelling file is no longer AlsoRead or Mixed, it is invisible Unmatched noise -- and 14f lost its
+    # subject too, though the original prediction here named only the first two: #2298's precedence (a
+    # measured NOT YET outranking an unreached connector) can no longer be pinned at all, because
+    # namingBehind can never be non-zero for Lens once AlsoRead is empty. All three were rewritten to
+    # pin what actually happens now rather than to keep failing on a state that can no longer occur.
     function New-LensConsumer {
         param(
             [Parameter(Mandatory = $true)][string]$Path,
@@ -1992,17 +1999,21 @@ exit 1
     Assert-Match 'keyed on plugin CACHES' $r.Out 'all over: and carries the bound -- one of the four kinds'
     Assert-NotMatch 'NOT YET' $r.Out 'all over: and not the negative verdict as well'
 
-    # --- 14b. One connector still on the also-read spelling -> NOT YET ----------------------------
+    # --- 14b. One connector holds only the retired spelling -> reads as unmeasured, not behind -----
+    #      RETIRED (#2292, September 28, 2026): there is no AlsoRead row left for Lens to land on, so a
+    #      directory holding only '<g>-<id>-extension.md' is Unmatched noise, not a tolerated older
+    #      layout. Get-SpecialistNamingState reports None for it (pinned in check-report-lib.tests.ps1),
+    #      and the roll-up folds that into the same NOT ANSWERABLE reading as an absent/empty checkout
+    #      (14c/14d), never into NOT YET.
     $reg = New-LensRegister -Connector @(
         @{ Repo = 'fixture/over-a';    Checkout = "$lensRel\over-a" },
         @{ Repo = 'fixture/retired-a'; Checkout = "$lensRel\retired-a" })
     $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Equal 0 $r.Code 'not yet: exit code 0 -- a consumer that has not migrated is in breach of nothing'
-    Assert-Match '\[LENS-RETIREMENT\] NOT YET: 1 of 2 connectors' $r.Out 'not yet: the verdict counts the ones still behind'
-    Assert-Match 'the condition is FALSE' $r.Out 'not yet: and states the condition plainly'
-    Assert-Match 'not over:  fixture/retired-a' $r.Out 'not yet: the grouping names which connector it is'
-    Assert-NotMatch 'ALL 2 CONNECTORS ARE OVER' $r.Out 'not yet: the green verdict does not also fire'
-    Assert-NotMatch 'NOT the full list' $r.Out 'not yet: with full coverage it does NOT claim the list is partial'
+    Assert-Equal 0 $r.Code 'retired spelling: exit code 0'
+    Assert-Match '\[LENS-RETIREMENT\] NOT ANSWERABLE FROM THIS MACHINE: 1 of 2 connectors measured' $r.Out 'retired spelling: reads as unmeasured, not as behind'
+    Assert-Match 'no lenses: fixture/retired-a' $r.Out 'retired spelling: grouped with the no-lenses consumers'
+    Assert-NotMatch 'ALL 2 CONNECTORS ARE OVER' $r.Out 'retired spelling: the green verdict does not fire'
+    Assert-NotMatch 'NOT YET' $r.Out 'retired spelling: nor the behind one -- there is no AlsoRead state left to land on'
 
     # --- 14c. A checkout this machine does not hold -> NOT ANSWERABLE, never a green light --------
     $reg = New-LensRegister -Connector @(
@@ -2028,33 +2039,42 @@ exit 1
     Assert-Match '\[LENS-RETIREMENT\] NOT ANSWERABLE FROM THIS MACHINE' $r.Out 'no lenses: and it counts as unmeasured, not as over'
     Assert-NotMatch 'ALL 2 CONNECTORS ARE OVER' $r.Out 'no lenses: so the window does NOT open on it'
 
-    # --- 14e. A PART-migrated consumer counts as behind, not as over ------------------------------
-    #      The Mixed state, which is the one no single file can show you: a tree half-renamed is not
-    #      over the rename, and reading its written half as a pass is the same false green one level in.
+    # --- 14e. A lingering retired-spelling file beside a written one is now invisible noise --------
+    #      RETIRED (#2292, September 28, 2026): the Mixed state this case used to pin no longer exists
+    #      for Lens -- Mixed requires AlsoRead > 0, and AlsoRead can never be non-zero here again. A
+    #      consumer holding one written lens and one leftover retired-spelling file now reads as
+    #      Current (the leftover is silently Unmatched, uncounted either way), so the consumer counts
+    #      as fully over rather than as behind. Intended per Get-SpecialistFileShapes' own banner, not
+    #      a defect this suite pins as one. That the leftover goes unreported is the caveat, and #2591
+    #      is where it is decided.
     $reg = New-LensRegister -Connector @(
         @{ Repo = 'fixture/over-a'; Checkout = "$lensRel\over-a" },
         @{ Repo = 'fixture/mixed';  Checkout = "$lensRel\mixed-a" })
     $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Equal 0 $r.Code 'part-migrated: exit code 0'
-    Assert-Match 'part-migrated' $r.Out 'part-migrated: the per-connector line names the state'
-    Assert-Match '\[LENS-RETIREMENT\] NOT YET: 1 of 2 connectors' $r.Out 'part-migrated: and it counts as behind'
-    Assert-NotMatch 'ALL 2 CONNECTORS ARE OVER' $r.Out 'part-migrated: never as over'
+    Assert-Equal 0 $r.Code 'lingering retired file: exit code 0'
+    Assert-Match '\[LENS-RETIREMENT\] ALL 2 CONNECTORS ARE OVER' $r.Out 'lingering retired file: counts as over, not as behind or unmeasured'
+    Assert-Match 'over:      fixture/over-a, fixture/mixed' $r.Out 'lingering retired file: grouped as over, alongside the fully-migrated consumer'
+    Assert-NotMatch 'NOT YET' $r.Out 'lingering retired file: never as behind -- there is no AlsoRead state left to land on'
+    Assert-NotMatch 'no lenses' $r.Out 'lingering retired file: never as unmeasured -- one recognised file is enough'
 
-    # --- 14f. Precedence: a measured NOT YET outranks an unreached connector (#2298) ---------------
-    #      The correction this branch carries. A connector measurably behind settles the condition as
-    #      FALSE whatever the unreached ones hold, so answering 'not answerable' there states less
-    #      than the run established -- while the coverage claim moves into that same line, so the
-    #      list is never read as complete.
+    # --- 14f. An unmeasured connector and an unreached one fold into the same reading ---------------
+    #      RETIRED (#2292, September 28, 2026): this case used to pin #2298's precedence -- a measured
+    #      NOT YET outranking an unreached connector -- but that branch can no longer be reached at all
+    #      through this fixture: namingBehind can never be non-zero for Lens once AlsoRead is empty, so
+    #      the retired-spelling connector lands in namingEmpty instead, beside the unreached one, and
+    #      the two are folded into one NOT ANSWERABLE reading rather than ranked against each other.
+    #      #2298's own precedence branch is therefore dead code at this call site now -- reported, not
+    #      repaired here (this suite does not touch scripts/lib or scripts/sync).
     $reg = New-LensRegister -Connector @(
         @{ Repo = 'fixture/over-a';    Checkout = "$lensRel\over-a" },
         @{ Repo = 'fixture/retired-a'; Checkout = "$lensRel\retired-a" },
         @{ Repo = 'fixture/gone';      Checkout = 'nonexistent-fixture-path' })
     $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Equal 0 $r.Code 'precedence: exit code 0'
-    Assert-Match '\[LENS-RETIREMENT\] NOT YET: 1 of 3 connectors' $r.Out 'precedence: the decisive negative is the verdict'
-    Assert-Match '1 of the 3 could not be measured here' $r.Out 'precedence: and it still names the unmeasured count'
-    Assert-Match 'NOT the full list of what still has to migrate' $r.Out 'precedence: so the list is not read as complete'
-    Assert-NotMatch 'NOT ANSWERABLE FROM THIS MACHINE' $r.Out 'precedence: the weaker verdict does not also fire'
+    Assert-Equal 0 $r.Code 'coverage: exit code 0'
+    Assert-Match '\[LENS-RETIREMENT\] NOT ANSWERABLE FROM THIS MACHINE: 1 of 3 connectors measured' $r.Out 'coverage: unmeasured and unreached both read as not answerable'
+    Assert-Match 'no lenses: fixture/retired-a' $r.Out 'coverage: the retired-spelling connector is grouped as unmeasured'
+    Assert-Match 'unreached: fixture/gone' $r.Out 'coverage: and the absent checkout is grouped separately, as unreached'
+    Assert-NotMatch 'NOT YET' $r.Out 'coverage: never as behind -- there is no AlsoRead state left to land on'
 
     # --- 14g. The marker is this check''s own, and not check-roster-sync''s (#2298) ----------------
     $reg = New-LensRegister -Connector @(@{ Repo = 'fixture/over-a'; Checkout = "$lensRel\over-a" })

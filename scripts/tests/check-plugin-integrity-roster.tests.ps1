@@ -369,11 +369,17 @@ try {
     #     point of the check is the window in which one of them does not, and that window has been open
     #     twice without anything reporting it.
     #
-    #     THE LENS IS THE SUBJECT, for one reason and it is not convenience: it is the only one of the
-    #     four kinds that lives OUTSIDE a plugin folder, so writing it needs no manifest, no frontmatter
-    #     and no agent def to satisfy checks 3b, 3c and 6 alongside. The assertion under test is about a
-    #     file NAME, which is the same assertion for every kind -- the code loops one table over all
-    #     four -- so pinning it on the cheapest kind is the whole coverage, not a sample of it.
+    #     LENS WAS THE SUBJECT for cases 2 and 3 too, until #2292: it is the only one of the four kinds
+    #     that lives OUTSIDE a plugin folder, so writing it needs no manifest, no frontmatter and no
+    #     agent def to satisfy checks 3b, 3c and 6 alongside. That stopped being available on September
+    #     28, 2026: Lens's AlsoRead row emptied, so Get-SpecialistFileNameCandidates -Kind Lens has only
+    #     ONE candidate and cannot supply a retired name for a stray or a whole-kind scenario any more --
+    #     composing one from a literal would be exactly the defect this suite exists to catch, reproduced
+    #     inside its own guard. Cases 1 and 4 need no AlsoRead (they are about the written spelling being
+    #     silent, and about a name matching NEITHER spelling), so they stay on Lens, cheapest as before.
+    #     Cases 2 and 3 move to Manual, which still carries an AlsoRead row, backed by a persona per id --
+    #     the same clean pairing check 6b's own scenario 3 builds above -- so checks 3b/3c/6 stay silent
+    #     and only [written-name] speaks.
     #
     #     BOTH HALVES AND BOTH WORDINGS. Files moved without the row and a row flipped without the files
     #     reach this check identically; what differs is whether EVERY file of the kind is on the other
@@ -388,9 +394,6 @@ try {
     # exists to refuse, reproduced inside its own guard. bootstrap-drift.tests.ps1 pins the literal on
     # purpose and says why; this suite is the opposite side of that pair and must derive.
     $wnWritten = Get-SpecialistFileName -Kind Lens -Id '01-01'
-    $wnRetired = @(Get-SpecialistFileNameCandidates -Kind Lens -Id '01-01' | Where-Object { $_ -ne $wnWritten })[0]
-    $wnWritten2 = Get-SpecialistFileName -Kind Lens -Id '02-09'
-    $wnRetired2 = @(Get-SpecialistFileNameCandidates -Kind Lens -Id '02-09' | Where-Object { $_ -ne $wnWritten2 })[0]
     $wnBody = "# Fixture lens`n"
 
     # THE ABSENCE ASSERTS MATCH THE FINDING, NOT THE TOKEN, and that distinction is not fussiness: the
@@ -401,8 +404,8 @@ try {
     # what these two asserts are actually about.
     $wnFinding = '\[written-name\] .*carry a spelling'
 
-    # 1. THE WRITTEN SPELLING IS SILENT. Without this the three cases below would all pass against a
-    #    check that reported every lens it found.
+    # 1. THE WRITTEN SPELLING IS SILENT. Without this the cases below would all pass against a check that
+    #    reported every lens it found.
     [System.IO.File]::WriteAllText((Join-Path $wnDir $wnWritten), $wnBody, $Utf8NoBom)
     $wn1 = Invoke-Integrity -FixtureRoot $Fixture
     Assert-True (-not ($wn1.Out -match $wnFinding)) `
@@ -410,41 +413,84 @@ try {
     Assert-True ($wn1.Out -match '\[written-name\] checked 1\b') `
         'written-name: and it was actually examined -- the clean verdict carries its count'
 
-    # 2. A STRAY: one file on the retired spelling beside one on the written one. The half-finished move,
-    #    which is a different repair from a row that never flipped -- so the wording has to differ too.
-    [System.IO.File]::WriteAllText((Join-Path $wnDir $wnRetired2), $wnBody, $Utf8NoBom)
+    # 2 and 3 (below) are on Manual now, so they need a persona per id backing the manual -- the pairing
+    # check 6b's own scenario 3 builds, reused here so 3b/3c/6 have nothing to say and only [written-name]
+    # does. The persona always names the manual under the WRITTEN spelling: Get-SpecialistFileRefPattern
+    # accepts either spelling as a reference regardless of which one the manual file actually carries at
+    # that moment, so one persona body serves every step below unchanged.
+    $wnManuals  = Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-alpha\manuals'
+    $wnPersonas = Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-alpha\personas'
+    New-Item -ItemType Directory -Path $wnManuals  -Force | Out-Null
+    New-Item -ItemType Directory -Path $wnPersonas -Force | Out-Null
+    function New-WnPersona {
+        param([string]$Id, [string]$ManualName)
+        $g = $Id.Split('-')[0]; $i = $Id.Split('-')[1]
+        [System.IO.File]::WriteAllText((Join-Path $wnPersonas (Get-SpecialistFileName -Kind Persona -Id $Id)),
+            "---`nid: $i`ngroup: $g`n---`n`n# Fixture persona`n`nPlaybook: manuals/$ManualName`n", $Utf8NoBom)
+    }
+    function New-WnManual {
+        param([string]$Id, [string]$FileName)
+        $g = $Id.Split('-')[0]; $i = $Id.Split('-')[1]
+        [System.IO.File]::WriteAllText((Join-Path $wnManuals $FileName),
+            "---`nid: $i`ngroup: $g`n---`n`n# Fixture manual`n", $Utf8NoBom)
+    }
+    $wnMWritten  = Get-SpecialistFileName -Kind Manual -Id '01-01'
+    $wnMRetired  = @(Get-SpecialistFileNameCandidates -Kind Manual -Id '01-01' | Where-Object { $_ -ne $wnMWritten })[0]
+    $wnMWritten2 = Get-SpecialistFileName -Kind Manual -Id '02-09'
+    $wnMRetired2 = @(Get-SpecialistFileNameCandidates -Kind Manual -Id '02-09' | Where-Object { $_ -ne $wnMWritten2 })[0]
+    New-WnPersona -Id '01-01' -ManualName $wnMWritten
+    New-WnPersona -Id '02-09' -ManualName $wnMWritten2
+
+    # 2. A STRAY: one manual on the retired spelling beside one on the written one. The half-finished
+    #    move, which is a different repair from a row that never flipped -- so the wording has to differ
+    #    too.
+    New-WnManual -Id '01-01' -FileName $wnMWritten
+    New-WnManual -Id '02-09' -FileName $wnMRetired2
     $wn2 = Invoke-Integrity -FixtureRoot $Fixture
-    Assert-True ($wn2.Out -match '\[written-name\] 1 of 2 Lens file') `
+    Assert-True ($wn2.Out -match '\[written-name\] 1 of 2 Manual file') `
         'written-name: one file on the retired spelling is reported as a stray, with the count'
-    Assert-True ($wn2.Out -match [regex]::Escape($wnRetired2)) `
+    Assert-True ($wn2.Out -match [regex]::Escape($wnMRetired2)) `
         'written-name: and the finding names the offending file'
-    Assert-True ($wn2.Out -match [regex]::Escape($wnWritten2)) `
+    Assert-True ($wn2.Out -match [regex]::Escape($wnMWritten2)) `
         'written-name: and the name it should carry, so the repair needs no source reading'
 
-    # 3. THE WHOLE KIND: every lens on the retired spelling. This is the shape both shipped steps had --
+    # 3. THE WHOLE KIND: every manual on the retired spelling. This is the shape both shipped steps had --
     #    the files moved, the Current row did not -- and it must read as a row that came apart rather
     #    than as two strays.
-    Remove-Item -LiteralPath (Join-Path $wnDir $wnWritten) -Force
-    [System.IO.File]::WriteAllText((Join-Path $wnDir $wnRetired), $wnBody, $Utf8NoBom)
+    Remove-Item -LiteralPath (Join-Path $wnManuals $wnMWritten) -Force
+    New-WnManual -Id '01-01' -FileName $wnMRetired
     $wn3 = Invoke-Integrity -FixtureRoot $Fixture
-    Assert-True ($wn3.Out -match '\[written-name\] all 2 Lens file') `
+    Assert-True ($wn3.Out -match '\[written-name\] all 2 Manual file') `
         'written-name: a whole kind on the other spelling reads as the row and the files coming apart'
     Assert-True ($wn3.Out -match 'ONE commit') `
         'written-name: and the finding says the two halves belong in one commit -- the rule, not just the diff'
     Assert-True ($wn3.Code -ne 0) `
         'written-name: it is an ERROR and fails the gate -- a mid-rename tree is what this refuses'
 
+    # Torn down before case 4, which needs [written-name]'s TOTAL coverage count (summed across all four
+    # kinds) to read 0 -- leaving these manuals and personas standing would make that count 2, not 0, for
+    # a reason that has nothing to do with what case 4 is pinning.
+    Remove-Item -LiteralPath $wnManuals  -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $wnPersonas -Recurse -Force -ErrorAction SilentlyContinue
+
     # 4. A NAME MATCHING NEITHER SPELLING IS NOT THIS CHECK'S FINDING. Its id does not resolve, so checks
     #    3b/3c/6 own it and this one passes over it. Without this assert the check could grow into
     #    reporting every *-lens.md in the tree, and one file would get two owners with two repairs.
-    Remove-Item -LiteralPath (Join-Path $wnDir $wnRetired) -Force
-    Remove-Item -LiteralPath (Join-Path $wnDir $wnRetired2) -Force
+    Remove-Item -LiteralPath (Join-Path $wnDir $wnWritten) -Force
     [System.IO.File]::WriteAllText((Join-Path $wnDir 'notes-lens.md'), $wnBody, $Utf8NoBom)
+    # AND THE RETIRED SPELLING, LITERALLY, alongside it (#2292). A literal is fine here because the
+    # assert is a NEGATIVE about the name itself, not about what the table currently writes for some id --
+    # deriving it from the lib would only prove the lib agrees with itself. '*-lens.md' is check 3d's own
+    # enumeration filter (Get-SpecialistFileFilters), and '01-01-extension.md' does not match it at all
+    # now that Lens's AlsoRead is empty, so this file is not merely unresolved, it is never even walked.
+    [System.IO.File]::WriteAllText((Join-Path $wnDir '01-01-extension.md'), $wnBody, $Utf8NoBom)
     $wn4 = Invoke-Integrity -FixtureRoot $Fixture
     Assert-True (-not ($wn4.Out -match $wnFinding)) `
         'written-name: a file whose id resolves under NEITHER spelling is left to 3b/3c/6, not reported twice'
     Assert-True ($wn4.Out -match '\[written-name\] checked 0\b') `
         'written-name: and the coverage says 0 rather than 1 -- it was passed over, not silently accepted'
+    Assert-True (-not ($wn4.Out -match [regex]::Escape('01-01-extension.md'))) `
+        'written-name: a retired Lens name is not even named in the output -- #2292 means it is Unmatched noise, not a tolerated spelling'
 
     Remove-Item -Recurse -Force -LiteralPath (Join-Path $Fixture '.claude') -ErrorAction SilentlyContinue
 

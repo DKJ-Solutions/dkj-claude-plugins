@@ -127,6 +127,9 @@
          none measured behind); and only then "all N are over". A verdict is never printed without its
          coverage. Lens only; the other three kinds live in a consumer's plugin CACHE and are keyed on
          installed versions rather than on this register.
+         THE LENS ROW HAS SINCE BEEN RETIRED (#2292, September 28, 2026): its AlsoRead is empty, so a
+         '<g>-<id>-extension.md' file is no longer listed at all and such a consumer reads as None here,
+         not as behind. The question this check answers is settled; what becomes of it is #2591.
          THE MARKER IS [LENS-RETIREMENT], NOT [LENS-NAMING] (#2298). check-roster-sync.ps1 prints the
          latter for an unrelated fact -- that ITS own naming vocabulary is older than the tree it reads
          (#2219) -- and two checks emitting one token is a collision a reader grepping either one pays

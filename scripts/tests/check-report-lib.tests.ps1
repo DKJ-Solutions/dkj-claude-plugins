@@ -70,7 +70,7 @@ try {
 
     $legacyDir = Join-Path $Fixture '.claude\plugins\claude-specialists\dkj-subagents-alpha'
     New-Item -ItemType Directory -Path $legacyDir -Force | Out-Null
-    $legacyLens = Join-Path $legacyDir '06-16-extension.md'
+    $legacyLens = Join-Path $legacyDir 'specialist-06-16-lens.md'
     [System.IO.File]::WriteAllText($legacyLens, "# 06-16 repo lens`n")
     Assert-Equal $legacyDir (Get-LensWriteDir -RepoRoot $Fixture -PluginName 'dkj-subagents-alpha') 'adopted consumer: keeps writing to its existing tree, not the seam'
 
@@ -81,7 +81,7 @@ try {
 
     # And once the owner migrates by hand, the writer follows them without being told.
     New-Item -ItemType Directory -Path $seam.LensDir -Force | Out-Null
-    [System.IO.File]::WriteAllText((Join-Path $seam.LensDir '06-16-extension.md'), "# 06-16 repo lens`n")
+    [System.IO.File]::WriteAllText((Join-Path $seam.LensDir 'specialist-06-16-lens.md'), "# 06-16 repo lens`n")
     Assert-Equal $seam.LensDir (Get-LensWriteDir -RepoRoot $Fixture -PluginName 'dkj-subagents-alpha') 'after a hand migration the writer follows to the seam automatically'
 
     # --- 4. Write-Coverage: a verdict never travels without its coverage (issue #221) ----------------
@@ -151,7 +151,7 @@ try {
     Assert-Equal 'CUsersDaveKok.claudepluginsx.md' (Format-SafeToken -Value 'C:\Users\DaveKok\.claude\plugins\x.md') 'the id-shaped sanitizer mangles a Windows path into something unlookupable -- the defect this function avoids'
     Assert-Equal 'C:\Users\DaveKok\.claude\plugins\x.md' (Format-SafePathToken -Value 'C:\Users\DaveKok\.claude\plugins\x.md') 'a Windows path survives intact: drive letter, colon and separators'
     Assert-Equal '~/.claude/plugins/marketplaces/m/personas/01-01-persona.md' (Format-SafePathToken -Value '~/.claude/plugins/marketplaces/m/personas/01-01-persona.md') "a home-relative path keeps its '~' -- without it the reader cannot tell where the path starts"
-    Assert-Equal 'lenses/01-01-extension.md' (Format-SafePathToken -Value 'lenses/01-01-extension.md') 'a plain relative path passes through unchanged'
+    Assert-Equal 'lenses/specialist-01-01-lens.md' (Format-SafePathToken -Value 'lenses/specialist-01-01-lens.md') 'a plain relative path passes through unchanged'
 
     # The two things that still MUST NOT survive, for the same reasons as in Format-SafeToken: these
     # lines are forwarded into session context by the SessionStart hooks.
@@ -1191,7 +1191,13 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
 
     foreach ($kind in 'Manual', 'Persona', 'Subagent', 'Lens') {
         $shapes = Get-SpecialistFileShapes -Kind $kind
-        Assert-True ($shapes.AlsoRead.Count -ge 1) "$kind`: there is a second spelling to read at all -- otherwise this layer is doing nothing"
+        if ($kind -eq 'Lens') {
+            # '<g>-<id>-extension.md' is RETIRED for Lens (#2292) -- it is the first kind this layer has
+            # fully migrated, so its AlsoRead row is empty on purpose rather than a second spelling to read.
+            Assert-Equal 0 $shapes.AlsoRead.Count "$kind`: the retired spelling is gone from AlsoRead, not merely a second one to read"
+        } else {
+            Assert-True ($shapes.AlsoRead.Count -ge 1) "$kind`: there is a second spelling to read at all -- otherwise this layer is doing nothing"
+        }
         Assert-Equal $shapes.Current.Stem $shapes.All[0].Stem "$kind`: the WRITTEN shape leads All, so a reader resolving one id prefers it"
 
         # A writer has exactly one answer, and it is the first thing a reader looks for. These two
@@ -1238,8 +1244,11 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
 
     # -Id pins the pattern to one specialist without changing the shapes it accepts.
     $pinned = Get-SpecialistFileNamePattern -Kind Lens -Id '05-15'
-    Assert-True ('05-15-extension' -match $pinned) 'the pinned pattern matches its own id'
-    Assert-True ('06-16-extension' -notmatch $pinned) 'and rejects another id'
+    Assert-True ('specialist-05-15-lens' -match $pinned) 'the pinned pattern matches its own id'
+    Assert-True ('specialist-06-16-lens' -notmatch $pinned) 'and rejects another id'
+    # '<g>-<id>-extension.md' is RETIRED for Lens (#2292): inverted from the pre-retirement dual-read
+    # assertion this used to be -- the pinned pattern now refuses the retired spelling, own id or not.
+    Assert-True ('05-15-extension' -notmatch $pinned) 'and the retired spelling is refused, own id or not'
 
     # The reference pattern: a body naming its manual, under either spelling, and NOT a bare mention.
     $refPattern = Get-SpecialistFileRefPattern -Kind Manual -Id '01-01' -Dir 'manuals'
@@ -1341,14 +1350,20 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
     Assert-Equal 2 $nsCurrent.Current 'and both are counted'
     Assert-Equal 0 $nsCurrent.AlsoRead 'with nothing on the also-read spelling'
 
+    # '<g>-<id>-extension.md' is RETIRED for Lens (#2292): inverted from the pre-retirement dual-read
+    # assertion this used to be -- a directory holding only the retired spelling now reads as None, with
+    # both names counted as Unmatched, rather than as a tolerated AlsoRead layout.
     $nsAlso = Get-SpecialistNamingState -Kind Lens -Name @('01-01-extension.md', '05-05-extension.md')
-    Assert-Equal 'AlsoRead' $nsAlso.State 'all pre-rename lenses report AlsoRead'
-    Assert-Equal 2 $nsAlso.AlsoRead 'and both are counted on that side'
+    Assert-Equal 'None' $nsAlso.State 'all pre-rename lenses now report None -- the retired spelling holds no recognised lens'
+    Assert-Equal 2 $nsAlso.Unmatched 'and both are counted as Unmatched, not AlsoRead'
 
+    # Likewise inverted: mixing a written lens with a retired-spelling name no longer reads as Mixed,
+    # because AlsoRead can no longer hold anything for Lens -- the retired name is Unmatched noise beside
+    # a migrated tree, not the other half of a part-migrated one.
     $nsMixed = Get-SpecialistNamingState -Kind Lens -Name @('specialist-01-01-lens.md', '05-05-extension.md')
-    Assert-Equal 'Mixed' $nsMixed.State 'a part-migrated directory reports Mixed -- the state no single file can show'
-    Assert-Equal 1 $nsMixed.Current 'one on each side: Current'
-    Assert-Equal 1 $nsMixed.AlsoRead 'one on each side: AlsoRead'
+    Assert-Equal 'Current' $nsMixed.State 'a written lens beside a retired-spelling name reads as Current, not Mixed'
+    Assert-Equal 1 $nsMixed.Current 'the written lens is counted on the current side'
+    Assert-Equal 1 $nsMixed.Unmatched 'and the retired spelling is counted as Unmatched, not AlsoRead'
 
     # THE EMPTY CASE IS THE POINT (#221, one layer in). 'None' exists so a caller cannot print a clean
     # verdict over a directory it never read: "0 of 0" and "all over" are different facts, and only
@@ -1375,7 +1390,9 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
     # The display names come from the shapes table rather than from a literal here, so a future rename
     # step that flips a row cannot leave this report describing the wrong file.
     Assert-Equal 'specialist-<g>-<id>-lens.md' $nsCurrent.CurrentName 'CurrentName is composed from the table'
-    Assert-True ($nsCurrent.AlsoReadName -contains '<g>-<id>-extension.md') 'AlsoReadName carries every tolerated spelling'
+    # '<g>-<id>-extension.md' is RETIRED for Lens (#2292): AlsoReadName is empty, not a tolerated-spelling
+    # list -- inverted from the pre-retirement assertion this used to be.
+    Assert-Equal 0 $nsCurrent.AlsoReadName.Count 'AlsoReadName carries nothing -- the tolerated spelling is retired'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
