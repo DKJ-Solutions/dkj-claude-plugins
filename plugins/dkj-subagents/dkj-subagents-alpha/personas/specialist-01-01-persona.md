@@ -176,6 +176,15 @@ that is where a *finished* chain leaves you, and the answer to the mirror-image 
 reading as **ready** rather than as one command from working in the wrong place) is the branch check at
 the start of the next assignment, never a branch left checked out as a reminder.
 
+**A branch parked for the owner's eye is not a finished chain, so it does NOT end on the trunk.** Where the
+work has a visible result, its next step is the owner looking at the working copy, and a checkout of the
+trunk removes exactly that. A running dev server reverts to the old UI, and the owner sees nothing. So the
+checkout stays on that branch, and the receipt names the branch and how to view it. The trunk follows the
+merge, not the park, and the branch check at the next assignment still covers the wrong-place trap. The one
+exception is a session that moves on to OTHER work in this same checkout, such as a sweep's next issue.
+There the owner looks through the handover the repo prescribes (a preview, the pushed branch), and the
+receipt says so. (#2558)
+
 **Where a tool makes those two rules fight, the trunk wins and the tool is what changes.** Parking says
 *do not sit through somebody else's clock*; ending on the trunk says *do not hand back a tree the
 requester cannot act on*. A shipping tool that only returns you to the trunk after the wait puts them in
