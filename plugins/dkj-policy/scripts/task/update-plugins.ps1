@@ -39,7 +39,9 @@
          above), so step 2 and the receipt's own prescriptions cannot disagree inside one run. Where a
          plugin ALSO has a path-less user-scope record beside this checkout's own, that record is
          updated too (#2459): it is a second install a session can load (#2442), and leaving it
-         behind made the receipt call the run's own result behind.
+         behind made the receipt call the run's own result behind. A plugin with NO record for this
+         checkout gets `claude plugin install <id> --scope project` instead (#2560): an update there
+         moved another checkout's record.
       3. plugin-versions.ps1, run as a CHILD PROCESS (Start-Process, live console, exactly the pattern
          Invoke-TestSuiteGate and the lint gate already use) -- never dot-sourced, because that script
          ends in `exit 0` on every path and dot-sourcing it would exit THIS script too.
@@ -138,10 +140,22 @@ foreach ($id in $ids) {
     $mp = $parts[-1]
     if ((Test-PluginNameSlug -Name $name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
         $sc = Get-PluginUpdateScope -InstallRecord $install -PluginId $id
+        # NO RECORD FOR THIS CHECKOUT AT ALL IS AN INSTALL, NEVER AN UPDATE (issue #2560). That is the
+        # one 'default' answer with an empty Note: nothing names this path and nothing is tied to no
+        # path. `claude plugin update --scope project` does not install there -- it goes looking for
+        # A project-scope record and moved the one belonging to ANOTHER checkout, measured in a
+        # consumer on 5.8.0 ("updated ... for scope project (...\smartwatchbanden)"), while the run
+        # reported success and its own receipt said "not installed in this checkout". That breaks
+        # #1890's boundary from inside the one call that was meant to respect it. `install --scope
+        # project` writes exactly this checkout, and it is the command plugin-versions.ps1 already
+        # prescribes for the same state. A 'default' WITH a Note is a checkout record the scope could
+        # not be read off, so it stays an update, as before.
+        $verb = if ($sc.Source -eq 'default' -and -not $sc.Note) { 'install' } else { 'update' }
         $targets.Add([pscustomobject]@{
             Id          = $id
             Name        = $name
             Marketplace = $mp
+            Verb        = $verb
             Scope       = $sc.Scope
             ScopeSource = $sc.Source
             ScopeNote   = $sc.Note
@@ -172,7 +186,7 @@ foreach ($t in $targets) {
     if (-not $install.PathlessById.ContainsKey($t.Id)) { continue }
     $hasUser = @(@($install.PathlessById[$t.Id]) | Where-Object { [string]$_.Scope -ieq 'user' }).Count -gt 0
     if ($hasUser) {
-        $shadows.Add([pscustomobject]@{ Id = $t.Id; Scope = 'user' })
+        $shadows.Add([pscustomobject]@{ Id = $t.Id; Verb = 'update'; Scope = 'user' })
     }
 }
 
@@ -210,8 +224,8 @@ if ($DryRun) {
     # into a terminal, so a trailing '(from the install record)' would turn every line into one that
     # has to be edited first. The provenance that matters -- the administration failing to answer --
     # is the $scopeNotes block above, which is prose and does not pretend to be a command.
-    foreach ($t in $targets) { Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)" }
-    foreach ($t in $shadows) { Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)" }
+    foreach ($t in $targets) { Write-Host "  claude plugin $($t.Verb) $($t.Id) --scope $($t.Scope)" }
+    foreach ($t in $shadows) { Write-Host "  claude plugin $($t.Verb) $($t.Id) --scope $($t.Scope)" }
     exit 0
 }
 
@@ -266,8 +280,8 @@ foreach ($t in ([object[]]$targets.ToArray() + [object[]]$shadows.ToArray())) {
         Write-Host "  ...and $($shadows.Count) path-less user-scope record(s) beside this checkout's own, which a session can load instead (#2442):" -ForegroundColor Cyan
     }
     Write-Host ""
-    Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)"
-    $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'update', $t.Id, '--scope', $t.Scope) -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    Write-Host "  claude plugin $($t.Verb) $($t.Id) --scope $($t.Scope)"
+    $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', $t.Verb, $t.Id, '--scope', $t.Scope) -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     foreach ($line in @($r.Output)) { Write-Host "    $line" }
     if ($r.ExitCode -ne 0) {
         $updateFailures++
@@ -292,7 +306,9 @@ Write-Host ""
 $totalFailures = $marketplaceFailures + $updateFailures
 if ($totalFailures -eq 0) {
     $shadowText = if ($shadows.Count -gt 0) { " (plus $($shadows.Count) path-less user-scope record(s))" } else { '' }
-    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed, $($targets.Count) plugin(s) updated$shadowText, 0 failed." -ForegroundColor Green
+    $installed = @($targets | Where-Object { $_.Verb -eq 'install' }).Count
+    $installText = if ($installed -gt 0) { ", $installed installed into this checkout (it had no install record)" } else { '' }
+    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed, $($targets.Count - $installed) plugin(s) updated$shadowText$installText, 0 failed." -ForegroundColor Green
     exit 0
 }
 Write-Host "update-plugins: $marketplaceFailures marketplace refresh(es) failed, $updateFailures plugin update(s) failed -- see FAILED lines above." -ForegroundColor Red
