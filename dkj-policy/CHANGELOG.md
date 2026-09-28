@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**19 / 29 minor entries** <!-- pending-tally -->
+**20 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2609-claim-refuses-pull-request · 20260928-203133Z
+
+`claim-issue` now refuses a pull request's number instead of claiming it. `gh issue view` answers for
+a PR too, and a merged one reads as `MERGED`, a state the old check did not refuse, so the claim went
+through and put an assignee on the merged PR. The refusal names the issue the PR closes, and any state
+other than `OPEN` is now refused (#2609).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If you type a PR number where you meant an issue, `claim-issue` now stops. It does not print `[OK]` and
+does not assign you to the pull request. It names the issue that PR closes, so you can re-run on that
+number.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue refuses a pull request's number and names the issue it closes
+
+Plugins: dkj-policy
+
+[PR #2615](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2615)
+
+---
 
 ### DEPLOY: feat/prio-label-colors · 20260928-202125Z
 
