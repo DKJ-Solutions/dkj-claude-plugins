@@ -54,14 +54,14 @@ keeps every name and figure. An exception would add a rule to protect a single p
 
 ### TEST
 
-- [x] All connector manifests parse, and no match for `vlagdag`, `gemigreerd` or common Dutch function
-  words is left under `connectors/`.
+- [x] All connector manifests parse, and no match for `vlagdag`, `gemigreerd`, `het`, `niet`, `zijn`, `deze`, `wordt` or
+  `omdat` (whole words) is left under `connectors/`.
 - [x] `connectors.tests.ps1`: 417 pass, 0 fail.
 
 ### DEPLOY: fix/2605-connector-notes-english
 
 The `#1769` migration passage in five connector records' `notes` is now in English, as the repo's
-content-language rule requires. It was the one Dutch passage left in the register (#2605).
+content-language rule requires. It was the Dutch passage #2605 named, and the word check in TEST finds no other Dutch under `connectors/`.
 
 **Score:** 1
 
