@@ -39,19 +39,56 @@
 
 ### PLAN
 
+Close #2591. #2292 retired the `<g>-<id>-extension.md` lens spelling, so the `[LENS-RETIREMENT]`
+roll-up in check 7 of `scripts/sync/check-connectors.ps1` answers a question that has been settled. Its
+*not yet* arm can no longer fire, and its green ending invites a retirement already performed. The
+owner chose to **repurpose** it (decision on the issue, September 28, 2026): report a lens still named
+in the retired spelling, because no reader resolves it any more.
+
+#### Scope
+
+- Per connector: `[ERROR]` for a retired-spelling lens with no current-spelling lens for the same id
+  (the lens is lost in effect), `[INFO]` for one beside a current copy (dead weight only).
+- Remove the roll-up, its `-ConnectorsRootOverride` test seam, and `Get-SpecialistNamingState`, which
+  nothing calls any more.
+- Out of scope, filed as #2600: `check-roster-sync`'s `[LENS-NAMING]` marker tells a consumer on the
+  retired spelling that nothing needs changing.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace check 7's per-connector block with the retired-spelling finding, remove the roll-up, the
+  `-ConnectorsRootOverride` parameter and `$seenConnectors`/`$lensNaming`, and rewrite the docstring.
+- [x] Remove `Get-SpecialistNamingState` and its tests from `check-report-lib`, update the
+  `Get-SpecialistFileShapes` banner, and mirror the lib into its three plugin copies
+  (`build-shared-scripts.ps1`).
+- [x] Rewrite `connectors.tests.ps1` section 14 for the new check, under `-Manifest`: written only,
+  retired only, a mix across ids, both spellings for one id, look-alike names, and no old marker.
+- [x] Rewrite the `connectors/README.md` section and add the check to the list at the top of *The check*.
 
 ### TEST
 
+- [x] `connectors.tests.ps1` 417 pass, 0 fail; `check-report-lib.tests.ps1` 386 pass, 0 fail.
+- [x] A real register sweep on this machine reports no retired-spelling lens in any checkout here. Its
+  5 errors are the known xoxowildhearts plugin-enable ones. The full gate runs through `open-pr`.
+
 ### DEPLOY: feat/2591-lens-retired-spelling-finding
 
-**Score:**
+`check-connectors` check 7 now reports a consumer lens still named `<g>-<id>-extension.md`. It is an
+error when that specialist has no current-spelling lens, because since #2292 no reader loads the old
+name and the lens is silently gone. It is a note when a current copy sits beside it. The
+`[LENS-RETIREMENT]` roll-up that led up to the retirement is removed, which closes
+[#2591](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2591).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that keeps a lens under the old name now gets a red line at session start with the `git mv`
+that fixes it, where before its specialist quietly ran without that lens. All six registered consumers
+are already over, so this reaches nobody we know of.
+
+**Score:** 1
 
 #### Pull Request
 
+check-connectors reports a lens under the retired spelling instead of the retirement roll-up
