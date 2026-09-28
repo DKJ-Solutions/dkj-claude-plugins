@@ -220,7 +220,8 @@ function Test-BwjWranglerSession {
     if ($null -eq $ExitCode -or [int]$ExitCode -ne 0) { return $false }
     if ([string]::IsNullOrEmpty($WhoamiText)) { return $false }
     if ($AccountId -cnotmatch '^[0-9a-f]{32}$') { return $false }
-    return ($WhoamiText.ToLowerInvariant().Contains($AccountId))
+    # Bounded, so the id inside a longer hex run is not a match.
+    return ($WhoamiText.ToLowerInvariant() -match ('(?<![0-9a-f])' + $AccountId + '(?![0-9a-f])'))
 }
 
 function Get-BwjPageWranglerArgs {
@@ -229,7 +230,9 @@ function Get-BwjPageWranglerArgs {
         publish-page takes when CLOUDFLARE_API_TOKEN is absent and a wrangler login answers for the
         account (issue #2569). 'put' writes the file at $Path, and 'get' reads the value back as RAW
         BYTES: no --text, because --text decodes it as UTF-8 and the proof is a SHA-256 over the
-        bytes.
+        bytes. Measured on 4.142.0 against a live notes page (September 28, 2026): stdout is the value
+        alone -- it opens '<!doctype html>', carries no banner, and ends '</html>\n' exactly as the
+        page template does, so no newline is appended either.
 
         --remote IS ALWAYS PASSED. `kv key put/get --help` (4.142.0) lists --local and --remote with no
         default shown, so the target is named rather than left to a version's default. A local write

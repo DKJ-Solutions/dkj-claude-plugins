@@ -303,14 +303,25 @@ function Invoke-BwjNpx {
         -StdoutPath, stdout is copied to that file AS BYTES and is not in Text: the read-back is
         hashed, and a PowerShell pipe would decode it with the console code page first.
 
-        --no-install so a machine without wrangler gets a refusal rather than a download. Every
-        argument is either a validated id/key or a resolved path, so quoting is the one escape needed.
+        --no-install so a machine without wrangler gets a refusal rather than a download.
+
+        EVERY ARGUMENT IS QUOTED, AND '"' AND '%' ARE REFUSED. The line runs through cmd.exe, and a
+        path is a legal NTFS name that may carry & | < > ^ ( ) with no space in it. Quoting only on
+        whitespace let 'C:\a&cmd&b.html' run a second command (Sebastian, on this branch, exercised
+        against a real cmd.exe). Inside double quotes those characters are literal. Two are not:
+        '"' ends the quote, and '%' still expands a variable. Windows forbids '"' in a file name
+        anyway, so refusing both costs a path nobody has.
     #>
     param(
         [Parameter(Mandatory)][string[]]$Arguments,
         [string]$StdoutPath
     )
-    $quoted = ($Arguments | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+    foreach ($a in $Arguments) {
+        if ($a -match '["%]') {
+            throw "Refusing to hand '$a' to cmd.exe: a '`"' or '%' in an argument is not safe to quote there. Rename the file."
+        }
+    }
+    $quoted = ($Arguments | ForEach-Object { '"' + $_ + '"' }) -join ' '
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $env:ComSpec
     $psi.Arguments = '/d /s /c "npx --no-install ' + $quoted + '"'

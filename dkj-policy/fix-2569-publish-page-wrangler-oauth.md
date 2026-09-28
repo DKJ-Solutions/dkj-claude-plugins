@@ -59,6 +59,11 @@ nobody is logged in, so the account id the seam names decides, not the exit code
 - [x] `bwj-page-publish.tests.ps1`: unit asserts for both functions, plus three end-to-end runs
       against an `npx.cmd` shim (published and verified, another account refused before any upload,
       a tampered read-back failing). 110 pass, 0 fail standalone.
+- [x] Review. Sebastian found that quoting only on whitespace let a no-space path with `&` run a
+      second command through cmd.exe, and demonstrated it. Fixed: every argument is quoted, and `"`
+      and `%` are refused. A regression run publishes from `notes&x.html`. The account match is now
+      bounded. Victor asked whether real `kv key get` writes only the value. Measured read-only on a
+      live page: no banner, and it ends `</html>\n` exactly as the template does. 113 pass, 0 fail.
 
 ### DEPLOY: fix/2569-publish-page-wrangler-oauth
 

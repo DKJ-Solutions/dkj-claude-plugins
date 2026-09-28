@@ -284,9 +284,9 @@ $shimStore = Join-Path $Fixture 'shim-kv.bin'
 $shimLog   = Join-Path $Fixture 'shim-log.txt'
 $shim = "@echo off`r`n" +
         "echo %* [acct=%CLOUDFLARE_ACCOUNT_ID%]>>`"%FAKE_WRANGLER_LOG%`"`r`n" +
-        "if `"%3`"==`"whoami`" ( echo ^| Account ^| %FAKE_WRANGLER_ACCOUNT% ^| & exit /b 0 )`r`n" +
-        "if `"%5`"==`"put`" ( copy /y `"%~8`" `"%FAKE_WRANGLER_STORE%`" >nul & exit /b 0 )`r`n" +
-        "if `"%5`"==`"get`" goto get`r`n" +
+        "if `"%~3`"==`"whoami`" ( echo ^| Account ^| %FAKE_WRANGLER_ACCOUNT% ^| & exit /b 0 )`r`n" +
+        "if `"%~5`"==`"put`" ( copy /y `"%~8`" `"%FAKE_WRANGLER_STORE%`" >nul & exit /b 0 )`r`n" +
+        "if `"%~5`"==`"get`" goto get`r`n" +
         "exit /b 9`r`n" +
         ":get`r`n" +
         "if `"%FAKE_WRANGLER_TAMPER%`"==`"1`" ( echo tampered ) else ( type `"%FAKE_WRANGLER_STORE%`" )`r`n" +
@@ -294,7 +294,7 @@ $shim = "@echo off`r`n" +
 [System.IO.File]::WriteAllText((Join-Path $shimDir 'npx.cmd'), $shim, (New-Object System.Text.ASCIIEncoding))
 
 function Invoke-WranglerRoute {
-    param([string]$Account, [string]$Tamper = '')
+    param([string]$Account, [string]$Tamper = '', [string]$HtmlPath = '')
     $saved = @{}
     foreach ($n in 'PATH', 'CLOUDFLARE_API_TOKEN', 'FAKE_WRANGLER_ACCOUNT', 'FAKE_WRANGLER_STORE', 'FAKE_WRANGLER_LOG', 'FAKE_WRANGLER_TAMPER') {
         $saved[$n] = [Environment]::GetEnvironmentVariable($n, 'Process')
@@ -307,14 +307,16 @@ function Invoke-WranglerRoute {
         $env:FAKE_WRANGLER_LOG = $shimLog
         $env:FAKE_WRANGLER_TAMPER = $Tamper
         if (Test-Path -LiteralPath $shimLog) { Remove-Item -LiteralPath $shimLog -Force }
-        return (Invoke-PublishPage -ScriptArgs @('-Kind', 'notes'))
+        $a = @('-Kind', 'notes')
+        if ($HtmlPath) { $a += @('-Html', $HtmlPath) }
+        return (Invoke-PublishPage -ScriptArgs $a)
     } finally {
         foreach ($n in $saved.Keys) { [Environment]::SetEnvironmentVariable($n, $saved[$n], 'Process') }
     }
 }
 
 $viaWrangler = Invoke-WranglerRoute -Account $HexA
-$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) } else { '' }
+$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) -replace '"', '' } else { '' }
 Assert-Equal 0 $viaWrangler.ExitCode 'no API token, a wrangler login to this account: the page is published'
 Assert-True ($viaWrangler.Text -like '*SHA-256 matches*') '...and the read-back proof still ran'
 Assert-True ($log -like "*kv key put notes:$writtenToken --path *--namespace-id $HexB --remote*") '...the upload went through wrangler kv key put, --remote'
@@ -323,7 +325,7 @@ Assert-True ($log -like "*[acct=$HexA]*") '...with CLOUDFLARE_ACCOUNT_ID set to 
 Assert-Equal (Get-FileHash -LiteralPath $pageFile -Algorithm SHA256).Hash (Get-FileHash -LiteralPath $shimStore -Algorithm SHA256).Hash '...and the bytes that landed are the built page'
 
 $wrongAccount = Invoke-WranglerRoute -Account $HexB
-$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) } else { '' }
+$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) -replace '"', '' } else { '' }
 Assert-True ($wrongAccount.ExitCode -ne 0) 'a wrangler login to another account is refused'
 Assert-True ($wrongAccount.Text -like '*Either route publishes*') '...and the refusal names both routes'
 Assert-True ($log -notlike '*kv key put*') '...before anything was uploaded'
@@ -331,6 +333,15 @@ Assert-True ($log -notlike '*kv key put*') '...before anything was uploaded'
 $tampered = Invoke-WranglerRoute -Account $HexA -Tamper '1'
 Assert-True ($tampered.ExitCode -ne 0) 'a read-back through wrangler that differs from the upload fails the publish'
 Assert-True ($tampered.Text -like '*different bytes than were uploaded*') '...naming both hashes, as the API route does'
+
+# THE CMD.EXE LINE (Sebastian, on this branch): a legal file name with '&' and no space once ran a
+# second command. Every argument is now quoted, so the publish from such a path must simply succeed.
+$ampPage = Join-Path $Fixture 'releases\page\notes&x.html'
+Copy-Item -LiteralPath $pageFile -Destination $ampPage
+$amp = Invoke-WranglerRoute -Account $HexA -HtmlPath $ampPage
+Assert-Equal 0 $amp.ExitCode "a page path carrying '&' and no space publishes as one argument, not as a second command"
+Assert-True ($amp.Text -like '*SHA-256 matches*') '...and is verified like any other'
+Assert-True (-not (Test-BwjWranglerSession -WhoamiText ('c' + $HexA + 'c') -ExitCode 0 -AccountId $HexA)) 'the account id inside a longer hex run is not a match'
 
 # The default page per kind is the file the builder leaves behind, so the ordinary run takes no -Html.
 $backlogInit = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-InitToken')
