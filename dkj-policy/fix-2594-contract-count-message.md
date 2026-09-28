@@ -39,19 +39,30 @@
 
 ### PLAN
 
+- [x] Verify #2594: the lib declares 46 records and `$expectedContract` holds 27 rows, while the message said 25 and 26 of 43.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `script-contract.tests.ps1`: the record-count assert's message computes both inner figures from `$expectedContract.Count`
+  and `$totalRecordCount` instead of naming them by hand.
 
 ### TEST
 
+- [x] `script-contract.tests.ps1` passes (411 pass, 0 fail), and the message now reads "pins 27 ... names 28 of the 46".
+
 ### DEPLOY: fix/2594-contract-count-message
 
-**Score:**
+The record-count assert in `script-contract.tests.ps1` no longer names stale inner figures in its message. It said the
+table pins 25 records and the test file names 26 of 43, against a real 27 and 28 of 46. Nothing asserts prose, so the
+figures fell one further behind with every new record. Both are now computed from the table and the record count (#2594).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
