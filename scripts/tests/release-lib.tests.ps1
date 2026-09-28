@@ -1289,6 +1289,38 @@ Assert-NoMatch $draftAllWithheld '(?m)^<!-- DRAFT\. These are the tier' 'but not
 Assert-Equal $draft (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Title 'A release title sentence') `
     'omitting -WithheldNote reproduces the very first draft in this file, unchanged'
 
+Write-Host "Build-ReleaseNoteDraft -Sections (inbound #2564 -- a repo omits what its readers do not ask for)" -ForegroundColor Cyan
+# ALL THREE IS THE DEFAULT, BYTE FOR BYTE: every caller that never heard of the switch keeps its document.
+Assert-Equal $draft (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' `
+    -Title 'A release title sentence' -Sections @('Audience', 'Value', 'Open')) 'naming all three reproduces the default draft exactly'
+# THE MEASURED CONSUMER ANSWER: what changed, and nothing else.
+$draftOnly = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Sections @('Audience')
+Assert-Match $draftOnly '(?m)^## What changed$' 'Audience alone keeps the what-changed section'
+Assert-NoMatch $draftOnly '(?m)^## What it is worth$' 'and drops the value heading'
+Assert-NoMatch $draftOnly 'FOR THE ORGANISATION' 'together with its hint -- a section left out is left out whole'
+Assert-NoMatch $draftOnly '(?m)^## What was still open at this release$' 'and drops the open heading'
+Assert-NoMatch $draftOnly 'SNAPSHOT of this release' 'together with its hint'
+Assert-Equal $true ($draftOnly.EndsWith("`n") -and -not $draftOnly.EndsWith("`n`n")) 'the document still ends on exactly one newline, whichever section comes last'
+# THE OTHER TWO SWITCH INDEPENDENTLY, and a renamed heading survives the omission of its neighbour.
+$draftNoOpen = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' `
+    -Sections @('Audience', 'Value') -Wording @{ SectionValue = 'Wat het oplevert' }
+Assert-Match $draftNoOpen '(?m)^## Wat het oplevert$' 'Value kept, under the name the wording seam gave it'
+Assert-NoMatch $draftNoOpen '(?m)^## What was still open' 'while Open is dropped'
+$draftNoAudience = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Sections @('Value')
+Assert-NoMatch $draftNoAudience '(?m)^## What changed$' 'Audience can be left out too, even with entries to rank'
+Assert-Match $draftNoAudience '(?m)^## What it is worth$' 'leaving the value section standing'
+
+Write-Host "Resolve-ReleaseNoteSections (the seam's answer, validated before the cut writes anything)" -ForegroundColor Cyan
+Assert-Equal 'Audience|Value|Open' ((Resolve-ReleaseNoteSections -Answer $null) -join '|') 'an absent seam means all three'
+Assert-Equal 'Audience|Open' ((Resolve-ReleaseNoteSections -Answer @('open', 'AUDIENCE')) -join '|') `
+    'matched case-insensitively and returned in canonical spelling and document order'
+Assert-Equal 'Audience' ((Resolve-ReleaseNoteSections -Answer 'Audience') -join '|') 'a bare string is one section'
+$threw = $null; try { Resolve-ReleaseNoteSections -Answer @('Audience', 'Worth') | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'unknown section: Worth' 'a misspelt name is refused by name, never silently dropped'
+$threw = $null; try { Resolve-ReleaseNoteSections -Answer @() | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'names no section' 'an empty answer is refused'
+Assert-Match "$threw" 'Get-ReleaseConsumerBumps' 'and points at the seam that does switch the whole document off'
+
 Write-Host "Build-GitHubReleaseBody (generated, every release, every tier)" -ForegroundColor Cyan
 # THE POINT OF GENERATING IT is that the Release page stops depending on which hand-written tier
 # document happens to exist. The internal note was the body BECAUSE it was the only tier written at

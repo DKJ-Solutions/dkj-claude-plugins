@@ -393,6 +393,16 @@ $consumerBumps = @(Get-SeamValue -Name 'Get-ReleaseConsumerBumps', 'Get-ReleaseH
 $audienceTier = Get-EntryAudienceTier
 if ($null -eq $audienceTier) { $audienceTier = 2 }
 
+# AND WHICH OF THAT DOCUMENT'S THREE SECTIONS ITS READERS GET AT ALL (inbound #2564). Read and validated
+# HERE, before anything is written, so a misspelt answer stops the cut at the top instead of after the
+# version moved. $null (not defined) is all three -- the document every repo got before this seam.
+try {
+    $noteSections = Resolve-ReleaseNoteSections -Answer (Get-SeamValue -Name 'Get-ReleaseNoteSections' -Default $null)
+} catch {
+    Write-Error "$($_.Exception.Message) Nothing was written."
+    exit 1
+}
+
 # AND WHERE THAT DOCUMENT GOES, which until now was the one path in this file with no knob (inbound
 # #616, reported from a consumer). Everything around it was already answered per repo -- the folder
 # component by Get-ReleaseNotesGrouping, the release list by Get-ReleaseHistoryPath -- so the file
@@ -1124,7 +1134,7 @@ if ($cutNote) {
     $noteLinkPrefix = Get-EntryLinkPrefix -NoteRelPath $noteRelPath -ChangelogRelPath $changelogRel
     $noteContent = Build-ReleaseNoteDraft -Entries $audienceEntries -Version $new -Date $today `
         -Type $typeLabel -Title $Title -Wording $noteWording -LinkPrefix $noteLinkPrefix `
-        -AudienceTier $audienceTier -WithheldNote $noteWithheldNote
+        -AudienceTier $audienceTier -WithheldNote $noteWithheldNote -Sections $noteSections
 }
 
 # --- Write the release-notes file -------------------------------------------------------------

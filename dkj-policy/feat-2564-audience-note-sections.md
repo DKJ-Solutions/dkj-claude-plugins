@@ -53,7 +53,7 @@ on the issue and is not built here, so this ships with `-NoResolves`.
 
 ### TEST
 
-- [x] `release-lib.tests.ps1` (594 asserts), `script-contract.tests.ps1` (count 44 -> 45), `cut-release-guardrail.tests.ps1`, `config-blueprint.tests.ps1` green standalone
+- [x] `release-lib.tests.ps1` (594 asserts), `script-contract.tests.ps1` (count 44 -> 45), `cut-release-guardrail.tests.ps1` (the seam resolves before the first write), `config-blueprint.tests.ps1` green standalone
 
 ### DEPLOY: feat/2564-audience-note-sections
 

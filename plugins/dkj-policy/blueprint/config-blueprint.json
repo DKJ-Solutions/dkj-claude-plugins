@@ -412,6 +412,17 @@
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
+                        "function":  "Get-ReleaseNoteSections",
+                        "adopt":  "copy",
+                        "adoptWhy":  "the source answers all three, which is exactly the document a consumer gets without the function, so copying changes nothing -- and puts the answer in their own file, where a repo whose readers only ask what changed trims it to @(\u0027Audience\u0027) instead of deleting two headings at every cut",
+                        "optional":  true,
+                        "default":  "all three sections: Audience, Value, Open",
+                        "returns":  "the sections the hand-written release note carries, as an array of names matched case-insensitively and rendered in document order, whatever order they are given in: Audience (what changed), Value (what it is worth) and Open (what was still open at this release) -- the Get-ReleaseNoteWording keys without their \u0027Section\u0027 prefix. A section left out is left out whole, heading and hint. An unknown name, or an answer naming none, stops the cut before anything is written",
+                        "declared":  true,
+                        "text":  "# WHICH OF THAT NOTE\u0027S THREE SECTIONS THIS REPO\u0027S READERS GET (inbound #2564). The wording map above can\n# rename a section but never omit one; this is the seam that omits. Names are the wording keys without\n# \u0027Section\u0027: Audience (what changed), Value (what it is worth), Open (what was still open). All three\n# here, which is also what an absent function means -- this repo\u0027s note is written for two readers.\nfunction Get-ReleaseNoteSections {\n    \u003c# The sections the hand-written release note carries, in any order: Audience, Value, Open. #\u003e\n    return @(\u0027Audience\u0027, \u0027Value\u0027, \u0027Open\u0027)\n}"
+                    },
+                    {
+                        "lib":  "scripts\\repo-config.ps1",
                         "function":  "Get-ReleasePageTitle",
                         "adopt":  "decide",
                         "adoptWhy":  "it is the name a reader sees at the top of a page about THIS repo\u0027s releases. Copying the source\u0027s answer puts another product\u0027s name on your page, and nothing errs -- the page simply lies politely",

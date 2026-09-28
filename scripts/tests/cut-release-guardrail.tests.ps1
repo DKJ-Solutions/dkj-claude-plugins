@@ -224,6 +224,12 @@ $firstWrite = $cutReleaseText.IndexOf('Write-Utf8NoBom -Path')
 Assert-True ($firstWrite -gt 0) 'found the first content write in cut-release.ps1'
 Assert-True ($guardLoop.Success -and $firstWrite -gt ($guardLoop.Index + $guardLoop.Length)) `
     'the guard runs BEFORE any file is written, so a collision leaves the tree untouched'
+# THE SECTIONS SEAM IS VALIDATED BEFORE ANY WRITE TOO (inbound #2564): a misspelt Get-ReleaseNoteSections
+# answer must stop the cut at the top, not after the version has moved.
+$sectionsIdx = $cutReleaseText.IndexOf('Resolve-ReleaseNoteSections -Answer')
+Assert-True ($sectionsIdx -gt 0 -and $sectionsIdx -lt $firstWrite) `
+    'Get-ReleaseNoteSections is resolved before the first file is written'
+Assert-True ($cutReleaseText -match '-Sections \$noteSections') 'and the resolved answer reaches Build-ReleaseNoteDraft'
 # And the consumer document is really in that collection -- a guard over one path would pass the
 # asserts above while protecting nothing new.
 $plannedBlock = [regex]::Match($cutReleaseText, '(?ms)^\$plannedFiles\s*=.*?^foreach \(\$rel in \$plannedFiles\)')
