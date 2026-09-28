@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**15 / 18 minor entries** <!-- pending-tally -->
+**15 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2594-contract-count-message · 20260928-160645Z
+
+The record-count assert in `script-contract.tests.ps1` no longer names stale inner figures in its message. It said the
+table pins 25 records and the test file names 26 of 43, against a real 27 and 28 of 46. Nothing asserts prose, so the
+figures fell one further behind with every new record. Both are now computed from the table and the record count (#2594).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+The script-contract record-count message computes its inner figures instead of naming stale ones
+
+[PR #2598](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2598)
+
+---
 
 ### DEPLOY: feat/2292-retire-lens-alsoread · 20260928-153758Z
 
