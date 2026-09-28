@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Refuse a number that resolves to a pull request, as its own verdict, and name the issue it closes.
+Widen the state refusal from `CLOSED` to anything but `OPEN`. Cover the assignee verdict, the tag
+verdict and the take-over verdict, which passes it through.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Test-PullRequestUrl` and `Get-ClosingIssueNumbers` in `claim-issue-lib.ps1`; a `pull-request` verdict in `Get-ClaimVerdict`, `Get-TagClaimVerdict` and `Get-TakeOverVerdict` (the last passes `-Url` through)
+- [x] the state refusal reads `-ine 'OPEN'` in both verdicts
+- [x] `claim-issue.ps1` passes the URL and prints one `Write-PullRequestRefusal` in both switches, with the PR's closing issues from one bounded `gh pr view`
+- [x] plugin mirrors synced; the skill's verdict table updated to six
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: 554 passed, 0 failed, with asserts for MERGED, an open PR, an unknown state, the URL test and the closing-issue reader
+- [x] live dry-run on merged PR #2504, both default and `-Tag`: refused, names #2500, exit 1
+
 ### DEPLOY: fix/2609-claim-refuses-pull-request
 
-**Score:**
+`claim-issue` now refuses a pull request's number instead of claiming it. `gh issue view` answers for
+a PR too, and a merged one reads as `MERGED`, a state the old check did not refuse, so the claim went
+through and put an assignee on the merged PR. The refusal names the issue the PR closes, and any state
+other than `OPEN` is now refused (#2609).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+If you type a PR number where you meant an issue, `claim-issue` now stops. It does not print `[OK]` and
+does not assign you to the pull request. It names the issue that PR closes, so you can re-run on that
+number.
+
+**Score:** 2
 
 #### Pull Request
+
+claim-issue refuses a pull request's number and names the issue it closes
 
