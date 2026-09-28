@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**11 / 13 minor entries** <!-- pending-tally -->
+**11 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2587-awaiting-recurrence-label · 20260928-134414Z
+
+`adopt-triage-labels` now also prints a `gh label create` line for `awaiting-recurrence`, a parking label
+for an issue whose only remaining step is its first reproducible occurrence. `claim-issue <n>` skips it
+by default next to `needs-info` and `needs-decision`, and `sweep-issues` skips all three.
+`CONTRIBUTING-portable.md` says when to set the label and when it comes off. It is not `dossier`: a
+dossier collects a problem that demonstrably recurs, so it stays sweepable.
+
+Tier 0 is scored for a session running a sweep. An n=1 flake with nothing left to build (#2572) was picked
+up four times in one day, and each pickup ended in *nothing to do*.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. It is a label definition, a filing convention and a default skip list, and nothing reaches a
+subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+An awaiting-recurrence parking label for an issue waiting on its first reproducible occurrence
+
+Plugins: dkj-policy
+
+[PR #2588](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2588)
+
+---
 
 ### DEPLOY: feat/2564-audience-note-sections · 20260928-125646Z
 
