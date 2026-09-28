@@ -37,7 +37,10 @@
 
     THE API TOKEN IS READ FROM THE ENVIRONMENT AND FROM NOWHERE ELSE. CLOUDFLARE_API_TOKEN, never a
     seam answer and never a file in the repo, because a seam answer is committed by construction.
-    It needs Workers KV Storage: Edit on the one namespace and nothing else.
+    It needs Workers KV Storage: Edit on the one namespace and nothing else. WHERE IT IS ABSENT, a
+    wrangler login to the seam's account is the second route (#2569): `wrangler kv key put/get
+    --remote`, with the same SHA-256 read-back. That login lives in the user's own wrangler config,
+    so it is neither a seam answer nor a repo file either.
 
     IT VERIFIES BY READING THE VALUE BACK, not by believing the upload's own response. That is the
     same lesson dkj-policy's page carries one layer up -- "verify the bytes the URL serves, never
@@ -293,11 +296,103 @@ if ($DryRun) {
 }
 
 # --- The upload, and the read-back that is the actual proof -------------------------------------------
+function Invoke-BwjNpx {
+    <#
+        Runs `npx --no-install <Arguments>` through cmd.exe, with CLOUDFLARE_ACCOUNT_ID set to the
+        seam's account for the child only. Returns ExitCode and Text (stdout + stderr). With
+        -StdoutPath, stdout is copied to that file AS BYTES and is not in Text: the read-back is
+        hashed, and a PowerShell pipe would decode it with the console code page first.
+
+        --no-install so a machine without wrangler gets a refusal rather than a download.
+
+        EVERY ARGUMENT IS QUOTED, AND '"' AND '%' ARE REFUSED. The line runs through cmd.exe, and a
+        path is a legal NTFS name that may carry & | < > ^ ( ) with no space in it. Quoting only on
+        whitespace let 'C:\a&cmd&b.html' run a second command (Sebastian, on this branch, exercised
+        against a real cmd.exe). Inside double quotes those characters are literal. Two are not:
+        '"' ends the quote, and '%' still expands a variable. Windows forbids '"' in a file name
+        anyway, so refusing both costs a path nobody has.
+    #>
+    param(
+        [Parameter(Mandatory)][string[]]$Arguments,
+        [string]$StdoutPath
+    )
+    foreach ($a in $Arguments) {
+        if ($a -match '["%]') {
+            throw "Refusing to hand '$a' to cmd.exe: a '`"' or '%' in an argument is not safe to quote there. Rename the file."
+        }
+    }
+    $quoted = ($Arguments | ForEach-Object { '"' + $_ + '"' }) -join ' '
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $env:ComSpec
+    $psi.Arguments = '/d /s /c "npx --no-install ' + $quoted + '"'
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $psi.EnvironmentVariables['CLOUDFLARE_ACCOUNT_ID'] = $pages.AccountId
+    $p = [System.Diagnostics.Process]::Start($psi)
+    $errTask = $p.StandardError.ReadToEndAsync()
+    $text = ''
+    if ($StdoutPath) {
+        $fs = [System.IO.File]::Create($StdoutPath)
+        try { $p.StandardOutput.BaseStream.CopyTo($fs) } finally { $fs.Dispose() }
+    } else {
+        $text = $p.StandardOutput.ReadToEnd()
+    }
+    $p.WaitForExit()
+    return [pscustomobject]@{ ExitCode = $p.ExitCode; Text = ($text + $errTask.Result) }
+}
+
 $apiToken = $env:CLOUDFLARE_API_TOKEN
 if ([string]::IsNullOrWhiteSpace($apiToken)) {
-    throw ("CLOUDFLARE_API_TOKEN is not set. It is read from the environment and from nowhere else -- " +
-           "never a seam answer, never a file in the repo, because both of those are committed by " +
-           "construction. The token needs 'Workers KV Storage: Edit' on this account and nothing more.")
+    # A WRANGLER LOGIN TO THIS ACCOUNT IS THE SECOND ROUTE (issue #2569). It is neither a seam answer
+    # nor a file in the repo, which is what the rule about the token protects, and it is how a machine
+    # that deployed the worker is usually authenticated. The proof is the same: read the value back
+    # and compare SHA-256. Test-BwjWranglerSession explains why the account id, not the exit code,
+    # decides.
+    $who = Invoke-BwjNpx -Arguments @('wrangler', 'whoami')
+    if (-not (Test-BwjWranglerSession -WhoamiText $who.Text -ExitCode $who.ExitCode -AccountId $pages.AccountId)) {
+        throw ("CLOUDFLARE_API_TOKEN is not set, and 'npx wrangler whoami' shows no login to account " +
+               "$($pages.AccountId). Either route publishes: (1) CLOUDFLARE_API_TOKEN in the environment " +
+               "-- never a seam answer, never a file in the repo, because both of those are committed by " +
+               "construction; it needs 'Workers KV Storage: Edit' on this account and nothing more -- or " +
+               "(2) 'npx wrangler login' as a user who can reach this account.")
+    }
+    Write-Host "  auth     : wrangler login to account $($pages.AccountId) (CLOUDFLARE_API_TOKEN is not set)" -ForegroundColor DarkGray
+
+    $put = Invoke-BwjNpx -Arguments (Get-BwjPageWranglerArgs -Action put -Key $key -NamespaceId $pages.NamespaceId -Path $Html)
+    if ($put.ExitCode -ne 0) {
+        throw "The upload through wrangler failed (exit $($put.ExitCode)): $($put.Text.Trim())"
+    }
+    Write-Host "  upload   : accepted by wrangler" -ForegroundColor DarkGray
+
+    $verifyPath = Join-Path ([System.IO.Path]::GetTempPath()) ("bwj-page-verify-" + [guid]::NewGuid().ToString('N') + '.tmp')
+    try {
+        $get = Invoke-BwjNpx -Arguments (Get-BwjPageWranglerArgs -Action get -Key $key -NamespaceId $pages.NamespaceId) -StdoutPath $verifyPath
+        if ($get.ExitCode -ne 0) {
+            throw ("The upload was accepted but the read-back through wrangler failed (exit $($get.ExitCode)): " +
+                   "$($get.Text.Trim()). Nothing proves what the URL serves -- fetch it before sending the link.")
+        }
+        $back = (Get-FileHash -LiteralPath $verifyPath -Algorithm SHA256).Hash
+        if ($back -ne $hash) {
+            throw ("KV answered with different bytes than were uploaded (SHA-256 $back against $hash). " +
+                   "The page at the URL is NOT the file that was just built -- do not send the link on.")
+        }
+        Write-Host "  verified : KV holds the same $([math]::Round($bytes / 1KB)) KB that were built (SHA-256 matches)" -ForegroundColor Green
+    } finally {
+        Remove-Item -LiteralPath $verifyPath -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $verifyPath) {
+            Write-Warning ("A copy of the published page could not be removed and is still at " +
+                           "$verifyPath. Delete it: this page is not public, and that directory is.")
+        }
+    }
+
+    Write-Host ""
+    Write-Host "  $url" -ForegroundColor Cyan
+    Write-Host "  KV is eventually consistent: an edge that already held the previous page can keep serving" -ForegroundColor DarkGray
+    Write-Host "  it for up to a minute, so fetch again before concluding anything from one request." -ForegroundColor DarkGray
+    Write-Host "  The path is the ONLY lock on this page: no login, anyone with the link can read." -ForegroundColor DarkGray
+    exit 0
 }
 $headers  = @{ Authorization = "Bearer $apiToken" }
 $valueUrl = Get-BwjPageKvApiUrl -AccountId $pages.AccountId -NamespaceId $pages.NamespaceId -Key $key

@@ -32,8 +32,9 @@
 
     THE SCRIPT CASES RUN IN A CHILD PROCESS against a FIXTURE REPO, never against this checkout:
     they are about what a store repo's seam answers, and this repo is not a store. Nothing in them
-    reaches the network -- -DryRun and the refusals stop before the upload, which is the whole
-    testable surface of a script whose remaining half is HTTP against somebody's account.
+    reaches the network -- -DryRun and the refusals stop before the upload, and the wrangler route
+    (#2569) runs against an npx.cmd shim on PATH. The API route's HTTP half stays untested, because it
+    runs against somebody's account.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -257,6 +258,90 @@ $dry = Invoke-PublishPage -ScriptArgs @('-Kind', 'notes', '-DryRun')
 Assert-Equal 0 $dry.ExitCode '-DryRun resolves everything and uploads nothing'
 Assert-True ($dry.Text -like "*notes:$writtenToken*") '...naming the KV key the page would land on'
 Assert-True ($dry.Text -like '*nothing was uploaded*') '...and saying so'
+
+Write-Host ''
+Write-Host 'The wrangler route, when CLOUDFLARE_API_TOKEN is absent (#2569)' -ForegroundColor Cyan
+
+# The decision, as a pure function. The measured fact it rests on: whoami exits 0 logged in or not.
+Assert-True (Test-BwjWranglerSession -WhoamiText "| Acct | $HexA |" -ExitCode 0 -AccountId $HexA) 'a whoami naming the seam''s account is a session for it'
+Assert-True (-not (Test-BwjWranglerSession -WhoamiText 'You are not authenticated.' -ExitCode 0 -AccountId $HexA)) 'exit 0 without the account id is not a session -- whoami exits 0 logged out too'
+Assert-True (-not (Test-BwjWranglerSession -WhoamiText "| Acct | $HexB |" -ExitCode 0 -AccountId $HexA)) 'a login to ANOTHER account is not a route to this one'
+Assert-True (-not (Test-BwjWranglerSession -WhoamiText "| Acct | $HexA |" -ExitCode 1 -AccountId $HexA)) 'a failed whoami is not a session, whatever it printed'
+Assert-True (-not (Test-BwjWranglerSession -WhoamiText $null -ExitCode $null -AccountId $HexA)) 'no answer at all is not a session'
+
+$putArgs = Get-BwjPageWranglerArgs -Action put -Key "notes:$HexA" -NamespaceId $HexB -Path 'C:\x\p.html'
+Assert-Equal "wrangler kv key put notes:$HexA --path C:\x\p.html --namespace-id $HexB --remote" ($putArgs -join ' ') 'the put names the file, the namespace and --remote'
+$getArgs = Get-BwjPageWranglerArgs -Action get -Key "notes:$HexA" -NamespaceId $HexB
+Assert-Equal "wrangler kv key get notes:$HexA --namespace-id $HexB --remote" ($getArgs -join ' ') 'the get reads raw bytes -- no --text, which would decode them before the hash'
+Assert-Throws { Get-BwjPageWranglerArgs -Action get -Key 'notes:--oops' -NamespaceId $HexB } 'a key this lib did not build is refused before it reaches the CLI'
+
+# END TO END, against an npx.cmd shim on PATH that plays wrangler: whoami prints an account table,
+# put copies the --path file into a store, get types the store back. Every call is logged with the
+# CLOUDFLARE_ACCOUNT_ID the child saw, so the route is asserted and not merely its summary line.
+$shimDir = Join-Path $Fixture 'shim-bin'
+New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
+$shimStore = Join-Path $Fixture 'shim-kv.bin'
+$shimLog   = Join-Path $Fixture 'shim-log.txt'
+$shim = "@echo off`r`n" +
+        "echo %* [acct=%CLOUDFLARE_ACCOUNT_ID%]>>`"%FAKE_WRANGLER_LOG%`"`r`n" +
+        "if `"%~3`"==`"whoami`" ( echo ^| Account ^| %FAKE_WRANGLER_ACCOUNT% ^| & exit /b 0 )`r`n" +
+        "if `"%~5`"==`"put`" ( copy /y `"%~8`" `"%FAKE_WRANGLER_STORE%`" >nul & exit /b 0 )`r`n" +
+        "if `"%~5`"==`"get`" goto get`r`n" +
+        "exit /b 9`r`n" +
+        ":get`r`n" +
+        "if `"%FAKE_WRANGLER_TAMPER%`"==`"1`" ( echo tampered ) else ( type `"%FAKE_WRANGLER_STORE%`" )`r`n" +
+        "exit /b 0`r`n"
+[System.IO.File]::WriteAllText((Join-Path $shimDir 'npx.cmd'), $shim, (New-Object System.Text.ASCIIEncoding))
+
+function Invoke-WranglerRoute {
+    param([string]$Account, [string]$Tamper = '', [string]$HtmlPath = '')
+    $saved = @{}
+    foreach ($n in 'PATH', 'CLOUDFLARE_API_TOKEN', 'FAKE_WRANGLER_ACCOUNT', 'FAKE_WRANGLER_STORE', 'FAKE_WRANGLER_LOG', 'FAKE_WRANGLER_TAMPER') {
+        $saved[$n] = [Environment]::GetEnvironmentVariable($n, 'Process')
+    }
+    try {
+        $env:PATH = "$shimDir;$($saved['PATH'])"
+        [Environment]::SetEnvironmentVariable('CLOUDFLARE_API_TOKEN', $null, 'Process')
+        $env:FAKE_WRANGLER_ACCOUNT = $Account
+        $env:FAKE_WRANGLER_STORE = $shimStore
+        $env:FAKE_WRANGLER_LOG = $shimLog
+        $env:FAKE_WRANGLER_TAMPER = $Tamper
+        if (Test-Path -LiteralPath $shimLog) { Remove-Item -LiteralPath $shimLog -Force }
+        $a = @('-Kind', 'notes')
+        if ($HtmlPath) { $a += @('-Html', $HtmlPath) }
+        return (Invoke-PublishPage -ScriptArgs $a)
+    } finally {
+        foreach ($n in $saved.Keys) { [Environment]::SetEnvironmentVariable($n, $saved[$n], 'Process') }
+    }
+}
+
+$viaWrangler = Invoke-WranglerRoute -Account $HexA
+$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) -replace '"', '' } else { '' }
+Assert-Equal 0 $viaWrangler.ExitCode 'no API token, a wrangler login to this account: the page is published'
+Assert-True ($viaWrangler.Text -like '*SHA-256 matches*') '...and the read-back proof still ran'
+Assert-True ($log -like "*kv key put notes:$writtenToken --path *--namespace-id $HexB --remote*") '...the upload went through wrangler kv key put, --remote'
+Assert-True ($log -like "*kv key get notes:$writtenToken --namespace-id $HexB --remote*") '...and the read-back through kv key get'
+Assert-True ($log -like "*[acct=$HexA]*") '...with CLOUDFLARE_ACCOUNT_ID set to the seam''s account for the child'
+Assert-Equal (Get-FileHash -LiteralPath $pageFile -Algorithm SHA256).Hash (Get-FileHash -LiteralPath $shimStore -Algorithm SHA256).Hash '...and the bytes that landed are the built page'
+
+$wrongAccount = Invoke-WranglerRoute -Account $HexB
+$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) -replace '"', '' } else { '' }
+Assert-True ($wrongAccount.ExitCode -ne 0) 'a wrangler login to another account is refused'
+Assert-True ($wrongAccount.Text -like '*Either route publishes*') '...and the refusal names both routes'
+Assert-True ($log -notlike '*kv key put*') '...before anything was uploaded'
+
+$tampered = Invoke-WranglerRoute -Account $HexA -Tamper '1'
+Assert-True ($tampered.ExitCode -ne 0) 'a read-back through wrangler that differs from the upload fails the publish'
+Assert-True ($tampered.Text -like '*different bytes than were uploaded*') '...naming both hashes, as the API route does'
+
+# THE CMD.EXE LINE (Sebastian, on this branch): a legal file name with '&' and no space once ran a
+# second command. Every argument is now quoted, so the publish from such a path must simply succeed.
+$ampPage = Join-Path $Fixture 'releases\page\notes&x.html'
+Copy-Item -LiteralPath $pageFile -Destination $ampPage
+$amp = Invoke-WranglerRoute -Account $HexA -HtmlPath $ampPage
+Assert-Equal 0 $amp.ExitCode "a page path carrying '&' and no space publishes as one argument, not as a second command"
+Assert-True ($amp.Text -like '*SHA-256 matches*') '...and is verified like any other'
+Assert-True (-not (Test-BwjWranglerSession -WhoamiText ('c' + $HexA + 'c') -ExitCode 0 -AccountId $HexA)) 'the account id inside a longer hex run is not a match'
 
 # The default page per kind is the file the builder leaves behind, so the ordinary run takes no -Html.
 $backlogInit = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-InitToken')

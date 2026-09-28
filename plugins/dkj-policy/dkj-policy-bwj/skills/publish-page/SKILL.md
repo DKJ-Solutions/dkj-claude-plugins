@@ -165,6 +165,15 @@ committed write token to a Cloudflare account is a different class of thing from
 identifies one. It needs `Workers KV Storage: Edit` and nothing more — not Workers Scripts, which is
 the deploy's permission and belongs to the person running `wrangler`, not to a publish.
 
+**Without the token, a wrangler login is the second route**
+([#2569](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2569)). When
+`CLOUDFLARE_API_TOKEN` is absent, the script asks `npx wrangler whoami`. If that output names the
+account `Get-BwjPagesConfig` names, the upload and the read-back go through `wrangler kv key put/get
+--remote`, and the SHA-256 proof below is the same. The exit code alone does not decide: whoami exits
+0 whether or not anybody is logged in. A login to a different account is refused, and the refusal
+names both routes. The login lives in your own wrangler config, so it is neither a seam answer nor a
+repo file.
+
 ## How you know it worked
 
 The script **reads the value back out of KV and compares SHA-256** against the file it uploaded, and
@@ -202,9 +211,10 @@ Two limits it does not pretend to cover:
 - `Get-ReleaseNoteRoot` (`dkj-policy`'s own seam) decides where the page directory sits:
   `<note root>/../page`, the same directory the release-notes builder already writes into. Derived
   rather than configured, because a second seam would be the same decision written twice.
-- `node`/`npx` only for the namespace creation and the deploy, neither of which is this script's step.
-- `CLOUDFLARE_API_TOKEN` in the environment for a publish. `-ShowUrl`, `-DryRun`, `-InitToken` and
-  `-EmitWorker` need none.
+- `node`/`npx` for the namespace creation and the deploy, and for a publish that goes through a
+  wrangler login.
+- For a publish, `CLOUDFLARE_API_TOKEN` in the environment **or** a wrangler login to the seam's
+  account. `-ShowUrl`, `-DryRun`, `-InitToken` and `-EmitWorker` need neither.
 
 ## Important
 

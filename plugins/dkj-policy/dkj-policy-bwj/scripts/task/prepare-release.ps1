@@ -122,11 +122,15 @@ if (-not $RootArg -and (Test-Path -LiteralPath (Join-Path $repoRoot '.claude-plu
 # THE SEAMS, AT SCRIPT SCOPE -- the #2339 lesson build-golive-block.ps1 records: a config dot-sourced
 # inside a scriptblock loses every function it defined when that scope ends. StrictMode is off for the
 # read only, because repo-config.ps1 is written on the assumption that it is.
+# THE EXCEPTION'S TYPE, NEVER ITS MESSAGE, in this warning and the two below (#2509): a message is text the
+# consumer's own file wrote, and it would reach session context verbatim.
+# THE DOT-SOURCE ITSELF IS PINNED BY A FIXTURE RUN (#2565): the #2509 edit that introduced the comment above
+# replaced this line instead of the warning in it, and every seam then read its default without a sound.
 $configPath = Join-Path $repoRoot 'scripts\repo-config.ps1'
 if (Test-Path -LiteralPath $configPath -PathType Leaf) {
     Set-StrictMode -Off
     $resolvedRoot = $repoRoot
-    # THE EXCEPTION'S TYPE, NEVER ITS MESSAGE, in all three warnings below: a message is text the consumer's
+    try { . $configPath } catch { Write-Warning "scripts/repo-config.ps1 threw $($_.Exception.GetType().Name) while being read -- dot-source it directly to see the error." }
     Set-StrictMode -Version Latest
     $repoRoot = $resolvedRoot
 }
@@ -307,13 +311,19 @@ $pushFiles = @()
 if (-not $sinceTag) {
     Add-Step -Name 'push list' -State 'attention' -Detail 'no vX.Y.Z tag, so there is no previous release to diff against. Pass -SinceTag.'
 } else {
-    $range = Invoke-Git @('diff', '--name-only', "$sinceTag..HEAD")
+    # --no-renames IN EVERY READ, as live-preflight reads it (#2566): a renamed theme file's old path is
+    # still on live, and only a split rename lists it -- as a deletion -- and its new path as NEW.
+    $range = Invoke-Git @('diff', '--no-renames', '--name-only', "$sinceTag..HEAD")
+    $deletedRead = Invoke-Git @('diff', '--no-renames', '--name-only', '--diff-filter=D', "$sinceTag..HEAD")
     if ($range.Code -ne 0) {
         Add-Step -Name 'push list' -State 'attention' -Detail "could not diff $sinceTag..HEAD -- is the tag fetched? Try 'git fetch --tags'."
+    } elseif ($deletedRead.Code -ne 0) {
+        Add-Step -Name 'push list' -State 'attention' -Detail "could not read the deletions in $sinceTag..HEAD, so a deleted file could not be told from a changed one."
     } else {
         $changed = @($range.Lines | ForEach-Object { Convert-GitQuotedPath -Path $_ })
+        $deleted = @($deletedRead.Lines | ForEach-Object { Convert-GitQuotedPath -Path $_ })
         $added = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-        foreach ($p in (Invoke-Git @('diff', '--name-only', '--diff-filter=A', "$sinceTag..HEAD")).Lines) { [void]$added.Add(((Convert-GitQuotedPath -Path $p) -replace '\\', '/')) }
+        foreach ($p in (Invoke-Git @('diff', '--no-renames', '--name-only', '--diff-filter=A', "$sinceTag..HEAD")).Lines) { [void]$added.Add(((Convert-GitQuotedPath -Path $p) -replace '\\', '/')) }
 
         # SYNC PROVENANCE, by the two lib rules live-preflight calls -- so a file held back on Friday is
         # the file held back on Monday.
@@ -328,8 +338,9 @@ if (-not $sinceTag) {
             $syncOwned = @(Get-SyncOwnedPaths -WalkLines @($walk.Lines | ForEach-Object { Convert-GitQuotedPath -Path $_ }) -SyncCommits $syncCommits)
         }
 
-        $rows = @(Get-LivePushRows -ChangedPaths $changed -SyncOwnedPaths $syncOwned)
+        $rows = @(Get-LivePushRows -ChangedPaths $changed -SyncOwnedPaths $syncOwned -DeletedPaths $deleted)
         $pushFiles = @($rows | Where-Object { $_.Push } | ForEach-Object { $_.Path })
+        $stillOnLive = @($rows | Where-Object { $_.Kind -eq 'deleted' })
         Write-Host "  $sinceTag..HEAD changed $($changed.Count) file(s)."
         foreach ($r in @($rows | Where-Object { $_.Push })) {
             $new = if ($added.Contains(($r.Path -replace '\\', '/'))) { '  (NEW on the theme)' } else { '' }
@@ -342,10 +353,15 @@ if (-not $sinceTag) {
         # A PATH THAT IS NOT PASTE-SAFE STOPS THE RUNBOOK COMPOSING A COMMAND AROUND IT (see
         # Format-ReleaseRunbook), and it is named here so the reason is not only in the runbook.
         $unsafe = @($pushFiles | Where-Object { -not (Test-PathPasteSafe -Path $_) })
+        # DELETIONS ARE THEIR OWN DECISION, found days ahead so the day does not have to make it (#2566).
+        if ($stillOnLive.Count -gt 0) {
+            Add-Step -Name 'deletions' -State 'attention' -Detail "$($stillOnLive.Count) theme file(s) are deleted on the trunk and stay on live, because a push cannot remove a file -- decide before the day whether the store deletes them."
+        }
         if ($unsafe.Count -gt 0) {
             Add-Step -Name 'push list' -State 'attention' -Detail "$($unsafe.Count) of $($pushFiles.Count) theme path(s) cannot be pasted safely into a command line, so the runbook composes no push or pull. Read them: $(@($unsafe | ForEach-Object { ConvertTo-ConsoleStrippedText -Text $_ }) -join ', ')"
         } elseif ($pushFiles.Count -eq 0) {
-            Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD lives on a theme -- this release is code and docs only, with no live push."
+            $only = if ($stillOnLive.Count -gt 0) { 'its only theme changes are deletions, which a push cannot carry' } else { 'this release is code and docs only' }
+            Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to push -- $only, with no live push."
         } else {
             Add-Step -Name 'push list' -State 'ready' -Detail "$($pushFiles.Count) theme file(s) to push, $newCount of them new on the theme, out of $($changed.Count) changed."
         }

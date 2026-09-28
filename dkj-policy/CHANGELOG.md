@@ -2,7 +2,212 @@
 
 ## [Unreleased]
 
-**4 / 4 minor entries** <!-- pending-tally -->
+**10 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2572-roster-sync-child-stderr · 20260928-120317Z
+
+`roster-sync.tests.ps1` now keeps its child's stderr, and when 11ua's or 11ub's finding is missing it
+prints that stderr with the exit code. A failure under a loaded gate then shows whether the check threw
+or its line was lost. That is the evidence #2572 lacked. This is a diagnostic, not a fix, so the issue
+stays open. (#2572)
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+roster-sync.tests: keep the child's stderr, and show it when 11ua/11ub's finding is missing
+
+[PR #2584](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2584)
+
+---
+
+### DEPLOY: fix/2581-untrack-wrangler-cache · 20260928-112224Z
+
+Wrangler's own account cache (`.wrangler/cache/wrangler-account.json`, holding a Cloudflare account id
+and an account e-mail) was tracked on `main` in this public repo. It is untracked now, and an anchored
+`/.wrangler/` rule in `.gitignore` keeps a wrangler run from the repo root from adding it again. The
+copy in history is a separate decision for the owner, #2582. (#2581)
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Untrack the root .wrangler/ cache and ignore it
+
+[PR #2583](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2583)
+
+---
+
+### DEPLOY: fix/2574-progress-bar-per-checkout · 20260928-110844Z
+
+The statusline's progress bar now shows only the runs of the checkout the session is in (inbound
+[#2574](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2574)). Records sit in one directory
+per machine, so a ship in another repo's window used to draw in every session, and read as a gate running
+in the repo in front of you. Each record now carries its writer's working directory, and the statusline
+draws a record only when that path and the session's workspace contain each other. A record from an
+older writer, or a session whose payload names no workspace, is shown as before.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Anyone working in two repos at once sees only their own repo's gate and ship in each window, instead of a
+bar that looks like work running where it is not.
+
+**Score:** 2
+
+#### Pull Request
+
+The statusline draws only the progress of runs in this session's own checkout
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2580](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2580)
+
+---
+
+### DEPLOY: fix/2566-live-push-list-skips-deletions · 20260928-105429Z
+
+Inside this repo: `Get-LivePushRows` in `scripts/lib/live-push-rules.ps1` gained a `-DeletedPaths` set and a
+`deleted` verdict, and `live-preflight.ps1` and dkj-policy-bwj's `prepare-release.ps1` now feed it from a
+`--diff-filter=D` read, with rename detection off in every range read.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For whoever prepares a store's live push: a theme file deleted since the last release is no longer
+offered as a `push` row. That row claimed a change `--only` cannot make, and the file stayed on live
+unnoticed. Each such file is now listed under `held` as deleted and still on live, with its own step
+saying the store delete is a separate decision. A renamed file's old path, which used to be in no list
+at all, is reported the same way.
+
+**Score:** 3
+
+#### Pull Request
+
+live push list lists files deleted in the range as push rows
+
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2576](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2576)
+
+---
+
+### DEPLOY: docs/2558-visible-result-stays-on-branch · 20260928-104254Z
+
+A branch parked for the owner's visual review now keeps the checkout on that branch. The constitution's visible-result rule says so, and Chris's "it ends on the trunk" rule no longer fires on a park: that chain is not finished, since its next step is the owner looking at the working copy. The trunk follows the merge. A session that moves on to other work in the same checkout, like a sweep, hands over through the repo's own preview route instead ([#2558](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2558), [#2559](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2559)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+An owner reviewing a UI change can look at it straight away. The session no longer switches to the trunk after parking, which reverted the running app to the old screen and left them nothing to judge.
+
+**Score:** 3
+
+#### Pull Request
+
+A branch parked for the owner's visual review keeps the checkout on that branch, in the constitution and in Chris's trunk rule
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2579](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2579)
+
+---
+
+### DEPLOY: fix/2569-publish-page-wrangler-oauth · 20260928-103105Z
+
+Inside this repo: `publish-page.ps1` gained a second publish route for when `CLOUDFLARE_API_TOKEN`
+is absent, with two small functions in `page-publish-rules.ps1` and end-to-end tests against an
+`npx.cmd` shim.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For whoever publishes a BWJ page from a machine that is logged in with `npx wrangler login`: the
+publish now works without an API token. It goes through `wrangler kv key put/get --remote` and is
+proved with the same SHA-256 read-back. A login to a different account is refused, and the message
+names both routes.
+
+**Score:** 3
+
+#### Pull Request
+
+publish-page publishes through a wrangler OAuth session when CLOUDFLARE_API_TOKEN is absent
+
+Plugins: dkj-policy-bwj
+
+[PR #2578](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2578)
+
+---
+
+### DEPLOY: docs/2567-audience-asana-link-from-marker · 20260928-102112Z
+
+The BWJ ticket-handling page now says which Asana task an audience release item links to (inbound
+[#2567](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2567)). It is the task the mirror's
+three matchers resolve, marker first, and never the first Asana URL in the issue body. A reference line
+naming the CRO test a build came from is context, not the ticket.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A colleague reading a store's release notes finds their own development ticket linked, and not the CRO
+test it came out of.
+
+**Score:** 2
+
+#### Pull Request
+
+An audience item's Asana link is resolved by the mirror's matchers, never the first URL
+
+Plugins: dkj-policy-bwj
+
+[PR #2577](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2577)
+
+---
+
+### DEPLOY: fix/2565-prepare-release-reads-repo-config · 20260928-100738Z
+
+`prepare-release` reads the store's `scripts/repo-config.ps1` again (inbound
+[#2565](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2565)). Since the #2509 hardening it had
+dropped the dot-source, so every seam read its default: no store domain, no live theme id, the changelog
+looked for at `CHANGELOG.md`, and each step then reported a plausible skip instead of a fault. A fixture run
+now pins that the repo's own seams are read, and that a config which throws degrades to a warning naming
+only the exception's type.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store running `prepare-release` on 5.9.0 got a runbook with no push command and every scoped step
+skipped, in a repo that had answered every seam. After this release the skill works as documented there.
+
+**Score:** 3
+
+#### Pull Request
+
+prepare-release dot-sources repo-config.ps1 again
+
+Plugins: dkj-policy-bwj
+
+[PR #2575](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2575)
+
+---
 
 ### DEPLOY: docs/2562-sweep-stop-condition · 20260928-095412Z
 
