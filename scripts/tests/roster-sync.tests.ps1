@@ -1200,6 +1200,34 @@ try {
     Assert-Match '\[BOOTSTRAP\]' $r.Out 'never bootstrapped: still the bootstrap marker'
     Assert-NotMatch '\[LENS-NAMING\]' $r.Out 'never bootstrapped: and not the naming one'
 
+    Write-Host "11w. a lens under the RETIRED spelling: an error naming the rename, not the naming marker" -ForegroundColor Cyan
+    #      Issue #2600. #2292 emptied the Lens row's AlsoRead, so '<g>-<id>-extension.md' passed both
+    #      guards of the #2219 predicate and was held under "NOTHING IN THE REPO NEEDS CHANGING" -- the
+    #      exact inversion: the tree is BEHIND the check, the file is read by nobody, and the repair is a
+    #      git mv here that no plugin refresh ever performs. 06-16 on the current spelling stays present,
+    #      so the case is the mixed one a half-finished rename leaves.
+    $cRetired = New-FixtureConsumer -RosterIds @('06-16', '06-24') -SeamLensIds @('06-16')
+    $retDir = Join-Path $cRetired '.claude\specialists\lenses'
+    [System.IO.File]::WriteAllText((Join-Path $retDir '06-24-extension.md'), 'a lens under the retired spelling')
+    $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cRetired, '-CacheRootOverride', $cacheTwo)
+    Write-ChildStderr $r "retired spelling"
+    Assert-NotMatch '\[LENS-NAMING\]' $r.Out 'retired spelling: the naming marker does NOT fire'
+    Assert-NotMatch 'NOTHING IN THE REPO NEEDS CHANGING' $r.Out 'retired spelling: and nothing says no edit here helps'
+    Assert-Match "agent '06-24' .* under the retired spelling '\.claude/specialists/lenses/06-24-extension\.md'" $r.Out 'retired spelling: the finding names the file'
+    Assert-Match 'git mv \.claude/specialists/lenses/06-24-extension\.md \.claude/specialists/lenses/specialist-06-24-lens\.md' $r.Out 'retired spelling: and the rename that repairs it'
+    Assert-NotMatch "agent '06-24' .* has no repo-lens \(" $r.Out 'retired spelling: NOT the generic create-a-file line beside it'
+    Assert-Match "agent '06-16' present in roster \+ lens" $r.Out 'retired spelling: the current-spelling lens is just present'
+    Assert-Equal 1 $r.Code 'retired spelling: exit 1 -- the specialist really does run without its lens'
+
+    #      The same file in the LEGACY .claude/extensions/ directory: the rename target is built from the
+    #      retired file's own directory, so the git mv stays inside it rather than moving the lens.
+    $cRetiredLegacy = New-FixtureConsumer -RosterIds @('06-16', '06-24') -SeamLensIds @('06-16')
+    $legDir = Join-Path $cRetiredLegacy '.claude\extensions'
+    New-Item -ItemType Directory -Path $legDir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $legDir '06-24-extension.md'), 'a legacy-dir lens under the retired spelling')
+    $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cRetiredLegacy, '-CacheRootOverride', $cacheTwo)
+    Assert-Match 'git mv \.claude/extensions/06-24-extension\.md \.claude/extensions/specialist-06-24-lens\.md' $r.Out 'retired spelling, legacy dir: the rename stays in that directory'
+
     # Restore the single-agent cache for anything downstream that reuses $cache.
     $cache = New-FixtureCache -VersionAgents @{ '1.11.0' = @('06-16') }
 
