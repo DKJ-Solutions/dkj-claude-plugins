@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Retiring a superseded branch (`feat/2591-lens-retired-name-finding`, whose work had already shipped as
+#2603) was refused by the auto-mode classifier as `[Git Destructive]`: the chained command opened with a
+`git stash push`, the one git verb in it that the project allow-list did not name. Dave asked for auto
+mode to be able to do that retire, so `git stash` joins the allow-list beside the other git verbs.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Bash(git stash:*)` and `PowerShell(git stash:*)` added to `.claude/settings.json`, in the git block
 
 ### TEST
 
+- [x] The settings file still parses as JSON
+- [x] The retire itself ran in auto mode as separate steps once the rule was in place (stash of the three
+  draft paths, checkout and pull of `main`, local and remote branch delete)
+
 ### DEPLOY: feat/allow-git-stash
 
-**Score:**
+A session in this repo can now stash uncommitted work without a permission prompt, so retiring or
+switching away from a branch with a draft on it no longer stops for a question. A stash is reversible,
+unlike the destructive verbs the safety rules name, which stay unlisted.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: `.claude/settings.json` is this repo's own harness config and reaches no consumer through a plugin
+update.
+
+**Score:** N/A
 
 #### Pull Request
 
