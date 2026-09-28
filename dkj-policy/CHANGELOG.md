@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**3 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2560-update-plugins-install-when-no-record · 20260928-093321Z
+
+Inside this repo: `update-plugins.ps1` step 2 no longer hands `claude plugin update --scope project`
+to a plugin with no install record for this checkout. It runs `claude plugin install <id> --scope
+project` instead, which is the command `plugin-versions.ps1` already prescribes for that state, and the
+summary counts it as installed. The test suite's older scenarios gained a record for this checkout,
+since they were written against the state this fixes.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For whoever runs `update-plugins` in a checkout where the plugins are enabled but were never installed
+there: the run used to move **another checkout's** install record and then report success. It now
+installs into the checkout it was run from, so the receipt at the end agrees with the summary above it.
+
+**Score:** 3
+
+#### Pull Request
+
+update-plugins installs where this checkout has no install record, instead of updating another checkout's
+
+Plugins: dkj-policy
+
+[PR #2571](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2571)
+
+---
 
 ### DEPLOY: docs/2557-audience-tier-by-purpose · 20260928-060229Z
 
