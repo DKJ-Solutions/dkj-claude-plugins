@@ -139,8 +139,9 @@
     With -Candidates: labels that park an issue with somebody else, so a sweep leaves it alone.
     With an issue number: the labels that make the claim WARN that the issue is parked (#2518) --
     it still claims, and the closing line points at the warning instead of "the work starts here".
-    Default on that route: 'needs-info' and 'needs-decision', the labels sweep-issues skips on --
-    blocked on the submitter, and waiting on the owner's choice (#2519).
+    Default on that route: 'needs-info', 'needs-decision' and 'awaiting-recurrence', the labels
+    sweep-issues skips on -- blocked on the submitter, waiting on the owner's choice (#2519), and
+    waiting on a first reproducible recurrence (#2587).
 
 .PARAMETER SkipIssue
     With -Candidates: issue numbers held out of this round by hand.
@@ -159,7 +160,7 @@
     ./scripts/task/claim-issue.ps1 '#1234' -DryRun
 
 .EXAMPLE
-    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel needs-info,needs-decision
+    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel needs-info,needs-decision,awaiting-recurrence
 
 .EXAMPLE
     ./scripts/task/claim-issue.ps1 1234 -Tag
@@ -221,13 +222,16 @@ if ($Marker.Count -eq 0) { $Marker = @('claim-tag') }
 # a held issue handed out.
 $SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
 # THE SINGLE-ISSUE ROUTE HONOURS THE SWEEP'S PARKING LABEL BY DEFAULT (issue #2518). sweep-issues passes
-# '-SkipLabel needs-info,needs-decision' on its own command line; a person naming one issue passes
-# nothing, so without a default the route where somebody says "fix issue N" was the one route blind to
-# it. -Candidates keeps its empty default: the sweep names its labels itself. 'needs-decision' joined in #2519: an issue waiting
+# '-SkipLabel needs-info,needs-decision,awaiting-recurrence' on its own command line; a person naming
+# one issue passes nothing, so without a default the route where somebody says "fix issue N" was the one
+# route blind to it. -Candidates keeps its empty default: the sweep names its labels itself. 'needs-decision' joined in #2519: an issue waiting
 # on the owner's choice is parked just as surely, and 'needs-info' could not carry it -- in dkj-policy-bwj
-# that label means blocked on the SUBMITTER and moves the mirrored Asana card.
+# that label means blocked on the SUBMITTER and moves the mirrored Asana card. 'awaiting-recurrence'
+# joined in #2587: an issue whose only remaining step is a first reproducible occurrence was picked up
+# four times in one day, each pickup finding nothing to build. It is not 'dossier', which collects a
+# problem that demonstrably recurs and stays sweepable.
 if ($PSCmdlet.ParameterSetName -eq 'Issue' -and -not $PSBoundParameters.ContainsKey('SkipLabel')) {
-    $SkipLabel = @('needs-info', 'needs-decision')
+    $SkipLabel = @('needs-info', 'needs-decision', 'awaiting-recurrence')
 }
 $skipIssueNumbers = @()
 foreach ($s in @(Split-CommaListArgument -Value $SkipIssue)) {

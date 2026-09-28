@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
     Reports which of this workflow's canonical triage labels (the priority rungs 'prio-1' through
-    'prio-4', plus the 'dossier' kind label, #2462, and the 'needs-decision' parking label, #2519)
-    this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
+    'prio-4', plus the 'dossier' kind label, #2462, and the 'needs-decision' and 'awaiting-recurrence'
+    parking labels, #2519 and #2587) this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
     -- never creates a label itself. Issue #1895, split from #1843.
 
 .DESCRIPTION
@@ -139,6 +139,8 @@ $builtInTriageLabels = @(
     [pscustomobject]@{ Name = 'dossier'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
     # Not a rung either: the parking label for an issue awaiting the owner's choice (#2519).
     [pscustomobject]@{ Name = 'needs-decision'; Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    # And the parking label for an issue waiting on its first reproducible recurrence (#2587).
+    [pscustomobject]@{ Name = 'awaiting-recurrence'; Color = 'EDEDED'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )
 
 # @(...) WRAPS THE WHOLE if/else, NOT JUST EACH BRANCH -- the trap this repo's own manual catalogues
@@ -254,7 +256,7 @@ foreach ($label in $triageLabels) {
     Write-Host "  [missing] '$($label.Name)' -- $($label.Description)" -ForegroundColor Yellow
     # ESCAPED HERE, AND ONLY HERE (see Format-SingleQuotedArg's own docstring): this is the one line
     # that composes an actual command a person pastes, and Name/Color/Description all come from
-    # $triageLabels -- the built-in six today, but a consumer's own free-text Get-TriageLabels answer
+    # $triageLabels -- the built-in seven today, but a consumer's own free-text Get-TriageLabels answer
     # tomorrow, which test 6 in adopt-triage-labels.tests.ps1 proves fully replaces them.
     $qName = Format-SingleQuotedArg -Value $label.Name
     $qColor = Format-SingleQuotedArg -Value $label.Color

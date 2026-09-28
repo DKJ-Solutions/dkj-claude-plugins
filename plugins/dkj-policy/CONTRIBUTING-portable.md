@@ -152,8 +152,8 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `dossier` and `needs-decision`), so adopting the convention
-costs one command instead of six typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `dossier`, `needs-decision` and `awaiting-recurrence`), so
+adopting the convention costs one command instead of seven typed by hand.
 
 **`dossier` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A dossier gathers every
@@ -188,6 +188,19 @@ rather than in a conversation that has since been cleared.
 - **An issue that is only the question has one answer route.** Once the owner answers, the label comes off
   and the issue is ordinary work. Where the answer is *"neither"*, the issue closes as `not_planned` with
   that reason.
+
+**`awaiting-recurrence` parks an issue whose only remaining step is its first reproducible occurrence**
+(Dave, September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)).
+An issue with one instance that could not be reproduced, and whose diagnostic has already shipped, has
+nothing left to build until it happens again. Without a label it reads as free work, so every sweep picks
+it up, finds nothing to do and releases it. Both pickup routes skip this label by default, exactly as they
+skip `needs-decision`.
+
+- **It is not `dossier`.** A dossier collects instances of a problem that *demonstrably* recurs, so there
+  is always a next instance to read and a root cause to hunt, and it stays sweepable. An issue carrying
+  `awaiting-recurrence` has a single unreproduced instance and waits for its first reproducible one.
+- **The recurrence takes the label off.** Record the new instance as a comment, remove the label, and the
+  issue is ordinary work again. If it keeps recurring, it becomes a `dossier`.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where

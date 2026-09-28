@@ -50,8 +50,8 @@ The script:
 6. **Weighs whatever those scans surfaced** -- how far ahead of the trunk each branch is, and whether
    anything the issue names sits there and not on the trunk (below). A warning, never a refusal, and
    no git call at all where nothing was surfaced.
-7. **Warns when the issue carries a parking label** -- `needs-info` and `needs-decision` by default,
-   the labels a sweep skips on (below). A warning, never a refusal.
+7. **Warns when the issue carries a parking label** -- `needs-info`, `needs-decision` and
+   `awaiting-recurrence` by default, the labels a sweep skips on (below). A warning, never a refusal.
 8. Writes the assignee, then **reads the claim back** and fails if it did not land.
 
 ## The parameters
@@ -63,7 +63,7 @@ The script:
 - **`-DryRun`** -- read and judge, write nothing. Prints the verdict it would act on, so you can see
   **who holds an issue without taking it**.
 - **`-SkipLabel`** -- the labels that park an issue with somebody else. On this route it defaults to
-  `needs-info` and `needs-decision`; passing it replaces that default (below).
+  `needs-info`, `needs-decision` and `awaiting-recurrence`; passing it replaces that default (below).
 
 ## And a second claim, for a backlog worked by several machines (`-Tag`)
 
@@ -530,7 +530,7 @@ question the owner is for.
 ## A parking label: the issue waits on an answer, not a builder
 
 **The sweep route and this route used to disagree about one label.** [`sweep-issues`](../sweep-issues/SKILL.md)
-chooses with `-Candidates -SkipLabel needs-info,needs-decision`, so an issue parked with somebody else is
+chooses with `-Candidates -SkipLabel needs-info,needs-decision,awaiting-recurrence`, so an issue parked with somebody else is
 skipped there. This route read no labels at all, so the same issue came back `[OK] ... the work starts here`
 the moment a person named it. Measured in a consumer, September 26, 2026
 ([#2518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2518)): an issue ending in an open
@@ -538,7 +538,8 @@ choice for the owner was left alone by a sweep, and claimed through this route b
 picked one of the two options itself and shipped it.
 
 **So the issue read asks for `labels` too, and holds them against `-SkipLabel`** -- `needs-info` and
-`needs-decision` by default on this route, the labels the sweep skips on; passing `-SkipLabel` replaces
+`needs-decision` by default on this route, plus `awaiting-recurrence` since
+[#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587) -- the labels the sweep skips on; passing `-SkipLabel` replaces
 the default. On a claim or a resume where one matches, it prints a `PARKED:` verdict naming the label, the closing
 `[OK]` points at that verdict instead of *the work starts here*, and the forward line says to read the
 issue for its open question rather than to open the branch.
@@ -554,6 +555,13 @@ is filed ([#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/251
 rule is in [`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
 It is a label of its own because `needs-info` already means *blocked on the submitter* in
 `dkj-policy-bwj`, where it moves the mirrored Asana card to the blocked column.
+
+**An issue waiting on EVIDENCE is parked too, under `awaiting-recurrence`**
+([#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)). Measured September 28, 2026:
+an n=1 flake whose only remaining step was *wait for a recurrence* was picked up four times in one day,
+and each pickup ended with nothing to build. It is not `dossier`, which collects a problem that
+demonstrably recurs and stays sweepable; the rule is in the same
+[`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from) section.
 
 ## Every `gh` call is bounded, so a stall is reported rather than waited out
 
