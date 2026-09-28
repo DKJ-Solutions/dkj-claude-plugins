@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**13 / 16 minor entries** <!-- pending-tally -->
+**14 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2586-audience-note-solved-tasks · 20260928-152810Z
+
+In a repo with a live stage, the cut can now be told what the live push actually carried.
+`live-preflight` writes a live-push record, one `live` or `hold` line per theme file, and a person
+changes `live` to `hold` for anything they held back. `cut-release -LivePushRecord <file>` reads it. The
+GitHub Release body moves an entry that touched a held file from *What landed* to a new `## Not live
+yet` section (#2570). The audience note leaves that entry out, so the note and the body can no longer
+contradict each other the way they did at a BWJ store's v1.3.0. A new optional seam,
+`Get-ReleaseNoteTaskLink`, drafts the audience section as solved tasks instead. It lists one item per
+issue that carries a task marker, and only for a storefront change that is live. It has no PR links
+(#2586).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Both documents are decided from one input rather than two, which is what the v1.3.0 contradiction
+required. A store answering the seam gets an audience note that needs rewording but not pruning. Until
+now every cut left the developer prose and PR links to delete by hand.
+
+**Score:** 3
+
+#### Pull Request
+
+The audience note drafts from solved Asana tasks, and the GitHub body separates what is not live yet
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2596](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2596)
+
+---
 
 ### DEPLOY: fix/2589-live-backup-restore · 20260928-144047Z
 
