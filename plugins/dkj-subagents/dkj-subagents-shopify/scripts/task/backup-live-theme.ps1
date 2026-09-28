@@ -352,6 +352,11 @@ if ($DryRun) {
         $shortfall = $null
         if ($null -ne $verdict -and $verdict.Verdict -eq 'short') {
             $missing = Get-ThemeShortfallPaths -SourcePaths $source.Paths -CopyPaths $copyPaths
+            # THE COMMIT IS PINNED AND PRINTED, NOT LEFT AS 'HEAD' (#2589). A restore reads these paths back
+            # from the repo days later, when HEAD has moved; the backup is only a rollback for them at the
+            # commit it was verified against, so every compare uses that one id and the output names it.
+            $verifiedAt = ([string](Invoke-SyncGitQuiet rev-parse HEAD | Where-Object { $_ } | Select-Object -First 1)).Trim()
+            if (-not $verifiedAt) { $verifiedAt = 'HEAD' }
             # ORDINAL, NOT @{}: a hashtable literal is case-insensitive, and two live paths differing only in
             # case would collapse onto one key and share one state -- a refusal read as a pass (review of #2568).
             $trunkState = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::Ordinal)
@@ -360,7 +365,7 @@ if ($DryRun) {
                 $bytes = $null
                 try { $bytes = [System.IO.File]::ReadAllBytes($liveFile) } catch { $bytes = $null }
                 if ($null -eq $bytes) { $trunkState[$p] = 'unreadable'; continue }
-                $stored = Get-GitStoredBlobId -Rev 'HEAD' -Path $p
+                $stored = Get-GitStoredBlobId -Rev $verifiedAt -Path $p
                 if (-not $stored) { $trunkState[$p] = 'absent'; continue }
                 $rawId = Get-GitRawBlobId -Bytes $bytes
                 $strippedId = Get-GitRawBlobId -Bytes (Get-CrStrippedBytes -Bytes $bytes)
@@ -368,7 +373,7 @@ if ($DryRun) {
             }
             $shortfall = Get-ThemeShortfallVerdict -MissingPaths $missing -TrunkState $trunkState
             Write-Host ''
-            Write-Host "  the copy lacks $(@($missing).Count) path(s) live holds, each held against the trunk at HEAD:"
+            Write-Host "  the copy lacks $(@($missing).Count) path(s) live holds, each held against the trunk at $($verifiedAt):"
             foreach ($row in $shortfall.Rows) {
                 # #2248: a theme path is store content -- foreign text -- so it is printed through the guard.
                 Write-Host "    $($row.State.PadRight(10)) $(Format-SafeProseToken -Value $row.Path)" -ForegroundColor $(if ($row.State -eq 'identical') { 'Yellow' } else { 'Red' })
@@ -377,7 +382,7 @@ if ($DryRun) {
 
         if ($null -ne $shortfall -and $shortfall.Accepted) {
             Write-Host "  verified WITH EXCEPTIONS: $($verdict.Count) of $sourceCount file(s); $($shortfall.Reason)." -ForegroundColor Yellow
-            Write-Host '  the copy is the rollback for every other file; for the paths above it is the repo at HEAD.' -ForegroundColor Yellow
+            Write-Host "  the copy is the rollback for every other file; for the paths above it is the repo at $verifiedAt." -ForegroundColor Yellow
         } elseif ($null -eq $verdict -or $verdict.Verdict -ne 'complete') {
             $why = if ($null -eq $verdict) { 'no samples were taken' } else { $verdict.Reason }
             if ($null -ne $shortfall) { $why = "$why; and $($shortfall.Reason)" }
@@ -450,5 +455,6 @@ Write-Host "Backup complete: '$backupName' (id $backupId) is the one verified co
 if ($null -ne $shortfall -and $shortfall.Accepted) {
     # SAID AGAIN ON THE LAST LINE because it is the line a caller reads, and live-preflight prints this
     # run's output whole: an exception named only in the middle of the poll log is one nobody finds later.
-    Write-Host "  with $(@($shortfall.Rows).Count) path(s) it could not copy, each held by the trunk at HEAD exactly as live holds it -- listed under [2/3]." -ForegroundColor Yellow
+    Write-Host "  with $(@($shortfall.Rows).Count) path(s) it could not copy, each held by the trunk at $verifiedAt exactly as live holds it -- listed under [2/3]." -ForegroundColor Yellow
+    Write-Host '  to restore from this backup, see theme-lifecycle''s "Restore live from the backup" section.' -ForegroundColor Yellow
 }

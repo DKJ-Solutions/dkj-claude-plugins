@@ -162,6 +162,11 @@ would want:
 - Losing the after-the-push baseline costs little: the only difference between the two copies is this
   repo's own push list, and that is in git.
 
+**How to use that rollback point** is the
+[`theme-lifecycle`](../theme-lifecycle/SKILL.md#restore-live-from-the-backup) page's restore section
+(#2589): a person publishes the backup, and a **WITH EXCEPTIONS** copy first gets its missing paths
+back from the commit it was verified against.
+
 A repo that wants the baseline reading keeps calling it at the cut, unchanged. The shared script no
 longer asserts either -- it states what it **guarantees** and names both moments.
 
