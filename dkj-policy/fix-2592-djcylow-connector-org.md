@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#2592: `connectors/djcylow-react.json` names `DaveKJohn/djcylow-react`, but the repo was transferred to
+`DKJ-Solutions/djcylow-react`. Wherever the checkout exists, `check-connectors.ps1` sees that `origin`
+does not match the field and skips the whole block with an `[ERROR]`. I checked the reason as well as the
+symptom: `gh repo view DKJ-Solutions/djcylow-react` resolves (public, trunk `main`), and
+`gh api repos/DaveKJohn/djcylow-react` returns `DKJ-Solutions/djcylow-react`, so the old slug is only
+the transfer redirect. On this machine the checkout is absent, so the block reads `[SKIP]` here.
+
+Scope: the manifest's `repo` field only. Every other `DaveKJohn/djcylow-react` in the tree is a
+dated measurement (release changelogs, script comments, the connectors README), and under #952 it keeps
+the name it was written with.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Repoint `repo` to `DKJ-Solutions/djcylow-react` and add a dated `MOVED` line to `notes`.
 
 ### TEST
 
+- [x] The manifest parses and `repo` reads `DKJ-Solutions/djcylow-react`. No script or test pins the old
+  slug against the real register (`git grep` over `scripts/`).
+- [x] `connectors.tests.ps1`: 442 pass, 0 fail.
+
 ### DEPLOY: fix/2592-djcylow-connector-org
 
-**Score:**
+The djcylow-react connector record now names its current owner, `DKJ-Solutions/djcylow-react`. The
+record still named the pre-transfer `DaveKJohn` slug, so on any machine with that checkout
+`check-connectors` skipped the whole block with an `[ERROR]` that nobody could clear (#2592).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
+
+The djcylow-react connector record names the repo's new owner
 
