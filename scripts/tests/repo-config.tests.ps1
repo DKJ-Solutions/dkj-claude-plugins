@@ -214,7 +214,7 @@ $expectedTriage = @{
     'prio-4' = @{ Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     'dossier' = @{ Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
     'needs-decision' = @{ Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
-    'awaiting-recurrence' = @{ Color = 'EDEDED'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
+    'awaiting-recurrence' = @{ Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 }
 foreach ($l in $triageLabels) {
     Assert-Equal $expectedTriage[$l.Name].Color $l.Color "Get-TriageLabels: '$($l.Name)' colour matches this repo's own live label"

@@ -77,7 +77,7 @@ function Assert-Equal {
 # two of THOSE (and none of the four canonical ones) is the realistic shape of "this repo has not
 # adopted the convention yet", and it is what lets this scenario reach the [missing] branch at all.
 $LabelsNone    = '[{"name":"bug","color":"d73a4a","description":"unrelated default label"},{"name":"enhancement","color":"a2eeef","description":"unrelated default label"}]'
-$LabelsAll     = '[{"name":"prio-1","color":"006B75","description":"old text"},{"name":"prio-2","color":"FBCA04","description":"old text"},{"name":"PRIO-3","color":"D93F0B","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Dossier","color":"5319E7","description":"old text"},{"name":"needs-decision","color":"BFD4F2","description":"old text"},{"name":"awaiting-recurrence","color":"EDEDED","description":"old text"}]'
+$LabelsAll     = '[{"name":"prio-1","color":"006B75","description":"old text"},{"name":"prio-2","color":"FBCA04","description":"old text"},{"name":"PRIO-3","color":"D93F0B","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Dossier","color":"5319E7","description":"old text"},{"name":"needs-decision","color":"BFD4F2","description":"old text"},{"name":"awaiting-recurrence","color":"5319E7","description":"old text"}]'
 $LabelsPartial = '[{"name":"prio-1","color":"006B75","description":"old text"},{"name":"PRIO-3","color":"D93F0B","description":"old text"}]'
 $LabelsBad     = 'not json'
 
