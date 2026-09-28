@@ -87,3 +87,5 @@ Updating the plugins never fixed that file. Renaming it is what gives that speci
 
 #### Pull Request
 
+check-roster-sync names the rename for a lens under the retired spelling, instead of saying nothing needs changing
+
