@@ -528,6 +528,10 @@ try {
     Assert-True ($mergeOnGreen -match '(?m)^\s+\$env:GIT_CONFIG_COUNT = ''1''\s*$') 'the push credential is the ephemeral GIT_CONFIG_* overlay'
     Assert-True ($mergeOnGreen -match '(?m)^\s+\$env:GIT_CONFIG_KEY_0 = ''http\.https://github\.com/\.extraheader''\s*$') 'on the extraheader key actions/checkout itself uses'
     Assert-True ($mergeOnGreen -match '(?ms)- name: Ship it.*GIT_CONFIG_COUNT') 'and it is built in the ship step, the only one holding FOLD_PUSH_TOKEN'
+    # TWO .git/config FILES NOW, SO TWO IDENTITIES (Victor #19): open-pr commits a dirty branch document
+    # in pr-branch, and a hosted runner has no global identity to fall back on.
+    Assert-True ($mergeOnGreen -match '(?m)^\s+foreach \(\$tree in @\(''trusted-main'', ''pr-branch''\)\) \{\s*$') `
+        'the ship step sets the commit identity in both trees, not only where the fold commits'
     Assert-True ($mergeOnGreen -like '*NO CHECKOUT PERSISTS A CREDENTIAL*') 'the header argues the one-credential-for-both-trees trade itself (Sebastian #23, #2449)'
     Assert-True ($mergeOnGreen -notmatch '(?m)^\s*issues:\s*write\s*$') 'it holds no issues: write beside the standing credential'
     Assert-True ($mergeOnGreen -match '(?m)^\s*group:\s*merge-on-green\s*$') 'one sweep at a time, repo-wide'

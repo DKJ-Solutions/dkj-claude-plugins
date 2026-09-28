@@ -1218,9 +1218,13 @@ $mergeOnGreenRunner = @(
     '          SHIP_PR: ${{ steps.pick.outputs.pr }}',
     '          SHIP_SHA: ${{ steps.pick.outputs.sha }}',
     '        run: |',
-    '          # Commit metadata only -- who authored the fold commit, set in the tree that commits it.',
-    '          git -C trusted-main config user.name "github-actions[bot]"',
-    '          git -C trusted-main config user.email "41898282+github-actions[bot]@users.noreply.github.com"',
+    '          # Commit metadata only, in BOTH trees: trusted-main commits the fold, and open-pr commits a',
+    '          # dirty branch document in pr-branch. The two checkouts share no .git/config, and a hosted',
+    '          # runner has no global identity.',
+    '          foreach ($tree in @(''trusted-main'', ''pr-branch'')) {',
+    '            git -C $tree config user.name "github-actions[bot]"',
+    '            git -C $tree config user.email "41898282+github-actions[bot]@users.noreply.github.com"',
+    '          }',
     '',
     '          # THE EPHEMERAL PUSH CREDENTIAL. git''s GIT_CONFIG_COUNT/KEY_n/VALUE_n overlay reaches every git',
     '          # process this step starts, ship-pr''s own children included, without writing a .git/config in',
@@ -1332,7 +1336,7 @@ function Write-MergeOnGreenShapeVerdict {
     <#
         One line about the checkout SHAPE of an existing merge-on-green.yml (#2449): the single
         token-bearing workspace this scaffolder wrote before #2449, the three sibling checkouts it writes
-        now, or neither. Silent on the current shape.
+        now, or neither. It prints nothing when the file already has the current shape.
 
         WHY THIS IS SAID AT ALL. This scaffolder never rewrites an existing runner, so a consumer adopted
         before #2449 keeps the old shape -- the branch's own seams run beside FOLD_PUSH_TOKEN -- and a re-run
