@@ -41,7 +41,7 @@
 
 #2600: a consumer still holding `<g>-<id>-extension.md` (with no current-spelling lens) had that file
 admitted as "unknown vocabulary" by `Get-UnknownLensNameById`, so the missing-lens finding was held
-under `[LENS-NAMING]` -- which says *nothing in the repo needs changing, refresh the plugins*. For the
+under `[LENS-NAMING]`, which says "NOTHING IN THE REPO NEEDS CHANGING" and prescribes a plugin refresh. For the
 retired spelling the opposite holds.
 
 **Reason verified against the tree, not only the symptom:** the Lens row's `AlsoRead` is `@()` (#2292,
@@ -62,13 +62,17 @@ Repair, the issue's second option: a failure of its own naming the `git mv`. The
 
 ### TEST
 
-- [x] `roster-sync.tests.ps1`: 421 pass, 0 fail. Against `origin/main`'s script: 5 of 11w's asserts fail,
+- [x] `roster-sync.tests.ps1`: 422 pass, 0 fail. Against `origin/main`'s script: 5 of 11w's asserts fail,
   so the test reproduces the defect.
+- [x] Review pass. Victor: no bugs; a legacy `.claude/extensions/` case added to 11w. Unquoted `git mv`
+  paths and the hard-coded `#2292` left as they are (fixed paths without spaces; history, not a pointer).
+  Sebastian: both paths now go through `Format-SafePathToken`, since a candidate lens dir carries a
+  directory name off disk into session context. Edith: two PLAN/DEPLOY wordings tightened.
 
 ### DEPLOY: fix/2600-lens-naming-retired-spelling
 
 `check-roster-sync` no longer tells a repo whose lens is still named `<g>-<id>-extension.md` that
-nothing needs changing. That spelling has been unread since #2292, so the check now reports the
+nothing needs changing. No reader has resolved that spelling since #2292, so the check now reports the
 specialist as running without its lens, and prints the `git mv` to the current name (#2600).
 
 **Score:** 2
