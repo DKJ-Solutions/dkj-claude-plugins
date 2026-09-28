@@ -53,10 +53,10 @@ and one register record was stale (#2592). The other three kinds are out of scop
 - [x] Record the retirement in `connectors/README.md` and in check 7's docstring in
   `scripts/sync/check-connectors.ps1`. What becomes of that check is filed as #2591.
 - [x] Update the test fixtures that still wrote lenses as `<g>-<id>-extension.md`, and invert the
-  assertions that pinned the old spelling as tolerated. Six suites changed. Most failures came from one
+  assertions that pinned the old spelling as tolerated. Seven suites changed. Most failures came from one
   shared fixture helper per suite that wrote every generic lens under the old name; those were
   respelled. The Lens dual-read asserts, including `connectors.tests.ps1` 14b/14e/14f, now pin the
-  post-retirement behaviour and cite #2292.
+  post-retirement behaviour and cite #2292. `check-plugin-integrity-roster` check 3d moved its stray and whole-kind cases from Lens onto Manual, which still has an `AlsoRead` row.
 - [x] Point `teardown.ps1`'s no-lib fallback lens filter at `*-lens.md`. Code review found it still
   held only the retired `*-extension.md` filter, so it would have diverged from the lib path.
   `check-consumer-drift.ps1` now reports a lens under the retired name as missing. That is intended,
@@ -65,7 +65,7 @@ and one register record was stale (#2592). The other three kinds are out of scop
 ### TEST
 
 - [x] The affected suites are green: check-report-lib, connectors, consumer-lens-paths,
-  policy-drift-report, roster-sync and sync-roster, plus eight neighbouring suites that were already
+  policy-drift-report, roster-sync, sync-roster and check-plugin-integrity-roster, plus eight neighbouring suites that were already
   green. The full gate runs through `open-pr`.
 
 ### DEPLOY: feat/2292-retire-lens-alsoread
