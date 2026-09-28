@@ -408,6 +408,16 @@ mirror was working exactly as written, and reached 4 of the 15 issues that carry
 candidates in its log and moves on. It never guesses which ticket an issue belongs to, and the way to
 settle it is to add a marker.
 
+**The same three matchers answer every OTHER document that names an issue's Asana task** -- an item in
+an audience release document above all, since no script writes that link and a session picks it by
+hand. **Never take the first Asana URL in the body.** A body can link a task that is only context -- a
+`**Referentie:**` line naming the CRO test a build came out of -- and that one usually comes first.
+Measured in `BWJ-Development/smartwatchbanden`, v2.45.0 (inbound
+[#2567](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2567)): an issue carried the CRO test's
+task on its reference line and the development task in its marker, and the audience item linked the
+test. A reader checking whether their own ticket had shipped could not find it. Where the matchers
+resolve to nothing, the item gets no Asana link. It never gets a guessed one.
+
 #### The paste-ready block -- written BEFORE the close, by the session that shipped the work
 
 **The order is the rule** (BWJ/Maikel, September 17, 2026, inbound

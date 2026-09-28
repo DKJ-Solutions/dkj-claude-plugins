@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Inbound #2567 (smartwatchbanden v2.45.0): an audience item linked the Asana task on an issue's reference
+line rather than the one in its marker.
+
+#### The reason, verified
+
+Grepped the source: no script writes an Asana link into an audience document (`release-lib.ps1`,
+`cut-release.ps1`, `new-internal-note.ps1` and the cut skill name none), so a session picks it by hand.
+`WORKFLOW-portable.md` already states the three matchers (marker, header row, sole URL), but only for the
+mirror. The proposed mechanical lookup is left out: there is no builder writing the link to put it in.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] One paragraph under the matchers in `WORKFLOW-portable.md`: the same matchers answer every other
+      document that names an issue's Asana task, the first URL in the body never does, and no match
+      means no link.
 
 ### TEST
 
+- [x] Docs only; the lint gate (dead links, shape) runs in `ship-pr`.
+
 ### DEPLOY: docs/2567-audience-asana-link-from-marker
 
-**Score:**
+The BWJ ticket-handling page now says which Asana task an audience release item links to (inbound
+[#2567](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2567)). It is the task the mirror's
+three matchers resolve, marker first, and never the first Asana URL in the issue body. A reference line
+naming the CRO test a build came from is context, not the ticket.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A colleague reading a store's release notes finds their own development ticket linked, and not the CRO
+test it came out of.
+
+**Score:** 2
 
 #### Pull Request
 
