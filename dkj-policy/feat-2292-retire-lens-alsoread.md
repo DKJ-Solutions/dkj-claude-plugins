@@ -39,11 +39,25 @@
 
 ### PLAN
 
+Close #2292: every consumer is over the #2130 lens rename, so the Lens row's `AlsoRead` in
+`Get-SpecialistFileShapes` empties. The condition was measured on 2026-09-28 against the remote trunks.
+Five of the six consumers hold only `specialist-<g>-<id>-lens.md`. The sixth,
+`DKJ-Solutions/djcylow-react`, removed its `.claude/specialists/` layer that day (`32397532`) and holds
+no lens file at all. The local roll-up could only say `NOT ANSWERABLE`, because one checkout was absent
+and one register record was stale (#2592). The other three kinds are out of scope and keep their rows.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Empty the Lens `AlsoRead` in `scripts/lib/check-report-lib.ps1` and update the banner, then copy
+  the file byte-identical into its three plugin mirrors.
+- [x] Record the retirement in `connectors/README.md` and in check 7's docstring in
+  `scripts/sync/check-connectors.ps1`. What becomes of that check is filed as #2591.
+- [ ] Update the test fixtures that still wrote lenses as `<g>-<id>-extension.md`, and invert the
+  assertions that pinned the old spelling as tolerated.
 
 ### TEST
+
+- [ ] The affected suites are green, and the full gate passes through `open-pr`.
 
 ### DEPLOY: feat/2292-retire-lens-alsoread
 
