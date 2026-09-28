@@ -39,8 +39,8 @@
 
 ### PLAN
 
-Inbound #2564: the `Wording` seam can rename the audience note's two hand-written sections but not omit
-them. The narrow repair the body asks for, as a new optional seam `Get-ReleaseNoteSections`. The wider
+Inbound #2564: the `Wording` seam can rename any of the audience note's three sections but not omit
+one. The narrow repair the body asks for, as a new optional seam `Get-ReleaseNoteSections`. The wider
 shape two later comments describe (a note drafted from the `asana-task` markers, live-only) stays open
 on the issue and is not built here, so this ships with `-NoResolves`.
 
