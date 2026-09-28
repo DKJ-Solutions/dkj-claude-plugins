@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Untrack wrangler's account cache, which `bbcbdfd7` committed from a run at the repo root, and ignore the
+directory so the next run cannot re-add it. Purging it from history is the owner's call, filed as #2582.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `git rm --cached .wrangler/cache/wrangler-account.json` (the file stays on disk: it is wrangler's)
+- [x] Anchored `/.wrangler/` rule in `.gitignore`, with its reason
 
 ### TEST
 
+- [x] `git check-ignore -v` names the new rule for the cache file
+
 ### DEPLOY: fix/2581-untrack-wrangler-cache
 
-**Score:**
+Wrangler's own account cache (`.wrangler/cache/wrangler-account.json`, holding a Cloudflare account id
+and an account e-mail) was tracked on `main` in this public repo. It is untracked now, and an anchored
+`/.wrangler/` rule in `.gitignore` keeps a wrangler run from the repo root from adding it again. The
+copy in history is a separate decision for the owner, #2582. (#2581)
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
