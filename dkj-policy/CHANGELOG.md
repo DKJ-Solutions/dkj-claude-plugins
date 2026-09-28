@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**15 / 19 minor entries** <!-- pending-tally -->
+**15 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2595-plugin-link-illegal-path-chars · 20260928-162145Z
+
+A link target holding `<`, `>`, `"` or `|` no longer crashes `check-plugin-integrity.ps1`. Under Windows PowerShell 5.1 the
+path calls in check 4 and `[plugin-link]` threw on those characters. That ended the whole lint with an error that named no
+file. Both scans now report such a target as a finding, and `[plugin-link]` gives its line. The measured trigger was a
+placeholder `(<url>)` inside a code span that opened on the line before (#2595).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+A link target with illegal path characters is a finding, not a lint crash
+
+[PR #2599](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2599)
+
+---
 
 ### DEPLOY: fix/2594-contract-count-message · 20260928-160645Z
 
