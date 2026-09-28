@@ -39,19 +39,60 @@
 
 ### PLAN
 
+Inbound #2574 (dkj-music-library, 5.9.0): a ship running in another repo's window drew its bar in this
+session's statusline.
+
+#### The reason, verified
+
+Read in the tree: `Get-RunProgressRoot` is one per-user directory, the record written by
+`Write-RunProgress` has no checkout field, and `show-progress.ps1` drew every live record without looking
+at the payload's workspace (which it read only afterwards, for the context line).
+
+#### The two choices the issue left to the source
+
+- **Scope is the checkout, not the repo.** A lane is a separate worktree at its own path, so its runs
+  draw in the lane's window. Matching on the remote URL would need a git call per write or per read, and
+  this lib exists to avoid exactly that cost.
+- **A record without the field is shown, as before.** Hiding it would make a run from an older writer
+  invisible, and it disappears after the next release anyway.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Write-RunProgress` stamps `workspace`, defaulting to the writer's current directory (no subprocess).
+- [x] `Test-RunProgressInWorkspace`: path containment in either direction, case-insensitive; either side
+      empty matches.
+- [x] `Get-LiveRunProgress -Workspace` filters what it returns and still reaps every dead record.
+- [x] `show-progress.ps1` reads the payload before the bars and scopes them to `workspace.project_dir`,
+      then `current_dir`, then `CLAUDE_PROJECT_DIR`, and never to its own file location.
+- [x] Mirrors copied: `plugins/dkj-policy` (lib and statusline) and `plugins/dkj-subagents/dkj-subagents-shopify` (lib).
 
 ### TEST
 
+- [x] `run-progress.tests.ps1` section 13b: the matcher, the default workspace, the filter, the legacy
+      record, and an end-to-end statusline run that draws this checkout's run and not the other one.
+      76/76 green; exits 1 against the old lib and statusline.
+- [x] The helper now clears `CLAUDE_PROJECT_DIR` for its child and escapes the payload's quotes (5.1
+      strips a bare `"` from a native argument), so the existing asserts do not depend on where the
+      gate runs.
+- [x] Neighbours green: `shared-scripts`, `source-repo-guard`, `adopt-statusline`.
+
 ### DEPLOY: fix/2574-progress-bar-per-checkout
 
-**Score:**
+The statusline's progress bar now shows only the runs of the checkout the session is in (inbound
+[#2574](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2574)). Records sit in one directory
+per machine, so a ship in another repo's window used to draw in every session, and read as a gate running
+in the repo in front of you. Each record now carries its writer's working directory, and the statusline
+draws a record only when that path and the session's workspace contain each other. A record from an
+older writer, or a session whose payload names no workspace, is shown as before.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Anyone working in two repos at once sees only their own repo's gate and ship in each window, instead of a
+bar that looks like work running where it is not.
+
+**Score:** 2
 
 #### Pull Request
 

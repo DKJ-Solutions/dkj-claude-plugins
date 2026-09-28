@@ -259,9 +259,20 @@ Assert-True (Complete-RunProgress -Id 'never-existed' -Root $root) `
 Write-Host '== show-progress ==' -ForegroundColor Cyan
 
 function Invoke-StatusLine {
+    # CLAUDE_PROJECT_DIR IS CLEARED FOR THE CHILD (#2574): it is the scope's fallback when the payload
+    # names no workspace, so inheriting it from a session running this suite would make every assert
+    # below depend on where the gate happened to be started.
     param([string]$Root, [string]$Payload = '{}')
-    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $StatusLine -Root $Root -Payload $Payload 2>&1
-    return @{ Lines = @($out | ForEach-Object { "$_" }); ExitCode = $LASTEXITCODE }
+    $savedProjectDir = $env:CLAUDE_PROJECT_DIR
+    try {
+        $env:CLAUDE_PROJECT_DIR = $null
+        # QUOTES ESCAPED for the native call: Windows PowerShell 5.1 strips a bare '"' from an argument
+        # to a child process, so a JSON payload would arrive as not-JSON and every scope assert would
+        # be testing the unparsed fallback instead.
+        $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $StatusLine -Root $Root -Payload ($Payload -replace '"', '\"') 2>&1
+        $code = $LASTEXITCODE
+    } finally { $env:CLAUDE_PROJECT_DIR = $savedProjectDir }
+    return @{ Lines = @($out | ForEach-Object { "$_" }); ExitCode = $code }
 }
 
 $root = New-Root 'statusline'
@@ -281,6 +292,43 @@ Assert-True ($withBar.Lines[0] -like '`[######*') 'show-progress: the bar is the
 $garbage = Invoke-StatusLine -Root $root -Payload 'not json'
 Assert-True ($garbage.ExitCode -eq 0) 'show-progress: a payload it cannot parse still exits 0'
 Assert-True ($garbage.Lines[0] -like '`[######*') 'show-progress: and the bar is still drawn'
+
+# --- 13b. the bar is scoped to the session's own checkout (#2574) --------------------------------
+# The record directory is machine-wide, so a ship in one repo's window drew its bar in every session.
+Write-Host '== workspace scope ==' -ForegroundColor Cyan
+$wsBase = Join-Path ([System.IO.Path]::GetTempPath()) "rp-ws-$PID"
+$wsA = Join-Path $wsBase 'repo'
+$wsB = Join-Path $wsBase 'repo2'
+Assert-True (Test-RunProgressInWorkspace -RecordWorkspace $wsA -SessionWorkspace $wsA) 'scope: the same checkout matches'
+Assert-True (Test-RunProgressInWorkspace -RecordWorkspace $wsA.ToUpperInvariant() -SessionWorkspace "$wsA\") 'scope: case and a trailing separator do not matter'
+Assert-True (Test-RunProgressInWorkspace -RecordWorkspace (Join-Path $wsA 'scripts') -SessionWorkspace $wsA) 'scope: a run started from a subdirectory belongs to its checkout'
+Assert-True (Test-RunProgressInWorkspace -RecordWorkspace $wsA -SessionWorkspace (Join-Path $wsA 'docs')) 'scope: a session in a subdirectory sees its checkout''s runs'
+Assert-True (-not (Test-RunProgressInWorkspace -RecordWorkspace $wsB -SessionWorkspace $wsA)) 'scope: a sibling sharing a name prefix is another checkout'
+Assert-True (Test-RunProgressInWorkspace -RecordWorkspace '' -SessionWorkspace $wsA) 'scope: a record from an older writer (no workspace) is still shown'
+Assert-True (Test-RunProgressInWorkspace -RecordWorkspace $wsB -SessionWorkspace '') 'scope: a session naming no workspace sees every run, as before'
+
+$root = New-Root 'workspace'
+Push-Location -LiteralPath $root
+try { [void](Write-RunProgress -Id 'cwd' -Label 'from cwd' -Root $root) } finally { Pop-Location }
+$cwdRecord = [System.IO.File]::ReadAllText((Join-Path $root 'cwd.json')) | ConvertFrom-Json
+Assert-Equal ((Resolve-Path -LiteralPath $root).ProviderPath) "$($cwdRecord.workspace)" 'Write-RunProgress: the workspace defaults to the writer''s current directory'
+Complete-RunProgress -Id 'cwd' -Root $root | Out-Null
+
+[void](Write-RunProgress -Id 'mine' -Label 'mine run' -Root $root -Workspace $wsA)
+[void](Write-RunProgress -Id 'theirs' -Label 'theirs run' -Root $root -Workspace $wsB)
+$legacy = [ordered]@{ id = 'legacy'; label = 'legacy run'; note = ''; current = $null; total = $null
+    startedUtc = (Get-Date).ToUniversalTime().ToString('o'); updatedUtc = (Get-Date).ToUniversalTime().ToString('o')
+    writerPid = $PID; writerStartTicks = (Get-RunProgressProcessStartTicks) }
+[System.IO.File]::WriteAllText((Join-Path $root 'legacy.json'), ($legacy | ConvertTo-Json -Compress))
+$scoped = @(Get-LiveRunProgress -Root $root -Workspace $wsA | ForEach-Object { $_.Id } | Sort-Object)
+Assert-Equal 'legacy,mine' ($scoped -join ',') 'Get-LiveRunProgress -Workspace: this checkout''s run and the older record, not the other checkout''s'
+Assert-Equal 3 @(Get-LiveRunProgress -Root $root).Count 'Get-LiveRunProgress: with no -Workspace every live run is returned, as before'
+Assert-True (Test-Path -LiteralPath (Join-Path $root 'theirs.json')) 'Get-LiveRunProgress: another checkout''s live record is left out, never reaped'
+
+$scopedLine = Invoke-StatusLine -Root $root -Payload (@{ workspace = @{ current_dir = $wsA; project_dir = $wsA } } | ConvertTo-Json -Compress)
+$scopedText = $scopedLine.Lines -join "`n"
+Assert-True ($scopedText.Contains('mine run')) 'show-progress: the session''s own checkout''s run is drawn'
+Assert-True (-not $scopedText.Contains('theirs run')) 'show-progress: another checkout''s run is not drawn'
 
 # --- 14. the gate publishes through native-capture-lib ------------------------------------------
 Write-Host '== gate wiring ==' -ForegroundColor Cyan
