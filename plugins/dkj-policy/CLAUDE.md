@@ -31,7 +31,9 @@ These rules take precedence over any convenience.
 
 - **Merging work with a visible result.** If a change produces something the owner has to judge by
   eye (a frontend, styling, rendered output, an artifact), the branch stops and reports instead of
-  merging. No automated gate can prove that something *looks* right.
+  merging, **and the checkout stays on that branch until the owner has looked**. The owner judges the
+  working copy, so switching to the trunk removes the very thing waiting to be judged. No automated gate
+  can prove that something *looks* right.
 - **A release or version bump** (raising a plugin or package `version`, creating a tag) is done only
   on explicit request. **The closing steps of a cut that was asked for are covered by that request**,
   up to and including publishing the release document. The bump and the tag are the irreversible act,
@@ -90,6 +92,15 @@ size it was granted at.
 - **Within a branch, be proactive about structure.** Create new folders and files as a topic arrives,
   without asking about the file structure itself. Do ask about the content if it is sensitive or
   uncertain.
+- **Split a file wherever the split keeps loaded context smaller** (Dave, September 24, 2026). What
+  every session pays for is whatever loads before the work is known, so a document is divided by
+  **when** its content is needed, not by topic or importance. What governs every turn stays on the
+  always-on path. What applies only once a particular file, situation or task is in front of you moves
+  to where it loads on demand: a `paths:`-scoped rule, a manual read at the handover, a skill page. Split
+  as far as that helps, and no further. Halves that always load together save nothing and cost a hop, and
+  a rule that must hold whichever files a turn touches stays always-on, because an on-demand rule is gone
+  after a compaction until something reloads it. Each half names the other, so neither becomes a file
+  nothing reads.
 - **When priority is unclear, ask about deadlines or urgency** instead of guessing.
 - **Approval questions are rare, not the norm.** Interrupt the owner only for what is irreversible,
   outward-facing or genuinely risky. Routine work (git, bash, config, branches, commits, tooling,

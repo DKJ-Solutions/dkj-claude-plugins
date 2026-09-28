@@ -645,7 +645,7 @@ function Test-GitHubOwnerNameSlug {
     }
     $owner = $Slug.Substring(0, $slash)
     $name  = $Slug.Substring($slash + 1)
-    if ($owner -notmatch '^[A-Za-z0-9][A-Za-z0-9-]*$' -or $name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+    if ($owner -cnotmatch '^[A-Za-z0-9][A-Za-z0-9-]*$' -or $name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
         return @{ Ok = $false; Reason = 'not a valid GitHub owner/name slug -- rejected before it became an API call' }
     }
     return @{ Ok = $true; Reason = '' }
@@ -655,14 +655,14 @@ function Test-PluginNameSlug {
     <# The plugin-name part of a plugin id (before '@') must be a simple lowercase slug before it
        becomes a path segment. #>
     param([Parameter(Mandatory = $true)][string]$Name)
-    return ($Name -match '^[a-z0-9][a-z0-9-]*$')
+    return ($Name -cmatch '^[a-z0-9][a-z0-9-]*$')
 }
 
 function Test-PluginMarketplaceSlug {
     <# The marketplace part of a plugin id (after '@') must be a simple slug before it becomes a
        path segment. #>
     param([Parameter(Mandatory = $true)][string]$Marketplace)
-    return ($Marketplace -match '^[A-Za-z0-9][A-Za-z0-9._-]*$')
+    return ($Marketplace -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$')
 }
 
 # --- Which plugins are enabled here? (inbound #294) ----------------------------------------------
@@ -1498,11 +1498,14 @@ function Get-SpecialistFileShapes {
        swapped that kind's row here; no reader was touched by any of them, because no reader names a
        shape. A row whose AlsoRead is empty is a kind with one spelling, which is where every kind ends
        up once the last cache carrying the old one is gone -- and that pruning is a decision with a date
-       on it, not a tidy-up to fold into the rename. FOR Lens THAT DECISION HAS AN ISSUE AND A MEASURABLE
-       CONDITION: #2292, keyed on check-connectors' lens-naming roll-up (#2289), which is the register
-       answering Dave's "once the connector register shows all six are over". The other three kinds have
-       neither -- they are keyed on which plugin CACHES still carry the old spelling, which no register
-       here can see -- so do not read that roll-up as covering them.
+       on it, not a tidy-up to fold into the rename. Lens IS THE FIRST ROW TO GET THERE, and its date is
+       September 28, 2026 (#2292): the decision was keyed on check-connectors' lens-naming roll-up (#2289),
+       the register answering Dave's "once the connector register shows all six are over", and on that day
+       five consumers held only the written spelling on their remote trunks and the sixth held no lens
+       file at all, so no tree anywhere was still read through '<g>-<id>-extension.md'. A consumer that reappears on that
+       spelling now reads as Unmatched rather than as a tolerated shape -- that is what retiring it means.
+       The other three kinds have no such condition -- they are keyed on which plugin CACHES still carry
+       the old spelling, which no register here can see -- so do not read that roll-up as covering them.
 
        THE TWO HALVES OF A STEP ARE SEPARATE ACTS, AND CHECK 3d IS WHAT PAIRS THEM -- the hazard this
        arrangement creates, and the one to read before the next step. AlsoRead keeps every READER
@@ -1532,7 +1535,7 @@ function Get-SpecialistFileShapes {
         Subagent = @{ Current = @{ Prefix = 'specialist-'; Stem = 'subagent' }
                       AlsoRead = @(@{ Prefix = ''; Stem = 'agent' }) }
         Lens     = @{ Current = @{ Prefix = 'specialist-'; Stem = 'lens' }
-                      AlsoRead = @(@{ Prefix = ''; Stem = 'extension' }) }
+                      AlsoRead = @() }   # '<g>-<id>-extension.md' retired, #2292
     }
     $entry = $table[$Kind]
     $current = [pscustomobject]@{ Prefix = [string]$entry.Current.Prefix; Stem = [string]$entry.Current.Stem }

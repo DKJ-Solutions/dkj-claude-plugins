@@ -119,8 +119,8 @@ function New-FixtureConsumer {
 
     $lines = @('# Roster', '')
     foreach ($id in $RosterIds) {
-        if ($RosterStyle -eq 'list') { $lines += "- $id ([$id-extension.md](x))" }
-        else { $lines += "| $id | [$id-extension.md](x) |" }
+        if ($RosterStyle -eq 'list') { $lines += "- $id ([specialist-$id-lens.md](x))" }
+        else { $lines += "| $id | [specialist-$id-lens.md](x) |" }
     }
     [System.IO.File]::WriteAllText((Join-Path $root 'CLAUDE.md'), ($lines -join "`n"))
 
@@ -129,7 +129,7 @@ function New-FixtureConsumer {
         New-Item -ItemType Directory -Path $pdir -Force | Out-Null
         foreach ($id in $LensIds) {
             $body = if ($LensContent.ContainsKey($id)) { $LensContent[$id] } else { "existing-lens-$id" }
-            [System.IO.File]::WriteAllText((Join-Path $pdir "$id-extension.md"), $body)
+            [System.IO.File]::WriteAllText((Join-Path $pdir "specialist-$id-lens.md"), $body)
         }
     }
     if ($SeamLensIds.Count -gt 0) {
@@ -137,7 +137,7 @@ function New-FixtureConsumer {
         New-Item -ItemType Directory -Path $sdir -Force | Out-Null
         foreach ($id in $SeamLensIds) {
             $body = if ($LensContent.ContainsKey($id)) { $LensContent[$id] } else { "existing-lens-$id" }
-            [System.IO.File]::WriteAllText((Join-Path $sdir "$id-extension.md"), $body)
+            [System.IO.File]::WriteAllText((Join-Path $sdir "specialist-$id-lens.md"), $body)
         }
     }
     return $root
@@ -192,8 +192,8 @@ try {
     Assert-Match '06-17' $r.Out 'integration: proposed row names the id 06-17'
     Assert-Match 'Edith' $r.Out 'integration: proposed row names the agent Edith'
     Assert-Match 'Final Editor' $r.Out 'integration: proposed row carries the description'
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c "$lensRel\06-17-extension.md") -PathType Leaf) -or `
-                 (([System.IO.File]::ReadAllText((Join-Path $c "$lensRel\06-17-extension.md"))) -eq 'existing-lens-06-17')) `
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c "$lensRel\specialist-06-17-lens.md") -PathType Leaf) -or `
+                 (([System.IO.File]::ReadAllText((Join-Path $c "$lensRel\specialist-06-17-lens.md"))) -eq 'existing-lens-06-17')) `
                 'integration: 06-17 existing lens not turned into a scaffold'
 
     # 06-24 must NOT also be proposed as a roster row (it IS in the roster).
@@ -230,8 +230,8 @@ try {
     # the row falls back to the id plus a placeholder rather than inventing a name.
     Assert-Match 'add a short description' $r.Out 'persona staging: the row carries the placeholder description a persona cannot supply'
     # A satisfied persona must not be staged at all -- the skill stays as quiet as the check.
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c "$lensRel\05-05-extension.md")) -or `
-                 (([System.IO.File]::ReadAllText((Join-Path $c "$lensRel\05-05-extension.md"))) -eq 'existing-lens-05-05')) `
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $c "$lensRel\specialist-05-05-lens.md")) -or `
+                 (([System.IO.File]::ReadAllText((Join-Path $c "$lensRel\specialist-05-05-lens.md"))) -eq 'existing-lens-05-05')) `
                 'persona staging: a satisfied persona lens is left untouched'
     Assert-Equal $rosterBefore (Get-B64 (Join-Path $c 'CLAUDE.md')) 'persona staging: CLAUDE.md bytes unchanged (propose-only)'
 
@@ -239,7 +239,7 @@ try {
     #   The stub reports 06-16 as missing-lens WHILE the plugin-path lens already exists -- the only
     #   way to force sync-roster's own never-overwrite branch. Assert the file's bytes are unchanged.
     $c2 = New-FixtureConsumer -RosterIds @('06-16') -LensIds @('06-16')
-    $lens16 = Join-Path $c2 "$lensRel\06-16-extension.md"
+    $lens16 = Join-Path $c2 "$lensRel\specialist-06-16-lens.md"
     $lensBefore = Get-B64 $lens16
     $rosterPath2 = Join-Path $c2 'CLAUDE.md'
     $rosterBefore2 = Get-B64 $rosterPath2
@@ -301,7 +301,7 @@ try {
     $freshHdr = "---`nid: 17`ngroup: 06`n---`n`n# Edith $midDot repo-lens`n`nbody"
     $c6 = New-FixtureConsumer -RosterIds @('06-16', '06-17') -LensIds @('06-16', '06-17') `
         -LensContent @{ '06-16' = $staleHdr; '06-17' = $freshHdr }
-    $lens16Path = Join-Path $c6 "$lensRel\06-16-extension.md"
+    $lens16Path = Join-Path $c6 "$lensRel\specialist-06-16-lens.md"
     $lens16Before = Get-B64 $lens16Path
     $r = Invoke-Ps @('-ConsumerPathOverride', $c6, '-CacheRootOverride', $cache)
     Assert-Equal 0 $r.Code 'header reconcile: exit-code 0'
@@ -360,7 +360,7 @@ try {
     $c7d = New-FixtureConsumer -RosterIds @() -SeamLensIds @('06-16')
     $r = Invoke-Ps @('-ConsumerPathOverride', $c7d, '-CacheRootOverride', $cache)
     Assert-Equal 0 $r.Code 'seam 7d: exit-code 0'
-    Assert-Match '\(\.claude/specialists/lenses/06-16-extension\.md\)' $r.Out `
+    Assert-Match '\(\.claude/specialists/lenses/specialist-06-16-lens\.md\)' $r.Out `
         'seam 7d: the proposed roster row links into the seam, not the pre-seam path'
     Assert-NotMatch '\.claude/plugins/claude-specialists' $r.Out `
         'seam 7d: no pre-seam path anywhere in the output of a migrated consumer'

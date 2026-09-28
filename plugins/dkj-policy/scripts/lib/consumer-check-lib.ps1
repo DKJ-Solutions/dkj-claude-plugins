@@ -54,8 +54,16 @@
 
         . (Join-Path $PSScriptRoot 'consumer-check-lib.ps1')
 
+    THE CONSTITUTION-IMPORT PAIR LIVES NEXT DOOR (#2532). Get-ConstitutionImportLine and
+    Test-ConstitutionImported moved to claude-md-import-lib.ps1, beside the BWJ extension's pair and the
+    writer both adoptions share. That lib is loaded below at file scope, GUARDED for the same reason this
+    one is guarded at its call sites, so every caller that reached the pair through this file still does.
+
     Pure ASCII, per this repo's script-layer convention.
 #>
+
+$claudeMdImportLib = Join-Path $PSScriptRoot 'claude-md-import-lib.ps1'
+if (Test-Path -LiteralPath $claudeMdImportLib -PathType Leaf) { . $claudeMdImportLib }
 
 function Resolve-CheckRepoRoot {
     <#
@@ -140,47 +148,21 @@ function Get-CheckProseCorpus {
     return @(Get-AlwaysOnDocuments -RootDocument $root -RepoRoot $RepoRoot)
 }
 
-function Get-ConstitutionImportLine {
+function Test-UnscopedRulePresent {
     <#
-        The '@'-line a consumer's CLAUDE.md carries to load the dkj-policy constitution (issue #2374):
-        one ABSOLUTE path into the marketplace clone, never into the version-pinned cache -- the same
-        reasoning bootstrap.ps1's Get-DurablePersonaDir gives for the orchestrator import (an '@'-import
-        takes no variable, and the cache directory is purged after an update).
+        Does this always-on closure carry at least one UNSCOPED '.claude/rules/*.md' -- the place the
+        constitution sends a repo's own facts (trunk, visibility, owner, purpose) once CLAUDE.md holds
+        only imports (issue #2444)? Read off the walk's own rows: Get-AlwaysOnDocuments enqueues every
+        unscoped rule at Hop 0 with the synthetic ImportedBy '.claude/rules', and a 'paths:'-scoped rule
+        never enters the walk at all -- which is the point, since a scoped rule is gone for every turn
+        that does not touch its paths and so cannot be where the repo's facts live.
 
-        THE MARKETPLACE SEGMENT IS READ OFF THIS FILE'S OWN LOCATION where it can be. A consumer runs this
-        from '~/.claude/plugins/cache/<marketplace>/dkj-policy/<version>/scripts/lib', and <marketplace>
-        is the name its clone sits under -- which is not always the canonical one: a consumer registered
-        before the September 10, 2026 rename still has 'claude-code-specialists'. Anywhere else (the
-        source tree, a test) the canonical name is used.
-    #>
-    param([string]$LibDir = $PSScriptRoot)
-    $marketplace = 'dkj-claude-plugins'
-    $parts = @(($LibDir -replace '\\', '/').Split('/') | Where-Object { $_ })
-    for ($i = 0; $i -lt $parts.Count - 2; $i++) {
-        if ($parts[$i] -ieq 'cache' -and $i -gt 0 -and $parts[$i - 1] -ieq 'plugins' -and $parts[$i + 2] -ieq 'dkj-policy') {
-            # A SLUG OR NOTHING. The segment is the name a repo's own committed settings.json registered
-            # the marketplace under, and this line is forwarded into session context by the hook -- so
-            # anything but a plain slug falls back to the canonical name rather than being printed.
-            if ($parts[$i + 1] -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$') { $marketplace = $parts[$i + 1] }
-            break
-        }
-    }
-    return "@~/.claude/plugins/marketplaces/$marketplace/plugins/dkj-policy/CLAUDE.md"
-}
-
-function Test-ConstitutionImported {
-    <#
-        Does this always-on closure '@'-import the dkj-policy constitution (issue #2374)? Matched on the
-        tail of the resolved path -- '.../plugins/dkj-policy/CLAUDE.md' -- so the absolute marketplace
-        form, any marketplace name, and the source repo's relative form all count. A row that does NOT
-        resolve (Exists = $false) still counts: the line is written, and a clone that has not refreshed
-        yet is a lag the next 'claude plugin marketplace update' closes, not a missing import.
+        THE ROWS, NOT A SECOND DIRECTORY LISTING, so the walk stays the one definition of "unscoped" and
+        this answer can never disagree with what the always-on budget counts.
     #>
     param([AllowNull()][AllowEmptyCollection()][object[]]$Documents)
     foreach ($d in @($Documents)) {
-        if ($null -eq $d) { continue }
-        $p = ([string]$d.Path) -replace '\\', '/'
-        if ($p -imatch '/plugins/dkj-policy/CLAUDE\.md$') { return $true }
+        if ($null -ne $d -and [string]$d.ImportedBy -eq '.claude/rules') { return $true }
     }
     return $false
 }

@@ -36,7 +36,12 @@
          for $repoRoot -- the full effective set after the settings-chain precedence, the same set
          plugin-versions.ps1 reports on, so step 3's receipt is never comparing against a different
          list than step 2 acted on. The scope per id comes from Get-PluginUpdateScope (see the block
-         above), so step 2 and the receipt's own prescriptions cannot disagree inside one run.
+         above), so step 2 and the receipt's own prescriptions cannot disagree inside one run. Where a
+         plugin ALSO has a path-less user-scope record beside this checkout's own, that record is
+         updated too (#2459): it is a second install a session can load (#2442), and leaving it
+         behind made the receipt call the run's own result behind. A plugin with NO record for this
+         checkout gets `claude plugin install <id> --scope project` instead (#2560): an update there
+         moved another checkout's record.
       3. plugin-versions.ps1, run as a CHILD PROCESS (Start-Process, live console, exactly the pattern
          Invoke-TestSuiteGate and the lint gate already use) -- never dot-sourced, because that script
          ends in `exit 0` on every path and dot-sourcing it would exit THIS script too.
@@ -135,16 +140,53 @@ foreach ($id in $ids) {
     $mp = $parts[-1]
     if ((Test-PluginNameSlug -Name $name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
         $sc = Get-PluginUpdateScope -InstallRecord $install -PluginId $id
+        # NO RECORD FOR THIS CHECKOUT AT ALL IS AN INSTALL, NEVER AN UPDATE (issue #2560). That is the
+        # one 'default' answer with an empty Note: nothing names this path and nothing is tied to no
+        # path. `claude plugin update --scope project` does not install there -- it goes looking for
+        # A project-scope record and moved the one belonging to ANOTHER checkout, measured in a
+        # consumer on 5.8.0 ("updated ... for scope project (...\smartwatchbanden)"), while the run
+        # reported success and its own receipt said "not installed in this checkout". That breaks
+        # #1890's boundary from inside the one call that was meant to respect it. `install --scope
+        # project` writes exactly this checkout, and it is the command plugin-versions.ps1 already
+        # prescribes for the same state. A 'default' WITH a Note is a checkout record the scope could
+        # not be read off, so it stays an update, as before.
+        $verb = if ($sc.Source -eq 'default' -and -not $sc.Note) { 'install' } else { 'update' }
         $targets.Add([pscustomobject]@{
             Id          = $id
             Name        = $name
             Marketplace = $mp
+            Verb        = $verb
             Scope       = $sc.Scope
             ScopeSource = $sc.Source
             ScopeNote   = $sc.Note
         })
     } else {
         $skipped.Add((Format-SuspectToken -Value $id))
+    }
+}
+
+# THE PATH-LESS USER-SCOPE SHADOW IS A SECOND INSTALL, SO IT IS A SECOND TARGET (issue #2459).
+# Get-PluginUpdateScope answers ONE scope per plugin, the checkout's own record first -- so where a
+# plugin has both a record for this checkout and a path-less user-scope record, the path-less one was
+# never updated. Measured September 24, 2026, v5.7.0 -> v5.8.0: every project record moved, and this
+# run's own step-3 receipt then reported 5 of 7 behind on exactly those path-less records (#2442's
+# "a session can load the older one"), under a summary saying "0 failed".
+#
+# NOT GATED ON THE VERSION, and that is the point rather than a shortcut: in the measured run both
+# records were at 5.7.0 BEFORE step 2, so a comparison taken here reads "nothing to do" and the shadow
+# appears only after the checkout's record has moved. `claude plugin update` is idempotent, so a
+# shadow already current costs one no-op call.
+#
+# ONLY 'user', never another path-less scope: 'managed' belongs to an administrator and is not this
+# run's to move, and #1890's boundary is untouched because a user-scope update writes no repo tree.
+$shadows = New-Object System.Collections.Generic.List[object]
+foreach ($t in $targets) {
+    if ($t.ScopeSource -ne 'record' -or $t.Scope -eq 'user') { continue }
+    if ($null -eq $install -or -not $install.Readable -or $null -eq $install.PathlessById) { continue }
+    if (-not $install.PathlessById.ContainsKey($t.Id)) { continue }
+    $hasUser = @(@($install.PathlessById[$t.Id]) | Where-Object { [string]$_.Scope -ieq 'user' }).Count -gt 0
+    if ($hasUser) {
+        $shadows.Add([pscustomobject]@{ Id = $t.Id; Verb = 'update'; Scope = 'user' })
     }
 }
 
@@ -182,7 +224,8 @@ if ($DryRun) {
     # into a terminal, so a trailing '(from the install record)' would turn every line into one that
     # has to be edited first. The provenance that matters -- the administration failing to answer --
     # is the $scopeNotes block above, which is prose and does not pretend to be a command.
-    foreach ($t in $targets) { Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)" }
+    foreach ($t in $targets) { Write-Host "  claude plugin $($t.Verb) $($t.Id) --scope $($t.Scope)" }
+    foreach ($t in $shadows) { Write-Host "  claude plugin $($t.Verb) $($t.Id) --scope $($t.Scope)" }
     exit 0
 }
 
@@ -224,10 +267,21 @@ foreach ($mp in $marketplaces) {
 Write-Host ""
 Write-Host "Step 2/3 -- updating $($targets.Count) plugin(s), each at the scope it is installed at:" -ForegroundColor Cyan
 $updateFailures = 0
-foreach ($t in $targets) {
+# ONE LOOP FOR BOTH: the path-less user-scope records beside a checkout record (#2459, see the block
+# above $targets' skip report) go through the same call site as the targets, after them. They are the
+# same question -- counted as update failures like any other call -- and one site is one audited
+# bounded capture rather than two copies of it.
+$firstShadow = if ($shadows.Count -gt 0) { $shadows[0] } else { $null }
+# .ToArray() on both, not @(): Windows PowerShell 5.1 hands a generic List back from @() unchanged, and
+# List + List throws "argument types do not match" rather than concatenating.
+foreach ($t in ([object[]]$targets.ToArray() + [object[]]$shadows.ToArray())) {
+    if ($null -ne $firstShadow -and [object]::ReferenceEquals($t, $firstShadow)) {
+        Write-Host ""
+        Write-Host "  ...and $($shadows.Count) path-less user-scope record(s) beside this checkout's own, which a session can load instead (#2442):" -ForegroundColor Cyan
+    }
     Write-Host ""
-    Write-Host "  claude plugin update $($t.Id) --scope $($t.Scope)"
-    $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'update', $t.Id, '--scope', $t.Scope) -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    Write-Host "  claude plugin $($t.Verb) $($t.Id) --scope $($t.Scope)"
+    $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', $t.Verb, $t.Id, '--scope', $t.Scope) -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     foreach ($line in @($r.Output)) { Write-Host "    $line" }
     if ($r.ExitCode -ne 0) {
         $updateFailures++
@@ -251,7 +305,10 @@ Start-Process -FilePath 'powershell' -ArgumentList $receiptArgs -NoNewWindow -Wa
 Write-Host ""
 $totalFailures = $marketplaceFailures + $updateFailures
 if ($totalFailures -eq 0) {
-    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed, $($targets.Count) plugin(s) updated, 0 failed." -ForegroundColor Green
+    $shadowText = if ($shadows.Count -gt 0) { " (plus $($shadows.Count) path-less user-scope record(s))" } else { '' }
+    $installed = @($targets | Where-Object { $_.Verb -eq 'install' }).Count
+    $installText = if ($installed -gt 0) { ", $installed installed into this checkout (it had no install record)" } else { '' }
+    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed, $($targets.Count - $installed) plugin(s) updated$shadowText$installText, 0 failed." -ForegroundColor Green
     exit 0
 }
 Write-Host "update-plugins: $marketplaceFailures marketplace refresh(es) failed, $updateFailures plugin update(s) failed -- see FAILED lines above." -ForegroundColor Red

@@ -37,6 +37,10 @@
 # plugin mirror as well as here.
 . (Join-Path $PSScriptRoot 'document-newline-lib.ps1')
 
+# Get-NextFenceState (issue #2536): every section and heading scan below skips fenced blocks the CommonMark
+# way, so a four-backtick block quoting a three-backtick example stays quoted to its real end.
+. (Join-Path $PSScriptRoot 'fence-lib.ps1')
+
 function Get-EntryDescription {
     <#
     .SYNOPSIS
@@ -205,10 +209,10 @@ function Get-PrDescription {
     $lines = $EntryText -split "\r?\n"
     $whatAt = -1
     $deployAt = -1
-    $inFence = $false
+    $fence = ''
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = Resolve-FenceState -Line $lines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         $line = $lines[$i].TrimEnd()
         if ($whatAt -lt 0 -and $whatRx -and $line -match $whatRx) { $whatAt = $i }
         if ($deployAt -lt 0 -and $deployRx -and $line -match $deployRx) { $deployAt = $i }
@@ -218,10 +222,10 @@ function Get-PrDescription {
     if ($start -lt 0) { return '' }
 
     $end = $lines.Count
-    $inFence = $false
+    $fence = ''
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-        if ($inFence -or $i -le $start) { continue }
+        $was = Resolve-FenceState -Line $lines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
+        if ($was -or $fence -or $i -le $start) { continue }
         if ($endRx -and $lines[$i].TrimEnd() -match $endRx) { $end = $i; break }
     }
 
@@ -291,10 +295,10 @@ function Get-PrDescription {
     #
     # Fence-aware for the reason the boundary search above is, and floored at 1 -- a heading cannot be
     # promoted past H1, and a body that already starts at H1 is returned as it is rather than mangled.
-    $inFence = $false
+    $fence = ''
     $promoted = foreach ($line in $slice) {
-        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; $line; continue }
-        if ($inFence) { $line; continue }
+        $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        if ($was -or $fence) { $line; continue }
         $m = [regex]::Match($line, '^(#+)(\s+\S.*)$')
         if ($m.Success -and $m.Groups[1].Value.Length -gt 1) {
             ('#' * ($m.Groups[1].Value.Length - 1)) + $m.Groups[2].Value
@@ -579,10 +583,10 @@ function Update-PrBodySection {
     # Whichever comes first wins, so the second can only ever shorten the section.
     $stops = @(@($StopAtHeading) | Where-Object { $_ -and $_.Trim() } | ForEach-Object { $_.TrimEnd() })
     $end = $lines.Count
-    $inFence = $false
+    $fence = ''
     for ($i = $start + 1; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = Resolve-FenceState -Line $lines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         $m = [regex]::Match($lines[$i], '^(#+)\s')
         if (-not $m.Success) { continue }
         if ($m.Groups[1].Value.Length -le $level) { $end = $i; break }
@@ -638,10 +642,11 @@ function Get-LostBodyHeadings {
     $headings = {
         param([string]$text)
         if (-not $text) { return @() }
-        $inFence = $false
+        $fence = ''
         return @($text -split "\r?\n" | ForEach-Object {
-            if ($_ -match '^\s*(```|~~~)') { $inFence = -not $inFence; return }
-            if (-not $inFence -and $_ -match '^#{1,6}\s+\S') { $_.TrimEnd() }
+            $was = Resolve-FenceState -Line $_ -Fence $fence; $fence = Get-NextFenceState -Line $_ -Fence $fence -AnyIndent
+            if ($was -or $fence) { return }
+            if ($_ -match '^#{1,6}\s+\S') { $_.TrimEnd() }
         })
     }
 
@@ -815,12 +820,12 @@ function Get-GateBypassLines {
     param([AllowEmptyString()][string]$Body)
     if (-not $Body) { return @() }
     $title = [regex]::Escape((Get-GateBypassHeadingText))
-    $inFence = $false
+    $fence = ''
     $inSection = $false
     $lines = @()
     foreach ($line in ($Body -split "\r?\n")) {
-        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         if ($line -match '^#{1,6}\s+\S') {
             $inSection = [bool]($line -match ('^#{1,6}\s+' + $title + '\s*$'))
             continue
@@ -859,12 +864,38 @@ function Add-GateBypassLines {
     if ($missing.Count -eq 0) { return $Body }
 
     $title = Get-GateBypassHeadingText
-    if ($have.Count -eq 0 -and -not ($Body -match ('(?m)^#{1,6}\s+' + [regex]::Escape($title) + '\s*$'))) {
+
+    # Find the section the way Get-GateBypassLines reads it: a heading OUTSIDE a fence. The new lines go
+    # after its last bullet, before the next heading. The body's own newline is kept -- a CRLF body stays
+    # CRLF -- so an insert touches only the lines it adds, as the append below and Add-ResolvesBlock do.
+    $nl = Get-DocumentNewline -Content ([string]$Body)
+    $src = ([string]$Body) -split "\r?\n"
+    $out = New-Object System.Collections.Generic.List[string]
+    $fence = ''
+    $inSection = $false
+    $lastInSection = -1
+    for ($i = 0; $i -lt $src.Count; $i++) {
+        $line = $src[$i]
+        $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        $fenced = [bool]($was -or $fence)
+        if (-not $fenced -and $line -match '^#{1,6}\s+\S') {
+            $inSection = [bool]($line -match ('^#{1,6}\s+' + [regex]::Escape($title) + '\s*$'))
+            if ($inSection) { $lastInSection = $i; continue }
+        }
+        # Bullets only, for Get-GateBypassLines' reason: a headingless marker below the section is not in it.
+        if ($inSection -and -not $fenced -and $line -match '^\s*[-*]\s+\S') { $lastInSection = $i }
+    }
+
+    # NO SECTION OUTSIDE A FENCE: append one. This used to be decided by a raw, fence-blind match on the
+    # heading, so a body that only QUOTED the heading in a code block took the insert branch, found no
+    # section there, and came back unchanged -- the new bypass line dropped without a word, which is the
+    # record this section exists to keep (#2542). Both branches now read the one fence-aware scan above.
+    if ($lastInSection -lt 0) {
         $level = 2
-        $inFence = $false
-        foreach ($line in (([string]$Body) -split "\r?\n")) {
-            if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-            if ($inFence) { continue }
+        $fence = ''
+        foreach ($line in $src) {
+            $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+            if ($was -or $fence) { continue }
             $m = [regex]::Match($line, '^(#+)\s+\S')
             if ($m.Success) { $level = [Math]::Min(6, $m.Groups[1].Value.Length); break }
         }
@@ -873,25 +904,6 @@ function Add-GateBypassLines {
         return ($Body.TrimEnd() + "`n`n" + $block + "`n")
     }
 
-    # The section exists: insert the new lines after its last bullet, before the next heading. The body's
-    # own newline is kept -- a CRLF body stays CRLF -- so an insert touches only the lines it adds, as the
-    # append branch above and Add-ResolvesBlock do.
-    $nl = Get-DocumentNewline -Content ([string]$Body)
-    $src = ([string]$Body) -split "\r?\n"
-    $out = New-Object System.Collections.Generic.List[string]
-    $inFence = $false
-    $inSection = $false
-    $lastInSection = -1
-    for ($i = 0; $i -lt $src.Count; $i++) {
-        $line = $src[$i]
-        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence }
-        elseif (-not $inFence -and $line -match '^#{1,6}\s+\S') {
-            $inSection = [bool]($line -match ('^#{1,6}\s+' + [regex]::Escape($title) + '\s*$'))
-            if ($inSection) { $lastInSection = $i; continue }
-        }
-        # Bullets only, for Get-GateBypassLines' reason: a headingless marker below the section is not in it.
-        if ($inSection -and -not $inFence -and $line -match '^\s*[-*]\s+\S') { $lastInSection = $i }
-    }
     for ($i = 0; $i -lt $src.Count; $i++) {
         $out.Add($src[$i])
         if ($i -eq $lastInSection) {

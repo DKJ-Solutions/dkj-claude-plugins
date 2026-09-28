@@ -1252,6 +1252,65 @@ infrastructure.
   takes. Its `workflow_run` list is read off the consumer's own pull_request workflows' top-level
   `name:`, and left out rather than guessed where none declares one.
 
+  **AND SINCE #2437 THIS REPO'S OWN COPY SHIPS FROM A TRUSTED TRUNK, NOT FROM THE PR BRANCH.** Until
+  then this runner checked `main` out once with `FOLD_PUSH_TOKEN` persisted into the workspace, then
+  `git checkout <branch>` **in that same workspace** — so `ship-pr.ps1` and everything it dot-sources ran
+  as the branch's own PowerShell, in a process holding a standing write credential
+  ([#2338](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2338), measured: ~80% of merged
+  PRs here touch `scripts/`, `.github/`, `.workflow-scripts/` or a plugin's `scripts/`, so
+  `Get-MergeOnGreenExecutedPathHit` refused the sweep on almost every ship). The design (Sebastian #23's
+  review, four conditions, all built before anything shipped):
+
+  - **Two checkouts, two `.git` directories, `persist-credentials: false` on both.** `trusted-main` (the
+    trunk) and `pr-branch` (the picked PR's head) share nothing but the runner's disk. `ship-pr.ps1` —
+    and every sibling lib it loads via `$PSScriptRoot` — runs from `trusted-main`; `CLAUDE_PROJECT_DIR`
+    points `$repoRoot` at `pr-branch`, so the merge, the step-list gate, the DEPLOY lock and the branch's
+    own push still act on that tree's actual commit.
+  - **`ship-pr.ps1`'s new `-TrustedRoot` parameter** (forwarded to `open-pr.ps1` as `-SeamRoot`)
+    repoints the *one* thing `$PSScriptRoot` cannot supply for free: the two REPO-OWNED seams
+    (`scripts/repo-config.ps1`, `scripts/lib/branch-info.ps1`) both scripts read from `$repoRoot` rather
+    than from beside themselves, because a repo's own name and its own branch-prefix table are not
+    portable code. **Named limitation, not silently accepted**: a PR editing either seam ships under the
+    TRUNK's answer to it, not its own — a staleness cost, never a safety one, and
+    `Get-MergeOnGreenExecutedPathHit` still refuses such a PR to the sweep for exactly this reason.
+  - **`-TrustedRoot`/`-SeamRoot` structurally force `-SkipLint`/`-SkipTests`** rather than merely
+    documenting "always pass both together with this" — `gate-lib.ps1`'s `Invoke-WorkflowGates` runs the
+    lint script and every suite from `$RepoRoot` (the branch tree), which is exactly what trusted-tree
+    mode exists to stop trusting, so a future edit to the workflow dropping the flag pair can no longer
+    reopen the hole silently.
+  - **No `git worktree add` in trusted-tree mode.** `$repoRoot` (the branch checkout) is never given a
+    token, so it cannot push a fold commit either — `$TrustedRoot` already stands on `main` and carries
+    the credential, so the fold step uses it directly (bringing it up to date with the same
+    fetch-plus-ff-only-merge every other fold arm already runs) instead of spinning up a worktree off a
+    repo that could never push it. `Remove-ShipFoldWorktree`'s new `-NotOwned` switch keeps this run from
+    ever deleting a tree it did not create.
+  - **The push credential is ephemeral, not persisted, and applied uniformly.** Neither checkout writes
+    `FOLD_PUSH_TOKEN` into its own `.git/config`; the Ship-it step instead sets git's documented
+    `GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n`/`GIT_CONFIG_COUNT` environment triplet, which authenticates
+    every git call the step's process tree makes — both directories, in-memory only, gone when the step
+    ends. **This is a deliberate departure from Sebastian's own literal wording** ("token-bearing
+    checkout only for the trusted main tree"), named in the workflow's own comment rather than silently
+    substituted, because his design still leaves the raw token on `trusted-main`'s disk for the step's
+    duration (his own residual-exposure #3) — one credential applied the same way to both trees removes
+    that residue everywhere instead of only where his wording named. **Unproven by anything but a live
+    run**: `workflow_run` runs the default branch's own copy of this file, so #2437 cannot be proved on
+    its own pull request, and the two-checkout layout plus this exact credential mechanism is verified
+    for the first time by this workflow's first sweep after the PR that built it merges.
+  - `Get-MergeOnGreenExecutedPathHit`'s rule shrank from four path prefixes to an enumerated two-file
+    list (the seams above, exact match); the merge-on-green-lib and stranded-sweep-gate suites assert
+    the shrink positively (every OTHER path that used to refuse is now eligible) rather than only
+    asserting what still refuses.
+  - **The scaffolded consumer template (`adopt-ci-floor.ps1`'s fourth runner) is NOT the same fix,
+    verified and left alone on purpose.** It already runs `ship-pr.ps1` from a separate, pinned,
+    token-free checkout of the *plugin* tree (issues #2329/#2333), which closes #2338 for the portable
+    code in every consumer independently of #2437 — but a consumer's own two seams are still read from
+    `github.workspace`, the single checkout that starts on the trunk with the token and is switched to
+    the picked branch in place. Filed separately as
+    [#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449) rather than folded into
+    #2437: a different file (the scaffolder template, not this repo's own workflow), a different blast
+    radius (every adopted consumer rather than this repo alone), and a design that has to reconcile with
+    #2333's SHA-pin machinery rather than starting clean.
+
 - **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
   in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),
   September 22, 2026). Until that issue no job in `.github/workflows/` declared one, so a wedged job ran
@@ -1761,7 +1820,7 @@ this repo's:
   test suite"* now states no number under its August 7 stamp. It read `26` there for five days — wrong on the
   day it was written, since there were 27, and wronger every suite since. **And a bare `26` is still correct
   in two other senses**: the lint's own checks (`CHANGELOG.md`) and the agent-def count
-  ([`README.md`](../../../README.md), [Ravi's lens](specialist-06-24-lens.md#why-each-circle-is-the-width-it-is)). Establish
+  ([`plugins/dkj-subagents/README.md`](../../../plugins/dkj-subagents/README.md), [Ravi's lens](specialist-06-24-lens.md#why-each-circle-is-the-width-it-is)). Establish
   which noun a `26` governs before touching it; a find-and-replace here breaks correct statements to repair
   one.
 - **Renaming or moving this checkout unlinks its own plugin install — plan the re-install into the same
@@ -2126,6 +2185,118 @@ this repo's:
   refusal. The refusal is not the obstacle to route around — it is the mechanism working. Wait it out.
 - This repo is **public**: config never contains secrets.
 
+### Repo layout
+
+**Moved here from the root `README.md` on September 24, 2026, when that document was retired** — kept
+verbatim rather than retold, since it is a repo-only fact rather than craft. The full picture, top-level
+folder by folder:
+
+- **`.claude-plugin/marketplace.json`** — the marketplace definition: the plugins (teams and workflow alike) with their `source`.
+- **[`plugins/`](../../../plugins/)** — the plugin source, split by kind (the split, and the naming rule that
+  holds it, are under
+  [Teams and workflows — what's the difference?](../../../plugins/dkj-subagents/README.md#teams-and-workflows--whats-the-difference)): the teams under
+  [`plugins/dkj-subagents/`](../../../plugins/dkj-subagents/) (`dkj-subagents-alpha`, `dkj-subagents-lifehub`, `dkj-subagents-shopify`, `dkj-subagents-ecomm`) and
+  the policy at [`plugins/dkj-policy/`](../../../plugins/dkj-policy/) — the prime ministry's own files at that
+  root, and its one ministry `dkj-policy-bwj` a level inside it — each of those two directories carrying
+  its own README for what belongs in it
+  and the rules that govern it. One folder per plugin, each carrying
+  `agents/`/`manuals/`/`personas/`/`skills/` plus its own `plugin.json` — and beside the four teams
+  **[`plugins/dkj-subagents/subagent-shared/`](../../../plugins/dkj-subagents/subagent-shared/)**, the canonical source of the shared
+  agent-def blocks described under
+  [Shared agent-def blocks](../../../plugins/dkj-subagents/README.md#shared-agent-def-blocks--one-source-for-the-verbatim-boundaries). See
+  [Manuals — the split model](../../../plugins/dkj-subagents/README.md#manuals--the-split-model) for the manual/agent-def/persona split.
+  `subagent-shared/` belongs under `plugins/` rather than at the root because it is plugin *source*: its
+  generator writes those blocks into plugin agent defs. It sits under `dkj-subagents/` rather than one level
+  up because **every** file carrying a shared block is a team's — 30 agent defs and personas across the
+  four teams, none in either workflow — so a level up described a reach it does not have. It is a
+  directory inside a kind directory that is not a plugin, and nothing has to be told so: a script asks
+  the marketplace which plugins exist, and this folder is in no marketplace.
+- **[`connectors/`](../../../connectors/)** — the register of which repos have each plugin installed and whether
+  they are in sync (see its own [README](../../../connectors/README.md)). At the root, deliberately **not** under
+  `plugins/`: it is maintenance data read by `scripts/sync/check-connectors.ps1`, not payload, and it
+  must not travel along with the plugin cache.
+- **[`assets/`](../../../assets/)** — material that is neither code nor documentation, one subfolder per kind;
+  today that is [`assets/avatars/`](../../../assets/avatars/), the profile images of the GitHub accounts this
+  repo is worked on under, one PNG per account and named after it; nothing in the tree reads them. At the root for the same
+  reason as `connectors/` and with one extra property: **the marketplace clone is the whole
+  repository**, so anything here is on every machine at
+  `~/.claude/plugins/marketplaces/dkj-claude-plugins/assets/…` after a
+  `claude plugin marketplace update` — no release, no version bump. Under `plugins/` the same files
+  would wait for a cut and then land in the payload of every consumer, none of which has any use for
+  them.
+- **`scripts/lib/`, `scripts/lint/`, `scripts/release/`, `scripts/sync/`, `scripts/agents/`,
+  `scripts/task/`, `scripts/tests/`** — the shared helpers (`branch-info.ps1`, `release-lib.ps1`,
+  `subagent-shared-lib.ps1`, and `plugin-tree-lib.ps1`, which answers which plugins this repo publishes
+  and where each folder sits, so no other script has to encode the layout), the lint gate + drift
+  check, the changelog/PR/release scripts (incl.
+  `cut-release.ps1`), the connectors check (`check-connectors.ps1`), the agent-def generator
+  (`build-agent-defs.ps1` — fills in the shared blocks from `plugins/dkj-subagents/subagent-shared/`), and the tests.
+  What each script does is on the page of the skill that runs it; the conventions for the directory
+  itself are in [the section right below](#the-scripts-directory-is-the-source). A
+  mirrored copy for consumers lives inside the plugins — the sync/check scripts in `dkj-subagents-alpha`, the
+  branch/release workflow in `dkj-policy` — see its own
+  [README](../../../plugins/dkj-policy/scripts/README.md).
+- **`dkj-policy/`** — the workflow's own root folder (named `contributing-davekjohn/` from August 27
+  until September 5, 2026, #1437), and since August 27, 2026 the home of
+  every document the contribution cycle produces or governs. **It carries no prose pages of its own**
+  — a `CONTRIBUTING.md` and a `README.md` sat here until
+  [#2171](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2171), September 20, 2026, when a
+  per-repo restatement beside
+  [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) was retired and this repo's
+  own answers moved into the specialist lenses. What is here is
+  [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), the open branch's
+  `<branch>.md` while one is open, and `releases/` — what a cut *generated*
+  (`changelog/<X>.x/<X.Y.Z>.md`, the complete note per version, and `github/<X>.x/<X.Y.Z>.md`, that
+  version's GitHub Release body), the hand-written note per version under `audience/`, the dated list of
+  every release ever cut in
+  [`releases/history.md`](../../../dkj-policy/releases/history.md). **The folder carries no prose page of its
+  own** — this repo's seam answers sat in a `releases/README.md` until #2196 retired it, and they are in
+  the lenses of the specialists who own them:
+  [Rendall](specialist-05-06-lens.md#versioning--releases) for the release
+  decisions, [the release-notes section below](#the-release-notes-page-and-the-worker-that-serves-it)
+  for the hosted notes page. The cutting process itself travels
+  with the plugin as
+  [`RELEASES-portable.md`](../../../plugins/dkj-policy/RELEASES-portable.md).
+- **`.claude/`** — the repo layer: `specialists/SPECIALISTS.md` (the inclusion carrying the
+  body import, the lens import and the roster), `specialists/lenses/` (this repo's own repo lenses),
+  `rules/` (path-scoped rules), and
+  `settings.json` (harness config).
+- **The root documents** — `README.md` was retired on September 24, 2026 (this section is the
+  proof of where its content went); what remains at the root is `CLAUDE.md` and `SECURITY.md` — and
+  **`.github/`** (`pull_request_template.md`, the issue templates + three workflows: `workflows/ci.yml`,
+  the CI gate that runs the lint + test suites on every PR and push to `main`, plus
+  `workflows/claude.yml` and `workflows/claude-code-review.yml`, which answer an `@claude` mention and
+  review each PR. Only `ci.yml`'s job blocks a merge).
+
+### What lives here and what doesn't
+
+**Moved here from the root `README.md` on September 24, 2026, condensed rather than moved verbatim**:
+its hook-by-hook detail already lived a second time in
+[`plugins/dkj-policy/README.md`](../../../plugins/dkj-policy/README.md)'s `hooks/` row (a genuine
+duplicate — the root page and the plugin page described the same set in the same words), so that
+duplicate is dropped here and only the frame plus the one hook the plugin page cannot name is kept.
+
+**Does live here:** the plugin folders under `plugins/` with subagent definitions and the portable
+playbook per specialist, plus — core team only — the persona templates of the main-loop specialists and
+the repo-neutral bootstrap skill `specialists-init`. Full detail:
+[`plugins/dkj-subagents/README.md`](../../../plugins/dkj-subagents/README.md#manuals--the-split-model).
+
+**Doesn't:** governance (`CLAUDE.md`, the workflow rules), safety hooks, or MCP config. Those stay at
+repo level deliberately, because they differ per repo (or are safety-critical). The plugins carry **no
+safety/guardrail hooks** and **no repo-specific skills**, with a few named, repo-neutral exceptions:
+`specialists-init`, and a set of informational SessionStart hooks that never block, read-only with one
+stated exception (`claude-home-sessioncheck`, which snapshots a healthy `~/.claude` plugin
+administration so a clobber is restorable, #1609, and touches nothing in any repo). **The one hook this
+family ships that `dkj-policy/README.md`'s own table does not name is the core team's own**:
+`roster-sessioncheck` (roster-drift signalling), which ships with `dkj-subagents-alpha` rather than with
+the workflow, because it audits the roster against the plugin cache rather than against a way of
+working — everything else in the read-only set (`connector-sessioncheck`, `script-contract-sessioncheck`,
+`consumer-prose-sessioncheck`) and the two hooks that go beyond reporting (`cycle-autopark`, which
+commits and pushes a branch's development document until a PR publishes it, #900; `closeout-gate`,
+which blocks a close-out past this repo's stated band, #2050) ship with `dkj-policy` and are described
+there. **The set is not enumerated in full anywhere**: it was, as three, and went stale twice inside two
+days as hooks were added; each plugin's own `hooks/hooks.json` is the one place that cannot.
+
 ### Updating the plugins — in every other checkout of this repo
 
 This procedure was `dkj-policy/README.md`'s until #2179 retired that page and the `CONTRIBUTING.md`
@@ -2176,12 +2347,48 @@ the two disagree, and let `plugin-versions` above say which of them actually nee
 Then **restart the session** — a skill or a hook that arrived with the update is not in a session that
 started before it.
 
-**A push does not do it, and neither does a merge.** A session reads the plugins from the **local
-marketplace clone**, which advances on that first command and on nothing else. So an agent def, a skill
-or a script you merged here takes effect after merge, push *and* that refresh — and **between two
-releases no version check can tell you the clone is behind**, because `version` only moves at a cut.
-[The repo rule](../../rules/this-repo.md#specific-to-this-repo-claude-code-specialists) states
-both halves; this is the procedure they imply.
+**A push does not do it, and neither does a merge — nor, on its own, the refresh.** This paragraph
+used to say a session reads the plugins from the local marketplace clone. It does not, and the
+correction below moved here from `.claude/rules/this-repo.md` under
+[#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448), which is also when this
+paragraph stopped contradicting it.
+
+**A session loads neither this tree nor the marketplace clone.** It loads an extracted copy under
+`~/.claude/plugins/cache/`, named by the `installPath` of this checkout's install record and frozen at
+the moment that record was last written — the clone is the catalogue, and the source that copy was
+extracted from. Measured September 10, 2026
+([#1812](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1812)): a
+`claude plugin marketplace update` advanced the clone by 104 commits and left every payload
+byte-identical, and both `plugin update` and `plugin install` then declined on the **version string**
+alone. So a change that lands without a version bump reaches no session at all, and an agent def you
+modify on a branch takes effect after merge, push *and a release* — not after a refresh. **The one
+thing that does load from the clone is a document named by an absolute `@`-import**, which is why the
+orchestrator's body (imported via the root `CLAUDE.md`) advances on that refresh alone and everything
+else waits for the cut. Between two releases **no version check can tell you either copy is behind**.
+
+**That describes ONE channel, and there are two — the second reaches a consumer's CI with no version
+behind it at all** ([#1851](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1851),
+September 11, 2026). Everything above is the **plugin payload**: agent defs, hooks, skills, manuals,
+personas, gated by a release and a version bump, landing in a *session* after `plugin update`. But the
+runners `adopt-dkj-policy` scaffolds into a consumer do not travel that way. They check this repository
+out beside the consumer's own tree and run a path into it — the read-only gates at `ref: main`, so a
+change to `check-branch-entry.ps1` is live in **every adopted consumer's next CI run**: no tag, no bump,
+no refresh, no session restart. The write runners pin a release commit instead (#2333). Strictly the
+release doctrine stays true, because CI is not a session; the trap is that it reads as the whole
+propagation model, so a reader reasoning from it concludes that a shared gate script cannot reach a
+consumer before a cut — which is the opposite of what happens.
+
+**Neither the pin nor the release doctrine is the defect; the missing sentence was.** `ref: main` is
+argued by name in [`adopt-dkj-policy`'s skill page](../../../plugins/dkj-policy/skills/adopt-dkj-policy/SKILL.md):
+a pinned gate goes on enforcing the shape it was pinned at, and since the entry's own path has moved
+twice, a stale pin does not fail loudly — it refuses branches that *do* carry an entry at the current
+path. That reasoning stands, and
+[#1805](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1805) sharpened it by naming the
+half it had never weighed: tracking the tip protects a consumer from a stale convention and exposes them
+to a moved *script*. The writing rule that came out of it — **name the two channels together or name
+neither** — holds wherever either is stated, because a release doctrine stated alone is read as covering
+everything, and the layer it does not cover is the one that can change a consumer's required check
+without anybody bumping anything.
 
 **Everything the second command touches is per-checkout state, which is why every machine runs it
 itself.** The install record is keyed on the checkout's **folder path**, so renaming or moving a
@@ -2209,6 +2416,122 @@ that arrived with the update needs a roster row and a lens, which `sync-roster` 
 repo owner types, because that skill is reserved for explicit invocation. The measurements behind the
 two commands are on the adoption page,
 [Installing it yourself](../../../plugins/ADOPTION.md#installing-it-yourself), rather than repeated here.
+
+### The six plugins enabled here, and what that costs
+
+Moved here from `.claude/rules/this-repo.md` under
+[#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the rule keeps the one-line
+fact that every plugin is enabled, and this is the harness consequence behind it.
+
+**Only two of the six describe this repo outright, and a third does in one chapter of four.** The core
+team and `dkj-policy` are the two with real work here; the three add-on teams have none — this repo is
+not a webshop, not a Shopify store and not a personal-life repo. `dkj-policy-bwj` used to sit beside
+them on the same ground ("not a BWJ store"), and three of its four chapters still do: the sync log, the
+preview handover and the theme lifecycle are all about a Shopify store, and this repo has none. **Its
+ticket-handling chapter is the exception, since Dave admitted this repo as a third permitted target at
+`report-issue`'s and `adopt-dkj-policy-bwj`'s own gate, September 14, 2026** (commit `b9b2a65a`) — so a
+finding filed here can use that chapter's GitHub-first, Asana-mirrored procedure instead of a plain
+`gh issue create`. Its portable law pages state that reach per chapter — three repos for ticket
+handling, two for the other three — closing
+[#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982).
+
+**The three add-on teams are enabled so that the repo that ships a plugin is also a repo that loads
+it**: an agent def, a manifest, a frontmatter or a hook that stops resolving then surfaces at this repo's
+own session start instead of in somebody else's. Validation is the whole reason for them — none of the
+three is used for work here, and none is expected to be.
+
+**What that costs, so nobody reads the noise as breakage.** Two things came with it; one stands and one
+is answered. First, every specialist an enabled plugin ships needs a roster row and a repo lens —
+[`SPECIALISTS.md`](../SPECIALISTS.md) says so without exception, and says why eleven of those lenses
+stay empty. Second, `dkj-subagents-shopify`'s floor check asks which theme is live, and a repo with no
+store has no truthful answer, so it reported an `[ERROR]` at every session start until
+[#1570](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1570) gave the check a third
+state to be told that in. **This repo declares `Get-ShopifyRepoHasNoStore` in
+[`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) because it has no store, and the check
+honours that since #1570** ([#1579](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1579))
+— but still **do not silence it by seeding a theme id**, which would arm a guard over a revenue-serving
+theme on a number nobody verified. The two are not the same act and the seam exists to keep them apart:
+the declaration says there is no store, an id says there is one and names it. The seam is verified
+against #1570's own hook rather than against the cached copy: with it the check is silent, without it the
+`[ERROR]` returns.
+
+### Repo citation — the two renames behind the one owner name
+
+Moved here from `.claude/rules/this-repo.md` under
+[#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the rule keeps the canon
+itself — cite this repo as `DKJ-Solutions/dkj-claude-plugins` — and this is the history and the
+machinery behind it.
+
+**Two renames sit behind that one line, and they retired different halves of it on different days** —
+which is why both old spellings still appear in the tree and why neither may ever be recreated:
+
+- **The owner**, September 2, 2026: transferred from the personal account `DaveKJohn` into the
+  `DKJ-Solutions` organisation, so `DaveKJohn/…` resolves only through a redirect.
+- **The name**, September 10, 2026: `claude-code-specialists` became `dkj-claude-plugins` (fase 3 of
+  [#1769](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1769)), so
+  `DKJ-Solutions/claude-code-specialists` resolves only through a redirect too.
+
+Both redirects are **transfer redirects this repo does not control**, and each holds just as long as
+nothing is created at its old path — which is why neither `DaveKJohn/claude-code-specialists` nor
+`DKJ-Solutions/claude-code-specialists` may ever be recreated (the canonical-channel note in
+[`README.md`](../../../README.md#consumption)). The machine layer states the current answer once, in
+`scripts/repo-config.ps1`, and a fresh marketplace install uses it.
+
+**And the retired NAME is data the tooling reads, not only prose to correct.** Three of this workflow's
+CI runners are scaffolded into a consumer and check this repository out by name, so every consumer
+scaffolded before September 10 still names `claude-code-specialists` — the runner keeps working on the
+redirect, while the guard over it matches on the name half and would see nothing. So
+`Get-RetiredRepoNames` in [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) states the
+retired names and `check-connectors.ps1` matches them alongside the current one. **The list only
+grows.**
+
+**Existing citations are corrected when a file is edited for other reasons, not swept.** Both spellings
+resolve today, so nothing is broken and the dead-link gate is right not to flag the mix; the cost is that
+new writing copies whichever example sits nearest, and the tree held 133 `.md` files on the old owner
+against 28 on the new when this was measured
+([#1526](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1526)). The same holds for the
+~830 slug citations the second rename left: a sweep buys prose consistency at the price of a diff nobody
+can review. The one layer left exactly as written is the archived release history under
+`dkj-policy/releases/**`, the same carve-out
+[`language-layers.md`](../../rules/language-layers.md) makes. **What was NOT left to drift is every place
+the name is read rather than displayed**: `Get-RepoName`, the `repository:` line the consumer
+scaffolders write, the matcher that finds it again, and the marketplace source in
+`.claude/settings.json`. **The test is whether something RESOLVES the name or merely prints it** — a
+citation may lag, a lookup may not.
+
+**A checkout's own `origin` remote is this same citation in a place the tree cannot reach.** It is
+per-checkout git config, not tracked, so no gate sees it. A checkout cloned before the transfer still
+pushes to `https://github.com/DaveKJohn/claude-code-specialists.git` and lands only because GitHub
+answers `remote: This repository moved`; every push of the `v4.32.0` cut did exactly that
+([#1562](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1562)). Repoint such a checkout
+in one command — `git remote set-url origin https://github.com/DKJ-Solutions/dkj-claude-plugins.git` —
+and the redirect stops being load-bearing there. A checkout can be behind on either half or both, and
+the one command repairs all three states, because it writes the whole URL rather than patching a part of
+it.
+
+### How the plugin tree got its current address
+
+Moved here from `.claude/rules/this-repo.md` under
+[#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the current layout itself is in
+[`README.md`](../../../README.md#repo-layout).
+
+Since August 3, 2026 the plugins sit **one** level down in `plugins/<plugin>/` instead of two in
+`claude-code-plugins/claude-specialists/<plugin>/`: that second level existed to hold several product
+families side by side, which the
+[one-product rule](../../../README.md#one-product-one-repository) retired. `connectors/` moved **to the
+root** in the same movement, deliberately — it is the consumer register read by `scripts/sync/`, not
+plugin payload, and must not travel along in the plugin cache. `agent-shared/` (as it was named then)
+stayed **inside** `plugins/` for the mirror-image reason: it *is* plugin source.
+
+**On August 17, 2026 it moved one level further in, to `plugins/dkj-teams/agent-shared/`** (Dave): every
+file carrying a shared block is a team's, so sitting beside `teams/` and `workflows/` claimed a reach the
+folder does not have. **Nothing in the tooling had to learn the new address** — every script that asks
+which plugins exist reads `marketplace.json` through
+[`plugin-tree-lib.ps1`](../../../scripts/lib/plugin-tree-lib.ps1), so a directory in no marketplace is not
+a plugin wherever it sits. **On September 9, 2026 the team-side rename carried it to its current home at
+`plugins/dkj-subagents/subagent-shared/`**, under
+[#1698](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1698). The workflow folder
+`dkj-policy/` was `contributing-davekjohn/` until September 5, 2026 (#1437).
 
 ### Why `Get-RosterIgnoredIds` is empty
 
@@ -2347,7 +2670,7 @@ instance means adopting a rule born with 349.
 **The reason is structural, and it is about what this repo is.** Being a plugin source, most paths it
 names correctly describe *somebody else's* repo: `.claude/extensions/…` is the legacy lens location this
 family deliberately still documents for unmigrated consumers, `config/settings_data.json` is a Shopify
-store's file named in `dkj-subagents-shopify`'s manual, `PRETTY/[Emotie]/README.md` is a life-hub folder. All three
+store's file named in `dkj-subagents-shopify`'s manual, `PRETTY/[Emotie]/README.md` named a life-hub folder (the consumer has since retired it, and #2497 removed the line from the plugin's text). All three
 answer "no such file here", exactly as the stale title does — and **the difference is whose repo the line
 is about, which the line never says**. An existence check reads "describes a consumer" as "stale", and no
 regex recovers that distinction. Do not revive it behind an exemption list: that is the shape this repo has

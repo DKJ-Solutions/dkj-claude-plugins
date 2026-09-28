@@ -428,6 +428,16 @@ foreach ($site in @(
     Assert-True ($site.Text.Contains($site.Needle)) "names the token, not the raw ref -- $($site.Label)"
 }
 
+# THE TWO STEP-4 REFUSALS LEAD WITH THE SAME CHECKOUT (#2493). Both fire after step 2b moved the tree to
+# 'main', and each prescribes work on the branch -- so each must carry the block, not only define it.
+Assert-True ($shipText.Contains("`$step4CheckoutBlock = @`"`n`$step4CheckoutLead`n`n  git checkout `$(`$branchPaste.Token)`$branchPasteNoteBlock")) 'ship-pr: the step-4 checkout block names the token and appends the note'
+foreach ($gate in @('step-list gate: ', 'DEPLOY lock: $shipProgressRelShown')) {
+    $at = $shipText.IndexOf($gate)
+    $end = if ($at -ge 0) { $shipText.IndexOf('"@', $at) } else { -1 }
+    $refusal = if ($end -gt $at) { $shipText.Substring($at, $end - $at) } else { '' }
+    Assert-True ($refusal.Contains('$step4CheckoutBlock')) "ship-pr: the '$($gate.Split(':')[0])' refusal leads with the checkout (#2493)"
+}
+
 # AND THE NOTE IS PRINTED AT EVERY ONE OF THEM. A placeholder with no explanation is worse than the
 # original defect: the reader is handed a command that cannot work and told nothing about why.
 Assert-True (([regex]::Matches($shipText, [regex]::Escape('$branchPaste.Note'))).Count -ge 3) 'ship-pr.ps1 prints the note at its Write-Host/Write-Warning sites'
@@ -731,6 +741,22 @@ Assert-True  (Test-PathPasteSafe -Path 'C:\Users\davek\lanes\x') 'Test-PathPaste
 Assert-True  (-not (Test-PathPasteSafe -Path 'C:\Users\Ada Lovelace\x')) '...and refuses one with a space in it'
 Assert-True  (-not (Test-PathPasteSafe -Path '')) 'an empty path is not paste-safe'
 Assert-True  (-not (Test-PathPasteSafe -Path $null)) 'a null path is not paste-safe'
+
+# --- a case-folded look-alike letter is refused on both axes (#2516) ------------------------------
+# U+212A KELVIN SIGN folds to `k` under case-insensitive matching, so the plain -match these two guards
+# used to run judged it inside [A-Za-z0-9]. git accepts it in a branch name, so it is reachable through
+# a ref, not only through a seam answer. Written as a code point: the script layer is ASCII.
+Write-Host ''
+Write-Host 'A case-folded look-alike letter -- refused on both axes (#2516)' -ForegroundColor Cyan
+
+$kelvin = [string][char]0x212A
+Assert-True  (-not ($kelvin -cmatch '^[A-Za-z0-9]$')) 'the premise: the Kelvin sign is not an ASCII letter under a case-sensitive match'
+Assert-True  (-not (Test-RefPasteSafe -Ref ('fix/' + $kelvin)))  'Test-RefPasteSafe refuses a ref carrying the Kelvin sign'
+Assert-True  (-not (Test-RefPasteSafe -Ref $kelvin))             '...and a ref that IS the Kelvin sign, where the first-character pin applies'
+Assert-True  (-not (Test-PathPasteSafe -Path ('assets/' + $kelvin + '.css'))) 'Test-PathPasteSafe refuses a path carrying the Kelvin sign'
+Assert-True  (-not (Get-PasteableRef -Ref ('fix/' + $kelvin)).IsSafe) '...and Get-PasteableRef does not hand it to a command'
+Assert-True  (Test-RefPasteSafe -Ref 'Fix/K-Upper')              'case-sensitive matching still admits an upper-case ASCII ref'
+Assert-True  (Test-PathPasteSafe -Path 'C:\Users\Dave\X')        '...and an upper-case ASCII path'
 
 # --- the four sync-main sites the two issues measured ---------------------------------------------
 Write-Host ''

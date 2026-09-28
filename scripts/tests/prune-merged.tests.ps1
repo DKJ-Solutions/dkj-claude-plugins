@@ -207,8 +207,8 @@ function Invoke-FixtureGit {
         # THE EXIT CODE IS READ, NOT DISCARDED (issue #1635). It went to Out-Null with the output, so a
         # failed fixture command was indistinguishable from a working one -- and a repo that half-built
         # is plausible rather than correct, which makes every assert below it measure the wrong thing.
-        $out = & git @Arguments 2>&1
-        Assert-FixtureGitOk -Code $LASTEXITCODE -GitArgs @($Arguments) -Output $out
+        # And a push whose transport breaks under the parallel gate is retried once (issue #2481).
+        Invoke-FixtureGitNative -Arguments @($Arguments)
     } finally { $ErrorActionPreference = $prevEap }
 }
 
@@ -245,6 +245,8 @@ function New-Fixture {
     # fetch-attempt-lib.ps1 likewise (#1860): entry-scaffold-lib.ps1 dot-sources it for
     # Invoke-RecordedRemoteFetch, which Get-TrunkGap's fetch runs through -- so the fixture owes it too.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\fetch-attempt-lib.ps1') -Force
+    # fence-lib.ps1 likewise (#2536): entry-scaffold-lib.ps1, pr-body-lib.ps1 and pr-issues-lib.ps1 dot-source it.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fence-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\fence-lib.ps1') -Force
     Copy-Item -LiteralPath $WorktreeLibSrc   -Destination (Join-Path $dir 'scripts\lib\worktree-lib.ps1')        -Force
     Copy-Item -LiteralPath $RefPrintLibSrc   -Destination (Join-Path $dir 'scripts\lib\ref-print-lib.ps1')       -Force
     Copy-Item -LiteralPath $MergedPrLibSrc   -Destination (Join-Path $dir 'scripts\lib\merged-pr-lib.ps1')       -Force

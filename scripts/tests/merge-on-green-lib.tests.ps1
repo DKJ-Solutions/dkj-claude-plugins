@@ -160,16 +160,14 @@ $fork = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -CrossRepo $true) -Merge
 Assert-True (-not $fork.Eligible) 'a cross-repository pull request is refused even when armed, mergeable and green'
 Assert-True ($fork.Reason -match 'fork') 'and the refusal says why'
 
-# A DIFF THAT REACHES CODE THE RUNNER EXECUTES IS LEFT TO A SESSION -- issue #2338. The runner checks this
-# head out with FOLD_PUSH_TOKEN in the workspace and then runs code from it, so every path it reads code
-# from is asked, in the source repo's shape and in a consumer's.
+# A DIFF THAT EDITS A REPO-OWNED SEAM IS LEFT TO A SESSION -- issue #2338, SHRUNK by #2437. Since the
+# runner ships from a TRUSTED tree (ship-pr.ps1's own -TrustedRoot), it no longer executes the branch's
+# own copy of ship-pr.ps1, its libs, the workflow file or a consumer's plugin checkout at all -- so only
+# the two files -TrustedRoot/-SeamRoot still cannot repoint (they are repo-owned, not portable) stay on
+# this list.
 foreach ($hit in @(
-    'scripts/release/ship-pr.ps1',                         # the source repo runs the branch's own copy
-    'scripts/repo-config.ps1',                             # every repo's ship-pr dot-sources this
-    'scripts/lib/branch-info.ps1',                         # and the seam libs beside it
-    'plugins/dkj-policy/scripts/lib/merge-on-green-lib.ps1', # the plugin mirror of the same code
-    '.github/workflows/merge-on-green.yml',                # the runner itself
-    '.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1' # a consumer's plugin checkout path
+    'scripts/repo-config.ps1',        # Get-RepoName / Get-LintScript / Get-TestCommands / ...
+    'scripts/lib/branch-info.ps1'     # the repo-owned branch-prefix table
 )) {
     $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $hit)) -MergeBlockVerdict (New-Green)
     Assert-True (-not $v.Eligible) "a diff touching '$hit' is refused even when armed, mergeable and green"
@@ -179,6 +177,87 @@ Assert-True (-not (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('scr
     'a backslash spelling is the same path'
 Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('docs/scripts.md', 'plugins/dkj-policy/README.md')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
     'a path that merely NAMES scripts is not one -- the match is anchored on the directory'
+
+Write-Host ''
+Write-Host 'Get-MergeOnGreenExecutedPathHit -- fail-closed on every spelling git or a case-insensitive FS could deliver (Tycho #18, item 3)' -ForegroundColor Cyan
+
+# THE THREAT MODEL: this predicate's own docstring says a PR touching either seam file loses only
+# CURRENCY, never safety, because -TrustedRoot already stops either file's branch copy from ever being
+# EXECUTED. So a variant this function fails to recognise does not let untrusted code run -- it lets the
+# sweep silently merge a PR that should have been left to a session's judgement instead. Still a real
+# finding: the function's own header says "FAIL-CLOSED ON AN INCOMPLETE LIST", and a guard whose stated
+# posture is fail-closed should be fail-closed on the shape of the path too, not only on its count.
+#
+# EACH VARIANT BELOW IS SOMETHING THE REAL DATA SOURCE CAN ACTUALLY PRODUCE: `gh pr list --json files`
+# reports a path exactly as git committed it, and git is case-SENSITIVE while the runner's own
+# filesystem (windows-latest) is not -- so a PR that `git mv`s the seam file to a different case is a
+# genuinely different git object carrying the SAME execution target once checked out there. A doubled
+# slash or surrounding whitespace is defence in depth for the same reason the count check already fails
+# closed: this function does not control what a caller hands it.
+foreach ($variant in @(
+    'Scripts/Repo-Config.ps1',          # git-legal case rename; same file on the runner's own FS
+    'SCRIPTS/REPO-CONFIG.PS1',          # the same, upper-cased throughout
+    'scripts//repo-config.ps1',         # a doubled separator
+    ' scripts/repo-config.ps1 ',        # surrounding whitespace
+    './scripts/repo-config.ps1',        # a leading './'
+    '/scripts/repo-config.ps1',         # a leading '/'
+    'SCRIPTS\Lib\Branch-Info.PS1',      # the SECOND seam file, backslash AND case together
+    'scripts./repo-config.ps1',         # a trailing dot on a segment, which Win32 drops (#2553 review)
+    'scripts/repo-config.ps1. '         # trailing dot and space on the leaf
+)) {
+    $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $variant)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
+    Assert-True (-not $v.Eligible) "a diff touching '$variant' is refused -- same seam file, a different spelling"
+}
+# THE NEGATIVE CONTROLS: normalisation must not become OVER-eager and start matching a path that merely
+# resembles the seam file. Anchored on the directory AND the exact filename, not a substring or prefix.
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('scripts/repo-config2.ps1')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+    'a different file that merely shares the stem is NOT a hit'
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('scripts/repo-config.ps1x')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+    'an extra trailing character is NOT a hit'
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('notscripts/repo-config.ps1')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+    'a directory that merely ENDS WITH "scripts" is NOT a hit'
+Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('../scripts/repo-config.ps1')) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+    'a leading ../ is a genuinely different (and, for a repo-relative gh path, unreachable) path -- not stripped, not a hit'
+
+# THE SHRINK ITSELF, ASSERTED POSITIVELY (issue #2437): every path the OLD four-prefix rule refused and
+# the new two-file rule does not, is now ELIGIBLE -- because the runner ships from a trusted tree and no
+# longer executes any of these from the branch at all.
+foreach ($safeNow in @(
+    'scripts/release/ship-pr.ps1',                          # ship-pr now runs from -TrustedRoot, not here
+    'scripts/lib/gate-lib.ps1',                              # any other sibling lib, likewise
+    'plugins/dkj-policy/scripts/lib/merge-on-green-lib.ps1', # the plugin mirror of the same code
+    '.github/workflows/merge-on-green.yml'                  # workflow_run runs the DEFAULT branch's copy anyway
+)) {
+    $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $safeNow)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
+    Assert-True $v.Eligible "a diff touching '$safeNow' is ELIGIBLE since #2437 -- the runner no longer executes it from the branch"
+}
+
+# THE ONE PREFIX THE SHRINK MUST NOT DROP (issue #2553). #2437 asserted '.workflow-scripts/...' ELIGIBLE
+# in the loop above, and v5.8.0 shipped that way. But the CONSUMER runner adopt-ci-floor.ps1 scaffolds
+# checks the pinned plugin tree out AT that path inside its PAT-bearing workspace and then checks the
+# branch out in place, and git overwrites an ignored file on checkout. So a branch committing this path
+# replaces the trusted ship-pr.ps1 and runs it with the push token. This is a SAFETY refusal.
+foreach ($variant in @(
+    '.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1', # the overwrite #2553 reproduced
+    '.workflow-scripts/plugins/dkj-policy/scripts/ci/pick-merge-on-green.ps1',
+    '.Workflow-Scripts/x.ps1',                                         # case: same dir on windows-latest
+    '.workflow-scripts\plugins\x.ps1',                                 # backslash separators
+    './.workflow-scripts/x.ps1',                                       # a leading './'
+    '.workflow-scripts',                                               # a FILE of that name
+    '.workflow-scripts./plugins/dkj-policy/scripts/release/ship-pr.ps1', # trailing dot: Win32 drops it (review)
+    '.workflow-scripts /x.ps1',                                        # trailing space, same folding
+    '.workflow-scripts::$INDEX_ALLOCATION/x.ps1',                      # an NTFS stream suffix on the dir
+    'WORKFL~1/plugins/x.ps1'                                           # an 8.3 short name
+)) {
+    $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $variant)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
+    Assert-True (-not $v.Eligible) "a diff touching '$variant' is refused -- the consumer runner's plugin checkout path (#2553)"
+    Assert-True ($v.Reason -match 'plugin checkout path') "...and the refusal names the plugin checkout path for '$variant'"
+}
+foreach ($near in @('.workflow-scripts2/x.ps1', 'docs/.workflow-scripts/x.ps1', 'workflow-scripts/x.ps1',
+        'IMG~1.JPG', 'notes~1.txt', 'archive~2020.zip', 'BACKUP~1/x.sql')) {  # a tilde-digit that is not this dir's 8.3 name
+    Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @($near)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+        "'$near' only resembles the plugin checkout path and is NOT a hit"
+}
 # FAIL-CLOSED ON A LIST THAT DID NOT SHOW THE WHOLE DIFF: gh returns at most 100 files per record.
 $truncated = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md') -ChangedFiles 150) -MergeBlockVerdict (New-Green)
 Assert-True (-not $truncated.Eligible) 'a file list shorter than changedFiles is refused -- an unseen path is not a cleared one'
@@ -302,7 +381,7 @@ Write-Host 'Get-MergeOnGreenStrandedVerdict -- ready in every way but declined F
 # returns early on the executed-path check for such a record REGARDLESS of green/settle state (its own
 # order, pinned above), so this is the one shape where Stranded can ever be $true.
 $strandSettle = Get-MergeOnGreenSettleMinutes
-$strandRecord = New-PrRecord -Files @('README.md', 'scripts/x.ps1')
+$strandRecord = New-PrRecord -Files @('README.md', 'scripts/repo-config.ps1')
 $strandHit = Get-MergeOnGreenExecutedPathHit -Record $strandRecord
 Assert-True ([bool]$strandHit) 'sanity: the fixture record really does touch an executed path'
 
@@ -313,19 +392,19 @@ Assert-True $stranded.Stranded 'armed + executed-path hit + green + settled -- s
 # apart without this failing.
 Assert-Equal "$strandHit -- ship it from a session" $stranded.Reason `
     'the Reason is the SAME STRING Get-MergeOnGreenExecutedPathHit composes -- no drift'
-Assert-True ($stranded.Reason -like '*scripts/x.ps1*') 'and it carries the path'
+Assert-True ($stranded.Reason -like '*scripts/repo-config.ps1*') 'and it carries the path'
 
 # NOT ARMED: the verdict declines with a DIFFERENT Reason ("not armed: ..."), so the identity check
 # fails and this is never read as stranded, however ready everything else is.
-$notArmed = Get-MergeOnGreenStrandedVerdict -Record (New-PrRecord -Labels @('prio-3') -Files @('README.md', 'scripts/x.ps1')) `
+$notArmed = Get-MergeOnGreenStrandedVerdict -Record (New-PrRecord -Labels @('prio-3') -Files @('README.md', 'scripts/repo-config.ps1')) `
     -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
 Assert-True (-not $notArmed.Stranded) 'not armed -- not stranded, even with an executed-path hit, green and settled'
 Assert-Equal '' $notArmed.Reason 'and the Reason is empty on the not-stranded path'
 
-Assert-True (-not (Get-MergeOnGreenStrandedVerdict -Record (New-PrRecord -Draft $true -Files @('README.md', 'scripts/x.ps1')) `
+Assert-True (-not (Get-MergeOnGreenStrandedVerdict -Record (New-PrRecord -Draft $true -Files @('README.md', 'scripts/repo-config.ps1')) `
     -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Stranded) `
     'a draft is not stranded -- the verdict declines on a different reason'
-Assert-True (-not (Get-MergeOnGreenStrandedVerdict -Record (New-PrRecord -CrossRepo $true -Files @('README.md', 'scripts/x.ps1')) `
+Assert-True (-not (Get-MergeOnGreenStrandedVerdict -Record (New-PrRecord -CrossRepo $true -Files @('README.md', 'scripts/repo-config.ps1')) `
     -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Stranded) `
     'a fork pull request is not stranded -- the verdict declines on a different reason'
 
@@ -445,8 +524,41 @@ Write-Host "ship-pr arms BEFORE its wait, not only on a CI refusal (#2393)" -For
 $armAt   = $shipRaw.IndexOf('if (Set-ShipMergeOnGreenArm)')
 $step3At = $shipRaw.IndexOf('# --- Step 3: wait for the required CI check')
 Assert-True ($armAt -gt 0 -and $step3At -gt 0 -and $armAt -lt $step3At) 'ship-pr arms before step 3 starts waiting on CI'
-Assert-True ($shipRaw -match "(?s)if \(-not \`$NoMerge\) \{\s*\`$armLabel = Get-MergeOnGreenArmLabel\s*if \(Set-ShipMergeOnGreenArm\)") `
+Assert-True ($shipRaw -match "(?s)if \(-not \`$NoMerge\) \{\s*\`$armLabel = Get-MergeOnGreenArmLabel\s*.{0,600}?if \(Set-ShipMergeOnGreenArm\)") `
     'and not under -NoMerge'
+
+Write-Host ''
+Write-Host "ship-pr promises the sweep only where the sweep can keep it (#2436)" -ForegroundColor Cyan
+
+# THE SAME PREDICATE ON BOTH SIDES: whatever the picker refuses as executed-path, ship-pr's helper must
+# refuse with the identical reason, fed the `gh pr view --json files,changedFiles` shape ship-pr reads.
+foreach ($case in @(
+    @{ Files = @('README.md', 'scripts/tests/bootstrap-drift.tests.ps1') },   # #2433's shape
+    @{ Files = @('.github/workflows/reusable-branch-entry.yml') },            # #2435's shape
+    @{ Files = @('README.md', 'dkj-policy/fix-1-x.md') },                     # a docs PR the sweep can ship
+    @{ Files = @('README.md'); ChangedFiles = 150 }                           # a list that did not show the whole diff
+)) {
+    $rec = if ($case.ContainsKey('ChangedFiles')) { New-PrRecord -Files $case.Files -ChangedFiles $case.ChangedFiles } else { New-PrRecord -Files $case.Files }
+    $json = [pscustomobject]@{ files = $rec.files; changedFiles = $rec.changedFiles } | ConvertTo-Json -Depth 5 -Compress
+    Assert-Equal (Get-MergeOnGreenExecutedPathHit -Record $rec) (Get-MergeOnGreenSweepRefusal -FilesJson $json) `
+        "ship-pr's refusal and the picker's agree for [$($case.Files -join ', ')]"
+}
+Assert-Equal '' (Get-MergeOnGreenSweepRefusal -FilesJson '{"files":[{"path":"README.md"}],"changedFiles":1}') `
+    'a diff the runner never executes gets no refusal -- the sweep promise stands'
+Assert-True ((Get-MergeOnGreenSweepRefusal -FilesJson '{"files":[{"path":"scripts/repo-config.ps1"}],"changedFiles":1}') -match 'scripts/repo-config\.ps1') `
+    'an executed-path diff is refused, naming the path'
+# FAIL-CLOSED LIKE THE PICKER: a promise this run could not confirm is the defect being repaired.
+Assert-True ((Get-MergeOnGreenSweepRefusal -FilesJson '') -match 'could not be read') 'an unread payload refuses the promise'
+Assert-True ((Get-MergeOnGreenSweepRefusal -FilesJson 'not json') -match 'could not be read') 'and so does one that is not JSON'
+
+# STRUCTURAL: both promise sites branch on the refusal, which is read before the arm call.
+$refusalAt = $shipRaw.IndexOf('Get-MergeOnGreenSweepRefusal -FilesJson')
+Assert-True ($refusalAt -gt 0 -and $refusalAt -lt $armAt) 'ship-pr reads the sweep refusal before it arms'
+Assert-True ($shipRaw -match "'--json', 'files,changedFiles'") 'from the same two fields the picker judges'
+Assert-True ($shipRaw -match '(?s)if \(\$script:SweepRefusal\) \{[^}]*will NOT finish it[^}]*\} else \{[^}]*the merge-on-green sweep does once') `
+    'the arm message promises the sweep only when there is no refusal'
+Assert-True ($shipRaw -match '(?s)if \(\$script:SweepRefusal\) \{[^}]*will NOT finish it[^}]*\} else \{[^}]*the merge-on-green sweep finishes it') `
+    'and so does the CI-refusal message'
 Assert-True ($shipRaw -notmatch [regex]::Escape("'--add-label', `$armLabel")) `
     'the old inline arming in the CI-refusal branch is gone -- the label is written through Set-ShipMergeOnGreenArm only'
 Assert-True ($shipRaw -match "Remove-ShipMergeOnGreenArmForJudgement -Gate 'step-list gate'") 'the step-list gate disarms -- only a commit clears it'
@@ -488,9 +600,11 @@ Assert-True ($flowRaw -match 'GH_TOKEN:\s*\$\{\{\s*secrets\.FOLD_PUSH_TOKEN\s*\}
 Assert-True ($flowRaw -match 'ship-pr\.ps1') 'and it ships by running ship-pr.ps1 rather than by re-deriving its gates'
 # THE ONE FLAG PAIR THIS JOB MUST NOT OMIT. ship-pr's step 1 calls open-pr.ps1 even for an already-open
 # pull request -- it skips only the `gh pr create` -- so without these the runner re-runs the whole
-# local suite pool it was started BECAUSE the green certificate already covers.
-Assert-True ($flowRaw -match 'ship-pr\.ps1 -SkipLint -SkipTests') `
-    'and it skips the local gates, which the green required check has already run on this same commit'
+# local suite pool it was started BECAUSE the green certificate already covers. Passed EXPLICITLY here
+# even though -TrustedRoot now forces both structurally (issue #2437, condition (c)) -- belt and brace,
+# and the explicit flags are what this run used to rely on alone before that force existed.
+Assert-True ($flowRaw -match 'ship-pr\.ps1\s+-TrustedRoot\s+\([^)]*\)\s+-SkipLint\s+-SkipTests') `
+    'it ships from -TrustedRoot AND skips the local gates, which the green required check has already run on this same commit'
 # STEP 3B WALKS FIRST-PARENT HISTORY, so a shallow clone would truncate the walk in the one direction a
 # staleness gate must not err in. Cheap sweeps stay shallow; the ship step deepens first.
 Assert-True ($flowRaw -match 'fetch --unshallow') 'the ship step deepens the clone before ship-pr walks the trunk'
@@ -500,6 +614,177 @@ Assert-True ($flowRaw -match "set-branches origin") 'and widens the refspec firs
 Assert-True ($flowRaw -notmatch '(?m)^\s+git checkout \$\{\{') 'the branch is not interpolated into the checkout command line'
 Assert-True ($flowRaw -match 'SHIP_BRANCH:') 'it arrives through env: instead'
 Assert-True ($flowRaw -match 'cancel-in-progress:\s*false') 'an in-flight sweep is never cancelled -- it merges and folds'
+
+Write-Host ''
+Write-Host 'Two separate checkouts, neither carrying a persisted token (issue #2437)' -ForegroundColor Cyan
+
+# TWO actions/checkout STEPS, ONE PER TREE -- not one checkout switched in place, which is the exact
+# shape #2338 was measured on.
+$checkoutCount = @([regex]::Matches($flowRaw, 'uses:\s*actions/checkout@')).Count
+Assert-True ($checkoutCount -eq 2) "exactly two actions/checkout steps ($checkoutCount found)"
+Assert-True ($flowRaw -match "path:\s*trusted-main") 'the trunk is checked out into its own directory'
+Assert-True ($flowRaw -match "path:\s*pr-branch") 'the PR head is checked out into a SEPARATE directory'
+# NEITHER TREE PERSISTS A CREDENTIAL TO DISK -- both checkouts opt out, so a git config on either tree
+# never carries a static, on-disk copy of any token. Anchored to the start of the LINE so a comment
+# merely discussing "persist-credentials: false" is not counted as a second YAML key.
+$persistFalseCount = @([regex]::Matches($flowRaw, '(?m)^\s+persist-credentials:\s*false\s*$')).Count
+Assert-True ($persistFalseCount -eq 2) "both checkouts set persist-credentials: false ($persistFalseCount found)"
+Assert-True ($flowRaw -notmatch "with:\s*\n\s*ref:\s*main\s*\n\s*token:") `
+    'the trusted-trunk checkout does not pair a static FOLD_PUSH_TOKEN with an on-disk persisted credential'
+# THE PR'S OWN HEAD IS NAMED BY THE PICKER'S OUTPUT, IN A with: FIELD (a parameter to the checkout
+# action, not text folded into a shell body) -- the ${{ }}-in-run: hazard the file's own comments warn
+# about does not apply to a `with:` input.
+Assert-True ($flowRaw -match "ref:\s*\`$\{\{\s*steps\.pick\.outputs\.branch\s*\}\}") `
+    'the PR branch checkout''s ref: comes from the picker''s own output'
+# THE PUSH CREDENTIAL IS EPHEMERAL (environment-only), not a second persisted one.
+Assert-True ($flowRaw -match 'GIT_CONFIG_COUNT') 'the ship step supplies an ephemeral git credential rather than a second persisted one'
+Assert-True ($flowRaw -match 'GIT_CONFIG_KEY_0') 'naming the extraheader config key'
+Assert-True ($flowRaw -match 'GIT_CONFIG_VALUE_0') 'and its value, built from GH_TOKEN at runtime'
+# THE DEPARTURE FROM SEBASTIAN'S LITERAL WORDING IS NAMED IN THE FILE ITSELF, not silently substituted.
+Assert-True ($flowRaw -match 'DELIBERATE DEPARTURE') `
+    'the choice to apply one ephemeral credential to both trees, rather than a persisted one on trusted-main alone, is named in-file'
+Assert-True ($flowRaw -match '-TrustedRoot') 'ship-pr.ps1 is invoked in trusted-tree mode'
+
+Write-Host ''
+Write-Host "The 'Ship it' step's GIT_CONFIG_* triplet is internally consistent (Tycho #18, item 1)" -ForegroundColor Cyan
+
+# ISOLATE THE STEP'S run: BODY, so a KEY_n/VALUE_n belonging to some OTHER step (there is none today,
+# but nothing stops a future workflow edit from adding one) is never folded into this count. Anchored on
+# the step's own name, to the next top-level '- name:' at the same indentation, or the end of the file.
+$shipStepMatch = [regex]::Match($flowRaw, '(?ms)^\s{6}- name:\s*Ship it.*?(?=\r?\n\s{6}- name:|\z)')
+Assert-True $shipStepMatch.Success "the 'Ship it' step is found as its own block"
+$shipStep = $shipStepMatch.Value
+
+# GIT_CONFIG_COUNT IS THE CONTRACT: git reads exactly this many KEY_n/VALUE_n pairs (0..COUNT-1) and
+# silently ignores anything past it -- a KEY_1 left behind while COUNT stayed '1' is a no-op, not a
+# second credential, and nothing would say so.
+$countMatch = [regex]::Match($shipStep, "\`$env:GIT_CONFIG_COUNT\s*=\s*'(\d+)'")
+Assert-True $countMatch.Success 'GIT_CONFIG_COUNT is assigned a literal integer'
+$declaredCount = [int]$countMatch.Groups[1].Value
+Assert-True ($declaredCount -ge 1) 'the declared count is at least one -- a credential this step exists to supply'
+
+$keyIndices = @([regex]::Matches($shipStep, '\$env:GIT_CONFIG_KEY_(\d+)\s*=') | ForEach-Object { [int]$_.Groups[1].Value } | Sort-Object -Unique)
+$valueIndices = @([regex]::Matches($shipStep, '\$env:GIT_CONFIG_VALUE_(\d+)\s*=') | ForEach-Object { [int]$_.Groups[1].Value } | Sort-Object -Unique)
+$expectedIndices = @(0..($declaredCount - 1))
+
+Assert-Equal ($expectedIndices -join ',') ($keyIndices -join ',') `
+    "GIT_CONFIG_KEY_n exists for exactly indices 0..COUNT-1 ($declaredCount declared) -- no gap, no orphan"
+Assert-Equal ($expectedIndices -join ',') ($valueIndices -join ',') `
+    "GIT_CONFIG_VALUE_n exists for exactly indices 0..COUNT-1 ($declaredCount declared) -- no gap, no orphan"
+Assert-Equal $keyIndices.Count $valueIndices.Count 'every KEY_n has a matching VALUE_n and vice versa'
+
+# EVERY KEY NAME HAS THE SHAPE git config ITSELF REQUIRES (section.subsection.key, or section.key) --
+# 'not-a-valid-key' is refused by git with "key does not contain a section" (verified locally in the
+# honouring test below). A malformed key here would silently configure nothing, so the push credential
+# ship-pr's fold needs would simply not be there.
+foreach ($m in [regex]::Matches($shipStep, "\`$env:GIT_CONFIG_KEY_\d+\s*=\s*'([^']+)'")) {
+    $key = $m.Groups[1].Value
+    Assert-True ($key -match '^[A-Za-z][A-Za-z0-9-]*\..+\.[A-Za-z][A-Za-z0-9-]*$') `
+        "GIT_CONFIG_KEY '$key' has the section.subsection.key shape git config requires"
+}
+Assert-True ($shipStep -match "GIT_CONFIG_KEY_0\s*=\s*'http\.https://github\.com/\.extraheader'") `
+    'the one key configured today is the documented per-URL extraheader override'
+
+Write-Host ''
+Write-Host 'Neither checkout step is handed a token: (Tycho #18, item 1)' -ForegroundColor Cyan
+
+# EVERY actions/checkout STEP'S OWN BLOCK, generically -- not just the two named ones above, so a THIRD
+# checkout added later is covered without anyone extending this list.
+$checkoutBlocks = @([regex]::Matches($flowRaw, '(?ms)uses:\s*actions/checkout@.*?(?=\r?\n\s{6}- name:|\z)'))
+Assert-True ($checkoutBlocks.Count -eq 2) "exactly two actions/checkout steps found ($($checkoutBlocks.Count))"
+foreach ($cb in $checkoutBlocks) {
+    $pathMatch = [regex]::Match($cb.Value, 'path:\s*(\S+)')
+    $label = if ($pathMatch.Success) { $pathMatch.Groups[1].Value } else { '(unnamed)' }
+    Assert-True ($cb.Value -notmatch '(?m)^\s+token:\s') "the '$label' checkout's with: block carries no token: input"
+}
+
+Write-Host ''
+Write-Host 'Git actually honours the extracted triplet -- local-only, no network (Tycho #18, item 1)' -ForegroundColor Cyan
+
+# THE FOUR LINES ARE TAKEN VERBATIM FROM THE WORKFLOW, not retyped -- so a future edit to the formula
+# (a different header name, a different encoding) is caught here too, not only by the textual asserts
+# above. Extracted once, from the same $shipStep the triplet asserts above already isolated.
+$credLines = [regex]::Match($shipStep, '(?ms)^\s*\$basicAuth\s*=\s*\[Convert\]::ToBase64String.*?\$env:GIT_CONFIG_VALUE_0\s*=\s*"AUTHORIZATION: basic \$basicAuth"\s*$')
+Assert-True $credLines.Success 'the four-line credential-construction snippet is found verbatim in the Ship it step'
+
+$gitCmd = Get-Command git -ErrorAction SilentlyContinue
+if (-not $gitCmd) {
+    Write-Host '  [SKIP] git is not on PATH -- cannot prove the mechanism locally' -ForegroundColor Yellow
+} elseif ($credLines.Success) {
+    $probeDir = Join-Path ([System.IO.Path]::GetTempPath()) ("mog-gitcred-probe-$PID-$([guid]::NewGuid().ToString('n'))")
+    New-Item -ItemType Directory -Path $probeDir -Force | Out-Null
+    try {
+        $marker = "tycho-marker-$([guid]::NewGuid().ToString('n').Substring(0,12))"
+        $probeLines = @(
+            "`$ErrorActionPreference = 'Stop'"
+            "`$env:GH_TOKEN = '$marker'"
+            $credLines.Value.Trim()
+            'git config --get $env:GIT_CONFIG_KEY_0'
+        )
+        $probeFile = Join-Path $probeDir 'probe.ps1'
+        [System.IO.File]::WriteAllText($probeFile, ($probeLines -join "`r`n"), (New-Object System.Text.UTF8Encoding $false))
+
+        $prevEap = $ErrorActionPreference
+        $prevLoc = (Get-Location).Path
+        try {
+            $ErrorActionPreference = 'Continue'
+            Set-Location -LiteralPath $probeDir
+            $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $probeFile 2>&1
+            $code = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+            Set-Location -LiteralPath $prevLoc
+        }
+        $flat = (($out | Out-String) -replace "`r?`n", '').Trim()
+        Assert-Equal 0 $code 'the extracted snippet runs cleanly and git accepts the resulting config'
+        $expected = 'AUTHORIZATION: basic ' + [Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("x-access-token:$marker"))
+        Assert-True ($flat -like "*$expected*") `
+            'git config --get reads back exactly the header the extracted snippet composed -- the env-var triplet is honoured, with nothing written to a .git/config'
+    } finally {
+        Remove-Item -Recurse -Force -LiteralPath $probeDir -ErrorAction SilentlyContinue
+    }
+}
+
+Write-Host ''
+Write-Host 'Get-UnshippedPrVerdict -- green, settled, and handed to no sweep (#2525)' -ForegroundColor Cyan
+
+# THE CASE #2525 MEASURED: PR #2515, never armed, green for hours. Unarmed is the ordinary shape here,
+# so the fixture carries no arming label.
+$unarmed = New-PrRecord -Labels @('bug')
+Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $true).Unshipped `
+    'unarmed + green + settled, with a sweep present -- unshipped'
+Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $false).Unshipped `
+    'and the same without a sweep -- unshipped'
+
+# ARMED IS THE SWEEP'S QUESTION ONLY WHERE A SWEEP EXISTS.
+$armedRec = New-PrRecord
+$armedVerdict = Get-UnshippedPrVerdict -Record $armedRec -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $true
+Assert-True (-not $armedVerdict.Unshipped) 'armed, with merge-on-green.yml present -- not reported, the sweep (or check-stranded-sweep) owns it'
+Assert-True ($armedVerdict.Reason -like '*sweep owns it*') 'and the Reason says why'
+Assert-True (Get-UnshippedPrVerdict -Record $armedRec -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $false).Unshipped `
+    'armed, with NO sweep in this repo -- the label is inert, so it is unshipped all the same'
+
+Assert-True (-not (Get-UnshippedPrVerdict -Record (New-PrRecord -Labels @() -Draft $true) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Unshipped) `
+    'a draft is never unshipped -- nobody said it was ready'
+Assert-True (-not (Get-UnshippedPrVerdict -Record (New-PrRecord -Labels @() -CrossRepo $true) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Unshipped) `
+    'a fork pull request is never unshipped -- ship-pr cannot run from its head'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $null -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Unshipped) `
+    'a null record is never unshipped'
+
+# THE REQUIRED-CHECK STATE AND THE SETTLE WINDOW -- the shared block, so the boundary is the picker's.
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict $null -GreenAgeMinutes 30).Unshipped) `
+    'an unreadable required-check state is not unshipped -- fail closed'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict ([pscustomobject]@{ Blocked = $true; Reason = 'red'; UnfinishedRequired = @() }) -GreenAgeMinutes 30).Unshipped) `
+    'a red required check is not unshipped -- it is owed a fix, not a merge'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict ([pscustomobject]@{ Blocked = $false; Reason = 'ok'; UnfinishedRequired = @('lint-en-tests') }) -GreenAgeMinutes 30).Unshipped) `
+    'a required check still running is not unshipped'
+$settleMin = Get-MergeOnGreenSettleMinutes
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes ($settleMin - 1)).Unshipped) `
+    'green for less than the settle window is not unshipped -- a live ship-pr may still be merging it'
+Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes $settleMin).Unshipped `
+    'green for exactly the settle window is unshipped -- the same boundary the picker uses'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green)).Unshipped) `
+    'no green age passed -- not unshipped, fail closed'
 
 Write-Host ''
 Write-Host 'The lib, the script and the runner are ASCII' -ForegroundColor Cyan

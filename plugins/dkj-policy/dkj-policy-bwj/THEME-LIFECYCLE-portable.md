@@ -54,6 +54,15 @@ shipped" is the question that mechanism keeps implicitly asking.
 naming which reading applies. Nothing about the copy is wrong; what would be wrong is a later reader
 assuming it holds what this page says it holds. Decision by Dave, September 14, 2026.
 
+**A restore publishes that backup, and a person runs it** (Dave, September 28, 2026,
+[#2589](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2589)). It is a live change, so it
+waits for the owner's word like a live push, and the live guard refuses every publish from a session
+anyway. Under push-then-cut the backup undoes third-party drift since the last release, not the push
+itself. The steps, including putting back the paths a **WITH EXCEPTIONS** backup lacks from the commit
+it was verified against, are on the
+[`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md#restore-live-from-the-backup)
+page.
+
 **#1965 also asked for a preview of the trunk at the cut, and it is deliberately not built.** Under
 push-then-cut the trunk is already live at that moment, so the preview would be byte-identical to the
 live storefront -- a theme slot spent on a review target with nothing to review. It is worth building
@@ -72,7 +81,9 @@ There are now **three** standing approvals, and nothing else:
    exact-name-match script that refuses anything live or not `unpublished`.
 2. **The sweep of this repo's spent preview themes, after a live push.**
 3. **The rotation of the previous backup, at the release cut** -- and *only* after its replacement has
-   been created **and verified complete**.
+   been created **and verified complete**. That includes a copy **verified WITH EXCEPTIONS**, where
+   every file Shopify would not duplicate is held by the trunk exactly as live holds it
+   ([#2568](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2568)).
 
 **Every one of those is bounded by the reserved prefix.** A theme this repo did not create is outside
 all three, whatever its role, whatever its name looks like. That bound is not a convention anybody has

@@ -147,7 +147,13 @@ function Invoke-Check {
         [switch]$PrChecksFail,
         # -1 means "do not pass -MaxElapsedSeconds at all", so the script's own default (90) applies --
         # a caller that wants the budget behaviour under test passes a real value (issue #2438).
-        [int]$MaxElapsedSeconds = -1
+        [int]$MaxElapsedSeconds = -1,
+        # THE PER-CALL BOUND IS PASSED GENEROUSLY, NEVER LEFT AT THE SCRIPT'S 15s DEFAULT (issue #2470).
+        # The fake gh is a .cmd that launches a fresh powershell.exe, and under the parallel open-pr gate
+        # (22 lanes) that launch alone can outrun 15s -- the list read then times out into [SKIP], or a
+        # checks read into [INCOMPLETE], and an [OK] assert goes red for a race the tree had no part in.
+        # No case here tests the per-call timeout, so this suite has no reason to be exposed to it.
+        [int]$TimeoutSeconds = 120
     )
     $prevEap = $ErrorActionPreference
     try {
@@ -159,7 +165,7 @@ function Invoke-Check {
         if ($PrListFail) { $env:GH_FAKE_PR_LIST_FAIL = '1' } else { Remove-Item Env:\GH_FAKE_PR_LIST_FAIL -ErrorAction SilentlyContinue }
         $env:GH_FAKE_PR_CHECKS_JSON = $PrChecksJson
         if ($PrChecksFail) { $env:GH_FAKE_PR_CHECKS_FAIL = '1' } else { Remove-Item Env:\GH_FAKE_PR_CHECKS_FAIL -ErrorAction SilentlyContinue }
-        $scriptArgs = @('-RootOverride', $Dir)
+        $scriptArgs = @('-RootOverride', $Dir, '-TimeoutSeconds', $TimeoutSeconds)
         if ($MaxElapsedSeconds -ge 0) { $scriptArgs += @('-MaxElapsedSeconds', $MaxElapsedSeconds) }
         $out = & $PowershellExe -NoProfile -ExecutionPolicy Bypass -File $Script @scriptArgs 2>&1
         return @{ Out = ($out | Out-String); Code = $LASTEXITCODE }
@@ -188,7 +194,7 @@ $GreenSettledChecksJson = New-CheckedJson -MinutesAgo 30
 # control character never reaches a printed reason.
 $UntrustedBranch = "fix/501-x$([char]0x1b)[2J"
 $UntrustedTitle  = "evil title$([char]0x07)bell"
-$StrandedPrJson = "[{`"number`":501,`"headRefName`":`"$UntrustedBranch`",`"title`":`"$UntrustedTitle`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/x.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
+$StrandedPrJson = "[{`"number`":501,`"headRefName`":`"$UntrustedBranch`",`"title`":`"$UntrustedTitle`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/repo-config.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
 $OrdinaryPrJson = '[{"number":77,"headRefName":"docs/77-x","title":"an ordinary docs PR","isDraft":false,"mergeable":"MERGEABLE","isCrossRepository":false,"labels":[{"name":"merge-when-green"}],"files":[{"path":"README.md","additions":1,"deletions":0}],"changedFiles":1}]'
 
 # SEVERAL ARMED, ORDINARY PULL REQUESTS -- for the -MaxElapsedSeconds budget (issue #2438): the total
@@ -205,7 +211,7 @@ $SeveralArmedJson = '[' + (
 # untouched. Alongside it, an ORDINARY branch name -- this workflow's own shape -- as the control: it
 # must still round-trip into the checkout line unchanged. Both touch an executed path so both strand.
 $HostileBranch = 'fix/601`x`;$(y)'
-$QuotingPrJson = "[{`"number`":601,`"headRefName`":`"$HostileBranch`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/x.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1},{`"number`":602,`"headRefName`":`"fix/602-safe`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/x.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
+$QuotingPrJson = "[{`"number`":601,`"headRefName`":`"$HostileBranch`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/repo-config.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1},{`"number`":602,`"headRefName`":`"fix/602-safe`",`"title`":`"ok`",`"isDraft`":false,`"mergeable`":`"MERGEABLE`",`"isCrossRepository`":false,`"labels`":[{`"name`":`"merge-when-green`"}],`"files`":[{`"path`":`"scripts/repo-config.ps1`",`"additions`":1,`"deletions`":0}],`"changedFiles`":1}]"
 
 try {
     # --- SKIP: no .github/workflows/merge-on-green.yml -----------------------------------------------

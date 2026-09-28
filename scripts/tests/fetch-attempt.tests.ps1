@@ -80,8 +80,8 @@ function Invoke-FixtureGit {
     $prev = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        $out = & git @GitArgs 2>&1
-        Assert-FixtureGitOk -Code $LASTEXITCODE -GitArgs @($GitArgs) -Output $out
+        # A push whose transport breaks under the parallel gate is retried once (issue #2481).
+        Invoke-FixtureGitNative -Arguments @($GitArgs)
     } finally { $ErrorActionPreference = $prev }
 }
 

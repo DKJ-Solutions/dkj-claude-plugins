@@ -75,6 +75,11 @@ function Get-SharedScriptPairs {
             Source = 'scripts\release\open-pr.ps1'
             Plugin = 'dkj-policy'
             Skill  = 'open-pr'
+            # -SeamRoot is CI-runner machinery for issue #2437's trusted-tree ship, forwarded by
+            # ship-pr.ps1's own -TrustedRoot (its own exemption, on ship-pr's registration below). Built
+            # for merge-on-green.yml, not for a session to type -- see the parameter's own doc for why.
+            # Documenting it in the skill page would invite a session to pass a tree it does not trust.
+            SkillParamsExempt = @('SeamRoot')
         },
         @{
             Name   = 'check-roster-sync'
@@ -275,6 +280,11 @@ function Get-SharedScriptPairs {
             # verify-resolved-issues too, which is why that entry points here rather than at one of
             # its own.
             Skill  = 'ship-pr'
+            # -TrustedRoot is CI-runner machinery for issue #2437's trusted-tree ship (merge-on-green.yml
+            # runs this script from a separate, token-bearing checkout of the trunk rather than from the
+            # branch). Built for that runner, not for a session to type -- see the parameter's own doc.
+            # Documenting it in the skill page would invite a session to name a tree it does not trust.
+            SkillParamsExempt = @('TrustedRoot')
         },
         @{
             # Travels with ship-pr rather than on its own merit: it IS ship-pr's step 6, and a consumer
@@ -477,6 +487,75 @@ function Get-SharedScriptPairs {
             Name    = 'consumer-check-lib'
             Source  = 'scripts\lib\consumer-check-lib.ps1'
             Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            # THE CLAUDE.md IMPORT LINES AND THEIR ONE WRITER (#2532). Two mirrors, one per plugin with an
+            # adoption that writes a line: dkj-policy's adopt-workflow-folder.ps1 (the constitution, loaded
+            # through consumer-check-lib) and dkj-policy-bwj's adopt-extension-import.ps1 (the extension).
+            # Its writer loads measure-context-lib from its own directory, so that lib travels into
+            # dkj-policy-bwj too (measure-context-lib-bwj below).
+            Name    = 'claude-md-import-lib'
+            Source  = 'scripts\lib\claude-md-import-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'claude-md-import-lib-bwj'
+            Source  = 'scripts\lib\claude-md-import-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
+            # THE REPARSE-POINT GUARD (#2533), checked before every write into a file a consumer already
+            # has. A leaf with no dependencies, mirrored into each plugin that carries such a writer:
+            # dkj-policy (adopt-workflow-folder, claude-md-import-lib), dkj-policy-bwj
+            # (claude-md-import-lib-bwj) and dkj-subagents-alpha (specialists-init's bootstrap.ps1).
+            Name    = 'write-target-lib'
+            Source  = 'scripts\lib\write-target-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'write-target-lib-bwj'
+            Source  = 'scripts\lib\write-target-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'write-target-lib-alpha'
+            Source  = 'scripts\lib\write-target-lib.ps1'
+            Plugin  = 'dkj-subagents-alpha'
+            LibOnly = $true
+        },
+        @{
+            # THE ONE FENCE TRACKER (#2536), Get-NextFenceState. A leaf with no dependencies, mirrored
+            # into each plugin that carries a reader of it: dkj-policy (measure-context-lib, pr-body-lib,
+            # pr-issues-lib, entry-scaffold-lib), dkj-policy-bwj (measure-context-lib-bwj) and
+            # dkj-subagents-alpha (check-roster-sync).
+            Name    = 'fence-lib'
+            Source  = 'scripts\lib\fence-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'fence-lib-bwj'
+            Source  = 'scripts\lib\fence-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
+            Name    = 'fence-lib-alpha'
+            Source  = 'scripts\lib\fence-lib.ps1'
+            Plugin  = 'dkj-subagents-alpha'
+            LibOnly = $true
+        },
+        @{
+            # Get-NextFenceState for claude-md-import-lib-bwj's writer (#2532); nothing else in
+            # dkj-policy-bwj loads it.
+            Name    = 'measure-context-lib-bwj'
+            Source  = 'scripts\lib\measure-context-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
             LibOnly = $true
         },
         @{
@@ -950,6 +1029,31 @@ function Get-SharedScriptPairs {
             # over the network rather than a timeable unit of work.
         },
         @{
+            # THE UNSHIPPED-PR REPORT (issue #2525): the sibling of check-stranded-sweep above, for the
+            # pull request that row cannot see -- green, settled, authored by this account, and NOT armed,
+            # so no sweep will ever merge it. A ship that dies before arming, or a repo with no sweep at
+            # all, leaves exactly that, and nothing reported it (measured on PR #2515). Same posture as
+            # its sibling on every axis: advisory, fails quiet, never blocks a session start, one
+            # automatic caller (the SessionStart hook unshipped-pr-sessioncheck.ps1), no CI leg, no skill.
+            Name   = 'check-unshipped-pr'
+            Source = 'scripts\lint\check-unshipped-pr.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = ''
+            SkillParamsExempt = @('RootOverride')
+        },
+        @{
+            # THE BOUNDED PR SCAN THE TWO ROWS ABOVE SHARE (issue #2526): the list read, the per-PR
+            # required-check read under a total budget, the judged/unjudged split and the display-safe
+            # finding. Both checks carried it as a ~100-line copy until then, so a repair to the pattern
+            # had to land twice by hand. Mirrored because both checks dot-source it unguarded.
+            #
+            # NO CONTRACT ROW: nothing in it is repo-owned -- the filter and the verdict are the caller's.
+            Name    = 'pr-scan-lib'
+            Source  = 'scripts\lib\pr-scan-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # THE LAST FETCH ATTEMPT PER REMOTE (issue #1860, September 11, 2026) -- what was asked for
             # and how it went. claim-issue.ps1 and new-branch.ps1 both fetch the same remote at the
             # opening of an assignment, seconds apart by design, so against an UNREACHABLE remote a
@@ -1012,6 +1116,18 @@ function Get-SharedScriptPairs {
             Name    = 'ref-print-lib-shopify'
             Source  = 'scripts\lib\ref-print-lib.ps1'
             Plugin  = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
+            # THE THIRD MIRROR (inbound #2509's security review, September 26, 2026). prepare-release.ps1
+            # prints a paste-ready runbook whose push and pull commands carry theme paths out of git diff,
+            # and a theme path can reach the repo through a sync from the theme editor -- so a filename
+            # holding `;` or `$(...)` would run when the runbook line is pasted. #1594 measured that quoting
+            # does not close that class; Test-PathPasteSafe does, by refusing to print the path at all.
+            # ConvertTo-ConsoleStrippedText rides along for the PR titles and entry prose it echoes.
+            Name    = 'ref-print-lib-bwj'
+            Source  = 'scripts\lib\ref-print-lib.ps1'
+            Plugin  = 'dkj-policy-bwj'
             LibOnly = $true
         },
         @{
@@ -1197,6 +1313,38 @@ function Get-SharedScriptPairs {
             # id. It never called the function it defined, so losing it cost that file nothing.
             Name    = 'git-porcelain-lib-shopify'
             Source  = 'scripts\lib\git-porcelain-lib.ps1'
+            Plugin = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
+            # THE THIRD MIRROR (inbound #2509, September 26, 2026), on the precedent one entry up:
+            # dkj-policy-bwj's prepare-release.ps1 reads a release's changed THEME paths out of git, and a
+            # theme is exactly where a path with a byte above 0x7F turns up. Without Convert-GitQuotedPath
+            # that path reaches the push list mis-decoded by the console code page and matches nothing on
+            # live. Mirrored rather than reached across, for that entry's reason: separately versioned
+            # plugins, and a cross-plugin path breaks silently on a version mismatch.
+            Name    = 'git-porcelain-lib-bwj'
+            Source  = 'scripts\lib\git-porcelain-lib.ps1'
+            Plugin = 'dkj-policy-bwj'
+            LibOnly = $true
+        },
+        @{
+            # THE LIVE-PUSH RECORD (#2570, #2586, September 28, 2026): its format, its parser, and the
+            # "is this entry live" rule. Its WRITER is live-preflight (dkj-subagents-shopify) and its READER
+            # is cut-release (dkj-policy), and the two documents the reader builds from it -- the GitHub
+            # body and the audience note -- contradicted each other at a BWJ store's v1.3.0 because each had
+            # decided "live" on its own. So the format is one file, mirrored into both plugins and held
+            # byte-identical by check 8, rather than a writer and a parser that could disagree. Pure, and
+            # dependency-free: nothing in it is repo-owned, so no contract row follows.
+            Name    = 'live-record-lib'
+            Source  = 'scripts\lib\live-record-lib.ps1'
+            Plugin = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            # The same file, for its writer. See the entry one up.
+            Name    = 'live-record-lib-shopify'
+            Source  = 'scripts\lib\live-record-lib.ps1'
             Plugin = 'dkj-subagents-shopify'
             LibOnly = $true
         },
@@ -1400,7 +1548,7 @@ function Get-SharedScriptPairs {
         @{
             # The triage-priority label adopter (issue #1895, split from #1843). Print-only, the same
             # shape Get-MissingLabelNote already established for a PR label: composes a paste-ready
-            # `gh label create` for whichever of the four canonical 'prio-*' labels this repo's tracker
+            # `gh label create` for whichever of the canonical triage labels ('prio-*', 'dossier', 'needs-decision', 'awaiting-recurrence') this repo's tracker
             # is missing, and never runs it. Shared for the same reason every entry here is -- the
             # alternative is each consumer retyping four names and four colours out of a page instead
             # of a seam.
@@ -2064,6 +2212,21 @@ function Get-SharedScriptPairs {
             Name    = 'live-push-rules'
             Source  = 'scripts\lib\live-push-rules.ps1'
             Plugin  = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
+            # THE SAME RULES, MIRRORED A SECOND TIME -- into dkj-policy-bwj, for prepare-release.ps1 (inbound
+            # #2509, September 26, 2026). That script derives the push list days before release day, and
+            # the issue asked for it to reuse the preflight's derivation rather than copy it. The plugin's
+            # scripts may not reach a second plugin's libs -- a store forwards to them from the plugin
+            # cache, where dkj-subagents-shopify's folder is not a sibling path anybody can rely on -- so
+            # the reuse is a registered mirror: one source, held byte-identical in both plugins by check 8.
+            #
+            # A MIRROR AND NOT A MOVE. The preflight still owns these rules, and nothing in dkj-policy-bwj
+            # edits them; a change lands in scripts/lib/live-push-rules.ps1 and reaches both copies.
+            Name    = 'live-push-rules-bwj'
+            Source  = 'scripts\lib\live-push-rules.ps1'
+            Plugin  = 'dkj-policy-bwj'
             LibOnly = $true
         },
         @{

@@ -10,10 +10,12 @@ group: 01
 **This manual is read on demand; the persona beside it is loaded on every turn.** That is the whole
 reason the two files are separate, and it is also the test for what belongs in each. The persona
 carries what Chris needs *before he knows what the assignment is* — who he is, the fixed ritual, the
-close-out shapes, the rules that govern every turn. This manual carries what he needs *once a
-particular situation has arrived*: a workflow with phases, a job to fan out, an inbound report to pick
-up. None of the three is knowable at the start of a turn, so none of them was ever worth a session's
-context.
+close-out shapes, the rules that govern every turn, stated in their tightest form. This manual carries
+what he needs *once a particular situation has arrived*, or the reasoning and the measurements behind a
+persona rule that is otherwise stated bare: a workflow with phases, why step 6 stopped being repaired in
+prose, a job to fan out, an inbound report to pick up, the incidents behind the waiting rule, and why the
+issue-claim rule is shaped the way it is. None of that is knowable — or needed — at the start of a turn,
+so none of it was ever worth a session's context.
 
 **Chris is the only specialist whose manual is backed by a persona rather than an agent def**, and
 the gate says so explicitly (`check-plugin-integrity.ps1`, check 6b). He runs in the main loop, so
@@ -52,6 +54,15 @@ specialists must never require one to exist. That is why this is conditional pro
 of the ritual — the ritual travels to every repo, a method travels only to the repos that chose it.
 
 ## Why step 6 prints itself — and why not to repair it in prose again
+
+### The rule's own history, before the mechanism
+
+**The rule itself, in its tightest form, is on the persona page: THE CLOSE-OUT IS A RECEIPT, NOT THE
+REPORT.** It was Dave's, August 27, 2026, after a close-out he could not read in the time he had, and
+sharpened September 4, 2026, after filed numbers came back as paragraphs — *if the session is done he
+wants to know it can be cleared; anything important he reads later in an issue*. The order it settled
+on — duplication filters first, then a ceiling on what is left — is what makes the result a ceiling
+rather than the word budget that same August 27 decision explicitly refused.
 
 **Read this before sharpening the close-out passage in the persona.** That passage is deliberately
 short now, and its shortness is the conclusion of everything below rather than an oversight.
@@ -283,6 +294,30 @@ own subagents' background work has traded a wrong receipt for a wasted session. 
 sentence, not the schedule** — name the agent that is still running and what its death would cost, and the
 requester decides.
 
+## Waiting — the measurements behind the rule
+
+**The rule itself is on the persona page; this is the evidence it was built on.**
+
+**Measured August 29, 2026, in this system's own source repo.** A background ship held the checkout on
+the branch until after CI, the close-out said the session could be cleared, and it took three exchanges
+to unpick — the requester read "cleared" as an instruction to walk away from a tree that was not
+actually done with them. The repair moved the tree home (`git checkout main`) the moment the pull
+request existed, so nothing after that point needed the checkout to stand on the branch, and both
+rules — do not sit through somebody else's clock, and do not hand back a tree the requester cannot act
+on — hold at once.
+
+**Measured September 5, 2026: a shipping tool backgrounded and left running is a child process of the
+harness**, so quitting the harness kills it outright — unlike the branch, the plan and the pull request
+of a parked branch, none of which depend on the harness staying up. This is why a merge or a fold still
+in flight cannot be treated the way a parked branch is: parking survives the session ending; an
+unfinished ship does not.
+
+**And measured the same day, on the exact sentence that tempted it.** *"…the session can be cleared once
+the ship lands"* was written as a close-out, and it reads as a contradiction to a requester who
+backgrounded the wait precisely so they would not have to keep sitting through it — the very thing the
+sentence asks them to keep doing. The repair was not a shorter sentence but a different one: name what
+is still in flight as a fact, never as a condition on the clearance.
+
 ## Picking up an inbound report — the six checks, in full
 
 The persona carries the route (an improvement to the shared core becomes an `inbound` issue on the
@@ -341,3 +376,27 @@ chain begins.
 **A consuming repo may carry the evidence behind these six as a skill instead**, filled with the
 issues that produced them; this page is the portable statement of what to check, and a repo that has
 measured its own instances says so in the lens.
+
+## Picking up an issue — why the claim is shaped this way
+
+**The rule itself is on the persona page; this is the reasoning behind each of its shapes.**
+
+**Why `@me` is refused rather than merely warned about.** It resolves through the tracker's API, so it
+binds to whatever the CLI is authenticated as, while the branch a second session correlates the claim
+with carries the `git config user.name` identity. A machine can hold both — a personal login on the
+tracker, a work account on the commits — and then `@me` claims under one name while every commit lands
+under the other: nothing errors, no gate fails, and the claim answers the wrong question.
+
+**Why resuming gets the same treatment as starting, rather than a lighter one.** On a fresh start the
+absence of a branch is itself a signal; on resume the other session's branch is already sitting in your
+working copy, indistinguishable from your own, so the check matters more there, not less.
+
+**Why the tracker is where this is checked at all.** The tracker is the only thing two sessions share.
+The same owner may be running a second machine, and a colleague may be working the same board; neither
+session sees the other's branch or intent, so an unassigned issue is indistinguishable from an untouched
+one — which is how the same work gets built twice and discovered at the merge.
+
+**Why a claim is the opening move rather than a checkpoint before it.** *Moving forward within a chain*
+on the persona page is conditioned on an already-established chain, and a claim is what establishes one
+— so closing out on a clean claim and waiting for a green light repeats exactly the intermediate
+question that rule already forbids.

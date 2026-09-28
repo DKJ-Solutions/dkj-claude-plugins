@@ -129,7 +129,7 @@ if (-not $RootOverride -and (Test-Path -LiteralPath (Join-Path $repoRoot '.claud
 
 Set-Location -LiteralPath $repoRoot
 
-$branch = ([string](git rev-parse --abbrev-ref HEAD)).Trim()
+$branch = "$(git rev-parse --abbrev-ref HEAD)".Trim()
 
 $seam = & {
     Set-StrictMode -Off

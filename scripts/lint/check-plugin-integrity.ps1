@@ -537,7 +537,7 @@ function Add-BarredSkillFinding {
 . (Join-Path $PSScriptRoot '..\lib\pr-body-lib.ps1')
 
 # measure-context-lib supplies the '@'-import parser check 28 resolves imports with: Get-ImportLinePath,
-# Resolve-ImportPath and Test-IsFenceLine. Reused rather than restated so the gate and
+# Resolve-ImportPath and Get-NextFenceState. Reused rather than restated so the gate and
 # scripts/maintenance/measure-always-on.ps1 cannot drift on what an import means or where it resolves from
 # -- the three rules are subtle enough that two implementations would eventually disagree, and the one that
 # matters resolves relative to the IMPORTING FILE rather than to the repo root. It sets no strict mode of
@@ -1004,15 +1004,11 @@ Write-Coverage -Category 'written-name' -Checked $wnChecked `
 # link it is checked (a) that the linked file exists, and (b) if the link has a #anchor: that anchor
 # exists as a heading in the target file (GitHub slug rules). External http(s)/mailto links are skipped.
 
-function Test-FenceDelimiterLine {
-    # A single source for what counts as a fenced-code-block delimiter line, so the fence syntax
-    # (currently ``` -- three-plus backticks, optionally indented) only ever needs to change in ONE
-    # place. Shared by Get-HeadingSlugs (below) and Get-FenceMaskedText (check 10): both need to
-    # toggle "am I inside a fence" per line, and a later fence-syntax change (tildes, four
-    # backticks, ...) must not risk drifting between two independent hardcoded patterns.
-    param([string]$Line)
-    return [bool]($Line -match '^\s*```')
-}
+# Every fence walk in this file -- Get-HeadingSlugs, Get-FenceMaskedText, checks 12, 15 and 16 -- tracks
+# the state with Get-NextFenceState (fence-lib.ps1, loaded through measure-context-lib above), with
+# -AnyIndent because a fence inside a list item sits deeper than three spaces. It replaced this file's own
+# Test-FenceDelimiterLine under #2536: that one knew backticks only, and flipped a boolean per delimiter,
+# so a four-backtick block quoting a three-backtick example closed at the inner fence.
 
 function ConvertTo-GhSlug {
     # Converts a heading text to a GitHub anchor slug.
@@ -1032,10 +1028,10 @@ function Get-HeadingSlugs {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $slugs }
     $lines = [System.IO.File]::ReadAllText($Path, [System.Text.Encoding]::UTF8) -split "`r?`n"
     $counts = @{}
-    $inFence = $false
+    $fence = ''
     foreach ($line in $lines) {
-        if (Test-FenceDelimiterLine -Line $line) { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         if ($line -match '^#{1,6}\s+(.*)$') {
             $base = ConvertTo-GhSlug -Text $Matches[1]
             if (-not $base) { continue }
@@ -1297,6 +1293,9 @@ $changelogFull   = Join-Path $RepoRoot $changelogRelWin
 $changelogDirForLinks = Split-Path -Parent $changelogFull
 
 $linkRegex = [regex]'\[(?:[^\]]*)\]\(([^)]+)\)'
+# The characters .NET Framework refuses in a path: '<', '>', '"', '|' and the control characters. Both link
+# scans (check 4 and [plugin-link]) test a target against these BEFORE any path API sees it (#2595).
+$invalidLinkPathChars = [System.IO.Path]::GetInvalidPathChars()
 $slugCache = @{}
 foreach ($lf in $linkFiles) {
     $content = [System.IO.File]::ReadAllText($lf, [System.Text.Encoding]::UTF8)
@@ -1376,6 +1375,12 @@ foreach ($lf in $linkFiles) {
         # Determine target file: empty pathPart = this same file (pure #anchor).
         if (-not $pathPart) {
             $targetFile = $lf
+        } elseif ($pathPart.IndexOfAny($invalidLinkPathChars) -ge 0) {
+            # A FINDING, NOT A CRASH (#2595). Under $ErrorActionPreference = 'Stop' the Test-Path below
+            # THROWS on '<', '>', '"' or '|' (Windows PowerShell 5.1), which ended the whole lint with an
+            # error naming no file. No file path carries those characters, so the link is dead by definition.
+            Add-Error "[link] $rel -> '$target' holds a character no file path can carry (< > "" |). A placeholder such as '(<url>)' belongs inside a code span that opens and closes on one line."
+            continue
         } else {
             $resolved = Join-Path $dir ($pathPart -replace '/', '\')
             if (-not (Test-Path -LiteralPath $resolved)) {
@@ -1669,7 +1674,7 @@ $agentDefs | ForEach-Object {
 
         $text = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8)
         $nm = [regex]::Match($text, '(?m)^name:\s*(\S+)\s*$')
-        if ($nm.Success -and ($nm.Groups[1].Value.Trim() -notmatch '^[a-z0-9-]+$')) {
+        if ($nm.Success -and ($nm.Groups[1].Value.Trim() -cnotmatch '^[a-z0-9-]+$')) {
             Add-Error "[specialist] ${rel}: 'name: $($nm.Groups[1].Value.Trim())' must consist of lowercase letters/digits/hyphens (Claude Code call name)."
         }
 
@@ -1840,18 +1845,17 @@ function Get-FenceMaskedText {
     # Masks fenced ```-code blocks with SAME-LENGTH whitespace (newlines untouched), so the caller
     # can keep using character offsets into the RETURNED text to derive correct line numbers -- the
     # length and every newline position stay identical to the input, only non-newline characters
-    # inside a fence become spaces. Uses the SAME fence-toggle detection (Test-FenceDelimiterLine,
-    # flip a boolean per line) that Get-HeadingSlugs already uses above -- one shared pattern, not
-    # two independently hardcoded ones. It cannot reuse Get-HeadingSlugs's RESULT directly, though:
+    # inside a fence become spaces. Uses the SAME fence tracker (Get-NextFenceState) that
+    # Get-HeadingSlugs already uses above -- one shared definition, not two independently hardcoded
+    # ones. It cannot reuse Get-HeadingSlugs's RESULT directly, though:
     # that function drops fenced lines outright (fine there -- it never reports a line number),
     # whereas this needs a same-shape mask, not a shorter string.
     param([string]$Text)
     $parts = [regex]::Split($Text, '(\r\n|\r|\n)')
-    $inFence = $false
+    $fence = ''
     for ($k = 0; $k -lt $parts.Length; $k += 2) {
-        $isFenceLine = Test-FenceDelimiterLine -Line $parts[$k]
-        if ($isFenceLine) { $inFence = -not $inFence }
-        if ($isFenceLine -or $inFence) {
+        $was = Resolve-FenceState -Line $parts[$k] -Fence $fence; $fence = Get-NextFenceState -Line $parts[$k] -Fence $fence -AnyIndent
+        if ($was -or $fence) {
             $parts[$k] = ($parts[$k] -replace '.', ' ')
         }
     }
@@ -2251,21 +2255,22 @@ foreach ($lf in ($lifecycleFiles | Sort-Object -Unique)) {
     $rel = $lf.Substring($RepoRoot.Length).TrimStart('\', '/')
     $content = [System.IO.File]::ReadAllText($lf, [System.Text.Encoding]::UTF8)
     $irLines = $content -split "`r?`n"
-    # Fenced blocks, walked with the SHARED fence-toggle primitive (Test-FenceDelimiterLine) that
+    # Fenced blocks, walked with the SHARED fence tracker (Get-NextFenceState) that
     # Get-HeadingSlugs and Get-FenceMaskedText already use -- one fence notion in this file, not a third
     # hand-rolled one. The mask itself is no use here: it replaces a fence's contents with whitespace, and
     # this check needs exactly those contents.
-    $inFence = $false
+    $fence = ''
     $blockBody = @()
     $blockLine = 0
     for ($i = 0; $i -lt $irLines.Count; $i++) {
-        if (Test-FenceDelimiterLine -Line $irLines[$i]) {
-            if (-not $inFence) {
-                $inFence = $true
+        # A deep block ended by its indent (#2542) never reads as a close here, so it goes unjudged: it is an
+        # indented code block on GitHub, not a fence, and the next opener resets the state.
+        $was = Resolve-FenceState -Line $irLines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $irLines[$i] -Fence $fence -AnyIndent
+        if ($was -xor $fence) {
+            if ($fence) {
                 $blockBody = @()
                 $blockLine = $i + 2   # 1-based line of the first line INSIDE the fence
             } else {
-                $inFence = $false
                 $body = ($blockBody -join "`n")
                 if ($body -match 'installed_plugins\.json' -and $body -match 'ConvertFrom-Json') {
                     $irChecked++
@@ -2279,7 +2284,7 @@ foreach ($lf in ($lifecycleFiles | Sort-Object -Unique)) {
             }
             continue
         }
-        if ($inFence) { $blockBody += $irLines[$i] }
+        if ($fence) { $blockBody += $irLines[$i] }
     }
 }
 # The skip count belongs in BOTH branches, which the test suite established rather than the design: an
@@ -2783,9 +2788,13 @@ $sampleChecked = 0
 #
 # AND THEN TWO, on September 24, 2026: INSTALL.md and UNINSTALL.md were retired and the install commands
 # moved into plugins/ADOPTION.md, which is the entry that already carried the samples and figures.
+#
+# AND THE ROOT README.md LEFT THE SAME DAY, retired outright. Its samples and figures travelled with its
+# sections: the adoption half into plugins/ADOPTION.md, already listed, and the marketplace architecture
+# into plugins/dkj-subagents/README.md, which takes its place here -- the #408 lesson one more time.
 $consumerDocs = @(
     'plugins\ADOPTION.md',
-    'README.md'
+    'plugins\dkj-subagents\README.md'
 )
 # What counts as saying "here is what this is bound to". A version or a year pins the capture in time; the
 # hedges pin it to a condition. Deliberately not 'measured' on its own -- that says the author saw it,
@@ -2814,11 +2823,15 @@ foreach ($rel in $consumerDocs) {
     if (-not (Test-Path -LiteralPath $full)) { continue }
     $lines = [System.IO.File]::ReadAllLines($full, [System.Text.Encoding]::UTF8)
     $open = -1
+    $fence = ''
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if (-not (Test-FenceDelimiterLine -Line $lines[$i])) { continue }
-        if ($open -lt 0) { $open = $i; continue }
+        # A deep block ended by its indent (#2542) never reads as a close here, so it goes unjudged: it is an
+        # indented code block on GitHub, not a fence, and the next opener resets the state.
+        $was = Resolve-FenceState -Line $lines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
+        if (-not $was -and $fence) { $open = $i; continue }
+        if (-not $was -or $fence) { continue }
         $close = $i
-        $lang = ($lines[$open] -replace '^\s*```', '').Trim().ToLowerInvariant()
+        $lang = ($lines[$open] -replace '^\s*(`{3,}|~{3,})', '').Trim().ToLowerInvariant()
         $open2 = $open; $open = -1
         # A block with a language is a command to run, not an expectation to match.
         if ($lang -ne '' -and $lang -ne 'text') { continue }
@@ -2898,10 +2911,10 @@ foreach ($rel in $consumerDocs) {
     $lines = [System.IO.File]::ReadAllLines($full, [System.Text.Encoding]::UTF8)
     # Fenced blocks belong to check 15. Counting them here would double-report the same sample and would
     # also flag command output that is deliberately verbatim.
-    $inFence = $false
+    $fence = ''
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if (Test-FenceDelimiterLine -Line $lines[$i]) { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = Resolve-FenceState -Line $lines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $lines[$i] -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         if ($lines[$i] -notmatch $figurePattern) { continue }
         $figureChecked++
         # The block this line sits in ...
@@ -3709,12 +3722,13 @@ foreach ($lf in $importScanFiles) {
     # hundred documents and the gate runs on every PR and again inside its own fixture suites.
     if (-not $importAnyLine.IsMatch($importText)) { continue }
     $importRel = $lf.Replace($RepoRoot, '.')
-    $importInFence = $false
+    $importFence = ''
     $importLineNo = 0
     foreach ($importLine in [regex]::Split($importText, '\r?\n')) {
         $importLineNo++
-        if (Test-IsFenceLine $importLine) { $importInFence = -not $importInFence; continue }
-        if ($importInFence) { continue }
+        $importWasFence = $importFence
+        $importFence = Get-NextFenceState -Line $importLine -Fence $importFence
+        if ($importWasFence -or $importFence) { continue }
         $importTarget = Get-ImportLinePath -Line $importLine
         if (-not $importTarget) { continue }
         if ($importTarget -match '\s') { $importNotAPath++; continue }
@@ -4036,6 +4050,17 @@ foreach ($plugin in $publishedPlugins) {
             if ($pluginTarget.Contains('${') -or $pluginTarget.StartsWith('~')) { continue }
             $pluginPathPart = ($pluginTarget -split '#', 2)[0]
             if (-not $pluginPathPart) { continue }
+            # A FINDING WITH ITS FILE AND LINE, NOT A CRASH (#2595). IsPathRooted THROWS on '<', '>', '"'
+            # and '|' under Windows PowerShell 5.1, and that ended the whole lint naming no file. Measured
+            # on a placeholder '[<Label>](<url>)' inside a code span that opened on the line before: the
+            # mask above cannot span a newline, so the placeholder reached this line.
+            if ($pluginPathPart.IndexOfAny($invalidLinkPathChars) -ge 0) {
+                $pluginBadLineNo = 1 + [regex]::Matches($pluginScan.Substring(0, $m.Index), "`n").Count
+                Add-Error ("[plugin-link] ${pfRel}:${pluginBadLineNo} -> '$pluginTarget' holds a character no" +
+                    " file path can carry (< > `" |). A placeholder such as '(<url>)' belongs inside a code span" +
+                    " that opens and closes on one line.")
+                continue
+            }
             if ([System.IO.Path]::IsPathRooted($pluginPathPart)) { continue }
             $pluginLinkChecked++
             $pluginResolved = $null

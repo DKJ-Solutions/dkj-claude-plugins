@@ -73,6 +73,11 @@
 # its caller anyway.
 . (Join-Path $PSScriptRoot 'fetch-attempt-lib.ps1')
 
+# THE FENCE STATE (issue #2536): Get-NextFenceState, which Get-FencedLineFlags -- the one fence reader of
+# the entry format -- now walks with. Same unconditional, $PSScriptRoot-relative shape as the leaves above,
+# and likewise a leaf with no dependencies of its own.
+. (Join-Path $PSScriptRoot 'fence-lib.ps1')
+
 # The English fallbacks, and the ONLY copy of them. new-branch.ps1 held these literals until
 # the gate needed the same list; it now reads them from here.
 #
@@ -216,10 +221,13 @@ function Get-FencedLineFlags {
         difference is exactly what "two answers that can drift" means, found by comparing them rather than
         by anything failing. The union rule wins, so the tilde form is now honoured everywhere.
 
-        Deliberately simple: a line whose first non-space characters are ``` or ~~~ toggles the state.
-        That is CommonMark's own rule for the common cases and needs no parser. Nested fences of the same
-        kind are not a thing in CommonMark, and an unclosed fence leaves the tail flagged as fenced --
-        which is the safe direction for every caller here, since it can only cause a missed finding, never
+        The state comes from Get-NextFenceState (fence-lib.ps1, #2536), with -AnyIndent: a block closes
+        only on a run of the same character at least as long as its opener. This was a plain toggle until
+        then, on the premise that nested fences of the same kind do not occur in CommonMark -- but a longer
+        fence wrapping a shorter one of the same character is exactly that case, and it is how an entry
+        quotes an example that itself carries a fence. The toggle closed the block at the inner fence and
+        read the rest of the example as structure. An unclosed fence still leaves the tail flagged as
+        fenced -- the safe direction for every caller here, since it can only cause a missed finding, never
         a false accusation against text somebody did write.
 
         The name is deliberately NOT entry-specific: release-lib's readers scan a whole CHANGELOG rather
@@ -231,14 +239,11 @@ function Get-FencedLineFlags {
     param([AllowEmptyString()][AllowEmptyCollection()][string[]]$Lines = @())
     if ($null -eq $Lines) { return @() }
     $flags = New-Object 'bool[]' $Lines.Count
-    $inFence = $false
+    $fence = ''
     for ($i = 0; $i -lt $Lines.Count; $i++) {
-        if ($Lines[$i] -match '^\s*(```|~~~)') {
-            $flags[$i] = $true          # the marker belongs to the block
-            $inFence = -not $inFence
-        } else {
-            $flags[$i] = $inFence
-        }
+        # Before OR after: the opener and the closer belong to the block, as the body does.
+        $was = Resolve-FenceState -Line $Lines[$i] -Fence $fence; $fence = Get-NextFenceState -Line $Lines[$i] -Fence $fence -AnyIndent
+        $flags[$i] = [bool]($was -or $fence)
     }
     return $flags
 }
@@ -589,9 +594,15 @@ function Get-EntryEarnedBump {
 # two-entry map and comes back empty. .Contains(2) says yes and the lookup beside it returns nothing, which
 # is why the template rendered 'For tier 2 audiences.' with the reader's name silently missing. Keyed and
 # looked up as strings, there is no integer for the indexer to misread.
+#
+# THE TEST IS WHAT THE REPO IS FOR, NOT WHO PAYS OR WHETHER A SUBSCRIPTION EXISTS (inbound #2557, Dave
+# September 27, 2026). Measured in a local, single-user app: both old phrases read as not applying to it,
+# so all 19 of its entries answered N/A and earned a patch, although every one was work its user relies on.
+# A tool that IS the product its user relies on is tier 2 even when that user is its own maintainer -- the
+# maintainer as USER is tier 2, the maintainer as DEVELOPER is tier 0.
 $script:EntryAudienceDescriptions = [ordered]@{
-    '1' = 'management and the employer/commissioner'
-    '2' = 'the subscriber of a service'
+    '1' = 'management and the employer/commissioner -- this repo is a means of selling or delivering something else'
+    '2' = 'the user who relies on what this repo ships, and decides whether to take the next version -- a subscriber of a service, or the user of a tool, its own maintainer included'
 }
 
 function Get-EntryAudienceDescription {
@@ -3814,6 +3825,81 @@ function Get-ChangelogUnreleasedPattern {
        Get-EntryHeadingPattern is exact: a range would match an entry below it. #>
     return ('^#{' + (Get-ChangelogUnreleasedLevel) + '}\s+' +
         [regex]::Escape((Get-ChangelogUnreleasedLabel)) + '\s*$')
+}
+
+# --- THE HEAD IS FIXED, AND IT CARRIES NO PROSE (issue #2486) -------------------------------------
+#
+# Dave, September 25, 2026: the text between '# Changelog' and the pending heading drifted between
+# consumers until every repo said something different about the same mechanism -- and a page each repo
+# says differently turns into misinformation over time. The repair is that there is no text there at all,
+# so the head is byte-identical in every repo running this workflow.
+#
+# WHY EVERY WRITER RE-APPLIES IT RATHER THAN ONLY THE SCAFFOLD. adopt-workflow-folder.ps1 is additive and
+# never touches a CHANGELOG.md that already exists, so a scaffold-only repair reaches no consumer that has
+# ever adopted -- which is every consumer the drift was measured in. The fold runs on every merge and the
+# cut at every release, so both re-apply the head and a drifted intro converges on the next merge. The
+# mechanism a repo used to explain in that prose is on the portable pages, which travel with the plugin.
+function Get-ChangelogHeadLines {
+    <# The fixed head of CHANGELOG.md: the title, a blank line, and the pending heading. Nothing else. #>
+    return @('# Changelog', '', (Get-ChangelogUnreleasedHeading))
+}
+
+function Get-ReleaseHistoryHeadLines {
+    <# The fixed head of the release list (issue #2489): the title and a blank line. Nothing else. The cut
+       re-applies it through Set-ReleaseHistoryCanonicalHead in release-lib.ps1; it lives here, beside the
+       changelog's head, because adopt-workflow-folder.ps1 prints it and loads this lib rather than that one. #>
+    return @('# Release history', '')
+}
+
+function Set-ChangelogCanonicalHead {
+    <#
+        Pure: CHANGELOG.md with everything above its pending heading replaced by the fixed head. Content
+        in, content out; nothing is written and nothing is thrown.
+
+        THREE SHAPES, the same three Set-ChangelogPendingSummary anchors on:
+
+          1. a pending heading -- everything above it is replaced by the title; the heading and everything
+                                 below it (the tally, the entries) are untouched.
+          2. entries, no heading -- a repo scaffolded before #1518. The whole head is replaced and the
+                                 pending heading is placed above the first entry, so the tally that
+                                 Set-ChangelogPendingSummary writes next lands beneath it.
+          3. neither            -- an intro and nothing else. The fixed head is the whole document.
+
+        A tally line sitting in an old intro (the pre-#1518 anchor put it above the first entry) is
+        removed with the rest of the head; the caller re-derives it under the heading afterwards, which
+        is why both the fold and the cut call this BEFORE Set-ChangelogPendingSummary.
+
+        FENCE-AWARE, because the intro it replaces may quote an entry heading or the pending heading inside
+        a fence to document the format -- this repo's own did -- and the boundary must not land in it.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Content)
+
+    $nl = Get-DocumentNewline -Content $Content
+    $lines = @($Content -split "`r?`n")
+    $fenced = Get-FencedLineFlags -Lines $lines
+    $head = @(Get-ChangelogHeadLines)
+    $pendingRx = Get-ChangelogUnreleasedPattern
+    $entryRx = Get-EntryHeadingPattern
+
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($fenced[$i]) { continue }
+        if ($lines[$i] -match $pendingRx) {
+            return ((@($head[0..($head.Count - 2)]) + @($lines[$i..($lines.Count - 1)])) -join $nl)
+        }
+        if ($lines[$i] -match $entryRx) {
+            # A pending heading BELOW an entry is misplaced -- a hand edit -- and keeping it would leave two
+            # of them for every reader anchored on that pattern. It is dropped rather than used as the
+            # boundary, because replacing everything above it would take the entries above it with it.
+            $tail = @()
+            for ($j = $i; $j -lt $lines.Count; $j++) {
+                if ((-not $fenced[$j]) -and $lines[$j] -match $pendingRx) { continue }
+                $tail += $lines[$j]
+            }
+            return (($head + @('') + $tail) -join $nl)
+        }
+    }
+
+    return (($head -join $nl) + $nl)
 }
 
 # --- THE PENDING TALLY, WRITTEN UNDER THE PENDING HEADING (issue #1515) ---------------------------
@@ -7692,15 +7778,15 @@ function Get-DevelopmentShapeFindings {
     $phaseMark = '#' * $phaseLevel
     $subMark   = '#' * ($phaseLevel + 1)
 
-    $inShapeFence = $false
+    $shapeFence = ''
     $shapeLineNo = 0
     $topHeadings = @()
     $preambleStrays = @()
     $seenFirstTop = $false
     foreach ($shapeLine in [regex]::Split($Text, '\r?\n')) {
         $shapeLineNo++
-        if ($shapeLine -match '^\s{0,3}(?:`{3,}|~{3,})') { $inShapeFence = -not $inShapeFence; continue }
-        if ($inShapeFence) { continue }
+        $shapeWas = $shapeFence; $shapeFence = Get-NextFenceState -Line $shapeLine -Fence $shapeFence
+        if ($shapeWas -or $shapeFence) { continue }
         if ($shapeLine -match $phaseRx) {
             $seenFirstTop = $true
             $topHeadings += [pscustomobject]@{ Line = $shapeLineNo; Text = $Matches[1].Trim() }

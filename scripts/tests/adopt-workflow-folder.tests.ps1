@@ -4,7 +4,7 @@
     root folder (dkj-policy/) in a consuming repo.
 
 .DESCRIPTION
-    What is covered, and why these five:
+    What is covered, and why these six:
       1. the DRY RUN default writes nothing -- the same contract adopt-config is trusted on;
       2. -Apply places every file the folder promises, with the branch files in the reset shape the
          shared formatters write -- and the releases page carrying NO history table, since the list
@@ -14,7 +14,9 @@
          August 14, 2026), so the scaffold must not build the layout its owner declined;
       5. the LEGACY REPORT: a consumer who still carries dkj-policy/README.md or
          dkj-policy/CONTRIBUTING.md from before #2171 is told this command no longer writes or
-         refreshes them, and nothing here is ever created, deleted, or rewritten because of it.
+         refreshes them, and nothing here is ever created, deleted, or rewritten because of it;
+      6. the CONSTITUTION IMPORT (#2531): CLAUDE.md gets the one '@'-line that loads the plugin's rules
+         -- created, inserted above the first import, or appended -- once, and never twice.
 
     The repo root is pinned per child run via CLAUDE_PROJECT_DIR, the same dual-context branch every
     mirrored script resolves first, so the fixtures need no git of their own.
@@ -323,8 +325,10 @@ try {
     # would also turn red for a repo that legitimately overrode the level. The constant is the claim.
     $clText = [System.IO.File]::ReadAllText((Join-Path $c2 'dkj-policy\CHANGELOG.md'), [System.Text.Encoding]::UTF8)
     $entryHashes = '#' * (Get-EntryHeadingLevel)
-    Assert-Match ('one `' + $entryHashes + '` per change') $clText '-Apply: the changelog intro states the heading level the fold writes'
-    Assert-True ($clText -notmatch 'one `#{1,2}` per change') '-Apply: and no longer states a shallower one'
+    # SUPERSEDED BY #2486: there is no intro sentence left to go stale. The scaffolded document IS the fixed
+    # head, byte for byte, which retires the #1098 defect by removing the sentence it lived in.
+    Assert-Equal ((@(Get-ChangelogHeadLines) -join "`n") + "`n") ($clText -replace "`r`n", "`n") '-Apply: the scaffolded changelog is exactly the fixed head (#2486)'
+    Assert-True ($clText -notmatch 'per change') '-Apply: and carries no intro prose about the entry level'
 
     # AND IT CARRIES THE PENDING HEADING (issue #1518). It did not until September 6, 2026: the intro was
     # followed straight by the entries, the pre-August-26 flat shape, while entry-scaffold-lib called this
@@ -339,7 +343,7 @@ try {
     # the sentence went stale again.
     $unreleased = Get-ChangelogUnreleasedHeading
     Assert-Match ([regex]::Escape($unreleased)) $clText '-Apply: the scaffolded changelog carries the pending heading'
-    Assert-Match ('sits under `' + [regex]::Escape($unreleased) + '`') $clText '-Apply: and the intro sentence points the reader at it'
+    Assert-True ($clText -notmatch 'sits under') '-Apply: and no intro sentence points at it -- there is no intro (#2486)'
 
     # IT IS THE LAST LINE, AND THAT IS THE PLACEMENT RULE RATHER THAN TIDINESS. The first fold into an
     # entry-less document appends at the END of the content (fold-changelog-entry's $listStart fallback), so
@@ -497,6 +501,43 @@ try {
     Assert-Equal 1 ([regex]::Matches($cfg9, 'function Get-ReleaseNoteRoot').Count) 'seam answered: their function was not duplicated or overwritten'
     Assert-Match 'already answered here' $r9.Flat 'seam answered: the run reports it as left alone'
 
+    # A JUNCTIONED scripts/ DIRECTORY (issue #2533). The append would land in the junction's target,
+    # outside the repo, so the seam is refused and the file out there is untouched. A junction needs no
+    # privilege, so this always runs; it is removed with rmdir, never recursively, or the delete would
+    # empty its target.
+    Write-Host "adopt-workflow-folder -- scripts/ is a junction: the seam write is refused" -ForegroundColor Cyan
+    $c9j = New-FixtureConsumer -Label 'seam-junction'
+    $c9jOut = Join-Path $Fixture 'seam-junction-outside'
+    New-Item -ItemType Directory -Path $c9jOut -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $c9jOut 'repo-config.ps1'), "# outside`n", (New-Object System.Text.UTF8Encoding($false)))
+    & cmd /c mklink /J "$(Join-Path $c9j 'scripts')" "$c9jOut" | Out-Null
+    try {
+        $r9j = Invoke-Adopt -Dir $c9j -ScriptArgs @('-Apply')
+        Assert-Equal 0 $r9j.Code 'seam junction: exit 0 -- refusing one write is not a failed run'
+        Assert-Equal "# outside`n" ([System.IO.File]::ReadAllText((Join-Path $c9jOut 'repo-config.ps1'))) 'seam junction: the file outside the repo is untouched'
+        Assert-Match '\[refused\]\s+Get-ReleaseNoteRoot left UNANSWERED' $r9j.Flat 'seam junction: the run says it refused, and why'
+    } finally {
+        & cmd /c rmdir "$(Join-Path $c9j 'scripts')" | Out-Null
+    }
+
+    # A JUNCTIONED .github/ DIRECTORY (issue #2540). The files this run CREATES are held to the same check:
+    # Test-Path follows the junction, so without it the CI workflows would be written into its target.
+    Write-Host "adopt-workflow-folder -- .github/ is a junction: the files it would create there are refused" -ForegroundColor Cyan
+    $c9g = New-FixtureConsumer -Label 'create-junction'
+    $c9gOut = Join-Path $Fixture 'create-junction-outside'
+    New-Item -ItemType Directory -Path $c9gOut -Force | Out-Null
+    & cmd /c mklink /J "$(Join-Path $c9g '.github')" "$c9gOut" | Out-Null
+    try {
+        $r9g = Invoke-Adopt -Dir $c9g -ScriptArgs @('-Apply')
+        Assert-Equal 0 $r9g.Code 'create junction: exit 0 -- refusing some writes is not a failed run'
+        Assert-Equal 0 @(Get-ChildItem -LiteralPath $c9gOut -Recurse -Force).Count 'create junction: nothing was written outside the repo'
+        Assert-Match '\[refused\]\s+\.github/workflows/branch-entry\.yml' $r9g.Flat 'create junction: the run names the refused file'
+        Assert-Match 'file\(s\) refused' $r9g.Flat 'create junction: the summary counts the refusals'
+        Assert-True (Test-Path -LiteralPath (Join-Path $c9g 'dkj-policy\CHANGELOG.md')) 'create junction: a file outside the junction is still created'
+    } finally {
+        & cmd /c rmdir "$(Join-Path $c9g '.github')" | Out-Null
+    }
+
     # NO LIB TO WRITE INTO. specialists-init owns that file's existence, exactly as adopt-config says when
     # it stops -- so this run scaffolds the folder and reports the seam instead of half-creating a lib.
     Write-Host "adopt-workflow-folder -- no repo-config.ps1: the folder still lands, the seam is reported" -ForegroundColor Cyan
@@ -635,6 +676,98 @@ try {
     }
     Assert-True (-not ($rMirror.Flat -match 'could not be found')) `
         'mirror: no "reference could not be found" warning -- the silent branch this resolution fails through did not fire'
+
+    # --- The constitution import in CLAUDE.md (issue #2531) ----------------------------------------
+    # The line used to be an instruction plus a session-start warning, and a consumer ran for weeks
+    # without it. Five shapes: no CLAUDE.md, an existing one with imports (CRLF + BOM, the harder path),
+    # one with prose and no import, one that already imports it, and the dry run that writes nothing.
+    Write-Host ''
+    Write-Host 'The constitution import'
+    $constRx = '^@~/\.claude/plugins/marketplaces/[^/]+/plugins/dkj-policy/CLAUDE\.md$'
+
+    $cC1 = New-FixtureConsumer -Label 'const-none'
+    $rC1 = Invoke-Adopt -Dir $cC1 -ScriptArgs @('-Apply')
+    Assert-Equal 0 $rC1.Code 'constitution, no CLAUDE.md: exit 0'
+    $cC1Md = Join-Path $cC1 'CLAUDE.md'
+    Assert-True (Test-Path -LiteralPath $cC1Md -PathType Leaf) 'constitution, no CLAUDE.md: CLAUDE.md is created'
+    if (Test-Path -LiteralPath $cC1Md) {
+        $cC1Lines = @(([System.IO.File]::ReadAllText($cC1Md)).TrimEnd() -split "`r?`n")
+        Assert-Equal 1 $cC1Lines.Count 'constitution, no CLAUDE.md: it holds exactly one line'
+        Assert-Match $constRx $cC1Lines[0] 'constitution, no CLAUDE.md: and that line is the constitution import'
+    }
+
+    $cC2 = New-FixtureConsumer -Label 'const-crlf'
+    $cC2Md = Join-Path $cC2 'CLAUDE.md'
+    [System.IO.File]::WriteAllText($cC2Md, "# Title`r`n`r`n@~/.claude/other.md`r`n", (New-Object System.Text.UTF8Encoding($true)))
+    $rC2 = Invoke-Adopt -Dir $cC2 -ScriptArgs @('-Apply')
+    Assert-Equal 0 $rC2.Code 'constitution, existing imports: exit 0'
+    $cC2Bytes = [System.IO.File]::ReadAllBytes($cC2Md)
+    Assert-True ($cC2Bytes.Length -ge 3 -and $cC2Bytes[0] -eq 0xEF -and $cC2Bytes[1] -eq 0xBB -and $cC2Bytes[2] -eq 0xBF) `
+        'constitution, existing imports: the byte-order mark is kept'
+    $cC2Text = [System.IO.File]::ReadAllText($cC2Md)
+    Assert-True (($cC2Text -replace "`r`n", '') -notmatch "`n") 'constitution, existing imports: no lone LF lands in a CRLF file'
+    $cC2Lines = @($cC2Text -split "`r`n")
+    Assert-Equal '# Title' $cC2Lines[0] 'constitution, existing imports: the title stays first'
+    Assert-Match $constRx $cC2Lines[2] 'constitution, existing imports: the line lands directly above the first import'
+    Assert-Equal '@~/.claude/other.md' $cC2Lines[3] 'constitution, existing imports: and the existing import follows it unchanged'
+    $rC2b = Invoke-Adopt -Dir $cC2 -ScriptArgs @('-Apply')
+    Assert-Equal $cC2Text ([System.IO.File]::ReadAllText($cC2Md)) 'constitution, existing imports: a re-run changes nothing'
+    Assert-Match '\[keep\]\s+CLAUDE\.md already imports' $rC2b.Flat 'constitution, existing imports: and the re-run says it kept it'
+
+    $cC3 = New-FixtureConsumer -Label 'const-prose'
+    $cC3Md = Join-Path $cC3 'CLAUDE.md'
+    [System.IO.File]::WriteAllText($cC3Md, "# Prose`n`nSome text.`n")
+    $null = Invoke-Adopt -Dir $cC3 -ScriptArgs @('-Apply')
+    $cC3Lines = @(([System.IO.File]::ReadAllText($cC3Md)).TrimEnd() -split "`n")
+    Assert-Equal 'Some text.' $cC3Lines[2] 'constitution, prose only: the existing text is left in place'
+    Assert-Match $constRx $cC3Lines[-1] 'constitution, prose only: the line is appended at the end'
+
+    $cC4 = New-FixtureConsumer -Label 'const-done'
+    $cC4Md = Join-Path $cC4 'CLAUDE.md'
+    $cC4Text = "@~/.claude/plugins/marketplaces/claude-code-specialists/plugins/dkj-policy/CLAUDE.md`n"
+    [System.IO.File]::WriteAllText($cC4Md, $cC4Text)
+    $rC4 = Invoke-Adopt -Dir $cC4 -ScriptArgs @('-Apply')
+    Assert-Equal $cC4Text ([System.IO.File]::ReadAllText($cC4Md)) `
+        'constitution, already imported under another marketplace name: the file is untouched'
+    Assert-Match '\[keep\]\s+CLAUDE\.md already imports' $rC4.Flat 'constitution, already imported: says it kept it'
+
+    # A FOUR-BACKTICK BLOCK WRAPPING A THREE-BACKTICK EXAMPLE: the inner fence must not close the outer
+    # one, or the line lands inside the quoted example and imports nothing (Victor's review of #2531).
+    $cC6 = New-FixtureConsumer -Label 'const-nested'
+    $cC6Md = Join-Path $cC6 'CLAUDE.md'
+    $bt3 = '`' * 3; $bt4 = '`' * 4
+    [System.IO.File]::WriteAllText($cC6Md, (@('# Title', "${bt4}markdown", $bt3, '@fake/inside.md', $bt3, $bt4, '@real/import.md', '') -join "`n"))
+    $null = Invoke-Adopt -Dir $cC6 -ScriptArgs @('-Apply')
+    $cC6Lines = @([System.IO.File]::ReadAllText($cC6Md) -split "`n")
+    Assert-Equal '@fake/inside.md' $cC6Lines[3] 'constitution, nested fence: the quoted example is untouched'
+    Assert-Match $constRx $cC6Lines[6] 'constitution, nested fence: the line lands above the first REAL import'
+    Assert-Equal '@real/import.md' $cC6Lines[7] 'constitution, nested fence: and that import follows it'
+
+    # THE LINE QUOTED IN A FENCE IS NOT AN IMPORT -- the skill page itself shows it that way, so a consumer
+    # copying the example must still get the real line.
+    $cC7 = New-FixtureConsumer -Label 'const-quoted'
+    $cC7Md = Join-Path $cC7 'CLAUDE.md'
+    [System.IO.File]::WriteAllText($cC7Md, (@('# Ours', $bt3, '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md', $bt3, '') -join "`n"))
+    $rC7 = Invoke-Adopt -Dir $cC7 -ScriptArgs @('-Apply')
+    Assert-Match '\[added\]' $rC7.Flat 'constitution, quoted in a fence: not mistaken for an import -- the line is added'
+    $cC7Lines = @(([System.IO.File]::ReadAllText($cC7Md)).TrimEnd() -split "`n")
+    Assert-Match $constRx $cC7Lines[-1] 'constitution, quoted in a fence: appended after the block, not inside it'
+
+    # MIXED LINE ENDINGS SURVIVE BYTE FOR BYTE: only the inserted line is new.
+    $cC8 = New-FixtureConsumer -Label 'const-mixed'
+    $cC8Md = Join-Path $cC8 'CLAUDE.md'
+    $cC8Before = "# T`n`n@~/.claude/a.md`r`n@~/.claude/b.md`n"
+    [System.IO.File]::WriteAllText($cC8Md, $cC8Before)
+    $null = Invoke-Adopt -Dir $cC8 -ScriptArgs @('-Apply')
+    $cC8After = [System.IO.File]::ReadAllText($cC8Md)
+    $cC8Line = ([regex]::Match($cC8After, '@~/\.claude/plugins/[^\r\n]*\r\n')).Value
+    Assert-True ($cC8Line.Length -gt 0) 'constitution, mixed EOL: the line takes the CRLF of the import it lands above'
+    Assert-Equal $cC8Before ($cC8After.Replace($cC8Line, '')) 'constitution, mixed EOL: every other byte is unchanged'
+
+    $cC5 = New-FixtureConsumer -Label 'const-dry'
+    $rC5 = Invoke-Adopt -Dir $cC5
+    Assert-Match '\[create\]\s+CLAUDE\.md, holding the constitution import' $rC5.Flat 'constitution, dry run: lists CLAUDE.md as to-create'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $cC5 'CLAUDE.md'))) 'constitution, dry run: and does not write it'
 
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

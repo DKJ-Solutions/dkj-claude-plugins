@@ -17,7 +17,8 @@ description: >-
 # report-issue -- the BWJ GitHub-first, Asana-mirrored filing procedure
 
 This skill has **no script of its own** -- it is a procedure over `gh` and the Asana MCP, because the
-colleague-facing translation is a judgement call, not a transform. The full rule it implements is in
+colleague-facing translation is a judgement call, not a transform. **One of its rules is held by a hook
+rather than by this page**: the reach-label gate in step 2 below. The full rule it implements is in
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md); this page is the steps.
 
 ## Before you start
@@ -124,6 +125,25 @@ cases are not new tasks and are not gated by it: a ticket that **came from Asana
 (see below), and an issue that **gains** the reach label later is mirrored then, by running steps 2-3
 at that moment.
 
+**The gate is enforced, not only stated** (inbound
+[#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)). This plugin's
+`hooks/guard-asana-mirror.ps1` fires on every Asana create-task call. It reads the labels of each GitHub
+issue the task cites on an admitted repo, and it **refuses** the call where the reach label is not among
+them. It was needed because the sentence above was missed on the version that carried it:
+`smartwatchbanden#770`, filed with only `documentation`, still got a card. A refusal means step 1's
+answer was *tier 0*, so skip to step 4. Where a colleague genuinely will notice the issue, the label is
+what was missing: add it, then create the task again. Where `gh` cannot answer, the hook lets the call
+through with a warning naming the issue it could not check. A wrong card is cheap to remove, while a
+board that stalls whenever the tracker is unreachable costs the whole colleague-facing half.
+
+**Removing a wrong card means reading it first, and sometimes only unlinking it** (inbound
+[#2508](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2508)). Before you offer or run a
+delete, read the task on the Asana side: whether it is completed, whether it has human comments, which
+projects it sits in, and who created it. A task that is completed or carries a human comment is never
+offered for deletion. Unlink it from the issue instead. Any other offer shows that state beside the
+title. The rule and the case behind it are in
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#a-task-is-read-before-it-is-offered-for-deletion-and-a-task-a-person-has-worked-is-never-deleted).
+
 Compose the task body from the fixed skeleton -- plain language, outcome-framed, no code or repo
 jargon:
 
@@ -205,6 +225,14 @@ by re-running this skill's steps 2-3.
 - **Asana task** -- the `Tracked on GitHub:` line already carries the issue URL, so nothing more is
   needed unless you created the task before you had the issue URL; in that case edit the task notes
   to add it.
+
+**This procedure writes no comment on the task.** If you do write one, for example on a ticket that
+already existed, **its first line says it is an automated message and not written by the account
+holder personally**, in the colleague's language, and the content comes after it. The MCP posts as
+the person who connected it and cannot edit or delete a comment afterwards, so a comment without that
+line reads as that person's own words for good. The rule and its reason are in
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#a-comment-an-agent-writes-on-a-task-says-so-in-its-first-line)
+([#2476](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2476)).
 
 ## Step 4 -- report
 

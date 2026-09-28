@@ -175,10 +175,11 @@ to land there instead of wherever `CLAUDE_PROJECT_DIR`/git-root would otherwise 
    clears the plan along with the entry since they are sections of one file. A pre-split root entry file is
    removed as it always was, and an older `branch/` step list is removed beside it.
 
-**Where it lands is the top of the list.** `CHANGELOG.md` is an intro followed by a flat list of `###`
-entries, **newest first**: the entry being folded is the most recently merged one, so it leads. Everything
-above the first `###` is the intro and is never written into; a document with no entries yet simply gets the
-first one.
+**Where it lands is the top of the list.** `CHANGELOG.md` is a fixed head followed by a flat list of `###`
+entries, **newest first**: the entry being folded is the most recently merged one, so it leads. The head is
+`# Changelog` and the `## [Unreleased]` heading with the pending tally under it, and **the fold re-applies it on
+every run** (#2486): whatever prose an older intro carried is replaced, so every repo's head is identical. A
+document with no entries yet simply gets the first one.
 
 **It ranked on the Significance sections until August 16, 2026**, and the argument for that was that the
 cut empties this list, so document order at cut time is what the release documents inherit. That held for
@@ -410,8 +411,8 @@ The script is repo-agnostic, but reads a small block of repo data from the **roo
   more**: `Get-ChangelogTierHeadings` and the legacy `Get-ChangelogHeading` are retired, because a flat
   document has no section headings to configure. A consumer that still defines either is unaffected --
   nothing calls them.
-- A `CHANGELOG.md`. Its intro may be anything the repo likes; the fold only needs to find where the intro
-  ends, which is the first `##` heading.
+- A `CHANGELOG.md`. Its head is not the repo's to write: the fold replaces everything above the
+  `## [Unreleased]` heading (or, where there is none yet, above the first `###` entry) with the fixed head.
 - `git` and a logged-in `gh` CLI.
 
 If `repo-config.ps1` is missing -- typical on a clean consumer -- the script stops before the

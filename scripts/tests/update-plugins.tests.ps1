@@ -51,6 +51,14 @@
       11 a record stating no scope at all               -> falls back to project exactly as before, AND
                                                              says so, in a block printed ABOVE step 1
                                                              rather than inside step 2's own output
+      12 a path-less user record beside a checkout      -> both are updated ('--scope project' and
+         record (#2459)                                      '--scope user'); a path-less MANAGED one
+                                                             is not; the summary counts the shadow
+      13 -DryRun with that shadow                       -> both commands printed, nothing ran
+      14 no record for this checkout, another checkout  -> 'install --scope project' for it, never
+         holds one (#2560)                                   'update'; the plugin installed here is still
+                                                             updated; the summary counts the install
+      15 -DryRun with no record here                    -> the install command printed, nothing ran
 
     Dependency-free (no Pester), same style as plugin-versions.tests.ps1. Pure ASCII (repo convention
     for .ps1).
@@ -241,6 +249,16 @@ function Set-InstallRecords {
         (@{ plugins = $Records } | ConvertTo-Json -Depth 6), $Utf8)
 }
 
+function Set-HereRecords {
+    # A project-scope record for THIS checkout per id -- the ordinary installed state. Scenarios 1-8
+    # predate #1986 and wrote no administration at all; since #2560 that is the "no record here" state,
+    # which is an INSTALL, so they carry a record to keep testing what they were written for.
+    param([Parameter(Mandatory = $true)][object]$Case, [Parameter(Mandatory = $true)][string[]]$Ids)
+    $recs = @{}
+    foreach ($i in $Ids) { $recs[$i] = @( @{ scope = 'project'; projectPath = $Case.Repo } ) }
+    Set-InstallRecords -HomeDir $Case.Home -Records $recs
+}
+
 function New-ClaudeShim {
     <#
         A claude.cmd on PATH. ECHOES its own arg line prefixed 'CLAUDE-SHIM-CALLED' -- proof the CLI
@@ -317,6 +335,7 @@ try {
     New-ClaudeShim -BinDir $c.Bin
     New-Receipt -Path $c.Receipt
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
+    Set-HereRecords -Case $c -Ids @($ID1, $ID2)
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
     Assert-CleanExit -Run $r -Label '1: exit 0'
     Assert-Has $r 'CLAUDE-SHIM-CALLED plugin marketplace update ccs-fixture' '1: the marketplace was refreshed'
@@ -332,6 +351,7 @@ try {
     New-ClaudeShim -BinDir $c.Bin
     New-Receipt -Path $c.Receipt
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    Set-HereRecords -Case $c -Ids @($ID1)
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt -DryRun
     Assert-CleanExit -Run $r -Label '2: exit 0'
     Assert-Has   $r 'claude plugin marketplace update ccs-fixture' '2: the marketplace command is printed'
@@ -358,6 +378,7 @@ try {
     New-Receipt -Path $c.Receipt
     $bad = 'Not A Slug@ccs-fixture'
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $bad)
+    Set-HereRecords -Case $c -Ids @($ID1)
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
     Assert-CleanExit -Run $r -Label '4: exit 0 -- the valid id still updated cleanly'
     Assert-Has $r 'Skipped' '4: a Skipped line is printed'
@@ -382,6 +403,7 @@ try {
     New-ClaudeShim -BinDir $c.Bin -FailNeedle 'marketplace update ccs-fixture'
     New-Receipt -Path $c.Receipt
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    Set-HereRecords -Case $c -Ids @($ID1)
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
     Assert-Equal 1 $r.Code '6: exit 1'
     Assert-Has $r 'FAILED' '6: a FAILED line is printed for the marketplace refresh'
@@ -395,6 +417,7 @@ try {
     New-ClaudeShim -BinDir $c.Bin -FailNeedle "plugin update $ID2"
     New-Receipt -Path $c.Receipt
     Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
+    Set-HereRecords -Case $c -Ids @($ID1, $ID2)
     $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
     Assert-Equal 1 $r.Code '7: exit 1'
     Assert-Has $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '7: the OTHER plugin still updated'
@@ -470,6 +493,79 @@ try {
     Assert-Has $r 'Scope could not be read from the install administration for 1 plugin(s)' '11: and the fallback is stated rather than silent'
     Assert-Has $r 'states no scope' '11: the line names what the administration failed to say'
     Assert-Before $r 'Scope could not be read' 'Step 1/3' '11: stated BEFORE step 1, so it cannot scroll past inside step 2'
+
+    # --- 12. a path-less user-scope record BESIDE this checkout's own: both are updated (#2459) ----
+    #     The measured state: a project record and a path-less user record for the same plugin, at
+    #     the SAME version before the run. Only the project record used to move, and the receipt then
+    #     called the path-less one behind. No version is written here on purpose -- the update is not
+    #     gated on one, because the gap only opens after step 2 has moved the checkout's record.
+    Write-Host "12. a path-less user-scope shadow beside a checkout record is updated too" -ForegroundColor Cyan
+    $c = New-Case 'shadow'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
+    Set-InstallRecords -HomeDir $c.Home -Records @{
+        $ID1 = @( @{ scope = 'project'; projectPath = $c.Repo }, @{ scope = 'user' } )
+        $ID2 = @( @{ scope = 'project'; projectPath = $c.Repo }, @{ scope = 'managed' } )
+    }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-CleanExit -Run $r -Label '12: exit 0'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '12: the checkout''s own record is updated'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope user" '12: AND the path-less user-scope record beside it'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID2 --scope project" '12: the other plugin''s own record is updated'
+    Assert-Lacks $r "plugin update $ID2 --scope managed" '12: a path-less MANAGED record is not this run''s to move'
+    Assert-Lacks $r "plugin update $ID2 --scope user" '12: and no user-scope call is invented where no user record exists'
+    Assert-Summary $r '2 plugin(s) updated (plus 1 path-less user-scope record(s)), 0 failed' '12: the summary counts the shadow separately'
+
+    # --- 13. -DryRun prints the shadow's command too ------------------------------------------------
+    Write-Host "13. -DryRun prints the shadow's command too" -ForegroundColor Cyan
+    $c = New-Case 'shadow-dry'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    Set-InstallRecords -HomeDir $c.Home -Records @{
+        $ID1 = @( @{ scope = 'project'; projectPath = $c.Repo }, @{ scope = 'user' } )
+    }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt -DryRun
+    Assert-CleanExit -Run $r -Label '13: exit 0'
+    Assert-Has   $r "claude plugin update $ID1 --scope project" '13: the checkout record''s command is printed'
+    Assert-Has   $r "claude plugin update $ID1 --scope user" '13: and the shadow''s command beside it'
+    Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '13: and nothing ran'
+
+    # --- 14. NO record for this checkout: install, never update (#2560) ------------------------------
+    #     The measured state: a plugin enabled declaratively only, while ANOTHER checkout holds a
+    #     project-scope record for it. `update --scope project` moved that other checkout's record and
+    #     the run said "updated". The other path is written into the fixture on purpose -- it is what
+    #     the CLI found -- and the plugin that IS installed here still gets its ordinary update.
+    Write-Host "14. no record for this checkout: installed here, never updated elsewhere" -ForegroundColor Cyan
+    $c = New-Case 'norecord'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
+    $other = Join-Path $Fixture 'norecord\other-checkout'
+    New-Item -ItemType Directory -Path $other -Force | Out-Null
+    Set-InstallRecords -HomeDir $c.Home -Records @{
+        $ID1 = @( @{ scope = 'project'; projectPath = $other } )
+        $ID2 = @( @{ scope = 'project'; projectPath = $c.Repo } )
+    }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-CleanExit -Run $r -Label '14: exit 0'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin install $ID1 --scope project" '14: the plugin with no record here is INSTALLED into this checkout'
+    Assert-Lacks $r "plugin update $ID1" '14: and is never handed to update, which moved another checkout''s record'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID2 --scope project" '14: the plugin installed here is still updated'
+    Assert-Summary $r '1 plugin(s) updated, 1 installed into this checkout (it had no install record), 0 failed' '14: the summary counts the install apart from the update'
+
+    # --- 15. -DryRun prints the install command, paste-ready ------------------------------------------
+    Write-Host "15. -DryRun prints the install command for a plugin with no record here" -ForegroundColor Cyan
+    $c = New-Case 'norecord-dry'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt -DryRun
+    Assert-CleanExit -Run $r -Label '15: exit 0'
+    Assert-Has   $r "claude plugin install $ID1 --scope project" '15: the install command is printed'
+    Assert-Lacks $r "plugin update $ID1" '15: and no update command beside it'
+    Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '15: and nothing ran'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

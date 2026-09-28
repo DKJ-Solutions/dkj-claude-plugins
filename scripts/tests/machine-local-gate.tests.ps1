@@ -122,8 +122,8 @@ function Invoke-GitQuiet {
         # THE EXIT CODE IS READ, NOT DISCARDED (issue #1635). It went to Out-Null with the output, so a
         # failed fixture command was indistinguishable from a working one -- and a repo that half-built
         # is plausible rather than correct, which makes every assert below it measure the wrong thing.
-        $out = & git @Arguments 2>&1
-        Assert-FixtureGitOk -Code $LASTEXITCODE -GitArgs @($Arguments) -Output $out
+        # And a push whose transport breaks under the parallel gate is retried once (issue #2481).
+        Invoke-FixtureGitNative -Arguments @($Arguments)
     } finally { $ErrorActionPreference = $prevEap }
 }
 function Get-GitOutput {

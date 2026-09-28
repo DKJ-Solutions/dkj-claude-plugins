@@ -26,7 +26,7 @@
        beside this file cannot produce one even if a later caller asked it to.
     ------------------------------------------------------------------------------------------------
 
-    THE TWO FAILURES IT MECHANISES, because they are the reason it is a script and not a checklist:
+    THE THREE FAILURES IT MECHANISES, because they are the reason it is a script and not a checklist:
 
       DERIVING THE PUSH LIST. The consumer's range v2.43.0..HEAD held 61 changed files, of which 11
       lived in the eight theme directories; the other 50 were scripts, tests and docs that do not exist
@@ -38,6 +38,12 @@
       check snapshotted zero files and printed a green "safe to push". The rollback artefact for that
       release did not exist and nothing said so. Step 6 calls the check IN THIS PROCESS with a real
       array, which is a mistake a caller that owns the list cannot make.
+
+      PRINTING A PATH NOBODY HERE TYPED (#2514). The push command is printed for a person to paste, and
+      a theme filename off a sync branch can carry '$(...)', ';' or a newline that runs or splits the
+      line. Step 3 refuses a list holding any path outside Get-LivePushUnsafePaths' set -- before the
+      backup, so a refused run costs no theme slot -- and names each one with its control characters
+      stripped.
 
     THE ORDER IS COST-ORDERED, AND #2228 ASKED FOR THAT EXPLICITLY. The backup polls until the copy is
     provably complete and that took roughly EIGHT MINUTES in the consumer's store, so it runs after
@@ -89,7 +95,8 @@
     COVERAGE, STATED RATHER THAN LEFT TO INFERENCE. scripts/tests/live-push-rules.tests.ps1 pins the
     rules this script invokes: the eight theme directories, the push-list classification in all three of
     its verdicts, the numeric tag pick that lexical sorting gets wrong, the push command's shape and its
-    refusal to produce one for an empty list, and the verdict fold including the state a skip is in.
+    refusal to produce one for an empty list, the paste-safety check on its measured shapes and on the
+    accented paths it must still admit, and the verdict fold including the state a skip is in.
 
     THIS SCRIPT ITSELF IS NOT DRIVEN, for the reason push-preview.ps1 and backup-live-theme.ps1 give:
     every path in it reaches git, the Shopify CLI against a real store, or a consumer's repo-config, and
@@ -121,6 +128,10 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # script without the lib must fail at LOAD rather than derive a push list from a theme-directory set it
 # could not read. A short push list is invisible until a customer sees the half-updated page.
 . (Join-Path $PSScriptRoot '..\lib\live-push-rules.ps1')
+
+# THE LIVE-PUSH RECORD'S FORMAT (#2570/#2586): one definition, read back by cut-release. Unguarded like the
+# rules above: a preflight that could not write the record would let the cut claim everything is live.
+. (Join-Path $PSScriptRoot '..\lib\live-record-lib.ps1')
 
 # The CLI wrapper, for the two theme-list reads below. Unguarded for the reason above.
 . (Join-Path $PSScriptRoot '..\lib\shopify-cli-lib.ps1')
@@ -368,6 +379,8 @@ Write-Host ''
 Write-Host '[3/9] push list -- derived from the range, never typed' -ForegroundColor Cyan
 
 $pushFiles = @()
+# Kept at script scope: the live-push record written after the verdict is these rows (#2570/#2586).
+$rows = @()
 $sinceTag = ([string]$SinceTag).Trim()
 if (-not $sinceTag) {
     # Get-HighestReleaseTag AND NOT 'git tag --sort=-v:refname | head -1'. The sort exists and works;
@@ -378,35 +391,33 @@ if (-not $sinceTag) {
 if (-not $sinceTag) {
     Add-Step -Name 'push list' -State 'refuse' -Detail 'no vX.Y.Z tag in this repo, so there is no previous release to diff against. Pass -SinceTag to name the baseline explicitly.'
 } else {
-    $rangeCap = Invoke-Git -Arguments @('diff', '--name-only', "$sinceTag..HEAD")
+    # --no-renames IN BOTH READS (#2566): with rename detection on, a renamed theme file's OLD path is in
+    # neither list, and that path is still on live exactly as a deleted one is. Split into its add and its
+    # delete, the new path is pushed and the old one is reported.
+    $rangeCap = Invoke-Git -Arguments @('diff', '--no-renames', '--name-only', "$sinceTag..HEAD")
+    $deletedCap = Invoke-Git -Arguments @('diff', '--no-renames', '--name-only', '--diff-filter=D', "$sinceTag..HEAD")
     if (-not (Test-NativeExitMeasured -Capture $rangeCap) -or $rangeCap.ExitCode -ne 0) {
         Add-Step -Name 'push list' -State 'refuse' -Detail "could not diff $sinceTag..HEAD ($(Get-NativeExitLabel -Capture $rangeCap)) -- is '$sinceTag' a tag this checkout has? Try 'git fetch --tags'."
+    } elseif (-not (Test-NativeExitMeasured -Capture $deletedCap) -or $deletedCap.ExitCode -ne 0) {
+        # A FAILED DELETION READ REFUSES rather than reading as "nothing deleted": that reading is the
+        # exact list this step exists to stop, every deleted theme file offered as a push row.
+        Add-Step -Name 'push list' -State 'refuse' -Detail "could not read the deletions in $sinceTag..HEAD ($(Get-NativeExitLabel -Capture $deletedCap)), so a deleted file could not be told from a changed one."
     } else {
         $changed = @(Get-GitPaths $rangeCap)
+        $deleted = @(Get-GitPaths $deletedCap)
 
         # --- SYNC PROVENANCE ------------------------------------------------------------------------
         # A SYNC IS ONE-WAY, so a file whose only history in this range came in through one is already
         # on live -- pushing it back is a no-op on a good day, and on the day the third party has edited
-        # again since, it silently reverts their work.
-        #
-        # TWO MERGE SHAPES, BECAUSE TWO WORKFLOWS EXIST. A merge commit carries the branch name in its
-        # subject ('merge: sync/2026-09-20 (#123)'), and a squash merge has no merge commit at all --
-        # there the single commit's own subject is what names the branch. Both are read; a repo using
-        # neither simply produces an empty set, and then nothing is excluded, which is the safe
-        # direction: a push list that is one file too LONG re-pushes bytes that are already correct.
-        $syncCommits = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-        $headCaps = @(Get-GitLines (Invoke-Git -Arguments @('log', '--no-renames', '--format=%H%x09%P%x09%s', "$sinceTag..HEAD")))
-        foreach ($line in $headCaps) {
-            $f = $line -split "`t", 3
-            if ($f.Count -lt 3) { continue }
-            $sha = $f[0]; $parents = @(($f[1] -split '\s+') | Where-Object { $_ }); $subject = $f[2]
-            if ($subject -notmatch [regex]::Escape($syncPrefix)) { continue }
-            if ($parents.Count -ge 2) {
-                # A merge: the commits it brought in are its second-parent side, up to the merge base.
-                foreach ($s in (Get-GitLines (Invoke-Git -Arguments @('rev-list', "$($parents[0])..$sha")))) { [void]$syncCommits.Add($s) }
-            } else {
-                [void]$syncCommits.Add($sha)
-            }
+        # again since, it silently reverts their work. Which commits came in through a sync, and which
+        # paths only they touched, are Get-SyncMergeCommits and Get-SyncOwnedPaths in the lib (#2509):
+        # dkj-policy-bwj's prepare-release derives the same list days earlier, from the same two rules.
+        $syncCommits = @()
+        $heads = @(Get-SyncMergeCommits -SyncPrefix $syncPrefix -LogLines (Get-GitLines (Invoke-Git -Arguments @('log', '--no-renames', '--format=%H%x09%P%x09%s', "$sinceTag..HEAD"))))
+        foreach ($h in $heads) {
+            # A merge: the commits it brought in are its second-parent side, up to the merge base.
+            if ($h.IsMerge) { $syncCommits += @(Get-GitLines (Invoke-Git -Arguments @('rev-list', "$($h.FirstParent)..$($h.Sha)"))) }
+            else            { $syncCommits += $h.Sha }
         }
 
         # ONE LOG WALK, AND NO PATH IS EVER HANDED BACK TO GIT. The obvious shape here is a `git log
@@ -417,40 +428,51 @@ if (-not $sinceTag) {
         # decode, and costs one call instead of one per file.
         $syncOwned = @()
         if ($syncCommits.Count -gt 0) {
-            $touchedBySync = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-            $touchedByUs   = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
-            $current = ''
             $walk = Invoke-Git -Arguments @('log', '--no-renames', '--format=COMMIT%x09%H', '--name-only', "$sinceTag..HEAD")
-            foreach ($line in (Get-GitLines $walk)) {
-                if ($line.StartsWith("COMMIT`t")) { $current = $line.Substring(7); continue }
-                if (-not $current) { continue }
-                $p = (Convert-GitQuotedPath -Path $line) -replace '\\', '/'
-                if ($syncCommits.Contains($current)) { [void]$touchedBySync.Add($p) } else { [void]$touchedByUs.Add($p) }
-            }
-            # EVERY touching commit, not any -- a file a sync mirrored AND this repo then changed itself
-            # is this repo's to push. The direction of that asymmetry is deliberate: treating it as
-            # sync-owned would drop a real change out of the push list silently, and a short push list is
-            # the failure nobody sees until a customer does.
-            foreach ($p in $touchedBySync) { if (-not $touchedByUs.Contains($p)) { $syncOwned += $p } }
+            $syncOwned = @(Get-SyncOwnedPaths -WalkLines (Get-GitPaths $walk) -SyncCommits $syncCommits)
         }
 
-        $rows = @(Get-LivePushRows -ChangedPaths $changed -SyncOwnedPaths $syncOwned)
+        $rows = @(Get-LivePushRows -ChangedPaths $changed -SyncOwnedPaths $syncOwned -DeletedPaths $deleted)
         $pushFiles = @($rows | Where-Object { $_.Push } | ForEach-Object { $_.Path })
         $held = @($rows | Where-Object { -not $_.Push })
+        $stillOnLive = @($rows | Where-Object { $_.Kind -eq 'deleted' })
 
         Write-Host "  $sinceTag..HEAD changed $($changed.Count) file(s)."
-        foreach ($r in ($rows | Where-Object { $_.Push })) { Write-Host "    push  $($r.Path)" -ForegroundColor Green }
+        # EVERY PATH PRINTED HERE GOES THROUGH Format-SafePathToken (#2514). These are the same foreign
+        # names the paste check below refuses, printed before it runs and whatever it decides -- so an
+        # escape sequence in one would repaint the very list a reader is judging.
+        foreach ($r in ($rows | Where-Object { $_.Push })) { Write-Host "    push  $(Format-SafePathToken -Value $r.Path)" -ForegroundColor Green }
         # EVERY HELD ROW IS PRINTED TOO, grouped rather than silent: a list that showed only the keepers
         # would be unfalsifiable, because the files it must never push are exactly the rows it would not
         # print. Grouped by reason so 50 script paths read as one fact and not as fifty.
         $byKind = $held | Group-Object -Property Kind
         foreach ($g in $byKind) {
             Write-Host "    held  $($g.Count) file(s): $($g.Group[0].Reason)" -ForegroundColor DarkGray
-            foreach ($r in $g.Group) { Write-Host "            $($r.Path)" -ForegroundColor DarkGray }
+            foreach ($r in $g.Group) { Write-Host "            $(Format-SafePathToken -Value $r.Path)" -ForegroundColor DarkGray }
+        }
+
+        # A PATH THAT IS NOT SAFE TO PASTE REFUSES HERE, AT STEP 3, AND NOT AT THE COMMAND (#2514). Step
+        # 8 prints the push for a person to paste, and a theme filename off a sync branch is text nobody
+        # in this repo typed -- '$(...)', ';' or a newline in one runs when the line is pasted. Refusing
+        # this early is the cost-ordering rule: the backup at step 7 is skipped once anything has
+        # refused, so a push that can never be printed does not first cost eight minutes and a theme
+        # slot. Each refused path is NAMED through Format-SafePathToken, which strips the control
+        # characters a newline attack needs; the name is a display, never part of a command.
+        $unsafePush = @(Get-LivePushUnsafePaths -Paths $pushFiles)
+
+        # A DELETION IS ITS OWN STEP, and a warning rather than a refusal: the push is still right, and
+        # what it cannot carry is named so it is not mistaken for shipped.
+        if ($stillOnLive.Count -gt 0) {
+            Add-Step -Name 'deletions' -State 'warn' -Detail "$($stillOnLive.Count) theme file(s) are deleted on the trunk and stay on live, because a push cannot remove a file. Removing them from the store is a separate decision -- they are listed above under 'held'."
         }
 
         if ($pushFiles.Count -eq 0) {
-            Add-Step -Name 'push list' -State 'refuse' -Detail "nothing in $sinceTag..HEAD lives on a theme, so there is nothing to push. This release is code and docs only."
+            $only = if ($stillOnLive.Count -gt 0) { " The only theme changes in the range are deletions, which a push cannot carry." } else { ' This release is code and docs only.' }
+            Add-Step -Name 'push list' -State 'refuse' -Detail "nothing in $sinceTag..HEAD is a theme file to push, so there is nothing to push.$only"
+        } elseif ($unsafePush.Count -gt 0) {
+            $named = (@($unsafePush | Select-Object -First 5) | ForEach-Object { "'$(Format-SafePathToken -Value $_)'" }) -join ', '
+            $more  = if ($unsafePush.Count -gt 5) { ", and $($unsafePush.Count - 5) more" } else { '' }
+            Add-Step -Name 'push list' -State 'refuse' -Detail "$($unsafePush.Count) theme path(s) are not safe to print inside a command a person pastes: $named$more. Only letters (Latin accents included), digits, '.', '_', '/' and '-' are printed. Rename the file on the theme, or push it by hand after reading its name byte by byte."
         } else {
             Add-Step -Name 'push list' -State 'pass' -Detail "$($pushFiles.Count) theme file(s) to push, out of $($changed.Count) changed."
         }
@@ -625,7 +647,13 @@ if ($alreadyRefused.Count -gt 0 -and -not $SkipBackup) {
     $backup = Invoke-NativeCapture -FilePath 'powershell' -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $backupScript, '-Store', $store) -TimeoutSeconds 2700
     Write-Host ($backup.Output | Out-String)
     if ((Test-NativeExitMeasured -Capture $backup) -and $backup.ExitCode -eq 0) {
-        Add-Step -Name 'backup' -State 'pass' -Detail 'a verified backup of live is standing, and the previous one was rotated out only after it was proven complete.'
+        # A PASS WITH EXCEPTIONS IS STILL NAMED AS ONE (#2568): the summary is what gets read, and 'proven
+        # complete' would be false of a copy that lacks files the trunk holds for it.
+        if (($backup.Output | Out-String) -match 'verified WITH EXCEPTIONS') {
+            Add-Step -Name 'backup' -State 'pass' -Detail 'a verified backup of live is standing WITH EXCEPTIONS: some paths Shopify did not copy, each held by the trunk exactly as live holds it (listed in the backup output above). The previous one was rotated out only after that verdict.'
+        } else {
+            Add-Step -Name 'backup' -State 'pass' -Detail 'a verified backup of live is standing, and the previous one was rotated out only after it was proven complete.'
+        }
     } else {
         Add-Step -Name 'backup' -State 'refuse' -Detail "backup-live-theme: $(Get-NativeExitLabel -Capture $backup). It fails loudly and rotates nothing, so the PREVIOUS backup is still standing -- but this push would have no rollback point taken from this stand."
     }
@@ -635,8 +663,15 @@ if ($alreadyRefused.Count -gt 0 -and -not $SkipBackup) {
 Write-Host ''
 Write-Host '[8/9] the push command -- without the authorisation marker' -ForegroundColor Cyan
 
-$pushCommand = Format-LivePushCommand -Store $store -ThemeId $liveId -Only $pushFiles
-if (-not $pushCommand) {
+# NOT COMPOSED WHEN STEP 3 FOUND A PATH UNSAFE TO PASTE (#2514). Format-LivePushCommand throws on one,
+# as the backstop for any caller that skipped the check; this caller did not skip it, so it reports the
+# step instead of letting the throw end the run before the verdict.
+$pushCommand = ''
+$unsafeAtCommand = @(Get-LivePushUnsafePaths -Paths $pushFiles)
+if ($unsafeAtCommand.Count -eq 0) { $pushCommand = Format-LivePushCommand -Store $store -ThemeId $liveId -Only $pushFiles }
+if ($unsafeAtCommand.Count -gt 0) {
+    Add-Step -Name 'command' -State 'skip' -Detail "not composed: $($unsafeAtCommand.Count) path(s) in the push list are not safe to paste, and the push-list step names them."
+} elseif (-not $pushCommand) {
     Add-Step -Name 'command' -State 'skip' -Detail 'no push list, so no command was composed. A theme push without --only pushes the WHOLE theme, which is never printed from here.'
 } else {
     Add-Step -Name 'command' -State 'pass' -Detail 'composed, one --only per file.'
@@ -690,5 +725,27 @@ if ($pushCommand) {
     Write-Host 'That command is REFUSED as it stands, and that is deliberate: this plugin''s live guard' -ForegroundColor Yellow
     Write-Host 'requires the authorisation marker your repo states in its own safety rules, appended to' -ForegroundColor Yellow
     Write-Host 'this exact command as a shell comment. Adding it is a human act and no script does it.' -ForegroundColor Yellow
+
+    # THE LIVE-PUSH RECORD (#2570/#2586), written only once the push is allowed, because it describes a
+    # push somebody is about to make. It goes to the temp directory rather than the tree: the cut refuses
+    # a dirty trunk, and a record committed into the release would describe a push that happened after it.
+    # A failed write warns rather than refuses. The push itself is still right; only the cut's two
+    # documents lose their input, and the cut says so when it is run without one.
+    $headCap = Invoke-Git -Arguments @('rev-parse', '--short', 'HEAD')
+    $head = if ((Test-NativeExitMeasured -Capture $headCap) -and $headCap.ExitCode -eq 0) { (@(Get-GitLines $headCap) | Select-Object -First 1) } else { 'HEAD' }
+    # A GUID in the name, as every temp path a shipping script composes carries one: two checkouts with the
+    # same folder name at the same commit would otherwise write one record over the other's edits.
+    $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) ("live-push-record-{0}-{1}-{2}.txt" -f (Split-Path -Leaf $repoRoot), $head, [guid]::NewGuid().ToString('N').Substring(0, 8))
+    try {
+        [System.IO.File]::WriteAllText($recordPath, (Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head"), (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host ''
+        Write-Host 'The live-push record, for the cut:' -ForegroundColor Cyan
+        Write-Host "  $recordPath"
+        Write-Host '  If you hold a file back from the push above, change its "live" to "hold" in that file.' -ForegroundColor Yellow
+        Write-Host '  Then pass it to the cut, so the GitHub body and the audience note list only what is live:'
+        Write-Host "    cut-release.ps1 ... -LivePushRecord `"$recordPath`""
+    } catch {
+        Write-Warning "the live-push record could not be written to $recordPath ($($_.Exception.GetType().Name)). The cut can still run, but without it every merged entry reads as live."
+    }
 }
 exit 0

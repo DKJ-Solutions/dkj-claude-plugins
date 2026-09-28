@@ -77,7 +77,8 @@ spell the plugin cache path out.
 **Three steps, and the order is the whole design: create -> verify -> rotate.**
 
 1. **Create.** `shopify theme duplicate` from live into `<prefix>backup-<timestamp>`.
-2. **Verify.** Poll the copy's file count until it settles **and** matches the source's.
+2. **Verify.** Poll the copy's file count until it settles **and** matches the source's -- or, once
+   the wait is over, account for every missing path through the trunk (below).
 3. **Rotate.** *Only now* is the previous backup deleted, so there is never a window in which the
    store holds no backup at all. That costs one theme slot transiently, which is the price of the
    guarantee.
@@ -97,6 +98,93 @@ So a copy that settles **below** the source is a refusal, not a warning. On any 
 *complete* the run exits non-zero, the new theme is left standing so it can be inspected, and
 **nothing is rotated** -- the previous backup is still there, which is the state a reader would have
 asked for.
+
+### One exception, and it is decided path by path
+
+**Some stores' duplicates can never reach the source's count.** Measured in a consumer on September
+28, 2026 ([#2568](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2568)): two independent
+duplicates of live each settled at **535 of 539** files, lacking the **same four** templates each time.
+Shopify rejects a push of two of them (they name a section file and a theme block that do not exist);
+why it drops the other two is not established. Under the rule above that store's backup could never
+pass, and neither could `live-preflight`.
+
+So a copy still **short once the whole wait is over** is judged by its **paths**, not only its count.
+The run names every path live holds and the copy does not, and holds each one against the trunk at
+`HEAD`: where live's bytes are exactly what git stores for that path (raw, or with CRs stripped), the
+repo is that file's rollback and the copy lacking it loses nothing. The backup then passes as
+**verified WITH EXCEPTIONS**, path by path, and says so again on its closing line.
+
+**That closing line names the commit, not `HEAD`** ([#2589](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2589)).
+`HEAD` is resolved once to a commit id before the compare, every path is held against that id, and the
+output prints it. A restore reads those paths back days later, when `HEAD` has moved, and the backup
+is only a rollback for them at the commit it was verified against. **Record that id with the backup**,
+for example in the release document or the sync log.
+
+- **Every missing path must be held that way.** One the trunk holds with other bytes, one it does not
+  hold at all (a gitignored file included), or one whose live bytes could not be read, and the refusal
+  above stands.
+- **At most 10 missing paths.** Past that the copy stopped early, whatever the trunk holds.
+- **The live bytes come from this run's own pull of live**, the one it counts the source from. It is
+  kept until the verdict is in, so there is no second pull.
+
+The rule is where the bytes are, not why Shopify dropped them. That is why the two unexplained paths
+pass on the same terms as the two explained ones.
+
+## Restore live from the backup
+
+**A restore PUBLISHES the backup theme, and a person runs it** (Dave, September 28, 2026,
+[#2589](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2589)). No script performs it.
+The live-theme guard refuses every `shopify theme publish` outright, with no marker that gets past it,
+because making a theme the customer-facing one is a human decision. So these steps are commands to run
+yourself, in the order given.
+
+**Why publishing and not pushing the backup's files onto live.** A publish switches the whole theme in
+one step, with every file and any third-party edits the copy carries. A push is per file, has no
+locking and can arrive partially, which is the same failure a rollback is meant to undo. What
+publishing costs is named in steps 3 and 4.
+
+**Which backup you hold depends on when it was taken** (see the table above). Taken before the push, it
+is the stand from before that push. Taken at the cut after the push, it is the stand that shipped, so
+it undoes later third-party drift, not the push itself.
+
+1. **Identify the backup and its verdict.** `shopify theme list --store <store>` names the
+   `<prefix>backup-<timestamp>` theme and its id. The backup run's own output says whether it passed
+   **complete** or **WITH EXCEPTIONS**; the latter names the missing paths and the commit they were
+   verified against.
+
+2. **WITH EXCEPTIONS only, put the missing paths back on the backup BEFORE publishing it.** Do it while
+   the backup is still unpublished, so the switch stays one step. Take the bytes from the **recorded commit**, never
+   from today's trunk:
+
+   ```powershell
+   $dir = Join-Path $env:TEMP 'theme-restore'; New-Item -ItemType Directory -Force $dir | Out-Null
+   git archive --format=tar -o (Join-Path $dir 'restore.tar') <commit> -- <path> <path> ...
+   tar -xf (Join-Path $dir 'restore.tar') -C $dir
+   shopify theme push --store <store> --theme <backup-id> --path $dir --only <path> --only <path> --nodelete
+   ```
+
+   `git archive -o` writes the tar itself. **Do not pipe it** (`git archive ... | tar -x`): Windows
+   PowerShell 5.1 decodes a native command's stdout as text, which corrupts the bytes. `--nodelete`
+   keeps the push from removing every file that is not in `$dir`. **Shopify may refuse some of these
+   paths**: in #2568's store it rejects two of the four templates, because they name a section file
+   and a theme block that do not exist. A refused path cannot be restored this way. The published
+   theme will lack it, so write down which paths those are.
+
+3. **Publish it.** Run `shopify theme publish --store <store> --theme <backup-id>`. The theme that was live
+   is now unpublished, still standing, and carries no reserved prefix, so no sweep or rotation will
+   touch it. Retire it by hand later with [`archive-theme`](../archive-theme/SKILL.md), or keep it for
+   the post-mortem.
+
+4. **Point the repo at the new live theme at once**, through a branch and a PR:
+   `Get-ShopifyLiveThemeId` in `scripts/repo-config.ps1` still names the old id. Until it is changed,
+   the live guard's id match points at a theme that is no longer live, and `live-preflight`'s step 5
+   refuses because the id and the role disagree. That refusal is correct, and the repair is this change,
+   not a way around it.
+
+5. **The store now holds no spare backup.** The copy you published *is* live. Take a fresh one with the
+   backup script once step 4 has landed. Its rotation step does **not** plan the published backup for
+   deletion, although it still carries the backup name: `Get-BackupRotationPlan` refuses any backup the
+   store reports as role `main` or `live`.
 
 ## Sweep the spent previews (after a live push)
 
@@ -192,8 +280,8 @@ ones that can take something away.
 
 `scripts/tests/theme-lifecycle-rules.tests.ps1` pins the rules both scripts invoke: the reserved
 namespace against a miniature of the real store, the backup name, the fill verdict in all four of its
-states, both states in which rotation refuses outright, and the two blind states in which the sweep
-takes nothing.
+states, both states in which rotation refuses outright, a restored backup (role `main` or `live`) that
+rotation keeps, and the two blind states in which the sweep takes nothing.
 
 **The scripts themselves are not driven**, for the reason [`push-preview`](../push-preview/SKILL.md)
 gives: every path in them reaches a real store or a consumer's `repo-config.ps1`, and a suite must not

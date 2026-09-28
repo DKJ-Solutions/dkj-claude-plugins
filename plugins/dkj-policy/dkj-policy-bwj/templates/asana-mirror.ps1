@@ -146,7 +146,7 @@
     headings English while the analysis under them follows whoever filed the ticket.
 
     The pure helpers (Resolve-AsanaTaskRef, Get-AsanaTaskGid, Get-AsanaGidsFromText,
-    New-MirrorComment, Get-MirrorCommentMarker, New-AsanaCommentRequest, Get-IssueRefFromNotes,
+    New-MirrorComment, Get-MirrorCommentMarker, Get-MirrorCommentHeader, New-AsanaCommentRequest, Get-IssueRefFromNotes,
     Get-AsanaPasteBlockMarker, Get-AsanaPasteBlockLead, New-AsanaPasteBlockComment,
     Get-StageFromSectionName, Select-StageMembership, Get-DefaultAsanaStageMap, Get-StageMapNumbers,
     Get-WritableStages, Test-StageIsWritable, Test-StageIsTerminal, Test-AsanaStageMap,
@@ -424,6 +424,19 @@ function Get-MirrorCommentMarker {
     return "GitHub issue $IssueRef is closed"
 }
 
+function Get-MirrorCommentHeader {
+    <#
+        The first line of every comment this script writes to Asana. Pure.
+
+        Asana shows a comment as written by the account whose token posted it, and ASANA_PAT belongs
+        to a person -- so without this line a colleague reads the update as that person's own words
+        (Dave, September 25, 2026, inbound #2476). It sits ABOVE the marker sentence rather than in
+        place of it: Test-MirrorUpdatePosted matches the marker as a substring, so comments written
+        before this header existed and comments written after it de-duplicate alike.
+    #>
+    return '[Automated message] Posted by the GitHub-Asana mirror workflow -- not written by the person whose account it shows.'
+}
+
 function New-MirrorComment {
     <#
         The comment text for one event. Pure -- no network.
@@ -455,9 +468,12 @@ function New-MirrorComment {
 
     $parts = $IssueRef -split '#'
     $url = "https://github.com/$($parts[0])/issues/$($parts[1])"
+    $header = Get-MirrorCommentHeader
 
     if ($Event -eq 'reopened') {
         return @(
+            $header,
+            '',
             "GitHub issue $IssueRef has been reopened.",
             $url,
             '',
@@ -469,6 +485,8 @@ function New-MirrorComment {
 
     if ($StateReason -eq 'not_planned') {
         return @(
+            $header,
+            '',
             "$marker, as not planned: this is not going to be built.",
             $url,
             '',
@@ -476,7 +494,7 @@ function New-MirrorComment {
         ) -join "`n"
     }
 
-    $lines = @("$marker`: the work behind this ticket is built and ready to test.", $url, '')
+    $lines = @($header, '', "$marker`: the work behind this ticket is built and ready to test.", $url, '')
 
     if ($ClosedBy.Count -gt 0) {
         $lines += if ($ClosedBy.Count -eq 1) { 'Closed by pull request:' } else { 'Closed by pull requests:' }
@@ -586,18 +604,45 @@ function New-AsanaPasteBlockComment {
         itself for a person to fill in before the paragraph goes to Asana. It is also the whole
         argument for moving the composition to the session, which has no placeholder to leave.
 
+        THE BLOCK HAS THE SESSION ROUTE'S SHAPE AND WORDS (#2513). Between the rules it is the frame
+        Format-GoLiveBlock writes (dkj-policy-bwj's scripts/lib/golive-block-rules.ps1, #2507): the
+        opening line naming where the message comes from, then the 'where to look' section carrying
+        the link. It is Dutch, that route's default, because the block is addressed to the colleague
+        and CI has no way to learn another language. Only that one section is written: the others
+        carry the session's prose or a derivation this standalone file does not ship, and a section
+        with nothing to say is not written, never placeholdered -- the rule Format-GoLiveBlock
+        follows. The link is the one exception, being a person's to fill in before the paste.
+
+        A COPY OF THOSE WORDS, NOT A CALL, for #2019's reason: this file ships standalone into a
+        consumer's .github/, where the plugin's libs do not exist. dkj-policy-bwj.tests.ps1 holds the
+        copy equal to Get-GoLiveBlockText, so the two writers cannot drift apart again. The framing
+        sentence above the rules stays English, as on the session route: it is read on GitHub.
+
+        Non-ASCII characters are composed from code points (language-layers.md).
+
         Pure -- no network.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
+    # $IssueRef is always the workflow-built 'owner/repo#<n>' (ISSUE_REF in asana-mirror.yml, or
+    # "$Repo#<n>" in the sweeps), never free text -- so it is split the way the rest of this file
+    # splits it. The pasted header carries only the number, so the full ref goes in the framing
+    # sentence above the rules, where the old block used to name it.
+    $number = ($IssueRef -split '#')[1]
+    $dash   = [string][char]0x2014
+
     return @(
         (Get-AsanaPasteBlockMarker),
         '',
-        "This issue closed without a paste-ready block. $(Get-AsanaPasteBlockLead), so the requester" +
+        "$IssueRef closed without a paste-ready block. $(Get-AsanaPasteBlockLead), so the requester" +
             ' knows where to look:',
         '',
         '---',
-        "The fix for $IssueRef is done. You can view the result here: [ADD LINK]",
+        "$dash automatisch bericht vanuit GitHub #$number",
+        '',
+        'TE BEKIJKEN OP',
+        '',
+        'Het resultaat is hier te bekijken: [ADD LINK]',
         '---'
     ) -join "`n"
 }

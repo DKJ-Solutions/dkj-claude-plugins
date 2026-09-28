@@ -56,19 +56,13 @@ param(
 $ErrorActionPreference = 'SilentlyContinue'
 
 $lines = @()
+$model = ''
+$dir = ''
+$sessionWorkspace = ''
 
-try {
-    . (Join-Path $PSScriptRoot '..\lib\run-progress-lib.ps1')
-
-    foreach ($record in @(Get-LiveRunProgress -Root $Root | Select-Object -First ([math]::Max(1, $MaxBars)))) {
-        $line = Format-RunProgressLine -Record $record
-        if ($line) { $lines += $line }
-    }
-} catch { }
-
-# --- the context line ------------------------------------------------------------------------
-# Second, not first: the bar is what this file exists for, and the thing a reader is looking for
-# belongs where their eye lands first. With nothing running this is the whole status line.
+# --- the session payload ---------------------------------------------------------------------
+# READ BEFORE THE BARS, because the bars are scoped by it (#2574): the record directory is
+# machine-wide, and the workspace this session is in is what says which runs are its own.
 try {
     # ONLY WHEN STDIN IS ACTUALLY REDIRECTED, AND THEN ONLY FOR A BOUNDED WHILE. Claude Code always
     # pipes the session payload in, so the read normally has an end -- but a person debugging this file
@@ -92,15 +86,35 @@ try {
         }
     }
 
-    $model = ''
-    $dir = ''
     if ($Payload) {
         $session = $Payload | ConvertFrom-Json
         if ($session) {
             if ($session.model -and $session.model.display_name) { $model = "$($session.model.display_name)" }
             if ($session.workspace -and $session.workspace.current_dir) { $dir = "$($session.workspace.current_dir)" }
+            # PROJECT_DIR FIRST for the scope: it is the checkout the session was opened in, where
+            # current_dir follows a cd into a subdirectory. Containment matching makes either work.
+            if ($session.workspace -and $session.workspace.project_dir) { $sessionWorkspace = "$($session.workspace.project_dir)" }
         }
     }
+} catch { }
+# NOT the '..\..' fallback below: that names where this FILE is, not where the session is, so it
+# would scope the bars to the wrong checkout. No workspace named means no scope -- every live run.
+if (-not $sessionWorkspace) { $sessionWorkspace = $dir }
+if (-not $sessionWorkspace -and $env:CLAUDE_PROJECT_DIR) { $sessionWorkspace = $env:CLAUDE_PROJECT_DIR }
+
+try {
+    . (Join-Path $PSScriptRoot '..\lib\run-progress-lib.ps1')
+
+    foreach ($record in @(Get-LiveRunProgress -Root $Root -Workspace $sessionWorkspace | Select-Object -First ([math]::Max(1, $MaxBars)))) {
+        $line = Format-RunProgressLine -Record $record
+        if ($line) { $lines += $line }
+    }
+} catch { }
+
+# --- the context line ------------------------------------------------------------------------
+# Second, not first: the bar is what this file exists for, and the thing a reader is looking for
+# belongs where their eye lands first. With nothing running this is the whole status line.
+try {
     # THE FALLBACK CHAIN, AND THE MIDDLE LINK IS THE ONE THAT MATTERS IN A CONSUMER. The payload
     # normally carries workspace.current_dir and nothing below this runs. Where it does not -- somebody
     # running this by hand, a payload that did not parse -- $env:CLAUDE_PROJECT_DIR is the dual-context

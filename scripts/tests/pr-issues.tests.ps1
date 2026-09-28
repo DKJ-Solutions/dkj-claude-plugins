@@ -3311,13 +3311,25 @@ Assert-Equal 0 (@((Get-ResolvesExemptFindings -Issues @(999) -Bodies $exemptBodi
 Assert-Equal 0 (@((Get-ResolvesExemptFindings -Issues @(742) -Bodies @{ 742 = '' } -Matchers $seamFull.Matchers).Findings).Count) 'and an empty body is a READ body that simply matches nothing'
 Assert-Equal 1 (@((Get-ResolvesExemptFindings -Issues @(731) -Bodies @{ '731' = $mBody } -Matchers $seamFull.Matchers).Findings).Count) 'a table keyed by the string spelling is read too -- a caller is not held to one of them'
 
+# --- Get-DossierClosingFindings (#2463) -- a repair of one instance does not close a dossier -------
+Write-Host ""
+Write-Host "Get-DossierClosingFindings -- the dossier label refuses a closing keyword (#2463)" -ForegroundColor Cyan
+Assert-Equal 'dossier' (Get-DossierLabelName) 'the label is the one #2462 made shared'
+$dLabels = @{ 801 = @('bug', 'dossier', 'prio-3'); 802 = @('enhancement'); 803 = @('Dossier'); '804' = @('dossier'); 805 = @() }
+Assert-Equal '801' ((Get-DossierClosingFindings -Issues @(801, 802) -Labels $dLabels) -join ',') 'the issue carrying the label is found, the other is not'
+Assert-Equal '803' ((Get-DossierClosingFindings -Issues @(803) -Labels $dLabels) -join ',') 'matched case-insensitively, as GitHub treats label names'
+Assert-Equal '804' ((Get-DossierClosingFindings -Issues @(804) -Labels $dLabels) -join ',') 'a table keyed by the string spelling is read too'
+Assert-Equal 0 (@(Get-DossierClosingFindings -Issues @(805, 999) -Labels $dLabels).Count) 'an unlabelled issue and an unread one contribute nothing'
+Assert-Equal 0 (@(Get-DossierClosingFindings -Issues @() -Labels $dLabels).Count) 'nothing closing, nothing found'
+Assert-Equal '801,803' ((Get-DossierClosingFindings -Issues @(803, 801, 801) -Labels $dLabels) -join ',') 'de-duplicated and sorted'
+
 # --- Get-IssueBodySet -- the impure half, asserted as a call site ----------------------------------
 #
 # Its loop calls gh, so nothing here runs it. What CAN be held is that it asks the right question in the
 # right shape -- the same treatment Get-ClosedIssueSet's own reasoning gets one section up.
 $issueStateText = [System.IO.File]::ReadAllText((Resolve-Path (Join-Path $PSScriptRoot '..\lib\issue-state-lib.ps1')).Path, [System.Text.Encoding]::UTF8)
 Assert-True ($issueStateText -like '*function Get-IssueBodySet*') 'the fetch lives beside the other impure issue read, not in the pure lib'
-Assert-True ($issueStateText -like "*'issue', 'view'*" -and $issueStateText -like "*'--json', 'body'*") 'it asks gh for the body, per number, with the repo the caller named'
+Assert-True ($issueStateText -like "*'issue', 'view'*" -and $issueStateText -like "*'--json', 'body,labels'*") 'it asks gh for the body (and the labels, #2463), per number, with the repo the caller named'
 Assert-True ($issueStateText -like '*Invoke-NativeCapture -Utf8*') 'with -Utf8, because a body is prose a person typed and a matcher over mangled text matches by luck'
 Assert-True ($issueStateText -like '*Get-IssueResolveBatch -Numbers $Numbers -Limit $script:IssueStateResolveLimit*') 'and it is bounded by the same resolve limit as the closed-issue read'
 
@@ -3337,13 +3349,24 @@ Assert-True ($exemptText -like '*the resolves-exempt check could not judge #$($u
 Assert-True ($exemptText -like '*must NOT be closed by the merge*') 'the refusal says what it is refusing'
 Assert-True ($exemptText -like '*-NoResolves   -- ship citing the issue as context*') 'and names the way through, which is the flag the rule asks for'
 
-# THE COST MODEL IS AN ORDER, so it is asserted as one: the seam is asked FIRST, with no network, and a
-# repo that answers nothing never reaches the per-issue fetch. Read the other way round, every consumer
-# of this workflow would pay a gh call per resolved issue for a rule that is not theirs.
+# THE COST MODEL CHANGED UNDER #2463, deliberately. The per-issue read used to be gated on the repo
+# stating a matcher, so a repo with none paid nothing. The dossier rule is shared rather than seam-gated,
+# so the read now runs whenever the PR closes anything -- one `gh issue view` per closing issue, bounded by
+# the resolve limit -- and the MATCHING stays gated on the seam, which is still asked first.
 $idxSeamRead  = $exemptText.IndexOf("Get-SeamValue -Name 'Get-ResolvesExemptMatchers'")
 $idxBodyFetch = $exemptText.IndexOf('Get-IssueBodySet -Repo $repo')
 Assert-True ($idxSeamRead -ge 0 -and $idxBodyFetch -gt $idxSeamRead) 'the seam is read before any body is fetched'
-Assert-True ($exemptText -like '*if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0) {*') 'and the fetch is gated on there being a matcher at all'
+Assert-True ($exemptText -like '*if ($closingAtMerge.Count -gt 0) {*$bodySet = Get-IssueBodySet -Repo $repo -Numbers $closingAtMerge*') 'the read is gated on the PR closing anything at all (#2463)'
+Assert-True ($exemptText -like '*if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0) {*') 'and the matching is still gated on there being a matcher at all'
+
+# THE DOSSIER GATE (#2463): the caller uses the tested rule, refuses, and names the way through.
+Assert-True ($exemptText -like '*$dossiers = @(Get-DossierClosingFindings -Issues $closingAtMerge -Labels $bodySet.Labels)*') 'open-pr judges the closing set with the tested dossier rule'
+Assert-True ($exemptText -like '*carries the ''$(Get-DossierLabelName)'' label - nothing pushed, no PR opened*') 'the dossier refusal names the label and what it did not do'
+Assert-True ($exemptText -like "*-NoResolves   -- ship citing it as 'part of #<n>'*") 'and names -NoResolves as the way through'
+$idxDossier = $exemptText.IndexOf('Get-DossierClosingFindings -Issues $closingAtMerge')
+$idxExempt  = $exemptText.IndexOf('if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0)')
+Assert-True ($idxDossier -gt $idxBodyFetch -and $idxExempt -gt $idxDossier) 'the dossier check judges the fetch before the matchers do'
+Assert-True ($issueStateText -like "*'--json', 'body,labels'*") 'the one per-issue read asks for the labels too, so the dossier check costs no second round trip'
 
 # AND THE SET IT JUDGES IS WHAT THE BODY WILL SAY AT THE MERGE, not what this run declared. A closing
 # keyword already published on an open PR survives a -NoResolves run untouched -- the writer only ever

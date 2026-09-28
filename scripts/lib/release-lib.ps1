@@ -618,13 +618,16 @@ function Convert-ChangelogForRelease {
         the intro points at in one line -- hand-written prose in a file the repo owns, so it needs no seam
         and cannot go stale at a cut that no longer touches it.
 
-        THE INTRO IS NOT REGENERATED, which is the property that makes the above safe. It is the head as
-        the document already had it, passed through verbatim -- so whatever a repo says about itself up
-        there survives every cut, in whatever language it wrote it.
+        THE HEAD IS THE FIXED ONE, NOT THE REPO'S OWN (issue #2486, September 25, 2026). This used to pass
+        the intro through verbatim, so whatever a repo wrote about itself survived every cut -- which is
+        exactly how the intros of the consumers came to say different things about one mechanism. It is
+        now re-applied by Set-ChangelogCanonicalHead, the same function the fold and the scaffold use, so a
+        cut leaves the head byte-identical to every other repo's. The pending heading and the tally line
+        beneath it are kept; the caller re-derives the tally.
     #>
     param([Parameter(Mandatory)][string]$Content)
     $s = Split-Changelog -Content $Content
-    return ((@($s.Head) -join $s.Nl).TrimEnd() + $s.Nl)
+    return (Set-ChangelogCanonicalHead -Content ((@($s.Head) -join $s.Nl).TrimEnd() + $s.Nl))
 }
 
 function Set-ReleaseInternalNoteLink {
@@ -1013,6 +1016,51 @@ function Format-RankedEntries {
 $script:OverviewTableHeaderRe = [regex]"(?m)^\| Version \| Date \| Type \| Title \|\r?\n\|[-| ]+\|\r?\n"
 $script:OverviewMajorHeadingRe = '(?m)^(#{3,4})\s+(\d+)\.x\s*$'
 
+# --- THE RELEASE LIST'S HEAD IS FIXED, AND IT CARRIES NO PROSE (issue #2489) ----------------------
+#
+# The same drift #2486 removed from CHANGELOG.md, one file over. No script wrote the text above the first
+# '<n>.x' section: adopt-workflow-folder.ps1 told each consumer to create the file by hand and the cut only
+# inserted rows, so every repo's head was its own. Measured in the source repo at 2790c757: about 85 lines
+# of prose, one sentence of it already false (it described a release block the cut stopped writing on
+# August 5, 2026) and one link with an empty target. The repair is that there is no prose there at all,
+# and the cut -- the one writer every repo's list has -- re-applies the head where it inserts the row.
+#
+# WHAT IT KEEPS. Everything from the first '<n>.x' heading down: the sections, their tables, and anything a
+# repo put BETWEEN sections, which is below the head and so not this function's business. The heading level
+# is kept too -- '###' and '####' are both valid (Get-OverviewTargetMajor explains why), and rewriting one to
+# the other would be a layout decision this function has no business making.
+#
+# AND WHAT IT LEAVES ALONE. A list with no '<n>.x' heading is returned unchanged. The guardrail is off for
+# that file anyway, and the part below the head cannot be located, so the head cannot be either -- replacing
+# the whole document, as the changelog's version does, would delete rows here, where the changelog's has
+# nothing below its head to lose.
+#
+# The head's own lines are Get-ReleaseHistoryHeadLines in entry-scaffold-lib.ps1, beside the changelog's,
+# because adopt-workflow-folder.ps1 prints them and loads that lib rather than this one.
+function Set-ReleaseHistoryCanonicalHead {
+    <#
+        Pure: the release list with everything above its first '<n>.x' section heading replaced by the fixed
+        head. Content in, content out; nothing is written and nothing is thrown.
+
+        The boundary is the first heading OverviewMajorHeadingRe matches -- the pattern the two readers use,
+        so the head ends exactly where their view of the list begins. FENCE-AWARE, because the prose it
+        replaces may quote a '<n>.x' heading inside a fence to document the format, and the boundary must
+        not land there. Unchanged where no such heading exists (see the header above).
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Content)
+
+    $nl = Get-DocumentNewline -Content $Content
+    $lines = @($Content -split "`r?`n")
+    $fenced = Get-FencedLineFlags -Lines $lines
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($fenced[$i]) { continue }
+        if ($lines[$i] -match $script:OverviewMajorHeadingRe) {
+            return ((@(Get-ReleaseHistoryHeadLines) + @($lines[$i..($lines.Count - 1)])) -join $nl)
+        }
+    }
+    return $Content
+}
+
 function Get-OverviewSectionHeading {
     <# The literal major-section heading a new row would land under ('#### 3.x'), or $null when the
        overview carries no table. Pure string in, string out.
@@ -1110,6 +1158,25 @@ function Get-OverviewLatestVersion {
         }
     }
     return $null
+}
+
+function Get-OverviewRowType {
+    <# The Type cell -- 'Major', 'Minor' or 'Patch' -- of the release overview's row for one version, or
+       '' where no row names it. Pure string in, string out.
+
+       WHY THIS EXISTS (#2491). The changelog release note stopped carrying a '**Type:**' line, and its
+       version heading only gives the type by SHAPE. That is the declared type on every ordinary cut, but
+       'cut-release.ps1 -Type' states one for a repo whose numbering diverges, and nothing holds the
+       statement to the shape -- so this row, which the cut writes from the declared type, is the record
+       a reader asks first. Both version-cell shapes Get-OverviewLatestVersion accepts are accepted here. #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$ReadmeContent,
+        [Parameter(Mandatory)][string]$Version
+    )
+    $v = [regex]::Escape($Version)
+    $m = [regex]::Match($ReadmeContent, "(?m)^\|[^|\r\n]*(?<![\d.])$v(?![\d.])[^|\r\n]*\|[^|\r\n]*\|[ \t]*(Major|Minor|Patch)[ \t]*\|")
+    if ($m.Success) { return $m.Groups[1].Value }
+    return ''
 }
 
 # The audience each tier is named after in a generated document. ONE MAP, so the release notes and any
@@ -1223,6 +1290,45 @@ function Format-ReleaseVersionHeading {
     return "Version $Version ($shown)"
 }
 
+function Get-NoteVersionHeadingMeta {
+    <#
+        Pure: the inverse of Format-ReleaseVersionHeading -- reads the FIRST 'Version X.Y.Z (Mon dd, yyyy)'
+        heading out of a changelog release note and returns
+
+          Date  'yyyy-MM-dd', or '' when the heading carries no date or one that does not parse
+          Type  'Major', 'Minor' or 'Patch', from the version's own shape, or '' with no heading at all
+
+        WHY IT EXISTS (Dave, issue #2491, September 25, 2026). The note used to carry a '**Date:**' and
+        '**Type:**' pair above that heading, and new-internal-note.ps1 read the pair. The pair added
+        nothing -- the heading states the date, and the type is what the version number already is -- so
+        it was dropped, and this is where the reader gets both now.
+
+        THE TYPE IS READ FROM THE SHAPE because a cut bumps exactly one component and zeroes the ones
+        below it (Get-BumpType is the same rule read from two versions): X.0.0 is a major, X.Y.0 a minor,
+        and anything with a patch component a patch. The date is parsed EXACTLY with the invariant
+        culture, the same two rules its writer applies, so no machine's locale can change the answer.
+
+        THE SHAPE IS NOT THE DECLARED TYPE WHERE A CUT WAS TOLD ONE. 'cut-release.ps1 -Version X.Y.Z -Type
+        <t>' states the type rather than inferring it, and nothing holds that statement to the number's
+        shape. The one durable record of a stated type is the release history's row, so a reader that has
+        that row asks Get-OverviewRowType first and this function second -- new-internal-note.ps1 does.
+
+        EACH COMPONENT IS AT MOST NINE DIGITS, so the [int] cast below cannot overflow: an oversized
+        heading does not match, and the caller takes the same '(fill in)' route as for no heading at all.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+    $m = [regex]::Match($Text, '(?m)^#+[ \t]+Version[ \t]+(\d{1,9})\.(\d{1,9})\.(\d{1,9})(?:[ \t]+\(([^)]*)\))?[ \t]*$')
+    if (-not $m.Success) { return [pscustomobject]@{ Date = ''; Type = '' } }
+    $type = if ([int]$m.Groups[3].Value -gt 0) { 'Patch' } elseif ([int]$m.Groups[2].Value -gt 0) { 'Minor' } else { 'Major' }
+    $date = ''
+    $parsed = [datetime]::MinValue
+    if ($m.Groups[4].Success -and [datetime]::TryParseExact($m.Groups[4].Value.Trim(), 'MMM dd, yyyy',
+            [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$parsed)) {
+        $date = $parsed.ToString('yyyy-MM-dd', [System.Globalization.CultureInfo]::InvariantCulture)
+    }
+    return [pscustomobject]@{ Date = $date; Type = $type }
+}
+
 function Build-ReleaseNotes {
     <#
         Builds the full changelog notes -- the tier-0 <changelog root>/<X>.x/<X.Y.Z>.md file, which is
@@ -1263,9 +1369,14 @@ function Build-ReleaseNotes {
         THE VERSION HEADING IS THE OTHER HALF (see Format-ReleaseVersionHeading). Entries at H3 under an H1
         would skip a level, so the release they landed in occupies H2 -- and the document's own H1 becomes
         the constant it always effectively was, since the version is now stated by the heading that owns it
-        rather than twice in four lines. The metadata pair below it STAYS: new-internal-note.ps1 reads
-        '**Date:**' and '**Type:**' out of this document to build the internal note, so dropping them would
-        degrade a consumer's two-document flow to '(fill in)' and a warning.
+        rather than twice in four lines.
+
+        AND THE METADATA PAIR IS GONE WITH IT (Dave, issue #2491, September 25, 2026). '**Date:**' and
+        '**Type:**' sat between the H1 and that H2 and added nothing to it: the date is in the H2 itself,
+        and the type is the version's own shape, since a cut bumps exactly one component. It was kept
+        once because new-internal-note.ps1 read the pair out of this document -- that reader still reads
+        the pair first, for every note published before this repair, and takes both from the version
+        heading where the pair is absent (Get-NoteVersionHeadingMeta).
     #>
     param(
         [AllowEmptyCollection()][string[]]$Entries = @(),
@@ -1273,7 +1384,6 @@ function Build-ReleaseNotes {
         $TierGroups = $null,
         [Parameter(Mandatory)][string]$Version,
         [Parameter(Mandatory)][string]$Date,
-        [Parameter(Mandatory)][string]$Type,
         [string]$Title = '',
         # An AUTHORED block placed between the one-line title and the generated entries -- for a
         # milestone release whose point is the arc across many releases rather than the diff since the
@@ -1346,11 +1456,9 @@ function Build-ReleaseNotes {
     # THE H1 IS A CONSTANT AND THE VERSION SITS IN THE H2 (Dave, #1369) -- 'Changelog Releases', the wording
     # from the issue, chosen to mirror CHANGELOG.md's own '# Changelog'. It reads as the name of the document
     # FAMILY rather than of one release, which is what lets the version be stated once, by the heading that
-    # owns the entries beneath it, instead of in an H1 and a date line four lines above it.
-    #
-    # THE HARD BREAK IS A BACKSLASH, NOT TWO SPACES (inbound #1100) -- see Build-AudienceNote below for the
-    # measurement and why the break itself is kept.
-    $header = "# Changelog Releases`n`n**Date:** $Date\`n**Type:** $Type`n`n$titleLine$summaryBlock"
+    # owns the entries beneath it, instead of in an H1 and a date line four lines above it -- and with no
+    # '**Date:**'/'**Type:**' pair between the two either (#2491, see the docstring).
+    $header = "# Changelog Releases`n`n$titleLine$summaryBlock"
     # The container the entries hang under, so H1 -> H3 does not skip a level. Written even for a release
     # with no pending entry at all: the heading states which release this document IS, which is exactly the
     # question an empty one still has to answer.
@@ -1688,6 +1796,21 @@ function Build-ReleaseNoteDraft {
         an ordinary release) in here, so it renders even where the whole audience section would otherwise
         be suppressed for having nothing left in it -- a retraction is exactly the kind of gap a silently
         empty section would hide.
+
+        $Sections IS WHICH OF THE THREE THE REPO'S READERS GET AT ALL (inbound #2564), already resolved by
+        Resolve-ReleaseNoteSections. The Wording seam could RENAME any of the three sections but never
+        omit one, so a consumer whose readers only ask "what changed" deleted the organisation's two headings and their hints
+        by hand at every cut -- measured in two consumers on the same day. A section left out is left out
+        whole: its heading and its hint, and the audience section's switch-off also takes the withheld
+        note with it, because that note explains a gap in a list this document no longer carries.
+        The default is all three, so every existing caller is byte-identical.
+
+        $TaskItems IS THE AUDIENCE SECTION'S BODY IN TASK FORM (#2586), already selected and rendered by
+        the caller (Format-ReleaseTaskItems). When it is not $null it replaces the ranked entries, and
+        $Entries is not rendered at all: the readers of a task-form note ask which of their tasks are
+        solved, and the entries' developer prose, with a PR link on every one, is the text the owner
+        deleted by hand at v1.3.0. The hint changes with it (HintTasks). $null, the default, is the
+        entries form, byte-identical to before.
     #>
     param(
         [AllowEmptyCollection()][string[]]$Entries = @(),
@@ -1698,7 +1821,11 @@ function Build-ReleaseNoteDraft {
         [hashtable]$Wording = @{},
         [string]$LinkPrefix = '../../../',
         [int]$AudienceTier = 2,
-        [string]$WithheldNote = ''
+        [string]$WithheldNote = '',
+        [string[]]$Sections = @('Audience', 'Value', 'Open'),
+        # UNTYPED ON PURPOSE: a [string] parameter turns $null into '', and '' here means "task form, no
+        # items" -- every caller that passes nothing would lose its entries.
+        $TaskItems = $null
     )
     # Merged over the defaults rather than replacing them, so a repo that renames one heading does not
     # have to restate the rest -- the same contract the note script's wording seam already had.
@@ -1768,6 +1895,12 @@ function Build-ReleaseNoteDraft {
         ) -join "`n     "
     }
     $w.SectionValue = 'What it is worth'
+    $w.HintTasks    = @(
+        'DRAFT. One item per solved task: an audience entry that is live, changed the storefront, and',
+        'closed an issue linked to a task. The title is the GitHub issue''s. Rewrite it the way the',
+        'person who filed the task would recognise it, add one or two plain sentences on what they will',
+        'now see, and keep the link. Delete this comment when you are done.'
+    ) -join "`n     "
     foreach ($k in @($Wording.Keys)) { if ($Wording[$k]) { $w[$k] = $Wording[$k] } }
     # THE RETIRED KEY NAMES, read second rather than dropped -- the standing "recognise both, write one"
     # rule, and load-bearing here for the same reason it is on Get-ReleaseConsumerBumps: this wording comes
@@ -1783,6 +1916,9 @@ function Build-ReleaseNoteDraft {
     if ($Wording['HintConsumers']    -and -not $Wording['HintAudience'])    { $w.HintAudience    = $Wording['HintConsumers'] }
 
     $real = @($Entries | Where-Object { $_ -and $_.Trim() })
+    # In task form the section's content is the rendered items, not the entries (see $TaskItems above).
+    $taskForm = ($null -ne $TaskItems)
+    $hasContent = if ($taskForm) { [bool]([string]$TaskItems).Trim() } else { $real.Count -gt 0 }
 
     $rocket = [char]::ConvertFromUtf32(0x1F680)
     $out = New-Object System.Collections.Generic.List[string]
@@ -1815,18 +1951,22 @@ function Build-ReleaseNoteDraft {
     # but a retraction would otherwise fall through the "no audience section where no entry reached that
     # tier" rule above and say nothing at all about the withholding -- the exact silence the rule was
     # written to avoid, aimed at the one case it had not been asked about yet.
-    if ($real.Count -gt 0 -or $WithheldNote) {
+    if (($Sections -contains 'Audience') -and ($hasContent -or $WithheldNote)) {
         $out.Add("## $($w.SectionAudience)")
         $out.Add('')
-        if ($real.Count -gt 0) {
-            $out.Add("<!-- $($w.HintAudience) -->")
+        if ($hasContent) {
+            $hint = if ($taskForm) { $w.HintTasks } else { $w.HintAudience }
+            $out.Add("<!-- $hint -->")
             $out.Add('')
         }
         if ($WithheldNote) {
             $out.Add($WithheldNote)
             $out.Add('')
         }
-        if ($real.Count -gt 0) {
+        if ($taskForm -and $hasContent) {
+            $out.Add(([string]$TaskItems).TrimEnd())
+            $out.Add('')
+        } elseif (-not $taskForm -and $real.Count -gt 0) {
             $linked = @($real | ForEach-Object { Convert-EntryRelativeLinks -EntryText $_ -Prefix $LinkPrefix })
             # THE SAME SWITCHES THE CONSUMER DOCUMENT USED, called rather than re-derived: the score orders the
             # section and is then stripped, and the branch administration goes. Entries sit one level deeper
@@ -1846,15 +1986,54 @@ function Build-ReleaseNoteDraft {
         }
     }
 
-    $out.Add("## $($w.SectionValue)")
-    $out.Add('')
-    $out.Add("<!-- $($w.HintValue) -->")
-    $out.Add('')
-    $out.Add("## $($w.SectionOpen)")
-    $out.Add('')
-    $out.Add("<!-- $($w.HintOpen) -->")
+    if ($Sections -contains 'Value') {
+        $out.Add("## $($w.SectionValue)")
+        $out.Add('')
+        $out.Add("<!-- $($w.HintValue) -->")
+        $out.Add('')
+    }
+    if ($Sections -contains 'Open') {
+        $out.Add("## $($w.SectionOpen)")
+        $out.Add('')
+        $out.Add("<!-- $($w.HintOpen) -->")
+        $out.Add('')
+    }
 
+    # The last section used to end the document without a trailing blank line; trimming the blanks the
+    # blocks above leave behind keeps that shape whichever section happens to come last.
+    while ($out.Count -gt 0 -and $out[$out.Count - 1] -eq '') { $out.RemoveAt($out.Count - 1) }
     return (($out -join "`n") + "`n")
+}
+
+function Resolve-ReleaseNoteSections {
+    <#
+        Validates a Get-ReleaseNoteSections answer and returns it in document order (inbound #2564).
+
+        THE THREE NAMES ARE THE WORDING KEYS WITHOUT THEIR 'Section' PREFIX -- Audience, Value, Open -- so a
+        consumer who already renames a heading through Get-ReleaseNoteWording reads the same word here.
+        Matched case-insensitively and returned in the canonical spelling and order: the document's order
+        is fixed, and an answer that listed them backwards must not be read as a request to reorder.
+
+        REFUSED RATHER THAN IGNORED: an unknown name, and an answer that names nothing. A misspelt name
+        silently dropped would remove a section the repo meant to keep, and nobody would see it until a
+        published document was missing it. An empty answer is refused because a draft with no section is
+        a header and nothing else -- the repo that wants no hand-written document at all already has that
+        answer, an empty Get-ReleaseConsumerBumps, and this is the wrong place to give it.
+
+        $null (the seam is not defined) means all three: absent is UNCHANGED, as for every seam here.
+    #>
+    param($Answer)
+    $all = @('Audience', 'Value', 'Open')
+    if ($null -eq $Answer) { return $all }
+    $given = @($Answer | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+    if ($given.Count -eq 0) {
+        throw "Get-ReleaseNoteSections names no section. Name at least one of: $($all -join ', ') -- or, for no hand-written document at all, answer Get-ReleaseConsumerBumps with @()."
+    }
+    $unknown = @($given | Where-Object { $all -notcontains $_ })
+    if ($unknown.Count -gt 0) {
+        throw "Get-ReleaseNoteSections names an unknown section: $($unknown -join ', '). The sections are: $($all -join ', ')."
+    }
+    return @($all | Where-Object { $given -contains $_ })
 }
 
 function Build-GitHubReleaseBody {
@@ -1883,38 +2062,38 @@ function Build-GitHubReleaseBody {
         IT MUST BE BUILT AT CUT TIME, which is not a preference. The cut EMPTIES CHANGELOG.md, so the
         entries this reads do not exist a moment later; there is no way to regenerate this body after the
         fact from anything but the archived notes.
+
+        $NotLive SPLITS THE LIST IN A REPO WITH A LIVE STAGE (#2570). Keyed by entry text, each value the
+        theme paths the live push held back. There, a release is a live push, so a reader takes 'What
+        landed' to mean live. Measured at a BWJ store's v1.3.0: PR #295 was listed as landed while its only
+        theme file had been held back, and the owner asked why the audience note had not mentioned it.
+        Such an entry is still LISTED, because this stays the complete list. It moves to its own section,
+        naming the files that did not go, so the page answers both questions without a caveat on any line.
+        Empty (every caller without a live-push record) is byte-identical to the list before this existed.
     #>
     param(
         [AllowEmptyCollection()][string[]]$Entries = @(),
         [Parameter(Mandatory)][string]$Version,
         [string]$Title = '',
-        [string]$NotePointer = ''
+        [string]$NotePointer = '',
+        [hashtable]$NotLive = @{}
     )
     $real = @($Entries | Where-Object { $_ -and $_.Trim() })
 
     $items = @()
+    $held = @()
     foreach ($e in $real) {
-        # The readable name, from the section that owns it -- with the entry's own heading as the fallback
-        # so a nameless entry is still listed. Retired section names come along via Get-EntrySectionBody.
-        $name = ''
-        $described = Get-EntryPrTitle -EntryText $e
-        if ($described) { $name = @($described -split '\r?\n' | Where-Object { $_.Trim() })[0].Trim() }
-        if (-not $name) {
-            $hm = [regex]::Match($e, '^\s*#+\s+(.*)$', 'Multiline')
-            if ($hm.Success) { $name = $hm.Groups[1].Value.Trim() }
+        $line = Format-GitHubBodyItem -EntryText $e
+        if ($NotLive.ContainsKey($e)) {
+            # The held paths in code spans, capped at five: the line names what to look for, and the full
+            # list is the live-push record's, which the person who cut the release still holds.
+            $paths = @($NotLive[$e] | Where-Object { $_ })
+            $shown = @($paths | Select-Object -First 5 | ForEach-Object { '`' + ($_ -replace '`', '') + '`' })
+            $more = if ($paths.Count -gt 5) { ", and $($paths.Count - 5) more" } else { '' }
+            $held += if ($shown.Count -gt 0) { "$line -- not on live: $($shown -join ', ')$more" } else { $line }
+        } else {
+            $items += $line
         }
-        if (-not $name) { $name = 'untitled change' }
-
-        # The link the FOLD wrote, read out of the section that holds it rather than off the whole entry:
-        # an entry body may quote a PR link of its own, and the first match tree-wide would take that one.
-        $url = ''
-        $prBody = Get-EntrySectionBody -EntryText $e -Key 'PullRequest'
-        if ($prBody) {
-            $lm = [regex]::Match($prBody, '\[PR #(\d+)\]\(([^)]+)\)')
-            if ($lm.Success) { $url = $lm.Groups[2].Value }
-        }
-
-        $items += if ($url) { "- [$name]($url)" } else { "- $name" }
     }
 
     $out = @()
@@ -1922,7 +2101,87 @@ function Build-GitHubReleaseBody {
     if ($NotePointer) { $out += @($NotePointer, '') }
     $out += '## What landed'
     $out += ''
-    if ($items.Count -gt 0) { $out += $items } else { $out += '_No changes were pending at this release._' }
+    if ($items.Count -gt 0) { $out += $items }
+    elseif ($held.Count -gt 0) { $out += '_Everything merged for this release is waiting for the live push; see below._' }
+    else { $out += '_No changes were pending at this release._' }
+    if ($held.Count -gt 0) {
+        $out += ''
+        $out += '## Not live yet'
+        $out += ''
+        $out += 'Merged into the trunk, but the live push did not carry every file these change. They go live with a later push.'
+        $out += ''
+        $out += $held
+    }
 
     return (($out -join "`n") + "`n")
+}
+
+function Format-GitHubBodyItem {
+    <#
+        One '- [name](pr url)' line for the GitHub body, or '- name' when the entry has no PR link.
+        Split out of Build-GitHubReleaseBody when its list gained a second section (#2570), so both
+        sections render an entry the same way.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$EntryText)
+    # The readable name, from the section that owns it -- with the entry's own heading as the fallback
+    # so a nameless entry is still listed. Retired section names come along via Get-EntrySectionBody.
+    $name = ''
+    $described = Get-EntryPrTitle -EntryText $EntryText
+    if ($described) { $name = @($described -split '\r?\n' | Where-Object { $_.Trim() })[0].Trim() }
+    if (-not $name) {
+        $hm = [regex]::Match($EntryText, '^\s*#+\s+(.*)$', 'Multiline')
+        if ($hm.Success) { $name = $hm.Groups[1].Value.Trim() }
+    }
+    if (-not $name) { $name = 'untitled change' }
+
+    $pr = Get-EntryPullRequestLink -EntryText $EntryText
+    if ($pr) { return "- [$name]($($pr.Url))" }
+    return "- $name"
+}
+
+function Get-EntryPullRequestLink {
+    <#
+        The '[PR #NN](url)' link the FOLD wrote into an entry, as { Number; Url }, or $null.
+
+        Read out of the section that holds it rather than off the whole entry: an entry body may quote a
+        PR link of its own, and the first match tree-wide would take that one. Shared by the GitHub body
+        and by the audience note's task form (#2586), which needs the NUMBER to ask which issues it closed.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$EntryText)
+    $prBody = Get-EntrySectionBody -EntryText $EntryText -Key 'PullRequest'
+    if (-not $prBody) { return $null }
+    $lm = [regex]::Match($prBody, '\[PR #(\d+)\]\(([^)]+)\)')
+    if (-not $lm.Success) { return $null }
+    return [pscustomobject]@{ Number = [int]$lm.Groups[1].Value; Url = $lm.Groups[2].Value }
+}
+
+function Resolve-ReleaseNoteTaskLink {
+    <#
+        Validates a Get-ReleaseNoteTaskLink answer (#2586) and returns { Marker; Url; Label }, or $null
+        when the seam is not defined, which leaves the audience section drafted from the entries, exactly
+        as before.
+
+        WHAT THE ANSWER SWITCHES ON: the audience section drafted as SOLVED TASKS. One item per issue an
+        audience entry closed that carries '<!-- <Marker>: <id> -->', titled from that issue and linked
+        to Url with the id in place of '{0}'. The entry's own prose and its PR link are left out. That is
+        the owner's shape from a BWJ store, where the note's readers are colleagues asking which of their
+        tasks are solved, and "de audience is niet de developer".
+
+        REFUSED, NOT IGNORED: a missing or malformed Marker, a Url that is not https or has no '{0}'.
+        Each would publish a note whose every link is wrong, and the cut would read as successful.
+    #>
+    param($Answer)
+    if ($null -eq $Answer) { return $null }
+    if ($Answer -isnot [hashtable]) { throw "Get-ReleaseNoteTaskLink must return a hashtable: @{ Marker = 'asana-task'; Url = 'https://.../{0}'; Label = 'Task' }." }
+    $marker = ([string]$Answer['Marker']).Trim()
+    if ($marker -cnotmatch '^[a-z0-9][a-z0-9-]*$') {
+        throw "Get-ReleaseNoteTaskLink: Marker must be the marker's name in lowercase letters, digits and '-', e.g. 'asana-task'."
+    }
+    $url = ([string]$Answer['Url']).Trim()
+    if ($url -notmatch '^https://' -or $url -notmatch '\{0\}') {
+        throw "Get-ReleaseNoteTaskLink: Url must start with https:// and carry '{0}' where the marker's id goes."
+    }
+    $label = ([string]$Answer['Label']).Trim() -replace '[\[\]\r\n]', ''
+    if (-not $label) { $label = 'Task' }
+    return [pscustomobject]@{ Marker = $marker; Url = $url; Label = $label }
 }

@@ -777,7 +777,7 @@ try {
 
     # THE DECODE IS UNCHANGED BY THE SWAP, asserted rather than assumed -- the old site named the
     # encoding as Get-Content's own '-Encoding Oem' and the new one resolves the OEM code page itself.
-    $oemHere = [System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+    $oemHere = Get-NativeCaptureOemEncoding
     $oemProbe = Join-Path $sandbox 'oem-decode.txt'
     [System.IO.File]::WriteAllBytes($oemProbe, [byte[]]@(0x61, 0x82, 0x62))   # 'a', a high byte, 'b'
     Assert-Equal (Get-Content -LiteralPath $oemProbe -Raw -Encoding Oem) `
@@ -792,6 +792,10 @@ try {
     $gateBody = $libSource.Substring($libSource.IndexOf('function Invoke-TestSuiteGate'))
     Assert-True ($gateBody -notmatch 'Get-Content[^\r\n]*-Encoding Oem') 'Invoke-TestSuiteGate reads no capture file with a plain Get-Content'
     Assert-True (@([regex]::Matches($gateBody, 'Write-GateCaptureBlock')).Count -ge 2) 'both of its capture-printing sites -- the pool and the crash re-run -- go through the helper'
+
+    # ONE DEFINITION OF THE CAPTURE DECODE (#2502): the OEM lookup was written out at three readers of
+    # the same files, and they must agree (#2295). Pinned so a fourth reader cannot copy the idiom back in.
+    Assert-Equal 1 @([regex]::Matches($libSource, 'TextInfo\.OEMCodePage')).Count 'the OEM code page is looked up in exactly one place -- Get-NativeCaptureOemEncoding'
 
     # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-TestSuiteGate -- a lane is never handed the gate''s own stdin (#2233)' -ForegroundColor Cyan
@@ -1366,6 +1370,9 @@ function Test-ScratchThrows { param([scriptblock]$Body) try { & $Body | Out-Null
 Assert-True (Test-ScratchThrows { New-ScratchPath -Label '..' }) 'a label of ".." is refused'
 Assert-True (Test-ScratchThrows { New-ScratchPath -Label 'a/../../b' }) 'and so is one carrying a separator, so no label can leave the temp directory'
 Assert-True (Test-ScratchThrows { New-ScratchPath -Label 'ok' -Extension 'md' }) 'an extension missing its dot is refused rather than silently glued to the guid'
+# U+212A KELVIN SIGN folds to `k` under a plain -notmatch, which admitted it into [A-Za-z0-9] (#2520).
+Assert-True (Test-ScratchThrows { New-ScratchPath -Label ('ship-' + [char]0x212A) }) 'a label carrying the Kelvin sign is refused (case-sensitive allowlist, #2520)'
+Assert-True (Test-ScratchThrows { New-ScratchPath -Label 'ok' -Extension ('.m' + [char]0x212A) }) '...and so is an extension carrying it'
 
 Write-Host ''
 Write-Host 'Every temp path the SHIPPING scripts compose carries a guid (#1659)' -ForegroundColor Cyan
@@ -1889,7 +1896,21 @@ foreach ($af in $auditFiles) {
 # direction is narrower: it counts only THAT one armed pull request as unjudged (a `continue`, folded
 # into the honest judged/unjudged report this issue's review added) rather than abandoning the whole scan
 # over one bad read.
-Assert-Equal 83 $boundedTotal 'the parser still counts 83 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 83 -> 85 (#2525): check-unshipped-pr.ps1's two reads, the same pair and the same failure directions as
+# check-stranded-sweep.ps1's above: $listRead (`gh pr list --author <account>`) fails to [SKIP], exit 0;
+# $requiredRead (`gh pr checks --required`, one per candidate pull request) counts only that one as
+# unjudged. Both ask Test-NativeExitMeasured about their own capture.
+# 85 -> 83 (#2526): the two pairs above are now ONE pair, in scripts/lib/pr-scan-lib.ps1's
+# Invoke-BoundedPrScan, which both checks call. Same two reads, same failure directions ($listRead ->
+# Status 'ListFailed', which each caller prints as [SKIP], exit 0; $requiredRead -> that one record
+# unjudged), both judged through Test-PrScanReadAnswered, which asks Test-NativeExitMeasured.
+# 83 -> 85 (#2586): cut-release.ps1's Get-PullRequestClosedIssues, $prCap (`gh pr view --json
+# closingIssuesReferences`) and $isCap (`gh issue view --json number,title,body`, one per closed issue),
+# both at the shared network bound and -Utf8 (titles are data). Both ask Test-NativeExitMeasured, and both
+# fail by THROWING, which the caller turns into a refusal before anything is written: a task-form note
+# built past an unread PR would silently drop a solved task. Reached only where Get-ReleaseNoteTaskLink
+# is answered.
+Assert-Equal 85 $boundedTotal 'the parser still counts 85 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

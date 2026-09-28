@@ -42,7 +42,7 @@ cannot produce a marker even if a later caller asked it to, and the script never
 `Get-ShopifyLivePushMarker` at all. A run that held the marker in a variable is one edit away from
 printing it onto the command it also prints.
 
-## The two failures it mechanises
+## The three failures it mechanises
 
 ### 1. The push list is not the changelog
 
@@ -82,13 +82,32 @@ owns the list cannot make -- the defect is closed by construction rather than by
 **DRIFT IS A REFUSAL, not a warning.** A file a third party has edited on live since this repo last
 saw it is a file whose push destroys their work.
 
+### 3. A path in the printed command is text a shell will parse
+
+The push command is printed for a person to paste, and its paths come off `git diff`, so they may
+come from a sync branch the theme editor wrote. Nobody in the repo typed them. Measured in
+[#2514](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2514): `assets/$(calc.exe).css`
+was printed as-is and the subexpression ran when the line was pasted, a `;` split it into two
+statements, and a newline split the printed command itself. git's own quoting fires on none of the
+three.
+
+So **step 3 refuses** a push list holding any path outside letters, digits, `.`, `_`, `/` and `-`, and
+names each refused path with its control characters stripped. It refuses at step 3 and not at the
+command because of the cost ordering below: the backup is then skipped. **Latin accents
+(U+00C0-U+017E) are admitted**, because a theme filename with one is real (#821 measured one through
+`sync-main`) and refusing it would block that store's live push with nothing to do but rename a file
+the theme editor made. The long s (U+017F) that ends Latin Extended-A reads as an `f`, and past it are
+letters that display as punctuation, so those are refused. Every path the push list prints, pushed or
+held, goes through the same control-character strip.
+`Format-LivePushCommand` throws on such a path as well, so no caller can print one.
+
 ## The nine steps, and why they are in this order
 
 | # | step | refuses when |
 |---|---|---|
 | 1 | **trunk** -- clean, on the trunk, level with `origin` | anything else. A live push ships what is *merged*. |
 | 2 | **gates** -- the repo's own lint and tests | one of them fails. |
-| 3 | **push list** -- derived from the range | nothing in the range lives on a theme. |
+| 3 | **push list** -- derived from the range | nothing in the range lives on a theme, or a theme path is not safe to paste (failure 3 above). |
 | 4 | **version** -- what the pending entries owe, and the target | never; it reports. |
 | 5 | **live theme** -- by configured **id** and by the **role** the store reports | the two disagree, or the id is not in the list. |
 | 6 | **drift** -- the check, with the list as an array | the check says the live files are not what this repo thinks. |
@@ -119,6 +138,36 @@ But it does not vanish either -- it is named in the verdict, because **a checkli
 while a step sat inert** is the exact failure the drift check's own green *"safe to push"* already
 demonstrated on this procedure, with nothing said.
 
+## The live-push record it writes for the cut (#2570, #2586)
+
+**A green run writes a second thing beside the push command: the live-push record.** `dkj-policy`'s cut
+builds two documents about the same release -- the GitHub Release body and the hand-written audience note
+-- and neither could see what the push actually carried, which is how a BWJ store's v1.3.0 listed a held-back
+fix as landed on the Release page, and a solved task as done while 21 files were still on live. One record,
+written here and read there, is what stops the two disagreeing.
+
+**One line per theme file in the range, written to the temp directory once the run is allowed to print a
+command:** `live sections/header.liquid` or `hold snippets/product-info.liquid`. A `theme-file` or
+`sync-owned` row (the push carries it, or a sync already mirrored it *from* live) is `live`; a `deleted`
+row is `hold`, because a `--only` push cannot remove a file, so the old version stays on live. A
+`not-a-theme-path` row gets no line at all -- it does not exist on a theme, so it cannot be live or held
+there. The format and the parser are one definition, in `scripts/lib/live-record-lib.ps1`, which this
+plugin and `dkj-policy` both carry as a byte-identical mirror.
+
+**Held a file back AFTER this ran? Edit the record, not the push command.** The decision to hold a file
+lands after the preflight prints its verdict, and no script sees it unless somebody writes it down -- this
+run prints the record's path precisely so there is somewhere to write it. Change that line's `live` to
+`hold`, then hand the file to the cut:
+
+```powershell
+cut-release.ps1 ... -LivePushRecord "<path this run printed>"
+```
+
+**A failed write warns rather than refuses.** The push itself is still right; only the cut's two documents
+lose their input, and the cut says so when it runs without one. See the
+[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586)
+for what the cut does with it.
+
 ## The backup's moment moved, and that changed what it is for
 
 `backup-live-theme.ps1` needs **no behavioural change** and got none: `CREATE -> VERIFY -> ROTATE`
@@ -142,6 +191,11 @@ would want:
   that nobody enumerated.
 - Losing the after-the-push baseline costs little: the only difference between the two copies is this
   repo's own push list, and that is in git.
+
+**How to use that rollback point** is the
+[`theme-lifecycle`](../theme-lifecycle/SKILL.md#restore-live-from-the-backup) page's restore section
+(#2589): a person publishes the backup, and a **WITH EXCEPTIONS** copy first gets its missing paths
+back from the commit it was verified against.
 
 A repo that wants the baseline reading keeps calling it at the cut, unchanged. The shared script no
 longer asserts either -- it states what it **guarantees** and names both moments.
@@ -191,6 +245,7 @@ The arithmetic of adding one to a version component is local, because that is no
 directories (**including that `sync-main.ps1` no longer carries its own copy**), the push-list
 classification in all three verdicts with the near-miss and separator cases, the numeric tag pick that
 lexical sorting gets wrong, the push command's shape and its refusal to produce one for an empty list,
+the paste-safety check on its three measured shapes and on the accented paths it must still admit,
 and the verdict fold -- including that a skip is not a pass and an unrecognised state is a refusal.
 
 **The script itself is not driven**, for the reason [`push-preview`](../push-preview/SKILL.md) gives:

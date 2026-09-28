@@ -58,6 +58,10 @@
     the standing convention for every lib in this directory.
 #>
 
+# Get-NextFenceState lives in fence-lib.ps1 (#2536), a leaf every other fence reader loads too; this lib
+# reached it first (#2534), so its callers here and the libs that dot-source this one keep the name.
+. (Join-Path $PSScriptRoot 'fence-lib.ps1')
+
 # The documented ceiling on '@'-import nesting. The seam spends two hops (CLAUDE.md -> SPECIALISTS.md
 # -> body/lens), so a lens may still import something of its own and stay inside it.
 $script:MeasureContextMaxHops = 4
@@ -331,15 +335,6 @@ function Split-FileIntoByteLines {
     return $lines
 }
 
-function Test-IsFenceLine {
-    <# A code-fence delimiter: three or more backticks or tildes at the start of a line, optionally with
-       an info string. Tracked because a fenced block in these documents routinely CONTAINS lines that
-       start with '#' -- a skill page showing a document's shape, a README showing a heading tree. Read
-       as headings, those invent sections that do not exist and move bytes into them. #>
-    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Line)
-    return [bool]($Line -match '^\s{0,3}(?:`{3,}|~{3,})')
-}
-
 function Get-DocumentSections {
     <#
         Splits one document into sections at its ATX headings, byte-exact.
@@ -361,7 +356,7 @@ function Get-DocumentSections {
 
     $lines = Split-FileIntoByteLines -Path $Path
     $sections = New-Object System.Collections.Generic.List[object]
-    $inFence = $false
+    $fence = ''
     $lineNo = 0
 
     $current = [pscustomobject]@{
@@ -373,10 +368,11 @@ function Get-DocumentSections {
 
     foreach ($line in $lines) {
         $lineNo++
-        if (Test-IsFenceLine $line.Text) { $inFence = -not $inFence }
+        $wasFence = $fence
+        $fence = Get-NextFenceState -Line $line.Text -Fence $fence
 
         $isHeading = $false
-        if (-not $inFence -and $line.Text -match '^(#{1,6})\s+(\S.*?)\s*$') {
+        if (-not ($wasFence -or $fence) -and $line.Text -match '^(#{1,6})\s+(\S.*?)\s*$') {
             $level = $Matches[1].Length
             if ($level -le $MaxLevel) { $isHeading = $true }
         }
@@ -621,10 +617,11 @@ function Get-AlwaysOnDocuments {
         if (-not $exists) { continue }
         if ($item.Hop -ge $MaxHops) { continue }
 
-        $inFence = $false
+        $fence = ''
         foreach ($line in (Split-FileIntoByteLines -Path $item.Path)) {
-            if (Test-IsFenceLine $line.Text) { $inFence = -not $inFence; continue }
-            if ($inFence) { continue }
+            $wasFence = $fence
+            $fence = Get-NextFenceState -Line $line.Text -Fence $fence
+            if ($wasFence -or $fence) { continue }
             $target = Get-ImportLinePath -Line $line.Text
             if (-not $target) { continue }
             $resolved = Resolve-ImportPath -Target $target -ImportingFile $item.Path

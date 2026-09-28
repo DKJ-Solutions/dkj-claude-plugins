@@ -160,6 +160,7 @@ one call that settles it -- with `.git/shallow` behind it for a git older than 2
 | no `installed_plugins.json` at all | *"no install administration on this machine"*, verdict *cannot determine*. |
 | enabled in settings but **no record for this checkout** (declarative enable only) | *"no install record in this checkout"* -> `claude plugin install <id> --scope project`. |
 | only a path-less (machine-wide, `user`-scope) record | reported as such -- it is not read as this checkout's version. |
+| a path-less record **older** than this checkout's own record | reported as **behind**, whatever this checkout's own record says -> `claude plugin update <id> --scope <that record's scope>`, then a restart. One consumer's session was measured loading the older record's skill set while this page said *versions match* (#2442). Which record the harness prefers is inferred from that single match, so the verdict says a session *can* load the older one, not that it does. |
 | several conflicting records for this checkout | all of them are shown, verdict *cannot determine*, with the repair install. |
 | the checkout was moved or renamed | the `projectPath` no longer matches, so it reads as *not installed here* -- which is the true state after a move. |
 | a non-git marketplace fetch (`.gcs-sha`, no `.git`) | the recorded sha is still read; ancestry is skipped and the verdict falls back to the `version` comparison. |

@@ -148,7 +148,7 @@ if (-not $RootOverride -and (Test-Path -LiteralPath (Join-Path $repoRoot '.claud
 
 Set-Location -LiteralPath $repoRoot
 
-$branch = ([string](git rev-parse --abbrev-ref HEAD)).Trim()
+$branch = "$(git rev-parse --abbrev-ref HEAD)".Trim()
 
 # --- The seam answers ------------------------------------------------------------------------------
 # Read in a child scope with StrictMode OFF and inside a try, exactly as dkj-subagents-shopify's live-theme guard
@@ -275,7 +275,9 @@ $id = $ThemeId
 
 # 2. Otherwise: the id remembered in the branch's own git config, written by an earlier run of this
 #    script. Per branch rather than in a file, so nothing has to be committed or cleaned up.
-if (-not $id) { $id = ([string](git config --get "branch.$branch.previewTheme")).Trim() }
+#    "$(...)", NEVER ([string](...)): under Windows PowerShell 5.1 the cast of a native command that
+#    prints nothing is $null, so .Trim() threw here on every branch's FIRST push (inbound #2483).
+if (-not $id) { $id = "$(git config --get "branch.$branch.previewTheme")".Trim() }
 
 # 3. Otherwise: a name lookup through the theme list. The theme carries the flattened branch name.
 if (-not $id) {
@@ -318,9 +320,9 @@ function Write-SettingsNotice {
     # which under this script's 'Stop' would be terminating in Windows PowerShell 5.1, redirected or not.
     $base = ''
     foreach ($ref in @("origin/$trunk", $trunk)) {
-        $sha = ([string](git rev-parse --verify --quiet "$ref^{commit}")).Trim()
+        $sha = "$(git rev-parse --verify --quiet "$ref^{commit}")".Trim()
         if (-not $sha) { continue }
-        $mb = ([string](git merge-base HEAD $sha)).Trim()
+        $mb = "$(git merge-base HEAD $sha)".Trim()
         if ($mb) { $base = $mb; break }
     }
     $changed = @()
@@ -339,8 +341,8 @@ function Write-SettingsNotice {
 # for a theme found by NAME while a copy is recorded 'pending' with no id beside it: that is a duplicate
 # an earlier run started and could not read the id of, so it may still be filling, and pushing into it
 # is the race step 5 exists for. Any other theme found by name or passed as -ThemeId has no record.
-$remembered = ([string](git config --get "branch.$branch.previewTheme")).Trim()
-$recordedFill = ([string](git config --get "branch.$branch.previewFill")).Trim()
+$remembered = "$(git config --get "branch.$branch.previewTheme")".Trim()
+$recordedFill = "$(git config --get "branch.$branch.previewFill")".Trim()
 $fillState = ''
 if ($id -and "$id" -eq $remembered) { $fillState = $recordedFill }
 elseif ($id -and -not $remembered -and $recordedFill -eq 'pending') {

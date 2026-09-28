@@ -345,6 +345,35 @@
     release-notes commit -- the case this flag was built for -- it is what stops the run paying for 114
     suites over one hand-written markdown file (issue #2102).
 
+.PARAMETER SeamRoot
+    Load the two repo-owned seams -- scripts/repo-config.ps1 and scripts/lib/branch-info.ps1 -- from THIS
+    directory instead of from $repoRoot. Empty (the default) keeps today's behaviour: both load from
+    $repoRoot, exactly as before this parameter existed.
+
+    BUILT FOR ship-pr.ps1's -TrustedRoot (issue #2437), NOT FOR A SESSION TO TYPE. merge-on-green.yml
+    checks the PR branch out with no token and no persisted credentials, and runs ship-pr.ps1 -- and
+    every sibling lib it loads via $PSScriptRoot -- from a SEPARATE, trusted checkout of the trunk. Left
+    alone, this script's own two dot-sources of the repo-owned seams would still read them off the
+    branch tree, in a process that (for the caller's own gh calls) carries FOLD_PUSH_TOKEN in its
+    environment -- exactly the exposure #2437 closes for every OTHER file this script and ship-pr.ps1
+    load. -SeamRoot repoints those two dot-sources at the trusted tree the same way.
+
+    NAME THE LIMITATION THIS BUYS (Sebastian #23's design review on #2437): a pull request that edits
+    either seam file ships under the TRUNK's answer to it, not its own -- Get-RepoName and the
+    branch-prefix table both come from the trusted tree while -SeamRoot is set, so a PR renaming the repo
+    or adding a branch prefix in the same push takes effect only once THAT PR has landed. That is a
+    staleness cost, not a safety one: `Get-MergeOnGreenExecutedPathHit` still refuses such a pull request
+    to a sweep for exactly this reason, and ships it from a session instead.
+
+    STRUCTURALLY FORCES -SkipLint AND -SkipTests (issue #2437, condition (c)). gate-lib.ps1's
+    Invoke-WorkflowGates runs the lint script and every scripts\tests\*.tests.ps1 it finds FROM
+    $RepoRoot -- i.e. from the branch tree, exactly the code this parameter exists to stop trusting. A
+    caller in trusted-tree mode has no sound way to run those gates at all, so this is not merely
+    documented as "always pass -SkipLint -SkipTests together with this" (which a future edit to
+    merge-on-green.yml could silently drop): passing -SeamRoot without -SkipLint/-SkipTests IGNORES
+    those two flags and forces both to $true, with a loud warning naming why, rather than let a caller's
+    omission reach $RepoRoot-rooted PowerShell.
+
 .PARAMETER NoteTreeOnly
     Ask whether every path that differs from HEAD sits inside this repo's release-note tree, and where
     that is PROVEN, skip the test gate. The lint gate runs either way. Where it is not proven -- for any
@@ -464,8 +493,25 @@ param(
     # Lanes for the test gate; 0 keeps Invoke-TestSuiteGate's own default. See .PARAMETER MaxParallel.
     [int]$MaxParallel = 0,
     # Run the suites instead of waiting for an in-flight CI certificate. See .PARAMETER NoCiWait.
-    [switch]$NoCiWait
+    [switch]$NoCiWait,
+    # Load scripts/repo-config.ps1 + scripts/lib/branch-info.ps1 from HERE instead of $repoRoot -- built
+    # for ship-pr.ps1's -TrustedRoot (issue #2437). See .PARAMETER SeamRoot.
+    [string]$SeamRoot = ''
 )
+
+# TRUSTED-TREE MODE STRUCTURALLY FORCES THE SKIPS (issue #2437, condition (c)) -- BEFORE either gate call
+# site below (the -GatesOnly short-circuit and the ordinary PR path), so neither can be reached with an
+# unskipped gate while -SeamRoot names a tree the caller does not trust the branch's own PowerShell
+# against. A caller that also asked NOT to skip is told so rather than silently honoured or silently
+# ignored: -SeamRoot without both switches is very likely merge-on-green.yml losing them in a future
+# edit, not a deliberate request to run the branch's own gates from a trusted tree.
+if ($SeamRoot) {
+    if (-not $SkipLint -or -not $SkipTests) {
+        Write-Warning "-SeamRoot forces -SkipLint and -SkipTests: gate-lib.ps1 runs the lint script and every test suite from `$RepoRoot (the branch tree), which is exactly what -SeamRoot exists to stop trusting. Forcing both to `$true rather than running either."
+    }
+    $SkipLint = $true
+    $SkipTests = $true
+}
 $ErrorActionPreference = 'Stop'
 
 # THE REFUSAL VERDICT THAT SURVIVES ITS CALLER (issue #2283). A chain-ending script already prints the close-out
@@ -505,22 +551,30 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
 $repoRoot = Resolve-RepoRootOrFail -ScriptName 'open-pr.ps1'
 
-# Pre-flight (#86): the shared scripts rely on two repo-owned files in the consumer's repo root.
+# THE SEAM ROOT (issue #2437): $SeamRoot when the caller named a trusted tree to read these two
+# repo-owned files from instead, $repoRoot otherwise -- which is every call site this parameter did not
+# exist for, unchanged. See .PARAMETER SeamRoot for why these two specifically, and why $repoRoot stays
+# the base for everything else this script reads or writes (it is still the checked-out branch, and the
+# push, the PR body and the branch document all have to be ITS content).
+$seamRoot = if ($SeamRoot) { $SeamRoot } else { $repoRoot }
+
+# Pre-flight (#86): the shared scripts rely on two repo-owned files, read from $seamRoot.
 # If they are missing -- typically on a clean consumer where they have not yet been created --
 # stop with a clear pointer instead of a raw dot-source error (the path-not-found you would
 # otherwise get on the . (dot-source) lines below).
 $needed = @('scripts\repo-config.ps1', 'scripts\lib\branch-info.ps1')
-$absent = @($needed | Where-Object { -not (Test-Path -LiteralPath (Join-Path $repoRoot $_)) })
+$absent = @($needed | Where-Object { -not (Test-Path -LiteralPath (Join-Path $seamRoot $_)) })
 if ($absent.Count -gt 0) {
-    Write-Error ("open-pr cannot run -- missing repo-owned configuration in the repo root ($repoRoot):`n  " + ($absent -join "`n  ") + "`n`nThese files are repo-specific and belong in the consumer's repo root:`n  scripts\repo-config.ps1      -- Get-RepoName / Get-RepoBlobUrl / Get-LintScript`n  scripts\lib\branch-info.ps1  -- the repo-owned branch-prefix table`n`nCreate them (the specialists-init bootstrap lays down a VUL-IN scaffold, or take an existing consumer / the source repo as a model) and run again afterward.")
+    Write-Error ("open-pr cannot run -- missing repo-owned configuration in the seam root ($seamRoot):`n  " + ($absent -join "`n  ") + "`n`nThese files are repo-specific and belong in the consumer's repo root:`n  scripts\repo-config.ps1      -- Get-RepoName / Get-RepoBlobUrl / Get-LintScript`n  scripts\lib\branch-info.ps1  -- the repo-owned branch-prefix table`n`nCreate them (the specialists-init bootstrap lays down a VUL-IN scaffold, or take an existing consumer / the source repo as a model) and run again afterward.")
     exit 1
 }
 
-# Repo-owned config + shared branch lib from the repo root (single source). Deliberately from
-# $repoRoot and not $PSScriptRoot: from the plugin mirror, $PSScriptRoot points to the plugin
-# cache, while repo-config/branch-info always live in the consumer's repo root.
-. (Join-Path $repoRoot 'scripts\repo-config.ps1')
-. (Join-Path $repoRoot 'scripts\lib\branch-info.ps1')
+# Repo-owned config + shared branch lib, from $seamRoot (single source). Deliberately from a
+# resolved root and not $PSScriptRoot: from the plugin mirror, $PSScriptRoot points to the plugin
+# cache, while repo-config/branch-info always live in a repo root -- the checked-out branch's own
+# by default, or the trusted tree named by -SeamRoot (issue #2437).
+. (Join-Path $seamRoot 'scripts\repo-config.ps1')
+. (Join-Path $seamRoot 'scripts\lib\branch-info.ps1')
 $repo = Get-RepoName
 
 # Shared native-capture helper (#114 item 1). $PSScriptRoot-relative, not $repoRoot: like
@@ -1311,14 +1365,50 @@ foreach ($bad in @($exemptSeam.Rejected)) {
     Write-Warning ("Get-ResolvesExemptMatchers: ignoring " + $bad.Name + " -- " + $bad.Reason + ". The other matchers still apply.")
 }
 
-if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0) {
+# --- Dossier gate (issue #2463) -------------------------------------------------------------------
+# A dossier collects every instance of one recurring problem until its root cause is fixed, and a repair
+# of one instance does not close it (CONTRIBUTING-portable.md, step 1; the label is #2462's). That rule
+# was held by memory alone: the matchers above read a BODY and default to nothing, so `-Resolves
+# <dossier>` went through and the merge closed the collecting issue.
+#
+# NOT SEAM-GATED, UNLIKE THE MATCHERS, and that is the cost this gate adds: the rule is shared by every
+# repo running the workflow, so every PR that closes anything pays one `gh issue view` per closing issue
+# -- the same read the matchers already paid for, now asked for labels too, and bounded by the same
+# resolve limit. The read comes first so both checks judge one fetch.
+$bodySet = $null
+if ($closingAtMerge.Count -gt 0) {
     $bodySet = Get-IssueBodySet -Repo $repo -Numbers $closingAtMerge
     if (@($bodySet.Unreadable).Count -gt 0) {
-        Write-Warning ("could not read the body of issue(s) " + ((@($bodySet.Unreadable) | ForEach-Object { "#$_" }) -join ', ') + " -- the resolves-exempt check cannot judge them and does not block on them.")
+        Write-Warning ("could not read issue(s) " + ((@($bodySet.Unreadable) | ForEach-Object { "#$_" }) -join ', ') + " -- the dossier and resolves-exempt checks cannot judge them and do not block on them.")
     }
     if ($bodySet.Truncated) {
-        Write-Warning ("this PR closes more issues than the resolves-exempt check reads in one run -- the oldest were not judged.")
+        Write-Warning ("this PR closes more issues than the dossier and resolves-exempt checks read in one run -- the oldest were not judged.")
     }
+
+    $dossiers = @(Get-DossierClosingFindings -Issues $closingAtMerge -Labels $bodySet.Labels)
+    if ($dossiers.Count -gt 0) {
+        $dossierList = (@($dossiers | ForEach-Object { "#$_" }) -join ', ')
+        $dossierNote = ''
+        if ($existingPr -and @(Get-ClosedIssueNumbers -Text $existingPr.body | Where-Object { $dossiers -contains $_ }).Count -gt 0) {
+            $dossierNote = "`n`nPR #$($existingPr.number) ALREADY CARRIES A CLOSING KEYWORD for it, and -NoResolves does not remove one: strip that line from the PR body (gh pr edit $($existingPr.number) --body-file <file>), because GitHub reads the body it has at merge time.`n"
+        }
+        Write-Error @"
+resolves gate: this PR would close $dossierList, which carries the '$(Get-DossierLabelName)' label - nothing pushed, no PR opened.
+
+A dossier collects every instance of one recurring problem until its root cause is fixed, and a repair
+of one instance does not close it (CONTRIBUTING-portable.md, step 1).
+
+Pick one:
+  -NoResolves   -- ship citing it as 'part of #<n>', and comment on the dossier what this instance was
+  -Resolves with only the OTHER numbers, where this run declared several
+  and if this branch fixes the root cause: still -NoResolves, then close the dossier by hand after the merge
+$dossierNote
+"@
+        exit 1
+    }
+}
+
+if (@($exemptSeam.Matchers).Count -gt 0 -and $closingAtMerge.Count -gt 0) {
 
     # UNJUDGED IS REPORTED BEFORE THE VERDICT IS READ, and it is not a find: a matcher whose match did
     # not finish inside its bound answered nothing at all, so it neither blocks nor passes in silence --
@@ -2496,13 +2586,13 @@ if ($existingPr) {
         $templateForHeading = Join-Path $repoRoot ".github\pull_request_template.md"
         $templateFound = Test-Path -LiteralPath $templateForHeading
         if ($templateFound) {
-            $tplFence = $false
+            $tplFence = ''
             $tplSeenPlaceholder = $false
             $tplAbove = @()
             $tplBelow = @()
             foreach ($tplLine in @(Get-Content -LiteralPath $templateForHeading -Encoding UTF8)) {
-                if ($tplLine -match '^\s*(```|~~~)') { $tplFence = -not $tplFence; continue }
-                if ($tplFence) { continue }
+                $tplWas = Resolve-FenceState -Line $tplLine -Fence $tplFence; $tplFence = Get-NextFenceState -Line $tplLine -Fence $tplFence -AnyIndent
+                if ($tplWas -or $tplFence) { continue }
                 if ($descPlaceholders -contains $tplLine) { $tplSeenPlaceholder = $true; continue }
                 if ($tplLine -match '^#{1,6}\s+\S') {
                     if ($tplSeenPlaceholder) { $tplBelow += $tplLine.TrimEnd() } else { $tplAbove += $tplLine.TrimEnd() }

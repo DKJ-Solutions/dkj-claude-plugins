@@ -210,15 +210,45 @@ function Get-ThemeFileCount {
         [Parameter(Mandatory = $true)][string]$Store,
         [Parameter(Mandatory = $true)][string]$ThemeId
     )
-    $pullPath = Join-Path ([System.IO.Path]::GetTempPath()) ('shopify-fill-check-' + [guid]::NewGuid().ToString('N'))
+    return (Get-ThemeFileSnapshot -Store $Store -ThemeId $ThemeId).Count
+}
+
+function Get-ThemeFileSnapshot {
+    <#
+        The same pull Get-ThemeFileCount counts, returned as WHICH files arrived rather than how many:
+        Count (-1 where it cannot be measured), Paths (theme-relative, '/'-separated, ordinally sorted) and
+        Root (where the pull still stands, or '' once it has been removed).
+
+        IT EXISTS BECAUSE A COUNT CANNOT SAY WHAT IS MISSING (#2568). A copy of live measured in a consumer
+        settled at 535 of 539 files twice, on the same four paths both times, and a bare count could not
+        tell that copy apart from one that had stalled at 38. Naming the paths is what lets
+        backup-live-theme judge the shortfall instead of only measuring it.
+
+        -KeepAt LEAVES THE PULL STANDING, for a caller that has to read the bytes afterwards -- the live
+        side of the trunk comparison in backup-live-theme, which is otherwise a second pull of the theme
+        this call just pulled. Removing it is then that caller's job. Without -KeepAt the pull goes into a
+        scratch directory that is removed before this returns, exactly as Get-ThemeFileCount always did.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Store,
+        [Parameter(Mandatory = $true)][string]$ThemeId,
+        [string]$KeepAt = ''
+    )
+    $keep = [bool]$KeepAt
+    $pullPath = if ($keep) { $KeepAt } else { Join-Path ([System.IO.Path]::GetTempPath()) ('shopify-fill-check-' + [guid]::NewGuid().ToString('N')) }
+    $failed = [pscustomobject]@{ Count = -1; Paths = @(); Root = '' }
     New-Item -ItemType Directory -Path $pullPath -Force | Out-Null
     try {
         $r = Invoke-ShopifyCli -Arguments @('theme', 'pull', '--store', $Store, '--theme', $ThemeId, '--path', $pullPath)
-        if ($r.ExitCode -ne 0) { return -1 }
-        return @(Get-ChildItem -LiteralPath $pullPath -Recurse -File -ErrorAction SilentlyContinue).Count
+        if ($r.ExitCode -ne 0) { return $failed }
+        $base = (Resolve-Path -LiteralPath $pullPath).Path.TrimEnd('\', '/')
+        $paths = [string[]]@(Get-ChildItem -LiteralPath $pullPath -Recurse -File -ErrorAction SilentlyContinue |
+            ForEach-Object { $_.FullName.Substring($base.Length + 1).Replace('\', '/') })
+        [System.Array]::Sort($paths, [System.StringComparer]::Ordinal)
+        return [pscustomobject]@{ Count = $paths.Count; Paths = $paths; Root = $(if ($keep) { $pullPath } else { '' }) }
     } catch {
-        return -1
+        return $failed
     } finally {
-        Remove-Item -LiteralPath $pullPath -Recurse -Force -ErrorAction SilentlyContinue
+        if (-not $keep) { Remove-Item -LiteralPath $pullPath -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }

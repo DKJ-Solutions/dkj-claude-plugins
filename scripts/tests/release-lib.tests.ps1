@@ -474,8 +474,11 @@ Assert-NoParameter -Command 'Convert-ChangelogForRelease' `
     -Names @('Version', 'Date', 'Type', 'NotesRelPath', 'LiveMarker', 'HistoryMode', 'HistoryRelPath', 'TierSections', 'Wording')
 $emptied = Convert-ChangelogForRelease -Content $sample
 Assert-Match $emptied '(?m)^# Changelog$' 'the title survives'
-Assert-Match $emptied 'listed in \[releases/README\.md\]' "the intro's own pointer to the release history survives"
-Assert-NoMatch $emptied '(?m)^## ' 'no entry heading is left'
+# THE HEAD IS THE FIXED ONE (issue #2486): the sample's intro prose -- its pointer to the release history
+# included -- is replaced by Get-ChangelogHeadLines, so a cut leaves every repo's head byte-identical.
+Assert-NoMatch $emptied 'listed in \[releases/README\.md\]' 'the intro prose does not survive the cut'
+Assert-Equal ((@(Get-ChangelogHeadLines) -join "`n") + "`n") $emptied 'what is left is exactly the fixed head'
+Assert-NoMatch $emptied (Get-EntryHeadingPattern).Replace('^', '(?m)^') 'no entry heading is left'
 foreach ($pr in 20, 21, 22) {
     Assert-NoMatch $emptied "#$pr $midDot" "entry #$pr is cleared out of the changelog"
 }
@@ -484,11 +487,12 @@ foreach ($pr in 20, 21, 22) {
 Assert-NoMatch $emptied 'Latest Release' 'no release block heading is written'
 Assert-NoMatch $emptied '(?m)^\*\*v\d' 'no bold version line'
 Assert-NoMatch $emptied 'for the full release notes' 'and no pointer to a notes file'
-# THE INTRO IS NOT REGENERATED -- it is the head as the document had it, which is what lets a repo say
-# whatever it likes up there, in whatever language, and keep it across every cut.
+# A REPO'S OWN INTRO NO LONGER SURVIVES A CUT (issue #2486, reversing the verbatim pass-through). That
+# pass-through is how the consumers' intros came to say different things about one mechanism.
 $ownIntro = "# Journal de bord`n`nTout ce qui a ete fusionne depuis la derniere version."
-Assert-Match (Convert-ChangelogForRelease -Content (New-FlatChangelog -Entries @($e21) -Intro $ownIntro)) `
-    'Tout ce qui a ete fusionne' "a repo's own intro passes through verbatim -- no template rewrites it"
+$ownOut = Convert-ChangelogForRelease -Content (New-FlatChangelog -Entries @($e21) -Intro $ownIntro)
+Assert-NoMatch $ownOut 'Tout ce qui a ete fusionne' "a repo's own intro is replaced by the fixed head"
+Assert-Match $ownOut '(?m)^# Changelog$' 'and its own title with it'
 # CRLF is preserved: the root CHANGELOG is CRLF and a cut must not restyle the whole file.
 $crlfOut = Convert-ChangelogForRelease -Content ($sample -replace "`n", "`r`n")
 Assert-Match $crlfOut "`r`n" 'a CRLF document stays CRLF'
@@ -687,10 +691,36 @@ Assert-Equal 'Version 1.0.0' (Format-ReleaseVersionHeading -Version '1.0.0' -Dat
 
 Write-Host "Build-ReleaseNotes -TierGroups (the record)" -ForegroundColor Cyan
 $groups = @(Get-PullRequestEntriesByTier -Content $sample)
-$notes = Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Type 'Minor' -Title 'A title'
+$notes = Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Title 'A title'
 Assert-Match $notes '^# Changelog Releases' 'a constant H1 -- the version is stated by the H2 that owns the entries, not twice'
-Assert-Match $notes '\*\*Date:\*\* 2026-08-05' 'date line'
-Assert-Match $notes '\*\*Type:\*\* Minor' 'type line'
+# NO '**Date:**'/'**Type:**' PAIR (#2491, September 25, 2026): the date is the H2's own, and the type is the
+# version's shape, so the pair repeated what the next heading already says.
+Assert-NoMatch $notes '\*\*Date:\*\*' 'no date line -- the version heading carries the date'
+Assert-NoMatch $notes '\*\*Type:\*\*' 'no type line -- the version number carries the type'
+Assert-NoParameter -Command 'Build-ReleaseNotes' -Names @('Type')
+# AND THE READER GETS BOTH BACK FROM THE HEADING (Get-NoteVersionHeadingMeta) -- round-tripped through the
+# note this lib just wrote, so the two halves cannot drift apart without this turning red.
+$meta = Get-NoteVersionHeadingMeta -Text $notes
+Assert-Equal '2026-08-05' $meta.Date 'the date reads back out of the version heading in ISO form'
+Assert-Equal 'Minor' $meta.Type 'and X.Y.0 reads as a minor'
+Assert-Equal 'Major' (Get-NoteVersionHeadingMeta -Text '## Version 5.0.0 (Sep 11, 2026)').Type 'X.0.0 reads as a major'
+Assert-Equal 'Patch' (Get-NoteVersionHeadingMeta -Text '## Version 5.8.1 (Sep 25, 2026)').Type 'a patch component reads as a patch'
+$undated = Get-NoteVersionHeadingMeta -Text '## Version 5.8.1'
+Assert-Equal '' $undated.Date 'a heading with no date yields no date rather than a guess'
+Assert-Equal 'Patch' $undated.Type 'and still yields the type'
+Assert-Equal '' (Get-NoteVersionHeadingMeta -Text '## Version 5.8.1 (25-09-2026)').Date 'a date in a form the writer never writes is not guessed at'
+$none = Get-NoteVersionHeadingMeta -Text "# Changelog Releases`n`nNo heading here."
+Assert-Equal '' $none.Type 'no version heading: no type'
+Assert-Equal '' $none.Date 'and no date'
+# NINE DIGITS PER COMPONENT, so the [int] cast cannot overflow: an oversized heading is no heading.
+Assert-Equal '' (Get-NoteVersionHeadingMeta -Text '## Version 1.99999999999.0 (Sep 25, 2026)').Type 'an oversized component does not match, and does not throw'
+# THE STATED TYPE LIVES IN THE HISTORY ROW (Get-OverviewRowType), which a reader asks before the shape.
+$rowDoc = "| Version | Date | Type | Title |`n|---|---|---|---|`n| [4.30.1](changelog/4.x/4.30.1.md) | 2026-09-05 | Minor | x |`n| `4.30.0` | 2026-09-04 | Patch | y |`n"
+Assert-Equal 'Patch' (Get-OverviewRowType -ReadmeContent $rowDoc -Version '4.30.0') 'the row for that version is read, in a backticked cell'
+Assert-Equal 'Minor' (Get-OverviewRowType -ReadmeContent $rowDoc -Version '4.30.1') 'and in a linked cell'
+Assert-Equal '' (Get-OverviewRowType -ReadmeContent $rowDoc -Version '4.3.0') 'a version that is only a PREFIX of a row''s does not match it'
+Assert-Equal '' (Get-OverviewRowType -ReadmeContent $rowDoc -Version '9.9.9') 'no row: empty, so the caller falls back to the shape'
+Assert-Match $notes '(?m)^# Changelog Releases\n\nA title\n\n## Version 3\.5\.0 \(Aug 05, 2026\)$' 'the H1 is followed by the title and then the version heading, nothing between'
 Assert-Match $notes 'A title' 'title included'
 # THE LEVELS ARE CHANGELOG.md'S OWN (#881, August 25, 2026) -- AND THEY ARE READ FROM THE FORMAT RATHER
 # THAN SPELLED OUT HERE (#1369, September 4, 2026). #881 asserted the literal '##', which was the entry
@@ -727,7 +757,7 @@ foreach ($label in 'Features', 'Fixes', 'Maintenance') {
 Assert-Match $notes ('(?m)^' + $es + ' ' + $TypeRx + '$') 'the type is stated inside the entry instead'
 # An empty tier is omitted rather than printed as a heading with nothing under it.
 $sparse = @([pscustomobject]@{ Tier = 2; Entries = @($e22) }, [pscustomobject]@{ Tier = 1; Entries = @() })
-$sparseNotes = Build-ReleaseNotes -TierGroups $sparse -Version '3.5.0' -Date '2026-08-05' -Type 'Minor'
+$sparseNotes = Build-ReleaseNotes -TierGroups $sparse -Version '3.5.0' -Date '2026-08-05'
 Assert-Match $sparseNotes "(?m)^$eh #22 " 'a tier with entries is rendered'
 Assert-NoMatch $sparseNotes 'Tier 1' 'a tier with no entries contributes nothing, not an empty section'
 Assert-NoMatch $sparseNotes '(?m)^---$' 'and no dangling rule where its boundary would have been'
@@ -737,29 +767,29 @@ Write-Host "Build-ReleaseNotes -- ranked from tier 1 up, and deliberately not at
 # never asked for a score in the first place. Unranked means DOCUMENT ORDER -- the order the fold left --
 # so tier 0 inherits a defined order rather than losing one.
 $t1Group = @([pscustomobject]@{ Tier = 1; Entries = @($low, $high) })
-Assert-Match (Build-ReleaseNotes -TierGroups $t1Group -Version '3.5.0' -Date '2026-08-05' -Type 'Minor') `
+Assert-Match (Build-ReleaseNotes -TierGroups $t1Group -Version '3.5.0' -Date '2026-08-05') `
     "(?s)(?m)^$eh #3 .*^$eh #1 " 'a tier-1 group is ranked by its own score'
 $t0Group = @([pscustomobject]@{ Tier = 0; Entries = @($e20, $e21) })
-Assert-Match (Build-ReleaseNotes -TierGroups $t0Group -Version '3.5.0' -Date '2026-08-05' -Type 'Minor') `
+Assert-Match (Build-ReleaseNotes -TierGroups $t0Group -Version '3.5.0' -Date '2026-08-05') `
     "(?s)(?m)^$eh #20 .*^$eh #21 " 'a tier-0 group keeps document order -- the record is not re-sorted'
 
 Write-Host "Build-ReleaseNotes -Entries (arrival order, for a repo that declares no tier)" -ForegroundColor Cyan
 # SINCE #881 THIS DIFFERS FROM -TierGroups IN ORDER ONLY. Both render at these levels; a repo whose
 # entries declare nothing has no tier to rank on, so the arrival order is all there is to keep.
-$flatNotes = Build-ReleaseNotes -Entries $entries -Version '3.5.0' -Date '2026-08-05' -Type 'Minor'
+$flatNotes = Build-ReleaseNotes -Entries $entries -Version '3.5.0' -Date '2026-08-05'
 Assert-Match $flatNotes "(?m)^$eh #22 " 'flat: entries sit at the level they were written at'
 Assert-Match $flatNotes ('(?m)^' + $es + ' ' + $WhatRx + '$') 'flat: their sections one below it'
 Assert-Match $flatNotes "(?m)^$vh Version 3\.5\.0 \(Aug 05, 2026\)`$" 'flat: the version heading is written here too'
 Assert-NoMatch $flatNotes 'Tier \d - ' 'flat: no tier heading is invented'
 # -TierGroups wins when both arrive, which is what the doc promises.
-$bothArgs = Build-ReleaseNotes -Entries @($e21) -TierGroups $sparse -Version '3.5.0' -Date '2026-08-05' -Type 'Minor'
+$bothArgs = Build-ReleaseNotes -Entries @($e21) -TierGroups $sparse -Version '3.5.0' -Date '2026-08-05'
 Assert-Match $bothArgs "(?m)^$eh #22 " '-TierGroups wins if both are given'
 Assert-NoMatch $bothArgs '#21 ' 'and -Entries is then ignored rather than merged in'
 
 Write-Host "Build-ReleaseNotes -- link rewriting" -ForegroundColor Cyan
 $linkEntry = New-FlatEntry -Heading "#9 $midDot Something" -Rows @('| 1 | 2 | fine |') `
     -Body 'See [the lint](scripts/lint/x.ps1) and [the site](https://example.com) and [#heading](#heading).' -Pr 9
-$ln = Build-ReleaseNotes -Entries @($linkEntry) -Version '0.2.1' -Date '2026-07-14' -Type 'Patch' -LinkPrefix '../../../'
+$ln = Build-ReleaseNotes -Entries @($linkEntry) -Version '0.2.1' -Date '2026-07-14' -LinkPrefix '../../../'
 Assert-Match $ln '\[the lint\]\(\.\./\.\./\.\./scripts/lint/x\.ps1\)' 'a link relative to the changelog gets the ../../../ prefix'
 Assert-Match $ln '\[the site\]\(https://example\.com\)' 'external link untouched'
 Assert-Match $ln '\[#heading\]\(#heading\)' 'anchor link untouched'
@@ -773,7 +803,7 @@ Assert-Match $ln '\[PR #9\]\(https://example\.test/9\)' 'PR link untouched'
 # skipping precisely the links the gate had just dictated, and they landed dead in a tagged document.
 $upEntry = New-FlatEntry -Heading "#10 $midDot Up" -Rows @('| 1 | 2 | fine |') `
     -Body 'See [the lint](../scripts/lint/x.ps1) and [absolute](/x.md).' -Pr 10
-$up = Build-ReleaseNotes -Entries @($upEntry) -Version '0.2.2' -Date '2026-08-28' -Type 'Patch' -LinkPrefix '../../../'
+$up = Build-ReleaseNotes -Entries @($upEntry) -Version '0.2.2' -Date '2026-08-28' -LinkPrefix '../../../'
 Assert-Match $up '\[the lint\]\(\.\./\.\./\.\./\.\./scripts/lint/x\.ps1\)' `
     "a '../' link is prefixed as well -- its own '..' segments still resolve, one directory further up"
 Assert-Match $up '\[absolute\]\(/x\.md\)' 'an absolute link is still left alone -- no directory resolves it'
@@ -904,19 +934,19 @@ Assert-Equal '../dkj-policy/releases/audience/4.x/4.9.0.md' (Get-RelativeLinkPat
     'and the same for a release that has a hand-written note -- the shape 30 rows already had'
 Assert-Equal 'CHANGELOG.md' (Get-RelativeLinkPath -FromDir '' -To 'CHANGELOG.md') `
     'an empty from-dir returns the path itself'
-$lnTier = Build-ReleaseNotes -TierGroups @([pscustomobject]@{ Tier = 1; Entries = @($linkEntry) }) -Version '3.5.0' -Date '2026-08-05' -Type 'Minor'
+$lnTier = Build-ReleaseNotes -TierGroups @([pscustomobject]@{ Tier = 1; Entries = @($linkEntry) }) -Version '3.5.0' -Date '2026-08-05'
 Assert-Match $lnTier '\[the lint\]\(\.\./\.\./\.\./scripts/lint/x\.ps1\)' 'root-relative links get the prefix inside a tier group too'
 
 Write-Host "Build-ReleaseNotes -Summary (a milestone release carries an authored block)" -ForegroundColor Cyan
 # The arc across many releases fits in neither -Title (one sentence) nor the entries (per-PR), and
 # hand-editing a generated file is not a repeatable release. Assertions are about POSITION and
 # BOUNDARY, because that is what makes an authored block readable as authored.
-$plain = Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Type 'Minor' -Title 'A title'
-Assert-Equal $plain (Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Type 'Minor' -Title 'A title' -Summary '') 'no -Summary: output byte-identical to the call without the parameter'
+$plain = Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Title 'A title'
+Assert-Equal $plain (Build-ReleaseNotes -TierGroups $groups -Version '3.5.0' -Date '2026-08-05' -Title 'A title' -Summary '') 'no -Summary: output byte-identical to the call without the parameter'
 $sum = "## What 3.x was about`r`n`r`nA sentence with CRLF endings and a [root link](README.md)."
-$ms = Build-ReleaseNotes -TierGroups $groups -Version '4.0.0' -Date '2026-08-05' -Type 'Major' -Title 'A milestone' -Summary $sum
+$ms = Build-ReleaseNotes -TierGroups $groups -Version '4.0.0' -Date '2026-08-05' -Title 'A milestone' -Summary $sum
 Assert-Match $ms '## What 3\.x was about' 'summary: the authored heading is present'
-Assert-Match $ms '(?s)\*\*Type:\*\* Major.*A milestone.*## What 3\.x was about' 'summary: sits after the header and the title line'
+Assert-Match $ms '(?s)^# Changelog Releases\n\nA milestone.*## What 3\.x was about' 'summary: sits after the header and the title line'
 Assert-Match $ms '(?s)## What 3\.x was about.*\n---\n.*## #22 ' 'summary: separated from the generated entries by a horizontal rule'
 Assert-NoMatch $ms "`r" 'summary: CRLF input is normalized to LF like every other block in this file'
 # A root-relative link inside the SUMMARY is deliberately NOT rewritten: unlike an entry (which was
@@ -1019,7 +1049,7 @@ $dossier = @(
 # the cut has emptied CHANGELOG.md; a strip that reached them would delete the audit trail instead of
 # sparing a reader.
 $dossierGroups = @([pscustomobject]@{ Tier = 2; Heading = 'Tier 2 - consumers'; Entries = @($dossier); Declared = 1 })
-$dossierNotes = Build-ReleaseNotes -TierGroups $dossierGroups -Version '4.2.0' -Date '2026-08-10' -Type 'Minor'
+$dossierNotes = Build-ReleaseNotes -TierGroups $dossierGroups -Version '4.2.0' -Date '2026-08-10'
 Assert-Match $dossierNotes 'Branch ID'   'the development notes KEEP the branch id'
 Assert-Match $dossierNotes 'Branch type' 'and the branch type'
 Assert-Match $dossierNotes 'PR #99'      'and the PR number'
@@ -1099,7 +1129,6 @@ foreach ($doc in @(
     $dirty = @(($doc.Text -split "`n") | Where-Object { $_ -match '[ \t]+$' })
     Assert-Equal 0 $dirty.Count "$($doc.Name): no generated line ends in whitespace"
 }
-Assert-Match $notes '(?m)^\*\*Date:\*\* 2026-08-05\\$' 'the hard break survives as a backslash rather than being dropped'
 # THE HAND-WRITTEN DRAFT IS THE ONE THAT BREAKS BOTH LABELS, and it is asserted separately because the
 # report named three emitting lines where there are four -- '**Type:**' one line below the third was
 # missed, which is the standing lesson that a count in a report is whatever the reporter's search matched.
@@ -1260,6 +1289,38 @@ Assert-NoMatch $draftAllWithheld '(?m)^<!-- DRAFT\. These are the tier' 'but not
 Assert-Equal $draft (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Title 'A release title sentence') `
     'omitting -WithheldNote reproduces the very first draft in this file, unchanged'
 
+Write-Host "Build-ReleaseNoteDraft -Sections (inbound #2564 -- a repo omits what its readers do not ask for)" -ForegroundColor Cyan
+# ALL THREE IS THE DEFAULT, BYTE FOR BYTE: every caller that never heard of the switch keeps its document.
+Assert-Equal $draft (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' `
+    -Title 'A release title sentence' -Sections @('Audience', 'Value', 'Open')) 'naming all three reproduces the default draft exactly'
+# THE MEASURED CONSUMER ANSWER: what changed, and nothing else.
+$draftOnly = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Sections @('Audience')
+Assert-Match $draftOnly '(?m)^## What changed$' 'Audience alone keeps the what-changed section'
+Assert-NoMatch $draftOnly '(?m)^## What it is worth$' 'and drops the value heading'
+Assert-NoMatch $draftOnly 'FOR THE ORGANISATION' 'together with its hint -- a section left out is left out whole'
+Assert-NoMatch $draftOnly '(?m)^## What was still open at this release$' 'and drops the open heading'
+Assert-NoMatch $draftOnly 'SNAPSHOT of this release' 'together with its hint'
+Assert-Equal $true ($draftOnly.EndsWith("`n") -and -not $draftOnly.EndsWith("`n`n")) 'the document still ends on exactly one newline, whichever section comes last'
+# THE OTHER TWO SWITCH INDEPENDENTLY, and a renamed heading survives the omission of its neighbour.
+$draftNoOpen = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' `
+    -Sections @('Audience', 'Value') -Wording @{ SectionValue = 'Wat het oplevert' }
+Assert-Match $draftNoOpen '(?m)^## Wat het oplevert$' 'Value kept, under the name the wording seam gave it'
+Assert-NoMatch $draftNoOpen '(?m)^## What was still open' 'while Open is dropped'
+$draftNoAudience = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Sections @('Value')
+Assert-NoMatch $draftNoAudience '(?m)^## What changed$' 'Audience can be left out too, even with entries to rank'
+Assert-Match $draftNoAudience '(?m)^## What it is worth$' 'leaving the value section standing'
+
+Write-Host "Resolve-ReleaseNoteSections (the seam's answer, validated before the cut writes anything)" -ForegroundColor Cyan
+Assert-Equal 'Audience|Value|Open' ((Resolve-ReleaseNoteSections -Answer $null) -join '|') 'an absent seam means all three'
+Assert-Equal 'Audience|Open' ((Resolve-ReleaseNoteSections -Answer @('open', 'AUDIENCE')) -join '|') `
+    'matched case-insensitively and returned in canonical spelling and document order'
+Assert-Equal 'Audience' ((Resolve-ReleaseNoteSections -Answer 'Audience') -join '|') 'a bare string is one section'
+$threw = $null; try { Resolve-ReleaseNoteSections -Answer @('Audience', 'Worth') | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'unknown section: Worth' 'a misspelt name is refused by name, never silently dropped'
+$threw = $null; try { Resolve-ReleaseNoteSections -Answer @() | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'names no section' 'an empty answer is refused'
+Assert-Match "$threw" 'Get-ReleaseConsumerBumps' 'and points at the seam that does switch the whole document off'
+
 Write-Host "Build-GitHubReleaseBody (generated, every release, every tier)" -ForegroundColor Cyan
 # THE POINT OF GENERATING IT is that the Release page stops depending on which hand-written tier
 # document happens to exist. The internal note was the body BECAUSE it was the only tier written at
@@ -1325,6 +1386,111 @@ $quoting = @(
     '[PR #2](https://example.test/right/2) - merged 2026-08-10'
 ) -join "`n"
 Assert-Match (Build-GitHubReleaseBody -Entries @($quoting) -Version '4.3.0') '\(https://example\.test/right/2\)' "the link comes from the PullRequest section, not from a link quoted in the body"
+
+Write-Host "Build-GitHubReleaseBody -NotLive (#2570 -- one entry moves to its own section, naming what did not go)" -ForegroundColor Cyan
+$notLiveMap = @{ $bodyEntry2 = @('sections/held.liquid', 'snippets/also-held.liquid') }
+$bodyNotLive = Build-GitHubReleaseBody -Entries @($dossier, $bodyEntry2) -Version '4.3.0' -NotLive $notLiveMap
+Assert-Match $bodyNotLive '(?m)^## Not live yet$' 'a NotLive entry gets its own section'
+$landedBlock = ([regex]::Match($bodyNotLive, '(?s)## What landed\r?\n(.*?)(?=## Not live yet|\z)')).Groups[1].Value
+$notLiveBlock = ([regex]::Match($bodyNotLive, '(?s)## Not live yet\r?\n(.*)\z')).Groups[1].Value
+Assert-Match $landedBlock 'A change with a readable name' 'the live entry stays under What landed'
+Assert-NoMatch $landedBlock 'The second thing' 'the not-live entry is NOT ALSO listed under What landed'
+Assert-Match $notLiveBlock 'The second thing' 'and IS listed under Not live yet'
+Assert-Match $notLiveBlock '`sections/held\.liquid`' 'naming the held path, in a code span'
+Assert-Match $notLiveBlock '`snippets/also-held\.liquid`' 'and the second held path'
+Assert-Match $notLiveBlock 'not on live' 'with the reason a reader can act on'
+
+# CAPPED AT FIVE HELD PATHS, with the remainder counted rather than listed -- the line names what to
+# look for, the full list is the live-push record's own, which the person who cut the release still holds.
+$manyHeld = @('a.liquid', 'b.liquid', 'c.liquid', 'd.liquid', 'e.liquid', 'f.liquid', 'g.liquid')
+$bodyManyHeld = Build-GitHubReleaseBody -Entries @($bodyEntry2) -Version '4.3.0' -NotLive (@{ $bodyEntry2 = $manyHeld })
+Assert-Match $bodyManyHeld '`a\.liquid`, `b\.liquid`, `c\.liquid`, `d\.liquid`, `e\.liquid`' 'the first five held paths are listed'
+Assert-Match $bodyManyHeld ', and 2 more' 'and the rest are counted rather than listed'
+Assert-NoMatch $bodyManyHeld 'f\.liquid' 'the sixth path itself does not appear'
+
+# A NOTLIVE ENTRY WITH NO NAMED PATHS STILL GETS THE LINE, unlinked to a path list -- an empty array is
+# a real (if unusual) answer, and the line must not silently disappear along with it.
+$bodyNotLiveEmptyPaths = Build-GitHubReleaseBody -Entries @($bodyEntry2) -Version '4.3.0' -NotLive (@{ $bodyEntry2 = @() })
+Assert-Match $bodyNotLiveEmptyPaths '(?m)^## Not live yet$' 'the section still appears'
+Assert-Match $bodyNotLiveEmptyPaths '(?m)^- \[The second thing\]\(https://example\.test/pull/12\)$' 'and the entry is listed without a path list when none was given'
+
+# EVERY ENTRY HELD BACK: 'What landed' says so instead of showing an empty list.
+$bodyAllHeld = Build-GitHubReleaseBody -Entries @($bodyEntry2) -Version '4.3.0' -NotLive (@{ $bodyEntry2 = @('x.liquid') })
+Assert-Match $bodyAllHeld 'waiting for the live push' 'What landed says everything is waiting on the push rather than showing an empty list'
+
+# EMPTY -NOTLIVE IS BYTE-IDENTICAL TO OMITTING IT -- every caller before this feature existed.
+Assert-Equal $bodyAll (Build-GitHubReleaseBody -Entries @($dossier, $tier0Body) -Version '4.3.0' -NotLive @{}) `
+    'an empty -NotLive hashtable reproduces the release with no held entries, byte for byte'
+
+Write-Host "Get-EntryPullRequestLink (#2570, #2586 -- shared by the GitHub body and the audience note's task form)" -ForegroundColor Cyan
+$prLink = Get-EntryPullRequestLink -EntryText $dossier
+Assert-Equal 99 $prLink.Number 'the PR number is read from the PullRequest section'
+Assert-Equal 'https://example.test/99' $prLink.Url 'and the url alongside it'
+$prLink2 = Get-EntryPullRequestLink -EntryText $bodyEntry2
+Assert-Equal 12 $prLink2.Number 'a second entry reads its own PR number'
+Assert-Equal 'https://example.test/pull/12' $prLink2.Url 'and its own url'
+Assert-Equal $true ($null -eq (Get-EntryPullRequestLink -EntryText $noPr)) 'an entry with no PR link in its PullRequest section returns null, not a throw'
+# THE LINK COMES FROM THE PullRequest SECTION, NOT FROM A LINK QUOTED IN THE BODY -- the same fixture
+# Format-GitHubBodyItem is already asserted against above, read here directly at the function it calls.
+$quotingLink = Get-EntryPullRequestLink -EntryText $quoting
+Assert-Equal 2 $quotingLink.Number 'the real PR link, from the PullRequest section'
+Assert-Equal 'https://example.test/right/2' $quotingLink.Url '...not the one quoted inside the body'
+
+Write-Host "Resolve-ReleaseNoteTaskLink (#2586 -- validated before the cut writes anything)" -ForegroundColor Cyan
+Assert-Equal $true ($null -eq (Resolve-ReleaseNoteTaskLink -Answer $null)) 'an absent seam means the entries form, unchanged'
+$validTask = Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'https://app.asana.com/0/1/{0}' }
+Assert-Equal 'asana-task' $validTask.Marker 'a valid answer is returned with its marker'
+Assert-Equal 'https://app.asana.com/0/1/{0}' $validTask.Url 'and its url'
+Assert-Equal 'Task' $validTask.Label 'and the default label, when none is given'
+$labelledTask = Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'https://x.test/{0}'; Label = 'Asana' }
+Assert-Equal 'Asana' $labelledTask.Label 'an explicit label is kept'
+$bracketedLabel = Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'https://x.test/{0}'; Label = "[Card]`n" }
+Assert-Equal 'Card' $bracketedLabel.Label 'brackets and newlines are stripped from the label'
+
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer 'not a hashtable' | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'must return a hashtable' 'a non-hashtable answer is refused'
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = ''; Url = 'https://x.test/{0}' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'Marker must be' 'a blank marker is refused'
+# AN UPPERCASE MARKER IS REFUSED, which needs the case-sensitive -cnotmatch: PowerShell's -notmatch is
+# case-insensitive, and the first version of this check accepted 'Asana-Task' against its own docstring.
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'Asana-Task'; Url = 'https://x.test/{0}' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'Marker must be' 'an uppercase marker is refused'
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana task'; Url = 'https://x.test/{0}' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'Marker must be' 'a marker with a space is refused'
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'http://x.test/{0}' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'Url must start with https' 'a non-https url is refused'
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'https://x.test/no-placeholder' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" "carry '\{0\}'" 'a url with no {0} placeholder is refused'
+
+Write-Host "Build-ReleaseNoteDraft -TaskItems (#2586 -- the audience section drafted as solved tasks)" -ForegroundColor Cyan
+# $null IS THE DEFAULT -- byte-identical to every caller before this parameter existed, whether passed
+# explicitly or omitted.
+Assert-Equal $draft (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Title 'A release title sentence' -TaskItems $null) `
+    'passing -TaskItems $null explicitly reproduces the entries-form draft exactly'
+
+# A NON-NULL STRING REPLACES THE ENTRIES, and $Entries is not rendered at all -- the task form's readers
+# ask which of their tasks are solved, not what the diff said.
+$taskBody = "### Fix the checkout button`n`n[Task](https://example.test/task/1)"
+$draftTasks = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -TaskItems $taskBody
+Assert-Match $draftTasks '(?m)^## What changed$' 'the audience section still renders'
+Assert-Match $draftTasks '(?m)^### Fix the checkout button$' 'and carries the task-form body verbatim'
+Assert-NoMatch $draftTasks '(?m)^### A change with a readable name$' "the entries are NOT rendered in task form -- the entry's own heading does not appear"
+Assert-NoMatch $draftTasks 'PR #99' 'nor its PR link'
+Assert-Match $draftTasks '<!-- DRAFT\. One item per solved task' 'and the hint changes to the task-form guidance (HintTasks)'
+Assert-NoMatch $draftTasks 'still in the words their authors wrote' 'the entries-form hint (HintAudience) does not also appear'
+
+# '' WITH NO -WithheldNote SUPPRESSES THE SECTION -- task form with nothing solved is exactly the
+# tier-1-only-minor case the entries form already suppresses on.
+$draftTasksEmpty = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -TaskItems ''
+Assert-NoMatch $draftTasksEmpty '(?m)^## What changed$' 'an empty task-form body with no withheld note suppresses the whole section'
+Assert-Match $draftTasksEmpty '(?m)^## What it is worth$' 'while the rest of the document is still written'
+
+# '' WITH A -WithheldNote STILL HOLDS THE SECTION OPEN -- the same rule the entries form already has,
+# read here in task form: a note explaining a gap must not itself disappear into the gap.
+$draftTasksWithheld = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -TaskItems '' -WithheldNote '<!-- nothing solved this time -->'
+Assert-Match $draftTasksWithheld '(?m)^## What changed$' 'the heading still appears'
+Assert-Match $draftTasksWithheld 'nothing solved this time' 'carrying the note that says why'
+Assert-NoMatch $draftTasksWithheld '<!-- DRAFT\. One item per solved task' 'but not the task-form hint, which has nothing left to point at'
 
 Write-Host "the consumer tier produces markdown ONLY (no HTML renderer)" -ForegroundColor Cyan
 # Dave, August 3, 2026: the print-ready .html is not wanted anywhere, so ConvertTo-ReleaseHtml and
@@ -1755,6 +1921,30 @@ Assert-Equal '3' (Get-OverviewTargetMajor -ReadmeContent $tiers) "a 'Tier 1 - de
 # there told the reader to add a heading the guardrail would not recognise.
 Assert-Equal '### 2.x'  (Get-OverviewSectionHeading -ReadmeContent $lvl3)  'the heading is reported verbatim at three hashes'
 Assert-Equal '#### 7.x' (Get-OverviewSectionHeading -ReadmeContent $lvl4)  'and verbatim at four'
+
+# Set-ReleaseHistoryCanonicalHead (issue #2489): everything above the first '<n>.x' heading becomes the
+# fixed title, and the two readers above answer exactly what they answered on the prose-carrying page.
+$fixedHistoryHead = (@(Get-ReleaseHistoryHeadLines) -join "`n")
+$twoSectionsSet = Set-ReleaseHistoryCanonicalHead -Content $twoSections
+Assert-Equal $true ($twoSectionsSet.StartsWith("$fixedHistoryHead`n### 2.x")) 'history head: the intro prose and its headings are replaced by the fixed title, directly above the first section'
+Assert-Equal '2' (Get-OverviewTargetMajor -ReadmeContent $twoSectionsSet) 'history head: the guardrail still reads the top section with no prose above it'
+Assert-Equal '### 2.x' (Get-OverviewSectionHeading -ReadmeContent $twoSectionsSet) 'history head: and the heading level it quotes back is kept'
+Assert-Match $twoSectionsSet ([regex]::Escape('| [1.18.0](development/1.x/1.18.0.md)')) 'history head: rows in lower sections are untouched'
+Assert-Equal $twoSectionsSet (Set-ReleaseHistoryCanonicalHead -Content $twoSectionsSet) 'history head: idempotent -- a second run changes nothing'
+# The boundary is the FIRST '<n>.x' heading, so a section with prose and no table (the $prosey shape) is
+# kept whole: it is below the head, and what a repo writes between sections is not the head.
+Assert-Match (Set-ReleaseHistoryCanonicalHead -Content $prosey) 'Prose only, no table here\.' 'history head: prose BETWEEN sections survives'
+Assert-Equal '2' (Get-OverviewTargetMajor -ReadmeContent (Set-ReleaseHistoryCanonicalHead -Content $prosey)) 'history head: and the target major is unchanged by it'
+# A '<n>.x' heading quoted inside a fence in the intro is documentation, not the boundary.
+$fencedHistory = "# Mine`n`nOpen a section like this:`n`n``````markdown`n#### 9.x`n```````n`n$lvl4"
+Assert-Equal "$fixedHistoryHead`n$lvl4" (Set-ReleaseHistoryCanonicalHead -Content $fencedHistory) 'history head: a fenced example heading in the intro is replaced with the rest of it'
+# No '<n>.x' heading: the body cannot be located, so nothing is touched -- replacing the whole document, as
+# the changelog's head does, would delete rows here.
+$ungrouped = "# Mine`n`n| Version | Date | Type | Title |`n|---|---|---|---|`n| 1.0.0 | 2026-01-01 | Major | First |`n"
+Assert-Equal $ungrouped (Set-ReleaseHistoryCanonicalHead -Content $ungrouped) 'history head: a list with no section heading is returned unchanged'
+Assert-Equal '' (Set-ReleaseHistoryCanonicalHead -Content '') 'history head: and so is an empty document'
+$historyCrlf = Set-ReleaseHistoryCanonicalHead -Content ($twoSections -replace "`n", "`r`n")
+Assert-Equal $true ($historyCrlf.StartsWith("# Release history`r`n`r`n### 2.x`r`n")) 'history head: a CRLF document keeps CRLF'
 Assert-Equal '#### 3.x' (Get-OverviewSectionHeading -ReadmeContent $tiers) 'the Tier heading is skipped here as well'
 Assert-Equal $null (Get-OverviewSectionHeading -ReadmeContent "# Empty`n`nNo table.") 'no table -> $null, matching Get-OverviewTargetMajor'
 # The two functions read the SAME match, so they can never disagree about which section is the target.

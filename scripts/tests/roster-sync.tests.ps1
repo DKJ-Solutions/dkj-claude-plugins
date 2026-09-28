@@ -88,15 +88,37 @@ function Invoke-Ps {
     # Safe because every case passes -CacheRootOverride: the only other thing the check reads from
     # USERPROFILE is the default plugin-cache root.
     $profileDir = if ($UserProfile) { $UserProfile } else { Join-Path $Fixture 'no-user-profile' }
+    #
+    # STDERR IS CAPTURED TOO, ON ITS OWN PROPERTY (issue #2572). A child that throws before it prints its
+    # finding still exits 1, so a text assert failing beside a passing exit-1 assert cannot tell "the
+    # capture lost a line" from "the check never got there" -- and until this, the stderr that would tell
+    # them apart was not kept. Out stays stdout only, so no assert reading it changes; Err is diagnosis.
+    # 'Continue' around the child for the reason Invoke-Hook gives below: under 'Stop' a redirected
+    # stderr line is a terminating NativeCommandError.
     $oldProfile = $env:USERPROFILE
+    $prevEap = $ErrorActionPreference
     try {
         $env:USERPROFILE = $profileDir
-        $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script @ScriptArgs
+        $ErrorActionPreference = 'Continue'
+        $all = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script @ScriptArgs 2>&1
         $code = $LASTEXITCODE
     } finally {
+        $ErrorActionPreference = $prevEap
         $env:USERPROFILE = $oldProfile
     }
-    return [pscustomobject]@{ Code = $code; Out = ($out -join "`n") }
+    $out = @(@($all) | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { "$_" })
+    $err = @(@($all) | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.Exception.Message })
+    return [pscustomobject]@{ Code = $code; Out = ($out -join "`n"); Err = ($err -join "`n") }
+}
+
+# Print a child's stderr when a text assert on its stdout is about to fail -- the evidence #2572 lacked.
+function Write-ChildStderr {
+    param($Result, [string]$Pattern)
+    if ($Result.Out -notmatch $Pattern) {
+        $shown = $(if ($Result.Err) { $Result.Err } else { '(stderr was empty)' })
+        Write-Host "  [CHILD STDERR] exit $($Result.Code), pattern '$Pattern' absent from stdout; stderr:" -ForegroundColor Magenta
+        foreach ($line in @($shown -split "`n" | Select-Object -Last 12)) { Write-Host "      $line" -ForegroundColor Magenta }
+    }
 }
 
 # Builds a throwaway ~/.claude/plugins/installed_plugins.json and returns the profile dir to point
@@ -195,11 +217,11 @@ function New-FixtureConsumer {
         # scaffolds -- the state in which the repo IS being maintained and drift must error again.
         [hashtable]$SeamLensContent = @{},
         # Lens files in the SEAM under a spelling no reader here recognises -- 'specialist-<id>.md', a
-        # hypothetical NEXT naming generation (issue #2219). It has to be hypothetical: the two spellings
-        # Get-SpecialistFileShapes holds are both recognised by construction, so the only way to build a
-        # tree this check has no vocabulary for is to name one it has not been taught yet. That is exactly
-        # the state a consumer is in between a rename in the source and their own plugin update, which is
-        # what [LENS-NAMING] exists for.
+        # hypothetical NEXT naming generation (issue #2219). It has to be hypothetical: whatever spelling(s)
+        # Get-SpecialistFileShapes holds for Lens are recognised by construction (one, since #2292 retired
+        # the also-read row), so the only way to build a tree this check has no vocabulary for is to name
+        # one it has not been taught yet. That is exactly the state a consumer is in between a rename in
+        # the source and their own plugin update, which is what [LENS-NAMING] exists for.
         [string[]]$UnknownNamingLensIds = @(),
         [string[]]$LegacyLensIds = @(),
         [string[]]$OffPathLensIds = @(),
@@ -252,7 +274,7 @@ function New-FixtureConsumer {
     }
 
     $lines = @('# Roster', '')
-    foreach ($id in $RosterIds) { $lines += "| $id | [$id-extension.md](x) |" }
+    foreach ($id in $RosterIds) { $lines += "| $id | [specialist-$id-lens.md](x) |" }
     foreach ($line in $ExtraRosterLines) { $lines += $line }
     [System.IO.File]::WriteAllText((Join-Path $root $RosterFile), ($lines -join "`n"))
 
@@ -261,7 +283,7 @@ function New-FixtureConsumer {
         New-Item -ItemType Directory -Path $pdir -Force | Out-Null
         foreach ($id in $LensIds) {
             $body = if ($LensContent.ContainsKey($id)) { $LensContent[$id] } else { 'lens' }
-            [System.IO.File]::WriteAllText((Join-Path $pdir "$id-extension.md"), $body)
+            [System.IO.File]::WriteAllText((Join-Path $pdir "specialist-$id-lens.md"), $body)
         }
     }
     if ($SeamLensIds.Count -gt 0) {
@@ -269,7 +291,7 @@ function New-FixtureConsumer {
         New-Item -ItemType Directory -Path $sdir -Force | Out-Null
         foreach ($id in $SeamLensIds) {
             $txt = if ($SeamLensContent.ContainsKey($id)) { $SeamLensContent[$id] } else { $SeamLensText }
-            [System.IO.File]::WriteAllText((Join-Path $sdir "$id-extension.md"), $txt)
+            [System.IO.File]::WriteAllText((Join-Path $sdir "specialist-$id-lens.md"), $txt)
         }
     }
     if ($UnknownNamingLensIds.Count -gt 0) {
@@ -282,17 +304,17 @@ function New-FixtureConsumer {
     if ($LegacyLensIds.Count -gt 0) {
         $ldir = Join-Path $root '.claude\extensions'
         New-Item -ItemType Directory -Path $ldir -Force | Out-Null
-        foreach ($id in $LegacyLensIds) { [System.IO.File]::WriteAllText((Join-Path $ldir "$id-extension.md"), "lens") }
+        foreach ($id in $LegacyLensIds) { [System.IO.File]::WriteAllText((Join-Path $ldir "specialist-$id-lens.md"), "lens") }
     }
     if ($OffPathLensIds.Count -gt 0) {
         $odir = Join-Path $root ".claude\plugins\$OffPathFamily\$PluginName"
         New-Item -ItemType Directory -Path $odir -Force | Out-Null
-        foreach ($id in $OffPathLensIds) { [System.IO.File]::WriteAllText((Join-Path $odir "$id-extension.md"), "lens") }
+        foreach ($id in $OffPathLensIds) { [System.IO.File]::WriteAllText((Join-Path $odir "specialist-$id-lens.md"), "lens") }
     }
     foreach ($pn in $ExtraLensesByPlugin.Keys) {
         $edir = Join-Path $root ".claude\plugins\claude-specialists\$pn"
         New-Item -ItemType Directory -Path $edir -Force | Out-Null
-        foreach ($id in $ExtraLensesByPlugin[$pn]) { [System.IO.File]::WriteAllText((Join-Path $edir "$id-extension.md"), "lens") }
+        foreach ($id in $ExtraLensesByPlugin[$pn]) { [System.IO.File]::WriteAllText((Join-Path $edir "specialist-$id-lens.md"), "lens") }
     }
     if ($RepoConfig) {
         New-Item -ItemType Directory -Path (Join-Path $root 'scripts') -Force | Out-Null
@@ -1150,6 +1172,7 @@ try {
     [System.IO.File]::WriteAllText((Join-Path $misDir 'specialist-06-24-manual.md'), 'a manual in the wrong place')
     $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cMisplaced, '-CacheRootOverride', $cacheTwo)
     Assert-NotMatch '\[LENS-NAMING\]' $r.Out 'misplaced manual: the marker does NOT fire'
+    Write-ChildStderr $r "agent '06-24' .* has no repo-lens"
     Assert-Match "agent '06-24' .* has no repo-lens" $r.Out 'misplaced manual: the genuine finding is still reported'
     Assert-Equal 1 $r.Code 'misplaced manual: exit 1'
 
@@ -1164,6 +1187,7 @@ try {
     [System.IO.File]::WriteAllText((Join-Path $scrDir '2026-06-16-meeting.md'), 'a dated note')
     $r = Invoke-Ps -ScriptArgs @('-ConsumerPathOverride', $cScratch, '-CacheRootOverride', $cacheTwo)
     Assert-NotMatch '\[LENS-NAMING\]' $r.Out 'scratch note: the marker does NOT fire'
+    Write-ChildStderr $r "agent '06-24' .* has no repo-lens"
     Assert-Match "agent '06-24' .* has no repo-lens" $r.Out 'scratch note: the genuine finding is still reported'
     Assert-Equal 1 $r.Code 'scratch note: exit 1'
 

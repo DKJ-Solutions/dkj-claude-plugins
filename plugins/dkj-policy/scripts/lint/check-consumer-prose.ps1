@@ -5,7 +5,10 @@
     #1389), and an inverted declaration putting this repo's own 'CLAUDE.md' above the workflow's
     contributing page (issue #1415). Merged into one script by issue #1421. Two further [WARNING]-only
     checks judge the root 'CLAUDE.md' file alone (issue #2374): whether it '@'-imports the dkj-policy
-    constitution, and whether it carries prose beyond that -- both advisory, neither moves the exit code.
+    constitution, and whether it carries prose beyond that -- and a third (issue #2444) warns where the
+    root is imports-only but no unscoped '.claude/rules/*.md' carries the repo's facts -- and a fourth
+    (issue #2538) warns where the repo's own settings enable dkj-policy-bwj but the closure does not import
+    that plugin's extension CLAUDE.md. All advisory; none moves the exit code.
 
 .DESCRIPTION
     THE HOLE THIS CLOSES, and it is one hole with two shapes. Nothing else reads a consumer's CLAUDE.md:
@@ -216,6 +219,28 @@ if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-ConstitutionImpor
     Write-Host '          repo-specific rules into its lens.' -ForegroundColor Yellow
 }
 
+# THE EXTENSION IMPORT (#2538). The same gap one plugin over: a repo that enables dkj-policy-bwj but does
+# not import its extension CLAUDE.md runs without the four BWJ chapters, and nothing said so. #2531
+# measured that a warning alone changed nothing for weeks, which is why adopt-extension-import.ps1 WRITES
+# the line (#2532); this is the signal for the repo that enabled the plugin and never ran that adopter.
+# Judged only where the enable is the REPO'S OWN (RepoEnabledIds) -- a machine-wide enable is not this
+# repo's decision, and reading it would make the verdict depend on whose machine runs the check. Same
+# terms as the constitution warning: a [WARNING], never the exit code, only with a walked closure, and
+# wrapped so a malformed settings layer cannot take the SessionStart hook down.
+if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-BwjExtensionImported') -and
+    (Test-FunctionDefined 'Get-EnabledPlugins') -and -not (Test-BwjExtensionImported -Documents $documents)) {
+    $bwjEnabled = $false
+    try {
+        $bwjEnabled = @(@((Get-EnabledPlugins -RepoRoot $repoRoot).RepoEnabledIds) | Where-Object { $_ -like 'dkj-policy-bwj@*' }).Count -gt 0
+    } catch { $bwjEnabled = $false }
+    if ($bwjEnabled) {
+        Write-Host '[WARNING] this repo enables dkj-policy-bwj, but its CLAUDE.md does not import the extension --' -ForegroundColor Yellow
+        Write-Host '          so the four BWJ chapters are not in context. Run the adopt-dkj-policy-bwj skill: its' -ForegroundColor Yellow
+        Write-Host '          adopt-extension-import.ps1 -Apply writes the line directly below the constitution import.' -ForegroundColor Yellow
+        Write-Host "          Or add it by hand: $(Get-BwjExtensionImportLine)" -ForegroundColor Yellow
+    }
+}
+
 # THE ROOT PROSE RULE (#2374, superseded by Dave September 23, 2026). A root CLAUDE.md holds ONLY
 # '@'-import lines now (plus at most an H1 title, blank lines, and HTML comments); every fact about the
 # repo moves to an unscoped .claude/rules/<name>.md, and a specialist's own repo-specific rule moves to
@@ -249,6 +274,19 @@ if (@($rootProse).Count -gt 0) {
     Write-Host '          CLAUDE.md holds only ''@''-import lines now (plus an H1 title, blank lines, and HTML' -ForegroundColor Yellow
     Write-Host '          comments). Move repo facts into an unscoped .claude/rules/<name>.md, and a' -ForegroundColor Yellow
     Write-Host '          specialist''s own repo-specific rules into its lens.' -ForegroundColor Yellow
+}
+
+# THE OTHER HALF OF THE MOVE (#2444). A root CLAUDE.md cut down to imports has done the first half of
+# #2374; the second half -- the repo's facts landing in an unscoped rule -- is announced by nothing, so a
+# consumer can finish the cut with its trunk, visibility and owner stated nowhere. Judged only where the
+# root is imports-only: a root still carrying prose already gets the warning above, which names the same
+# destination, and saying it twice is noise. A [WARNING] like its two siblings, never the exit code.
+if (@($documents).Count -gt 0 -and @($rootProse).Count -eq 0 -and (Test-FunctionDefined 'Test-UnscopedRulePresent') -and
+    -not (Test-UnscopedRulePresent -Documents $documents)) {
+    Write-Host '[WARNING] this repo''s CLAUDE.md is imports-only, and no unscoped .claude/rules/*.md exists --' -ForegroundColor Yellow
+    Write-Host '          so its own facts (trunk, public or private, owner, purpose) are stated nowhere a session' -ForegroundColor Yellow
+    Write-Host '          loads. Add a .claude/rules/<name>.md with NO paths: frontmatter and state them there;' -ForegroundColor Yellow
+    Write-Host '          a paths:-scoped rule does not count, because it loads only when its files are read.' -ForegroundColor Yellow
 }
 
 if ($retired.Count -eq 0 -and $inverted.Count -eq 0) {

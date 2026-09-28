@@ -61,7 +61,7 @@ consumer's own reach rule, are untouched.
 
 That is the deliberate reading of the "second workflow" note left in
 [the `dkj-policy` README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/README.md)
-and the root README after
+and [the `dkj-subagents` README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/README.md#teams-and-workflows--whats-the-difference) after
 [#886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/886): a second workflow plugin is
 safe here **because it is additive and non-overlapping**, not because the old guard was wrong.
 
@@ -223,9 +223,11 @@ all, and when the PR may open, both still the consumer's and `dkj-policy`'s.
 | [`worker/`](worker/) | the one Cloudflare Worker both stores publish through, as source -- deployed once, never copied into a repo, and carrying no page content of its own |
 | [`skills/`](skills/) | the skills a specialist invokes |
 | [`templates/`](templates/) | the CI mechanism to **copy** into each repo's `.github/` -- GitHub only runs workflows from a repo's own `.github/`, so what ships here is the reference to copy and diff against, the same pattern as `dkj-policy/templates/pull_request_template.md` |
+| [`hooks/`](hooks/) | one PreToolUse hook, `guard-asana-mirror.ps1`: it refuses an Asana task that mirrors a GitHub issue without the reach label, which is the one chapter-one rule a session was measured forgetting ([#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)) |
 
-**No `subagents/`, no `manuals/`, no `hooks/`, no `blueprint/`.** Agents and manuals belong to a team.
-The hooks and blueprint a workflow carries "only where it needs them" -- this one needs neither.
+**No `subagents/`, no `manuals/`, no `blueprint/`.** Agents and manuals belong to a team. A workflow
+carries hooks and a blueprint "only where it needs them". This one needed a hook once a prose rule was
+measured failing, and it still needs no blueprint.
 
 ## What this plugin owns
 
@@ -345,6 +347,7 @@ matched, so the sibling check could see the pair only as `ALIASED`
 | [`build-backlog-page`](skills/build-backlog-page/SKILL.md) | the minor-backlog page needs refreshing -- reads the open, reach-labelled issues and shows each one's mirrored Asana task text, never the issue's own |
 | [`publish-page`](skills/publish-page/SKILL.md) | a built page has to reach somebody outside the development work -- publishes it to the one worker both stores share, at an unguessable path, and verifies by reading the bytes back |
 | [`golive-block`](skills/golive-block/SKILL.md) | the work is shipped and the issue is about to close -- writes the paste-ready block with its go-live half: where the result can be seen, the next release day, the version it is on course for, and the live URL per market |
+| [`prepare-release`](skills/prepare-release/SKILL.md) | release day is coming up -- stages it days ahead, read-only: the trunk's readiness, what is pending and the bump it makes, scores worth a second look, the theme push list by `live-preflight`'s own rules, an early drift read, the go-live obligations out of entry prose, the open pull requests, and the release-day runbook |
 
 <!-- /skills:plugin -->
 

@@ -1289,6 +1289,54 @@ try {
     Assert-Has   $r "is not in the clone's history -- the clone is stale" '36e: the deep-clone sentence is unchanged'
     Assert-Lacks $r 'SHALLOW' '36e: and the shallow branch is not reachable from a full clone'
     Assert-Lacks $r 'shallow clone' '36e: nor does the clone header claim a depth it does not have'
+
+    # --- 37. #2442: a stale path-less record beside a current project record -> behind, not "match" --
+    # -- THE MEASURED CASE. A project record at the clone's HEAD and a path-less user-scope record two
+    # -- releases older: the session loaded the older skill set while this row said "up to date". The
+    # -- command must carry the PATH-LESS record's scope, since that is the record it has to move.
+    Write-Host "37. #2442: a stale path-less record shadows a current project record -> behind" -ForegroundColor Cyan
+    $c = New-Case 'pathless-shadow'
+    $head = New-Clone -Dir $c.Clone -Version '4.32.0'
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @(
+        (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Sha $head),
+        @{ scope = 'user'; version = '4.30.0' } ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '37: exit 0'
+    Assert-Has   $r 'a path-less user-scope record at 4.30.0 sits beside this checkout''s record at 4.32.0' '37: the verdict names the shadowing record'
+    Assert-Has   $r 'up to date -- your install is at the clone''s HEAD' '37: and still carries this checkout''s own verdict'
+    Assert-Has   $r 'claude plugin update dkj-subagents-alpha@ccs-fixture --scope user' '37: the command targets the path-less record''s scope'
+    Assert-Lacks $r $UPD '37: never --scope project, which would move the record that is already current'
+    Assert-Has   $r '1 of 1 plugin(s) behind' '37: counted as behind, not as up to date'
+    $rb = Invoke-PV -Repo $c.Repo -UserHome $c.Home -Brief
+    Assert-Has   $rb '[ERROR] dkj-subagents-alpha@ccs-fixture: a path-less user-scope record at 4.30.0' '37b: an [ERROR] at a session start'
+    Assert-Has   $rb '[SUMMARY] 1 plugin(s) enabled here: 1 behind, 0 up to date.' '37b: and the summary counts it as behind'
+
+    # --- 37c. #2442's boundary: a path-less record at the SAME or a NEWER version is not flagged -------
+    Write-Host "37c. #2442: a path-less record that is not older -> no shadow finding" -ForegroundColor Cyan
+    foreach ($pv in @('4.32.0', '4.33.0')) {
+        $c = New-Case "pathless-not-older-$pv"
+        $head = New-Clone -Dir $c.Clone -Version '4.32.0'
+        Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+        Write-Admin -Path $c.Admin -Plugins @{ $ID = @(
+            (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Sha $head),
+            @{ scope = 'user'; version = $pv } ) }
+        $rb = Invoke-PV -Repo $c.Repo -UserHome $c.Home -Brief
+        Assert-Equal '[SUMMARY] 1 plugin(s) enabled here: 0 behind, 1 up to date.' $rb.Text.Trim() "37c: a path-less record at $pv is silent"
+    }
+
+    # --- 37d. #2442: a path-less record whose scope the CLI does not accept -> command withheld --------
+    Write-Host "37d. #2442: an unrecognised path-less scope withholds the command" -ForegroundColor Cyan
+    $c = New-Case 'pathless-shadow-bogus'
+    $head = New-Clone -Dir $c.Clone -Version '4.32.0'
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @(
+        (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Sha $head),
+        @{ scope = 'bogus;value'; version = '4.30.0' } ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Has   $r 'unrecognised-scope record at 4.30.0' '37d: the finding still stands'
+    Assert-Lacks $r 'bogus;value' '37d: the file''s own scope string never reaches the output'
+    Assert-Lacks $r 'claude plugin update' '37d: and no command is built from it'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

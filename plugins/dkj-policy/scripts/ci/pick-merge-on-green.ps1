@@ -19,14 +19,16 @@
     mistake this family of files is shaped to avoid.
 
     THE SWEEP READS THE TRACKER, NOT THE EVENT. The runner is woken by three triggers -- a CI
-    workflow_run completing, a half-hourly schedule, and workflow_dispatch -- and none of them is
+    workflow_run completing, the scheduled sweep, and workflow_dispatch -- and none of them is
     trusted to say WHICH pull request is owed a merge. #2319's own incident was repaired with
     `gh run rerun --failed`, and whether a partial re-run re-emits workflow_run is not a contract
     worth resting the mechanism on. A sweep is indifferent to which of the three woke it.
 
     FAIL-CLOSED, THROUGHOUT: every read that cannot be made prints picked=false and stops. The worst
-    this script can do wrong is leave an owed merge for the next sweep, half an hour later at the
-    outside, with the pull request untouched.
+    this script can do wrong is leave an owed merge for the next scheduled sweep, at the outside,
+    with the pull request untouched. How long that is is the calling workflow's own choice (issue
+    #2487): the source repo's own copy runs the schedule at */30, a metered consumer's template
+    sparser.
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -178,7 +180,7 @@ if ($pick.Sha -notmatch '^[0-9a-f]{40}$') {
     Write-PickVerdict -Picked $false -Reason "PR #$($pick.Number)'s head commit could not be read, so there is no commit to pin the ship to -- the next sweep asks again"
     exit 0
 }
-if ($pick.Branch -notmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$') {
+if ($pick.Branch -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._/-]*$') {
     Write-PickVerdict -Picked $false -Reason "PR #$($pick.Number)'s head branch is not a plain name this runner will put on a command line -- merge it by hand"
     exit 0
 }

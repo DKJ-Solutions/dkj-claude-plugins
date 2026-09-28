@@ -328,6 +328,21 @@ Assert-Throws { Get-BackupRotationPlan -Themes $withBackups -KeepId '' } `
 Assert-Throws { Get-BackupRotationPlan -Themes $withBackups -KeepId '999' } `
     'rotation refuses when the survivor is not in the list it was given -- caller and store disagree' -Contains 'delete every backup'
 
+# A BACKUP RESTORED TO LIVE KEEPS ITS NAME (#2589), so it sits in the backup namespace with the store's
+# live role -- and the next run must not plan it as 'the previous backup'.
+$restored = @(
+    [pscustomobject]@{ id = '400'; name = ($prefix + 'backup-20260914-013000'); role = 'main' },
+    [pscustomobject]@{ id = '401'; name = ($prefix + 'backup-20260915-013000'); role = 'unpublished' }
+)
+$rr = Get-BackupRotationPlan -Themes $restored -KeepId '401'
+Assert-True  (-not (@($rr | Where-Object { $_.Id -eq '400' })[0].Delete)) 'a backup the store reports as role main is the restored live theme, and it is never rotated out'
+Assert-True  ((@($rr | Where-Object { $_.Id -eq '400' })[0].Reason) -match 'restored') '...and the row says why'
+$rrLive = Get-BackupRotationPlan -Themes @(
+    [pscustomobject]@{ id = '400'; name = ($prefix + 'backup-20260914-013000'); role = 'live' },
+    [pscustomobject]@{ id = '401'; name = ($prefix + 'backup-20260915-013000'); role = 'unpublished' }
+) -KeepId '401'
+Assert-True  (-not $rrLive[0].Delete) 'the role spelled live is refused the same way'
+
 # A FIRST-EVER CUT HAS ONE BACKUP AND NOTHING TO ROTATE.
 $first = Get-BackupRotationPlan -Themes @([pscustomobject]@{ id = '401'; name = ($prefix + 'backup-20260914-013000'); role = 'unpublished' }) -KeepId '401'
 Assert-Equal 1 $first.Count            'the first cut plans one row'
@@ -352,6 +367,70 @@ foreach ($caller in @('scripts\task\backup-live-theme.ps1', 'scripts\task\push-p
     Assert-True ($callerText -match "Verdict -eq 'complete'\)\s*\{\s*break\s*\}") "$caller ends its fill wait early on 'complete'"
     Assert-True (-not ($callerText -match "Verdict -eq 'short'\)\s*\{\s*break\s*\}")) "$caller does NOT end its fill wait on 'short' -- that is judged after the deadline"
 }
+
+# --- #2568: a copy short on named paths the trunk holds identically ---------------------------------
+# The measured case: two duplicates of live each settled at 535 of 539, lacking the same four templates.
+$src = @('templates/index.json', 'templates/page.spring.json', 'templates/blog.context.nl.json', 'sections/a.liquid')
+$copy = @('sections/a.liquid', 'templates/index.json')
+$gone = Get-ThemeShortfallPaths -SourcePaths $src -CopyPaths $copy
+Assert-Equal 2 @($gone).Count 'the shortfall names exactly the source paths the copy lacks'
+Assert-Equal 'templates/blog.context.nl.json,templates/page.spring.json' ($gone -join ',') '...ordinally sorted'
+$caseGone = Get-ThemeShortfallPaths -SourcePaths @('Foo.json') -CopyPaths @('foo.json')
+Assert-Equal 'Foo.json' ($caseGone -join ',') 'the comparison is case-sensitive: a theme path is a key on the store'
+$noneGone = Get-ThemeShortfallPaths -SourcePaths @() -CopyPaths @('x')
+Assert-Equal 0 @($noneGone).Count 'an empty source lacks nothing'
+
+$allIdentical = @{ 'templates/blog.context.nl.json' = 'identical'; 'templates/page.spring.json' = 'identical' }
+$v = Get-ThemeShortfallVerdict -MissingPaths $gone -TrunkState $allIdentical
+Assert-True $v.Accepted 'every missing path held identically by the trunk -> accepted with exceptions'
+Assert-Equal 2 @($v.Rows).Count '...one row per missing path'
+
+foreach ($state in @('differs', 'absent', 'unreadable', 'something-new')) {
+    $mixed = @{ 'templates/blog.context.nl.json' = 'identical'; 'templates/page.spring.json' = $state }
+    $v = Get-ThemeShortfallVerdict -MissingPaths $gone -TrunkState $mixed
+    Assert-True (-not $v.Accepted) "one missing path in state '$state' refuses the whole copy"
+}
+$v = Get-ThemeShortfallVerdict -MissingPaths $gone -TrunkState @{ 'templates/page.spring.json' = 'identical' }
+Assert-True (-not $v.Accepted) 'a missing path the caller gave no state for reads as unreadable and refuses'
+Assert-Equal 'unreadable' (@($v.Rows | Where-Object { $_.Path -eq 'templates/blog.context.nl.json' })[0].State) '...and its row says so'
+
+$v = Get-ThemeShortfallVerdict -MissingPaths @() -TrunkState @{}
+Assert-True (-not $v.Accepted) 'a short count with no missing path refuses -- the paths do not explain it'
+
+# THE CEILING: trunk-identical alone would admit a copy that stalled at 38 files of a theme the trunk
+# holds in full. Past -MaxExceptions the short verdict stands whatever the trunk holds.
+$many = @(1..11 | ForEach-Object { "templates/t$_.json" })
+$manyState = @{}; foreach ($p in $many) { $manyState[$p] = 'identical' }
+$v = Get-ThemeShortfallVerdict -MissingPaths $many -TrunkState $manyState
+Assert-True (-not $v.Accepted) 'eleven missing paths exceed the default ceiling of 10, all identical or not'
+$v = Get-ThemeShortfallVerdict -MissingPaths @($many[0..9]) -TrunkState $manyState
+Assert-True $v.Accepted 'ten, all identical, is inside the ceiling'
+
+# The caller wires it: backup-live-theme judges a 'short' copy by its paths and compares against HEAD.
+$backupText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\task\backup-live-theme.ps1'))
+Assert-True ($backupText.Contains('Get-ThemeShortfallVerdict -MissingPaths')) 'backup-live-theme judges a short copy with Get-ThemeShortfallVerdict'
+Assert-True ($backupText.Contains('Invoke-SyncGitQuiet rev-parse HEAD')) '...against what the trunk stores at HEAD'
+# #2589: HEAD is resolved once to a commit id, every compare uses it, and the output names it -- a restore
+# reads these paths back later, when HEAD has moved.
+Assert-True ($backupText.Contains('Get-GitStoredBlobId -Rev $verifiedAt')) '...pinned to one commit id rather than re-read as HEAD per path'
+Assert-True ($backupText.Contains('the repo at $verifiedAt')) '...and the WITH EXCEPTIONS line names that commit'
+Assert-True ($backupText.Contains('-KeepAt $livePull')) '...using the live pull it already took, kept rather than thrown away'
+Assert-True ($backupText.Contains("Dictionary[string,string]' ([System.StringComparer]::Ordinal)")) '...keyed ordinally, never through a case-insensitive @{} literal'
+
+# TWO PATHS DIFFERING ONLY IN CASE KEEP THEIR OWN STATES. Through a @{} literal the second write would
+# overwrite the first and a 'differs' would read as 'identical' -- a refusal passing (review of #2568).
+$caseState = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::Ordinal)
+$caseState['A.json'] = 'differs'
+$caseState['a.json'] = 'identical'
+$v = Get-ThemeShortfallVerdict -MissingPaths @('A.json', 'a.json') -TrunkState $caseState
+Assert-True (-not $v.Accepted) 'a case-only pair, one of them differing, refuses'
+Assert-Equal 'differs' (@($v.Rows | Where-Object { $_.Path -ceq 'A.json' })[0].State) '...and each path keeps its own state'
+
+# THE SENTINEL live-preflight READS OFF THE BACKUP'S OUTPUT is one phrase in two files; a wording edit to
+# either would make preflight report 'proven complete' for a backup with exceptions.
+$preflightText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\task\live-preflight.ps1'))
+Assert-True ($backupText.Contains('verified WITH EXCEPTIONS:')) 'backup-live-theme prints the WITH EXCEPTIONS sentinel'
+Assert-True ($preflightText.Contains("-match 'verified WITH EXCEPTIONS'")) '...and live-preflight matches that same phrase'
 
 if ($script:fail -eq 0) {
     Write-Host ''

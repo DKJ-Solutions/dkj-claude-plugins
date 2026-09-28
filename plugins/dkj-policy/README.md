@@ -39,8 +39,8 @@ cycle for one set of repos — is a sub-directory beside them, the way
 and its own opt-in, so it is never enabled by enabling this one; nesting states the rank order, not a
 bundle. Until September 5, 2026 this directory was `plugins/workflows/` and carried a README of its own
 about the *kind*; that page is folded into this one, and what remains of it — the naming and directory
-rule the lint gate enforces — is in the root README under
-[Teams and workflows — what's the difference?](https://github.com/DKJ-Solutions/dkj-claude-plugins#teams-and-workflows--whats-the-difference),
+rule the lint gate enforces — is in
+[Teams and workflows — what's the difference?](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/README.md#teams-and-workflows--whats-the-difference),
 beside the same rule for teams
 ([#1467](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1467)).
 
@@ -177,6 +177,63 @@ below changes for you, and nothing here asks you to run anything.
 
 <!-- /skills:plugin -->
 
+## How this workflow uses skills — and what it deliberately doesn't
+
+**Nearly every skill above is a thin wrapper around a script** — procedural **mechanism** (branch,
+claiming an issue on the tracker before the work on it starts, PR, ship, fold, bootstrap, teardown,
+encoding repair, reading a repo's own conventions, pushing a branch to its own preview theme, backing a
+theme up with a committed receipt before it leaves the store, the reading copy of the release notes,
+reaping the local branches a merge left behind, telling whether a checkout's installed plugin matches
+the marketplace clone, pricing what a skill costs the sessions that carry it, giving a branch its own
+worktree so another one can ship, and writing the paste-ready block a colleague reads before an issue
+closes). `cut-release`, `orchestrator`, `report-issue` and `adopt-dkj-policy-bwj` are the deliberate
+exceptions: a checklist with no script of its own (see below); a skill that must not have one —
+`orchestrator` reads a persona file into the conversation, and the environment it exists for is
+precisely the one where `powershell` is absent; and the two `dkj-policy-bwj` procedures, which run over
+`gh` and the Asana MCP with a judgement call in the middle (the colleague-facing translation) rather
+than a transform a script could carry. Either way, a specialist's craft and judgment live in the
+persona/manual context, not in skills. That's a deliberate split, but it also means this family
+currently uses only one half of what Agent Skills can carry.
+
+**One shape used to be illustrated here and no longer is: two skills sharing one script.** `lock` and
+`handover` were the only such pair — the same reporter, differing only in what each did with the answer
+— and they are the reason the shared-scripts registry names a script's *documenting page* rather than
+its callers. Both were removed on August 27, 2026
+([#957](https://github.com/DaveKJohn/claude-code-specialists/issues/957), Dave), along with the reporter
+behind them. The registry field is unchanged and still answers that question; what it has lost is its
+worked example, so the relationship it was built for now runs only in the other direction —
+`ship-pr` and `cut-release` each name two scripts.
+
+The unused half is a noted opportunity, not an open task: of the three progressive-disclosure levels a
+skill can carry (name+description always loaded, the `SKILL.md` body on trigger, bundled reference
+material/templates/examples on demand), none of the skills above use level 3 — all of them sit at
+level 1/2. A repeatable specialist *procedure* — a review or copy-edit checklist, for instance — could
+become a knowledge-skill with bundled reference material, which would then work on every surface,
+including a plain Chat session where subagents and hooks are unavailable.
+
+That doesn't mean maximizing skill usage everywhere. The discipline is: add a skill only where it
+makes a repeatable procedure or piece of knowledge genuinely portable, and where that value covers
+the maintenance cost. Living example: `cut-release` is **two** things with the same name, and keeping
+them apart is the discipline. Its **script**, `scripts/release/cut-release.ps1`, is a shared, mirrored
+script like the rest of the workflow — it became one on August 3, 2026
+([#417](https://github.com/DaveKJohn/claude-code-specialists/issues/417)), with everything that
+legitimately differs per repo read from optional seam functions in
+[`scripts/repo-config.ps1`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/scripts/repo-config.ps1) rather than baked in. It used to be
+deliberately repo-only, on the argument that reading `.claude-plugin/marketplace.json` and bumping
+every `plugin.json` in lockstep is a structure only a marketplace has; the seam answered that by making
+the plugin half optional, so a repo without plugins simply does not declare it (see its record in
+[`scripts/lib/script-contract-lib.ps1`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/scripts/lib/script-contract-lib.ps1), and the retirement
+of the "out of scope" note in
+[`scripts/sync/check-script-contract.ps1`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/scripts/sync/check-script-contract.ps1), which held
+both until the registry moved out). Its **skill** is a different artifact: the closing steps every
+release shares once the version bump is committed (tag + push, branch cleanup), as a checklist with no
+script of its own (issue #177). That checklist also covers the GitHub Release, whose body is the
+highest release tier the repo has and whose other tiers go along as attachments — a manual closing step
+the source repo takes at every release (see
+[RELEASES-portable.md](RELEASES-portable.md#cutting-a-release)), just not one `cut-release.ps1` itself
+automates. *Which* bumps get a Release is repo policy and lives in the release manager's lens, not in
+the portable checklist.
+
 ## What it expects from your repo — the seam
 
 The shared scripts dot-source two **repo-owned** files, so the parts that legitimately differ per repo are
@@ -230,6 +287,26 @@ a supported answer, which is the reason there is no default to switch away from.
 
 Disabling this plugin removes nothing it already wrote to your repo — your entry files and your config
 stay; the skills and scripts that read them stop.
+
+## Versioning
+
+**Every plugin in this marketplace — this one included — carries its own `version` in its
+`plugin.json`, and on a release those versions move in lockstep**, all to the same number under one
+repo-wide tag `vX.Y.Z`. That is correct precisely because the marketplace is
+[one product](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/.claude/specialists/lenses/specialist-06-16-lens.md#one-product-one-repository)
+rather than several sharing a release train by accident. **That version number is one of two update gates**:
+`claude plugin update <plugin>@<marketplace> --scope project` compares nothing but version numbers —
+but it compares them against the consumer's **cached** copy of the marketplace, not against the source
+repo. So `claude plugin marketplace update <marketplace>` belongs in front of it, every time, for both
+`install` and `update` — see [Updating it](#updating-it) below for the measurements behind that
+ordering. With both gates passed, a consuming repo (including the source repo itself, which consumes
+itself) only pulls in merged changes after the `version` has been bumped — a merge without a release
+stays invisible to every consumer, and a shared script or skill change therefore always lands in the
+source repo first, never the other way around. The full mechanics — cutting a release, the release
+documents, the lint guardrails — are in
+[`RELEASES-portable.md`](RELEASES-portable.md#cutting-a-release), with the source repo's own release
+list in `dkj-policy/releases/history.md` and its answers to the workflow in
+[the release manager's repo lens](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/.claude/specialists/lenses/specialist-05-06-lens.md#versioning--releases).
 
 ## Enabling it
 

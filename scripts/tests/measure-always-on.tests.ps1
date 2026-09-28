@@ -195,6 +195,41 @@ try {
     Assert-Equal 1 $fenceWalk.Count 'an @ inside a fence is illustration, not an import to follow'
 
     Write-Host ''
+    Write-Host 'A nested fence does not end the outer block (#2534)' -ForegroundColor Cyan
+
+    # The shape a toggle got wrong: a four-backtick block wrapping a three-backtick example. The toggle
+    # closed the outer block at the inner opener, so everything from there to the inner closer -- and,
+    # after the next flip, everything past it -- was read as structure.
+    $nested = New-Fixture 'fence-nested\DOC.md' @(
+        '# Real',
+        '````markdown',
+        '```text',
+        '# Not a heading either',
+        '@nested/import.md',
+        '```',
+        '# Still quoted',
+        '@still/quoted.md',
+        '````',
+        '## Also real'
+    )
+    $ns = @(Get-DocumentSections -Path $nested -MaxLevel 3)
+    Assert-Equal 'Real|Also real' (@($ns | ForEach-Object { $_.Heading }) -join '|') 'no # inside a nested fence opens a section'
+    Assert-Equal ((Get-Item $nested).Length) (($ns | Measure-Object -Property Bytes -Sum).Sum) 'the nested-fence document still sums exactly'
+    $nestedWalk = @(Get-AlwaysOnDocuments -RootDocument $nested -RepoRoot $Fixture)
+    Assert-Equal 1 $nestedWalk.Count 'no @ inside a nested fence is walked as an import'
+
+    # The tracker's own rules, one line at a time.
+    Assert-Equal '```' (Get-NextFenceState -Line '```ps1' -Fence '') 'a backtick run with an info string opens'
+    Assert-Equal '~~~~' (Get-NextFenceState -Line '   ~~~~' -Fence '') 'up to three spaces of indent still opens'
+    Assert-Equal '' (Get-NextFenceState -Line '    ```' -Fence '') 'four spaces of indent is not a fence'
+    Assert-Equal '' (Get-NextFenceState -Line '``` not `a` fence' -Fence '') 'a backtick info string holding a backtick does not open'
+    Assert-Equal '````' (Get-NextFenceState -Line '```' -Fence '````') 'a shorter run does not close'
+    Assert-Equal '```' (Get-NextFenceState -Line '~~~' -Fence '```') 'the other character does not close'
+    Assert-Equal '```' (Get-NextFenceState -Line '```text' -Fence '```') 'a run with an info string does not close'
+    Assert-Equal '' (Get-NextFenceState -Line ('````  ' + "`r`n") -Fence '```') 'a longer run with trailing whitespace and CRLF closes'
+    Assert-Equal '~~~' (Get-NextFenceState -Line '# heading' -Fence '~~~') 'an ordinary line leaves the state alone'
+
+    Write-Host ''
     Write-Host 'The import walk' -ForegroundColor Cyan
 
     New-Fixture 'walk\leaf.md' @('# Leaf', 'leaf body') | Out-Null

@@ -304,6 +304,15 @@ Four things about it are deliberate:
 **Retiring a spelling is a deliberate act with its own issue -- [#2292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2292) -- and never a tidy-up folded into a rename** —
 and the green line above is the evidence that act may be *proposed*, not a licence to perform it.
 
+**For Lens that act has been performed, on September 28, 2026** (#2292). This machine could not print the
+green line: two checkouts were absent or unchecked. So the condition was read off the remote trunks
+instead (`gh api repos/<owner>/<repo>/contents/.claude/specialists/lenses`). Five consumers held only
+`specialist-<g>-<id>-lens.md`, and the sixth, `DKJ-Solutions/djcylow-react`, had removed its
+`.claude/specialists/` layer that same day and held no lens file at all. No tree was still read through
+`<g>-<id>-extension.md`, so the Lens row's `AlsoRead` is empty now, and a file under that name is no
+longer a lens to any reader. The roll-up above therefore answers a question that has been settled. What
+becomes of it is [#2591](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2591).
+
 ## Maintenance: drift lint
 
 Through the `github` marketplace source, the Claude Code CLI clones and caches this repo itself for
@@ -580,8 +589,8 @@ cross-repo — so the `specialists-init` skill closes the loop from the other si
 consumer it prints a **paste-ready manifest block** (repo name derived from the git remote, the lens
 inventory per plugin, `visibility` and `localCheckout` left as `VUL-IN` because it cannot know them),
 which then lands here through the normal branch + PR flow. This hook is one of the named, repo-neutral
-exceptions to the rule that plugins carry no hooks/skills — the full list is in the root README under
-[What lives here and what doesn't](../README.md#what-lives-here-and-what-doesnt), and it has grown since
+exceptions to the rule that plugins carry no hooks/skills — the full list is in
+[Sylvester's repo lens](../.claude/specialists/lenses/specialist-05-15-lens.md#what-lives-here-and-what-doesnt), and it has grown since
 this paragraph first named its two siblings — and shrank again on August 26, 2026: three SessionStart
 hooks (`connector-sessioncheck` and `script-contract-sessioncheck` in `dkj-policy`,
 `roster-sessioncheck` in the core team), two Stop hooks (`cycle-autopark`, also

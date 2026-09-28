@@ -746,6 +746,35 @@ argument for recounting even when the report is your own.
 **The portable half of this rule reaches no consumer.** It travelled in the payload of the skill that
 was removed, and a repo lens does not travel. That is a gap recorded here rather than pretended away.
 
+#### The stand-verification mechanics, measured here
+
+Behind *"Verify the stand against the repo, not against a handover text"* in
+[Chris's lens](specialist-01-01-lens.md#the-dave-rules): the mechanics and the history behind the two
+checklist items that are more than a single command.
+
+**`dkj-policy/<branch>.md` sitting on the trunk is a silent half-state**, because that document exists
+only while a branch is open. Since
+[#1270](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1270)
+`check-unfolded-entry.ps1` catches it automatically, but read it yourself too: a session that starts
+mid-ship sees the transient before the fold commit lands.
+
+**Do not classify `git ls-remote --heads origin` output by hand for parked branches — run
+`scripts/task/prune-merged.ps1 -IncludeRemote` instead.** It puts every head through the same two
+proofs the local pass uses, prints the paste-ready delete command for a merged leftover and `Kept ...
+-- live work` for everything else, and touches nothing — including the working tree, since
+[#1147](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1147), so running it
+mid-assignment can no longer move the tree under a gate. Hand-derivation was itself the defect
+([#1042](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1042)), measured three times
+in two days.
+
+**Add `-DryRun` when the checkout is dirty and you are standing on a branch** — that is the one state
+the script still refuses, because a branch can be squash-merged while its work is uncommitted and the
+step-off would then drag that work onto the trunk. `-DryRun` deletes nothing, so it never has to step
+off, and the classification above is exactly the same. On the trunk or detached, a dirty tree is
+reported and the run proceeds untouched
+([#1575](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1575) — it used to refuse
+there too, on the ground of a step-off that run can never reach).
+
 #### The branch check fires on the follow-up assignment
 
 Behind *"The check runs at the start of every assignment, not every session"* in
@@ -760,6 +789,12 @@ zero.
 *"do the next thing"* — where no new session and no fresh intake prompts the ritual, and it is the
 **previous chain's success** that put you in the wrong place. A check tied to session start would
 therefore never catch it, which is why the rule is worded against the assignment instead.
+
+**And since [#1073](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1073) a chain that
+is still *shipping* leaves you there too.** `ship-pr.ps1`'s step 2b hands the primary checkout back to
+the trunk as soon as the PR exists, so a backgrounded ship no longer parks you on the branch until CI is
+done. That widens the trap above rather than narrowing it — a clean trunk now also means "a ship is in
+flight" — so the branch check matters more, not less, and it is the same check.
 
 ### Filing an issue — the layer before a branch exists
 
@@ -1088,6 +1123,31 @@ gh issue list --state open --label prio-4 --label prio-3   # what actually comes
 is the half of #1685 that had a deadline: a taxonomy applied only to new issues splits the tracker in
 two, and the older half is where the backlog actually is. Two came out at `prio-4` (#1678, #1679), three
 at `prio-3` (#1685 itself among them), four at `prio-2` and one at `prio-1`.
+
+### The kind label — `dossier`, and a repair does not close it
+
+**`dossier` (`5319E7`) marks a collecting issue**: every instance of one recurring problem is added to it
+as a comment until the root cause is found, so a repair of one instance never closes it. #2454 is the
+first one here. It is a shared way of working, not this repo's own label (Dave, September 24, 2026,
+[#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)), so it ships in
+`Get-TriageLabels` beside the rungs. A dossier still carries a `prio-N`. The handling rule — comment
+instead of a new issue, `part of #<n>` instead of a keyword, close only on the root-cause repair — is in
+[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
+restated here.
+
+### The parking labels — `needs-decision` at filing, `awaiting-recurrence` once only evidence is owed
+
+**`needs-decision` (`BFD4F2`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
+nor a sweep treats it as work that is ready (Dave, September 26, 2026,
+[#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)). It is set in the same
+`gh issue create` as the `prio-N`, and it is not `needs-info`, which `dkj-policy-bwj` reserves for
+*blocked on the submitter*. It ships in `Get-TriageLabels`, and the filing rule is in
+[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
+
+**`awaiting-recurrence` (`EDEDED`) parks an issue waiting on its first reproducible occurrence** (Dave,
+September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)), after
+#2572 was picked up four times in one day with nothing to build. Both pickup routes skip it as they skip
+`needs-decision`. It is not `dossier`, which stays sweepable, and it comes off when a recurrence arrives.
 
 ### The reach label — `minor`, and it is a second axis, not a fifth rung
 

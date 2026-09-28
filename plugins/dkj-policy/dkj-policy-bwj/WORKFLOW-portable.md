@@ -191,6 +191,13 @@ the card then forced the pull request that fixed it to ship with `-NoResolves`. 
 ticket that arrived from Asana already has one (section 8), and an issue that gains the label later is
 mirrored at that moment.
 
+**A hook holds this, because the sentence alone did not** (inbound
+[#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)). Two days after #2360,
+`smartwatchbanden#770` got a card with only `documentation` on it, on the plugin version that carried the
+rule. `hooks/guard-asana-mirror.ps1` now refuses any Asana create-task call whose task cites a GitHub
+issue without the reach label. Where it cannot read the labels, it lets the call through with a warning.
+The mechanics are in step 2 of [`report-issue`](skills/report-issue/SKILL.md).
+
 Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
 `Get-AsanaProjectGid` names. The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
@@ -257,6 +264,59 @@ the value is carried forward instead of re-typed. A hand-copied enum that has dr
 an empty one -- an empty field says *unknown*, a wrong one says *this* -- and the board reads as
 authoritative to the colleague looking at it. GitHub stays leading here as everywhere above: the
 card is corrected to match the issue, never the issue to match the card.
+
+#### A comment an agent writes on a task says so in its FIRST line
+
+**No agent writes a comment on an Asana task unless its very first line says it is an automated
+message** (Dave, September 25, 2026, inbound
+[#2476](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2476)). Asana shows a comment as
+written by the account that posted it, and neither writer below posts under an account of its own: a
+session writes through the Asana MCP as the person who connected it, and the CI mirror writes with
+`ASANA_PAT`, which also belongs to a person. So a comment without that line reads to a colleague as
+that person's own words, and they did not write it. Measured in `BWJ-Development/smartwatchbanden` the
+day the rule was written: a session running `report-issue` on an existing ticket posted a
+colleague-facing comment, and the story's author read as the owner's own name with nothing in the
+text to say otherwise.
+
+- **A session** writes the line in the colleague's language, [as everything addressed to them
+  is](#2-then-asana----a-translation-not-a-copy), and it names both facts: automated, and not written
+  by the account holder personally. For example, *"🤖 Automatische reactie (Claude) -- niet
+  persoonlijk geschreven door Dave."* The content comes after it and never before.
+- **The CI mirror** opens every update with `Get-MirrorCommentHeader`, above the marker sentence
+  step 4's de-duplication reads. The header sits above the marker and does not replace it, so updates
+  written before the header existed still de-duplicate.
+
+**Write the line BEFORE you post, because you cannot add it afterwards.** The Asana MCP exposes adding
+a comment but no tool to edit or delete one, although the API itself supports both. So a comment a
+session posts without the line stays that way. **A block a person pastes by hand** (step 4's
+paste-ready block, the `needs-info` question) is that person's own message once they post it, and it
+takes no header: the rule covers what an agent writes, not what a person chooses to send.
+
+#### A task is read before it is offered for deletion, and a task a person has worked is never deleted
+
+**No agent offers or performs a delete on an Asana task until it has read that task's state on the
+Asana side** (inbound [#2508](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2508)). The
+GitHub side says whether a card *should* exist. It says nothing about what has happened to the card
+since, and that is what a delete destroys. The read covers four things: whether the task is
+`completed`, whether it carries comments a person wrote, which projects it is multi-homed in, and who
+created it.
+
+- **A task that is completed, or carries a human comment, is not offered for deletion at all.** It is
+  the colleague's record of a request and what became of it, and a card that should not have existed
+  is repaired by **unlinking** it: remove the `Asana:` line and the `asana-task` marker from the
+  GitHub issue (step 3) and leave the task where it is. The same goes for a task a colleague created
+  rather than the account the session or the mirror writes through, and for one that also sits in a
+  project other than the board.
+- **Any other task can be offered, and the offer shows the state it was read with.** Each option
+  names the task's state (open, no comments, the board only, created by whom) beside its title. A
+  question built from the issue's labels alone asks the owner to judge a card they cannot see.
+
+**Deleting is irreversible from the agent's side, and the answer is only as good as the question.**
+Measured in `smartwatchbanden` on September 23, 2026, while a session was tidying up after #2360: it
+asked the owner which cards *"of issues without the minor label"* it could delete, then deleted three.
+One had been completed by the owner, with a comment, as the record of a colleague's request. Its option
+read only *"technical research into content_for_header placement, no label"*. The owner answered the
+question as it was put. Nobody noticed for two days, until the task could not be found.
 
 ### 3. Cross-link both ways
 
@@ -348,6 +408,32 @@ mirror was working exactly as written, and reached 4 of the 15 issues that carry
 candidates in its log and moves on. It never guesses which ticket an issue belongs to, and the way to
 settle it is to add a marker.
 
+**The same three matchers answer every OTHER document that names an issue's Asana task** -- an item in
+an audience release document above all, since no script writes that link and a session picks it by
+hand. **Never take the first Asana URL in the body.** A body can link a task that is only context -- a
+`**Referentie:**` line naming the CRO test a build came out of -- and that one usually comes first.
+Measured in `BWJ-Development/smartwatchbanden`, v2.45.0 (inbound
+[#2567](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2567)): an issue carried the CRO test's
+task on its reference line and the development task in its marker, and the audience item linked the
+test. A reader checking whether their own ticket had shipped could not find it. Where the matchers
+resolve to nothing, the item gets no Asana link. It never gets a guessed one.
+
+**A store may hand that picking to the cut itself, and then it is the marker alone, not the three
+matchers** (`dkj-policy`'s `Get-ReleaseNoteTaskLink`,
+[#2586](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2586)). Answer it in
+`scripts/repo-config.ps1` with this same marker -- `@{ Marker = 'asana-task'; Url =
+'https://app.asana.com/0/0/{0}'; Label = 'Asana task' }` -- and `cut-release.ps1` drafts the audience
+section as one item per issue an audience entry closed that carries `<!-- asana-task: <gid> -->`, titled
+from the issue and linked to the task: no entry prose, no PR link, because the reader is a colleague
+asking which of their tasks are solved, exactly the shape the owner hand-corrected the v1.3.0 note into.
+It reads the marker directly and never falls back to the header-row or bare-URL matchers above, because
+the note is generated at cut time from entries a person has not looked at yet -- a match that needs
+judgement has no reader here to make it. Answer it only where a solved task earns its place by the
+owner's three rules: it carries an Asana card (the marker), it is a storefront change, and it is live --
+the last two only checkable with the live-push record `live-preflight` writes (see that plugin's
+[`live-preflight` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md#the-live-push-record-it-writes-for-the-cut-2570-2586)),
+which is why a store answering this seam passes that record to every cut.
+
 #### The paste-ready block -- written BEFORE the close, by the session that shipped the work
 
 **The order is the rule** (BWJ/Maikel, September 17, 2026, inbound
@@ -362,8 +448,9 @@ page.** Two different moments tell two different people something: this one is a
 carries into the task by hand, and `Get-SubmitterHandoff`'s is the submitter being told their card has
 moved. They sit in the same pipeline, so this page never says "the handover" bare for either.
 
-It is one comment on the **GitHub** issue -- not on Asana -- and it has a fixed shape, because the
-backstop below has to be able to recognise it:
+It is one comment on the **GitHub** issue -- not on Asana. The marker and the framing sentence above
+the rules are fixed, because the backstop below has to be able to recognise the comment. The block
+between the rules has a fixed **shape** too, and it is written in the **colleague's language**:
 
 ```text
 <!-- asana-paste-block -->
@@ -371,23 +458,60 @@ backstop below has to be able to recognise it:
 Paste the block into the Asana task, so the requester knows where to look and when it lands:
 
 ---
-The fix for <owner>/<repo>#<n> is done. You can view the result here: <the actual link>
+— automatisch bericht vanuit GitHub #<n>
 
-Planned to go live with the release of <weekday> <date>, as version <vX.Y.Z>.
-Once it is live you can see it here:
+WAT ER NU ANDERS IS
 
-- <market> -- <live url>
+<what changed, in plain language -- the session's prose>
 
-What we ask of you:
-Look at the result yourself, at the link above. It goes live with that release either way, so this is the last moment something can still change before a customer sees it.
-- Is it right? Say so, and tick off this task.
-- Is it not? Tell us two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.
+TE BEKIJKEN OP
+
+Het resultaat is hier te bekijken: <the actual link>
+
+<where exactly to look, and how -- the session's prose>
+
+WANNEER HET LIVE KOMT
+
+Het staat gepland voor de release van <weekday> <date>, als versie <vX.Y.Z>.
+
+Tot die tijd laten deze links zien wat er nu live staat, om mee te vergelijken — en zodra het live is, zie je de wijziging hier:
+
+<market> — <live url, pinned to the live theme id>
+
+WAT ER BEWUST NIET IN ZIT
+
+<what was deliberately left out, and why -- the session's prose>
+
+WAT WE VAN JE VRAGEN
+
+Bekijk het resultaat zelf, via de link hierboven. Het gaat hoe dan ook mee met die release, dus dit is het laatste moment waarop er nog iets aan te passen valt voordat een klant het ziet.
+
+Klopt het: laat het weten en vink deze taak af.
+
+Klopt het niet, dan horen we graag twee dingen: wat er niet goed is, én wat er precies anders moet. Dan pakken we het opnieuw op in een volgende ronde.
 ---
 ```
 
+**The shape is BWJ's own, and so is the language** (inbound
+[#2507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2507)). The block is the corrected
+one BWJ sent a colleague on September 18, 2026 (the one the five rules below were learned from). It is
+Dutch because it is addressed to the colleague, and [step 2](#2-then-asana----a-translation-not-a-copy)
+turns the language over at exactly that boundary. Until #2507 the script wrote it in a fixed,
+unsectioned English. On `BWJ-Development/smartwatchbanden#769` (September 25, 2026) the owner rejected
+that printout, pointing at the reference block, and the block was rewritten by hand. **For a task
+written in English the same shape comes out in English** (`-Language en`). The framing sentence above
+the rules stays English in both cases, because it is read on GitHub.
+
+**The facts are the script's, and the prose is the session's.** The link, the date, the version, the
+live URLs and the ask are derived or fixed. *What changed*, *where exactly to look* and *what was
+deliberately left out* are judgements about the work, like the task body step 2 writes, so the
+session writes them and hands them over through `-ProseFile`. A section with nothing in it is left
+out, heading and all, and is never replaced by a placeholder.
+
 **The marker sits OUTSIDE the block, and the block is what gets pasted.** Everything between the two
 `---` rules travels to Asana; the marker and the framing sentence stay on GitHub. A marker inside the
-block would arrive in the Asana task as visible junk.
+block would arrive in the Asana task as visible junk. The backstop's de-duplication matches the marker
+and nothing inside the rules, which is what leaves the block's words free to follow the colleague.
 
 **Who carries it across is the Asana task's ASSIGNEE** (BWJ, September 23, 2026, inbound
 [#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The assignee is the one in
@@ -402,9 +526,10 @@ September 18, 2026), carried here on inbound #2352 once the consumer page holdin
 `build-golive-block.ps1` writes the section that implements the middle three; the other two are about
 the block's position and the issue.
 
-1. **The first line says where the message comes from.** The block opens by naming the issue --
-   *"The fix for `<owner>/<repo>#<n>` is done"* -- so a reader knows from line one that there is an
-   issue behind it, rather than finding out at the foot after reading it as hand-written.
+1. **The first line says where the message comes from.** The block opens by naming it an automated
+   message and naming the issue -- *"— automatisch bericht vanuit GitHub #`<n>`"* -- so a reader knows
+   from line one that there is an issue behind it, rather than finding out at the foot after reading
+   it as hand-written.
 2. **The requester judges the result themselves, and their answer closes the TASK.** Not the gates, not
    the merge and not the session that built it: no gate proves that something *looks* right, which is
    the same reason a visible result stops before its pull request. So the block asks for the look
@@ -475,16 +600,16 @@ cycle -- the other is the storefront-visibility step in
 |---|---|
 | **when it goes live** | the next release day. BWJ cuts on **Mondays**, so it is the next Monday -- strictly the next one, never today, because a Monday's release is cut before the day's work closes |
 | **which version** | the newest `vX.Y.Z` tag, bumped by what the pending changelog has earned -- patch where everything pending is tier 0, minor where anything reaches further |
-| **where to look once it is live** | the **live** storefront URL per market for the pages the change touched: the same URLs a preview pair is built from, with the preview half left off |
+| **where to look once it is live** | the **live** storefront URL per market for the pages the change touched: the same URLs a preview pair is built from, **pinned to the live theme id** wherever the store names it -- the control half of that pair -- so the same link is a comparison before the release and the live page after it ([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)). A bare URL renders the preview in any browser that opened the result link first, so where no live id resolves the list stays bare and its label says to open it in a private window before the release |
 
 **It is written by a script, because all three are derivable and none of them is a judgement** --
 [`build-golive-block.ps1`](skills/golive-block/SKILL.md), which prints the block and, with `-Post`,
 puts it on the issue. That is the difference from the link in the first line, which stays a person's
 answer for the reason the backstop below gives.
 
-**Both halves of the release fact are a PLAN, and the block says so in that word.** *"Planned to go
-live with the release of Monday 22 September, as version v1.4.0"* is a cadence and a projection, not a
-commitment anybody made: a tier-1 entry landing on the Friday turns that patch into a minor, and a
+**Both halves of the release fact are a PLAN, and the block says so in that word.** *"Het staat
+gepland voor de release van maandag 22 september, als versie v1.4.0"* is a cadence and a projection,
+not a commitment anybody made: a tier-1 entry landing on the Friday turns that patch into a minor, and a
 release can slip. Writing it as *will* would hand a colleague a promise this workflow never made, on
 the one surface they will quote back.
 
@@ -511,6 +636,14 @@ the reason this page quotes both strings at all: so a block can be written by ha
 Where an Asana-linked issue closes and **no block is on it**, `asana-mirror` posts one -- with
 `[ADD LINK]`, because CI genuinely cannot know the link. It is the safety net under the rule above and
 not the route to it.
+
+**It writes the same block as the session, cut down to what CI can know** (#2513). Between the rules
+it carries the opening line and the `TE BEKIJKEN OP` section with `Het resultaat is hier te bekijken:
+[ADD LINK]`, in the same Dutch words, because the block is addressed to the colleague. It writes
+nothing else. The other sections hold the session's prose, or facts this standalone template does not
+derive, and a section with nothing to say is left out rather than filled with a placeholder. The
+template ships without the plugin's libs, so it holds a copy of those words. The plugin's suite keeps
+that copy equal to `Get-GoLiveBlockText`.
 
 **It de-duplicates on the block's own marker, and on its lead sentence for one somebody typed by
 hand** -- the same two-matcher shape, in the same order, as the task link itself: the machine marker

@@ -115,8 +115,8 @@ function Invoke-Git {
     $prevEap = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        $out = & git @args 2>&1
-        Assert-FixtureGitOk -Code $LASTEXITCODE -GitArgs @($args | ForEach-Object { "$_" }) -Output $out
+        # And a push whose transport breaks under the parallel gate is retried once (issue #2481).
+        Invoke-FixtureGitNative -Arguments @($args | ForEach-Object { "$_" })
     } finally { $ErrorActionPreference = $prevEap }
 }
 

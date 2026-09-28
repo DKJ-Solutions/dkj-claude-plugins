@@ -40,6 +40,9 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
+# Get-NextFenceState (issue #2536), itself a pure leaf, so this lib stays a pure function of its input.
+. (Join-Path $PSScriptRoot 'fence-lib.ps1')
+
 # GitHub's own closing keywords, as accepted in a PR body. Kept in one place so the writer
 # (New-ResolvesBlock) and the recogniser (Test-HasClosingKeyword) cannot drift apart -- a
 # hand-mirrored literal is exactly what produced the accumulation bugs this repo keeps finding.
@@ -807,10 +810,10 @@ function Add-ResolvesBlock {
     $missing = @($Issues | Where-Object { $_ -gt 0 -and $already -notcontains $_ } | Sort-Object -Unique)
 
     $level = 2
-    $inFence = $false
+    $fence = ''
     foreach ($line in ($Body -split "\r?\n")) {
-        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         $m = [regex]::Match($line, '^(#+)\s+\S')
         if ($m.Success) { $level = [Math]::Min(6, $m.Groups[1].Value.Length); break }
     }
@@ -1254,6 +1257,60 @@ function Get-ResolvesExemptFindings {
     $result.Unjudged = @($unjudged)
     return $result
 }
+
+# THE LABEL THAT MARKS A COLLECTING ISSUE (issue #2462), and the literal it is compared against. It is the
+# 'dossier' record of Get-TriageLabels in the source repo's repo-config.ps1 -- Dave ruled it a shared way
+# of working, not one repo's label -- and it is a constant here rather than a read of that seam, because
+# Get-TriageLabels is a LABEL-CREATION seam: it says which labels a tracker should have, and a consumer
+# answering it with its own set must not thereby switch off a rule about what a merge may close.
+$script:DossierLabelName = 'dossier'
+
+function Get-DossierLabelName {
+    <# The label that marks a collecting issue -- see the block above. #>
+    return $script:DossierLabelName
+}
+
+function Get-DossierClosingFindings {
+    <#
+    .SYNOPSIS
+        Which of the issues this PR would close carry the dossier label. Returns an int[], possibly empty.
+
+    .DESCRIPTION
+        THE RULE IT ENFORCES (#2463) is CONTRIBUTING-portable.md's step 1: a repair of one instance does
+        not close a dossier. Until this, nothing held that rule -- the resolves-exempt matchers read an
+        issue's BODY and are silent by default, so `-Resolves <dossier>` went through and the merge closed
+        the collecting issue.
+
+        ITS OWN CHECK RATHER THAN A SECOND SHAPE IN THE MATCHER SEAM, which was the issue's open question.
+        The matchers are one repo's own carve-out and default to nothing; the dossier rule is shared by
+        every repo running this workflow, so it has to hold with no seam answered at all.
+
+        PURE, the same split as Get-ResolvesExemptFindings above: the labels come from Get-IssueBodySet in
+        issue-state-lib.ps1. An issue absent from $Labels was not read and contributes nothing -- the
+        caller says out loud which numbers it could not read.
+
+    .PARAMETER Labels
+        A hashtable of issue number -> the label names on it. Both an int key and its string spelling are
+        accepted, for the reason Get-ResolvesExemptFindings states.
+    #>
+    param(
+        [int[]]$Issues = @(),
+        [hashtable]$Labels = @{},
+        [string]$Label = (Get-DossierLabelName)
+    )
+
+    $hits = @()
+    foreach ($n in @($Issues | Where-Object { $_ -gt 0 } | Sort-Object -Unique)) {
+        $names = $null
+        if     ($Labels.ContainsKey([int]$n)) { $names = $Labels[[int]$n] }
+        elseif ($Labels.ContainsKey("$n"))    { $names = $Labels["$n"] }
+        else                                  { continue }
+        # Case-insensitive, as GitHub itself treats label names.
+        if (@(@($names) | Where-Object { ([string]$_).Trim() -ieq $Label }).Count -gt 0) { $hits += [int]$n }
+    }
+    return [int[]]@($hits)
+}
+
 function Get-TargetIssueWarnings {
     <#
     .SYNOPSIS

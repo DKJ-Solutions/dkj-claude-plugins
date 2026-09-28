@@ -689,8 +689,8 @@ try {
     Assert-True (Test-ConstitutionImported -Documents $rows) `
         'an absolute import counts even where the clone has not refreshed yet (Exists = false)'
     $r = Invoke-Script -Dir $imported
-    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch '\[WARNING\]' -and $r.Out -match '\[OK\]') `
-        'import present -- no warning, the ordinary [OK]'
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the dkj-policy constitution' -and $r.Out -match '\[OK\]') `
+        'import present -- no import warning, the ordinary [OK]'
 
     Assert-True (-not (Test-ConstitutionImported -Documents @())) 'an empty closure imports nothing'
 
@@ -710,6 +710,54 @@ try {
     $r = Invoke-Hook -Dir $retiredRoot
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'contradicts the plugin' -and $r.Out -match 'does not import the dkj-policy constitution') `
         'the hook forwards the warning inside the [ERROR] report as well, still exit 0'
+
+    # --- the extension import (#2538) --------------------------------------------------------------
+    # Warned only where the repo's OWN settings enable dkj-policy-bwj and the closure does not import the
+    # extension. Every fixture imports the constitution, so the only warning in play is this one.
+    Write-Host ''
+    Write-Host 'extension import (#2538)'
+    $constLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md"
+    $extLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md"
+    $bwjSettings = '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": true } }'
+
+    $bwjMissing = New-Tree -Label 'bwjmissing'
+    Set-Text -Dir $bwjMissing -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
+    Set-Text -Dir $bwjMissing -Rel '.claude/settings.json' -Text $bwjSettings
+    $r = Invoke-Script -Dir $bwjMissing
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables dkj-policy-bwj, but its CLAUDE\.md does not import the extension' -and
+                 $r.Out -match 'adopt-extension-import\.ps1' -and $r.Out -match [regex]::Escape('/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md')) `
+        'bwj enabled, no extension import -- a [WARNING] naming the adopter and the paste-ready line, still exit 0'
+    $r = Invoke-Hook -Dir $bwjMissing
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'does not import the extension') `
+        'the hook forwards the extension warning, still exit 0'
+
+    $bwjImported = New-Tree -Label 'bwjimported'
+    Set-Text -Dir $bwjImported -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine`n$extLine"
+    Set-Text -Dir $bwjImported -Rel '.claude/settings.json' -Text $bwjSettings
+    $r = Invoke-Script -Dir $bwjImported
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension') `
+        'bwj enabled and the extension imported -- no warning'
+
+    $bwjLocal = New-Tree -Label 'bwjlocal'
+    Set-Text -Dir $bwjLocal -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
+    Set-Text -Dir $bwjLocal -Rel '.claude/settings.local.json' -Text $bwjSettings
+    $r = Invoke-Script -Dir $bwjLocal
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'does not import the extension') `
+        'an enable in settings.local.json is the repo''s own too -- warned'
+
+    $bwjOff = New-Tree -Label 'bwjoff'
+    Set-Text -Dir $bwjOff -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
+    Set-Text -Dir $bwjOff -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": false } }'
+    $r = Invoke-Script -Dir $bwjOff
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension') `
+        'dkj-policy-bwj present but disabled -- no warning'
+
+    $bwjBadJson = New-Tree -Label 'bwjbadjson'
+    Set-Text -Dir $bwjBadJson -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
+    Set-Text -Dir $bwjBadJson -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy-bwj@dkj-claude-plugins": true, } '
+    $r = Invoke-Script -Dir $bwjBadJson
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension' -and $r.Out -match '\[OK\]') `
+        'an unparseable settings.json is not an enable and does not take the check down'
 
     # --- the root-prose rule (#2374, superseded September 23, 2026) --------------------------------
     # Dave's second pass the same day: a root CLAUDE.md holds ONLY '@'-import lines now (plus at most an
@@ -848,6 +896,44 @@ try {
     $r = Invoke-Hook -Dir $withProse
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'root CLAUDE\.md carries') `
         'the hook forwards the root-prose warning beside the clean detector line, still exit 0'
+
+    # --- the repo-facts rule (#2444): imports-only, but no unscoped .claude/rules/*.md ---------------
+    Write-Host ''
+    Write-Host 'check-consumer-prose.ps1 -- the missing repo-facts rule [WARNING] (#2444)'
+    $factsMsg = 'is imports-only, and no unscoped .claude/rules/*.md exists'
+
+    # $imported is exactly the measured consumer: the cut done, the facts moved nowhere.
+    Assert-True (-not (Test-UnscopedRulePresent -Documents @(Get-AlwaysOnRows -Dir $imported))) `
+        'an imports-only closure with no rule directory carries no unscoped rule'
+    $r = Invoke-Script -Dir $imported
+    Assert-True ($r.Code -eq 0 -and $r.Out -match [regex]::Escape($factsMsg)) `
+        'imports-only root and no rule -- a [WARNING], exit 0'
+
+    $withRule = New-Tree -Label 'factsrule'
+    Set-Text -Dir $withRule -Rel 'CLAUDE.md' -Text "# Consumer`n`n@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md"
+    Set-Text -Dir $withRule -Rel '.claude/rules/this-repo.md' -Text "# This repo`n`nThe trunk is main."
+    Assert-True (Test-UnscopedRulePresent -Documents @(Get-AlwaysOnRows -Dir $withRule)) `
+        'an unscoped rule file is seen on the walked closure'
+    $r = Invoke-Script -Dir $withRule
+    Assert-True ($r.Code -eq 0 -and $r.Out -notmatch [regex]::Escape($factsMsg) -and $r.Out -notmatch '\[WARNING\]') `
+        'imports-only root with an unscoped rule -- silent, no warning at all'
+
+    # A paths:-scoped rule is gone on every turn that does not touch its files, so it is no home for facts.
+    $scopedOnly = New-Tree -Label 'factsscoped'
+    Set-Text -Dir $scopedOnly -Rel 'CLAUDE.md' -Text "# Consumer`n`n@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md"
+    Set-Text -Dir $scopedOnly -Rel '.claude/rules/scripts.md' -Text "---`npaths:`n  - `"scripts/**`"`n---`n`n# Scripts only"
+    $r = Invoke-Script -Dir $scopedOnly
+    Assert-True ($r.Code -eq 0 -and $r.Out -match [regex]::Escape($factsMsg)) `
+        'only a paths:-scoped rule -- still warned, because it does not load every session'
+
+    # A root that still carries prose already gets the root-prose warning naming the same destination.
+    $r = Invoke-Script -Dir $withProse
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'root CLAUDE\.md carries' -and $r.Out -notmatch [regex]::Escape($factsMsg)) `
+        'a root with prose gets the prose warning only -- the facts warning is not said twice'
+
+    $r = Invoke-Hook -Dir $imported
+    Assert-True ($r.Code -eq 0 -and $r.Out -match [regex]::Escape($factsMsg)) `
+        'the hook forwards the repo-facts warning, still exit 0'
 }
 finally {
     foreach ($t in $script:trees) {

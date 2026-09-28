@@ -136,6 +136,59 @@ Assert-Equal 'sync-owned' $mixed[0].Kind 'provenance matches across separator sp
 
 # ---------------------------------------------------------------------------------------------------
 Write-Host ''
+Write-Host 'Deletions -- a push cannot carry one (#2566)' -ForegroundColor Cyan
+
+# THE CONSUMER'S SHAPE: theme files deleted in the range beside one that changed, a deleted script, and a
+# deletion a sync mirrored in from live.
+$delRows = @(Get-LivePushRows -ChangedPaths @('sections/hero.liquid', 'locales/es.json', 'templates/index.context.spanje.json', 'scripts/old.ps1', 'snippets/gone-on-live.liquid') `
+                              -DeletedPaths @('locales/es.json', 'templates\index.context.spanje.json', 'scripts/old.ps1', 'snippets/gone-on-live.liquid') `
+                              -SyncOwnedPaths @('snippets/gone-on-live.liquid'))
+Assert-Equal 5 $delRows.Count 'a deleted path still gets a row'
+Assert-Equal 1 @($delRows | Where-Object { $_.Push }).Count 'only the changed theme file is pushed -- no deleted one is'
+$delEs = @($delRows | Where-Object { $_.Path -eq 'locales/es.json' })[0]
+Assert-Equal 'deleted' $delEs.Kind 'a deleted theme file is reported as deleted'
+Assert-True ($delEs.Reason.Contains('still on live')) '...with the reason a reader can act on'
+Assert-Equal 'deleted' @($delRows | Where-Object { $_.Path -eq 'templates/index.context.spanje.json' })[0].Kind 'the deleted set matches across separator spellings'
+Assert-Equal 'not-a-theme-path' @($delRows | Where-Object { $_.Path -eq 'scripts/old.ps1' })[0].Kind 'a deleted non-theme path is still reported as not a theme path'
+Assert-Equal 'sync-owned' @($delRows | Where-Object { $_.Path -eq 'snippets/gone-on-live.liquid' })[0].Kind 'a deletion a sync mirrored from live is sync-owned -- it is already gone there'
+Assert-True @(Get-LivePushRows -ChangedPaths @('sections/hero.liquid'))[0].Push 'with no deleted set, nothing changes for a caller that passes none'
+
+# BOTH DRIVERS FEED THE SET, and read the range with renames split so a renamed file's old path is in it.
+# The drivers read git and the Shopify CLI, so this is asserted on their source rather than by running them.
+$pfSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\task\live-preflight.ps1') -Raw
+$prSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-policy-bwj\scripts\task\prepare-release.ps1') -Raw
+foreach ($drv in @(@{ Name = 'live-preflight'; Src = $pfSrc }, @{ Name = 'prepare-release'; Src = $prSrc })) {
+    Assert-True ($drv.Src -match 'Get-LivePushRows\b[^\r\n]*-DeletedPaths') "$($drv.Name) passes the range's deletions to Get-LivePushRows"
+    Assert-True ($drv.Src -match "'--no-renames',\s*'--name-only',\s*'--diff-filter=D'") "$($drv.Name) reads the deletions with renames split"
+    Assert-True ($drv.Src -notmatch "'diff',\s*'--name-only'") "$($drv.Name) has no range read left with rename detection on"
+}
+
+# WHICH COMMITS CAME IN THROUGH A SYNC (#2509: out of live-preflight.ps1, so prepare-release reads the same
+# rule). Both merge shapes, and the commit that merely mentions nothing sync-shaped is not a row.
+$heads = @(Get-SyncMergeCommits -SyncPrefix 'sync/' -LogLines @(
+    "m1`tp1 p2`tmerge: sync/2026-09-20 (#123)",
+    "s1`tp3`tsync/2026-09-21: mirror live (#124)",
+    "f1`tp4`tfeat: a filter",
+    'not a log line'))
+Assert-Equal 2 $heads.Count 'two sync-shaped commits, one of each merge shape, and nothing else'
+Assert-True ($heads[0].IsMerge -and $heads[0].FirstParent -eq 'p1') 'a merge names its first parent, so the caller can list what it brought in'
+Assert-True (-not $heads[1].IsMerge) 'a squash is the whole of its own sync'
+Assert-Equal 0 @(Get-SyncMergeCommits -SyncPrefix '' -LogLines @("m1`tp1 p2`tmerge: sync/x")).Count 'no prefix, no sync commits -- the direction that excludes nothing'
+
+# WHICH PATHS ONLY THOSE COMMITS TOUCHED. EVERY touching commit, not any: a file the sync mirrored and this
+# repo then changed itself is this repo's to push.
+$walk = @("COMMIT`tours", 'sections/header.liquid', "COMMIT`tsyncA", 'sections/header.liquid', 'sections/b.liquid', 'sections\c.liquid')
+$owned = @(Get-SyncOwnedPaths -WalkLines $walk -SyncCommits @('syncA') | Sort-Object)
+Assert-Equal 'sections/b.liquid|sections/c.liquid' ($owned -join '|') 'only the paths no non-sync commit touched, with separators normalised'
+Assert-Equal 0 @(Get-SyncOwnedPaths -WalkLines $walk -SyncCommits @()).Count 'no sync commits, nothing sync-owned'
+
+# UNDER A StrictMode CALLER, WITH NO DIRECTORIES PASSED (#2509). @() of a $null [string[]] stays $null in
+# Windows PowerShell 5.1, and '.Count' on it threw the first time a strict script called this.
+$strictRows = & { Set-StrictMode -Version Latest; @(Get-LivePushRows -ChangedPaths @('sections/a.liquid')) }
+Assert-Equal 'theme-file' $strictRows[0].Kind 'a strict caller gets the default eight directories, not a throw'
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
 Write-Host 'The release tag -- compared as a version, which is the whole reason it is a function' -ForegroundColor Cyan
 
 # THE MEASURED PAIR. The consumer was preparing v2.44.0 with v2.43.0 behind it, on a repo that also
@@ -163,6 +216,37 @@ Assert-True (-not $cmd.Contains('#'))                    '...and no comment at a
 Assert-Equal '' (Format-LivePushCommand -Store 'example.myshopify.com' -ThemeId '123456' -Only @())   'an empty list produces no command'
 Assert-Equal '' (Format-LivePushCommand -Store 'example.myshopify.com' -ThemeId '123456' -Only $null) 'and neither does a null one'
 Assert-Equal '' (Format-LivePushCommand -Store 'example.myshopify.com' -ThemeId '123456' -Only @('', '   ')) 'nor a list of blanks'
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'Paste safety -- a path that would run when pasted never reaches the command (#2514)' -ForegroundColor Cyan
+
+# THE THREE MEASURED SHAPES, each of which the unchecked command printed as-is.
+$subexpr = 'assets/$(calc.exe).css'
+$semi    = 'assets/a;calc.css'
+$newline = "assets/a`ncalc.css"
+foreach ($bad in @($subexpr, $semi, $newline, 'assets/a b.css', 'assets/a|b.css', 'assets/a&b.css', 'assets/`a.css', "assets/a'b.css", '-x/a.css', ('assets/a' + [char]0x202E + 'b.css'), ('assets/e' + [char]0x0301 + '.css'), ('assets/x' + [char]0x01C0 + 'y.css'), ('assets/' + [char]0x00D7 + '.css'), ('assets/' + [char]0x212A + '.css'), ('asset' + [char]0x017F + '/foo.css'))) {
+    $u = @(Get-LivePushUnsafePaths -Paths @('sections/header.liquid', $bad))
+    Assert-Equal 1 $u.Count "refused: $($bad -replace '[^\x20-\x7E]', '?')"
+}
+
+# WHAT MUST STILL PASS. The ordinary theme path, and the accented one #821 measured in a consumer store:
+# refusing that would block its live push for as long as the file is in the range.
+$ok = @('sections/header.liquid', 'assets/theme.min.css', 'snippets/product_card-v2.liquid', 'locales/en.default.json', ('assets/caf' + [char]0x00E9 + '.css'), ('templates/' + [char]0x00C5 + 'rhus.json'))
+Assert-Equal 0 @(Get-LivePushUnsafePaths -Paths $ok).Count 'ordinary and Latin-accented theme paths are all safe'
+Assert-Equal 0 @(Get-LivePushUnsafePaths -Paths $null).Count 'a null list has nothing unsafe in it'
+Assert-Equal 0 @(Get-LivePushUnsafePaths -Paths @('', '  ')).Count 'nor does a list of blanks, which the command drops anyway'
+Assert-Equal 2 @(Get-LivePushUnsafePaths -Paths @($semi, 'assets/ok.css', $subexpr)).Count 'every unsafe path is returned, not only the first'
+Assert-Equal $semi (@(Get-LivePushUnsafePaths -Paths @($semi, 'assets/ok.css', $subexpr)))[0] '...in input order'
+
+# THE BACKSTOP. A caller that skipped the check gets a throw, never a command -- and the throw names a
+# count, not the path, because the path is exactly the text that must not reach a console unguarded.
+$thrown = $null
+try { [void](Format-LivePushCommand -Store 'example.myshopify.com' -ThemeId '123456' -Only @('sections/header.liquid', $subexpr)) } catch { $thrown = $_.Exception.Message }
+Assert-True ($null -ne $thrown) 'Format-LivePushCommand throws on a path unsafe to paste'
+Assert-True ($null -ne $thrown -and -not $thrown.Contains('calc')) '...and the message does not carry the path'
+$accented = Format-LivePushCommand -Store 'example.myshopify.com' -ThemeId '123456' -Only @('assets/caf' + [char]0x00E9 + '.css')
+Assert-True ($accented.Contains('--only assets/caf' + [char]0x00E9 + '.css')) 'an accented path is composed like any other'
 
 # ---------------------------------------------------------------------------------------------------
 Write-Host ''

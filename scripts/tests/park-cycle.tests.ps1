@@ -206,6 +206,8 @@ function New-Fixture {
     # fetch-attempt-lib.ps1 likewise (#1860): entry-scaffold-lib.ps1 dot-sources it for
     # Invoke-RecordedRemoteFetch, which Get-TrunkGap's fetch runs through -- so the fixture owes it too.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\fetch-attempt-lib.ps1') -Force
+    # fence-lib.ps1 likewise (#2536): entry-scaffold-lib.ps1, pr-body-lib.ps1 and pr-issues-lib.ps1 dot-source it.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fence-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\fence-lib.ps1') -Force
     Copy-Item -LiteralPath $ParkLibSrc       -Destination (Join-Path $dir 'scripts\lib\park-lib.ps1')           -Force
     Copy-Item -LiteralPath $PorcelainSrc     -Destination (Join-Path $dir 'scripts\lib\git-porcelain-lib.ps1')  -Force
     Copy-Item -LiteralPath $PrIssuesSrc      -Destination (Join-Path $dir 'scripts\lib\pr-issues-lib.ps1')      -Force

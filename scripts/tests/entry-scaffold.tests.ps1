@@ -251,6 +251,8 @@ Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\document-newline-lib.ps
 # fetch-attempt-lib.ps1 likewise (#1860): entry-scaffold-lib.ps1 dot-sources it for
 # Invoke-RecordedRemoteFetch, which Get-TrunkGap's fetch runs through -- so the fixture owes it too.
 Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1') -Destination (Join-Path $fixture 'scripts\lib\fetch-attempt-lib.ps1') -Force
+# fence-lib.ps1 likewise (#2536): entry-scaffold-lib.ps1, pr-body-lib.ps1 and pr-issues-lib.ps1 dot-source it.
+Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fence-lib.ps1') -Destination (Join-Path $fixture 'scripts\lib\fence-lib.ps1') -Force
 Copy-Item -LiteralPath $ParkLibSrc -Destination (Join-Path $fixture 'scripts\lib\park-lib.ps1') -Force
 Copy-Item -LiteralPath $PorcelainSrc -Destination (Join-Path $fixture 'scripts\lib\git-porcelain-lib.ps1') -Force
 Copy-Item -LiteralPath $PrIssuesLibSrc -Destination (Join-Path $fixture 'scripts\lib\pr-issues-lib.ps1') -Force
@@ -799,7 +801,9 @@ Assert-True ($withProse -match 'And a sentence the author added\.') 'and the pro
 # An entry that QUOTES the section heading inside a fence keeps the quoted copy: the entries documenting
 # this format do exactly that, and this is the fifth matcher in this lib that has to tell a use from a
 # mention.
-$quotedHeading = "## A title`n`n$h $($sect['What'])`n`nIt looks like this:`n`n``````text`n$h $($sect['Significance'])`n``````\n`n$h $($sect['Significance'])`n`n| Tier | Significance | Why |`n|---|---|---|`n| 1 | 3 | colleagues |`n`n$h $($sect['Type'])`n`nDocs`n"
+# Its closing fence read '```\n' -- a literal backslash-n, not a newline -- until #2536: the plain toggle
+# closed on it anyway, and a CommonMark closer takes nothing after the run but whitespace.
+$quotedHeading = "## A title`n`n$h $($sect['What'])`n`nIt looks like this:`n`n``````text`n$h $($sect['Significance'])`n```````n`n$h $($sect['Significance'])`n`n| Tier | Significance | Why |`n|---|---|---|`n| 1 | 3 | colleagues |`n`n$h $($sect['Type'])`n`nDocs`n"
 $quotedOut = Remove-EntryImpactTable -EntryText $quotedHeading
 Assert-Equal 1 ([regex]::Matches($quotedOut, [regex]::Escape($sect['Significance'])).Count) 'strip: the fenced copy of the heading survives while the real one goes'
 Assert-True ($quotedOut -notmatch '\| Tier \| Significance \| Why \|') 'and the real table is still removed'
@@ -946,11 +950,16 @@ Assert-True ($foldLibText -notmatch [regex]::Escape('(Get-EntryHeadingLevel) + 1
 # by looking at nothing -- the same class as the fixture that did not contain what it was written to
 # contain, one screen up. Checked against the previous revision before being trusted: the old form appeared
 # 3 times there and the union rule 0, which is what makes the counts below evidence rather than decoration.
+#
+# Since #2536 the rule itself lives in fence-lib.ps1 (Get-NextFenceState), so this lib writes it ZERO times:
+# Get-FencedLineFlags walks with that function, and fence-lib.tests.ps1 guards the whole tree against a
+# plain toggle coming back.
 $tick3 = ([string][char]0x60) * 3
-$unionMatcher = "-match '^\s*(" + $tick3      # the one rule, inside Get-FencedLineFlags
+$unionMatcher = "-match '^\s*(" + $tick3      # the rule Get-FencedLineFlags wrote until #2536
 $inlineMatcher = "-match '^\s*" + $tick3 + "'" # the shape the three walks used
-Assert-Equal 1 (@([regex]::Matches($escLibText, [regex]::Escape($unionMatcher))).Count) 'one owner: the fence rule is written exactly once, and it is the union rule'
+Assert-Equal 0 (@([regex]::Matches($escLibText, [regex]::Escape($unionMatcher))).Count) 'one owner: this lib no longer writes a fence rule of its own'
 Assert-Equal 0 (@([regex]::Matches($escLibText, [regex]::Escape($inlineMatcher))).Count) 'one owner: and no reader tests for a fence inline any more'
+Assert-True ($escLibText -match 'Get-NextFenceState -Line \$Lines\[\$i\]') 'one owner: Get-FencedLineFlags walks with the shared tracker'
 
 # --- The entry-boundary readers moved down too, and for the same reason ----------------------------
 # Get-EntryHeadingPattern and Split-EntryBlocks joined Get-FencedLineFlags here on August 10, 2026
@@ -2110,12 +2119,12 @@ $blankDoc = (Format-Development -Branch 'feat/blank-arc-v1' -Intent 'parked mid-
 Remove-Item -Path Function:\Get-BranchFileWordingOverrides
 $arcTitleRx = '^#{1,' + (Get-BranchCycleHeadingLevel) + '}\s'
 $arcPhaseRx = '^#{' + (Get-BranchCycleSectionLevel) + '}\s+\S'
-$arcFence   = $false
+$arcFence   = ''
 $arcSeen    = $false
 $arcStrays  = 0
 foreach ($arcLine in @($blankDoc -split "`n")) {
-    if ($arcLine -match '^\s{0,3}(?:`{3,}|~{3,})') { $arcFence = -not $arcFence; continue }
-    if ($arcFence) { continue }
+    $arcWas = $arcFence; $arcFence = Get-NextFenceState -Line $arcLine -Fence $arcFence
+    if ($arcWas -or $arcFence) { continue }
     if ($arcLine -match $arcPhaseRx) { $arcSeen = $true; continue }
     if ($arcLine -match $arcTitleRx) { continue }
     if ((-not $arcSeen) -and $arcLine.Trim() -ne '' -and $arcLine -notmatch '^\s*>') { $arcStrays++ }
@@ -2507,7 +2516,7 @@ Assert-Equal '' $typoFindings[0].Suggested 'but no repair is suggested for it --
 # file moved into dkj-policy/ and the assert started reporting a finding it was written to prove
 # absent -- correctly, since the default destination here IS the repo root. CLAUDE.md is the substitute
 # because the point is a link that resolves at the destination, not which document it names.
-Assert-Equal 0 (@(Get-EntryLinkFindings -EntryText '[ok](CLAUDE.md) and [ok2](README.md)' -RepoRoot $repoRootForLinks)).Count 'an entry whose links are all root-relative passes'
+Assert-Equal 0 (@(Get-EntryLinkFindings -EntryText '[ok](CLAUDE.md) and [ok2](SECURITY.md)' -RepoRoot $repoRootForLinks)).Count 'an entry whose links are all root-relative passes'
 
 # THE GUIDANCE SAYS SO BEFORE THE GATE REFUSES, which is the half that reaches the author while they are
 # still writing. IT MOVED TO 'StepsGuidance' ON AUGUST 23, 2026 (Dave): no comment may stand inside the
@@ -2992,6 +3001,49 @@ Assert-Equal $tallyInlineSet (Set-ChangelogPendingSummary -Content $tallyInlineS
 Assert-True (Test-ChangelogTallyIsQuoted -Line ('see `' + (Get-ChangelogPendingSummaryMarker) + '`')) 'tally: quoted marker reads as quoted'
 Assert-True (-not (Test-ChangelogTallyIsQuoted -Line ('**1 / 1 minor entry** ' + (Get-ChangelogPendingSummaryMarker)))) 'tally: a real tally line does not'
 
+# THE FIXED HEAD (issue #2486). Everything above the pending heading is replaced by Get-ChangelogHeadLines,
+# so every repo running this workflow carries the same head. The three shapes Set-ChangelogPendingSummary
+# anchors on, each asserted, plus the fence and the CRLF a real document brings with it.
+$fixedHead = @(Get-ChangelogHeadLines)
+Assert-Equal '# Changelog' $fixedHead[0] 'head: the title is the first line'
+Assert-Equal (Get-ChangelogUnreleasedHeading) $fixedHead[-1] 'head: the pending heading is the last line, so the first fold lands beneath it'
+Assert-Equal 3 $fixedHead.Count 'head: and there is nothing between them but one blank line'
+
+$headWithPending = (@('# Journal', '', 'Some prose a repo wrote.', '', '---', '', $tallyH, '',
+    ('**1 minor entry** ' + (Get-ChangelogPendingSummaryMarker)), '', (New-TallyEntry -Branch 'feat/h1-v1' -Tier 0)) -join "`n")
+$headWithPendingSet = Set-ChangelogCanonicalHead -Content $headWithPending
+Assert-True ($headWithPendingSet.StartsWith(($fixedHead -join "`n") + "`n")) 'head: shape 1 -- the prose above the pending heading is replaced'
+Assert-True ($headWithPendingSet -notmatch 'Some prose|Journal|(?m)^---$') 'head: and none of it survives'
+Assert-True ($headWithPendingSet -match [regex]::Escape((Get-ChangelogPendingSummaryMarker))) 'head: the tally under the heading is kept'
+Assert-True ($headWithPendingSet -match 'feat/h1-v1') 'head: and so is the entry'
+Assert-Equal $headWithPendingSet (Set-ChangelogCanonicalHead -Content $headWithPendingSet) 'head: idempotent -- a second run changes nothing'
+
+$headNoPending = (@('# Changelog', '', 'Pre-1518 intro.', '', (New-TallyEntry -Branch 'feat/h2-v1' -Tier 0)) -join "`n")
+$headNoPendingSet = Set-ChangelogCanonicalHead -Content $headNoPending
+Assert-True ($headNoPendingSet.StartsWith(($fixedHead -join "`n") + "`n`n" + $eH)) 'head: shape 2 -- no pending heading: it is placed above the first entry'
+Assert-True ($headNoPendingSet -notmatch 'Pre-1518') 'head: and the old intro is gone'
+
+Assert-Equal (($fixedHead -join "`n") + "`n") (Set-ChangelogCanonicalHead -Content "# Changelog`n`nIntro only.`n") `
+    'head: shape 3 -- an intro and nothing else becomes the fixed head alone'
+Assert-Equal (($fixedHead -join "`n") + "`n") (Set-ChangelogCanonicalHead -Content '') 'head: and so does an empty document'
+
+$headFenced = (@('# Changelog', '', '```markdown', $tallyH, ($eH + ' DEPLOY: quoted'), '```', '', $tallyH, '',
+    (New-TallyEntry -Branch 'feat/h3-v1' -Tier 0)) -join "`n")
+$headFencedSet = Set-ChangelogCanonicalHead -Content $headFenced
+Assert-True ($headFencedSet -notmatch 'DEPLOY: quoted') 'head: fence-aware -- a heading quoted in the intro is not the boundary'
+Assert-True ($headFencedSet -match 'feat/h3-v1') 'head: and the real entry below the real heading survives'
+
+# A PENDING HEADING BELOW AN ENTRY (a hand edit) is dropped, not duplicated -- and not used as the boundary,
+# which would delete the entry above it. Found in review of #2486.
+$headMisplaced = (@('# Changelog', '', 'Old intro.', '', (New-TallyEntry -Branch 'feat/h4-v1' -Tier 0), '', $tallyH, '') -join "`n")
+$headMisplacedSet = Set-ChangelogCanonicalHead -Content $headMisplaced
+Assert-Equal 1 @([regex]::Matches($headMisplacedSet, '(?m)' + (Get-ChangelogUnreleasedPattern).TrimStart('^').Insert(0, '^'))).Count `
+    'head: a pending heading below an entry is not duplicated'
+Assert-True ($headMisplacedSet -match 'feat/h4-v1') 'head: and the entry above it survives'
+Assert-True ($headMisplacedSet.StartsWith(($fixedHead -join "`n") + "`n`n" + $eH)) 'head: and the one heading left is the fixed head''s'
+
+$headCrlf = Set-ChangelogCanonicalHead -Content ($headWithPending -replace "`n", "`r`n")
+Assert-True ($headCrlf -match "`r`n" -and $headCrlf -notmatch "[^`r]`n") 'head: a CRLF document stays CRLF throughout'
 # A HUMAN'S PARAGRAPH UNDER THE PENDING HEADING IS NOT EATEN. This is the reason the line carries a
 # marker at all instead of being recognised by position, and the fold pushes straight to the trunk.
 $tallyProse = (@('# Changelog', '', $tallyH, '', 'A note somebody wrote here by hand.', '', (New-TallyEntry -Branch 'feat/g-v1' -Tier 0)) -join "`n")
