@@ -36,9 +36,9 @@ and, together with its significance score, where within that section it sits.
 
 | tier | who notices | where it is written | when |
 |---|---|---|---|
-| **2** | subscribers of the service | the *For consumers* section of `audience/<dir>/<X.Y.Z>.md` | minor/major |
-| **1** | management and the employer/commissioner | the *What changed* section of that same file | minor/major |
-| **0** | only this repo's own developers | `changelog/<dir>/<X.Y.Z>.md` | every release |
+| **2** | the user who relies on what this repo ships: a service's subscribers, or a tool's user | the *For consumers* section of `audience/<dir>/<X.Y.Z>.md` | minor/major |
+| **1** | management and the employer/commissioner of a repo that sells or delivers something else | the *What changed* section of that same file | minor/major |
+| **0** | only this repo's own developers, *as* developers | `changelog/<dir>/<X.Y.Z>.md` | every release |
 
 **Tiers 1 and 2 are two KINDS of audience, and this repo has exactly one of them** (Dave, August 12, 2026;
 inbound [#620](https://github.com/DaveKJohn/claude-code-specialists/issues/620)). They are not two rungs of a
@@ -48,6 +48,16 @@ subscriber of a **service**, who decides whether to upgrade. A repo answers one 
 `Get-ReleaseAudienceTier`, before any entry is written; **this repo answers 2**, being a service rather than
 a product. `new-branch.ps1` then scaffolds tier 0 plus that tier alone, and `open-pr.ps1` and
 `cut-release.ps1` ask for that tier rather than every rung from 1 up.
+
+**The test is what the repo is FOR — not who pays, and not whether a subscription exists** (Dave,
+September 27, 2026; inbound [#2557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2557)).
+A repo that is a **means** of selling or delivering something else — a webshop, whose output is a storefront
+— answers `1`. A repo that **is** the product its user relies on — a tool that makes its user's life easier,
+whose user decides whether to take the next version — answers `2`, and that user is the tier-2 reader **even
+when they are the repo's own maintainer**. The maintainer *as user* of the product is tier 2; the maintainer
+*as developer* is tier 0. Measured in a local, single-user app that answered as if neither audience existed:
+all 19 of its entries scored both tiers `N/A` and earned a patch, although every one was work its user
+relied on ([#2556](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2556)).
 
 **And the service is YOUR OWN: the tier-2 reader is whoever takes what this repo ships, never whoever
 they sell to in turn** ([#1896](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1896),

@@ -389,8 +389,10 @@ documents.
 **Which of the two audience tiers you get is a repo-level fact, not a per-entry choice** (Dave, August 12,
 2026). Tier 1 (management and the employer/commissioner) and tier 2 (the subscriber of a service) are two
 kinds of reader rather than two rungs, and a repo has exactly one: it is stated once in
-`Get-ReleaseAudienceTier`, and the scaffolder writes only that one. This repo answers **2**, being a service
-rather than a product. A repo that has stated nothing is asked about both, exactly as before the knob
+`Get-ReleaseAudienceTier`, and the scaffolder writes only that one. The test is what the repo is for: a
+means of selling or delivering something else answers 1, the product its user relies on answers 2 — its
+own maintainer included, as user ([`RELEASES-portable.md`](RELEASES-portable.md#the-tier-model), #2557).
+This repo answers **2**, being a service rather than a product. A repo that has stated nothing is asked about both, exactly as before the knob
 existed — and a tier this repo no longer asks about is still *read* wherever an older entry carries one, so
 none of the 97 entries written under the cumulative model stops folding.
 
