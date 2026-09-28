@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**12 / 15 minor entries** <!-- pending-tally -->
+**13 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2589-live-backup-restore · 20260928-144047Z
+
+A live-theme backup now comes with a written way back. A person publishes the backup theme. A backup that passed WITH EXCEPTIONS first gets its missing paths back from the exact commit it was verified against, and the backup run now prints that commit instead of "HEAD" ([#2589](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2589)). The rotation step also no longer plans a restored (now live) backup for deletion.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store owner whose live push went wrong now has written steps to go back. Until now "rollback point" had no instructions behind it.
+
+**Score:** 3
+
+#### Pull Request
+
+Restore procedure for the live-theme backup
+
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2593](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2593)
+
+---
 
 ### DEPLOY: fix/2568-backup-trunk-held-shortfall · 20260928-140456Z
 
