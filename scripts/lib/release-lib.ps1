@@ -1796,6 +1796,14 @@ function Build-ReleaseNoteDraft {
         an ordinary release) in here, so it renders even where the whole audience section would otherwise
         be suppressed for having nothing left in it -- a retraction is exactly the kind of gap a silently
         empty section would hide.
+
+        $Sections IS WHICH OF THE THREE THE REPO'S READERS GET AT ALL (inbound #2564), already resolved by
+        Resolve-ReleaseNoteSections. The Wording seam could RENAME any of the three sections but never
+        omit one, so a consumer whose readers only ask "what changed" deleted the organisation's two headings and their hints
+        by hand at every cut -- measured in two consumers on the same day. A section left out is left out
+        whole: its heading and its hint, and the audience section's switch-off also takes the withheld
+        note with it, because that note explains a gap in a list this document no longer carries.
+        The default is all three, so every existing caller is byte-identical.
     #>
     param(
         [AllowEmptyCollection()][string[]]$Entries = @(),
@@ -1806,7 +1814,8 @@ function Build-ReleaseNoteDraft {
         [hashtable]$Wording = @{},
         [string]$LinkPrefix = '../../../',
         [int]$AudienceTier = 2,
-        [string]$WithheldNote = ''
+        [string]$WithheldNote = '',
+        [string[]]$Sections = @('Audience', 'Value', 'Open')
     )
     # Merged over the defaults rather than replacing them, so a repo that renames one heading does not
     # have to restate the rest -- the same contract the note script's wording seam already had.
@@ -1923,7 +1932,7 @@ function Build-ReleaseNoteDraft {
     # but a retraction would otherwise fall through the "no audience section where no entry reached that
     # tier" rule above and say nothing at all about the withholding -- the exact silence the rule was
     # written to avoid, aimed at the one case it had not been asked about yet.
-    if ($real.Count -gt 0 -or $WithheldNote) {
+    if (($Sections -contains 'Audience') -and ($real.Count -gt 0 -or $WithheldNote)) {
         $out.Add("## $($w.SectionAudience)")
         $out.Add('')
         if ($real.Count -gt 0) {
@@ -1954,15 +1963,54 @@ function Build-ReleaseNoteDraft {
         }
     }
 
-    $out.Add("## $($w.SectionValue)")
-    $out.Add('')
-    $out.Add("<!-- $($w.HintValue) -->")
-    $out.Add('')
-    $out.Add("## $($w.SectionOpen)")
-    $out.Add('')
-    $out.Add("<!-- $($w.HintOpen) -->")
+    if ($Sections -contains 'Value') {
+        $out.Add("## $($w.SectionValue)")
+        $out.Add('')
+        $out.Add("<!-- $($w.HintValue) -->")
+        $out.Add('')
+    }
+    if ($Sections -contains 'Open') {
+        $out.Add("## $($w.SectionOpen)")
+        $out.Add('')
+        $out.Add("<!-- $($w.HintOpen) -->")
+        $out.Add('')
+    }
 
+    # The last section used to end the document without a trailing blank line; trimming the blanks the
+    # blocks above leave behind keeps that shape whichever section happens to come last.
+    while ($out.Count -gt 0 -and $out[$out.Count - 1] -eq '') { $out.RemoveAt($out.Count - 1) }
     return (($out -join "`n") + "`n")
+}
+
+function Resolve-ReleaseNoteSections {
+    <#
+        Validates a Get-ReleaseNoteSections answer and returns it in document order (inbound #2564).
+
+        THE THREE NAMES ARE THE WORDING KEYS WITHOUT THEIR 'Section' PREFIX -- Audience, Value, Open -- so a
+        consumer who already renames a heading through Get-ReleaseNoteWording reads the same word here.
+        Matched case-insensitively and returned in the canonical spelling and order: the document's order
+        is fixed, and an answer that listed them backwards must not be read as a request to reorder.
+
+        REFUSED RATHER THAN IGNORED: an unknown name, and an answer that names nothing. A misspelt name
+        silently dropped would remove a section the repo meant to keep, and nobody would see it until a
+        published document was missing it. An empty answer is refused because a draft with no section is
+        a header and nothing else -- the repo that wants no hand-written document at all already has that
+        answer, an empty Get-ReleaseConsumerBumps, and this is the wrong place to give it.
+
+        $null (the seam is not defined) means all three: absent is UNCHANGED, as for every seam here.
+    #>
+    param($Answer)
+    $all = @('Audience', 'Value', 'Open')
+    if ($null -eq $Answer) { return $all }
+    $given = @($Answer | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+    if ($given.Count -eq 0) {
+        throw "Get-ReleaseNoteSections names no section. Name at least one of: $($all -join ', ') -- or, for no hand-written document at all, answer Get-ReleaseConsumerBumps with @()."
+    }
+    $unknown = @($given | Where-Object { $all -notcontains $_ })
+    if ($unknown.Count -gt 0) {
+        throw "Get-ReleaseNoteSections names an unknown section: $($unknown -join ', '). The sections are: $($all -join ', ')."
+    }
+    return @($all | Where-Object { $given -contains $_ })
 }
 
 function Build-GitHubReleaseBody {

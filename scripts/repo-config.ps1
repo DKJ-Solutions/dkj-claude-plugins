@@ -1016,6 +1016,15 @@ function Get-ReleaseNoteWording {
     return $script:ReleaseNoteWording
 }
 
+# WHICH OF THAT NOTE'S THREE SECTIONS THIS REPO'S READERS GET (inbound #2564). The wording map above can
+# rename a section but never omit one; this is the seam that omits. Names are the wording keys without
+# 'Section': Audience (what changed), Value (what it is worth), Open (what was still open). All three
+# here, which is also what an absent function means -- this repo's note is written for two readers.
+function Get-ReleaseNoteSections {
+    <# The sections the hand-written release note carries, in any order: Audience, Value, Open. #>
+    return @('Audience', 'Value', 'Open')
+}
+
 # --- The hosted page built from those notes (Dave, August 15, 2026) -------------------------------
 #
 # build-release-notes-page.ps1 turns the hand-written notes into one browsable page and, with

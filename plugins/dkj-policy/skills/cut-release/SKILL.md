@@ -52,7 +52,10 @@ for itself is whether Block 2 runs before or after Block 1; the checklist does n
 
 **0a. Note the time before you start, and note it again when the last asset has landed.** One line, no
 tooling — but it has to be *before*, because a baseline cannot be captured afterwards. Put the end-to-end
-duration in the release document's organisational section, beside whatever else that release cost.
+duration in the release document's organisational section (*What it is worth*), beside whatever else that
+release cost — **where the repo's `Get-ReleaseNoteSections` keeps that section**. Where it has switched it
+off, the document has nowhere for the figure, and the answer is the one a patch already has: the closing
+report.
 
 **THE END POINT IS THE LAST ASSET, NOT THE PUBLISH** (inbound #988, August 27, 2026). This step used to
 say *"note it again when the Release is published"*, and step 5 publishes the Release and *then* uploads
@@ -330,10 +333,18 @@ a release for a missing timestamp would be ceremony rather than a guard.
    | *What it is worth* | the organisation | **empty** — it cannot be generated. Think in time, risk and reduced dependence on a developer. |
    | *What was still open at this release* | the organisation | **empty**. Past tense on purpose: a published document does not move with reality, so a present-tense line goes stale in hours rather than months. |
 
+   **Which of the three the draft carries is the repo's answer, not a fixed three** (inbound #2564).
+   `Get-ReleaseNoteSections` names them — `Audience`, `Value`, `Open` — and a section left out is left out
+   whole, heading and hint; absent, it means all three. So work through the rows **the draft actually
+   has**, and do not add back a section the repo has switched off. An unknown name, or an answer naming
+   none, stops the cut before anything is written.
+
    **A patch writes no document at all**, and the release is announced by the generated body alone. **A
    minor or major always writes one**, even where nothing reached the audience tier — then it carries the
    organisation's two sections and no audience section, because a named question with nothing under it is
-   worse than no question.
+   worse than no question. In a repo that answers `@('Audience')` such a minor drafts the header alone:
+   that is the honest draft of a release with nothing for this reader, and whether to publish it is the
+   release manager's call.
 
    **The first row follows `Get-ReleaseAudienceTier`, not a fixed 2** (inbound #747). A repo asks its entries
    about tier 0 and its own audience tier only, so in a tier-1 repo the tier-2 group is always empty — which
