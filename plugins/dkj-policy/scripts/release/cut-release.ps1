@@ -399,7 +399,8 @@ if ($null -eq $audienceTier) { $audienceTier = 2 }
 try {
     $noteSections = Resolve-ReleaseNoteSections -Answer (Get-SeamValue -Name 'Get-ReleaseNoteSections' -Default $null)
 } catch {
-    Write-Error "$($_.Exception.Message) Nothing was written."
+    # Guarded: the seam is consumer code, so the message it throws is foreign text (check-report-lib).
+    Write-Error "$(Format-SafeProseToken -Value $_.Exception.Message) Nothing was written."
     exit 1
 }
 
