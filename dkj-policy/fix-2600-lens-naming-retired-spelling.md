@@ -39,19 +39,47 @@
 
 ### PLAN
 
+#2600: a consumer still holding `<g>-<id>-extension.md` (with no current-spelling lens) had that file
+admitted as "unknown vocabulary" by `Get-UnknownLensNameById`, so the missing-lens finding was held
+under `[LENS-NAMING]` -- which says *nothing in the repo needs changing, refresh the plugins*. For the
+retired spelling the opposite holds.
+
+**Reason verified against the tree, not only the symptom:** the Lens row's `AlsoRead` is `@()` (#2292,
+`check-report-lib.ps1`), so `Get-SpecialistFileId -Kind Lens` rejects the retired name; no other kind
+claims it (guard (a)); `06-24-extension` matches guard (b)'s `^[a-z-]*<id>[a-z-]*$`. The new test run
+against `origin/main`'s script confirms it: the marker fires and the exit is 0.
+
+Repair, the issue's second option: a failure of its own naming the `git mv`. The issue's first option
+(let the generic "no repo-lens" fire) would prescribe creating a file beside the one holding the content.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-RetiredLensPath` in `scripts/sync/check-roster-sync.ps1` -- an exact-name probe over the lens
+  dir candidates; the missing-lens arm asks it FIRST and prints the rename. No filter was added inside
+  `Get-UnknownLensNameById`: with the arm first it could never fire, and the docstring says why.
+- [x] Header docstring lists the new finding; plugin mirror in `dkj-subagents-alpha` copied byte-identical.
+- [x] Test 11w in `scripts/tests/roster-sync.tests.ps1`: a mixed tree (one current lens, one retired).
 
 ### TEST
 
+- [x] `roster-sync.tests.ps1`: 421 pass, 0 fail. Against `origin/main`'s script: 5 of 11w's asserts fail,
+  so the test reproduces the defect.
+
 ### DEPLOY: fix/2600-lens-naming-retired-spelling
 
-**Score:**
+`check-roster-sync` no longer tells a repo whose lens is still named `<g>-<id>-extension.md` that
+nothing needs changing. That spelling has been unread since #2292, so the check now reports the
+specialist as running without its lens, and prints the `git mv` to the current name (#2600).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+If your repo still has a lens file named like `06-24-extension.md`, the session-start check now shows
+it as an error with the exact rename to run, instead of a yellow line asking you to update the plugins.
+Updating the plugins never fixed that file. Renaming it is what gives that specialist its repo lens back.
+
+**Score:** 2
 
 #### Pull Request
 
