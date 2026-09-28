@@ -207,7 +207,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 git checkout main
 ```
 
-Back to step 1.
+Back to step 1, in the same turn.
+
+### When the sweep ends, and the one close-out it owes
+
+**The loop stops when step 1 has nothing left for this session**: every issue `-Candidates` prints as
+`free` has been shipped, parked, given back, or judged and held out (with `-SkipIssue` and a reason).
+Nothing earlier ends it, and one shipped issue in particular does not.
+
+**The close-out `ship-pr` prints is one issue's receipt, not the sweep's**
+([#2562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2562)). Its last lines read
+*"Close-out: a receipt ... Session can be cleared"*, and in a sweep that is only the end of step 5. Read
+it as the cue for step 7, not as the end of the assignment. Measured September 28, 2026: a sweep shipped
+one issue, took that template as its own close-out, and left four `free` issues untouched.
+
+**The sweep closes out once, after the loop**, in the ordinary receipt shape: the PR number of each issue
+it shipped, the branch of each it parked, and the number of each it held out, with a clause for why.
 
 ## Giving an issue back
 
