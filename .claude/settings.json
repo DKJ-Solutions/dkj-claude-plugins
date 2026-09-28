@@ -19,6 +19,7 @@
       "Bash(git push:*)",
       "Bash(git rm:*)",
       "Bash(git tag:*)",
+      "Bash(git stash:*)",
       "PowerShell(git status:*)",
       "PowerShell(git diff:*)",
       "PowerShell(git log:*)",
@@ -37,6 +38,7 @@
       "PowerShell(git push:*)",
       "PowerShell(git rm:*)",
       "PowerShell(git tag:*)",
+      "PowerShell(git stash:*)",
 
       "Bash(gh pr:*)",
       "Bash(gh issue:*)",
@@ -49,8 +51,8 @@
       "PowerShell(gh run:*)",
       "PowerShell(gh label:*)",
       "PowerShell(gh workflow:*)",
-      "PowerShell(gh repo view:*)",      
-      
+      "PowerShell(gh repo view:*)",
+
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File scripts/:*)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"scripts/:*)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"scripts/release/cut-release.ps1\"*)",
