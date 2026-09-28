@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Inbound #2560, verified on pickup: `Get-PluginUpdateScope` answers `Source = 'default'` with an empty
+Note when nothing names this checkout, and step 2 then ran `update --scope project` regardless. The
+reporter measured the CLI moving another checkout's project record on that call. The repair is the
+reporter's first option, `install --scope project`, which `plugin-versions.ps1` already prescribes
+for the same state.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `update-plugins.ps1`: a per-target `Verb`, `install` for `default` with no Note, `update`
+      otherwise; exec, `-DryRun` and the summary all read it. Plugin mirror synced.
+- [x] `update-plugins` SKILL.md: a paragraph in the scope section.
 
 ### TEST
 
+- [x] `update-plugins.tests.ps1`: scenarios 1-7 now carry a record for this checkout (they had none,
+      which is the #2560 state); new 14 (no record here, another checkout holds one) and 15 (dry run).
+      82 pass, 0 fail standalone.
+
 ### DEPLOY: fix/2560-update-plugins-install-when-no-record
 
-**Score:**
+Inside this repo: `update-plugins.ps1` step 2 no longer hands `claude plugin update --scope project`
+to a plugin with no install record for this checkout. It runs `claude plugin install <id> --scope
+project` instead, which is the command `plugin-versions.ps1` already prescribes for that state, and the
+summary counts it as installed. The test suite's older scenarios gained a record for this checkout,
+since they were written against the state this fixes.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+For whoever runs `update-plugins` in a checkout where the plugins are enabled but were never installed
+there: the run used to move **another checkout's** install record and then report success. It now
+installs into the checkout it was run from, so the receipt at the end agrees with the summary above it.
+
+**Score:** 3
 
 #### Pull Request
 
