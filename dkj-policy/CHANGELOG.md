@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**16 / 21 minor entries** <!-- pending-tally -->
+**16 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2592-djcylow-connector-org · 20260928-183820Z
+
+The djcylow-react connector record now names its current owner, `DKJ-Solutions/djcylow-react`. The
+record still named the pre-transfer `DaveKJohn` slug, so on any machine with that checkout
+`check-connectors` skipped the whole block with an `[ERROR]` that nobody could clear (#2592).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+The djcylow-react connector record names the repo's new owner
+
+[PR #2606](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2606)
+
+---
 
 ### DEPLOY: feat/2591-lens-retired-spelling-finding · 20260928-181727Z
 
