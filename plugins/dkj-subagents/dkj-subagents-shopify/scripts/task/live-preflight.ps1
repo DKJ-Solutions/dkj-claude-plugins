@@ -129,6 +129,10 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # could not read. A short push list is invisible until a customer sees the half-updated page.
 . (Join-Path $PSScriptRoot '..\lib\live-push-rules.ps1')
 
+# THE LIVE-PUSH RECORD'S FORMAT (#2570/#2586): one definition, read back by cut-release. Unguarded like the
+# rules above: a preflight that could not write the record would let the cut claim everything is live.
+. (Join-Path $PSScriptRoot '..\lib\live-record-lib.ps1')
+
 # The CLI wrapper, for the two theme-list reads below. Unguarded for the reason above.
 . (Join-Path $PSScriptRoot '..\lib\shopify-cli-lib.ps1')
 
@@ -375,6 +379,8 @@ Write-Host ''
 Write-Host '[3/9] push list -- derived from the range, never typed' -ForegroundColor Cyan
 
 $pushFiles = @()
+# Kept at script scope: the live-push record written after the verdict is these rows (#2570/#2586).
+$rows = @()
 $sinceTag = ([string]$SinceTag).Trim()
 if (-not $sinceTag) {
     # Get-HighestReleaseTag AND NOT 'git tag --sort=-v:refname | head -1'. The sort exists and works;
@@ -719,5 +725,27 @@ if ($pushCommand) {
     Write-Host 'That command is REFUSED as it stands, and that is deliberate: this plugin''s live guard' -ForegroundColor Yellow
     Write-Host 'requires the authorisation marker your repo states in its own safety rules, appended to' -ForegroundColor Yellow
     Write-Host 'this exact command as a shell comment. Adding it is a human act and no script does it.' -ForegroundColor Yellow
+
+    # THE LIVE-PUSH RECORD (#2570/#2586), written only once the push is allowed, because it describes a
+    # push somebody is about to make. It goes to the temp directory rather than the tree: the cut refuses
+    # a dirty trunk, and a record committed into the release would describe a push that happened after it.
+    # A failed write warns rather than refuses. The push itself is still right; only the cut's two
+    # documents lose their input, and the cut says so when it is run without one.
+    $headCap = Invoke-Git -Arguments @('rev-parse', '--short', 'HEAD')
+    $head = if ((Test-NativeExitMeasured -Capture $headCap) -and $headCap.ExitCode -eq 0) { (@(Get-GitLines $headCap) | Select-Object -First 1) } else { 'HEAD' }
+    # A GUID in the name, as every temp path a shipping script composes carries one: two checkouts with the
+    # same folder name at the same commit would otherwise write one record over the other's edits.
+    $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) ("live-push-record-{0}-{1}-{2}.txt" -f (Split-Path -Leaf $repoRoot), $head, [guid]::NewGuid().ToString('N').Substring(0, 8))
+    try {
+        [System.IO.File]::WriteAllText($recordPath, (Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head"), (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host ''
+        Write-Host 'The live-push record, for the cut:' -ForegroundColor Cyan
+        Write-Host "  $recordPath"
+        Write-Host '  If you hold a file back from the push above, change its "live" to "hold" in that file.' -ForegroundColor Yellow
+        Write-Host '  Then pass it to the cut, so the GitHub body and the audience note list only what is live:'
+        Write-Host "    cut-release.ps1 ... -LivePushRecord `"$recordPath`""
+    } catch {
+        Write-Warning "the live-push record could not be written to $recordPath ($($_.Exception.GetType().Name)). The cut can still run, but without it every merged entry reads as live."
+    }
 }
 exit 0

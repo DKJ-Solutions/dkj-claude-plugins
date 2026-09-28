@@ -358,6 +358,17 @@ for every bump `Get-ReleaseConsumerBumps` names. Three sections, in this order:
 hint. The wording map (`Get-ReleaseNoteWording`) renames a section, and this seam is the one that omits it.
 A repo whose readers only ask what changed answers `@('Audience')`. Absent, it means all three.
 
+**The audience section can be drafted as SOLVED TASKS instead of ranked entries** (#2586), where the repo
+answers `Get-ReleaseNoteTaskLink` — a hashtable naming the marker and URL of its own task tracker, e.g.
+`@{ Marker = 'asana-task'; Url = 'https://app.asana.com/0/0/{0}'; Label = 'Asana task' }`. Answered, the
+section becomes one `### <issue title>` plus a link to the task, labelled with `Label`, per issue an audience entry closed
+that carries `<!-- <marker>: <id> -->` in its body — no entry prose, no PR link, because the reader of a
+task-form note asks which of *their* tasks are solved, not what a diff reviewer would want to know. With a
+live-push record (below) an entry qualifies only where three things hold together: it closed an issue
+carrying the marker, it changed a path the record names (a storefront change), and none of those paths is
+held back from the push. Without a record the marker is the whole test. The mechanics are in the
+[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586).
+
 **The first section is drawn from YOUR audience tier, not from tier 2** — so a tier-1 repo's entries fill it
 exactly as a tier-2 repo's do. A repo asks its entries about tier 0 and its own audience tier only, so that
 tier's entries are the only non-zero ones it has, and reading a fixed 2 discarded all of them.
@@ -558,6 +569,16 @@ where the bump generated one** — one call per document, each verifying the pub
 `<X.Y.Z>.md`, so uploading two of them straight from `releases/` collides — the second upload returns
 `HTTP 404`. `gh`'s `file#label` syntax does not solve it (it sets the label, not the name). Copy them to
 `vX.Y.Z-development-notes.md` and `vX.Y.Z-notes-for-users.md` and upload the copies.
+
+**In a repo with a live stage, the body can carry a second section: `## Not live yet`** (#2570). Passed a
+live-push record (`-LivePushRecord`, the file `live-preflight` writes after an allowed verdict — one
+`live <path>` / `hold <path>` line per theme file in the release range), the cut reads each entry's changed
+paths off its `merge: <branch> (#NN)` commit. An entry that touched a held path moves out of *What landed*
+into `## Not live yet`, naming the held files — the body stays the complete list of what merged, split
+across the two sections — so the page answers both "what merged" and "what a visitor can actually see"
+without a caveat on either line. `-NoLivePushRecord` states there was no push to record; without either,
+a repo with a live stage gets a warning and every entry reads as landed. The mechanics are in the
+[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586).
 
 **It comes last on the checklist, and the reason has outlived one rewrite already.** The body used to be a
 hand-written document merged via its own branch + PR, so publishing straight after the tag would have had no

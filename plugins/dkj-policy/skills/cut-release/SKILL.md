@@ -223,7 +223,7 @@ a release for a missing timestamp would be ceremony rather than a guard.
    Cutting a release through it would run the previous release's cut.
 
    Give it **either** `-Bump` **or** `-Version <X.Y.Z>` when you want to name the number yourself.
-   `-SummaryFile` turns it into a milestone (see below). Five escape valves:
+   `-SummaryFile` turns it into a milestone (see below). Seven flags, most of them escape valves:
 
    - **`-NoPush` — inspect before publishing, and use it when anything is unusual.** The script otherwise
      commits, tags **and pushes** in one motion. With `-NoPush` it stops after the commit and tag and
@@ -332,6 +332,18 @@ a release for a missing timestamp would be ceremony rather than a guard.
    | the audience section — *What changed*, at either tier | whoever this repo publishes to | **pre-filled** — the entries at this repo's own audience tier, still in the words their authors wrote for a diff reviewer. Rewrite them against the seven tests below. Absent where no entry reached that tier. |
    | *What it is worth* | the organisation | **empty** — it cannot be generated. Think in time, risk and reduced dependence on a developer. |
    | *What was still open at this release* | the organisation | **empty**. Past tense on purpose: a published document does not move with reality, so a present-tense line goes stale in hours rather than months. |
+
+   **The audience section can be drafted as SOLVED TASKS instead of ranked entries** (#2586), where the
+   repo answers `Get-ReleaseNoteTaskLink` in `scripts/repo-config.ps1` — a hashtable naming the marker and
+   URL of its own task tracker, e.g.
+   `@{ Marker = 'asana-task'; Url = 'https://app.asana.com/0/0/{0}'; Label = 'Asana task' }`. Answered, the
+   section becomes one `### <issue title>` plus a link to the task, labelled with `Label`, per issue an
+   audience entry closed that carries `<!-- <marker>: <id> -->` — no entry prose, no PR
+   link, because the reader of a task-form note asks which of *their* tasks are solved, not what a diff
+   reviewer would want to know. An entry qualifies only where three things hold together: it closed an issue
+   carrying the marker, it changed a path the live-push record names (a storefront change), and none of
+   those paths is held. Everything left out of a task-form or entries-form section is named, and why, in
+   a `<!-- LEFT OUT ... -->` comment — see the live-push record below.
 
    **Which of the three the draft carries is the repo's answer, not a fixed three** (inbound #2564).
    `Get-ReleaseNoteSections` names them — `Audience`, `Value`, `Open` — and a section left out is left out
@@ -573,6 +585,12 @@ a release for a missing timestamp would be ceremony rather than a guard.
    `--notes-file` by path and never uploaded, so it cannot be the second asset that 404s. What it does add is
    one more `<X.Y.Z>.md` in the tree: reach for these files by their full path, never by basename.
 
+   **With a live-push record, the body carries a second section: `## Not live yet`** (#2570). An entry whose
+   merge commit touched a path the record holds back moves out of *What landed* into its own section,
+   naming the held files — the body stays the complete list of what merged, split across the two — so the page
+   answers both "what merged" and "what a visitor can actually see" without a caveat on either line. Without
+   a record every entry reads as live, exactly as before this existed.
+
    **The body is GENERATED and every hand-written document is an attachment** (Dave, August 10, 2026).
    `cut-release.ps1` has written `releases/github/<dir>/<X.Y.Z>.md`: the release title, a
    pointer at the attached notes where one is expected, and one linked line per change that landed —
@@ -701,6 +719,34 @@ paragraph (inbound #1388) if the two ever read as disagreeing again.
 already documented push-then-cut for exactly this case — *"only when the user decides to push; the
 release is then cut by the release manager"* — so the two pages shipped from one repo contradicting each
 other, and #1378 found it from the outside.
+
+#### The live-push record — what a push-then-cut repo hands to the cut (#2570, #2586)
+
+**One input decides both of the cut's documents, because built separately they can disagree.** Measured at
+a BWJ store's v1.3.0: PR #295's only theme file was deliberately held back from the push, and the GitHub
+body still listed it under *What landed*; the same release's audience note listed a solved task (#282) as
+done while 21 files were still on live. `live-preflight` writes the fix, after an allowed verdict, as a
+record file in the temp directory — one `live <path>` / `hold <path>` line per theme file in the release
+range — and prints its path. Held a file back from the push after the preflight ran? Change its `live` to
+`hold` in that file, then hand it to the cut:
+
+```powershell
+-LivePushRecord "<path live-preflight printed>"
+```
+
+**`cut-release.ps1 -LivePushRecord <file>`** reads each entry's changed paths off its own `merge: <branch>
+(#NN)` commit and checks them against the record. An entry that touched a `hold` path is not live: the
+GitHub body moves it from *What landed* into `## Not live yet`, naming the held files, and the audience
+note leaves it out, naming it in a `<!-- LEFT OUT ... -->` comment. An entry whose merge commit cannot be
+found is named on the console and stays under *What landed*. The entries-form audience note keeps it too,
+flagged in the LEFT OUT comment. The task form leaves it out, because it may list only what the record
+shows to be live. A malformed record stops the cut before anything is written.
+
+**`-NoLivePushRecord` states that there was no push to record, rather than skipping the check.** A repo
+with a live stage and no `-LivePushRecord` gets a warning, and the GitHub body reads every merged entry as
+landed. A repo that also drafts its audience note as solved tasks (`Get-ReleaseNoteTaskLink`, step 2 above)
+is **refused** without one of the two: that form's whole claim is "this is what shipped", and nothing can
+say what shipped without either the record or the explicit statement that this cut has nothing to record.
 
 ### Block 3 — publishing the marketplace to the business organisation (only where this repo is a marketplace source)
 

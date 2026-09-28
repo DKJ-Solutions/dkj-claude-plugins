@@ -1329,6 +1329,26 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # THE LIVE-PUSH RECORD (#2570, #2586, September 28, 2026): its format, its parser, and the
+            # "is this entry live" rule. Its WRITER is live-preflight (dkj-subagents-shopify) and its READER
+            # is cut-release (dkj-policy), and the two documents the reader builds from it -- the GitHub
+            # body and the audience note -- contradicted each other at a BWJ store's v1.3.0 because each had
+            # decided "live" on its own. So the format is one file, mirrored into both plugins and held
+            # byte-identical by check 8, rather than a writer and a parser that could disagree. Pure, and
+            # dependency-free: nothing in it is repo-owned, so no contract row follows.
+            Name    = 'live-record-lib'
+            Source  = 'scripts\lib\live-record-lib.ps1'
+            Plugin = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
+            # The same file, for its writer. See the entry one up.
+            Name    = 'live-record-lib-shopify'
+            Source  = 'scripts\lib\live-record-lib.ps1'
+            Plugin = 'dkj-subagents-shopify'
+            LibOnly = $true
+        },
+        @{
             # Issue #1069, August 29, 2026. Mirrored because BOTH its callers are: ship-pr.ps1 asks it
             # whether another worktree holds the trunk (before the merge, and again when handing the trunk
             # back afterwards), and prune-merged.ps1 asks it which worktree to name when its fast-forward
