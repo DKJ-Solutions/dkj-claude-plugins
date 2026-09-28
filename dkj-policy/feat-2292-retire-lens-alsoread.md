@@ -52,20 +52,35 @@ and one register record was stale (#2592). The other three kinds are out of scop
   the file byte-identical into its three plugin mirrors.
 - [x] Record the retirement in `connectors/README.md` and in check 7's docstring in
   `scripts/sync/check-connectors.ps1`. What becomes of that check is filed as #2591.
-- [ ] Update the test fixtures that still wrote lenses as `<g>-<id>-extension.md`, and invert the
-  assertions that pinned the old spelling as tolerated.
+- [x] Update the test fixtures that still wrote lenses as `<g>-<id>-extension.md`, and invert the
+  assertions that pinned the old spelling as tolerated. Six suites changed. Most failures came from one
+  shared fixture helper per suite that wrote every generic lens under the old name; those were
+  respelled. The Lens dual-read asserts, including `connectors.tests.ps1` 14b/14e/14f, now pin the
+  post-retirement behaviour and cite #2292.
 
 ### TEST
 
-- [ ] The affected suites are green, and the full gate passes through `open-pr`.
+- [x] The affected suites are green: check-report-lib, connectors, consumer-lens-paths,
+  policy-drift-report, roster-sync and sync-roster, plus eight neighbouring suites that were already
+  green. The full gate runs through `open-pr`.
 
 ### DEPLOY: feat/2292-retire-lens-alsoread
 
-**Score:**
+The lens file of a specialist has one name now: `specialist-<g>-<id>-lens.md`. The old
+`<g>-<id>-extension.md` spelling that readers had tolerated since the #2130 rename is retired, which
+closes [#2292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2292). Every registered
+consumer had already migrated when this was measured on September 28, 2026. The manual, persona and
+subagent spellings are untouched.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer that still keeps a lens under `<g>-<id>-extension.md` will find that no check or scaffold
+reads it any more, and has to `git mv` it to `specialist-<g>-<id>-lens.md`. All six registered consumers
+were already over, so this reaches nobody we know of.
+
+**Score:** 1
 
 #### Pull Request
 
