@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**10 / 11 minor entries** <!-- pending-tally -->
+**10 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2572-roster-sync-child-stderr · 20260928-120317Z
+
+`roster-sync.tests.ps1` now keeps its child's stderr, and when 11ua's or 11ub's finding is missing it
+prints that stderr with the exit code. A failure under a loaded gate then shows whether the check threw
+or its line was lost. That is the evidence #2572 lacked. This is a diagnostic, not a fix, so the issue
+stays open. (#2572)
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+roster-sync.tests: keep the child's stderr, and show it when 11ua/11ub's finding is missing
+
+[PR #2584](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2584)
+
+---
 
 ### DEPLOY: fix/2581-untrack-wrangler-cache · 20260928-112224Z
 
