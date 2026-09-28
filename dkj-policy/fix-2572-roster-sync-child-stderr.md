@@ -39,19 +39,33 @@
 
 ### PLAN
 
+The diagnostic #2572's pickup comment names, and nothing more. There is one instance, and two reasons fit
+it: a line lost from stdout, or a child that threw on stderr before it printed the finding. So this adds
+no repair, only the evidence that would tell the two apart on the next recurrence. The issue stays open.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Invoke-Ps` captures stderr on a separate `Err` property, under `Continue` as `Invoke-Hook` already does; `Out` stays stdout only
+- [x] `Write-ChildStderr` prints the child's exit and stderr when 11ua's or 11ub's finding pattern is absent
 
 ### TEST
 
+- [x] `roster-sync.tests.ps1` standalone: 414 pass, 0 fail
+
 ### DEPLOY: fix/2572-roster-sync-child-stderr
 
-**Score:**
+`roster-sync.tests.ps1` now keeps its child's stderr, and when 11ua's or 11ub's finding is missing it
+prints that stderr with the exit code. A failure under a loaded gate then shows whether the check threw
+or its line was lost. That is the evidence #2572 lacked. This is a diagnostic, not a fix, so the issue
+stays open. (#2572)
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
