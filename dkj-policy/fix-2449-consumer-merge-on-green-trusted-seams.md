@@ -107,3 +107,5 @@ your `FOLD_PUSH_TOKEN`.
 **Score:** 3
 
 #### Pull Request
+
+The consumer merge-on-green runner runs from three sibling checkouts, none holding a credential
