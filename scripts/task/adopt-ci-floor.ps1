@@ -89,8 +89,11 @@
     required check with the merge-when-green label and says a sweep will finish the merge; this is that
     sweep, derived from the source repo's own runner (#2319). It reaches the plugin's
     pick-merge-on-green.ps1 and ship-pr.ps1 through the same checkout of the plugin tree, and runs both
-    against THIS tree via CLAUDE_PROJECT_DIR. Its FOLD_PUSH_TOKEN needs Pull requests: write as well,
-    and the run says so when it places the file.
+    against THIS tree via CLAUDE_PROJECT_DIR -- from three sibling checkouts (#2449): the plugin tree, a
+    token-free trunk the two repo-owned seams and the fold come from, and a token-free checkout of the
+    picked branch. An existing runner of the older single-workspace shape is reported on a re-run, since
+    this command never rewrites it. Its FOLD_PUSH_TOKEN needs Pull requests: write as well, and the run
+    says so when it places the file.
 
     AND ONE PREREQUISITE BELONGS TO THE QUEUE ALONE (#1325): every workflow carrying a REQUIRED check
     context must trigger on `merge_group`. A required workflow without it never runs for a queue entry,
@@ -1076,9 +1079,23 @@ $mergeOnGreenRunner = @(
     '# verifies the resolves exactly as that session would. Both are reached through a checkout of the',
     '# plugin''s tree rather than copied here.',
     '#',
-    '# THE SHIP RUNS IN THIS REPO''S TREE, NOT IN THE CHECKED-OUT PLUGIN TREE. CLAUDE_PROJECT_DIR points',
-    '# both scripts at the workspace root, so they read THIS repo''s scripts/repo-config.ps1, its branch',
-    '# document and its trunk -- the plugin checkout is only where the code comes from.',
+    '# THREE SIBLING CHECKOUTS, NONE NESTED IN ANOTHER, NONE SWITCHED IN PLACE (issue #2449). The pinned',
+    '# plugin tree (.workflow-scripts) is where the CODE comes from. trusted-main, this repo''s trunk, is',
+    '# where its two repo-owned seams (scripts/repo-config.ps1, scripts/lib/branch-info.ps1) are read from',
+    '# and where the fold is committed. pr-branch, the picked pull request''s head, is the tree the ship',
+    '# acts on. An earlier shape of this file checked the trunk out ONCE with FOLD_PUSH_TOKEN persisted,',
+    '# nested the plugin tree inside it and then ran git checkout of the branch in that same workspace --',
+    '# so the branch''s own seams ran beside the token, and a branch committing a file under the plugin',
+    '# path overwrote the trusted copy (#2553). A runner of that shape is reported when adopt-ci-floor is',
+    '# re-run; re-scaffold it by deleting this file and running adopt-ci-floor again.',
+    '#',
+    '# NO CHECKOUT PERSISTS A CREDENTIAL. The Ship it step builds ONE ephemeral git credential from',
+    '# FOLD_PUSH_TOKEN, in its own process environment only, and it reaches both trees because both need',
+    '# to push: pr-branch for open-pr''s branch push, trusted-main for the fold. It is never written to',
+    '# either tree''s .git/config, and it dies with the step. Nothing the step does with it runs code out of',
+    '# pr-branch''s working tree -- the deepen commands only move refs and history -- so the branch reaches',
+    '# the credential as DATA (its branch document, its PR body), never as code (the same trade the source',
+    '# repo''s own runner took on #2437).',
     '#',
     '# THREE TRIGGERS FOR ONE SWEEP, AND THE SWEEP IGNORES WHICH OF THEM WOKE IT. workflow_run gives',
     '# immediacy; the schedule is what makes it durable (whether a partial re-run re-emits workflow_run is',
@@ -1135,14 +1152,17 @@ $mergeOnGreenRunner = @(
     '    # this repo''s own CI duration; the cap is a wedge detector, against GitHub''s six-hour default.',
     '    timeout-minutes: 45',
     '    steps:',
-    '      # The trunk, not the event''s head: the sweep asks the tracker which pull request is owed a merge,',
-    '      # and on a scheduled run there is no head at all. Shallow here, deepened only when there is',
-    '      # something to ship. FOLD_PUSH_TOKEN is persisted into the workspace git config, which is what',
-    '      # lets ship-pr''s own fold commit push past the trunk ruleset -- the fold runner''s reasoning.',
-    ('      - uses: ' + $checkoutPin),
+    '      # THE TRUSTED TRUNK, AND THE TREE THE FOLD IS COMMITTED IN: this repo''s own trunk, with no token:',
+    '      # input and nothing persisted (see this file''s header). The picker reads this repo''s identity from',
+    '      # it, and ship-pr reads its two repo-owned seams from it (-TrustedRoot), so a pull request editing',
+    '      # either seam never has its own copy executed here. The job token''s contents: read is enough to',
+    '      # clone it, private repository or not. Shallow; the fold''s own fetch extends it as far as it needs.',
+    '      - name: Checkout the trusted trunk',
+    ('        uses: ' + $checkoutPin),
     '        with:',
     ('          ref: ' + $trunk),
-    '          token: ${{ secrets.FOLD_PUSH_TOKEN }}',
+    '          path: trusted-main',
+    '          persist-credentials: false',
     ''
     ) + $writeRunnerPinComment + @(
     '      - name: Fetch the shared workflow scripts',
@@ -1155,69 +1175,90 @@ $mergeOnGreenRunner = @(
     '',
     '      # The picker reads with the job-scoped token, not the PAT: it only lists pull requests and',
     '      # their checks, and the standing credential stays out of every step that does not need it.',
+    '      # CLAUDE_PROJECT_DIR NAMES trusted-main AND NOTHING ELSE WILL DO: the workspace root holds no',
+    '      # checkout at all, and the plugin tree carries the SOURCE repo''s scripts/repo-config.ps1, so',
+    '      # pointed there the sweep would answer with another repository''s configuration.',
     '      - name: Is any armed pull request owed a merge?',
     '        id: pick',
     '        shell: powershell',
     '        env:',
     '          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}',
     '          GH_REPO: ${{ github.repository }}',
-    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}',
+    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}/trusted-main',
     '        run: |',
     ('          powershell -NoProfile -ExecutionPolicy Bypass -File ' + $pluginDir + '/ci/pick-merge-on-green.ps1'),
     '          exit $LASTEXITCODE',
     '',
+    '      # THE PICKED HEAD, IN ITS OWN TREE, with no token and nothing persisted. ref: is the picker''s',
+    '      # output, passed to the action as an input rather than spliced into a shell line, and the picker',
+    '      # has already refused any branch name outside a plain charset.',
+    '      - name: Checkout the picked pull request''s branch',
+    '        if: ${{ steps.pick.outputs.picked == ''true'' }}',
+    ('        uses: ' + $checkoutPin),
+    '        with:',
+    '          ref: ${{ steps.pick.outputs.branch }}',
+    '          path: pr-branch',
+    '          persist-credentials: false',
+    '',
     '      # THE BRANCH ARRIVES THROUGH env:, NOT THROUGH ${{ }} INSIDE run:. A head ref is chosen by',
     '      # whoever opened the pull request; the picker has already refused any name outside a plain',
     '      # charset, and this is the second half of that same guard.',
+    '      #',
+    '      # CLAUDE_PROJECT_DIR IS pr-branch, SO THE MERGE, THE STEP-LIST GATE AND THE DEPLOY LOCK ACT ON THE',
+    '      # BRANCH''S OWN COMMIT exactly as a live session would; -TrustedRoot is what keeps its seams and',
+    '      # its fold on trusted-main.',
     '      - name: Ship it',
     '        if: ${{ steps.pick.outputs.picked == ''true'' }}',
     '        shell: powershell',
     '        env:',
     '          GH_TOKEN: ${{ secrets.FOLD_PUSH_TOKEN }}',
     '          GH_REPO: ${{ github.repository }}',
-    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}',
+    '          CLAUDE_PROJECT_DIR: ${{ github.workspace }}/pr-branch',
     '          SHIP_BRANCH: ${{ steps.pick.outputs.branch }}',
     '          SHIP_PR: ${{ steps.pick.outputs.pr }}',
     '          SHIP_SHA: ${{ steps.pick.outputs.sha }}',
     '        run: |',
-    '          git config user.name "github-actions[bot]"',
-    '          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"',
+    '          # Commit metadata only, in BOTH trees: trusted-main commits the fold, and open-pr commits a',
+    '          # dirty branch document in pr-branch. The two checkouts share no .git/config, and a hosted',
+    '          # runner has no global identity.',
+    '          foreach ($tree in @(''trusted-main'', ''pr-branch'')) {',
+    '            git -C $tree config user.name "github-actions[bot]"',
+    '            git -C $tree config user.email "41898282+github-actions[bot]@users.noreply.github.com"',
+    '          }',
     '',
-    '          # THE PLUGIN CHECKOUT SITS INSIDE THIS WORKSPACE, AND ship-pr READS THE TREE AS DIRTY BECAUSE',
-    '          # OF IT. Excluded locally, so the fold runs in place on the trunk as it would in a session',
-    '          # rather than detouring through a temporary worktree. .git/info/exclude is never committed.',
-    ('          Add-Content -LiteralPath .git/info/exclude -Value ''/' + $sharedPath + '/'''),
+    '          # THE EPHEMERAL PUSH CREDENTIAL. git''s GIT_CONFIG_COUNT/KEY_n/VALUE_n overlay reaches every git',
+    '          # process this step starts, ship-pr''s own children included, without writing a .git/config in',
+    '          # either tree. This file''s header says why one credential serves both.',
+    '          $basicAuth = [Convert]::ToBase64String([System.Text.Encoding]::ASCII.GetBytes("x-access-token:$env:GH_TOKEN"))',
+    '          $env:GIT_CONFIG_COUNT = ''1''',
+    '          $env:GIT_CONFIG_KEY_0 = ''http.https://github.com/.extraheader''',
+    '          $env:GIT_CONFIG_VALUE_0 = "AUTHORIZATION: basic $basicAuth"',
     '',
     '          # Widen the refspec before deepening: a checkout with ref: narrows remote.origin.fetch to',
-    '          # the trunk, so an --unshallow alone would not know the branch this job is here to ship.',
-    '          # The full history is what ship-pr''s staleness walk needs to be sound.',
-    '          git remote set-branches origin ''*''',
-    '          git fetch --unshallow --quiet origin',
+    '          # the branch, so an --unshallow alone would not know the trunk ship-pr''s staleness walk reads.',
+    '          # The full history is what that walk needs to be sound.',
+    '          git -C pr-branch remote set-branches origin ''*''',
+    '          git -C pr-branch fetch --unshallow --quiet origin',
     '          if ($LASTEXITCODE -ne 0) {',
-    '            Write-Error "could not deepen this shallow clone -- ship-pr''s staleness walk would be unsound, so nothing was merged."',
+    '            Write-Error "could not deepen the branch checkout -- ship-pr''s staleness walk would be unsound, so nothing was merged."',
     '            exit 1',
     '          }',
     '',
-    '          git checkout --quiet $env:SHIP_BRANCH',
-    '          if ($LASTEXITCODE -ne 0) {',
-    '            Write-Error "could not check out the head branch of PR #$($env:SHIP_PR) -- nothing was merged."',
-    '            exit 1',
-    '          }',
-    '',
-    '          # ship-pr dot-sources THIS checkout''s scripts/repo-config.ps1, so it has to be the commit the',
-    '          # picker judged -- and the picker refused any diff touching the two seam files or the plugin',
-    '          # checkout path (#2338, #2553). A push after the pick stops the job; the next sweep judges it.',
-    '          $head = (git rev-parse HEAD).Trim()',
+    '          # The commit this run acts on has to be the one the picker judged (#2338): the checkout above',
+    '          # resolved the branch NAME a moment after the pick. A push in between stops the job; the next',
+    '          # sweep judges the new head.',
+    '          $head = (git -C pr-branch rev-parse HEAD).Trim()',
     '          if ($head -ne $env:SHIP_SHA) {',
     '            Write-Error "PR #$($env:SHIP_PR)''s head moved after the pick ($($env:SHIP_SHA) -> $head) -- nothing was run or merged."',
     '            exit 1',
     '          }',
     '',
-    '          # -SkipLint -SkipTests, and this job must not omit them: the sweep picked this pull request',
+    '          # -TrustedRoot trusted-main: the seams and the fold come from the trunk (issue #2449). It forces',
+    '          # -SkipLint -SkipTests on its own, and they are passed anyway: the sweep picked this pull request',
     '          # BECAUSE its required check is green on this exact head, and that certificate is what the',
     '          # merge is allowed on. Re-running the local gates here would prove nothing it does not carry.',
-    '          Write-Host "merge-on-green: running ship-pr.ps1 on ''$env:SHIP_BRANCH'' for PR #$env:SHIP_PR"',
-    ('          powershell -NoProfile -ExecutionPolicy Bypass -File ' + $pluginDir + '/release/ship-pr.ps1 -SkipLint -SkipTests'),
+    '          Write-Host "merge-on-green: running ship-pr.ps1 (trusted-tree mode) on ''$env:SHIP_BRANCH'' for PR #$env:SHIP_PR"',
+    ('          powershell -NoProfile -ExecutionPolicy Bypass -File ' + $pluginDir + '/release/ship-pr.ps1 -TrustedRoot (Join-Path $env:GITHUB_WORKSPACE ''trusted-main'') -SkipLint -SkipTests'),
     '          exit $LASTEXITCODE'
 )
 
@@ -1289,6 +1330,39 @@ function Write-WriteRunnerPinVerdict {
         Write-Host "            [pin] it fetches the shared scripts at $(Get-DisplayRef -Ref $tag), behind v$writeRunnerVersion which this run came from." -ForegroundColor Yellow
         Write-Host "            Move that ref: line to $bump." -ForegroundColor Yellow
     }
+}
+
+function Write-MergeOnGreenShapeVerdict {
+    <#
+        One line about the checkout SHAPE of an existing merge-on-green.yml (#2449): the single
+        token-bearing workspace this scaffolder wrote before #2449, the three sibling checkouts it writes
+        now, or neither. It prints nothing when the file already has the current shape.
+
+        WHY THIS IS SAID AT ALL. This scaffolder never rewrites an existing runner, so a consumer adopted
+        before #2449 keeps the old shape -- the branch's own seams run beside FOLD_PUSH_TOKEN -- and a re-run
+        of this command is the one moment anything looks at that file again. The shared lib's standing
+        refusal of .workflow-scripts/ (#2553) still covers the plugin-tree overwrite in that shape; it
+        cannot cover the seams, which is what re-scaffolding fixes.
+
+        READ IN THE SHAPE THIS SCAFFOLDER WRITES, AND NO FURTHER: the old shape is a ten-space `token:`
+        naming FOLD_PUSH_TOKEN beside a checkout at the plugin path; the new one is a `path:` of both
+        trusted-main and pr-branch. A hand-edited file that is neither is said to be unread, never judged
+        clean.
+    #>
+    param([string]$Text)
+
+    $old = ($Text -match '(?m)^ {10}token:[ \t]*\$\{\{[ \t]*secrets\.FOLD_PUSH_TOKEN[ \t]*\}\}[ \t]*$') -and
+           ($Text -match ('(?m)^ {10}path:[ \t]*' + [regex]::Escape($sharedPath) + '[ \t]*$'))
+    $new = ($Text -match '(?m)^ {10}path:[ \t]*trusted-main[ \t]*$') -and ($Text -match '(?m)^ {10}path:[ \t]*pr-branch[ \t]*$')
+    if ($new -and -not $old) { return }
+    if ($old) {
+        Write-Host '            [shape] it checks the trunk out ONCE with FOLD_PUSH_TOKEN and switches that workspace to the' -ForegroundColor Yellow
+        Write-Host '            picked branch, so the branch''s own scripts/repo-config.ps1 and branch-info.ps1 run beside' -ForegroundColor Yellow
+        Write-Host '            the token (#2449). Re-scaffold it: delete this file and re-run adopt-ci-floor -Apply.' -ForegroundColor Yellow
+        return
+    }
+    Write-Host '            its checkout shape could not be read, so whether it still runs the branch''s seams beside the' -ForegroundColor DarkGray
+    Write-Host '            token (#2449) was NOT established.' -ForegroundColor DarkGray
 }
 
 # --- Report ------------------------------------------------------------------------------------------
@@ -1535,6 +1609,7 @@ foreach ($t in $targets) {
         if ($writeRunnerRels -contains $t.Rel) {
             $existing = ([System.IO.File]::ReadAllText($abs)) -replace "`r`n", "`n"
             Write-WriteRunnerPinVerdict -Rel $t.Rel -Text $existing
+            if ($t.Rel -eq $mergeOnGreenRunnerRel) { Write-MergeOnGreenShapeVerdict -Text $existing }
         }
         continue
     }
