@@ -39,7 +39,7 @@
 
 ### PLAN
 
-Inbound #2568: in one consumer every duplicate of live settles at 535 of 539 files, short the same four
+Inbound #2568: in one consumer every duplicate of live settles at 535 of 539 files, lacking the same four
 templates each time, so `backup-live-theme` can never verify and `live-preflight` can never go green.
 The six inbound checks all hold. The count-only code cannot name what is missing.
 
