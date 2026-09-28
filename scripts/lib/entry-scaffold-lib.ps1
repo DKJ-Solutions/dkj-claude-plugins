@@ -594,9 +594,15 @@ function Get-EntryEarnedBump {
 # two-entry map and comes back empty. .Contains(2) says yes and the lookup beside it returns nothing, which
 # is why the template rendered 'For tier 2 audiences.' with the reader's name silently missing. Keyed and
 # looked up as strings, there is no integer for the indexer to misread.
+#
+# THE TEST IS WHAT THE REPO IS FOR, NOT WHO PAYS OR WHETHER A SUBSCRIPTION EXISTS (inbound #2557, Dave
+# September 27, 2026). Measured in a local, single-user app: both old phrases read as not applying to it,
+# so all 19 of its entries answered N/A and earned a patch, although every one was work its user relies on.
+# A tool that IS the product its user relies on is tier 2 even when that user is its own maintainer -- the
+# maintainer as USER is tier 2, the maintainer as DEVELOPER is tier 0.
 $script:EntryAudienceDescriptions = [ordered]@{
-    '1' = 'management and the employer/commissioner'
-    '2' = 'the subscriber of a service'
+    '1' = 'management and the employer/commissioner -- this repo is a means of selling or delivering something else'
+    '2' = 'the user who relies on what this repo ships, and decides whether to take the next version -- a subscriber of a service, or the user of a tool, its own maintainer included'
 }
 
 function Get-EntryAudienceDescription {

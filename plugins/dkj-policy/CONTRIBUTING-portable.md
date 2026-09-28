@@ -1036,7 +1036,9 @@ Tier 1 (management and the employer/commissioner) and tier 2 (the subscriber of 
 of reader rather than two rungs of a ladder, and a repo has exactly one — decided before any entry is
 written, and stated once in `Get-ReleaseAudienceTier` in your own `scripts/repo-config.ps1`. A shop selling a
 **product** answers `1`: its buyers never read a release note, while management and whoever pays for the work
-do. A repo that **is** the service somebody subscribes to answers `2`. **State nothing and you are asked
+do. A repo that **is** the product its user relies on answers `2` — a service somebody subscribes to, or a
+tool whose user is its own maintainer: the test is what the repo is for, not who pays
+([`RELEASES-portable.md`](RELEASES-portable.md#the-tier-model), #2557). **State nothing and you are asked
 about both**, exactly as before the knob existed — so three sections in your file means the question is still
 open on your side, not that anything is broken.
 

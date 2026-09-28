@@ -41,17 +41,24 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] One test for both audience tiers, what the repo is FOR, stated in the tier model (`RELEASES-portable.md`) with the maintainer-as-user case, and restated briefly in `CONTRIBUTING-portable.md` and `DEVELOPMENT-portable.md`
+- [x] The scaffold's reader sentence (`Get-EntryAudienceDescription`) and the `Get-ReleaseAudienceTier` contract record, which `adopt-dkj-policy` puts to a repo as the question, carry the same test; mirrors synced, blueprint regenerated
 
 ### TEST
 
+- [x] `entry-scaffold.tests.ps1` 882 asserts, `config-blueprint.tests.ps1` 219, `script-contract.tests.ps1` 401 -- all green
+
 ### DEPLOY: docs/2557-audience-tier-by-purpose
 
-**Score:**
+The two audience tiers now come with a test a repo can apply to itself: what the repo is **for**. A repo that is a means of selling or delivering something else answers 1. A repo that is the product its user relies on answers 2, and that user counts even when they are its own maintainer: as user they are tier 2, as developer tier 0. The same wording is in the tier model, the scaffold's reader sentence and the `Get-ReleaseAudienceTier` contract record ([#2557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2557), answering [#2556](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2556)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo whose only user is its maintainer, such as a local single-user tool, can now see from the text that it has a tier-2 audience. Before this, every entry there honestly answered N/A for both tiers and earned a patch. Each new entry's guidance now names that reader, and the adoption question names it too.
+
+**Score:** 3
 
 #### Pull Request
 
