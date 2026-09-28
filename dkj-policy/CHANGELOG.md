@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**17 / 23 minor entries** <!-- pending-tally -->
+**17 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2602-merge-on-green-pr-branch-identity · 20260928-185959Z
+
+This repo's merge-on-green runner now gives the `pr-branch` checkout a commit identity too, so an `open-pr` commit of a dirty branch document during a CI ship cannot fail with *Please tell me who you are*. Latent until now, since `pr-branch` is a fresh checkout; it brings the runner level with the consumer template.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- this is the source repo's own CI runner; nothing a consumer takes changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+merge-on-green sets the commit identity in pr-branch as well as trusted-main
+
+[PR #2608](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2608)
+
+---
 
 ### DEPLOY: fix/2449-consumer-merge-on-green-trusted-seams · 20260928-185015Z
 
