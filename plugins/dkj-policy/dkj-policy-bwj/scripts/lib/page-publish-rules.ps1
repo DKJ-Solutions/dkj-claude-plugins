@@ -202,6 +202,56 @@ function Get-BwjPageKvApiUrl {
             "$NamespaceId/values/" + [uri]::EscapeDataString($Key))
 }
 
+function Test-BwjWranglerSession {
+    <#
+        Does `wrangler whoami` show a login that can publish to THIS account? $true only when it exited
+        0 AND its output names $AccountId (issue #2569).
+
+        THE EXIT CODE ALONE PROVES NOTHING. Measured on wrangler 4.142.0: whoami exits 0 whether or not
+        anybody is logged in, and a login is to a user who may hold several accounts. So the one
+        answer that settles it is the account id the seam names, printed in whoami's own account
+        table. A login to another account is a route to the wrong place, and it is refused here.
+    #>
+    param(
+        [AllowNull()][AllowEmptyString()][string]$WhoamiText,
+        [AllowNull()]$ExitCode,
+        [Parameter(Mandatory)][string]$AccountId
+    )
+    if ($null -eq $ExitCode -or [int]$ExitCode -ne 0) { return $false }
+    if ([string]::IsNullOrEmpty($WhoamiText)) { return $false }
+    if ($AccountId -cnotmatch '^[0-9a-f]{32}$') { return $false }
+    return ($WhoamiText.ToLowerInvariant().Contains($AccountId))
+}
+
+function Get-BwjPageWranglerArgs {
+    <#
+        The arguments after `npx --no-install` for one KV write or read through wrangler, the route
+        publish-page takes when CLOUDFLARE_API_TOKEN is absent and a wrangler login answers for the
+        account (issue #2569). 'put' writes the file at $Path, and 'get' reads the value back as RAW
+        BYTES: no --text, because --text decodes it as UTF-8 and the proof is a SHA-256 over the
+        bytes.
+
+        --remote IS ALWAYS PASSED. `kv key put/get --help` (4.142.0) lists --local and --remote with no
+        default shown, so the target is named rather than left to a version's default. A local write
+        would read back identical bytes and publish nothing, so the proof would pass on a page no URL
+        serves.
+    #>
+    param(
+        [Parameter(Mandatory)][ValidateSet('put', 'get')][string]$Action,
+        [Parameter(Mandatory)][string]$Key,
+        [Parameter(Mandatory)][string]$NamespaceId,
+        [string]$Path
+    )
+    if ($Key -cnotmatch '^[a-z]+:[0-9a-f]{32}$') { throw "Not a page key this lib builds: '$Key'." }
+    if ($NamespaceId -cnotmatch '^[0-9a-f]{32}$') { throw "Not a Cloudflare id: '$NamespaceId'." }
+    $a = @('wrangler', 'kv', 'key', $Action, $Key)
+    if ($Action -eq 'put') {
+        if ([string]::IsNullOrWhiteSpace($Path)) { throw "A 'put' needs the file to upload." }
+        $a += @('--path', $Path)
+    }
+    return @($a + @('--namespace-id', $NamespaceId, '--remote'))
+}
+
 function Resolve-BwjPagesConfig {
     <#
         Validate and normalise the store's Get-BwjPagesConfig answer. Returns an object carrying

@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Inbound #2569, verified on pickup. `publish-page.ps1` had one route, a Bearer token from
+`CLOUDFLARE_API_TOKEN`, so a machine logged in through `wrangler login` could not publish. Measured on
+this machine, wrangler 4.142.0: `whoami` exits 0 and prints the account table. It also exits 0 when
+nobody is logged in, so the account id the seam names decides, not the exit code.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `page-publish-rules.ps1`: `Test-BwjWranglerSession` (exit 0 and the seam's account id in the
+      output) and `Get-BwjPageWranglerArgs` (`kv key put/get ... --namespace-id <id> --remote`, the get
+      without `--text` so the bytes are hashed undecoded).
+- [x] `publish-page.ps1`: with no token, probe whoami. On a session for this account, put and read
+      back through wrangler, with stdout copied to a file as bytes and `CLOUDFLARE_ACCOUNT_ID` set for
+      the child. Otherwise refuse and name both routes.
+- [x] `publish-page` SKILL.md: the second route, and the requirements line.
 
 ### TEST
 
+- [x] `bwj-page-publish.tests.ps1`: unit asserts for both functions, plus three end-to-end runs
+      against an `npx.cmd` shim (published and verified, another account refused before any upload,
+      a tampered read-back failing). 110 pass, 0 fail standalone.
+
 ### DEPLOY: fix/2569-publish-page-wrangler-oauth
 
-**Score:**
+Inside this repo: `publish-page.ps1` gained a second publish route for when `CLOUDFLARE_API_TOKEN`
+is absent, with two small functions in `page-publish-rules.ps1` and end-to-end tests against an
+`npx.cmd` shim.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+For whoever publishes a BWJ page from a machine that is logged in with `npx wrangler login`: the
+publish now works without an API token. It goes through `wrangler kv key put/get --remote` and is
+proved with the same SHA-256 read-back. A login to a different account is refused, and the message
+names both routes.
+
+**Score:** 3
 
 #### Pull Request
 
