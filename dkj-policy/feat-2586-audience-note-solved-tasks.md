@@ -39,9 +39,36 @@
 
 ### PLAN
 
+#2586 and #2570 in one branch (Dave's choice, September 28, 2026). One input decides both documents:
+**the live-push record**, which says which of the release range's theme files are on live after the
+push.
+
+- `live-preflight` writes the record beside its push command: one `live <path>` or `hold <path>` line per
+  theme file in the range, with deletions written as `hold` because a `--only` push cannot carry them. A
+  person who holds a file back edits `live` to `hold`. The file goes to the temp directory, because the
+  cut needs a clean trunk.
+- `cut-release -LivePushRecord <file>` reads it. Each entry's own changed paths come from its
+  `merge: <branch> (#n)` commit. If an entry touched a `hold` path, it is **not live**.
+  - **#2570**: the GitHub body moves not-live entries from `## What landed` to `## Not live yet`, and names
+    the held paths.
+  - **#2586, criterion 3**: not-live entries leave the audience draft.
+- **#2586, criteria 1+2**: a new optional seam `Get-ReleaseNoteTaskLink` (marker, URL format, label)
+  switches the audience section to *solved tasks*. It keeps an entry only if it touched a path in the
+  record (storefront) and is live, and only the issues it closed that carry the marker. Each issue becomes
+  `### <issue title>` plus the task link, and the entry's PR is not linked. This form needs `gh`, and a
+  live-stage repo that runs it without a record refuses unless `-NoLivePushRecord` is passed.
+- Pure rules in a new shared lib `live-record-lib.ps1`, mirrored into dkj-policy and dkj-subagents-shopify.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] `scripts/lib/live-record-lib.ps1`: record format/parse, merge-commit lookup, per-entry live state, task-item rendering
+- [ ] `live-preflight.ps1` writes the record and prints its path
+- [ ] `cut-release.ps1`: `-LivePushRecord` / `-NoLivePushRecord`, per-entry paths, `Not live yet`, audience filtering, task form
+- [ ] `release-lib.ps1`: `Build-GitHubReleaseBody -NotLive`, `Build-ReleaseNoteDraft` task-item body
+- [ ] seam `Get-ReleaseNoteTaskLink`: contract record, blueprint, source repo-config
+- [ ] mirrors registered and rebuilt
+- [ ] docs: cut-release SKILL, RELEASES-portable, live-preflight SKILL, dkj-policy-bwj proposal of the seam
+- [ ] tests: lib suite, cut-release drive case with a record, contract count
 
 ### TEST
 
