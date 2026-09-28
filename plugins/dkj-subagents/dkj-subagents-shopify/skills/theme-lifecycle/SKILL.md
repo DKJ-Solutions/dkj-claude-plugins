@@ -77,7 +77,8 @@ spell the plugin cache path out.
 **Three steps, and the order is the whole design: create -> verify -> rotate.**
 
 1. **Create.** `shopify theme duplicate` from live into `<prefix>backup-<timestamp>`.
-2. **Verify.** Poll the copy's file count until it settles **and** matches the source's.
+2. **Verify.** Poll the copy's file count until it settles **and** matches the source's -- or, once
+   the wait is over, account for every missing path through the trunk (below).
 3. **Rotate.** *Only now* is the previous backup deleted, so there is never a window in which the
    store holds no backup at all. That costs one theme slot transiently, which is the price of the
    guarantee.
@@ -97,6 +98,31 @@ So a copy that settles **below** the source is a refusal, not a warning. On any 
 *complete* the run exits non-zero, the new theme is left standing so it can be inspected, and
 **nothing is rotated** -- the previous backup is still there, which is the state a reader would have
 asked for.
+
+### One exception, and it is decided path by path
+
+**Some stores' duplicates can never reach the source's count.** Measured in a consumer on September
+28, 2026 ([#2568](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2568)): two independent
+duplicates of live each settled at **535 of 539** files, lacking the **same four** templates each time.
+Shopify rejects a push of two of them (they name a section file and a theme block that do not exist);
+why it drops the other two is not established. Under the rule above that store's backup could never
+pass, and neither could `live-preflight`.
+
+So a copy still **short once the whole wait is over** is judged by its **paths**, not only its count.
+The run names every path live holds and the copy does not, and holds each one against the trunk at
+`HEAD`: where live's bytes are exactly what git stores for that path (raw, or with CRs stripped), the
+repo is that file's rollback and the copy lacking it loses nothing. The backup then passes as
+**verified WITH EXCEPTIONS**, path by path, and says so again on its closing line.
+
+- **Every missing path must be held that way.** One the trunk holds with other bytes, one it does not
+  hold at all (a gitignored file included), or one whose live bytes could not be read, and the refusal
+  above stands.
+- **At most 10 missing paths.** Past that the copy stopped early, whatever the trunk holds.
+- **The live bytes come from this run's own pull of live**, the one it counts the source from. It is
+  kept until the verdict is in, so there is no second pull.
+
+The rule is where the bytes are, not why Shopify dropped them. That is why the two unexplained paths
+pass on the same terms as the two explained ones.
 
 ## Sweep the spent previews (after a live push)
 

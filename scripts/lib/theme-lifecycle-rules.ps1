@@ -316,6 +316,84 @@ function Get-ThemeFillVerdict {
     return [pscustomobject]@{ Verdict = 'complete'; Reason = "settled at $count file(s), matching the source"; Count = $count }
 }
 
+function Get-ThemeShortfallPaths {
+    <# The source's paths the copy does not hold, ordinally sorted. Ordinal and case-sensitive, because a
+       theme path is a key on the store and 'Foo.json' is not 'foo.json' there. #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$SourcePaths,
+        [AllowNull()][AllowEmptyCollection()][string[]]$CopyPaths
+    )
+    $held = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($p in @($CopyPaths)) { if ($p) { [void]$held.Add($p) } }
+    $missing = [string[]]@(@($SourcePaths) | Where-Object { $_ -and -not $held.Contains($_) })
+    [System.Array]::Sort($missing, [System.StringComparer]::Ordinal)
+    return ,$missing
+}
+
+function Get-ThemeShortfallVerdict {
+    <#
+    .SYNOPSIS
+        Can a copy that settled SHORT still be accepted, because every file it lacks is held by the
+        trunk exactly as live holds it? Returns Accepted, Reason and one row (Path, State) per missing path.
+
+    .DESCRIPTION
+        THE CASE IS MEASURED, NOT ANTICIPATED (inbound #2568, September 28, 2026). In one consumer two
+        independent duplicates of live each settled at 535 of 539 files and lacked the SAME four templates,
+        with no growth after about two minutes -- so 'short' there did not mean "still filling" or
+        "stalled", it meant "complete apart from files Shopify will not duplicate". Two of the four are
+        explained (a push of them is rejected: a section file and a theme block the templates name do not
+        exist); two are not. The strict 'short' refusal was then a step that could never pass, and a
+        preflight that can never go green is a preflight nobody runs.
+
+        WHY TRUNK-IDENTICAL IS THE RIGHT BAR. A backup exists so live's bytes can be put back. Where live's
+        bytes for a path are exactly what the trunk stores for it (CR aside -- the caller compares git's own
+        blob ids, raw and CR-stripped, as sync-main's content rule does), the repo already holds that
+        rollback, and the copy lacking it loses nothing. That holds whatever Shopify's reason for dropping
+        the file was, which is why the two unexplained paths are admitted on the same footing as the two
+        explained ones: the argument is where the bytes are, not whether the store would accept a write.
+
+        SO EVERY STATE BUT 'identical' REFUSES, and the caller must say which:
+          identical   live's bytes are what the trunk stores for this path       -> an exception
+          differs     the trunk holds the path with other bytes                  -> refused
+          absent      the trunk does not hold the path at all (gitignored too)   -> refused
+          unreadable  live's bytes could not be read back                        -> refused
+        A state this function does not know refuses as well; the unknown direction is the refusing one.
+
+        AND THERE IS A CEILING, because trunk-identical alone would admit a copy that stalled at 38 files
+        of a theme the trunk happens to hold in full. -MaxExceptions (default 10) is the most missing paths
+        this reading will account for; past it the copy is not "complete apart from a few files" and the
+        short verdict stands whatever the trunk holds. The measured case is 4.
+
+        A SHORT COUNT WITH NOTHING MISSING REFUSES too -- the copy holds files the source does not, and a
+        count that cannot be explained by the paths is not a copy this function will vouch for.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$MissingPaths,
+        # A Dictionary[string,string] with an ORDINAL comparer, not a @{} literal: that one is
+        # case-insensitive, so two paths differing only in case would share one state.
+        [AllowNull()]$TrunkState = $null,
+        [int]$MaxExceptions = 10
+    )
+
+    $missing = @($MissingPaths | Where-Object { $_ })
+    $rows = @(foreach ($p in $missing) {
+        $state = if ($null -ne $TrunkState -and $TrunkState.ContainsKey($p)) { [string]$TrunkState[$p] } else { 'unreadable' }
+        [pscustomobject]@{ Path = $p; State = $state }
+    })
+
+    if ($missing.Count -eq 0) {
+        return [pscustomobject]@{ Accepted = $false; Rows = $rows; Reason = 'the copy is short, yet no path the source holds is missing from it -- a count the paths do not explain is not a copy this check will vouch for' }
+    }
+    if ($missing.Count -gt $MaxExceptions) {
+        return [pscustomobject]@{ Accepted = $false; Rows = $rows; Reason = "$($missing.Count) paths are missing, more than the $MaxExceptions this reading will account for -- that is a copy that stopped early, not one complete apart from a few files" }
+    }
+    $refused = @($rows | Where-Object { $_.State -ne 'identical' })
+    if ($refused.Count -gt 0) {
+        return [pscustomobject]@{ Accepted = $false; Rows = $rows; Reason = "$($refused.Count) of the $($missing.Count) missing path(s) are not held identically by the trunk, so the copy is the only rollback for them and it lacks them" }
+    }
+    return [pscustomobject]@{ Accepted = $true; Rows = $rows; Reason = "all $($missing.Count) missing path(s) are held by the trunk exactly as live holds them, so the repo is their rollback" }
+}
+
 function Get-ThemeSweepPlan {
     <#
     .SYNOPSIS

@@ -60,6 +60,17 @@
     non-zero so a cut checklist cannot walk past it, and the OLD backup is still standing, which is
     the state a reader would want if they had been asked.
 
+    ONE SHORT COPY PASSES, AND ONLY ON NAMED PATHS (inbound #2568). In one consumer every duplicate of
+    live settled at 535 of 539 files, lacking the same four templates each time -- Shopify does not
+    duplicate them -- so the step above could never pass there. So once the wait is over and the copy
+    is still 'short', its MISSING PATHS are named, and each is held against the trunk at HEAD: where
+    live's bytes are exactly what git stores for that path (raw or CR-stripped blob id), the repo is its
+    rollback and the copy lacking it loses nothing. Every missing path held that way, and no more than
+    Get-ThemeShortfallVerdict's ceiling of them, and the backup is 'verified WITH EXCEPTIONS', printed
+    path by path and again on the closing line. One path the trunk does not hold identically -- or a
+    path whose live bytes could not be read -- and the refusal above stands. Live's own pull is what
+    those bytes come from: it is kept until the verdict is in rather than counted and thrown away.
+
     WHICH STORE IT TALKS TO, AND WHY NOT Get-ShopifyStoreDomain (#1965 point 4). This script reads
     Get-ShopifyThemeEstateStore, a seam of its own. That looks like duplication of one fact and is
     deliberate: at least one consumer leaves Get-ShopifyStoreDomain UNANSWERED as a brake, because
@@ -118,7 +129,8 @@
 .NOTES
     COVERAGE, STATED RATHER THAN LEFT TO INFERENCE. scripts/tests/theme-lifecycle-rules.tests.ps1
     pins the rules this script invokes: the reserved namespace, the backup name, the fill verdict in
-    all four of its states, and the two states in which rotation refuses outright. THIS SCRIPT ITSELF
+    all four of its states, the shortfall verdict a short copy is judged by (#2568), and the two states
+    in which rotation refuses outright. THIS SCRIPT ITSELF
     IS NOT DRIVEN, for the same reason push-preview.ps1 is not: every path in it either invokes the
     Shopify CLI against a real store or reads a consumer's repo-config, and a suite must not be able
     to reach a store.
@@ -143,6 +155,9 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 . (Join-Path $PSScriptRoot '..\lib\theme-archive-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\shopify-cli-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+# For the trunk comparison of a short copy's missing paths (#2568): git's own blob ids, raw and CR-stripped,
+# the comparison sync-main's content rule already makes. The lib is dependency-free and defines functions only.
+. (Join-Path $PSScriptRoot '..\lib\sync-rules.ps1')
 
 $repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'backup-live-theme.ps1' -OverrideName '-RootOverride'
 
@@ -298,40 +313,85 @@ if ($DryRun) {
     # THE COUNT IS TAKEN BY Get-ThemeFileCount IN shopify-cli-lib.ps1: a full pull, counted on disk, -1
     # where it cannot be measured. It was a local function here until #2348, when push-preview needed the
     # same count; the lib's docstring carries why a pull is the only source of the number.
-    $sourceCount = Get-ThemeFileCount -Store $store -ThemeId $liveId
-    if ($sourceCount -lt 0) {
-        Write-Error ("Could not read the LIVE theme's file count, so the copy cannot be judged complete. " +
-            "The backup '$backupName' (id $backupId) exists and may be incomplete; nothing was rotated, " +
-            'and the previous backup is still standing.')
-        exit 1
-    }
-    Write-Host "  the source holds $sourceCount file(s); polling the copy every $PollSeconds s (giving up after $TimeoutMinutes min)."
+    # LIVE'S PULL IS KEPT UNTIL THE VERDICT IS IN (#2568). It was counted and thrown away, and a short copy
+    # then had nothing to be judged against: the missing paths are exactly the ones the copy cannot supply,
+    # so their live bytes exist in this run only here. Keeping it costs disk, not a second pull.
+    $livePull = Join-Path ([System.IO.Path]::GetTempPath()) ('shopify-live-snapshot-' + [guid]::NewGuid().ToString('N'))
+    try {
+        $source = Get-ThemeFileSnapshot -Store $store -ThemeId $liveId -KeepAt $livePull
+        $sourceCount = $source.Count
+        if ($sourceCount -lt 0) {
+            Write-Error ("Could not read the LIVE theme's file count, so the copy cannot be judged complete. " +
+                "The backup '$backupName' (id $backupId) exists and may be incomplete; nothing was rotated, " +
+                'and the previous backup is still standing.')
+            exit 1
+        }
+        Write-Host "  the source holds $sourceCount file(s); polling the copy every $PollSeconds s (giving up after $TimeoutMinutes min)."
 
-    $samples = @()
-    $deadline = [datetime]::Now.AddMinutes($TimeoutMinutes)
-    $verdict = $null
-    while ([datetime]::Now -lt $deadline) {
-        $n = Get-ThemeFileCount -Store $store -ThemeId $backupId
-        if ($n -ge 0) { $samples += $n }
-        $verdict = Get-ThemeFillVerdict -Samples $samples -SourceFileCount $sourceCount
-        Write-Host "    $($verdict.Count) file(s) -- $($verdict.Verdict)"
-        # ONLY 'complete' ENDS THE WAIT EARLY (Dave, September 23, 2026, #2350) -- push-preview's reading,
-        # and now this one's. A copy grows in bursts with pauses between them (#1965), and two equal
-        # samples inside such a pause read as 'short'; breaking there failed a copy that was still
-        # filling. 'short' is judged once the deadline has passed, by the check below the loop.
-        if ($verdict.Verdict -eq 'complete') { break }
-        Start-Sleep -Seconds $PollSeconds
-    }
+        $samples = @()
+        $copyPaths = @()
+        $deadline = [datetime]::Now.AddMinutes($TimeoutMinutes)
+        $verdict = $null
+        while ([datetime]::Now -lt $deadline) {
+            $snap = Get-ThemeFileSnapshot -Store $store -ThemeId $backupId
+            if ($snap.Count -ge 0) { $samples += $snap.Count; $copyPaths = $snap.Paths }
+            $verdict = Get-ThemeFillVerdict -Samples $samples -SourceFileCount $sourceCount
+            Write-Host "    $($verdict.Count) file(s) -- $($verdict.Verdict)"
+            # ONLY 'complete' ENDS THE WAIT EARLY (Dave, September 23, 2026, #2350) -- push-preview's reading,
+            # and now this one's. A copy grows in bursts with pauses between them (#1965), and two equal
+            # samples inside such a pause read as 'short'; breaking there failed a copy that was still
+            # filling. 'short' is judged once the deadline has passed, by the check below the loop.
+            if ($verdict.Verdict -eq 'complete') { break }
+            Start-Sleep -Seconds $PollSeconds
+        }
 
-    if ($null -eq $verdict -or $verdict.Verdict -ne 'complete') {
-        $why = if ($null -eq $verdict) { 'no samples were taken' } else { $verdict.Reason }
-        Write-Error ("The backup is NOT verified complete: $why. '$backupName' (id $backupId) is left " +
-            'standing so it can be inspected, nothing was rotated, and the previous backup is still ' +
-            'there. A backup nobody verified is worse than no backup, so this run fails rather than ' +
-            'reporting success.')
-        exit 1
+        # A COPY SHORT AFTER THE WHOLE WAIT IS JUDGED BY ITS PATHS, NOT ONLY ITS COUNT (#2568). Only
+        # 'short' qualifies -- a copy still 'filling' at the deadline has not settled, and 'unknown' has no
+        # count to reason from. Each missing path is compared with what the trunk stores for it; the rule
+        # and its ceiling are Get-ThemeShortfallVerdict's.
+        $shortfall = $null
+        if ($null -ne $verdict -and $verdict.Verdict -eq 'short') {
+            $missing = Get-ThemeShortfallPaths -SourcePaths $source.Paths -CopyPaths $copyPaths
+            # ORDINAL, NOT @{}: a hashtable literal is case-insensitive, and two live paths differing only in
+            # case would collapse onto one key and share one state -- a refusal read as a pass (review of #2568).
+            $trunkState = New-Object 'System.Collections.Generic.Dictionary[string,string]' ([System.StringComparer]::Ordinal)
+            foreach ($p in $missing) {
+                $liveFile = Join-Path $livePull ($p.Replace('/', '\'))
+                $bytes = $null
+                try { $bytes = [System.IO.File]::ReadAllBytes($liveFile) } catch { $bytes = $null }
+                if ($null -eq $bytes) { $trunkState[$p] = 'unreadable'; continue }
+                $stored = Get-GitStoredBlobId -Rev 'HEAD' -Path $p
+                if (-not $stored) { $trunkState[$p] = 'absent'; continue }
+                $rawId = Get-GitRawBlobId -Bytes $bytes
+                $strippedId = Get-GitRawBlobId -Bytes (Get-CrStrippedBytes -Bytes $bytes)
+                $trunkState[$p] = if ($stored -eq $rawId -or $stored -eq $strippedId) { 'identical' } else { 'differs' }
+            }
+            $shortfall = Get-ThemeShortfallVerdict -MissingPaths $missing -TrunkState $trunkState
+            Write-Host ''
+            Write-Host "  the copy lacks $(@($missing).Count) path(s) live holds, each held against the trunk at HEAD:"
+            foreach ($row in $shortfall.Rows) {
+                # #2248: a theme path is store content -- foreign text -- so it is printed through the guard.
+                Write-Host "    $($row.State.PadRight(10)) $(Format-SafeProseToken -Value $row.Path)" -ForegroundColor $(if ($row.State -eq 'identical') { 'Yellow' } else { 'Red' })
+            }
+        }
+
+        if ($null -ne $shortfall -and $shortfall.Accepted) {
+            Write-Host "  verified WITH EXCEPTIONS: $($verdict.Count) of $sourceCount file(s); $($shortfall.Reason)." -ForegroundColor Yellow
+            Write-Host '  the copy is the rollback for every other file; for the paths above it is the repo at HEAD.' -ForegroundColor Yellow
+        } elseif ($null -eq $verdict -or $verdict.Verdict -ne 'complete') {
+            $why = if ($null -eq $verdict) { 'no samples were taken' } else { $verdict.Reason }
+            if ($null -ne $shortfall) { $why = "$why; and $($shortfall.Reason)" }
+            Write-Error ("The backup is NOT verified complete: $why. '$backupName' (id $backupId) is left " +
+                'standing so it can be inspected, nothing was rotated, and the previous backup is still ' +
+                'there. A backup nobody verified is worse than no backup, so this run fails rather than ' +
+                'reporting success.')
+            exit 1
+        } else {
+            Write-Host "  verified: $($verdict.Reason)." -ForegroundColor Green
+        }
+    } finally {
+        Remove-Item -LiteralPath $livePull -Recurse -Force -ErrorAction SilentlyContinue
     }
-    Write-Host "  verified: $($verdict.Reason)." -ForegroundColor Green
 }
 
 # --- Step 3: rotate --------------------------------------------------------------------------------
@@ -387,3 +447,8 @@ Write-Host ''
 # same one-caller assumption the header carried. So it reports what it GUARANTEES, and whichever caller
 # ran it says what the copy is for.
 Write-Host "Backup complete: '$backupName' (id $backupId) is the one verified copy of live this store holds." -ForegroundColor Green
+if ($null -ne $shortfall -and $shortfall.Accepted) {
+    # SAID AGAIN ON THE LAST LINE because it is the line a caller reads, and live-preflight prints this
+    # run's output whole: an exception named only in the middle of the poll log is one nobody finds later.
+    Write-Host "  with $(@($shortfall.Rows).Count) path(s) it could not copy, each held by the trunk at HEAD exactly as live holds it -- listed under [2/3]." -ForegroundColor Yellow
+}
