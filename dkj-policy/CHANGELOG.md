@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**2 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2557-audience-tier-by-purpose · 20260928-060229Z
+
+The two audience tiers now come with a test a repo can apply to itself: what the repo is **for**. A repo that is a means of selling or delivering something else answers 1. A repo that is the product its user relies on answers 2, and that user counts even when they are its own maintainer: as user they are tier 2, as developer tier 0. The same wording is in the tier model, the scaffold's reader sentence and the `Get-ReleaseAudienceTier` contract record ([#2557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2557), answering [#2556](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2556)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo whose only user is its maintainer, such as a local single-user tool, can now see from the text that it has a tier-2 audience. Before this, every entry there honestly answered N/A for both tiers and earned a patch. Each new entry's guidance now names that reader, and the adoption question names it too.
+
+**Score:** 3
+
+#### Pull Request
+
+Audience tiers: the test is what the repo is for, so a tool's own maintainer-as-user is tier 2
+
+Plugins: dkj-policy
+
+[PR #2563](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2563)
+
+---
 
 ### DEPLOY: fix/2555-unanswered-decide-seams · 20260927-230034Z
 
