@@ -62,7 +62,7 @@ A ceiling (10 missing paths) keeps trunk-identical from admitting a copy that si
 
 ### TEST
 
-- [x] `theme-lifecycle-rules.tests.ps1` standalone: 124 pass, 0 fail, including the shortfall paths, every refusing state, the ceiling, and the caller's wiring
+- [x] `theme-lifecycle-rules.tests.ps1` standalone: 129 pass, 0 fail, including the shortfall paths, every refusing state, the ceiling, a case-only path pair, the WITH EXCEPTIONS sentinel both scripts share, and the caller's wiring
 - [x] blob-id comparison checked by hand against a tracked file: stored, raw and CRLF-then-stripped ids agree; an absent path returns ''
 - [~] `backup-live-theme.ps1` itself is not driven: every path reaches a real store, as its NOTES state. The consumer's next preflight is the live test
 
