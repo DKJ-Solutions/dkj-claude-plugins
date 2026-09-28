@@ -1135,7 +1135,7 @@ instead of a new issue, `part of #<n>` instead of a keyword, close only on the r
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking label — `needs-decision`, set when the issue is filed
+### The parking labels — `needs-decision` and `awaiting-recurrence`, set when the issue is filed
 
 **`needs-decision` (`BFD4F2`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
 nor a sweep treats it as work that is ready (Dave, September 26, 2026,
@@ -1143,6 +1143,11 @@ nor a sweep treats it as work that is ready (Dave, September 26, 2026,
 `gh issue create` as the `prio-N`, and it is not `needs-info`, which `dkj-policy-bwj` reserves for
 *blocked on the submitter*. It ships in `Get-TriageLabels`, and the filing rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
+
+**`awaiting-recurrence` (`EDEDED`) parks an issue waiting on its first reproducible occurrence** (Dave,
+September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)), after
+#2572 was picked up four times in one day with nothing to build. Both pickup routes skip it as they skip
+`needs-decision`. It is not `dossier`, which stays sweepable, and it comes off when a recurrence arrives.
 
 ### The reach label — `minor`, and it is a second axis, not a fifth rung
 

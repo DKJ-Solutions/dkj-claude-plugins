@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Option B from #2587, as decided by the owner in the issue thread. It adds a separate parking label for an issue that waits on
+its first reproducible recurrence, and `dossier` stays sweepable. The shape follows #2519 (`needs-decision`, PR #2524).
+The name `awaiting-recurrence` was left open by the decision, so I took the issue's own example.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-TriageLabels` (repo-config) and `adopt-triage-labels.ps1`'s built-in fallback carry a seventh record, `awaiting-recurrence` (`EDEDED`)
+- [x] `claim-issue.ps1`'s single-issue default `-SkipLabel` and `sweep-issues`' command line skip it
+- [x] `CONTRIBUTING-portable.md` documents it beside `dossier`/`needs-decision`; the claim-issue skill, the scripts README, the contract record and Derek's lens follow
+- [x] Mirrors regenerated (`build-shared-scripts.ps1`) and the blueprint rebuilt (`build-config-blueprint.ps1`)
+- [x] The label created on this repo's tracker and set on #2572, the issue it was built for
 
 ### TEST
 
+- [x] Suites `adopt-triage-labels`, `repo-config`, `script-contract`, `claim-issue` and `config-blueprint` updated and green
+- [x] `check-plugin-integrity.ps1` 0 errors; `check-script-contract.ps1` 0 errors
+
 ### DEPLOY: feat/2587-awaiting-recurrence-label
 
-**Score:**
+`adopt-triage-labels` now also prints a `gh label create` line for `awaiting-recurrence`, a parking label
+for an issue whose only remaining step is its first reproducible occurrence. `claim-issue <n>` skips it
+by default next to `needs-info` and `needs-decision`, and `sweep-issues` skips all three.
+`CONTRIBUTING-portable.md` says when to set the label and when it comes off. It is not `dossier`: a
+dossier collects a problem that demonstrably recurs, so it stays sweepable.
+
+Tier 0 is scored for a session running a sweep. An n=1 flake with nothing left to build (#2572) was picked
+up four times in one day, and each pickup ended in *nothing to do*.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. It is a label definition, a filing convention and a default skip list, and nothing reaches a
+subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
