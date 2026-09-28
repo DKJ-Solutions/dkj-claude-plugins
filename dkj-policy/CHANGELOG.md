@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**5 / 5 minor entries** <!-- pending-tally -->
+**6 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2567-audience-asana-link-from-marker · 20260928-102112Z
+
+The BWJ ticket-handling page now says which Asana task an audience release item links to (inbound
+[#2567](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2567)). It is the task the mirror's
+three matchers resolve, marker first, and never the first Asana URL in the issue body. A reference line
+naming the CRO test a build came from is context, not the ticket.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A colleague reading a store's release notes finds their own development ticket linked, and not the CRO
+test it came out of.
+
+**Score:** 2
+
+#### Pull Request
+
+An audience item's Asana link is resolved by the mirror's matchers, never the first URL
+
+Plugins: dkj-policy-bwj
+
+[PR #2577](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2577)
+
+---
 
 ### DEPLOY: fix/2565-prepare-release-reads-repo-config · 20260928-100738Z
 
