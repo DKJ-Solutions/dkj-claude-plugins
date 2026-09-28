@@ -57,6 +57,10 @@ and one register record was stale (#2592). The other three kinds are out of scop
   shared fixture helper per suite that wrote every generic lens under the old name; those were
   respelled. The Lens dual-read asserts, including `connectors.tests.ps1` 14b/14e/14f, now pin the
   post-retirement behaviour and cite #2292.
+- [x] Point `teardown.ps1`'s no-lib fallback lens filter at `*-lens.md`. Code review found it still
+  held only the retired `*-extension.md` filter, so it would have diverged from the lib path.
+  `check-consumer-drift.ps1` now reports a lens under the retired name as missing. That is intended,
+  and it is what retiring the name means.
 
 ### TEST
 
