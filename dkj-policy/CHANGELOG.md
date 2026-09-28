@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**18 / 26 minor entries** <!-- pending-tally -->
+**18 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/allow-git-stash · 20260928-195354Z
+
+A session in this repo can now stash uncommitted work without a permission prompt, so retiring or
+switching away from a branch with a draft on it no longer stops for a question. A stash is reversible,
+unlike the destructive verbs the safety rules name, which stay unlisted.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: `.claude/settings.json` is this repo's own harness config and reaches no consumer through a plugin
+update.
+
+**Score:** N/A
+
+#### Pull Request
+
+git stash is allowed without a permission prompt
+
+[PR #2612](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2612)
+
+---
 
 ### DEPLOY: fix/2604-parking-label-shares-dossier-color · 20260928-193357Z
 
