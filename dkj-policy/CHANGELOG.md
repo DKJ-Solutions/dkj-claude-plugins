@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**10 / 10 minor entries** <!-- pending-tally -->
+**10 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2581-untrack-wrangler-cache · 20260928-112224Z
+
+Wrangler's own account cache (`.wrangler/cache/wrangler-account.json`, holding a Cloudflare account id
+and an account e-mail) was tracked on `main` in this public repo. It is untracked now, and an anchored
+`/.wrangler/` rule in `.gitignore` keeps a wrangler run from the repo root from adding it again. The
+copy in history is a separate decision for the owner, #2582. (#2581)
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Untrack the root .wrangler/ cache and ignore it
+
+[PR #2583](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2583)
+
+---
 
 ### DEPLOY: fix/2574-progress-bar-per-checkout · 20260928-110844Z
 
