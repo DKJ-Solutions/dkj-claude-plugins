@@ -255,7 +255,7 @@ specialist runs with no repo lens, and every check in that repo stays green abou
 each directory a lens may live in (`Get-LensDirCandidates`) and reports what it finds:
 
 ```
-  [ERROR] [BWJ-Development/example] 2 lens file(s) under the retired spelling '<g>-<id>-extension.md' with no current-spelling lens beside them, e.g. '06-16-extension.md'. No reader has resolved that spelling since #2292, so in that repo each of these specialists runs WITHOUT its repo lens. Rename each one there: git mv 06-16-extension.md specialist-06-16-lens.md.
+  [ERROR] BWJ-Development/example: 2 lens file(s) under the retired spelling '<g>-<id>-extension.md' with no current-spelling lens beside them, e.g. '06-16-extension.md'. No reader has resolved that spelling since #2292, so in that repo each of these specialists runs WITHOUT its repo lens. Rename each one there: git mv 06-16-extension.md specialist-06-16-lens.md.
 ```
 
 - **`[ERROR]` only where something is lost.** A retired-spelling file with **no** current-spelling lens
@@ -265,7 +265,7 @@ each directory a lens may live in (`Get-LensDirCandidates`) and reports what it 
 - **Measured, never declared**, like everything in this register. A directory listing costs nothing and
   cannot lie. The check runs outside `-SkipDrift`, because it is not a body comparison, and it runs on a
   narrowed run as well, because it concerns the one consumer in front of it.
-- **The shape is exact**: `^\d{2}-\d{2}-extension\.md$`. A file that merely ends in `-extension.md` is
+- **The shape is exact**: `^[0-9]{2}-[0-9]{2}-extension\.md$`. A file that merely ends in `-extension.md` is
   not one.
 
 **It replaces the `[LENS-RETIREMENT]` roll-up** (#2289, #2298). That roll-up asked whether all six

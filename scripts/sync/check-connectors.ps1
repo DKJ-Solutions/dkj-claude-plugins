@@ -1664,7 +1664,9 @@ foreach ($mf in $manifestFiles) {
         foreach ($dir in $lensDirs) {
             if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
             foreach ($f in @(Get-ChildItem -LiteralPath $dir -Filter '*-extension.md' -File -ErrorAction SilentlyContinue | Sort-Object Name)) {
-                if ($f.Name -notmatch '^(\d{2})-(\d{2})-extension\.md$') { continue }
+                # [0-9], not \d: .NET's \d admits every Unicode decimal digit, so a fullwidth '06-16'
+                # would pass here and then miss its current-spelling sibling in the id lookup.
+                if ($f.Name -notmatch '^([0-9]{2})-([0-9]{2})-extension\.md$') { continue }
                 if ($currentLensIds.ContainsKey("$($Matches[1])-$($Matches[2])")) { $retiredBeside += $f.Name }
                 else { $retiredUnread += $f.Name }
             }

@@ -2005,7 +2005,7 @@ exit 1
 
     # --- 14e. The roll-up is gone, and so is its marker (#2591) --------------------------------------
     #      Its NOT YET arm could no longer fire and its green ending invited a retirement already
-    #      performed, so nothing of it may come back through a stale copy of the loop.
+    #      performed, so neither its marker nor its heading may reappear in any run.
     Assert-NotMatch 'LENS-RETIREMENT' $r.Out 'roll-up: the old marker no longer prints'
     Assert-NotMatch 'lens naming across the register' $r.Out 'roll-up: nor its heading'
 } finally {
