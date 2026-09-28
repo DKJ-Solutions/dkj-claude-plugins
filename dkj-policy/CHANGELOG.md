@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**9 / 9 minor entries** <!-- pending-tally -->
+**10 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2574-progress-bar-per-checkout · 20260928-110844Z
+
+The statusline's progress bar now shows only the runs of the checkout the session is in (inbound
+[#2574](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2574)). Records sit in one directory
+per machine, so a ship in another repo's window used to draw in every session, and read as a gate running
+in the repo in front of you. Each record now carries its writer's working directory, and the statusline
+draws a record only when that path and the session's workspace contain each other. A record from an
+older writer, or a session whose payload names no workspace, is shown as before.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Anyone working in two repos at once sees only their own repo's gate and ship in each window, instead of a
+bar that looks like work running where it is not.
+
+**Score:** 2
+
+#### Pull Request
+
+The statusline draws only the progress of runs in this session's own checkout
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2580](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2580)
+
+---
 
 ### DEPLOY: fix/2566-live-push-list-skips-deletions · 20260928-105429Z
 
