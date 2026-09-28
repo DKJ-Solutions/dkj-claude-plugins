@@ -124,6 +124,37 @@ Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'no-account') 'no account -
 $v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'OPEN' -Assignees @('DaveKJohn')
 Assert-True ($v.Others -is [array]) 'Others is always an array -- a single other assignee must not arrive as a bare string'
 
+# A PULL REQUEST'S NUMBER (issue #2609): gh issue view answers for it, a merged one as MERGED, and only
+# CLOSED used to be refused -- so the measured run printed [OK] and assigned the merged PR.
+$prUrl = 'https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2504'
+$issueUrl = 'https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2609'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'MERGED' -Assignees @()
+Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'closed') 'MERGED is refused even without the URL -- anything but OPEN is not claimable (#2609)'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'MERGED' -Assignees @() -Url $prUrl
+Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'pull-request') 'the measured case: a merged PR is refused as a pull request, not claimed (#2609)'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'OPEN' -Assignees @() -Url $prUrl
+Assert-True ($v.Code -eq 'pull-request') 'an OPEN pull request is refused too -- its state reads like an issue''s'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'OPEN' -Assignees @('maikel-bwj') -Url $prUrl
+Assert-True ($v.Code -eq 'pull-request') 'a pull request beats already-yours -- your name on a PR is not a claim on an issue'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'OPEN' -Assignees @() -Url $issueUrl
+Assert-True ($v.Code -eq 'open-unassigned') 'an issue URL is still claimable'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'SOMETHING-NEW' -Assignees @()
+Assert-True ($v.Code -eq 'closed') 'a state this lib has never heard of is refused, not read as open'
+
+Write-Host ''
+Write-Host 'Test-PullRequestUrl / Get-ClosingIssueNumbers -- telling a PR number from an issue (#2609)' -ForegroundColor Cyan
+Assert-True (Test-PullRequestUrl -Url $prUrl) 'a /pull/<n> URL is a pull request'
+Assert-True (-not (Test-PullRequestUrl -Url $issueUrl)) 'an /issues/<n> URL is not'
+Assert-True (-not (Test-PullRequestUrl -Url 'https://github.com/pull/pullrepo/issues/12')) 'an owner named pull is not a pull request -- the segment needs a number'
+Assert-True (Test-PullRequestUrl -Url 'https://github.com/o/r/pull/12#issuecomment-1') 'a fragment after the number still reads as a pull request'
+Assert-True (-not (Test-PullRequestUrl -Url '')) 'an unread URL is not a pull request'
+Assert-True (-not (Test-PullRequestUrl -Url 'https://github.com/o/r/issues/123?x=/pull/1')) 'a /pull/<n> in a query string is not the resource segment'
+$closes = @(Get-ClosingIssueNumbers -Json '{"closingIssuesReferences":[{"number":2500,"url":"x"},{"number":2501,"url":"y"}]}')
+Assert-True ($closes.Count -eq 2 -and $closes[0] -eq 2500 -and $closes[1] -eq 2501) 'the issues a PR closes are read, in order'
+Assert-True (@(Get-ClosingIssueNumbers -Json '{"closingIssuesReferences":[]}').Count -eq 0) 'a PR closing nothing reads as an empty list'
+Assert-True (@(Get-ClosingIssueNumbers -Json 'not json').Count -eq 0) 'an unparseable payload costs only the hint, not a crash'
+Assert-True (@(Get-ClosingIssueNumbers -Json '').Count -eq 0) 'an empty payload reads as none'
+
 Write-Host ''
 Write-Host 'ConvertFrom-GhAuthStatus -- every account gh names here, not just the active one (#2207)' -ForegroundColor Cyan
 
@@ -1423,6 +1454,11 @@ Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'no-tag') 'no tag -- there 
 $v = Get-TagClaimVerdict -Tag 'A/b' -State 'OPEN' -Records $null
 Assert-True ($v.Action -eq 'claim') 'a null record list is an unclaimed issue, not a crash'
 
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'MERGED' -Records @() -Url 'https://github.com/o/r/pull/2504'
+Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'pull-request') 'a merged PR is refused as a pull request in tag mode too (#2609)'
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'MERGED' -Records @()
+Assert-True ($v.Code -eq 'closed') 'and MERGED without a URL is refused on the state -- anything but OPEN'
+
 Write-Host ''
 Write-Host 'Resolve-ClaimRace -- and it must name a WINNER, not a loser' -ForegroundColor Cyan
 
@@ -1739,6 +1775,8 @@ $v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($mine, 
 Assert-True ($v.Code -eq 'already-yours') 'already this tag''s passes through as a resume'
 $v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'CLOSED' -Records @($rival) -Branches @('fix/2338-x')
 Assert-True ($v.Code -eq 'closed') 'a closed issue is refused on its own code'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival) -Url 'https://github.com/o/r/pull/2338' -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'pull-request') 'a pull request''s number passes through on its own code, not as a take-over (#2609)'
 
 $note = Format-HandoverComment -OldTags @('DESKTOP-X/davekokbwj') -NewTag 'DAVE/davekokbwj' -Branch 'fix/2338-x' -Issue 2338
 Assert-True ($note -match 'DESKTOP-X/davekokbwj' -and $note -match 'DAVE/davekokbwj' -and $note -match 'fix/2338-x' -and $note -match '2338 -Tag -Verify') `
