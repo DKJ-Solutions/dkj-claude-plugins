@@ -188,7 +188,8 @@ be thorough about machines nobody uses.
 check across all manifests: plugin still enabled, registered extensions present (outbound),
 unregistered extensions flagged (inbound), the machine version against the source, whether the
 consumer's CI runners still name paths that exist here (#1805 — the one check whose subject is a path
-*into* this tree), whether that consumer reaches into this tree *at all* (#1850, below), and per
+*into* this tree), whether that consumer reaches into this tree *at all* (#1850, below), whether any of
+its lenses sit under the retired spelling that no reader resolves (#2591, below), and per
 consumer the content drift check
 ([`check-consumer-drift.ps1`](../scripts/lint/check-consumer-drift.ps1)). Run it at the
 start of a workday or session:
@@ -238,80 +239,45 @@ out, so it is the only registered repo that can never produce a reference.
 Syncing itself remains **pull-based per consumer**: each connected repo pulls changes in its own
 session, under its own governance — this registry signals, it never writes cross-repo.
 
-### Lens naming: the signal the dual-name layer's retirement is keyed on
+### A lens under the retired spelling: the file nothing reads any more
 
-**The register is now able to answer the one question its own retirement sentence asks of it**
-([#2289](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2289), September 22, 2026).
-The `#2128` rename round shipped a **dual-name layer** (#2130): every reader of a specialist file
-resolves both the written spelling and the tolerated one, so a release could land without breaking a
-consumer whose own lens files still carried the old name. That layer is temporary by construction, and
-Dave's decision 1 of September 19, 2026 fixed its expiry — *"the old names are retired once the
-connector register shows all six are over."*
+**Check 7 reports a consumer lens whose name no reader resolves**
+([#2591](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2591), September 28, 2026). The
+`#2128` rename round shipped a **dual-name layer** (#2130): every reader of a specialist file resolved
+both the written spelling and the old one, so a release could land without breaking a consumer whose
+own lens files still carried the old name. For Lens that layer was retired on September 28, 2026
+([#2292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2292)). The Lens row's `AlsoRead`
+in `Get-SpecialistFileShapes` is empty now, and a file named `<g>-<id>-extension.md` is no lens to any
+reader.
 
-**The register could not show it.** Every manifest stores bare ids (`"01-01"`) and zero filenames — by
-design, and the privacy boundary above is part of why. The one check that does resolve a consumer's
-lens file, [`check-consumer-drift.ps1`](../scripts/lint/check-consumer-drift.ps1), resolves it in order
-to compare its **body**, and never reports which of the two spellings it found. So the sentence
-governing the retirement was waiting on a signal no run could produce, and a bridge whose expiry cannot
-be established is a permanent one by default.
-
-`check-connectors.ps1` therefore measures it, per connector and then across the register:
+**So a consumer that still holds one, or reintroduces one, has lost that lens without any error.** The
+specialist runs with no repo lens, and every check in that repo stays green about it. Check 7 lists
+each directory a lens may live in (`Get-LensDirCandidates`) and reports what it finds:
 
 ```
-  [LENS-RETIREMENT] 25 lens file(s), all on the also-read spelling (<g>-<id>-extension.md) -- not migrated yet, which is a state and not a defect.
-
--- lens naming across the register (the #2130 dual-name layer's retirement condition) --
-  [lens naming] checked 3 of 6 -- not present on this machine: ...
-  over:      DKJ-Solutions/dkj-claude-plugins
-  not over:  BWJ-Development/smartwatchbanden, BWJ-Development/xoxowildhearts
-  [LENS-RETIREMENT] NOT YET: 2 of 6 connectors still carry the also-read spelling, so the condition is FALSE and the dual-name layer stays. 3 of the 6 could not be measured here, so this is NOT the full list of what still has to migrate.
+  [ERROR] BWJ-Development/example: 2 lens file(s) under the retired spelling '<g>-<id>-extension.md' with no current-spelling lens beside them, e.g. '06-16-extension.md'. No reader has resolved that spelling since #2292, so in that repo each of these specialists runs WITHOUT its repo lens. Rename each one there: git mv 06-16-extension.md specialist-06-16-lens.md.
 ```
 
-Four things about it are deliberate:
+- **`[ERROR]` only where something is lost.** A retired-spelling file with **no** current-spelling lens
+  for the same id means the specialist has no lens at all. A retired-spelling file **beside** a current
+  copy is an `[INFO]`. The current copy is what every reader loads, so the leftover is only a file
+  nobody reads, and the line asks for it to be checked and deleted.
+- **Measured, never declared**, like everything in this register. A directory listing costs nothing and
+  cannot lie. The check runs outside `-SkipDrift`, because it is not a body comparison, and it runs on a
+  narrowed run as well, because it concerns the one consumer in front of it.
+- **The shape is exact**: `^[0-9]{2}-[0-9]{2}-extension\.md$`. A file that merely ends in `-extension.md` is
+  not one.
 
-- **Measured, never declared.** There is no `lensNaming` field in the manifest and there must not be:
-  that would be hand-maintained state about somebody else's tree, which is exactly what the
-  `plugins[].id` rule above exists to forbid — writing a consumer's migration into the register ahead of
-  the consumer performing it turns the register into a false alarm about a migration nobody ran. A
-  directory listing costs nothing and cannot lie.
-- **Not a finding.** It is neither `[ERROR]` nor `[INFO]`, so it does not count and the session hook
-  does not surface it. A consumer on the old spelling is **not broken** — the dual-read layer is there
-  precisely so each repo can do its own `git mv` when it suits.
-- **Three endings, not two.** *Not answerable from this machine* is a different fact from *not yet*, and
-  only the third ending may ever be read as the window being open. "All six are over" is a claim about
-  six repos and this machine holds some subset of them, so the coverage is stated before the verdict and
-  a partial run never says `MET` — the same rule the `[COVERAGE]` lines already carry (#221). A connector
-  whose checkout resolves but holds **no** lens file counts as unmeasured too, never as migrated.
-- **And a measured *not yet* outranks an unreached connector**
-  ([#2298](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2298)). The two arms are both
-  about coverage, which makes the cautious one look like the one that should win — but they are not on
-  the same axis. A connector measurably on the also-read spelling settles the condition as **false**,
-  and nothing an unreached one holds can make it true again, so answering *not answerable* there states
-  less than the run established. The coverage claim is not dropped; it moves into that line, because
-  without it `NOT YET: 2 of 6` reads as the complete migration list, which on partial coverage it is
-  not. The green ending keeps exactly the gate it had: it is still reachable only when nothing is behind
-  **and** nothing is unreached or empty.
-- **The marker is `[LENS-RETIREMENT]`, not `[LENS-NAMING]`** (#2298).
-  [`check-roster-sync.ps1`](../scripts/sync/check-roster-sync.ps1) already prints the latter for an
-  unrelated fact — that *its own* naming vocabulary is older than the tree it is reading (#2219) — and
-  two checks emitting one token is a collision whoever greps either one pays for. Scoped honestly: no
-  hook selects either token, so this was never a session-start ambiguity.
-- **Lens only.** The dual-read layer covers four kinds, and the other three — manual, persona, subagent —
-  live in a consumer's **plugin cache** rather than in their own tree, so their retirement is keyed on
-  which versions are still installed somewhere, not on this register. The roll-up's closing line says so;
-  `Get-SpecialistFileShapes`' banner in `check-report-lib.ps1` is the place that decides any of it.
+**It replaces the `[LENS-RETIREMENT]` roll-up** (#2289, #2298). That roll-up asked whether all six
+connectors were over the rename, so the old spelling could be dropped. #2292 answered that question and
+acted on it, and after that the roll-up could only mislead. Its *not yet* arm could no longer fire, a
+consumer that fell behind read as *unmeasured* rather than as behind, and its green ending invited a
+retirement that had already happened. Its test seam, `-ConnectorsRootOverride`, went with it.
 
-**Retiring a spelling is a deliberate act with its own issue -- [#2292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2292) -- and never a tidy-up folded into a rename** —
-and the green line above is the evidence that act may be *proposed*, not a licence to perform it.
-
-**For Lens that act has been performed, on September 28, 2026** (#2292). This machine could not print the
-green line: two checkouts were absent or unchecked. So the condition was read off the remote trunks
-instead (`gh api repos/<owner>/<repo>/contents/.claude/specialists/lenses`). Five consumers held only
-`specialist-<g>-<id>-lens.md`, and the sixth, `DKJ-Solutions/djcylow-react`, had removed its
-`.claude/specialists/` layer that same day and held no lens file at all. No tree was still read through
-`<g>-<id>-extension.md`, so the Lens row's `AlsoRead` is empty now, and a file under that name is no
-longer a lens to any reader. The roll-up above therefore answers a question that has been settled. What
-becomes of it is [#2591](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2591).
+**Lens only.** The other three kinds (manual, persona, subagent) live in a consumer's **plugin cache**
+rather than in its own tree, so their old spellings are keyed on which versions are still installed,
+not on this register. `Get-SpecialistFileShapes`' banner in `check-report-lib.ps1` is where that is
+decided.
 
 ## Maintenance: drift lint
 
