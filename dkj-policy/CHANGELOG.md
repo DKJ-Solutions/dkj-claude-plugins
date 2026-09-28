@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**17 / 25 minor entries** <!-- pending-tally -->
+**18 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2604-parking-label-shares-dossier-color · 20260928-193357Z
+
+The `awaiting-recurrence` parking label now has `dossier`'s colour (`5319E7`) instead of its own grey. An
+issue meant to stay open for a while now looks the same on the tracker, whichever of the two it carries (#2604).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A repo that runs `adopt-triage-labels` now gets `awaiting-recurrence` printed with `dossier`'s colour.
+The script does not compare the colours of labels that already exist, so if you already have the label
+and want the same look, run `gh label edit awaiting-recurrence --color 5319E7`.
+
+**Score:** 1
+
+#### Pull Request
+
+awaiting-recurrence takes dossier's colour, so the labels that keep an issue open look alike
+
+Plugins: dkj-policy
+
+[PR #2611](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2611)
+
+---
 
 ### DEPLOY: fix/2605-connector-notes-english · 20260928-191948Z
 
