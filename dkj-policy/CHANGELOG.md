@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**10 / 12 minor entries** <!-- pending-tally -->
+**11 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2564-audience-note-sections · 20260928-125646Z
+
+Inside this repo: `Build-ReleaseNoteDraft` takes `-Sections`, and `cut-release.ps1` fills it from a new
+optional seam, `Get-ReleaseNoteSections`, validated by `Resolve-ReleaseNoteSections` before the cut writes
+anything. This repo states all three sections, so its own notes do not change.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo whose release-note readers only want to know what changed can now say so once, in
+`Get-ReleaseNoteSections`, for example `@('Audience')`. The drafted note then leaves out *What it is
+worth* and *What was still open at this release*, heading and hint, so nobody deletes the two headings
+by hand at every cut. A misspelt section name stops the cut before anything is written. A repo that
+states nothing keeps all three sections
+([#2564](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2564)).
+
+**Score:** 3
+
+#### Pull Request
+
+Let a consumer choose which sections the audience release note carries
+
+Plugins: dkj-policy
+
+[PR #2585](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2585)
+
+---
 
 ### DEPLOY: fix/2572-roster-sync-child-stderr · 20260928-120317Z
 
