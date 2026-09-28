@@ -2,7 +2,45 @@
 
 ## [Unreleased]
 
-**16 / 22 minor entries** <!-- pending-tally -->
+**17 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2449-consumer-merge-on-green-trusted-seams · 20260928-185015Z
+
+The `merge-on-green.yml` that `adopt-ci-floor.ps1` scaffolds into a consumer now uses three sibling
+checkouts:
+- the pinned plugin tree;
+- a token-free `trusted-main`, where ship-pr reads the consumer's two repo-owned seams through
+  `-TrustedRoot` and commits the fold;
+- a token-free `pr-branch`.
+
+Before, it used one token-bearing workspace that was switched to the picked branch in place. The push
+credential is an ephemeral `GIT_CONFIG_*` overlay in the ship step. A re-run of `adopt-ci-floor` names
+an existing runner of the old shape with a `[shape]` line, because the scaffolder never rewrites one.
+For the same reason, the shared picker's `.workflow-scripts/` refusal (#2553) is now documented as
+permanent. This is the structural fix for what #2553 could only denylist (#2449).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If you adopted the CI floor before this release, your `.github/workflows/merge-on-green.yml` still has
+the old single-workspace shape, and nothing rewrites it for you. Re-run `adopt-ci-floor` (Part 3 of
+`adopt-dkj-policy`). If it prints a `[shape]` line, delete that one file and re-run with `-Apply`. Until
+you do, the shared picker's standing refusal covers the worst case. The new shape also stops a pull
+request's own copy of `scripts/repo-config.ps1` or `scripts/lib/branch-info.ps1` from running beside
+your `FOLD_PUSH_TOKEN`.
+
+**Score:** 3
+
+#### Pull Request
+
+The consumer merge-on-green runner runs from three sibling checkouts, none holding a credential
+
+Plugins: dkj-policy
+
+[PR #2607](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2607)
+
+---
 
 ### DEPLOY: fix/2592-djcylow-connector-org · 20260928-183820Z
 
