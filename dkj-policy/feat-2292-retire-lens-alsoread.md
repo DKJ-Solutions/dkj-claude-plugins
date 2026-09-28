@@ -88,3 +88,5 @@ were already over, so this reaches nobody we know of.
 
 #### Pull Request
 
+Retire the '<g>-<id>-extension.md' lens spelling now that every consumer is over the rename
+
