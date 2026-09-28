@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**11 / 14 minor entries** <!-- pending-tally -->
+**12 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2568-backup-trunk-held-shortfall · 20260928-140456Z
+
+`backup-live-theme` no longer refuses a copy that is short only on files the trunk holds exactly as
+live holds them. After the wait it names each path live has and the copy lacks, and compares it with
+the trunk at HEAD. It passes as verified WITH EXCEPTIONS only when all of them match and there are at
+most 10. Any other state still refuses, as before. (#2568)
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In a store whose duplicates Shopify always leaves a few templates short, the backup step, and with it
+`live-preflight`, could never pass. They now can, path by path, and a missing file the repo cannot
+restore still stops the push.
+
+**Score:** 4
+
+#### Pull Request
+
+backup-live-theme: accept a short copy whose missing paths the trunk holds exactly as live does
+
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2590](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2590)
+
+---
 
 ### DEPLOY: feat/2587-awaiting-recurrence-label · 20260928-134414Z
 
