@@ -383,11 +383,11 @@ exactly as `gh issue create` does.
 ```bash
 gh label create prio-4 --repo <owner>/<repo> --color b60205 \
   --description "Asana Prio-Score 4.00-5.00"
-gh label create prio-3 --repo <owner>/<repo> --color d93f0b \
+gh label create prio-3 --repo <owner>/<repo> --color e0321a \
   --description "Asana Prio-Score 3.00-3.99"
-gh label create prio-2 --repo <owner>/<repo> --color fbca04 \
+gh label create prio-2 --repo <owner>/<repo> --color f9a825 \
   --description "Asana Prio-Score 2.00-2.99"
-gh label create prio-1 --repo <owner>/<repo> --color 006b75 \
+gh label create prio-1 --repo <owner>/<repo> --color ffe033 \
   --description "Asana Prio-Score 1.00-1.99"
 ```
 
@@ -407,17 +407,17 @@ history is lost:
 
 ```bash
 gh label edit "very high" --repo <owner>/<repo> --name prio-4 --color b60205
-gh label edit "high"      --repo <owner>/<repo> --name prio-3 --color d93f0b
-gh label edit "low"       --repo <owner>/<repo> --name prio-2 --color fbca04
-gh label edit "very low"  --repo <owner>/<repo> --name prio-1 --color 006b75
+gh label edit "high"      --repo <owner>/<repo> --name prio-3 --color e0321a
+gh label edit "low"       --repo <owner>/<repo> --name prio-2 --color f9a825
+gh label edit "very low"  --repo <owner>/<repo> --name prio-1 --color ffe033
 ```
 
-**`prio-2` shares `fbca04` with `tier-1` in this repo, and that is known rather than a slip.** They
-are two different axes -- a rung and a reach -- so both can sit on one issue as two identical yellow
-badges. It is the hex [#1842](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1842)
-prescribes, and whether either label moves is Dave's to decide:
-[#1844](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1844). Read the name, not the
-badge.
+**The colours are two yellows and two reds** (Dave, September 28, 2026): `prio-1` yellow, `prio-2` a
+yellow leaning to orange, `prio-3` a red leaning to orange, `prio-4` red. That also retired the one
+collision this step used to warn about -- `prio-2` shared `fbca04` with `tier-1` until then
+([#1844](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1844)). **A repo adopted before
+that day keeps its old colours**, because `gh label create` never touches a label that exists;
+re-colour in place with `gh label edit prio-<n> --repo <owner>/<repo> --color <hex>`, the hexes above.
 
 **Do the rename and the `asana-mirror.ps1` refresh of step 1 in one sitting, in either order.** The
 copy in `.github/scripts/` is made by hand, so the gap between the two is yours to keep short -- and

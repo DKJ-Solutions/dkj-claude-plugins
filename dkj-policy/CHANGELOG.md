@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**19 / 28 minor entries** <!-- pending-tally -->
+**19 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/prio-label-colors · 20260928-202125Z
+
+The four `prio-` labels now read as two yellows and two reds, on Dave's request: `prio-1` is yellow
+(`FFE033`), `prio-2` a yellow leaning to orange (`F9A825`), `prio-3` a red leaning to orange (`E0321A`)
+and `prio-4` stays red (`B60205`). They replace the teal → yellow → orange → red ramp. The canonical set
+`adopt-triage-labels` prints and the BWJ adopt skill's step 4 carry the new hexes, and this repo's live
+labels were re-coloured. Moving `prio-2` off `FBCA04` also ends its shared badge colour with `tier-1`
+in a BWJ repo (#1844). A repo that already has the labels keeps its old colours until someone runs
+`gh label edit --color`, because the adopt steps never rewrite an existing label.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a badge colour on the issue tracker. No release document reader acts on it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Re-colour the prio labels: yellow for 1-2, red for 3-4
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2614](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2614)
+
+---
 
 ### DEPLOY: fix/2600-lens-naming-retired-spelling · 20260928-201122Z
 

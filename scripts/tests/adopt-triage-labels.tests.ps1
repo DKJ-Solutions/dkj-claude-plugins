@@ -77,8 +77,8 @@ function Assert-Equal {
 # two of THOSE (and none of the four canonical ones) is the realistic shape of "this repo has not
 # adopted the convention yet", and it is what lets this scenario reach the [missing] branch at all.
 $LabelsNone    = '[{"name":"bug","color":"d73a4a","description":"unrelated default label"},{"name":"enhancement","color":"a2eeef","description":"unrelated default label"}]'
-$LabelsAll     = '[{"name":"prio-1","color":"006B75","description":"old text"},{"name":"prio-2","color":"FBCA04","description":"old text"},{"name":"PRIO-3","color":"D93F0B","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Dossier","color":"5319E7","description":"old text"},{"name":"needs-decision","color":"BFD4F2","description":"old text"},{"name":"awaiting-recurrence","color":"5319E7","description":"old text"}]'
-$LabelsPartial = '[{"name":"prio-1","color":"006B75","description":"old text"},{"name":"PRIO-3","color":"D93F0B","description":"old text"}]'
+$LabelsAll     = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"prio-2","color":"F9A825","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Dossier","color":"5319E7","description":"old text"},{"name":"needs-decision","color":"BFD4F2","description":"old text"},{"name":"awaiting-recurrence","color":"5319E7","description":"old text"}]'
+$LabelsPartial = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"}]'
 $LabelsBad     = 'not json'
 
 function New-LabelsFile {
@@ -160,7 +160,7 @@ try {
     Assert-True ($r.Flat -like "*READ-ONLY*never runs gh label create*") 'all missing: the header states the print-only contract on every run'
     # THE EXACT COMPOSED LINE for one concrete label -- name, colour, description and --repo, quoted
     # exactly as a person would paste it.
-    Assert-True ($r.Flat -like "*gh label create 'prio-2' --color 'FBCA04' --description 'Priority 2 of 4 -- worth doing, no pressure' --repo fixture-org/fixture-repo*") `
+    Assert-True ($r.Flat -like "*gh label create 'prio-2' --color 'F9A825' --description 'Priority 2 of 4 -- worth doing, no pressure' --repo fixture-org/fixture-repo*") `
         "all missing: the composed command for 'prio-2' is exact and paste-ready, including --repo"
     Assert-Equal 0 (@([regex]::Matches($r.Out, '\[ok\]')).Count) 'all missing: zero [ok] lines'
     Assert-True ($r.Flat -like '*7 of 7 canonical triage label(s) missing*') 'all missing: the summary line counts 7 of 7'
