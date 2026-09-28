@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**6 / 6 minor entries** <!-- pending-tally -->
+**7 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2569-publish-page-wrangler-oauth · 20260928-103105Z
+
+Inside this repo: `publish-page.ps1` gained a second publish route for when `CLOUDFLARE_API_TOKEN`
+is absent, with two small functions in `page-publish-rules.ps1` and end-to-end tests against an
+`npx.cmd` shim.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For whoever publishes a BWJ page from a machine that is logged in with `npx wrangler login`: the
+publish now works without an API token. It goes through `wrangler kv key put/get --remote` and is
+proved with the same SHA-256 read-back. A login to a different account is refused, and the message
+names both routes.
+
+**Score:** 3
+
+#### Pull Request
+
+publish-page publishes through a wrangler OAuth session when CLOUDFLARE_API_TOKEN is absent
+
+Plugins: dkj-policy-bwj
+
+[PR #2578](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2578)
+
+---
 
 ### DEPLOY: docs/2567-audience-asana-link-from-marker · 20260928-102112Z
 
