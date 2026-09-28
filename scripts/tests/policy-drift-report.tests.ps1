@@ -264,14 +264,14 @@ try {
     # candidate Get-LensDirCandidates can only compose once it has been given a plugin NAME. A consumer
     # bootstrapped before #221 keeps its lenses there and is never relocated, so a rank that read only
     # the seam would be blind in exactly the repos that have been running this longest.
-    $legacyLens = ".claude/plugins/$(Get-LensFamily)/dkj-policy/05-15-extension.md"
+    $legacyLens = ".claude/plugins/$(Get-LensFamily)/dkj-policy/specialist-05-15-lens.md"
     Set-Text -Dir $source -Rel $legacyLens -Text '# A pre-seam lens'
     $r = Invoke-Report -Dir $source
     $rank2 = $r.Out.IndexOf('RANK 2', [System.StringComparison]::Ordinal)
     $rank3 = $r.Out.IndexOf('RANK 3', [System.StringComparison]::Ordinal)
     $atLegacy = $r.Out.IndexOf($legacyLens, [System.StringComparison]::Ordinal)
     Assert-True ($atLegacy -gt $rank2 -and $atLegacy -lt $rank3) `
-        'a lens in the pre-seam per-plugin tree is listed under RANK 2 as well, under either spelling'
+        'a lens in the pre-seam per-plugin tree is listed under RANK 2 as well, under its written spelling'
 
     # THE ROOT'S SPELLING MUST NOT DECIDE WHETHER THE RANK IS BLIND. Every lens directory is composed off
     # the root as it ARRIVED, so a relative form derived from a CANONICALIZED root compares two different

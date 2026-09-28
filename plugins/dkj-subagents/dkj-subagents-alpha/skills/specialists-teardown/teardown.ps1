@@ -250,13 +250,13 @@ $lensDirs = @(
 )
 foreach ($dir in $lensDirs) {
     if (-not (Test-Path -LiteralPath $dir)) { continue }
-    # Both spellings (#2130), on the same guarded-lib pattern as $seam above: a teardown that knows one
-    # spelling leaves the other behind, silently, and "remove one directory and one line" stops being
-    # true of exactly the consumers that kept up with the rename.
+    # Every spelling the lib's table names, on the same guarded-lib pattern as $seam above. The fallback
+    # is the written spelling alone: the '<g>-<id>-extension.md' one was retired in #2292, and a
+    # fallback still naming it would find nothing in any consumer that kept up with the rename.
     $lenses = if (Get-Command Get-SpecialistFiles -ErrorAction SilentlyContinue) {
         @(Get-SpecialistFiles -Path $dir -Kind Lens -Recurse)
     } else {
-        @(Get-ChildItem -LiteralPath $dir -Recurse -Filter '*-extension.md' -File -ErrorAction SilentlyContinue)
+        @(Get-ChildItem -LiteralPath $dir -Recurse -Filter '*-lens.md' -File -ErrorAction SilentlyContinue)
     }
     foreach ($lens in $lenses) {
         $rel = $lens.FullName.Substring($root.Length).TrimStart('\', '/')

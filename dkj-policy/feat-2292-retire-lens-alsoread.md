@@ -40,7 +40,7 @@
 ### PLAN
 
 Close #2292: every consumer is over the #2130 lens rename, so the Lens row's `AlsoRead` in
-`Get-SpecialistFileShapes` empties. The condition was measured on 2026-09-28 against the remote trunks.
+`Get-SpecialistFileShapes` empties. The condition was measured on September 28, 2026 against the remote trunks.
 Five of the six consumers hold only `specialist-<g>-<id>-lens.md`. The sixth,
 `DKJ-Solutions/djcylow-react`, removed its `.claude/specialists/` layer that day (`32397532`) and holds
 no lens file at all. The local roll-up could only say `NOT ANSWERABLE`, because one checkout was absent
