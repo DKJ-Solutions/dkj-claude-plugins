@@ -296,7 +296,7 @@ Assert-True ($garbage.Lines[0] -like '`[######*') 'show-progress: and the bar is
 # --- 13b. the bar is scoped to the session's own checkout (#2574) --------------------------------
 # The record directory is machine-wide, so a ship in one repo's window drew its bar in every session.
 Write-Host '== workspace scope ==' -ForegroundColor Cyan
-$wsBase = Join-Path ([System.IO.Path]::GetTempPath()) "rp-ws-$PID"
+$wsBase = Join-Path ([System.IO.Path]::GetTempPath()) "rp-ws-$PID-$([guid]::NewGuid().ToString('n'))"
 $wsA = Join-Path $wsBase 'repo'
 $wsB = Join-Path $wsBase 'repo2'
 Assert-True (Test-RunProgressInWorkspace -RecordWorkspace $wsA -SessionWorkspace $wsA) 'scope: the same checkout matches'
