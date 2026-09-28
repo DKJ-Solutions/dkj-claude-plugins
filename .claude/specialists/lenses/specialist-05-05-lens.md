@@ -1135,7 +1135,7 @@ instead of a new issue, `part of #<n>` instead of a keyword, close only on the r
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — `needs-decision` and `awaiting-recurrence`, set when the issue is filed
+### The parking labels — `needs-decision` at filing, `awaiting-recurrence` once only evidence is owed
 
 **`needs-decision` (`BFD4F2`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
 nor a sweep treats it as work that is ready (Dave, September 26, 2026,
