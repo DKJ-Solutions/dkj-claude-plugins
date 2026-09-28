@@ -761,12 +761,35 @@ $parkingLabels = @(Select-ParkingLabels -Labels @(Get-IssueLabelNames -Issue $fa
 $tagVerdict = $null
 $claimRecords = @()
 
+# --- A PULL REQUEST'S NUMBER IS REFUSED, AND THE ISSUE IT CLOSES IS NAMED (issue #2609) -------------
+#
+# Both verdicts refuse it; this prints the refusal once for both. The one extra read -- the PR's closing
+# references -- is spent only on this refusal, is bounded like every other gh call here, and costs
+# nothing but the hint when it does not answer: the refusal stands either way.
+function Write-PullRequestRefusal {
+    Write-Host "[REFUSED] #$number is a PULL REQUEST ($($facts.state)), not an issue -- nothing was claimed." -ForegroundColor Red
+    Write-Host '          gh issue view answers for a pull request''s number too, since the two share one counter,' -ForegroundColor Red
+    Write-Host '          so an [OK] here would have put an assignee on the pull request and claimed nothing real.' -ForegroundColor Red
+    $prView = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('pr', 'view', $number) + $repoArgs + @('--json', 'closingIssuesReferences')) -Utf8 -DiscardStderr `
+                                   -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    $closes = @()
+    if ($prView -and (Test-NativeExitMeasured -Capture $prView) -and $prView.ExitCode -eq 0 -and -not $prView.ShortRead) {
+        $closes = @(Get-ClosingIssueNumbers -Json (@($prView.Output) -join "`n"))
+    }
+    if ($closes.Count -gt 0) {
+        Write-Host "          It closes $(($closes | ForEach-Object { "#$_" }) -join ', ') -- if that is the issue you meant, run this again on that number." -ForegroundColor Red
+    } else {
+        Write-Host '          Run this again on the issue number you meant.' -ForegroundColor Red
+    }
+    Write-Host "          $($facts.url)" -ForegroundColor Red
+}
+
 $takeOverFrom = @()
 $takeOverAuthors = @()
 $takeOverBranch = ''
 if ($Tag) {
     $claimRecords = @(Get-ClaimRecords -Json $viewJson -Marker $Marker)
-    $tagVerdict = Get-TagClaimVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords
+    $tagVerdict = Get-TagClaimVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords -Url ([string]$facts.url)
 
     if ($claimRecords.Count -gt 0) {
         foreach ($record in $claimRecords) {
@@ -863,7 +886,7 @@ if ($Tag) {
         # colleague's commit off as part of the branch. A failed read leaves the list empty, which the
         # verdict refuses as 'unknown-author' rather than reading as clean.
         $branchAuthors = @()
-        $untagged = (Get-TagClaimVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords).Code -eq 'free'
+        $untagged = (Get-TagClaimVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords -Url ([string]$facts.url)).Code -eq 'free'
         if ($untagged -and $issueBranches.Count -eq 1) {
             $only = $issueBranches[0]
             # Through the one fetch seam (fetch-attempt-lib, #1860), narrowed to this branch. No
@@ -883,7 +906,7 @@ if ($Tag) {
         }
 
         $takeSelfNames = @($identity.GitUserName, $identity.Account, $claimTag.Account) + $ownAccounts
-        $take = Get-TakeOverVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords -Branches $issueBranches `
+        $take = Get-TakeOverVerdict -Tag $claimTag.Tag -State ([string]$facts.state) -Records $claimRecords -Url ([string]$facts.url) -Branches $issueBranches `
                                     -OwnAccounts $ownAccounts -SelfNames $takeSelfNames -BranchAuthors $branchAuthors
         $holderText = Format-ForConsole -Text (@($take.Holders) -join ', ')
         switch ($take.Code) {
@@ -965,8 +988,12 @@ if ($Tag) {
             Write-Host '[ERROR] there is no tag to claim under -- nothing was written.' -ForegroundColor Red
             exit 1
         }
+        'pull-request' {
+            Write-PullRequestRefusal
+            exit 1
+        }
         'closed' {
-            Write-Host "[REFUSED] issue #$number is CLOSED -- nothing was claimed." -ForegroundColor Red
+            Write-Host "[REFUSED] issue #$number is $($facts.state) -- nothing was claimed." -ForegroundColor Red
             Write-Host '          A sweep claiming closed work builds it again in full and finds out at the merge.' -ForegroundColor Red
             Write-Host "          $($facts.url)" -ForegroundColor Red
             exit 1
@@ -994,7 +1021,7 @@ if ($Tag) {
 
 # --- MAY IT BE CLAIMED ----------------------------------------------------------------------------
 if (-not $Tag) {
-    $verdict = Get-ClaimVerdict -Account $identity.Account -State ([string]$facts.state) -Assignees $assignees
+    $verdict = Get-ClaimVerdict -Account $identity.Account -State ([string]$facts.state) -Assignees $assignees -Url ([string]$facts.url)
 }
 
 # --- IS THE FIX ALREADY SITTING ON A BRANCH (issue #1853) -----------------------------------------
@@ -1369,8 +1396,12 @@ switch ($verdict.Code) {
         Write-Host '        A claim exists to tell a second session whose work this is -- it cannot be made anonymously.' -ForegroundColor Red
         exit 1
     }
+    'pull-request' {
+        Write-PullRequestRefusal
+        exit 1
+    }
     'closed' {
-        Write-Host "[REFUSED] issue #$number is CLOSED -- nothing was claimed." -ForegroundColor Red
+        Write-Host "[REFUSED] issue #$number is $($facts.state) -- nothing was claimed." -ForegroundColor Red
         Write-Host '          The one-liner in the docs would have succeeded here and told you nothing, which is the' -ForegroundColor Red
         Write-Host '          most expensive way this step fails: work already done, built again in full, found at the' -ForegroundColor Red
         Write-Host '          merge. If it is closed and still broken, REOPEN it first -- the reopening is the record' -ForegroundColor Red
@@ -1387,7 +1418,7 @@ switch ($verdict.Code) {
         # THE HOLDER MAY BE A SECOND ACCOUNT AUTHENTICATED ON THIS MACHINE (issue #2207). Printed
         # ABOVE the "pick another issue, or ask whoever holds it" line on purpose: that line describes
         # a colleague elsewhere, and where this note fires it is the sentence being corrected. The
-        # verdict, the exit code and the five verdicts are untouched -- this adds a reading, not a
+        # verdict, the exit code and the other verdicts are untouched -- this adds a reading, not a
         # rule.
         $localHolders = @(Get-LocalAccountHolders -Holders $verdict.Others -LocalAccounts $ghAccounts)
         foreach ($line in @(Format-ConcurrentSessionNote -LocalHolders $localHolders -Account $identity.Account)) {

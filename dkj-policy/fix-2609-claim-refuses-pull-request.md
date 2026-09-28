@@ -52,7 +52,8 @@ verdict and the take-over verdict, which passes it through.
 
 ### TEST
 
-- [x] `claim-issue.tests.ps1`: 554 passed, 0 failed, with asserts for MERGED, an open PR, an unknown state, the URL test and the closing-issue reader
+- [x] `claim-issue.tests.ps1`: 555 passed, 0 failed, with asserts for MERGED, an open PR, an unknown state, the URL test and the closing-issue reader
+- [x] Victor's review: the take-over path's untagged probe now passes the URL, and the URL test is anchored on the resource segment
 - [x] live dry-run on merged PR #2504, both default and `-Tag`: refused, names #2500, exit 1
 
 ### DEPLOY: fix/2609-claim-refuses-pull-request
