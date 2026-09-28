@@ -385,11 +385,20 @@ if (-not $sinceTag) {
 if (-not $sinceTag) {
     Add-Step -Name 'push list' -State 'refuse' -Detail 'no vX.Y.Z tag in this repo, so there is no previous release to diff against. Pass -SinceTag to name the baseline explicitly.'
 } else {
-    $rangeCap = Invoke-Git -Arguments @('diff', '--name-only', "$sinceTag..HEAD")
+    # --no-renames IN BOTH READS (#2566): with rename detection on, a renamed theme file's OLD path is in
+    # neither list, and that path is still on live exactly as a deleted one is. Split into its add and its
+    # delete, the new path is pushed and the old one is reported.
+    $rangeCap = Invoke-Git -Arguments @('diff', '--no-renames', '--name-only', "$sinceTag..HEAD")
+    $deletedCap = Invoke-Git -Arguments @('diff', '--no-renames', '--name-only', '--diff-filter=D', "$sinceTag..HEAD")
     if (-not (Test-NativeExitMeasured -Capture $rangeCap) -or $rangeCap.ExitCode -ne 0) {
         Add-Step -Name 'push list' -State 'refuse' -Detail "could not diff $sinceTag..HEAD ($(Get-NativeExitLabel -Capture $rangeCap)) -- is '$sinceTag' a tag this checkout has? Try 'git fetch --tags'."
+    } elseif (-not (Test-NativeExitMeasured -Capture $deletedCap) -or $deletedCap.ExitCode -ne 0) {
+        # A FAILED DELETION READ REFUSES rather than reading as "nothing deleted": that reading is the
+        # exact list this step exists to stop, every deleted theme file offered as a push row.
+        Add-Step -Name 'push list' -State 'refuse' -Detail "could not read the deletions in $sinceTag..HEAD ($(Get-NativeExitLabel -Capture $deletedCap)), so a deleted file could not be told from a changed one."
     } else {
         $changed = @(Get-GitPaths $rangeCap)
+        $deleted = @(Get-GitPaths $deletedCap)
 
         # --- SYNC PROVENANCE ------------------------------------------------------------------------
         # A SYNC IS ONE-WAY, so a file whose only history in this range came in through one is already
@@ -417,9 +426,10 @@ if (-not $sinceTag) {
             $syncOwned = @(Get-SyncOwnedPaths -WalkLines (Get-GitPaths $walk) -SyncCommits $syncCommits)
         }
 
-        $rows = @(Get-LivePushRows -ChangedPaths $changed -SyncOwnedPaths $syncOwned)
+        $rows = @(Get-LivePushRows -ChangedPaths $changed -SyncOwnedPaths $syncOwned -DeletedPaths $deleted)
         $pushFiles = @($rows | Where-Object { $_.Push } | ForEach-Object { $_.Path })
         $held = @($rows | Where-Object { -not $_.Push })
+        $stillOnLive = @($rows | Where-Object { $_.Kind -eq 'deleted' })
 
         Write-Host "  $sinceTag..HEAD changed $($changed.Count) file(s)."
         # EVERY PATH PRINTED HERE GOES THROUGH Format-SafePathToken (#2514). These are the same foreign
@@ -444,8 +454,15 @@ if (-not $sinceTag) {
         # characters a newline attack needs; the name is a display, never part of a command.
         $unsafePush = @(Get-LivePushUnsafePaths -Paths $pushFiles)
 
+        # A DELETION IS ITS OWN STEP, and a warning rather than a refusal: the push is still right, and
+        # what it cannot carry is named so it is not mistaken for shipped.
+        if ($stillOnLive.Count -gt 0) {
+            Add-Step -Name 'deletions' -State 'warn' -Detail "$($stillOnLive.Count) theme file(s) are deleted on the trunk and stay on live, because a push cannot remove a file. Removing them from the store is a separate decision -- they are listed above under 'held'."
+        }
+
         if ($pushFiles.Count -eq 0) {
-            Add-Step -Name 'push list' -State 'refuse' -Detail "nothing in $sinceTag..HEAD lives on a theme, so there is nothing to push. This release is code and docs only."
+            $only = if ($stillOnLive.Count -gt 0) { " The only theme changes in the range are deletions, which a push cannot carry." } else { ' This release is code and docs only.' }
+            Add-Step -Name 'push list' -State 'refuse' -Detail "nothing in $sinceTag..HEAD is a theme file to push, so there is nothing to push.$only"
         } elseif ($unsafePush.Count -gt 0) {
             $named = (@($unsafePush | Select-Object -First 5) | ForEach-Object { "'$(Format-SafePathToken -Value $_)'" }) -join ', '
             $more  = if ($unsafePush.Count -gt 5) { ", and $($unsafePush.Count - 5) more" } else { '' }

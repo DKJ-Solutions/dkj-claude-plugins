@@ -134,6 +134,35 @@ Assert-Equal 'not-a-theme-path' $outside[0].Kind 'the theme-path test runs befor
 $mixed = @(Get-LivePushRows -ChangedPaths @('sections/header.liquid') -SyncOwnedPaths @('sections\header.liquid'))
 Assert-Equal 'sync-owned' $mixed[0].Kind 'provenance matches across separator spellings'
 
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'Deletions -- a push cannot carry one (#2566)' -ForegroundColor Cyan
+
+# THE CONSUMER'S SHAPE: theme files deleted in the range beside one that changed, a deleted script, and a
+# deletion a sync mirrored in from live.
+$delRows = @(Get-LivePushRows -ChangedPaths @('sections/hero.liquid', 'locales/es.json', 'templates/index.context.spanje.json', 'scripts/old.ps1', 'snippets/gone-on-live.liquid') `
+                              -DeletedPaths @('locales/es.json', 'templates\index.context.spanje.json', 'scripts/old.ps1', 'snippets/gone-on-live.liquid') `
+                              -SyncOwnedPaths @('snippets/gone-on-live.liquid'))
+Assert-Equal 5 $delRows.Count 'a deleted path still gets a row'
+Assert-Equal 1 @($delRows | Where-Object { $_.Push }).Count 'only the changed theme file is pushed -- no deleted one is'
+$delEs = @($delRows | Where-Object { $_.Path -eq 'locales/es.json' })[0]
+Assert-Equal 'deleted' $delEs.Kind 'a deleted theme file is reported as deleted'
+Assert-True ($delEs.Reason.Contains('still on live')) '...with the reason a reader can act on'
+Assert-Equal 'deleted' @($delRows | Where-Object { $_.Path -eq 'templates/index.context.spanje.json' })[0].Kind 'the deleted set matches across separator spellings'
+Assert-Equal 'not-a-theme-path' @($delRows | Where-Object { $_.Path -eq 'scripts/old.ps1' })[0].Kind 'a deleted non-theme path is still reported as not a theme path'
+Assert-Equal 'sync-owned' @($delRows | Where-Object { $_.Path -eq 'snippets/gone-on-live.liquid' })[0].Kind 'a deletion a sync mirrored from live is sync-owned -- it is already gone there'
+Assert-True @(Get-LivePushRows -ChangedPaths @('sections/hero.liquid'))[0].Push 'with no deleted set, nothing changes for a caller that passes none'
+
+# BOTH DRIVERS FEED THE SET, and read the range with renames split so a renamed file's old path is in it.
+# The drivers read git and the Shopify CLI, so this is asserted on their source rather than by running them.
+$pfSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\task\live-preflight.ps1') -Raw
+$prSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-policy-bwj\scripts\task\prepare-release.ps1') -Raw
+foreach ($drv in @(@{ Name = 'live-preflight'; Src = $pfSrc }, @{ Name = 'prepare-release'; Src = $prSrc })) {
+    Assert-True ($drv.Src -match 'Get-LivePushRows\b[^\r\n]*-DeletedPaths') "$($drv.Name) passes the range's deletions to Get-LivePushRows"
+    Assert-True ($drv.Src -match "'--no-renames',\s*'--name-only',\s*'--diff-filter=D'") "$($drv.Name) reads the deletions with renames split"
+    Assert-True ($drv.Src -notmatch "'diff',\s*'--name-only'") "$($drv.Name) has no range read left with rename detection on"
+}
+
 # WHICH COMMITS CAME IN THROUGH A SYNC (#2509: out of live-preflight.ps1, so prepare-release reads the same
 # rule). Both merge shapes, and the commit that merely mentions nothing sync-shaped is not a row.
 $heads = @(Get-SyncMergeCommits -SyncPrefix 'sync/' -LogLines @(
