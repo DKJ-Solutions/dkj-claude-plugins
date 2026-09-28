@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**18 / 27 minor entries** <!-- pending-tally -->
+**19 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2600-lens-naming-retired-spelling · 20260928-201122Z
+
+`check-roster-sync` no longer tells a repo whose lens is still named `<g>-<id>-extension.md` that
+nothing needs changing. No reader has resolved that spelling since #2292, so the check now reports the
+specialist as running without its lens, and prints the `git mv` to the current name (#2600).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If your repo still has a lens file named like `06-24-extension.md`, the session-start check now shows
+it as an error with the exact rename to run, instead of a yellow line asking you to update the plugins.
+Updating the plugins never fixed that file. Renaming it is what gives that specialist its repo lens back.
+
+**Score:** 2
+
+#### Pull Request
+
+check-roster-sync names the rename for a lens under the retired spelling, instead of saying nothing needs changing
+
+Plugins: dkj-subagents-alpha
+
+[PR #2613](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2613)
+
+---
 
 ### DEPLOY: feat/allow-git-stash · 20260928-195354Z
 
