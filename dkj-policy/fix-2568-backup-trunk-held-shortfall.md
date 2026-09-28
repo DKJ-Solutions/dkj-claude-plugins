@@ -85,3 +85,4 @@ restore still stops the push.
 
 #### Pull Request
 
+backup-live-theme: accept a short copy whose missing paths the trunk holds exactly as live does
