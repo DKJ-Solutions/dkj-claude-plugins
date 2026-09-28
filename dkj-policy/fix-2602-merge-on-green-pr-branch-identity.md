@@ -63,3 +63,4 @@ N/A -- this is the source repo's own CI runner; nothing a consumer takes changes
 
 #### Pull Request
 
+merge-on-green sets the commit identity in pr-branch as well as trusted-main
