@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#2605: five connector records (`djcylow-react`, `life-hub`, `smartwatchbanden`, `thumbnail-generator`,
+`xoxowildhearts`) carried the same `MIGRATED 2026-09-11 (#1769)` passage in Dutch, against the
+English-content rule. `language-layers.md` has no exception for connector `notes`.
+
+The issue left two options open: translate the passage, or add a history exception. This branch
+translates it. #952 keeps a dated measurement in the *names* it was written with, and a translation
+keeps every name and figure. An exception would add a rule to protect a single passage.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace the Dutch passage with an English translation in all five records, keeping every id,
+  date, version and issue number verbatim.
 
 ### TEST
 
+- [x] All connector manifests parse, and no match for `vlagdag`, `gemigreerd` or common Dutch function
+  words is left under `connectors/`.
+- [x] `connectors.tests.ps1`: 417 pass, 0 fail.
+
 ### DEPLOY: fix/2605-connector-notes-english
 
-**Score:**
+The `#1769` migration passage in five connector records' `notes` is now in English, as the repo's
+content-language rule requires. It was the one Dutch passage left in the register (#2605).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
+Five connector records carry their #1769 migration note in English
