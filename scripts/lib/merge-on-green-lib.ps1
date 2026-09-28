@@ -252,15 +252,21 @@ function Get-MergeOnGreenExecutedPathHit {
         below is not source-repo-specific.
 
         AND ONE PREFIX SURVIVES AS WELL: `.workflow-scripts/` (issue #2553). That prefix is not the source
-        repo's shape at all. It is the path where the CONSUMER runner that adopt-ci-floor.ps1 scaffolds
-        checks the pinned plugin tree out, INSIDE its PAT-bearing workspace, before it runs `git checkout`
-        of the picked branch in place. That runner has no trusted second tree (#2449 is the structural
-        fix), and git overwrites an ignored file on checkout. So a branch that commits
-        `.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1` REPLACES the trusted copy, and
-        the runner then executes the branch's copy while holding FOLD_PUSH_TOKEN. #2437 dropped this prefix
-        together with the other three and v5.8.0 shipped without it, so this is a SAFETY refusal, not a
-        currency one. The source repo has no such directory, so the prefix costs nothing there. It stays
-        until the consumer template stops sharing one workspace between the plugin tree and the branch.
+        repo's shape at all. It is the path where the CONSUMER runner that adopt-ci-floor.ps1 scaffolded
+        before #2449 checks the pinned plugin tree out, INSIDE its PAT-bearing workspace, before it runs
+        `git checkout` of the picked branch in place -- and git overwrites an ignored file on checkout. So
+        in that shape a branch that commits `.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1`
+        REPLACES the trusted copy, and the runner then executes the branch's copy while holding
+        FOLD_PUSH_TOKEN. #2437 dropped this prefix together with the other three and v5.8.0 shipped
+        without it, so this is a SAFETY refusal, not a currency one. The source repo has no such
+        directory, so the prefix costs nothing there.
+
+        IT NEVER SHRINKS, EVEN THOUGH THE TEMPLATE NO LONGER HAS THAT SHAPE (#2449). The template now
+        checks the plugin tree, the trunk and the branch out as three siblings, so nothing is switched in
+        place. But adopt-ci-floor never rewrites an existing runner, so a consumer adopted earlier keeps the
+        old shape until somebody re-scaffolds it, and this lib cannot see which shape a given consumer runs.
+        Dropping the prefix would reopen exactly the hole #2437's shrink opened (Sebastian #23's review on
+        #2449).
 
         THE MATCH IS NORMALISED, NOT EXACT. Separators, doubled slashes, a leading './' or '/',
         surrounding whitespace and CASE are all folded before the comparison, because a `git mv` to
