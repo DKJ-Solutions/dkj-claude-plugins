@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Inbound #2564: the `Wording` seam can rename the audience note's two hand-written sections but not omit
+them. The narrow repair the body asks for, as a new optional seam `Get-ReleaseNoteSections`. The wider
+shape two later comments describe (a note drafted from the `asana-task` markers, live-only) stays open
+on the issue and is not built here, so this ships with `-NoResolves`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Build-ReleaseNoteDraft -Sections` (default all three, byte-identical) and `Resolve-ReleaseNoteSections` in `release-lib.ps1`
+- [x] `cut-release.ps1` reads and validates the seam before anything is written
+- [x] contract record, this repo's own answer in `repo-config.ps1`, mirrors and blueprint regenerated
+- [x] the cut-release skill (step 0a, step 2) and `RELEASES-portable.md` read the sections as conditional
 
 ### TEST
 
+- [x] `release-lib.tests.ps1` (594 asserts), `script-contract.tests.ps1` (count 44 -> 45), `cut-release-guardrail.tests.ps1`, `config-blueprint.tests.ps1` green standalone
+
 ### DEPLOY: feat/2564-audience-note-sections
 
-**Score:**
+Inside this repo: `Build-ReleaseNoteDraft` takes `-Sections`, and `cut-release.ps1` fills it from a new
+optional seam, `Get-ReleaseNoteSections`, validated by `Resolve-ReleaseNoteSections` before the cut writes
+anything. This repo states all three sections, so its own notes do not change.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo whose release-note readers only want to know what changed can now say so once, in
+`Get-ReleaseNoteSections`, for example `@('Audience')`. The drafted note then leaves out *What it is
+worth* and *What was still open at this release*, heading and hint, so nobody deletes the two headings
+by hand at every cut. A misspelt section name stops the cut before anything is written. A repo that
+states nothing keeps all three sections
+([#2564](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2564)).
+
+**Score:** 3
 
 #### Pull Request
 
