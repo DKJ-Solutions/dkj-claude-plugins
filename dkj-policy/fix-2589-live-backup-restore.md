@@ -41,19 +41,33 @@
 
 Write the rollback from the verified live backup (publish the backup, then push excepted paths from the commit it was verified against), and have the backup print that commit.
 
+Dave chose the route on September 28, 2026: **publish the backup theme** (one atomic switch), not push its files onto live. The live guard refuses every publish, so the procedure is human-run.
+
+Found while writing it: `Get-BackupRotationPlan` read no role, so a backup published as live keeps its backup name and the next run would plan the live theme as "the previous backup". The delete guard catches that only once `Get-ShopifyLiveThemeId` names the new id. That refusal lands here because the procedure creates the state.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `backup-live-theme.ps1`: resolve `HEAD` once to a commit id, hold every missing path against it, and print it on the WITH EXCEPTIONS lines (plugin copy and root mirror)
+- [x] `Get-BackupRotationPlan`: keep a backup the store reports as role `main`/`live` (plugin copy and root mirror)
+- [x] `theme-lifecycle` skill: the "Restore live from the backup" section, plus the commit-id paragraph
+- [x] `THEME-LIFECYCLE-portable.md`: the policy line; `live-preflight`: a pointer to the restore section
 
 ### TEST
 
+- [x] `theme-lifecycle-rules.tests.ps1`: 134 pass, 0 fail (restored-backup rotation rows, pinned-commit wiring)
+- [x] `check-plugin-integrity.ps1`: 0 errors
+
 ### DEPLOY: fix/2589-live-backup-restore
 
-**Score:**
+A live-theme backup now comes with a written way back. A person publishes the backup theme. A backup that passed WITH EXCEPTIONS first gets its missing paths back from the exact commit it was verified against, and the backup run now prints that commit instead of "HEAD" ([#2589](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2589)). The rotation step also no longer plans a restored (now live) backup for deletion.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store owner whose live push went wrong now has written steps to go back. Until now "rollback point" had no instructions behind it.
+
+**Score:** 3
 
 #### Pull Request
 
