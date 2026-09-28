@@ -77,7 +77,7 @@ function Get-LivePushRows {
         are exactly the rows it would not print. A reader checking this list by eye needs to see that
         scripts/, the tests and CLAUDE.md were CONSIDERED and refused, not merely absent.
 
-        THREE VERDICTS, EACH ITS OWN REFUSAL RATHER THAN ONE RULE STRETCHED OVER SEVERAL CASES:
+        FOUR VERDICTS, EACH ITS OWN REFUSAL RATHER THAN ONE RULE STRETCHED OVER SEVERAL CASES:
 
           theme-file        the path sits under one of the eight theme directories. It is pushed.
           not-a-theme-path  it does not. Scripts, tests, docs, CI config, the changelog: real changes,
@@ -90,10 +90,17 @@ function Get-LivePushRows {
                             it silently reverts their work. The caller establishes provenance from git
                             and passes the set in; deciding it is not this function's job, asserting the
                             consequence is.
+          deleted           it sits under a theme directory AND the range deletes it (#2566). A push
+                            cannot carry a deletion: `--only <path>` on a file that is not in the
+                            checkout removes nothing from live, so a push row for it would claim a change
+                            the push cannot make. The file is still on live, and removing it there is a
+                            store delete -- its own decision, not a push. Measured in a BWJ store: 209
+                            deletions in one range, every theme one of them listed as `push`.
 
-        THE ORDER OF THE TWO REFUSALS IS LOAD-BEARING. A path is tested for being a theme path FIRST, so
-        a sync-owned path outside the theme directories is reported as what it primarily is rather than
-        as a sync artefact.
+        THE ORDER OF THE REFUSALS IS LOAD-BEARING. A path is tested for being a theme path FIRST, so a
+        sync-owned path outside the theme directories is reported as what it primarily is rather than
+        as a sync artefact. Sync provenance is tested BEFORE deletion: a deletion a sync mirrored in came
+        FROM live, so the file is already gone there, and "still on live" would be false.
 
         CASE. Theme directory names are lowercase on the platform, and Windows checkouts are not
         case-sensitive, so the prefix test is case-insensitive and the path is reported back exactly as
@@ -107,7 +114,8 @@ function Get-LivePushRows {
     param(
         [AllowNull()][AllowEmptyCollection()][string[]]$ChangedPaths,
         [AllowNull()][AllowEmptyCollection()][string[]]$SyncOwnedPaths = @(),
-        [AllowNull()][AllowEmptyCollection()][string[]]$ThemeDirectories = $null
+        [AllowNull()][AllowEmptyCollection()][string[]]$ThemeDirectories = $null,
+        [AllowNull()][AllowEmptyCollection()][string[]]$DeletedPaths = @()
     )
 
     # THROUGH A PIPELINE, NOT @($ThemeDirectories). Under Windows PowerShell 5.1 a [string[]] parameter
@@ -125,6 +133,14 @@ function Get-LivePushRows {
         $t = ([string]$p).Trim()
         if (-not $t) { continue }
         [void]$syncSet.Add(($t -replace '\\', '/'))
+    }
+    # The deleted set is keyed the same way, for the same reason.
+    $deletedSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($p in @($DeletedPaths)) {
+        if ($null -eq $p) { continue }
+        $t = ([string]$p).Trim()
+        if (-not $t) { continue }
+        [void]$deletedSet.Add(($t -replace '\\', '/'))
     }
 
     $rows = @()
@@ -161,6 +177,16 @@ function Get-LivePushRows {
                 Push   = $false
                 Kind   = 'sync-owned'
                 Reason = "in $hit/, but a sync mirrored it FROM live -- those bytes are already there, and pushing them back can revert a third party's later edit"
+            }
+            continue
+        }
+
+        if ($deletedSet.Contains($norm)) {
+            $rows += [pscustomobject]@{
+                Path   = $path
+                Push   = $false
+                Kind   = 'deleted'
+                Reason = "in $hit/, but DELETED on the trunk -- a push cannot remove it, so it is still on live: removing it there is a store delete, decided separately"
             }
             continue
         }

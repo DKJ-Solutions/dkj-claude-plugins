@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**8 / 8 minor entries** <!-- pending-tally -->
+**9 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2566-live-push-list-skips-deletions · 20260928-105429Z
+
+Inside this repo: `Get-LivePushRows` in `scripts/lib/live-push-rules.ps1` gained a `-DeletedPaths` set and a
+`deleted` verdict, and `live-preflight.ps1` and dkj-policy-bwj's `prepare-release.ps1` now feed it from a
+`--diff-filter=D` read, with rename detection off in every range read.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For whoever prepares a store's live push: a theme file deleted since the last release is no longer
+offered as a `push` row. That row claimed a change `--only` cannot make, and the file stayed on live
+unnoticed. Each such file is now listed under `held` as deleted and still on live, with its own step
+saying the store delete is a separate decision. A renamed file's old path, which used to be in no list
+at all, is reported the same way.
+
+**Score:** 3
+
+#### Pull Request
+
+live push list lists files deleted in the range as push rows
+
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2576](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2576)
+
+---
 
 ### DEPLOY: docs/2558-visible-result-stays-on-branch · 20260928-104254Z
 
