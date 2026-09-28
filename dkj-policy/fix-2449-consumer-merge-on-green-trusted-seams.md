@@ -57,6 +57,11 @@ in place to three sibling checkouts, together with the review's three conditions
 - [x] The comment in `merge-on-green-lib.ps1`: the `.workflow-scripts/` refusal is now documented as
   permanent (review question 5). The code is unchanged.
 - [x] `.DESCRIPTION` of `adopt-ci-floor.ps1`. Both mirrors are byte-identical.
+- [x] Two docs still described the old shape as current (Edith #17's copy edit):
+  - `adopt-dkj-policy/SKILL.md`, Part 3's fourth runner. It is rewritten for the three checkouts and gets
+    the re-scaffold instruction. The same paragraph's "half-hourly" is corrected to every 3 hours (#2487).
+  - Sylvester's lens. The `.git/info/exclude` sentence is dropped, and the "not the same fix" bullet
+    becomes what #2449 built.
 
 ### TEST
 
