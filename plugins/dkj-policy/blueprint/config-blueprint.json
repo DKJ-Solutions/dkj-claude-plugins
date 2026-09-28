@@ -423,6 +423,17 @@
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
+                        "function":  "Get-ReleaseNoteTaskLink",
+                        "adopt":  "decide",
+                        "adoptWhy":  "it names the consumer\u0027s own task tracker -- a marker name and a task URL that exist nowhere in the source, which does not answer it at all -- and answering it makes every cut read the merged PRs\u0027 closing issues through gh. A repo whose note readers ask which of their tasks are solved (a store\u0027s colleagues, measured at a BWJ store\u0027s v1.3.0) opts in; a repo whose readers decide whether to take a version does not",
+                        "optional":  true,
+                        "default":  "no task form: the audience section is drafted from the entries, exactly as before",
+                        "returns":  "a hashtable @{ Marker = \u0027asana-task\u0027; Url = \u0027https://app.asana.com/0/0/{0}\u0027; Label = \u0027Asana task\u0027 }. Answered, the release note\u0027s audience section is drafted as SOLVED TASKS: one \u0027### \u003cissue title\u003e\u0027 plus a [Label](Url) link per issue an audience entry closed that carries \u0027\u003c!-- \u003cMarker\u003e: \u003cid\u003e --\u003e\u0027, with the id in place of \u0027{0}\u0027, and no entry prose or PR link. With a live-push record (-LivePushRecord) an entry qualifies only when it changed a path the record names (a storefront change) and none of those is held (live); a repo with a live stage that runs this form without a record is refused unless -NoLivePushRecord states there was no push. A Marker outside lowercase letters, digits and \u0027-\u0027, or a Url that is not https or lacks \u0027{0}\u0027, stops the cut before anything is written",
+                        "declared":  true,
+                        "text":  "function Get-ReleaseNoteTaskLink {\n    \u003c# No task form: this repo\u0027s note readers decide whether to take a version, and a list of solved\n       tasks is not what they ask for -- so the audience section stays drafted from the entries. #\u003e\n    return $null\n}"
+                    },
+                    {
+                        "lib":  "scripts\\repo-config.ps1",
                         "function":  "Get-ReleasePageTitle",
                         "adopt":  "decide",
                         "adoptWhy":  "it is the name a reader sees at the top of a page about THIS repo\u0027s releases. Copying the source\u0027s answer puts another product\u0027s name on your page, and nothing errs -- the page simply lies politely",

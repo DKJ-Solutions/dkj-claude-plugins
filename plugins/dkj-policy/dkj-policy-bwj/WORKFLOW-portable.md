@@ -418,6 +418,22 @@ task on its reference line and the development task in its marker, and the audie
 test. A reader checking whether their own ticket had shipped could not find it. Where the matchers
 resolve to nothing, the item gets no Asana link. It never gets a guessed one.
 
+**A store may hand that picking to the cut itself, and then it is the marker alone, not the three
+matchers** (`dkj-policy`'s `Get-ReleaseNoteTaskLink`,
+[#2586](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2586)). Answer it in
+`scripts/repo-config.ps1` with this same marker -- `@{ Marker = 'asana-task'; Url =
+'https://app.asana.com/0/0/{0}'; Label = 'Asana task' }` -- and `cut-release.ps1` drafts the audience
+section as one item per issue an audience entry closed that carries `<!-- asana-task: <gid> -->`, titled
+from the issue and linked to the task: no entry prose, no PR link, because the reader is a colleague
+asking which of their tasks are solved, exactly the shape the owner hand-corrected the v1.3.0 note into.
+It reads the marker directly and never falls back to the header-row or bare-URL matchers above, because
+the note is generated at cut time from entries a person has not looked at yet -- a match that needs
+judgement has no reader here to make it. Answer it only where a solved task earns its place by the
+owner's three rules: it carries an Asana card (the marker), it is a storefront change, and it is live --
+the last two only checkable with the live-push record `live-preflight` writes (see that plugin's
+[`live-preflight` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md#the-live-push-record-it-writes-for-the-cut-2570-2586)),
+which is why a store answering this seam passes that record to every cut.
+
 #### The paste-ready block -- written BEFORE the close, by the session that shipped the work
 
 **The order is the rule** (BWJ/Maikel, September 17, 2026, inbound

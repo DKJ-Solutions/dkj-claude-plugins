@@ -61,24 +61,46 @@ push.
 
 ### CREATE
 
-- [ ] `scripts/lib/live-record-lib.ps1`: record format/parse, merge-commit lookup, per-entry live state, task-item rendering
-- [ ] `live-preflight.ps1` writes the record and prints its path
-- [ ] `cut-release.ps1`: `-LivePushRecord` / `-NoLivePushRecord`, per-entry paths, `Not live yet`, audience filtering, task form
-- [ ] `release-lib.ps1`: `Build-GitHubReleaseBody -NotLive`, `Build-ReleaseNoteDraft` task-item body
-- [ ] seam `Get-ReleaseNoteTaskLink`: contract record, blueprint, source repo-config
-- [ ] mirrors registered and rebuilt
-- [ ] docs: cut-release SKILL, RELEASES-portable, live-preflight SKILL, dkj-policy-bwj proposal of the seam
-- [ ] tests: lib suite, cut-release drive case with a record, contract count
+- [x] `scripts/lib/live-record-lib.ps1`: record format/parse, merge-commit lookup, per-entry live state, task-item rendering
+- [x] `live-preflight.ps1` writes the record and prints its path
+- [x] `cut-release.ps1`: `-LivePushRecord` / `-NoLivePushRecord`, per-entry paths, `Not live yet`, audience filtering, task form
+- [x] `release-lib.ps1`: `Build-GitHubReleaseBody -NotLive`, `Build-ReleaseNoteDraft` task-item body
+- [x] seam `Get-ReleaseNoteTaskLink`: contract record, blueprint, source repo-config (stated as `$null`, so the `[UNANSWERED]` roll-up stays quiet here)
+- [x] mirrors registered and rebuilt
+- [x] docs: cut-release SKILL, RELEASES-portable, live-preflight SKILL, dkj-policy-bwj WORKFLOW-portable, dkj-policy scripts README
+- [x] tests: lib suite, cut-release drive case with a record, contract count
+- [x] review: Victor (no correctness bugs), Sebastian (a foreign issue title reached a heading unescaped, now escaped and pinned), Edith (two drift passages corrected)
 
 ### TEST
 
+- New suite `live-record-lib.tests.ps1` (78 asserts). `release-lib`, `cut-release-drive` (a driven case
+  with two `merge:` commits and a record that holds one back, plus a malformed-record refusal),
+  `cut-release-guardrail` and `script-contract` were extended. All five are green standalone, and
+  `check-plugin-integrity` reports 0 errors.
+- Not driven: `live-preflight.ps1`'s own write of the record, and the task form's two `gh` reads. Both
+  reach a store or the tracker. The rules they call are pinned in the lib suite.
+
 ### DEPLOY: feat/2586-audience-note-solved-tasks
 
-**Score:**
+In a repo with a live stage, the cut can now be told what the live push actually carried.
+`live-preflight` writes a live-push record, one `live` or `hold` line per theme file, and a person
+changes `live` to `hold` for anything they held back. `cut-release -LivePushRecord <file>` reads it. The
+GitHub Release body moves an entry that touched a held file from *What landed* to a new `## Not live
+yet` section (#2570). The audience note leaves that entry out, so the note and the body can no longer
+contradict each other the way they did at a BWJ store's v1.3.0. A new optional seam,
+`Get-ReleaseNoteTaskLink`, drafts the audience section as solved tasks instead. It lists one item per
+issue that carries a task marker, and only for a storefront change that is live. It has no PR links
+(#2586).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Both documents are decided from one input rather than two, which is what the v1.3.0 contradiction
+required. A store answering the seam gets an audience note that needs rewording but not pruning. Until
+now every cut left the developer prose and PR links to delete by hand.
+
+**Score:** 3
 
 #### Pull Request
 

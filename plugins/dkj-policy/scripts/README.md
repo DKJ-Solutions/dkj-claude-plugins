@@ -111,6 +111,7 @@ an absent link is a fact rather than an oversight.
 | `maintenance/measure-closeouts.ps1` | what the CLOSE-OUT costs the reader: how the receipt behaved against its stated three-line ceiling, across every recorded session on this machine, with a baseline delta. Reads transcripts in place and emits only counts | [`measure-closeouts`](../skills/measure-closeouts/SKILL.md) |
 | `sync/check-script-contract.ps1` | read-only script-contract drift check | none — invoked by the `script-contract-sessioncheck` SessionStart hook |
 | `lib/release-lib.ps1` | the pure release logic: version bump, changelog transformation, notes construction, `Test-ReleaseBumpEarned` | none — dot-sourced lib |
+| `lib/live-record-lib.ps1` | the live-push record: its `live`/`hold` format and parser, the `merge: <branch> (#NN)` lookup, whether an entry is live, and the audience note's solved-task items. Read by `cut-release` for the GitHub body's `## Not live yet` and the audience note; written by `live-preflight` (mirrored into `dkj-subagents-shopify`) | none — dot-sourced lib |
 | `lib/entry-scaffold-lib.ps1` | the one definition of the entry format, read by the script that writes it and the gates that refuse it | none — dot-sourced lib |
 | `lib/plugin-tree-lib.ps1` | which plugins this repo publishes and where each folder sits | none — dot-sourced lib |
 | `lib/script-contract-lib.ps1` | the contract registry the check above reads | none — dot-sourced lib |

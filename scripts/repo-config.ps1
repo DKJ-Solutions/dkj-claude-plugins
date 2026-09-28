@@ -1351,6 +1351,12 @@ function Get-ResolvesExemptMatchers {
     return @()
 }
 
+function Get-ReleaseNoteTaskLink {
+    <# No task form: this repo's note readers decide whether to take a version, and a list of solved
+       tasks is not what they ask for -- so the audience section stays drafted from the entries. #>
+    return $null
+}
+
 function Get-ReleasePageMasthead {
     <# No marks: this repo has no wordmark, so the masthead stays the eyebrow, title and subtitle. #>
     return @()

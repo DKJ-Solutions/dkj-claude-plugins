@@ -1387,6 +1387,111 @@ $quoting = @(
 ) -join "`n"
 Assert-Match (Build-GitHubReleaseBody -Entries @($quoting) -Version '4.3.0') '\(https://example\.test/right/2\)' "the link comes from the PullRequest section, not from a link quoted in the body"
 
+Write-Host "Build-GitHubReleaseBody -NotLive (#2570 -- one entry moves to its own section, naming what did not go)" -ForegroundColor Cyan
+$notLiveMap = @{ $bodyEntry2 = @('sections/held.liquid', 'snippets/also-held.liquid') }
+$bodyNotLive = Build-GitHubReleaseBody -Entries @($dossier, $bodyEntry2) -Version '4.3.0' -NotLive $notLiveMap
+Assert-Match $bodyNotLive '(?m)^## Not live yet$' 'a NotLive entry gets its own section'
+$landedBlock = ([regex]::Match($bodyNotLive, '(?s)## What landed\r?\n(.*?)(?=## Not live yet|\z)')).Groups[1].Value
+$notLiveBlock = ([regex]::Match($bodyNotLive, '(?s)## Not live yet\r?\n(.*)\z')).Groups[1].Value
+Assert-Match $landedBlock 'A change with a readable name' 'the live entry stays under What landed'
+Assert-NoMatch $landedBlock 'The second thing' 'the not-live entry is NOT ALSO listed under What landed'
+Assert-Match $notLiveBlock 'The second thing' 'and IS listed under Not live yet'
+Assert-Match $notLiveBlock '`sections/held\.liquid`' 'naming the held path, in a code span'
+Assert-Match $notLiveBlock '`snippets/also-held\.liquid`' 'and the second held path'
+Assert-Match $notLiveBlock 'not on live' 'with the reason a reader can act on'
+
+# CAPPED AT FIVE HELD PATHS, with the remainder counted rather than listed -- the line names what to
+# look for, the full list is the live-push record's own, which the person who cut the release still holds.
+$manyHeld = @('a.liquid', 'b.liquid', 'c.liquid', 'd.liquid', 'e.liquid', 'f.liquid', 'g.liquid')
+$bodyManyHeld = Build-GitHubReleaseBody -Entries @($bodyEntry2) -Version '4.3.0' -NotLive (@{ $bodyEntry2 = $manyHeld })
+Assert-Match $bodyManyHeld '`a\.liquid`, `b\.liquid`, `c\.liquid`, `d\.liquid`, `e\.liquid`' 'the first five held paths are listed'
+Assert-Match $bodyManyHeld ', and 2 more' 'and the rest are counted rather than listed'
+Assert-NoMatch $bodyManyHeld 'f\.liquid' 'the sixth path itself does not appear'
+
+# A NOTLIVE ENTRY WITH NO NAMED PATHS STILL GETS THE LINE, unlinked to a path list -- an empty array is
+# a real (if unusual) answer, and the line must not silently disappear along with it.
+$bodyNotLiveEmptyPaths = Build-GitHubReleaseBody -Entries @($bodyEntry2) -Version '4.3.0' -NotLive (@{ $bodyEntry2 = @() })
+Assert-Match $bodyNotLiveEmptyPaths '(?m)^## Not live yet$' 'the section still appears'
+Assert-Match $bodyNotLiveEmptyPaths '(?m)^- \[The second thing\]\(https://example\.test/pull/12\)$' 'and the entry is listed without a path list when none was given'
+
+# EVERY ENTRY HELD BACK: 'What landed' says so instead of showing an empty list.
+$bodyAllHeld = Build-GitHubReleaseBody -Entries @($bodyEntry2) -Version '4.3.0' -NotLive (@{ $bodyEntry2 = @('x.liquid') })
+Assert-Match $bodyAllHeld 'waiting for the live push' 'What landed says everything is waiting on the push rather than showing an empty list'
+
+# EMPTY -NOTLIVE IS BYTE-IDENTICAL TO OMITTING IT -- every caller before this feature existed.
+Assert-Equal $bodyAll (Build-GitHubReleaseBody -Entries @($dossier, $tier0Body) -Version '4.3.0' -NotLive @{}) `
+    'an empty -NotLive hashtable reproduces the release with no held entries, byte for byte'
+
+Write-Host "Get-EntryPullRequestLink (#2570, #2586 -- shared by the GitHub body and the audience note's task form)" -ForegroundColor Cyan
+$prLink = Get-EntryPullRequestLink -EntryText $dossier
+Assert-Equal 99 $prLink.Number 'the PR number is read from the PullRequest section'
+Assert-Equal 'https://example.test/99' $prLink.Url 'and the url alongside it'
+$prLink2 = Get-EntryPullRequestLink -EntryText $bodyEntry2
+Assert-Equal 12 $prLink2.Number 'a second entry reads its own PR number'
+Assert-Equal 'https://example.test/pull/12' $prLink2.Url 'and its own url'
+Assert-Equal $true ($null -eq (Get-EntryPullRequestLink -EntryText $noPr)) 'an entry with no PR link in its PullRequest section returns null, not a throw'
+# THE LINK COMES FROM THE PullRequest SECTION, NOT FROM A LINK QUOTED IN THE BODY -- the same fixture
+# Format-GitHubBodyItem is already asserted against above, read here directly at the function it calls.
+$quotingLink = Get-EntryPullRequestLink -EntryText $quoting
+Assert-Equal 2 $quotingLink.Number 'the real PR link, from the PullRequest section'
+Assert-Equal 'https://example.test/right/2' $quotingLink.Url '...not the one quoted inside the body'
+
+Write-Host "Resolve-ReleaseNoteTaskLink (#2586 -- validated before the cut writes anything)" -ForegroundColor Cyan
+Assert-Equal $true ($null -eq (Resolve-ReleaseNoteTaskLink -Answer $null)) 'an absent seam means the entries form, unchanged'
+$validTask = Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'https://app.asana.com/0/1/{0}' }
+Assert-Equal 'asana-task' $validTask.Marker 'a valid answer is returned with its marker'
+Assert-Equal 'https://app.asana.com/0/1/{0}' $validTask.Url 'and its url'
+Assert-Equal 'Task' $validTask.Label 'and the default label, when none is given'
+$labelledTask = Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'https://x.test/{0}'; Label = 'Asana' }
+Assert-Equal 'Asana' $labelledTask.Label 'an explicit label is kept'
+$bracketedLabel = Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'https://x.test/{0}'; Label = "[Card]`n" }
+Assert-Equal 'Card' $bracketedLabel.Label 'brackets and newlines are stripped from the label'
+
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer 'not a hashtable' | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'must return a hashtable' 'a non-hashtable answer is refused'
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = ''; Url = 'https://x.test/{0}' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'Marker must be' 'a blank marker is refused'
+# AN UPPERCASE MARKER IS REFUSED, which needs the case-sensitive -cnotmatch: PowerShell's -notmatch is
+# case-insensitive, and the first version of this check accepted 'Asana-Task' against its own docstring.
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'Asana-Task'; Url = 'https://x.test/{0}' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'Marker must be' 'an uppercase marker is refused'
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana task'; Url = 'https://x.test/{0}' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'Marker must be' 'a marker with a space is refused'
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'http://x.test/{0}' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" 'Url must start with https' 'a non-https url is refused'
+$threw = $null; try { Resolve-ReleaseNoteTaskLink -Answer @{ Marker = 'asana-task'; Url = 'https://x.test/no-placeholder' } | Out-Null } catch { $threw = $_.Exception.Message }
+Assert-Match "$threw" "carry '\{0\}'" 'a url with no {0} placeholder is refused'
+
+Write-Host "Build-ReleaseNoteDraft -TaskItems (#2586 -- the audience section drafted as solved tasks)" -ForegroundColor Cyan
+# $null IS THE DEFAULT -- byte-identical to every caller before this parameter existed, whether passed
+# explicitly or omitted.
+Assert-Equal $draft (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Title 'A release title sentence' -TaskItems $null) `
+    'passing -TaskItems $null explicitly reproduces the entries-form draft exactly'
+
+# A NON-NULL STRING REPLACES THE ENTRIES, and $Entries is not rendered at all -- the task form's readers
+# ask which of their tasks are solved, not what the diff said.
+$taskBody = "### Fix the checkout button`n`n[Task](https://example.test/task/1)"
+$draftTasks = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -TaskItems $taskBody
+Assert-Match $draftTasks '(?m)^## What changed$' 'the audience section still renders'
+Assert-Match $draftTasks '(?m)^### Fix the checkout button$' 'and carries the task-form body verbatim'
+Assert-NoMatch $draftTasks '(?m)^### A change with a readable name$' "the entries are NOT rendered in task form -- the entry's own heading does not appear"
+Assert-NoMatch $draftTasks 'PR #99' 'nor its PR link'
+Assert-Match $draftTasks '<!-- DRAFT\. One item per solved task' 'and the hint changes to the task-form guidance (HintTasks)'
+Assert-NoMatch $draftTasks 'still in the words their authors wrote' 'the entries-form hint (HintAudience) does not also appear'
+
+# '' WITH NO -WithheldNote SUPPRESSES THE SECTION -- task form with nothing solved is exactly the
+# tier-1-only-minor case the entries form already suppresses on.
+$draftTasksEmpty = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -TaskItems ''
+Assert-NoMatch $draftTasksEmpty '(?m)^## What changed$' 'an empty task-form body with no withheld note suppresses the whole section'
+Assert-Match $draftTasksEmpty '(?m)^## What it is worth$' 'while the rest of the document is still written'
+
+# '' WITH A -WithheldNote STILL HOLDS THE SECTION OPEN -- the same rule the entries form already has,
+# read here in task form: a note explaining a gap must not itself disappear into the gap.
+$draftTasksWithheld = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -TaskItems '' -WithheldNote '<!-- nothing solved this time -->'
+Assert-Match $draftTasksWithheld '(?m)^## What changed$' 'the heading still appears'
+Assert-Match $draftTasksWithheld 'nothing solved this time' 'carrying the note that says why'
+Assert-NoMatch $draftTasksWithheld '<!-- DRAFT\. One item per solved task' 'but not the task-form hint, which has nothing left to point at'
+
 Write-Host "the consumer tier produces markdown ONLY (no HTML renderer)" -ForegroundColor Cyan
 # Dave, August 3, 2026: the print-ready .html is not wanted anywhere, so ConvertTo-ReleaseHtml and
 # Format-InlineMarkdown were removed the same day they were ported. ASSERTED ON THEIR ABSENCE rather

@@ -138,6 +138,36 @@ But it does not vanish either -- it is named in the verdict, because **a checkli
 while a step sat inert** is the exact failure the drift check's own green *"safe to push"* already
 demonstrated on this procedure, with nothing said.
 
+## The live-push record it writes for the cut (#2570, #2586)
+
+**A green run writes a second thing beside the push command: the live-push record.** `dkj-policy`'s cut
+builds two documents about the same release -- the GitHub Release body and the hand-written audience note
+-- and neither could see what the push actually carried, which is how a BWJ store's v1.3.0 listed a held-back
+fix as landed on the Release page, and a solved task as done while 21 files were still on live. One record,
+written here and read there, is what stops the two disagreeing.
+
+**One line per theme file in the range, written to the temp directory once the run is allowed to print a
+command:** `live sections/header.liquid` or `hold snippets/product-info.liquid`. A `theme-file` or
+`sync-owned` row (the push carries it, or a sync already mirrored it *from* live) is `live`; a `deleted`
+row is `hold`, because a `--only` push cannot remove a file, so the old version stays on live. A
+`not-a-theme-path` row gets no line at all -- it does not exist on a theme, so it cannot be live or held
+there. The format and the parser are one definition, in `scripts/lib/live-record-lib.ps1`, which this
+plugin and `dkj-policy` both carry as a byte-identical mirror.
+
+**Held a file back AFTER this ran? Edit the record, not the push command.** The decision to hold a file
+lands after the preflight prints its verdict, and no script sees it unless somebody writes it down -- this
+run prints the record's path precisely so there is somewhere to write it. Change that line's `live` to
+`hold`, then hand the file to the cut:
+
+```powershell
+cut-release.ps1 ... -LivePushRecord "<path this run printed>"
+```
+
+**A failed write warns rather than refuses.** The push itself is still right; only the cut's two documents
+lose their input, and the cut says so when it runs without one. See the
+[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586)
+for what the cut does with it.
+
 ## The backup's moment moved, and that changed what it is for
 
 `backup-live-theme.ps1` needs **no behavioural change** and got none: `CREATE -> VERIFY -> ROTATE`
