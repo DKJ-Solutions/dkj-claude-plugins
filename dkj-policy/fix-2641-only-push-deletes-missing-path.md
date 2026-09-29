@@ -101,5 +101,3 @@ stayed on live, and the plugin said no push could remove them.
 #### Pull Request
 
 live-preflight: a trunk-deleted theme file gets its own --only deletion command
-
-Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-shopify
