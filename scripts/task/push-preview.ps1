@@ -473,11 +473,19 @@ if ($fillState -eq 'pending') {
 
 $pushArgs = Get-ThemeUpdateArgs -Store $store -ThemeId "$id"
 # STREAMED: Get-ThemeUpdateArgs deliberately passes no --json precisely so the CLI's progress is
-# visible, so this is the one call whose output is the point. Nothing parses it. And NO --nodelete: what
-# live has and the working tree does not, does not belong on this branch's preview. The context-settings
-# files survive it because they exist locally -- the push neither uploads nor deletes them.
+# visible, so this is the one call whose output is the point. It is streamed AND read afterwards: the CLI
+# exits 0 when it rejects a file, so the exit code alone would report success (#2624). And NO --nodelete:
+# what live has and the working tree does not, does not belong on this branch's preview. The
+# context-settings files survive it because they exist locally -- the push neither uploads nor deletes them.
 $push = Invoke-ShopifyCli -Arguments $pushArgs
 if ($push.ExitCode -ne 0) { Write-Error "Push failed."; exit 1 }
+$problems = Get-ThemePushProblems -Lines $push.Output
+if ($problems.Failed) {
+    Write-Host "The CLI pushed with errors to preview theme $id. The preview is NOT this branch." -ForegroundColor Red
+    foreach ($m in $problems.Messages) { Write-Host "  $m" -ForegroundColor Red }
+    Write-Host 'A rejected file is missing (or stale) on the theme. Fix it and run this script again.' -ForegroundColor Red
+    exit 1
+}
 Write-Host "Pushed to the preview theme of '$branch' (id $id)." -ForegroundColor Green
 Write-PreviewUrls -Id $id
 Write-SettingsNotice -FillState $fillState

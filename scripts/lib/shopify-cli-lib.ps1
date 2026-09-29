@@ -126,8 +126,10 @@ function Invoke-ShopifyCli {
         back a pscustomobject with:
           - Output   : the command's output lines. Always populated, so a caller that streams can still
                        parse afterwards; empty only where the command wrote nothing.
-          - ExitCode : $LASTEXITCODE, recorded immediately after the command ran. THE ONLY THING A
-                       CALLER MAY JUDGE THE RUN ON -- never the absence of an ErrorRecord.
+          - ExitCode : $LASTEXITCODE, recorded immediately after the command ran. THE FIRST THING A
+                       CALLER JUDGES THE RUN ON -- never the absence of an ErrorRecord. Necessary but not
+                       always sufficient: 'theme push' exits 0 when it rejects a file (#2624), so that
+                       caller also reads Output through Get-ThemePushProblems in preview-theme.ps1.
         EAP is restored in a finally, whether the command succeeds, fails, or throws.
 
         STREAMING IS THE DEFAULT AND -Quiet IS THE OPT-OUT, deliberately in that direction. A caller who

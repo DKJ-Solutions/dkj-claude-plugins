@@ -56,13 +56,30 @@ plugin script runs `theme push` (`live-preflight` only prints the command). Clos
 
 ### TEST
 
+- [x] Tycho: the #2624 section in `push-preview.tests.ps1` -- the measured output (a synthetic theme name), each signal alone, ANSI colour, the not-failures, and the read sitting between the push and the URLs (121/121)
+- [x] Victor, Edith, Sebastian on the diff: no blockers; the stale test heading in `shopify-cli.tests.ps1`, the SKILL.md sentence, the consumer theme name in the fixture and a fails-open note applied
+- [x] The create path (`theme push --unpublished --json`, stderr discarded) has the same exit-code-only judgement, but its failure output is unmeasured -- filed as #2633 rather than repaired blind
+
 ### DEPLOY: fix/2624-push-preview-pushed-with-errors
 
-**Score:**
+`push-preview` no longer reports a preview push as successful when the Shopify CLI rejected a file.
+`shopify theme push` (CLI 4.8.2) exits 0 when it rejects a file, with an `error` box and "pushed with
+errors", and the script judged only that exit code: it printed its green line and the preview URLs for
+a preview missing the rejected file. It now reads the push output, prints the rejected file and its
+error, and exits 1 before any URL is printed (#2624). The create path, used only where no live theme id
+is answered, is still judged on its exit code (#2633).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store maintainer who hands over a preview is no longer given URLs for one that silently lacks a
+file. Nothing to do after the update; a push that used to "succeed" with a Liquid error now stops and
+names the file.
+
+**Score:** 2
 
 #### Pull Request
+
+push-preview: a push the CLI rejected a file in (exit 0, 'pushed with errors') now fails before the URLs
 

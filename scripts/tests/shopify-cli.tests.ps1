@@ -94,7 +94,7 @@ try {
     Assert-Equal 'Stop' $ErrorActionPreference 'the caller gets its own preference back afterwards'
 
     Write-Host ''
-    Write-Host 'the exit code, which is the only thing a caller may judge'
+    Write-Host 'the exit code, which a caller judges first'
 
     # THE DEFECT, STATED AS A TEST: the line after the call has to be REACHED, with the code in hand.
     $bad = Invoke-ShopifyCli -Arguments @('3', 'stderr') -Quiet
