@@ -54,10 +54,10 @@
 # instruction stays a UI pointer instead: that switch carries policy nobody here has chosen. No standing
 # token, unlike fold-on-merge.yml, and nothing to borrow one for.
 #
-# LINUX, UNDER PWSH 7 (issue #2488), unlike ci.yml, branch-entry.yml and unfolded-entry.yml, which still
-# run on windows-latest: this one moved with fold-on-merge.yml and verify-resolved.yml, whose headers have
-# the reasoning (ubuntu-latest, `shell: pwsh`, one shim step pointing the literal child name `powershell`
-# at pwsh). merge-on-green.yml stays on windows-latest.
+# LINUX, UNDER PWSH 7 (issue #2488): this one moved with fold-on-merge.yml and verify-resolved.yml, whose
+# headers have the reasoning (ubuntu-latest, `shell: pwsh`, one shim step pointing the literal child name
+# `powershell` at pwsh). merge-on-green.yml and the placed gates followed in #2616; only ci.yml's own
+# tree-judging shards stay on windows-latest.
 name: Repo settings
 
 permissions:

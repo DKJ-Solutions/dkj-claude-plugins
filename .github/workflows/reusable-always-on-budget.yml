@@ -22,7 +22,9 @@
 #
 # `scripts-ref` DEFAULTS TO main, for the reason reusable-branch-entry.yml states.
 #
-# WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what `shell: powershell` is.
+# LINUX, UNDER PWSH 7 (issue #2616, after #2488): ubuntu-latest and `shell: pwsh`, because on a private
+# repo a Windows minute is billed above a Linux one. The shared scripts start children by the literal
+# name `powershell`, which ubuntu-latest does not have, so one shim step points it at pwsh.
 name: Always-on budget (reusable)
 
 on:
@@ -39,7 +41,7 @@ permissions:
 
 jobs:
   always-on-budget:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     # 10 minutes, same reasoning as the branch-entry gate (issue #2296); the cap lives here because GitHub
     # refuses timeout-minutes on a job that calls a reusable workflow.
     timeout-minutes: 10
@@ -53,8 +55,14 @@ jobs:
           ref: ${{ inputs.scripts-ref }}
           path: .workflow-scripts
 
+      # THE SHIM (issue #2488): the scripts launch children by the literal name `powershell`, and
+      # ubuntu-latest has only `pwsh`. It runs before the first pwsh step.
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
       - name: The always-on document path is inside its budget
-        shell: powershell
+        shell: pwsh
         env:
           CLAUDE_PROJECT_DIR: ${{ github.workspace }}
         run: |
