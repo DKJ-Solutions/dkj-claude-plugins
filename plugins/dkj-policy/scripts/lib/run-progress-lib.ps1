@@ -74,6 +74,12 @@ $script:RunProgressDirName = 'dkj-run-progress'
 # "forever".
 $script:RunProgressMaxAgeHours = 12
 
+# HOW LONG Complete-RunProgress KEEPS TRYING A DELETE A READER IS HOLDING (#2634): 20 attempts 50 ms
+# apart, about one second at most. A statusline read holds a record for milliseconds, and this runs
+# once per run rather than inside a loop, so the worst case costs one second at a run's close.
+$script:RunProgressDeleteAttempts = 20
+$script:RunProgressDeleteRetryMs = 50
+
 function Get-RunProgressRoot {
     <#
         The directory live progress records live in. -Override exists for the suite, so a scenario
@@ -240,6 +246,15 @@ function Complete-RunProgress {
         reaches this line leaves a record behind, and the reader drops it on the next read because the
         writer is gone -- so forgetting to call this degrades to a bar that disappears a second or two
         late, not to one that never goes. That is why no producer needs a try/finally to be correct.
+
+        THE DELETE IS RETRIED, BRIEFLY, BECAUSE A READER CAN BE HOLDING THE FILE (issue #2634).
+        Get-LiveRunProgress reads each record with ReadAllText, which shares for read and not for
+        delete, and it runs every couple of seconds in every open session's statusline. A delete that
+        lands inside one of those reads fails with a sharing violation. Measured under the parallel
+        test gate: the gate-wiring probe in run-progress.tests.ps1 found its own record still present
+        after Clear-GateProgress, and it passed standalone straight after. A reader holds the file for
+        milliseconds, so a short bounded retry outlasts it. Where the retry is exhausted this still
+        returns $false rather than throwing, because the liveness test above covers what is left.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Id,
@@ -247,11 +262,18 @@ function Complete-RunProgress {
     )
     try {
         $path = Join-Path (Get-RunProgressRoot -Override $Root) ($Id + '.json')
-        if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force -ErrorAction Stop }
-        return $true
     } catch {
         return $false
     }
+    for ($attempt = 1; $attempt -le $script:RunProgressDeleteAttempts; $attempt++) {
+        try {
+            if (Test-Path -LiteralPath $path -PathType Leaf) { Remove-Item -LiteralPath $path -Force -ErrorAction Stop }
+            return $true
+        } catch {
+            if ($attempt -lt $script:RunProgressDeleteAttempts) { Start-Sleep -Milliseconds $script:RunProgressDeleteRetryMs }
+        }
+    }
+    return $false
 }
 
 function Test-RunProgressWriterAlive {
