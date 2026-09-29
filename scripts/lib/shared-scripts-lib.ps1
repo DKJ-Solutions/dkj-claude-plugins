@@ -2231,7 +2231,7 @@ function Get-SharedScriptPairs {
         },
         @{
             # The live-theme BACKUP and its rotation (inbound #1965). Exactly one backup is retained and
-            # the release cut is what rotates it.
+            # the run that takes the release's backup rotates it.
             #
             # THE VERIFY STEP IS THE REASON THIS IS A SCRIPT AND NOT A CHECKLIST LINE. 'shopify theme
             # duplicate' returns LONG before the copy is complete -- measured in the consumer, a

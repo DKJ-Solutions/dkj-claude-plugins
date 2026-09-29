@@ -39,19 +39,45 @@
 
 ### PLAN
 
+Inbound #2635 (smartwatchbanden#783). Verified on pickup: `THEME-LIFECYCLE-portable.md` still marks
+backup-at-the-cut as BWJ's answer, and `Get-CutOrderWarning`'s docstring does too. The warning's own
+text does as well, and it fires on every `live-preflight` run because that backup is taken before
+the push. #2228 moved the moment and never touched these. Push-then-cut stays as it is. What changes
+is that the backup's moment becomes a per-store choice, stated once, with a rule against taking two.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `THEME-LIFECYCLE-portable.md`: the one-paragraph rule, the order table (rewritten as a
+      moment table), the restore sentence and standing approval 3 are now neutral on the moment,
+      and there is a "pick one moment per store" rule.
+- [x] `theme-lifecycle-rules.ps1` (source + byte-identical shopify mirror): `Get-CutOrderWarning`
+      docstring and message, plus the rotation docstring and the rotation plan's reason string, no
+      longer say the cut is what rotates the backup. No logic changed.
+- [x] `shared-scripts-lib.ps1`: the registry comment says the same thing, corrected to match.
 
 ### TEST
 
+- [x] The existing `theme-lifecycle-rules` suite asserts still hold (the message still names
+      `push-then-cut` and `THEME-LIFECYCLE`). The full gate runs in open-pr.
+
 ### DEPLOY: docs/2635-backup-moment-per-store
 
-**Score:**
+The BWJ theme-lifecycle page no longer calls a backup taken at the cut BWJ's answer. Push-then-cut is
+unchanged. When the release's one backup is taken is now a per-store choice: before the push through
+`live-preflight` (a rollback point), or at the cut (a baseline of what shipped). The page also says to
+pick one, because following both pages gave a store two backups per release, and the cut's backup
+rotated out the rollback point the preflight had just made. The backup run's order warning no longer
+calls a pre-push backup a departure from policy (#2635).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
+
+theme-lifecycle: the backup's moment is a per-store choice, and a store takes only one
 
