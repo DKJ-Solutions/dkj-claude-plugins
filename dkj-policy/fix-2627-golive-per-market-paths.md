@@ -39,19 +39,45 @@
 
 ### PLAN
 
+Inbound #2627, verified in the tree. It named two defects. The `preview_theme_id` on the live list was
+already closed by #2625 (#2619), so this branch covers only the other half: `Get-MarketUrls` applied
+every normalized `-Path` verbatim to every market row, so `-Path /collections/apple-watch-straps` gave
+all five markets the UK handle (measured in BWJ-Development/smartwatchbanden#394, 2026-09-29). The
+repair is additive: a page may carry a per-market spec, `default|NL=/path|DE=/path`, and a plain path
+behaves exactly as before. Every caller (`Get-MarketPreviewUrls`, `Get-MarketHandoverPairs`,
+`Write-MarketPreviewUrls`, `build-golive-block.ps1`) funnels through `Get-MarketUrls`, so the one
+function is the repair. Closes #2627.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `market-urls.ps1`: new `Get-PageSpecs` parses a page into a default plus per-market overrides; `Format-StorefrontPath` is the shared slash-and-mangled-path step; `Get-MarketUrls` resolves the market table once and uses them
+- [x] Refusals with clear messages: unknown label (known ones listed), a label twice, two defaults, an empty `LABEL=`, a page with no default that leaves a market unnamed
+- [x] `build-golive-block.ps1` (`.PARAMETER Path`, a second `.EXAMPLE`) and the `golive-block` SKILL.md describe the per-market form
 
 ### TEST
 
+- [x] Sanity run of the new form and every refusal on a three-market table; the mangled-path refusal holds on a `LABEL=` segment
+- [ ] Tycho: the suite for the per-market form in `bwj-market-urls.tests.ps1`
+
 ### DEPLOY: fix/2627-golive-per-market-paths
 
-**Score:**
+`-Path` of the go-live block and of the preview URL printers now takes a different storefront path per
+market, for a page whose handle differs by market: `/collections/apple-watch-straps|NL=/collections/apple-watch-bandjes|DE=...`.
+A bare segment is the default for every market not named, and labels match the market table without
+regard to case. Before, one path was used on every market domain, so all but one market got a 404.
+Unknown or repeated labels, two defaults, an empty path and a page that leaves a market without a path
+are refused. Plain paths behave as before (#2627).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing to do: a plain `-Path` works unchanged. A store whose collection handles differ per market
+should switch its go-live command to the per-market form. The `preview_theme_id` half of #2627 was
+already closed by #2625.
+
+**Score:** 1
 
 #### Pull Request
 
+golive-block: -Path takes a per-market handle for a page (default|NL=/path|...)
