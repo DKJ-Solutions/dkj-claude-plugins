@@ -53,6 +53,7 @@ recommended the spliced form, so it now names the safe one.
 ### TEST
 
 - [x] `branch-entry-gate.tests.ps1`: neither workflow splices a head ref into any `run:` block, and both read `$env:HEAD_REF`; the same regex flags both files as they stand on `main` -- 64 asserts green
+- [x] `adopt-workflow-folder.tests.ps1`: its "passes -Pr" assert on the reusable workflow now reads `-Pr $env:PR_NUMBER` with `PR_NUMBER` under `env:` -- 148 green
 
 ### DEPLOY: fix/2622-branch-entry-head-ref-env
 
