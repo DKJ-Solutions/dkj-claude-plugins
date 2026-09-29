@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**29 / 42 minor entries** <!-- pending-tally -->
+**30 / 43 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2633-push-preview-create-path-reads-rejections · 20260929-130640Z
+
+`push-preview` now fails on the create path too when the Shopify CLI rejected a file. Where no live
+theme id is answered, the preview theme is created by `theme push --unpublished --json`, and that push
+was judged on its exit code alone, which is 0 when a file is rejected (#2624). The call now keeps stderr,
+reads its output the way the update path does, and exits 1 naming the rejected file before any URL is
+printed (#2633). The theme id is still remembered, so the next run pushes into the same theme. Whether
+`--json` ever carries the rejection on stdout instead is not yet measured (#2638).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store maintainer whose repo does not answer the live theme id no longer gets preview URLs for a
+freshly created preview that silently lacks a file. Nothing to do after the update.
+
+**Score:** 1
+
+#### Pull Request
+
+push-preview: the create path fails on a file the CLI rejected, as the update path already does
+
+Plugins: dkj-subagents-shopify
+
+[PR #2640](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2640)
+
+---
 
 ### DEPLOY: docs/2635-backup-moment-per-store · 20260929-125016Z
 
