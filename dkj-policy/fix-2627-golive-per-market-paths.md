@@ -67,7 +67,8 @@ A bare segment is the default for every market not named, and labels match the m
 regard to case. Before, one path was used on every market domain, so every other market was handed a
 handle it does not recognise: it still loaded through a redirect, but it was not that market's address.
 Unknown or repeated labels, two defaults, an empty path and a page that leaves a market without a path
-are refused. Plain paths behave as before (#2627).
+are refused. Plain paths behave as before (#2627), with one narrow exception: a path holding `=` and
+written without its leading slash (`x=y`) is now read as a market label, so write it `/x=y`.
 
 **Score:** 2
 
