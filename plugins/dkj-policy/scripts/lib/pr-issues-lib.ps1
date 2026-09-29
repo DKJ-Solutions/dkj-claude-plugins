@@ -2160,8 +2160,8 @@ function Test-IsFoldOnlyCommit {
         AND THE REPORTED REASON WAS NOT THIS ONE, which is why the repair is here and not at the wait.
         #1592 attributed the window to ship-pr waiting on the NON-required 'claude-review' check, reading
         "lint-en-tests finished in 2s" off the check table. That 2s is the AGGREGATOR job's own elapsed:
-        'lint-en-tests' in ci.yml is a needs: [lint, suites] job on ubuntu that compares two strings, so it
-        cannot conclude before the two windows-latest legs it waits on. Measured over the last 40 paired
+        'lint-en-tests' in ci.yml was then a needs: [lint, suites] job on ubuntu that compares two strings (#2488
+        added a third, Linux leg), so it cannot conclude before the legs it waits on. Measured over the last 40 paired
         pull_request runs, CI itself takes 310-461s (median 374s) and the non-required check governs 8 of the
         40 -- 20%, median excess 0s across all of them and about 6 minutes in the 8 where it does govern
         -- which reconfirms #831's own n=100 finding of 23% rather than overturning it, and leaves the wait

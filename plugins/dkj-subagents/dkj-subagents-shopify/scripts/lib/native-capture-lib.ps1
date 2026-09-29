@@ -1320,7 +1320,15 @@ function Pop-NativeNonInteractiveEnv {
 
     if (-not $Previous) { return }
     foreach ($name in @($Previous.Keys)) {
-        [Environment]::SetEnvironmentVariable($name, $Previous[$name], 'Process')
+        # [NullString]::Value, NOT $null (#2488): PowerShell coerces a $null handed to a [string] .NET
+        # parameter into '', so the bare $null the docstring above promises never reached the method.
+        # Windows hid that -- SetEnvironmentVariable(name, '') REMOVES the variable there -- while on
+        # Unix .NET an empty value is a real, defined-but-empty variable, so an ABSENT variable came
+        # back as '' and the child guard leaked. The typed null is a true null on both, and 5.1 behaves
+        # exactly as before.
+        $value = $Previous[$name]
+        if ($null -eq $value) { $value = [NullString]::Value }
+        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
     }
 }
 
@@ -1364,7 +1372,16 @@ function Stop-NativeProcessTree {
     $prevEap = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        & taskkill.exe '/PID' "$ProcessId" '/T' '/F' 2>&1 | Out-Null
+        if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+            & taskkill.exe '/PID' "$ProcessId" '/T' '/F' 2>&1 | Out-Null
+        } else {
+            # OFF WINDOWS THERE IS NO taskkill (#2488), so the grandchild survived the timeout kill.
+            # Process.Kill(entireProcessTree) is .NET 5+ only -- absent on the .NET Framework under 5.1,
+            # which never reaches this branch -- and PowerShell binds the call at run time, so 5.1 still
+            # parses it. A failure (gone in the gap, not ours to signal) falls through to the
+            # single-process Stop-Process below, same best-effort contract as taskkill.
+            [System.Diagnostics.Process]::GetProcessById($ProcessId).Kill($true)
+        }
     } catch {
         # Deliberately swallowed -- see the docstring.
     } finally {
@@ -2065,7 +2082,7 @@ function Read-NativeCaptureFile {
         the very hazard this function was built for.
 
         WHY THE TOLERANT READ EXISTS (issue #1252). On a timeout, Invoke-NativeCaptureUtf8 force-kills
-        the child's whole process tree with taskkill /T and then waits on the DIRECT child only. A
+        the child's whole process tree (taskkill /T on Windows, Process.Kill(entireProcessTree) elsewhere) and then waits on the DIRECT child only. A
         grandchild that inherited the redirected stdout handle keeps out.txt open until IT is reaped
         too, and the gap between the kill and that moment is wall-clock -- invisible on a fast machine,
         a lost race on a CI runner several times slower. [System.IO.File]::ReadAllText opens the file
@@ -2207,6 +2224,67 @@ function Resolve-NativeApplicationPath {
     return $FilePath
 }
 
+function Start-NativeUnixCapture {
+    <#
+        Start a child OFF WINDOWS with its stdout and stderr copied byte for byte into the two capture
+        files, and hand back the process plus the copies for Complete-NativeUnixCapture. Internal to this
+        lib (no export, no contract row); Invoke-NativeCaptureUtf8 is its one caller.
+
+        WHY START-PROCESS IS NOT USED THERE (#2488, measured on ubuntu-latest). On Windows,
+        -RedirectStandardOutput hands the child the file itself. pwsh 7 on Unix instead pumps the pipe
+        line by line into the file and skips every EMPTY line -- `git show` of "one`n`nthree`n" came back
+        as two lines through this arm and as three through the & arm. That is a wrong document rather
+        than a cosmetic one: Get-GitFileTextAtRef feeds ship-pr's DEPLOY lock. Copying the pipe's raw
+        BaseStream keeps every byte, which is what the Windows path already gets.
+
+        ArgumentList (the .NET Core collection) takes each argument VERBATIM, so no CreateProcess quoting
+        is applied or needed here. The working directory is PowerShell's location, which is what
+        Start-Process would have used, and not the process's own current directory. Stdin is inherited,
+        as with -NoNewWindow. A refused launch surfaces as Win32Exception, unwrapped from PowerShell's
+        MethodInvocationException, so the caller's launch catch reads it as on the other paths.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$Arguments = @(),
+        [Parameter(Mandatory = $true)][string]$OutFile,
+        [Parameter(Mandatory = $true)][string]$ErrFile
+    )
+    $psi = New-Object System.Diagnostics.ProcessStartInfo $FilePath
+    foreach ($a in $Arguments) { $psi.ArgumentList.Add($a) }
+    $psi.UseShellExecute        = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError  = $true
+    $psi.WorkingDirectory       = (Get-Location -PSProvider FileSystem).ProviderPath
+    try {
+        $proc = [System.Diagnostics.Process]::Start($psi)
+    } catch {
+        $ex = $_.Exception
+        if ($ex -is [System.Management.Automation.MethodInvocationException] -and $ex.InnerException) { throw $ex.InnerException }
+        throw
+    }
+    $pumps = @()
+    foreach ($pair in @(@($proc.StandardOutput, $OutFile), @($proc.StandardError, $ErrFile))) {
+        $sink = [System.IO.File]::Create($pair[1])
+        $pumps += [pscustomobject]@{ Sink = $sink; Task = $pair[0].BaseStream.CopyToAsync($sink) }
+    }
+    return [pscustomobject]@{ Process = $proc; Pumps = $pumps }
+}
+
+function Complete-NativeUnixCapture {
+    <#
+        Let Start-NativeUnixCapture's copies finish and close the capture files. Internal to this lib.
+        The wait is bounded because a grandchild that inherited a pipe keeps its copy open after the
+        child itself has exited. That is the same case Read-NativeCaptureFile tolerates on Windows (#1252),
+        and what was flushed by then is what the read returns. It never throws, because it runs on the
+        way to a verdict.
+    #>
+    param([Parameter(Mandatory = $true)]$Pumps, [int]$TimeoutMilliseconds = 30000)
+    foreach ($p in @($Pumps)) {
+        try { $null = $p.Task.Wait($TimeoutMilliseconds) } catch { }
+        try { $p.Sink.Dispose() } catch { }
+    }
+}
+
 function Invoke-NativeCaptureUtf8 {
     <#
         The -Utf8 arm of Invoke-NativeCapture; see that function's docstring for WHY. Split out rather
@@ -2215,6 +2293,9 @@ function Invoke-NativeCaptureUtf8 {
         also arrive here by passing -TimeoutSeconds, because the bounded wait needs the -PassThru
         handle only this arm has. So the arm is no longer "the UTF-8 one": it is the Start-Process one,
         and UTF-8 decoding is one of the two things that follows from that.
+
+        Off Windows the child is started by Start-NativeUnixCapture instead, for the reason its docstring
+        measures (#2488); everything from the handle onwards is the same on both.
 
         Start-Process -PassThru THEN $proc.Handle THEN WaitForExit is the proven pattern from
         Invoke-TestSuiteGate below, and reading .Handle is NOT a no-op: without it .NET does not retain
@@ -2237,6 +2318,7 @@ function Invoke-NativeCaptureUtf8 {
     $errFile = Join-Path $capDir 'err.txt'
 
     $prevEnv = $null
+    $pumps   = $null
     try {
         New-Item -ItemType Directory -Path $capDir -Force | Out-Null
 
@@ -2271,8 +2353,19 @@ function Invoke-NativeCaptureUtf8 {
         # started". The finally below still runs on this return, so the environment is restored and the
         # capture directory is removed exactly as on every other path.
         try {
-            $proc = Start-Process @startArgs
-        } catch [System.InvalidOperationException] {
+            if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+                $proc = Start-Process @startArgs
+            } else {
+                $started = Start-NativeUnixCapture -FilePath $startArgs['FilePath'] -Arguments $Arguments `
+                                                   -OutFile $outFile -ErrFile $errFile
+                $proc  = $started.Process
+                $pumps = $started.Pumps
+            }
+        } catch [System.InvalidOperationException], [System.ComponentModel.Win32Exception], [System.IO.FileNotFoundException] {
+            # The list is the OS refusing to CREATE the process, per platform (#2488): Windows PowerShell
+            # surfaces it as InvalidOperationException, while on Unix pwsh 7 the underlying
+            # Win32Exception ("No such file or directory") can come through unwrapped. Nothing broader --
+            # a parameter or unrelated error must still propagate, not become "not started".
             return New-NativeNotStartedCapture -FilePath $FilePath -Reason $_.Exception.Message
         }
         $null = $proc.Handle
@@ -2294,6 +2387,14 @@ function Invoke-NativeCaptureUtf8 {
             }
         } else {
             $proc.WaitForExit()
+        }
+        # Off Windows the capture files are fed by this process's own copy of the child's pipes, so they
+        # are complete only once those copies are -- see Start-NativeUnixCapture (#2488).
+        if ($pumps) {
+            # 5s on a clean exit: the copies end the moment the child's pipes close, so the budget is only
+            # spent where a daemonised grandchild (git's auto-gc) kept one open -- and then it caps the stall.
+            $pumpBudget = if ($timedOut) { 1000 } else { 5000 }
+            Complete-NativeUnixCapture -Pumps $pumps -TimeoutMilliseconds $pumpBudget
         }
 
         # A KILLED CHILD HAS AN EXIT CODE OF ITS OWN and it is a misleading one -- taskkill /F leaves 1
@@ -2372,6 +2473,9 @@ function Invoke-NativeCaptureUtf8 {
         return [pscustomobject]@{ Output = $lines; ExitCode = $code; TimedOut = $timedOut; ShortRead = $shortRead; ExitCodeUnknown = $codeUnknown; NotStarted = $false }
     } finally {
         Pop-NativeNonInteractiveEnv -Previous $prevEnv
+        # An exception between the launch and the read would otherwise leave the Unix sinks open, and an
+        # open file cannot be removed from the capture directory. Closing an already closed sink is harmless.
+        if ($pumps) { Complete-NativeUnixCapture -Pumps $pumps -TimeoutMilliseconds 0 }
         if (Test-Path -LiteralPath $capDir) {
             Remove-Item -Recurse -Force -LiteralPath $capDir -ErrorAction SilentlyContinue
         }

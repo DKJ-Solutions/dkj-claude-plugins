@@ -39,10 +39,10 @@
 #>
 $ErrorActionPreference = 'Stop'
 
-$RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$Script   = Join-Path $RepoRoot 'scripts\lint\check-unfolded-entry.ps1'
-$Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\unfolded-entry-sessioncheck.ps1'
-. (Join-Path $RepoRoot 'scripts\lib\entry-scaffold-lib.ps1')
+$RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '../..')).Path
+$Script   = Join-Path $RepoRoot 'scripts/lint/check-unfolded-entry.ps1'
+$Hook     = Join-Path $RepoRoot 'plugins/dkj-policy/hooks/unfolded-entry-sessioncheck.ps1'
+. (Join-Path $RepoRoot 'scripts/lib/entry-scaffold-lib.ps1')
 
 $script:pass  = 0
 $script:fail  = 0
@@ -79,7 +79,7 @@ function Set-Changelog {
         $lines += (Format-BranchFileHeadingLine -Branch $b -Title (Get-BranchFileWording).ChangelogTitle -Level (Get-EntryHeadingLevel))
         $lines += @('', "Folded entry for $b.", '')
     }
-    $target = Join-Path $Dir 'dkj-policy\CHANGELOG.md'
+    $target = Join-Path $Dir 'dkj-policy/CHANGELOG.md'
     $parent = Split-Path -Parent $target
     if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
     [System.IO.File]::WriteAllText($target, ($lines -join "`n") + "`n", (New-Object System.Text.UTF8Encoding($false)))
@@ -95,7 +95,7 @@ function Set-Doc {
     )
     $rel = if ($SharedName) { (Get-BranchFilePaths).SharedFile } else { (Get-BranchFilePaths -Branch $Branch).File }
     if (-not $Branch -and -not $SharedName) { $rel = (Get-BranchFilePaths).SharedFile }
-    $target = Join-Path $Dir ($rel -replace '/', '\')
+    $target = Join-Path $Dir $rel
     $parent = Split-Path -Parent $target
     if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
     $text = (Format-Development -Branch $Branch) -join "`n"
@@ -182,7 +182,7 @@ function Push-UpstreamFold {
     Invoke-GitStep -GitArgs @('-C', $clone, 'config', 'user.name', 'fold on merge')
     Invoke-GitStep -GitArgs @('-C', $clone, 'config', 'user.email', 'fold@test.invalid')
     Invoke-GitStep -GitArgs @('-C', $clone, 'config', 'commit.gpgsign', 'false')
-    foreach ($rel in $RemoveRel) { Invoke-GitStep -GitArgs @('-C', $clone, 'rm', '--quiet', ($rel -replace '/', '\')) }
+    foreach ($rel in $RemoveRel) { Invoke-GitStep -GitArgs @('-C', $clone, 'rm', '--quiet', $rel) }
     Set-Changelog -Dir $clone -FoldedBranch $FoldBranch
     Invoke-GitStep -GitArgs @('-C', $clone, 'add', '-A')
     Invoke-GitStep -GitArgs @('-C', $clone, 'commit', '-m', 'fold: upstream', '--quiet')
@@ -370,7 +370,7 @@ try {
     Write-Host ''
     Write-Host 'Test-BranchFoldedOnRef'
 
-    . (Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1')
+    . (Join-Path $RepoRoot 'scripts/lib/native-capture-lib.ps1')
     $refMain = 'refs/remotes/origin/main'
     Assert-True ((Test-BranchFoldedOnRef -RepoRoot $stale -Ref $refMain -Branch 'feat/alpha') -eq $true) `
         'origin carries the entry -- $true'

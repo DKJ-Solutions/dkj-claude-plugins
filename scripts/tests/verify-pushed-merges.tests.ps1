@@ -90,7 +90,13 @@ function Assert-Says {
         either.
     #>
     param([string]$Output, [string]$Phrase, [string]$Name)
-    Assert-True (($Output -replace '\s', '').Contains(($Phrase -replace '\s', ''))) $Name
+    # PowerShell 7 (the Linux CI floor) renders a terminating Write-Error as a ConciseView record: ANSI
+    # colour escapes, and a '     | ' gutter at the start of every wrapped line of the message. Both
+    # land INSIDE a long phrase, exactly as the wrap did in Windows PowerShell 5.1, and stripping
+    # whitespace does not remove either. Windows PowerShell 5.1 emits neither, and no asserted phrase
+    # contains a '|', so removing them from the output only is safe on both.
+    $plain = $Output -replace "$([char]27)\[[0-9;]*m", '' -replace '\|', ''
+    Assert-True (($plain -replace '\s', '').Contains(($Phrase -replace '\s', ''))) $Name
 }
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -166,8 +172,16 @@ exit 1
 '@
     [System.IO.File]::WriteAllText((Join-Path $fakeBin 'gh-impl.ps1'), $ghImpl, $Utf8NoBom)
     $ghCmd = "@echo off`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"%~dp0gh-impl.ps1`" %*`r`nexit /b %ERRORLEVEL%`r`n"
-    [System.IO.File]::WriteAllText((Join-Path $fakeBin 'gh.cmd'), $ghCmd, $Utf8NoBom)
-    $env:PATH = "$fakeBin;$env:PATH"
+    # Off Windows a .cmd is not executable and ';' does not split PATH, so the real gh would answer
+    # instead of the fake (#2488): there the same delegation is an executable sh shim calling pwsh.
+    if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+        [System.IO.File]::WriteAllText((Join-Path $fakeBin 'gh.cmd'), $ghCmd, $Utf8NoBom)
+    } else {
+        $ghSh = "#!/bin/sh`nexec pwsh -NoProfile -File `"$fakeBin/gh-impl.ps1`" `"`$@`"`n"
+        [System.IO.File]::WriteAllText((Join-Path $fakeBin 'gh'), $ghSh, $Utf8NoBom)
+        & chmod +x (Join-Path $fakeBin 'gh')
+    }
+    $env:PATH = $fakeBin + [System.IO.Path]::PathSeparator + $env:PATH
     $env:GH_CALL_LOG = $callLog
 
     function Invoke-Pushed {

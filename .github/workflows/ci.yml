@@ -2,10 +2,11 @@
 # entry (the last is inert until a queue is enabled -- see the `merge_group` note on the trigger block).
 # This is the same guard that open-pr.ps1 runs locally, but inescapable -- even a PR that
 # originates outside the scripts (GitHub UI, or a forgotten -SkipLint) passes through here.
-# The scripts target Windows PowerShell 5.1, so every job that RUNS one is on windows-latest with
-# `shell: powershell` (5.1), not pwsh. Since #1351 there is one job that runs none -- the
-# `lint-en-tests` summary at the foot of this file, which only compares two strings -- and it is on
-# ubuntu for that reason; see its own note.
+# The scripts target Windows PowerShell 5.1, so every job that JUDGES THE TREE is on windows-latest with
+# `shell: powershell` (5.1), not pwsh. Two jobs are on ubuntu instead: `linux-runner-path` (#2488), which
+# runs the runner-path suites under pwsh 7 because three CI-floor runners now execute there, and, since
+# #1351, the `lint-en-tests` summary at the foot of this file, which runs no script and only compares
+# strings. See each job's own note.
 #
 # WHERE A DECISION IS ARGUED: DIRECTLY ABOVE THE KEY IT DECIDES -- issue #2314, September 22, 2026.
 # Every paragraph in this file sits above the one key, step or job it explains, so a new decision
@@ -405,6 +406,51 @@ jobs:
           if (-not $gateOk) { exit 1 }
           exit 0
 
+  # THE LINUX LEG (issue #2488). fold-on-merge, verify-resolved and repo-settings run on ubuntu-latest under
+  # pwsh 7, so the suites that pin the scripts those runners call have to pass there too -- otherwise the
+  # move is proved only by the first live run in a consumer. Only the runner path's suites are listed; the
+  # rest of scripts/tests stays on the Windows shards above, which is where the whole tree is judged.
+  #
+  # A SEPARATE JOB, AND IN lint-en-tests' `needs:`: it is a leg of the required check like the other two,
+  # because a consumer's runners take these scripts on Linux the moment it adopts them, so a red here is a
+  # broken runner, not an advisory.
+  #
+  # THE SHIM is the same one the three runners carry: the scripts launch children by the literal name
+  # `powershell`, and ubuntu-latest has only `pwsh`. fetch-depth: 0 because the fold and merge-verify
+  # suites read history. Each suite runs in its own child so one abort cannot hide the rest, and the
+  # step fails on any non-zero exit.
+  linux-runner-path:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
+      - name: Runner-path suites under pwsh on Linux
+        shell: pwsh
+        run: |
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          $suites = @('unfolded-entry-gate', 'fold-changelog', 'verify-pushed-merges', 'repo-settings-gate',
+                      'merge-on-green-lib', 'ship-pr-trusted-root', 'verify-resolved-issues', 'native-capture',
+                      'adopt-ci-floor')
+          $failed = @()
+          foreach ($s in $suites) {
+            Write-Host "=== $s"
+            pwsh -NoProfile -File "./scripts/tests/$s.tests.ps1"
+            if ($LASTEXITCODE -ne 0) { $failed += "$s (exit $LASTEXITCODE)" }
+          }
+          if ($failed.Count -gt 0) {
+            Write-Host "::error::Linux runner-path suites failed: $($failed -join ', ')"
+            exit 1
+          }
+          exit 0
+
   # THE REQUIRED CHECK. Reports nothing of its own -- it exists so that `main-ci-gate`'s single required
   # context still names one job while the work happens in five. Why the name must not change is the
   # paragraph below; `!cancelled()` and the strict result check are argued at the keys they sit on.
@@ -416,7 +462,7 @@ jobs:
   # September 3, 2026) -- which changes nothing here. Do not rename this job. Renaming it silently un-gates
   # `main`: the ruleset would wait forever for a check nobody reports, and every merge would block.
   lint-en-tests:
-    needs: [lint, suites]
+    needs: [lint, suites, linux-runner-path]
     # `if: !cancelled()` PLUS AN EXPLICIT RESULT CHECK, AND BOTH HALVES ARE LOAD-BEARING. A job that
     # `needs:` a failed job is SKIPPED, not failed, and a skipped required check is not a reported failure --
     # so without an `if:` that outlives a failed dependency a red shard produces no verdict at all, and
@@ -451,11 +497,13 @@ jobs:
         run: |
           echo "lint:   ${{ needs.lint.result }}"
           echo "suites: ${{ needs.suites.result }}"
+          echo "linux:  ${{ needs.linux-runner-path.result }}"
           # A matrix job's aggregate result is 'success' only when EVERY entry succeeded, which is what
           # makes one comparison enough for every shard.
-          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.suites.result }}" != "success" ]; then
-            echo "::error::CI gate failed -- lint=${{ needs.lint.result }} suites=${{ needs.suites.result }}"
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.suites.result }}" != "success" ] ||
+             [ "${{ needs.linux-runner-path.result }}" != "success" ]; then
+            echo "::error::CI gate failed -- lint=${{ needs.lint.result }} suites=${{ needs.suites.result }} linux=${{ needs.linux-runner-path.result }}"
             exit 1
           fi
           # No shard count in this line: the matrix above is the one place that number lives (#2424).
-          echo "CI gate green: lint and all suite shards succeeded."
+          echo "CI gate green: lint, all suite shards and the Linux runner-path leg succeeded."

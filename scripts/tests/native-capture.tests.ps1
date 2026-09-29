@@ -56,6 +56,16 @@ $ErrorActionPreference = 'Stop'
 $script:pass = 0
 $script:fail = 0
 
+# The test subject is a shell one-liner: cmd /c on Windows, sh -c elsewhere (the CI floor runs on
+# Linux). Detected by the path separator because $IsWindows does not exist in Windows PowerShell 5.1.
+# The Windows arm is passed through untouched, so its behaviour is what it always was.
+$script:OnWindows = ([System.IO.Path]::DirectorySeparatorChar -eq '\')
+function Get-Subject {
+    param([string[]]$Win, [string[]]$Posix)
+    if ($script:OnWindows) { return @{ FilePath = 'cmd'; Arguments = $Win } }
+    return @{ FilePath = 'sh'; Arguments = $Posix }
+}
+
 function Assert-Equal {
     param($Expected, $Actual, [string]$Name)
     if ($Expected -eq $Actual) {
@@ -72,6 +82,16 @@ function Assert-True {
     } else {
         $script:fail++; Write-Host "  [FAIL] $Name" -ForegroundColor Red
     }
+}
+
+# WINDOWS-ONLY SEMANTICS. Mandatory file locking (a held write handle that makes a second open throw) and
+# the OEM console code page do not exist on Linux, so an assert about them cannot mean anything there:
+# it is printed as [SKIP] with the reason, not run and not counted, rather than passing or failing for
+# the wrong reason. On Windows it is exactly Assert-True.
+function Assert-TrueWindowsOnly {
+    param($Condition, [string]$Name, [string]$Reason = 'mandatory file locks are a Windows-only subject')
+    if ($script:OnWindows) { Assert-True ([bool]$Condition) $Name; return }
+    Write-Host "  [SKIP] $Name -- $Reason" -ForegroundColor Yellow
 }
 
 # A REAL CHILD ON THE Start-Process ARM, RE-ASKED ONLY WHILE THE LIB ITSELF SAYS THE EXIT CODE IS NOT A
@@ -268,9 +288,12 @@ try {
     # obvious spelling and would have turned every single-line capture into a 1-element array -- a
     # second behaviour change, riding along on a decision that was only about the element type. These
     # three asserts are what refuse that spelling.
-    $noneOut = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'exit', '3')
-    $oneOut  = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'echo hello')
-    $manyOut = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'echo a& echo b')
+    $sNone = Get-Subject @('/c', 'exit', '3') @('-c', 'exit 3')
+    $sOne  = Get-Subject @('/c', 'echo hello') @('-c', 'echo hello')
+    $sMany = Get-Subject @('/c', 'echo a& echo b') @('-c', 'echo a; echo b')
+    $noneOut = Invoke-NativeCapture -FilePath $sNone.FilePath -Arguments $sNone.Arguments
+    $oneOut  = Invoke-NativeCapture -FilePath $sOne.FilePath -Arguments $sOne.Arguments
+    $manyOut = Invoke-NativeCapture -FilePath $sMany.FilePath -Arguments $sMany.Arguments
     Assert-True ($null -eq $noneOut.Output)      'a command that writes nothing still leaves Output $null, not an empty array'
     # AND ITS EXIT CODE IS ASSERTED BESIDE IT, because this is the one shape where the pipeline carries
     # ZERO objects -- the case where a reader would most expect $LASTEXITCODE to have been lost between
@@ -308,8 +331,10 @@ try {
     # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -Utf8 -- exit codes and stderr' -ForegroundColor Cyan
 
-    $ok  = Invoke-MeasuredCapture @{ Utf8 = $true; FilePath = 'cmd'; Arguments = @('/c', 'exit', '0') }
-    $bad = Invoke-MeasuredCapture @{ Utf8 = $true; FilePath = 'cmd'; Arguments = @('/c', 'exit', '3') }
+    $sExit0 = Get-Subject @('/c', 'exit', '0') @('-c', 'exit 0')
+    $sExit3 = Get-Subject @('/c', 'exit', '3') @('-c', 'exit 3')
+    $ok  = Invoke-MeasuredCapture @{ Utf8 = $true; FilePath = $sExit0.FilePath; Arguments = $sExit0.Arguments }
+    $bad = Invoke-MeasuredCapture @{ Utf8 = $true; FilePath = $sExit3.FilePath; Arguments = $sExit3.Arguments }
     Assert-Equal 0 $ok.ExitCode  'exit 0 is reported as 0'
     # Not merely "non-zero": Start-Process -PassThru without reading .Handle returns an EMPTY
     # ExitCode once the child has exited, and empty is not 3. This is the assert that catches it.
@@ -331,8 +356,9 @@ try {
         Assert-True ($null -eq $dropped.ExitCode) 'an empty that persists (a dropped .Handle read) is still handed back empty after three asks'
     }
 
-    $merged    = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'echo oops 1>&2')
-    $discarded = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'echo oops 1>&2') -DiscardStderr
+    $sErr = Get-Subject @('/c', 'echo oops 1>&2') @('-c', 'echo oops 1>&2')
+    $merged    = Invoke-NativeCapture -Utf8 -FilePath $sErr.FilePath -Arguments $sErr.Arguments
+    $discarded = Invoke-NativeCapture -Utf8 -FilePath $sErr.FilePath -Arguments $sErr.Arguments -DiscardStderr
     Assert-True  ((@($merged.Output) -join '').Contains('oops')) 'stderr is merged into Output by default'
     Assert-Equal 0 (@($discarded.Output).Count)                  '-DiscardStderr keeps stderr out, so it cannot pollute JSON'
 
@@ -344,7 +370,8 @@ try {
     # line splitting. The file's bytes are known exactly, including its single terminating newline.
     $lines3 = Join-Path $sandbox 'lines3.txt'
     [System.IO.File]::WriteAllText($lines3, "a`r`nb`r`nc`r`n", (New-Object System.Text.UTF8Encoding $false))
-    $three = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'type', $lines3)
+    $sCat = Get-Subject @('/c', 'type', $lines3) @('-c', 'cat "$1"', 'sh', $lines3)
+    $three = Invoke-NativeCapture -Utf8 -FilePath $sCat.FilePath -Arguments $sCat.Arguments
     Assert-Equal 3 (@($three.Output).Count) 'output comes back as one entry per line'
     Assert-Equal 'a' (@($three.Output)[0])  'the first line is the first line'
     # The newline that ENDS the last line is a terminator, not an empty line after it. A stray ''
@@ -364,12 +391,16 @@ try {
     # "restored to absent" while the machine set it to '0' would pass on a laptop and fail in CI.
     function Reset-GuardEnv {
         foreach ($n in 'GIT_TERMINAL_PROMPT', 'GCM_INTERACTIVE') {
-            [Environment]::SetEnvironmentVariable($n, $null, 'Process')
+            # [NullString]::Value, not $null (#2488): a bare $null reaches the method as '', which
+            # Windows reads as "remove" and Unix as a defined-but-empty variable -- so on Linux this reset
+            # itself planted the '' the ABSENT asserts below then found.
+            [Environment]::SetEnvironmentVariable($n, [NullString]::Value, 'Process')
         }
     }
 
     Reset-GuardEnv
-    $seen = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'echo GTP=%GIT_TERMINAL_PROMPT% GCM=%GCM_INTERACTIVE%')
+    $sEnv = Get-Subject @('/c', 'echo GTP=%GIT_TERMINAL_PROMPT% GCM=%GCM_INTERACTIVE%') @('-c', 'echo GTP=$GIT_TERMINAL_PROMPT GCM=$GCM_INTERACTIVE')
+    $seen = Invoke-NativeCapture -FilePath $sEnv.FilePath -Arguments $sEnv.Arguments
     $seenText = (@($seen.Output) -join '')
     # BOTH NAMES, ASSERTED SEPARATELY. They stop different things -- git's own terminal prompt and the
     # credential manager's window -- and setting only GIT_TERMINAL_PROMPT leaves the measured hang
@@ -378,20 +409,20 @@ try {
     Assert-True ($seenText -like '*GCM=never*')  'the child sees GCM_INTERACTIVE=never -- the credential manager fails instead of drawing a window'
 
     Reset-GuardEnv
-    $seen8 = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'echo GTP=%GIT_TERMINAL_PROMPT% GCM=%GCM_INTERACTIVE%')
+    $seen8 = Invoke-NativeCapture -Utf8 -FilePath $sEnv.FilePath -Arguments $sEnv.Arguments
     # The Start-Process arm is a DIFFERENT launcher, so it inherits nothing from the assert above. Both
     # arms are exercised because ship-pr.ps1 reaches gh through one and git through the other.
     Assert-True ((@($seen8.Output) -join '') -like '*GTP=0*') 'the Start-Process arm guards its child too, not only the & arm'
 
     Reset-GuardEnv
-    $null = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'exit', '0')
+    $null = Invoke-NativeCapture -FilePath $sExit0.FilePath -Arguments $sExit0.Arguments
     # ABSENT IS NOT '': git reads a defined-but-empty GIT_TERMINAL_PROMPT differently from an undefined
     # one, so a restore that writes '' would leave every script that ran one git call in a state it did
     # not start in. This is the assert that catches `$env:NAME = $null`, which does exactly that.
     Assert-True ($null -eq [Environment]::GetEnvironmentVariable('GIT_TERMINAL_PROMPT', 'Process')) 'a variable that was ABSENT is restored to absent, not to the empty string'
 
     [Environment]::SetEnvironmentVariable('GIT_TERMINAL_PROMPT', 'callers-own', 'Process')
-    $null = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'exit', '0')
+    $null = Invoke-NativeCapture -FilePath $sExit0.FilePath -Arguments $sExit0.Arguments
     Assert-Equal 'callers-own' ([Environment]::GetEnvironmentVariable('GIT_TERMINAL_PROMPT', 'Process')) "a caller's own value is handed back, not ours"
 
     Reset-GuardEnv
@@ -476,14 +507,15 @@ try {
     # A BOUND THAT DOES NOT EXPIRE CHANGES NOTHING. This is the assert that keeps the bound from
     # becoming a second failure mode of its own: the exit code still comes back exactly, which is the
     # #907 empty-ExitCode trap the Start-Process arm has to keep clearing.
-    $inTime = Invoke-MeasuredCapture @{ FilePath = 'cmd'; Arguments = @('/c', 'exit', '7'); TimeoutSeconds = 30 }
+    $sExit7 = Get-Subject @('/c', 'exit', '7') @('-c', 'exit 7')
+    $inTime = Invoke-MeasuredCapture @{ FilePath = $sExit7.FilePath; Arguments = $sExit7.Arguments; TimeoutSeconds = 30 }
     Assert-Equal 7 $inTime.ExitCode   'a bounded call that finishes in time reports its own exit code'
     Assert-True  (-not $inTime.TimedOut) 'and does not claim to have timed out'
 
     # TimedOut IS PRESENT ON EVERY RETURN, from both arms, so no caller has to know which arm answered.
-    $plain = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'exit', '0')
+    $plain = Invoke-NativeCapture -FilePath $sExit0.FilePath -Arguments $sExit0.Arguments
     Assert-True (-not $plain.TimedOut) 'an unbounded call on the & arm still carries TimedOut = $false'
-    $plain8 = Invoke-NativeCapture -Utf8 -FilePath 'cmd' -Arguments @('/c', 'exit', '0')
+    $plain8 = Invoke-NativeCapture -Utf8 -FilePath $sExit0.FilePath -Arguments $sExit0.Arguments
     Assert-True (-not $plain8.TimedOut) 'and so does an unbounded call on the Start-Process arm'
 
     # A BOUND MUST NOT MOVE THE CHILD'S WORKING DIRECTORY (inbound #1181). This is the assumption every
@@ -503,7 +535,8 @@ try {
     try {
         [Environment]::CurrentDirectory = $sandbox
         Assert-True ((Get-Location).Path -ne [Environment]::CurrentDirectory) 'the probe really did diverge the two notions of "here"'
-        $whereBounded = Invoke-NativeCapture -FilePath 'cmd' -Arguments @('/c', 'cd') -TimeoutSeconds 30
+        $sWhere = Get-Subject @('/c', 'cd') @('-c', 'pwd')
+        $whereBounded = Invoke-NativeCapture -FilePath $sWhere.FilePath -Arguments $sWhere.Arguments -TimeoutSeconds 30
         Assert-Equal $cwdProbe (@($whereBounded.Output) -join '').Trim() 'a bounded call runs in the PROVIDER location, not in [Environment]::CurrentDirectory'
     } finally {
         Pop-Location
@@ -631,7 +664,7 @@ try {
     # Long enough that a SURVIVING grandchild would have written its second marker (it sleeps from a
     # start that precedes the bound), with margin for a loaded machine.
     Start-Sleep -Seconds $afterRun
-    Assert-True (-not (Test-Path -LiteralPath $survived)) 'the grandchild was killed with its parent -- taskkill /T, not Stop-Process'
+    Assert-True (-not (Test-Path -LiteralPath $survived)) 'the grandchild was killed with its parent -- the whole process tree, not only the direct child'
 
     # ---------------------------------------------------------------------------------------------
     Write-Host 'Read-NativeCaptureFile -- a lingering write handle is not an IO error (#1252), and it is now REPORTED (#1679)' -ForegroundColor Cyan
@@ -656,11 +689,11 @@ try {
     try {
         $threw = $false
         try { [void][System.IO.File]::ReadAllText($held) } catch { $threw = $true }
-        Assert-True $threw 'the plain ReadAllText throws while the handle is held -- this is the bug the CI red was'
+        Assert-TrueWindowsOnly $threw 'the plain ReadAllText throws while the handle is held -- this is the bug the CI red was'
 
         $gotHeld = Read-NativeCaptureFile -Path $held -Encoding $utf8NoBom
         Assert-Equal "flushed output`n" $gotHeld.Text 'the shared read returns what was flushed instead of throwing'
-        Assert-True $gotHeld.WriterHeld 'and it SAYS the writer still held the file -- the fact five callers used to have to guess (#1679)'
+        Assert-TrueWindowsOnly $gotHeld.WriterHeld 'and it SAYS the writer still held the file -- the fact five callers used to have to guess (#1679)'
 
         # THE PROBE IS NOT SATISFIED BY A WAIT IT CANNOT WIN. The writer above is held for the whole
         # block, so the budget is spent in full and the verdict still comes back true -- which is the
@@ -670,8 +703,8 @@ try {
         $waitClock = [System.Diagnostics.Stopwatch]::StartNew()
         $gotWaited = Read-NativeCaptureFile -Path $held -Encoding $utf8NoBom -SettleMilliseconds 300
         $waitClock.Stop()
-        Assert-True $gotWaited.WriterHeld 'a holder that never releases is still reported as a short read after the budget'
-        Assert-True ($waitClock.ElapsedMilliseconds -ge 300) "the settle budget was actually spent (waited $($waitClock.ElapsedMilliseconds)ms of 300)"
+        Assert-TrueWindowsOnly $gotWaited.WriterHeld 'a holder that never releases is still reported as a short read after the budget'
+        Assert-TrueWindowsOnly ($waitClock.ElapsedMilliseconds -ge 300) "the settle budget was actually spent (waited $($waitClock.ElapsedMilliseconds)ms of 300)"
         Assert-Equal "flushed output`n" $gotWaited.Text 'and what was flushed still comes back -- #1252 is not weakened by #1679'
     } finally {
         $writer.Dispose()
@@ -732,8 +765,8 @@ try {
         # only consumer of these blocks is the person reading them, and a returned field nobody prints
         # would be the same silence in a new place. 6>&1 captures Write-Host's information stream.
         $heldText = (@(Write-GateCaptureBlock -Path @($gateHeld) 6>&1 | ForEach-Object { [string]$_ }) -join "`n")
-        Assert-True ($heldText -match '\[short read\]') 'a held capture file prints a visible [short read] note'
-        Assert-True ($heldText -match 'gate-held\.txt') 'and the note names the file, so a reader knows which of the two captures was short'
+        Assert-TrueWindowsOnly ($heldText -match '\[short read\]') 'a held capture file prints a visible [short read] note'
+        Assert-TrueWindowsOnly ($heldText -match 'gate-held\.txt') 'and the note names the file, so a reader knows which of the two captures was short'
         Assert-True ($heldText -match '\[OK\] first assertion') 'and what WAS flushed is still printed -- the note annotates the block, it does not replace it'
     } finally {
         $gateWriter.Dispose()
@@ -748,7 +781,7 @@ try {
         $gateEmptyHeld, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
     try {
         $emptyHeldText = (@(Write-GateCaptureBlock -Path @($gateEmptyHeld) 6>&1 | ForEach-Object { [string]$_ }) -join "`n")
-        Assert-True ($emptyHeldText -match '\[short read\]') 'an EMPTY held capture still prints the note rather than being skipped as blank'
+        Assert-TrueWindowsOnly ($emptyHeldText -match '\[short read\]') 'an EMPTY held capture still prints the note rather than being skipped as blank'
     } finally {
         $emptyWriter.Dispose()
     }
@@ -780,9 +813,9 @@ try {
     $oemHere = Get-NativeCaptureOemEncoding
     $oemProbe = Join-Path $sandbox 'oem-decode.txt'
     [System.IO.File]::WriteAllBytes($oemProbe, [byte[]]@(0x61, 0x82, 0x62))   # 'a', a high byte, 'b'
-    Assert-Equal (Get-Content -LiteralPath $oemProbe -Raw -Encoding Oem) `
-                 (Read-NativeCaptureFile -Path $oemProbe -Encoding $oemHere).Text `
-                 'the OEM code page this helper resolves decodes a high byte identically to Get-Content -Encoding Oem'
+    Assert-TrueWindowsOnly ((Get-Content -LiteralPath $oemProbe -Raw -Encoding Oem) -ceq (Read-NativeCaptureFile -Path $oemProbe -Encoding $oemHere).Text) `
+                 'the OEM code page this helper resolves decodes a high byte identically to Get-Content -Encoding Oem' `
+                 'console code pages are a Windows-only subject'
 
     # AND THE GATE HAS NO PLAIN READ LEFT, which is the inconsistency #1731 actually filed: the file
     # held a tolerant reader for a hazard and the function most exposed to it did not use it. Pinned on
@@ -926,6 +959,9 @@ Write-Output "GATE-VERDICT=`$ok"
         } catch { $threw = $true }
 
         Assert-True (-not $threw) "$($shape.Name) returns instead of throwing on a missing executable -- the whole point of #2234, since a caller's EAP='Stop' turned this into a dead run"
+        # A call that threw leaves nothing to inspect; the field asserts below would crash the suite on a
+        # null (indexing into it) instead of reporting, hiding every later section of the file.
+        if ($null -eq $notStarted) { continue }
         Assert-True ($null -ne $notStarted.PSObject.Properties['NotStarted']) "$($shape.Name) returns a NotStarted field"
         Assert-True $notStarted.NotStarted "...and it is true, which is the only field that says the child never ran"
         Assert-True ($null -eq $notStarted.ExitCode) "...with a NULL ExitCode: there is no exit code, and a substituted number would be a verdict this lib invented"
@@ -963,6 +999,10 @@ Write-Output "GATE-VERDICT=`$ok"
     # shim beside its '.cmd', and handing that to the loader fails in exactly this way.
     $bogusExe = Join-Path $sandbox 'bogus-2234.exe'
     Set-Content -LiteralPath $bogusExe -Encoding Ascii -Value 'this is not a PE image'
+    # OFF WINDOWS THE FILE CARRIES THE EXECUTE BIT, or it is not the same shape (#2488, measured on
+    # ubuntu-latest): pwsh 7 hands a file WITHOUT it to xdg-open as a document to open, which is no launch
+    # at all. With it, the kernel refuses the image (ENOEXEC) -- the loader refusal this block pins.
+    if (-not $script:OnWindows) { & chmod +x $bogusExe }
     foreach ($shape in @(
         @{ Name = 'the & arm';     Args = @{} }
         @{ Name = 'the -Utf8 arm'; Args = @{ Utf8 = $true } }
@@ -1034,8 +1074,10 @@ Write-Output "GATE-VERDICT=`$ok"
     Assert-True (@($rawRefusal | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }).Count -gt 0) `
         'a raw & call still wraps stderr in ErrorRecords -- the shape the helper exists for has not gone away'
     $old = ($rawRefusal | Out-String).Trim()
-    Assert-True ($old -match 'CategoryInfo')            'Out-String really does render the exception block -- the defect reproduces on a raw call'
-    Assert-True ($old -match 'native-capture-lib\.ps1|\.tests\.ps1') '...including a caret naming the file that ran the command'
+    # Windows PowerShell 5.1's NormalView is the defect's precondition; pwsh 7 renders ConciseView (#2488).
+    $viewReason = 'the exception block is Windows PowerShell 5.1''s NormalView rendering'
+    Assert-TrueWindowsOnly ($old -match 'CategoryInfo') 'Out-String really does render the exception block -- the defect reproduces on a raw call' $viewReason
+    Assert-TrueWindowsOnly ($old -match 'native-capture-lib\.ps1|\.tests\.ps1') '...including a caret naming the file that ran the command' $viewReason
     Assert-True ((Get-NativeOutputText $rawRefusal) -notmatch 'CategoryInfo') `
         '...and the helper strips it off THAT Output too, which is the older-consumer case in one assert'
 
@@ -1069,6 +1111,13 @@ Write-Output "GATE-VERDICT=`$ok"
 
     # ---------------------------------------------------------------------------------------------
     Write-Host 'Invoke-NativeCapture -Utf8 -- the code page cannot reach the answer (issue #907)' -ForegroundColor Cyan
+
+    # WINDOWS ONLY: the subject is SetConsoleOutputCP and the cp850/cp437 code pages, which have no
+    # counterpart on Linux (no console code page to flip, and the legacy pages are not in .NET Core by
+    # default). Skipped there by name rather than silently, so the CI log says what did not run.
+    if (-not $script:OnWindows) {
+        Write-Host '  [SKIP] console code pages are a Windows-only subject' -ForegroundColor Yellow
+    } else {
 
     # 'ory <em-dash> e' as gh would put it on the wire: UTF-8, e2 80 94 in the middle. Written as
     # bytes so this .ps1 stays ASCII, which the script layer requires.
@@ -1114,6 +1163,7 @@ try {
     # Stated as its own assert because it is the property the DEPLOY lock actually depends on: not
     # that any one code page is right, but that they cannot disagree with each other.
     Assert-Equal 1 (@($results.Values | Sort-Object -Unique).Count) 'all three code pages agree -- the console cannot change the answer'
+    }
 
     # ---------------------------------------------------------------------------------------------
     Write-Host 'Test-DeployLock -- the defect end to end (issue #907)' -ForegroundColor Cyan
@@ -1269,6 +1319,12 @@ try {
     # ---------------------------------------------------------------------------------------------
     Write-Host "Resolve-NativeApplicationPath -- npm's three-shim layout on Windows (#1988)" -ForegroundColor Cyan
 
+    # WINDOWS ONLY, as the heading says: the defect is CreateProcess matching an extensionless file
+    # before the .cmd, and the fixture is a .cmd. Neither exists on Linux, where PATH also joins on ':'.
+    if (-not $script:OnWindows) {
+        Write-Host '  [SKIP] the npm shim layout is a Windows-only subject' -ForegroundColor Yellow
+    } else {
+
     # REPRODUCED RATHER THAN MOCKED. npm's global install on Windows drops three files for one bin --
     # an extensionless POSIX script, a '.cmd', and a '.ps1' -- all in the same PATH entry. Start-Process
     # resolves a bare name via CreateProcess's own search, which matches the extensionless file FIRST
@@ -1300,6 +1356,7 @@ try {
     # A GENUINELY MISSING COMMAND IS STILL REPORTED AS MISSING -- the resolver hands the name back
     # unchanged rather than silently matching something else, so Start-Process fails exactly as before.
     Assert-Equal 'a-command-that-does-not-exist-1988' (Resolve-NativeApplicationPath -FilePath 'a-command-that-does-not-exist-1988') 'nothing to resolve to -- unchanged, not swallowed'
+    }
 } finally {
     if (Test-Path -LiteralPath $sandbox) { Remove-Item -Recurse -Force -LiteralPath $sandbox -ErrorAction SilentlyContinue }
 }
@@ -1741,7 +1798,8 @@ foreach ($af in $auditFiles) {
     $atok = $null; $aerr = $null
     $aast = [System.Management.Automation.Language.Parser]::ParseFile($af.FullName, [ref]$atok, [ref]$aerr)
     if ($aerr -and $aerr.Count) { continue }
-    $rel = $af.FullName.Substring($auditRoot.Length + 1)
+    # The exemption keys are written with a backslash, so the key is too, whatever this OS lists (#2488).
+    $rel = $af.FullName.Substring($auditRoot.Length + 1).Replace('/', [string][char]92)
 
     # Which capture variables in this file come off a BOUNDED call.
     $boundedVars = @{}
