@@ -39,21 +39,34 @@
 
 ### PLAN
 
+Inbound #2623, verified in the tree: `claim-issue.ps1`'s lost-race arm built its self-release as an array
+(`@($number, '-Tag', '-Release', '-Marker') + ...`) and splatted it into `& $PSCommandPath`, which binds
+every element positionally, so the Tag switch's name landed in a slot with no parameter. It is the only
+self-invocation in the script, so `-TakeOver` and `-ReleaseAll` are unaffected. Repair: a hashtable splat.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `claim-issue.ps1` (and its dkj-policy mirror): the loser's release is `@{ Issue; Tag; Release; Marker[; RootOverride] }`
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: the arm builds a hashtable and names no switch as a string. Bound against the script's real `param()` block (taken from its AST), the hashtable sets `-Tag` and `-Release` and the old array still fails to bind -- 560 green
+
 ### DEPLOY: fix/2623-claim-race-release-binds
 
-**Score:**
+`claim-issue -Tag` now actually releases its own claim when it loses a race. Its self-release passed
+`-Tag` as a positional string, so PowerShell refused the call, and the losing marker and assignee stayed
+on the issue. The next `-Candidates` then read the issue as held by both machines (#2623).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running parallel sweeps on several machines or accounts no longer has to clear a lost claim by
+hand with `claim-issue -Tag -Release`. The losing machine lets go the moment it loses.
+
+**Score:** 2
 
 #### Pull Request
 
 claim-issue: the race loser's self-release binds its switches by name, so the losing claim is released
-

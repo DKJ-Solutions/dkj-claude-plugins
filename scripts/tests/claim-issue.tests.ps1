@@ -1653,6 +1653,24 @@ Assert-True ($body -match [regex]::Escape('if (-not $Tag -and -not $assigneeLand
 Assert-True ($body -match 'the claim marker landed on #\$number but the assignee') `
     'and tag mode reports the same state as a warning that names what is missing'
 
+# THE RACE LOSER'S SELF-RELEASE BINDS BY NAME (#2623). It used to splat an ARRAY, which passes every
+# element positionally to a script: '-Tag' arrived as a string in a slot with no parameter, the release
+# threw, and the losing marker stayed. Driving the race needs two live claims, so the binding is proved
+# against the script's REAL param() block instead -- the same splat, bound by a function that declares
+# exactly those parameters.
+$raceArm = if ($body -match "(?s)if \(\`$race\.Action -eq 'release'\) \{(.*?)\n    \}") { $Matches[1] } else { '' }
+Assert-True ($raceArm -ne '') 'the race-release arm is findable as a block'
+Assert-True ($raceArm -match '\$releaseArgs = @\{') 'the loser''s release is built as a hashtable splat'
+Assert-True ($raceArm -notmatch "'-Tag'|'-Release'") 'and names no switch as a string, which an array splat would bind positionally'
+$claimAst = [System.Management.Automation.Language.Parser]::ParseInput($body, [ref]$null, [ref]$null)
+$binder = [scriptblock]::Create("[CmdletBinding(DefaultParameterSetName = 'Issue')]`n" + $claimAst.ParamBlock.Extent.Text + "`n`$PSBoundParameters")
+$newArgs = @{ Issue = '784'; Tag = $true; Release = $true; Marker = @('claim-tag') }
+$bound = & $binder @newArgs
+Assert-True ($bound['Tag'] -and $bound['Release'] -and $bound['Issue'] -eq '784') 'bound against the real param block, the hashtable sets -Tag and -Release on issue 784'
+$arrayThrew = $false
+try { $oldArgs = @('784', '-Tag', '-Release', '-Marker', 'claim-tag'); & $binder @oldArgs | Out-Null } catch { $arrayThrew = $true }
+Assert-True $arrayThrew 'and the old array splat still fails to bind there -- the measured PositionalParameterNotFound'
+
 # -Verify WRITES NOTHING. It is a reading, and a reading that wrote would make the resume step itself
 # a claim.
 # ANCHORED AT COLUMN FOUR: an unanchored 'if \($Verify\) \{' also matches the 'elseif ($Verify) {' in the
@@ -1675,7 +1693,7 @@ Assert-True ($releaseArm -match 'MAY STILL READ AS HELD') 'a marker it could not
 # session that knows it lost is the only one that can tell its own marker from the winner's.
 $raceArm = if ($body -match "(?s)if \(\`$race\.Action -eq 'release'\) \{(.*?)\n    \}") { $Matches[1] } else { '' }
 Assert-True ($raceArm -ne '') 'the lost-race arm is findable as a block'
-Assert-True ($raceArm -match "'-Release'") 'the loser releases its own claim rather than leaving it standing'
+Assert-True ($raceArm -match 'Release = \$true') 'the loser releases its own claim rather than leaving it standing'
 Assert-True ((Get-CodeOnly -Block $raceArm) -match '\bexit 1\b') 'and it stops -- the work it was about to start belongs to the winner'
 
 # AN UNREADABLE BACKLOG IS NOT AN EMPTY ONE, in the one mode that reads the whole board.

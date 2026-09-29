@@ -1631,8 +1631,11 @@ if ($Tag) {
         # parks the issue against every other machine, and the session that knows it lost is the only
         # one that can tell the difference between its own marker and the winner's.
         Write-Host "[RACE] #$number went to $(Format-ForConsole -Text $race.Winner) -- their marker is earlier than this one." -ForegroundColor Yellow
-        $releaseArgs = @($number, '-Tag', '-Release', '-Marker') + @($Marker)
-        if ($RootOverride) { $releaseArgs += @('-RootOverride', $RootOverride) }
+        # A HASHTABLE SPLAT, NOT AN ARRAY (#2623). An array splat passes every element POSITIONALLY to a
+        # script, so the Tag switch's name arrived as a string in the second positional slot, which has no parameter --
+        # the release threw, and the losing marker and assignee stayed on the issue. Names bind by name.
+        $releaseArgs = @{ Issue = $number; Tag = $true; Release = $true; Marker = $Marker }
+        if ($RootOverride) { $releaseArgs.RootOverride = $RootOverride }
         & $PSCommandPath @releaseArgs
         Write-Host '       Nothing was lost: a claim, not work. Take the next free number --' -ForegroundColor Yellow
         Write-Host '         claim-issue.ps1 -Candidates' -ForegroundColor Yellow
