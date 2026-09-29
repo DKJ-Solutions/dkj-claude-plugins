@@ -74,10 +74,11 @@ Inbound #2641 (consumer BWJ-Development/xoxowildhearts#307). Verified on pickup:
 - [x] prepare-release (bwj): the deletions and push-list details.
 - [x] live-preflight and sync-main skills.
 - [x] Mirrors rebuilt with `build-shared-scripts.ps1`.
+- [x] Review round (Victor, Edith, Sebastian). A drift check's success-stream output leaked into `Invoke-DriftCheck`'s return value and read a pass as a refusal; it now goes to `Out-Host`. With no drift check at all, the deletion command is withheld. Skill description, verdict count and wording fixed.
 
 ### TEST
 
-- [x] `live-push-rules.tests.ps1` (110 pass): the reason, the retired claim absent from both drivers, the preflight wiring asserted on source, the deletion command's spelling.
+- [x] `live-push-rules.tests.ps1` (112 pass): the reason, the retired claim absent from both drivers, the preflight wiring asserted on source, the deletion command's spelling, the output routed to the host, and both withholding paths.
 - [x] `live-record-lib.tests.ps1` (82 pass): the new header, `-DeletionsCarried`, and an entry whose only change is a carried deletion reading as live.
 - [x] `dkj-policy-bwj.tests.ps1` (498 pass).
 
@@ -85,7 +86,7 @@ Inbound #2641 (consumer BWJ-Development/xoxowildhearts#307). Verified on pickup:
 
 live-preflight now prints a separate deletion command for theme files the trunk deleted. It no longer
 leaves them on live with no route off it. An `--only` push of a path missing from the checkout
-removes it from the theme, which the plugin had stated as impossible in six places (#2641).
+removes it from the theme, which the plugin had stated as impossible in six places (#2641). This\nsupersedes the #2566 entry above on one point. A deleted file is no longer listed under `held` as a\nseparate store decision: it goes under `delete` and gets that command.
 
 **Score:** 2
 

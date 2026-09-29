@@ -1,6 +1,6 @@
 ---
 name: live-preflight
-description: The step between a merged trunk and a live Shopify theme push, which used to be assembled by hand from prose every release. It verifies the stand, derives the push list from the range rather than from the changelog, hands that list to the repo's drift check AS AN ARRAY, takes one verified backup as the rollback point, and prints the push command. Use it on the trunk once a release is merged and green, before anything reaches live. Two things it never does, both by construction: it never runs `shopify theme push` -- the live guard reads command strings and cannot see inside a script -- and it never writes the authorisation marker, because green means the checklist is complete, never that the push is authorised.
+description: The step between a merged trunk and a live Shopify theme push, which used to be assembled by hand from prose every release. It verifies the stand, derives the push list from the range rather than from the changelog, hands that list to the repo's drift check AS AN ARRAY, takes one verified backup as the rollback point, and prints the push command, plus a separate deletion command for theme files the range deleted. Use it on the trunk once a release is merged and green, before anything reaches live. Two things it never does, both by construction: it never runs `shopify theme push` -- the live guard reads command strings and cannot see inside a script -- and it never writes the authorisation marker, because green means the checklist is complete, never that the push is authorised.
 ---
 
 # live-preflight -- the one step that can refuse the push
@@ -93,9 +93,7 @@ saw it is a file whose push destroys their work.
 
 **The deletions are checked too, in a call of their own.** Removing a file destroys what live holds
 there exactly as an overwrite does. A refusal on the deletion paths withholds **only the deletion
-command**: the ordinary push is still right, and the files stay on live until somebody decides. A drift
-check that cannot read a path missing from the checkout fails the same way, which is the safe
-direction. Where the range's only theme changes are deletions, that refusal refuses the run.
+command**: the ordinary push is still right, and the files stay on live until somebody decides. So does a repo\nwith **no** drift check: an unchecked upload is still printed, an unchecked deletion is not. The check is\nhanded paths that are absent from the checkout, and it is expected to compare live against what this repo\nlast held there. A check that cannot read such a path fails, which is the safe direction. Where the range's\nonly theme changes are deletions, either refusal refuses the run.
 
 ### 3. A path in the printed command is text a shell will parse
 
@@ -259,7 +257,7 @@ The arithmetic of adding one to a version component is local, because that is no
 
 `scripts/tests/live-push-rules.tests.ps1` pins the rules the script invokes: the eight theme
 directories (**including that `sync-main.ps1` no longer carries its own copy**), the push-list
-classification in all three verdicts with the near-miss and separator cases, the numeric tag pick that
+classification in all four verdicts with the near-miss and separator cases, the numeric tag pick that
 lexical sorting gets wrong, the push command's shape and its refusal to produce one for an empty list,
 the paste-safety check on its three measured shapes and on the accented paths it must still admit,
 and the verdict fold -- including that a skip is not a pass and an unrecognised state is a refusal.

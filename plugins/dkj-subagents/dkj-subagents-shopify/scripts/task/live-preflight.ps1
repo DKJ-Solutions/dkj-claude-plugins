@@ -593,11 +593,15 @@ function Invoke-DriftCheck {
     # -Only into ONE string that never splits on commas: the check snapshotted zero files and printed a
     # green "safe to push", and the rollback artefact for that release did not exist. '&' with a
     # [string[]] cannot flatten, so the defect is closed by construction rather than by remembering.
+    #
+    # AND ITS OUTPUT GOES TO THE HOST, NOT INTO THIS FUNCTION'S RETURN. A drift check that writes its
+    # report to the success stream would otherwise become part of the value returned here, and an array
+    # compared with 0 is never 0 -- a pass read as a refusal, with the report swallowed.
     param([string[]]$Paths, [string]$What)
     Write-Host "  $driftRel -Only <$($Paths.Count) $What paths, as an array>"
     try {
         $global:LASTEXITCODE = 0
-        & $driftFull -Only $Paths
+        & $driftFull -Only $Paths | Out-Host
         if ($null -eq $LASTEXITCODE) { return 0 }
         return [int]$LASTEXITCODE
     } catch {
@@ -611,7 +615,15 @@ $deleteWithheld = $false
 if ($pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
     Add-Step -Name 'drift' -State 'skip' -Detail 'there is no push list to check.'
 } elseif (-not (Test-Path -LiteralPath $driftFull -PathType Leaf)) {
-    Add-Step -Name 'drift' -State 'skip' -Detail "no drift check at '$driftRel'. The push list and the deletions are derived and UNCHECKED against what a third party may have written on live since; pass -DriftCheckPath, or answer Get-ShopifyDriftCheckPath."
+    Add-Step -Name 'drift' -State 'skip' -Detail "no drift check at '$driftRel'. The push list is derived and UNCHECKED against what a third party may have written on live since; pass -DriftCheckPath, or answer Get-ShopifyDriftCheckPath."
+    # AN UNCHECKED DELETION IS NOT PRINTED, where an unchecked upload still is: removing a file leaves
+    # nothing on live to compare against afterwards, so the one guard against destroying a third party's
+    # content there has to have run first (#2641).
+    if ($deleteFiles.Count -gt 0) {
+        $deleteWithheld = $true
+        $delState = if ($pushFiles.Count -eq 0) { 'refuse' } else { 'warn' }
+        Add-Step -Name 'drift (deletions)' -State $delState -Detail "no drift check, so no deletion command is printed for the $($deleteFiles.Count) file(s) the trunk deleted: they stay on live until a drift check has passed on them."
+    }
 } else {
     if ($pushFiles.Count -gt 0) {
         $driftExit = Invoke-DriftCheck -Paths $pushFiles -What 'push'

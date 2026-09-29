@@ -170,6 +170,8 @@ foreach ($drv in @(@{ Name = 'live-preflight'; Src = $pfSrc }, @{ Name = 'prepar
 Assert-True ($pfSrc -match '\$deleteCommand = Format-LivePushCommand [^\r\n]*-Only \$deleteFiles') 'live-preflight composes the deletion command from the deleted paths'
 Assert-True ($pfSrc -match 'Invoke-DriftCheck -Paths \$deleteFiles') 'live-preflight runs the drift check on the deleted paths'
 Assert-True ($pfSrc -match 'if \(-not \$deleteWithheld\)') 'a drift refusal on the deletions withholds the deletion command'
+Assert-True ($pfSrc -match '& \$driftFull -Only \$Paths \| Out-Host') "the drift check's own output goes to the host, never into the exit code Invoke-DriftCheck returns"
+Assert-Equal 2 ([regex]::Matches($pfSrc, '\$deleteWithheld = \$true')).Count 'a deletion is withheld both on a drift refusal and when there is no drift check at all'
 Assert-True ($pfSrc -match '-DeletionsCarried:\(\[bool\]\$deleteCommand\)') 'the record marks deletions live only when the command was composed'
 
 # A DELETION COMMAND IS THE PUSH BUILDER'S OWN SPELLING: one --only per path, never an empty --only list.
