@@ -64,7 +64,8 @@ ordering signals, ties fall back to issue number.
   or a `<prefix>/<n>-` branch) > *Waiting* (a parking label: `needs-info`, `needs-decision`,
   `awaiting-recurrence`) > *Blocked* (an open `blockedBy`) > *Claimed* (assignee) > *Filed*.
 - **Order**: topological over in-repo open `blockedBy` edges (Kahn), ties by issue number; an open
-  blocker outside the repo sinks the issue below every issue without one; a cycle is flagged on the
+  blocker outside the repo sinks the issue, and every issue that waits on a sunk issue, below every
+  issue without one (transitive -- Cody's accepted refinement, so topological order holds); a cycle is flagged on the
   page and broken by issue number.
 - **Script** `scripts/task/issue-dashboard.ps1` (mirrored, skill `issue-dashboard`): `-InitToken`
   writes the path token once into a gitignored `dkj-policy/dashboard/`; `-EmitWorker` copies both JS
