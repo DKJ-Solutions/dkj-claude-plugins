@@ -69,6 +69,10 @@ Assert-True ($r.Account -eq 'maikel-bwj' -and -not $r.Split) 'a display name is 
 $r = Resolve-ClaimAccount -GhAccount 'maikel-bwj' -GitUserName ('a' * 40)
 Assert-True (-not $r.Split) '40 characters is not a GitHub login -- outside the shape, so no split'
 
+# U+212A KELVIN SIGN folds to `k` under a plain -match, which admitted it into the login class (#2520).
+Assert-True (-not (Test-GitHubLoginShape -Value ('maikel-bw' + [char]0x212A))) 'Test-GitHubLoginShape refuses a login carrying the Kelvin sign (#2520)'
+Assert-True (Test-GitHubLoginShape -Value 'DaveKJohn') '...and still admits a mixed-case ASCII login'
+
 $r = Resolve-ClaimAccount -GhAccount 'maikel-bwj' -GitUserName ('a' * 39)
 Assert-True ($r.Split -and $r.Account -eq ('a' * 39)) '39 characters IS a GitHub login -- the shape boundary is walked at both edges'
 
@@ -119,6 +123,37 @@ Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'no-account') 'no account -
 
 $v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'OPEN' -Assignees @('DaveKJohn')
 Assert-True ($v.Others -is [array]) 'Others is always an array -- a single other assignee must not arrive as a bare string'
+
+# A PULL REQUEST'S NUMBER (issue #2609): gh issue view answers for it, a merged one as MERGED, and only
+# CLOSED used to be refused -- so the measured run printed [OK] and assigned the merged PR.
+$prUrl = 'https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2504'
+$issueUrl = 'https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2609'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'MERGED' -Assignees @()
+Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'closed') 'MERGED is refused even without the URL -- anything but OPEN is not claimable (#2609)'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'MERGED' -Assignees @() -Url $prUrl
+Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'pull-request') 'the measured case: a merged PR is refused as a pull request, not claimed (#2609)'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'OPEN' -Assignees @() -Url $prUrl
+Assert-True ($v.Code -eq 'pull-request') 'an OPEN pull request is refused too -- its state reads like an issue''s'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'OPEN' -Assignees @('maikel-bwj') -Url $prUrl
+Assert-True ($v.Code -eq 'pull-request') 'a pull request beats already-yours -- your name on a PR is not a claim on an issue'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'OPEN' -Assignees @() -Url $issueUrl
+Assert-True ($v.Code -eq 'open-unassigned') 'an issue URL is still claimable'
+$v = Get-ClaimVerdict -Account 'maikel-bwj' -State 'SOMETHING-NEW' -Assignees @()
+Assert-True ($v.Code -eq 'closed') 'a state this lib has never heard of is refused, not read as open'
+
+Write-Host ''
+Write-Host 'Test-PullRequestUrl / Get-ClosingIssueNumbers -- telling a PR number from an issue (#2609)' -ForegroundColor Cyan
+Assert-True (Test-PullRequestUrl -Url $prUrl) 'a /pull/<n> URL is a pull request'
+Assert-True (-not (Test-PullRequestUrl -Url $issueUrl)) 'an /issues/<n> URL is not'
+Assert-True (-not (Test-PullRequestUrl -Url 'https://github.com/pull/pullrepo/issues/12')) 'an owner named pull is not a pull request -- the segment needs a number'
+Assert-True (Test-PullRequestUrl -Url 'https://github.com/o/r/pull/12#issuecomment-1') 'a fragment after the number still reads as a pull request'
+Assert-True (-not (Test-PullRequestUrl -Url '')) 'an unread URL is not a pull request'
+Assert-True (-not (Test-PullRequestUrl -Url 'https://github.com/o/r/issues/123?x=/pull/1')) 'a /pull/<n> in a query string is not the resource segment'
+$closes = @(Get-ClosingIssueNumbers -Json '{"closingIssuesReferences":[{"number":2500,"url":"x"},{"number":2501,"url":"y"}]}')
+Assert-True ($closes.Count -eq 2 -and $closes[0] -eq 2500 -and $closes[1] -eq 2501) 'the issues a PR closes are read, in order'
+Assert-True (@(Get-ClosingIssueNumbers -Json '{"closingIssuesReferences":[]}').Count -eq 0) 'a PR closing nothing reads as an empty list'
+Assert-True (@(Get-ClosingIssueNumbers -Json 'not json').Count -eq 0) 'an unparseable payload costs only the hint, not a crash'
+Assert-True (@(Get-ClosingIssueNumbers -Json '').Count -eq 0) 'an empty payload reads as none'
 
 Write-Host ''
 Write-Host 'ConvertFrom-GhAuthStatus -- every account gh names here, not just the active one (#2207)' -ForegroundColor Cyan
@@ -978,8 +1013,10 @@ Assert-True ($body -match '\$foreignParked\s*=\s*\$false') 'the flag has a defau
 # NOT PINNED TO THE SINGLE-FLAG SPELLING: #2064 added a second verdict to the same headline, so the
 # first arm is now `if ($foreignParked -and $prerequisiteFound)`. What #1878 holds is that the
 # headline BRANCHES on this flag at all -- the spelling of the chain is the other issue's business.
-Assert-True ($body -match '\$opening\s*=\s*if\s*\(\$foreignParked') 'the closing headline reads the flag'
-Assert-True ($body -match 'read the parked-fix verdict above before you start') 'and says so rather than asserting the work starts here'
+# THE HEADLINE MOVED INTO THE LIB WHEN #2518 ADDED A THIRD VERDICT, so it is held behaviourally now
+# (Format-ClaimOpening, below) and here only that the script hands it this flag.
+Assert-True ($body -match '\$opening\s*=\s*Format-ClaimOpening[^\r\n]*-ForeignParked:\$foreignParked') 'the closing headline reads the flag'
+Assert-True ((Format-ClaimOpening -ForeignParked) -match 'read the parked-fix verdict above before you start') 'and says so rather than asserting the work starts here'
 Assert-True ($body -match 'BUT NOT THAT BRANCH') 'the resume verdict carries it too -- where the other session branch is already in the working copy'
 
 
@@ -1119,8 +1156,9 @@ Assert-True ($body -match "--json', \`$viewFields") 'and the read is made from t
 Assert-True ($body -match 'Get-IssuePathCitations -Text \(\[string\]\$facts\.body\)') 'and the body is read for its citations rather than printed'
 
 Assert-True ($body -match '\$prerequisiteFound\s*=\s*\$false') 'the flag has a default, so a scan that never ran cannot leave it undefined'
-Assert-True ($body -match '(?s)\$opening\s*=\s*if\s*\(\$foreignParked\s+-and\s+\$prerequisiteFound\)') 'the closing headline names BOTH verdicts where both fired'
-Assert-True ($body -match 'read the prerequisite verdict above before you start') 'and names this one where it fired alone'
+Assert-True ($body -match '\$opening\s*=\s*Format-ClaimOpening[^\r\n]*-PrerequisiteFound:\$prerequisiteFound') 'the closing headline is handed this flag too'
+Assert-True ((Format-ClaimOpening -ForeignParked -PrerequisiteFound) -match 'read the parked-fix and prerequisite verdicts above before you start') 'the closing headline names BOTH verdicts where both fired'
+Assert-True ((Format-ClaimOpening -PrerequisiteFound) -match 'read the prerequisite verdict above before you start') 'and names this one where it fired alone'
 Assert-True ($body -match 'AND CHECK THE ORDER') 'the resume verdict carries it too -- an ordering bites hardest on a branch already in the working copy'
 
 # IT WEIGHS WHAT THE READER WAS POINTED AT, which is what keeps a quiet claim free: both scans feed
@@ -1416,6 +1454,11 @@ Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'no-tag') 'no tag -- there 
 $v = Get-TagClaimVerdict -Tag 'A/b' -State 'OPEN' -Records $null
 Assert-True ($v.Action -eq 'claim') 'a null record list is an unclaimed issue, not a crash'
 
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'MERGED' -Records @() -Url 'https://github.com/o/r/pull/2504'
+Assert-True ($v.Action -eq 'refuse' -and $v.Code -eq 'pull-request') 'a merged PR is refused as a pull request in tag mode too (#2609)'
+$v = Get-TagClaimVerdict -Tag 'A/b' -State 'MERGED' -Records @()
+Assert-True ($v.Code -eq 'closed') 'and MERGED without a URL is refused on the state -- anything but OPEN'
+
 Write-Host ''
 Write-Host 'Resolve-ClaimRace -- and it must name a WINNER, not a loser' -ForegroundColor Cyan
 
@@ -1478,6 +1521,44 @@ Assert-True ($cLegacy[0].Verdict -eq 'held') 'a predecessor marker still holds a
 
 Assert-True ((@(Get-SweepCandidates -Json '')).Count -eq 0) 'empty input -- nothing, and nothing claimed as free'
 Assert-True ((@(Get-SweepCandidates -Json 'nonsense')).Count -eq 0) 'unparseable input -- nothing'
+
+Write-Host ''
+Write-Host 'The parking label on the single-issue route (#2518)' -ForegroundColor Cyan
+
+# ONE READER FOR BOTH ROUTES: the sweep skipped on a label the single-issue claim never read.
+$viewParked = '{"number":12,"title":"t","state":"OPEN","labels":[{"name":"prio-2"},{"name":"Needs-Info"},{"name":" "}]}' | ConvertFrom-Json
+$names = @(Get-IssueLabelNames -Issue $viewParked)
+Assert-True (($names -join ',') -eq 'prio-2,Needs-Info') 'a gh issue view record yields its label names, empties dropped'
+Assert-True ((@(Get-IssueLabelNames -Issue ('{"number":1}' | ConvertFrom-Json))).Count -eq 0) 'a record with no labels field yields none -- not an error'
+Assert-True ((@(Get-IssueLabelNames -Issue $null)).Count -eq 0) 'and a null record yields none'
+
+$hit = @(Select-ParkingLabels -Labels $names -SkipLabel @('needs-info'))
+Assert-True ($hit.Count -eq 1 -and $hit[0] -eq 'Needs-Info') 'the skip list matches case-insensitively and returns the issue''s own spelling'
+Assert-True ((@(Select-ParkingLabels -Labels $names -SkipLabel @())).Count -eq 0) 'an empty skip list parks nothing'
+Assert-True ((@(Select-ParkingLabels -Labels @('prio-2') -SkipLabel @('needs-info'))).Count -eq 0) 'an unparked issue matches nothing'
+
+$note = @(Format-ParkingLabelNote -Issue 12 -Labels @('needs-info'))
+Assert-True ($note.Count -gt 0 -and $note[0] -match "^PARKED: #12 carries 'needs-info'") 'a parked issue gets the verdict, naming the label'
+Assert-True (($note -join ' ') -match 'not yours to give') 'and it says the answer is not the claimant''s to give -- the measured failure was a session choosing between the owner''s options'
+Assert-True ((@(Format-ParkingLabelNote -Issue 12 -Labels @())).Count -eq 0) 'no label, no note -- the common case stays silent'
+$esc = [string][char]0x1b
+Assert-True (-not ((@(Format-ParkingLabelNote -Issue 12 -Labels @("x${esc}[31m")) -join ' ').Contains($esc))) 'a label name is tracker text and is stripped before printing'
+
+# THE HEADLINE NAMES EVERY VERDICT THAT FIRED, and 'the work starts here' only where none did.
+Assert-True ((Format-ClaimOpening) -eq ' -- the work starts here.') 'nothing fired -- the work starts here'
+Assert-True ((Format-ClaimOpening -Parked) -match 'read the parking-label verdict above before you start') 'the parking label alone redirects the headline'
+Assert-True ((Format-ClaimOpening -ForeignParked -PrerequisiteFound -Parked) -match 'read the parked-fix, prerequisite and parking-label verdicts above') 'all three fired -- all three named'
+
+# THE WIRING: read on the view, defaulted on the single-issue route, and handed to the headline.
+Assert-True ($body -match "else \{ 'number,title,state,url,assignees,body,labels' \}") 'the default-route issue read asks for the labels'
+Assert-True ($body -match "ParameterSetName -eq 'Issue' -and -not \`$PSBoundParameters\.ContainsKey\('SkipLabel'\)") 'the single-issue route defaults its skip list only when none was passed'
+Assert-True ($body -match "\`$SkipLabel = @\('needs-info', 'needs-decision', 'awaiting-recurrence'\)") 'and the default is the three labels sweep-issues skips on -- blocked on the submitter, waiting on the owner (#2519), and waiting on a recurrence (#2587)'
+Assert-True ($body -match 'Select-ParkingLabels -Labels @\(Get-IssueLabelNames -Issue \$facts\) -SkipLabel \$SkipLabel') 'the view''s labels are held against the skip list'
+Assert-True ($body -match '\$opening\s*=\s*Format-ClaimOpening[^\r\n]*-Parked:\$parked') 'and the headline is told when the issue is parked'
+Assert-True ($body -match 'AND IT IS PARKED') 'the resume verdict carries it too'
+$parkArm = if ($body -match '(?s)# --- IS IT PARKED WITH SOMEBODY ELSE.*?\n\}\r?\n') { $Matches[0] } else { '' }
+Assert-True ($parkArm -ne '') 'the parking arm is findable as a block'
+Assert-True (($parkArm -replace '(?m)#.*$', '') -notmatch '\bexit\b') 'and it never refuses -- a claim that blocks costs the whole assignment (#1485)'
 
 Write-Host ''
 Write-Host 'Get-OwnTagClaims -- what -ReleaseAll may release, and the bound on it (#2395)' -ForegroundColor Cyan
@@ -1606,7 +1687,7 @@ Assert-True ($candidatesArm -notmatch "'issue', 'comment'" -and $candidatesArm -
     '-Candidates writes nothing -- choosing and claiming are two steps, and the ownership question sits between them'
 
 # THE COMMENTS ARE PAID FOR ONLY WHERE THEY ARE READ.
-Assert-True ($body -match [regex]::Escape('if ($Tag) { ''number,title,state,url,assignees,body,comments'' }')) `
+Assert-True ($body -match [regex]::Escape('if ($Tag) { ''number,title,state,url,assignees,body,comments,labels'' }')) `
     'the comments field is asked for in tag mode only -- unbounded text on a call every pickup makes'
 
 # A MARKER IS FOREIGN TEXT. It comes out of an issue comment, which anybody with access to the tracker
@@ -1694,6 +1775,8 @@ $v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($mine, 
 Assert-True ($v.Code -eq 'already-yours') 'already this tag''s passes through as a resume'
 $v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'CLOSED' -Records @($rival) -Branches @('fix/2338-x')
 Assert-True ($v.Code -eq 'closed') 'a closed issue is refused on its own code'
+$v = Get-TakeOverVerdict -Tag 'DAVE/davekokbwj' -State 'OPEN' -Records @($rival) -Url 'https://github.com/o/r/pull/2338' -Branches @('fix/2338-x')
+Assert-True ($v.Code -eq 'pull-request') 'a pull request''s number passes through on its own code, not as a take-over (#2609)'
 
 $note = Format-HandoverComment -OldTags @('DESKTOP-X/davekokbwj') -NewTag 'DAVE/davekokbwj' -Branch 'fix/2338-x' -Issue 2338
 Assert-True ($note -match 'DESKTOP-X/davekokbwj' -and $note -match 'DAVE/davekokbwj' -and $note -match 'fix/2338-x' -and $note -match '2338 -Tag -Verify') `

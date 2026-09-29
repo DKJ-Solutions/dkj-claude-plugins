@@ -41,8 +41,8 @@ The script:
 
 1. Resolves **which account** this checkout claims under -- see the next section. It never sends
    `@me`.
-2. Reads the issue (`gh issue view --json number,title,state,url,assignees,body`).
-3. **Judges it** -- five verdicts, three of them refusals (below).
+2. Reads the issue (`gh issue view --json number,title,state,url,assignees,body,labels`).
+3. **Judges it** -- six verdicts, four of them refusals (below).
 4. On a claim or a resume, **scans the branches** for a fix that is already pushed (below). A warning,
    never a refusal.
 5. **Matches the issue's own TITLE against every branch name** off the trunk, for the branch cut for
@@ -50,7 +50,9 @@ The script:
 6. **Weighs whatever those scans surfaced** -- how far ahead of the trunk each branch is, and whether
    anything the issue names sits there and not on the trunk (below). A warning, never a refusal, and
    no git call at all where nothing was surfaced.
-7. Writes the assignee, then **reads the claim back** and fails if it did not land.
+7. **Warns when the issue carries a parking label** -- `needs-info`, `needs-decision` and
+   `awaiting-recurrence` by default, the labels a sweep skips on (below). A warning, never a refusal.
+8. Writes the assignee, then **reads the claim back** and fails if it did not land.
 
 ## The parameters
 
@@ -60,6 +62,8 @@ The script:
   itself.
 - **`-DryRun`** -- read and judge, write nothing. Prints the verdict it would act on, so you can see
   **who holds an issue without taking it**.
+- **`-SkipLabel`** -- the labels that park an issue with somebody else. On this route it defaults to
+  `needs-info`, `needs-decision` and `awaiting-recurrence`; passing it replaces that default (below).
 
 ## And a second claim, for a backlog worked by several machines (`-Tag`)
 
@@ -146,15 +150,25 @@ commits, because the commits are the half nothing can rewrite afterwards. A `git
 holding a display name ("Ada Lovelace") is not an account at all and is no evidence of a split, so a
 normal repo never sees this.
 
-## The five verdicts
+## The six verdicts
 
 | Verdict | What happens |
 |---|---|
 | **open, unassigned** | Claimed, read back, and the work may start. |
 | **already yours** | Nothing to write -- this is a resume. Read the branch and its document before carrying the work. |
-| **closed** | **Refused.** |
+| **closed** | **Refused** -- and so is any state other than `OPEN`. |
 | **held by somebody else** | **Refused.** |
 | **no account** | **Refused** -- `gh` is absent or logged out, so there is nobody to claim as. A step whose whole job is to say who is working cannot proceed anonymously. |
+| **a pull request** | **Refused**, naming the issue(s) that pull request closes, so the number you probably meant is one re-run away. |
+
+**A pull request's number is not an issue, and `gh issue view` does not say so**
+([#2609](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2609)). Issues and pull requests
+share one counter, and `gh issue view <n>` answers for a PR too, a merged one as state `MERGED`.
+Measured September 28, 2026: *"fix issue 2504"* ran this on a PR merged three days earlier, and because
+only `CLOSED` was refused, `MERGED` fell through to **open, unassigned**. It printed `[OK]` and wrote the
+assignee onto the merged PR. So the number's URL is read first (`/pull/<n>` is a pull request, open or
+not), and the state refusal now reads *anything but `OPEN`*. A state the script has never heard of is
+no evidence that the work is still to be done. Both apply in `-Tag` mode too.
 
 **The closed refusal is the one this step was built for.** `gh issue edit <n> --add-assignee`
 **succeeds silently on a closed issue**, so the documented one-liner gives a session every signal of
@@ -206,7 +220,7 @@ So on this verdict only, a holder that is authenticated in `gh` on this machine 
           the way through is a conversation, and a switch cannot have one.
 ```
 
-**Still a refusal, not a sixth verdict.** The five above are unchanged, nothing new is blocked, and the
+**Still a refusal, not a new verdict.** The verdicts above are unchanged, nothing new is blocked, and the
 exit code is the one it always was. What is added is a reading, printed **above** the sentence it
 corrects -- under it, it would correct nothing.
 
@@ -522,6 +536,42 @@ first, stacking your work on top of it, and waiting are three answers with three
 none of them is a call a pickup check gets to make. That is the one place this workflow's *file it,
 do not ask* rule does not reach: an ordering between two people's branches is exactly the blocking
 question the owner is for.
+
+## A parking label: the issue waits on an answer, not a builder
+
+**The sweep route and this route used to disagree about one label.** [`sweep-issues`](../sweep-issues/SKILL.md)
+chooses with `-Candidates -SkipLabel needs-info,needs-decision,awaiting-recurrence`, so an issue parked with somebody else is
+skipped there. This route read no labels at all, so the same issue came back `[OK] ... the work starts here`
+the moment a person named it. Measured in a consumer, September 26, 2026
+([#2518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2518)): an issue ending in an open
+choice for the owner was left alone by a sweep, and claimed through this route by a session that then
+picked one of the two options itself and shipped it.
+
+**So the issue read asks for `labels` too, and holds them against `-SkipLabel`** -- `needs-info` and
+`needs-decision` by default on this route, plus `awaiting-recurrence` since
+[#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587) -- the labels the sweep skips on; passing `-SkipLabel` replaces
+the default. On a claim or a resume where one matches, it prints a `PARKED:` verdict naming the label, the closing
+`[OK]` points at that verdict instead of *the work starts here*, and the forward line says to read the
+issue for its open question rather than to open the branch.
+
+**It warns and never refuses**, on the bound every signal on this page keeps
+([#1485](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1485)): a label can be stale. Where
+the answer is already on the thread, remove the label and carry on; where it is not, the answer is owed
+first, and it is not the claimant's to give.
+
+**It sees only a label.** An issue whose open choice lives in prose alone reads as unparked here, which
+was the case in the measurement too. So an owner's choice carries `needs-decision` from the moment it
+is filed ([#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)), and the filing
+rule is in [`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
+It is a label of its own because `needs-info` already means *blocked on the submitter* in
+`dkj-policy-bwj`, where it moves the mirrored Asana card to the blocked column.
+
+**An issue waiting on EVIDENCE is parked too, under `awaiting-recurrence`**
+([#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)). Measured September 28, 2026:
+an n=1 flake whose only remaining step was *wait for a recurrence* was picked up four times in one day,
+and each pickup ended with nothing to build. It is not `dossier`, which collects a problem that
+demonstrably recurs and stays sweepable; the rule is in the same
+[`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from) section.
 
 ## Every `gh` call is bounded, so a stall is reported rather than waited out
 

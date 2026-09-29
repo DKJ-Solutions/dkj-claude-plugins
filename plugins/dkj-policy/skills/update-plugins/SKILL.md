@@ -121,6 +121,15 @@ that record too, at `--scope user`. The update is **not gated on the version**, 
 run both records matched before step 2, so the gap only opened once the checkout's record had moved. A
 path-less `managed` record is left alone, since it belongs to an administrator.
 
+**A plugin with no install record for this checkout is installed, not updated**
+([#2560](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2560)). That is the state of a
+plugin enabled declaratively only: nothing names this path and nothing is tied to no path. `claude
+plugin update --scope project` does not install there. It found *a* project-scope record and moved the
+one belonging to **another checkout**, and the run still reported success while its own receipt said
+"not installed in this checkout". Step 2 now runs `claude plugin install <id> --scope project` for
+that plugin, the same command `plugin-versions` prescribes for the same state, and the summary counts
+it as installed rather than updated.
+
 **This does not widen the boundary above.** That boundary is about which *tree* gets written: a
 user-scope update rewrites no repo's tree at all, and a `local`/`project` one rewrites exactly the
 checkout you are standing in.

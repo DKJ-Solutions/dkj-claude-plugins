@@ -152,8 +152,8 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs and `dossier`), so adopting the convention costs one command
-instead of five typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `dossier`, `needs-decision` and `awaiting-recurrence`), so
+adopting the convention costs one command instead of seven typed by hand.
 
 **`dossier` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A dossier gathers every
@@ -171,6 +171,36 @@ it carries a `prio-N` of its own like any other issue. Three things follow from 
 - **The dossier is closed only when the root cause is repaired.** The closing comment names that repair,
   so a reader of the thread can see which of its instances the repair explains. Because `open-pr` refuses
   to close it, even that PR ships with `-NoResolves`, and the dossier is closed by hand after the merge.
+
+**`needs-decision` parks an issue that ends in the owner's choice, and it is set when the issue is filed**
+(Dave, September 26, 2026, [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)).
+A finding whose next step is a decision rather than a repair (*reuse A or introduce B*) is filed like any
+other, with its `prio-N`, and carries `needs-decision` from the moment it is created. That is the label
+both pickup routes skip by default: `claim-issue <n>` warns that the issue is parked instead of saying the
+work starts, and `sweep-issues` leaves it alone. The owner removes the label when they answer, and the
+answer goes on the issue as a comment, so whoever picks it up next finds the decision in the thread
+rather than in a conversation that has since been cleared.
+
+- **It is not `needs-info`.** Where [`dkj-policy-bwj`](dkj-policy-bwj/WORKFLOW-portable.md) is installed,
+  `needs-info` means *blocked on the submitter*: it moves the mirrored Asana card to the blocked column and
+  obliges a question comment addressed to the person who filed it. Neither is true of a decision that is
+  the owner's, so the two labels stay separate, and both are skipped.
+- **An issue that is only the question has one answer route.** Once the owner answers, the label comes off
+  and the issue is ordinary work. Where the answer is *"neither"*, the issue closes as `not_planned` with
+  that reason.
+
+**`awaiting-recurrence` parks an issue whose only remaining step is its first reproducible occurrence**
+(Dave, September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)).
+An issue with one instance that could not be reproduced, and whose diagnostic has already shipped, has
+nothing left to build until it happens again. Without a label it reads as free work, so every sweep picks
+it up, finds nothing to do and releases it. Both pickup routes skip this label by default, exactly as they
+skip `needs-decision`.
+
+- **It is not `dossier`.** A dossier collects instances of a problem that *demonstrably* recurs, so there
+  is always a next instance to read and a root cause to hunt, and it stays sweepable. An issue carrying
+  `awaiting-recurrence` has a single unreproduced instance and waits for its first reproducible one.
+- **The recurrence takes the label off.** Record the new instance as a comment, remove the label, and the
+  issue is ordinary work again. If it keeps recurring, it becomes a `dossier`.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where
@@ -1019,7 +1049,9 @@ Tier 1 (management and the employer/commissioner) and tier 2 (the subscriber of 
 of reader rather than two rungs of a ladder, and a repo has exactly one — decided before any entry is
 written, and stated once in `Get-ReleaseAudienceTier` in your own `scripts/repo-config.ps1`. A shop selling a
 **product** answers `1`: its buyers never read a release note, while management and whoever pays for the work
-do. A repo that **is** the service somebody subscribes to answers `2`. **State nothing and you are asked
+do. A repo that **is** the product its user relies on answers `2` — a service somebody subscribes to, or a
+tool whose user is its own maintainer: the test is what the repo is for, not who pays
+([`RELEASES-portable.md`](RELEASES-portable.md#the-tier-model), #2557). **State nothing and you are asked
 about both**, exactly as before the knob existed — so three sections in your file means the question is still
 open on your side, not that anything is broken.
 

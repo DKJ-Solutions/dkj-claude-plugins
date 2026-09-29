@@ -36,9 +36,9 @@ and, together with its significance score, where within that section it sits.
 
 | tier | who notices | where it is written | when |
 |---|---|---|---|
-| **2** | subscribers of the service | the *For consumers* section of `audience/<dir>/<X.Y.Z>.md` | minor/major |
-| **1** | management and the employer/commissioner | the *What changed* section of that same file | minor/major |
-| **0** | only this repo's own developers | `changelog/<dir>/<X.Y.Z>.md` | every release |
+| **2** | the user who relies on what this repo ships: a service's subscribers, or a tool's user | the audience section (*What changed*) of `audience/<dir>/<X.Y.Z>.md` | minor/major |
+| **1** | management and the employer/commissioner of a repo that sells or delivers something else | the *What changed* section of that same file | minor/major |
+| **0** | only this repo's own developers, *as* developers | `changelog/<dir>/<X.Y.Z>.md` | every release |
 
 **Tiers 1 and 2 are two KINDS of audience, and this repo has exactly one of them** (Dave, August 12, 2026;
 inbound [#620](https://github.com/DaveKJohn/claude-code-specialists/issues/620)). They are not two rungs of a
@@ -48,6 +48,16 @@ subscriber of a **service**, who decides whether to upgrade. A repo answers one 
 `Get-ReleaseAudienceTier`, before any entry is written; **this repo answers 2**, being a service rather than
 a product. `new-branch.ps1` then scaffolds tier 0 plus that tier alone, and `open-pr.ps1` and
 `cut-release.ps1` ask for that tier rather than every rung from 1 up.
+
+**The test is what the repo is FOR — not who pays, and not whether a subscription exists** (Dave,
+September 27, 2026; inbound [#2557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2557)).
+A repo that is a **means** of selling or delivering something else — a webshop, whose output is a storefront
+— answers `1`. A repo that **is** the product its user relies on — a tool that makes its user's life easier,
+whose user decides whether to take the next version — answers `2`, and that user is the tier-2 reader **even
+when they are the repo's own maintainer**. The maintainer *as user* of the product is tier 2; the maintainer
+*as developer* is tier 0. Measured in a local, single-user app that answered as if neither audience existed:
+all 19 of its entries scored both tiers `N/A` and earned a patch, although every one was work its user
+relied on ([#2556](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2556)).
 
 **And the service is YOUR OWN: the tier-2 reader is whoever takes what this repo ships, never whoever
 they sell to in turn** ([#1896](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1896),
@@ -196,7 +206,7 @@ stakeholders, not to consumers alone. The rule is written as **tier 1 or higher*
 audience tier" on purpose: it then reads correctly in a tier-1 repo and a tier-2 repo alike, without either
 having to translate it. What keeps the looser rule honest is that **the sections follow the tier and not the
 bump**: in a tier-2 repo, a minor whose highest pending entry is tier 1 writes the note without its
-*For consumers* section, so nobody outside is handed a section about work they cannot see. **In a tier-1 repo
+audience section, so nobody outside is handed a section about work they cannot see. **In a tier-1 repo
 that same rule reads differently and used to bite** — see
 [The audience tier](#the-audience-tier---the-hand-written-note).
 
@@ -339,18 +349,35 @@ for every bump `Get-ReleaseConsumerBumps` names. Three sections, in this order:
 
 | section | for whom | how it arrives |
 |---|---|---|
-| the audience section — *For consumers* at tier 2, *What changed* at tier 1 | whoever your repo publishes to | **pre-filled** — your audience tier's entries, still in the words their authors wrote for a diff reviewer. Absent where no entry reached that tier. |
+| the audience section — *What changed*, at either tier | whoever your repo publishes to | **pre-filled** — your audience tier's entries, still in the words their authors wrote for a diff reviewer. Absent where no entry reached that tier. |
 | *What it is worth* | the organisation | **empty** — it cannot be generated. Think in time, risk and reduced dependence on a developer. |
 | *What was still open at this release* | the organisation | **empty**, and past tense on purpose: a published document does not move with reality, so a present-tense line goes stale in hours rather than months. |
+
+**Those are the three your repo can have, and `Get-ReleaseNoteSections` says which it does have** (inbound
+#2564). Name any of `Audience`, `Value` and `Open`; a section left out is not drafted at all, heading and
+hint. The wording map (`Get-ReleaseNoteWording`) renames a section, and this seam is the one that omits it.
+A repo whose readers only ask what changed answers `@('Audience')`. Absent, it means all three.
+
+**The audience section can be drafted as SOLVED TASKS instead of ranked entries** (#2586), where the repo
+answers `Get-ReleaseNoteTaskLink` — a hashtable naming the marker and URL of its own task tracker, e.g.
+`@{ Marker = 'asana-task'; Url = 'https://app.asana.com/0/0/{0}'; Label = 'Asana task' }`. Answered, the
+section becomes one `### <issue title>` plus a link to the task, labelled with `Label`, per issue an audience entry closed
+that carries `<!-- <marker>: <id> -->` in its body — no entry prose, no PR link, because the reader of a
+task-form note asks which of *their* tasks are solved, not what a diff reviewer would want to know. With a
+live-push record (below) an entry qualifies only where three things hold together: it closed an issue
+carrying the marker, it changed a path the record names (a storefront change), and none of those paths is
+held back from the push. Without a record the marker is the whole test. The mechanics are in the
+[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586).
 
 **The first section is drawn from YOUR audience tier, not from tier 2** — so a tier-1 repo's entries fill it
 exactly as a tier-2 repo's do. A repo asks its entries about tier 0 and its own audience tier only, so that
 tier's entries are the only non-zero ones it has, and reading a fixed 2 discarded all of them.
 
 **A minor with no entry at that tier gets the note without the section**, which is an occasional minor in
-either kind of repo. The organisational two sections belong to every bump the seam names — the version moves
-for everyone, so the organisation's question is always answered — while a section about work the audience
-cannot see would be worse than none, because it looks written.
+either kind of repo. Whichever of the organisational two sections
+`Get-ReleaseNoteSections` keeps belongs to every bump the seam names — the version moves for everyone, so the
+organisation's question is always answered wherever the repo still asks it — while a section about work the
+audience cannot see would be worse than none, because it looks written.
 
 **That distinction is younger than it looks, and it shipped as a defect first.** Until inbound
 [#747](https://github.com/DaveKJohn/claude-code-specialists/issues/747) the selection was the literal 2, and
@@ -363,7 +390,7 @@ Worth keeping as a shape rather than as an anecdote: **a rule stated for one sea
 it held for every value.**
 
 **Still a draft to be edited, and the reason never depended on the selection.** Entry bodies are written for
-whoever reviews the diff, even when the change reaches a consumer — so the *For consumers* section's
+whoever reviews the diff, even when the change reaches a consumer — so the audience section's
 *selection* is right and its *prose* still needs rewriting from the reader's end. What is gone is the
 deleting, not the writing.
 
@@ -542,6 +569,16 @@ where the bump generated one** — one call per document, each verifying the pub
 `<X.Y.Z>.md`, so uploading two of them straight from `releases/` collides — the second upload returns
 `HTTP 404`. `gh`'s `file#label` syntax does not solve it (it sets the label, not the name). Copy them to
 `vX.Y.Z-development-notes.md` and `vX.Y.Z-notes-for-users.md` and upload the copies.
+
+**In a repo with a live stage, the body can carry a second section: `## Not live yet`** (#2570). Passed a
+live-push record (`-LivePushRecord`, the file `live-preflight` writes after an allowed verdict — one
+`live <path>` / `hold <path>` line per theme file in the release range), the cut reads each entry's changed
+paths off its `merge: <branch> (#NN)` commit. An entry that touched a held path moves out of *What landed*
+into `## Not live yet`, naming the held files — the body stays the complete list of what merged, split
+across the two sections — so the page answers both "what merged" and "what a visitor can actually see"
+without a caveat on either line. `-NoLivePushRecord` states there was no push to record; without either,
+a repo with a live stage gets a warning and every entry reads as landed. The mechanics are in the
+[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586).
 
 **It comes last on the checklist, and the reason has outlived one rewrite already.** The body used to be a
 hand-written document merged via its own branch + PR, so publishing straight after the tag would have had no

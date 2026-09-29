@@ -163,6 +163,14 @@ function Write-RunProgress {
         IT IS NOT VALIDATED AGAINST ANYTHING. A pid that is already gone simply produces a record the
         next read drops, which is the correct outcome and not an error worth a return value: the run it
         described was over before the record landed.
+
+        -Workspace NAMES THE CHECKOUT THE RUN BELONGS TO (issue #2574). The record directory is
+        machine-wide, so without it a ship in one repo's window drew its bar in every session on the
+        machine, reading as a gate running in the repo in front of you. Omitted, it is the writer's
+        current directory -- read from the location stack, not from git, because this is called
+        inside a hot loop and a subprocess per write is the cost the whole lib is built to avoid.
+        Every producer runs from its checkout, so the cwd names it; the reader matches on containment,
+        so a run started from a subdirectory still belongs to its checkout.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Id,
@@ -173,10 +181,18 @@ function Write-RunProgress {
         [AllowNull()][object]$StartedUtc = $null,
         [string]$Root = '',
         # 0 means "this process" -- see -WriterPid in the block above.
-        [int]$WriterPid = 0
+        [int]$WriterPid = 0,
+        # '' means "the current directory" -- see -Workspace in the block above.
+        [string]$Workspace = ''
     )
 
     try {
+        $workspacePath = $Workspace
+        if (-not $workspacePath) {
+            $loc = Get-Location
+            if ($loc -and $loc.Provider -and $loc.Provider.Name -eq 'FileSystem') { $workspacePath = $loc.ProviderPath }
+        }
+
         $dir = Get-RunProgressRoot -Override $Root
         if (-not (Test-Path -LiteralPath $dir -PathType Container)) {
             New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop | Out-Null
@@ -198,6 +214,7 @@ function Write-RunProgress {
             # would be two chances to answer them differently.
             writerPid      = $writerProcessId
             writerStartTicks = (Get-RunProgressProcessStartTicks -ProcessId $writerProcessId)
+            workspace      = "$workspacePath"
         }
 
         $path = Join-Path $dir ($Id + '.json')
@@ -341,9 +358,44 @@ function Remove-OrphanedRunProgressTemp {
     return $removed
 }
 
+function Test-RunProgressInWorkspace {
+    <#
+        Does a record's checkout belong to the session asking? -- issue #2574.
+
+        CONTAINMENT, NOT EQUALITY, in either direction: a run started from a subdirectory of the
+        checkout, or a session whose workspace is a subdirectory of the run's, is still the same
+        checkout. A lane is a separate worktree at its own path, so its runs draw in the lane's window
+        and not in the primary checkout's -- the checkout, not the repo, is what is in front of you.
+
+        EITHER SIDE EMPTY MATCHES. A record from a writer that predates the field, or a session whose
+        payload named no workspace, is shown exactly as before: an unscoped bar is the old behaviour,
+        and a hidden one would be a run nobody can see.
+    #>
+    param(
+        [AllowNull()][string]$RecordWorkspace,
+        [AllowNull()][string]$SessionWorkspace
+    )
+    if (-not $RecordWorkspace -or -not $SessionWorkspace) { return $true }
+    try {
+        $a = [System.IO.Path]::GetFullPath($RecordWorkspace).TrimEnd('\', '/')
+        $b = [System.IO.Path]::GetFullPath($SessionWorkspace).TrimEnd('\', '/')
+    } catch { return $true }
+    $cmp = [System.StringComparison]::OrdinalIgnoreCase
+    if ([string]::Equals($a, $b, $cmp)) { return $true }
+    foreach ($pair in @(@($a, $b), @($b, $a))) {
+        $outer = $pair[0]; $inner = $pair[1]
+        if ($inner.StartsWith($outer + '\', $cmp) -or $inner.StartsWith($outer + '/', $cmp)) { return $true }
+    }
+    return $false
+}
+
 function Get-LiveRunProgress {
     <#
         Every run currently publishing, newest first -- and the dead ones deleted on the way past.
+
+        -Workspace SCOPES WHAT IS RETURNED, NEVER WHAT IS REAPED (issue #2574). A dead record is
+        dead whichever checkout it names, so the sweep below still walks all of them; only the live
+        records of another checkout are left out of the answer.
 
         REAPING HERE RATHER THAN IN A SWEEPER is deliberate: this function runs every couple of
         seconds for as long as a session is open, so the directory is tidied continuously by the one
@@ -359,7 +411,8 @@ function Get-LiveRunProgress {
     #>
     param(
         [string]$Root = '',
-        [AllowNull()][object]$NowUtc = $null
+        [AllowNull()][object]$NowUtc = $null,
+        [string]$Workspace = ''
     )
 
     $now = if ($NowUtc -is [datetime]) { ([datetime]$NowUtc).ToUniversalTime() } else { (Get-Date).ToUniversalTime() }
@@ -399,8 +452,16 @@ function Get-LiveRunProgress {
             continue
         }
 
+        # READ THROUGH PSObject, because a record from an older writer has no such property and a
+        # caller under StrictMode would throw on the plain member access.
+        $recordWorkspace = ''
+        $wsProp = $record.PSObject.Properties['workspace']
+        if ($wsProp) { $recordWorkspace = "$($wsProp.Value)" }
+        if (-not (Test-RunProgressInWorkspace -RecordWorkspace $recordWorkspace -SessionWorkspace $Workspace)) { continue }
+
         $live += [pscustomobject]@{
             Id        = "$($record.id)"
+            Workspace = $recordWorkspace
             Label     = "$($record.label)"
             Note      = "$($record.note)"
             Current   = $(if ($null -ne $record.current) { [int]$record.current } else { $null })

@@ -915,14 +915,16 @@ with a closing keyword on the PR via `-Resolves`, per
 
 **Every issue in this tracker carries exactly one of `prio-1` … `prio-4`, and 4 is the highest**
 (Dave, September 9, 2026, [#1685](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1685)).
-The four exist in the repo since that day:
+The four exist in the repo since that day. **Their colours are two yellows and two reds** (Dave,
+September 28, 2026): `prio-1` yellow, `prio-2` a yellow leaning to orange, `prio-3` a red leaning to
+orange, `prio-4` red. The history below records the colours as they were before that day.
 
 | Label | Colour | What the rung means |
 |---|---|---|
 | `prio-4` | `B60205` | Highest — takes precedence over other work. A broken gate, or a wrong answer a gate reports as authority. |
-| `prio-3` | `D93F0B` | Ahead of the ordinary backlog. Real, and it costs something every time it is met. |
-| `prio-2` | `FBCA04` | Worth doing, no pressure. The ordinary backlog, and the common answer. |
-| `prio-1` | `006B75` | Lowest — nobody is waiting for it. A question parked for the owner, or a tidy-up. |
+| `prio-3` | `E0321A` | Ahead of the ordinary backlog. Real, and it costs something every time it is met. |
+| `prio-2` | `F9A825` | Worth doing, no pressure. The ordinary backlog, and the common answer. |
+| `prio-1` | `FFE033` | Lowest — nobody is waiting for it. A question parked for the owner, or a tidy-up. |
 
 **Exactly one, which is a property the obvious command does not give you.** Set it with `--label` on
 the `gh issue create` that files the finding. On an issue that already carries a rung, `--add-label`
@@ -1077,8 +1079,9 @@ of one issue** as two identical yellow badges on two different axes. The misread
 repaired on this branch: changing either hex is an edit to live labels, which is Dave's to take, and
 the mapping in [#1842](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1842) names `FBCA04`
 explicitly. Filed as
-[#1844](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1844). This repo's own ramp is
-unaffected and stays teal → yellow → orange → red. No instance of either misread has been observed.
+[#1844](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1844). This repo's own ramp was
+teal → yellow → orange → red until September 28, 2026, when the two-yellows-two-reds scheme above
+replaced it and took `prio-2` off `FBCA04`. No instance of either misread has been observed.
 
 **And `006B75` was chosen on exact-hex uniqueness, which is not perceptual distinctness** — the same
 red-team's other catch. It sits 14 degrees of hue and 0.03 of lightness from `help wanted`'s `008672`,
@@ -1134,6 +1137,24 @@ first one here. It is a shared way of working, not this repo's own label (Dave, 
 instead of a new issue, `part of #<n>` instead of a keyword, close only on the root-cause repair — is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
+
+### The parking labels — `needs-decision` at filing, `awaiting-recurrence` once only evidence is owed
+
+**`needs-decision` (`BFD4F2`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
+nor a sweep treats it as work that is ready (Dave, September 26, 2026,
+[#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)). It is set in the same
+`gh issue create` as the `prio-N`, and it is not `needs-info`, which `dkj-policy-bwj` reserves for
+*blocked on the submitter*. It ships in `Get-TriageLabels`, and the filing rule is in
+[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
+
+**`awaiting-recurrence` (`5319E7`) parks an issue waiting on its first reproducible occurrence** (Dave,
+September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)), after
+#2572 was picked up four times in one day with nothing to build. Both pickup routes skip it as they skip
+`needs-decision`. It is not `dossier`, which stays sweepable, and it comes off when a recurrence arrives.
+**It shares `dossier`'s colour on purpose**: both mark an issue that is meant to stay open for a while, so
+the tracker shows the long-lived ones at a glance (Dave, September 28, 2026,
+[#2604](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2604)). `needs-decision` keeps its own
+colour, because it waits on an answer rather than on time.
 
 ### The reach label — `minor`, and it is a second axis, not a fifth rung
 

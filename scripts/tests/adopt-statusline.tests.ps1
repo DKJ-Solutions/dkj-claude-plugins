@@ -286,6 +286,23 @@ $res = Invoke-Adopt -Root $root
 Assert-True ($res.Output -match 'could not ask git') 'no git repo: the check says it could not ask, rather than passing silently'
 Assert-True ($res.Output -notmatch 'IGNORES') 'no git repo: and claims no ignore rule either'
 
+# --- 6d. a junctioned .claude/ is refused, not written through (#2546) ------------------------------
+# Test-Path follows a junction, so both writes would land in its target. A junction needs no privilege;
+# it is removed with rmdir BEFORE the teardown, whose recursive delete would otherwise empty the target.
+$root = New-FixtureRepo 'junction'
+$outside = New-FixtureRepo 'junction-outside'
+& cmd /c mklink /J "$(Join-Path $root '.claude')" "$outside" | Out-Null
+try {
+    $res = Invoke-Adopt -Root $root -Apply
+    Assert-True ($res.ExitCode -eq 0) 'junction: exits 0 -- a refusal is not a failed run'
+    Assert-True (@(Get-ChildItem -LiteralPath $outside -Recurse -Force).Count -eq 0) 'junction: nothing is written through it'
+    Assert-True ($res.Output -match '\[refused\] \.claude/statusline/dkj-progress\.ps1') 'junction: the shim is reported refused'
+    Assert-True ($res.Output -match '\[refused\] \.claude/settings\.json') 'junction: settings.json is reported refused'
+    Assert-True ($res.Output -match '"statusLine": \{') 'junction: and the block is printed, so it can be placed by hand'
+} finally {
+    & cmd /c rmdir "$(Join-Path $root '.claude')" | Out-Null
+}
+
 Write-Host ''
 Write-Host '== the shim contract ==' -ForegroundColor Cyan
 

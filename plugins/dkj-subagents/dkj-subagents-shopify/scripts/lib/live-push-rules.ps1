@@ -77,7 +77,7 @@ function Get-LivePushRows {
         are exactly the rows it would not print. A reader checking this list by eye needs to see that
         scripts/, the tests and CLAUDE.md were CONSIDERED and refused, not merely absent.
 
-        THREE VERDICTS, EACH ITS OWN REFUSAL RATHER THAN ONE RULE STRETCHED OVER SEVERAL CASES:
+        FOUR VERDICTS, EACH ITS OWN REFUSAL RATHER THAN ONE RULE STRETCHED OVER SEVERAL CASES:
 
           theme-file        the path sits under one of the eight theme directories. It is pushed.
           not-a-theme-path  it does not. Scripts, tests, docs, CI config, the changelog: real changes,
@@ -90,10 +90,17 @@ function Get-LivePushRows {
                             it silently reverts their work. The caller establishes provenance from git
                             and passes the set in; deciding it is not this function's job, asserting the
                             consequence is.
+          deleted           it sits under a theme directory AND the range deletes it (#2566). A push
+                            cannot carry a deletion: `--only <path>` on a file that is not in the
+                            checkout removes nothing from live, so a push row for it would claim a change
+                            the push cannot make. The file is still on live, and removing it there is a
+                            store delete -- its own decision, not a push. Measured in a BWJ store: 209
+                            deletions in one range, every theme one of them listed as `push`.
 
-        THE ORDER OF THE TWO REFUSALS IS LOAD-BEARING. A path is tested for being a theme path FIRST, so
-        a sync-owned path outside the theme directories is reported as what it primarily is rather than
-        as a sync artefact.
+        THE ORDER OF THE REFUSALS IS LOAD-BEARING. A path is tested for being a theme path FIRST, so a
+        sync-owned path outside the theme directories is reported as what it primarily is rather than
+        as a sync artefact. Sync provenance is tested BEFORE deletion: a deletion a sync mirrored in came
+        FROM live, so the file is already gone there, and "still on live" would be false.
 
         CASE. Theme directory names are lowercase on the platform, and Windows checkouts are not
         case-sensitive, so the prefix test is case-insensitive and the path is reported back exactly as
@@ -107,10 +114,14 @@ function Get-LivePushRows {
     param(
         [AllowNull()][AllowEmptyCollection()][string[]]$ChangedPaths,
         [AllowNull()][AllowEmptyCollection()][string[]]$SyncOwnedPaths = @(),
-        [AllowNull()][AllowEmptyCollection()][string[]]$ThemeDirectories = $null
+        [AllowNull()][AllowEmptyCollection()][string[]]$ThemeDirectories = $null,
+        [AllowNull()][AllowEmptyCollection()][string[]]$DeletedPaths = @()
     )
 
-    $dirs = @($ThemeDirectories)
+    # THROUGH A PIPELINE, NOT @($ThemeDirectories). Under Windows PowerShell 5.1 a [string[]] parameter
+    # left at $null stays $null inside @(), and '.Count' on $null throws under a StrictMode caller --
+    # measured the first time prepare-release.ps1 (which runs strict) called this with no directories.
+    $dirs = @($ThemeDirectories | Where-Object { $_ })
     if ($dirs.Count -eq 0) { $dirs = Get-ShopifyThemeDirectoryNames }
 
     # A HASHSET FOR THE SYNC SET, KEYED ON THE NORMALISED SPELLING. A caller may have read those paths
@@ -122,6 +133,14 @@ function Get-LivePushRows {
         $t = ([string]$p).Trim()
         if (-not $t) { continue }
         [void]$syncSet.Add(($t -replace '\\', '/'))
+    }
+    # The deleted set is keyed the same way, for the same reason.
+    $deletedSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($p in @($DeletedPaths)) {
+        if ($null -eq $p) { continue }
+        $t = ([string]$p).Trim()
+        if (-not $t) { continue }
+        [void]$deletedSet.Add(($t -replace '\\', '/'))
     }
 
     $rows = @()
@@ -162,6 +181,16 @@ function Get-LivePushRows {
             continue
         }
 
+        if ($deletedSet.Contains($norm)) {
+            $rows += [pscustomobject]@{
+                Path   = $path
+                Push   = $false
+                Kind   = 'deleted'
+                Reason = "in $hit/, but DELETED on the trunk -- a push cannot remove it, so it is still on live: removing it there is a store delete, decided separately"
+            }
+            continue
+        }
+
         $rows += [pscustomobject]@{
             Path   = $path
             Push   = $true
@@ -171,6 +200,90 @@ function Get-LivePushRows {
     }
 
     return @($rows)
+}
+
+function Get-SyncMergeCommits {
+    <#
+    .SYNOPSIS
+        Out of a range's log, the commits that name a sync branch in their subject. Returns one row per
+        such commit -- Sha, FirstParent, IsMerge -- and nothing for the rest.
+
+    .DESCRIPTION
+        THE FIRST HALF OF SYNC PROVENANCE, and a lib function rather than a loop inside a script since
+        #2509: live-preflight.ps1 and dkj-policy-bwj's prepare-release.ps1 both derive a push list, and
+        two copies of "which commits came in through a sync" are free to disagree about which files the
+        push leaves out.
+
+        -LogLines IS `git log --format=%H%x09%P%x09%s` OUTPUT, one commit per line. The caller runs git;
+        this only reads what came back.
+
+        TWO MERGE SHAPES, BECAUSE TWO WORKFLOWS EXIST. A merge commit carries the branch name in its
+        subject ('merge: sync/2026-09-20 (#123)'), and a squash merge has no merge commit at all -- there
+        the single commit's own subject is what names the branch. IsMerge tells the caller which: for a
+        merge, the commits it brought in are FirstParent..Sha, which only git can list; for a squash, the
+        commit is the whole of it. A repo using neither shape gets no rows, and then nothing is excluded
+        -- the safe direction, since a push list one file too LONG re-pushes bytes that are already right.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$LogLines,
+        [string]$SyncPrefix = ''
+    )
+
+    $rows = @()
+    if (-not $SyncPrefix) { return $rows }
+    foreach ($line in @($LogLines)) {
+        if ($null -eq $line) { continue }
+        $f = ([string]$line) -split "`t", 3
+        if ($f.Count -lt 3) { continue }
+        if ($f[2] -notmatch [regex]::Escape($SyncPrefix)) { continue }
+        $parents = @(($f[1] -split '\s+') | Where-Object { $_ })
+        $rows += [pscustomobject]@{
+            Sha         = $f[0].Trim()
+            FirstParent = $(if ($parents.Count -ge 1) { $parents[0] } else { '' })
+            IsMerge     = ($parents.Count -ge 2)
+        }
+    }
+    return @($rows)
+}
+
+function Get-SyncOwnedPaths {
+    <#
+    .SYNOPSIS
+        The paths a range touched ONLY through sync commits. Returns them '/'-separated.
+
+    .DESCRIPTION
+        THE SECOND HALF OF SYNC PROVENANCE (#2509, out of live-preflight.ps1 for the reason
+        Get-SyncMergeCommits gives). -WalkLines is `git log --format=COMMIT%x09%H --name-only` output,
+        with any quoted paths ALREADY DECODED by the caller -- this file reads no git and decodes nothing,
+        so it stays dependency-free like the rest of it.
+
+        EVERY TOUCHING COMMIT, NOT ANY. A file a sync mirrored AND this repo then changed itself is this
+        repo's to push. The direction of that asymmetry is deliberate: treating it as sync-owned would
+        drop a real change out of the push list silently, and a short push list is the failure nobody
+        sees until a customer does.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$WalkLines,
+        [AllowNull()][AllowEmptyCollection()][string[]]$SyncCommits
+    )
+
+    $sync = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($s in @($SyncCommits)) { if ($s) { [void]$sync.Add(([string]$s).Trim()) } }
+    if ($sync.Count -eq 0) { return @() }
+
+    $bySync = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $byUs   = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $current = ''
+    foreach ($raw in @($WalkLines)) {
+        if ($null -eq $raw) { continue }
+        $line = ([string]$raw).Trim()
+        if (-not $line) { continue }
+        if ($line.StartsWith("COMMIT`t")) { $current = $line.Substring(7).Trim(); continue }
+        if (-not $current) { continue }
+        $p = $line -replace '\\', '/'
+        if ($sync.Contains($current)) { [void]$bySync.Add($p) } else { [void]$byUs.Add($p) }
+    }
+    return @($bySync | Where-Object { -not $byUs.Contains($_) })
 }
 
 function Get-HighestReleaseTag {
@@ -217,6 +330,60 @@ function Get-HighestReleaseTag {
     return $best
 }
 
+# What a theme path may contain before it is printed inside a command a person pastes (#2514). The ref
+# pattern of ref-print-lib.ps1 (letters, digits, '.', '_', '/', '-', first character alphanumeric) PLUS
+# the Latin letters of U+00C0-U+017E, the multiplication and division signs excepted. Written as regex
+# escapes so this file stays ASCII. The reasoning is in Get-LivePushUnsafePaths' docstring.
+$script:LivePushPathPattern = '^[A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017E][A-Za-z0-9\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u017E._/-]*$'
+
+function Get-LivePushUnsafePaths {
+    <#
+    .SYNOPSIS
+        The paths of a push list that may NOT be printed inside the push command, in input order.
+        Empty means every path is safe to paste.
+
+    .DESCRIPTION
+        THE PUSH COMMAND IS PRINTED FOR A PERSON TO PASTE, SO EVERY PATH IN IT IS TEXT A SHELL WILL
+        PARSE (#2514). The paths come from `git diff --name-only`, and a theme file reaches the repo
+        through a sync branch from the theme editor, so planting a name needs no push rights at all.
+        Measured on the function extracted verbatim: `assets/$(calc.exe).css` is printed as-is and
+        PowerShell evaluates the subexpression when the pasted line runs; a bare `;` splits the line
+        into two statements; an embedded newline splits the printed command itself. git's own quoting
+        never fires for these -- core.quotePath escapes only bytes above 0x7F, `"`, `\` and control
+        characters -- and #1594 measured that quoting does not close the class anyway. Refusing to
+        print the path does.
+
+        WHY NOT Test-PathPasteSafe ITSELF. That pattern is ASCII only, and a theme filename with an
+        accent is not hypothetical: #821 measured one in a consumer store, through sync-main. An
+        ASCII-only check would refuse that store's live push for as long as the file is in the range,
+        with nothing the operator could do short of renaming a file the theme editor created. So this
+        admits the Latin letters of U+00C0-U+017E on top of the ref pattern's set. No letter is special
+        to PowerShell, bash or cmd, so admitting them opens nothing that executes. The range stops
+        inside Latin Extended-A on purpose, because a command a person reads before pasting must read
+        as what it does: its last letter, U+017F LONG S, reads as an `f`, and past it are letters that
+        DISPLAY as punctuation (U+01C0-U+01C3 read as `|` and `!`) and scripts that reorder a line. A decomposed accent (a letter plus a combining mark) is
+        refused, which is the fail-safe direction. The match is case-SENSITIVE (-cmatch) so the
+        Kelvin sign cannot pass as a `k` under case folding.
+
+        NOT A DISPLAY GUARD. It decides what may go into a command; how a refused path is NAMED to the
+        reader is the caller's concern.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$Paths
+    )
+
+    $unsafe = @()
+    foreach ($p in @($Paths)) {
+        if ($null -eq $p) { continue }
+        $t = ([string]$p).Trim()
+        if (-not $t) { continue }
+        if ($t -cnotmatch $script:LivePushPathPattern) { $unsafe += $t }
+    }
+    # Unwrapped on purpose: every caller takes this as @(...), and ', $unsafe' would hand an empty
+    # result back as ONE item -- an empty array -- that @() then counts.
+    return $unsafe
+}
+
 function Format-LivePushCommand {
     <#
     .SYNOPSIS
@@ -245,6 +412,12 @@ function Format-LivePushCommand {
         `theme push` without one pushes the WHOLE theme -- the single most destructive thing this file
         could ever produce by accident. A caller with an empty list has nothing to push and is told so
         by the verdict; it is never handed a command.
+
+        A PATH THAT IS NOT SAFE TO PASTE IS A THROW, NOT A COMMAND (#2514). The check a caller should
+        run first is Get-LivePushUnsafePaths, which lets it refuse with the paths named; this throw is
+        the backstop that holds for a caller that did not, so no caller can print a command that runs
+        something other than the push. The message carries a count, never the paths, because a path
+        that failed the check is exactly the text that must not reach a console unguarded.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Store,
@@ -254,6 +427,11 @@ function Format-LivePushCommand {
 
     $files = @(@($Only) | ForEach-Object { if ($null -ne $_) { ([string]$_).Trim() } } | Where-Object { $_ })
     if ($files.Count -eq 0) { return '' }
+
+    $unsafe = @(Get-LivePushUnsafePaths -Paths $files)
+    if ($unsafe.Count -gt 0) {
+        throw "Format-LivePushCommand: $($unsafe.Count) path(s) are not safe to paste into a command; run Get-LivePushUnsafePaths first and refuse with them named."
+    }
 
     $parts = @('shopify', 'theme', 'push', '--store', $Store, '--theme', $ThemeId)
     foreach ($f in $files) { $parts += @('--only', $f) }

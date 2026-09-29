@@ -151,6 +151,26 @@ try {
     Assert-True ($q41a.Out -match '\[plugin-link\] checked [1-9]') 'scenario 41: a contained relative link is COUNTED, not skipped -- a pass must be a measurement'
     Assert-True ($q41a.Out -match '0 escaping') 'scenario 41: and it reports zero escaping'
 
+    Write-Host "checks 4 and 30 -- a target with illegal path characters is a finding, not a crash (#2595)" -ForegroundColor Cyan
+    # The measured shape: a placeholder inside a code span that opens on the line BEFORE. Check 30's mask
+    # cannot span a newline, so the placeholder reached IsPathRooted, which threw on '<' and ended the
+    # whole lint naming no file. Check 4's mask does span the newline, so it stays silent on this one.
+    $p41cLines = @(
+        '# dkj-subagents-alpha notes'
+        ''
+        'The form is `See'
+        '[<Label>](<url>)` in the body.'
+    )
+    [System.IO.File]::WriteAllText($plNotes, (($p41cLines -join "`n") + "`n"), $Utf8NoBom)
+    $q41c = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($q41c.Out -match '\[plugin-link\] checked') 'scenario 41c: the run reaches the coverage line -- one bad target no longer ends the lint'
+    Assert-True ($q41c.Out -match '\[plugin-link\] \S*NOTES\.md:4 -> .<url>. holds a character no file path can carry') 'scenario 41c: the finding names the file, the line and the target'
+    # And in plain prose, where check 4 sees it too: its Test-Path threw the same way under 'Stop'.
+    [System.IO.File]::WriteAllText($plNotes, "# dkj-subagents-alpha notes`n`nSee [<Label>](<url>) here.`n", $Utf8NoBom)
+    $q41d = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($q41d.Out -match '\[link\] \S*NOTES\.md -> .<url>. holds a character no file path can carry') 'scenario 41c: check 4 reports it as a finding rather than crashing on Test-Path'
+    Assert-True ($q41d.Out -match '\[plugin-link\] \S*NOTES\.md:3 -> .<url>.') 'scenario 41c: and check 30 still reports it at its line'
+
     Remove-Item -LiteralPath $plNotes -Force
     Remove-Item -LiteralPath (Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-shopify\GUIDE.md') -Force
     $q41b = Invoke-Integrity -FixtureRoot $Fixture

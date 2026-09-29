@@ -70,7 +70,7 @@ try {
 
     $legacyDir = Join-Path $Fixture '.claude\plugins\claude-specialists\dkj-subagents-alpha'
     New-Item -ItemType Directory -Path $legacyDir -Force | Out-Null
-    $legacyLens = Join-Path $legacyDir '06-16-extension.md'
+    $legacyLens = Join-Path $legacyDir 'specialist-06-16-lens.md'
     [System.IO.File]::WriteAllText($legacyLens, "# 06-16 repo lens`n")
     Assert-Equal $legacyDir (Get-LensWriteDir -RepoRoot $Fixture -PluginName 'dkj-subagents-alpha') 'adopted consumer: keeps writing to its existing tree, not the seam'
 
@@ -81,7 +81,7 @@ try {
 
     # And once the owner migrates by hand, the writer follows them without being told.
     New-Item -ItemType Directory -Path $seam.LensDir -Force | Out-Null
-    [System.IO.File]::WriteAllText((Join-Path $seam.LensDir '06-16-extension.md'), "# 06-16 repo lens`n")
+    [System.IO.File]::WriteAllText((Join-Path $seam.LensDir 'specialist-06-16-lens.md'), "# 06-16 repo lens`n")
     Assert-Equal $seam.LensDir (Get-LensWriteDir -RepoRoot $Fixture -PluginName 'dkj-subagents-alpha') 'after a hand migration the writer follows to the seam automatically'
 
     # --- 4. Write-Coverage: a verdict never travels without its coverage (issue #221) ----------------
@@ -151,7 +151,7 @@ try {
     Assert-Equal 'CUsersDaveKok.claudepluginsx.md' (Format-SafeToken -Value 'C:\Users\DaveKok\.claude\plugins\x.md') 'the id-shaped sanitizer mangles a Windows path into something unlookupable -- the defect this function avoids'
     Assert-Equal 'C:\Users\DaveKok\.claude\plugins\x.md' (Format-SafePathToken -Value 'C:\Users\DaveKok\.claude\plugins\x.md') 'a Windows path survives intact: drive letter, colon and separators'
     Assert-Equal '~/.claude/plugins/marketplaces/m/personas/01-01-persona.md' (Format-SafePathToken -Value '~/.claude/plugins/marketplaces/m/personas/01-01-persona.md') "a home-relative path keeps its '~' -- without it the reader cannot tell where the path starts"
-    Assert-Equal 'lenses/01-01-extension.md' (Format-SafePathToken -Value 'lenses/01-01-extension.md') 'a plain relative path passes through unchanged'
+    Assert-Equal 'lenses/specialist-01-01-lens.md' (Format-SafePathToken -Value 'lenses/specialist-01-01-lens.md') 'a plain relative path passes through unchanged'
 
     # The two things that still MUST NOT survive, for the same reasons as in Format-SafeToken: these
     # lines are forwarded into session context by the SessionStart hooks.
@@ -1191,7 +1191,13 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
 
     foreach ($kind in 'Manual', 'Persona', 'Subagent', 'Lens') {
         $shapes = Get-SpecialistFileShapes -Kind $kind
-        Assert-True ($shapes.AlsoRead.Count -ge 1) "$kind`: there is a second spelling to read at all -- otherwise this layer is doing nothing"
+        if ($kind -eq 'Lens') {
+            # '<g>-<id>-extension.md' is RETIRED for Lens (#2292) -- it is the first kind this layer has
+            # fully migrated, so its AlsoRead row is empty on purpose rather than a second spelling to read.
+            Assert-Equal 0 $shapes.AlsoRead.Count "$kind`: the retired spelling is gone from AlsoRead, not merely a second one to read"
+        } else {
+            Assert-True ($shapes.AlsoRead.Count -ge 1) "$kind`: there is a second spelling to read at all -- otherwise this layer is doing nothing"
+        }
         Assert-Equal $shapes.Current.Stem $shapes.All[0].Stem "$kind`: the WRITTEN shape leads All, so a reader resolving one id prefers it"
 
         # A writer has exactly one answer, and it is the first thing a reader looks for. These two
@@ -1238,8 +1244,11 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
 
     # -Id pins the pattern to one specialist without changing the shapes it accepts.
     $pinned = Get-SpecialistFileNamePattern -Kind Lens -Id '05-15'
-    Assert-True ('05-15-extension' -match $pinned) 'the pinned pattern matches its own id'
-    Assert-True ('06-16-extension' -notmatch $pinned) 'and rejects another id'
+    Assert-True ('specialist-05-15-lens' -match $pinned) 'the pinned pattern matches its own id'
+    Assert-True ('specialist-06-16-lens' -notmatch $pinned) 'and rejects another id'
+    # '<g>-<id>-extension.md' is RETIRED for Lens (#2292): inverted from the pre-retirement dual-read
+    # assertion this used to be -- the pinned pattern now refuses the retired spelling, own id or not.
+    Assert-True ('05-15-extension' -notmatch $pinned) 'and the retired spelling is refused, own id or not'
 
     # The reference pattern: a body naming its manual, under either spelling, and NOT a bare mention.
     $refPattern = Get-SpecialistFileRefPattern -Kind Manual -Id '01-01' -Dir 'manuals'
@@ -1329,57 +1338,25 @@ Resolve-RepoRootOrFail -Override '$ghostRoot' -ScriptName 'seamless-override.ps1
     Assert-Equal $guardSeam $guardCands[0] 'the seam is still candidate 0 after a failed enumeration'
     Assert-Equal (Join-Path $guardRoot '.claude\extensions') $guardCands[-1] 'and the legacy location is still read, and still last'
     Assert-True ($guardCands -contains (Join-Path $guardRoot '.claude\plugins\claude-specialists\dkj-subagents-alpha')) 'the composed pre-seam candidate survives too -- it needs no enumeration'
-
-    # --- Get-SpecialistNamingState: the retirement signal the dual-name layer is keyed on (#2289) ---
-    #     Dave's decision retires the old names "once the connector register shows all six are over",
-    #     and this function is the only thing that can answer "over". Four states, and the fourth is
-    #     the one worth asserting hardest: a directory holding nothing must NOT report as migrated.
-    Write-Host "Get-SpecialistNamingState -- which spelling a tree is written in" -ForegroundColor Cyan
-
-    $nsCurrent = Get-SpecialistNamingState -Kind Lens -Name @('specialist-01-01-lens.md', 'specialist-05-05-lens.md')
-    Assert-Equal 'Current' $nsCurrent.State 'all written-spelling lenses report Current'
-    Assert-Equal 2 $nsCurrent.Current 'and both are counted'
-    Assert-Equal 0 $nsCurrent.AlsoRead 'with nothing on the also-read spelling'
-
-    $nsAlso = Get-SpecialistNamingState -Kind Lens -Name @('01-01-extension.md', '05-05-extension.md')
-    Assert-Equal 'AlsoRead' $nsAlso.State 'all pre-rename lenses report AlsoRead'
-    Assert-Equal 2 $nsAlso.AlsoRead 'and both are counted on that side'
-
-    $nsMixed = Get-SpecialistNamingState -Kind Lens -Name @('specialist-01-01-lens.md', '05-05-extension.md')
-    Assert-Equal 'Mixed' $nsMixed.State 'a part-migrated directory reports Mixed -- the state no single file can show'
-    Assert-Equal 1 $nsMixed.Current 'one on each side: Current'
-    Assert-Equal 1 $nsMixed.AlsoRead 'one on each side: AlsoRead'
-
-    # THE EMPTY CASE IS THE POINT (#221, one layer in). 'None' exists so a caller cannot print a clean
-    # verdict over a directory it never read: "0 of 0" and "all over" are different facts, and only
-    # this state keeps a roll-up from closing the retirement window on a consumer with no lenses at all.
-    $nsNone = Get-SpecialistNamingState -Kind Lens -Name @()
-    Assert-Equal 'None' $nsNone.State 'nothing measured reports None, never Current'
-    $nsNull = Get-SpecialistNamingState -Kind Lens -Name $null
-    Assert-Equal 'None' $nsNull.State 'and a null list is the same answer rather than a throw'
-
-    # A name following neither shape is COUNTED, not dropped: a directory of four unrecognised files is
-    # a different fact from an empty one, and a caller that cannot see the difference reports the wrong
-    # one. It still does not make the tree 'migrated'.
-    $nsJunk = Get-SpecialistNamingState -Kind Lens -Name @('README.md', 'notes.md')
-    Assert-Equal 'None' $nsJunk.State 'unrecognised names alone still report None'
-    Assert-Equal 2 $nsJunk.Unmatched 'and they are counted as Unmatched rather than silently dropped'
-
-    # THE KINDS ARE INDEPENDENT, which is the half the roll-up's closing line warns about: the Lens
-    # register signal says nothing about Subagent, whose old spelling moves BOTH prefix and stem.
-    $nsSub = Get-SpecialistNamingState -Kind Subagent -Name @('02-09-agent.md', 'specialist-02-09-subagent.md')
-    Assert-Equal 'Mixed' $nsSub.State 'Subagent reads its own two shapes, stem included'
-    $nsCross = Get-SpecialistNamingState -Kind Subagent -Name @('specialist-01-01-lens.md')
-    Assert-Equal 'None' $nsCross.State "and a lens name is not a subagent name -- no kind borrows another's shapes"
-
-    # The display names come from the shapes table rather than from a literal here, so a future rename
-    # step that flips a row cannot leave this report describing the wrong file.
-    Assert-Equal 'specialist-<g>-<id>-lens.md' $nsCurrent.CurrentName 'CurrentName is composed from the table'
-    Assert-True ($nsCurrent.AlsoReadName -contains '<g>-<id>-extension.md') 'AlsoReadName carries every tolerated spelling'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }
+
+# --- the slug allowlists match case-SENSITIVELY (#2520) -------------------------------------------
+# U+212A KELVIN SIGN folds to `k` under a plain -match, so an explicit ASCII class admitted it; and the
+# "lowercase" plugin-name check admitted upper case outright. Written as a code point: ASCII script layer.
+Write-Host ''
+Write-Host 'Slug allowlists -- case-sensitive, so a case-folded look-alike is refused (#2520)' -ForegroundColor Cyan
+$kelvin = [string][char]0x212A
+Assert-True (-not (Test-PluginNameSlug -Name ('dkj-' + $kelvin))) 'Test-PluginNameSlug refuses a name carrying the Kelvin sign'
+Assert-True (-not (Test-PluginNameSlug -Name 'ABC')) '...and refuses upper case, which a lowercase slug check must'
+Assert-True (Test-PluginNameSlug -Name 'dkj-policy') '...and still admits a real plugin name'
+Assert-True (-not (Test-PluginMarketplaceSlug -Marketplace ('mar' + $kelvin + 'et'))) 'Test-PluginMarketplaceSlug refuses the Kelvin sign'
+Assert-True (Test-PluginMarketplaceSlug -Marketplace 'Dkj-Claude.Plugins_2') '...and still admits mixed-case ASCII'
+Assert-True (-not (Test-GitHubOwnerNameSlug -Slug ('DKJ-Solutions/' + $kelvin)).Ok) 'Test-GitHubOwnerNameSlug refuses a name carrying the Kelvin sign'
+Assert-True (-not (Test-GitHubOwnerNameSlug -Slug ($kelvin + '/repo')).Ok) '...and an owner carrying it'
+Assert-True (Test-GitHubOwnerNameSlug -Slug 'DKJ-Solutions/dkj-claude-plugins').Ok '...and still admits this repo'
 
 Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })

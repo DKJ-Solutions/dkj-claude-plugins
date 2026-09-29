@@ -1246,10 +1246,7 @@ infrastructure.
   repair to the picker, not only a template**: it resolved its root as `$PSScriptRoot\..\..`, which in a
   consumer is the checkout of *this* tree, so its `Get-RepoName` read would have come off this repo's
   own `repo-config.ps1` and swept this repo's pull requests from a consumer's runner. It now resolves
-  dual-context like every other mirrored script, and is mirrored itself. The derived runner also puts
-  the plugin checkout in `.git/info/exclude`, since `ship-pr` reads an untracked directory as a dirty
-  tree and would otherwise fold through its temporary-worktree arm — correct, but not the path a session
-  takes. Its `workflow_run` list is read off the consumer's own pull_request workflows' top-level
+  dual-context like every other mirrored script, and is mirrored itself. Its `workflow_run` list is read off the consumer's own pull_request workflows' top-level
   `name:`, and left out rather than guessed where none declares one.
 
   **AND SINCE #2437 THIS REPO'S OWN COPY SHIPS FROM A TRUSTED TRUNK, NOT FROM THE PR BRANCH.** Until
@@ -1300,16 +1297,21 @@ infrastructure.
     list (the seams above, exact match); the merge-on-green-lib and stranded-sweep-gate suites assert
     the shrink positively (every OTHER path that used to refuse is now eligible) rather than only
     asserting what still refuses.
-  - **The scaffolded consumer template (`adopt-ci-floor.ps1`'s fourth runner) is NOT the same fix,
-    verified and left alone on purpose.** It already runs `ship-pr.ps1` from a separate, pinned,
-    token-free checkout of the *plugin* tree (issues #2329/#2333), which closes #2338 for the portable
-    code in every consumer independently of #2437 — but a consumer's own two seams are still read from
-    `github.workspace`, the single checkout that starts on the trunk with the token and is switched to
-    the picked branch in place. Filed separately as
-    [#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449) rather than folded into
-    #2437: a different file (the scaffolder template, not this repo's own workflow), a different blast
-    radius (every adopted consumer rather than this repo alone), and a design that has to reconcile with
-    #2333's SHA-pin machinery rather than starting clean.
+  - **The scaffolded consumer template (`adopt-ci-floor.ps1`'s fourth runner) got the same shape later,
+    under its own issue** ([#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449)):
+    a different file, every adopted consumer as blast radius, and #2333's SHA pin to reconcile with.
+    Until then it checked the consumer's trunk out once with the token persisted, nested the plugin tree
+    inside that workspace in `.git/info/exclude`, and switched it to the picked branch in place. That
+    ran the consumer's own seams beside the token, and #2437's shrink briefly let a branch overwrite the
+    trusted plugin copy (#2553). It now uses **three** sibling checkouts: the pinned `.workflow-scripts`
+    plugin tree (the code), a token-free `trusted-main` (the seams via `-TrustedRoot`, and the fold) and
+    a token-free `pr-branch`, with the same ephemeral credential. Sebastian's review on #2449 set three
+    conditions. The runner's own header argues the one-credential trade. The test pins the literal
+    `trusted-main` as the picker's `CLAUDE_PROJECT_DIR`, because pointed at the plugin tree it would
+    read *this* repo's `repo-config.ps1`. And a re-run of `adopt-ci-floor` names an existing runner of
+    the old shape, since the scaffolder never rewrites one. For that last reason the `.workflow-scripts/`
+    refusal in `Get-MergeOnGreenExecutedPathHit` is permanent: the lib cannot see which shape a given
+    consumer runs.
 
 - **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
   in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),

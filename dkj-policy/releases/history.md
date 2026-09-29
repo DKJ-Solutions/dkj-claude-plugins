@@ -4,6 +4,7 @@
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [5.9.0](audience/5.x/5.9.0.md) | 2026-09-27 | Minor | Minor release |
 | [5.8.0](audience/5.x/5.8.0.md) | 2026-09-24 | Minor | Minor release |
 | [5.7.0](audience/5.x/5.7.0.md) | 2026-09-23 | Minor | Minor release |
 | [5.6.0](audience/5.x/5.6.0.md) | 2026-09-21 | Minor | Every specialist file takes its specialist- name, and consumers migrate the orchestrator import once |

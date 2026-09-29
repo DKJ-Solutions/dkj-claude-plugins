@@ -17,8 +17,8 @@
     facts: the next release day, the version that release will carry, and the live storefront URLs.
 
     EVERY ONE OF THE THREE IS A PROJECTION, AND THE WORDING SAYS SO. A tier-1 entry landing on the
-    Friday turns a predicted patch into a minor; a release can slip. 'Planned to go live' is
-    therefore the wording, never 'will' -- this block is the one surface a colleague quotes back, so
+    Friday turns a predicted patch into a minor; a release can slip. 'Het staat gepland' / 'planned
+    to go live' is therefore the wording, never 'will' -- this block is the one surface a colleague quotes back, so
     a cadence must not read there as a commitment anybody made.
 
     AND A FACT THAT CANNOT BE DERIVED IS LEFT OUT, NEVER GUESSED. No version resolves to a sentence
@@ -67,15 +67,28 @@ function Get-NextReleaseDate {
 
 function Format-GoLiveDate {
     <#
-        Pure: the release date as a colleague reads it -- 'Monday 22 September 2026'.
+        Pure: the release date as a colleague reads it -- 'maandag 21 september 2026', or in English
+        'Monday 21 September 2026'.
 
-        INVARIANT CULTURE, DELIBERATELY. Everything this workflow writes into a ticket is English --
-        it is the workflow speaking, not the subject, which is the boundary asana-mirror.ps1's own
-        header already draws -- and a machine's locale must not decide which language a colleague's
-        ticket is written in.
+        THE LANGUAGE IS THE BLOCK'S, AND THE BLOCK'S IS THE COLLEAGUE'S (#2507). The date sits inside the
+        pasted block, which WORKFLOW-portable.md step 2 hands to the colleague's language -- so it is
+        passed in, never read from the machine: a machine's locale must not decide which language a
+        colleague's ticket is written in.
+
+        THE NAMES ARE SPELLED OUT HERE rather than asked of a CultureInfo, so the answer does not depend
+        on which culture data the host happens to carry.
     #>
-    param([Parameter(Mandatory = $true)][datetime]$Date)
-    return $Date.ToString('dddd d MMMM yyyy', [System.Globalization.CultureInfo]::InvariantCulture)
+    param(
+        [Parameter(Mandatory = $true)][datetime]$Date,
+        [ValidateSet('nl', 'en')][string]$Language = 'nl'
+    )
+    if ($Language -eq 'en') {
+        return $Date.ToString('dddd d MMMM yyyy', [System.Globalization.CultureInfo]::InvariantCulture)
+    }
+    $days   = @('zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag')
+    $months = @('januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli', 'augustus',
+                'september', 'oktober', 'november', 'december')
+    return "$($days[[int]$Date.DayOfWeek]) $($Date.Day) $($months[$Date.Month - 1]) $($Date.Year)"
 }
 
 function Get-PendingBumpFromTally {
@@ -154,6 +167,131 @@ function Test-PrivateResultLink {
     return [bool]($Link -match '^(https?://)?(www\.)?claude\.ai/(code/)?artifact/')
 }
 
+function Get-GoLiveBlockText {
+    <#
+        Pure: the fixed words of the pasted block, in the language it is written in (#2507).
+
+        THE BLOCK IS WRITTEN IN THE COLLEAGUE'S LANGUAGE, BECAUSE IT IS ADDRESSED TO THEM.
+        WORKFLOW-portable.md step 2 turns the language over at exactly this boundary -- English on
+        GitHub, the colleague's own language on the board -- and the paste block was the one
+        colleague-facing text whose words a script had fixed in English. Measured on
+        BWJ-Development/smartwatchbanden#769 (September 25, 2026): the English printout was rejected by
+        the owner, pointing at the Dutch block BWJ had actually sent a colleague, and rewritten by hand.
+
+        THE SHAPE IS THAT BLOCK'S: an opening line saying where the message comes from, then five
+        fixed headings. The Dutch words are the reference comment's own; the English ones are its
+        translation, for a task written in English.
+
+        Non-ASCII characters are composed from code points, because this file is read by Windows
+        PowerShell 5.1 as the system ANSI code page (language-layers.md).
+    #>
+    param([ValidateSet('nl', 'en')][string]$Language = 'nl')
+
+    $dash = [string][char]0x2014
+    $e    = [string][char]0x00E9
+
+    if ($Language -eq 'en') {
+        return @{
+            Header       = "$dash automated message from GitHub #{0}"
+            Changed      = 'WHAT IS DIFFERENT NOW'
+            Where        = 'WHERE TO LOOK'
+            When         = 'WHEN IT GOES LIVE'
+            NotIncluded  = 'WHAT IS DELIBERATELY NOT IN IT'
+            Ask          = 'WHAT WE ASK OF YOU'
+            ResultLink   = 'You can view the result here: {0}'
+            ReleaseDay   = 'It is planned to go live with the release of {0}.'
+            ReleaseVer   = 'It is planned to go live with the release of {0}, as version v{1}.'
+            LivePinned   = "Until then, these links show what is live now, to compare against $dash and once it is live, you can see the change here:"
+            LiveNoLink   = 'Once it is live you can see it here:'
+            LiveBare     = 'Once it is live you can see it here. Before then, open these in a private window: a browser that has opened the result link keeps showing the result on these pages, not what is live.'
+            AskLook      = 'Look at the result yourself, at the link above. It goes live with that release either way, so this is the last moment something can still change before a customer sees it.'
+            AskYes       = 'Is it right? Say so, and tick off this task.'
+            AskNo        = 'Is it not? Then we would like to hear two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.'
+        }
+    }
+    return @{
+        Header       = "$dash automatisch bericht vanuit GitHub #{0}"
+        Changed      = 'WAT ER NU ANDERS IS'
+        Where        = 'TE BEKIJKEN OP'
+        When         = 'WANNEER HET LIVE KOMT'
+        NotIncluded  = 'WAT ER BEWUST NIET IN ZIT'
+        Ask          = 'WAT WE VAN JE VRAGEN'
+        ResultLink   = 'Het resultaat is hier te bekijken: {0}'
+        ReleaseDay   = 'Het staat gepland voor de release van {0}.'
+        ReleaseVer   = 'Het staat gepland voor de release van {0}, als versie v{1}.'
+        LivePinned   = "Tot die tijd laten deze links zien wat er nu live staat, om mee te vergelijken $dash en zodra het live is, zie je de wijziging hier:"
+        LiveNoLink   = 'Zodra het live is, zie je het hier:'
+        LiveBare     = "Zodra het live is, zie je het hier. Open ze tot die tijd in een priv${e}venster: een browser die de link hierboven al heeft geopend, blijft op deze pagina's het resultaat tonen en niet wat er live staat."
+        AskLook      = 'Bekijk het resultaat zelf, via de link hierboven. Het gaat hoe dan ook mee met die release, dus dit is het laatste moment waarop er nog iets aan te passen valt voordat een klant het ziet.'
+        AskYes       = 'Klopt het: laat het weten en vink deze taak af.'
+        AskNo        = "Klopt het niet, dan horen we graag twee dingen: wat er niet goed is, ${e}n wat er precies anders moet. Dan pakken we het opnieuw op in een volgende ronde."
+    }
+}
+
+function ConvertFrom-GoLiveProse {
+    <#
+        Pure: the session's own prose for the block, out of the text of a -ProseFile.
+
+        THE PROSE SECTIONS ARE THE SESSION'S TO WRITE, the derivable facts the script's (#2507). What
+        changed, what else to look at, and what was deliberately left out are judgements about the work
+        -- the same kind step 2 makes when it writes the task body -- so the script carries them into
+        the shape and never composes them.
+
+        A FILE AND NOT A PARAMETER, because the driver runs under 'powershell -File', where a string[]
+        arrives as one string and a paragraph's newlines do not survive the command line at all. The
+        file is read as UTF-8, which the colleague's language needs.
+
+        THE FORMAT: a line '[changed]', '[where]' or '[not-included]' opens a section; the lines under
+        it, up to the next such line, are its text. Paragraphs are separated by a blank line and kept
+        as written. Text above the first section line, and a section line this function does not know,
+        are refused -- a misspelled heading that silently dropped a paragraph would ship a block
+        missing the part the session wrote.
+    #>
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
+
+    $known   = @{ 'changed' = 'Changed'; 'where' = 'WhereToLook'; 'not-included' = 'NotIncluded' }
+    $buckets = @{ Changed = @(); WhereToLook = @(); NotIncluded = @() }
+    $current = $null
+    $lineNo  = 0
+    foreach ($line in ($Text -split "`r?`n")) {
+        $lineNo++
+        # SECTION-SHAPED MEANS lowercase letters and hyphens, matched case-sensitively: a misspelled
+        # '[chnaged]' is still refused, while prose that happens to put '[1]', '[ ]' or '[TBD]' on a
+        # line of its own stays prose.
+        if ($line -cmatch '^\s*\[([a-z][a-z-]*)\]\s*$') {
+            $name = $Matches[1]
+            if (-not $known.ContainsKey($name)) {
+                throw "Prose line ${lineNo}: unknown section '[$name]'. Known: [changed], [where], [not-included]."
+            }
+            $current = $known[$name]
+            continue
+        }
+        # THE BLOCK'S OWN BOUNDARIES MAY NOT APPEAR IN IT: a bare '---' line is a third rule, which cuts
+        # the pasted block short, and an HTML comment would arrive in the colleague's ticket as junk --
+        # the marker the backstop matches on being the one that matters.
+        if ($line -match '^\s*---\s*$') { throw "Prose line ${lineNo}: a bare '---' line is the block's own rule and would cut the pasted block short." }
+        if ($line.Contains('<!--')) { throw "Prose line ${lineNo}: an HTML comment would arrive in the Asana task as visible text." }
+        if (-not $current) {
+            if ($line.Trim()) { throw "Prose line ${lineNo}: text before the first section line ([changed], [where] or [not-included])." }
+            continue
+        }
+        $buckets[$current] += $line
+    }
+
+    $result = @{}
+    foreach ($key in @($buckets.Keys)) {
+        # Paragraphs: runs of non-blank lines, joined with a newline so a hand-made list survives.
+        $paras = @()
+        $run   = @()
+        foreach ($l in $buckets[$key]) {
+            if ($l.Trim()) { $run += $l.TrimEnd() } elseif ($run.Count -gt 0) { $paras += ($run -join "`n"); $run = @() }
+        }
+        if ($run.Count -gt 0) { $paras += ($run -join "`n") }
+        $result[$key] = $paras
+    }
+    return $result
+}
+
 function Get-GoLiveBlockAsk {
     <#
         Pure: the closing section of the pasted block -- what it asks of the requester (#2352).
@@ -163,7 +301,7 @@ function Get-GoLiveBlockAsk {
         asks for the look instead of assuming it.
 
         A REJECTION ASKS FOR TWO THINGS -- what is not right yet AND what should change -- because the
-        first alone hands the next round a guess. It then reopens the issue.
+        first alone hands the next round a guess. It then starts a new round.
 
         THE RELEASE IS NOT THE REWARD FOR AN APPROVAL. The work is already on the trunk, so it goes
         along either way; what the look buys is time, and the section says that rather than dangling a
@@ -172,15 +310,14 @@ function Get-GoLiveBlockAsk {
         ONLY WITH A LINK. Without one there is nothing to look at before the release, and an ask to
         judge a result the block cannot point at is noise -- the same rule as the omitted sentence.
     #>
-    param([string]$ResultLink)
-    if (-not $ResultLink) { return @() }
-    return @(
-        '',
-        'What we ask of you:',
-        'Look at the result yourself, at the link above. It goes live with that release either way, so this is the last moment something can still change before a customer sees it.',
-        '- Is it right? Say so, and tick off this task.',
-        '- Is it not? Tell us two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.'
+    param(
+        [string]$ResultLink,
+        [ValidateSet('nl', 'en')][string]$Language = 'nl',
+        [hashtable]$Text
     )
+    if (-not $ResultLink) { return @() }
+    $t = if ($Text) { $Text } else { Get-GoLiveBlockText -Language $Language }
+    return @('', $t.Ask, '', $t.AskLook, '', $t.AskYes, '', $t.AskNo)
 }
 
 function Format-GoLiveBlock {
@@ -188,22 +325,36 @@ function Format-GoLiveBlock {
         Pure: the whole GitHub comment -- the marker, the framing sentence that stays on GitHub, and
         the block between the two '---' rules that travels into the Asana task.
 
+        THE BLOCK HAS THE SHAPE BWJ ACTUALLY SENDS (#2507): an opening line naming where it comes from,
+        then up to five sections under fixed headings -- what changed, where to look, when it goes live,
+        what is deliberately not in it, and what we ask. The words follow -Language, which is the
+        colleague's (Get-GoLiveBlockText). The framing sentence above the rules stays English: it is
+        read on GitHub, not pasted.
+
         THE MARKER SITS OUTSIDE THE BLOCK. Everything between the rules is pasted into a colleague's
         ticket, so a marker in there would arrive as visible junk. It is passed IN rather than
         hard-coded, so this file and asana-mirror.ps1's backstop cannot end up holding two spellings
-        of one string -- the driver reads Get-AsanaPasteBlockMarker and hands it over.
+        of one string -- the driver reads Get-AsanaPasteBlockMarker and hands it over. The backstop's
+        de-duplication matches that marker and nothing inside the rules, so the block's own words are
+        free to follow the colleague.
 
-        WHAT IS OPTIONAL, AND WHAT HAPPENS WHERE IT IS ABSENT:
+        WHAT IS OPTIONAL, AND WHAT HAPPENS WHERE IT IS ABSENT -- a section with nothing to say is not
+        written, heading included, never placeholdered:
 
-          -ResultLink   omitted -> the 'you can view the result here' sentence is not written at
-                        all. This function never writes the backstop's [ADD LINK] placeholder: that
-                        placeholder exists because CI cannot know the link, and a session running
-                        this script can.
+          -Changed      the session's prose. Omitted -> no 'what changed' section (the driver warns).
+          -ResultLink   omitted -> no link sentence. This function never writes the backstop's
+                        [ADD LINK] placeholder: that placeholder exists because CI cannot know the
+                        link, and a session running this script can.
+          -WhereToLook  the session's prose under the link: steps, what to look for. With neither it
+                        nor -ResultLink, the 'where to look' section is not written.
           -Version      omitted -> the release sentence names the day and no number.
           -LiveUrl      empty   -> no live-URL list. A repo that has declared no storefront markets
                         has nothing truthful to put there.
           -LivePinned   whether the -LiveUrl rows name the live theme id. It decides the list's label,
                         and the label is the repair of issue #2477 (see below).
+          -NotIncluded  the session's prose. Omitted -> no 'deliberately not in it' section.
+
+        The 'when it goes live' section is always written: the date is always derivable.
 
         THE LIVE LIST IS READ BEFORE THE RELEASE, AND A BARE URL LIES THEN (#2477). The result link is
         normally a storefront PREVIEW, which sets a per-domain cookie, and a bare storefront URL keeps
@@ -220,47 +371,59 @@ function Format-GoLiveBlock {
         [string]$ResultLink,
         [string]$Version,
         [object[]]$LiveUrl = @(),
-        [switch]$LivePinned
+        [switch]$LivePinned,
+        [ValidateSet('nl', 'en')][string]$Language = 'nl',
+        [string[]]$Changed = @(),
+        [string[]]$WhereToLook = @(),
+        [string[]]$NotIncluded = @()
     )
 
-    $release = if ($Version) {
-        "Planned to go live with the release of $GoLiveDate, as version v$Version."
-    } else {
-        "Planned to go live with the release of $GoLiveDate."
-    }
+    $t      = Get-GoLiveBlockText -Language $Language
+    $number = if ($IssueRef -match '#(\d+)\s*$') { $Matches[1] } else { $IssueRef }
+    $dash   = [string][char]0x2014
 
     $lines = @(
         $Marker,
         '',
         'Paste the block into the Asana task, so the requester knows where to look and when it lands:',
         '',
-        '---'
+        '---',
+        ($t.Header -f $number)
     )
-    $lines += if ($ResultLink) {
-        "The fix for $IssueRef is done. You can view the result here: $ResultLink"
-    } else {
-        "The fix for $IssueRef is done."
-    }
-    $lines += ''
-    $lines += $release
 
+    # One section: a blank line, the heading, a blank line, then its paragraphs a blank line apart.
+    $addSection = {
+        param([string]$Heading, [string[]]$Paragraphs)
+        $out = @('', $Heading)
+        foreach ($p in $Paragraphs) { $out += ''; $out += $p }
+        return , $out
+    }
+
+    $changedParas = @($Changed | Where-Object { $_ -and $_.Trim() })
+    if ($changedParas.Count -gt 0) { $lines += & $addSection $t.Changed $changedParas }
+
+    $whereParas = @()
+    if ($ResultLink) { $whereParas += ($t.ResultLink -f $ResultLink) }
+    $whereParas += @($WhereToLook | Where-Object { $_ -and $_.Trim() })
+    if ($whereParas.Count -gt 0) { $lines += & $addSection $t.Where $whereParas }
+
+    $whenParas = @(if ($Version) { $t.ReleaseVer -f $GoLiveDate, $Version } else { $t.ReleaseDay -f $GoLiveDate })
     $rows = @($LiveUrl | Where-Object { $_ })
     if ($rows.Count -gt 0) {
-        if ($LivePinned) {
-            $lines += 'Until then, these links show what is live now, to compare against -- and once it is live, you can see the change here:'
-        } elseif (-not $ResultLink) {
-            # No result link in the block, so no link of its own to set the cookie with.
-            $lines += 'Once it is live you can see it here:'
-        } else {
-            $lines += 'Once it is live you can see it here. Before then, open these in a private window: a browser that has opened the result link keeps showing the result on these pages, not what is live.'
-        }
-        $lines += ''
-        foreach ($row in $rows) {
-            $label = if ($row.PSObject.Properties['Market'] -and $row.Market) { [string]$row.Market } else { 'live' }
-            $lines += "- $label -- $($row.Url)"
-        }
+        $label = if ($LivePinned) { $t.LivePinned } elseif (-not $ResultLink) { $t.LiveNoLink } else { $t.LiveBare }
+        $list = @(foreach ($row in $rows) {
+            $market = if ($row.PSObject.Properties['Market'] -and $row.Market) { [string]$row.Market } else { 'live' }
+            "$market $dash $($row.Url)"
+        })
+        $whenParas += $label
+        $whenParas += ($list -join "`n")
     }
-    $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink
+    $lines += & $addSection $t.When $whenParas
+
+    $notParas = @($NotIncluded | Where-Object { $_ -and $_.Trim() })
+    if ($notParas.Count -gt 0) { $lines += & $addSection $t.NotIncluded $notParas }
+
+    $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink -Text $t
     $lines += '---'
 
     return ($lines -join "`n")

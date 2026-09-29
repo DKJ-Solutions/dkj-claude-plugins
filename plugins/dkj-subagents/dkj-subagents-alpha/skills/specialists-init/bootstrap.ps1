@@ -153,6 +153,35 @@ if ((Split-Path $pdParent -Leaf) -match '^\d+\.\d+\.\d+') {
 # that sets a repo up in the first place -- so it falls back to the same literal the lib returns.
 $lensLib = Join-Path $PSScriptRoot '../../scripts/lib/check-report-lib.ps1'
 if (Test-Path -LiteralPath $lensLib -PathType Leaf) { . $lensLib }
+
+# NEVER THROUGH A SYMLINK OR JUNCTION (issues #2533, #2540). Every file this run creates -- the lenses, the
+# script scaffolds, SPECIALISTS.md, CLAUDE.md -- is checked first: Test-Path follows a reparse point, so a
+# dangling symlink reads as "absent" and the write creates its target, and a junctioned .claude/ or scripts/
+# takes the file outside the repo. Loaded guarded from this plugin's own mirror, like check-report-lib above:
+# an older payload without it keeps its previous behaviour.
+$writeTargetLib = Join-Path $PSScriptRoot '..\..\scripts\lib\write-target-lib.ps1'
+if (Test-Path -LiteralPath $writeTargetLib -PathType Leaf) { . $writeTargetLib }
+$script:refusedWrites = 0
+function Get-WriteReparse([string]$Path) {
+    <# The reparse point a write to -Path would pass through, or $null -- always $null without the lib. #>
+    if (-not (Get-Command Get-WriteTargetReparsePoint -ErrorAction SilentlyContinue)) { return $null }
+    Get-WriteTargetReparsePoint -Path $Path -Root $ConsumerRoot
+}
+function New-DirectoryInside([string]$Path) {
+    <# mkdir -p, except where the directory would be created through a reparse point: then nothing is
+       created, and each file under it reports its own [refused] line through Test-WriteRefused. #>
+    if ((Get-WriteReparse $Path) -or (Test-Path -LiteralPath $Path)) { return }
+    New-Item -ItemType Directory -Path $Path -Force | Out-Null
+}
+function Test-WriteRefused([string]$Path, [string]$Label) {
+    <# $true (and one [refused] line) when -Path, or a directory between it and the consumer root, is a
+       reparse point; $false otherwise, and always $false when the lib is absent. #>
+    $reparse = Get-WriteReparse $Path
+    if (-not $reparse) { return $false }
+    $script:refusedWrites++
+    Write-Host "  [refused] $Label -- reached through a symlink or junction ($reparse), so it was NOT written; writing it would land outside the repo." -ForegroundColor Yellow
+    return $true
+}
 $family = if (Get-Command Get-LensFamily -ErrorAction SilentlyContinue) { Get-LensFamily } else { 'claude-specialists' }
 # Durable body path: the written @-import must NEVER point to the version-pinned cache. The cache
 # (~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/) is ephemeral -- after a plugin update,
@@ -169,7 +198,7 @@ function Get-DurablePersonaDir([string]$PersonaDir, [string]$Plugin) {
     if ($cacheIdx -lt 1 -or ($cacheIdx + 1) -ge $parts.Count) { return $PersonaDir }
     if ($parts[$cacheIdx - 1] -ne 'plugins') { return $PersonaDir }
     $marketplace = $parts[$cacheIdx + 1]
-    if ($marketplace -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { return $PersonaDir }
+    if ($marketplace -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') { return $PersonaDir }
     $clone = Join-Path (($parts[0..($cacheIdx - 1)] -join '\')) (Join-Path 'marketplaces' $marketplace)
     if (-not (Test-Path -LiteralPath $clone -PathType Container)) { return $PersonaDir }
     # Search clone for personas directory under a directory named exactly as the plugin and carrying
@@ -279,7 +308,7 @@ function Add-RegisterId {
 # --- 1. Persona lenses (LENS-ONLY), never overwritten --------------------------------------
 # Destination comes from Get-LensDest: the seam for a fresh consumer, the existing tree otherwise.
 $personaDest = Split-Path (Get-LensDest -Plugin $personaPlugin -Id '01-01') -Parent
-if (-not (Test-Path -LiteralPath $personaDest)) { New-Item -ItemType Directory -Path $personaDest -Force | Out-Null }
+New-DirectoryInside $personaDest
 
 $copied = 0; $kept = 0
 $personaFiles = if ($script:specialistLib) { @(Get-SpecialistFiles -Path $personaDir -Kind Persona) }
@@ -294,6 +323,7 @@ $personaFiles | Sort-Object Name | ForEach-Object {
     $g, $id = $personaId.Split('-')
     $dest = Get-LensDest -Plugin $personaPlugin -Id $personaId
     Add-RegisterId -Inventory $registerInventory -Plugin $personaPlugin -Id $personaId
+    if (Test-WriteRefused -Path $dest -Label "lens-only $lensRelDisplay/$(Split-Path $dest -Leaf)") { return }
     $existing = Get-ExistingLensPath -Plugin $personaPlugin -Id $personaId
     if ($existing) {
         Write-Host "  [keep]  $(Split-Path $existing -Leaf) already exists -- not overwritten." -ForegroundColor DarkGray
@@ -497,7 +527,7 @@ if ($null -ne $enabledPlugins -and $enabledPlugins.Ids.Count -gt 0 -and (Get-Com
 
 $scaffolded = 0; $lensKept = 0
 foreach ($pluginName in ($pluginNames | Sort-Object -Unique)) {
-    if ($pluginName -notmatch '^[a-z0-9][a-z0-9-]*$') {
+    if ($pluginName -cnotmatch '^[a-z0-9][a-z0-9-]*$') {
         Write-Host "  [notice] plugin name '$pluginName' is not a valid slug -- skipped." -ForegroundColor Yellow
         continue
     }
@@ -518,7 +548,7 @@ foreach ($pluginName in ($pluginNames | Sort-Object -Unique)) {
         continue
     }
     $pluginPad = Split-Path (Get-LensDest -Plugin $pluginName -Id '00-00') -Parent
-    if (-not (Test-Path -LiteralPath $pluginPad)) { New-Item -ItemType Directory -Path $pluginPad -Force | Out-Null }
+    New-DirectoryInside $pluginPad
     # The whole directory, both spellings (#2130) -- and the fallback is this loop's own anchor, so a
     # payload without the lib enumerates and recognises exactly what it did before.
     $agentFiles = if ($script:specialistLib) { @(Get-SpecialistFiles -Path $agentsDir -Kind Subagent) }
@@ -536,6 +566,7 @@ foreach ($pluginName in ($pluginNames | Sort-Object -Unique)) {
         $group, $id = $defId.Split('-')
         $dest = Get-LensDest -Plugin $pluginName -Id $defId
         Add-RegisterId -Inventory $registerInventory -Plugin $pluginName -Id $defId
+        if (Test-WriteRefused -Path $dest -Label "lens scaffold $lensRelDisplay/$(Split-Path $dest -Leaf)") { return }
         if (Get-ExistingLensPath -Plugin $pluginName -Id $defId) { $script:lensKept++; return }
         $midDot = [char]0x00B7
         # Rename-proof (issue #145): the header carries the STABLE '<group>-<id>' slug, never the
@@ -876,6 +907,7 @@ $scriptScaffolded = 0; $scriptKept = 0
 $repoConfigDerived = $false
 foreach ($s in $scriptScaffolds) {
     $dest = Join-Path $ConsumerRoot $s.Rel
+    if (Test-WriteRefused -Path $dest -Label "script scaffold $($s.Rel)") { continue }
     if (Test-Path -LiteralPath $dest -PathType Leaf) {
         Write-Host "  [keep]   $($s.Rel) already exists -- not overwritten." -ForegroundColor DarkGray
         # KEEPING IT IS RIGHT; SAYING NOTHING ELSE IS NOT (inbound #271). These addresses are occupied in
@@ -898,8 +930,7 @@ foreach ($s in $scriptScaffolds) {
         $scriptKept++
         continue
     }
-    $destDir = Split-Path $dest -Parent
-    if (-not (Test-Path -LiteralPath $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+    New-DirectoryInside (Split-Path $dest -Parent)
     [System.IO.File]::WriteAllText($dest, ($s.Content.TrimEnd() + "`n"), $Utf8NoBom)
     $note = ''
     if ($s.Rel -eq 'scripts/repo-config.ps1' -and $derivedRepo) {
@@ -955,8 +986,10 @@ $importNoteSeam = $importNote + ' from `lenses/`.'
 if ($seamMode) {
     # The inclusion itself. Never overwritten -- once the owner has put their roster in here it is
     # authored content, exactly like a filled-in lens.
-    if (-not (Test-Path -LiteralPath $seam.Dir)) { New-Item -ItemType Directory -Path $seam.Dir -Force | Out-Null }
-    if (Test-Path -LiteralPath $seam.Inclusion -PathType Leaf) {
+    New-DirectoryInside $seam.Dir
+    if (Test-WriteRefused -Path $seam.Inclusion -Label "$($seam.RelDir)/SPECIALISTS.md") {
+        # Nothing to add: the [refused] line above names it, and the CLAUDE.md import below still points at it.
+    } elseif (Test-Path -LiteralPath $seam.Inclusion -PathType Leaf) {
         Write-Host "  [keep]   $($seam.RelDir)/SPECIALISTS.md already exists -- not overwritten." -ForegroundColor DarkGray
     } else {
         # The TITLE deliberately carries no (VUL-IN): only the roster slot does. Filling in the roster
@@ -1003,7 +1036,14 @@ $importTail
 $importBody
 "@
 
-if (-not (Test-Path -LiteralPath $claudeMd -PathType Leaf)) {
+# NEVER THROUGH A SYMLINK OR JUNCTION (issue #2533). A CLAUDE.md that is a symlink -- dangling or not --
+# would have the write below land wherever it points, outside the repo. Get-WriteTargetReparsePoint reads
+# the entry from its parent's listing, so a link to a missing file is caught too, where Test-Path below
+# would read it as "no CLAUDE.md" and create the link's target. The lib is loaded guarded at the top.
+if (Get-WriteReparse $claudeMd) {
+    Write-Host "  [refused] CLAUDE.md is a symlink or junction, so the orchestrator import was NOT written -- add it by hand:" -ForegroundColor Yellow
+    Write-Host "            $guardImport" -ForegroundColor Yellow
+} elseif (-not (Test-Path -LiteralPath $claudeMd -PathType Leaf)) {
     # The heading and the Prose row(s) come from Get-ClaudeMdScaffold in check-report-lib.ps1, for the
     # same reason $importNote does: the teardown has to RECOGNISE this exact wording to report it, and a
     # literal re-typed in a second script is what produced both instances of the accumulation bug (inbound
@@ -1072,7 +1112,7 @@ $importBlock
 # recommending a configuration it could not see. Keep the two in step: widening this hint again means
 # widening Get-SettingsChainPaths first.
 $claudeDir = Join-Path $ConsumerRoot '.claude'
-if (-not (Test-Path -LiteralPath $claudeDir)) { New-Item -ItemType Directory -Path $claudeDir -Force | Out-Null }
+New-DirectoryInside $claudeDir
 # BOTH artifact names come from Get-SettingsArtifactNames, so this writer and specialists-teardown's
 # remover cannot drift apart -- see that function for why a name typed twice is the shape this repo has
 # already been bitten by three times. The fallback keeps a missing lib from stopping the one script whose
@@ -1215,7 +1255,14 @@ $denyJsonc
 # nothing (inbound #363). Same defect the #337.2 warning names for CLAUDE.md, one file over -- and that
 # warning does not cover this one, so nothing pointed at it.
 $suggestion = $suggestion.TrimEnd("`r", "`n") + "`n"
-[System.IO.File]::WriteAllText($suggestPath, $suggestion, $Utf8NoBom)
+# NEVER THROUGH A SYMLINK OR JUNCTION (issue #2545), like every other file this run writes: a junctioned
+# .claude/ would put both proposals outside the repo. A refusal leaves $suggestWritten false, and every
+# line below that names the file reads it rather than assuming the write happened.
+$suggestWritten = $false
+if (-not (Test-WriteRefused -Path $suggestPath -Label $settingsArtifacts.Suggested)) {
+    [System.IO.File]::WriteAllText($suggestPath, $suggestion, $Utf8NoBom)
+    $suggestWritten = $true
+}
 # The FULL path, not the relative name (#241). This file is the one artifact that can go completely
 # unnoticed: many consumers gitignore '.claude/*' (measured in davekokbwj/smartwatchbanden), so it
 # never shows up in 'git status' and 'git checkout .' does not clean it up either -- an operator
@@ -1241,16 +1288,19 @@ function Test-PathGitIgnored([string]$Root, [string]$Path) {
     } catch { }
     return $null   # git absent or erroring: say so, rather than claiming either way
 }
-$suggestIgnored = Test-PathGitIgnored -Root $ConsumerRoot -Path $suggestPath
+$suggestIgnored = $null
+if ($suggestWritten) {
+    $suggestIgnored = Test-PathGitIgnored -Root $ConsumerRoot -Path $suggestPath
 
-$suggestNote = if ($suggestIgnored -eq $true) {
-    'gitignored in this repo, so this path is your only pointer to it'
-} elseif ($suggestIgnored -eq $false) {
-    'NOT gitignored in this repo, so it will show up in git status until you delete it'
-} else {
-    'gitignored in many repos, so this path may be your only pointer to it'
+    $suggestNote = if ($suggestIgnored -eq $true) {
+        'gitignored in this repo, so this path is your only pointer to it'
+    } elseif ($suggestIgnored -eq $false) {
+        'NOT gitignored in this repo, so it will show up in git status until you delete it'
+    } else {
+        'gitignored in many repos, so this path may be your only pointer to it'
+    }
+    Write-Host "  [create] $suggestPath placed (annotated proposal -- not active; $suggestNote)." -ForegroundColor Green
 }
-Write-Host "  [create] $suggestPath placed (annotated proposal -- not active; $suggestNote)." -ForegroundColor Green
 
 function Format-JsonIndented {
     <# Re-indent COMPRESSED JSON with two spaces per level. Windows PowerShell 5.1's own pretty-printer
@@ -1342,7 +1392,15 @@ $existingSettings = [pscustomobject]@{}
 # The reason, not a boolean: the notice below has to name WHICH shape it refused, or it sends a reader
 # hunting for a syntax error in a file that parses perfectly.
 $settingsRefusal = $null
-if (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
+# AND NEVER READ THROUGH A SYMLINK OR JUNCTION EITHER (issue #2549). Test-Path and ReadAllText both follow
+# a reparse point, and every top-level key of what they reach is copied into the merged proposal -- a REAL
+# file inside the repo. So a settings.json linked to a JSON-shaped file outside the repo would have that
+# file's content land in the tree. The writes were guarded in #2545; this is the same check on the read,
+# refused exactly like a file that does not parse: no merged proposal, the annotated one still offered.
+$settingsReparse = Get-WriteReparse $settingsPath
+if ($settingsReparse) {
+    $settingsRefusal = "is reached through a symlink or junction ($settingsReparse) and was not read"
+} elseif (Test-Path -LiteralPath $settingsPath -PathType Leaf) {
     $parsed = $null
     try {
         $rawSettings = [System.IO.File]::ReadAllText($settingsPath, [System.Text.Encoding]::UTF8)
@@ -1388,7 +1446,12 @@ if ($settingsRefusal) {
     # not fully read is the very data loss this whole block exists to prevent -- and it would arrive
     # wearing the label 'safe to paste'. The reader is told what to fix and still has the annotated
     # proposal, so nothing is taken away from them.
-    Write-Host "  [notice] $settingsPath $settingsRefusal, so no merged proposal was written -- a merge built from a file that cannot be read whole would silently drop part of it. Repair that file and re-run, or copy from the annotated proposal by hand." -ForegroundColor Yellow
+    $refusalWhy = if ($settingsReparse) {
+        'a merge would copy whatever the link reaches into a real file inside the repo. Make settings.json a plain file and re-run, or copy from the annotated proposal by hand.'
+    } else {
+        'a merge built from a file that cannot be read whole would silently drop part of it. Repair that file and re-run, or copy from the annotated proposal by hand.'
+    }
+    Write-Host "  [notice] $settingsPath $settingsRefusal, so no merged proposal was written -- $refusalWhy" -ForegroundColor Yellow
 } else {
     # Every key the consumer already has, in the order they had it; then the two permission halves folded
     # into whatever 'permissions' they had (their own rules first, ours appended, no duplicates). Any
@@ -1452,35 +1515,42 @@ if ($settingsRefusal) {
         if ($code -lt 0x20) { return $text }
         return $slashes.Substring(0, $slashes.Length - 1) + [string][char]$code
     })
-    [System.IO.File]::WriteAllText($proposedPath, ((Format-JsonIndented -Json $proposedJson).TrimEnd("`r", "`n") + "`n"), $Utf8NoBom)
-    $proposedWritten = $true
+    # Refused through a symlink or junction (#2545): $proposedWritten stays false, so the next steps give
+    # the no-merged-file instruction, and nothing below claims a file that was never placed.
+    if (-not (Test-WriteRefused -Path $proposedPath -Label $settingsArtifacts.Proposed)) {
+        [System.IO.File]::WriteAllText($proposedPath, ((Format-JsonIndented -Json $proposedJson).TrimEnd("`r", "`n") + "`n"), $Utf8NoBom)
+        $proposedWritten = $true
 
-    # SAY WHICH CASE THIS IS, rather than promising preservation in a repo that had nothing to preserve.
-    # 'your keys are kept' is reassuring and, on a repo whose enable sits in settings.local.json or the
-    # user layer, simply not a statement about anything -- and a reader who trusts it stops checking.
-    $carried = @($existingSettings.PSObject.Properties | ForEach-Object { $_.Name } | Where-Object { $_ -ne 'permissions' })
-    $carriedNote = if ($carried.Count -gt 0) {
-        "your settings.json plus the permissions -- it keeps $($carried -join ', ')"
-    } else {
-        'permissions only -- .claude/settings.json holds nothing else here, so there was nothing to carry over'
-    }
-    Write-Host "  [create] $proposedPath placed (merged, strict JSON, ready to replace settings.json: $carriedNote)." -ForegroundColor Green
+        # SAY WHICH CASE THIS IS, rather than promising preservation in a repo that had nothing to preserve.
+        # 'your keys are kept' is reassuring and, on a repo whose enable sits in settings.local.json or the
+        # user layer, simply not a statement about anything -- and a reader who trusts it stops checking.
+        $carried = @($existingSettings.PSObject.Properties | ForEach-Object { $_.Name } | Where-Object { $_ -ne 'permissions' })
+        $carriedNote = if ($carried.Count -gt 0) {
+            "your settings.json plus the permissions -- it keeps $($carried -join ', ')"
+        } else {
+            'permissions only -- .claude/settings.json holds nothing else here, so there was nothing to carry over'
+        }
+        Write-Host "  [create] $proposedPath placed (merged, strict JSON, ready to replace settings.json: $carriedNote)." -ForegroundColor Green
 
-    # THE MERGED FILE IS A COPY OF SETTINGS.JSON, SO IT INHERITS WHATEVER THAT FILE WAS HIDING. A repo
-    # that gitignores '.claude/settings.json' by name -- the usual reason being an 'env' block with a
-    # token in it -- has an ignore rule that does NOT match a new neighbouring path, so this run would
-    # otherwise drop an untracked, un-ignored second copy of that secret into the tree and say nothing.
-    # The bootstrap cannot know what is in there and must not guess, so it reports the fact rather than
-    # the risk, and only in the one combination where the two files disagree.
-    $proposedIgnored = Test-PathGitIgnored -Root $ConsumerRoot -Path $proposedPath
-    if ((Test-PathGitIgnored -Root $ConsumerRoot -Path $settingsPath) -eq $true -and $proposedIgnored -eq $false) {
-        Write-Host "  [notice] .claude/settings.json is gitignored here and the merged copy beside it is NOT -- it holds every key that file held. If it was ignored to keep something out of the repo, adopt the file and delete it before you commit, or extend the ignore rule to cover it." -ForegroundColor Yellow
+        # THE MERGED FILE IS A COPY OF SETTINGS.JSON, SO IT INHERITS WHATEVER THAT FILE WAS HIDING. A repo
+        # that gitignores '.claude/settings.json' by name -- the usual reason being an 'env' block with a
+        # token in it -- has an ignore rule that does NOT match a new neighbouring path, so this run would
+        # otherwise drop an untracked, un-ignored second copy of that secret into the tree and say nothing.
+        # The bootstrap cannot know what is in there and must not guess, so it reports the fact rather than
+        # the risk, and only in the one combination where the two files disagree.
+        $proposedIgnored = Test-PathGitIgnored -Root $ConsumerRoot -Path $proposedPath
+        if ((Test-PathGitIgnored -Root $ConsumerRoot -Path $settingsPath) -eq $true -and $proposedIgnored -eq $false) {
+            Write-Host "  [notice] .claude/settings.json is gitignored here and the merged copy beside it is NOT -- it holds every key that file held. If it was ignored to keep something out of the repo, adopt the file and delete it before you commit, or extend the ignore rule to cover it." -ForegroundColor Yellow
+        }
     }
 }
 
 # --- Report ----------------------------------------------------------------------------------------
 Write-Host ""
 Write-Host "Done: $copied persona-lens(es) created, $kept already present; $scaffolded lens-scaffold(s) created, $lensKept already present; $scriptScaffolded script-scaffold(s) created, $scriptKept already present." -ForegroundColor Cyan
+if ($script:refusedWrites -gt 0) {
+    Write-Host "$($script:refusedWrites) file(s) refused -- reached through a symlink or junction; see the [refused] lines above." -ForegroundColor Yellow
+}
 if ($notInstalledIds.Count -gt 0) {
     # Directly under the closing count, because that count is what this line qualifies (inbound #302).
     Write-Host "  [notice] $($notInstalledIds.Count) of the enabled plugin(s) have no install record for this path -- a session here loads none of them, so the lenses above are in place for a specialist surface this repo does not yet have. Run this from this root (act 4 of 'Installing it yourself' in plugins/ADOPTION.md):" -ForegroundColor Yellow
@@ -1533,14 +1603,25 @@ $reminderTemplate = if ($bothIgnored -eq $true) { 'gitignored here, so git will 
 # (#363 the hook stub, #1075 what the permissions block now does, #1097 the comments) and none of them
 # made the file pasteable. Now there IS a pasteable file, so the step names the replacement first and
 # keeps the caveats only for the reader who declines it.
-if ($proposedWritten) {
+# FOUR CASES, NOT TWO (#2545): either proposal can be refused on its own -- a symlink at one leaf -- and
+# the merged one can also be missing for its own reason (the [notice] above), so each branch names only
+# the files that were actually written and claims no single cause for a file that was not.
+if ($proposedWritten -and $suggestWritten) {
     Write-Host "  3. Replace .claude/settings.json with $proposedPath -- one move, no merging. Then delete both proposals ($($reminderTemplate -f 'them'))." -ForegroundColor Gray
     Write-Host "     That file is your settings.json with the permissions already folded in: strict JSON," -ForegroundColor Gray
     Write-Host "     no comments to strip, no hooks stub, and every key you had is still in it. The" -ForegroundColor Gray
     Write-Host "     annotated $(Split-Path -Leaf $suggestPath) stays for WHY each rule is there." -ForegroundColor Gray
+} elseif ($proposedWritten) {
+    Write-Host "  3. Replace .claude/settings.json with $proposedPath -- one move, no merging. Then delete it ($($reminderTemplate -f 'it'))." -ForegroundColor Gray
+    Write-Host "     That file is your settings.json with the permissions already folded in: strict JSON," -ForegroundColor Gray
+    Write-Host "     no comments to strip, no hooks stub, and every key you had is still in it. The annotated" -ForegroundColor Gray
+    Write-Host "     proposal was NOT written -- see the [refused] line above." -ForegroundColor Gray
+} elseif (-not $suggestWritten) {
+    Write-Host "  3. No settings proposal was written this run -- see the [refused] and [notice] lines above for" -ForegroundColor Gray
+    Write-Host "     why each one was not. Resolve what they name, then re-run this bootstrap for them." -ForegroundColor Gray
 } else {
     Write-Host "  3. Copy desired parts from $suggestPath to settings.json and delete proposal ($($reminderTemplate -f 'it'))." -ForegroundColor Gray
-    Write-Host "     No merged file was written this run -- see the [notice] above -- so this one IS a" -ForegroundColor Gray
+    Write-Host "     No merged file was written this run -- see the [notice] or [refused] line above -- so this one IS a" -ForegroundColor Gray
     Write-Host "     hand-merge. Keep 'enabledPlugins' and 'extraKnownMarketplaces': they are already in" -ForegroundColor Gray
     Write-Host "     settings.json, they are what makes the plugins load, and the proposal does not" -ForegroundColor Gray
     Write-Host "     contain them. Overwrite the file with the proposal and you lose both silently." -ForegroundColor Gray
@@ -1647,7 +1728,7 @@ if (-not $ownMarketplace) {
     Write-Host "  [notice] this script's own plugin id is not in the settings chain, so the rows below could not be limited to one marketplace -- drop any plugin that is not part of this family before saving." -ForegroundColor Yellow
 }
 $registerPlugins = @($pluginNames | Sort-Object -Unique |
-    Where-Object { $_ -match '^[a-z0-9][a-z0-9-]*$' } |
+    Where-Object { $_ -cmatch '^[a-z0-9][a-z0-9-]*$' } |
     Where-Object { Test-OurMarketplace $_ })
 if ($registerPlugins.Count -eq 0) {
     Write-Host "  [notice] no enabled plugin of this marketplace was resolved -- nothing to register yet." -ForegroundColor Yellow

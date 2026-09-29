@@ -1016,6 +1016,15 @@ function Get-ReleaseNoteWording {
     return $script:ReleaseNoteWording
 }
 
+# WHICH OF THAT NOTE'S THREE SECTIONS THIS REPO'S READERS GET (inbound #2564). The wording map above can
+# rename a section but never omit one; this is the seam that omits. Names are the wording keys without
+# 'Section': Audience (what changed), Value (what it is worth), Open (what was still open). All three
+# here, which is also what an absent function means -- this repo's note is written for two readers.
+function Get-ReleaseNoteSections {
+    <# The sections the hand-written release note carries, in any order: Audience, Value, Open. #>
+    return @('Audience', 'Value', 'Open')
+}
+
 # --- The hosted page built from those notes (Dave, August 15, 2026) -------------------------------
 #
 # build-release-notes-page.ps1 turns the hand-written notes into one browsable page and, with
@@ -1232,18 +1241,35 @@ function Get-ExpectedRepoSettings {
 # its own like any other issue. Dave ruled it a shared way of working rather than this repo's own label,
 # which is what puts it in this seam -- the same 'copy' reasoning as the rungs, since what a dossier is
 # asserts nothing about the adopting repo. The handling rule lives in CONTRIBUTING-portable.md.
+#
+# AND A SIXTH, A PARKING LABEL: 'needs-decision' (issue #2519, Dave September 26, 2026). An issue that
+# ends in an open choice for the owner is not work anybody can pick up yet, and the claim and sweep
+# routes skip it by default. It is deliberately NOT 'needs-info': in dkj-policy-bwj that label means
+# blocked on the SUBMITTER -- it moves the mirrored Asana card to the blocked column and obliges a
+# question comment to the person who filed it -- and neither is true of a decision that is the owner's.
+# Same 'copy' reasoning: "waiting on the owner" asserts nothing about the adopting repo.
+#
+# AND A SEVENTH, A SECOND PARKING LABEL: 'awaiting-recurrence' (issue #2587, Dave September 28, 2026).
+# An issue with one unreproduced instance whose only remaining step is its FIRST reproducible occurrence
+# was picked up four times in one day (#2572), each pickup finding nothing to build. It is deliberately
+# NOT 'dossier': a dossier collects a problem that demonstrably recurs and stays sweepable. Once a
+# recurrence arrives the label comes off and the issue is worked, or becomes a dossier if it keeps
+# recurring. Same 'copy' reasoning: "waiting on evidence" asserts nothing about the adopting repo.
 $script:TriageLabels = @(
-    [pscustomobject]@{ Name = 'prio-1'; Color = '006B75'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
-    [pscustomobject]@{ Name = 'prio-2'; Color = 'FBCA04'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
-    [pscustomobject]@{ Name = 'prio-3'; Color = 'D93F0B'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
+    [pscustomobject]@{ Name = 'prio-1'; Color = 'FFE033'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
+    [pscustomobject]@{ Name = 'prio-2'; Color = 'F9A825'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
+    [pscustomobject]@{ Name = 'prio-3'; Color = 'E0321A'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     [pscustomobject]@{ Name = 'dossier'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
+    [pscustomobject]@{ Name = 'needs-decision'; Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-recurrence'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )
 
 function Get-TriageLabels {
     <# The canonical triage labels this workflow's consumers are invited to share -- the four
        priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'dossier', the kind label for
-       a collecting issue -- as an array of objects with Name, Color and Description (the exact fields
+       a collecting issue, and the two parking labels 'needs-decision' (an issue awaiting the owner's
+       choice) and 'awaiting-recurrence' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
        a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the
        create command for whichever of them this repo's tracker is missing; it never creates a label
        itself. Optional in the script contract -- a consumer that has not answered this seam gets the
@@ -1304,4 +1330,40 @@ function Get-CloseOutGateBand {
        Optional in the script contract: a repo that states nothing has no close-out gate at all. 0 is a
        real answer and switches the gate off without deleting this function. #>
     return $script:CloseOutGateBand
+}
+
+# --- THE FOUR 'decide' SEAMS WHOSE FALLBACK IS THIS REPO'S ANSWER (inbound #2555) -----------------
+#
+# Each of these used to be left undefined on purpose, because the shared fallback already says what this
+# repo means -- and check-script-contract could not tell that considered silence from a question nobody
+# ever put. Since #2555 it rolls every undefined 'decide' seam into one [UNANSWERED] line the session hook
+# forwards, so a considered answer has to be STATED to be told apart. Each function returns the fallback
+# on purpose; the reason is the one the contract record gives, restated in one line here.
+
+function Get-TestCommands {
+    <# No extra commands: every suite here is a *.tests.ps1, and the gate already runs those. #>
+    return @()
+}
+
+function Get-ResolvesExemptMatchers {
+    <# No matchers: this repo mirrors its issues into no second tracker, so no class of issue must stay
+       open past the merge that resolves it. #>
+    return @()
+}
+
+function Get-ReleaseNoteTaskLink {
+    <# No task form: this repo's note readers decide whether to take a version, and a list of solved
+       tasks is not what they ask for -- so the audience section stays drafted from the entries. #>
+    return $null
+}
+
+function Get-ReleasePageMasthead {
+    <# No marks: this repo has no wordmark, so the masthead stays the eyebrow, title and subtitle. #>
+    return @()
+}
+
+function Get-DeclinedAdoptions {
+    <# Nothing declined. The adoption section that reads this is skipped in the repo that publishes the
+       workflow, so the answer is inert here -- stated anyway, because an unstated one reads as unasked. #>
+    return @()
 }

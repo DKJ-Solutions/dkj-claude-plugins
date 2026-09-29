@@ -1174,10 +1174,10 @@ function New-ScratchPath {
         [switch]$Directory
     )
 
-    if ($Label -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+    if ($Label -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
         throw "New-ScratchPath: -Label '$Label' is not a single safe path segment (letters, digits, '.', '_' and '-', not starting with a dot)."
     }
-    if ($Extension -and $Extension -notmatch '^\.[A-Za-z0-9]+$') {
+    if ($Extension -and $Extension -cnotmatch '^\.[A-Za-z0-9]+$') {
         throw "New-ScratchPath: -Extension '$Extension' is not a plain dotted extension (e.g. '.md')."
     }
 

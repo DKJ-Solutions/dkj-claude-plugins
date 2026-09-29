@@ -194,7 +194,7 @@ Four blocks on the page, and each is there because the other three cannot supply
 | **how to see the change** | the page under review named once -- with the tag or condition the change depends on -- and the steps a reviewer has to take before the change is even visible: which device, which viewport, which menu to open, and a clean-browser start where the route depends on one. No URL can say this, and a change that is invisible without it reads as *not shipped* |
 | **one card per market** | the market code and its domain, a **QR code to the preview**, the preview and control links as text beneath it, and the expected copy in that market's language where the change has copy in it |
 | **what is proven, and what is asked** | which gates ran and what they verified mechanically, then the one question the reviewer is being asked. This is the half that makes the link a self-contained handover rather than a bookmark needing the transcript beside it |
-| **the paste-ready block, for the requester** | where the issue has a linked Asana task: the block `build-golive-block.ps1` prints, **as it prints it** -- the text between its two `---` rules, in a `<pre>`, with a copy button -- and one line above it naming the Asana task it is for and why the page itself is not linked. The other three blocks are for the **reviewer**; this one is for the **requester**, who reads the Asana task and cannot open this page |
+| **the paste-ready block, for the requester** | where the issue has a linked Asana task: the block `build-golive-block.ps1` writes, **as it writes it** (its `-OutFile`) -- the text between its two `---` rules, in a `<pre>`, with a copy button -- and one line above it naming the Asana task it is for and why the page itself is not linked. The other three blocks are for the **reviewer**; this one is for the **requester**, who reads the Asana task and cannot open this page |
 
 Two things the cards inherit from the consumer's own preview rule rather than restating:
 
@@ -213,15 +213,17 @@ a handover that added the message as a fourth block, with a copy button, did the
 **That message already has a format, and it has one owner.** It is the paste-ready block of
 [`WORKFLOW-portable.md`](WORKFLOW-portable.md#the-paste-ready-block----written-before-the-close-by-the-session-that-shipped-the-work)
 -- where to look, when it is planned to go live, what is asked of the requester -- and
-`build-golive-block.ps1` writes it. **Embed its printout; do not compose a block of your own beside
-it.** Run it without `-Post` to print the text for the page, and with `-Post` for the issue: one script
-on the same inputs, so the block on the issue and the block on the page cannot drift apart. A hand-written
-block with its own headings is the second copy of one rule that this workflow keeps removing.
+`build-golive-block.ps1` writes it. **Embed its output; do not compose a block of your own beside
+it.** Run it with `-OutFile` for the page and with `-Post` for the issue, on the same inputs and the
+same `-ProseFile`, so the block on the issue and the block on the page cannot drift apart. The file is
+the faithful copy: the block carries accents and dashes that a console printout can lose. A
+hand-written block with its own headings is the second copy of one rule that this workflow keeps
+removing.
 
 **Where the block needs different words, the change goes into the script**, through the inbound route,
-so the issue and every page change together. That covers the requester's language too: the measured
-handover was written in Dutch, with its own headings, and a store that needs that has a script to
-change, not a page to hand-edit.
+so the issue and every page change together. The requester's language was the first such change.
+The measured handovers were written in Dutch, with their own headings, and the script now writes that
+shape itself ([#2507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2507)).
 
 **The block's live URLs ARE the control, and no second link is added by hand.** A requester who
 opens the result link first carries that domain's preview cookie, so a bare live URL opened before the

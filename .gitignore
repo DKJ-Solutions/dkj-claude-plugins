@@ -75,3 +75,12 @@ dkj-policy/releases/page/
 # note: `git worktree remove` leaves the empty `.claude/worktrees/` directory behind (measured), so an
 # empty directory here is not itself evidence that a worktree is still registered.
 /.claude/worktrees/
+
+# WRANGLER'S OWN ACCOUNT CACHE, which `npx wrangler` writes into the directory it runs from (#2581). It
+# holds the Cloudflare account id and the account name, and that name is an e-mail address. This repo is
+# PUBLIC, so the cache is personal information and never belongs in the tree. bbcbdfd7 committed it by
+# accident from a run at the repo root, and the rule above only covers the page's own scratch directory.
+#
+# ANCHORED, like /Microsoft/: the cause is a run at the root, and the rule must not silence a
+# legitimately-named folder deeper in the tree.
+/.wrangler/

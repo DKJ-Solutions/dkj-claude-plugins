@@ -203,6 +203,27 @@
     version number -- while -SkipLint skips a tool. Folding them into one flag would let someone skipping
     a slow lint run also, silently, cut a minor with nothing in it for a consumer.
 
+.PARAMETER LivePushRecord
+    The live-push record live-preflight wrote for this release's push (#2570, #2586): one 'live <path>'
+    or 'hold <path>' line per theme file in the range, edited by hand where a file was held back. For a
+    repo with a live stage, cutting after the push (push-then-cut).
+
+    WHAT IT CHANGES, both documents from the one input, so the two cannot disagree the way they did at a
+    BWJ store's v1.3.0. Each entry's own changed paths are read from its 'merge: <branch> (#NN)' commit.
+    An entry that touched a 'hold' path is NOT LIVE: the GitHub body moves it from 'What landed' to
+    'Not live yet', naming the held files, and the audience note leaves it out, so it goes into the note
+    of the release that ships it. An entry whose merge commit cannot be found is reported by name and
+    stays under 'What landed', because nothing about it can be shown. The entries-form audience note keeps
+    it too, flagged. The task form leaves it out, because it may list only what the record shows is live.
+
+    A malformed record stops the cut before anything is written; see ConvertFrom-LivePushRecord.
+
+.PARAMETER NoLivePushRecord
+    State that a repo with a live stage is cutting without a live-push record. Without this switch, a
+    repo that drafts its audience note as solved tasks (Get-ReleaseNoteTaskLink) is refused there,
+    because that note may list only what is live, and without the record nothing can say what is. A
+    repo in the entries form only gets a warning.
+
 .EXAMPLE
     ./scripts/release/cut-release.ps1 -Version 1.0.0 -Title "First official release"
 
@@ -249,7 +270,10 @@ param(
     [switch]$SkipTierGate,
     [switch]$SkipSignificanceGate,
     # Lanes for the test gate; 0 keeps Invoke-TestSuiteGate's own default. See .PARAMETER MaxParallel.
-    [int]$MaxParallel = 0
+    [int]$MaxParallel = 0,
+    # What the live push carried, and the stated absence of it. See .PARAMETER LivePushRecord.
+    [string]$LivePushRecord = '',
+    [switch]$NoLivePushRecord
 )
 $ErrorActionPreference = 'Stop'
 
@@ -322,6 +346,11 @@ if ($absent.Count -gt 0) {
 # Get-SeamValue (issue #885, group A): this used to be a private copy defined below; it is now the one
 # definition every seam reader in this workflow shares. See seam-lib.ps1's synopsis for why.
 . (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
+# The live-push record and the rules the two documents apply to it (#2570, #2586), plus the quoted-path
+# decode for the per-entry diffs they read. Unguarded: a cut handed a record it cannot parse must fail at
+# load, not write a GitHub body that calls everything live.
+. (Join-Path $PSScriptRoot '..\lib\live-record-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\git-porcelain-lib.ps1')
 # Get-InstallRecord / Test-PluginInstalledHere, for the self-consumption reminder at the foot of this
 # script (#1445). It reads the install administration to decide whether a `plugin update` command is
 # runnable in THIS repo at all -- a question `.claude/settings.json` cannot answer. Dot-sourced here for
@@ -392,6 +421,61 @@ $consumerBumps = @(Get-SeamValue -Name 'Get-ReleaseConsumerBumps', 'Get-ReleaseH
 # "select nothing", would empty the section in every consumer the moment they took the plugin update.
 $audienceTier = Get-EntryAudienceTier
 if ($null -eq $audienceTier) { $audienceTier = 2 }
+
+# AND WHICH OF THAT DOCUMENT'S THREE SECTIONS ITS READERS GET AT ALL (inbound #2564). Read and validated
+# HERE, before anything is written, so a misspelt answer stops the cut at the top instead of after the
+# version moved. $null (not defined) is all three -- the document every repo got before this seam.
+try {
+    $noteSections = Resolve-ReleaseNoteSections -Answer (Get-SeamValue -Name 'Get-ReleaseNoteSections' -Default $null)
+} catch {
+    # Guarded: the seam is consumer code, so the message it throws is foreign text (check-report-lib).
+    Write-Error "$(Format-SafeProseToken -Value $_.Exception.Message) Nothing was written."
+    exit 1
+}
+
+# AND WHETHER ITS AUDIENCE SECTION IS DRAFTED AS SOLVED TASKS, AND WHAT THE LIVE PUSH CARRIED (#2586,
+# #2570). Both are read and validated HERE, before anything is written, for the reason the sections seam
+# above is: a misspelt answer or a malformed record must stop the cut at the top.
+#
+# THE REFUSAL IS NARROW ON PURPOSE. Only a repo that asked for the task form AND has a live stage is
+# stopped without a record. Its note may list only what is live (the owner's third rule, #2564), and with
+# no record nothing can say what is, so the draft would repeat v1.3.0's contradiction. Every other repo
+# with a live stage gets a warning, because refusing there would break a cut that worked yesterday.
+# -NoLivePushRecord is the stated way through, not a skip: it says there was no push to record.
+if ($LivePushRecord -and $NoLivePushRecord) { Write-Error "-LivePushRecord names a record and -NoLivePushRecord says there is none -- use one. Nothing was written."; exit 1 }
+try {
+    $taskLink = Resolve-ReleaseNoteTaskLink -Answer (Get-SeamValue -Name 'Get-ReleaseNoteTaskLink' -Default $null)
+} catch {
+    Write-Error "$(Format-SafeProseToken -Value $_.Exception.Message) Nothing was written."
+    exit 1
+}
+$liveRecord = $null
+if ($LivePushRecord) {
+    if (-not (Test-Path -LiteralPath $LivePushRecord -PathType Leaf)) {
+        Write-Error "-LivePushRecord: no file at '$(Format-SafePathToken -Value $LivePushRecord)'. live-preflight prints the path it wrote. Nothing was written."
+        exit 1
+    }
+    try {
+        $liveRecord = ConvertFrom-LivePushRecord -Text ([System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $LivePushRecord).ProviderPath))
+    } catch {
+        Write-Error "$(Format-SafeProseToken -Value $_.Exception.Message) Nothing was written."
+        exit 1
+    }
+}
+$liveStage = ([string](Get-SeamValue -Name 'Get-LiveStage' -Default '')).Trim()
+if ($liveStage -and -not $liveRecord -and -not $NoLivePushRecord) {
+    if ($taskLink) {
+        Write-Error @"
+This repo has a live stage and drafts its audience note as solved tasks, which may list only what is
+live -- and no live-push record was given, so nothing can say what the push carried. Nothing was written.
+
+  -LivePushRecord <file>   the record live-preflight wrote (edit 'live' to 'hold' for anything held back)
+  -NoLivePushRecord        there was no live push for this release
+"@
+        exit 1
+    }
+    Write-Warning "This repo has a live stage and no -LivePushRecord was given, so the GitHub body lists every merged entry under 'What landed', live or not. Pass the record live-preflight wrote, or -NoLivePushRecord to state there was no push."
+}
 
 # AND WHERE THAT DOCUMENT GOES, which until now was the one path in this file with no knob (inbound
 # #616, reported from a consumer). Everything around it was already answered per repo -- the folder
@@ -1111,7 +1195,157 @@ if ($removedFromAudience.Count -gt 0) {
 }
 $noteWithheldNote = Format-RetractionWithheldNote -Retractions $retractions -Removed $removedFromAudience
 
+# --- What the live push carried, per entry (#2570, #2586) ------------------------------------------
+# ONE STATE PER ENTRY, AND BOTH DOCUMENTS READ IT. That is the requirement both issues share: at v1.3.0 the
+# GitHub body and the audience note were decided separately and contradicted each other. Only computed
+# when a record was given; without one, every entry keeps the reading it had before this block existed.
+#
+# AN ENTRY'S PATHS ARE ITS MERGE COMMIT'S DIFF AGAINST ITS FIRST PARENT, found by the 'merge: <branch>
+# (#NN)' subject ship-pr writes. That is the branch's net change, a trunk merge into it included, and it
+# asks nothing of GitHub. An entry with no such commit (a squash, a UI merge) is 'unknown', named on the
+# console, and kept in both lists: dropping it would be a guess in the other direction.
+$entryStates = @{}
+$unknownEntries = @()
+if ($liveRecord) {
+    $baseTag = "v$current"
+    $logLines = @()
+    if (-not (git tag --list $baseTag)) {
+        Write-Warning "live-push record: there is no $baseTag tag to measure the merges from, so no entry could be checked against the record."
+    } else {
+        $logCap = Invoke-NativeCapture -FilePath 'git' -Arguments @('log', '--first-parent', '--format=%H%x09%s', "$baseTag..HEAD")
+        if ($logCap.ExitCode -eq 0) {
+            $logLines = @(($logCap.Output | Out-String) -split "`r?`n" | Where-Object { $_.Trim() })
+        } else {
+            Write-Warning "live-push record: git log $baseTag..HEAD failed (exit $($logCap.ExitCode)), so no entry could be checked against the record."
+        }
+    }
+    foreach ($e in $entries) {
+        $sha = Find-BranchMergeCommit -LogLines $logLines -Branch (Get-EntryDeclaredBranch -EntryText $e)
+        $paths = $null
+        if ($sha) {
+            # core.quotePath=true holds the wire to ASCII and Convert-GitQuotedPath decodes it -- the repair
+            # .claude/rules/language-layers.md prescribes, and a theme is where an accented path turns up.
+            $diffCap = Invoke-NativeCapture -FilePath 'git' -Arguments @('-c', 'core.quotePath=true', 'diff', '--no-renames', '--name-only', "$sha^1", $sha)
+            if ($diffCap.ExitCode -eq 0) {
+                $paths = @(($diffCap.Output | Out-String) -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ } | ForEach-Object { Convert-GitQuotedPath -Path $_ })
+            }
+        }
+        $state = Get-EntryLiveState -ChangedPaths $paths -Record $liveRecord
+        $entryStates[$e] = $state
+        if ($state.State -eq 'unknown') { $unknownEntries += $e }
+    }
+}
+$notLive = @{}
+foreach ($e in @($entryStates.Keys)) {
+    if ($entryStates[$e].State -eq 'not-live') { $notLive[$e] = @($entryStates[$e].HeldPaths) }
+}
+
+function Get-EntryNoteName {
+    <# The name an entry is called by in a note's hint: its branch, else its PR title, else its heading. #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$EntryText)
+    $b = Get-EntryDeclaredBranch -EntryText $EntryText
+    if ($b) { return $b }
+    return ((Format-GitHubBodyItem -EntryText $EntryText) -replace '^- \[?', '' -replace '\]\(.*$', '')
+}
+
+function Get-PullRequestClosedIssues {
+    <#
+        The issues a merged PR closed, as { Number; Title; Body } -- two gh reads, bounded. Throws on a
+        failed read: the task form is the audience note's CONTENT, so a draft built past an unreadable PR
+        would silently drop a solved task, and nothing has been written yet when this runs.
+    #>
+    param([Parameter(Mandatory)][int]$Number)
+    $repoArgs = @()
+    $repoName = [string](Get-SeamValue -Name 'Get-RepoName' -Default '')
+    if ($repoName.Trim()) { $repoArgs = @('--repo', $repoName.Trim()) }
+    $prCap = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('pr', 'view', "$Number", '--json', 'closingIssuesReferences') + $repoArgs) `
+        -Utf8 -DiscardStderr -TimeoutSeconds $script:NativeCaptureNetworkTimeoutSeconds
+    if (-not (Test-NativeExitMeasured -Capture $prCap) -or $prCap.ExitCode -ne 0) { throw "gh pr view $Number failed ($(Get-NativeExitLabel -Capture $prCap))." }
+    $refs = @((($prCap.Output | Out-String) | ConvertFrom-Json).closingIssuesReferences | Where-Object { $_ })
+    $issues = @()
+    foreach ($r in $refs) {
+        $n = [int]$r.number
+        $isCap = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'view', "$n", '--json', 'number,title,body') + $repoArgs) `
+            -Utf8 -DiscardStderr -TimeoutSeconds $script:NativeCaptureNetworkTimeoutSeconds
+        if (-not (Test-NativeExitMeasured -Capture $isCap) -or $isCap.ExitCode -ne 0) { throw "gh issue view $n failed ($(Get-NativeExitLabel -Capture $isCap))." }
+        $j = ($isCap.Output | Out-String) | ConvertFrom-Json
+        $issues += [pscustomobject]@{ Number = $n; Title = [string]$j.title; Body = [string]$j.body }
+    }
+    return @($issues)
+}
+
+# THE AUDIENCE NOTE LEAVES OUT WHAT IS NOT LIVE, in both forms -- the owner's third rule (#2564): its
+# reader asks only whether their task is solved, so a qualifying clause ("not live yet") does not rescue
+# an item. What is left out is NAMED in a hint the writer deletes, because a silently shorter list is the
+# failure this workflow keeps finding in published records.
+$leftOut = @()
+if ($notLive.Count -gt 0) {
+    # A foreach, not Where-Object: $leftOut is appended to as the entries are split, and a filter with a
+    # side effect is the harder of the two to read. (Inside a function, '+=' in a pipeline block would also
+    # land in a child scope and be lost.)
+    $kept = @()
+    foreach ($e in $audienceEntries) {
+        if ($notLive.ContainsKey($e)) { $leftOut += "$(Get-EntryNoteName -EntryText $e) -- not live yet: $(@($notLive[$e]) -join ', ')" }
+        else { $kept += $e }
+    }
+    $audienceEntries = $kept
+}
+
 $cutNote = ($consumerBumps -contains $bumpType)
+
+# THE TASK FORM (#2586): one item per solved task, where the repo answered Get-ReleaseNoteTaskLink. An
+# audience entry makes an item only when all three of the owner's rules hold -- it carries a task (an
+# issue it closed has the marker), it is a storefront change (it touched a path in the live-push record),
+# and it is live (none of those paths is held). The last two are only testable with a record; without one
+# (a repo with no live stage, or -NoLivePushRecord) the marker is the whole test.
+$taskItems = $null
+if ($cutNote -and $taskLink) {
+    $items = @()
+    $seenTask = @{}
+    foreach ($e in $audienceEntries) {
+        $name = Get-EntryNoteName -EntryText $e
+        if ($liveRecord) {
+            $st = $entryStates[$e]
+            if (-not $st -or $st.State -eq 'unknown') { $leftOut += "$name -- its merge commit was not found, so it could not be checked against the live-push record"; continue }
+            if (-not $st.Storefront) { $leftOut += "$name -- it changed no storefront file"; continue }
+        }
+        $pr = Get-EntryPullRequestLink -EntryText $e
+        if (-not $pr) { $leftOut += "$name -- it has no PR link, so its issues could not be read"; continue }
+        try {
+            $closed = @(Get-PullRequestClosedIssues -Number $pr.Number)
+        } catch {
+            Write-Error "The audience note's task form could not read PR #$($pr.Number): $(Format-SafeProseToken -Value $_.Exception.Message) Nothing was written -- run the cut again once gh answers."
+            exit 1
+        }
+        $withTask = 0
+        foreach ($iss in $closed) {
+            $id = Get-TaskMarkerId -Body $iss.Body -Marker $taskLink.Marker
+            if (-not $id) { continue }
+            $withTask++
+            if ($seenTask.ContainsKey($id)) { continue }
+            $seenTask[$id] = $true
+            $items += [pscustomobject]@{ Title = $iss.Title; Url = $taskLink.Url.Replace('{0}', $id) }
+        }
+        if ($withTask -eq 0) { $leftOut += "$name -- no issue it closed is linked to a task" }
+    }
+    $taskItems = Format-ReleaseTaskItems -Items $items -Label $taskLink.Label -EntryLevel (Get-EntryHeadingLevel)
+} elseif ($unknownEntries.Count -gt 0) {
+    foreach ($e in @($audienceEntries | Where-Object { $unknownEntries -contains $_ })) {
+        $leftOut += "$(Get-EntryNoteName -EntryText $e) -- KEPT, but its merge commit was not found, so check by hand that it is live"
+    }
+}
+if ($leftOut.Count -gt 0) {
+    # '<' and '>' are stripped so a path or a branch cannot close the comment early.
+    $lines = @($leftOut | ForEach-Object { '- ' + ($_ -replace '[<>]', '') })
+    $leftNote = "<!-- LEFT OUT OF THIS SECTION, and why (the live-push record and the task links decided it):`n     " +
+        ($lines -join "`n     ") + "`n     What is not live yet goes into the note of the release that ships it. Delete this comment when you are done. -->"
+    $noteWithheldNote = if ($noteWithheldNote) { "$noteWithheldNote`n`n$leftNote" } else { $leftNote }
+}
+if ($liveRecord) {
+    Write-Host "  live-push record: $($notLive.Count) of $($entries.Count) entries not live (listed under 'Not live yet'), $($unknownEntries.Count) not matched to a merge commit." -ForegroundColor DarkGray
+    foreach ($e in $unknownEntries) { Write-Warning "no 'merge: <branch> (#NN)' commit found for $(Get-EntryNoteName -EntryText $e) -- it stays under 'What landed'; check by hand that it is live." }
+}
+
 $noteRelPath = "$noteRootRelPath/$notesDirName/$new.md"
 if ($cutNote) {
     $noteWording = Get-SeamValue -Name 'Get-ReleaseNoteWording', 'Get-InternalNoteWording' -Default @{}
@@ -1124,7 +1358,7 @@ if ($cutNote) {
     $noteLinkPrefix = Get-EntryLinkPrefix -NoteRelPath $noteRelPath -ChangelogRelPath $changelogRel
     $noteContent = Build-ReleaseNoteDraft -Entries $audienceEntries -Version $new -Date $today `
         -Type $typeLabel -Title $Title -Wording $noteWording -LinkPrefix $noteLinkPrefix `
-        -AudienceTier $audienceTier -WithheldNote $noteWithheldNote
+        -AudienceTier $audienceTier -WithheldNote $noteWithheldNote -Sections $noteSections -TaskItems $taskItems
 }
 
 # --- Write the release-notes file -------------------------------------------------------------
@@ -1156,7 +1390,7 @@ $bodyPointer = if ($cutNote) {
 } else {
     ''
 }
-$bodyContent = Build-GitHubReleaseBody -Entries $entries -Version $new -Title $Title -NotePointer $bodyPointer
+$bodyContent = Build-GitHubReleaseBody -Entries $entries -Version $new -Title $Title -NotePointer $bodyPointer -NotLive $notLive
 
 $plannedFiles = @($notesRelPath, $bodyRelPath)
 if ($cutNote) { $plannedFiles += @($noteRelPath) }
@@ -1354,7 +1588,10 @@ function Write-FollowUpSteps {
     Write-Host ""
     Write-Host "Still to write by hand (commit it straight onto main -- the release-notes exception):" -ForegroundColor Cyan
     Write-Host "  - $noteRelPath"
-    if ($audienceEntries.Count -gt 0) {
+    if ($null -ne $taskItems) {
+        Write-Host "      the audience section is a DRAFT of solved tasks (titled from their issues -- rewrite each in plain words);"
+        Write-Host "      what it left out, and why, is in the comment beneath its heading."
+    } elseif ($audienceEntries.Count -gt 0) {
         Write-Host "      the audience section is a DRAFT (the tier-$audienceTier entries, in the words their authors wrote for a reviewer);"
         Write-Host "      'what it is worth' and 'what was still open' are empty and cannot be generated."
     } else {

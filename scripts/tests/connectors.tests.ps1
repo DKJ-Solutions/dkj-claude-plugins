@@ -119,7 +119,10 @@ function New-FixtureConsumer {
     $settings = '{ "enabledPlugins": ' + $enabled + ' }'
     [System.IO.File]::WriteAllText((Join-Path $Root '.claude\settings.json'), $settings)
     foreach ($id in $ExtensionIds) {
-        $p = Join-Path $extDir "$id-extension.md"
+        # Written spelling only ('<g>-<id>-extension.md' is RETIRED for Lens, #2292): this helper builds
+        # an ordinary fixture consumer, not one exercising the retired-spelling state, which section 14
+        # builds for itself.
+        $p = Join-Path $extDir "specialist-$id-lens.md"
         [System.IO.File]::WriteAllText($p, "---`nid: $($id.Split('-')[1])`ngroup: $($id.Split('-')[0])`n---`nfixture")
     }
 }
@@ -1915,179 +1918,96 @@ exit 1
     Assert-NotMatch 'Could not resolve to a Repository' $r.Out 'unparseable answer: and NOT as a repository nobody can see'
     Assert-NotMatch 'still being written' $r.Out 'unparseable answer: nor as a short read -- gh exited 0 with a whole (if broken) capture'
 
-    # --- 14. The lens-naming roll-up: the retirement condition, end to end (#2289 / #2298) ---------
-    # #2289 built the roll-up and #2294 landed it; its own verdict logic arrived UNTESTED, and not by
-    # oversight: it fires only on a FULL-REGISTER sweep, which is exactly what -Manifest -- this
-    # suite's isolation everywhere else -- switches off. So none of the three endings, the grouping,
-    # the per-connector line or the silence on a narrowed run was exercised by anything.
-    # -ConnectorsRootOverride is the seam that closes it, and it exists for this and nothing else.
-    Write-Host "`n-- 14. the lens-naming roll-up (#2289 / #2298) --" -ForegroundColor Cyan
+    # --- 14. Check 7: a lens under the retired spelling, which nothing reads any more (#2591) ------
+    # #2292 emptied the Lens row's AlsoRead, so '<g>-<id>-extension.md' is resolved by no reader. Check 7
+    # used to be the [LENS-RETIREMENT] roll-up that asked whether that retirement could happen; it now
+    # reports the one thing still worth knowing afterwards: a consumer whose lens silently went unread.
+    # Every case runs under -Manifest, the suite's usual isolation, because the finding is about the
+    # one consumer in front of it and needs no register-wide sweep.
+    Write-Host "`n-- 14. check 7: a lens under the retired spelling (#2591) --" -ForegroundColor Cyan
 
-    # A consumer holding lens files in a chosen spelling, and a register naming consumers.
+    # A consumer holding lens files in a chosen spelling, and a one-manifest register pointing at it.
     #
     # THE SPELLINGS ARE LITERALS HERE, DELIBERATELY, against this tree's own rule that a caller asks
     # Get-SpecialistFileShapes rather than composing a name. A fixture that asks the code under test
-    # what a spelling is asserts nothing -- it would agree with a wrong table as readily as a right
-    # one. The cost is stated rather than hidden: on the day the Lens row's AlsoRead empties (#2292),
-    # 14b and 14e stop having a subject and fail. That is the correct signal at exactly that moment,
-    # and the retirement's own checklist is where it is answered.
+    # what a spelling is asserts nothing -- and the retired one is no longer in that table to ask.
     function New-LensConsumer {
         param(
             [Parameter(Mandatory = $true)][string]$Path,
-            [ValidateSet('written', 'retired', 'mixed', 'none')][string]$Spelling = 'written',
-            [string[]]$Id = @('06-16', '06-17')
+            [ValidateSet('written', 'retired', 'mixed', 'both')][string]$Spelling = 'written',
+            [string[]]$Id = @('06-16', '06-17'),
+            [string[]]$Extra = @()
         )
         $extDir = Join-Path $Path '.claude\specialists\lenses'
         New-Item -ItemType Directory -Path $extDir -Force | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $Path '.claude\settings.json'),
             '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true } }')
-        if ($Spelling -eq 'none') { return }
         $i = 0
         foreach ($id in $Id) {
             $i++
-            $useWritten = switch ($Spelling) {
-                'written' { $true }
-                'retired' { $false }
-                default   { $i -eq 1 }   # 'mixed': one of each, which is the state no single file shows
+            $names = switch ($Spelling) {
+                'written' { @("specialist-$id-lens.md") }
+                'retired' { @("$id-extension.md") }
+                'both'    { @("specialist-$id-lens.md", "$id-extension.md") }
+                default   { if ($i -eq 1) { @("specialist-$id-lens.md") } else { @("$id-extension.md") } }   # 'mixed': different ids
             }
-            $name = if ($useWritten) { "specialist-$id-lens.md" } else { "$id-extension.md" }
-            [System.IO.File]::WriteAllText((Join-Path $extDir $name), "---`nid: $($id.Split('-')[1])`ngroup: $($id.Split('-')[0])`n---`nfixture")
+            foreach ($name in $names) {
+                [System.IO.File]::WriteAllText((Join-Path $extDir $name), "---`nid: $($id.Split('-')[1])`ngroup: $($id.Split('-')[0])`n---`nfixture")
+            }
         }
+        foreach ($name in $Extra) { [System.IO.File]::WriteAllText((Join-Path $extDir $name), 'not a lens') }
     }
-    function New-LensRegister {
-        <# A register directory of one manifest per connector, returned as its path. #>
-        param([Parameter(Mandatory = $true)][hashtable[]]$Connector)
+    function New-LensManifest {
+        <# One manifest for one fixture consumer, returned as its path. #>
+        param([Parameter(Mandatory = $true)][string]$Repo, [Parameter(Mandatory = $true)][string]$Leaf)
         $dir = Join-Path $LensFixtureRoot "register-$([guid]::NewGuid().ToString('n'))"
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        $n = 0
-        foreach ($c in $Connector) {
-            $n++
-            $obj = [ordered]@{
-                repo          = $c.Repo
-                visibility    = 'private'
-                localCheckout = $c.Checkout
-                plugins       = @([ordered]@{ id = 'dkj-subagents-alpha@dkj-claude-plugins'; extensions = @() })
-            }
-            [System.IO.File]::WriteAllText((Join-Path $dir "c$n.json"), ($obj | ConvertTo-Json -Depth 8))
+        # Relative to the repo root, so '..\..\<fixture>\<leaf>' -- the shape the two BWJ manifests carry.
+        $obj = [ordered]@{
+            repo          = $Repo
+            visibility    = 'private'
+            localCheckout = '..\..\' + (Split-Path $LensFixtureRoot -Leaf) + '\' + $Leaf
+            plugins       = @([ordered]@{ id = 'dkj-subagents-alpha@dkj-claude-plugins'; extensions = @() })
         }
-        return $dir
+        $path = Join-Path $dir 'c1.json'
+        [System.IO.File]::WriteAllText($path, ($obj | ConvertTo-Json -Depth 8))
+        return $path
     }
-    # The fixture as the manifests must spell it: relative to the repo root, so '..\..\<leaf>' -- the
-    # same shape the two BWJ manifests already carry.
-    $lensRel = '..\..\' + (Split-Path $LensFixtureRoot -Leaf)
-    New-LensConsumer -Path (Join-Path $LensFixtureRoot 'over-a')    -Spelling 'written'
-    New-LensConsumer -Path (Join-Path $LensFixtureRoot 'over-b')    -Spelling 'written'
-    New-LensConsumer -Path (Join-Path $LensFixtureRoot 'retired-a') -Spelling 'retired'
-    New-LensConsumer -Path (Join-Path $LensFixtureRoot 'mixed-a')   -Spelling 'mixed'
-    New-LensConsumer -Path (Join-Path $LensFixtureRoot 'empty-a')   -Spelling 'none'
+    New-LensConsumer -Path (Join-Path $LensFixtureRoot 'written') -Spelling 'written' -Extra @('notes-extension.md', '6-16-extension.md')
+    New-LensConsumer -Path (Join-Path $LensFixtureRoot 'retired') -Spelling 'retired'
+    New-LensConsumer -Path (Join-Path $LensFixtureRoot 'mixed')   -Spelling 'mixed'
+    New-LensConsumer -Path (Join-Path $LensFixtureRoot 'both')    -Spelling 'both'
 
-    # --- 14a. Every connector over -> the window opens, and says what it is NOT -------------------
-    $reg = New-LensRegister -Connector @(
-        @{ Repo = 'fixture/over-a'; Checkout = "$lensRel\over-a" },
-        @{ Repo = 'fixture/over-b'; Checkout = "$lensRel\over-b" })
-    $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Equal 0 $r.Code 'all over: exit code 0 -- the roll-up counts nothing'
-    Assert-Match '\[LENS-RETIREMENT\] ALL 2 CONNECTORS ARE OVER' $r.Out 'all over: the verdict fires and names the register size'
-    Assert-Match 'deliberate act with its own issue' $r.Out 'all over: it says plainly that this is not an instruction to perform the retirement'
-    Assert-Match 'keyed on plugin CACHES' $r.Out 'all over: and carries the bound -- one of the four kinds'
-    Assert-NotMatch 'NOT YET' $r.Out 'all over: and not the negative verdict as well'
+    # --- 14a. Every lens on the written spelling -> silent, and look-alike names are not the shape --
+    $r = Invoke-Ps $Script ($base + @('-Manifest', (New-LensManifest -Repo 'fixture/written' -Leaf 'written')))
+    Assert-Equal 0 $r.Code 'written: exit code 0'
+    Assert-NotMatch 'retired spelling' $r.Out 'written: no finding -- and neither notes-extension.md nor 6-16-extension.md is the retired shape'
 
-    # --- 14b. One connector still on the also-read spelling -> NOT YET ----------------------------
-    $reg = New-LensRegister -Connector @(
-        @{ Repo = 'fixture/over-a';    Checkout = "$lensRel\over-a" },
-        @{ Repo = 'fixture/retired-a'; Checkout = "$lensRel\retired-a" })
-    $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Equal 0 $r.Code 'not yet: exit code 0 -- a consumer that has not migrated is in breach of nothing'
-    Assert-Match '\[LENS-RETIREMENT\] NOT YET: 1 of 2 connectors' $r.Out 'not yet: the verdict counts the ones still behind'
-    Assert-Match 'the condition is FALSE' $r.Out 'not yet: and states the condition plainly'
-    Assert-Match 'not over:  fixture/retired-a' $r.Out 'not yet: the grouping names which connector it is'
-    Assert-NotMatch 'ALL 2 CONNECTORS ARE OVER' $r.Out 'not yet: the green verdict does not also fire'
-    Assert-NotMatch 'NOT the full list' $r.Out 'not yet: with full coverage it does NOT claim the list is partial'
+    # --- 14b. Only the retired spelling -> [ERROR], because those lenses are read by nothing -------
+    $r = Invoke-Ps $Script ($base + @('-Manifest', (New-LensManifest -Repo 'fixture/retired' -Leaf 'retired')))
+    Assert-Equal 1 $r.Code 'retired: exit code 1 -- a lens nobody reads is a real loss'
+    Assert-Match '\[ERROR\].*2 lens file\(s\) under the retired spelling' $r.Out 'retired: counted as an error, with the number of files'
+    Assert-Match "e\.g\. '06-16-extension\.md'" $r.Out 'retired: it names one example rather than the whole list'
+    Assert-Match 'git mv 06-16-extension\.md specialist-06-16-lens\.md' $r.Out 'retired: and the rename that repairs it, composed from the table'
+    Assert-Match 'fixture/retired' $r.Out 'retired: attributed to its connector'
+    Assert-NotMatch 'leftover' $r.Out 'retired: and not the leftover INFO -- nothing sits beside them'
 
-    # --- 14c. A checkout this machine does not hold -> NOT ANSWERABLE, never a green light --------
-    $reg = New-LensRegister -Connector @(
-        @{ Repo = 'fixture/over-a'; Checkout = "$lensRel\over-a" },
-        @{ Repo = 'fixture/gone';   Checkout = 'nonexistent-fixture-path' })
-    $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Equal 0 $r.Code 'absent: exit code 0'
-    Assert-Match '\[LENS-RETIREMENT\] NOT ANSWERABLE FROM THIS MACHINE' $r.Out 'absent: the middle ending fires'
-    Assert-Match '1 of 2 connectors measured' $r.Out 'absent: it says how much of the register it managed'
-    Assert-Match 'none of them is behind' $r.Out 'absent: and why this arm rather than NOT YET'
-    Assert-NotMatch 'ALL 2 CONNECTORS ARE OVER' $r.Out 'absent: the green verdict is NOT reached on a partial read'
+    # --- 14c. A written lens for one id and a retired one for another -> the retired id is the error --
+    $r = Invoke-Ps $Script ($base + @('-Manifest', (New-LensManifest -Repo 'fixture/mixed' -Leaf 'mixed')))
+    Assert-Equal 1 $r.Code 'mixed: exit code 1 -- the written lens of 06-16 does not cover 06-17'
+    Assert-Match "\[ERROR\].*1 lens file\(s\) under the retired spelling.*'06-17-extension\.md'" $r.Out 'mixed: exactly the unread one is reported'
 
-    # --- 14d. A checkout that IS here but holds no lens -> unmeasured, never "over" ---------------
-    #      The false-green shape this state exists to catch: zero files on the also-read spelling is
-    #      arithmetically true of a consumer that never bootstrapped, and counting it as over would
-    #      hand the retirement a majority built out of silence.
-    $reg = New-LensRegister -Connector @(
-        @{ Repo = 'fixture/over-a'; Checkout = "$lensRel\over-a" },
-        @{ Repo = 'fixture/empty';  Checkout = "$lensRel\empty-a" })
-    $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Equal 0 $r.Code 'no lenses: exit code 0'
-    Assert-Match 'no lenses: fixture/empty' $r.Out 'no lenses: the grouping says which of the two absences it is'
-    Assert-Match '\[LENS-RETIREMENT\] NOT ANSWERABLE FROM THIS MACHINE' $r.Out 'no lenses: and it counts as unmeasured, not as over'
-    Assert-NotMatch 'ALL 2 CONNECTORS ARE OVER' $r.Out 'no lenses: so the window does NOT open on it'
+    # --- 14d. Both spellings for the same id -> [INFO] only, because the current copy is what loads --
+    $r = Invoke-Ps $Script ($base + @('-Manifest', (New-LensManifest -Repo 'fixture/both' -Leaf 'both')))
+    Assert-Equal 0 $r.Code 'both: exit code 0 -- nothing is lost'
+    Assert-Match '\[INFO\].*2 leftover lens file\(s\) under the retired spelling' $r.Out 'both: reported as leftovers'
+    Assert-NotMatch '\[ERROR\].*retired spelling' $r.Out 'both: and never as a missing lens'
 
-    # --- 14e. A PART-migrated consumer counts as behind, not as over ------------------------------
-    #      The Mixed state, which is the one no single file can show you: a tree half-renamed is not
-    #      over the rename, and reading its written half as a pass is the same false green one level in.
-    $reg = New-LensRegister -Connector @(
-        @{ Repo = 'fixture/over-a'; Checkout = "$lensRel\over-a" },
-        @{ Repo = 'fixture/mixed';  Checkout = "$lensRel\mixed-a" })
-    $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Equal 0 $r.Code 'part-migrated: exit code 0'
-    Assert-Match 'part-migrated' $r.Out 'part-migrated: the per-connector line names the state'
-    Assert-Match '\[LENS-RETIREMENT\] NOT YET: 1 of 2 connectors' $r.Out 'part-migrated: and it counts as behind'
-    Assert-NotMatch 'ALL 2 CONNECTORS ARE OVER' $r.Out 'part-migrated: never as over'
-
-    # --- 14f. Precedence: a measured NOT YET outranks an unreached connector (#2298) ---------------
-    #      The correction this branch carries. A connector measurably behind settles the condition as
-    #      FALSE whatever the unreached ones hold, so answering 'not answerable' there states less
-    #      than the run established -- while the coverage claim moves into that same line, so the
-    #      list is never read as complete.
-    $reg = New-LensRegister -Connector @(
-        @{ Repo = 'fixture/over-a';    Checkout = "$lensRel\over-a" },
-        @{ Repo = 'fixture/retired-a'; Checkout = "$lensRel\retired-a" },
-        @{ Repo = 'fixture/gone';      Checkout = 'nonexistent-fixture-path' })
-    $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Equal 0 $r.Code 'precedence: exit code 0'
-    Assert-Match '\[LENS-RETIREMENT\] NOT YET: 1 of 3 connectors' $r.Out 'precedence: the decisive negative is the verdict'
-    Assert-Match '1 of the 3 could not be measured here' $r.Out 'precedence: and it still names the unmeasured count'
-    Assert-Match 'NOT the full list of what still has to migrate' $r.Out 'precedence: so the list is not read as complete'
-    Assert-NotMatch 'NOT ANSWERABLE FROM THIS MACHINE' $r.Out 'precedence: the weaker verdict does not also fire'
-
-    # --- 14g. The marker is this check''s own, and not check-roster-sync''s (#2298) ----------------
-    $reg = New-LensRegister -Connector @(@{ Repo = 'fixture/over-a'; Checkout = "$lensRel\over-a" })
-    $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg))
-    Assert-Match '\[LENS-RETIREMENT\]' $r.Out 'marker: the roll-up prints its own token'
-    Assert-NotMatch '\[LENS-NAMING\]' $r.Out 'marker: and never the one check-roster-sync uses for an unrelated fact (#2219)'
-
-    # --- 14h. A narrowed run keeps the per-connector line and drops the register-wide VERDICT ------
-    #      -OnlyConsumer is the path connector-sessioncheck takes in a consumer repo, where a
-    #      register-wide verdict would be unfounded and none of that session's business; -Manifest is
-    #      the same situation asked for by hand. 'Checked 1 of 6' would be a partial sweep wearing a
-    #      verdict's clothes.
-    #
-    #      THE TWO HALVES ARE SEPARATE AND ONLY ONE IS SUPPRESSED, which is what these assertions had
-    #      to be corrected to say: the per-connector reading is about the ONE consumer in front of
-    #      you and is exactly as true on a narrowed run, so it still prints. Asserting on the marker
-    #      alone conflated them and failed here -- correctly. What must not appear is a sentence about
-    #      the REGISTER, so the three verdict wordings are named one by one.
-    New-FixtureConsumer -ExtensionIds @('06-16')
-    $mf = New-FixtureManifest -Extensions @('06-16')
-    $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
-    Assert-NotMatch 'lens naming across the register' $r.Out '-Manifest: the roll-up heading is absent'
-    Assert-NotMatch 'CONNECTORS ARE OVER' $r.Out '-Manifest: and the green verdict with it'
-    Assert-NotMatch 'NOT YET:' $r.Out '-Manifest: and the negative one'
-    Assert-NotMatch 'NOT ANSWERABLE FROM THIS MACHINE' $r.Out '-Manifest: and the coverage one'
-
-    $reg = New-LensRegister -Connector @(@{ Repo = 'fixture/over-a'; Checkout = "$lensRel\over-a" })
-    $r = Invoke-Ps $Script ($base + @('-ConnectorsRootOverride', $reg, '-OnlyConsumer', (Join-Path $LensFixtureRoot 'over-a')))
-    Assert-NotMatch 'lens naming across the register' $r.Out '-OnlyConsumer: the roll-up heading is absent'
-    Assert-NotMatch 'CONNECTORS ARE OVER' $r.Out '-OnlyConsumer: and the green verdict with it'
-    Assert-NotMatch 'NOT YET:' $r.Out '-OnlyConsumer: and the negative one'
-    Assert-NotMatch 'NOT ANSWERABLE FROM THIS MACHINE' $r.Out '-OnlyConsumer: and the coverage one'
-    Assert-Match '\[LENS-RETIREMENT\].*written spelling' $r.Out '-OnlyConsumer: the PER-CONNECTOR reading still prints -- it is about the one consumer asked about, so it is as true here as anywhere'
+    # --- 14e. The roll-up is gone, and so is its marker (#2591) --------------------------------------
+    #      Its NOT YET arm could no longer fire and its green ending invited a retirement already
+    #      performed, so neither its marker nor its heading may reappear in any run.
+    Assert-NotMatch 'LENS-RETIREMENT' $r.Out 'roll-up: the old marker no longer prints'
+    Assert-NotMatch 'lens naming across the register' $r.Out 'roll-up: nor its heading'
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture }
     if (Test-Path -LiteralPath $HookHome) { Remove-Item -Recurse -Force -LiteralPath $HookHome -ErrorAction SilentlyContinue }

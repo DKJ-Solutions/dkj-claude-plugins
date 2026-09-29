@@ -277,11 +277,18 @@ lens instead. **Remove any rule the constitution already states, wherever it cur
 rule does not fail on the day it is written. It fails on the day the plugin's answer moves and the copy
 stays behind, and that is the contradiction #2374 was filed about.
 
-This run does not write the line, because it never edits a file that already exists. The
-`consumer-prose-sessioncheck` hook raises a `[WARNING]` at every session start until the line is there,
-and that warning prints the exact line for **your** marketplace name. A consumer registered before the
-September 10, 2026 rename still has its clone under `claude-code-specialists`. The line resolves after a
-`claude plugin marketplace update`: an `@`-import reads the marketplace clone, not the plugin cache.
+**This run writes the line**
+([#2531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2531)). It inserts the line directly
+above the first `@`-import of an existing `CLAUDE.md`, appends it where there is no import yet, or
+creates `CLAUDE.md` holding only this line. Where the constitution is already imported, under any
+marketplace name, the file is left alone. It only ever adds, and the file's line endings and byte-order mark
+are kept. The run used to leave the line to you, and a consumer then ran for weeks on a session-start
+warning without the rules ever being in context. The line carries **your** marketplace name: a consumer
+registered before the September 10, 2026 rename still has its clone under `claude-code-specialists`, and
+the run reads that name off the plugin's own install path. The line resolves after a
+`claude plugin marketplace update`, because an `@`-import reads the marketplace clone, not the plugin
+cache. Moving the prose out of `CLAUDE.md` is still yours to do. The `consumer-prose-sessioncheck` hook
+keeps warning at session start while a line is missing or prose sits beside the imports.
 
 ### After the scaffold: the note-root seam, which this run usually answers for you
 
@@ -702,7 +709,7 @@ check has been green for ten minutes (the window keeps the sweep from racing a l
 label is set and nothing reads it, so the merge stays owed to a session exactly as before.
 
 It wakes on your CI completing (`workflow_run`, naming your own pull_request workflows by their
-top-level `name:`), on a half-hourly schedule, and on `workflow_dispatch`. None of the three is trusted
+top-level `name:`), on a schedule every 3 hours (issue #2487), and on `workflow_dispatch`. None of the three is trusted
 to say *which* pull request is owed a merge: the plugin's `pick-merge-on-green.ps1` asks your tracker,
 and the plugin's own `ship-pr.ps1` does the merge. So every gate a session's ship runs is the gate
 this runner runs, and it folds and verifies the resolves too. Both scripts come out of a checkout of the
@@ -710,21 +717,21 @@ plugin tree and act on **your** workspace through `CLAUDE_PROJECT_DIR`. Where no
 pull_request workflows declares a top-level `name:`, the `workflow_run` trigger is left out rather than
 guessed, and the schedule wakes the sweep on its own.
 
-**This template still checks the branch out into your OWN, single workspace, in place -- unlike the
-source repo's own runner since issue #2437.** `ship-pr.ps1` and every plugin lib it dot-sources already
-run from the pinned, token-free plugin checkout (the paragraph above), which closes issue #2338's
-exposure for that code. What is *not* closed here is your own two repo-owned seams --
-`scripts\repo-config.ps1` and `scripts\lib\branch-info.ps1` -- which `ship-pr.ps1`/`open-pr.ps1` still
-read from `$repoRoot`, i.e. `github.workspace`: the same directory the initial trunk checkout persisted
-`FOLD_PUSH_TOKEN` into before switching it to the picked branch in place. So a pull request editing
-either of your two seam files is executing your workspace's own copy of that file, in a job holding the
-standing PAT -- the source repo's own `Get-MergeOnGreenExecutedPathHit` still refuses exactly such a
-pull request for exactly this reason (its own two-file list is `scripts/repo-config.ps1` and
-`scripts/lib/branch-info.ps1`, unchanged in shape by #2437 -- only the FOUR-prefix rule around it
-shrank). Closing this for the template itself needs a second, token-free checkout of your own trunk
-(mirroring the plugin checkout's own isolation) and is tracked as its own piece of work rather than
-folded into #2437, since it touches every consumer's scaffolded workflow rather than the source repo's
-own copy alone -- see issue #2449.
+**It uses three sibling checkouts, and none of them holds a credential (issue #2449).** The pinned
+plugin tree is where the code comes from. `trusted-main` is a token-free checkout of your own trunk, and
+`ship-pr.ps1 -TrustedRoot` reads your two repo-owned seams (`scripts\repo-config.ps1` and
+`scripts\lib\branch-info.ps1`) from it and commits the fold in it. `pr-branch` is a token-free checkout
+of the picked pull request, the tree the ship acts on. The push credential is built from
+`FOLD_PUSH_TOKEN` in the ship step's own environment and is never written to disk. So a pull request
+editing either seam file, or anything under the plugin path, never has its own copy executed beside
+the token.
+
+**A runner you adopted before #2449 has the older shape**, and this command never rewrites an existing
+file. That shape checks your trunk out once with the token persisted and switches that same workspace
+to the branch. Re-running Part 3 names such a runner with a `[shape]` line. Delete
+`.github/workflows/merge-on-green.yml` and re-run it with `-Apply` to get the current one. Until you
+do, the shared picker keeps refusing any pull request that touches `.workflow-scripts/`, which covers
+the worst case of that shape.
 
 **It uses the same `FOLD_PUSH_TOKEN`, with one more scope: `Pull requests: Read and write`.** A merge
 made with the job-scoped `GITHUB_TOKEN` starts no workflow runs, so it would land the pull request and

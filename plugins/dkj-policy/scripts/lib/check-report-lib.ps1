@@ -645,7 +645,7 @@ function Test-GitHubOwnerNameSlug {
     }
     $owner = $Slug.Substring(0, $slash)
     $name  = $Slug.Substring($slash + 1)
-    if ($owner -notmatch '^[A-Za-z0-9][A-Za-z0-9-]*$' -or $name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
+    if ($owner -cnotmatch '^[A-Za-z0-9][A-Za-z0-9-]*$' -or $name -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$') {
         return @{ Ok = $false; Reason = 'not a valid GitHub owner/name slug -- rejected before it became an API call' }
     }
     return @{ Ok = $true; Reason = '' }
@@ -655,14 +655,14 @@ function Test-PluginNameSlug {
     <# The plugin-name part of a plugin id (before '@') must be a simple lowercase slug before it
        becomes a path segment. #>
     param([Parameter(Mandatory = $true)][string]$Name)
-    return ($Name -match '^[a-z0-9][a-z0-9-]*$')
+    return ($Name -cmatch '^[a-z0-9][a-z0-9-]*$')
 }
 
 function Test-PluginMarketplaceSlug {
     <# The marketplace part of a plugin id (after '@') must be a simple slug before it becomes a
        path segment. #>
     param([Parameter(Mandatory = $true)][string]$Marketplace)
-    return ($Marketplace -match '^[A-Za-z0-9][A-Za-z0-9._-]*$')
+    return ($Marketplace -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]*$')
 }
 
 # --- Which plugins are enabled here? (inbound #294) ----------------------------------------------
@@ -1498,11 +1498,16 @@ function Get-SpecialistFileShapes {
        swapped that kind's row here; no reader was touched by any of them, because no reader names a
        shape. A row whose AlsoRead is empty is a kind with one spelling, which is where every kind ends
        up once the last cache carrying the old one is gone -- and that pruning is a decision with a date
-       on it, not a tidy-up to fold into the rename. FOR Lens THAT DECISION HAS AN ISSUE AND A MEASURABLE
-       CONDITION: #2292, keyed on check-connectors' lens-naming roll-up (#2289), which is the register
-       answering Dave's "once the connector register shows all six are over". The other three kinds have
-       neither -- they are keyed on which plugin CACHES still carry the old spelling, which no register
-       here can see -- so do not read that roll-up as covering them.
+       on it, not a tidy-up to fold into the rename. Lens IS THE FIRST ROW TO GET THERE, and its date is
+       September 28, 2026 (#2292): the decision was keyed on check-connectors' lens-naming roll-up (#2289),
+       the register answering Dave's "once the connector register shows all six are over", and on that day
+       five consumers held only the written spelling on their remote trunks and the sixth held no lens
+       file at all, so no tree anywhere was still read through '<g>-<id>-extension.md'. A consumer that reappears on that
+       spelling is now read by nothing at all -- that is what retiring it means, and check-connectors'
+       check 7 (#2591), which replaced the roll-up once it had done its job, reports such a file as a
+       lens that has silently gone missing. The other three kinds have no such condition -- they are
+       keyed on which plugin CACHES still carry the old spelling, which no register here can see -- so
+       the retired Lens spelling says nothing about when theirs may go.
 
        THE TWO HALVES OF A STEP ARE SEPARATE ACTS, AND CHECK 3d IS WHAT PAIRS THEM -- the hazard this
        arrangement creates, and the one to read before the next step. AlsoRead keeps every READER
@@ -1532,7 +1537,7 @@ function Get-SpecialistFileShapes {
         Subagent = @{ Current = @{ Prefix = 'specialist-'; Stem = 'subagent' }
                       AlsoRead = @(@{ Prefix = ''; Stem = 'agent' }) }
         Lens     = @{ Current = @{ Prefix = 'specialist-'; Stem = 'lens' }
-                      AlsoRead = @(@{ Prefix = ''; Stem = 'extension' }) }
+                      AlsoRead = @() }   # '<g>-<id>-extension.md' retired, #2292
     }
     $entry = $table[$Kind]
     $current = [pscustomobject]@{ Prefix = [string]$entry.Current.Prefix; Stem = [string]$entry.Current.Stem }
@@ -1656,63 +1661,6 @@ function Get-SpecialistFileId {
     $m = [regex]::Match($base, (Get-SpecialistFileNamePattern -Kind $Kind))
     if (-not $m.Success) { return '' }
     return "$($m.Groups['g'].Value)-$($m.Groups['i'].Value)"
-}
-
-function Get-SpecialistNamingState {
-    <# Which SPELLING a set of specialist filenames is actually written in -- the reading of
-       Get-SpecialistFileShapes' table that answers "is this tree over the rename yet", per kind.
-
-       WHY THIS EXISTS AT ALL (#2289). The dual-read layer from #2130 is by construction temporary: Dave's
-       decision of September 19, 2026 retires the old lens names "once the connector register shows all six
-       are over". The register could not show it -- every connectors/*.json stores bare ids ('01-01'), zero
-       filenames -- and every reader that DOES resolve a file resolves it in order to compare its BODY, so
-       none of them reports which of the two names it found. The condition was therefore unanswerable by
-       construction, and a bridge whose expiry cannot be established is a permanent one by default. This
-       function is the measurement that makes it answerable; check-connectors.ps1 is what states it.
-
-       IT COUNTS FILES, IT DOES NOT RESOLVE IDS. A caller asking "where is 05-05's lens" wants
-       Get-SpecialistFileNameCandidates; this one is handed whatever is on disk and reports the split. A
-       name matching neither shape is counted as Unmatched rather than dropped, because "0 of 0" and
-       "0 of 4, and four names nobody recognises" are different facts about a directory and the second one
-       is the one worth seeing.
-
-       THE STATE IS NAMED AFTER THE TABLE, NOT AFTER THE MIGRATION -- 'Current'/'AlsoRead', never
-       'new'/'legacy'. Get-SpecialistFileShapes' own banner gives the reason and it applies with full force
-       here: for a kind the series has not reached yet, AlsoRead holds the FUTURE name, so a state called
-       'Legacy' would be a lie for exactly the window this layer exists to cover. The four states:
-
-         Current   every recognised name is in the written spelling -- this tree is over the rename.
-         AlsoRead  every recognised name is in a tolerated spelling -- this tree has not migrated.
-         Mixed     both are present -- part-migrated, and the one state no single file can show you.
-         None      nothing recognised, so nothing was measured. NOT a clean verdict (#221): a caller
-                   printing "migrated" over a directory it never read is the defect that rule exists for. #>
-    param(
-        [Parameter(Mandatory = $true)][ValidateSet('Manual', 'Persona', 'Subagent', 'Lens')][string]$Kind,
-        [Parameter(Mandatory = $true)][AllowEmptyCollection()][AllowNull()][string[]]$Name
-    )
-    $shapes = Get-SpecialistFileShapes -Kind $Kind
-    $currentPattern = '^' + [regex]::Escape($shapes.Current.Prefix) + '(?<g>\d{2})-(?<i>\d{2})-' + [regex]::Escape($shapes.Current.Stem) + '$'
-    $current = 0; $alsoRead = 0; $unmatched = 0
-    foreach ($n in @($Name)) {
-        if (-not $n) { continue }
-        $base = [System.IO.Path]::GetFileNameWithoutExtension($n)
-        if ($base -match $currentPattern) { $current++ }
-        elseif (Get-SpecialistFileId -Kind $Kind -Name $n) { $alsoRead++ }
-        else { $unmatched++ }
-    }
-    $state = if ($current -gt 0 -and $alsoRead -gt 0) { 'Mixed' }
-             elseif ($current -gt 0) { 'Current' }
-             elseif ($alsoRead -gt 0) { 'AlsoRead' }
-             else { 'None' }
-    return [pscustomobject]@{
-        Kind         = $Kind
-        Current      = $current
-        AlsoRead     = $alsoRead
-        Unmatched    = $unmatched
-        State        = $state
-        CurrentName  = "$($shapes.Current.Prefix)<g>-<id>-$($shapes.Current.Stem).md"
-        AlsoReadName = @($shapes.AlsoRead | ForEach-Object { "$($_.Prefix)<g>-<id>-$($_.Stem).md" })
-    }
 }
 
 function Get-SpecialistFileRefPattern {

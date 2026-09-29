@@ -52,16 +52,25 @@
     check-script-contract.ps1 (surfaced by the script-contract session hook) reports at session start
     while it is missing.
 
-    STRICTLY ADDITIVE, NEVER OVERWRITES. Every file that already exists is left exactly as it is,
-    whatever it contains -- the same rule specialists-init and adopt-config follow, and what makes a
-    re-run find nothing to do. The scaffolded docs carry VUL-IN markers where only this repo can answer.
+    AND THE CONSTITUTION IMPORT IN CLAUDE.md (issue #2531). The one '@'-line that loads the plugin's
+    rules into every session is written by this run -- inserted above the first import of an existing
+    CLAUDE.md, or as the whole of a new one -- where it used to be an instruction plus a session-start
+    warning that a consumer could live with for weeks. The block that writes it carries the measurement.
+
+    STRICTLY ADDITIVE, NEVER OVERWRITES. Every file this run places is left exactly as it is once it
+    exists, whatever it contains -- the same rule specialists-init and adopt-config follow, and what makes
+    a re-run find nothing to do. TWO WRITES REACH INTO A FILE THAT ALREADY EXISTS, and both only ADD: the
+    note-root seam appended to scripts/repo-config.ps1 (#1150), and the constitution line inserted into
+    CLAUDE.md (#2531). Neither changes or removes a byte that was there, and each is skipped where its
+    answer is already present. The scaffolded docs carry VUL-IN markers where only this repo can answer.
 
     AND SINCE #2171 THERE IS NO EXCEPTION AT ALL. One remained until then: the UPDATE section of the
     folder README, a fenced region this run replaced on every -Apply, because a page scaffolded once is
     never corrected afterwards -- "right owner, wrong reach", the shape recorded for PR #734 and stated
     for CLAUDE.md below. That answer went with the page it was written into: this command no longer
     scaffolds the folder's README.md or CONTRIBUTING.md, so there is nothing here it owns a region of,
-    and "nothing that already exists is ever touched" is now true without qualification.
+    and nothing it placed is ever rewritten. (The two additive writes above are not regions it owns: each
+    adds its line once and never looks at it again.)
 
     NOTHING HERE IS EVER REWRITTEN, INCLUDING THE BRANCH DOCUMENT. Until August 23, 2026 this command also
     placed branch/templates/ and new-branch refreshed those on drift -- the one exception to "additive
@@ -118,6 +127,11 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 # cut and the fold now read, so the paths this folder's own docs name can never disagree
 # with where the workflow actually reads and writes.
 . (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
+# Get-WriteTargetReparsePoint (issue #2533): the two writes into files this repo already has -- the
+# repo-config.ps1 seam append below and the CLAUDE.md import further down -- are refused when the file, or
+# a directory between it and the repo root, is a symlink or junction, because the write would land outside
+# the repo. Since #2540 the files this run CREATES are held to the same check, in the placement loop below.
+. (Join-Path $PSScriptRoot '..\lib\write-target-lib.ps1')
 
 # THE SOURCE OF *THIS* WORKFLOW arranges that folder by hand -- see the header -- so this command refuses
 # there. It sits below the dot-sources because the test it needs lives in seam-lib, and it still runs
@@ -190,7 +204,10 @@ if (Test-Path -LiteralPath $fallbackAbs -PathType Container) {
     $noteRootHasNotes = $null -ne (Get-ChildItem -LiteralPath $fallbackAbs -Filter '*.md' -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1)
 }
 $repoConfigExists  = Test-Path -LiteralPath $repoConfig -PathType Leaf
-$writeNoteRootSeam = (-not $noteRootAnswered) -and (-not $noteRootHasNotes) -and $repoConfigExists
+# A FOURTH CONDITION (issue #2533): repo-config.ps1 is not reached through a symlink or junction. Where it
+# is, the seam is left unanswered and the instruction at the end of the run says how to answer it by hand.
+$repoConfigReparse = if ($repoConfigExists) { Get-WriteTargetReparsePoint -Path $repoConfig -Root $repoRoot } else { $null }
+$writeNoteRootSeam = (-not $noteRootAnswered) -and (-not $noteRootHasNotes) -and $repoConfigExists -and (-not $repoConfigReparse)
 # COERCED TO A STRING AND FALLBACK-GUARDED. This value comes out of a function in somebody else's file,
 # so it can be $null or empty however carefully the contract is worded -- and every use below is a string
 # operation that would throw under this script's strict mode rather than report anything useful.
@@ -425,8 +442,19 @@ if (-not $Apply) { Write-Host '  DRY RUN -- nothing is written. Re-run with -App
 
 $created = 0
 $kept = 0
+$refused = 0
 foreach ($t in $targets) {
     $abs = Join-Path $repoRoot ($t.Rel -replace '/', '\')
+    # BEFORE the existence test (issue #2540): Test-Path follows a reparse point, so a dangling symlink at
+    # the target reads as absent and the write below would create the link's target, and a junctioned
+    # .github/ or dkj-policy/ would take the file outside the repo. Refused and reported, like #2533's two
+    # writes into existing files.
+    $reparse = Get-WriteTargetReparsePoint -Path $abs -Root $repoRoot
+    if ($reparse) {
+        $refused++
+        Write-Host "  [refused] $($t.Rel) -- reached through a symlink or junction ($reparse), so writing it would land outside the repo; place it by hand" -ForegroundColor Yellow
+        continue
+    }
     if (Test-Path -LiteralPath $abs) {
         $kept++
         Write-Host "  [exists]  $($t.Rel) -- left as it is" -ForegroundColor DarkGray
@@ -536,10 +564,51 @@ if ($writeNoteRootSeam) {
     }
 } elseif ($noteRootAnswered) {
     Write-Host "  [seam]     Get-ReleaseNoteRoot is already answered here ('$noteRootRelPath') -- left as it is" -ForegroundColor DarkGray
+} elseif ($repoConfigReparse) {
+    Write-Host "  [refused]  Get-ReleaseNoteRoot left UNANSWERED -- scripts/repo-config.ps1 is reached through a symlink or junction ($repoConfigReparse), so writing it would land outside the repo" -ForegroundColor Yellow
 } elseif ($noteRootHasNotes) {
     Write-Host "  [seam]     Get-ReleaseNoteRoot left UNANSWERED -- you already have notes at $noteRootFallback/" -ForegroundColor Yellow
 } else {
     Write-Host '  [seam]     Get-ReleaseNoteRoot left unanswered -- this repo has no scripts/repo-config.ps1' -ForegroundColor Yellow
+}
+
+# --- The constitution import in CLAUDE.md (issue #2531) --------------------------------------------
+# THE RULES THIS REPO RUNS UNDER ARRIVE THROUGH ONE '@'-LINE, AND THIS RUN WRITES IT. Until #2531 the line
+# was an instruction on the skill page plus a session-start [WARNING], on the ground that this command
+# "never edits a file that already exists" -- a ground the note-root seam above had already given up
+# for scripts/repo-config.ps1 (#1150). Measured in dkj-etf-tracker: the line was never added, the
+# warning fired at every session start for weeks, and a warning changes nothing a session KNOWS -- so the
+# constitution's "by default, it does not wait" rule was never in context, and a finished PR sat
+# unmerged until the owner asked why. A warning is the right tool for a line only a person can write;
+# this line is the same for every consumer, so the adoption writes it.
+#
+# THE SAME DETECTOR THE WARNING USES, so the two can never disagree about whether the line is there:
+# Test-ConstitutionImported over the '@'-import closure, which also counts the line when it sits in a
+# file CLAUDE.md imports.
+#
+# THE WRITE ITSELF IS Add-ClaudeMdImportLine (claude-md-import-lib.ps1, #2532), shared with
+# dkj-policy-bwj's adopt-extension-import.ps1 so the two adoptions cannot drift apart. It scans CLAUDE.md
+# fence-aware (a line quoted in an example is neither "already there" nor a place to insert), inserts the
+# line directly above the first '@'-import -- the constitution names its own import first and a companion
+# extension on the line below it -- appends it when there is no import, and creates CLAUDE.md holding
+# only this line when there is none. Not one existing byte changes: line endings, mixed or not, and a
+# byte-order mark are kept. specialists-init appends the orchestrator import afterwards, as it does to
+# any existing file.
+. (Join-Path $PSScriptRoot '..\lib\consumer-check-lib.ps1')
+$constitutionLine = Get-ConstitutionImportLine
+$claudeMdPath     = Join-Path $repoRoot 'CLAUDE.md'
+$constitutionElsewhere = (Test-Path -LiteralPath $claudeMdPath -PathType Leaf) -and
+    (Test-ConstitutionImported -Documents @(Get-CheckProseCorpus -RepoRoot $repoRoot))
+$constitutionAction = Add-ClaudeMdImportLine -Path $claudeMdPath -Root $repoRoot -Line $constitutionLine `
+    -ImportedPattern '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$' -ImportedElsewhere:$constitutionElsewhere -Apply:$Apply
+
+switch ($constitutionAction) {
+    'kept'   { Write-Host '  [keep]     CLAUDE.md already imports the dkj-policy constitution -- left as it is' -ForegroundColor DarkGray }
+    'refused' { Write-Host "  [refused]  CLAUDE.md is a symlink or junction, so the constitution import was NOT written -- add it by hand: $constitutionLine" -ForegroundColor Yellow }
+    'create' { $verb = if ($Apply) { '[created]' } else { '[create] ' }
+               Write-Host "  $verb  CLAUDE.md, holding the constitution import: $constitutionLine" -ForegroundColor Green }
+    default  { $verb = if ($Apply) { '[added]  ' } else { '[add]    ' }
+               Write-Host "  $verb  the constitution import to CLAUDE.md: $constitutionLine" -ForegroundColor Green }
 }
 
 Write-Host ''
@@ -547,6 +616,9 @@ if ($Apply) {
     Write-Host "Done: $created file(s) created, $kept left as they were." -ForegroundColor Green
 } else {
     Write-Host "Would create $created file(s); $kept already exist. Re-run with -Apply." -ForegroundColor Yellow
+}
+if ($refused -gt 0) {
+    Write-Host "$refused file(s) refused -- reached through a symlink or junction; see the [refused] lines above." -ForegroundColor Yellow
 }
 
 # --- What only this repo can answer, said out loud rather than left to be discovered ---------------

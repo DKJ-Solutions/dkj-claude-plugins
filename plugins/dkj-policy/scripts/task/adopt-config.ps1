@@ -82,6 +82,10 @@ $repoRoot = Resolve-RepoRootOrFail -ScriptName 'adopt-config.ps1'
 # resolves from the workshop root and from a consumer's plugin cache alike. In a consumer it answers
 # "none", which is the right answer there.
 . (Join-Path $PSScriptRoot '..\lib\plugin-tree-lib.ps1')
+# Get-WriteTargetReparsePoint (issues #2533, #2546): the append into a seam lib and the proposal document
+# are both refused when their path passes through a symlink or junction, because the write would land
+# outside the repo.
+. (Join-Path $PSScriptRoot '..\lib\write-target-lib.ps1')
 
 # --- Locate the blueprint -------------------------------------------------------------------------
 # Two layouts, because this script runs from two places. In the plugin mirror it sits at
@@ -228,6 +232,30 @@ foreach ($rec in $toPropose) {
     Write-Host ("    [decide] " + $rec.function + " -- proposed, not placed") -ForegroundColor Yellow
 }
 
+# JUDGED BEFORE THE DRY RUN STOPS (issue #2546), so the plan shows the refusals -Apply would make. A lib
+# or proposal path reached through a symlink or junction would take the write outside the repo.
+# [IO.Path]::Combine, not Join-Path: Join-Path glues a drive-rooted -ProposalPath onto the root as a
+# string with two drive letters, which GetFullPath cannot parse, while Combine returns the rooted path
+# itself -- and that is then refused as outside the repo rather than crashing the run.
+$refusedLibs = @{}
+foreach ($libRel in $libs) {
+    $n = @($toCopy | Where-Object { $_.lib -eq $libRel }).Count
+    if ($n -eq 0) { continue }
+    $reparse = Get-WriteTargetReparsePoint -Path (Join-Path $repoRoot $libRel) -Root $repoRoot
+    if ($reparse) {
+        $refusedLibs[$libRel] = $true
+        Write-Host "  [refused] $libRel -- reached through a symlink or junction ($reparse), so its $n function(s) are NOT placed; add them by hand" -ForegroundColor Yellow
+    }
+}
+$propPath = [System.IO.Path]::Combine($repoRoot, $ProposalPath)
+$propReparse = $null
+if ($toPropose.Count -gt 0) {
+    $propReparse = Get-WriteTargetReparsePoint -Path $propPath -Root $repoRoot
+    if ($propReparse) {
+        Write-Host "  [refused] $ProposalPath -- reached through a symlink or junction, or outside the repo ($propReparse), so the proposal is NOT written" -ForegroundColor Yellow
+    }
+}
+
 if (-not $Apply) {
     Write-Host ''
     Write-Host "  Re-run with -Apply to place the $($toCopy.Count) copyable answer(s) and write the proposal document."
@@ -240,7 +268,7 @@ if (-not $Apply) {
 $written = 0
 foreach ($libRel in $libs) {
     $recs = @($toCopy | Where-Object { $_.lib -eq $libRel })
-    if ($recs.Count -eq 0) { continue }
+    if ($recs.Count -eq 0 -or $refusedLibs.ContainsKey($libRel)) { continue }
 
     $libPath = Join-Path $repoRoot $libRel
     $existing = [System.IO.File]::ReadAllText($libPath)
@@ -298,11 +326,13 @@ if ($toPropose.Count -gt 0) {
         [void]$md.Append("`n```````n")
     }
 
-    $propPath = Join-Path $repoRoot $ProposalPath
-    $propDir = Split-Path -Parent $propPath
-    if ($propDir -and -not (Test-Path -LiteralPath $propDir)) { New-Item -ItemType Directory -Path $propDir -Force | Out-Null }
-    [System.IO.File]::WriteAllText($propPath, $md.ToString())
-    Write-Host ("  wrote the proposal for $($toPropose.Count) decision(s): $ProposalPath") -ForegroundColor Green
+    # $propPath and $propReparse were judged above, before the dry run stopped; a refusal was printed there.
+    if (-not $propReparse) {
+        $propDir = Split-Path -Parent $propPath
+        if ($propDir -and -not (Test-Path -LiteralPath $propDir)) { New-Item -ItemType Directory -Path $propDir -Force | Out-Null }
+        [System.IO.File]::WriteAllText($propPath, $md.ToString())
+        Write-Host ("  wrote the proposal for $($toPropose.Count) decision(s): $ProposalPath") -ForegroundColor Green
+    }
 }
 
 Write-Host ''

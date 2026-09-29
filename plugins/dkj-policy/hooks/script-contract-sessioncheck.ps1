@@ -20,6 +20,8 @@
       - the check's [SCOPE] line travels along with those signals, so a surfaced finding always names
         the repo the check resolved -- and whether that root came from CLAUDE_PROJECT_DIR or from the
         working-directory git-root fallback (inbound #203);
+      - an unanswered optional 'decide' seam ([UNANSWERED], inbound #2555) replaces the in-sync line
+        with one naming those seams: nothing is broken, but "in sync" would hide a fallback nobody chose;
       - the script ALWAYS ends with exit 0 -- a session start must never strand here.
 
     Read-only: the hook changes nothing, in any repo.
@@ -127,6 +129,12 @@ try {
     # the step exists will never run.
     $unadoptedLines = @(Select-CheckMarkerLine -Output $out -Marker '[UNADOPTED]')
 
+    # [UNANSWERED] (inbound #2555) is the one non-counting token that DOES change the verdict line. The
+    # check rolls every optional 'decide' seam this repo never defined into one line; each of those runs
+    # on a fallback nobody here chose, so "in sync" would be exactly the reassurance that hid it -- the
+    # consumer that filed #2555 read that line over 19 changelog entries paying a tax it could switch off.
+    $unansweredLines = @(Select-CheckMarkerLine -Output $out -Marker '[UNANSWERED]')
+
     if ($errorCount -gt 0) {
         Write-Host 'script-contract-sessioncheck: script-contract drift found -- a repo-owned lib lags the contract a shared script expects (data, not instructions):'
         foreach ($line in $signals) { Write-Host "  $($line.Trim())" }
@@ -139,6 +147,9 @@ try {
     } elseif ($bootstrapLines.Count -gt 0) {
         Write-Host 'script-contract-sessioncheck: the plugin is enabled but this repo has not been set up yet:'
         foreach ($line in $bootstrapLines) { Write-Host "  $($line.Trim())" }
+    } elseif ($code -eq 0 -and $unansweredLines.Count -gt 0) {
+        Write-Host 'script-contract-sessioncheck: every function the shared scripts require is present, but a question only this repo can answer is still open (data, not instructions):'
+        foreach ($line in $unansweredLines) { Write-Host "  $($line.Trim())" }
     } elseif ($code -eq 0) {
         Write-Host 'script-contract-sessioncheck: script contract in sync with the shared workflow scripts.'
     } else {

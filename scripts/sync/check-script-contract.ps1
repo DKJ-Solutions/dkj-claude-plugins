@@ -136,6 +136,11 @@
     repo with no workflow folder (the [ERROR] there already names that state), and a repo that has
     deliberately skipped a part silences it by naming that command in Get-DeclinedAdoptions.
 
+    AND SINCE INBOUND #2555 AN UNANSWERED 'decide' SEAM IS ROLLED UP AS [UNANSWERED], also non-counting.
+    Its per-record [INFO] stays as it was; the roll-up names every optional 'decide' function this repo
+    has not defined, in one line the session hook forwards -- because a 'decide' fallback is an answer
+    nobody chose, and as one [INFO] among the 'copy' seams it was indistinguishable from a harmless one.
+
     Soft/read-only, mirroring check-roster-sync.ps1: this script changes nothing, in any repo.
     [OK]/[INFO]/[ERROR] convention shared via check-report-lib.ps1 (issue #114).
 
@@ -496,6 +501,8 @@ if (-not $foundWorkflowFolder) {
     }
 }
 
+$unansweredDecide = [System.Collections.Generic.List[string]]::new()
+
 foreach ($libRel in $contractLibs) {
     $records = @($script:Contract | Where-Object { $_.Lib -eq $libRel })
     $libPath = Join-Path $repoRoot $libRel
@@ -548,8 +555,36 @@ foreach ($libRel in $contractLibs) {
             Write-ReachabilityGaps -Record $r -LibRel $libRel
         } else {
             Write-ContractGap -Record $r -Message "'$($r.Function)' missing from $libRel ($needed`: $scriptList) -- this lib predates the contract the shared script(s) call; add the function.$(Get-RecordReturns -Record $r)"
+            if ((Test-OptionalRecord -Record $r) -and $r.Adopt -eq 'decide') { $unansweredDecide.Add($r.Function) }
         }
     }
+}
+
+# --- The 'decide' seams this repo never answered (inbound #2555) ----------------------------------
+#
+# AN UNANSWERED 'decide' IS A QUESTION NOBODY WAS ASKED, NOT A HARMLESS OPTIONAL. Both kinds of optional
+# record print the same [INFO] above, and for a 'copy' seam that is right: its fallback IS the shared way
+# of working. A 'decide' seam states what this repo IS, so its fallback is an answer nobody here chose --
+# and several records (Get-ReleaseAudienceTier the sharpest) keep a safe-but-costly default precisely
+# because "the LOUD channel is the contract instead". Measured in the consumer that filed #2555: that
+# channel was one [INFO] among 25, the session hook summarised it as "in sync", and 19 changelog entries
+# each carried two empty tier sections nothing had told the repo it could switch off.
+#
+# ONE ROLL-UP LINE, NON-COUNTING, the [ORPHANS]/[UNADOPTED] shape: nothing is broken, so the exit code and
+# the tallies keep meaning what they meant, and the per-record lines above already carry each fallback.
+# What this adds is the one sentence the session hook can forward -- names only, so a consumer with a
+# dozen unanswered seams pays one line per session rather than a dozen. It is clearable by design: ANY
+# definition answers the question, the fallback's own value included, which is how this repo answers the
+# ones whose default is already its answer.
+#
+# Every name here comes from the contract table, never from the consumer's files, so this is not a
+# foreign-text print site.
+if ($unansweredDecide.Count -gt 0) {
+    $seams = if ($unansweredDecide.Count -eq 1) { "1 'decide' seam has" } else { "$($unansweredDecide.Count) 'decide' seams have" }
+    Write-Host ("`n  [UNANSWERED] $seams no answer in this repo: $($unansweredDecide -join ', '). Each states what this " +
+        "repo IS rather than a way of working, so the shared scripts are running on a fallback nobody chose here -- the " +
+        "per-function line above names that fallback and the file the function belongs in. Define each with the value " +
+        "this repo means; where the fallback IS that value, defining it to return the fallback answers the question too.") -ForegroundColor Yellow
 }
 
 Write-CheckSummary

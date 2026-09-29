@@ -2,151 +2,143 @@
 
 ## [Unreleased]
 
-**6 / 23 minor entries** <!-- pending-tally -->
+**20 / 30 minor entries** <!-- pending-tally -->
 
-### DEPLOY: fix/2505-statusline-additive-write · 20260925-150200Z
+### DEPLOY: fix/2609-claim-refuses-pull-request · 20260928-203133Z
 
-`adopt-statusline -Apply` now adds the `statusLine` key to `.claude/settings.json` without touching the
-rest of the file ([#2505](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2505)). It used to
-parse the file and write it back. Windows PowerShell 5.1 re-padded every line and dropped blank ones, so
-a one-key addition became a diff of the whole file. Now the member is inserted in the file's own indent
-and line ending, and a BOM is kept. The run also warns when git ignores the shim it places, for example
-under a `.claude/*` rule, and names the `!.claude/statusline/` exception. Without that exception, other
-checkouts got a status line pointing at a file they never received. An empty `{}` settings file no
-longer crashes the run.
+`claim-issue` now refuses a pull request's number instead of claiming it. `gh issue view` answers for
+a PR too, and a merged one reads as `MERGED`, a state the old check did not refuse, so the claim went
+through and put an assignee on the merged PR. The refusal names the issue the PR closes, and any state
+other than `OPEN` is now refused (#2609).
 
-**Score:** 3
+**Score:** 2
 
 #### What makes this deploy extra special
 
-N/A -- a setup command a repo's maintainer runs; nothing a subscriber runs changes.
+If you type a PR number where you meant an issue, `claim-issue` now stops. It does not print `[OK]` and
+does not assign you to the pull request. It names the issue that PR closes, so you can re-run on that
+number.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue refuses a pull request's number and names the issue it closes
+
+Plugins: dkj-policy
+
+[PR #2615](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2615)
+
+---
+
+### DEPLOY: feat/prio-label-colors · 20260928-202125Z
+
+The four `prio-` labels now read as two yellows and two reds, on Dave's request: `prio-1` is yellow
+(`FFE033`), `prio-2` a yellow leaning to orange (`F9A825`), `prio-3` a red leaning to orange (`E0321A`)
+and `prio-4` stays red (`B60205`). They replace the teal → yellow → orange → red ramp. The canonical set
+`adopt-triage-labels` prints and the BWJ adopt skill's step 4 carry the new hexes, and this repo's live
+labels were re-coloured. Moving `prio-2` off `FBCA04` also ends its shared badge colour with `tier-1`
+in a BWJ repo (#1844). A repo that already has the labels keeps its old colours until someone runs
+`gh label edit --color`, because the adopt steps never rewrite an existing label.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a badge colour on the issue tracker. No release document reader acts on it.
 
 **Score:** N/A
 
 #### Pull Request
 
-adopt-statusline writes additively and reports an ignored shim
+Re-colour the prio labels: yellow for 1-2, red for 3-4
 
-Plugins: dkj-policy
+Plugins: dkj-policy, dkj-policy-bwj
 
-[PR #2510](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2510)
+[PR #2614](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2614)
 
 ---
 
-### DEPLOY: fix/2502-oem-encoding-helper · 20260925-142909Z
+### DEPLOY: fix/2600-lens-naming-retired-spelling · 20260928-201122Z
 
-The test gate's three readers of a suite's capture files (the print, the silent-suite check and the
-retention decision) now take their decode from one helper, `Get-NativeCaptureOemEncoding`, instead of
-three copies of the same OEM-codepage lookup
-([#2502](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2502)). This changes no behaviour.
-It prevents a later edit from changing one decode and not the other two, which would bring back the
-print-versus-retention disagreement #2295 repaired. A suite assert refuses a second lookup.
+`check-roster-sync` no longer tells a repo whose lens is still named `<g>-<id>-extension.md` that
+nothing needs changing. No reader has resolved that spelling since #2292, so the check now reports the
+specialist as running without its lens, and prints the `git mv` to the current name (#2600).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If your repo still has a lens file named like `06-24-extension.md`, the session-start check now shows
+it as an error with the exact rename to run, instead of a yellow line asking you to update the plugins.
+Updating the plugins never fixed that file. Renaming it is what gives that specialist its repo lens back.
+
+**Score:** 2
+
+#### Pull Request
+
+check-roster-sync names the rename for a lens under the retired spelling, instead of saying nothing needs changing
+
+Plugins: dkj-subagents-alpha
+
+[PR #2613](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2613)
+
+---
+
+### DEPLOY: feat/allow-git-stash · 20260928-195354Z
+
+A session in this repo can now stash uncommitted work without a permission prompt, so retiring or
+switching away from a branch with a draft on it no longer stops for a question. A stash is reversible,
+unlike the destructive verbs the safety rules name, which stay unlisted.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: `.claude/settings.json` is this repo's own harness config and reaches no consumer through a plugin
+update.
+
+**Score:** N/A
+
+#### Pull Request
+
+git stash is allowed without a permission prompt
+
+[PR #2612](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2612)
+
+---
+
+### DEPLOY: fix/2604-parking-label-shares-dossier-color · 20260928-193357Z
+
+The `awaiting-recurrence` parking label now has `dossier`'s colour (`5319E7`) instead of its own grey. An
+issue meant to stay open for a while now looks the same on the tracker, whichever of the two it carries (#2604).
 
 **Score:** 1
 
 #### What makes this deploy extra special
 
-N/A -- an internal refactor of the test gate; nothing a subscriber runs changes.
+A repo that runs `adopt-triage-labels` now gets `awaiting-recurrence` printed with `dossier`'s colour.
+The script does not compare the colours of labels that already exist, so if you already have the label
+and want the same look, run `gh label edit awaiting-recurrence --color 5319E7`.
 
-**Score:** N/A
-
-#### Pull Request
-
-native-capture-lib: one helper for the capture files' OEM decode
-
-Plugins: dkj-policy, dkj-subagents-shopify
-
-[PR #2506](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2506)
-
----
-
-### DEPLOY: fix/2500-silent-suite-failure · 20260925-140938Z
-
-The test gate no longer reports a suite that exited non-zero **without writing a single byte** as a
-plain `FAILED`, with no output shown and none kept. Such a suite never reached its own first line, so
-the gate now marks it `SILENT`, re-runs it alone once (as it already does for a crash), and names it
-on the verdict: as cleared on a green run, or as having written nothing to keep on a red one. A suite
-silent on its re-run too is red. A suite that printed anything at all is judged exactly as before and
-never re-run ([#2500](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2500)).
-
-**Score:** 2
-
-#### What makes this deploy extra special
-
-N/A -- the test gate runs inside the repos that adopt this workflow; no subscriber of a service sees it.
-
-**Score:** N/A
+**Score:** 1
 
 #### Pull Request
 
-A suite that exits non-zero without writing a byte is re-run alone and reported as SILENT, instead of FAILED with no output
+awaiting-recurrence takes dossier's colour, so the labels that keep an issue open look alike
 
-Plugins: dkj-policy, dkj-subagents-shopify
+Plugins: dkj-policy
 
-[PR #2504](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2504)
-
----
-
-### DEPLOY: fix/2483-empty-native-output-null-cast · 20260925-135943Z
-
-`push-preview` no longer crashes on Windows PowerShell 5.1 on a branch's first preview push
-([#2483](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2483)). Under 5.1 a `[string]`
-cast of a git read that prints nothing is `$null`, not `''`, so the `.Trim()` on the remembered theme id
-threw before anything was printed -- on exactly the lazy-creation path the script exists for, with no
-workaround for a new branch. Every such read in the three shipped Shopify scripts now interpolates
-instead, and a suite assert refuses the old idiom coming back.
-
-**Score:** 4
-
-#### What makes this deploy extra special
-
-N/A -- a store's own customers never see a preview push.
-
-**Score:** N/A
-
-#### Pull Request
-
-push-preview no longer crashes on PS 5.1 when a git read prints nothing
-
-Plugins: dkj-subagents-shopify
-
-[PR #2503](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2503)
+[PR #2611](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2611)
 
 ---
 
-### DEPLOY: fix/2481-fixture-git-transport-retry · 20260925-132744Z
+### DEPLOY: fix/2605-connector-notes-english · 20260928-191948Z
 
-The test gate retries a fixture `git push` or `git fetch` once when its transport breaks mid-transfer
-(`unexpected sideband packet`, a remote that hung up, early EOF), instead of failing a suite whose
-asserts all passed. The retry is printed as `[FIXTURE GIT RETRY]` and counted in the suite's fixture
-summary, separately from failures. A commit, a clone, or a push that git refused is never retried, and a
-second break is judged as a failure exactly as before
-([#2481](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2481)).
+The `#1769` migration passage in five connector records' `notes` is now in English, as the repo's
+content-language rule requires. It was the Dutch passage #2605 named, and the word check in TEST finds no other Dutch under `connectors/`.
 
-**Score:** 2
-
-#### What makes this deploy extra special
-
-N/A -- the test fixtures live in this repo only and ship to no consumer.
-
-**Score:** N/A
-
-#### Pull Request
-
-A fixture git push that breaks in transport under the parallel gate is retried once, instead of failing the suite
-
-[PR #2501](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2501)
-
----
-
-### DEPLOY: fix/2497-lifehub-brain-layout · 20260925-131018Z
-
-The lifehub information architect and ontologist no longer tell a dispatched agent to write
-README indexes and RAW/PRETTY mirror copies. They read and follow the brain's own navigation files
-(a `NEURON.md` per folder, as the repo lens names them) and never add a layout the brain does not
-already have.
-
-**Score:** 3
+**Score:** 1
 
 #### What makes this deploy extra special
 
@@ -156,491 +148,631 @@ N/A
 
 #### Pull Request
 
-Closes #2497
+Five connector records carry their #1769 migration note in English
 
-Plugins: dkj-subagents-lifehub
-
-[PR #2499](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2499)
+[PR #2610](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2610)
 
 ---
 
-### DEPLOY: fix/2487-ci-floor-metered-minutes · 20260925-125507Z
+### DEPLOY: fix/2602-merge-on-green-pr-branch-identity · 20260928-185959Z
 
-The CI-floor runners no longer spend Actions minutes on pushes that have nothing to do
-([#2487](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2487)). `fold-on-merge` and
-`verify-resolved` skip, at job level, a push carrying exactly one commit whose subject starts with
-`fold:`. A job skipped by `if:` is not billed, and about half of a trunk's pushes are folds. This
-applies to both the source's own workflows and the templates `adopt-ci-floor` places. Anything
-else, a batch under a fold head included, still runs. The `merge-on-green` template now sweeps
-every 3 hours instead of every 30 minutes (8 jobs a day instead of 48), and `workflow_run` stays
-the ordinary path. `adopt-ci-floor` now prints what each runner it places costs on a metered
-repo. The "half-hourly" wording in the sweep's shared scripts now fits either cadence
-([#2492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2492)). Moving the runners to
-`ubuntu-latest` + `pwsh` is left to
-[#2488](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2488).
+This repo's merge-on-green runner now gives the `pr-branch` checkout a commit identity too, so an `open-pr` commit of a dirty branch document during a CI ship cannot fail with *Please tell me who you are*. Latent until now, since `pr-branch` is a fresh checkout; it brings the runner level with the consumer template.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- this is the source repo's own CI runner; nothing a consumer takes changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+merge-on-green sets the commit identity in pr-branch as well as trusted-main
+
+[PR #2608](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2608)
+
+---
+
+### DEPLOY: fix/2449-consumer-merge-on-green-trusted-seams · 20260928-185015Z
+
+The `merge-on-green.yml` that `adopt-ci-floor.ps1` scaffolds into a consumer now uses three sibling
+checkouts:
+- the pinned plugin tree;
+- a token-free `trusted-main`, where ship-pr reads the consumer's two repo-owned seams through
+  `-TrustedRoot` and commits the fold;
+- a token-free `pr-branch`.
+
+Before, it used one token-bearing workspace that was switched to the picked branch in place. The push
+credential is an ephemeral `GIT_CONFIG_*` overlay in the ship step. A re-run of `adopt-ci-floor` names
+an existing runner of the old shape with a `[shape]` line, because the scaffolder never rewrites one.
+For the same reason, the shared picker's `.workflow-scripts/` refusal (#2553) is now documented as
+permanent. This is the structural fix for what #2553 could only denylist (#2449).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If you adopted the CI floor before this release, your `.github/workflows/merge-on-green.yml` still has
+the old single-workspace shape, and nothing rewrites it for you. Re-run `adopt-ci-floor` (Part 3 of
+`adopt-dkj-policy`). If it prints a `[shape]` line, delete that one file and re-run with `-Apply`. Until
+you do, the shared picker's standing refusal covers the worst case. The new shape also stops a pull
+request's own copy of `scripts/repo-config.ps1` or `scripts/lib/branch-info.ps1` from running beside
+your `FOLD_PUSH_TOKEN`.
+
+**Score:** 3
+
+#### Pull Request
+
+The consumer merge-on-green runner runs from three sibling checkouts, none holding a credential
+
+Plugins: dkj-policy
+
+[PR #2607](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2607)
+
+---
+
+### DEPLOY: fix/2592-djcylow-connector-org · 20260928-183820Z
+
+The djcylow-react connector record now names its current owner, `DKJ-Solutions/djcylow-react`. The
+record still named the pre-transfer `DaveKJohn` slug, so on any machine with that checkout
+`check-connectors` skipped the whole block with an `[ERROR]` that nobody could clear (#2592).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+The djcylow-react connector record names the repo's new owner
+
+[PR #2606](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2606)
+
+---
+
+### DEPLOY: feat/2591-lens-retired-spelling-finding · 20260928-181727Z
+
+`check-connectors` check 7 now reports a consumer lens still named `<g>-<id>-extension.md`. It is an
+error when that specialist has no current-spelling lens, because since #2292 no reader loads the old
+name and the lens is silently gone. It is a note when a current copy sits beside it. The
+`[LENS-RETIREMENT]` roll-up that led up to the retirement is removed, which closes
+[#2591](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2591).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that keeps a lens under the old name now gets a red line at session start with the `git mv`
+that fixes it, where before its specialist quietly ran without that lens. All six registered consumers
+are already over, so this reaches nobody we know of.
+
+**Score:** 1
+
+#### Pull Request
+
+check-connectors reports a lens under the retired spelling instead of the retirement roll-up
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2603](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2603)
+
+---
+
+### DEPLOY: fix/2595-plugin-link-illegal-path-chars · 20260928-162145Z
+
+A link target holding `<`, `>`, `"` or `|` no longer crashes `check-plugin-integrity.ps1`. Under Windows PowerShell 5.1 the
+path calls in check 4 and `[plugin-link]` threw on those characters. That ended the whole lint with an error that named no
+file. Both scans now report such a target as a finding, and `[plugin-link]` gives its line. The measured trigger was a
+placeholder `(<url>)` inside a code span that opened on the line before (#2595).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+A link target with illegal path characters is a finding, not a lint crash
+
+[PR #2599](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2599)
+
+---
+
+### DEPLOY: fix/2594-contract-count-message · 20260928-160645Z
+
+The record-count assert in `script-contract.tests.ps1` no longer names stale inner figures in its message. It said the
+table pins 25 records and the test file names 26 of 43, against a real 27 and 28 of 46. Nothing asserts prose, so the
+figures fell one further behind with every new record. Both are now computed from the table and the record count (#2594).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+The script-contract record-count message computes its inner figures instead of naming stale ones
+
+[PR #2598](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2598)
+
+---
+
+### DEPLOY: feat/2292-retire-lens-alsoread · 20260928-153758Z
+
+The lens file of a specialist has one name now: `specialist-<g>-<id>-lens.md`. The old
+`<g>-<id>-extension.md` spelling that readers had tolerated since the #2130 rename is retired, which
+closes [#2292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2292). Every registered
+consumer had already migrated when this was measured on September 28, 2026. The manual, persona and
+subagent spellings are untouched.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer that still keeps a lens under `<g>-<id>-extension.md` will find that no check or scaffold
+reads it any more, and has to `git mv` it to `specialist-<g>-<id>-lens.md`. All six registered consumers
+were already over, so this reaches nobody we know of.
+
+**Score:** 1
+
+#### Pull Request
+
+Retire the '<g>-<id>-extension.md' lens spelling now that every consumer is over the rename
+
+Plugins: dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2597](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2597)
+
+---
+
+### DEPLOY: feat/2586-audience-note-solved-tasks · 20260928-152810Z
+
+In a repo with a live stage, the cut can now be told what the live push actually carried.
+`live-preflight` writes a live-push record, one `live` or `hold` line per theme file, and a person
+changes `live` to `hold` for anything they held back. `cut-release -LivePushRecord <file>` reads it. The
+GitHub Release body moves an entry that touched a held file from *What landed* to a new `## Not live
+yet` section (#2570). The audience note leaves that entry out, so the note and the body can no longer
+contradict each other the way they did at a BWJ store's v1.3.0. A new optional seam,
+`Get-ReleaseNoteTaskLink`, drafts the audience section as solved tasks instead. It lists one item per
+issue that carries a task marker, and only for a storefront change that is live. It has no PR links
+(#2586).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Both documents are decided from one input rather than two, which is what the v1.3.0 contradiction
+required. A store answering the seam gets an audience note that needs rewording but not pruning. Until
+now every cut left the developer prose and PR links to delete by hand.
+
+**Score:** 3
+
+#### Pull Request
+
+The audience note drafts from solved Asana tasks, and the GitHub body separates what is not live yet
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2596](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2596)
+
+---
+
+### DEPLOY: fix/2589-live-backup-restore · 20260928-144047Z
+
+A live-theme backup now comes with a written way back. A person publishes the backup theme. A backup that passed WITH EXCEPTIONS first gets its missing paths back from the exact commit it was verified against, and the backup run now prints that commit instead of "HEAD" ([#2589](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2589)). The rotation step also no longer plans a restored (now live) backup for deletion.
 
 **Score:** 3
 
 #### What makes this deploy extra special
 
-A private consumer's CI floor stops using up the plan's included Actions minutes. The consumer that
-reported it lost every Actions job to the spending limit. `adopt-ci-floor` never overwrites a runner
-that is already there, so a consumer that placed the floor before this release must apply the new
-`if:` and schedule by hand. The other way is to remove the three files and re-run the adoption.
+A store owner whose live push went wrong now has written steps to go back. Until now "rollback point" had no instructions behind it.
+
+**Score:** 3
+
+#### Pull Request
+
+Restore procedure for the live-theme backup
+
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2593](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2593)
+
+---
+
+### DEPLOY: fix/2568-backup-trunk-held-shortfall · 20260928-140456Z
+
+`backup-live-theme` no longer refuses a copy that is short only on files the trunk holds exactly as
+live holds them. After the wait it names each path live has and the copy lacks, and compares it with
+the trunk at HEAD. It passes as verified WITH EXCEPTIONS only when all of them match and there are at
+most 10. Any other state still refuses, as before. (#2568)
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In a store whose duplicates Shopify always leaves a few templates short, the backup step, and with it
+`live-preflight`, could never pass. They now can, path by path, and a missing file the repo cannot
+restore still stops the push.
 
 **Score:** 4
 
 #### Pull Request
 
-The CI floor stops spending a private repo's Actions minutes on fold pushes and a half-hourly sweep
+backup-live-theme: accept a short copy whose missing paths the trunk holds exactly as live does
 
-Plugins: dkj-policy
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
 
-[PR #2498](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2498)
+[PR #2590](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2590)
 
 ---
 
-### DEPLOY: fix/2493-step4-refusals-lead-with-checkout · 20260925-122924Z
+### DEPLOY: feat/2587-awaiting-recurrence-label · 20260928-134414Z
 
-When `ship-pr` refuses a merge at the DEPLOY lock or the step-list gate, its remedy now leads with the
-`git checkout <branch>` the fix needs. Both refusals fire after `ship-pr` has already moved the checkout
-back to `main`, so their remedies -- a commit, and for the DEPLOY lock also `open-pr.ps1 -RefreshBody` --
-failed with "You are on main" until the branch was checked out by hand.
+`adopt-triage-labels` now also prints a `gh label create` line for `awaiting-recurrence`, a parking label
+for an issue whose only remaining step is its first reproducible occurrence. `claim-issue <n>` skips it
+by default next to `needs-info` and `needs-decision`, and `sweep-issues` skips all three.
+`CONTRIBUTING-portable.md` says when to set the label and when it comes off. It is not `dossier`: a
+dossier collects a problem that demonstrably recurs, so it stays sweepable.
 
-**Score:** 2 -- a refusal's own remedy failed on first use; noticed only by somebody who hits the lock.
+Tier 0 is scored for a session running a sweep. An n=1 flake with nothing left to build (#2572) was picked
+up four times in one day, and each pickup ended in *nothing to do*.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-N/A -- nothing changes for a subscriber.
+N/A. It is a label definition, a filing convention and a default skip list, and nothing reaches a
+subscriber.
 
 **Score:** N/A
 
 #### Pull Request
 
-ship-pr's step-4 refusals lead with the checkout the fix needs
+An awaiting-recurrence parking label for an issue waiting on its first reproducible occurrence
 
 Plugins: dkj-policy
 
-[PR #2496](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2496)
+[PR #2588](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2588)
 
 ---
 
-### DEPLOY: fix/2491-drop-notes-date-type · 20260925-120740Z
+### DEPLOY: feat/2564-audience-note-sections · 20260928-125646Z
 
-The changelog release note a cut writes (`releases/changelog/<X>.x/<X.Y.Z>.md`) no longer carries the
-`**Date:**` and `**Type:**` lines under `# Changelog Releases`: the `## Version X.Y.Z (Mon dd, yyyy)`
-heading already says both. Where those lines are missing, `new-internal-note.ps1` takes the date from that
-heading and the type from the release history's row, falling back to the version's shape, so the internal
-note it builds is unchanged, including for a cut run with `-Type`. Notes published before this still read
-exactly as they did. `Build-ReleaseNotes` no longer takes `-Type`.
-
-**Score:** 1 -- prevents a duplicate that could disagree with its own heading; nothing has broken yet.
-
-#### What makes this deploy extra special
-
-From your next release, the changelog release note goes from its `# Changelog Releases` heading straight
-to its title and version heading, without the two metadata lines between them. Nothing to do: the
-internal note still fills in its date and type.
-
-**Score:** 2
-
-#### Pull Request
-
-The changelog release note drops its Date and Type lines
-
-Plugins: dkj-policy
-
-[PR #2495](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2495)
-
----
-
-### DEPLOY: fix/2489-fixed-release-history-head · 20260925-112932Z
-
-The release list (`dkj-policy/releases/history.md` unless repointed) now has one fixed head:
-`# Release history` and nothing else above the first `<n>.x` section. The cut re-applies it where it
-inserts the new row, and the adopt output prints it instead of leaving the head to each repo. In this repo
-the list's 85-line intro is gone. The structure it explained is on `RELEASES-portable.md`.
+Inside this repo: `Build-ReleaseNoteDraft` takes `-Sections`, and `cut-release.ps1` fills it from a new
+optional seam, `Get-ReleaseNoteSections`, validated by `Resolve-ReleaseNoteSections` before the cut writes
+anything. This repo states all three sections, so its own notes do not change.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-At your next release cut, anything you wrote above the first `<n>.x` section of your release list
-disappears and is replaced by the title `# Release history`. If something written there mattered, move it
-to a page you own before you cut. The sections, their tables and every row are untouched.
+A repo whose release-note readers only want to know what changed can now say so once, in
+`Get-ReleaseNoteSections`, for example `@('Audience')`. The drafted note then leaves out *What it is
+worth* and *What was still open at this release*, heading and hint, so nobody deletes the two headings
+by hand at every cut. A misspelt section name stops the cut before anything is written. A repo that
+states nothing keeps all three sections
+([#2564](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2564)).
 
 **Score:** 3
 
 #### Pull Request
 
-The release list carries one fixed head, with no intro prose
+Let a consumer choose which sections the audience release note carries
 
 Plugins: dkj-policy
 
-[PR #2494](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2494)
+[PR #2585](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2585)
 
 ---
 
-### DEPLOY: fix/2486-empty-changelog-intro · 20260925-110208Z
+### DEPLOY: fix/2572-roster-sync-child-stderr · 20260928-120317Z
 
-`CHANGELOG.md` now has one fixed head -- `# Changelog` and the `## [Unreleased]` heading, no intro prose --
-and the fold, the cut and the adopt scaffold all write exactly that. Whatever a repo had written above the
-pending heading is replaced on the next fold, so every repo's head is identical.
+`roster-sync.tests.ps1` now keeps its child's stderr, and when 11ua's or 11ub's finding is missing it
+prints that stderr with the exit code. A failure under a loaded gate then shows whether the check threw
+or its line was lost. That is the evidence #2572 lacked. This is a diagnostic, not a fix, so the issue
+stays open. (#2572)
 
-In this repo the changelog's intro paragraphs are gone. The fold also stops being able to place an entry
-inside a code fence quoted in an intro, because it re-applies the head before it looks for the list.
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+roster-sync.tests: keep the child's stderr, and show it when 11ua/11ub's finding is missing
+
+[PR #2584](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2584)
+
+---
+
+### DEPLOY: fix/2581-untrack-wrangler-cache · 20260928-112224Z
+
+Wrangler's own account cache (`.wrangler/cache/wrangler-account.json`, holding a Cloudflare account id
+and an account e-mail) was tracked on `main` in this public repo. It is untracked now, and an anchored
+`/.wrangler/` rule in `.gitignore` keeps a wrangler run from the repo root from adding it again. The
+copy in history is a separate decision for the owner, #2582. (#2581)
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-On the first merge after updating the plugin, the text you wrote under `# Changelog` in
-`dkj-policy/CHANGELOG.md` disappears and does not come back. It is replaced by the same two lines every other
-repo has. If something written there mattered, move it to a page you own before you update. Nothing else in
-the file changes, and no entry is touched.
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Untrack the root .wrangler/ cache and ignore it
+
+[PR #2583](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2583)
+
+---
+
+### DEPLOY: fix/2574-progress-bar-per-checkout · 20260928-110844Z
+
+The statusline's progress bar now shows only the runs of the checkout the session is in (inbound
+[#2574](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2574)). Records sit in one directory
+per machine, so a ship in another repo's window used to draw in every session, and read as a gate running
+in the repo in front of you. Each record now carries its writer's working directory, and the statusline
+draws a record only when that path and the session's workspace contain each other. A record from an
+older writer, or a session whose payload names no workspace, is shown as before.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Anyone working in two repos at once sees only their own repo's gate and ship in each window, instead of a
+bar that looks like work running where it is not.
+
+**Score:** 2
+
+#### Pull Request
+
+The statusline draws only the progress of runs in this session's own checkout
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2580](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2580)
+
+---
+
+### DEPLOY: fix/2566-live-push-list-skips-deletions · 20260928-105429Z
+
+Inside this repo: `Get-LivePushRows` in `scripts/lib/live-push-rules.ps1` gained a `-DeletedPaths` set and a
+`deleted` verdict, and `live-preflight.ps1` and dkj-policy-bwj's `prepare-release.ps1` now feed it from a
+`--diff-filter=D` read, with rename detection off in every range read.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For whoever prepares a store's live push: a theme file deleted since the last release is no longer
+offered as a `push` row. That row claimed a change `--only` cannot make, and the file stayed on live
+unnoticed. Each such file is now listed under `held` as deleted and still on live, with its own step
+saying the store delete is a separate decision. A renamed file's old path, which used to be in no list
+at all, is reported the same way.
 
 **Score:** 3
 
 #### Pull Request
 
-CHANGELOG.md carries one fixed head, with no intro prose
+live push list lists files deleted in the range as push rows
 
-Plugins: dkj-policy
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
 
-[PR #2490](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2490)
-
----
-
-### DEPLOY: fix/2482-asana-mirror-reach-gate · 20260925-095235Z
-
-`dkj-policy-bwj` now ships a hook, `hooks/guard-asana-mirror.ps1`, that enforces `report-issue`'s rule
-that only an issue carrying the reach label gets an Asana task. It fires on every Asana create-task
-call, reads the labels of each GitHub issue the task cites on an admitted repo, and refuses the call
-where the reach label (`Get-ReachLabel`, default `minor`) is missing. Where `gh` cannot answer, it lets
-the call through with a warning naming the issue it did not check. Until now the rule was a sentence,
-and `smartwatchbanden#770`, a developer-only issue, got a card on the version that carried it.
-
-**Score:** 3 -- a session in a store repo is stopped the moment it tries to mirror a tier-0 issue, where before nothing stopped it.
-
-#### What makes this deploy extra special
-
-Colleagues on the Asana board stop receiving cards for developer-only work, and a fix for such an issue
-closes it at the merge again rather than waiting for somebody to paste a block into a card that should
-never have existed.
-
-**Score:** 2
-
-#### Pull Request
-
-
-A hook refuses an Asana task for an issue without the reach label
-
-Plugins: dkj-policy, dkj-policy-bwj
-
-[PR #2484](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2484)
+[PR #2576](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2576)
 
 ---
 
-### DEPLOY: fix/2477-golive-live-urls-pinned · 20260925-090324Z
+### DEPLOY: docs/2558-visible-result-stays-on-branch · 20260928-104254Z
 
-`golive-block`'s live URLs are now pinned to the live theme id wherever the store names one
-(`-LiveThemeId`, or `Get-ShopifyLiveThemeId` in `scripts/repo-config.ps1`). A bare storefront URL
-renders the preview in any browser that opened the result link first, so both tabs agreed and the
-change could look live before the release. Where no id resolves, the URLs stay bare and the block tells
-the requester to open them in a private window until the release.
-
-**Score:** 2 -- one script and its label; nothing a developer here calls changes.
-
-#### What makes this deploy extra special
-
-A store running `golive-block` hands its requester live links that show what is live now, even after
-they opened the preview, and the same links show the change once it ships. A store with no live-id seam
-gets a label saying how to read them instead.
+A branch parked for the owner's visual review now keeps the checkout on that branch. The constitution's visible-result rule says so, and Chris's "it ends on the trunk" rule no longer fires on a park: that chain is not finished, since its next step is the owner looking at the working copy. The trunk follows the merge. A session that moves on to other work in the same checkout, like a sweep, hands over through the repo's own preview route instead ([#2558](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2558), [#2559](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2559)).
 
 **Score:** 2
 
+#### What makes this deploy extra special
+
+An owner reviewing a UI change can look at it straight away. The session no longer switches to the trunk after parking, which reverted the running app to the old screen and left them nothing to judge.
+
+**Score:** 3
+
 #### Pull Request
 
-golive-block pins the block's live URLs to the live theme id
+A branch parked for the owner's visual review keeps the checkout on that branch, in the constitution and in Chris's trunk rule
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2579](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2579)
+
+---
+
+### DEPLOY: fix/2569-publish-page-wrangler-oauth · 20260928-103105Z
+
+Inside this repo: `publish-page.ps1` gained a second publish route for when `CLOUDFLARE_API_TOKEN`
+is absent, with two small functions in `page-publish-rules.ps1` and end-to-end tests against an
+`npx.cmd` shim.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For whoever publishes a BWJ page from a machine that is logged in with `npx wrangler login`: the
+publish now works without an API token. It goes through `wrangler kv key put/get --remote` and is
+proved with the same SHA-256 read-back. A login to a different account is refused, and the message
+names both routes.
+
+**Score:** 3
+
+#### Pull Request
+
+publish-page publishes through a wrangler OAuth session when CLOUDFLARE_API_TOKEN is absent
 
 Plugins: dkj-policy-bwj
 
-[PR #2480](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2480)
+[PR #2578](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2578)
 
 ---
 
-### DEPLOY: fix/2476-asana-automated-comment-header · 20260925-085442Z
-
-Every comment the `asana-mirror` CI posts on an Asana task now opens with an `[Automated message]`
-line, and the workflow page now requires the same of a session writing a comment through the Asana
-MCP. Both post under a person's account, so without that line a colleague read a machine update as
-that person's own words. De-duplication is unchanged, so tasks that already carry an update do not get
-a second one.
-
-A store repo posts the header once its `.github/scripts/asana-mirror.ps1` copy is refreshed from the
-release. Until then it keeps posting the old text, and the session rule applies as soon as the page
-is installed.
-
-**Score:** 3
-
-#### What makes this deploy extra special
-
-N/A -- the colleagues who read the Asana board are not subscribers of this plugin.
-
-**Score:** N/A
-
-#### Pull Request
-
-Agent-written Asana comments open with an automated-message header
-
-Plugins: dkj-policy-bwj
-
-[PR #2479](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2479)
-
----
-
-### DEPLOY: docs/2474-handover-asana-paste-block · 20260925-082903Z
-
-A preview handover page now carries a fourth block: the Asana paste-ready block from
-`golive-block`, embedded as printed, with a copy button. The requester reads the Asana task and cannot
-open the private page, so the page now holds the message they actually get, from the same run that
-posts it on the issue. The page also says which URLs that block may carry: storefront URLs only, never
-the handover link.
-
-**Score:** 2 -- a handover session gets one step fewer to do by hand; the block's wording is unchanged.
-
-#### What makes this deploy extra special
-
-N/A -- the requester reads the same block as before; only where the session copies it from changes.
-
-**Score:** N/A
-
-#### Pull Request
-
-The handover page carries the Asana paste-ready block as its fourth block
-
-Plugins: dkj-policy-bwj
-
-[PR #2478](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2478)
-
----
-
-### DEPLOY: docs/2471-cut-order-in-repo-rule · 20260925-081859Z
-
-`cut-release`'s cut-order block now tells a repo that pushes live before it cuts to write that order in
-an always-on repo rule (`.claude/rules/<name>.md`) or the release manager's lens, not in `CLAUDE.md`,
-which since #2374 carries only `@`-imports. It now agrees with the constitution and with
-`CONTRIBUTING-portable.md`.
-
-**Score:** 2 -- removes a contradiction a push-then-cut consumer hit while bringing its `CLAUDE.md` down to imports only (#2471).
-
-#### What makes this deploy extra special
-
-N/A -- a wording fix in a skill page; nothing a subscriber runs changes.
-
-**Score:** N/A
-
-#### Pull Request
-
-cut-release points the cut order at a repo rule, not CLAUDE.md
-
-Plugins: dkj-policy
-
-[PR #2475](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2475)
-
----
-
-### DEPLOY: fix/2470-stranded-sweep-fake-gh-timeout · 20260925-080053Z
-
-`stranded-sweep-gate.tests.ps1` no longer refuses a push when the parallel test gate is under
-load. Its fake `gh` launches a fresh `powershell.exe`, and under 22 lanes that could outrun the
-check's 15 s per-call timeout. The suite now gives every run a 120 s bound, because none of its
-cases tests that timeout.
-
-**Score:** 2 -- removes a spurious red from `open-pr`'s gate (#2470), in the same class as #2077 and #2458.
-
-#### What makes this deploy extra special
-
-N/A -- a test-suite change; nothing a subscriber runs is touched.
-
-**Score:** N/A
-
-#### Pull Request
-
-stranded-sweep-gate suite gives its fake gh a per-call timeout no load can reach
-
-[PR #2473](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2473)
-
----
-
-### DEPLOY: docs/2464-drop-shared-block-narrative · 20260925-074054Z
-
-The shared "findings become issues" block in every agent def and persona loses two sentences
-that only told the story behind a rule. The rules stay word for word. That saves ~0.4 KB per
-copy, across 30 files, and Chris's always-on persona is one of them.
-
-**Score:** 1 -- trims the per-dispatch and always-on cost. No behaviour changes.
-
-#### What makes this deploy extra special
-
-N/A -- a subscriber sees the same rules; only the anecdotes are gone.
-
-**Score:** N/A
-
-#### Pull Request
-
-Drop the two pure-narrative sentences from the findings-become-issues shared block
-
-Plugins: dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
-
-[PR #2472](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2472)
-
----
-
-### DEPLOY: fix/2463-resolves-refuses-dossier · 20260924-213506Z
-
-`open-pr` now refuses a PR that would close an issue carrying the `dossier` label, whether the close
-comes from `-Resolves` or from a `Closes` already on the PR body. The rule that a repair of one instance
-does not close a collecting issue (#2462) used to hold only as long as somebody remembered it. The
-refusal names `-NoResolves` as the way through. The check is shared rather than seam-gated, so every PR
-that closes anything now pays one `gh issue view` per closing issue, asking for the body and the labels
-in one call. A closing keyword in a commit message is still not read by any gate.
-
-Tier 0 is scored for a session shipping a repair of one instance of a dossier.
-
-**Score:** 3
-
-#### What makes this deploy extra special
-
-N/A. It is a workflow gate and nothing reaches a subscriber.
-
-**Score:** N/A
-
-#### Pull Request
-
-open-pr refuses -Resolves on an issue carrying the dossier label
-
-Plugins: dkj-policy
-
-[PR #2468](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2468)
-
----
-
-### DEPLOY: fix/2459-update-plugins-user-shadow · 20260924-205923Z
-
-`update-plugins` now also updates a plugin's path-less user-scope record when that record sits beside
-this checkout's own. Until now one run moved the checkout's records and left those behind, so its own
-receipt reported them behind (a session can load the older one, #2442) while its summary said
-`0 failed`. Measured on v5.7.0 -> v5.8.0: 5 of 7 plugins behind straight after the run, closed by hand
-with five `--scope user` commands. The extra update is not gated on the version, because both records
-matched before the run. A path-less `managed` record is left alone.
-
-Tier 0 is scored for a session that runs `update-plugins` on a machine carrying such a shadow.
-
-**Score:** 3
-
-#### What makes this deploy extra special
-
-N/A. It is a maintenance script and nothing reaches a subscriber.
-
-**Score:** N/A
-
-#### Pull Request
-
-update-plugins also updates the path-less user-scope shadow
-
-Plugins: dkj-policy
-
-[PR #2467](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2467)
-
----
-
-### DEPLOY: feat/2462-shared-dossier-label · 20260924-201053Z
-
-`adopt-triage-labels` now prints a `gh label create` line for `dossier` next to the four `prio-N` rungs.
-A dossier is a collecting issue: every instance of one recurring problem goes onto it as a comment, and
-only the repair of the root cause closes it. `CONTRIBUTING-portable.md` now has the rule for handling
-one: a new instance is a comment, a partial repair writes `part of #<n>` with no closing keyword, and the
-issue closes only when the root cause is fixed.
-
-Tier 0 is scored for a session filing or repairing against a recurring problem. Until now the label had
-no definition in the tree.
+### DEPLOY: docs/2567-audience-asana-link-from-marker · 20260928-102112Z
+
+The BWJ ticket-handling page now says which Asana task an audience release item links to (inbound
+[#2567](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2567)). It is the task the mirror's
+three matchers resolve, marker first, and never the first Asana URL in the issue body. A reference line
+naming the CRO test a build came from is context, not the ticket.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-N/A. It is a label definition and a tracker convention, and nothing reaches a subscriber.
+A colleague reading a store's release notes finds their own development ticket linked, and not the CRO
+test it came out of.
 
-**Score:** N/A
+**Score:** 2
 
 #### Pull Request
 
-'dossier' ships as a shared triage label, with the rule for handling a collecting issue
+An audience item's Asana link is resolved by the mirror's matchers, never the first URL
 
-Plugins: dkj-policy
+Plugins: dkj-policy-bwj
 
-[PR #2466](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2466)
+[PR #2577](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2577)
 
 ---
 
-### DEPLOY: docs/2461-split-chris-always-on · 20260924-193506Z
+### DEPLOY: fix/2565-prepare-release-reads-repo-config · 20260928-100738Z
 
-Chris's always-on pair is 9.4 KB smaller (51,104 -> 41,693 B), about 3,000 tokens less per session.
-Every per-turn rule stays in the persona and the lens, in its tightest form. The dated measurements,
-the history behind step 6, the waiting incidents and the reasoning behind the claim step moved to
-[Chris's manual](../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-01-01-manual.md),
-which loads on demand. The repo's briefing and branch-check mechanics moved to Derek's lens. Headings
-that other files cite stay where they are. The two GENERATED shared blocks, ~8.2 KB of what remains,
-are left for #2464.
-
-Tier 0 is scored for every session in every consumer. The lens saving lands here now, and the persona
-saving reaches each consumer with the next release.
+`prepare-release` reads the store's `scripts/repo-config.ps1` again (inbound
+[#2565](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2565)). Since the #2509 hardening it had
+dropped the dot-source, so every seam read its default: no store domain, no live theme id, the changelog
+looked for at `CHANGELOG.md`, and each step then reported a plausible skip instead of a fault. A fixture run
+now pins that the repo's own seams are read, and that a config which throws degrades to a warning naming
+only the exception's type.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-N/A. It is instruction text for sessions, and nothing reaches a subscriber.
+A store running `prepare-release` on 5.9.0 got a runbook with no push command and every scoped step
+skipped, in a repo that had answered every seam. After this release the skill works as documented there.
 
-**Score:** N/A
+**Score:** 3
 
 #### Pull Request
 
-Split Chris's always-on persona and lens by when each part is needed
+prepare-release dot-sources repo-config.ps1 again
 
-Plugins: dkj-subagents-alpha
+Plugins: dkj-policy-bwj
 
-[PR #2465](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2465)
+[PR #2575](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2575)
 
 ---
 
-### DEPLOY: fix/2444-warn-missing-repo-facts-rule · 20260924-185917Z
+### DEPLOY: docs/2562-sweep-stop-condition · 20260928-095412Z
 
-A consumer whose root `CLAUDE.md` is imports-only now hears about it at session start when no unscoped
-`.claude/rules/*.md` exists. `consumer-prose-sessioncheck` prints a `[WARNING]` saying the repo's
-trunk, visibility, owner and purpose are stated nowhere a session loads, and where to put them. A
-`paths:`-scoped rule does not silence it, because that rule is gone on every turn that does not touch
-its files. The finding the report measured was made by hand, and this makes it automatic.
+Inside this repo: the `sweep-issues` skill page gains a short section naming when the loop ends.
 
-Tier 0 is scored for a session in a consumer that has just done the #2374 cut. It closes the one gap
-the cut's own checks could not see.
+**Score:** 1
+
+#### What makes this deploy extra special
+
+For whoever runs `/dkj-policy:sweep-issues`: the skill now states that the sweep goes on until no
+`free` issue is left, and that the close-out `ship-pr` prints after each issue is not the end of the
+sweep. It used to stop after the first shipped issue.
+
+**Score:** 3
+
+#### Pull Request
+
+sweep-issues states its stop condition, so one shipped issue is not the sweep's close-out
+
+Plugins: dkj-policy
+
+[PR #2573](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2573)
+
+---
+
+### DEPLOY: fix/2560-update-plugins-install-when-no-record · 20260928-093321Z
+
+Inside this repo: `update-plugins.ps1` step 2 no longer hands `claude plugin update --scope project`
+to a plugin with no install record for this checkout. It runs `claude plugin install <id> --scope
+project` instead, which is the command `plugin-versions.ps1` already prescribes for that state, and the
+summary counts it as installed. The test suite's older scenarios gained a record for this checkout,
+since they were written against the state this fixes.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For whoever runs `update-plugins` in a checkout where the plugins are enabled but were never installed
+there: the run used to move **another checkout's** install record and then report success. It now
+installs into the checkout it was run from, so the receipt at the end agrees with the summary above it.
+
+**Score:** 3
+
+#### Pull Request
+
+update-plugins installs where this checkout has no install record, instead of updating another checkout's
+
+Plugins: dkj-policy
+
+[PR #2571](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2571)
+
+---
+
+### DEPLOY: docs/2557-audience-tier-by-purpose · 20260928-060229Z
+
+The two audience tiers now come with a test a repo can apply to itself: what the repo is **for**. A repo that is a means of selling or delivering something else answers 1. A repo that is the product its user relies on answers 2, and that user counts even when they are its own maintainer: as user they are tier 2, as developer tier 0. The same wording is in the tier model, the scaffold's reader sentence and the `Get-ReleaseAudienceTier` contract record ([#2557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2557), answering [#2556](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2556)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo whose only user is its maintainer, such as a local single-user tool, can now see from the text that it has a tier-2 audience. Before this, every entry there honestly answered N/A for both tiers and earned a patch. Each new entry's guidance now names that reader, and the adoption question names it too.
+
+**Score:** 3
+
+#### Pull Request
+
+Audience tiers: the test is what the repo is for, so a tool's own maintainer-as-user is tier 2
+
+Plugins: dkj-policy
+
+[PR #2563](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2563)
+
+---
+
+### DEPLOY: fix/2555-unanswered-decide-seams · 20260927-230034Z
+
+`check-script-contract` now tells an unanswered `decide` seam apart from a harmless optional one. A `decide` seam states what the repo IS, so its fallback is an answer nobody chose; until now it printed the same `[INFO]` as a `copy` seam, and the session check called the repo `in sync`. It now adds one non-counting `[UNANSWERED]` line naming every such seam, and the session check forwards it in place of the in-sync verdict. Exit codes and tallies are unchanged. This repo now states the four `decide` seams it used to leave undefined on purpose, each returning its fallback, so a considered answer can be told from an unasked one here too ([#2555](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2555)).
 
 **Score:** 3
 
 #### What makes this deploy extra special
 
-N/A. It is an advisory session check and nothing reaches a subscriber.
+A repo on this workflow now sees, at session start, the questions only it can answer that it never has -- named in one line, such as `Get-ReleaseAudienceTier`, whose silence costs every changelog entry two empty tier sections. Answering each one, with any value including the fallback, clears the line.
 
-**Score:** N/A
+**Score:** 3
 
 #### Pull Request
 
-A consumer's imports-only CLAUDE.md now warns when no unscoped rule carries the repo's facts
+check-script-contract: report unanswered 'decide' seams as their own class, and stop the session check calling that state in sync
 
 Plugins: dkj-policy
 
-[PR #2460](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2460)
+[PR #2561](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2561)
 
 ---
 

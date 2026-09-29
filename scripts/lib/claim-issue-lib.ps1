@@ -307,25 +307,40 @@ function Get-ClaimVerdict {
                  than an error: re-claiming would be a write that changes nothing, and reporting it
                  as a failure would teach a session to stop reading the output.
 
+            AND THE NUMBER MAY NOT BE AN ISSUE AT ALL (issue #2609). Issues and pull requests share one
+            counter, and 'gh issue view <n>' answers for a pull request's number too -- reporting a
+            merged one as state MERGED. Measured September 28, 2026: "fix issue 2504" ran this on a
+            PR merged three days earlier, and because only CLOSED was refused, MERGED fell through to
+            'open-unassigned', printed [OK] and wrote the assignee onto the merged PR. So a number
+            whose URL is a pull request's is refused as 'pull-request' ahead of the state, and the
+            state refusal now reads 'anything but OPEN' rather than 'CLOSED' -- a state this function
+            has never heard of is not evidence that the work is still to do.
+
         .PARAMETER Account
             The login this checkout claims under (Resolve-ClaimAccount's Account).
 
         .PARAMETER State
-            The issue's state as the tracker reports it -- 'OPEN' or 'CLOSED'. Compared
-            case-insensitively, because 'gh --json state' and the REST API disagree on case.
+            The issue's state as the tracker reports it -- 'OPEN' or 'CLOSED' for an issue, 'MERGED'
+            for a pull request. Compared case-insensitively, because 'gh --json state' and the REST API
+            disagree on case. Anything but OPEN refuses as 'closed'.
 
         .PARAMETER Assignees
             The logins already on the issue. Empty or $null for an unassigned issue.
 
+        .PARAMETER Url
+            The number's URL as the tracker reports it (Test-PullRequestUrl). '' when unread.
+
         .OUTPUTS
             Action -- 'claim' (write it) | 'skip' (already yours, nothing to write) | 'refuse'.
-            Code   -- 'open-unassigned' | 'already-yours' | 'no-account' | 'closed' | 'taken'.
+            Code   -- 'open-unassigned' | 'already-yours' | 'no-account' | 'pull-request' | 'closed' |
+                      'taken'.
             Others -- the assignees that are not this account, for the message. Always an array.
     #>
     param(
         [string]$Account = '',
         [string]$State = '',
-        [AllowNull()][string[]]$Assignees = @()
+        [AllowNull()][string[]]$Assignees = @(),
+        [string]$Url = ''
     )
 
     $others = @(@($Assignees) | Where-Object { $_ -and ([string]$_).Trim() -and ($_ -ine $Account) })
@@ -334,7 +349,10 @@ function Get-ClaimVerdict {
     if (-not $Account) {
         return [pscustomobject]@{ Action = 'refuse'; Code = 'no-account'; Others = $others }
     }
-    if ($State -ieq 'CLOSED') {
+    if (Test-PullRequestUrl -Url $Url) {
+        return [pscustomobject]@{ Action = 'refuse'; Code = 'pull-request'; Others = $others }
+    }
+    if ($State -ine 'OPEN') {
         return [pscustomobject]@{ Action = 'refuse'; Code = 'closed'; Others = $others }
     }
     if ($others.Count -gt 0) {
@@ -344,6 +362,47 @@ function Get-ClaimVerdict {
         return [pscustomobject]@{ Action = 'skip'; Code = 'already-yours'; Others = $others }
     }
     return [pscustomobject]@{ Action = 'claim'; Code = 'open-unassigned'; Others = $others }
+}
+
+function Test-PullRequestUrl {
+    <#
+        .SYNOPSIS
+            Whether a number's URL, as 'gh issue view --json url' reports it, is a pull request's.
+
+        .DESCRIPTION
+            THE URL IS THE ONE FIELD THAT TELLS THE TWO APART ON THIS READ (issue #2609). 'gh issue view'
+            has no isPullRequest field, and its state vocabulary overlaps (an open PR reads OPEN), so
+            the path segment is what is left: '/pull/<n>' for a pull request, '/issues/<n>' for an
+            issue. Anchored on the resource segment right after owner/repo, so a repo or owner NAMED
+            'pull', or a '/pull/<n>' inside a query string, does not read as one.
+    #>
+    param([string]$Url = '')
+
+    return [bool]($Url -match '^[a-z]+://[^/?#]+/[^/?#]+/[^/?#]+/pull/\d+(?:[/?#]|$)')
+}
+
+function Get-ClosingIssueNumbers {
+    <#
+        .SYNOPSIS
+            The issue numbers a pull request closes, from 'gh pr view --json closingIssuesReferences'.
+
+        .DESCRIPTION
+            Read so the pull-request refusal (issue #2609) can name the issue that was most likely
+            meant: a person who types a PR number where they meant an issue usually has that PR's issue
+            in mind. Returns an int array, empty for a payload that does not parse or names none --
+            the refusal stands either way, so an unread list only costs the hint.
+    #>
+    param([string]$Json = '')
+
+    if (-not $Json -or -not $Json.Trim()) { return @() }
+    try {
+        $parsed = $Json | ConvertFrom-Json
+    } catch {
+        return @()
+    }
+    if (-not $parsed -or -not $parsed.PSObject.Properties['closingIssuesReferences']) { return @() }
+    return @(@($parsed.closingIssuesReferences) | Where-Object { $_ -and $_.PSObject.Properties['number'] } |
+             ForEach-Object { [int]$_.number } | Select-Object -Unique)
 }
 
 # --- WHO THE HOLDER IS, WHEN THE HOLDER IS ALSO LOGGED IN HERE (issue #2207) ----------------------
@@ -362,7 +421,7 @@ function Get-ClaimVerdict {
 # it reported "the gh account and the git identity agree", which is true of the ACTIVE account and
 # silent about the other one.
 #
-# SO THIS ADDS A LINE TO A REFUSAL THAT ALREADY FIRES, on a value already read. The five verdicts are
+# SO THIS ADDS A LINE TO A REFUSAL THAT ALREADY FIRES, on a value already read. The verdicts are
 # unchanged, nothing new is blocked, and no `gh` call is added anywhere -- Get-GhAuthAccounts is the
 # read Get-ActiveGhAccount was making privately, with its other records kept.
 
@@ -1342,7 +1401,7 @@ function Get-IssuePathCitations {
         if (-not $token -or $token.Length -gt 200) { continue }
         if ($token.StartsWith('-') -or $token.StartsWith('/')) { continue }
         if ($token.Contains('..')) { continue }
-        if ($token -notmatch '^(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6}$') { continue }
+        if ($token -cnotmatch '^(?:[A-Za-z0-9_.-]+/)+[A-Za-z0-9_.-]+\.[A-Za-z0-9]{1,6}$') { continue }
         if ($seen.Add($token)) {
             $results.Add($token) | Out-Null
             if ($results.Count -ge $cap) { break }
@@ -1858,8 +1917,9 @@ function Get-TagClaimVerdict {
                  be. Refused rather than worked around, for the same reason an anonymous assignee claim
                  is: a claim that cannot say who made it settles nothing for the next session to read.
 
-              2. THE ISSUE IS CLOSED. Same refusal, same reason, as the assignee path: writing a claim
-                 on finished work gives a sweep every signal of having started something real.
+              2. THE ISSUE IS CLOSED -- or the number is a pull request's, or its state is anything but
+                 OPEN (#2609). Same refusals, same reasons, as the assignee path: writing a claim on
+                 finished work gives a sweep every signal of having started something real.
 
               3. SOMEBODY ELSE HOLDS IT. One or more markers, none of them this tag. Refused -- and
                  unlike the assignee path this refusal has no override, because in a sweep it is not a
@@ -1881,20 +1941,25 @@ function Get-TagClaimVerdict {
             This session's tag (Get-ClaimTag's Tag). '' when incomplete.
 
         .PARAMETER State
-            The issue's state -- 'OPEN' or 'CLOSED'. Compared case-insensitively.
+            The issue's state -- 'OPEN' or 'CLOSED'. Compared case-insensitively; anything but OPEN
+            refuses as 'closed'.
 
         .PARAMETER Records
             The markers already on the issue (Get-ClaimRecords).
 
+        .PARAMETER Url
+            The number's URL (Test-PullRequestUrl). '' when unread.
+
         .OUTPUTS
             Action  -- 'claim' | 'resume' | 'refuse'.
-            Code    -- 'free' | 'already-yours' | 'no-tag' | 'closed' | 'held'.
+            Code    -- 'free' | 'already-yours' | 'no-tag' | 'pull-request' | 'closed' | 'held'.
             Holders -- the tags that are not this one. Always an array.
     #>
     param(
         [string]$Tag = '',
         [string]$State = '',
-        [AllowNull()][object[]]$Records = @()
+        [AllowNull()][object[]]$Records = @(),
+        [string]$Url = ''
     )
 
     $all = @(@($Records) | Where-Object { $_ -and $_.PSObject.Properties['Tag'] -and ([string]$_.Tag).Trim() })
@@ -1904,7 +1969,10 @@ function Get-TagClaimVerdict {
     if (-not $Tag) {
         return [pscustomobject]@{ Action = 'refuse'; Code = 'no-tag'; Holders = $others }
     }
-    if ($State -ieq 'CLOSED') {
+    if (Test-PullRequestUrl -Url $Url) {
+        return [pscustomobject]@{ Action = 'refuse'; Code = 'pull-request'; Holders = $others }
+    }
+    if ($State -ine 'OPEN') {
         return [pscustomobject]@{ Action = 'refuse'; Code = 'closed'; Holders = $others }
     }
     if ($mine.Count -gt 0) {
@@ -2218,6 +2286,9 @@ function Get-TakeOverVerdict {
         .PARAMETER Records
             The markers on the issue (Get-ClaimRecords).
 
+        .PARAMETER Url
+            The number's URL, passed through to Get-TagClaimVerdict (#2609).
+
         .PARAMETER Branches
             The issue's branches on origin (Get-IssueBranchNames).
 
@@ -2249,13 +2320,14 @@ function Get-TakeOverVerdict {
         [string]$Tag = '',
         [string]$State = '',
         [AllowNull()][object[]]$Records = @(),
+        [string]$Url = '',
         [AllowNull()][string[]]$Branches = @(),
         [AllowNull()][string[]]$OwnAccounts = @(),
         [AllowNull()][string[]]$SelfNames = @(),
         [AllowNull()][string[]]$BranchAuthors = @()
     )
 
-    $base = Get-TagClaimVerdict -Tag $Tag -State $State -Records $Records
+    $base = Get-TagClaimVerdict -Tag $Tag -State $State -Records $Records -Url $Url
     $found = @(@($Branches) | Where-Object { $_ })
     $result = [pscustomobject]@{
         Code     = $base.Code
@@ -2337,6 +2409,126 @@ function Format-HandoverComment {
         "A session under $old that runs ``claim-issue.ps1 $Issue -Tag -Verify`` now reads [NO] and stops."
 }
 
+function Get-IssueLabelNames {
+    <#
+        .SYNOPSIS
+            The label names on one issue record -- an element of `gh issue list --json labels` or the
+            root of `gh issue view --json labels` -- trimmed, empties dropped.
+
+        .DESCRIPTION
+            ONE READER FOR BOTH ROUTES (issue #2518). The sweep read labels off each list element and the
+            single-issue route read none at all, so the one label this workflow uses to park an issue was
+            honoured on one route and invisible on the other. Both now read it here.
+
+        .OUTPUTS
+            A string array; EMPTY when the record carries no 'labels' field or it is empty.
+    #>
+    param([AllowNull()][object]$Issue)
+
+    $names = @()
+    if ($null -eq $Issue -or -not $Issue.PSObject.Properties['labels']) { return @() }
+    foreach ($label in @(@($Issue.labels) | Where-Object { $_ })) {
+        if ($label.PSObject.Properties['name']) {
+            $name = ([string]$label.name).Trim()
+            if ($name) { $names += $name }
+        }
+    }
+    return $names
+}
+
+function Select-ParkingLabels {
+    <#
+        .SYNOPSIS
+            The labels on an issue that park it with somebody else -- those named in the skip list,
+            compared case-insensitively, returned as the issue spells them.
+
+        .PARAMETER Labels
+            The issue's label names (Get-IssueLabelNames).
+
+        .PARAMETER SkipLabel
+            The label names that park an issue.
+
+        .OUTPUTS
+            A string array, in the issue's own order; EMPTY when nothing matches.
+    #>
+    param(
+        [AllowNull()][string[]]$Labels = @(),
+        [AllowNull()][string[]]$SkipLabel = @()
+    )
+
+    $skip = @(@($SkipLabel) | Where-Object { $_ -and ([string]$_).Trim() } | ForEach-Object { ([string]$_).Trim() })
+    if ($skip.Count -eq 0) { return @() }
+    return @(@($Labels) | Where-Object { $_ } | Where-Object { $lbl = $_; @($skip | Where-Object { $_ -ieq $lbl }).Count -gt 0 })
+}
+
+function Format-ParkingLabelNote {
+    <#
+        .SYNOPSIS
+            The warning a single-issue claim prints when the issue carries a parking label (issue #2518).
+
+        .DESCRIPTION
+            WARNS, NEVER REFUSES -- the same bound as every pickup signal in this script (#1485): a label
+            can be stale, and a claim that blocks costs the whole assignment. What it changes is the
+            reading. The sweep route skips such an issue outright (`-Candidates -SkipLabel needs-info,needs-decision,awaiting-recurrence`);
+            the single-issue route used to claim it and print "the work starts here", and a session took
+            that literally and chose between the owner's options itself.
+
+            The label names are passed through Format-ForConsole anyway. Only a name that equals a skip
+            label (case-insensitively) reaches this function, and applying a label takes triage access
+            rather than merely opening an issue -- but it is still tracker text, and the one stripping
+            policy is cheaper to apply than to argue an exception to.
+
+        .OUTPUTS
+            A string array of lines; EMPTY when no label matched.
+    #>
+    param(
+        [int]$Issue,
+        [AllowNull()][string[]]$Labels = @()
+    )
+
+    $hit = @(@($Labels) | Where-Object { $_ })
+    if ($hit.Count -eq 0) { return @() }
+    $named = (@($hit | ForEach-Object { "'$(Format-ForConsole -Text ([string]$_))'" }) -join ', ')
+    return @(
+        "PARKED: #$Issue carries $named -- a label that parks an issue with somebody else, and the"
+        'label a sweep skips this issue on. It is waiting on an ANSWER, not on a builder: read the'
+        'issue for the open question and who it is addressed to. Where the answer is not on the'
+        'thread yet, it is not yours to give -- do not pick one of the options and build it.'
+        'If the label is stale (the answer is already there), remove it, then carry on.'
+    )
+}
+
+function Format-ClaimOpening {
+    <#
+        .SYNOPSIS
+            The tail of the claim's closing '[OK]' line: 'the work starts here', or a pointer naming
+            every pickup verdict that fired above it.
+
+        .DESCRIPTION
+            THE HEADLINE MAY NOT CONTRADICT A BLOCK PRINTED ABOVE IT (#1878), and where several fired it
+            names them all (#2064) -- naming one of two sends the reader to the block that settles the
+            other question. #2518 added a third, the parking label, which is what moved this out of an
+            if-chain in the script: three flags would need seven arms there.
+
+        .OUTPUTS
+            A string starting with ' -- '.
+    #>
+    param(
+        [switch]$ForeignParked,
+        [switch]$PrerequisiteFound,
+        [switch]$Parked
+    )
+
+    $pending = @()
+    if ($ForeignParked) { $pending += 'parked-fix' }
+    if ($PrerequisiteFound) { $pending += 'prerequisite' }
+    if ($Parked) { $pending += 'parking-label' }
+    if ($pending.Count -eq 0) { return ' -- the work starts here.' }
+    if ($pending.Count -eq 1) { return " -- but read the $($pending[0]) verdict above before you start." }
+    $leading = @($pending[0..($pending.Count - 2)]) -join ', '
+    return " -- but read the $leading and $($pending[-1]) verdicts above before you start."
+}
+
 function Get-SweepCandidates {
     <#
         .SYNOPSIS
@@ -2416,12 +2608,7 @@ function Get-SweepCandidates {
         $number = [int]$issue.number
         $title = if ($issue.PSObject.Properties['title']) { [string]$issue.title } else { '' }
 
-        $labels = @()
-        if ($issue.PSObject.Properties['labels']) {
-            foreach ($label in @(@($issue.labels) | Where-Object { $_ })) {
-                if ($label.PSObject.Properties['name']) { $labels += ([string]$label.name).Trim() }
-            }
-        }
+        $labels = @(Get-IssueLabelNames -Issue $issue)
 
         $verdict = 'free'
         $holder = ''
@@ -2431,7 +2618,7 @@ function Get-SweepCandidates {
             $verdict = 'skipped'
             $reason = 'held out of this round by number'
         } else {
-            $hit = @($labels | Where-Object { $lbl = $_; @($skipLabels | Where-Object { $_ -ieq $lbl }).Count -gt 0 })
+            $hit = @(Select-ParkingLabels -Labels $labels -SkipLabel $skipLabels)
             if ($hit.Count -gt 0) {
                 $verdict = 'skipped'
                 $reason = "label '$($hit[0])'"

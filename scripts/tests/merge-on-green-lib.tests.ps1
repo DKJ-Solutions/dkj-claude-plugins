@@ -201,7 +201,9 @@ foreach ($variant in @(
     ' scripts/repo-config.ps1 ',        # surrounding whitespace
     './scripts/repo-config.ps1',        # a leading './'
     '/scripts/repo-config.ps1',         # a leading '/'
-    'SCRIPTS\Lib\Branch-Info.PS1'       # the SECOND seam file, backslash AND case together
+    'SCRIPTS\Lib\Branch-Info.PS1',      # the SECOND seam file, backslash AND case together
+    'scripts./repo-config.ps1',         # a trailing dot on a segment, which Win32 drops (#2553 review)
+    'scripts/repo-config.ps1. '         # trailing dot and space on the leaf
 )) {
     $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $variant)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
     Assert-True (-not $v.Eligible) "a diff touching '$variant' is refused -- same seam file, a different spelling"
@@ -224,11 +226,37 @@ foreach ($safeNow in @(
     'scripts/release/ship-pr.ps1',                          # ship-pr now runs from -TrustedRoot, not here
     'scripts/lib/gate-lib.ps1',                              # any other sibling lib, likewise
     'plugins/dkj-policy/scripts/lib/merge-on-green-lib.ps1', # the plugin mirror of the same code
-    '.github/workflows/merge-on-green.yml',                 # workflow_run runs the DEFAULT branch's copy anyway
-    '.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1' # a consumer's plugin checkout path
+    '.github/workflows/merge-on-green.yml'                  # workflow_run runs the DEFAULT branch's copy anyway
 )) {
     $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $safeNow)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
     Assert-True $v.Eligible "a diff touching '$safeNow' is ELIGIBLE since #2437 -- the runner no longer executes it from the branch"
+}
+
+# THE ONE PREFIX THE SHRINK MUST NOT DROP (issue #2553). #2437 asserted '.workflow-scripts/...' ELIGIBLE
+# in the loop above, and v5.8.0 shipped that way. But the CONSUMER runner adopt-ci-floor.ps1 scaffolds
+# checks the pinned plugin tree out AT that path inside its PAT-bearing workspace and then checks the
+# branch out in place, and git overwrites an ignored file on checkout. So a branch committing this path
+# replaces the trusted ship-pr.ps1 and runs it with the push token. This is a SAFETY refusal.
+foreach ($variant in @(
+    '.workflow-scripts/plugins/dkj-policy/scripts/release/ship-pr.ps1', # the overwrite #2553 reproduced
+    '.workflow-scripts/plugins/dkj-policy/scripts/ci/pick-merge-on-green.ps1',
+    '.Workflow-Scripts/x.ps1',                                         # case: same dir on windows-latest
+    '.workflow-scripts\plugins\x.ps1',                                 # backslash separators
+    './.workflow-scripts/x.ps1',                                       # a leading './'
+    '.workflow-scripts',                                               # a FILE of that name
+    '.workflow-scripts./plugins/dkj-policy/scripts/release/ship-pr.ps1', # trailing dot: Win32 drops it (review)
+    '.workflow-scripts /x.ps1',                                        # trailing space, same folding
+    '.workflow-scripts::$INDEX_ALLOCATION/x.ps1',                      # an NTFS stream suffix on the dir
+    'WORKFL~1/plugins/x.ps1'                                           # an 8.3 short name
+)) {
+    $v = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md', $variant)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30
+    Assert-True (-not $v.Eligible) "a diff touching '$variant' is refused -- the consumer runner's plugin checkout path (#2553)"
+    Assert-True ($v.Reason -match 'plugin checkout path') "...and the refusal names the plugin checkout path for '$variant'"
+}
+foreach ($near in @('.workflow-scripts2/x.ps1', 'docs/.workflow-scripts/x.ps1', 'workflow-scripts/x.ps1',
+        'IMG~1.JPG', 'notes~1.txt', 'archive~2020.zip', 'BACKUP~1/x.sql')) {  # a tilde-digit that is not this dir's 8.3 name
+    Assert-True (Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @($near)) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Eligible `
+        "'$near' only resembles the plugin checkout path and is NOT a hit"
 }
 # FAIL-CLOSED ON A LIST THAT DID NOT SHOW THE WHOLE DIFF: gh returns at most 100 files per record.
 $truncated = Get-MergeOnGreenPrVerdict -Record (New-PrRecord -Files @('README.md') -ChangedFiles 150) -MergeBlockVerdict (New-Green)
@@ -716,6 +744,47 @@ if (-not $gitCmd) {
         Remove-Item -Recurse -Force -LiteralPath $probeDir -ErrorAction SilentlyContinue
     }
 }
+
+Write-Host ''
+Write-Host 'Get-UnshippedPrVerdict -- green, settled, and handed to no sweep (#2525)' -ForegroundColor Cyan
+
+# THE CASE #2525 MEASURED: PR #2515, never armed, green for hours. Unarmed is the ordinary shape here,
+# so the fixture carries no arming label.
+$unarmed = New-PrRecord -Labels @('bug')
+Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $true).Unshipped `
+    'unarmed + green + settled, with a sweep present -- unshipped'
+Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $false).Unshipped `
+    'and the same without a sweep -- unshipped'
+
+# ARMED IS THE SWEEP'S QUESTION ONLY WHERE A SWEEP EXISTS.
+$armedRec = New-PrRecord
+$armedVerdict = Get-UnshippedPrVerdict -Record $armedRec -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $true
+Assert-True (-not $armedVerdict.Unshipped) 'armed, with merge-on-green.yml present -- not reported, the sweep (or check-stranded-sweep) owns it'
+Assert-True ($armedVerdict.Reason -like '*sweep owns it*') 'and the Reason says why'
+Assert-True (Get-UnshippedPrVerdict -Record $armedRec -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30 -SweepExists $false).Unshipped `
+    'armed, with NO sweep in this repo -- the label is inert, so it is unshipped all the same'
+
+Assert-True (-not (Get-UnshippedPrVerdict -Record (New-PrRecord -Labels @() -Draft $true) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Unshipped) `
+    'a draft is never unshipped -- nobody said it was ready'
+Assert-True (-not (Get-UnshippedPrVerdict -Record (New-PrRecord -Labels @() -CrossRepo $true) -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Unshipped) `
+    'a fork pull request is never unshipped -- ship-pr cannot run from its head'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $null -MergeBlockVerdict (New-Green) -GreenAgeMinutes 30).Unshipped) `
+    'a null record is never unshipped'
+
+# THE REQUIRED-CHECK STATE AND THE SETTLE WINDOW -- the shared block, so the boundary is the picker's.
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict $null -GreenAgeMinutes 30).Unshipped) `
+    'an unreadable required-check state is not unshipped -- fail closed'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict ([pscustomobject]@{ Blocked = $true; Reason = 'red'; UnfinishedRequired = @() }) -GreenAgeMinutes 30).Unshipped) `
+    'a red required check is not unshipped -- it is owed a fix, not a merge'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict ([pscustomobject]@{ Blocked = $false; Reason = 'ok'; UnfinishedRequired = @('lint-en-tests') }) -GreenAgeMinutes 30).Unshipped) `
+    'a required check still running is not unshipped'
+$settleMin = Get-MergeOnGreenSettleMinutes
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes ($settleMin - 1)).Unshipped) `
+    'green for less than the settle window is not unshipped -- a live ship-pr may still be merging it'
+Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green) -GreenAgeMinutes $settleMin).Unshipped `
+    'green for exactly the settle window is unshipped -- the same boundary the picker uses'
+Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green)).Unshipped) `
+    'no green age passed -- not unshipped, fail closed'
 
 Write-Host ''
 Write-Host 'The lib, the script and the runner are ASCII' -ForegroundColor Cyan

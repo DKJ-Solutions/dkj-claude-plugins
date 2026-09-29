@@ -122,6 +122,12 @@ $unknownCheck = Test-BranchName -Branch 'wip/experiment'
 Assert-Equal $true  $unknownCheck.IsValid 'unknown prefix -> IsValid true (soft-warn path, no hard reject)'
 Assert-Equal $false $unknownCheck.IsKnown 'unknown prefix -> IsKnown false'
 
+# U+212A KELVIN SIGN folds to `k` under a plain -notmatch, so the ASCII allowlist admitted it -- and git
+# accepts it in a branch name (#2520). Written as a code point: the script layer is ASCII.
+$kelvinCheck = Test-BranchName -Branch ('fix/' + [char]0x212A)
+Assert-Equal $false $kelvinCheck.IsValid 'a name carrying the Kelvin sign -> IsValid false (case-sensitive allowlist, #2520)'
+Assert-Equal $true (Test-BranchName -Branch 'fix/Upper-K').IsValid '...while upper-case ASCII is still admitted'
+
 Write-Host ""
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red

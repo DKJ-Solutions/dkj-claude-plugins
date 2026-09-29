@@ -570,6 +570,147 @@ https://github.com/DaveKJohn/claude-code-specialists/pull/2
     Assert-Equal '1.4.0' $v10 'retraction typo: nothing was written -- the guardrail runs before the first write'
     Assert-Equal '' (Get-GitOut -Root $root10 -GitArgs @('tag','--list')).Trim() 'retraction typo: and no tag was created'
 
+    # --- 10. The live-push record decides both documents from ONE input (#2570, #2586) --------------
+    # THE MEASURED DISAGREEMENT ITSELF, reproduced end to end: two branches, each merged with the exact
+    # 'merge: <branch> (#NN)' subject ship-pr writes, each touching one file the live-push record names --
+    # one 'live', one 'hold'. The GitHub body must put them in different sections; neither document may
+    # claim the held one landed.
+    Write-Host ""
+    Write-Host "cut-release.ps1 -- the live-push record splits the GitHub body into what landed and what did not" -ForegroundColor Cyan
+    $root11 = New-CutFixture -Name 'liverecord'
+    Push-Location $root11
+    try {
+        # THE BASELINE TAG, at the fixture's initial commit -- 'v1.4.0', matching the plugin manifests'
+        # own version, so $baseTag exists and the merge-commit walk below has a range to read.
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('tag', 'v1.4.0') | Out-Null
+
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('checkout', '-b', 'fix/live-thing') | Out-Null
+        Write-Utf8 (Join-Path $root11 'sections\header.liquid') "{{ 'header' }}`n"
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('add', '-A') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('commit', '--quiet', '-m', 'feat: header section') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('checkout', 'main') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('merge', '--no-ff', '-m', 'merge: fix/live-thing (#101)', 'fix/live-thing') | Out-Null
+
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('checkout', '-b', 'fix/held-thing') | Out-Null
+        Write-Utf8 (Join-Path $root11 'snippets\footer.liquid') "{{ 'footer' }}`n"
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('add', '-A') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('commit', '--quiet', '-m', 'feat: footer snippet') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('checkout', 'main') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('merge', '--no-ff', '-m', 'merge: fix/held-thing (#102)', 'fix/held-thing') | Out-Null
+    } finally { Pop-Location }
+
+    # THE PENDING ENTRIES, one per merged branch -- replacing the fixture's own default entry entirely,
+    # so this scenario's changelog holds exactly the two branches it just merged and nothing else.
+    $cutEntryH11 = '#' * (Get-EntryHeadingLevel)
+    $cutSectH11  = '#' * (Get-EntrySectionLevel)
+    $cutTierH11  = '#' * (Get-EntryTierSubLevel)
+    $cutPendH11  = Get-ChangelogUnreleasedHeading
+    Write-Utf8 (Join-Path $root11 'CHANGELOG.md') @"
+# Changelog
+
+Everything merged since the last release, furthest reach first.
+
+$cutPendH11
+
+$cutEntryH11 ``fix/live-thing`` changelog
+
+$cutSectH11 Branch title
+
+Header goes live
+
+$cutSectH11 Branch ID
+
+20260928-000001
+
+$cutSectH11 Branch type
+
+fix
+
+$cutSectH11 What does the change on this branch bring to main?
+
+Ships the new header section.
+
+$cutSectH11 Significance
+
+$cutTierH11 Tier 0
+
+The maintainers notice it.
+
+**Score:** 2
+
+$cutSectH11 Pull Request
+
+[PR #101](https://example.test/101) - merged 2026-09-28
+
+$cutEntryH11 ``fix/held-thing`` changelog
+
+$cutSectH11 Branch title
+
+Footer stays held
+
+$cutSectH11 Branch ID
+
+20260928-000002
+
+$cutSectH11 Branch type
+
+fix
+
+$cutSectH11 What does the change on this branch bring to main?
+
+Ships a footer snippet that is held back from the live push.
+
+$cutSectH11 Significance
+
+$cutTierH11 Tier 0
+
+The maintainers notice it.
+
+**Score:** 2
+
+$cutSectH11 Pull Request
+
+[PR #102](https://example.test/102) - merged 2026-09-28
+"@
+    Push-Location $root11
+    try {
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('add', '-A') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('commit', '--quiet', '-m', 'fixture: pending entries for the merged branches') | Out-Null
+    } finally { Pop-Location }
+
+    # THE RECORD ITSELF, written OUTSIDE the repo -- a tracked, untracked-but-inside-the-tree file would
+    # trip the clean-tree guardrail before the record is even read.
+    $recordPath11 = Join-Path $FixtureDir 'liverecord-record.txt'
+    Write-Utf8 $recordPath11 "live sections/header.liquid`nhold snippets/footer.liquid`n"
+
+    $r11 = Invoke-Cut -Root $root11 -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests', '-LivePushRecord', $recordPath11)
+    Assert-Equal 0 $r11.Code 'live-push record: the cut succeeds'
+    $body11Path = Join-Path $root11 'dkj-policy\releases\github\1.x\1.4.1.md'
+    Assert-True (Test-Path -LiteralPath $body11Path) 'live-push record: the GitHub body was written'
+    if (Test-Path -LiteralPath $body11Path) {
+        $b11 = Get-Content -LiteralPath $body11Path -Raw
+        $whatLanded11 = ([regex]::Match($b11, '(?s)## What landed\r?\n(.*?)(?=## Not live yet|\z)')).Groups[1].Value
+        $notLive11    = ([regex]::Match($b11, '(?s)## Not live yet\r?\n(.*)\z')).Groups[1].Value
+        Assert-Match 'Header goes live' $whatLanded11 'live-push record: the live entry is listed under What landed'
+        Assert-NotMatch 'Footer stays held' $whatLanded11 'live-push record: the held entry is NOT ALSO listed under What landed'
+        Assert-Match 'Footer stays held' $notLive11 'live-push record: the held entry moved to Not live yet'
+        Assert-Match 'snippets/footer\.liquid' $notLive11 'live-push record: naming the file that did not go'
+    }
+
+    # --- 11. A malformed live-push record refuses before anything is written -------------------------
+    Write-Host ""
+    Write-Host "cut-release.ps1 -- a malformed live-push record refuses before anything is written" -ForegroundColor Cyan
+    $root12 = New-CutFixture -Name 'liverecord-malformed'
+    $recordPath12 = Join-Path $FixtureDir 'malformed-record.txt'
+    Write-Utf8 $recordPath12 "this is not a valid record line`n"
+    $r12 = Invoke-Cut -Root $root12 -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests', '-LivePushRecord', $recordPath12)
+    Assert-True ($r12.Code -ne 0) 'malformed record: refused with a non-zero exit'
+    Assert-Says 'expected' $r12.Out 'malformed record: the message names what the parser expected'
+    $v12 = (Get-Content -LiteralPath (Join-Path $root12 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
+    Assert-Equal '1.4.0' $v12 'malformed record: nothing was written -- the record is parsed before the first write'
+    Assert-Equal '' (Get-GitOut -Root $root12 -GitArgs @('tag','--list')).Trim() 'malformed record: and no tag was created'
+    Assert-Equal '' (Get-GitOut -Root $root12 -GitArgs @('status','--porcelain')).Trim() 'malformed record: and the tree stays exactly as committed'
+
 } finally {
     if (Test-Path -LiteralPath $FixtureDir) {
         Remove-Item -LiteralPath $FixtureDir -Recurse -Force -ErrorAction SilentlyContinue

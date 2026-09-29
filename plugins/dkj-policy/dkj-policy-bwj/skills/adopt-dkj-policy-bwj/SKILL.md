@@ -6,9 +6,10 @@ description: >-
   dkj-claude-plugins -- it refuses to run anywhere else -- both chapters: copy the asana-mirror CI
   mechanism into .github/, propose the Asana config seam for scripts/repo-config.ps1, print the repo
   secret and variables the CI needs, check that the classification labels exist, report whether the
-  board's sections are numbered so the stage model can read them, and scaffold chapter two's
-  dkj-policy-bwj/SYNC-LOG.md with its masthead, ready for the first sync branch. Strictly additive
-  and dry-run by default; it never overwrites an existing file, and it renames nothing on the board.
+  board's sections are numbered so the stage model can read them, write the BWJ extension import into
+  CLAUDE.md, and scaffold chapter two's dkj-policy-bwj/SYNC-LOG.md with its masthead, ready for the
+  first sync branch. Strictly additive and dry-run by default; it never overwrites an existing file,
+  only adds the one import line to CLAUDE.md, and it renames nothing on the board.
   Run this right after enabling the plugin, or when report-issue reports the Asana config seam
   missing.
 ---
@@ -382,11 +383,11 @@ exactly as `gh issue create` does.
 ```bash
 gh label create prio-4 --repo <owner>/<repo> --color b60205 \
   --description "Asana Prio-Score 4.00-5.00"
-gh label create prio-3 --repo <owner>/<repo> --color d93f0b \
+gh label create prio-3 --repo <owner>/<repo> --color e0321a \
   --description "Asana Prio-Score 3.00-3.99"
-gh label create prio-2 --repo <owner>/<repo> --color fbca04 \
+gh label create prio-2 --repo <owner>/<repo> --color f9a825 \
   --description "Asana Prio-Score 2.00-2.99"
-gh label create prio-1 --repo <owner>/<repo> --color 006b75 \
+gh label create prio-1 --repo <owner>/<repo> --color ffe033 \
   --description "Asana Prio-Score 1.00-1.99"
 ```
 
@@ -406,17 +407,17 @@ history is lost:
 
 ```bash
 gh label edit "very high" --repo <owner>/<repo> --name prio-4 --color b60205
-gh label edit "high"      --repo <owner>/<repo> --name prio-3 --color d93f0b
-gh label edit "low"       --repo <owner>/<repo> --name prio-2 --color fbca04
-gh label edit "very low"  --repo <owner>/<repo> --name prio-1 --color 006b75
+gh label edit "high"      --repo <owner>/<repo> --name prio-3 --color e0321a
+gh label edit "low"       --repo <owner>/<repo> --name prio-2 --color f9a825
+gh label edit "very low"  --repo <owner>/<repo> --name prio-1 --color ffe033
 ```
 
-**`prio-2` shares `fbca04` with `tier-1` in this repo, and that is known rather than a slip.** They
-are two different axes -- a rung and a reach -- so both can sit on one issue as two identical yellow
-badges. It is the hex [#1842](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1842)
-prescribes, and whether either label moves is Dave's to decide:
-[#1844](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1844). Read the name, not the
-badge.
+**The colours are two yellows and two reds** (Dave, September 28, 2026): `prio-1` yellow, `prio-2` a
+yellow leaning to orange, `prio-3` a red leaning to orange, `prio-4` red. That also retired the one
+collision this step used to warn about -- `prio-2` shared `fbca04` with `tier-1` until then
+([#1844](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1844)). **A repo adopted before
+that day keeps its old colours**, because `gh label create` never touches a label that exists;
+re-colour in place with `gh label edit prio-<n> --repo <owner>/<repo> --color <hex>`, the hexes above.
 
 **Do the rename and the `asana-mirror.ps1` refresh of step 1 in one sitting, in either order.** The
 copy in `.github/scripts/` is made by hand, so the gap between the two is yours to keep short -- and
@@ -509,18 +510,35 @@ the model reads a stale column -- which looks exactly like a board that works.
 
 ## 6 -- point the repo's governance at the rule
 
-Import the BWJ extension of the constitution in the repo's `CLAUDE.md`, on the line **directly
-below** the `dkj-policy` import that `adopt-dkj-policy` asks for
+The repo's `CLAUDE.md` imports the BWJ extension of the constitution on the line **directly below**
+the `dkj-policy` import that `adopt-dkj-policy` writes
 ([#2374](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2374)):
 
 ```
 @~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md
 ```
 
+**This step writes that line** ([#2532](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2532)).
+It used to ask a person to add it, and #2531 measured what that costs for the constitution line: a
+consumer ran for weeks without the rules in context. Run it dry first, then with `-Apply`:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-extension-import.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/adopt-extension-import.ps1" -Apply
+```
+
+It puts the line directly below the constitution import. Without one it goes where the constitution
+would, so a later `adopt-dkj-policy` still lands the constitution above it. It takes the marketplace
+name the repo's clone sits under, keeps the file's line endings and byte-order mark, and writes
+nothing when the line is already imported, under any marketplace name or through a file `CLAUDE.md`
+imports. A line quoted inside a code fence counts neither as imported nor as a place to insert.
+
 That file points at all four chapters, so a session reads the BWJ rules the same way it reads the
-constitution. Where the repo's clone sits under an older marketplace name, use that name, as the
-`dkj-policy` import does. Remove any older line that pointed at `WORKFLOW-portable.md` directly,
-because the extension replaces it.
+constitution. **The one thing left to you:** remove any older line that pointed at
+`WORKFLOW-portable.md` directly, because the extension replaces it. The script only adds.
+
+Until the line is there, dkj-policy's `consumer-prose-sessioncheck` warns at session start in a repo
+whose own settings enable `dkj-policy-bwj`, and names this step.
 
 ## 7 -- scaffold the sync-log folder (chapter two)
 

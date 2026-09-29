@@ -82,6 +82,9 @@
         lost its lens" must not read as drift. The evidence is per id, so a specialist that is genuinely
         lens-less keeps erroring. See Get-UnknownLensNameById -- including why the missing-ROSTER-ROW
         half of that same wall is not held here (#2130 already repaired it).
+      - a missing LENS whose id IS named by a file under the RETIRED spelling '<g>-<id>-extension.md' ->
+        [ERROR] naming the git mv (issue #2600). The mirror image of the case above: the tree is behind
+        the check, not ahead of it, so it is NOT held under that marker's "nothing needs changing".
       - plugin ENABLED but with no install record for this path -> one [NOT-INSTALLED-HERE] roll-up
         (non-counting, like [ORPHANS]) plus a non-counting detail line per plugin naming the enabling
         layer and the administration consulted (inbound #302). Enabling is only half
@@ -159,6 +162,10 @@ param(
 # every miss -- and a miss is the normal case for an optional seam. $PSScriptRoot-relative, so it
 # resolves in the plugin mirror as well as here.
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
+
+# Get-NextFenceState (issue #2536): the import scan skips fenced blocks the CommonMark way. Mirrored
+# beside this script into dkj-subagents-alpha, so the relative path resolves there too.
+. (Join-Path $PSScriptRoot '..\lib\fence-lib.ps1')
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -336,6 +343,12 @@ function Test-LensExists {
 #       ('2026-06-24-meeting.md') and a suffixed backup, none of which says anything about a naming
 #       generation. The id itself is still recognised through the shared Get-RosterIdTokenPattern rather
 #       than a second spelling; the anchor around it is what tightens the answer.
+# ONE SHAPE PASSES BOTH GUARDS AND IS NOT A NEWER GENERATION: the RETIRED '<g>-<id>-extension.md' (issue
+# #2600). #2292 emptied the Lens row's AlsoRead, so no reader resolves it -- and it was then held under a
+# marker saying NOTHING IN THE REPO NEEDS CHANGING, while the tree is BEHIND the check, the file is loaded
+# by nobody, and a plugin refresh never clears it. It is not filtered here: the caller asks
+# Get-RetiredLensPath FIRST and reports it with its own failure naming the rename, so for such an id this
+# map is never consulted.
 # The cost is stated rather than hidden: a future generation that puts something other than letters and
 # hyphens around the id is not recognised, and the old wall returns for it. That is the safe direction to
 # err in -- too tight restores a known, visible defect, too loose hides a finding nobody sees at all.
@@ -378,6 +391,19 @@ function Get-UnknownLensNameById {
         }
     }
     return $map
+}
+
+# A lens for '<group>-<id>' under the RETIRED spelling '<g>-<id>-extension.md', in any candidate lens
+# directory -- or $null (issue #2600). The name is composed here rather than through
+# Get-SpecialistFileName because the shapes table dropped it (#2292); an exact name probe, not a pattern,
+# so no id other than the one asked about can answer.
+function Get-RetiredLensPath {
+    param([string]$RepoRoot, [string]$PluginName, [string]$Id)
+    foreach ($d in (Get-LensDirCandidates -RepoRoot $RepoRoot -PluginName $PluginName)) {
+        $p = Join-Path $d "$Id-extension.md"
+        if (Test-Path -LiteralPath $p -PathType Leaf) { return $p }
+    }
+    return $null
 }
 
 # The directories a lens may live in WITHOUT being off-path -- what the writers actually produce today,
@@ -477,10 +503,10 @@ function Get-LensIds {
 function Get-MarkdownImports {
     param([string]$Text)
     $found = @()
-    $inFence = $false
+    $fence = ''
     foreach ($line in ($Text -split "`r?`n")) {
-        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        $was = Resolve-FenceState -Line $line -Fence $fence; $fence = Get-NextFenceState -Line $line -Fence $fence -AnyIndent
+        if ($was -or $fence) { continue }
         $m = [regex]::Match($line, '^\s*@(?<p>[^\s`]+\.md)\s*$')
         if ($m.Success) { $found += $m.Groups['p'].Value }
     }
@@ -1155,7 +1181,18 @@ foreach ($plugId in ($enabledIds | Sort-Object -Unique)) {
                 }
             }
             if (-not $hasLens) {
-                if ($unknownLensName) {
+                $retiredLens = Get-RetiredLensPath -RepoRoot $repoRoot -PluginName $name -Id $id
+                if ($retiredLens) {
+                    # The retired spelling (#2600): the repair is a rename in THIS repo, so it counts, and
+                    # the line names the git mv rather than the file to create -- creating one would leave
+                    # the old lens's content behind in a file nobody reads. Sanitized with
+                    # Format-SafePathToken like the naming marker below: a candidate lens dir can carry a
+                    # directory name off disk, and this line is forwarded into session context by the hook.
+                    $retiredRel = $retiredLens.Substring($repoRoot.TrimEnd('\', '/').Length + 1) -replace '\\', '/'
+                    $currentRel = Format-SafePathToken -Value ((Join-Path (Split-Path $retiredRel -Parent) (Get-SpecialistFileName -Kind Lens -Id $id)) -replace '\\', '/')
+                    $retiredRel = Format-SafePathToken -Value $retiredRel
+                    Write-Failure "$kind '$id' ($plugIdShown) has its repo-lens under the retired spelling '$retiredRel', which no reader has resolved since #2292, so this specialist runs WITHOUT its lens. Rename it: git mv $retiredRel $currentRel (and repoint any @-import of the old name)."
+                } elseif ($unknownLensName) {
                     $suppressedForLensNaming++
                     $lensNamingFiles[$unknownLensName] = $true
                 } else {
