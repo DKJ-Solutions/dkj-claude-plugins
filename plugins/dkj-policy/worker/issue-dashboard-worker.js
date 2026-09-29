@@ -11,8 +11,9 @@
 // compared in constant time. EVERY MISS ANSWERS THE SAME 404 -- wrong method, wrong path, wrong token,
 // missing DASHBOARD_TOKEN -- so nothing here can be used to probe which tokens are live.
 //
-// The GitHub reads are cached ~60 s at the edge under a synthetic key derived from the repo, NEVER
-// from the path token. The page the browser gets is no-store. Titles and labels are written by
+// The GitHub reads are cached ~60 s: per isolate (a module-scoped memo), plus the edge cache where
+// Cloudflare provides one (caches.default is not confirmed to act on *.workers.dev). Both are keyed on
+// the repo, NEVER on the path token. The page the browser gets is no-store. Titles and labels are written by
 // whoever can open an issue, so every GitHub-derived string is escaped before it reaches the page.
 //
 // Deployed by hand from dkj-policy/dashboard/ (issue-dashboard.ps1 -EmitWorker writes it there).
@@ -28,6 +29,10 @@ const REF_PREFIXES = ["feat", "fix", "docs"];
 const BASE_HEADERS = {
   "cache-control": "no-store",
   "x-robots-tag": "noindex, nofollow",
+  // The path token is in the URL and the page links out to github.com: no referrer, no sniffing, no active content.
+  "referrer-policy": "no-referrer",
+  "x-content-type-options": "nosniff",
+  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 };
 const TEXT = { ...BASE_HEADERS, "content-type": "text/plain; charset=utf-8" };
 const HTML = { ...BASE_HEADERS, "content-type": "text/html; charset=utf-8" };
@@ -145,7 +150,19 @@ function flattenPr(n, repoName, warnings) {
 }
 
 // The cache holds the DERIVED data, keyed on the repo alone -- the path token never reaches the key.
+// In front of it sits an in-isolate memo, because the edge cache is not confirmed to work everywhere.
+let memo = null; // { repo, data, expires }
+export function resetMemo() { memo = null; }
+
 async function getData(env, ctx) {
+  const now = Date.now();
+  if (memo && memo.repo === env.GITHUB_REPO && memo.expires > now) return memo.data;
+  const data = await getEdgeOrFresh(env, ctx);
+  memo = { repo: env.GITHUB_REPO, data, expires: now + CACHE_SECONDS * 1000 };
+  return data;
+}
+
+async function getEdgeOrFresh(env, ctx) {
   const cache = caches.default;
   const key = new Request(`https://issue-dashboard.invalid/${encodeURIComponent(env.GITHUB_REPO)}`);
   const hit = await cache.match(key);
@@ -200,7 +217,7 @@ function renderPage(data, repoName) {
   const repoUrl = (r) => `https://github.com/${r}`;
   const issueLink = (n, r) => {
     const own = !r || r.toLowerCase() === repoName.toLowerCase();
-    return `<a href="${escapeHtml(repoUrl(own ? repoName : r))}/issues/${Number(n)}">${own ? "" : escapeHtml(r)}#${Number(n)}</a>`;
+    return `<a href="${escapeHtml(repoUrl(own ? repoName : r))}/issues/${Number(n)}" rel="noopener noreferrer">${own ? "" : escapeHtml(r)}#${Number(n)}</a>`;
   };
   const counts = STATUSES.map((s) => `<li>${s}<b>${data.rows.filter((r) => r.status === s).length}</b></li>`).join("");
   const warnings = data.warnings.length
@@ -213,12 +230,12 @@ function renderPage(data, repoName) {
     const blockers = r.blockers.filter((b) => b.state === "OPEN");
     if (blockers.length) detail.push(`<span>Blocked by: ${blockers.map((b) => issueLink(b.number, b.repo)).join(", ")}</span>`);
     if (r.blocking.length) detail.push(`<span>Unblocks: ${r.blocking.map((n) => issueLink(n, repoName)).join(", ")}</span>`);
-    if (r.prs.length) detail.push(`<span>PR: ${r.prs.map((p) => `<a href="${escapeHtml(p.url)}">#${Number(p.number)}</a>${p.isDraft ? " (draft)" : ""}`).join(", ")}</span>`);
+    if (r.prs.length) detail.push(`<span>PR: ${r.prs.map((p) => `<a href="${escapeHtml(p.url)}" rel="noopener noreferrer">#${Number(p.number)}</a>${p.isDraft ? " (draft)" : ""}`).join(", ")}</span>`);
     if (r.cycle) detail.push(`<span class="flag">Circular blocker chain</span>`);
     if (r.externalBlocker) detail.push(`<span>Waits on something outside this list</span>`);
     const labels = r.labels.map((l) => `<span class="tag">${escapeHtml(l)}</span>`).join("");
     return `<div class="row"><div class="rank">${r.rank}</div><div>
-      <div><a href="${escapeHtml(r.url)}">#${Number(r.number)}</a> <span class="title">${escapeHtml(r.title)}</span>
+      <div><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">#${Number(r.number)}</a> <span class="title">${escapeHtml(r.title)}</span>
       <span class="pill" style="color:var(--s-${STATUS_COLOUR[r.status]})">${escapeHtml(r.status)}</span></div>
       ${labels ? `<div class="detail">${labels}</div>` : ""}
       ${detail.length ? `<div class="detail">${detail.join("")}</div>` : ""}</div></div>`;
@@ -230,7 +247,7 @@ function renderPage(data, repoName) {
 <meta name="robots" content="noindex,nofollow">
 <title>Issue dashboard — ${escapeHtml(repoName)}</title>
 <style>${CSS}</style></head><body><main>
-<h1>Issue dashboard — <a href="${escapeHtml(repoUrl(repoName))}">${escapeHtml(repoName)}</a></h1>
+<h1>Issue dashboard — <a href="${escapeHtml(repoUrl(repoName))}" rel="noopener noreferrer">${escapeHtml(repoName)}</a></h1>
 <p class="meta">Generated ${escapeHtml(data.generatedAt)} · data up to ${CACHE_SECONDS} s old · ${data.rows.length} open, in pick-up order</p>
 <ul class="counts">${counts}</ul>
 ${warnings}
