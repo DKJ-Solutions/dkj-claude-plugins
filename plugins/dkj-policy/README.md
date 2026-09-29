@@ -171,11 +171,30 @@ below changes for you, and nothing here asks you to run anything.
 | [`check-fanout`](skills/check-fanout/SKILL.md) | work is about to be handed to subagents while the checkout holds uncommitted edits — reads the working copy before the dispatch and again after, and reports only what SHRANK: a change that is gone, or a stash entry that is. Report-only, and it cannot restore |
 | [`cut-release`](skills/cut-release/SKILL.md) | the release: the bump, the notes, the tag, and the closing steps the script does not automate |
 | [`release-notes-page`](skills/release-notes-page/SKILL.md) | after a release — builds the hand-written notes into one browsable page for the reader they are written for, and optionally the Cloudflare Worker that hosts it |
+| [`issue-dashboard`](skills/issue-dashboard/SKILL.md) | optional, needs a Cloudflare account — sets up a live dashboard of the open issues, each with a status and a pick-up order from its blocked-by links; prints the deploy commands and deploys nothing |
 | [`fix-mojibake`](skills/fix-mojibake/SKILL.md) | repairing encoding damage in markdown |
 | [`measure-skill`](skills/measure-skill/SKILL.md) | pricing what a skill costs the sessions that carry it — always-on against on-invoke tokens, the delta against a stored baseline, and the wall-clock of the script behind it |
 | [`measure-closeouts`](skills/measure-closeouts/SKILL.md) | the close-out rule keeps being repaired and keeps losing — counts how the receipt actually behaved against its three-line ceiling across every recorded session, so the next repair can be measured instead of judged by whether a complaint arrives |
 
 <!-- /skills:plugin -->
+
+## The issue dashboard — optional, and the one worker that is live
+
+GitHub's issues page shows labels, but not what is in flight, what is blocked, or what to pick up next.
+The [`issue-dashboard`](skills/issue-dashboard/SKILL.md) skill sets up a page that does: one repo's open
+issues, each with a status and a pick-up order derived from GitHub's blocked-by dependencies, served
+from a Cloudflare Worker at an unguessable path.
+
+**It is optional, and adopting nothing loses nothing.** It needs a Cloudflare account, plus `node` and
+`npx` for the deploy; a consumer without those skips it and the rest of this plugin is unchanged.
+
+**It differs from the other two workers in one way: it is live and holds no content.** The
+release-notes worker (`release-notes-page`) and the BWJ pages worker (`dkj-policy-bwj`) each host a page
+built once and stored. This one stores nothing: it reads the issues from GitHub when the page is opened (through a short
+edge cache), so there is nothing to republish.
+
+**Setup is on the skill page and is not repeated here.** The script behind it prints the deploy commands
+and deploys nothing, and it never reads a secret.
 
 ## How this workflow uses skills — and what it deliberately doesn't
 

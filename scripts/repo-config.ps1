@@ -1362,6 +1362,12 @@ function Get-ReleasePageMasthead {
     return @()
 }
 
+function Get-IssueDashboardWorkerName {
+    <# Empty: this repo hosts no live issue dashboard, so it names no worker (#2643). A repo that runs
+       issue-dashboard.ps1 and answers nothing gets '<repo name>-issue-dashboard'. #>
+    return ''
+}
+
 function Get-DeclinedAdoptions {
     <# Nothing declined. The adoption section that reads this is skipped in the repo that publishes the
        workflow, so the answer is inert here -- stated anyway, because an unstated one reads as unasked. #>

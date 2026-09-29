@@ -60,6 +60,11 @@ $RECYCLE.BIN/
 # one, so an orphan is named instead of silently replaced; moving the folder is still yours to do.
 dkj-policy/releases/page/
 
+# THE LIVE ISSUE DASHBOARD SCAFFOLDING (#2643): the path token, the worker copy and the wrangler.toml. The token
+# is the only lock on a public dashboard, so it is never committed; the worker files are derivatives of
+# plugins/dkj-policy/worker/. Anchored, so it cannot swallow an unrelated dashboard/ folder elsewhere.
+/dkj-policy/dashboard/
+
 # THE HARNESS WRITES THIS, NOT US (issue #1673). A dispatched agent's own worktree lands INSIDE the
 # repo at .claude/worktrees/agent-<id>, which is the harness's choice rather than this repo's -- there is
 # no seam here to move it outside the tree the way worktree-lane.ps1 places a lane in a sibling

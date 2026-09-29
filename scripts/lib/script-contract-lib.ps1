@@ -562,6 +562,14 @@ $script:ContractRecords = @(
        Adopt = 'decide'; AdoptWhy = "it names a Cloudflare Worker in somebody's account. Copying the source's answer points your deploy at a worker that is not yours -- and unlike most wrong values here, this one is only discovered at the moment you publish";
        Optional = $true; Default = "'' -- the page is built and hosted nowhere, and -Worker refuses while naming this function";
        Returns = "the name of the Cloudflare Worker that serves the generated page, or '' when this repo hosts it nowhere. The worker serves the page at /notes/<32 hex>, and that path is the ONLY lock on it -- there is no login, so anyone with the link can read. Answer this only where the notes are safe to be read by whoever receives the link, and keep the token file out of version control wherever the repository is public" },
+    # THE LIVE ISSUE DASHBOARD'S ONE KNOB (#2643). Optional with a working fallback, unlike the release
+    # page's worker name: running issue-dashboard.ps1 at all is the opt-in, so an empty answer names the
+    # worker '<repo>-issue-dashboard' instead of refusing. A non-empty value asserts that a Cloudflare
+    # Worker of that name is yours.
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-IssueDashboardWorkerName'; Scripts = @('issue-dashboard');
+       Adopt = 'decide'; AdoptWhy = "it names a Cloudflare Worker in somebody's account. Copying the source's answer points your deploy at a worker that is not yours -- and this one is only discovered at the moment you publish";
+       Optional = $true; Default = "'' -- the worker is named '<repo name>-issue-dashboard'";
+       Returns = "the name of the Cloudflare Worker that serves the live issue dashboard, or '' to take the default '<repo name>-issue-dashboard'. The dashboard is served at /issues/<32 hex> and that path is the ONLY lock on it -- there is no login, so anyone with the link reads the repo's open issues. Answer this only where that is acceptable, and keep dkj-policy/dashboard/ out of version control (it is gitignored)" },
     # AND THE PALETTE (inbound #759, August 20, 2026). The page ships one visual identity, and a consumer
     # whose readers are management and a commissioner needs it to look like the product it reports on --
     # theirs is locked to a storefront's own brand tokens. A local restyle was the alternative and is the
