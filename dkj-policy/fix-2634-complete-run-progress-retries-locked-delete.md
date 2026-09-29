@@ -72,5 +72,3 @@ N/A
 
 run-progress: Complete-RunProgress retries a delete a statusline read is holding
 
-Plugins: dkj-policy, dkj-subagents-shopify
-
