@@ -290,6 +290,49 @@ function Get-ThemeIdFromPushOutput {
     return ''
 }
 
+function Get-ThemePushProblems {
+    <# Whether a 'theme push' run REJECTED something although it exited 0, and what it said. Pure lines in,
+       object out: { Failed = <bool>; Messages = <string[]> }.
+
+       ITS OWN FUNCTION BECAUSE THE EXIT CODE CANNOT BE TRUSTED HERE (inbound #2624, CLI 4.8.2). When the
+       CLI rejects a file it prints an 'error' box holding the path and the reason, closes with "The theme
+       ... was pushed with errors" in a 'warning' box, and STILL exits 0 -- so a caller judging only the
+       exit code reports a preview that is missing the rejected file as a success.
+
+       Two signals, either one is Failed: the closing phrase 'pushed with errors', or a box whose header
+       (a line opening with the box-drawing corner) cleans to exactly 'error'. A 'warning' or 'success' box
+       alone is not a failure, and the bare word 'errors' elsewhere is not a signal. Messages are the
+       cleaned, non-empty lines inside each error box, up to the box's closing corner.
+
+       ANSI colour codes are stripped first and box-drawing characters become spaces, because the CLI
+       colours and frames its output. The characters are built from code points: this file is ASCII.
+
+       BOTH SIGNALS ARE THE MEASURED CLI 4.8.2 WORDING, so this fails OPEN: a CLI that rewords or localises
+       them reads as a clean push again, which is the state before #2624 -- not a worse one. #>
+    param([AllowNull()][AllowEmptyCollection()][string[]]$Lines)
+    $boxClass = '[' + [char]0x2500 + '-' + [char]0x257F + ']'
+    $open = [string][char]0x256D
+    $close = [string][char]0x2570
+    $failed = $false
+    $messages = @()
+    $inError = $false
+    foreach ($raw in @($Lines)) {
+        if ($null -eq $raw) { continue }
+        $plain = [regex]::Replace([string]$raw, '\x1b\[[0-9;?]*[A-Za-z]', '')
+        $clean = ([regex]::Replace($plain, $boxClass, ' ')).Trim()
+        if ($clean -match '(?i)\bpushed with errors\b') { $failed = $true }
+        $trimmed = $plain.TrimStart()
+        if ($trimmed.StartsWith($open)) {
+            $inError = ($clean -ieq 'error')
+            if ($inError) { $failed = $true }
+            continue
+        }
+        if ($trimmed.StartsWith($close)) { $inError = $false; continue }
+        if ($inError -and $clean) { $messages += $clean }
+    }
+    return [pscustomobject]@{ Failed = $failed; Messages = [string[]]$messages }
+}
+
 function Get-ThemeByName {
     <# The theme with this exact name out of 'shopify theme list --json' output, already parsed from JSON.
        Returns $null where none matches, and THROWS where more than one does -- two themes of one name is
