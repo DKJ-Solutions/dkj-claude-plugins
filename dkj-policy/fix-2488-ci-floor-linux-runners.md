@@ -54,11 +54,43 @@ script changes is inferred, and no session machine here has `pwsh` or WSL -- so 
 - `merge-on-green` cannot be proved on its own PR (workflow_run runs the default branch's file), and it
   drives the largest code path (`ship-pr.ps1`, 4099 lines, plus open-pr, the fold and their libs).
 
+#### What the probe measured (run 36152305956, 2026-09-25; re-run on the merged-up branch 2026-09-29)
+
+- **Pass A** (no shim): all nine suites exit 1 on the first child launched as `powershell`. The name is
+  the whole of that failure. It is also not confined to the four lines above: the tree launches children
+  as `powershell` in many more places (`open-pr.ps1`, `cut-release.ps1`, `check-plugin-integrity.ps1`),
+  so a per-site rename is far larger than a runner-level shim.
+- **Pass B** (with a `powershell` -> `pwsh` shim): five suites green (`fold-changelog`,
+  `repo-settings-gate`, `merge-on-green-lib`, `ship-pr-trusted-root`, `adopt-ci-floor`). The four red
+  ones fail in the TEST HARNESS, not in runtime code: `verify-pushed-merges` (35) and
+  `verify-resolved-issues` (11) plant their fake `gh` as `gh.cmd` on a `;`-joined PATH, which Linux
+  neither executes nor splits, so the real `gh` answers instead; `native-capture` (4 + an abort) uses
+  `cmd /c` as its test subject; `unfolded-entry-gate` aborts on a fixture `git rm dkj-policy\feat-alpha.md`.
+- **Runner steps, read-only:** `pick-merge-on-green` and `check-repo-settings -RequireRead` behave as
+  on Windows. `check-unfolded-entry -Branch main` flagged the branch's own document, because the probe
+  checks out the branch, not main -- an artefact of the probe, not a defect.
+- `.gitattributes` pins `* text=auto eol=lf`, so a fold committed from Linux writes the same bytes.
+
+#### The shape: phased, decided here (a reversible default, per the constitution)
+
+Three runners move now: `fold-on-merge`, `verify-resolved` and `repo-settings`. In #2487's consumer the
+first two ran 265 times each in September, so they carry the bulk of the Windows minutes. Each moves to
+`ubuntu-latest`, `shell: pwsh`, and a one-line `powershell` -> `pwsh` shim step, in the source's own
+copies and in `adopt-ci-floor.ps1`'s templates alike. `merge-on-green` stays on `windows-latest` for now:
+it drives `ship-pr.ps1`'s whole merge path, and a `workflow_run` runner cannot be proved on its own PR.
+That move is its own issue. To keep the move proved, the four suites are made OS-portable, and a Linux
+leg in CI runs the runner-path suites under `pwsh`.
+
 ### CREATE
 
-- [ ] Probe on ubuntu-latest: the nine suites of the runner path, twice (without and with a shim), plus
+- [x] Probe on ubuntu-latest: the nine suites of the runner path, twice (without and with a shim), plus
   the three read-only runner steps
-- [ ] Size the repair from the probe, and decide the shape (all four runners, or phased)
+- [x] Size the repair from the probe, and decide the shape (all four runners, or phased) -- phased, above
+- [ ] Make the four red suites OS-portable (fake `gh`, PATH separator, `cmd` subject, fixture paths)
+- [ ] Move `fold-on-merge`, `verify-resolved`, `repo-settings` to ubuntu-latest + pwsh + shim, source
+  copies and `adopt-ci-floor.ps1` templates, with their `WINDOWS:` notes and the adopt-time cost line
+- [ ] A Linux leg in `ci.yml` running the runner-path suites under pwsh
+- [x] File the follow-up for `merge-on-green` (and the other Windows-only workflows) -- #2616
 - [ ] Remove the probe files before the PR
 
 ### TEST
