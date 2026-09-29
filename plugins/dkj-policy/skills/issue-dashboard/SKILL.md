@@ -28,7 +28,7 @@ link -- and the worker holds no content, so there is nothing to rebuild after a 
 
 Run from the **root of the consuming repo** (in the source repo, run its own `scripts/task/issue-dashboard.ps1`
 instead -- `${CLAUDE_PLUGIN_ROOT}` resolves into the cache, which lags the source, and the script refuses
-when it is a released copy running there):
+to run as a released copy in the source repo.):
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/issue-dashboard.ps1" -InitToken -EmitWorker
@@ -44,7 +44,9 @@ npx wrangler secret put DASHBOARD_TOKEN   # paste the contents of dashboard-path
 npx wrangler deploy
 ```
 
-and the URL shape `https://<name>.<subdomain>.workers.dev/issues/<token>`. **Never run wrangler from
+and the URL **shape** `https://<name>.<your-subdomain>.workers.dev/issues/<contents of dashboard-path-token.txt>`.
+The full URL is deliberately **not printed** (terminal output lands in transcripts and logs); the file content
+is the only lock, so never paste it into a chat or an issue. **Never run wrangler from
 the repository root** (issue #2581): it finds no `wrangler.toml` there and deploys or asks about the
 wrong thing. The script warns if a `wrangler.toml` stands at the root.
 
@@ -52,8 +54,8 @@ wrong thing. The script warns if a `wrangler.toml` stands at the root.
 
 | parameter | what it does |
 |---|---|
-| `-InitToken` | create the 32-hex path token in `dkj-policy/dashboard/dashboard-path-token.txt`; refuses to replace one, and refuses when a token stands anywhere else in the tree |
-| `-EmitWorker` | copy the two worker files from the plugin, write `wrangler.toml` if it is absent, and print the secret and deploy commands; needs the token |
+| `-InitToken` | create the 32-hex path token in `dkj-policy/dashboard/dashboard-path-token.txt`; refuses to replace one, and refuses when a token stands anywhere else in the tree, and refuses when the file is not gitignored (`git check-ignore -q`; add `/dkj-policy/dashboard/` to `.gitignore`), only warning where git cannot answer |
+| `-EmitWorker` | copy the two worker files from the plugin, write `wrangler.toml` if it is absent, and print the secret and deploy commands; needs the token, and refuses likewise when the token file is not gitignored |
 | `-RepoRoot <path>` | test seam -- the repo root to work in instead of the one git names; a consumer never types it |
 
 ## What is written, and what is yours
@@ -67,7 +69,8 @@ dkj-policy/dashboard/
 ```
 
 `wrangler.toml` is never rewritten; a `name` or `GITHUB_REPO` that has drifted from what the script would
-write is **warned about, not corrected**. An absent one is reported too -- it may mean the gitignored
+write is **warned about, not corrected**. `wrangler.toml` carries `[observability] enabled = false`: request
+URLs contain the token, and Workers Logs would record them. An absent one is reported too -- it may mean the gitignored
 directory was rebuilt from nothing, and whatever you had added (an account id, a route) is not in the
 fresh file. After a plugin update, re-run `-EmitWorker` and `npx wrangler deploy` to refresh the worker.
 
@@ -96,10 +99,10 @@ Status is the first match of: **In review** (an open non-draft PR closes it), **
 or a `<prefix>/<n>-` branch under `feat/`, `fix/`, `docs/`), **Waiting** (label `needs-info`,
 `needs-decision` or `awaiting-recurrence`), **Blocked** (an open `blockedBy`), **Claimed** (an assignee),
 **Filed**. Order is topological over open in-repo blockers, ties by issue number; priority labels and age
-do not order. An open blocker outside the repo sinks an issue below every issue without one; a cycle is
+do not order. An open blocker outside the repo sinks an issue, and any issue behind a sunk one, below every issue without one; a cycle is
 flagged on the page and broken by issue number; a truncated GitHub connection is reported, never dropped.
-The rules are `plugins/dkj-policy/worker/issue-dashboard-logic.js` (`deriveDashboard`) -- read it for the
-exact semantics.
+The rules are `issue-dashboard-logic.js` (`deriveDashboard`), copied into `dkj-policy/dashboard/` -- read it
+for the exact semantics.
 
 ## Important
 

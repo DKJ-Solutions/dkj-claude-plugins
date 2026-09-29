@@ -1647,7 +1647,7 @@ function Get-SharedScriptPairs {
             Skill  = 'issue-dashboard'
             # A fixture root, so a suite can run the script against a synthetic tree. A consumer never types it.
             SkillParamsExempt = @('RepoRoot')
-            MirrorRunExempt = 'the worker/ folder is looked for at BOTH depths (the plugin root from the mirror, plugins/dkj-policy from the source) and the first that holds the worker files wins, so the two copies find the same files rather than resolve differently'
+            MirrorRunExempt = 'both copies probe the worker folder at both depths and resolve the same two files, so a mirror run would only re-measure what the source run already did'
         },
         @{
             # Which plugins a repo publishes, and where each one's folder is (August 9, 2026). Travels

@@ -20,7 +20,7 @@
         from the plugin (overwritten each run -- they are derivatives, not yours to edit).
       - wrangler.toml   with -EmitWorker, written ONLY WHEN ABSENT and yours from then on.
 
-    THE PATH TOKEN IS THE ONLY LOCK. The worker answers GET /issues/<token> and every other request
+    THE PATH TOKEN IS THE ONLY LOCK. The worker answers GET|HEAD /issues/<token> and every other request
     with the same 404; there is no login. So, exactly as with the release-notes page, a token invented
     on the fly would not mean "a new path", it would mean every link already sent now 404s. Missing
     token is therefore an error with a recovery instruction, and -InitToken is the separate, explicit
@@ -36,8 +36,18 @@
       npx wrangler secret put DASHBOARD_TOKEN   (paste the contents of dashboard-path-token.txt)
       npx wrangler deploy
 
-    The only secret-adjacent file it touches is the path token file, and it never prints that value
-    into a command line -- wrangler prompts for the secret value, which is where you paste it.
+    The only secret-adjacent file it touches is the path token file. It never puts that value into a
+    command line (wrangler prompts for the secret value, which is where you paste it) and it never
+    prints the full URL either: it prints the URL SHAPE and names the file, because terminal output
+    lands in agent transcripts and logs. The token file is the only lock; keep it out of chats and issues.
+
+    THE TOKEN FILE MUST BE GITIGNORED, and both -InitToken and -EmitWorker check it with
+    `git check-ignore -q`. Not ignored: -InitToken refuses before writing (in a public repo a committed
+    token is a published lock) and names the .gitignore line to add, /dkj-policy/dashboard/; -EmitWorker
+    refuses likewise. Where git itself is unavailable or the root is not a repo, it only warns.
+
+    wrangler.toml IS WRITTEN WITH [observability] enabled = false: request URLs carry the token, and
+    Workers Logs would record them.
 
     RUN WRANGLER FROM THE DASHBOARD DIRECTORY, NEVER FROM THE REPOSITORY ROOT (issue #2581). Run from
     the root, wrangler finds no wrangler.toml, guesses a project from package.json or the working
@@ -56,8 +66,8 @@
     the dashboard is opt-in by running this script at all. The default is '<repo>-issue-dashboard'.
     GITHUB_REPO in wrangler.toml comes from Get-RepoName, else from `gh repo view`.
 
-    A wrangler.toml THAT ALREADY EXISTS IS NEVER REWRITTEN, and a name or GITHUB_REPO that has drifted
-    from what this script would write is reported rather than corrected: which of the two is wrong is
+    A wrangler.toml THAT ALREADY EXISTS IS NEVER REWRITTEN, and a name, GITHUB_REPO or observability
+    setting that has drifted from what this script would write is reported rather than corrected: which of the two is wrong is
     not this script's to decide. Same reasoning as build-release-notes-page.ps1 (#1479): an absent one
     is also reported, since it is as likely to mean the gitignored directory was rebuilt from nothing
     as a first run, and whatever you had added (an account id, a route) is not in the fresh one.
@@ -69,11 +79,12 @@
 
 .PARAMETER InitToken
     Create the path token when there is none. Deliberately explicit: see the token note above.
+    Refuses when the token file is not gitignored.
     Refuses to overwrite an existing token, and refuses when a token stands anywhere else in the tree.
 
 .PARAMETER EmitWorker
     Copy the two worker files into the dashboard directory and write wrangler.toml if it is absent,
-    then print the secret and deploy commands. Requires a path token (-InitToken first).
+    then print the secret and deploy commands. Requires a path token (-InitToken first), gitignored.
 
 .PARAMETER RepoRoot
     The repository root to read and write in, instead of the one git (or CLAUDE_PROJECT_DIR) names.
@@ -171,6 +182,36 @@ function Get-DashboardRepoSlug {
     return ''
 }
 
+function Get-TokenIgnoreState {
+    <# 'ignored' (git check-ignore exit 0), 'not-ignored' (exit 1), or 'unknown' (git missing, not a repo, other error). #>
+    param([Parameter(Mandatory = $true)][string]$Root)
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return 'unknown' }
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'   # native stderr must not become a terminating error under Stop
+    try {
+        & git -C $Root check-ignore -q -- 'dkj-policy/dashboard/dashboard-path-token.txt' 2>$null | Out-Null
+        $code = $LASTEXITCODE
+    } catch { return 'unknown' } finally { $ErrorActionPreference = $prev }
+    if ($code -eq 0) { return 'ignored' }
+    if ($code -eq 1) { return 'not-ignored' }
+    return 'unknown'
+}
+
+function Assert-TokenIgnored {
+    <# Refuses when the token file would be committable; warns when git cannot say. #>
+    param([Parameter(Mandatory = $true)][string]$Root)
+    switch (Get-TokenIgnoreState -Root $Root) {
+        'not-ignored' {
+            throw ("The path token file (dkj-policy/dashboard/dashboard-path-token.txt) is NOT gitignored, so it " +
+                   "could be committed -- and the token is the only lock on the dashboard. Add this line to " +
+                   ".gitignore and run again: /dkj-policy/dashboard/")
+        }
+        'unknown' {
+            Write-Warning "Could not ask git whether dkj-policy/dashboard/ is gitignored (git missing or not a repository). Make sure /dkj-policy/dashboard/ is in .gitignore: the token file must never be committed."
+        }
+    }
+}
+
 if (-not (Test-Path -LiteralPath $dashDir)) { New-Item -ItemType Directory -Force -Path $dashDir | Out-Null }
 
 # --- 2. -InitToken ----------------------------------------------------------------------------------
@@ -190,12 +231,13 @@ if ($InitToken) {
                "here instead of creating a second token, which 404s every link already sent. Delete the " +
                "copy deliberately if it is genuinely dead.")
     }
+    Assert-TokenIgnored -Root $repoRoot
     $newToken = [guid]::NewGuid().ToString('N')
     [System.IO.File]::WriteAllText($tokenPath, $newToken, $Utf8NoBom)
     Write-Host "== issue-dashboard ==" -ForegroundColor Cyan
     Write-Host "  token    : $tokenPath (created)" -ForegroundColor Yellow
-    Write-Host "  IT IS THE ONLY LOCK ON THE DASHBOARD. Record the finished URL somewhere you will find it" -ForegroundColor Yellow
-    Write-Host "  again: the file is gitignored, so nothing else remembers it." -ForegroundColor Yellow
+    Write-Host "  IT IS THE ONLY LOCK ON THE DASHBOARD. Keep the file: it is gitignored, so nothing else remembers" -ForegroundColor Yellow
+    Write-Host "  it. Do not paste its content into chats or issues." -ForegroundColor Yellow
 }
 
 if (-not $EmitWorker) { exit 0 }
@@ -213,6 +255,7 @@ if (-not (Test-Path -LiteralPath $tokenPath -PathType Leaf)) {
            "link already sent 404s while the deploy reports success. Restore the 32 hex characters " +
            "from the URL you have, or run -InitToken if this is the first setup.")
 }
+Assert-TokenIgnored -Root $repoRoot
 $token = ([System.IO.File]::ReadAllText($tokenPath, [System.Text.Encoding]::UTF8)).Trim()
 if ($token -cnotmatch '^[0-9a-f]{32}$') {
     throw "The path token is not 32 lowercase hex characters: $tokenPath"
@@ -260,6 +303,10 @@ main = "issue-dashboard-worker.js"
 compatibility_date = "2025-04-01"
 workers_dev = true
 
+# Request URLs carry the path token, and Workers Logs would record them: keep observability off.
+[observability]
+enabled = false
+
 # GITHUB_TOKEN and DASHBOARD_TOKEN are SECRETS: set them with `npx wrangler secret put`, never here.
 [vars]
 GITHUB_REPO = "$repoSlug"
@@ -286,6 +333,10 @@ GITHUB_REPO = "$repoSlug"
         Write-Warning ("wrangler.toml serves issues of '$($declaredRepo.Groups[1].Value)' while this repo is " +
                        "'$repoSlug'. One of the two is wrong -- this script does not pick.")
     }
+    if ($existing -notmatch '(?ms)^\s*\[observability\][^\[]*?^\s*enabled\s*=\s*false') {
+        Write-Warning ("wrangler.toml does not set [observability] enabled = false. Request URLs carry the path " +
+                       "token and Workers Logs would record them. Add it if that is not deliberate -- this script does not edit the file.")
+    }
     Write-Host "  wrangler : $wranglerPath (exists -- left as it is)" -ForegroundColor Green
 }
 
@@ -309,8 +360,10 @@ Write-Host "        paste the 32 characters in $tokenPath at the prompt (not on 
 Write-Host "    npx wrangler deploy"
 Write-Host ""
 Write-Host "  Then open (the subdomain is your Cloudflare account's workers.dev subdomain, which wrangler prints):" -ForegroundColor Cyan
-Write-Host "    https://$workerName.<subdomain>.workers.dev/issues/$token"
-Write-Host "  That path is the ONLY lock: anyone holding the link reads your open issues. It answers 404 to"
-Write-Host "  everything else, sends noindex and no-store, and reads GitHub at most about once a minute."
+Write-Host "    https://$workerName.<your-subdomain>.workers.dev/issues/<contents of $tokenPath>"
+Write-Host "  The URL is not printed in full on purpose (terminal output lands in transcripts and logs). The file"
+Write-Host "  content is the ONLY lock: anyone holding it reads your open issues. Never paste it into a chat or issue."
+Write-Host "  The worker answers 404 to everything else, sends noindex and no-store, and caches GitHub reads"
+Write-Host "  per worker isolate (and at the edge where Cloudflare provides a cache): roughly once a minute per isolate."
 Write-Host "  Never run wrangler from the repository root; run it from the directory above."
 exit 0
