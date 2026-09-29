@@ -456,6 +456,17 @@
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
+                        "function":  "Get-IssueDashboardWorkerName",
+                        "adopt":  "decide",
+                        "adoptWhy":  "it names a Cloudflare Worker in somebody\u0027s account. Copying the source\u0027s answer points your deploy at a worker that is not yours -- and this one is only discovered at the moment you publish",
+                        "optional":  true,
+                        "default":  "\u0027\u0027 -- the worker is named \u0027\u003crepo name\u003e-issue-dashboard\u0027",
+                        "returns":  "the name of the Cloudflare Worker that serves the live issue dashboard, or \u0027\u0027 to take the default \u0027\u003crepo name\u003e-issue-dashboard\u0027. The dashboard is served at /issues/\u003c32 hex\u003e and that path is the ONLY lock on it -- there is no login, so anyone with the link reads the repo\u0027s open issues. Answer this only where that is acceptable, and keep dkj-policy/dashboard/ out of version control (it is gitignored)",
+                        "declared":  false,
+                        "text":  ""
+                    },
+                    {
+                        "lib":  "scripts\\repo-config.ps1",
                         "function":  "Get-ReleasePageMasthead",
                         "adopt":  "decide",
                         "adoptWhy":  "a wordmark is a claim about whose product the page is, so copying the source\u0027s answer puts another brand\u0027s mark on your page -- the same reasoning as Get-ReleasePageTitle and Get-ReleasePageTheme, one step further into the look",

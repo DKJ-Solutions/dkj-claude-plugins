@@ -1634,6 +1634,22 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # The OPTIONAL live issue dashboard (#2643): the local half of a Cloudflare Worker that renders
+            # a repo's open issues with a status and a blocked-by order. Shared because nothing in it is
+            # repo-specific -- the worker carries no content, token or repo name, and this script reads
+            # its two optional answers through seams that fall back. It PRINTS the wrangler commands and
+            # deploys nothing. THE TWO WORKER FILES ARE NOT PAIRS: they live only under
+            # plugins/dkj-policy/worker/ (the way the BWJ pages worker lives under its plugin), and the
+            # script finds them from $PSScriptRoot in the mirror and under plugins/ in the source.
+            Name   = 'issue-dashboard'
+            Source = 'scripts\task\issue-dashboard.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = 'issue-dashboard'
+            # A fixture root, so a suite can run the script against a synthetic tree. A consumer never types it.
+            SkillParamsExempt = @('RepoRoot')
+            MirrorRunExempt = 'the worker/ folder is looked for at BOTH depths (the plugin root from the mirror, plugins/dkj-policy from the source) and the first that holds the worker files wins, so the two copies find the same files rather than resolve differently'
+        },
+        @{
             # Which plugins a repo publishes, and where each one's folder is (August 9, 2026). Travels
             # because release-lib dot-sources it as a $PSScriptRoot sibling: Get-PluginManifestPaths --
             # which cut-release calls in a consumer that publishes plugins -- is a wrapper over it, and
