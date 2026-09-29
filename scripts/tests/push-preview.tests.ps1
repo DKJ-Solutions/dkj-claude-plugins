@@ -364,6 +364,29 @@ Assert-True (($iPush -ge 0) -and ($iCall -gt $iPush) -and ($iUrls -gt $iCall)) '
 $between = if (($iCall -ge 0) -and ($iUrls -gt $iCall)) { $ppSrc.Substring($iCall, $iUrls - $iCall) } else { '' }
 Assert-Match $between '\bexit 1\b' 'and exits 1 between the read and the URLs'
 
+# THE CREATE PATH PUSHES TOO (#2633): 'theme push --unpublished --json' is the same command, so it is read
+# the same way -- with stderr kept, because the human output puts the rejection there -- and refused
+# before it prints URLs.
+$iCreate = $ppSrc.IndexOf('Invoke-ShopifyCli -Arguments $createArgs')
+$createLine = if ($iCreate -ge 0) { $ppSrc.Substring($iCreate, $ppSrc.IndexOf("`n", $iCreate) - $iCreate) } else { '' }
+Assert-True ($iCreate -ge 0) 'push-preview.ps1 still has the create call'
+Assert-True ($createLine -notmatch 'DiscardStderr') 'the create call keeps stderr, where a rejection is printed'
+$iCCall = $ppSrc.IndexOf('Get-ThemePushProblems -Lines $create.Output')
+$iCUrls = if ($iCCall -ge 0) { $ppSrc.IndexOf('Write-PreviewUrls -Id', $iCCall) } else { -1 }
+Assert-True (($iCCall -gt $iCreate) -and ($iCUrls -gt $iCCall) -and ($iCUrls -lt $iCall)) 'the create path reads its output after the call and before its own URLs'
+$cBetween = if (($iCCall -ge 0) -and ($iCUrls -gt $iCCall)) { $ppSrc.Substring($iCCall, $iCUrls - $iCCall) } else { '' }
+Assert-Match $cBetween '\bexit 1\b' 'and exits 1 between the read and those URLs'
+Assert-Equal '202324083029' (Get-ThemeIdFromPushOutput -Output ((@('a stderr hint line', '{"theme":{"id":202324083029}}') + $errBox) | Out-String)) 'the id still reads out of a merged capture with an error box in it'
+$quotingBox = New-TestBox 'error' @('config/settings_data.json', 'Invalid value near "id": 999')
+Assert-Equal '202324083029' (Get-ThemeIdFromPushOutput -Output ((@($quotingBox) + '{"theme":{"id":202324083029}}') | Out-String)) 'an "id" quoted inside an error box in front of the JSON does not win'
+$ansiQuoting = @($quotingBox | ForEach-Object { "$esc[31m$_$esc[0m" })
+Assert-Equal '' (Get-ThemeIdFromPushOutput -Output ($ansiQuoting | Out-String)) 'nor does one inside an ANSI-coloured box, where no JSON follows'
+$bel = [string][char]7
+$osc = Get-ThemePushProblems -Lines (New-TestBox 'error' @("$esc]0;spoofed title$bel" + 'snippets/x.liquid'))
+Assert-True (($osc.Messages -join '') -notmatch '[\x00-\x08\x0B-\x1F\x7F]') 'a control sequence quoted in an error box is not printed raw'
+$iCStore =$ppSrc.IndexOf('git config "branch.$branch.previewTheme" $id', $iCreate)
+Assert-True (($iCStore -gt $iCreate) -and ($iCStore -lt $iCCall)) 'the create path remembers the id BEFORE it can refuse, so the next run pushes into the same theme'
+
 Write-Host ""
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red

@@ -283,9 +283,15 @@ function Get-ThemeIdFromPushOutput {
        ITS OWN FUNCTION BECAUSE IT IS THE HALF THAT CANNOT BE RE-RUN. The create call pushes at the same
        time it creates, so a missed id means the next run cannot find the theme by id and falls back to a
        name lookup -- recoverable, but only because the fallback exists. Parsing it inline left the one
-       expression nobody could test without a store. #>
+       expression nobody could test without a store.
+
+       LINES INSIDE A BOX ARE SKIPPED (#2633). The create path reads a merged stdout+stderr capture, and the
+       CLI's error box is drawn on stderr in front of the JSON; a box quoting a JSON fragment would otherwise
+       win as the first match, and its number would be remembered as the preview theme. #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Output)
-    $m = ([regex]'"id"\s*:\s*(\d+)').Match($Output)
+    $boxLine = '^\s*(\x1b\[[0-9;?]*[A-Za-z])*[' + [char]0x2500 + '-' + [char]0x257F + ']'
+    $unboxed = @($Output -split "`r?`n" | Where-Object { $_ -notmatch $boxLine }) -join "`n"
+    $m = ([regex]'"id"\s*:\s*(\d+)').Match($unboxed)
     if ($m.Success) { return $m.Groups[1].Value }
     return ''
 }
@@ -319,7 +325,9 @@ function Get-ThemePushProblems {
     foreach ($raw in @($Lines)) {
         if ($null -eq $raw) { continue }
         $plain = [regex]::Replace([string]$raw, '\x1b\[[0-9;?]*[A-Za-z]', '')
-        $clean = ([regex]::Replace($plain, $boxClass, ' ')).Trim()
+        # Any control character left after the colour codes (an OSC sequence, a stray BEL) is dropped too:
+        # a message is printed to the console, and it may quote a file name or Liquid text from the theme.
+        $clean = ([regex]::Replace([regex]::Replace($plain, '[\x00-\x08\x0B-\x1F\x7F]', ''), $boxClass, ' ')).Trim()
         if ($clean -match '(?i)\bpushed with errors\b') { $failed = $true }
         $trimmed = $plain.TrimStart()
         if ($trimmed.StartsWith($open)) {
