@@ -41,9 +41,49 @@
 
 An optional dkj-policy feature: a Cloudflare Worker that renders a repo's open GitHub issues live, with each issue's status and a pick-up order derived from blocked-by dependencies.
 
+#### Decisions (Dave, September 29, 2026 -- #2643)
+
+Live via the GitHub API (token as a worker secret, short edge cache); one repo per dashboard; an
+unguessable path, no Cloudflare Access; order by blockers only -- prio labels and age are not
+ordering signals, ties fall back to issue number.
+
+#### The contract Cody and Sylvester build against
+
+- **Worker files**, shipped in `plugins/dkj-policy/worker/`: `issue-dashboard-worker.js` (the fetch
+  handler) and `issue-dashboard-logic.js` (a pure ES module, no I/O: `deriveDashboard(issues, prs,
+  branches)` -> ordered rows with status). The worker carries **no content, no token and no repo
+  name** -- everything comes from `env`.
+- **`env`**: `GITHUB_TOKEN` (secret -- fine-grained PAT, one repo, Issues/Pull requests/Contents read),
+  `DASHBOARD_TOKEN` (secret -- 32 lowercase hex, the path lock), `GITHUB_REPO` (var, `owner/name`).
+- **Route**: `GET|HEAD /issues/<32hex>` only, token compared in constant time; every miss the same
+  404. `noindex`, `no-store` to the browser; the GitHub reads cached ~60 s at the edge (Cache API).
+- **Data**: two-to-four GraphQL reads per refresh -- open issues paged (labels, assignees,
+  `blockedBy`), open PRs (`isDraft`, `closingIssuesReferences`), branch refs under `feat/`, `fix/`,
+  `docs/`. A truncated connection is reported on the page, never silently dropped.
+- **Status**, first match wins: *In review* (open non-draft PR closes it) > *In progress* (draft PR,
+  or a `<prefix>/<n>-` branch) > *Waiting* (a parking label: `needs-info`, `needs-decision`,
+  `awaiting-recurrence`) > *Blocked* (an open `blockedBy`) > *Claimed* (assignee) > *Filed*.
+- **Order**: topological over in-repo open `blockedBy` edges (Kahn), ties by issue number; an open
+  blocker outside the repo sinks the issue below every issue without one; a cycle is flagged on the
+  page and broken by issue number.
+- **Script** `scripts/task/issue-dashboard.ps1` (mirrored, skill `issue-dashboard`): `-InitToken`
+  writes the path token once into a gitignored `dkj-policy/dashboard/`; `-EmitWorker` copies both JS
+  files there and writes `wrangler.toml` once (name from the optional seam
+  `Get-IssueDashboardWorkerName`, `GITHUB_REPO` from `Get-RepoName`); it then **prints** the two
+  `wrangler secret put` commands and `npx wrangler deploy`, run from that directory (never the repo
+  root -- #2581). It deploys nothing and never reads a secret.
+
+#### Visible result
+
+The dashboard is judged by eye, so the chain stops before the merge and the checkout stays on this
+branch until Dave has looked.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Cody #13: `issue-dashboard-logic.js` + `issue-dashboard-worker.js` to the contract above
+- [ ] Sylvester #15: `issue-dashboard.ps1`, its mirror + registry entry, the `issue-dashboard` skill, the gitignore line, the seam in the blueprint
+- [ ] Tycho #18: a suite -- source-text invariants, and the ordering/status logic run under `node` against fixtures (skipped cleanly without `node`)
+- [ ] Tessa #16: the README section naming the feature as optional and its Cloudflare prerequisite
 
 ### TEST
 
