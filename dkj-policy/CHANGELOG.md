@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**28 / 39 minor entries** <!-- pending-tally -->
+**29 / 40 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2624-push-preview-pushed-with-errors · 20260929-120630Z
+
+`push-preview` no longer reports a preview push as successful when the Shopify CLI rejected a file.
+`shopify theme push` (CLI 4.8.2) exits 0 when it rejects a file, with an `error` box and "pushed with
+errors", and the script judged only that exit code: it printed its green line and the preview URLs for
+a preview missing the rejected file. It now reads the push output, prints the rejected file and its
+error, and exits 1 before any URL is printed (#2624). The create path, used only where no live theme id
+is answered, is still judged on its exit code (#2633).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store maintainer who hands over a preview is no longer given URLs for one that silently lacks a
+file. Nothing to do after the update; a push that used to "succeed" with a Liquid error now stops and
+names the file.
+
+**Score:** 2
+
+#### Pull Request
+
+push-preview: a push the CLI rejected a file in (exit 0, 'pushed with errors') now fails before the URLs
+
+Plugins: dkj-subagents-shopify
+
+[PR #2636](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2636)
+
+---
 
 ### DEPLOY: fix/2623-claim-race-release-binds · 20260929-112246Z
 
