@@ -311,6 +311,27 @@ if (Test-Path -LiteralPath $foldCloseoutLib -PathType Leaf) { . $foldCloseoutLib
 $foldPorcelainLib = Join-Path $PSScriptRoot '..\lib\git-porcelain-lib.ps1'
 if (Test-Path -LiteralPath $foldPorcelainLib -PathType Leaf) { . $foldPorcelainLib }
 
+# A READ THROUGH A SYMLINK IS REFUSED, NOT FOLLOWED (#2621). This script reads the branch document and the
+# changelog off the FILESYSTEM and pushes what it read onto the trunk. On windows-latest a committed
+# symlink (mode 120000) checks out as a plain file holding its target's path, but fold-on-merge runs on
+# ubuntu-latest since #2488, where actions/checkout materialises the link -- so a branch document committed
+# as a link to /proc/self/environ, or anything else on the runner, would be read through it by a process
+# holding a push token. Get-WriteTargetReparsePoint answers from the parent directory's listing, not from
+# the path, so a link counts even where its target is missing, and so does a linked directory between the
+# file and the root. Nothing in this workflow ever commits a link on purpose, so there is no valve: the run
+# stops before reading, and the trunk is left exactly as the merge left it.
+. (Join-Path $PSScriptRoot '..\lib\write-target-lib.ps1')
+
+function Assert-FoldReadTarget {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $link = Get-WriteTargetReparsePoint -Path $Path -Root $repoRoot
+    if (-not $link) { return }
+    Write-Host "[ERROR] $Path is reached through a symlink or junction ($link) -- refused, nothing read." -ForegroundColor Red
+    Write-Host '        A branch document or changelog is never a link in this workflow, and following one here' -ForegroundColor Red
+    Write-Host '        would push whatever it points at onto the trunk (#2621). Replace it with a plain file.' -ForegroundColor Red
+    exit 1
+}
+
 # BOM-less UTF8 -- Set-Content -Encoding UTF8 always adds a BOM in Windows PowerShell 5.1,
 # and the rest of the repo (CHANGELOG.md etc.) has no BOM.
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -347,6 +368,7 @@ function Test-IsChangelogEntryFile {
     $entryLevel  = Get-EntryHeadingLevel
     $legacyLevel = $entryLevel - 1
     $rx = '^#{' + $legacyLevel + ',' + $entryLevel + '}\s'
+    Assert-FoldReadTarget -Path $Path
     foreach ($line in [System.IO.File]::ReadAllLines($Path, [System.Text.Encoding]::UTF8)) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
         return ($line -match $rx)
@@ -381,6 +403,8 @@ function Test-IsChangelogEntryFile {
 $branchDeploymentRel = Resolve-BranchFilePath -Kind Deployment -RepoRoot $repoRoot -Branch $Branch
 $branchCycleRel      = Resolve-BranchFilePath -Kind Cycle -RepoRoot $repoRoot -Branch $Branch
 $branchDeploymentPath = Join-Path $repoRoot $branchDeploymentRel
+Assert-FoldReadTarget -Path $branchDeploymentPath
+Assert-FoldReadTarget -Path (Join-Path $repoRoot $branchCycleRel)
 $branchDeploymentFilled = (Test-Path -LiteralPath $branchDeploymentPath) -and
     (Test-BranchChangelogIsFilled -Text ([System.IO.File]::ReadAllText($branchDeploymentPath)))
 
@@ -491,6 +515,7 @@ else {
     $foldAllTrunk = Get-BranchTrunkName
     foreach ($devRel in @(Get-PerBranchDocumentRels -RepoRoot $repoRoot)) {
         if ($entryFiles -contains $devRel) { continue }
+        Assert-FoldReadTarget -Path (Join-Path $repoRoot ($devRel -replace '/', '\'))
         $devText = [System.IO.File]::ReadAllText((Join-Path $repoRoot ($devRel -replace '/', '\')), [System.Text.Encoding]::UTF8)
         $devDeclared = Get-BranchFileDeclaredBranch -Text $devText
         if (-not $devDeclared -or $devDeclared -eq $foldAllTrunk) { continue }
@@ -546,6 +571,7 @@ $changelogPath = Join-Path $repoRoot $changelogRel
 # nothing in an empty document, which is correct (there is no block to misread), and whatever the loop did
 # about a missing file it still does.
 $changelogRaw = ''
+Assert-FoldReadTarget -Path $changelogPath
 if (Test-Path -LiteralPath $changelogPath) {
     $changelogRaw = [string](Get-Content -Path $changelogPath -Raw -Encoding UTF8)
 }
@@ -587,6 +613,9 @@ $tierByFile = @{}
 $tierProblems = @()
 foreach ($file in $entryFiles) {
     $filePath = Join-Path $repoRoot $file
+    # Every entry file is judged here, before the first one is folded -- so the reads further down
+    # (the pre-pass below, the fold loop) never meet a link, and a refusal leaves nothing half-folded.
+    Assert-FoldReadTarget -Path $filePath
     if (-not (Test-Path $filePath)) { continue }
     $raw = Get-Content -Path $filePath -Raw -Encoding UTF8
     # One read answers both halves of the position: the reach (the highest tier a row claims) and the weight

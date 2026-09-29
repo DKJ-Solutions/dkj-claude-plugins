@@ -197,6 +197,8 @@ function New-FoldFixture {
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fetch-attempt-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\fetch-attempt-lib.ps1') -Force
     # fence-lib.ps1 likewise (#2536): entry-scaffold-lib.ps1, pr-body-lib.ps1 and pr-issues-lib.ps1 dot-source it.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\fence-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\fence-lib.ps1') -Force
+    # write-target-lib.ps1 (#2621): the fold refuses a read through a link with Get-WriteTargetReparsePoint.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\write-target-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\write-target-lib.ps1') -Force
     Copy-Item -LiteralPath $RepoConfigSrc    -Destination (Join-Path $dir 'scripts\repo-config.ps1')                  -Force
 
     # .claude-plugin/marketplace.json (issue #885): every assertion in this suite is about the FOLD
@@ -1723,6 +1725,37 @@ Assert-Equal 1 $rV.ExitCode                                             'diverge
 Assert-True ($rV.Output -match 'has NO entry on')                       'diverged: it says the entry is NOT upstream'
 Assert-True ($rV.Output -match 'the state this flag exists to avoid')   'diverged: so the ordinary "push by hand" advice stands'
 Assert-True ($rV.Output -notmatch 'Do NOT push this commit by hand')    'diverged: and it is NOT called a duplicate'
+
+# --- A READ THROUGH A LINK IS REFUSED (#2621) ------------------------------------------------------------
+# fold-on-merge runs on Linux, where a committed symlink checks out as a real one, and the fold pushes what
+# it read onto the trunk. So a branch document reached through a link must stop the run BEFORE the read,
+# with the trunk untouched. The link is the branch-document FOLDER, made a junction (Windows, no privilege
+# needed) or a directory symlink (elsewhere): Get-WriteTargetReparsePoint judges every directory between the
+# file and the root, so this is the harder half -- the file itself is plain.
+$dirLK = New-FoldFixture -Label 'linkedread'
+$lkReal = Join-Path ([System.IO.Path]::GetTempPath()) "fold-linkedread-target-$PID-$([guid]::NewGuid().ToString('n'))"
+$script:fixtures += $lkReal
+New-Item -ItemType Directory -Path $lkReal -Force | Out-Null
+$lkRows = @([pscustomobject]@{ Tier = 1; Score = 2; Why = 'the link' })
+[System.IO.File]::WriteAllText((Join-Path $lkReal 'fix-linked-read.md'),
+    ((Format-Development -Branch 'fix/linked-read' -Id '20260929-090000' -Description 'Read through a link' -Type 'fix' -ImpactRows $lkRows) -join "`n") + "`n", $Utf8NoBom)
+$lkLinkDir = Join-Path $dirLK $bfPaths.Directory
+$lkMade = $false
+try {
+    if ([System.IO.Path]::DirectorySeparatorChar -eq '\') { New-Item -ItemType Junction -Path $lkLinkDir -Target $lkReal -ErrorAction Stop | Out-Null }
+    else { New-Item -ItemType SymbolicLink -Path $lkLinkDir -Target $lkReal -ErrorAction Stop | Out-Null }
+    $lkMade = $true
+} catch { Write-Host "  [INFO] could not create the link ($($_.Exception.Message)) -- the linked-read case is not measured on this host" -ForegroundColor Yellow }
+if ($lkMade) {
+    $lkBefore = Get-Changelog -Dir $dirLK
+    $rLK = Invoke-Fold -Dir $dirLK
+    Assert-Equal 1 $rLK.ExitCode 'linked read: a branch document reached through a link refuses the fold'
+    Assert-True ($rLK.Output -match 'reached through a symlink or junction') 'linked read: and says it was the link'
+    Assert-Equal $lkBefore (Get-Changelog -Dir $dirLK) 'linked read: the changelog is untouched'
+    Assert-True (Test-Path -LiteralPath (Join-Path $lkReal 'fix-linked-read.md')) 'linked read: and the document behind the link is not removed'
+    # A junction is removed as the link, not as its target, so the teardown cannot reach $lkReal through it.
+    [System.IO.Directory]::Delete($lkLinkDir)
+}
 
 # The teardown above runs mid-file, so everything registered after it -- the duplicate cases and the
 # remote-backed fixtures here -- is swept once more on the way out.

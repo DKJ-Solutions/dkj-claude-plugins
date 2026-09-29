@@ -39,21 +39,40 @@
 
 ### PLAN
 
+#2621, verified in the tree: `fold-changelog-entry.ps1` reads the branch document and the changelog off
+the filesystem (`ReadAllText`/`ReadAllLines`/`Get-Content`, seven sites). fold-on-merge runs on
+`ubuntu-latest` since #2488, where a committed mode-120000 entry checks out as a real symlink, so those
+reads would follow it inside a process holding a push token. Repair: the issue's first option, taken at
+the one script that reads. Every read target is judged with `Get-WriteTargetReparsePoint`, which reads
+the parent directory's listing and walks every directory up to the root. A link anywhere on the path
+stops the run before anything is read. merge-on-green reads no branch file, so it needs no change.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `fold-changelog-entry.ps1` (and its dkj-policy mirror): `Assert-FoldReadTarget` before each read of a branch document, entry file or changelog; a link refuses with exit 1 and the trunk untouched
+- [x] the fold fixture carries `write-target-lib.ps1`
 
 ### TEST
 
+- [x] `fold-changelog.tests.ps1`: a branch-document folder that is a junction (a directory symlink off Windows) refuses the fold, names the link, and leaves the changelog and the linked document alone -- 274 pass standalone
+
 ### DEPLOY: fix/2621-fold-refuses-linked-reads
 
-**Score:**
+The changelog fold now refuses to read a branch document, entry file or changelog that it would reach
+through a symlink or junction, and stops before reading anything. On a Linux runner a committed symlink
+checks out as a real one, and the fold pushes what it read onto the trunk, so a branch document linked
+to a file elsewhere on the runner would have been folded into the public changelog (#2621).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo whose CI fold runs on Linux is protected against a pull request that commits its branch document
+as a symlink. A fold that meets one fails, and the trunk is left exactly as the merge left it. The failure
+it prevents has not happened: a linked read pushing runner files into the trunk's changelog.
+
+**Score:** 1
 
 #### Pull Request
 
 fold-changelog-entry refuses a branch document or changelog reached through a symlink
-
