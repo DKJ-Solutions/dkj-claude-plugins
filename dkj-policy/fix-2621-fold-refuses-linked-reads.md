@@ -49,12 +49,12 @@ stops the run before anything is read. merge-on-green reads no branch file, so i
 
 ### CREATE
 
-- [x] `fold-changelog-entry.ps1` (and its dkj-policy mirror): `Assert-FoldReadTarget` before each read of a branch document, entry file or changelog; a link refuses with exit 1 and the trunk untouched
+- [x] `fold-changelog-entry.ps1` (and its dkj-policy mirror): `Assert-FoldReadTarget` before each read of a branch document, entry file or changelog, before `repo-config.ps1` is dot-sourced and the manifest is read, and over every per-branch document BEFORE `Resolve-BranchFilePath` reads them (Sebastian's review); a link refuses with exit 1 and the trunk untouched
 - [x] the fold fixture carries `write-target-lib.ps1`
 
 ### TEST
 
-- [x] `fold-changelog.tests.ps1`: a branch-document folder that is a junction (a directory symlink off Windows) refuses the fold, names the link, and leaves the changelog and the linked document alone -- 274 pass standalone
+- [x] `fold-changelog.tests.ps1`: a branch-document folder that is a junction (a directory symlink off Windows) refuses the fold, names the link, and leaves the changelog and the linked document alone; a per-branch document that is itself a file symlink refuses too (needs a privilege Windows hosts may lack, so it is measured on the Linux leg, which runs this suite) -- 274 pass standalone
 
 ### DEPLOY: fix/2621-fold-refuses-linked-reads
 

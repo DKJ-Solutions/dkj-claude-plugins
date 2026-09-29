@@ -1757,6 +1757,26 @@ if ($lkMade) {
     [System.IO.Directory]::Delete($lkLinkDir)
 }
 
+# AND A SIBLING DOCUMENT THAT IS ITSELF A LINK, in a plain folder: Resolve-BranchFilePath reads every
+# sibling to learn which one declares the branch, so the guard must run before it, not after. A file symlink
+# needs a privilege on Windows that a test host may lack; where it cannot be made the case says so.
+$dirLS = New-FoldFixture -Label 'linkedsibling'
+$lsDir = Join-Path $dirLS $bfPaths.Directory
+New-Item -ItemType Directory -Path $lsDir -Force | Out-Null
+$lsTarget = Join-Path $lkReal 'fix-linked-read.md'
+$lsMade = $false
+if (Test-Path -LiteralPath $lsTarget) {
+    try { New-Item -ItemType SymbolicLink -Path (Join-Path $lsDir 'fix-linked-sibling.md') -Target $lsTarget -ErrorAction Stop | Out-Null; $lsMade = $true }
+    catch { Write-Host "  [INFO] could not create a file symlink ($($_.Exception.Message)) -- the linked-sibling case is not measured on this host" -ForegroundColor Yellow }
+}
+if ($lsMade) {
+    $lsBefore = Get-Changelog -Dir $dirLS
+    $rLS = Invoke-Fold -Dir $dirLS
+    Assert-Equal 1 $rLS.ExitCode 'linked sibling: a per-branch document that is a symlink refuses the fold'
+    Assert-True ($rLS.Output -match 'reached through a symlink or junction') 'linked sibling: and says it was the link'
+    Assert-Equal $lsBefore (Get-Changelog -Dir $dirLS) 'linked sibling: the changelog is untouched'
+}
+
 # The teardown above runs mid-file, so everything registered after it -- the duplicate cases and the
 # remote-backed fixtures here -- is swept once more on the way out.
 foreach ($f in $script:fixtures) { Remove-Item -Recurse -Force -LiteralPath $f -ErrorAction SilentlyContinue }

@@ -232,6 +232,27 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 $repoRoot = Resolve-RepoRootOrFail -Override $repoRoot -ScriptName 'fold-changelog-entry.ps1' -OverrideName '-RepoRoot'
 Set-Location $repoRoot
 
+# A READ THROUGH A SYMLINK IS REFUSED, NOT FOLLOWED (#2621). This script reads the branch document and the
+# changelog off the FILESYSTEM and pushes what it read onto the trunk. On windows-latest a committed
+# symlink (mode 120000) checks out as a plain file holding its target's path, but fold-on-merge runs on
+# ubuntu-latest since #2488, where actions/checkout materialises the link -- so a branch document committed
+# as a link to /proc/self/environ, or anything else on the runner, would be read through it by a process
+# holding a push token. Get-WriteTargetReparsePoint answers from the parent directory's listing, not from
+# the path, so a link counts even where its target is missing, and so does a linked directory between the
+# file and the root. Nothing in this workflow ever commits a link on purpose, so there is no valve: the run
+# stops before reading, and the trunk is left exactly as the merge left it.
+. (Join-Path $PSScriptRoot '..\lib\write-target-lib.ps1')
+
+function Assert-FoldReadTarget {
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $link = Get-WriteTargetReparsePoint -Path $Path -Root $repoRoot
+    if (-not $link) { return }
+    Write-Host "[ERROR] $Path is reached through a symlink or junction ($link) -- refused, nothing read." -ForegroundColor Red
+    Write-Host '        A branch document or changelog is never a link in this workflow, and following one here' -ForegroundColor Red
+    Write-Host '        would push whatever it points at onto the trunk (#2621). Replace it with a plain file.' -ForegroundColor Red
+    exit 1
+}
+
 # Pre-flight (#86): fold relies on scripts\repo-config.ps1 in the consumer's repo root. If that is
 # missing -- typically on a clean consumer -- stop with a clear pointer instead of a raw
 # dot-source error on the . (dot-source) line below.
@@ -244,6 +265,8 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 # Repo name from the repo root's local repo-config (single source), no longer hardcoded.
 # Deliberately from $repoRoot and not $PSScriptRoot: from the plugin mirror, $PSScriptRoot points
 # to the plugin cache, while repo-config always lives in the consumer's repo root.
+Assert-FoldReadTarget -Path $configPath
+Assert-FoldReadTarget -Path (Join-Path $repoRoot '.claude-plugin\marketplace.json')    # read by Get-DefaultChangelogPath
 . (Join-Path $repoRoot 'scripts\repo-config.ps1')
 $repo = Get-RepoName
 
@@ -310,27 +333,6 @@ if (Test-Path -LiteralPath $foldCloseoutLib -PathType Leaf) { . $foldCloseoutLib
 # assuming the dot-source took, and says what it falls back to.
 $foldPorcelainLib = Join-Path $PSScriptRoot '..\lib\git-porcelain-lib.ps1'
 if (Test-Path -LiteralPath $foldPorcelainLib -PathType Leaf) { . $foldPorcelainLib }
-
-# A READ THROUGH A SYMLINK IS REFUSED, NOT FOLLOWED (#2621). This script reads the branch document and the
-# changelog off the FILESYSTEM and pushes what it read onto the trunk. On windows-latest a committed
-# symlink (mode 120000) checks out as a plain file holding its target's path, but fold-on-merge runs on
-# ubuntu-latest since #2488, where actions/checkout materialises the link -- so a branch document committed
-# as a link to /proc/self/environ, or anything else on the runner, would be read through it by a process
-# holding a push token. Get-WriteTargetReparsePoint answers from the parent directory's listing, not from
-# the path, so a link counts even where its target is missing, and so does a linked directory between the
-# file and the root. Nothing in this workflow ever commits a link on purpose, so there is no valve: the run
-# stops before reading, and the trunk is left exactly as the merge left it.
-. (Join-Path $PSScriptRoot '..\lib\write-target-lib.ps1')
-
-function Assert-FoldReadTarget {
-    param([Parameter(Mandatory = $true)][string]$Path)
-    $link = Get-WriteTargetReparsePoint -Path $Path -Root $repoRoot
-    if (-not $link) { return }
-    Write-Host "[ERROR] $Path is reached through a symlink or junction ($link) -- refused, nothing read." -ForegroundColor Red
-    Write-Host '        A branch document or changelog is never a link in this workflow, and following one here' -ForegroundColor Red
-    Write-Host '        would push whatever it points at onto the trunk (#2621). Replace it with a plain file.' -ForegroundColor Red
-    exit 1
-}
 
 # BOM-less UTF8 -- Set-Content -Encoding UTF8 always adds a BOM in Windows PowerShell 5.1,
 # and the rest of the repo (CHANGELOG.md etc.) has no BOM.
@@ -400,6 +402,9 @@ function Test-IsChangelogEntryFile {
 # folds have been blocked for a while. -Branch makes it exact instead of merely usually right. Empty (a
 # fold-all run) it degrades to that discovery on purpose: that mode is asking "what is here", not "where is
 # this branch's".
+# EVERY PER-BRANCH DOCUMENT IS JUDGED BEFORE THE RESOLVER RUNS: it reads each sibling to learn which one
+# declares the branch, so a guard placed after it would come one read too late (#2621).
+foreach ($linkRel in @(Get-PerBranchDocumentRels -RepoRoot $repoRoot)) { Assert-FoldReadTarget -Path (Join-Path $repoRoot ($linkRel -replace '/', '\')) }
 $branchDeploymentRel = Resolve-BranchFilePath -Kind Deployment -RepoRoot $repoRoot -Branch $Branch
 $branchCycleRel      = Resolve-BranchFilePath -Kind Cycle -RepoRoot $repoRoot -Branch $Branch
 $branchDeploymentPath = Join-Path $repoRoot $branchDeploymentRel
