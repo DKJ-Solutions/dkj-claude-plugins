@@ -2,18 +2,17 @@
 name: golive-block
 description: >-
   Write the paste-ready block for a GitHub issue, including its go-live half: where the result can be
-  seen, when it is planned to go live (the next release day), which version it is on course for, and
-  the live storefront URL per market. Use it as the closing act of the chain that shipped the work,
-  while the issue is still OPEN -- closing the issue is the confirmation that the block reached the
+  seen, when it is planned to go live (the next release day), and the live storefront URL per market.
+  Use it as the closing act of the chain that shipped the work, while the issue is still OPEN -- closing the issue is the confirmation that the block reached the
   Asana task. It prints by default and posts only with -Post; it never touches Asana, and it never
   writes a placeholder link.
 ---
 
-# golive-block -- the block a colleague reads, with the date and the version in it
+# golive-block -- the block a colleague reads, with the release day in it
 
 `WORKFLOW-portable.md`'s paste-ready block answered *where can I see it* and stopped there. The
 requester's next question is always *and when do I actually see it*, and the ticket is the only place
-they are looking -- so the block carries three more facts
+they are looking -- so the block carries more facts: the release day, the live URLs, and a version only where one is given
 ([#2100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2100), Dave,
 September 18, 2026).
 
@@ -28,8 +27,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 1. Resolves the issue (a bare number, `#412`, or its URL) and the repo.
 2. **The date** -- the next release day, strictly after today. BWJ cuts on a Monday, which is the
    default; `-ReleaseDay` is there for a repo on another cadence.
-3. **The version** -- the newest `vX.Y.Z` tag, stepped by the bump the changelog's pending tally
-   already names.
+3. **The version** -- **only when you pass `-Version`.** The newest `vX.Y.Z` tag stepped by the bump
+   the changelog's pending tally names today is printed on the console as a projection for you, and
+   left out of the block: every entry still to land before release day can raise it, and the requester
+   quotes the block back as a fact. The owner rejected a block that named one six days out
+   ([#2620](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2620)).
 4. **The live URLs** -- `Get-MarketUrls` over the pages `-Path` names, out of the same market table a
    preview pair is built from, **bare**. The result link is normally a preview, and a bare URL renders
    that preview in any browser that opened it first
@@ -88,7 +90,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-Link <url>` | where the result can be seen, **openable by the requester without an account** -- a storefront preview URL (`Get-MarketPreviewUrls`) or a live page. Not the preview handover page: a `claude.ai` Artifact is private to its owner, so it is refused ([#2341](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2341)). **Omitted, that sentence is not written at all** -- see below |
 | `-Path <p[]>` | the storefront pages the change touched; each becomes one live URL per market. Pages separate on `,`; where a page's handle differs per market, write it `/default\|NL=/nl-handle\|DE=/de-handle` (the backslash before each `\|` only escapes it for this Markdown table -- type a plain `\|` on the command line, and quote the argument). Unknown or repeated labels, two defaults, and a page that leaves a market unnamed with no default are refused ([#2627](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2627)) |
 | `-Repo <owner/repo>` | when `GITHUB_REPOSITORY` and `gh repo view` cannot answer |
-| `-Version <X.Y.Z>` | override the prediction, or supply one where it cannot be derived |
+| `-Version <X.Y.Z>` | the version to name in the block. Omitted, the block names the release day alone; pass it once the number can no longer change (the cut is prepared, or a major is decided) |
 | `-ReleaseDay <day>` | the weekday releases are cut on. `Monday` |
 | `-From <date>` | the day the next release day is counted from. Today |
 | `-Language nl\|en` | the language of the Asana task, and so of the block between the rules. `nl` |
@@ -110,12 +112,12 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 - **It never touches Asana.** A person pastes the block into the task, and closing the issue is their
   confirmation that it landed there. That is the one decision this chapter keeps with the colleague
   who asked for the work, and a script cannot reach the Asana MCP anyway.
-- **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026, als versie
-  v1.4.0"* is a cadence and a projection: a tier-1 entry landing on the Friday turns that patch into a
-  minor, and a release can slip. This block is the one surface a colleague quotes back, so it must not
-  read as a commitment nobody made.
-- **It guesses nothing.** No `v*` tag, or a pending tally it cannot read, means the sentence names no
-  number. A repo that has declared no storefront markets gets no live-URL list.
+- **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026"* is a
+  cadence, and a release can slip. This block is the one surface a colleague quotes back, so it must
+  not read as a commitment nobody made.
+- **It guesses nothing.** A predicted version is a guess while entries can still land, so it stays on
+  the console unless you pass `-Version`. A repo that has declared no storefront markets gets no
+  live-URL list.
 
 ## The order is the rule, and this script is the second-to-last step
 

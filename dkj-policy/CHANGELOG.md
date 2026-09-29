@@ -2,7 +2,61 @@
 
 ## [Unreleased]
 
-**23 / 34 minor entries** <!-- pending-tally -->
+**25 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2621-fold-refuses-linked-reads · 20260929-104137Z
+
+The changelog fold now refuses to read a branch document, entry file or changelog that it would reach
+through a symlink or junction, and stops before reading anything. On a Linux runner a committed symlink
+checks out as a real one, and the fold pushes what it read onto the trunk, so a branch document linked
+to a file elsewhere on the runner would have been folded into the public changelog (#2621).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A repo whose CI fold runs on Linux is protected against a pull request that commits its branch document
+as a symlink. A fold that meets one fails, and the trunk is left exactly as the merge left it. The failure
+it prevents has not happened: a linked read pushing runner files into the trunk's changelog.
+
+**Score:** 1
+
+#### Pull Request
+
+fold-changelog-entry refuses a branch document or changelog reached through a symlink
+
+Plugins: dkj-policy
+
+[PR #2629](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2629)
+
+---
+
+### DEPLOY: fix/2620-golive-no-predicted-version · 20260929-101753Z
+
+The go-live block no longer names a predicted version. It stepped the newest tag by the bump the
+pending changelog named that day, and every entry still to land before the release could raise it, so
+the colleague reading the block got a guess that read as a fact. The block now names the release day
+alone, unless `-Version` is passed. The projection is still printed on the console for the session
+(#2620).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a store repo running `dkj-policy-bwj`, the block pasted into Asana no longer carries a version
+number the owner has to strike out by hand. Pass `-Version` once the number can no longer change.
+
+**Score:** 2
+
+#### Pull Request
+
+golive-block: the colleague-facing block names no predicted version unless -Version is given
+
+Plugins: dkj-policy-bwj
+
+[PR #2628](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2628)
+
+---
 
 ### DEPLOY: fix/2616-placed-workflows-linux-runners · 20260929-100014Z
 

@@ -81,7 +81,7 @@ before the step list is unchanged -- the issue, the branch, its `dkj-policy/<bra
 | the step | where it sits in the cycle | the rule |
 |---|---|---|
 | **Is the change visible in the frontend / storefront?** | the **last** step under `### CREATE` | a `- [~]` with its reason where nothing renders; otherwise a preview theme, a comment on the GitHub issue carrying the steps and the URLs, and `- [x]` only once a **person** confirms they looked -- [`PREVIEW-portable.md`](PREVIEW-portable.md) |
-| **The go-live half of the paste-ready block** | just before the GitHub issue is closed | the block gains the next release date, the version it will carry and the live URLs per market, written by `build-golive-block.ps1` -- [`WORKFLOW-portable.md`](WORKFLOW-portable.md) |
+| **The go-live half of the paste-ready block** | just before the GitHub issue is closed | the block gains the next release date and the live URLs per market (a version only where `-Version` names one), written by `build-golive-block.ps1` -- [`WORKFLOW-portable.md`](WORKFLOW-portable.md) |
 
 **They are not a fifth chapter, deliberately.** Each belongs to the subject a chapter already owns --
 previews, and ticket handling -- so it is written there, and this table is an index rather than a
@@ -346,7 +346,7 @@ matched, so the sibling check could see the pair only as `ALIASED`
 | [`adopt-dkj-policy-bwj`](skills/adopt-dkj-policy-bwj/SKILL.md) | one-time setup in a store repo -- copies the CI mechanism into `.github/`, proposes the Asana config seam, and prints the secret/variable setup |
 | [`build-backlog-page`](skills/build-backlog-page/SKILL.md) | the minor-backlog page needs refreshing -- reads the open, reach-labelled issues and shows each one's mirrored Asana task text, never the issue's own |
 | [`publish-page`](skills/publish-page/SKILL.md) | a built page has to reach somebody outside the development work -- publishes it to the one worker both stores share, at an unguessable path, and verifies by reading the bytes back |
-| [`golive-block`](skills/golive-block/SKILL.md) | the work is shipped and the issue is about to close -- writes the paste-ready block with its go-live half: where the result can be seen, the next release day, the version it is on course for, and the live URL per market |
+| [`golive-block`](skills/golive-block/SKILL.md) | the work is shipped and the issue is about to close -- writes the paste-ready block with its go-live half: where the result can be seen, the next release day, and the live URL per market |
 | [`prepare-release`](skills/prepare-release/SKILL.md) | release day is coming up -- stages it days ahead, read-only: the trunk's readiness, what is pending and the bump it makes, scores worth a second look, the theme push list by `live-preflight`'s own rules, an early drift read, the go-live obligations out of entry prose, the open pull requests, and the release-day runbook |
 
 <!-- /skills:plugin -->
