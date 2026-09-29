@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**29 / 40 minor entries** <!-- pending-tally -->
+**29 / 41 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2634-complete-run-progress-retries-locked-delete · 20260929-121818Z
+
+A gate or ship that closes while a statusline is reading its progress record now removes that record,
+where it used to leave it behind. The delete failed on a sharing violation and the failure was swallowed.
+This also took down `run-progress.tests.ps1`'s gate-wiring assert under the parallel gate, so a red there
+said nothing about the tree (#2634).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+run-progress: Complete-RunProgress retries a delete a statusline read is holding
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2637](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2637)
+
+---
 
 ### DEPLOY: fix/2624-push-preview-pushed-with-errors · 20260929-120630Z
 
