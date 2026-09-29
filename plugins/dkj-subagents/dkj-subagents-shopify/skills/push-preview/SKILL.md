@@ -57,7 +57,7 @@ turns ordinary progress into an error under PowerShell's `Stop` preference.
    version of a branch file back. So it counts the copy against live (`Get-ThemeFillVerdict`) every
    `-PollSeconds` until it matches, and gives up after `-TimeoutMinutes` **without pushing**; the state
    sits in `branch.<name>.previewFill`, so a re-run resumes the wait on the same theme.
-6. **Prints the preview URL(s)** to hand over -- plus, from two of them upwards, a note that a list is raw material rather than the handover (see below).
+6. **Prints the preview URL(s)** to hand over -- but only after reading the push output: the CLI exits 0 when it rejects a file ("pushed with errors"), and the script then exits 1 without URLs (#2624). From two URLs upwards it also prints a note that a list is raw material rather than the handover (see below).
 7. **Says what no push can deliver** -- see the next section.
 
 ## Why a new preview is a copy of live (#2348)

@@ -305,6 +305,64 @@ foreach ($rel in 'scripts\task\push-preview.ps1', 'scripts\task\sweep-preview-th
     $src = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\..\$rel") -Raw
     Assert-True ($src -notmatch $castPattern) "$rel trims no [string]-cast native read"
 }
+Write-Host ""
+Write-Host "A push the CLI rejected although it exited 0 (inbound #2624, CLI 4.8.2)" -ForegroundColor Cyan
+# MEASURED in a consumer: 'theme push' rejects a file, prints an error box plus a closing 'pushed with
+# errors' warning box, and exits 0. Box characters are built from code points (this file is ASCII).
+$bTl = [string][char]0x256D; $bTr = [string][char]0x256E; $bBl = [string][char]0x2570; $bBr = [string][char]0x256F
+$bH = [string][char]0x2500; $bV = [string][char]0x2502
+function New-TestBox {
+    param([string]$Title, [string[]]$Body)
+    $out = @("$bTl$bH $Title $($bH * 20)$bTr")
+    $out += "$bV$(' ' * 60)$bV"
+    foreach ($b in $Body) { $out += "$bV  $b$(' ' * 20)$bV" }
+    $out += "$bV$(' ' * 60)$bV"
+    $out += "$bBl$($bH * 60)$bBr"
+    return $out
+}
+$esc = [string][char]27
+$errBody = @('snippets/faq-answer-text.liquid', "Liquid syntax error (line 37): Unknown tag '    | replace: ...'")
+$errBox = New-TestBox 'error' $errBody
+$warnLine = "The theme 'dkj-fix-1-example' (#100000000001) was pushed with errors"
+$warnBox = New-TestBox 'warning' @($warnLine)
+
+$measured = Get-ThemePushProblems -Lines (@('Uploading files to theme...') + $errBox + $warnBox)
+Assert-True $measured.Failed 'the measured failure (error box + pushed-with-errors warning) is Failed'
+Assert-Equal 2 @($measured.Messages).Count 'it carries the two lines of the error box'
+Assert-Equal 'snippets/faq-answer-text.liquid' $measured.Messages[0] 'the first message is the rejected path, without box characters'
+Assert-Match $measured.Messages[1] '^Liquid syntax error \(line 37\): Unknown tag ' 'the second is the reason'
+Assert-True (($measured.Messages -join '') -notmatch "[$bV$bH$bTl$bTr$bBl$bBr]") 'no message holds a box-drawing character'
+Assert-True (($measured.Messages -join ' ') -notmatch 'pushed with errors') 'the warning box text is not among the messages'
+
+$onlyClosing = Get-ThemePushProblems -Lines @($warnLine)
+Assert-True $onlyClosing.Failed 'the closing line alone is Failed'
+Assert-Equal 0 @($onlyClosing.Messages).Count 'and carries no messages'
+Assert-True (Get-ThemePushProblems -Lines $errBox).Failed 'an error box alone is Failed'
+
+$ansi = @($errBox | ForEach-Object { "$esc[31m$_$esc[0m" })
+$ansiRes = Get-ThemePushProblems -Lines $ansi
+Assert-True $ansiRes.Failed 'an ANSI-coloured error box is Failed'
+Assert-Equal 2 @($ansiRes.Messages).Count 'with both messages'
+Assert-True (($ansiRes.Messages -join '') -notmatch [regex]::Escape($esc)) 'and no escape code in a message'
+
+$okBox = New-TestBox 'success' @('Theme pushed successfully')
+$clean = Get-ThemePushProblems -Lines (@('Uploading files to theme...') + $okBox)
+Assert-False $clean.Failed 'a clean push with a success box is not Failed'
+Assert-Equal 0 @($clean.Messages).Count 'and has no messages'
+Assert-False (Get-ThemePushProblems -Lines $warnBox.Replace('was pushed with errors', 'has a notice')).Failed 'a warning box alone is not Failed'
+Assert-False (Get-ThemePushProblems -Lines @()).Failed 'empty input is not Failed'
+Assert-False (Get-ThemePushProblems -Lines $null).Failed 'null input is not Failed'
+Assert-False (Get-ThemePushProblems -Lines @('Found 3 errors in your template')).Failed 'the bare word errors elsewhere is not a signal'
+
+# push-preview.ps1 itself cannot run here, so its ORDER is pinned statically: read the push, refuse on
+# problems, and only then print URLs.
+$ppSrc = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\task\push-preview.ps1') -Raw
+$iPush = $ppSrc.IndexOf('Invoke-ShopifyCli -Arguments $pushArgs')
+$iCall = $ppSrc.IndexOf('Get-ThemePushProblems -Lines $push.Output')
+$iUrls = if ($iCall -ge 0) { $ppSrc.IndexOf('Write-PreviewUrls -Id', $iCall) } else { -1 }  # an earlier path prints URLs too
+Assert-True (($iPush -ge 0) -and ($iCall -gt $iPush) -and ($iUrls -gt $iCall)) 'push-preview.ps1 reads the push output after the push and before it prints URLs'
+$between = if (($iCall -ge 0) -and ($iUrls -gt $iCall)) { $ppSrc.Substring($iCall, $iUrls - $iCall) } else { '' }
+Assert-Match $between '\bexit 1\b' 'and exits 1 between the read and the URLs'
 
 Write-Host ""
 if ($script:fail -gt 0) {
