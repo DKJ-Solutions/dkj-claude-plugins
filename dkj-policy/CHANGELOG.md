@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**24 / 35 minor entries** <!-- pending-tally -->
+**25 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2621-fold-refuses-linked-reads · 20260929-104137Z
+
+The changelog fold now refuses to read a branch document, entry file or changelog that it would reach
+through a symlink or junction, and stops before reading anything. On a Linux runner a committed symlink
+checks out as a real one, and the fold pushes what it read onto the trunk, so a branch document linked
+to a file elsewhere on the runner would have been folded into the public changelog (#2621).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A repo whose CI fold runs on Linux is protected against a pull request that commits its branch document
+as a symlink. A fold that meets one fails, and the trunk is left exactly as the merge left it. The failure
+it prevents has not happened: a linked read pushing runner files into the trunk's changelog.
+
+**Score:** 1
+
+#### Pull Request
+
+fold-changelog-entry refuses a branch document or changelog reached through a symlink
+
+Plugins: dkj-policy
+
+[PR #2629](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2629)
+
+---
 
 ### DEPLOY: fix/2620-golive-no-predicted-version · 20260929-101753Z
 
