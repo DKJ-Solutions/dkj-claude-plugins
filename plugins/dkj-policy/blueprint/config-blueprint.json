@@ -462,8 +462,8 @@
                         "optional":  true,
                         "default":  "\u0027\u0027 -- the worker is named \u0027\u003crepo name\u003e-issue-dashboard\u0027",
                         "returns":  "the name of the Cloudflare Worker that serves the live issue dashboard, or \u0027\u0027 to take the default \u0027\u003crepo name\u003e-issue-dashboard\u0027. The dashboard is served at /issues/\u003c32 hex\u003e and that path is the ONLY lock on it -- there is no login, so anyone with the link reads the repo\u0027s open issues. Answer this only where that is acceptable, and keep dkj-policy/dashboard/ out of version control (it is gitignored)",
-                        "declared":  false,
-                        "text":  ""
+                        "declared":  true,
+                        "text":  "function Get-IssueDashboardWorkerName {\n    \u003c# Empty: this repo hosts no live issue dashboard, so it names no worker (#2643). A repo that runs\n       issue-dashboard.ps1 and answers nothing gets \u0027\u003crepo name\u003e-issue-dashboard\u0027. #\u003e\n    return \u0027\u0027\n}"
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",

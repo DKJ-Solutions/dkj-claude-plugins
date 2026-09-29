@@ -173,7 +173,9 @@ function Get-DashboardRepoSlug {
     param([string]$FromConfig)
     if ($FromConfig -match '^[\w.-]+/[\w.-]+$') { return $FromConfig }
     if (Get-Command gh -ErrorAction SilentlyContinue) {
-        $slug = (& gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>$null)
+        $prev = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'   # native stderr must not become a terminating error under Stop
+        try { $slug = (& gh repo view --json nameWithOwner --jq '.nameWithOwner' 2>$null) } catch { $slug = $null } finally { $ErrorActionPreference = $prev }
         if ($LASTEXITCODE -eq 0 -and $slug) {
             $slug = ([string]($slug | Select-Object -First 1)).Trim()
             if ($slug -match '^[\w.-]+/[\w.-]+$') { return $slug }
