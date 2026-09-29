@@ -255,6 +255,35 @@ Assert-True (@(Get-LiveRunProgress -Root $root | Where-Object { $_.Id -eq 'newer
 Assert-True (Complete-RunProgress -Id 'never-existed' -Root $root) `
     'Complete-RunProgress: clearing a record that is not there is success, not an error in the producer'
 
+# A READER HOLDING THE RECORD MUST NOT DEFEAT THE DELETE (#2634). Get-LiveRunProgress reads with
+# ReadAllText, which shares for read and not for delete; under the parallel gate a statusline read
+# landing on the gate-wiring probe's record made Clear-GateProgress fail silently. A child holds the
+# file the same way for 400 ms -- well inside the retry window -- and says so before the delete runs.
+$root = New-Root 'held'
+[void](Write-RunProgress -Id 'held' -Label 'held run' -Root $root)
+$heldPath = Join-Path $root 'held.json'
+$heldMarker = Join-Path $root 'holding.marker'
+$holder = Join-Path $root 'holder.ps1'
+[System.IO.File]::WriteAllText($holder, @"
+`$s = [System.IO.File]::Open('$heldPath', 'Open', 'Read', 'Read')
+[System.IO.File]::WriteAllText('$heldMarker', 'x')
+Start-Sleep -Milliseconds 400
+`$s.Dispose()
+"@, (New-Object System.Text.UTF8Encoding($false)))
+$holderProc = Start-Process -FilePath 'powershell' -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $holder) -WindowStyle Hidden -PassThru
+$waitSw = [System.Diagnostics.Stopwatch]::StartNew()
+while (-not (Test-Path -LiteralPath $heldMarker) -and $waitSw.Elapsed.TotalSeconds -lt 30) { Start-Sleep -Milliseconds 20 }
+if (Test-Path -LiteralPath $heldMarker) {
+    $plainDeleteFailed = $false
+    try { Remove-Item -LiteralPath $heldPath -Force -ErrorAction Stop } catch { $plainDeleteFailed = $true }
+    Assert-True $plainDeleteFailed 'Complete-RunProgress: (the mechanism) a single delete fails while a reader holds the record'
+    Assert-True (Complete-RunProgress -Id 'held' -Root $root) 'Complete-RunProgress: retries past a reader holding the record, and reports success'
+    Assert-True (-not (Test-Path -LiteralPath $heldPath)) 'Complete-RunProgress: and the held record is gone'
+} else {
+    Assert-True $false 'Complete-RunProgress: the holder child never signalled that it held the record'
+}
+[void]$holderProc.WaitForExit(30000)
+
 # --- 13. the statusline command -----------------------------------------------------------------
 Write-Host '== show-progress ==' -ForegroundColor Cyan
 

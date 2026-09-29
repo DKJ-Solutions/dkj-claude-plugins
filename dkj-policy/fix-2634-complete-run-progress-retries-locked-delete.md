@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#2634: under the parallel gate, `run-progress.tests.ps1`'s gate-wiring probe found its own record still
+present after `Clear-GateProgress`. Verified in the code: `Get-LiveRunProgress` reads each record with
+`ReadAllText` (shares for read, not delete), and `Complete-RunProgress` turned a failed `Remove-Item`
+into a silent `$false`. The repair is a bounded retry on the delete.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Complete-RunProgress` retries a failed delete, up to 20 times 50 ms apart, and still returns `$false` without throwing once that is used up
+- [x] mirrored byte-identically into `plugins/dkj-policy` and `plugins/dkj-subagents/dkj-subagents-shopify`
 
 ### TEST
 
+- [x] `run-progress.tests.ps1`: a child process holds the record the way the reader does. A single delete fails (the mechanism), and `Complete-RunProgress` succeeds past it (79/79 standalone)
+
 ### DEPLOY: fix/2634-complete-run-progress-retries-locked-delete
 
-**Score:**
+A gate or ship that closes while a statusline is reading its progress record now removes that record,
+where it used to leave it behind. The delete failed on a sharing violation and the failure was swallowed.
+This also took down `run-progress.tests.ps1`'s gate-wiring assert under the parallel gate, so a red there
+said nothing about the tree (#2634).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
+
+run-progress: Complete-RunProgress retries a delete a statusline read is holding
+
+Plugins: dkj-policy, dkj-subagents-shopify
 
