@@ -96,6 +96,3 @@ freshly created preview that silently lacks a file. Nothing to do after the upda
 #### Pull Request
 
 push-preview: the create path fails on a file the CLI rejected, as the update path already does
-
-Plugins: dkj-subagents-shopify
-
