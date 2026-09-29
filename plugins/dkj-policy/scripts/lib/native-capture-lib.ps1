@@ -2042,11 +2042,6 @@ function Invoke-NativeCapture {
             # npm's global install drops an extensionless shim beside its '.cmd', and handing that file
             # to the loader fails with "%1 is not a valid Win32 application" -- this class, one arm over.
             return New-NativeNotStartedCapture -FilePath $FilePath -Reason $_.Exception.Message
-        } catch [System.ComponentModel.Win32Exception] {
-            # THE SAME REFUSAL ON UNIX (#2488). pwsh 7 hands a found-but-not-executable file to the
-            # platform's process start, and the OS refusal can surface as the bare Win32Exception rather
-            # than wrapped in ApplicationFailedException. Windows PowerShell never raises it here.
-            return New-NativeNotStartedCapture -FilePath $FilePath -Reason $_.Exception.Message
         }
         # $LASTEXITCODE IS STILL THE NATIVE COMMAND'S, read after the pipeline drains: only a native
         # command writes it, and ForEach-Object is not one. Get-ShopifyLineText's caller one lib over

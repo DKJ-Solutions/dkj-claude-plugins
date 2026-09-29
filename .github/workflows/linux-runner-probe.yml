@@ -75,3 +75,17 @@ jobs:
           chmod +x $f
           try { & $f; Write-Host "no throw, exit $LASTEXITCODE" } catch { $e = $_.Exception; while ($e) { Write-Host "TYPE: $($e.GetType().FullName) -- $($e.Message)"; $e = $e.InnerException } }
           try { Start-Process -FilePath $f -NoNewWindow -Wait } catch { $e = $_.Exception; while ($e) { Write-Host "SP TYPE: $($e.GetType().FullName) -- $($e.Message)"; $e = $e.InnerException } }
+
+      - name: Diagnostic -- where a blank line goes in a -Utf8 git show
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          . ./scripts/lib/native-capture-lib.ps1
+          $d = Join-Path ([IO.Path]::GetTempPath()) 'blank-2488'; New-Item -ItemType Directory $d -Force | Out-Null
+          [IO.File]::WriteAllText("$d/c.md", "one`n`nthree`n")
+          git -C $d init -q; git -C $d -c user.name=f -c user.email=f@x.invalid add c.md; git -C $d -c user.name=f -c user.email=f@x.invalid commit -qm c
+          Write-Host "raw git: $((git -C $d show HEAD:c.md | ForEach-Object { "[$_]" }) -join ' ')"
+          foreach ($a in @(@{ Utf8 = $true; DiscardStderr = $true }, @{ Utf8 = $true }, @{})) {
+              $r = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $d, 'show', 'HEAD:c.md') @a
+              Write-Host "args=$($a.Keys -join ',') count=$(@($r.Output).Count): $((@($r.Output) | ForEach-Object { "[$_]" }) -join ' ')"
+          }

@@ -1074,8 +1074,10 @@ Write-Output "GATE-VERDICT=`$ok"
     Assert-True (@($rawRefusal | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }).Count -gt 0) `
         'a raw & call still wraps stderr in ErrorRecords -- the shape the helper exists for has not gone away'
     $old = ($rawRefusal | Out-String).Trim()
-    Assert-True ($old -match 'CategoryInfo')            'Out-String really does render the exception block -- the defect reproduces on a raw call'
-    Assert-True ($old -match 'native-capture-lib\.ps1|\.tests\.ps1') '...including a caret naming the file that ran the command'
+    # Windows PowerShell 5.1's NormalView is the defect's precondition; pwsh 7 renders ConciseView (#2488).
+    $viewReason = 'the exception block is Windows PowerShell 5.1''s NormalView rendering'
+    Assert-TrueWindowsOnly ($old -match 'CategoryInfo') 'Out-String really does render the exception block -- the defect reproduces on a raw call' $viewReason
+    Assert-TrueWindowsOnly ($old -match 'native-capture-lib\.ps1|\.tests\.ps1') '...including a caret naming the file that ran the command' $viewReason
     Assert-True ((Get-NativeOutputText $rawRefusal) -notmatch 'CategoryInfo') `
         '...and the helper strips it off THAT Output too, which is the older-consumer case in one assert'
 
@@ -1796,7 +1798,8 @@ foreach ($af in $auditFiles) {
     $atok = $null; $aerr = $null
     $aast = [System.Management.Automation.Language.Parser]::ParseFile($af.FullName, [ref]$atok, [ref]$aerr)
     if ($aerr -and $aerr.Count) { continue }
-    $rel = $af.FullName.Substring($auditRoot.Length + 1)
+    # The exemption keys are written with a backslash, so the key is too, whatever this OS lists (#2488).
+    $rel = $af.FullName.Substring($auditRoot.Length + 1).Replace('/', [string][char]92)
 
     # Which capture variables in this file come off a BOUNDED call.
     $boundedVars = @{}
