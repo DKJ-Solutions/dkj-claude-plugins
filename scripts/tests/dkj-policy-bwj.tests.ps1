@@ -18,6 +18,7 @@
 # rather than through Get-Command, whose miss path -- the case every one of those asserts is in --
 # scans the whole PATH for an executable of that name.
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
 $ErrorActionPreference = 'Stop'
 $RepoRoot   = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-policy-bwj'
@@ -1153,15 +1154,10 @@ try {
     # projection the entries still to land can raise, so it is printed for the session and never pasted.
     [System.IO.File]::WriteAllText((Join-Path $glRoot 'CHANGELOG.md'),
         "# Changelog`n`n## [Unreleased]`n`n**1 / 1 patch entries** <!-- pending-tally -->`n", (New-Object System.Text.UTF8Encoding $false))
-    # Continue for the fixture's git calls only: a line-ending warning on stderr is not a failure here.
-    $glPrevEap = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try {
-        & git -C $glRoot init -q 2>&1 | Out-Null
-        & git -C $glRoot -c core.autocrlf=false add -A 2>&1 | Out-Null
-        & git -C $glRoot -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q -m init 2>&1 | Out-Null
-        & git -C $glRoot tag v2.45.0 2>&1 | Out-Null
-    } finally { $ErrorActionPreference = $glPrevEap }
+    Invoke-FixtureGitIn $glRoot init -q
+    Invoke-FixtureGitIn $glRoot -c core.autocrlf=false add -A
+    Invoke-FixtureGitIn $glRoot -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q -m init
+    Invoke-FixtureGitIn $glRoot tag v2.45.0
     $glVerOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' `
         -RootOverride $glRoot -OutFile $glOutFile 2>&1
     $glVerText = (@($glVerOut | ForEach-Object { "$_" }) -join "`n")
@@ -1288,6 +1284,7 @@ try {
 
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""
+if (Write-FixtureGitSummary -Subject 'build-golive-block.ps1') { $script:fail++ }
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
     exit 1
