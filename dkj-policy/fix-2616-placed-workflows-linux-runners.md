@@ -39,19 +39,65 @@
 
 ### PLAN
 
+#2616 is the half #2488 left out: `merge-on-green`, and the gates the floor and `adopt-dkj-policy` place
+(`branch-entry` / `reusable-branch-entry`, `always-on-budget` / `reusable-always-on-budget`,
+`unfolded-entry`), move to `ubuntu-latest` + `pwsh` with #2488's shim. ci.yml's own tree-judging shards
+stay on Windows, because the whole tree is judged there.
+
+#### How each move is proved
+
+- `branch-entry.yml` and `always-on-budget.yml` are `pull_request` gates, so this PR's own run on Linux
+  proves them. Their suites also join the Linux leg.
+- The two reusable copies run the same scripts from `.workflow-scripts`, so the proof carries over. A
+  consumer calling them at `@main` switches at the merge.
+- `unfolded-entry.yml` runs on a trunk push. `check-unfolded-entry.ps1` is already pinned on Linux by
+  `unfolded-entry-gate` in the leg, and the first push after the merge is its live run.
+- `merge-on-green.yml` runs the default branch's copy, so it cannot be proved here. No suite runs
+  `ship-pr` end to end, and a pre-merge probe of the full ship would wait on the CI run it is part of.
+  The proof is after the merge: a `workflow_dispatch` run (the pick step alone when nothing is armed),
+  then the first sweep that ships an armed PR. The failure is bounded: a Linux ship that breaks after its
+  merge leaves the fold to `fold-on-merge` and the resolves to `verify-resolved`, both on Linux since #2488.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The five gate workflows: `runs-on: ubuntu-latest`, the shim step, `shell: pwsh`, headers rewritten.
+- [x] `merge-on-green.yml`: the same move, the shim ahead of every step that holds a token, and a header
+  saying how it is proved.
+- [x] `adopt-ci-floor.ps1` (source and plugin mirror): the merge-on-green template moves too, the
+  cost section says all four runners are on Linux, and the three other templates stop saying it stays.
+- [x] The headers of `fold-on-merge`, `verify-resolved` and `repo-settings` stop saying merge-on-green stays.
+- [x] ci.yml's Linux leg also runs `branch-entry-gate` and `always-on-budget`.
 
 ### TEST
 
+- [x] Windows PowerShell 5.1, locally: `adopt-ci-floor` 271/0, `ci-shard` 92/0, `merge-on-green-lib`
+  236/0, `branch-entry-gate` 58/0, `always-on-budget` 135/0, `workflow-timeouts` 66/0, `ci-fold-lib`
+  75/0, `shared-scripts` 1112/0, `check-plugin-integrity` 0 errors
+- [x] The Linux half is wired into the required check, so the merge waits on it: `linux-runner-path` now runs `branch-entry-gate` and
+  `always-on-budget` under pwsh on ubuntu-latest, and this PR's own `Branch entry` and `Always-on budget`
+  runs are the gates on Linux. The dispatch run after the merge is in the PLAN above.
+
 ### DEPLOY: fix/2616-placed-workflows-linux-runners
 
-**Score:**
+`merge-on-green` and the gates `adopt-dkj-policy` places now run on `ubuntu-latest` under `pwsh`, with
+#2488's one-line shim that makes `powershell` resolve to `pwsh`. The gates are `branch-entry`,
+`always-on-budget` and `unfolded-entry`, including the reusable copies consumers call. That covers this
+repo's copies and the `merge-on-green` template `adopt-ci-floor` places. A consumer calling the reusable
+gates at `@main` moves at this merge. A `merge-on-green.yml` it already has is left alone, like every file
+the floor places, so it stays on Windows until it is re-scaffolded. The `branch-entry-gate` and
+`always-on-budget` suites join CI's Linux leg. `merge-on-green` runs the default branch's copy, so its
+first Linux run is the first sweep after this merge. If that breaks, the fold and the resolves still land
+through `fold-on-merge` and `verify-resolved`, which moved in #2488 (#2616).
+
+Every CI job that judges this repo's tree stays on `windows-latest`. The move is to the runners around it.
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+On a private consumer, the gate that runs on every PR event (`Branch entry`: 137 runs in one consumer in
+September, #2487) and the merge sweep now bill Linux minutes instead of Windows ones. Nothing changes in
+what they check.
+**Score:** 2
 
 #### Pull Request
 

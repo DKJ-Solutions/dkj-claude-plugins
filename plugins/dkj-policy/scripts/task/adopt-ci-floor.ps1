@@ -686,7 +686,7 @@ $foldRunner = @(
     '# LINUX, UNDER PWSH 7 (issue #2488): this runs on ubuntu-latest under ''shell: pwsh'', because a Linux',
     '# minute is billed below a Windows one on a private repo. The shared scripts start child processes by',
     '# the literal name ''powershell'', which ubuntu-latest does not have, so one shim step points it at pwsh.',
-    '# merge-on-green.yml is the runner that stays on windows-latest.',
+    '# merge-on-green.yml followed in #2616, so every runner this floor places is on Linux.',
     'name: Fold on merge',
     '',
     '# contents: read, deliberately -- the actual push authenticates as FOLD_PUSH_TOKEN, wired into the',
@@ -860,8 +860,7 @@ $resolvesRunner = @(
     '# closed) but a constant group keeps them ordered anyway.',
     '#',
     '# LINUX, UNDER PWSH 7 (issue #2488): ubuntu-latest and ''shell: pwsh'', with one shim step pointing the',
-    '# literal child name ''powershell'' at pwsh -- see the fold runner''s header. merge-on-green.yml stays',
-    '# on windows-latest.',
+    '# literal child name ''powershell'' at pwsh -- see the fold runner''s header.',
     'name: Verify resolved issues',
     '',
     'permissions:',
@@ -1012,8 +1011,7 @@ $repoSettingsRunner = @(
     '# rather than to the consumer''s repo by construction.',
     '#',
     '# LINUX, UNDER PWSH 7 (issue #2488): ubuntu-latest and ''shell: pwsh'', with one shim step pointing the',
-    '# literal child name ''powershell'' at pwsh -- see the fold runner''s header. merge-on-green.yml stays',
-    '# on windows-latest.',
+    '# literal child name ''powershell'' at pwsh -- see the fold runner''s header.',
     'name: Repo settings',
     '',
     'permissions:',
@@ -1144,9 +1142,10 @@ $mergeOnGreenRunner = @(
     '# sweeps would race to ship the SAME pull request. A sweep re-reads the tracker when it starts, so a',
     '# dropped duplicate pending run costs nothing.',
     '#',
-    '# WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what ''shell: powershell'' is. This',
-    '# is the one runner that has NOT moved to ubuntu-latest + pwsh (issue #2488): it drives ship-pr''s whole',
-    '# merge path, and a workflow_run runner cannot be proved on its own pull request.',
+    '# LINUX, UNDER PWSH 7 (issue #2616): ubuntu-latest and ''shell: pwsh'', with one shim step pointing the',
+    '# literal child name ''powershell'' at pwsh -- see the fold runner''s header. It was the last runner to',
+    '# move because it drives ship-pr''s whole merge path and a workflow_run runner cannot be proved on its',
+    '# own pull request; the source repo''s CI runs that merge path''s suites under pwsh on Linux instead.',
     'name: Merge on green',
     '',
     '# The job token only reads; the write half arrives as FOLD_PUSH_TOKEN on the one step that needs it.',
@@ -1160,7 +1159,7 @@ $mergeOnGreenRunner = @(
     '    # Every 3 hours: a backstop for what workflow_run misses, not the ordinary path -- sparser than',
     '    # the source repo''s own half-hourly sweep (issue #2487). workflow_run wakes this the moment CI',
     '    # finishes, which is the ordinary path here too; the schedule only has to catch what that',
-    '    # trigger misses. The source repo is public, so a windows-latest job costs it nothing on a',
+    '    # trigger misses. The source repo is public, so a job costs it nothing on a',
     '    # standard runner and 30 minutes buys latency for free; a private repo is billed per scheduled',
     '    # job START, rounded up to a whole minute, whether or not anything is owed a merge. Half-hourly',
     '    # there is 48 jobs/day, roughly 1,440 billed minutes/month; every 3 hours is 8/day, roughly',
@@ -1174,7 +1173,7 @@ $mergeOnGreenRunner = @(
     '',
     'jobs:',
     '  merge-on-green:',
-    '    runs-on: windows-latest',
+    '    runs-on: ubuntu-latest',
     '    # 45 minutes, longer than the other runners because this one waits on CI on purpose: ship-pr may',
     '    # bring a stale branch forward and re-certify it, and each lap is a full CI cycle. Re-size it to',
     '    # this repo''s own CI duration; the cap is a wedge detector, against GitHub''s six-hour default.',
@@ -1201,6 +1200,12 @@ $mergeOnGreenRunner = @(
     ('          path: ' + $sharedPath),
     '          persist-credentials: false',
     '',
+    '      # THE SHIM (issue #2488): ship-pr launches its children by the literal name ''powershell'', and',
+    '      # ubuntu-latest has only ''pwsh''. It runs before the first pwsh step and before FOLD_PUSH_TOKEN.',
+    '      - name: Make ''powershell'' resolve to pwsh',
+    '        shell: bash',
+    '        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell',
+    '',
     '      # The picker reads with the job-scoped token, not the PAT: it only lists pull requests and',
     '      # their checks, and the standing credential stays out of every step that does not need it.',
     '      # CLAUDE_PROJECT_DIR NAMES trusted-main AND NOTHING ELSE WILL DO: the workspace root holds no',
@@ -1208,7 +1213,7 @@ $mergeOnGreenRunner = @(
     '      # pointed there the sweep would answer with another repository''s configuration.',
     '      - name: Is any armed pull request owed a merge?',
     '        id: pick',
-    '        shell: powershell',
+    '        shell: pwsh',
     '        env:',
     '          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}',
     '          GH_REPO: ${{ github.repository }}',
@@ -1237,7 +1242,7 @@ $mergeOnGreenRunner = @(
     '      # its fold on trusted-main.',
     '      - name: Ship it',
     '        if: ${{ steps.pick.outputs.picked == ''true'' }}',
-    '        shell: powershell',
+    '        shell: pwsh',
     '        env:',
     '          GH_TOKEN: ${{ secrets.FOLD_PUSH_TOKEN }}',
     '          GH_REPO: ${{ github.repository }}',
@@ -1714,14 +1719,13 @@ Write-Host ''
 # 3. WHAT THIS FLOOR COSTS ON A METERED (PRIVATE) REPO (issue #2487). PURE STATIC TEXT -- no repo-
 # visibility check and no network call: this script already refuses to guess at anything it cannot
 # read from the tree or a token, and "is this repo private" is exactly that kind of guess. A follow-up
-# (#2488) moved three of the four runners to ubuntu-latest + pwsh; merge-on-green is the one that
-# stays on windows-latest, and its own migration is a separate step.
+# (#2488) moved three of the four runners to ubuntu-latest + pwsh, and #2616 moved merge-on-green.
 Write-Host '-- 3. what this floor costs on a metered (private) repo --' -ForegroundColor Cyan
 Write-Host '  Actions minutes are FREE and unlimited on a PUBLIC repo''s standard runners. On a PRIVATE' -ForegroundColor DarkGray
 Write-Host '  repo they are METERED against your plan''s included allowance and billed past it: every job' -ForegroundColor DarkGray
 Write-Host '  is billed rounded UP to a whole minute even where it runs in seconds, and a Windows minute' -ForegroundColor DarkGray
-Write-Host '  costs more than a Linux one -- three of the four runners this floor places run on Linux' -ForegroundColor DarkGray
-Write-Host '  (ubuntu-latest); only merge-on-green.yml is still windows-latest.' -ForegroundColor DarkGray
+Write-Host '  costs more than a Linux one -- all four runners this floor places run on Linux' -ForegroundColor DarkGray
+Write-Host '  (ubuntu-latest).' -ForegroundColor DarkGray
 Write-Host '  What starts a billed job, per runner:' -ForegroundColor DarkGray
 Write-Host '    fold-on-merge.yml + verify-resolved.yml -- one job EACH per trunk push that is not a lone' -ForegroundColor DarkGray
 Write-Host '      fold: commit (skipped at the job level on that push, unbilled -- see section 2 above).' -ForegroundColor DarkGray

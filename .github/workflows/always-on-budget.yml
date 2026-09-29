@@ -21,8 +21,9 @@
 # baseline records every document's size by its import target and the check takes the recorded figure
 # for anything it cannot resolve, so both carriers judge the same subject. See always-on-budget-lib.ps1.
 #
-# WINDOWS, LIKE ci.yml AND branch-entry.yml, AND FOR THE SAME REASON: the scripts target Windows
-# PowerShell 5.1, so they run under `shell: powershell` (5.1) rather than pwsh.
+# LINUX, UNDER PWSH 7 (issue #2616, after #2488): ubuntu-latest and `shell: pwsh`, because on a private
+# repo a Windows minute is billed above a Linux one. The shared scripts start children by the literal
+# name `powershell`, which ubuntu-latest does not have, so one shim step points it at pwsh.
 #
 # THIS CHECK IS NOT IN THE main RULESET, deliberately, exactly as branch-entry.yml is not. Making a check
 # REQUIRED is a repo-settings change and therefore Dave's, not a script's -- so this reports on every PR
@@ -38,7 +39,7 @@ on:
 
 jobs:
   always-on-budget:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     # 10 MINUTES, AND THE CAP IS A WEDGE DETECTOR RATHER THAN A PERFORMANCE BUDGET -- issue #2296. A job
     # with no timeout-minutes runs to GitHub's SIX-HOUR default; this one measures under a minute over its
     # 20 most recent successful runs, so 10 is an order of magnitude of headroom and still bounds a wedge.
@@ -47,8 +48,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # THE SHIM (issue #2488): the scripts launch children by the literal name `powershell`, and
+      # ubuntu-latest has only `pwsh`. It runs before the first pwsh step.
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
       - name: The always-on document path is inside its budget
-        shell: powershell
+        shell: pwsh
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-always-on-budget.ps1
           exit $LASTEXITCODE
