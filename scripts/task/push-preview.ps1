@@ -359,27 +359,39 @@ if (-not $id) {
         # would cost more than the settings do.
         Write-Host "No preview theme for '$branch' yet, and no live id to copy from; creating '$themeName' by a plain push." -ForegroundColor Yellow
         $createArgs = Get-ThemeCreateArgs -Store $store -ThemeName $themeName
-        # -Quiet AND -DiscardStderr for the same two reasons as the list call: Get-ThemeIdFromPushOutput
-        # parses this output, and --json means there is no progress on stdout to show anyway.
-        $create = Invoke-ShopifyCli -Arguments $createArgs -Quiet -DiscardStderr
+        # -Quiet because --json leaves no progress on stdout to show. But NOT -DiscardStderr, unlike the
+        # list call: this call PUSHES, and the CLI exits 0 when it rejects a file (#2624), so its output is
+        # read for rejections as well as for the id. Where the rejection lands under --json is unmeasured
+        # (#2633); the human output puts it on stderr, so that stream is kept. Get-ThemeIdFromPushOutput is
+        # a regex, not ConvertFrom-Json, so a stderr line in front of the JSON does not hide the id.
+        $create = Invoke-ShopifyCli -Arguments $createArgs -Quiet
         if ($create.ExitCode -ne 0) {
             Write-Error ("Creating the preview theme failed. If the CLI says 'A shop may only have N " +
                 "themes', the estate is full: archive and remove a spent preview theme first.")
             exit 1
         }
         $id = Get-ThemeIdFromPushOutput -Output ($create.Output | Out-String)
+        # The id is remembered BEFORE the refusal below: the theme exists either way, and the next run
+        # should push into it by id rather than find it by name. '$null = ' and NOT '| Out-Null': piping a
+        # native exe into a cmdlet wraps every stderr line in a terminating ErrorRecord under
+        # $ErrorActionPreference = 'Stop'.
+        if ($id) { $null = git config "branch.$branch.previewTheme" $id }
+        # A stale 'pending' from an earlier duplicate attempt would otherwise stop the next push at step 5
+        # for want of a live id. '--unset' of an absent key exits 5 and writes nothing.
+        $null = git config --unset "branch.$branch.previewFill"
+        $createProblems = Get-ThemePushProblems -Lines $create.Output
+        if ($createProblems.Failed) {
+            Write-Host "Preview theme '$themeName' was created, but the CLI pushed with errors. The preview is NOT this branch." -ForegroundColor Red
+            foreach ($m in $createProblems.Messages) { Write-Host "  $m" -ForegroundColor Red }
+            Write-Host 'A rejected file is missing on the theme. Fix it and run this script again.' -ForegroundColor Red
+            exit 1
+        }
         if ($id) {
-            # '$null = ' and NOT '| Out-Null': piping a native exe into a cmdlet wraps every stderr line in
-            # a terminating ErrorRecord under $ErrorActionPreference = 'Stop'.
-            $null = git config "branch.$branch.previewTheme" $id
             Write-Host "Preview theme '$themeName' (id $id) created and pushed; id remembered." -ForegroundColor Green
             Write-PreviewUrls -Id $id
         } else {
             Write-Host "Preview theme '$themeName' created and pushed. The id was not in the output, so the next run falls back to the name lookup." -ForegroundColor Yellow
         }
-        # A stale 'pending' from an earlier duplicate attempt would otherwise stop the next push at step 5
-        # for want of a live id. '--unset' of an absent key exits 5 and writes nothing.
-        $null = git config --unset "branch.$branch.previewFill"
         Write-SettingsNotice -FillState ''
         exit 0
     }
