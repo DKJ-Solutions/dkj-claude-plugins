@@ -321,8 +321,8 @@ function Get-MergeOnGreenExecutedPathHit {
         $first = (($norm -split '/')[0] -replace ':.*$', '').TrimEnd('. ')
         $isShortName = ($first -match '^\.?([^~.]{1,6})~\d+$') -and
             'workflow-scripts'.StartsWith($Matches[1].ToLowerInvariant())
-        # -like is case-insensitive, like -contains below: '.Workflow-Scripts/' is the same directory on
-        # the windows-latest runner's filesystem. The bare directory name is matched as well, in case a
+        # -like is case-insensitive, like -contains below: '.Workflow-Scripts/' is the same directory on a
+        # Windows runner's filesystem, and on a case-sensitive Linux one the match only refuses more (#2616). The bare directory name is matched as well, in case a
         # file of that name is committed and turns the checkout path into a conflict.
         if ($first -eq '.workflow-scripts' -or $isShortName) {
             $shown = $norm -replace '[^\x20-\x7E]', '?'

@@ -76,6 +76,12 @@ stay on Windows, because the whole tree is judged there.
 - [x] The Linux half is wired into the required check, so the merge waits on it: `linux-runner-path` now runs `branch-entry-gate` and
   `always-on-budget` under pwsh on ubuntu-latest, and this PR's own `Branch entry` and `Always-on budget`
   runs are the gates on Linux. The dispatch run after the merge is in the PLAN above.
+- [x] Pre-PR review, with Victor, Sebastian and Edith working in parallel. There was no blocking finding.
+  The stale comments were repaired here: ci.yml's banner, a reflow in merge-on-green.yml, and
+  merge-on-green-lib's filesystem note. Two findings outside the branch were filed. #2621: the fold reads
+  the branch document through a symlink on a Linux runner. That exposure exists since #2488, and this
+  branch extends it to merge-on-green. #2622: the branch-entry gates splice `head_ref` into `run:`, which
+  predates this branch.
 
 ### DEPLOY: fix/2616-placed-workflows-linux-runners
 
@@ -87,7 +93,7 @@ gates at `@main` moves at this merge. A `merge-on-green.yml` it already has is l
 the floor places, so it stays on Windows until it is re-scaffolded. The `branch-entry-gate` and
 `always-on-budget` suites join CI's Linux leg. `merge-on-green` runs the default branch's copy, so its
 first Linux run is the first sweep after this merge. If that breaks, the fold and the resolves still land
-through `fold-on-merge` and `verify-resolved`, which moved in #2488 (#2616).
+through `fold-on-merge` and `verify-resolved`, which have run on Linux since #2488. Issue #2616.
 
 Every CI job that judges this repo's tree stays on `windows-latest`. The move is to the runners around it.
 **Score:** 3

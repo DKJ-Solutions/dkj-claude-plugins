@@ -4,7 +4,7 @@
 # originates outside the scripts (GitHub UI, or a forgotten -SkipLint) passes through here.
 # The scripts target Windows PowerShell 5.1, so every job that JUDGES THE TREE is on windows-latest with
 # `shell: powershell` (5.1), not pwsh. Two jobs are on ubuntu instead: `linux-runner-path` (#2488), which
-# runs the runner-path suites under pwsh 7 because three CI-floor runners now execute there, and, since
+# runs the runner-path suites under pwsh 7 because every CI-floor runner now executes there, and, since
 # #1351, the `lint-en-tests` summary at the foot of this file, which runs no script and only compares
 # strings. See each job's own note.
 #
