@@ -112,8 +112,16 @@ exit 1
 '@
     [System.IO.File]::WriteAllText((Join-Path $fakeBin 'gh-impl.ps1'), $ghImpl, $Utf8NoBom)
     $ghCmd = "@echo off`r`npowershell -NoProfile -ExecutionPolicy Bypass -File `"%~dp0gh-impl.ps1`" %*`r`nexit /b %ERRORLEVEL%`r`n"
-    [System.IO.File]::WriteAllText((Join-Path $fakeBin 'gh.cmd'), $ghCmd, $Utf8NoBom)
-    $env:PATH = "$fakeBin;$env:PATH"
+    # Off Windows a .cmd is not executable and ';' does not split PATH, so the real gh would answer
+    # instead of the fake (#2488): there the same delegation is an executable sh shim calling pwsh.
+    if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+        [System.IO.File]::WriteAllText((Join-Path $fakeBin 'gh.cmd'), $ghCmd, $Utf8NoBom)
+    } else {
+        $ghSh = "#!/bin/sh`nexec pwsh -NoProfile -File `"$fakeBin/gh-impl.ps1`" `"`$@`"`n"
+        [System.IO.File]::WriteAllText((Join-Path $fakeBin 'gh'), $ghSh, $Utf8NoBom)
+        & chmod +x (Join-Path $fakeBin 'gh')
+    }
+    $env:PATH = $fakeBin + [System.IO.Path]::PathSeparator + $env:PATH
     $env:GH_CALL_LOG = $callLog
 
     function Invoke-Verify {
