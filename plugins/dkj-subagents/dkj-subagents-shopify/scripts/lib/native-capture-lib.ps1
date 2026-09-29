@@ -2224,6 +2224,67 @@ function Resolve-NativeApplicationPath {
     return $FilePath
 }
 
+function Start-NativeUnixCapture {
+    <#
+        Start a child OFF WINDOWS with its stdout and stderr copied byte for byte into the two capture
+        files, and hand back the process plus the copies for Complete-NativeUnixCapture. Internal to this
+        lib (no export, no contract row); Invoke-NativeCaptureUtf8 is its one caller.
+
+        WHY START-PROCESS IS NOT USED THERE (#2488, measured on ubuntu-latest). On Windows,
+        -RedirectStandardOutput hands the child the file itself. pwsh 7 on Unix instead pumps the pipe
+        line by line into the file and skips every EMPTY line -- `git show` of "one`n`nthree`n" came back
+        as two lines through this arm and as three through the & arm. That is a wrong document rather
+        than a cosmetic one: Get-GitFileTextAtRef feeds ship-pr's DEPLOY lock. Copying the pipe's raw
+        BaseStream keeps every byte, which is what the Windows path already gets.
+
+        ArgumentList (the .NET Core collection) takes each argument VERBATIM, so no CreateProcess quoting
+        is applied or needed here. The working directory is PowerShell's location, which is what
+        Start-Process would have used, and not the process's own current directory. Stdin is inherited,
+        as with -NoNewWindow. A refused launch surfaces as Win32Exception, unwrapped from PowerShell's
+        MethodInvocationException, so the caller's launch catch reads it as on the other paths.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$Arguments = @(),
+        [Parameter(Mandatory = $true)][string]$OutFile,
+        [Parameter(Mandatory = $true)][string]$ErrFile
+    )
+    $psi = New-Object System.Diagnostics.ProcessStartInfo $FilePath
+    foreach ($a in $Arguments) { $psi.ArgumentList.Add($a) }
+    $psi.UseShellExecute        = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError  = $true
+    $psi.WorkingDirectory       = (Get-Location -PSProvider FileSystem).ProviderPath
+    try {
+        $proc = [System.Diagnostics.Process]::Start($psi)
+    } catch {
+        $ex = $_.Exception
+        if ($ex -is [System.Management.Automation.MethodInvocationException] -and $ex.InnerException) { throw $ex.InnerException }
+        throw
+    }
+    $pumps = @()
+    foreach ($pair in @(@($proc.StandardOutput, $OutFile), @($proc.StandardError, $ErrFile))) {
+        $sink = [System.IO.File]::Create($pair[1])
+        $pumps += [pscustomobject]@{ Sink = $sink; Task = $pair[0].BaseStream.CopyToAsync($sink) }
+    }
+    return [pscustomobject]@{ Process = $proc; Pumps = $pumps }
+}
+
+function Complete-NativeUnixCapture {
+    <#
+        Let Start-NativeUnixCapture's copies finish and close the capture files. Internal to this lib.
+        The wait is bounded because a grandchild that inherited a pipe keeps its copy open after the
+        child itself has exited. That is the same case Read-NativeCaptureFile tolerates on Windows (#1252),
+        and what was flushed by then is what the read returns. It never throws, because it runs on the
+        way to a verdict.
+    #>
+    param([Parameter(Mandatory = $true)]$Pumps, [int]$TimeoutMilliseconds = 30000)
+    foreach ($p in @($Pumps)) {
+        try { $null = $p.Task.Wait($TimeoutMilliseconds) } catch { }
+        try { $p.Sink.Dispose() } catch { }
+    }
+}
+
 function Invoke-NativeCaptureUtf8 {
     <#
         The -Utf8 arm of Invoke-NativeCapture; see that function's docstring for WHY. Split out rather
@@ -2254,6 +2315,7 @@ function Invoke-NativeCaptureUtf8 {
     $errFile = Join-Path $capDir 'err.txt'
 
     $prevEnv = $null
+    $pumps   = $null
     try {
         New-Item -ItemType Directory -Path $capDir -Force | Out-Null
 
@@ -2288,7 +2350,14 @@ function Invoke-NativeCaptureUtf8 {
         # started". The finally below still runs on this return, so the environment is restored and the
         # capture directory is removed exactly as on every other path.
         try {
-            $proc = Start-Process @startArgs
+            if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+                $proc = Start-Process @startArgs
+            } else {
+                $started = Start-NativeUnixCapture -FilePath $startArgs['FilePath'] -Arguments $Arguments `
+                                                   -OutFile $outFile -ErrFile $errFile
+                $proc  = $started.Process
+                $pumps = $started.Pumps
+            }
         } catch [System.InvalidOperationException], [System.ComponentModel.Win32Exception], [System.IO.FileNotFoundException] {
             # The list is the OS refusing to CREATE the process, per platform (#2488): Windows PowerShell
             # surfaces it as InvalidOperationException, while on Unix pwsh 7 the underlying
@@ -2315,6 +2384,12 @@ function Invoke-NativeCaptureUtf8 {
             }
         } else {
             $proc.WaitForExit()
+        }
+        # Off Windows the capture files are fed by this process's own copy of the child's pipes, so they
+        # are complete only once those copies are -- see Start-NativeUnixCapture (#2488).
+        if ($pumps) {
+            $pumpBudget = if ($timedOut) { 1000 } else { 30000 }
+            Complete-NativeUnixCapture -Pumps $pumps -TimeoutMilliseconds $pumpBudget
         }
 
         # A KILLED CHILD HAS AN EXIT CODE OF ITS OWN and it is a misleading one -- taskkill /F leaves 1
@@ -2393,6 +2468,9 @@ function Invoke-NativeCaptureUtf8 {
         return [pscustomobject]@{ Output = $lines; ExitCode = $code; TimedOut = $timedOut; ShortRead = $shortRead; ExitCodeUnknown = $codeUnknown; NotStarted = $false }
     } finally {
         Pop-NativeNonInteractiveEnv -Previous $prevEnv
+        # An exception between the launch and the read would otherwise leave the Unix sinks open, and an
+        # open file cannot be removed from the capture directory. Closing an already closed sink is harmless.
+        if ($pumps) { Complete-NativeUnixCapture -Pumps $pumps -TimeoutMilliseconds 0 }
         if (Test-Path -LiteralPath $capDir) {
             Remove-Item -Recurse -Force -LiteralPath $capDir -ErrorAction SilentlyContinue
         }
