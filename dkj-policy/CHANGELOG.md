@@ -2,7 +2,49 @@
 
 ## [Unreleased]
 
-**20 / 31 minor entries** <!-- pending-tally -->
+**21 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2488-ci-floor-linux-runners · 20260929-084404Z
+
+Three of the four CI-floor runners now run on `ubuntu-latest` under `pwsh`: `fold-on-merge`,
+`verify-resolved` and `repo-settings`. That covers both this repo's own copies and the templates
+`adopt-ci-floor` places. Each gets a one-line shim that makes `powershell` resolve to `pwsh`, because the
+scripts launch their children under that name. `merge-on-green` stays on `windows-latest`, since it drives
+`ship-pr`'s whole merge path and cannot be proved on its own PR (#2616). The move was measured before it
+was made: a probe ran the runner-path suites on the runner itself. Making those suites OS-portable then
+exposed four real Linux defects in `native-capture-lib.ps1`, all repaired here:
+
+- an absent environment variable was restored as `''`;
+- a timeout left grandchildren alive, because `taskkill` does not exist there;
+- a refused launch escaped the `-Utf8` arm's catch;
+- pwsh 7's Unix `Start-Process` redirect dropped every empty line of a capture, which would have handed
+  `Get-GitFileTextAtRef` a wrong document. Off Windows, that arm now copies the child's pipes byte for
+  byte.
+
+A new `linux-runner-path` job in CI runs the nine runner-path suites under `pwsh` on Linux. It is now
+part of the required `lint-en-tests` check (#2488).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A private repo that adopts the CI floor now pays the Linux minute rate for the two runners that fire on
+every push to the trunk ($0.006 against $0.010 a minute). In the consumer behind #2487 those two ran 265
+times each in September. A repo that already placed the runners keeps its `windows-latest` copies, since
+`adopt-ci-floor` never overwrites one. To take the saving there, move the runner by hand, or delete it
+and adopt again.
+
+**Score:** 3
+
+#### Pull Request
+
+Move fold-on-merge, verify-resolved and repo-settings to ubuntu-latest + pwsh
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #2618](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2618)
+
+---
 
 ### DEPLOY: fix/2601-adopt-ci-floor-oom · 20260929-073829Z
 
