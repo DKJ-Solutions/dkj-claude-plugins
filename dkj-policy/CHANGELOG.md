@@ -2,7 +2,111 @@
 
 ## [Unreleased]
 
-**18 / 26 minor entries** <!-- pending-tally -->
+**20 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2609-claim-refuses-pull-request · 20260928-203133Z
+
+`claim-issue` now refuses a pull request's number instead of claiming it. `gh issue view` answers for
+a PR too, and a merged one reads as `MERGED`, a state the old check did not refuse, so the claim went
+through and put an assignee on the merged PR. The refusal names the issue the PR closes, and any state
+other than `OPEN` is now refused (#2609).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If you type a PR number where you meant an issue, `claim-issue` now stops. It does not print `[OK]` and
+does not assign you to the pull request. It names the issue that PR closes, so you can re-run on that
+number.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue refuses a pull request's number and names the issue it closes
+
+Plugins: dkj-policy
+
+[PR #2615](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2615)
+
+---
+
+### DEPLOY: feat/prio-label-colors · 20260928-202125Z
+
+The four `prio-` labels now read as two yellows and two reds, on Dave's request: `prio-1` is yellow
+(`FFE033`), `prio-2` a yellow leaning to orange (`F9A825`), `prio-3` a red leaning to orange (`E0321A`)
+and `prio-4` stays red (`B60205`). They replace the teal → yellow → orange → red ramp. The canonical set
+`adopt-triage-labels` prints and the BWJ adopt skill's step 4 carry the new hexes, and this repo's live
+labels were re-coloured. Moving `prio-2` off `FBCA04` also ends its shared badge colour with `tier-1`
+in a BWJ repo (#1844). A repo that already has the labels keeps its old colours until someone runs
+`gh label edit --color`, because the adopt steps never rewrite an existing label.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a badge colour on the issue tracker. No release document reader acts on it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Re-colour the prio labels: yellow for 1-2, red for 3-4
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2614](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2614)
+
+---
+
+### DEPLOY: fix/2600-lens-naming-retired-spelling · 20260928-201122Z
+
+`check-roster-sync` no longer tells a repo whose lens is still named `<g>-<id>-extension.md` that
+nothing needs changing. No reader has resolved that spelling since #2292, so the check now reports the
+specialist as running without its lens, and prints the `git mv` to the current name (#2600).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If your repo still has a lens file named like `06-24-extension.md`, the session-start check now shows
+it as an error with the exact rename to run, instead of a yellow line asking you to update the plugins.
+Updating the plugins never fixed that file. Renaming it is what gives that specialist its repo lens back.
+
+**Score:** 2
+
+#### Pull Request
+
+check-roster-sync names the rename for a lens under the retired spelling, instead of saying nothing needs changing
+
+Plugins: dkj-subagents-alpha
+
+[PR #2613](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2613)
+
+---
+
+### DEPLOY: feat/allow-git-stash · 20260928-195354Z
+
+A session in this repo can now stash uncommitted work without a permission prompt, so retiring or
+switching away from a branch with a draft on it no longer stops for a question. A stash is reversible,
+unlike the destructive verbs the safety rules name, which stay unlisted.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: `.claude/settings.json` is this repo's own harness config and reaches no consumer through a plugin
+update.
+
+**Score:** N/A
+
+#### Pull Request
+
+git stash is allowed without a permission prompt
+
+[PR #2612](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2612)
+
+---
 
 ### DEPLOY: fix/2604-parking-label-shares-dossier-color · 20260928-193357Z
 

@@ -42,7 +42,7 @@ The script:
 1. Resolves **which account** this checkout claims under -- see the next section. It never sends
    `@me`.
 2. Reads the issue (`gh issue view --json number,title,state,url,assignees,body,labels`).
-3. **Judges it** -- five verdicts, three of them refusals (below).
+3. **Judges it** -- six verdicts, four of them refusals (below).
 4. On a claim or a resume, **scans the branches** for a fix that is already pushed (below). A warning,
    never a refusal.
 5. **Matches the issue's own TITLE against every branch name** off the trunk, for the branch cut for
@@ -150,15 +150,25 @@ commits, because the commits are the half nothing can rewrite afterwards. A `git
 holding a display name ("Ada Lovelace") is not an account at all and is no evidence of a split, so a
 normal repo never sees this.
 
-## The five verdicts
+## The six verdicts
 
 | Verdict | What happens |
 |---|---|
 | **open, unassigned** | Claimed, read back, and the work may start. |
 | **already yours** | Nothing to write -- this is a resume. Read the branch and its document before carrying the work. |
-| **closed** | **Refused.** |
+| **closed** | **Refused** -- and so is any state other than `OPEN`. |
 | **held by somebody else** | **Refused.** |
 | **no account** | **Refused** -- `gh` is absent or logged out, so there is nobody to claim as. A step whose whole job is to say who is working cannot proceed anonymously. |
+| **a pull request** | **Refused**, naming the issue(s) that pull request closes, so the number you probably meant is one re-run away. |
+
+**A pull request's number is not an issue, and `gh issue view` does not say so**
+([#2609](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2609)). Issues and pull requests
+share one counter, and `gh issue view <n>` answers for a PR too, a merged one as state `MERGED`.
+Measured September 28, 2026: *"fix issue 2504"* ran this on a PR merged three days earlier, and because
+only `CLOSED` was refused, `MERGED` fell through to **open, unassigned**. It printed `[OK]` and wrote the
+assignee onto the merged PR. So the number's URL is read first (`/pull/<n>` is a pull request, open or
+not), and the state refusal now reads *anything but `OPEN`*. A state the script has never heard of is
+no evidence that the work is still to be done. Both apply in `-Tag` mode too.
 
 **The closed refusal is the one this step was built for.** `gh issue edit <n> --add-assignee`
 **succeeds silently on a closed issue**, so the documented one-liner gives a session every signal of
@@ -210,7 +220,7 @@ So on this verdict only, a holder that is authenticated in `gh` on this machine 
           the way through is a conversation, and a switch cannot have one.
 ```
 
-**Still a refusal, not a sixth verdict.** The five above are unchanged, nothing new is blocked, and the
+**Still a refusal, not a new verdict.** The verdicts above are unchanged, nothing new is blocked, and the
 exit code is the one it always was. What is added is a reading, printed **above** the sentence it
 corrects -- under it, it would correct nothing.
 

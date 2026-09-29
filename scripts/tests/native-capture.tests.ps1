@@ -1910,7 +1910,11 @@ foreach ($af in $auditFiles) {
 # fail by THROWING, which the caller turns into a refusal before anything is written: a task-form note
 # built past an unread PR would silently drop a solved task. Reached only where Get-ReleaseNoteTaskLink
 # is answered.
-Assert-Equal 85 $boundedTotal 'the parser still counts 85 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 85 -> 86 (#2609): claim-issue.ps1's Write-PullRequestRefusal, $prView (`gh pr view --json
+# closingIssuesReferences`), at the shared network bound and -Utf8. Asks Test-NativeExitMeasured, and
+# anything but a measured, whole 0 costs only the hint: the pull-request refusal has already been decided
+# and prints either way, so an unread closing list says "run this again on the issue number you meant".
+Assert-Equal 86 $boundedTotal 'the parser still counts 86 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
