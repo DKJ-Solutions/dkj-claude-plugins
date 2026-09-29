@@ -474,9 +474,9 @@ WANNEER HET LIVE KOMT
 
 Het staat gepland voor de release van <weekday> <date>, als versie <vX.Y.Z>.
 
-Tot die tijd laten deze links zien wat er nu live staat, om mee te vergelijken — en zodra het live is, zie je de wijziging hier:
+Zodra het live is, zie je het hier. Open ze tot die tijd in een privévenster: een browser die de link hierboven al heeft geopend, blijft op deze pagina's het resultaat tonen en niet wat er live staat.
 
-<market> — <live url, pinned to the live theme id>
+<market> — <the bare live url>
 
 WAT ER BEWUST NIET IN ZIT
 
@@ -600,7 +600,7 @@ cycle -- the other is the storefront-visibility step in
 |---|---|
 | **when it goes live** | the next release day. BWJ cuts on **Mondays**, so it is the next Monday -- strictly the next one, never today, because a Monday's release is cut before the day's work closes |
 | **which version** | the newest `vX.Y.Z` tag, bumped by what the pending changelog has earned -- patch where everything pending is tier 0, minor where anything reaches further |
-| **where to look once it is live** | the **live** storefront URL per market for the pages the change touched: the same URLs a preview pair is built from, **pinned to the live theme id** wherever the store names it -- the control half of that pair -- so the same link is a comparison before the release and the live page after it ([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)). A bare URL renders the preview in any browser that opened the result link first, so where no live id resolves the list stays bare and its label says to open it in a private window before the release |
+| **where to look once it is live** | the **live** storefront URL per market for the pages the change touched: the same URLs a preview pair is built from, **bare**. A bare URL renders the preview in any browser that opened the result link first ([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)), so beside a result link the list's label says to open it in a private window before the release. It is not pinned to the live theme id the way a handover's control half is: to a colleague `?preview_theme_id=<live id>` reads as a preview link under a label saying *live* ([#2619](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2619)) |
 
 **It is written by a script, because all three are derivable and none of them is a judgement** --
 [`build-golive-block.ps1`](skills/golive-block/SKILL.md), which prints the block and, with `-Post`,
