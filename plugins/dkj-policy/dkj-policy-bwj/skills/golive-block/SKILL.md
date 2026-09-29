@@ -86,7 +86,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 |---|---|
 | `-Issue <n>` | required; a bare number, `#412`, or the issue's URL |
 | `-Link <url>` | where the result can be seen, **openable by the requester without an account** -- a storefront preview URL (`Get-MarketPreviewUrls`) or a live page. Not the preview handover page: a `claude.ai` Artifact is private to its owner, so it is refused ([#2341](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2341)). **Omitted, that sentence is not written at all** -- see below |
-| `-Path <p[]>` | the storefront pages the change touched; each becomes one live URL per market |
+| `-Path <p[]>` | the storefront pages the change touched; each becomes one live URL per market. Pages separate on `,`; where a page's handle differs per market, write it `/default\|NL=/nl-handle\|DE=/de-handle` (the backslash before each `\|` only escapes it for this Markdown table -- type a plain `\|` on the command line, and quote the argument). Unknown or repeated labels, two defaults, and a page that leaves a market unnamed with no default are refused ([#2627](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2627)) |
 | `-Repo <owner/repo>` | when `GITHUB_REPOSITORY` and `gh repo view` cannot answer |
 | `-Version <X.Y.Z>` | override the prediction, or supply one where it cannot be derived |
 | `-ReleaseDay <day>` | the weekday releases are cut on. `Monday` |

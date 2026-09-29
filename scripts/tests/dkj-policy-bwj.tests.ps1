@@ -1118,6 +1118,21 @@ try {
     $glBytes = [System.IO.File]::ReadAllBytes($glOutFile)
     Assert-True (-not ($glBytes.Length -ge 3 -and $glBytes[0] -eq 0xEF -and $glBytes[1] -eq 0xBB)) '-OutFile writes no BOM, which would arrive in a pasted comment as a stray character'
 
+    # THE PER-MARKET -Path FORM REACHES THE BLOCK'S LIVE-URL LIST (#2627): one page, a different handle per
+    # market, and each market's line carries its own handle -- not the default on every domain.
+    $glCfgKeep = [System.IO.File]::ReadAllText((Join-Path $glRoot 'scripts\repo-config.ps1'))
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
+        "function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'a.example' }, @{ Market = 'UK'; Domain = 'b.example' }) }`r`n",
+        (New-Object System.Text.UTF8Encoding $false))
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -Path '/collections/straps|NL=/collections/bandjes' -RootOverride $glRoot -OutFile $glOutFile 2>&1 | Out-Null
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with a per-market -Path exits 0'
+    $glPmText = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
+    Assert-True ($glPmText.Contains('https://a.example/collections/bandjes')) 'per-market -Path: NL lists its own handle'
+    Assert-True ($glPmText.Contains('https://b.example/collections/straps')) 'per-market -Path: UK falls back to the default'
+    Assert-True (-not $glPmText.Contains('https://a.example/collections/straps')) 'per-market -Path: the default is not printed on the overridden market'
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'), $glCfgKeep, (New-Object System.Text.UTF8Encoding $false))
+
     # THE SESSION'S PROSE, IN THE COLLEAGUE'S LANGUAGE, SURVIVES THE ROUND TRIP (#2507): in through a UTF-8
     # -ProseFile, out through -OutFile, accents intact.
     $glProseFile = Join-Path $glRoot 'prose.txt'

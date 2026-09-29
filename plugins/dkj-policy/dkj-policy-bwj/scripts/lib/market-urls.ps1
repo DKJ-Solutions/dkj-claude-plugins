@@ -234,6 +234,25 @@ function Test-MangledStorefrontPath {
     return ([bool]("$Path" -match $script:MangledPathPattern))
 }
 
+function Format-StorefrontPath {
+    <# One storefront path, refused when git-bash mangled it and given its leading slash otherwise.
+       The single place both Get-NormalizedPaths and Get-PageSpecs reach, so a per-market segment is
+       held to the same refusal as a plain one.
+
+       The refusal comes BEFORE the leading slash is added: prefixing turns 'C:/Program Files/Git/...'
+       into '/C:/Program Files/Git/...', which is what silently reached the printed URL. #>
+    param([string]$Path)
+    $p = "$Path".Trim()
+    if (Test-MangledStorefrontPath -Path $p) {
+        throw ("-Path holds '$p', which is not a storefront path -- git-bash (MSYS) rewrote " +
+               "it into a Windows path before powershell.exe saw it. With a comma-separated " +
+               "list only the FIRST page is mangled, so the rest of the run looks correct. " +
+               "Re-run from PowerShell, or prefix the command with MSYS_NO_PATHCONV=1.")
+    }
+    if (-not $p.StartsWith('/')) { $p = "/$p" }
+    return $p
+}
+
 function Get-NormalizedPaths {
     <# Turn whatever a caller passed for -Path into a clean list of storefront paths.
 
@@ -256,15 +275,7 @@ function Get-NormalizedPaths {
         foreach ($part in ("$raw" -split ',')) {
             $p = $part.Trim()
             if (-not $p) { continue }
-            # Before the leading slash is added, not after: prefixing turns 'C:/Program Files/Git/...'
-            # into '/C:/Program Files/Git/...', which is what silently reached the printed URL.
-            if (Test-MangledStorefrontPath -Path $p) {
-                throw ("-Path holds '$p', which is not a storefront path -- git-bash (MSYS) rewrote " +
-                       "it into a Windows path before powershell.exe saw it. With a comma-separated " +
-                       "list only the FIRST page is mangled, so the rest of the run looks correct. " +
-                       "Re-run from PowerShell, or prefix the command with MSYS_NO_PATHCONV=1.")
-            }
-            if (-not $p.StartsWith('/')) { $p = "/$p" }
+            $p = Format-StorefrontPath -Path $p
             # Order is the caller's, so dedupe by remembering what has been seen rather than by sorting.
             if ($seen.ContainsKey($p)) { continue }
             $seen[$p] = $true
@@ -276,19 +287,116 @@ function Get-NormalizedPaths {
     return @($out)
 }
 
+function Get-PageSpecs {
+    <# Turn -Path into a list of PAGES, each carrying the path to use on every market -- the form that
+       lets one page have a different storefront handle per market.
+
+       WHY IT EXISTS (issue #2627, measured in BWJ-Development/smartwatchbanden#394, 2026-09-29).
+       Get-NormalizedPaths returns one path per page and Get-MarketUrls applied it verbatim to every
+       market, so -Path /collections/apple-watch-straps printed the UK handle on all five domains --
+       four of them a 404. The handles really do differ per market: NL /collections/apple-watch-bandjes,
+       DE /collections/apple-watch-armbaender, FR /collections/bracelets-apple-watch, ES
+       /collections/correas-apple-watch, UK /collections/apple-watch-straps. A go-live block listing
+       404s is a block nobody trusts, and no plain path can be right for all five.
+
+       THE FORM. Pages still split on ','. WITHIN a page, segments split on '|' and a segment
+       'LABEL=/path' gives that market's path, while a bare segment is the default for every market not
+       named:
+
+           /collections/apple-watch-straps|NL=/collections/apple-watch-bandjes|DE=/collections/apple-watch-armbaender
+
+       A plain path is a page with a default and no overrides, so every existing call is unchanged.
+       Labels match the market table case-insensitively and the result carries the table's spelling.
+       '|' is safe as the separator for the reason ',' is: a Shopify handle cannot hold one.
+
+       IT THROWS rather than guessing: an unknown label (named, with the known ones listed), a label
+       given twice, more than one default, an empty 'LABEL=', and a page with no default that leaves a
+       market unnamed -- a page that silently drops a market is a missing URL, the same silence as the
+       wrong-handle 404 this closes. Each segment's path goes through Format-StorefrontPath AFTER the
+       label is stripped, so the git-bash refusal still holds.
+
+       -MarketLabels is the label list of the market table, resolved once by the caller. Pages are
+       deduplicated on their whole resolved content, so a page named twice still prints once.
+
+       Returns objects { Default; ByMarket }, ByMarket mapping the table's label to a path. #>
+    param(
+        [string[]]$Path = @('/'),
+        [string[]]$MarketLabels = @()
+    )
+    $known = @{}
+    foreach ($l in @($MarketLabels)) { $known[$l.ToLowerInvariant()] = $l }
+    $seenPages = @{}
+    $out = foreach ($raw in @($Path)) {
+        foreach ($page in ("$raw" -split ',')) {
+            $pageText = $page.Trim()
+            if (-not $pageText) { continue }
+            $default = $null
+            $by = @{}
+            foreach ($segment in ($pageText -split '\|')) {
+                $seg = $segment.Trim()
+                if (-not $seg) { continue }
+                # A label cannot hold '/', '=' or '?', so a path with a query string ('/x?a=b') is
+                # never read as LABEL=path.
+                $m = [regex]::Match($seg, '^([^/=?]+)=(.*)$')
+                if ($m.Success) {
+                    $label = $m.Groups[1].Value.Trim()
+                    $rest  = $m.Groups[2].Value.Trim()
+                    if (-not $known.ContainsKey($label.ToLowerInvariant())) {
+                        throw ("-Path names market '$label', which this store does not have. Known " +
+                               "markets: $(@($MarketLabels) -join ', ').")
+                    }
+                    $canon = $known[$label.ToLowerInvariant()]
+                    if ($by.ContainsKey($canon)) {
+                        throw "-Path names market '$canon' twice in one page ('$pageText') -- a market has one path per page."
+                    }
+                    if (-not $rest) {
+                        throw "-Path gives market '$canon' an empty path ('$seg') -- write '$canon=/the/handle'."
+                    }
+                    $by[$canon] = Format-StorefrontPath -Path $rest
+                } else {
+                    if ($null -ne $default) {
+                        throw ("-Path has more than one default path in one page ('$pageText') -- only " +
+                               "one bare segment is allowed; the others must be 'LABEL=/path'.")
+                    }
+                    $default = Format-StorefrontPath -Path $seg
+                }
+            }
+            if ($null -eq $default) {
+                $missing = @($MarketLabels | Where-Object { -not $by.ContainsKey($_) })
+                if ($missing.Count -gt 0) {
+                    throw ("-Path page '$pageText' has no default path and does not name market(s) " +
+                           "$($missing -join ', ') -- a page that silently drops a market is a " +
+                           "missing URL. Add a bare default segment or a 'LABEL=/path' for each.")
+                }
+            }
+            $key = "$default|" + ((@($by.Keys | Sort-Object) | ForEach-Object { "$_=$($by[$_])" }) -join '|')
+            if ($seenPages.ContainsKey($key)) { continue }
+            $seenPages[$key] = $true
+            [pscustomobject]@{ Default = $default; ByMarket = $by }
+        }
+    }
+    # An all-blank -Path is a caller who meant the home page, not one who meant no page at all.
+    if (-not @($out).Count) { return @([pscustomobject]@{ Default = '/'; ByMarket = @{} }) }
+    return @($out)
+}
+
 function Get-MarketUrls {
     <# Full storefront URLs, one per market PER PATH -- the LIVE pages, with no preview parameters.
-       -Path defaults to the home page and accepts more than one page; Get-NormalizedPaths has the
-       forms it takes. #>
+       -Path defaults to the home page and accepts more than one page, and a page may name a different
+       path per market; Get-PageSpecs has the forms it takes. #>
     param(
         [string[]]$Path = @('/'),
         [object[]]$Markets = $null
     )
-    $paths = Get-NormalizedPaths -Path $Path
-    # Market outer, path inner: the reader picks one market and then looks at its pages, so the market
+    # The table is resolved ONCE and before the pages, so the page parse can check labels against it.
+    $table = @(Get-MarketTable -Markets $Markets)
+    $pages = Get-PageSpecs -Path $Path -MarketLabels @($table | ForEach-Object { $_.Market })
+    # Market outer, page inner: the reader picks one market and then looks at its pages, so the market
     # label is what they scan down.
-    $out = foreach ($row in (Get-MarketTable -Markets $Markets)) {
-        foreach ($p in $paths) {
+    $out = foreach ($row in $table) {
+        foreach ($pg in $pages) {
+            # This market's own path where the page names one (#2627), the page default otherwise.
+            $p = if ($pg.ByMarket.ContainsKey($row.Market)) { $pg.ByMarket[$row.Market] } else { $pg.Default }
             # A market served at the domain ROOT keeps the trailing slash on its home page; a market
             # served under a prefix does not ('/de', never '/de/').
             $suffix = if ($p -eq '/') { if ($row.PathPrefix) { '' } else { '/' } } else { $p }

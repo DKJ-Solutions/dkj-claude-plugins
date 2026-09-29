@@ -64,7 +64,8 @@ function is the repair. Closes #2627.
 `-Path` of the go-live block and of the preview URL printers now takes a different storefront path per
 market, for a page whose handle differs by market: `/collections/apple-watch-straps|NL=/collections/apple-watch-bandjes|DE=...`.
 A bare segment is the default for every market not named, and labels match the market table without
-regard to case. Before, one path was used on every market domain, so all but one market got a 404.
+regard to case. Before, one path was used on every market domain, so every other market was handed a
+handle it does not recognise: it still loaded through a redirect, but it was not that market's address.
 Unknown or repeated labels, two defaults, an empty path and a page that leaves a market without a path
 are refused. Plain paths behave as before (#2627).
 

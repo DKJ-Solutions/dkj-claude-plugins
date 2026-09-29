@@ -81,6 +81,12 @@
     The storefront pages the change touched, as paths ('/products/foo'). Each becomes one live URL
     per market. Omitted, the block carries no live-URL list -- which is the right answer in a repo
     that serves no storefront.
+    Pages separate on ','. A page whose handle differs per market (issue #2627: a collection is
+    /collections/apple-watch-bandjes on NL and /collections/apple-watch-straps on UK, and one plain
+    path is a 404 on the other markets) takes a per-market form: '|' separates segments, a bare
+    segment is the default and 'LABEL=/path' overrides it for that market. Labels are the market
+    table's, case-insensitive. Refused: an unknown label, a label twice, two defaults, an empty
+    'LABEL=', and a page with no default that leaves a market unnamed.
 
 .PARAMETER Version
     Override the predicted version, or supply one where it cannot be derived (no v* tag, a changelog
@@ -123,6 +129,10 @@
 .EXAMPLE
     ./build-golive-block.ps1 -Issue 412 -Link https://... -Path /collections/straps -Post
     Adds one live URL per market for that page, and posts the block on the issue.
+
+.EXAMPLE
+    ./build-golive-block.ps1 -Issue 412 -Link https://... -Path "/collections/apple-watch-straps|NL=/collections/apple-watch-bandjes|DE=/collections/apple-watch-armbaender|FR=/collections/bracelets-apple-watch|ES=/collections/correas-apple-watch"
+    One page with its own handle on each market; the bare segment covers any market not named.
 #>
 [CmdletBinding()]
 param(
