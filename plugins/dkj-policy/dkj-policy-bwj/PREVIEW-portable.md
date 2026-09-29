@@ -225,15 +225,17 @@ so the issue and every page change together. The requester's language was the fi
 The measured handovers were written in Dutch, with their own headings, and the script now writes that
 shape itself ([#2507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2507)).
 
-**The block's live URLs ARE the control, and no second link is added by hand.** A requester who
-opens the result link first carries that domain's preview cookie, so a bare live URL opened before the
-release renders the preview -- the trap in
+**The block's live URLs are NOT the control, and they stay bare.** A requester who opens the result
+link first carries that domain's preview cookie, so a bare live URL opened before the release renders
+the preview -- the trap in
 [the control URL section](#what-the-control-url-is----and-the-trap-in-the-obvious-answer), reached from
-the Asana side. So `build-golive-block.ps1` pins them to the live id, the same seam the pair's control
-half reads: a comparison before the release and the live page after it, because a live push keeps the
-theme's id. Where the store names no live id they stay bare, and the block's own label tells the
-requester to open them in a private window until the release
-([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)).
+the Asana side ([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)). The block
+answers it in words: beside a result link, its label tells the requester to open the links in a private
+window until the release. It does not pin them to the live id the way the pair's control half is
+pinned. To a colleague reading an Asana task, `?preview_theme_id=<live id>` under a label saying *live*
+reads as a preview link, and the owner rejected a block for exactly that
+([#2619](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2619)). The reviewer of a handover
+page reads the pinned control; the requester reads the bare URL.
 
 ### Pinning the control settles the THEME, not the feature's STATE
 
