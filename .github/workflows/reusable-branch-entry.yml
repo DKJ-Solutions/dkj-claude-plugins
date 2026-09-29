@@ -85,6 +85,11 @@ jobs:
           CLAUDE_PROJECT_DIR: ${{ github.workspace }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          # THROUGH env:, NEVER SPLICED INTO run: (#2622). The head ref is chosen by whoever opens the PR,
+          # and an expression inside run: is expanded into the script text before the shell parses it, so a
+          # branch name carrying $(...) or a quote would be code. merge-on-green.yml does the same.
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-branch-entry.ps1 -Branch "${{ github.head_ref }}" -Pr "${{ github.event.pull_request.number }}"
+          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-branch-entry.ps1 -Branch $env:HEAD_REF -Pr $env:PR_NUMBER
           exit $LASTEXITCODE

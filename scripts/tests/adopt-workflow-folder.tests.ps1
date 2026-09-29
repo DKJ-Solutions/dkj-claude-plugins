@@ -248,7 +248,7 @@ try {
             # caller must grant pull-requests: read (the only place the scope can come from) and fire on
             # `edited`, or `open-pr -RefreshBody` repairs a drift the check can never re-read (#1710).
             if ($gate -eq 'branch-entry') {
-                Assert-True ($called -match 'check-branch-entry\.ps1[^\r\n]*-Pr "\$\{\{ github\.event\.pull_request\.number \}\}"') "-Apply: '$($judged.Path)' passes -Pr, so a consumer holds the DEPLOY lock"
+                Assert-True (($called -match 'check-branch-entry\.ps1[^\r\n]*-Pr \$env:PR_NUMBER') -and ($called -match '(?m)^\s+PR_NUMBER: \$\{\{ github\.event\.pull_request\.number \}\}')) "-Apply: '$($judged.Path)' passes -Pr, so a consumer holds the DEPLOY lock"
                 Assert-True ($called -notmatch '(?m)^\s*permissions:') "-Apply: '$($judged.Path)' declares no permissions, so a caller that grants no pull-requests scope still starts"
                 Assert-True ($gateText -match '(?m)^\s+pull-requests: read\s*$') "-Apply: the branch-entry caller grants pull-requests: read, the scope the lock reads the PR body with"
                 Assert-True ($gateText -match '(?m)^\s+types: \[[^\]]*\bedited\b[^\]]*\]') "-Apply: the branch-entry caller fires on 'edited', so the check re-runs after open-pr -RefreshBody"

@@ -198,7 +198,8 @@ if (-not $Branch) {
 if (-not $Branch -or $Branch -eq 'HEAD') {
     Write-Host '[ERROR] Could not tell which branch to judge, and refusing to guess.' -ForegroundColor Red
     Write-Host '        A pull_request checkout is a detached merge commit, so pass the head ref explicitly:'
-    Write-Host '        -Branch "${{ github.head_ref }}"'
+    Write-Host '        -Branch $env:HEAD_REF, with HEAD_REF: ${{ github.head_ref }} under the step''s env:'
+    Write-Host '        (never spliced into run: -- a head ref is chosen by whoever opens the PR, #2622)'
     exit 1
 }
 

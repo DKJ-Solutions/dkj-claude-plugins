@@ -457,6 +457,19 @@ Assert-True ($workflow -match '#1710') `
 Assert-True ($workflow -match "(?m)^on:\r?\n  pull_request:\r?\n    types: \[opened, synchronize, reopened, edited\]\r?\n    branches: \[main\]") `
     'the trigger block is nested on/pull_request/types/branches at columns 0/2/4/4'
 
+# THE HEAD REF ARRIVES THROUGH env:, NEVER SPLICED INTO run: (#2622). GitHub expands an expression into
+# the script text before the shell parses it, and a head ref is chosen by whoever opens the pull request,
+# so a branch name carrying $(...) or a quote would be code. Both copies are held to it -- the reusable one
+# runs in every consumer that calls it.
+foreach ($wfName in @('branch-entry.yml', 'reusable-branch-entry.yml')) {
+    $wfText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot ".github\workflows\$wfName"))
+    $wfRun = [regex]::Matches($wfText, '(?m)^(\s*)(?:- )?run: \|\r?\n((?:\1  .*\r?\n?)+)') | ForEach-Object { $_.Groups[2].Value }
+    Assert-True (@($wfRun | Where-Object { $_ -match '\$\{\{\s*github\.(head_ref|event\.pull_request\.head\.ref)' }).Count -eq 0) `
+        "$wfName splices no head ref into a run: block"
+    Assert-True ($wfText -match '(?m)^\s+HEAD_REF: \$\{\{ github\.head_ref \}\}') "$wfName hands it over as env HEAD_REF"
+    Assert-True ($wfText -match '-Branch \$env:HEAD_REF') "$wfName and the script reads it from the environment"
+}
+
 # --- open-pr READS THE SAME EXEMPTION, AND NAMES SUCH A BRANCH ANYWAY (#1962) ---------------------
 # The gate above and open-pr.ps1 used to disagree: this gate waved a sync/ branch through as owing no
 # entry, and open-pr -- which composes the PR title from the entry and nothing else -- then refused to
