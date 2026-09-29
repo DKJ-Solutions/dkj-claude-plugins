@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**20 / 30 minor entries** <!-- pending-tally -->
+**20 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2601-adopt-ci-floor-oom · 20260929-073829Z
+
+`adopt-ci-floor.tests.ps1` now fails when an `adopt-ci-floor.ps1` child dies on an exception. Before
+this, such a run could still finish green, because the child's error went to stderr, which nothing read,
+and the negative asserts passed on the output it left behind. The intermittent `OutOfMemoryException`
+the report was about did not reproduce here or in CI (#2601).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. The test suite stays in this repo, and nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+adopt-ci-floor suite fails on a child that died on an exception, instead of passing on its truncated output
+
+[PR #2617](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2617)
+
+---
 
 ### DEPLOY: fix/2609-claim-refuses-pull-request · 20260928-203133Z
 
