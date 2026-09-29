@@ -196,7 +196,9 @@ if (-not $node) {
 import { pathToFileURL } from "node:url";
 const dir = process.argv[2];
 const logic = await import(pathToFileURL(dir + "/issue-dashboard-logic.js").href);
-const worker = (await import(pathToFileURL(dir + "/issue-dashboard-worker.js").href)).default;
+const workerMod = await import(pathToFileURL(dir + "/issue-dashboard-worker.js").href);
+const worker = workerMod.default;
+const resetMemo = workerMod.resetMemo;
 const { deriveDashboard, deriveStatus, branchIssueNumbers, STATUSES, PARKING_LABELS } = logic;
 
 const R = "acme/widgets";
@@ -298,6 +300,8 @@ const req = (path, method = "GET") => new Request("https://d.example" + path, { 
 const snap = async (res, withBody = true) => ({
   status: res.status, body: withBody ? await res.text() : "", cc: res.headers.get("cache-control"),
   robots: res.headers.get("x-robots-tag"), ct: res.headers.get("content-type"),
+  ref: res.headers.get("referrer-policy"), nosniff: res.headers.get("x-content-type-options"),
+  csp: res.headers.get("content-security-policy"),
 });
 const ctx = { waitUntil() {} };
 const good = { DASHBOARD_TOKEN: HEX };
@@ -336,9 +340,11 @@ const conn = (nodes) => ({ nodes, pageInfo: { hasNextPage: false, endCursor: nul
 const calls = [];
 const evilTitle = '<script>alert(1)</script> & "q" \'s\'';
 let reply = null;
+let respond = null; // when set, builds the reply from the GraphQL query text (the paging stubs)
 globalThis.fetch = async (url, init) => {
   calls.push({ url: String(url), auth: init.headers.authorization, body: init.body });
-  return new Response(JSON.stringify(reply), { status: 200, headers: { "content-type": "application/json" } });
+  const answer = respond ? respond(JSON.parse(init.body).query) : reply;
+  return new Response(JSON.stringify(answer), { status: 200, headers: { "content-type": "application/json" } });
 };
 reply = { data: { repository: {
   issues: { ...conn([
@@ -356,9 +362,13 @@ reply = { data: { repository: {
   feat: conn([{ name: "12-x" }]), fix: conn([]), docs: conn([]),
 } } };
 const env = { DASHBOARD_TOKEN: HEX, GITHUB_TOKEN: "ghs_FAKE", GITHUB_REPO: R };
+resetMemo();
 const page = await snap(await worker.fetch(req("/issues/" + HEX), env, ctx));
 out.render = {
   status: page.status, cc: page.cc, robots: page.robots, ct: page.ct,
+  ref: page.ref, nosniff: page.nosniff, csp: page.csp,
+  anchors: (page.body.match(/<a\s[^>]*>/g) || []).length,
+  anchorsWithRel: (page.body.match(/<a\s[^>]*>/g) || []).filter((a) => a.includes('rel="noopener noreferrer"')).length,
   scriptRaw: page.body.includes("<script"),
   titleEscaped: page.body.includes("&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;q&quot; &#39;s&#39;"),
   labelEscaped: page.body.includes("&lt;b&gt;x&lt;/b&gt;") && !page.body.includes("<b>x</b>"),
@@ -375,10 +385,71 @@ out.render = {
   cacheKeyHasToken: cacheKeys.some((k) => k.includes(HEX)),
   cacheKeyCount: cacheKeys.length,
 };
+// the memo: a second request inside the window makes no GitHub call and no edge-cache call; after resetMemo() it does
+const goodReply = reply;
+const memoBefore = { calls: calls.length, keys: cacheKeys.length };
+const memo2 = await snap(await worker.fetch(req("/issues/" + HEX), env, ctx));
+const memoAfter2 = { calls: calls.length, keys: cacheKeys.length };
+resetMemo();
+const memo3 = await snap(await worker.fetch(req("/issues/" + HEX), env, ctx));
+out.memo = { before: memoBefore.calls, after2: memoAfter2.calls, after3: calls.length, keysBefore: memoBefore.keys, keysAfter2: memoAfter2.keys,
+  status2: memo2.status, status3: memo3.status, sameBody: memo2.body === page.body };
 // a failing read: 502 with the GitHub message escaped
+resetMemo();
 reply = { errors: [{ message: "<img src=x onerror=alert(1)>" }] };
 const bad = await snap(await worker.fetch(req("/issues/" + HEX), env, ctx));
 out.githubError = { status: bad.status, raw: bad.body.includes("<img"), escaped: bad.body.includes("&lt;img"), cc: bad.cc, robots: bad.robots };
+reply = goodReply;
+
+// --- paging. Stubs answer per connection named in the query, so a connection that is not asked again gets nothing.
+const gq = (num) => ({ number: num, title: "paged " + num, url: "https://github.com/acme/widgets/issues/" + num, createdAt: "2026-02-01T00:00:00Z",
+  labels: { totalCount: 0, nodes: [] }, assignees: { nodes: [] }, blockedBy: { totalCount: 0, nodes: [] } });
+const pageInfo = (more, cur) => ({ hasNextPage: more, endCursor: more ? cur : null });
+const asked = (q, key) => q.includes(key === "issues" ? "issues(" : key === "prs" ? "pullRequests(" : key + ": refs(");
+const numbersOnPage = (body) => [...body.matchAll(/class="rank">\d+<\/div>[\s\S]*?issues\/(\d+)"/g)].map((m) => Number(m[1]));
+
+// (a) issues need a second page, prs and refs finish on the first
+resetMemo();
+calls.length = 0;
+respond = (q) => {
+  const repo = {};
+  if (asked(q, "issues")) {
+    const second = q.includes('after: "C1"');
+    repo.issues = second
+      ? { nodes: [gq(3), gq(4)], totalCount: 4, pageInfo: pageInfo(false) }
+      : { nodes: [gq(1), gq(2)], totalCount: 4, pageInfo: pageInfo(true, "C1") };
+  }
+  if (asked(q, "prs")) repo.pullRequests = { nodes: [], pageInfo: pageInfo(false) };
+  for (const k of ["feat", "fix", "docs"]) if (asked(q, k)) repo[k] = { nodes: [], pageInfo: pageInfo(false) };
+  return { data: { repository: repo } };
+};
+const paged = await snap(await worker.fetch(req("/issues/" + HEX), env, ctx));
+const q1 = calls[0] ? JSON.parse(calls[0].body).query : "";
+const q2 = calls[1] ? JSON.parse(calls[1].body).query : "";
+const nums = numbersOnPage(paged.body);
+out.paging = {
+  status: paged.status, requests: calls.length,
+  firstHasAfter: q1.includes("after:"), firstAskedAll: ["issues", "prs", "feat", "fix", "docs"].every((k) => asked(q1, k)),
+  secondAfterCount: (q2.match(/after:/g) || []).length, secondIssuesOnly: asked(q2, "issues") && !asked(q2, "prs") && !asked(q2, "feat") && !asked(q2, "fix") && !asked(q2, "docs"),
+  secondCursor: q2.includes('after: "C1"'),
+  numbers: nums, unique: new Set(nums).size === nums.length,
+  noWarning: !paged.body.includes("Stopped after"),
+};
+
+// (b) a connection that never ends: the budget stops it at MAX_PAGES requests and the page says so
+resetMemo();
+calls.length = 0;
+let serial = 100;
+respond = (q) => {
+  const repo = {};
+  if (asked(q, "issues")) { serial++; repo.issues = { nodes: [gq(serial)], totalCount: 9999, pageInfo: pageInfo(true, "N" + serial) }; }
+  if (asked(q, "prs")) repo.pullRequests = { nodes: [], pageInfo: pageInfo(true, "P") };
+  for (const k of ["feat", "fix", "docs"]) if (asked(q, k)) repo[k] = { nodes: [], pageInfo: pageInfo(true, "R") };
+  return { data: { repository: repo } };
+};
+const endless = await snap(await worker.fetch(req("/issues/" + HEX), env, ctx));
+out.endless = { status: endless.status, requests: calls.length, stopped: endless.body.includes("Stopped after 10 GitHub requests"), rendered: numbersOnPage(endless.body).length };
+respond = null;
 console.log(JSON.stringify(out));
 '@
     $runnerPath = Join-Path $nodeDir 'runner.mjs'
@@ -478,11 +549,14 @@ console.log(JSON.stringify(out));
         Assert-Equal 'Not found' $ref.body '...with a body that says nothing about why'
         foreach ($p in $r.misses.PSObject.Properties) {
             $m = $p.Value
-            $same = ($m.status -eq $ref.status) -and ($m.body -ceq $ref.body) -and ($m.cc -ceq $ref.cc) -and ($m.robots -ceq $ref.robots) -and ($m.ct -ceq $ref.ct)
+            $same = ($m.status -eq $ref.status) -and ($m.body -ceq $ref.body) -and ($m.cc -ceq $ref.cc) -and ($m.robots -ceq $ref.robots) -and ($m.ct -ceq $ref.ct) -and ($m.ref -ceq $ref.ref) -and ($m.nosniff -ceq $ref.nosniff) -and ($m.csp -ceq $ref.csp)
             Assert-True $same "miss '$($p.Name)' is byte-for-byte the same 404 (status, body, headers)"
         }
         Assert-Equal 'no-store' $ref.cc '...carrying no-store'
         Assert-True ($ref.robots -like 'noindex*') '...and noindex'
+        Assert-Equal 'no-referrer' $ref.ref '...and referrer-policy no-referrer'
+        Assert-Equal 'nosniff' $ref.nosniff '...and x-content-type-options nosniff'
+        Assert-True (($ref.csp -like "default-src 'none'*") -and ($ref.csp -like "*frame-ancestors 'none'*")) "...and a CSP that starts from default-src 'none' and forbids framing"
 
         Write-Host '  -- the handler: past the lock' -ForegroundColor DarkCyan
         foreach ($n in 'plain', 'slash', 'query', 'head') {
@@ -490,6 +564,9 @@ console.log(JSON.stringify(out));
             Assert-Equal 503 $p.status "the valid route ($n) passes the lock and reaches the configuration check"
             Assert-Equal 'no-store' $p.cc "...and its answer is no-store ($n)"
             Assert-True ($p.robots -like 'noindex*') "...and noindex ($n)"
+            Assert-Equal 'no-referrer' $p.ref "...and no-referrer ($n)"
+            Assert-Equal 'nosniff' $p.nosniff "...and nosniff ($n)"
+            Assert-Equal $ref.csp $p.csp "...and the same CSP as the 404 ($n)"
         }
         Assert-True ($r.passLock.plain.body -like '*Missing binding: GITHUB_TOKEN, GITHUB_REPO*') 'a missing binding is named, but only after the lock'
         Assert-Equal 503 $r.passLock.badRepo.status 'a GITHUB_REPO that is not owner/name is refused'
@@ -502,6 +579,12 @@ console.log(JSON.stringify(out));
         Assert-True ($g.robots -like 'noindex*') '...noindex'
         Assert-True ($g.ct -like 'text/html*utf-8*') '...as UTF-8 HTML'
         Assert-True $g.metaNoindex '...with a robots meta as well'
+        Assert-Equal 'no-referrer' $g.ref 'the 200 page carries referrer-policy no-referrer'
+        Assert-Equal 'nosniff' $g.nosniff '...x-content-type-options nosniff'
+        Assert-Equal $ref.csp $g.csp '...and the same CSP as the 404'
+        Assert-True (($g.csp -like "default-src 'none'*") -and ($g.csp -notlike '*script-src*') -and ($g.csp -like "*frame-ancestors 'none'*")) "...which starts from default-src 'none', allows no script and forbids framing"
+        Assert-True ($g.anchors -gt 0) 'the rendered page has links'
+        Assert-Equal $g.anchors $g.anchorsWithRel 'every <a> in the rendered page carries rel="noopener noreferrer"'
         Assert-Equal 'False' "$($g.scriptRaw)" 'no raw <script appears anywhere on the page'
         Assert-Equal 'True' "$($g.titleEscaped)" 'a hostile issue title is escaped (& < > " and the apostrophe)'
         Assert-Equal 'True' "$($g.labelEscaped)" 'a hostile label is escaped'
@@ -516,11 +599,38 @@ console.log(JSON.stringify(out));
         Assert-Equal 'False' "$($g.dashboardTokenSentToGithub)" '...not even in a header'
         Assert-True ($g.cacheKeyCount -gt 0) 'the edge cache is consulted'
         Assert-Equal 'False' "$($g.cacheKeyHasToken)" 'the cache key never contains the path token'
+        Write-Host '  -- the handler: the memo' -ForegroundColor DarkCyan
+        $mm = $r.memo
+        Assert-Equal 200 $mm.status2 'a second request inside the window is served'
+        Assert-Equal $mm.before $mm.after2 '...with no further GitHub call'
+        Assert-Equal $mm.keysBefore $mm.keysAfter2 '...and no edge-cache call either -- the memo sits in front of it'
+        Assert-Equal 'True' "$($mm.sameBody)" '...and it is the same page'
+        Assert-Equal ($mm.before * 2) $mm.after3 'after resetMemo() a request makes a new set of GitHub calls'
+        Assert-Equal 200 $mm.status3 '...and is served'
+
         Assert-Equal 502 $r.githubError.status 'a GitHub error answers 502'
         Assert-Equal 'False' "$($r.githubError.raw)" '...and the GitHub message is not written raw'
         Assert-Equal 'True' "$($r.githubError.escaped)" '...it is escaped'
         Assert-Equal 'no-store' $r.githubError.cc '...and no-store'
         Assert-True ($r.githubError.robots -like 'noindex*') '...and noindex'
+
+        Write-Host '  -- the handler: paging' -ForegroundColor DarkCyan
+        $pg = $r.paging
+        Assert-Equal 200 $pg.status 'a connection with a second page renders'
+        Assert-Equal 2 $pg.requests 'only issues has a next page, so two GitHub requests'
+        Assert-Equal 'False' "$($pg.firstHasAfter)" 'the first request carries no cursor'
+        Assert-Equal 'True' "$($pg.firstAskedAll)" '...and asks for all five connections'
+        Assert-Equal 1 $pg.secondAfterCount 'the second request carries exactly one after:'
+        Assert-Equal 'True' "$($pg.secondCursor)" '...the cursor the first page returned'
+        Assert-Equal 'True' "$($pg.secondIssuesOnly)" '...and asks only for issues -- prs and refs finished on page 1'
+        Assert-Equal '1,2,3,4' (Join-N $pg.numbers) 'all four issues are rendered, from both pages'
+        Assert-Equal 'True' "$($pg.unique)" '...none twice'
+        Assert-Equal 'True' "$($pg.noWarning)" '...and no incomplete-list warning is shown'
+        $en = $r.endless
+        Assert-Equal 200 $en.status 'a connection that never ends still renders'
+        Assert-Equal 10 $en.requests 'it is stopped at exactly MAX_PAGES (10) GitHub requests'
+        Assert-Equal 'True' "$($en.stopped)" '...and the page carries the "Stopped after 10 GitHub requests" warning'
+        Assert-Equal 10 $en.rendered '...with what was fetched (one issue per request) rendered'
     }
 }
 
@@ -531,11 +641,13 @@ Write-Host 'The script, against a temp repo (-RepoRoot)' -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $Fixture -Force | Out-Null
 
 function New-DashRepo {
-    param([string]$Name, [string]$Config = '')
+    param([string]$Name, [string]$Config = '', [switch]$NoIgnore, [switch]$NoGit)
     $p = Join-Path $Fixture $Name
     New-Item -ItemType Directory -Path (Join-Path $p 'scripts') -Force | Out-Null
     if ($Config) { [System.IO.File]::WriteAllText((Join-Path $p 'scripts\repo-config.ps1'), $Config, $Utf8NoBom) }
-    Invoke-FixtureGitJudged -Arguments @('init', '-q', $p)
+    if (-not $NoGit) { Invoke-FixtureGitJudged -Arguments @('init', '-q', $p) }
+    # The script refuses to prepare a token git would commit, so the happy paths carry the ignore line.
+    if (-not $NoIgnore) { [System.IO.File]::WriteAllText((Join-Path $p '.gitignore'), "/dkj-policy/dashboard/`n", $Utf8NoBom) }
     return $p
 }
 
@@ -584,6 +696,7 @@ Assert-True (Test-Path -LiteralPath $tokenFile) '...at dkj-policy/dashboard/dash
 $token = [System.IO.File]::ReadAllText($tokenFile)
 Assert-True ($token -cmatch '^[0-9a-f]{32}$') '...32 lowercase hex characters, and nothing else in the file'
 Assert-True ($init.Text -notlike "*$token*") '...and the run does not print it'
+Assert-True ($init.Text -notmatch '(?i)warning') '...and a gitignored token file raises no warning'
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $dash 'wrangler.toml'))) '-InitToken alone writes no wrangler.toml'
 
 $again = Invoke-Dash $repo @('-InitToken')
@@ -608,6 +721,7 @@ Assert-True ($toml -match '(?m)^name = "widgets-issue-dashboard"$') '...named <r
 Assert-True ($toml -notmatch '(?m)^\s*(GITHUB_TOKEN|DASHBOARD_TOKEN)\s*=') '...and never a secret as a var'
 Assert-True ($toml -notmatch $token) '...and never the path token'
 Assert-True ($toml -notmatch '(?m)^\s*account_id') '...and no account id'
+Assert-True ($toml -match '(?m)^\[observability\]\s*\r?\nenabled = false\s*$') '...and [observability] enabled = false, because request URLs carry the token and Workers Logs would record them'
 
 Assert-True ($emit.Text -like '*npx wrangler secret put GITHUB_TOKEN*')    'it prints the GITHUB_TOKEN secret command'
 Assert-True ($emit.Text -like '*npx wrangler secret put DASHBOARD_TOKEN*') '...the DASHBOARD_TOKEN secret command'
@@ -619,9 +733,11 @@ $cmdLines = @($emit.Lines | Where-Object { $_ -match '^\s*(cd |npx )' })
 Assert-Equal 4 $cmdLines.Count 'the printed commands are cd + two secret puts + deploy'
 Assert-Equal 0 @($cmdLines | Where-Object { $_.Contains($token) }).Count 'no command line contains the token'
 Assert-Equal 0 @($emit.Lines | Where-Object { $_ -match 'wrangler' -and $_.Contains($token) }).Count '...and no line mentioning wrangler does'
-$tokenLines = @($emit.Lines | Where-Object { $_.Contains($token) })
-Assert-True ($tokenLines.Count -le 1) 'the token appears in the output at most once'
-Assert-True (@($tokenLines | Where-Object { $_ -notlike '*workers.dev/issues/*' }).Count -eq 0) '...and only inside the URL the operator is told to open'
+Assert-True ($emit.Text -notlike "*$token*") 'the token value appears nowhere in the -EmitWorker output, not even as part of a URL'
+Assert-Equal 0 @($emit.Lines | Where-Object { $_.Contains($token) }).Count '...on no output line'
+Assert-True ($emit.Text -like '*/issues/<contents of *dashboard-path-token.txt>*') 'the URL is printed as a shape, with a placeholder naming the token file'
+Assert-True ($emit.Text -like '*<your-subdomain>.workers.dev*') '...and the subdomain as a placeholder'
+Assert-True ($emit.Text -notmatch '(?i)warning') '...and a gitignored token file raises no warning'
 Assert-True ($emit.Text -like '*deploys nothing*') 'it states that it deploys nothing'
 
 # wrangler.toml is written once, and drift is reported, not corrected.
@@ -632,6 +748,9 @@ $re = Invoke-Dash $repo @('-EmitWorker')
 Assert-Equal 0 $re.ExitCode 'a second -EmitWorker succeeds'
 Assert-Equal $tomlBefore ([System.IO.File]::ReadAllText($tomlPath)) 'an existing wrangler.toml is never overwritten'
 Assert-True ($re.Text -like '*left as it is*') '...and the run says so'
+Assert-True ($re.Text -notmatch 'does not set \[observability\]') '...with no observability warning while it is off'
+Assert-True (($re.Text -notmatch "deploys '") -and ($re.Text -notmatch 'serves issues of')) '...and no drift warning while name and GITHUB_REPO match'
+Assert-True ($re.Text -notlike "*$token*") '...and the token is not printed'
 Assert-Equal (Get-FileHash -LiteralPath $LogicPath -Algorithm SHA256).Hash (Get-FileHash -LiteralPath (Join-Path $dash 'issue-dashboard-logic.js') -Algorithm SHA256).Hash 'the worker files, being derivatives, ARE refreshed'
 Assert-Equal $token ([System.IO.File]::ReadAllText($tokenFile)) 'and the token is untouched'
 
@@ -641,6 +760,30 @@ Assert-Equal 0 $drift.ExitCode 'a drifted wrangler.toml does not fail the run'
 Assert-True ($drift.Text -like "*deploys 'other-name'*") '...it warns about the drifted worker name'
 Assert-True ($drift.Text -like "*serves issues of 'elsewhere/repo'*") '...and the drifted GITHUB_REPO'
 Assert-True ([System.IO.File]::ReadAllText($tomlPath) -match 'other-name') '...without correcting either'
+Assert-True ($drift.Text -notlike "*$token*") '...and the token is not printed'
+
+# Each drift warning on its own, so neither can be produced by the other's condition.
+[System.IO.File]::WriteAllText($tomlPath, ($tomlBefore -replace 'name = "widgets-issue-dashboard"', 'name = "only-name"'), $Utf8NoBom)
+$dName = Invoke-Dash $repo @('-EmitWorker')
+Assert-True ($dName.Text -like "*deploys 'only-name'*") 'a drifted worker name alone is warned about'
+Assert-True ($dName.Text -notlike '*serves issues of*') '...without a GITHUB_REPO warning'
+[System.IO.File]::WriteAllText($tomlPath, ($tomlBefore -replace 'GITHUB_REPO = "acme/widgets"', 'GITHUB_REPO = "elsewhere/repo"'), $Utf8NoBom)
+$dRepo = Invoke-Dash $repo @('-EmitWorker')
+Assert-True ($dRepo.Text -like "*serves issues of 'elsewhere/repo'*") 'a drifted GITHUB_REPO alone is warned about'
+Assert-True ($dRepo.Text -notmatch "deploys '") '...without a name warning'
+
+# An existing wrangler.toml without observability off is warned about, not edited.
+$noObs = $tomlBefore -replace '(?m)^\[observability\]\r?\nenabled = false\r?\n', ''
+Assert-True ($noObs -ne $tomlBefore) '(fixture: the observability block was stripped from the copy)'
+[System.IO.File]::WriteAllText($tomlPath, $noObs, $Utf8NoBom)
+$obs = Invoke-Dash $repo @('-EmitWorker')
+Assert-Equal 0 $obs.ExitCode 'a wrangler.toml without [observability] does not fail the run'
+Assert-True ($obs.Text -match 'does not set \[observability\] enabled = false') '...it warns that Workers Logs would record the token URLs'
+Assert-Equal $noObs ([System.IO.File]::ReadAllText($tomlPath)) '...and does not edit the file'
+[System.IO.File]::WriteAllText($tomlPath, ($tomlBefore -replace '(?m)^enabled = false', 'enabled = true'), $Utf8NoBom)
+$obsOn = Invoke-Dash $repo @('-EmitWorker')
+Assert-True ($obsOn.Text -match 'does not set \[observability\] enabled = false') '...and so does [observability] enabled = true'
+[System.IO.File]::WriteAllText($tomlPath, $tomlBefore, $Utf8NoBom)
 
 # A wrangler.toml at the root is a hazard the run names.
 [System.IO.File]::WriteAllText((Join-Path $repo 'wrangler.toml'), 'name = "root-project"', $Utf8NoBom)
@@ -649,7 +792,10 @@ Assert-True ($rootToml.Text -like '*wrangler.toml stands at the repository root*
 
 # The optional seam names the worker; an invalid name is refused; no Get-RepoName and no gh answer is refused.
 $repo2 = New-DashRepo 'repo2' "function Get-RepoName { return 'acme/widgets' }`nfunction Get-IssueDashboardWorkerName { return 'my-board' }"
-Assert-Equal 0 (Invoke-Dash $repo2 @('-InitToken', '-EmitWorker')).ExitCode '-InitToken -EmitWorker together work on a fresh repo'
+$both = Invoke-Dash $repo2 @('-InitToken', '-EmitWorker')
+Assert-Equal 0 $both.ExitCode '-InitToken -EmitWorker together work on a fresh repo'
+$token2 = [System.IO.File]::ReadAllText((Join-Path $repo2 'dkj-policy\dashboard\dashboard-path-token.txt'))
+Assert-True (($token2 -cmatch '^[0-9a-f]{32}$') -and ($both.Text -notlike "*$token2*")) '...and the freshly minted token appears nowhere in the combined output'
 Assert-True ([System.IO.File]::ReadAllText((Join-Path $repo2 'dkj-policy\dashboard\wrangler.toml')) -match '(?m)^name = "my-board"$') 'Get-IssueDashboardWorkerName names the worker'
 
 $repo3 = New-DashRepo 'repo3' "function Get-RepoName { return 'acme/widgets' }`nfunction Get-IssueDashboardWorkerName { return 'Bad Name' }"
@@ -671,6 +817,32 @@ Assert-True (-not (Test-Path -LiteralPath (Join-Path $repo4 'dkj-policy\dashboar
 $strayEmit = Invoke-Dash $repo4 @('-EmitWorker')
 Assert-True ($strayEmit.ExitCode -ne 0) '-EmitWorker without the token refuses the same way'
 Assert-True ($strayEmit.Text -like '*already holds one*') '...leading with what it found'
+
+# The token file must be gitignored: refused before anything is written, in both entry points.
+$repo6 = New-DashRepo 'repo6' $cfg -NoIgnore
+$noIgnInit = Invoke-Dash $repo6 @('-InitToken')
+Assert-True ($noIgnInit.ExitCode -ne 0) '-InitToken is refused when git does not ignore the token path'
+Assert-True ($noIgnInit.Text -like '*NOT gitignored*') '...saying so'
+Assert-True ($noIgnInit.Text -like '*/dkj-policy/dashboard/*') '...and naming the .gitignore line to add'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $repo6 'dkj-policy\dashboard\dashboard-path-token.txt'))) '...and no token file was written'
+$dash6 = Join-Path $repo6 'dkj-policy\dashboard'
+New-Item -ItemType Directory -Path $dash6 -Force | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $dash6 'dashboard-path-token.txt'), $HexB, $Utf8NoBom)
+$noIgnEmit = Invoke-Dash $repo6 @('-EmitWorker')
+Assert-True ($noIgnEmit.ExitCode -ne 0) '-EmitWorker is refused when git does not ignore the token path'
+Assert-True ($noIgnEmit.Text -like '*NOT gitignored*') '...saying so'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $dash6 'wrangler.toml'))) '...and wrote no wrangler.toml'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $dash6 'issue-dashboard-worker.js'))) '...and copied no worker'
+Assert-True ($noIgnEmit.Text -notlike "*$HexB*") '...and never prints the token'
+[System.IO.File]::WriteAllText((Join-Path $repo6 '.gitignore'), "/dkj-policy/dashboard/`n", $Utf8NoBom)
+Assert-Equal 0 (Invoke-Dash $repo6 @('-EmitWorker')).ExitCode '...and the same repo passes once the line is added'
+
+# Where git cannot answer (not a repository) the run warns and carries on.
+$repo7 = New-DashRepo 'repo7' $cfg -NoIgnore -NoGit
+$noGit = Invoke-Dash $repo7 @('-InitToken')
+Assert-Equal 0 $noGit.ExitCode '-InitToken outside a git repository still runs'
+Assert-True ($noGit.Text -like '*Could not ask git*') '...with a warning that it could not ask git'
+Assert-True (Test-Path -LiteralPath (Join-Path $repo7 'dkj-policy\dashboard\dashboard-path-token.txt')) '...and creates the token'
 
 # A hand-damaged token is refused, not shipped.
 $repo5 = New-DashRepo 'repo5' $cfg
