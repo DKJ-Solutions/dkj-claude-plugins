@@ -65,3 +65,11 @@ jobs:
               Write-Host "exit $LASTEXITCODE"
               Write-Host '::endgroup::'
           }
+
+      - name: Diagnostic -- what the & arm raises for a found-but-unlaunchable file
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $f = Join-Path ([IO.Path]::GetTempPath()) 'bogus-2234.exe'
+          Set-Content -LiteralPath $f -Value 'this is not a PE image'
+          try { & $f } catch { $e = $_.Exception; while ($e) { Write-Host "TYPE: $($e.GetType().FullName) -- $($e.Message)"; $e = $e.InnerException } }

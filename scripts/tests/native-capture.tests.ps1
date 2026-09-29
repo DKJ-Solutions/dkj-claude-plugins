@@ -391,7 +391,10 @@ try {
     # "restored to absent" while the machine set it to '0' would pass on a laptop and fail in CI.
     function Reset-GuardEnv {
         foreach ($n in 'GIT_TERMINAL_PROMPT', 'GCM_INTERACTIVE') {
-            [Environment]::SetEnvironmentVariable($n, $null, 'Process')
+            # [NullString]::Value, not $null (#2488): a bare $null reaches the method as '', which
+            # Windows reads as "remove" and Unix as a defined-but-empty variable -- so on Linux this reset
+            # itself planted the '' the ABSENT asserts below then found.
+            [Environment]::SetEnvironmentVariable($n, [NullString]::Value, 'Process')
         }
     }
 
