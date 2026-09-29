@@ -201,7 +201,6 @@ function Get-GoLiveBlockText {
             ResultLink   = 'You can view the result here: {0}'
             ReleaseDay   = 'It is planned to go live with the release of {0}.'
             ReleaseVer   = 'It is planned to go live with the release of {0}, as version v{1}.'
-            LivePinned   = "Until then, these links show what is live now, to compare against $dash and once it is live, you can see the change here:"
             LiveNoLink   = 'Once it is live you can see it here:'
             LiveBare     = 'Once it is live you can see it here. Before then, open these in a private window: a browser that has opened the result link keeps showing the result on these pages, not what is live.'
             AskLook      = 'Look at the result yourself, at the link above. It goes live with that release either way, so this is the last moment something can still change before a customer sees it.'
@@ -219,7 +218,6 @@ function Get-GoLiveBlockText {
         ResultLink   = 'Het resultaat is hier te bekijken: {0}'
         ReleaseDay   = 'Het staat gepland voor de release van {0}.'
         ReleaseVer   = 'Het staat gepland voor de release van {0}, als versie v{1}.'
-        LivePinned   = "Tot die tijd laten deze links zien wat er nu live staat, om mee te vergelijken $dash en zodra het live is, zie je de wijziging hier:"
         LiveNoLink   = 'Zodra het live is, zie je het hier:'
         LiveBare     = "Zodra het live is, zie je het hier. Open ze tot die tijd in een priv${e}venster: een browser die de link hierboven al heeft geopend, blijft op deze pagina's het resultaat tonen en niet wat er live staat."
         AskLook      = 'Bekijk het resultaat zelf, via de link hierboven. Het gaat hoe dan ook mee met die release, dus dit is het laatste moment waarop er nog iets aan te passen valt voordat een klant het ziet.'
@@ -350,8 +348,6 @@ function Format-GoLiveBlock {
           -Version      omitted -> the release sentence names the day and no number.
           -LiveUrl      empty   -> no live-URL list. A repo that has declared no storefront markets
                         has nothing truthful to put there.
-          -LivePinned   whether the -LiveUrl rows name the live theme id. It decides the list's label,
-                        and the label is the repair of issue #2477 (see below).
           -NotIncluded  the session's prose. Omitted -> no 'deliberately not in it' section.
 
         The 'when it goes live' section is always written: the date is always derivable.
@@ -360,9 +356,16 @@ function Format-GoLiveBlock {
         normally a storefront PREVIEW, which sets a per-domain cookie, and a bare storefront URL keeps
         rendering that preview once it has been opened -- the trap PREVIEW-portable.md measured. So a
         requester who opens the result and then a live URL sees the change in both tabs and can
-        conclude it is already live. Pinned to the live id, the same URL is a true comparison now and
-        the live page after the release (a live push keeps the theme's id), so it is labelled as both.
-        Unpinned, the list says when it cannot be trusted, and how to read it anyway.
+        conclude it is already live. So beside a result link the list's label carries that caveat:
+        before the release, open these in a private window.
+
+        AND THE URLS STAY BARE, WHICH IS THE CORRECTION OF #2477's FIRST REPAIR (#2619). That repair
+        pinned every row to the live theme id (?preview_theme_id=<live id>), which is technically a
+        true comparison -- and the one thing the block's reader checks is the URL's shape, which then
+        says 'preview' under a label saying 'live'. Measured on BWJ-Development/smartwatchbanden#396:
+        the owner rejected the block for exactly that, and rewrote it with bare URLs and this caveat.
+        The reader is a colleague, not a developer, so the caveat goes in words and the URL stays one
+        they recognise.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Marker,
@@ -371,7 +374,6 @@ function Format-GoLiveBlock {
         [string]$ResultLink,
         [string]$Version,
         [object[]]$LiveUrl = @(),
-        [switch]$LivePinned,
         [ValidateSet('nl', 'en')][string]$Language = 'nl',
         [string[]]$Changed = @(),
         [string[]]$WhereToLook = @(),
@@ -410,7 +412,7 @@ function Format-GoLiveBlock {
     $whenParas = @(if ($Version) { $t.ReleaseVer -f $GoLiveDate, $Version } else { $t.ReleaseDay -f $GoLiveDate })
     $rows = @($LiveUrl | Where-Object { $_ })
     if ($rows.Count -gt 0) {
-        $label = if ($LivePinned) { $t.LivePinned } elseif (-not $ResultLink) { $t.LiveNoLink } else { $t.LiveBare }
+        $label = if ($ResultLink) { $t.LiveBare } else { $t.LiveNoLink }
         $list = @(foreach ($row in $rows) {
             $market = if ($row.PSObject.Properties['Market'] -and $row.Market) { [string]$row.Market } else { 'live' }
             "$market $dash $($row.Url)"

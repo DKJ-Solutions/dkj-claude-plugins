@@ -31,12 +31,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 3. **The version** -- the newest `vX.Y.Z` tag, stepped by the bump the changelog's pending tally
    already names.
 4. **The live URLs** -- `Get-MarketUrls` over the pages `-Path` names, out of the same market table a
-   preview pair is built from, **pinned to the live theme id** (`-LiveThemeId`, else the repo's
-   `Get-ShopifyLiveThemeId` seam). The result link is normally a preview, and a bare URL renders that
-   preview in any browser that opened it first, so a pinned list is a true comparison before the
-   release and the live page after it ([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)).
-   Where no id resolves the URLs stay bare, and the label tells the requester to open them in a
-   private window until the release.
+   preview pair is built from, **bare**. The result link is normally a preview, and a bare URL renders
+   that preview in any browser that opened it first
+   ([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)), so beside a result link
+   the label tells the requester to open them in a private window until the release. They are **not**
+   pinned to the live theme id: `?preview_theme_id=<live id>` is a true comparison, but to a colleague
+   it reads as a preview link under a label saying *live*, and the owner rejected a block for exactly
+   that ([#2619](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2619)).
 5. **The ask** -- where a `-Link` was given, a closing section asking the requester to look at the
    result themselves: an approval ticks off the task, a rejection names what is not right AND what
    should change and reopens the issue, and the release happens either way
@@ -86,7 +87,6 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-Issue <n>` | required; a bare number, `#412`, or the issue's URL |
 | `-Link <url>` | where the result can be seen, **openable by the requester without an account** -- a storefront preview URL (`Get-MarketPreviewUrls`) or a live page. Not the preview handover page: a `claude.ai` Artifact is private to its owner, so it is refused ([#2341](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2341)). **Omitted, that sentence is not written at all** -- see below |
 | `-Path <p[]>` | the storefront pages the change touched; each becomes one live URL per market |
-| `-LiveThemeId <id>` | the live theme's id, to pin the live URLs to. Defaults to `Get-ShopifyLiveThemeId` in `scripts/repo-config.ps1` |
 | `-Repo <owner/repo>` | when `GITHUB_REPOSITORY` and `gh repo view` cannot answer |
 | `-Version <X.Y.Z>` | override the prediction, or supply one where it cannot be derived |
 | `-ReleaseDay <day>` | the weekday releases are cut on. `Monday` |

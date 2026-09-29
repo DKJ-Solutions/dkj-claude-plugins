@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Inbound #2619, verified in the tree: `build-golive-block.ps1` pinned every live-URL row to
+`Get-ControlThemeId`, so each "live" link read `?preview_theme_id=<live id>` under a label saying live.
+The repair is the issue's first option: bare URLs, and the cookie caveat in the label, which
+`LiveBare` already carried for the unpinned case. The issue's "also seen" note (the NL path reused on
+every market domain) is marked inferred and not a defect there, so it is left alone.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `golive-block-rules.ps1`: the `LivePinned` wording and switch removed; beside a result link the label is always `LiveBare`
+- [x] `build-golive-block.ps1`: `-LiveThemeId` and the `Get-ControlThemeId` read removed; the list is always `Get-MarketUrls`
+- [x] `golive-block` SKILL.md and `WORKFLOW-portable.md`: the block and the fact table describe bare URLs
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: a live-id seam no longer pins the URL, a throwing seam is never called, and the private-window caveat stands beside a result link -- 490 asserts green standalone
+
 ### DEPLOY: fix/2619-golive-bare-live-urls
 
-**Score:**
+The go-live block's live-URL list now shows plain storefront URLs. They were pinned to the live theme
+id, so every "live" link read `?preview_theme_id=...` and looked like a preview link to the colleague
+reading it. Beside a result link, the label now tells the reader to open the links in a private window
+until the release, since a browser that opened the preview keeps showing it. `-LiveThemeId` is gone
+from `build-golive-block.ps1` (#2619).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store repo running `dkj-policy-bwj`, the block pasted into Asana no longer has to be rewritten by
+hand before it goes out: the live links are the plain URLs a colleague recognises. A session that still
+passes `-LiveThemeId` to `build-golive-block.ps1` is refused by parameter binding, so drop the argument.
+
+**Score:** 2
 
 #### Pull Request
 
