@@ -2431,9 +2431,9 @@ if ($waitReport) {
 #
 # AND #1592's OWN REASON DID NOT HOLD, which is why nothing at step 3's wait changed. It read
 # 'lint-en-tests finished in 2s' off the check table and concluded the window was the non-required
-# 'claude-review' wait; that 2s is the AGGREGATOR job's elapsed (ci.yml: needs: [lint, suites], two string
-# compares on ubuntu), so the required check cannot conclude before the two windows-latest legs it waits
-# on. Over the last 40 paired pull_request runs CI itself takes 310-461s (median 374s) and the non-required
+# 'claude-review' wait; that 2s is the AGGREGATOR job's elapsed (ci.yml then: needs: [lint, suites], two string
+# compares on ubuntu; #2488 added a third, Linux leg), so the required check cannot conclude before the legs
+# it waits on. Over the last 40 paired pull_request runs CI itself takes 310-461s (median 374s) and the non-required
 # check governs 8 of them -- 20%, median excess 0s across all 40 and about 6 minutes in the 8 where it does
 # govern -- which reconfirms #831's n=100 finding of 23% rather than overturning it.
 #

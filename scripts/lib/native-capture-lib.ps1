@@ -2082,7 +2082,7 @@ function Read-NativeCaptureFile {
         the very hazard this function was built for.
 
         WHY THE TOLERANT READ EXISTS (issue #1252). On a timeout, Invoke-NativeCaptureUtf8 force-kills
-        the child's whole process tree with taskkill /T and then waits on the DIRECT child only. A
+        the child's whole process tree (taskkill /T on Windows, Process.Kill(entireProcessTree) elsewhere) and then waits on the DIRECT child only. A
         grandchild that inherited the redirected stdout handle keeps out.txt open until IT is reaped
         too, and the gap between the kill and that moment is wall-clock -- invisible on a fast machine,
         a lost race on a CI runner several times slower. [System.IO.File]::ReadAllText opens the file
@@ -2294,6 +2294,9 @@ function Invoke-NativeCaptureUtf8 {
         handle only this arm has. So the arm is no longer "the UTF-8 one": it is the Start-Process one,
         and UTF-8 decoding is one of the two things that follows from that.
 
+        Off Windows the child is started by Start-NativeUnixCapture instead, for the reason its docstring
+        measures (#2488); everything from the handle onwards is the same on both.
+
         Start-Process -PassThru THEN $proc.Handle THEN WaitForExit is the proven pattern from
         Invoke-TestSuiteGate below, and reading .Handle is NOT a no-op: without it .NET does not retain
         the OS handle and .ExitCode comes back EMPTY once the child has exited -- empty is not 0, and
@@ -2388,7 +2391,9 @@ function Invoke-NativeCaptureUtf8 {
         # Off Windows the capture files are fed by this process's own copy of the child's pipes, so they
         # are complete only once those copies are -- see Start-NativeUnixCapture (#2488).
         if ($pumps) {
-            $pumpBudget = if ($timedOut) { 1000 } else { 30000 }
+            # 5s on a clean exit: the copies end the moment the child's pipes close, so the budget is only
+            # spent where a daemonised grandchild (git's auto-gc) kept one open -- and then it caps the stall.
+            $pumpBudget = if ($timedOut) { 1000 } else { 5000 }
             Complete-NativeUnixCapture -Pumps $pumps -TimeoutMilliseconds $pumpBudget
         }
 

@@ -78,7 +78,7 @@ first two ran 265 times each in September, so they carry the bulk of the Windows
 `ubuntu-latest`, `shell: pwsh`, and a one-line `powershell` -> `pwsh` shim step, in the source's own
 copies and in `adopt-ci-floor.ps1`'s templates alike. `merge-on-green` stays on `windows-latest` for now:
 it drives `ship-pr.ps1`'s whole merge path, and a `workflow_run` runner cannot be proved on its own PR.
-That move is its own issue. To keep the move proved, the four suites are made OS-portable, and a Linux
+That move is its own issue. To keep the move proved, the four red suites are made OS-portable (and `adopt-ci-floor`'s junction fixture, #2546, with them), and a Linux
 leg in CI runs the runner-path suites under `pwsh`.
 
 ### CREATE

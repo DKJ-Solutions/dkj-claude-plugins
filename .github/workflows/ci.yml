@@ -2,10 +2,11 @@
 # entry (the last is inert until a queue is enabled -- see the `merge_group` note on the trigger block).
 # This is the same guard that open-pr.ps1 runs locally, but inescapable -- even a PR that
 # originates outside the scripts (GitHub UI, or a forgotten -SkipLint) passes through here.
-# The scripts target Windows PowerShell 5.1, so every job that RUNS one is on windows-latest with
-# `shell: powershell` (5.1), not pwsh. Since #1351 there is one job that runs none -- the
-# `lint-en-tests` summary at the foot of this file, which only compares two strings -- and it is on
-# ubuntu for that reason; see its own note.
+# The scripts target Windows PowerShell 5.1, so every job that JUDGES THE TREE is on windows-latest with
+# `shell: powershell` (5.1), not pwsh. Two jobs are on ubuntu instead: `linux-runner-path` (#2488), which
+# runs the runner-path suites under pwsh 7 because three CI-floor runners now execute there, and, since
+# #1351, the `lint-en-tests` summary at the foot of this file, which runs no script and only compares
+# strings. See each job's own note.
 #
 # WHERE A DECISION IS ARGUED: DIRECTLY ABOVE THE KEY IT DECIDES -- issue #2314, September 22, 2026.
 # Every paragraph in this file sits above the one key, step or job it explains, so a new decision
