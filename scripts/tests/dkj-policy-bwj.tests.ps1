@@ -1148,6 +1148,28 @@ try {
     Assert-Equal 0 $LASTEXITCODE 'a throwing live-id seam still yields a block'
     Assert-True ($glErrText -notmatch 'token expired') 'and the seam is never called'
     Assert-True ($glErrText -notmatch 'preview_theme_id') 'with the URLs bare'
+
+    # A DERIVABLE VERSION STAYS OUT OF THE BLOCK WITHOUT -Version (#2620): a tag plus a readable tally is a
+    # projection the entries still to land can raise, so it is printed for the session and never pasted.
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'CHANGELOG.md'),
+        "# Changelog`n`n## [Unreleased]`n`n**1 / 1 patch entries** <!-- pending-tally -->`n", (New-Object System.Text.UTF8Encoding $false))
+    # Continue for the fixture's git calls only: a line-ending warning on stderr is not a failure here.
+    $glPrevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & git -C $glRoot init -q 2>&1 | Out-Null
+        & git -C $glRoot -c core.autocrlf=false add -A 2>&1 | Out-Null
+        & git -C $glRoot -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q -m init 2>&1 | Out-Null
+        & git -C $glRoot tag v2.45.0 2>&1 | Out-Null
+    } finally { $ErrorActionPreference = $glPrevEap }
+    $glVerOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' `
+        -RootOverride $glRoot -OutFile $glOutFile 2>&1
+    $glVerText = (@($glVerOut | ForEach-Object { "$_" }) -join "`n")
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with a tag and a tally but no -Version exits 0'
+    Assert-True ($glVerText.Contains('projected v2.45.1')) 'the projection is still worked out, and printed for the session'
+    $glVerBlock = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
+    Assert-True ($glVerBlock -notmatch 'als versie|2\.45\.1') 'but the block names no predicted version'
+    Assert-True ($glVerBlock -match 'Het staat gepland voor de release van [a-z]+ \d+ [a-z]+ \d{4}\.') 'only the release day'
 } finally {
     if (Test-Path -LiteralPath $glRoot) { Remove-Item -LiteralPath $glRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }

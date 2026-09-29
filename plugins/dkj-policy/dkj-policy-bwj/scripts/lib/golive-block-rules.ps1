@@ -16,10 +16,11 @@
     actually see it', and the ticket is the only place they are looking, so the block gained three
     facts: the next release day, the version that release will carry, and the live storefront URLs.
 
-    EVERY ONE OF THE THREE IS A PROJECTION, AND THE WORDING SAYS SO. A tier-1 entry landing on the
-    Friday turns a predicted patch into a minor; a release can slip. 'Het staat gepland' / 'planned
-    to go live' is therefore the wording, never 'will' -- this block is the one surface a colleague quotes back, so
-    a cadence must not read there as a commitment anybody made.
+    EVERY ONE OF THE THREE IS A PROJECTION, AND THE WORDING SAYS SO. A release can slip, so 'Het staat
+    gepland' / 'planned to go live' is the wording, never 'will' -- this block is the one surface a
+    colleague quotes back, so a cadence must not read there as a commitment anybody made. The version
+    went further than wording could carry: a tier-1 entry landing on the Friday turns a predicted patch
+    into a minor, so since #2620 the driver hands -Version in only when a caller passed one.
 
     AND A FACT THAT CANNOT BE DERIVED IS LEFT OUT, NEVER GUESSED. No version resolves to a sentence
     with no number in it, not to a plausible one; no live URLs resolve to no list at all. That is

@@ -39,21 +39,37 @@
 
 ### PLAN
 
+Inbound #2620, verified in the tree: `build-golive-block.ps1` stepped the newest tag by today's pending
+tally and wrote the result into the block as `als versie vX.Y.Z`. The repair is the issue's first
+option: the block names a version only when `-Version` is passed. The projection is still worked out and
+printed on the console, where the session can weigh it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `build-golive-block.ps1`: the derived number goes to the console as a projection; only `-Version` reaches `Format-GoLiveBlock`
+- [x] the golive-block SKILL.md, `WORKFLOW-portable.md`, README and plugin.json descriptions no longer promise a version
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: a fixture repo with a `v2.45.0` tag and a patch tally, run without `-Version`, prints `projected v2.45.1` and writes a block with the release day alone -- 494 asserts green standalone
+
 ### DEPLOY: fix/2620-golive-no-predicted-version
 
-**Score:**
+The go-live block no longer names a predicted version. It stepped the newest tag by the bump the
+pending changelog named that day, and every entry still to land before the release could raise it, so
+the colleague reading the block got a guess that read as a fact. The block now names the release day
+alone, unless `-Version` is passed. The projection is still printed on the console for the session
+(#2620).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store repo running `dkj-policy-bwj`, the block pasted into Asana no longer carries a version
+number the owner has to strike out by hand. Pass `-Version` once the number can no longer change.
+
+**Score:** 2
 
 #### Pull Request
 
 golive-block: the colleague-facing block names no predicted version unless -Version is given
-

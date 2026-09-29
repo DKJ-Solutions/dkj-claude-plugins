@@ -472,7 +472,7 @@ Het resultaat is hier te bekijken: <the actual link>
 
 WANNEER HET LIVE KOMT
 
-Het staat gepland voor de release van <weekday> <date>, als versie <vX.Y.Z>.
+Het staat gepland voor de release van <weekday> <date>.
 
 Zodra het live is, zie je het hier. Open ze tot die tijd in een privévenster: een browser die de link hierboven al heeft geopend, blijft op deze pagina's het resultaat tonen en niet wat er live staat.
 
@@ -599,7 +599,7 @@ cycle -- the other is the storefront-visibility step in
 | fact | where it comes from |
 |---|---|
 | **when it goes live** | the next release day. BWJ cuts on **Mondays**, so it is the next Monday -- strictly the next one, never today, because a Monday's release is cut before the day's work closes |
-| **which version** | the newest `vX.Y.Z` tag, bumped by what the pending changelog has earned -- patch where everything pending is tier 0, minor where anything reaches further |
+| **which version** | **left out of the block unless `-Version` names it** ([#2620](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2620)). The newest `vX.Y.Z` tag bumped by what the pending changelog has earned *so far* is printed on the console for the session, but every entry still to land before release day can raise it, so it is a guess -- and the requester quotes the block back as a fact |
 | **where to look once it is live** | the **live** storefront URL per market for the pages the change touched: the same URLs a preview pair is built from, **bare**. A bare URL renders the preview in any browser that opened the result link first ([#2477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2477)), so beside a result link the list's label says to open it in a private window before the release. It is not pinned to the live theme id the way a handover's control half is: to a colleague `?preview_theme_id=<live id>` reads as a preview link under a label saying *live* ([#2619](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2619)) |
 
 **It is written by a script, because all three are derivable and none of them is a judgement** --
@@ -607,14 +607,15 @@ cycle -- the other is the storefront-visibility step in
 puts it on the issue. That is the difference from the link in the first line, which stays a person's
 answer for the reason the backstop below gives.
 
-**Both halves of the release fact are a PLAN, and the block says so in that word.** *"Het staat
-gepland voor de release van maandag 22 september, als versie v1.4.0"* is a cadence and a projection,
-not a commitment anybody made: a tier-1 entry landing on the Friday turns that patch into a minor, and a
-release can slip. Writing it as *will* would hand a colleague a promise this workflow never made, on
-the one surface they will quote back.
+**The release day is a PLAN, and the block says so in that word.** *"Het staat gepland voor de
+release van maandag 22 september"* is a cadence, not a commitment anybody made: a release can slip.
+Writing it as *will* would hand a colleague a promise this workflow never made, on the one surface they
+will quote back. The version was the other half of that sentence until #2620, and no wording saved it:
+a tier-1 entry landing on the Friday turns a predicted patch into a minor, and *"als versie v2.45.1"*,
+six days out, was rejected by the owner as a number nobody could know.
 
-**Where a fact cannot be derived it is left out, never guessed.** No `v*` tag, or a changelog whose
-pending tally cannot be read, means the version line names no number; a repo that has declared no
+**Where a fact cannot be derived it is left out, never guessed.** A version is named only when
+`-Version` says it; a repo that has declared no
 storefront markets gets no live-URL list. The whole reason the link in the first line is a person's to
 fill in is that a plausible wrong answer is worse than a missing one, and that reasoning does not stop
 applying one paragraph further down.
