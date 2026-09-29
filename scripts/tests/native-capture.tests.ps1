@@ -84,6 +84,16 @@ function Assert-True {
     }
 }
 
+# WINDOWS-ONLY SEMANTICS. Mandatory file locking (a held write handle that makes a second open throw) and
+# the OEM console code page do not exist on Linux, so an assert about them cannot mean anything there:
+# it is printed as [SKIP] with the reason, not run and not counted, rather than passing or failing for
+# the wrong reason. On Windows it is exactly Assert-True.
+function Assert-TrueWindowsOnly {
+    param($Condition, [string]$Name, [string]$Reason = 'mandatory file locks are a Windows-only subject')
+    if ($script:OnWindows) { Assert-True ([bool]$Condition) $Name; return }
+    Write-Host "  [SKIP] $Name -- $Reason" -ForegroundColor Yellow
+}
+
 # A REAL CHILD ON THE Start-Process ARM, RE-ASKED ONLY WHILE THE LIB ITSELF SAYS THE EXIT CODE IS NOT A
 # MEASUREMENT (issue #2379). ExitCodeUnknown is #1931's documented race -- about 1 in 300 fresh children
 # hand back a $null .ExitCode even after .Handle was read -- and an exact-exit assert that takes that
@@ -651,7 +661,7 @@ try {
     # Long enough that a SURVIVING grandchild would have written its second marker (it sleeps from a
     # start that precedes the bound), with margin for a loaded machine.
     Start-Sleep -Seconds $afterRun
-    Assert-True (-not (Test-Path -LiteralPath $survived)) 'the grandchild was killed with its parent -- taskkill /T, not Stop-Process'
+    Assert-True (-not (Test-Path -LiteralPath $survived)) 'the grandchild was killed with its parent -- the whole process tree, not only the direct child'
 
     # ---------------------------------------------------------------------------------------------
     Write-Host 'Read-NativeCaptureFile -- a lingering write handle is not an IO error (#1252), and it is now REPORTED (#1679)' -ForegroundColor Cyan
@@ -676,11 +686,11 @@ try {
     try {
         $threw = $false
         try { [void][System.IO.File]::ReadAllText($held) } catch { $threw = $true }
-        Assert-True $threw 'the plain ReadAllText throws while the handle is held -- this is the bug the CI red was'
+        Assert-TrueWindowsOnly $threw 'the plain ReadAllText throws while the handle is held -- this is the bug the CI red was'
 
         $gotHeld = Read-NativeCaptureFile -Path $held -Encoding $utf8NoBom
         Assert-Equal "flushed output`n" $gotHeld.Text 'the shared read returns what was flushed instead of throwing'
-        Assert-True $gotHeld.WriterHeld 'and it SAYS the writer still held the file -- the fact five callers used to have to guess (#1679)'
+        Assert-TrueWindowsOnly $gotHeld.WriterHeld 'and it SAYS the writer still held the file -- the fact five callers used to have to guess (#1679)'
 
         # THE PROBE IS NOT SATISFIED BY A WAIT IT CANNOT WIN. The writer above is held for the whole
         # block, so the budget is spent in full and the verdict still comes back true -- which is the
@@ -690,8 +700,8 @@ try {
         $waitClock = [System.Diagnostics.Stopwatch]::StartNew()
         $gotWaited = Read-NativeCaptureFile -Path $held -Encoding $utf8NoBom -SettleMilliseconds 300
         $waitClock.Stop()
-        Assert-True $gotWaited.WriterHeld 'a holder that never releases is still reported as a short read after the budget'
-        Assert-True ($waitClock.ElapsedMilliseconds -ge 300) "the settle budget was actually spent (waited $($waitClock.ElapsedMilliseconds)ms of 300)"
+        Assert-TrueWindowsOnly $gotWaited.WriterHeld 'a holder that never releases is still reported as a short read after the budget'
+        Assert-TrueWindowsOnly ($waitClock.ElapsedMilliseconds -ge 300) "the settle budget was actually spent (waited $($waitClock.ElapsedMilliseconds)ms of 300)"
         Assert-Equal "flushed output`n" $gotWaited.Text 'and what was flushed still comes back -- #1252 is not weakened by #1679'
     } finally {
         $writer.Dispose()
@@ -752,8 +762,8 @@ try {
         # only consumer of these blocks is the person reading them, and a returned field nobody prints
         # would be the same silence in a new place. 6>&1 captures Write-Host's information stream.
         $heldText = (@(Write-GateCaptureBlock -Path @($gateHeld) 6>&1 | ForEach-Object { [string]$_ }) -join "`n")
-        Assert-True ($heldText -match '\[short read\]') 'a held capture file prints a visible [short read] note'
-        Assert-True ($heldText -match 'gate-held\.txt') 'and the note names the file, so a reader knows which of the two captures was short'
+        Assert-TrueWindowsOnly ($heldText -match '\[short read\]') 'a held capture file prints a visible [short read] note'
+        Assert-TrueWindowsOnly ($heldText -match 'gate-held\.txt') 'and the note names the file, so a reader knows which of the two captures was short'
         Assert-True ($heldText -match '\[OK\] first assertion') 'and what WAS flushed is still printed -- the note annotates the block, it does not replace it'
     } finally {
         $gateWriter.Dispose()
@@ -768,7 +778,7 @@ try {
         $gateEmptyHeld, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
     try {
         $emptyHeldText = (@(Write-GateCaptureBlock -Path @($gateEmptyHeld) 6>&1 | ForEach-Object { [string]$_ }) -join "`n")
-        Assert-True ($emptyHeldText -match '\[short read\]') 'an EMPTY held capture still prints the note rather than being skipped as blank'
+        Assert-TrueWindowsOnly ($emptyHeldText -match '\[short read\]') 'an EMPTY held capture still prints the note rather than being skipped as blank'
     } finally {
         $emptyWriter.Dispose()
     }
@@ -800,9 +810,9 @@ try {
     $oemHere = Get-NativeCaptureOemEncoding
     $oemProbe = Join-Path $sandbox 'oem-decode.txt'
     [System.IO.File]::WriteAllBytes($oemProbe, [byte[]]@(0x61, 0x82, 0x62))   # 'a', a high byte, 'b'
-    Assert-Equal (Get-Content -LiteralPath $oemProbe -Raw -Encoding Oem) `
-                 (Read-NativeCaptureFile -Path $oemProbe -Encoding $oemHere).Text `
-                 'the OEM code page this helper resolves decodes a high byte identically to Get-Content -Encoding Oem'
+    Assert-TrueWindowsOnly ((Get-Content -LiteralPath $oemProbe -Raw -Encoding Oem) -ceq (Read-NativeCaptureFile -Path $oemProbe -Encoding $oemHere).Text) `
+                 'the OEM code page this helper resolves decodes a high byte identically to Get-Content -Encoding Oem' `
+                 'console code pages are a Windows-only subject'
 
     # AND THE GATE HAS NO PLAIN READ LEFT, which is the inconsistency #1731 actually filed: the file
     # held a tolerant reader for a hazard and the function most exposed to it did not use it. Pinned on
@@ -946,6 +956,9 @@ Write-Output "GATE-VERDICT=`$ok"
         } catch { $threw = $true }
 
         Assert-True (-not $threw) "$($shape.Name) returns instead of throwing on a missing executable -- the whole point of #2234, since a caller's EAP='Stop' turned this into a dead run"
+        # A call that threw leaves nothing to inspect; the field asserts below would crash the suite on a
+        # null (indexing into it) instead of reporting, hiding every later section of the file.
+        if ($null -eq $notStarted) { continue }
         Assert-True ($null -ne $notStarted.PSObject.Properties['NotStarted']) "$($shape.Name) returns a NotStarted field"
         Assert-True $notStarted.NotStarted "...and it is true, which is the only field that says the child never ran"
         Assert-True ($null -eq $notStarted.ExitCode) "...with a NULL ExitCode: there is no exit code, and a substituted number would be a verdict this lib invented"

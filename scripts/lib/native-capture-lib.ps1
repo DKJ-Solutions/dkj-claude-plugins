@@ -1320,7 +1320,15 @@ function Pop-NativeNonInteractiveEnv {
 
     if (-not $Previous) { return }
     foreach ($name in @($Previous.Keys)) {
-        [Environment]::SetEnvironmentVariable($name, $Previous[$name], 'Process')
+        # [NullString]::Value, NOT $null (#2488): PowerShell coerces a $null handed to a [string] .NET
+        # parameter into '', so the bare $null the docstring above promises never reached the method.
+        # Windows hid that -- SetEnvironmentVariable(name, '') REMOVES the variable there -- while on
+        # Unix .NET an empty value is a real, defined-but-empty variable, so an ABSENT variable came
+        # back as '' and the child guard leaked. The typed null is a true null on both, and 5.1 behaves
+        # exactly as before.
+        $value = $Previous[$name]
+        if ($null -eq $value) { $value = [NullString]::Value }
+        [Environment]::SetEnvironmentVariable($name, $value, 'Process')
     }
 }
 
@@ -1364,7 +1372,16 @@ function Stop-NativeProcessTree {
     $prevEap = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        & taskkill.exe '/PID' "$ProcessId" '/T' '/F' 2>&1 | Out-Null
+        if ([System.IO.Path]::DirectorySeparatorChar -eq '\') {
+            & taskkill.exe '/PID' "$ProcessId" '/T' '/F' 2>&1 | Out-Null
+        } else {
+            # OFF WINDOWS THERE IS NO taskkill (#2488), so the grandchild survived the timeout kill.
+            # Process.Kill(entireProcessTree) is .NET 5+ only -- absent on the .NET Framework under 5.1,
+            # which never reaches this branch -- and PowerShell binds the call at run time, so 5.1 still
+            # parses it. A failure (gone in the gap, not ours to signal) falls through to the
+            # single-process Stop-Process below, same best-effort contract as taskkill.
+            [System.Diagnostics.Process]::GetProcessById($ProcessId).Kill($true)
+        }
     } catch {
         # Deliberately swallowed -- see the docstring.
     } finally {
@@ -2272,7 +2289,11 @@ function Invoke-NativeCaptureUtf8 {
         # capture directory is removed exactly as on every other path.
         try {
             $proc = Start-Process @startArgs
-        } catch [System.InvalidOperationException] {
+        } catch [System.InvalidOperationException], [System.ComponentModel.Win32Exception], [System.IO.FileNotFoundException] {
+            # The list is the OS refusing to CREATE the process, per platform (#2488): Windows PowerShell
+            # surfaces it as InvalidOperationException, while on Unix pwsh 7 the underlying
+            # Win32Exception ("No such file or directory") can come through unwrapped. Nothing broader --
+            # a parameter or unrelated error must still propagate, not become "not started".
             return New-NativeNotStartedCapture -FilePath $FilePath -Reason $_.Exception.Message
         }
         $null = $proc.Handle

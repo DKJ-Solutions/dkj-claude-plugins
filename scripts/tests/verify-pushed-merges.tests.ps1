@@ -90,7 +90,13 @@ function Assert-Says {
         either.
     #>
     param([string]$Output, [string]$Phrase, [string]$Name)
-    Assert-True (($Output -replace '\s', '').Contains(($Phrase -replace '\s', ''))) $Name
+    # PowerShell 7 (the Linux CI floor) renders a terminating Write-Error as a ConciseView record: ANSI
+    # colour escapes, and a '     | ' gutter at the start of every wrapped line of the message. Both
+    # land INSIDE a long phrase, exactly as the wrap did in Windows PowerShell 5.1, and stripping
+    # whitespace does not remove either. Windows PowerShell 5.1 emits neither, and no asserted phrase
+    # contains a '|', so removing them from the output only is safe on both.
+    $plain = $Output -replace "$([char]27)\[[0-9;]*m", '' -replace '\|', ''
+    Assert-True (($plain -replace '\s', '').Contains(($Phrase -replace '\s', ''))) $Name
 }
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
