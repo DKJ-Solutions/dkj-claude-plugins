@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**21 / 32 minor entries** <!-- pending-tally -->
+**22 / 33 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2619-golive-bare-live-urls · 20260929-094828Z
+
+The go-live block's live-URL list now shows plain storefront URLs. They were pinned to the live theme
+id, so every "live" link read `?preview_theme_id=...` and looked like a preview link to the colleague
+reading it. Beside a result link, the label now tells the reader to open the links in a private window
+until the release, since a browser that opened the preview keeps showing it. `-LiveThemeId` is gone
+from `build-golive-block.ps1` (#2619).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a store repo running `dkj-policy-bwj`, the block pasted into Asana no longer has to be rewritten by
+hand before it goes out: the live links are the plain URLs a colleague recognises. A session that still
+passes `-LiveThemeId` to `build-golive-block.ps1` is refused by parameter binding, so drop the argument.
+
+**Score:** 2
+
+#### Pull Request
+
+golive-block: the live-URL list is bare, with the private-window caveat
+
+Plugins: dkj-policy-bwj
+
+[PR #2625](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2625)
+
+---
 
 ### DEPLOY: fix/2488-ci-floor-linux-runners · 20260929-084404Z
 
