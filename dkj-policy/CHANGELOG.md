@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**25 / 36 minor entries** <!-- pending-tally -->
+**26 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2627-golive-per-market-paths · 20260929-105112Z
+
+`-Path` of the go-live block and of the preview URL printers now takes a different storefront path per
+market, for a page whose handle differs by market: `/collections/apple-watch-straps|NL=/collections/apple-watch-bandjes|DE=...`.
+A bare segment is the default for every market not named, and labels match the market table without
+regard to case. Before, one path was used on every market domain, so every other market was handed a
+handle it does not recognise: it still loaded through a redirect, but it was not that market's address.
+Unknown or repeated labels, two defaults, an empty path and a page that leaves a market without a path
+are refused. Plain paths behave as before (#2627), with one narrow exception: a path holding `=` and
+written without its leading slash (`x=y`) is now read as a market label, so write it `/x=y`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing to do: a plain `-Path` works unchanged. A store whose collection handles differ per market
+should switch its go-live command to the per-market form. The `preview_theme_id` half of #2627 was
+already closed by #2625.
+
+**Score:** 1
+
+#### Pull Request
+
+golive-block: -Path takes a per-market handle for a page (default|NL=/path|...)
+
+Plugins: dkj-policy-bwj
+
+[PR #2630](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2630)
+
+---
 
 ### DEPLOY: fix/2621-fold-refuses-linked-reads · 20260929-104137Z
 
