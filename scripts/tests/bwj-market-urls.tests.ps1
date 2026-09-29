@@ -176,6 +176,118 @@ Assert-Equal '/' (@(Get-NormalizedPaths -Path ' , '))[0] 'an all-blank -Path mea
 Assert-Equal 2 (@(Get-NormalizedPaths -Path @('/a', '/b'))).Count 'a real array still works beside the split'
 
 Write-Host ''
+Write-Host 'A different handle per market -- the per-market page spec (#2627)' -ForegroundColor Cyan
+
+# The issue's own case: one collection, five handles. A plain path printed the UK handle on all five
+# domains, four of them a 404.
+$strapSpec = '/collections/apple-watch-straps|NL=/collections/apple-watch-bandjes|DE=/collections/apple-watch-armbaender' +
+             '|FR=/collections/bracelets-apple-watch|ES=/collections/correas-apple-watch'
+$strap = @(Get-MarketUrls -Path $strapSpec -Markets $SWB)
+Assert-Equal 5 $strap.Count 'per-market: exactly one URL per market, not one per segment'
+Assert-Equal 'https://smartwatchbanden.nl/collections/apple-watch-bandjes' $strap[0].Url 'per-market: NL gets its own handle'
+Assert-Equal 'https://smartwatcharmbaender.de/collections/apple-watch-armbaender' $strap[1].Url 'per-market: DE gets its own handle'
+Assert-Equal 'https://braceletsmartwatch.fr/collections/bracelets-apple-watch' $strap[2].Url 'per-market: FR gets its own handle'
+Assert-Equal 'https://correasmartwatch.es/collections/correas-apple-watch' $strap[3].Url 'per-market: ES gets its own handle'
+Assert-Equal 'https://smartwatch-straps.co.uk/collections/apple-watch-straps' $strap[4].Url 'per-market: UK, named nowhere, takes the bare default'
+Assert-Equal '/collections/apple-watch-bandjes' $strap[0].Path 'per-market: the row Path is the RESOLVED path for that market'
+Assert-Equal '/collections/apple-watch-straps' $strap[4].Path '...and the default where the market is not named'
+
+# Regression: a plain path is a page with a default and no overrides.
+$plain = @(Get-MarketUrls -Path '/collections/apple-watch-straps' -Markets $SWB)
+Assert-Equal 5 $plain.Count 'plain path: still one row per market'
+Assert-True (@($plain | Where-Object { $_.Path -ne '/collections/apple-watch-straps' }).Count -eq 0) 'plain path: the same path on every market, unchanged'
+Assert-Equal 'https://smartwatcharmbaender.de/collections/apple-watch-straps' $plain[1].Url 'plain path: the URL is built as before'
+
+# A label with no default is fine while every market is named.
+$allNamed = @(Get-MarketUrls -Path 'NL=/a|DE=/b|FR=/c|ES=/d|UK=/e' -Markets $SWB)
+Assert-Equal 5 $allNamed.Count 'no default is accepted when every market is named'
+Assert-Equal '/e' $allNamed[4].Path '...and each market takes its own'
+
+# Several pages, some plain and some per-market, in the caller's order.
+$mix = @(Get-MarketUrls -Path '/products/foo,/collections/straps|NL=/collections/bandjes' -Markets $SWB)
+Assert-Equal 10 $mix.Count 'a plain page plus a per-market page over five markets is ten rows'
+Assert-Equal '/products/foo' $mix[0].Path 'mixed pages: the plain page keeps its place first'
+Assert-Equal '/collections/bandjes' $mix[1].Path '...the per-market page follows under the same market'
+Assert-Equal '/products/foo' $mix[2].Path 'mixed pages: the next market starts with the plain page again'
+Assert-Equal '/collections/straps' $mix[3].Path '...and the unnamed market takes the default'
+
+# The single-domain / prefix table: the prefix goes on the resolved path.
+$xo = @(Get-MarketUrls -Path '/collections/all|DE=/collections/alles' -Markets $XOXO)
+Assert-Equal 'https://www.xoxowildhearts.com/collections/all' $xo[0].Url 'prefix table: the primary market takes the default unprefixed'
+Assert-Equal 'https://www.xoxowildhearts.com/en/collections/all' $xo[1].Url 'prefix table: an unnamed prefixed market takes the default under its prefix'
+Assert-Equal 'https://www.xoxowildhearts.com/de/collections/alles' $xo[2].Url 'prefix table: the override sits under the market''s own prefix'
+Assert-Equal 'https://www.xoxowildhearts.com/nl-gb/collections/all' $xo[3].Url 'prefix table: a hyphenated label market is not disturbed'
+$xoHyphen = @(Get-MarketUrls -Path '/x|nl-gb=/y' -Markets $XOXO)
+Assert-Equal 'https://www.xoxowildhearts.com/nl-gb/y' $xoHyphen[3].Url 'a hyphenated label is read as a label'
+
+# Labels are case-insensitive and the output uses the table's spelling.
+$ci = @(Get-MarketUrls -Path '/x|nl=/nl-handle|De=/de-handle' -Markets $SWB)
+Assert-Equal '/nl-handle' $ci[0].Path 'a lower-case label matches the table''s NL'
+Assert-Equal '/de-handle' $ci[1].Path 'a mixed-case label matches the table''s DE'
+Assert-Equal 'NL' $ci[0].Market 'the output carries the table''s spelling of the label'
+$ciSpec = @(Get-PageSpecs -Path '/x|nl=/y' -MarketLabels @('NL', 'DE'))
+Assert-Equal 'NL' (@($ciSpec[0].ByMarket.Keys))[0] 'the spec itself is keyed by the table''s spelling'
+
+# Dedupe: a page named twice prints once, and so does the same per-market page in a different order.
+Assert-Equal 5 (@(Get-MarketUrls -Path "$strapSpec,$strapSpec" -Markets $SWB)).Count 'the same per-market page twice is printed once'
+Assert-Equal 5 (@(Get-MarketUrls -Path '/x|NL=/n|DE=/d,/x|DE=/d|NL=/n' -Markets $SWB)).Count 'segment order does not make a page different'
+Assert-Equal 10 (@(Get-MarketUrls -Path '/x|NL=/n,/x|NL=/other' -Markets $SWB)).Count 'two pages that differ in one market''s path are two pages'
+
+# A query string is not a label.
+$q = @(Get-MarketUrls -Path '/collections/x?a=b' -Markets $SWB)
+Assert-Equal 5 $q.Count 'a query string path is a plain page'
+Assert-Equal 'https://smartwatchbanden.nl/collections/x?a=b' $q[0].Url '...and is not read as LABEL=path'
+$qPer = @(Get-MarketUrls -Path '/x?a=b|NL=/y?c=d' -Markets $SWB)
+Assert-Equal '/y?c=d' $qPer[0].Path 'a query string survives inside a LABEL= segment'
+Assert-Equal '/x?a=b' $qPer[1].Path '...and on the default'
+
+# Whitespace round the separators is tolerated.
+Assert-Equal '/n' (@(Get-MarketUrls -Path ' /x | NL = /n ' -Markets $SWB))[0].Path 'spaces round the segments and the ='
+
+# Each refusal.
+Assert-Throws { Get-MarketUrls -Path '/x|XX=/y' -Markets $SWB } 'an unknown label is refused' '*XX*Known markets*NL*'
+Assert-Throws { Get-MarketUrls -Path '/x|NL=/a|NL=/b' -Markets $SWB } 'a label given twice in a page is refused' '*NL*twice*'
+Assert-Throws { Get-MarketUrls -Path '/x|nl=/a|NL=/b' -Markets $SWB } '...also when the spellings differ' '*twice*'
+Assert-Throws { Get-MarketUrls -Path '/x|/y|NL=/a' -Markets $SWB } 'two defaults in a page are refused' '*more than one default*'
+Assert-Throws { Get-MarketUrls -Path '/x|NL=' -Markets $SWB } 'an empty LABEL= path is refused' '*empty path*'
+Assert-Throws { Get-MarketUrls -Path '/x|NL= ' -Markets $SWB } '...also when it is only spaces' '*empty path*'
+Assert-Throws { Get-MarketUrls -Path 'NL=/a|DE=/b' -Markets $SWB } 'no default with unnamed markets is refused' '*no default*FR, ES, UK*'
+Assert-Throws { Get-MarketUrls -Path '/ok,NL=/a' -Markets $SWB } '...also on a later page, though the first is fine' '*no default*'
+Assert-Throws { Get-MarketUrls -Path '/x|NL=C:/Program Files/Git/y' -Markets $SWB } `
+    'a mangled git-bash path inside a LABEL= segment is refused' '*MSYS_NO_PATHCONV*'
+Assert-Throws { Get-MarketUrls -Path '/x|NL=C:\Program Files\Git\y' -Markets $SWB } '...in either slash direction' '*MSYS_NO_PATHCONV*'
+Assert-Throws { Get-MarketUrls -Path 'C:/Program Files/Git/x|NL=/y' -Markets $SWB } 'a mangled DEFAULT beside a label is refused too' '*MSYS_NO_PATHCONV*'
+
+# The preview builders and the handover pairs carry the resolved path through.
+$pv = @(Get-MarketPreviewUrls -ThemeId 5 -Path $strapSpec -Markets $SWB)
+Assert-Equal 5 $pv.Count 'preview URLs: one per market for a per-market page'
+Assert-Equal '/collections/apple-watch-armbaender' $pv[1].Path 'preview URLs: the row Path is the resolved path'
+Assert-Equal 'https://smartwatcharmbaender.de/collections/apple-watch-armbaender?preview_theme_id=5&_ab=0&_fd=0&_sc=1' $pv[1].Url `
+    'preview URLs: the per-market handle carries the preview parameters'
+$pp = @(Get-MarketHandoverPairs -ThemeId 5 -Path $strapSpec -Markets $SWB -LiveThemeId 9)
+Assert-Equal 5 $pp.Count 'handover pairs: one per market'
+Assert-Equal '/collections/correas-apple-watch' $pp[3].Path 'handover pairs: the row Path is the resolved path'
+Assert-Equal 'https://correasmartwatch.es/collections/correas-apple-watch?preview_theme_id=5&_ab=0&_fd=0&_sc=1' $pp[3].PreviewUrl `
+    'handover pairs: the preview half names the market''s own handle'
+Assert-Equal 'https://correasmartwatch.es/collections/correas-apple-watch?preview_theme_id=9&_ab=0&_fd=0&_sc=1' $pp[3].LiveUrl `
+    '...and so does the live half, on the same page'
+Assert-Throws { Get-MarketPreviewUrls -ThemeId 5 -Path '/x|XX=/y' -Markets $SWB } 'the preview builder refuses an unknown label too' '*XX*'
+
+# Get-PageSpecs and Format-StorefrontPath on their own.
+$spec = @(Get-PageSpecs -Path '/a|NL=/b' -MarketLabels @('NL', 'DE'))
+Assert-Equal 1 $spec.Count 'Get-PageSpecs: one page'
+Assert-Equal '/a' $spec[0].Default 'Get-PageSpecs: the default'
+Assert-Equal '/b' $spec[0].ByMarket['NL'] 'Get-PageSpecs: the override, by the table''s label'
+Assert-Equal '/' (@(Get-PageSpecs -Path ' , ' -MarketLabels @('NL')))[0].Default 'Get-PageSpecs: an all-blank -Path is the home page'
+Assert-Equal '/x' (Format-StorefrontPath -Path 'x') 'Format-StorefrontPath: adds the leading slash'
+Assert-Equal '/x' (Format-StorefrontPath -Path ' /x ') 'Format-StorefrontPath: trims'
+Assert-Throws { Format-StorefrontPath -Path 'C:/Program Files/Git/x' } 'Format-StorefrontPath: refuses a mangled path' '*MSYS_NO_PATHCONV*'
+# The home page on a per-market page: the root keeps its slash on a root market, none under a prefix.
+$home2 = @(Get-MarketUrls -Path '/|DE=/de-home' -Markets $XOXO)
+Assert-Equal 'https://www.xoxowildhearts.com/' $home2[0].Url 'a default of / on a root market keeps the trailing slash'
+Assert-Equal 'https://www.xoxowildhearts.com/en' $home2[1].Url '...and on a prefixed market is the bare prefix'
+
+Write-Host ''
 Write-Host 'The git-bash mangled path -- a refusal, because a note had been tried' -ForegroundColor Cyan
 
 Assert-True (Test-MangledStorefrontPath -Path 'C:/Program Files/Git/products/foo') 'a drive letter is the mangling''s fingerprint'
@@ -318,7 +430,8 @@ Assert-Equal 5 (Get-MarketDomains -Markets $SWB).Count '...and both are derived 
 
 foreach ($fn in @('Get-MarketTable', 'Get-MarketUrls', 'Get-MarketPreviewUrls', 'Write-MarketPreviewUrls',
                   'Get-MarketDomains', 'Get-MarketPaths', 'Get-NormalizedPaths', 'Test-MangledStorefrontPath',
-                  'Get-AppliedThemeId', 'Get-PreviewPrimeUrls', 'Get-MarketHandoverPairs', 'Get-ControlThemeId')) {
+                  'Get-AppliedThemeId', 'Get-PreviewPrimeUrls', 'Get-MarketHandoverPairs', 'Get-ControlThemeId',
+                  'Format-StorefrontPath', 'Get-PageSpecs')) {
     Assert-True (Test-FunctionDefined -Name $fn) "the superset still exports $fn"
 }
 
