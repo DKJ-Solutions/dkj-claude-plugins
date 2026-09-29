@@ -318,7 +318,16 @@ try {
     New-Item -ItemType Directory -Path $jOutside -Force | Out-Null
     Move-Item -LiteralPath (Join-Path $jWorkflows 'ci.yml') -Destination $jOutside
     Remove-Item -LiteralPath $jWorkflows
-    & cmd /c mklink /J "$jWorkflows" "$jOutside" | Out-Null
+    # A junction is the Windows arrangement; on Linux the equivalent is a directory symlink (#2488). The
+    # refusal under test reads the entry's ReparsePoint attribute from its parent's listing, and .NET sets
+    # that attribute for a Unix symlink as it does for a junction, so the same assertions hold on both.
+    # OS is told by the path separator, which works on Windows PowerShell 5.1 (no $IsWindows there).
+    $onUnix = [System.IO.Path]::DirectorySeparatorChar -eq '/'
+    if ($onUnix) {
+        New-Item -ItemType SymbolicLink -Path $jWorkflows -Target $jOutside | Out-Null
+    } else {
+        & cmd /c mklink /J "$jWorkflows" "$jOutside" | Out-Null
+    }
     try {
         $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
         Assert-Equal 0 $r.Code 'junction: exits 0 -- a refusal is not a failed run'
@@ -329,7 +338,12 @@ try {
         $r = Invoke-Adopt -Dir $dir -ScriptArgs @('-RulesJsonOverride', $rulesOn, '-Apply')
         Assert-Equal 1 $r.Code 'junction, queue on: a refused queue runner is a live defect (exit 1), not a clean run'
     } finally {
-        & cmd /c rmdir "$jWorkflows" | Out-Null
+        # Non-recursive on both: it removes the link itself and can never empty the target.
+        if ($onUnix) {
+            [System.IO.Directory]::Delete($jWorkflows)
+        } else {
+            & cmd /c rmdir "$jWorkflows" | Out-Null
+        }
     }
 
     # --- 2. -Apply places every runner, pointing at the PLUGIN tree --------------------------------

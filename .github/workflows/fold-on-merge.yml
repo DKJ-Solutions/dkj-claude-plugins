@@ -143,8 +143,12 @@
 # serialises nothing. Two folds that still overlap are handled by fold-changelog-entry.ps1's own
 # push-failure diagnosis, which tells them apart rather than corrupting anything.
 #
-# WINDOWS, like every other workflow that runs these scripts: they target Windows PowerShell 5.1, so
-# this runs under `shell: powershell` (5.1) rather than pwsh.
+# LINUX, UNDER PWSH 7 (issue #2488). This runner used to be windows-latest under `shell: powershell` (5.1),
+# and on a private repo a Windows minute costs $0.010 against $0.006 for Linux. It now runs on
+# ubuntu-latest under `shell: pwsh`, with one shim step that points `powershell` at pwsh, because the
+# scripts start child processes by that literal name and ubuntu-latest has only `pwsh`. merge-on-green.yml
+# is NOT moved: it drives ship-pr's whole merge path, and a workflow_run runner cannot be proved on its
+# own PR. ci.yml's Linux leg runs this runner path's suites under pwsh, so the move stays proved.
 name: Fold on merge
 
 permissions:
@@ -161,7 +165,7 @@ concurrency:
 
 jobs:
   fold-on-merge:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     # SKIP A FOLD-ONLY PUSH AT THE JOB LEVEL, NOT WITH A STEP-LEVEL if: -- A JOB SKIPPED BY if: IS NOT
     # BILLED AT ALL, WHERE A SKIPPED STEP STILL PAYS FOR THE RUNNER STARTING (issue #2487, metered
     # Actions minutes in a private consumer). Measured in BWJ-Development/smartwatchbanden (private,
@@ -207,9 +211,17 @@ jobs:
       # non-zero too, indistinguishable from "found" at the process boundary -- and the fold
       # step below refuses to treat those the same, rather than folding blind on an outcome it
       # cannot explain (Victor #19, pre-merge review of this branch).
+      # THE SHIM (issue #2488): the scripts launch children by the literal name `powershell` in many
+      # places (ship-pr, open-pr, verify-pushed-merges, ...), and ubuntu-latest has only `pwsh`. One
+      # symlink resolves all of them, where a per-site rename would touch far more than this runner.
+      # It has to run before the first pwsh step.
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
       - name: Is there an unfolded changelog entry on the trunk?
         id: check
-        shell: powershell
+        shell: pwsh
         continue-on-error: true
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/lint/check-unfolded-entry.ps1 -Branch main *>&1 | Tee-Object -FilePath check-output.txt
@@ -217,7 +229,7 @@ jobs:
 
       - name: Fold it (fold-all mode -- every leftover this push may carry)
         if: ${{ steps.check.outcome == 'failure' }}
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

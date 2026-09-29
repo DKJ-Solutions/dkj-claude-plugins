@@ -74,8 +74,9 @@
 # now skipped at the JOB level -- see the if: on the job below -- which is unbilled rather than merely
 # short.
 #
-# WINDOWS, like every other workflow that runs these scripts: they target Windows PowerShell 5.1, so
-# this runs under `shell: powershell` (5.1) rather than pwsh.
+# LINUX, UNDER PWSH 7 (issue #2488), like fold-on-merge.yml, whose header has the reasoning: ubuntu-latest
+# and `shell: pwsh`, with one shim step pointing the literal child name `powershell` at pwsh.
+# merge-on-green.yml stays on windows-latest.
 name: Verify resolved issues
 
 permissions:
@@ -97,7 +98,7 @@ concurrency:
 
 jobs:
   verify-resolved:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     # SKIP A FOLD-ONLY PUSH AT THE JOB LEVEL -- A JOB SKIPPED BY if: IS NOT BILLED AT ALL (issue #2487).
     # See the header above for why the reasoning that used to accept this run rather than skip it has
     # expired for a metered repo.
@@ -141,6 +142,12 @@ jobs:
         with:
           persist-credentials: false
 
+      # THE SHIM (issue #2488): the scripts launch children by the literal name `powershell`, and
+      # ubuntu-latest has only `pwsh`; one symlink resolves them all. See fold-on-merge.yml.
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
       # THE EVENT'S VALUES ARRIVE THROUGH `env:`, NOT THROUGH `${{ }}` INSIDE `run:`. Interpolating an
       # expression into a shell body substitutes it as TEXT before the shell ever parses the line, which
       # is the standard Actions script-injection shape. These three are SHAs and a repository name that
@@ -148,7 +155,7 @@ jobs:
       # should not have to be re-argued if a future edit reaches for a branch name or a PR title, which
       # are attacker-controlled. Same cost, one fewer class.
       - name: Verify the issues this push's pull requests declared they close
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}

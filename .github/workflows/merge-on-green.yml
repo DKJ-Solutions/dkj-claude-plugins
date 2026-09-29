@@ -65,6 +65,9 @@ concurrency:
 
 jobs:
   merge-on-green:
+    # STILL windows-latest, WHILE fold-on-merge, verify-resolved AND repo-settings MOVED TO ubuntu-latest +
+    # pwsh (issue #2488): this job drives ship-pr's whole merge path, and a workflow_run runner cannot be
+    # proved on its own PR, so its move is its own step.
     runs-on: windows-latest
     # 45 MINUTES, WHICH IS LONGER THAN EVERY OTHER JOB HERE BECAUSE THIS ONE WAITS ON CI ON PURPOSE.
     # ship-pr's step 3b may bring a stale branch up to date and re-certify it, up to -MaxForwardLaps

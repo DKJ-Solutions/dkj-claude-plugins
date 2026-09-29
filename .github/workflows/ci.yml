@@ -405,6 +405,51 @@ jobs:
           if (-not $gateOk) { exit 1 }
           exit 0
 
+  # THE LINUX LEG (issue #2488). fold-on-merge, verify-resolved and repo-settings run on ubuntu-latest under
+  # pwsh 7, so the suites that pin the scripts those runners call have to pass there too -- otherwise the
+  # move is proved only by the first live run in a consumer. Only the runner path's suites are listed; the
+  # rest of scripts/tests stays on the Windows shards above, which is where the whole tree is judged.
+  #
+  # A SEPARATE JOB, AND DELIBERATELY NOT IN lint-en-tests' `needs:` YET: the required check is not changed
+  # by this leg, so it reports red on its own without blocking a merge. Adding it to `needs:` is the
+  # step that makes it a gate, and it is one edit away when this leg has run green on the trunk.
+  #
+  # THE SHIM is the same one the three runners carry: the scripts launch children by the literal name
+  # `powershell`, and ubuntu-latest has only `pwsh`. fetch-depth: 0 because the fold and merge-verify
+  # suites read history. Each suite runs in its own child so one abort cannot hide the rest, and the
+  # step fails on any non-zero exit.
+  linux-runner-path:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
+      - name: Runner-path suites under pwsh on Linux
+        shell: pwsh
+        run: |
+          git config user.name "ci"
+          git config user.email "ci@users.noreply.github.com"
+          $suites = @('unfolded-entry-gate', 'fold-changelog', 'verify-pushed-merges', 'repo-settings-gate',
+                      'merge-on-green-lib', 'ship-pr-trusted-root', 'verify-resolved-issues', 'native-capture',
+                      'adopt-ci-floor')
+          $failed = @()
+          foreach ($s in $suites) {
+            Write-Host "=== $s"
+            pwsh -NoProfile -File "./scripts/tests/$s.tests.ps1"
+            if ($LASTEXITCODE -ne 0) { $failed += "$s (exit $LASTEXITCODE)" }
+          }
+          if ($failed.Count -gt 0) {
+            Write-Host "::error::Linux runner-path suites failed: $($failed -join ', ')"
+            exit 1
+          }
+          exit 0
+
   # THE REQUIRED CHECK. Reports nothing of its own -- it exists so that `main-ci-gate`'s single required
   # context still names one job while the work happens in five. Why the name must not change is the
   # paragraph below; `!cancelled()` and the strict result check are argued at the keys they sit on.

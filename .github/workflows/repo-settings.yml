@@ -54,8 +54,10 @@
 # instruction stays a UI pointer instead: that switch carries policy nobody here has chosen. No standing
 # token, unlike fold-on-merge.yml, and nothing to borrow one for.
 #
-# WINDOWS, like ci.yml, branch-entry.yml and unfolded-entry.yml, and for the same reason: the scripts
-# target Windows PowerShell 5.1, so they run under `shell: powershell` (5.1) rather than pwsh.
+# LINUX, UNDER PWSH 7 (issue #2488), unlike ci.yml, branch-entry.yml and unfolded-entry.yml, which still
+# run on windows-latest: this one moved with fold-on-merge.yml and verify-resolved.yml, whose headers have
+# the reasoning (ubuntu-latest, `shell: pwsh`, one shim step pointing the literal child name `powershell`
+# at pwsh). merge-on-green.yml stays on windows-latest.
 name: Repo settings
 
 permissions:
@@ -77,7 +79,7 @@ concurrency:
 
 jobs:
   repo-settings:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     # 10 MINUTES, AND THE CAP IS A WEDGE DETECTOR RATHER THAN A PERFORMANCE BUDGET -- issue #2296. A job
     # with no timeout-minutes runs to GitHub's SIX-HOUR default; this one measures under a minute over its
     # 20 most recent successful runs, so 10 is an order of magnitude of headroom and still bounds a wedge.
@@ -98,8 +100,14 @@ jobs:
         with:
           persist-credentials: false
 
+      # THE SHIM (issue #2488): the script launches children by the literal name `powershell`, and
+      # ubuntu-latest has only `pwsh`; one symlink resolves them all. See fold-on-merge.yml.
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
       - name: GitHub-side settings still match what the tree declares
-        shell: powershell
+        shell: pwsh
         env:
           # gh reads GH_TOKEN; `contents: read` is what the two non-admin endpoints need.
           GH_TOKEN: ${{ github.token }}
