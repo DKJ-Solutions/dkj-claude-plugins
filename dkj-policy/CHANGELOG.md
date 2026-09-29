@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**29 / 41 minor entries** <!-- pending-tally -->
+**29 / 42 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2635-backup-moment-per-store · 20260929-125016Z
+
+The BWJ theme-lifecycle page no longer calls a backup taken at the cut BWJ's answer. Push-then-cut is
+unchanged. When the release's one backup is taken is now a per-store choice: before the push through
+`live-preflight` (a rollback point), or at the cut (a baseline of what shipped). The page also says to
+pick one, because following both pages gave a store two backups per release, and the cut's backup
+rotated out the rollback point the preflight had just made. The backup run's order warning no longer
+calls a pre-push backup a departure from policy (#2635).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+theme-lifecycle: the backup's moment is a per-store choice, and a store takes only one
+
+Plugins: dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2639](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2639)
+
+---
 
 ### DEPLOY: fix/2634-complete-run-progress-retries-locked-delete · 20260929-121818Z
 
