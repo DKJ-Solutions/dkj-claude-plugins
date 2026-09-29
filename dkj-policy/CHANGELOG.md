@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**26 / 37 minor entries** <!-- pending-tally -->
+**27 / 38 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2622-branch-entry-head-ref-env · 20260929-110632Z
+
+The branch-entry CI gate now receives the pull request's head branch through an environment variable
+instead of having it pasted into the script it runs. A branch name is chosen by whoever opens the pull
+request, and a pasted one carrying `$(...)` or a quote would have run as code on the runner (#2622).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Every consumer that calls `reusable-branch-entry.yml` at `@main` gets the fix at once, before any release.
+It closes a script-injection path on the runner that has not been used: a pull request whose branch name
+runs a command.
+
+**Score:** 1
+
+#### Pull Request
+
+branch-entry gates pass the head ref through env:, not spliced into run:
+
+Plugins: dkj-policy
+
+[PR #2631](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2631)
+
+---
 
 ### DEPLOY: fix/2627-golive-per-market-paths · 20260929-105112Z
 
