@@ -214,7 +214,7 @@ if (-not (Test-Path -LiteralPath $tokenPath -PathType Leaf)) {
            "from the URL you have, or run -InitToken if this is the first setup.")
 }
 $token = ([System.IO.File]::ReadAllText($tokenPath, [System.Text.Encoding]::UTF8)).Trim()
-if ($token -notmatch '^[0-9a-f]{32}$') {
+if ($token -cnotmatch '^[0-9a-f]{32}$') {
     throw "The path token is not 32 lowercase hex characters: $tokenPath"
 }
 
