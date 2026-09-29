@@ -39,9 +39,20 @@
 
 ### PLAN
 
+Inbound #2624, verified in the tree. `shopify theme push` (CLI 4.8.2) exits 0 when it rejects a file:
+it draws an `error` box naming the file and closes with "The theme '...' was pushed with errors"
+(measured in BWJ-Development/smartwatchbanden#790, 2026-09-29). `push-preview.ps1` judged the push on
+`ExitCode` alone, so it printed its green line and the preview URLs for a preview missing the rejected
+file, and `shopify-cli-lib.ps1` stated ExitCode was the only thing a caller may judge. The streamed call
+already hands back `Output`; nothing read it. The repair ports the consumer's measured parser. No other
+plugin script runs `theme push` (`live-preflight` only prints the command). Closes #2624.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `preview-theme.ps1`: `Get-ThemePushProblems` reads the push output -- failed on the "pushed with errors" line or an `error` box, with the box's lines (file and error) returned; ANSI and box-drawing characters stripped, a `warning` box alone is not a failure
+- [x] `push-preview.ps1`: on a failed read, prints the rejected lines and exits 1 before the preview URLs
+- [x] `shopify-cli-lib.ps1`: the ExitCode-only sentence corrected, naming `theme push`; the `push-preview` SKILL.md step 6 says when URLs are withheld
+- [x] Plugin mirrors of all three scripts byte-identical
 
 ### TEST
 
