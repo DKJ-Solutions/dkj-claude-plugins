@@ -2,8 +2,8 @@
 name: golive-block
 description: >-
   Write the paste-ready block for a GitHub issue, including its go-live half: where the result can be
-  seen, when it is planned to go live (the next release day), and the live storefront URL per market. Use it as the closing act of the chain that shipped the work,
-  while the issue is still OPEN -- closing the issue is the confirmation that the block reached the
+  seen, when it is planned to go live (the next release day), and the live storefront URL per market.
+  Use it as the closing act of the chain that shipped the work, while the issue is still OPEN -- closing the issue is the confirmation that the block reached the
   Asana task. It prints by default and posts only with -Post; it never touches Asana, and it never
   writes a placeholder link.
 ---
@@ -12,7 +12,7 @@ description: >-
 
 `WORKFLOW-portable.md`'s paste-ready block answered *where can I see it* and stopped there. The
 requester's next question is always *and when do I actually see it*, and the ticket is the only place
-they are looking -- so the block carries three more facts
+they are looking -- so the block carries more facts: the release day, the live URLs, and a version only where one is given
 ([#2100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2100), Dave,
 September 18, 2026).
 

@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
     The decisions behind the go-live half of the paste-ready block -- which day the next release
-    falls on, which version it is currently on course for, and the text the block becomes. Pure: no
+    falls on, the projected version the driver prints for the session, and the text the block becomes
+    (a version in it only when one is given, #2620). Pure: no
     network, no filesystem, no repo-config, no gh, no Asana.
 
 .DESCRIPTION
@@ -14,9 +15,9 @@
     ISSUE #2100 (Dave, September 18, 2026). The block WORKFLOW-portable.md defines answered
     'where can I see it' and stopped there. The requester's next question is always 'and when do I
     actually see it', and the ticket is the only place they are looking, so the block gained three
-    facts: the next release day, the version that release will carry, and the live storefront URLs.
+    facts: the next release day, the version that release would carry, and the live storefront URLs.
 
-    EVERY ONE OF THE THREE IS A PROJECTION, AND THE WORDING SAYS SO. A release can slip, so 'Het staat
+    THE RELEASE DAY IS A PROJECTION, AND THE WORDING SAYS SO. A release can slip, so 'Het staat
     gepland' / 'planned to go live' is the wording, never 'will' -- this block is the one surface a
     colleague quotes back, so a cadence must not read there as a commitment anybody made. The version
     went further than wording could carry: a tier-1 entry landing on the Friday turns a predicted patch

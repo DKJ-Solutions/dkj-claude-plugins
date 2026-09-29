@@ -586,12 +586,12 @@ reminded. **A repo that has NOT stated the seam is exactly where this paragraph 
 rule stands, nothing reads it, and the difference between a correct ship and a wrong one is whether the
 session remembered. The measurement behind that sentence is one of each, days apart, in the same repo.
 
-##### The go-live half -- the three facts the requester asks for next
+##### The go-live half -- the facts the requester asks for next
 
 **The block used to answer *where*, and stop there** (Dave, September 18, 2026,
 [#2100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2100)). The requester's next
 question is always *and when do I actually see it?*, and the ticket is the only place they are looking,
-so the block carries three more facts. It is one of the two steps this plugin adds to `dkj-policy`'s
+so the block carries more facts: the release day, the live URLs, and a version only where one is given. It is one of the two steps this plugin adds to `dkj-policy`'s
 cycle -- the other is the storefront-visibility step in
 [`PREVIEW-portable.md`](PREVIEW-portable.md) -- and both are indexed in
 [the README](README.md#what-the-cycle-gains-here).
@@ -614,9 +614,7 @@ will quote back. The version was the other half of that sentence until #2620, an
 a tier-1 entry landing on the Friday turns a predicted patch into a minor, and *"als versie v2.45.1"*,
 six days out, was rejected by the owner as a number nobody could know.
 
-**Where a fact cannot be derived it is left out, never guessed.** A version is named only when
-`-Version` says it; a repo that has declared no
-storefront markets gets no live-URL list. The whole reason the link in the first line is a person's to
+**Where a fact cannot be derived it is left out, never guessed.** A version is named only when `-Version` says it; a repo that has declared no storefront markets gets no live-URL list. The whole reason the link in the first line is a person's to
 fill in is that a plausible wrong answer is worse than a missing one, and that reasoning does not stop
 applying one paragraph further down.
 
