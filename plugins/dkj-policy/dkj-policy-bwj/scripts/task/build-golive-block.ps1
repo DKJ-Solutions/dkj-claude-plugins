@@ -1,8 +1,7 @@
 <#
 .SYNOPSIS
     Build the paste-ready block for a GitHub issue, including its go-live half: where the result can
-    be seen, when it is planned to go live, which version it is on course for, and the live
-    storefront URLs per market.
+    be seen, when it is planned to go live, and the live storefront URLs per market.
 
 .DESCRIPTION
     Issue #2100 (Dave, September 18, 2026). WORKFLOW-portable.md's paste-ready block answered 'where
@@ -24,10 +23,11 @@
 
       the date     the next release day, strictly after today. BWJ cuts on a Monday, which is the
                    default; -ReleaseDay is there for a repo on another cadence.
-      the version  the newest vX.Y.Z tag, stepped by the bump the changelog's pending tally already
-                   names. Not re-derived from the entries: the fold computes that number and writes
-                   it into the document, and the tier parser that produces it lives in dkj-policy's
-                   libs, which this plugin's scripts may not reach.
+      the version  ONLY WHAT -Version SAYS (#2620). The newest vX.Y.Z tag stepped by the bump the
+                   changelog's pending tally names today is printed on the console as a projection,
+                   and never written into the block: every entry that lands before release day can
+                   raise it, and a colleague quotes the block back as a fact. The tally is read, not
+                   re-derived -- the tier parser lives in dkj-policy's libs, out of this plugin's reach.
       the URLs     Get-MarketUrls over the pages -Path names, from the same market table a preview
                    pair is built from -- BARE, with a private-window caveat in the label (#2619): a
                    bare URL renders the preview in any browser that opened the result link first
@@ -44,9 +44,10 @@
     the same bytes for a caller that embeds the block elsewhere -- the console printout is for reading,
     and a console code page may not carry every character.
 
-    EVERY ONE OF THEM IS A PROJECTION AND THE BLOCK SAYS 'Planned to', never 'will'. A tier-1 entry
-    landing on the Friday turns a predicted patch into a minor, and a release can slip. Where a fact
-    cannot be derived it is left out rather than guessed -- see golive-block-rules.ps1's header.
+    THE DATE IS A PROJECTION AND THE BLOCK SAYS 'Planned to', never 'will': a release can slip. The
+    version was one too until #2620 -- a tier-1 entry landing on the Friday turns a predicted patch into
+    a minor -- which is why it left the block. Where a fact cannot be derived it is left out rather than
+    guessed -- see golive-block-rules.ps1's header.
 
     WHY IT DOT-SOURCES templates/asana-mirror.ps1. For Get-AsanaPasteBlockMarker and
     Test-AsanaPasteBlockPosted alone -- the marker the backstop's de-duplication matches on, and the
@@ -83,8 +84,8 @@
     that serves no storefront.
 
 .PARAMETER Version
-    Override the predicted version, or supply one where it cannot be derived (no v* tag, a changelog
-    whose tally has been translated, a major somebody has decided to cut).
+    The version to name in the block. Omitted, the block names the release day and no number (#2620);
+    pass it once the number can no longer change -- the cut is prepared, or a major has been decided.
 
 .PARAMETER ReleaseDay
     The weekday releases are cut on. Monday, which is BWJ's cadence.
@@ -118,7 +119,8 @@
 
 .EXAMPLE
     ./build-golive-block.ps1 -Issue 412 -Link "https://store.example/products/foo?preview_theme_id=123&_ab=0&_fd=0&_sc=1"
-    Prints the block for issue 412, with the date and version derived from this repo.
+    Prints the block for issue 412, with the date derived from this repo and the projected version on
+    the console only.
 
 .EXAMPLE
     ./build-golive-block.ps1 -Issue 412 -Link https://... -Path /collections/straps -Post
@@ -261,7 +263,13 @@ Write-Host "  go live  : $goLiveText" -ForegroundColor DarkGray
 # THE TAG IS THE RECORD OF THE LAST CUT IN EVERY REPO RUNNING THIS WORKFLOW, whether or not it
 # publishes plugins -- cut-release always tags. The lockstep read that script also makes exists to PROVE
 # the manifests agree, which is a release gate's question and not a message generator's.
+#
+# THE PROJECTION IS THE SESSION'S, AND ONLY -Version REACHES THE BLOCK (#2620). The tally is the entries
+# folded so far, and every entry that lands before release day can still raise it, so the stepped number
+# is a guess -- one a colleague quotes back as a fact. It is still worked out and printed here, where the
+# session can weigh it; the block names a version only when somebody passes one on purpose.
 $resolvedVersion = $VersionArg
+$projected       = ''
 $versionWhy      = 'given with -Version'
 if (-not $resolvedVersion) {
     $tagRun = Invoke-Native { git -C $repoRoot tag --list 'v*' --sort=-v:refname }
@@ -282,8 +290,8 @@ if (-not $resolvedVersion) {
     }
 
     if ($latestTag -and $bump) {
-        $resolvedVersion = Step-SemVer -Current ($latestTag -replace '^v', '') -Bump $bump
-        $versionWhy      = "$latestTag stepped by the '$bump' the pending tally names"
+        $projected  = Step-SemVer -Current ($latestTag -replace '^v', '') -Bump $bump
+        $versionWhy = "$latestTag stepped by the '$bump' the pending tally names today -- NOT in the block; pass -Version to put a number there"
     } else {
         # NAMED RATHER THAN SUMMARISED, because the two causes have two different remedies: cut a tag,
         # or answer -Version because the tally cannot be read.
@@ -293,7 +301,8 @@ if (-not $resolvedVersion) {
         $versionWhy = 'not derived -- ' + ($missing -join ', ')
     }
 }
-Write-Host "  version  : $(if ($resolvedVersion) { "v$resolvedVersion" } else { '(none)' })  [$versionWhy]" -ForegroundColor DarkGray
+$versionShown = if ($resolvedVersion) { "v$resolvedVersion" } elseif ($projected) { "(none; projected v$projected)" } else { '(none)' }
+Write-Host "  version  : $versionShown  [$versionWhy]" -ForegroundColor DarkGray
 
 # --- The live URLs ----------------------------------------------------------------------------------
 # ONLY WHERE -Path SAYS SO. A block with no pages named carries no list, which is the correct answer in
