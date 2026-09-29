@@ -999,6 +999,10 @@ Write-Output "GATE-VERDICT=`$ok"
     # shim beside its '.cmd', and handing that to the loader fails in exactly this way.
     $bogusExe = Join-Path $sandbox 'bogus-2234.exe'
     Set-Content -LiteralPath $bogusExe -Encoding Ascii -Value 'this is not a PE image'
+    # OFF WINDOWS THE FILE CARRIES THE EXECUTE BIT, or it is not the same shape (#2488, measured on
+    # ubuntu-latest): pwsh 7 hands a file WITHOUT it to xdg-open as a document to open, which is no launch
+    # at all. With it, the kernel refuses the image (ENOEXEC) -- the loader refusal this block pins.
+    if (-not $script:OnWindows) { & chmod +x $bogusExe }
     foreach ($shape in @(
         @{ Name = 'the & arm';     Args = @{} }
         @{ Name = 'the -Utf8 arm'; Args = @{ Utf8 = $true } }

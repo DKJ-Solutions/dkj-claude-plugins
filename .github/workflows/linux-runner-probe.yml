@@ -72,4 +72,6 @@ jobs:
         run: |
           $f = Join-Path ([IO.Path]::GetTempPath()) 'bogus-2234.exe'
           Set-Content -LiteralPath $f -Value 'this is not a PE image'
-          try { & $f } catch { $e = $_.Exception; while ($e) { Write-Host "TYPE: $($e.GetType().FullName) -- $($e.Message)"; $e = $e.InnerException } }
+          chmod +x $f
+          try { & $f; Write-Host "no throw, exit $LASTEXITCODE" } catch { $e = $_.Exception; while ($e) { Write-Host "TYPE: $($e.GetType().FullName) -- $($e.Message)"; $e = $e.InnerException } }
+          try { Start-Process -FilePath $f -NoNewWindow -Wait } catch { $e = $_.Exception; while ($e) { Write-Host "SP TYPE: $($e.GetType().FullName) -- $($e.Message)"; $e = $e.InnerException } }
