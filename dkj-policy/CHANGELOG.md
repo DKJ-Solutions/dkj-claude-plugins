@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**31 / 44 minor entries** <!-- pending-tally -->
+**32 / 45 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2643-issue-dashboard-worker · 20260929-202219Z
+
+`dkj-policy` gains an optional, self-contained feature and nothing else changes: a new skill, a new script with its mirror, two worker files, one optional seam and one gitignore line. The worker holds no content and no secret, and the ordering and status rules sit in a pure module the suite runs under `node`, so a later change to them is testable without a Cloudflare account.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo running `dkj-policy` can now put its open issues on a live dashboard that says what is in flight, what is waiting, what is blocked and what to pick up next. The order comes from GitHub's own blocked-by dependencies rather than from labels. The feature is optional because it needs a Cloudflare account and `node`; a repo without one adopts nothing and loses nothing. Setup is in [the `issue-dashboard` skill](../plugins/dkj-policy/skills/issue-dashboard/SKILL.md).
+
+**Score:** 3
+
+#### Pull Request
+
+A live issue dashboard on a Cloudflare Worker
+
+Plugins: dkj-policy
+
+[PR #2645](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2645)
+
+---
 
 ### DEPLOY: fix/2641-only-push-deletes-missing-path · 20260929-144320Z
 
