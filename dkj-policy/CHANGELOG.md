@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**27 / 38 minor entries** <!-- pending-tally -->
+**28 / 39 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2623-claim-race-release-binds · 20260929-112246Z
+
+`claim-issue -Tag` now actually releases its own claim when it loses a race. Its self-release passed
+`-Tag` as a positional string, so PowerShell refused the call, and the losing marker and assignee stayed
+on the issue. The next `-Candidates` then read the issue as held by both machines (#2623).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running parallel sweeps on several machines or accounts no longer has to clear a lost claim by
+hand with `claim-issue -Tag -Release`. The losing machine lets go the moment it loses.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue: the race loser's self-release binds its switches by name, so the losing claim is released
+
+Plugins: dkj-policy
+
+[PR #2632](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2632)
+
+---
 
 ### DEPLOY: fix/2622-branch-entry-head-ref-env · 20260929-110632Z
 
