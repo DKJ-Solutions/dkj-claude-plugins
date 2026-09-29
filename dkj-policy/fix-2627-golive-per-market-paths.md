@@ -57,7 +57,7 @@ function is the repair. Closes #2627.
 ### TEST
 
 - [x] Sanity run of the new form and every refusal on a three-market table; the mangled-path refusal holds on a `LABEL=` segment
-- [ ] Tycho: the suite for the per-market form in `bwj-market-urls.tests.ps1`
+- [x] Tycho: the suite for the per-market form in `bwj-market-urls.tests.ps1`
 
 ### DEPLOY: fix/2627-golive-per-market-paths
 
