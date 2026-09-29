@@ -39,19 +39,66 @@
 
 ### PLAN
 
+Inbound #2641 (consumer BWJ-Development/xoxowildhearts#307). Verified on pickup:
+
+- **Symptom:** the four statements stand (`live-push-rules.ps1:189`, `live-record-lib.ps1:69,84`,
+  `live-preflight.ps1:466`, the live-preflight skill), plus two more the report did not name:
+  `prepare-release.ps1:358,363` in dkj-policy-bwj and the sync-main skill.
+- **Reason:** read in the installed `@shopify/cli` 4.8.2 here. `chunk-F4HKZVXJ.js`: the delete step
+  returns early only on `o.nodelete`; its set is `e.applyIgnoreFilters(remote).filter(k => !e.files.has(k))`.
+  `chunk-ZKWJX5GE.js` `Ho` builds that filter from `{ ignore, only }`. So `--only <path>`, absent
+  locally, deletes it on the theme. Not executed against a store: no store is reachable from this repo,
+  and pushing a dummy to a real store is outward-facing.
+- **#2566** was built on the opposite premise, stated as its "why" and never verified.
+
+#### The design
+
+- A `deleted` row stays out of the ordinary push list. live-preflight composes a **second, separately
+  named command** with the same builder (`Format-LivePushCommand -Only $deleteFiles`), so authorising a
+  deletion on live stays its own visible act.
+- The deleted paths go through the drift check **in a call of their own**. A deletion destroys live's
+  content like an overwrite does, so a third party's content at that path stops it. A refusal there
+  withholds only the deletion command (a warning), unless deletions are the range's only theme change
+  (a refusal). A consumer drift check that cannot read a locally missing path fails the same, safe way.
+- The live-push record writes a deleted row as `live` when the deletion command was composed
+  (`Format-LivePushRecord -DeletionsCarried`), `hold` otherwise.
+- The report's "`[A] ... live holds our old copy`" is sync-main's verdict and is not available to the
+  preflight, which reads no live bytes itself; the drift check is the preflight's own reading of live,
+  so it is the gate used.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] live-push-rules: the `deleted` verdict's docstring and reason corrected; `Format-LivePushCommand` notes it composes the deletion too.
+- [x] live-record-lib: `-DeletionsCarried`, the header and the format docstring.
+- [x] live-preflight: the delete group, the separate drift call, the deletion command, the record switch.
+- [x] prepare-release (bwj): the deletions and push-list details.
+- [x] live-preflight and sync-main skills.
+- [x] Mirrors rebuilt with `build-shared-scripts.ps1`.
 
 ### TEST
 
+- [x] `live-push-rules.tests.ps1` (110 pass): the reason, the retired claim absent from both drivers, the preflight wiring asserted on source, the deletion command's spelling.
+- [x] `live-record-lib.tests.ps1` (82 pass): the new header, `-DeletionsCarried`, and an entry whose only change is a carried deletion reading as live.
+- [x] `dkj-policy-bwj.tests.ps1` (498 pass).
+
 ### DEPLOY: fix/2641-only-push-deletes-missing-path
 
-**Score:**
+live-preflight now prints a separate deletion command for theme files the trunk deleted. It no longer
+leaves them on live with no route off it. An `--only` push of a path missing from the checkout
+removes it from the theme, which the plugin had stated as impossible in six places (#2641).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store running `live-preflight` gets a second, separately named command beside the push. That command
+removes the files the release deleted, after the drift check has passed on them. Before, those files
+stayed on live, and the plugin said no push could remove them.
+
+**Score:** 3
 
 #### Pull Request
 
+live-preflight: a trunk-deleted theme file gets its own --only deletion command
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-shopify

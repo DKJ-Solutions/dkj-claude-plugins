@@ -20,8 +20,8 @@
       customers while the Release page said it had landed. The owner read "landed" as live, which is what
       a release MEANS in a repo whose Get-LiveStage is a theme push.
 
-      THE AUDIENCE NOTE listed a solved task (consumer #190, via PR #282) whose removal a per-file
-      `--only` push could not carry -- 21 files were still on the live theme. The same release's GitHub
+      THE AUDIENCE NOTE listed a solved task (consumer #190, via PR #282) whose removal the per-file
+      `--only` push did not carry -- 21 files were still on the live theme. The same release's GitHub
       body, hand-corrected, listed #282 as not live. Two documents, one release, opposite answers.
 
     ONE INPUT DECIDES BOTH, which is the whole argument for this file. Built twice, the two can disagree,
@@ -35,9 +35,10 @@
         live  sections/header.liquid
         hold  snippets/product-info.liquid
 
-    'live' means the file is on the live target after this push, either because the push carries it
-    or because a sync mirrored it FROM live. 'hold' means it is not: a person held it back, or the range
-    deletes it and a `--only` push cannot carry a deletion. '#' starts a comment line. Paths not in the
+    'live' means the range's change to the file is on the live target after this push: the push
+    carries it, a sync mirrored it FROM live, or -- for a file the range deletes -- the deletion command
+    removes it (#2641). 'hold' means it is not: a person held it back, or the range deletes it and no
+    deletion command was composed. '#' starts a comment line. Paths not in the
     record are no concern of the live target (scripts, docs, CI), which is also how the record answers
     "is this a storefront change": an entry that touched none of its paths did not change the store.
 
@@ -66,7 +67,10 @@ function Format-LivePushRecord {
 
           theme-file        live -- the push carries it.
           sync-owned        live -- a sync mirrored it FROM live, so it is there whether or not it is pushed.
-          deleted           hold -- a push cannot remove a file, so the old version is still on live.
+          deleted           live with -DeletionsCarried, hold without it. An `--only` push of a path
+                            missing from the checkout REMOVES it from live (#2641), so the deletion is
+                            live exactly when the caller composed that command; without the switch
+                            nothing removes the old version, and it is still on live.
           not-a-theme-path  no line. It does not exist on a theme, so it cannot be live or held there.
 
         THE HEADER SAYS WHAT TO DO WITH THE FILE, because the person who reads it is holding a push
@@ -75,13 +79,19 @@ function Format-LivePushRecord {
     #>
     param(
         [AllowNull()][AllowEmptyCollection()][object[]]$Rows = @(),
-        [string]$Range = ''
+        [string]$Range = '',
+        [switch]$DeletionsCarried
     )
+    $deletedVerb = if ($DeletionsCarried) { 'live' } else { 'hold' }
     $out = New-Object System.Collections.Generic.List[string]
     $out.Add('# live-push record -- written by live-preflight' + $(if ($Range) { " for $Range" } else { '' }))
-    $out.Add('# One line per theme file in the range: "live <path>" is on the live theme after this push,')
-    $out.Add('# "hold <path>" is not. If you hold a file back from the push, change its "live" to "hold".')
-    $out.Add('# A deleted file is "hold" from the start: a push cannot remove a file from live.')
+    $out.Add('# One line per theme file in the range: "live <path>" means its change is on the live theme after this push,')
+    $out.Add('# "hold <path>" means it is not. If you hold a file back from the push, change its "live" to "hold".')
+    if ($DeletionsCarried) {
+        $out.Add('# A file the range deletes is "live" once the deletion command removes it; skip that command, and mark it "hold".')
+    } else {
+        $out.Add('# A file the range deletes is "hold": no deletion command was composed, so it is still on live.')
+    }
     $out.Add('# cut-release reads this file (-LivePushRecord) for the GitHub body and the audience note.')
     foreach ($r in @($Rows)) {
         if ($null -eq $r) { continue }
@@ -90,7 +100,7 @@ function Format-LivePushRecord {
         switch ([string]$r.Kind) {
             'theme-file' { $out.Add("live $path") }
             'sync-owned' { $out.Add("live $path") }
-            'deleted'    { $out.Add("hold $path") }
+            'deleted'    { $out.Add("$deletedVerb $path") }
             default      { }
         }
     }

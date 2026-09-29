@@ -75,9 +75,9 @@ $rows = @(
 $record = Format-LivePushRecord -Rows $rows -Range 'v1.3.0..HEAD'
 $expectedLines = @(
     '# live-push record -- written by live-preflight for v1.3.0..HEAD',
-    '# One line per theme file in the range: "live <path>" is on the live theme after this push,',
-    '# "hold <path>" is not. If you hold a file back from the push, change its "live" to "hold".',
-    '# A deleted file is "hold" from the start: a push cannot remove a file from live.',
+    '# One line per theme file in the range: "live <path>" means its change is on the live theme after this push,',
+    '# "hold <path>" means it is not. If you hold a file back from the push, change its "live" to "hold".',
+    '# A file the range deletes is "hold": no deletion command was composed, so it is still on live.',
     '# cut-release reads this file (-LivePushRecord) for the GitHub body and the audience note.',
     'live sections/header.liquid',
     'live sections/media-with-text.liquid',
@@ -85,6 +85,14 @@ $expectedLines = @(
 )
 Assert-Equal (($expectedLines -join "`n") + "`n") $record `
     'the record is exactly the header plus one line per theme-file/sync-owned/deleted row, in order -- not-a-theme-path gets no line'
+
+# WITH THE DELETION COMMAND COMPOSED, THE DELETION IS LIVE (#2641): an --only push of a path missing from the
+# checkout removes it from live, so the range's change to that file is in front of customers.
+$carried = Format-LivePushRecord -Rows $rows -Range 'v1.3.0..HEAD' -DeletionsCarried
+Assert-True ($carried -match "(?m)^live locales/es\.json$") '-DeletionsCarried writes a deleted row as live'
+Assert-True ($carried -notmatch "(?m)^hold ") 'and nothing else in that record is held'
+Assert-True ($carried.Contains('# A file the range deletes is "live" once the deletion command removes it')) 'and the header says what the deleted "live" means'
+Assert-Equal 'live' (Get-EntryLiveState -ChangedPaths @('locales/es.json') -Record (ConvertFrom-LivePushRecord $carried)).State 'an entry whose only theme change is a carried deletion reads as live'
 
 # THE HEADER NAMES THE RANGE ONLY WHEN ONE WAS GIVEN, because a record left over from an earlier release
 # should be recognisable as one -- a header with no range at all is not that claim.

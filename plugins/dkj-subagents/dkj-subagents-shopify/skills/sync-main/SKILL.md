@@ -145,7 +145,8 @@ lost work:
 
 The rule used to be *"has the trunk touched this file since the last sync? then the trunk wins"*, and that
 was the **wrong measurement** rather than a buggy one. Nothing pushes the trunk *to* live except the
-per-file release step, and a deletion cannot be pushed that way at all -- so the trunk's changes are
+per-file release step -- whose deletions reach live only as their own, separately authorised command
+(#2641) -- so the trunk's changes are
 permanently invisible to live and sink below the floor as soon as one more sync commit lands. After that,
 **every future sync tries to overwrite them again, forever.**
 
