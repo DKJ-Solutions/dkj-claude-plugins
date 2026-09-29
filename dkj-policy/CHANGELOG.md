@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**30 / 43 minor entries** <!-- pending-tally -->
+**31 / 44 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2641-only-push-deletes-missing-path · 20260929-144320Z
+
+live-preflight now prints a separate deletion command for theme files the trunk deleted. It no longer
+leaves them on live with no route off it. An `--only` push of a path missing from the checkout
+removes it from the theme, which the plugin had stated as impossible in six places (#2641). This\nsupersedes the #2566 entry above on one point. A deleted file is no longer listed under `held` as a\nseparate store decision: it goes under `delete` and gets that command.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store running `live-preflight` gets a second, separately named command beside the push. That command
+removes the files the release deleted, after the drift check has passed on them. Before, those files
+stayed on live, and the plugin said no push could remove them.
+
+**Score:** 3
+
+#### Pull Request
+
+live-preflight: a trunk-deleted theme file gets its own --only deletion command
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-subagents-shopify
+
+[PR #2642](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2642)
+
+---
 
 ### DEPLOY: fix/2633-push-preview-create-path-reads-rejections · 20260929-130640Z
 
