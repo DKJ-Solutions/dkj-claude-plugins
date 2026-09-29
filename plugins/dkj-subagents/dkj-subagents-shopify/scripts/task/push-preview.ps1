@@ -362,7 +362,7 @@ if (-not $id) {
         # -Quiet because --json leaves no progress on stdout to show. But NOT -DiscardStderr, unlike the
         # list call: this call PUSHES, and the CLI exits 0 when it rejects a file (#2624), so its output is
         # read for rejections as well as for the id. Where the rejection lands under --json is unmeasured
-        # (#2633); the human output puts it on stderr, so that stream is kept. Get-ThemeIdFromPushOutput is
+        # (#2638); the human output puts it on stderr, so that stream is kept. Get-ThemeIdFromPushOutput is
         # a regex, not ConvertFrom-Json, so a stderr line in front of the JSON does not hide the id.
         $create = Invoke-ShopifyCli -Arguments $createArgs -Quiet
         if ($create.ExitCode -ne 0) {

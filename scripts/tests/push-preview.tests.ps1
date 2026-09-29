@@ -377,6 +377,15 @@ Assert-True (($iCCall -gt $iCreate) -and ($iCUrls -gt $iCCall) -and ($iCUrls -lt
 $cBetween = if (($iCCall -ge 0) -and ($iCUrls -gt $iCCall)) { $ppSrc.Substring($iCCall, $iCUrls - $iCCall) } else { '' }
 Assert-Match $cBetween '\bexit 1\b' 'and exits 1 between the read and those URLs'
 Assert-Equal '202324083029' (Get-ThemeIdFromPushOutput -Output ((@('a stderr hint line', '{"theme":{"id":202324083029}}') + $errBox) | Out-String)) 'the id still reads out of a merged capture with an error box in it'
+$quotingBox = New-TestBox 'error' @('config/settings_data.json', 'Invalid value near "id": 999')
+Assert-Equal '202324083029' (Get-ThemeIdFromPushOutput -Output ((@($quotingBox) + '{"theme":{"id":202324083029}}') | Out-String)) 'an "id" quoted inside an error box in front of the JSON does not win'
+$ansiQuoting = @($quotingBox | ForEach-Object { "$esc[31m$_$esc[0m" })
+Assert-Equal '' (Get-ThemeIdFromPushOutput -Output ($ansiQuoting | Out-String)) 'nor does one inside an ANSI-coloured box, where no JSON follows'
+$bel = [string][char]7
+$osc = Get-ThemePushProblems -Lines (New-TestBox 'error' @("$esc]0;spoofed title$bel" + 'snippets/x.liquid'))
+Assert-True (($osc.Messages -join '') -notmatch '[\x00-\x08\x0B-\x1F\x7F]') 'a control sequence quoted in an error box is not printed raw'
+$iCStore =$ppSrc.IndexOf('git config "branch.$branch.previewTheme" $id', $iCreate)
+Assert-True (($iCStore -gt $iCreate) -and ($iCStore -lt $iCCall)) 'the create path remembers the id BEFORE it can refuse, so the next run pushes into the same theme'
 
 Write-Host ""
 if ($script:fail -gt 0) {

@@ -61,9 +61,18 @@ half, a rejection carried in the stdout JSON instead, is #2638.
   the call keeps stderr, and that the id still reads out of a merged capture holding an error box.
 - [x] Filed #2638 for the `--json` measurement in a store checkout.
 
+#### Review repairs
+
+- [x] Victor: with stderr merged in, an `"id": <n>` quoted inside an error box would win as the first
+  match and be remembered as the preview theme. `Get-ThemeIdFromPushOutput` now skips box-drawn lines
+  (ANSI-coloured ones too), with asserts, plus one pinning that the id is stored before the refusal.
+- [x] Sebastian (low): `Get-ThemePushProblems` now drops control characters left after the colour codes
+  (an OSC title sequence, a BEL) from the messages it hands to the console.
+- [x] Edith: the create-path comment cites #2638 for the open measurement.
+
 ### TEST
 
-- [x] `scripts/tests/push-preview.tests.ps1`: 126 asserts, all passed.
+- [x] `scripts/tests/push-preview.tests.ps1`: 130 asserts, all passed.
 - [~] A live run of the create path against a store: there is no store here, and that is #2638.
 
 ### DEPLOY: fix/2633-push-preview-create-path-reads-rejections
@@ -72,7 +81,7 @@ half, a rejection carried in the stdout JSON instead, is #2638.
 theme id is answered, the preview theme is created by `theme push --unpublished --json`, and that push
 was judged on its exit code alone, which is 0 when a file is rejected (#2624). The call now keeps stderr,
 reads its output the way the update path does, and exits 1 naming the rejected file before any URL is
-printed. The theme id is still remembered, so the next run pushes into the same theme (#2633). Whether
+printed (#2633). The theme id is still remembered, so the next run pushes into the same theme. Whether
 `--json` ever carries the rejection on stdout instead is not yet measured (#2638).
 
 **Score:** 2
