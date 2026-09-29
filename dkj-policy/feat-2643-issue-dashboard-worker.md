@@ -81,22 +81,36 @@ branch until Dave has looked.
 
 ### CREATE
 
-- [ ] Cody #13: `issue-dashboard-logic.js` + `issue-dashboard-worker.js` to the contract above
-- [ ] Sylvester #15: `issue-dashboard.ps1`, its mirror + registry entry, the `issue-dashboard` skill, the gitignore line, the seam in the blueprint
-- [ ] Tycho #18: a suite -- source-text invariants, and the ordering/status logic run under `node` against fixtures (skipped cleanly without `node`)
-- [ ] Tessa #16: the README section naming the feature as optional and its Cloudflare prerequisite
+- [x] Cody #13: `issue-dashboard-logic.js` + `issue-dashboard-worker.js` to the contract above
+- [x] Sylvester #15: `issue-dashboard.ps1`, its mirror + registry entry, the `issue-dashboard` skill, the gitignore line, the seam in the blueprint
+- [x] Tycho #18: a suite -- source-text invariants, and the ordering/status logic run under `node` against fixtures (skipped cleanly without `node`)
+- [x] Tessa #16: the README section naming the feature as optional and its Cloudflare prerequisite
+- [x] Review round -- Victor #19 (no correctness bugs; paging, page cap and toml drift were untested), Sebastian #23 (no blockers; no-referrer, CSP, nosniff, noreferrer links, the token URL no longer printed, the token file must be gitignored, Workers Logs off), Edith #17 (the transitive-sinking drift, route and pointer wording) -- all applied; the stray-token duplicate is #2644
+- [x] Caching made honest: that `caches.default` works on `*.workers.dev` is not confirmed by Cloudflare's docs, so a 60 s per-isolate memo sits in front of it
 
 ### TEST
 
+- [x] The suite and the lint gates below, green
+- [x] A live local render against this repo's tracker, headers and the 404 checked
+
+#### Test results
+
+- `scripts/tests/issue-dashboard.tests.ps1`: **328 pass, 0 fail** under node v22.15.1 -- route and header invariants on every response, escaping, the ordering/status rules against fixtures (chains, ties, closed and cross-repo blockers, transitive sinking, cycles, labels and age inert), paging over two pages, the 10-request cap, the memo, and the script in temp repos (token once, gitignore refusal, toml once with observability off, drift warnings, the token never in the output).
+- `check-plugin-integrity`: 0 errors. `check-script-contract`: 0 errors (`Get-IssueDashboardWorkerName` reported unanswered, which is informational -- the seam is optional).
+- **Live, against this repo's own tracker:** the worker was run locally under Node with a stubbed Cache API and a real `gh` token, and rendered this repo's 4 open issues in pick-up order with derived statuses; an unknown path token got the uniform 404; the new headers were read off the response. What stays unexercised is a real `wrangler deploy` and the edge cache on a deployed worker, since both run against somebody's Cloudflare account.
+
 ### DEPLOY: feat/2643-issue-dashboard-worker
 
-**Score:**
+`dkj-policy` gains an optional, self-contained feature and nothing else changes: a new skill, a new script with its mirror, two worker files, one optional seam and one gitignore line. The worker holds no content and no secret, and the ordering and status rules sit in a pure module the suite runs under `node`, so a later change to them is testable without a Cloudflare account.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo running `dkj-policy` can now put its open issues on a live dashboard that says what is in flight, what is waiting, what is blocked and what to pick up next. The order comes from GitHub's own blocked-by dependencies rather than from labels. The feature is optional because it needs a Cloudflare account and `node`; a repo without one adopts nothing and loses nothing. Setup is in [the `issue-dashboard` skill](../plugins/dkj-policy/skills/issue-dashboard/SKILL.md).
+
+**Score:** 3
 
 #### Pull Request
 
 A live issue dashboard on a Cloudflare Worker
-
