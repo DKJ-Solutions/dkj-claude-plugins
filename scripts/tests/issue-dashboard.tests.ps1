@@ -1,0 +1,718 @@
+<#
+.SYNOPSIS
+    Regression tests for the optional live issue dashboard: its Cloudflare Worker (route, escaping,
+    ordering and status logic) and the script that prepares it (issue #2643).
+
+.DESCRIPTION
+    Dependency-free: no Pester needed, only PowerShell. The behavioural half additionally needs `node`
+    and is SKIPPED, with a visible line, when it is not on PATH.
+
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/issue-dashboard.tests.ps1
+
+    WHAT IT HOLDS, and each is a way the design comes undone:
+
+      1. THE WORKER CARRIES NOTHING. No 32-hex literal, no token, no repository name -- this plugin
+         ships from a PUBLIC repository, and the worker is deployed by people who own other repos.
+      2. THE ROUTE. The worker's own regex is lifted out of the shipped source and run against the
+         cases that matter, then the whole handler is run under node: every miss answers the SAME 404.
+      3. THE ESCAPING. Issue titles, labels and logins are written by anybody who can open an issue.
+         The handler is run end to end against a stubbed GitHub and the page is read back.
+      4. THE CROSS-FILE SEAMS. The status vocabulary in the JS equals the one the skill documents; the
+         parking labels equal claim-issue.ps1's default parking set.
+      5. THE ORDERING AND STATUS RULES, run against fixtures under node: blockers first, ties by
+         number, closed blockers impose nothing, external blockers sink (transitively -- the accepted
+         deviation from the contract's wording), cycles are flagged and broken, priority labels and
+         age never order anything, and the status precedence for every pair that can collide.
+      6. THE SCRIPT, in a temp repo through -RepoRoot: -InitToken once, -EmitWorker copies and writes a
+         wrangler.toml exactly once, prints the commands, never a secret. Nothing reaches the network.
+      7. THE .gitignore ANCHOR on /dkj-policy/dashboard/.
+
+    The live half -- the real GitHub GraphQL read and a real wrangler deploy -- stays untested: it
+    runs against somebody's account.
+
+    Pure ASCII (repo convention for .ps1).
+#>
+$ErrorActionPreference = 'Stop'
+
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+
+$RepoRoot    = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+$WorkerDir   = Join-Path $RepoRoot 'plugins\dkj-policy\worker'
+$LogicPath   = Join-Path $WorkerDir 'issue-dashboard-logic.js'
+$WorkerPath  = Join-Path $WorkerDir 'issue-dashboard-worker.js'
+$ScriptPath  = Join-Path $RepoRoot 'scripts\task\issue-dashboard.ps1'
+$SkillPath   = Join-Path $RepoRoot 'plugins\dkj-policy\skills\issue-dashboard\SKILL.md'
+$ClaimPath   = Join-Path $RepoRoot 'scripts\task\claim-issue.ps1'
+$Fixture     = Join-Path ([System.IO.Path]::GetTempPath()) "issue-dashboard-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
+
+$script:pass = 0
+$script:fail = 0
+
+function Assert-True {
+    param([bool]$Condition, [string]$Label)
+    if ($Condition) { $script:pass++; Write-Host "  [PASS] $Label" -ForegroundColor Green }
+    else { $script:fail++; Write-Host "  [FAIL] $Label" -ForegroundColor Red }
+}
+
+function Assert-Equal {
+    param($Expected, $Actual, [string]$Label)
+    if ("$Expected" -ceq "$Actual") { $script:pass++; Write-Host "  [PASS] $Label" -ForegroundColor Green }
+    else { $script:fail++; Write-Host "  [FAIL] $Label`n         expected: '$Expected'`n         got:      '$Actual'" -ForegroundColor Red }
+}
+
+function Join-N { param($Items) return (@($Items) -join ',') }
+
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$HexA = 'a' * 32
+$HexB = 'b' * 32
+
+Write-Host ''
+Write-Host 'The issue dashboard -- what the plugin ships (#2643)' -ForegroundColor Cyan
+
+Assert-True (Test-Path -LiteralPath $LogicPath)  'the plugin ships worker/issue-dashboard-logic.js'
+Assert-True (Test-Path -LiteralPath $WorkerPath) 'the plugin ships worker/issue-dashboard-worker.js'
+Assert-True (Test-Path -LiteralPath $ScriptPath) 'the source repo ships scripts/task/issue-dashboard.ps1'
+Assert-True (Test-Path -LiteralPath $SkillPath)  'the plugin ships the issue-dashboard skill'
+
+$logicJs  = [System.IO.File]::ReadAllText($LogicPath, [System.Text.Encoding]::UTF8)
+$workerJs = [System.IO.File]::ReadAllText($WorkerPath, [System.Text.Encoding]::UTF8)
+$scriptText = [System.IO.File]::ReadAllText($ScriptPath)
+$skillText  = [System.IO.File]::ReadAllText($SkillPath, [System.Text.Encoding]::UTF8)
+$claimText  = [System.IO.File]::ReadAllText($ClaimPath)
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The worker carries no token, no repository name and no content' -ForegroundColor Cyan
+
+foreach ($pair in @(@('issue-dashboard-worker.js', $workerJs), @('issue-dashboard-logic.js', $logicJs), @('issue-dashboard.ps1', $scriptText))) {
+    Assert-True ($pair[1] -notmatch '(?<![0-9a-z])[0-9a-f]{32}(?![0-9a-z])') "$($pair[0]) holds no 32-hex identifier -- no path token, no account id"
+}
+foreach ($pair in @(@('issue-dashboard-worker.js', $workerJs), @('issue-dashboard-logic.js', $logicJs))) {
+    $t = $pair[1]
+    Assert-True ($t -notmatch 'ghp_|github_pat_|ghs_|gho_') "$($pair[0]) holds no GitHub token literal"
+    Assert-True ($t -notmatch '(?i)DKJ-Solutions|dkj-claude-plugins|claude-code-specialists|DaveKJohn|smartwatchbanden|xoxowildhearts') "$($pair[0]) names no repository or owner -- GITHUB_REPO comes from env"
+}
+Assert-True ($workerJs -match 'env\.GITHUB_REPO')     'the repository is read from env.GITHUB_REPO'
+Assert-True ($workerJs -match 'env\.GITHUB_TOKEN')    '...the GitHub token from env.GITHUB_TOKEN'
+Assert-True ($workerJs -match 'env\.DASHBOARD_TOKEN') '...and the path lock from env.DASHBOARD_TOKEN'
+Assert-True ($workerJs -match 'noindex')              'the response carries noindex'
+Assert-True ($workerJs -match 'x-robots-tag')         '...as an X-Robots-Tag header'
+Assert-True ($workerJs -match 'no-store')             'and no-store, because the page is derived from a tracker that moves'
+Assert-True ($workerJs -match 'charset=utf-8')        'and declares UTF-8, because the source carries non-ASCII punctuation'
+
+# The lock: constant-time compare, and never a plain comparison against the secret.
+Assert-True ($workerJs -match 'diff\s*\|=')           'the token is compared by accumulating XOR differences -- constant time'
+Assert-True ($workerJs -match 'charCodeAt')           '...character by character'
+Assert-True ($workerJs -notmatch 'DASHBOARD_TOKEN\s*[!=]==?\s') 'DASHBOARD_TOKEN is never compared with == or ==='
+Assert-True ($workerJs -notmatch '[!=]==?\s*env\.DASHBOARD_TOKEN') '...on either side'
+Assert-True ($workerJs -match '\.pathname')           'the route is matched on the URL pathname, so a query string never reaches it'
+
+# GitHub text is escaped before it reaches the page.
+Assert-True ($workerJs -match 'const\s+escapeHtml\s*=') 'an escape function exists'
+Assert-True ($workerJs -match 'escapeHtml\(r\.title\)') 'issue titles are escaped'
+Assert-True ($workerJs -match 'escapeHtml\(l\)')        'labels are escaped'
+Assert-True ($workerJs -match 'assignees\.map\(escapeHtml\)') 'assignee logins are escaped'
+Assert-True ($workerJs -match 'escapeHtml\(r\.url\)')   'issue urls are escaped'
+Assert-True ($workerJs -match 'escapeHtml\(w\)')        'warnings are escaped'
+Assert-True ($workerJs -notmatch '\$\{r\.title\}|\$\{r\.status\}|\$\{l\}|\$\{w\}') 'no GitHub-derived field is interpolated raw'
+$escBody = [regex]::Match($workerJs, 'const\s+escapeHtml[\s\S]*?;\r?\n').Value
+foreach ($ch in @('&amp;', '&lt;', '&gt;', '&quot;', '&#39;')) {
+    Assert-True ($escBody.Contains($ch)) "the escape function maps to $ch"
+}
+
+# The cache key is derived from the repo, never from the path token.
+Assert-True ($workerJs -match 'encodeURIComponent\(env\.GITHUB_REPO\)') 'the edge cache key is derived from the repo'
+Assert-True ($workerJs -notmatch 'match\[1\][^;\n]*(cache|Request)') '...and the path token never reaches it'
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The route -- lifted out of the shipped worker and run' -ForegroundColor Cyan
+
+$routeMatch = [regex]::Match($workerJs, '(?m)^const\s+ROUTE\s*=\s*/(.+)/;\s*$')
+Assert-True $routeMatch.Success 'the worker declares its route as one regex literal this suite can read'
+$route = [regex]::new($routeMatch.Groups[1].Value)
+
+Assert-True ($route.IsMatch("/issues/$HexA"))          'the route matches /issues/<32 hex>'
+Assert-True ($route.IsMatch("/issues/$HexA/"))         '...and tolerates one trailing slash'
+Assert-True (-not $route.IsMatch("/issues/$HexA//"))   '...but not two'
+Assert-True (-not $route.IsMatch("/issues/$($HexA.ToUpperInvariant())")) 'UPPERCASE hex is not a token'
+Assert-True (-not $route.IsMatch("/issues/$($HexA.Substring(1))"))       '31 characters is not a token'
+Assert-True (-not $route.IsMatch("/issues/${HexA}a"))                    '33 characters is not a token'
+Assert-True (-not $route.IsMatch('/issues/'))                            'a bare /issues/ is not a route'
+Assert-True (-not $route.IsMatch('/issues'))                             '...nor is /issues'
+Assert-True (-not $route.IsMatch("/notes/$HexA"))                        'another prefix is not this route'
+Assert-True (-not $route.IsMatch("/$HexA"))                              'a token without a prefix is not a route'
+Assert-True (-not $route.IsMatch("/x/issues/$HexA"))                     'the route is anchored at the start'
+Assert-True (-not $route.IsMatch("/issues/$HexA/extra"))                 'and at the end'
+Assert-True (-not $route.IsMatch("/issues/../$HexA"))                    'nothing traversal-shaped survives'
+Assert-True (-not $route.IsMatch("/issues/$HexA?x=1"))                   'a raw query string is not part of the path the route sees'
+$asUri = [uri]"https://d.example/issues/${HexA}?x=1"
+Assert-True ($route.IsMatch($asUri.AbsolutePath))                        '...because the worker matches the URL pathname, where a query string is already gone'
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The cross-file seams -- vocabulary the JS, the skill and claim-issue must share' -ForegroundColor Cyan
+
+$jsStatuses = @([regex]::Matches(([regex]::Match($logicJs, 'export const STATUSES\s*=\s*\[([^\]]*)\]')).Groups[1].Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+$jsParking  = @([regex]::Matches(([regex]::Match($logicJs, 'export const PARKING_LABELS\s*=\s*\[([^\]]*)\]')).Groups[1].Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+Assert-Equal 6 $jsStatuses.Count 'the logic module declares six statuses'
+
+$descMatch = [regex]::Match($skillText, 'with a status \(([^)]+)\)')
+Assert-True $descMatch.Success 'the skill description lists the status vocabulary'
+$skillStatuses = @($descMatch.Groups[1].Value -split ',\s*')
+Assert-Equal (Join-N $jsStatuses) (Join-N $skillStatuses) 'STATUSES in the JS equals the skill description, in the same order'
+foreach ($s in $jsStatuses) {
+    Assert-True ($skillText.Contains("**$s**")) "the skill body documents the status '$s'"
+}
+$statusColour = [regex]::Match($workerJs, 'const\s+STATUS_COLOUR\s*=\s*\{([\s\S]*?)\};').Groups[1].Value
+foreach ($s in $jsStatuses) {
+    Assert-True ($statusColour -match ('(?:^|[\s,{])"?' + [regex]::Escape($s) + '"?\s*:')) "the worker has a colour for '$s' -- otherwise the pill renders var(--s-undefined)"
+}
+
+$claimMatch = [regex]::Match($claimText, '(?m)^\s+\$SkipLabel\s*=\s*@\(([^)]*)\)')
+Assert-True $claimMatch.Success 'claim-issue.ps1 declares its default parking set in one readable array'
+$claimParking = @([regex]::Matches($claimMatch.Groups[1].Value, "'([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+Assert-Equal (Join-N ($claimParking | Sort-Object)) (Join-N ($jsParking | Sort-Object)) 'PARKING_LABELS equals claim-issue.ps1 default parking set'
+foreach ($l in $jsParking) {
+    Assert-True ($skillText.Contains("``$l``")) "the skill names the parking label '$l'"
+}
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The logic and the handler, run under node' -ForegroundColor Cyan
+
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) {
+    Write-Host '  [SKIP] node is not on PATH -- the ordering, status, branch-regex, route and escaping behaviour checks were NOT run' -ForegroundColor Yellow
+} else {
+    $nodeDir = Join-Path $Fixture 'node'
+    New-Item -ItemType Directory -Path $nodeDir -Force | Out-Null
+    Copy-Item -LiteralPath $LogicPath  -Destination (Join-Path $nodeDir 'issue-dashboard-logic.js')
+    Copy-Item -LiteralPath $WorkerPath -Destination (Join-Path $nodeDir 'issue-dashboard-worker.js')
+    # ES-module detection for a typeless package differs across node versions; declaring it removes the question.
+    [System.IO.File]::WriteAllText((Join-Path $nodeDir 'package.json'), '{"type":"module"}', $Utf8NoBom)
+
+    $runnerJs = @'
+import { pathToFileURL } from "node:url";
+const dir = process.argv[2];
+const logic = await import(pathToFileURL(dir + "/issue-dashboard-logic.js").href);
+const worker = (await import(pathToFileURL(dir + "/issue-dashboard-worker.js").href)).default;
+const { deriveDashboard, deriveStatus, branchIssueNumbers, STATUSES, PARKING_LABELS } = logic;
+
+const R = "acme/widgets";
+const iss = (number, o = {}) => ({
+  number, title: "T" + number, url: "https://github.com/acme/widgets/issues/" + number,
+  createdAt: "2026-01-01T00:00:00Z", labels: [], assignees: [], blockedBy: [], blockedByTruncated: false, ...o,
+});
+const blk = (number, state = "OPEN", repo = R) => ({ number, state, repo });
+const run = (issues, prs = [], branches = []) => deriveDashboard(issues, prs, branches, { repo: R });
+const order = (d) => d.rows.map((r) => r.number);
+const flag = (d, key) => d.rows.filter((r) => r[key]).map((r) => r.number);
+const statusOf = (issue, prs = [], hasBranch = false) => deriveStatus(issue, prs, hasBranch);
+const pr = (number, isDraft, closes) => ({ number, url: "https://github.com/acme/widgets/pull/" + number, isDraft, closes });
+const out = {};
+
+out.exports = { statuses: STATUSES, parking: PARKING_LABELS };
+
+// --- ordering
+const chain = run([iss(1, { blockedBy: [blk(2)] }), iss(2, { blockedBy: [blk(3)] }), iss(3), iss(4)]);
+out.chain = order(chain);
+out.chainReversed = order(run([iss(4), iss(3), iss(2, { blockedBy: [blk(3)] }), iss(1, { blockedBy: [blk(2)] })]));
+out.chainRanks = chain.rows.map((r) => r.rank);
+out.chainBlocking3 = chain.rows.find((r) => r.number === 3).blocking;
+out.ties = order(run([iss(9), iss(3), iss(5)]));
+const closed = run([iss(1, { blockedBy: [blk(2, "CLOSED")], assignees: ["u"] }), iss(2)]);
+out.closed = { order: order(closed), external: flag(closed, "externalBlocker"), status1: closed.rows.find((r) => r.number === 1).status };
+const cross = run([iss(1, { blockedBy: [blk(7, "OPEN", "other/repo")] }), iss(2), iss(3, { blockedBy: [blk(1)] }), iss(4)]);
+out.cross = { order: order(cross), external: flag(cross, "externalBlocker") };
+const crossClosed = run([iss(1, { blockedBy: [blk(7, "CLOSED", "other/repo")] }), iss(2)]);
+out.crossClosed = { order: order(crossClosed), external: flag(crossClosed, "externalBlocker") };
+const deep = run([iss(1, { blockedBy: [blk(7, "OPEN", "other/repo")] }), iss(2, { blockedBy: [blk(1)] }), iss(3, { blockedBy: [blk(2)] }), iss(4), iss(5)]);
+out.crossDeep = { order: order(deep), external: flag(deep, "externalBlocker") };
+const casing = run([iss(1, { blockedBy: [blk(2, "OPEN", "ACME/Widgets")] }), iss(2)]);
+out.casing = { order: order(casing), external: flag(casing, "externalBlocker") };
+const cyc = run([
+  iss(1, { blockedBy: [blk(2)] }), iss(2, { blockedBy: [blk(3)] }), iss(3, { blockedBy: [blk(1)] }),
+  iss(4, { blockedBy: [blk(1)] }), iss(5),
+]);
+out.cycle = { order: order(cyc), cycle: flag(cyc, "cycle"), warnings: cyc.warnings };
+const cyc2 = run([iss(8, { blockedBy: [blk(6)] }), iss(6, { blockedBy: [blk(8)] })]);
+out.cycle2 = { order: order(cyc2), cycle: flag(cyc2, "cycle"), warnings: cyc2.warnings };
+out.noCycleWarnings = chain.warnings;
+const trunc = run([iss(1, { blockedByTruncated: true })]);
+out.truncated = trunc.warnings;
+
+// prio labels and createdAt must not order anything
+const base = [iss(1), iss(2), iss(3), iss(4, { blockedBy: [blk(2)] })];
+const perm = [
+  iss(4, { blockedBy: [blk(2)], labels: ["prio-4"], createdAt: "2020-01-01T00:00:00Z" }),
+  iss(3, { labels: ["prio-3"], createdAt: "2021-01-01T00:00:00Z" }),
+  iss(2, { labels: ["prio-1"], createdAt: "2030-01-01T00:00:00Z" }),
+  iss(1, { labels: ["prio-2", "minor"], createdAt: "2029-06-01T00:00:00Z" }),
+];
+out.prioBase = order(run(base));
+out.prioPermuted = order(run(perm));
+out.prioAlt = order(run([...perm].reverse().map((i) => ({ ...i, labels: i.labels.map(() => "prio-4"), createdAt: "1999-01-01T00:00:00Z" }))));
+
+// --- status precedence
+const pk = { labels: ["needs-info"] }, bl = { blockedBy: [blk(9)] }, asg = { assignees: ["u"] };
+const all = { ...pk, ...bl, ...asg };
+const live = [pr(1, false, [1])], draft = [pr(2, true, [1])];
+out.status = {
+  reviewOverAll:        statusOf(iss(1, all), live, true),
+  reviewOverDraft:      statusOf(iss(1), [...draft, ...live], false),
+  reviewOverBranch:     statusOf(iss(1), live, true),
+  draftOverParking:     statusOf(iss(1, all), draft, false),
+  branchOverParking:    statusOf(iss(1, all), [], true),
+  draftVsBranch:        statusOf(iss(1), draft, true),
+  parkingOverBlocked:   statusOf(iss(1, { ...bl, labels: ["needs-decision"] }), [], false),
+  parkingOverAssignee:  statusOf(iss(1, { ...asg, labels: ["awaiting-recurrence"] }), [], false),
+  parkingOverAll:       statusOf(iss(1, all), [], false),
+  blockedOverAssignee:  statusOf(iss(1, { ...bl, ...asg }), [], false),
+  closedBlockerClaimed: statusOf(iss(1, { blockedBy: [blk(9, "CLOSED")], ...asg }), [], false),
+  claimed:              statusOf(iss(1, asg), [], false),
+  filed:                statusOf(iss(1), [], false),
+  prioLabelIsNotParking: statusOf(iss(1, { labels: ["prio-4", "bug"] }), [], false),
+  parkingEach:          PARKING_LABELS.map((l) => statusOf(iss(1, { labels: [l] }), [], false)),
+  externalOpenBlocker:  statusOf(iss(1, { blockedBy: [blk(7, "OPEN", "other/repo")] }), [], false),
+};
+// End to end through deriveDashboard: PR link, draft, branch, foreign-issue PR.
+const e2e = run(
+  [iss(1), iss(2), iss(3), iss(4), iss(5)],
+  [pr(10, false, [1]), pr(11, true, [2]), pr(12, false, [99])],
+  ["feat/3-work", "chore/4-nope"],
+);
+out.e2e = Object.fromEntries(e2e.rows.map((r) => [r.number, r.status]));
+out.e2ePrs = e2e.rows.find((r) => r.number === 2).prs;
+
+// --- branch regex
+const names = ["feat/12-a", "fix/7-x", "docs/3-y", "chore/9-z", "feat/12", "feat/x-1", "feature/5-a",
+  "feat/5a-b", "xfeat/8-a", "feat/-5-a", "fix/007-dup", "refs/heads/feat/20-a", "docs/3"];
+out.branches = [...branchIssueNumbers(names)].sort((a, b) => a - b);
+out.branchesEmpty = [...branchIssueNumbers(undefined)];
+
+// --- the handler
+const HEX = "a".repeat(32);
+const NEAR = "a".repeat(31) + "b";
+const req = (path, method = "GET") => new Request("https://d.example" + path, { method });
+const snap = async (res, withBody = true) => ({
+  status: res.status, body: withBody ? await res.text() : "", cc: res.headers.get("cache-control"),
+  robots: res.headers.get("x-robots-tag"), ct: res.headers.get("content-type"),
+});
+const ctx = { waitUntil() {} };
+const good = { DASHBOARD_TOKEN: HEX };
+const misses = {
+  wrongToken:      [req("/issues/" + NEAR), good],
+  uppercaseToken:  [req("/issues/" + HEX.toUpperCase()), good],
+  wrongPath:       [req("/"), good],
+  otherPrefix:     [req("/notes/" + HEX), good],
+  shortToken:      [req("/issues/" + HEX.slice(1)), good],
+  post:            [req("/issues/" + HEX, "POST"), good],
+  put:             [req("/issues/" + HEX, "PUT"), good],
+  noSecret:        [req("/issues/" + HEX), {}],
+  nonStringSecret: [req("/issues/" + HEX), { DASHBOARD_TOKEN: 12345 }],
+  emptySecret:     [req("/issues/" + HEX), { DASHBOARD_TOKEN: "" }],
+  noEnv:           [req("/issues/" + HEX), undefined],
+};
+out.misses = {};
+for (const [k, [r, env]] of Object.entries(misses)) out.misses[k] = await snap(await worker.fetch(r, env, ctx));
+
+// past the lock, before any GitHub call: 503 tells the operator which binding is missing
+out.passLock = {
+  plain:    await snap(await worker.fetch(req("/issues/" + HEX), good, ctx)),
+  slash:    await snap(await worker.fetch(req("/issues/" + HEX + "/"), good, ctx)),
+  query:    await snap(await worker.fetch(req("/issues/" + HEX + "?x=1"), good, ctx)),
+  head:     await snap(await worker.fetch(req("/issues/" + HEX, "HEAD"), good, ctx), false),
+  badRepo:  await snap(await worker.fetch(req("/issues/" + HEX), { ...good, GITHUB_TOKEN: "t", GITHUB_REPO: 'a/b"><x' }, ctx)),
+};
+
+// the whole handler against a stubbed GitHub
+const cacheKeys = [];
+globalThis.caches = { default: {
+  match: async (k) => { cacheKeys.push(k.url); return undefined; },
+  put: async (k) => { cacheKeys.push(k.url); },
+} };
+const conn = (nodes) => ({ nodes, pageInfo: { hasNextPage: false, endCursor: null } });
+const calls = [];
+const evilTitle = '<script>alert(1)</script> & "q" \'s\'';
+let reply = null;
+globalThis.fetch = async (url, init) => {
+  calls.push({ url: String(url), auth: init.headers.authorization, body: init.body });
+  return new Response(JSON.stringify(reply), { status: 200, headers: { "content-type": "application/json" } });
+};
+reply = { data: { repository: {
+  issues: { ...conn([
+    { number: 1, title: evilTitle, url: "https://github.com/acme/widgets/issues/1", createdAt: "2026-01-01T00:00:00Z",
+      labels: { totalCount: 1, nodes: [{ name: "<b>x</b>" }] }, assignees: { nodes: [{ login: "<i>u</i>" }] },
+      blockedBy: { totalCount: 0, nodes: [] } },
+    { number: 2, title: "second", url: "https://github.com/acme/widgets/issues/2", createdAt: "2026-01-02T00:00:00Z",
+      labels: { totalCount: 0, nodes: [] }, assignees: { nodes: [] },
+      blockedBy: { totalCount: 1, nodes: [{ number: 1, state: "OPEN", repository: { nameWithOwner: "acme/widgets" } }] } },
+    { number: 12, title: "branch", url: "https://github.com/acme/widgets/issues/12", createdAt: "2026-01-03T00:00:00Z",
+      labels: { totalCount: 0, nodes: [] }, assignees: { nodes: [] }, blockedBy: { totalCount: 0, nodes: [] } },
+  ]), totalCount: 3 },
+  pullRequests: conn([{ number: 40, url: "https://github.com/acme/widgets/pull/40", isDraft: false,
+    closingIssuesReferences: { totalCount: 1, nodes: [{ number: 1, repository: { nameWithOwner: "acme/widgets" } }] } }]),
+  feat: conn([{ name: "12-x" }]), fix: conn([]), docs: conn([]),
+} } };
+const env = { DASHBOARD_TOKEN: HEX, GITHUB_TOKEN: "ghs_FAKE", GITHUB_REPO: R };
+const page = await snap(await worker.fetch(req("/issues/" + HEX), env, ctx));
+out.render = {
+  status: page.status, cc: page.cc, robots: page.robots, ct: page.ct,
+  scriptRaw: page.body.includes("<script"),
+  titleEscaped: page.body.includes("&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;q&quot; &#39;s&#39;"),
+  labelEscaped: page.body.includes("&lt;b&gt;x&lt;/b&gt;") && !page.body.includes("<b>x</b>"),
+  loginEscaped: page.body.includes("&lt;i&gt;u&lt;/i&gt;") && !page.body.includes("<i>u</i>"),
+  metaNoindex: /<meta name="robots" content="noindex/.test(page.body),
+  inReview: page.body.includes(">In review<"),
+  inProgress: page.body.includes(">In progress<"),
+  order: [...page.body.matchAll(/class="rank">(\d+)<\/div>[\s\S]*?issues\/(\d+)"/g)].map((m) => m[1] + ":" + m[2]),
+  githubCalls: calls.length,
+  githubUrl: calls[0] && calls[0].url,
+  githubAuth: calls[0] && calls[0].auth,
+  pathTokenSentToGithub: calls.some((c) => c.body.includes(HEX) || c.url.includes(HEX)),
+  dashboardTokenSentToGithub: calls.some((c) => (c.auth || "").includes(HEX)),
+  cacheKeyHasToken: cacheKeys.some((k) => k.includes(HEX)),
+  cacheKeyCount: cacheKeys.length,
+};
+// a failing read: 502 with the GitHub message escaped
+reply = { errors: [{ message: "<img src=x onerror=alert(1)>" }] };
+const bad = await snap(await worker.fetch(req("/issues/" + HEX), env, ctx));
+out.githubError = { status: bad.status, raw: bad.body.includes("<img"), escaped: bad.body.includes("&lt;img"), cc: bad.cc, robots: bad.robots };
+console.log(JSON.stringify(out));
+'@
+    $runnerPath = Join-Path $nodeDir 'runner.mjs'
+    [System.IO.File]::WriteAllText($runnerPath, $runnerJs, $Utf8NoBom)
+
+    $errFile = Join-Path $nodeDir "stderr-$([guid]::NewGuid().ToString('n')).txt"
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $rawOut = & node $runnerPath $nodeDir 2>$errFile
+        $nodeCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+    $nodeErr = if (Test-Path -LiteralPath $errFile) { [System.IO.File]::ReadAllText($errFile) } else { '' }
+    Assert-Equal 0 $nodeCode 'node imports both modules and runs every fixture'
+    if ($nodeCode -ne 0) { Write-Host "         node said: $nodeErr" -ForegroundColor Red }
+
+    $r = $null
+    try { $r = ((@($rawOut) -join "`n") | ConvertFrom-Json) } catch { }
+    Assert-True ($null -ne $r) 'the runner answered with JSON'
+
+    if ($null -ne $r) {
+        Write-Host ''
+        Write-Host '  -- exports' -ForegroundColor DarkCyan
+        Assert-Equal (Join-N $jsStatuses) (Join-N $r.exports.statuses) 'STATUSES as node sees it equals the text this suite parsed'
+        Assert-Equal (Join-N $jsParking) (Join-N $r.exports.parking)  'PARKING_LABELS as node sees it equals the text this suite parsed'
+
+        Write-Host '  -- order' -ForegroundColor DarkCyan
+        Assert-Equal '3,2,1,4' (Join-N $r.chain) 'a chain orders blockers first (1<-2<-3 gives 3,2,1), the free issue last by number'
+        Assert-Equal (Join-N $r.chain) (Join-N $r.chainReversed) '...and the input order does not matter'
+        Assert-Equal '1,2,3,4' (Join-N $r.chainRanks) 'rank is the 1-based position'
+        Assert-Equal '2' (Join-N $r.chainBlocking3) '...and blocking lists who a row unblocks'
+        Assert-Equal '3,5,9' (Join-N $r.ties) 'issues that are equally ready are ordered by issue number'
+        Assert-Equal '1,2' (Join-N $r.closed.order) 'a CLOSED blocker imposes no order (1 stays before 2)'
+        Assert-Equal '' (Join-N $r.closed.external) '...and does not sink the issue'
+        Assert-Equal 'Claimed' $r.closed.status1 '...nor does it make it Blocked'
+        Assert-Equal '2,4,1,3' (Join-N $r.cross.order) 'an open blocker in another repo sinks the issue below every issue without one'
+        Assert-Equal '1,3' (Join-N ($r.cross.external | Sort-Object {[int]$_})) '...and, transitively, an issue waiting on the sunk issue (accepted deviation from the contract)'
+        Assert-Equal '1,2' (Join-N $r.crossClosed.order) 'a CLOSED cross-repo blocker sinks nothing'
+        Assert-Equal '' (Join-N $r.crossClosed.external) '...and sets no external flag'
+        Assert-Equal '4,5,1,2,3' (Join-N $r.crossDeep.order) 'sinking is inherited down a whole chain (1 external, 2 and 3 behind it)'
+        Assert-Equal '1,2,3' (Join-N ($r.crossDeep.external | Sort-Object {[int]$_})) '...and every one of them is flagged'
+        Assert-Equal '2,1' (Join-N $r.casing.order) 'a blocker repo written in another case is still this repo'
+        Assert-Equal '' (Join-N $r.casing.external) '...so it does not sink'
+
+        Write-Host '  -- cycles' -ForegroundColor DarkCyan
+        Assert-Equal '1,2,3' (Join-N ($r.cycle.cycle | Sort-Object {[int]$_})) 'a 3-cycle flags every member and nothing else (the dependant 4 and the free 5 are not flagged)'
+        Assert-Equal 1 @($r.cycle.warnings).Count 'it warns exactly once'
+        Assert-True ((@($r.cycle.warnings)[0]) -like '*#1, #2, #3*') '...naming all members'
+        Assert-True ((@($r.cycle.warnings)[0]) -like '*from #1.') '...and the lowest number it broke at'
+        Assert-Equal '5,1,3,2,4' (Join-N $r.cycle.order) 'the cycle is broken at the lowest number and the rest still ordered; the dependant 4 comes after the cycle'
+        Assert-Equal '6,8' (Join-N ($r.cycle2.cycle | Sort-Object {[int]$_})) 'a 2-cycle flags both'
+        Assert-Equal '6,8' (Join-N $r.cycle2.order) '...broken at the lower number even though the input listed 8 first'
+        Assert-Equal 0 @($r.noCycleWarnings).Count 'an acyclic input warns about nothing'
+        Assert-Equal 1 @($r.truncated).Count 'a truncated blockedBy connection is reported'
+        Assert-True ((@($r.truncated)[0]) -like '*#1*') '...naming the issue'
+
+        Write-Host '  -- priority and age do not order' -ForegroundColor DarkCyan
+        Assert-Equal '1,2,3,4' (Join-N $r.prioBase) 'baseline order'
+        Assert-Equal (Join-N $r.prioBase) (Join-N $r.prioPermuted) 'prio-* labels, other labels and createdAt, shuffled, leave the order unchanged'
+        Assert-Equal (Join-N $r.prioBase) (Join-N $r.prioAlt) '...whichever way they are permuted'
+
+        Write-Host '  -- status precedence' -ForegroundColor DarkCyan
+        $s = $r.status
+        Assert-Equal 'In review'   $s.reviewOverAll        'an open non-draft PR beats a branch, a parking label, an open blocker and an assignee'
+        Assert-Equal 'In review'   $s.reviewOverDraft      '...a non-draft PR beats a draft PR on the same issue'
+        Assert-Equal 'In review'   $s.reviewOverBranch     '...and a branch'
+        Assert-Equal 'In progress' $s.draftOverParking     'a draft PR beats a parking label, an open blocker and an assignee'
+        Assert-Equal 'In progress' $s.branchOverParking    'a branch beats a parking label, an open blocker and an assignee'
+        Assert-Equal 'In progress' $s.draftVsBranch        'a draft PR and a branch agree'
+        Assert-Equal 'Waiting'     $s.parkingOverBlocked   'a parking label beats an open blocker'
+        Assert-Equal 'Waiting'     $s.parkingOverAssignee  '...and an assignee'
+        Assert-Equal 'Waiting'     $s.parkingOverAll       '...and both'
+        Assert-Equal 'Blocked'     $s.blockedOverAssignee  'an open blocker beats an assignee'
+        Assert-Equal 'Claimed'     $s.closedBlockerClaimed 'a CLOSED blocker does not block'
+        Assert-Equal 'Blocked'     $s.externalOpenBlocker  'an open blocker in another repo blocks too'
+        Assert-Equal 'Claimed'     $s.claimed              'an assignee alone is Claimed'
+        Assert-Equal 'Filed'       $s.filed                'nothing at all is Filed'
+        Assert-Equal 'Filed'       $s.prioLabelIsNotParking 'a prio or bug label is not a parking label'
+        Assert-Equal 'Waiting,Waiting,Waiting' (Join-N $s.parkingEach) 'each of the three parking labels parks on its own'
+        Assert-Equal 'In review' $r.e2e.'1' 'end to end: an open non-draft PR closing #1 puts it In review'
+        Assert-Equal 'In progress' $r.e2e.'2' '...a draft PR closing #2 puts it In progress'
+        Assert-Equal 'In progress' $r.e2e.'3' '...a feat/3- branch puts #3 In progress'
+        Assert-Equal 'Filed' $r.e2e.'4' '...a chore/4- branch does not'
+        Assert-Equal 'Filed' $r.e2e.'5' '...and a PR closing an issue outside the fetched set touches nobody'
+        Assert-Equal 1 @($r.e2ePrs).Count 'a row carries its linked PRs'
+        Assert-Equal 'True' "$($r.e2ePrs[0].isDraft)" '...with the draft flag'
+
+        Write-Host '  -- branch regex' -ForegroundColor DarkCyan
+        Assert-Equal '3,7,12' (Join-N $r.branches) 'only feat/, fix/ and docs/ branches with <n>- count (chore/, feature/, no dash, non-digit, prefixed refs are ignored)'
+        Assert-Equal '' (Join-N $r.branchesEmpty) 'no branch list is an empty set'
+
+        Write-Host '  -- the handler: every miss is the same 404' -ForegroundColor DarkCyan
+        $ref = $r.misses.wrongToken
+        Assert-Equal 404 $ref.status 'a wrong token answers 404'
+        Assert-Equal 'Not found' $ref.body '...with a body that says nothing about why'
+        foreach ($p in $r.misses.PSObject.Properties) {
+            $m = $p.Value
+            $same = ($m.status -eq $ref.status) -and ($m.body -ceq $ref.body) -and ($m.cc -ceq $ref.cc) -and ($m.robots -ceq $ref.robots) -and ($m.ct -ceq $ref.ct)
+            Assert-True $same "miss '$($p.Name)' is byte-for-byte the same 404 (status, body, headers)"
+        }
+        Assert-Equal 'no-store' $ref.cc '...carrying no-store'
+        Assert-True ($ref.robots -like 'noindex*') '...and noindex'
+
+        Write-Host '  -- the handler: past the lock' -ForegroundColor DarkCyan
+        foreach ($n in 'plain', 'slash', 'query', 'head') {
+            $p = $r.passLock.$n
+            Assert-Equal 503 $p.status "the valid route ($n) passes the lock and reaches the configuration check"
+            Assert-Equal 'no-store' $p.cc "...and its answer is no-store ($n)"
+            Assert-True ($p.robots -like 'noindex*') "...and noindex ($n)"
+        }
+        Assert-True ($r.passLock.plain.body -like '*Missing binding: GITHUB_TOKEN, GITHUB_REPO*') 'a missing binding is named, but only after the lock'
+        Assert-Equal 503 $r.passLock.badRepo.status 'a GITHUB_REPO that is not owner/name is refused'
+        Assert-True ($r.passLock.badRepo.body -notlike '*<x*') '...and the value is not echoed raw'
+
+        Write-Host '  -- the handler: the page' -ForegroundColor DarkCyan
+        $g = $r.render
+        Assert-Equal 200 $g.status 'a good request against the stubbed GitHub renders'
+        Assert-Equal 'no-store' $g.cc '...no-store'
+        Assert-True ($g.robots -like 'noindex*') '...noindex'
+        Assert-True ($g.ct -like 'text/html*utf-8*') '...as UTF-8 HTML'
+        Assert-True $g.metaNoindex '...with a robots meta as well'
+        Assert-Equal 'False' "$($g.scriptRaw)" 'no raw <script appears anywhere on the page'
+        Assert-Equal 'True' "$($g.titleEscaped)" 'a hostile issue title is escaped (& < > " and the apostrophe)'
+        Assert-Equal 'True' "$($g.labelEscaped)" 'a hostile label is escaped'
+        Assert-Equal 'True' "$($g.loginEscaped)" 'a hostile assignee login is escaped'
+        Assert-Equal 'True' "$($g.inReview)" 'the PR-linked issue shows In review'
+        Assert-Equal 'True' "$($g.inProgress)" 'the branch-linked issue shows In progress'
+        Assert-Equal '1:1,2:2,3:12' (Join-N $g.order) 'rows appear in pick-up order with their rank (#2 waits on #1)'
+        Assert-Equal 1 $g.githubCalls 'one GraphQL round trip when nothing needs a second page'
+        Assert-Equal 'https://api.github.com/graphql' $g.githubUrl 'it reads GitHub GraphQL and nothing else'
+        Assert-Equal 'Bearer ghs_FAKE' $g.githubAuth '...with the GITHUB_TOKEN from env'
+        Assert-Equal 'False' "$($g.pathTokenSentToGithub)" 'the path token is never sent to GitHub'
+        Assert-Equal 'False' "$($g.dashboardTokenSentToGithub)" '...not even in a header'
+        Assert-True ($g.cacheKeyCount -gt 0) 'the edge cache is consulted'
+        Assert-Equal 'False' "$($g.cacheKeyHasToken)" 'the cache key never contains the path token'
+        Assert-Equal 502 $r.githubError.status 'a GitHub error answers 502'
+        Assert-Equal 'False' "$($r.githubError.raw)" '...and the GitHub message is not written raw'
+        Assert-Equal 'True' "$($r.githubError.escaped)" '...it is escaped'
+        Assert-Equal 'no-store' $r.githubError.cc '...and no-store'
+        Assert-True ($r.githubError.robots -like 'noindex*') '...and noindex'
+    }
+}
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The script, against a temp repo (-RepoRoot)' -ForegroundColor Cyan
+
+New-Item -ItemType Directory -Path $Fixture -Force | Out-Null
+
+function New-DashRepo {
+    param([string]$Name, [string]$Config = '')
+    $p = Join-Path $Fixture $Name
+    New-Item -ItemType Directory -Path (Join-Path $p 'scripts') -Force | Out-Null
+    if ($Config) { [System.IO.File]::WriteAllText((Join-Path $p 'scripts\repo-config.ps1'), $Config, $Utf8NoBom) }
+    Invoke-FixtureGitJudged -Arguments @('init', '-q', $p)
+    return $p
+}
+
+# stderr goes to a file (never 2>&1): see the sibling suites for why. Lines keeps the stdout line
+# structure, Text is the whole run flattened so one sentence can be quoted across a wrap.
+function Invoke-Dash {
+    param([string]$Root, [string[]]$ScriptArgs = @())
+    $errFile = Join-Path $Fixture "stderr-$([guid]::NewGuid().ToString('n')).txt"
+    $all = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $ScriptPath, '-RepoRoot', $Root) + $ScriptArgs
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $out  = & powershell @all 2>$errFile
+        $code = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+    $err = ''
+    if (Test-Path -LiteralPath $errFile) {
+        $err = [System.IO.File]::ReadAllText($errFile)
+        Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
+    }
+    $lines = @($out | ForEach-Object { "$_" })
+    $text  = (($lines -join "`n") + "`n" + $err) -replace '\s+', ' '
+    return [pscustomobject]@{ Text = $text; Lines = $lines; ExitCode = $code }
+}
+
+$cfg = "function Get-RepoName { return 'acme/widgets' }"
+$repo = New-DashRepo 'repo1' $cfg
+$dash = Join-Path $repo 'dkj-policy\dashboard'
+$tokenFile = Join-Path $dash 'dashboard-path-token.txt'
+
+$none = Invoke-Dash $repo
+Assert-True ($none.ExitCode -ne 0) 'no switch at all is refused'
+Assert-True ($none.Text -like '*Nothing to do*') '...saying so'
+
+$noTok = Invoke-Dash $repo @('-EmitWorker')
+Assert-True ($noTok.ExitCode -ne 0) '-EmitWorker without a token is refused'
+Assert-True ($noTok.Text -like '*does NOT invent one*') '...and says a token is never invented on this path'
+Assert-True (-not (Test-Path -LiteralPath $tokenFile)) '...and it wrote no token'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $dash 'issue-dashboard-worker.js'))) '...and copied no worker'
+
+$init = Invoke-Dash $repo @('-InitToken')
+Assert-Equal 0 $init.ExitCode '-InitToken creates the token'
+Assert-True (Test-Path -LiteralPath $tokenFile) '...at dkj-policy/dashboard/dashboard-path-token.txt'
+$token = [System.IO.File]::ReadAllText($tokenFile)
+Assert-True ($token -cmatch '^[0-9a-f]{32}$') '...32 lowercase hex characters, and nothing else in the file'
+Assert-True ($init.Text -notlike "*$token*") '...and the run does not print it'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $dash 'wrangler.toml'))) '-InitToken alone writes no wrangler.toml'
+
+$again = Invoke-Dash $repo @('-InitToken')
+Assert-True ($again.ExitCode -ne 0) 'a second -InitToken is refused -- it would 404 every link already sent'
+Assert-True ($again.Text -like '*already exists*') '...naming the file'
+Assert-Equal $token ([System.IO.File]::ReadAllText($tokenFile)) '...and the token is untouched'
+
+$emit = Invoke-Dash $repo @('-EmitWorker')
+Assert-Equal 0 $emit.ExitCode '-EmitWorker succeeds with a token'
+foreach ($f in 'issue-dashboard-worker.js', 'issue-dashboard-logic.js') {
+    $dst = Join-Path $dash $f
+    Assert-True (Test-Path -LiteralPath $dst) "$f is copied into the dashboard directory"
+    Assert-Equal (Get-FileHash -LiteralPath (Join-Path $WorkerDir $f) -Algorithm SHA256).Hash (Get-FileHash -LiteralPath $dst -Algorithm SHA256).Hash "...byte-identical to the shipped source ($f)"
+}
+$tomlPath = Join-Path $dash 'wrangler.toml'
+Assert-True (Test-Path -LiteralPath $tomlPath) 'wrangler.toml is written'
+$toml = [System.IO.File]::ReadAllText($tomlPath)
+Assert-True ($toml -match '(?m)^main = "issue-dashboard-worker\.js"$') '...deploying the worker file (main = issue-dashboard-worker.js)'
+Assert-True ($toml -match '(?m)^\[vars\]\s*$') '...with a [vars] table'
+Assert-True ($toml -match '(?m)^GITHUB_REPO = "acme/widgets"$') '...carrying GITHUB_REPO from Get-RepoName'
+Assert-True ($toml -match '(?m)^name = "widgets-issue-dashboard"$') '...named <repo>-issue-dashboard by default'
+Assert-True ($toml -notmatch '(?m)^\s*(GITHUB_TOKEN|DASHBOARD_TOKEN)\s*=') '...and never a secret as a var'
+Assert-True ($toml -notmatch $token) '...and never the path token'
+Assert-True ($toml -notmatch '(?m)^\s*account_id') '...and no account id'
+
+Assert-True ($emit.Text -like '*npx wrangler secret put GITHUB_TOKEN*')    'it prints the GITHUB_TOKEN secret command'
+Assert-True ($emit.Text -like '*npx wrangler secret put DASHBOARD_TOKEN*') '...the DASHBOARD_TOKEN secret command'
+Assert-True ($emit.Text -like '*npx wrangler deploy*')                     '...and the deploy command'
+$cdLine = @($emit.Lines | Where-Object { $_ -match '^\s*cd\s' })
+Assert-Equal 1 $cdLine.Count 'it prints one cd line, so wrangler runs from the dashboard directory (#2581)'
+Assert-True ($cdLine[0] -like "*$dash*") '...to that directory, not the repo root'
+$cmdLines = @($emit.Lines | Where-Object { $_ -match '^\s*(cd |npx )' })
+Assert-Equal 4 $cmdLines.Count 'the printed commands are cd + two secret puts + deploy'
+Assert-Equal 0 @($cmdLines | Where-Object { $_.Contains($token) }).Count 'no command line contains the token'
+Assert-Equal 0 @($emit.Lines | Where-Object { $_ -match 'wrangler' -and $_.Contains($token) }).Count '...and no line mentioning wrangler does'
+$tokenLines = @($emit.Lines | Where-Object { $_.Contains($token) })
+Assert-True ($tokenLines.Count -le 1) 'the token appears in the output at most once'
+Assert-True (@($tokenLines | Where-Object { $_ -notlike '*workers.dev/issues/*' }).Count -eq 0) '...and only inside the URL the operator is told to open'
+Assert-True ($emit.Text -like '*deploys nothing*') 'it states that it deploys nothing'
+
+# wrangler.toml is written once, and drift is reported, not corrected.
+[System.IO.File]::AppendAllText($tomlPath, "`n# my account id lives here`n", $Utf8NoBom)
+$tomlBefore = [System.IO.File]::ReadAllText($tomlPath)
+[System.IO.File]::WriteAllText((Join-Path $dash 'issue-dashboard-logic.js'), '// tampered', $Utf8NoBom)
+$re = Invoke-Dash $repo @('-EmitWorker')
+Assert-Equal 0 $re.ExitCode 'a second -EmitWorker succeeds'
+Assert-Equal $tomlBefore ([System.IO.File]::ReadAllText($tomlPath)) 'an existing wrangler.toml is never overwritten'
+Assert-True ($re.Text -like '*left as it is*') '...and the run says so'
+Assert-Equal (Get-FileHash -LiteralPath $LogicPath -Algorithm SHA256).Hash (Get-FileHash -LiteralPath (Join-Path $dash 'issue-dashboard-logic.js') -Algorithm SHA256).Hash 'the worker files, being derivatives, ARE refreshed'
+Assert-Equal $token ([System.IO.File]::ReadAllText($tokenFile)) 'and the token is untouched'
+
+[System.IO.File]::WriteAllText($tomlPath, ($tomlBefore -replace 'name = "widgets-issue-dashboard"', 'name = "other-name"' -replace 'GITHUB_REPO = "acme/widgets"', 'GITHUB_REPO = "elsewhere/repo"'), $Utf8NoBom)
+$drift = Invoke-Dash $repo @('-EmitWorker')
+Assert-Equal 0 $drift.ExitCode 'a drifted wrangler.toml does not fail the run'
+Assert-True ($drift.Text -like "*deploys 'other-name'*") '...it warns about the drifted worker name'
+Assert-True ($drift.Text -like "*serves issues of 'elsewhere/repo'*") '...and the drifted GITHUB_REPO'
+Assert-True ([System.IO.File]::ReadAllText($tomlPath) -match 'other-name') '...without correcting either'
+
+# A wrangler.toml at the root is a hazard the run names.
+[System.IO.File]::WriteAllText((Join-Path $repo 'wrangler.toml'), 'name = "root-project"', $Utf8NoBom)
+$rootToml = Invoke-Dash $repo @('-EmitWorker')
+Assert-True ($rootToml.Text -like '*wrangler.toml stands at the repository root*') 'a wrangler.toml at the repo root is warned about (#2581)'
+
+# The optional seam names the worker; an invalid name is refused; no Get-RepoName and no gh answer is refused.
+$repo2 = New-DashRepo 'repo2' "function Get-RepoName { return 'acme/widgets' }`nfunction Get-IssueDashboardWorkerName { return 'my-board' }"
+Assert-Equal 0 (Invoke-Dash $repo2 @('-InitToken', '-EmitWorker')).ExitCode '-InitToken -EmitWorker together work on a fresh repo'
+Assert-True ([System.IO.File]::ReadAllText((Join-Path $repo2 'dkj-policy\dashboard\wrangler.toml')) -match '(?m)^name = "my-board"$') 'Get-IssueDashboardWorkerName names the worker'
+
+$repo3 = New-DashRepo 'repo3' "function Get-RepoName { return 'acme/widgets' }`nfunction Get-IssueDashboardWorkerName { return 'Bad Name' }"
+$bad = Invoke-Dash $repo3 @('-InitToken', '-EmitWorker')
+Assert-True ($bad.ExitCode -ne 0) 'a worker name Cloudflare would refuse is refused first'
+Assert-True ($bad.Text -like '*not a valid Cloudflare Worker name*') '...saying why'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $repo3 'dkj-policy\dashboard\wrangler.toml'))) '...before any wrangler.toml is written'
+
+# The stray-token search: a renamed dkj-policy folder leaves the gitignored token behind.
+$repo4 = New-DashRepo 'repo4' $cfg
+$strayDir = Join-Path $repo4 'old-policy\dashboard'
+New-Item -ItemType Directory -Path $strayDir -Force | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $strayDir 'dashboard-path-token.txt'), $HexA, $Utf8NoBom)
+$stray = Invoke-Dash $repo4 @('-InitToken')
+Assert-True ($stray.ExitCode -ne 0) '-InitToken refuses while a token sits elsewhere in the tree'
+Assert-True ($stray.Text -like '*old-policy*') '...naming where it found it'
+Assert-True ($stray.Text -like '*MOVE that folder here*') '...and saying to move it rather than mint a second one'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $repo4 'dkj-policy\dashboard\dashboard-path-token.txt'))) '...and minted nothing'
+$strayEmit = Invoke-Dash $repo4 @('-EmitWorker')
+Assert-True ($strayEmit.ExitCode -ne 0) '-EmitWorker without the token refuses the same way'
+Assert-True ($strayEmit.Text -like '*already holds one*') '...leading with what it found'
+
+# A hand-damaged token is refused, not shipped.
+$repo5 = New-DashRepo 'repo5' $cfg
+Assert-Equal 0 (Invoke-Dash $repo5 @('-InitToken')).ExitCode 'a fifth repo gets a token'
+[System.IO.File]::WriteAllText((Join-Path $repo5 'dkj-policy\dashboard\dashboard-path-token.txt'), $HexA.ToUpperInvariant(), $Utf8NoBom)
+$upper = Invoke-Dash $repo5 @('-EmitWorker')
+Assert-True ($upper.ExitCode -ne 0) 'an UPPERCASE token file is refused -- the worker route only matches lowercase'
+Assert-True ($upper.Text -like '*not 32 lowercase hex*') '...saying why'
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The .gitignore anchors the dashboard directory' -ForegroundColor Cyan
+
+$gi = [System.IO.File]::ReadAllLines((Join-Path $RepoRoot '.gitignore'))
+Assert-True ($gi -contains '/dkj-policy/dashboard/') '.gitignore carries the anchored line /dkj-policy/dashboard/'
+Assert-True (-not ($gi -contains 'dkj-policy/dashboard/') -and -not ($gi -contains 'dashboard/')) '...and no unanchored form that would swallow an unrelated dashboard/ folder'
+
+function Test-GitIgnored {
+    param([string]$RelPath)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & git -C $RepoRoot check-ignore -q -- $RelPath 2>$null; return ($LASTEXITCODE -eq 0) } finally { $ErrorActionPreference = $prev }
+}
+Assert-True (Test-GitIgnored 'dkj-policy/dashboard/dashboard-path-token.txt') 'git ignores the path token file'
+Assert-True (Test-GitIgnored 'dkj-policy/dashboard/wrangler.toml')            '...and the wrangler.toml'
+Assert-True (-not (Test-GitIgnored 'sub/dkj-policy/dashboard/x.txt'))         'but not a dkj-policy/dashboard/ nested elsewhere'
+Assert-True (-not (Test-GitIgnored 'dashboard/x.txt'))                        '...nor a bare dashboard/ folder'
+
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The language' -ForegroundColor Cyan
+
+$bytes = [System.IO.File]::ReadAllBytes($ScriptPath)
+Assert-True (-not ($bytes | Where-Object { $_ -gt 127 })) 'issue-dashboard.ps1 is pure ASCII (repo convention)'
+$thisBytes = [System.IO.File]::ReadAllBytes($PSCommandPath)
+Assert-True (-not ($thisBytes | Where-Object { $_ -gt 127 })) 'this suite is pure ASCII'
+
+if (Test-Path -LiteralPath $Fixture) { Remove-Item -LiteralPath $Fixture -Recurse -Force -ErrorAction SilentlyContinue }
+
+Write-Host ''
+# A BROKEN FIXTURE FAILS THE RUN (issue #1635): the script cases read a repo git init had to build.
+$fixtureBroken = Write-FixtureGitSummary -Subject 'issue-dashboard.ps1'
+Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0 -and -not $fixtureBroken) { 'Green' } else { 'Red' })
+if ($script:fail -gt 0 -or $fixtureBroken) { exit 1 }
+exit 0
