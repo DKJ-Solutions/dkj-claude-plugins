@@ -90,12 +90,18 @@ function Get-LivePushRows {
                             it silently reverts their work. The caller establishes provenance from git
                             and passes the set in; deciding it is not this function's job, asserting the
                             consequence is.
-          deleted           it sits under a theme directory AND the range deletes it (#2566). A push
-                            cannot carry a deletion: `--only <path>` on a file that is not in the
-                            checkout removes nothing from live, so a push row for it would claim a change
-                            the push cannot make. The file is still on live, and removing it there is a
-                            store delete -- its own decision, not a push. Measured in a BWJ store: 209
-                            deletions in one range, every theme one of them listed as `push`.
+          deleted           it sits under a theme directory AND the range deletes it (#2566). It is not a
+                            row of the ordinary push, and the reason is visibility rather than capability:
+                            `--only <path>` on a file that is NOT in the checkout DELETES that file on
+                            the theme (#2641). The CLI's delete set is the remote files, filtered by the
+                            same --only/--ignore filters, minus the local ones, skipped only under
+                            --nodelete -- read in @shopify/cli 4.8.2, and its --nodelete help says the
+                            same. So a deletion IS a push, one that destroys what live holds at that
+                            path, and the caller composes it as its own, separately named command rather
+                            than folding it into the list a person reads as "files to upload". Measured
+                            in a BWJ store: 209 deletions in one range, every theme one of them listed
+                            as `push` (#2566); #2566 then read them as uncarriable, which was the wrong
+                            half of the same fact.
 
         THE ORDER OF THE REFUSALS IS LOAD-BEARING. A path is tested for being a theme path FIRST, so a
         sync-owned path outside the theme directories is reported as what it primarily is rather than
@@ -186,7 +192,7 @@ function Get-LivePushRows {
                 Path   = $path
                 Push   = $false
                 Kind   = 'deleted'
-                Reason = "in $hit/, but DELETED on the trunk -- a push cannot remove it, so it is still on live: removing it there is a store delete, decided separately"
+                Reason = "in $hit/, but DELETED on the trunk -- an --only push of it REMOVES it from live, so it is its own, separately named deletion command rather than a row of the push"
             }
             continue
         }
@@ -412,6 +418,10 @@ function Format-LivePushCommand {
         `theme push` without one pushes the WHOLE theme -- the single most destructive thing this file
         could ever produce by accident. A caller with an empty list has nothing to push and is told so
         by the verdict; it is never handed a command.
+
+        IT COMPOSES THE DELETION COMMAND TOO (#2641), handed the trunk-deleted paths instead of the
+        push list. Run from the trunk, where those files are absent, the same `--only` spelling removes
+        them from live, so a second builder would only be a second copy of the paste and marker rules.
 
         A PATH THAT IS NOT SAFE TO PASTE IS A THROW, NOT A COMMAND (#2514). The check a caller should
         run first is Get-LivePushUnsafePaths, which lets it refuse with the paths named; this throw is

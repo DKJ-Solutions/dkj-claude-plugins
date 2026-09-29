@@ -379,6 +379,7 @@ Write-Host ''
 Write-Host '[3/9] push list -- derived from the range, never typed' -ForegroundColor Cyan
 
 $pushFiles = @()
+$deleteFiles = @()
 # Kept at script scope: the live-push record written after the verdict is these rows (#2570/#2586).
 $rows = @()
 $sinceTag = ([string]$SinceTag).Trim()
@@ -393,7 +394,7 @@ if (-not $sinceTag) {
 } else {
     # --no-renames IN BOTH READS (#2566): with rename detection on, a renamed theme file's OLD path is in
     # neither list, and that path is still on live exactly as a deleted one is. Split into its add and its
-    # delete, the new path is pushed and the old one is reported.
+    # delete, the new path is pushed and the old one goes to the deletion command (#2641).
     $rangeCap = Invoke-Git -Arguments @('diff', '--no-renames', '--name-only', "$sinceTag..HEAD")
     $deletedCap = Invoke-Git -Arguments @('diff', '--no-renames', '--name-only', '--diff-filter=D', "$sinceTag..HEAD")
     if (-not (Test-NativeExitMeasured -Capture $rangeCap) -or $rangeCap.ExitCode -ne 0) {
@@ -434,14 +435,18 @@ if (-not $sinceTag) {
 
         $rows = @(Get-LivePushRows -ChangedPaths $changed -SyncOwnedPaths $syncOwned -DeletedPaths $deleted)
         $pushFiles = @($rows | Where-Object { $_.Push } | ForEach-Object { $_.Path })
-        $held = @($rows | Where-Object { -not $_.Push })
-        $stillOnLive = @($rows | Where-Object { $_.Kind -eq 'deleted' })
+        # A DELETION IS A PUSH OF ITS OWN (#2641): `--only` on a path missing from the checkout removes it
+        # from live. It is kept out of $pushFiles so the ordinary push stays a list of uploads, and it gets
+        # its own command at step 8 -- authorising a deletion on live is a separate, visible act.
+        $deleteFiles = @($rows | Where-Object { $_.Kind -eq 'deleted' } | ForEach-Object { $_.Path })
+        $held = @($rows | Where-Object { -not $_.Push -and $_.Kind -ne 'deleted' })
 
         Write-Host "  $sinceTag..HEAD changed $($changed.Count) file(s)."
         # EVERY PATH PRINTED HERE GOES THROUGH Format-SafePathToken (#2514). These are the same foreign
         # names the paste check below refuses, printed before it runs and whatever it decides -- so an
         # escape sequence in one would repaint the very list a reader is judging.
-        foreach ($r in ($rows | Where-Object { $_.Push })) { Write-Host "    push  $(Format-SafePathToken -Value $r.Path)" -ForegroundColor Green }
+        foreach ($r in ($rows | Where-Object { $_.Push })) { Write-Host "    push    $(Format-SafePathToken -Value $r.Path)" -ForegroundColor Green }
+        foreach ($p in $deleteFiles) { Write-Host "    delete  $(Format-SafePathToken -Value $p)" -ForegroundColor Magenta }
         # EVERY HELD ROW IS PRINTED TOO, grouped rather than silent: a list that showed only the keepers
         # would be unfalsifiable, because the files it must never push are exactly the rows it would not
         # print. Grouped by reason so 50 script paths read as one fact and not as fifty.
@@ -458,23 +463,23 @@ if (-not $sinceTag) {
         # refused, so a push that can never be printed does not first cost eight minutes and a theme
         # slot. Each refused path is NAMED through Format-SafePathToken, which strips the control
         # characters a newline attack needs; the name is a display, never part of a command.
-        $unsafePush = @(Get-LivePushUnsafePaths -Paths $pushFiles)
+        $unsafePush = @(Get-LivePushUnsafePaths -Paths (@($pushFiles) + @($deleteFiles)))
 
-        # A DELETION IS ITS OWN STEP, and a warning rather than a refusal: the push is still right, and
-        # what it cannot carry is named so it is not mistaken for shipped.
-        if ($stillOnLive.Count -gt 0) {
-            Add-Step -Name 'deletions' -State 'warn' -Detail "$($stillOnLive.Count) theme file(s) are deleted on the trunk and stay on live, because a push cannot remove a file. Removing them from the store is a separate decision -- they are listed above under 'held'."
+        # A DELETION IS ITS OWN STEP, and a note rather than a refusal: it is named so that the second
+        # command at step 8 is read as what it is -- the removal of files from the live theme.
+        if ($deleteFiles.Count -gt 0) {
+            Add-Step -Name 'deletions' -State 'warn' -Detail "$($deleteFiles.Count) theme file(s) are deleted on the trunk and are still on live. An --only push of a path missing from the checkout REMOVES it from live, so they get their own deletion command, printed apart from the push -- listed above under 'delete'."
         }
 
-        if ($pushFiles.Count -eq 0) {
-            $only = if ($stillOnLive.Count -gt 0) { " The only theme changes in the range are deletions, which a push cannot carry." } else { ' This release is code and docs only.' }
-            Add-Step -Name 'push list' -State 'refuse' -Detail "nothing in $sinceTag..HEAD is a theme file to push, so there is nothing to push.$only"
+        if ($pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
+            Add-Step -Name 'push list' -State 'refuse' -Detail "nothing in $sinceTag..HEAD is a theme file to push, so there is nothing to push. This release is code and docs only."
         } elseif ($unsafePush.Count -gt 0) {
             $named = (@($unsafePush | Select-Object -First 5) | ForEach-Object { "'$(Format-SafePathToken -Value $_)'" }) -join ', '
             $more  = if ($unsafePush.Count -gt 5) { ", and $($unsafePush.Count - 5) more" } else { '' }
             Add-Step -Name 'push list' -State 'refuse' -Detail "$($unsafePush.Count) theme path(s) are not safe to print inside a command a person pastes: $named$more. Only letters (Latin accents included), digits, '.', '_', '/' and '-' are printed. Rename the file on the theme, or push it by hand after reading its name byte by byte."
         } else {
-            Add-Step -Name 'push list' -State 'pass' -Detail "$($pushFiles.Count) theme file(s) to push, out of $($changed.Count) changed."
+            $delText = if ($deleteFiles.Count -gt 0) { " and $($deleteFiles.Count) to delete" } else { '' }
+            Add-Step -Name 'push list' -State 'pass' -Detail "$($pushFiles.Count) theme file(s) to push$delText, out of $($changed.Count) changed."
         }
     }
 }
@@ -582,32 +587,68 @@ if (-not $driftRel) { $driftRel = ([string]$seam.DriftCheck).Trim() }
 if (-not $driftRel) { $driftRel = 'scripts/theme/live-snapshot.ps1' }
 $driftFull = Join-Path $repoRoot $driftRel
 
-if ($pushFiles.Count -eq 0) {
-    Add-Step -Name 'drift' -State 'skip' -Detail 'there is no push list to check.'
-} elseif (-not (Test-Path -LiteralPath $driftFull -PathType Leaf)) {
-    Add-Step -Name 'drift' -State 'skip' -Detail "no drift check at '$driftRel'. The push list is derived and UNCHECKED against what a third party may have written on live since; pass -DriftCheckPath, or answer Get-ShopifyDriftCheckPath."
-} else {
+function Invoke-DriftCheck {
     # CALLED IN THIS PROCESS WITH A REAL ARRAY, AND THAT IS THE ENTIRE POINT OF THE STEP. The measured
     # failure (#2228, at v2.39.0) is this same call made through `powershell -File`, which flattens
     # -Only into ONE string that never splits on commas: the check snapshotted zero files and printed a
     # green "safe to push", and the rollback artefact for that release did not exist. '&' with a
     # [string[]] cannot flatten, so the defect is closed by construction rather than by remembering.
-    Write-Host "  $driftRel -Only <$($pushFiles.Count) paths, as an array>"
-    $driftExit = 0
+    #
+    # AND ITS OUTPUT GOES TO THE HOST, NOT INTO THIS FUNCTION'S RETURN. A drift check that writes its
+    # report to the success stream would otherwise become part of the value returned here, and an array
+    # compared with 0 is never 0 -- a pass read as a refusal, with the report swallowed.
+    param([string[]]$Paths, [string]$What)
+    Write-Host "  $driftRel -Only <$($Paths.Count) $What paths, as an array>"
     try {
         $global:LASTEXITCODE = 0
-        & $driftFull -Only $pushFiles
-        $driftExit = if ($null -eq $LASTEXITCODE) { 0 } else { [int]$LASTEXITCODE }
+        & $driftFull -Only $Paths | Out-Host
+        if ($null -eq $LASTEXITCODE) { return 0 }
+        return [int]$LASTEXITCODE
     } catch {
-        $driftExit = -1
         Write-Warning "the drift check threw: $(Format-SafeProseToken -Value $_.Exception.Message)"
+        return -1
     }
-    if ($driftExit -eq 0) {
-        Add-Step -Name 'drift' -State 'pass' -Detail "the drift check passed on all $($pushFiles.Count) file(s)."
-    } else {
-        # DRIFT IS A REFUSAL AND NOT A WARNING, which #2228 asked for in those words. A file a third
-        # party has edited on live since this repo last saw it is a file whose push DESTROYS their work.
-        Add-Step -Name 'drift' -State 'refuse' -Detail "the drift check exited $driftExit. Something on live is not what this repo thinks it is -- read its report before anything is pushed."
+}
+
+# Set when the drift check refuses the deletion paths: step 8 then composes no deletion command.
+$deleteWithheld = $false
+if ($pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
+    Add-Step -Name 'drift' -State 'skip' -Detail 'there is no push list to check.'
+} elseif (-not (Test-Path -LiteralPath $driftFull -PathType Leaf)) {
+    Add-Step -Name 'drift' -State 'skip' -Detail "no drift check at '$driftRel'. The push list is derived and UNCHECKED against what a third party may have written on live since; pass -DriftCheckPath, or answer Get-ShopifyDriftCheckPath."
+    # AN UNCHECKED DELETION IS NOT PRINTED, where an unchecked upload still is: removing a file leaves
+    # nothing on live to compare against afterwards, so the one guard against destroying a third party's
+    # content there has to have run first (#2641).
+    if ($deleteFiles.Count -gt 0) {
+        $deleteWithheld = $true
+        $delState = if ($pushFiles.Count -eq 0) { 'refuse' } else { 'warn' }
+        Add-Step -Name 'drift (deletions)' -State $delState -Detail "no drift check, so no deletion command is printed for the $($deleteFiles.Count) file(s) the trunk deleted: they stay on live until a drift check has passed on them."
+    }
+} else {
+    if ($pushFiles.Count -gt 0) {
+        $driftExit = Invoke-DriftCheck -Paths $pushFiles -What 'push'
+        if ($driftExit -eq 0) {
+            Add-Step -Name 'drift' -State 'pass' -Detail "the drift check passed on all $($pushFiles.Count) file(s)."
+        } else {
+            # DRIFT IS A REFUSAL AND NOT A WARNING, which #2228 asked for in those words. A file a third
+            # party has edited on live since this repo last saw it is a file whose push DESTROYS their work.
+            Add-Step -Name 'drift' -State 'refuse' -Detail "the drift check exited $driftExit. Something on live is not what this repo thinks it is -- read its report before anything is pushed."
+        }
+    }
+    # THE DELETIONS ARE CHECKED TOO, AND SEPARATELY (#2641). Removing a file destroys what live holds at
+    # that path exactly as an overwrite does, so a third party's content there must stop the deletion.
+    # A separate call, because a refusal here withholds only the deletion command: the ordinary push is
+    # still right, and a drift check that cannot read a path missing from the checkout fails this way
+    # too -- the safe direction, with the deletion left for a person to decide.
+    if ($deleteFiles.Count -gt 0) {
+        $delExit = Invoke-DriftCheck -Paths $deleteFiles -What 'deletion'
+        if ($delExit -eq 0) {
+            Add-Step -Name 'drift (deletions)' -State 'pass' -Detail "the drift check passed on all $($deleteFiles.Count) file(s) to delete."
+        } else {
+            $deleteWithheld = $true
+            $delState = if ($pushFiles.Count -eq 0) { 'refuse' } else { 'warn' }
+            Add-Step -Name 'drift (deletions)' -State $delState -Detail "the drift check exited $delExit on the $($deleteFiles.Count) file(s) to delete, so no deletion command is printed: live may hold a third party's content at one of them. Read its report; those files stay on live until somebody decides."
+        }
     }
 }
 
@@ -667,14 +708,23 @@ Write-Host '[8/9] the push command -- without the authorisation marker' -Foregro
 # as the backstop for any caller that skipped the check; this caller did not skip it, so it reports the
 # step instead of letting the throw end the run before the verdict.
 $pushCommand = ''
-$unsafeAtCommand = @(Get-LivePushUnsafePaths -Paths $pushFiles)
-if ($unsafeAtCommand.Count -eq 0) { $pushCommand = Format-LivePushCommand -Store $store -ThemeId $liveId -Only $pushFiles }
+$deleteCommand = ''
+$unsafeAtCommand = @(Get-LivePushUnsafePaths -Paths (@($pushFiles) + @($deleteFiles)))
+if ($unsafeAtCommand.Count -eq 0) {
+    $pushCommand = Format-LivePushCommand -Store $store -ThemeId $liveId -Only $pushFiles
+    # THE SAME BUILDER, HANDED THE DELETED PATHS (#2641). Run from this checkout, where they are absent,
+    # the --only push removes them from live. Its own command so that authorising it is its own act.
+    if (-not $deleteWithheld) { $deleteCommand = Format-LivePushCommand -Store $store -ThemeId $liveId -Only $deleteFiles }
+}
 if ($unsafeAtCommand.Count -gt 0) {
     Add-Step -Name 'command' -State 'skip' -Detail "not composed: $($unsafeAtCommand.Count) path(s) in the push list are not safe to paste, and the push-list step names them."
-} elseif (-not $pushCommand) {
+} elseif (-not $pushCommand -and -not $deleteCommand) {
     Add-Step -Name 'command' -State 'skip' -Detail 'no push list, so no command was composed. A theme push without --only pushes the WHOLE theme, which is never printed from here.'
 } else {
-    Add-Step -Name 'command' -State 'pass' -Detail 'composed, one --only per file.'
+    $which = @()
+    if ($pushCommand)   { $which += 'the push' }
+    if ($deleteCommand) { $which += 'the deletion' }
+    Add-Step -Name 'command' -State 'pass' -Detail "composed $($which -join ' and '), one --only per file."
 }
 
 # === 9/9 -- the aftercare, previewed ===============================================================
@@ -713,18 +763,26 @@ if (-not $verdict.Allowed) {
 }
 
 Write-Host $verdict.Summary -ForegroundColor Green
-if ($pushCommand) {
-    Write-Host ''
-    Write-Host 'The push, for a person to make:' -ForegroundColor Cyan
-    Write-Host "  $pushCommand"
+if ($pushCommand -or $deleteCommand) {
+    if ($pushCommand) {
+        Write-Host ''
+        Write-Host 'The push, for a person to make:' -ForegroundColor Cyan
+        Write-Host "  $pushCommand"
+    }
+    if ($deleteCommand) {
+        Write-Host ''
+        Write-Host "The deletion -- REMOVES these $($deleteFiles.Count) file(s) from the live theme, for a person to make:" -ForegroundColor Magenta
+        Write-Host "  $deleteCommand"
+        Write-Host '  Run it from this checkout, where the files are absent: that absence is what makes --only delete.' -ForegroundColor Yellow
+    }
     Write-Host ''
     # THE GUIDANCE NAMES THE MARKER'S JOB AND NEVER THE MARKER. Printing the string here would put the
     # authorised command on the screen in two pieces a copy-paste away from each other, which is the
     # same thing as printing it whole. The repo states its own marker in its own safety rules, where a
     # person reads it deliberately.
-    Write-Host 'That command is REFUSED as it stands, and that is deliberate: this plugin''s live guard' -ForegroundColor Yellow
+    Write-Host 'Each command is REFUSED as it stands, and that is deliberate: this plugin''s live guard' -ForegroundColor Yellow
     Write-Host 'requires the authorisation marker your repo states in its own safety rules, appended to' -ForegroundColor Yellow
-    Write-Host 'this exact command as a shell comment. Adding it is a human act and no script does it.' -ForegroundColor Yellow
+    Write-Host 'that exact command as a shell comment. Adding it is a human act and no script does it.' -ForegroundColor Yellow
 
     # THE LIVE-PUSH RECORD (#2570/#2586), written only once the push is allowed, because it describes a
     # push somebody is about to make. It goes to the temp directory rather than the tree: the cut refuses
@@ -737,11 +795,11 @@ if ($pushCommand) {
     # same folder name at the same commit would otherwise write one record over the other's edits.
     $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) ("live-push-record-{0}-{1}-{2}.txt" -f (Split-Path -Leaf $repoRoot), $head, [guid]::NewGuid().ToString('N').Substring(0, 8))
     try {
-        [System.IO.File]::WriteAllText($recordPath, (Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head"), (New-Object System.Text.UTF8Encoding($false)))
+        [System.IO.File]::WriteAllText($recordPath, (Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head" -DeletionsCarried:([bool]$deleteCommand)), (New-Object System.Text.UTF8Encoding($false)))
         Write-Host ''
         Write-Host 'The live-push record, for the cut:' -ForegroundColor Cyan
         Write-Host "  $recordPath"
-        Write-Host '  If you hold a file back from the push above, change its "live" to "hold" in that file.' -ForegroundColor Yellow
+        Write-Host '  If you hold a file back from a command above, change its "live" to "hold" in that file.' -ForegroundColor Yellow
         Write-Host '  Then pass it to the cut, so the GitHub body and the audience note list only what is live:'
         Write-Host "    cut-release.ps1 ... -LivePushRecord `"$recordPath`""
     } catch {

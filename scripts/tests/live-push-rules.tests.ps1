@@ -136,7 +136,7 @@ Assert-Equal 'sync-owned' $mixed[0].Kind 'provenance matches across separator sp
 
 # ---------------------------------------------------------------------------------------------------
 Write-Host ''
-Write-Host 'Deletions -- a push cannot carry one (#2566)' -ForegroundColor Cyan
+Write-Host 'Deletions -- their own command, never a push row (#2566, #2641)' -ForegroundColor Cyan
 
 # THE CONSUMER'S SHAPE: theme files deleted in the range beside one that changed, a deleted script, and a
 # deletion a sync mirrored in from live.
@@ -147,7 +147,8 @@ Assert-Equal 5 $delRows.Count 'a deleted path still gets a row'
 Assert-Equal 1 @($delRows | Where-Object { $_.Push }).Count 'only the changed theme file is pushed -- no deleted one is'
 $delEs = @($delRows | Where-Object { $_.Path -eq 'locales/es.json' })[0]
 Assert-Equal 'deleted' $delEs.Kind 'a deleted theme file is reported as deleted'
-Assert-True ($delEs.Reason.Contains('still on live')) '...with the reason a reader can act on'
+Assert-True ($delEs.Reason.Contains('REMOVES it from live')) '...with the reason a reader can act on: an --only push of it deletes it (#2641)'
+Assert-True (-not $delEs.Reason.Contains('cannot remove')) '...and never the retired claim that a push cannot remove it (#2641)'
 Assert-Equal 'deleted' @($delRows | Where-Object { $_.Path -eq 'templates/index.context.spanje.json' })[0].Kind 'the deleted set matches across separator spellings'
 Assert-Equal 'not-a-theme-path' @($delRows | Where-Object { $_.Path -eq 'scripts/old.ps1' })[0].Kind 'a deleted non-theme path is still reported as not a theme path'
 Assert-Equal 'sync-owned' @($delRows | Where-Object { $_.Path -eq 'snippets/gone-on-live.liquid' })[0].Kind 'a deletion a sync mirrored from live is sync-owned -- it is already gone there'
@@ -161,7 +162,22 @@ foreach ($drv in @(@{ Name = 'live-preflight'; Src = $pfSrc }, @{ Name = 'prepar
     Assert-True ($drv.Src -match 'Get-LivePushRows\b[^\r\n]*-DeletedPaths') "$($drv.Name) passes the range's deletions to Get-LivePushRows"
     Assert-True ($drv.Src -match "'--no-renames',\s*'--name-only',\s*'--diff-filter=D'") "$($drv.Name) reads the deletions with renames split"
     Assert-True ($drv.Src -notmatch "'diff',\s*'--name-only'") "$($drv.Name) has no range read left with rename detection on"
+    Assert-True ($drv.Src -notmatch 'push cannot (remove|carry)') "$($drv.Name) no longer claims a push cannot remove a file (#2641)"
 }
+
+# THE PREFLIGHT COMPOSES THE DELETION AS ITS OWN COMMAND, drift-checked on its own (#2641). Asserted on the
+# source for the reason above: the driver needs git, the CLI and a store to run.
+Assert-True ($pfSrc -match '\$deleteCommand = Format-LivePushCommand [^\r\n]*-Only \$deleteFiles') 'live-preflight composes the deletion command from the deleted paths'
+Assert-True ($pfSrc -match 'Invoke-DriftCheck -Paths \$deleteFiles') 'live-preflight runs the drift check on the deleted paths'
+Assert-True ($pfSrc -match 'if \(-not \$deleteWithheld\)') 'a drift refusal on the deletions withholds the deletion command'
+Assert-True ($pfSrc -match '& \$driftFull -Only \$Paths \| Out-Host') "the drift check's own output goes to the host, never into the exit code Invoke-DriftCheck returns"
+Assert-Equal 2 ([regex]::Matches($pfSrc, '\$deleteWithheld = \$true')).Count 'a deletion is withheld both on a drift refusal and when there is no drift check at all'
+Assert-True ($pfSrc -match '-DeletionsCarried:\(\[bool\]\$deleteCommand\)') 'the record marks deletions live only when the command was composed'
+
+# A DELETION COMMAND IS THE PUSH BUILDER'S OWN SPELLING: one --only per path, never an empty --only list.
+$delCmd = Format-LivePushCommand -Store 's.myshopify.com' -ThemeId '123' -Only @('locales/es.json', 'templates/index.context.spanje.json')
+Assert-Equal 'shopify theme push --store s.myshopify.com --theme 123 --only locales/es.json --only templates/index.context.spanje.json --allow-live' $delCmd 'the deletion command is one --only per deleted path, and carries no --nodelete'
+Assert-Equal '' (Format-LivePushCommand -Store 's' -ThemeId '1' -Only @()) 'no deletions, no deletion command -- never a bare theme push'
 
 # WHICH COMMITS CAME IN THROUGH A SYNC (#2509: out of live-preflight.ps1, so prepare-release reads the same
 # rule). Both merge shapes, and the commit that merely mentions nothing sync-shaped is not a row.

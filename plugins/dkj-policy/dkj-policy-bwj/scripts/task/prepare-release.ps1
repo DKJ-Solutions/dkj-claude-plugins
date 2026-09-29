@@ -354,14 +354,19 @@ if (-not $sinceTag) {
         # Format-ReleaseRunbook), and it is named here so the reason is not only in the runbook.
         $unsafe = @($pushFiles | Where-Object { -not (Test-PathPasteSafe -Path $_) })
         # DELETIONS ARE THEIR OWN DECISION, found days ahead so the day does not have to make it (#2566).
+        # They ARE carriable: an --only push of a path missing from the checkout removes it from live
+        # (#2641), and live-preflight prints that as its own, separately named deletion command.
         if ($stillOnLive.Count -gt 0) {
-            Add-Step -Name 'deletions' -State 'attention' -Detail "$($stillOnLive.Count) theme file(s) are deleted on the trunk and stay on live, because a push cannot remove a file -- decide before the day whether the store deletes them."
+            Add-Step -Name 'deletions' -State 'attention' -Detail "$($stillOnLive.Count) theme file(s) are deleted on the trunk and are still on live. On the day, live-preflight prints a separate deletion command that removes them (an --only push of a path missing locally deletes it) -- decide before the day whether that command runs."
         }
         if ($unsafe.Count -gt 0) {
             Add-Step -Name 'push list' -State 'attention' -Detail "$($unsafe.Count) of $($pushFiles.Count) theme path(s) cannot be pasted safely into a command line, so the runbook composes no push or pull. Read them: $(@($unsafe | ForEach-Object { ConvertTo-ConsoleStrippedText -Text $_ }) -join ', ')"
         } elseif ($pushFiles.Count -eq 0) {
-            $only = if ($stillOnLive.Count -gt 0) { 'its only theme changes are deletions, which a push cannot carry' } else { 'this release is code and docs only' }
-            Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to push -- $only, with no live push."
+            if ($stillOnLive.Count -gt 0) {
+                Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to upload -- its only theme changes are deletions, so the live push is the deletion command alone."
+            } else {
+                Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to push -- this release is code and docs only, with no live push."
+            }
         } else {
             Add-Step -Name 'push list' -State 'ready' -Detail "$($pushFiles.Count) theme file(s) to push, $newCount of them new on the theme, out of $($changed.Count) changed."
         }

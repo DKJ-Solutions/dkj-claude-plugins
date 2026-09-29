@@ -1,6 +1,6 @@
 ---
 name: live-preflight
-description: The step between a merged trunk and a live Shopify theme push, which used to be assembled by hand from prose every release. It verifies the stand, derives the push list from the range rather than from the changelog, hands that list to the repo's drift check AS AN ARRAY, takes one verified backup as the rollback point, and prints the push command. Use it on the trunk once a release is merged and green, before anything reaches live. Two things it never does, both by construction: it never runs `shopify theme push` -- the live guard reads command strings and cannot see inside a script -- and it never writes the authorisation marker, because green means the checklist is complete, never that the push is authorised.
+description: The step between a merged trunk and a live Shopify theme push, which used to be assembled by hand from prose every release. It verifies the stand, derives the push list from the range rather than from the changelog, hands that list to the repo's drift check AS AN ARRAY, takes one verified backup as the rollback point, and prints the push command, plus a separate deletion command for theme files the range deleted. Use it on the trunk once a release is merged and green, before anything reaches live. Two things it never does, both by construction: it never runs `shopify theme push` -- the live guard reads command strings and cannot see inside a script -- and it never writes the authorisation marker, because green means the checklist is complete, never that the push is authorised.
 ---
 
 # live-preflight -- the one step that can refuse the push
@@ -51,13 +51,22 @@ lived in the eight theme directories. The other 50 were scripts, tests and docs 
 a theme**. That repo's own `CLAUDE.md` warns about exactly this in words -- *"de pushlijst is niet de
 changelog"* -- which is what a rule looks like when nothing enforces it.
 
-So the list is **derived**, three verdicts, each its own refusal:
+So the list is **derived**, four verdicts, each its own row:
 
 | verdict | what happens |
 |---|---|
 | `theme-file` | under one of the eight theme directories. It is pushed. |
 | `not-a-theme-path` | it is not. The CLI has nowhere to put it, so pushing it is not "extra safety". |
 | `sync-owned` | under a theme directory, but a sync mirrored it **from** live. Those bytes are already there, and pushing them back can revert a third party's later edit. |
+| `deleted` | under a theme directory, and the range deletes it. It goes into a **separate deletion command**, never into the push. |
+
+**A deletion is a push, and that is why it gets its own command** (#2641). `shopify theme push --only
+<path>` for a path that is absent from the checkout **deletes that file on the theme**: the CLI builds
+its delete set from the remote files, filtered by the same `--only`/`--ignore` filters, minus the local
+ones, and skips it only under `--nodelete`. That was read in the `@shopify/cli` 4.8.2 source, and the
+flag's own help text says the same. #2566 had assumed the opposite and left trunk-deleted files on live
+with no route off it. The deletion is printed apart from the push because authorising the removal of
+files from live has to be a visible act of its own. It also runs through the drift check (below).
 
 **Every path gets a row, including the ones held back.** That is the design rather than verbosity, and
 it is the same property the preview sweep's report has for the same reason: a list that printed only
@@ -81,6 +90,10 @@ owns the list cannot make -- the defect is closed by construction rather than by
 
 **DRIFT IS A REFUSAL, not a warning.** A file a third party has edited on live since this repo last
 saw it is a file whose push destroys their work.
+
+**The deletions are checked too, in a call of their own.** Removing a file destroys what live holds
+there exactly as an overwrite does. A refusal on the deletion paths withholds **only the deletion
+command**: the ordinary push is still right, and the files stay on live until somebody decides. So does a repo\nwith **no** drift check: an unchecked upload is still printed, an unchecked deletion is not. The check is\nhanded paths that are absent from the checkout, and it is expected to compare live against what this repo\nlast held there. A check that cannot read such a path fails, which is the safe direction. Where the range's\nonly theme changes are deletions, either refusal refuses the run.
 
 ### 3. A path in the printed command is text a shell will parse
 
@@ -110,9 +123,9 @@ held, goes through the same control-character strip.
 | 3 | **push list** -- derived from the range | nothing in the range lives on a theme, or a theme path is not safe to paste (failure 3 above). |
 | 4 | **version** -- what the pending entries owe, and the target | never; it reports. |
 | 5 | **live theme** -- by configured **id** and by the **role** the store reports | the two disagree, or the id is not in the list. |
-| 6 | **drift** -- the check, with the list as an array | the check says the live files are not what this repo thinks. |
+| 6 | **drift** -- the check, with the list as an array, and again with the deletions | the check says the live files about to be overwritten are not what this repo thinks. On the deletions alone it withholds the deletion command instead. |
 | 7 | **backup** -- one verified copy of live | the backup cannot be proven complete. |
-| 8 | **the push command** -- without the marker | never; with no list there is simply no command. |
+| 8 | **the push command, and the deletion command** -- both without the marker | never; with no list there is simply no command. |
 | 9 | **aftercare** -- what the sweep would take | never; the sweep's dry run is its default and no `-Execute` is passed. |
 
 **The order is cost-ordered and that was asked for.** The backup polls until the copy is provably
@@ -148,8 +161,9 @@ written here and read there, is what stops the two disagreeing.
 
 **One line per theme file in the range, written to the temp directory once the run is allowed to print a
 command:** `live sections/header.liquid` or `hold snippets/product-info.liquid`. A `theme-file` or
-`sync-owned` row (the push carries it, or a sync already mirrored it *from* live) is `live`; a `deleted`
-row is `hold`, because a `--only` push cannot remove a file, so the old version stays on live. A
+`sync-owned` row (the push carries it, or a sync already mirrored it *from* live) is `live`. A `deleted`
+row is `live` when the deletion command was printed, since that command removes it. It is `hold` when
+the drift check withheld the command, because then the old version stays on live. A
 `not-a-theme-path` row gets no line at all -- it does not exist on a theme, so it cannot be live or held
 there. The format and the parser are one definition, in `scripts/lib/live-record-lib.ps1`, which this
 plugin and `dkj-policy` both carry as a byte-identical mirror.
@@ -243,7 +257,7 @@ The arithmetic of adding one to a version component is local, because that is no
 
 `scripts/tests/live-push-rules.tests.ps1` pins the rules the script invokes: the eight theme
 directories (**including that `sync-main.ps1` no longer carries its own copy**), the push-list
-classification in all three verdicts with the near-miss and separator cases, the numeric tag pick that
+classification in all four verdicts with the near-miss and separator cases, the numeric tag pick that
 lexical sorting gets wrong, the push command's shape and its refusal to produce one for an empty list,
 the paste-safety check on its three measured shapes and on the accented paths it must still admit,
 and the verdict fold -- including that a skip is not a pass and an unrecognised state is a refusal.
