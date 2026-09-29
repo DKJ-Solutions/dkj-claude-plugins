@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**23 / 34 minor entries** <!-- pending-tally -->
+**24 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2620-golive-no-predicted-version · 20260929-101753Z
+
+The go-live block no longer names a predicted version. It stepped the newest tag by the bump the
+pending changelog named that day, and every entry still to land before the release could raise it, so
+the colleague reading the block got a guess that read as a fact. The block now names the release day
+alone, unless `-Version` is passed. The projection is still printed on the console for the session
+(#2620).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a store repo running `dkj-policy-bwj`, the block pasted into Asana no longer carries a version
+number the owner has to strike out by hand. Pass `-Version` once the number can no longer change.
+
+**Score:** 2
+
+#### Pull Request
+
+golive-block: the colleague-facing block names no predicted version unless -Version is given
+
+Plugins: dkj-policy-bwj
+
+[PR #2628](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2628)
+
+---
 
 ### DEPLOY: fix/2616-placed-workflows-linux-runners · 20260929-100014Z
 
