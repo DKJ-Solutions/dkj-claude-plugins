@@ -39,21 +39,37 @@
 
 ### PLAN
 
+#2622, verified in the tree: `branch-entry.yml` and `reusable-branch-entry.yml` spliced
+`${{ github.head_ref }}` into their `run:` script, so a branch name carrying `$(...)` or a quote would be
+expanded into code before pwsh parsed it. Repair as the issue proposes: `HEAD_REF` (and `PR_NUMBER`) under
+`env:`, read as `$env:HEAD_REF`. `check-branch-entry.ps1`'s own "pass the head ref explicitly" hint
+recommended the spliced form, so it now names the safe one.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] both workflows: the head ref and PR number arrive through `env:`
+- [x] `check-branch-entry.ps1` (and its dkj-policy mirror): the hint prescribes `$env:HEAD_REF`, not the spliced expression
 
 ### TEST
 
+- [x] `branch-entry-gate.tests.ps1`: neither workflow splices a head ref into any `run:` block, and both read `$env:HEAD_REF`; the same regex flags both files as they stand on `main` -- 64 asserts green
+
 ### DEPLOY: fix/2622-branch-entry-head-ref-env
 
-**Score:**
+The branch-entry CI gate now receives the pull request's head branch through an environment variable
+instead of having it pasted into the script it runs. A branch name is chosen by whoever opens the pull
+request, and a pasted one carrying `$(...)` or a quote would have run as code on the runner (#2622).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Every consumer that calls `reusable-branch-entry.yml` at `@main` gets the fix at once, before any release.
+It closes a script-injection path on the runner that has not been used: a pull request whose branch name
+runs a command.
+
+**Score:** 1
 
 #### Pull Request
 
 branch-entry gates pass the head ref through env:, not spliced into run:
-
