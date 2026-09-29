@@ -38,9 +38,9 @@ on:
   schedule:
     # EVERY 30 MINUTES, AND THE NUMBER IS A RUNNER-CONTENTION DECISION RATHER THAN A LATENCY ONE.
     # workflow_run already covers the ordinary path the moment CI finishes, so this only has to catch
-    # what that trigger misses -- a partial re-run, a dropped event -- and every sweep is a
-    # windows-latest job on a repo that has MEASURED runner-queue contention (#2296: a shard sitting
-    # 38 minutes in_progress; #2317: the gate cost of waiting). 48 extra jobs a day is a backstop; 96
+    # what that trigger misses -- a partial re-run, a dropped event -- and every sweep is a job on a repo
+    # that has MEASURED runner-queue contention (#2296: a shard sitting 38 minutes in_progress; #2317: the
+    # gate cost of waiting). 48 extra jobs a day is a backstop; 96
     # would be this runner competing with the CI it exists to react to.
     #
     # THIS REPO STAYS AT THIS CADENCE; adopt-ci-floor.ps1's consumer template places it sparser instead,
@@ -65,10 +65,13 @@ concurrency:
 
 jobs:
   merge-on-green:
-    # STILL windows-latest, WHILE fold-on-merge, verify-resolved AND repo-settings MOVED TO ubuntu-latest +
-    # pwsh (issue #2488): this job drives ship-pr's whole merge path, and a workflow_run runner cannot be
-    # proved on its own PR, so its move is its own step.
-    runs-on: windows-latest
+    # LINUX, UNDER PWSH 7 (issue #2616), the last runner to follow fold-on-merge, verify-resolved and
+    # repo-settings (#2488). It was held back because it drives ship-pr's whole merge path, and a
+    # workflow_run runner cannot be proved on its own PR: it runs the DEFAULT BRANCH's copy of this file.
+    # So the proof comes in two halves. Before the merge, ci.yml's Linux leg runs the suites that pin
+    # ship-pr's merge path under pwsh on ubuntu-latest. After it, the first sweep that ships an armed PR
+    # is the live run, and a workflow_dispatch run with nothing armed exercises the pick step on its own.
+    runs-on: ubuntu-latest
     # 45 MINUTES, WHICH IS LONGER THAN EVERY OTHER JOB HERE BECAUSE THIS ONE WAITS ON CI ON PURPOSE.
     # ship-pr's step 3b may bring a stale branch up to date and re-certify it, up to -MaxForwardLaps
     # times, and each lap is a full CI cycle (310-461s over the last 40 paired runs, per ci.yml's own
@@ -121,6 +124,13 @@ jobs:
           path: trusted-main
           persist-credentials: false
 
+      # THE SHIM (issue #2488): ship-pr launches open-pr, the fold and verify-resolved-issues as children
+      # by the literal name `powershell`, and ubuntu-latest has only `pwsh`. One symlink resolves all of
+      # them. It runs before the first pwsh step, and before any step that holds FOLD_PUSH_TOKEN.
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
       # THE PICKER READS WITH THE JOB-SCOPED TOKEN, NOT WITH THE PAT. It only lists pull requests and
       # their checks, and an hour-lived token that expires with the run is the right credential for a
       # read -- keeping the standing one out of every step that does not need it. RUN FROM 'trusted-main'
@@ -128,7 +138,7 @@ jobs:
       # longer holds a checkout at all, so a bare relative path here would resolve to nothing.
       - name: Is any armed pull request owed a merge?
         id: pick
-        shell: powershell
+        shell: pwsh
         working-directory: trusted-main
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -184,7 +194,7 @@ jobs:
       # second half of that same guard, and neither is load-bearing alone.
       - name: Ship it
         if: ${{ steps.pick.outputs.picked == 'true' }}
-        shell: powershell
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.FOLD_PUSH_TOKEN }}
           GH_REPO: ${{ github.repository }}

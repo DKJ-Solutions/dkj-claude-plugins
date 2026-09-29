@@ -43,7 +43,9 @@
 # section by editing the body with no push behind it, and without `edited` the check cannot look again.
 # Both halves are what adopt-dkj-policy's Part 1 places since #2429.
 #
-# WINDOWS: the shared scripts target Windows PowerShell 5.1, which is what `shell: powershell` is.
+# LINUX, UNDER PWSH 7 (issue #2616, after #2488): ubuntu-latest and `shell: pwsh`, because on a private
+# repo a Windows minute is billed above a Linux one. The shared scripts start children by the literal
+# name `powershell`, which ubuntu-latest does not have, so one shim step points it at pwsh.
 name: Branch entry (reusable)
 
 on:
@@ -57,7 +59,7 @@ on:
 
 jobs:
   branch-entry:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     # 10 minutes against a job that measures well under one (issue #2296). The cap lives HERE and not in
     # the caller, because GitHub refuses timeout-minutes on a job that calls a reusable workflow.
     timeout-minutes: 10
@@ -71,8 +73,14 @@ jobs:
           ref: ${{ inputs.scripts-ref }}
           path: .workflow-scripts
 
+      # THE SHIM (issue #2488): the scripts launch children by the literal name `powershell`, and
+      # ubuntu-latest has only `pwsh`. It runs before the first pwsh step.
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
       - name: Changelog entry written, and the DEPLOY section still matches the PR
-        shell: powershell
+        shell: pwsh
         env:
           CLAUDE_PROJECT_DIR: ${{ github.workspace }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

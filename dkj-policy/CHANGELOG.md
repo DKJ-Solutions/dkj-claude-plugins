@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**22 / 33 minor entries** <!-- pending-tally -->
+**23 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2616-placed-workflows-linux-runners · 20260929-100014Z
+
+`merge-on-green` and the gates `adopt-dkj-policy` places now run on `ubuntu-latest` under `pwsh`, with
+#2488's one-line shim that makes `powershell` resolve to `pwsh`. The gates are `branch-entry`,
+`always-on-budget` and `unfolded-entry`, including the reusable copies consumers call. That covers this
+repo's copies and the `merge-on-green` template `adopt-ci-floor` places. A consumer calling the reusable
+gates at `@main` moves at this merge. A `merge-on-green.yml` it already has is left alone, like every file
+the floor places, so it stays on Windows until it is re-scaffolded. The `branch-entry-gate` and
+`always-on-budget` suites join CI's Linux leg. `merge-on-green` runs the default branch's copy, so its
+first Linux run is the first sweep after this merge. If that breaks, the fold and the resolves still land
+through `fold-on-merge` and `verify-resolved`, which have run on Linux since #2488. Issue #2616.
+
+Every CI job that judges this repo's tree stays on `windows-latest`. The move is to the runners around it.
+**Score:** 3
+
+#### What makes this deploy extra special
+
+On a private consumer, the gate that runs on every PR event (`Branch entry`: 137 runs in one consumer in
+September, #2487) and the merge sweep now bill Linux minutes instead of Windows ones. Nothing changes in
+what they check.
+**Score:** 2
+
+#### Pull Request
+
+Move merge-on-green and the other placed Windows-only workflows to ubuntu-latest + pwsh
+
+Plugins: dkj-policy
+
+[PR #2626](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2626)
+
+---
 
 ### DEPLOY: fix/2619-golive-bare-live-urls · 20260929-094828Z
 

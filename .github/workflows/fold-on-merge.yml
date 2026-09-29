@@ -147,8 +147,8 @@
 # and on a private repo a Windows minute costs $0.010 against $0.006 for Linux. It now runs on
 # ubuntu-latest under `shell: pwsh`, with one shim step that points `powershell` at pwsh, because the
 # scripts start child processes by that literal name and ubuntu-latest has only `pwsh`. merge-on-green.yml
-# is NOT moved: it drives ship-pr's whole merge path, and a workflow_run runner cannot be proved on its
-# own PR. ci.yml's Linux leg runs this runner path's suites under pwsh, so the move stays proved.
+# followed in #2616, with its own header on how a workflow_run runner is proved. ci.yml's Linux leg runs
+# this runner path's suites under pwsh, so the move stays proved.
 name: Fold on merge
 
 permissions:
