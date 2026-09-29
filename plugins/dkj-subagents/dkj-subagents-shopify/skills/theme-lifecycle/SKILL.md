@@ -266,12 +266,14 @@ through the theme editor while you work, and a live push is per-file rather than
 first risks a **stranded release** -- a tag and a Release describing a state no customer ever saw, which
 nothing detects.
 
-Under that order the backup taken at the cut is the clean **baseline of what actually shipped**: the
-fixed point third-party drift is measured from until the next release, which is the thing
-`sync-main`'s whole existence implies a store needs.
+Inside that order the backup's moment is the store's choice, per the table above. Taken at the cut,
+it is the clean **baseline of what actually shipped**, the fixed point third-party drift is measured
+from until the next release. Taken before the push by `live-preflight`, it is a **rollback point**.
+A store picks one, because exactly one backup is retained and a second one in the same release
+rotates out the first (#2635).
 
-So the signature of the other order is an **unpushed trunk**, and `Get-ShopifyTrunkIsLive` is how the
-run can tell. It **warns and does not refuse**: the copy itself is correct and useful either way, so
+So an **unpushed trunk** is the signature of the rollback reading, and `Get-ShopifyTrunkIsLive` is how
+the run can tell which reading it is in. It **warns and does not refuse**: the copy itself is correct and useful either way, so
 what is at risk is only the *reading* of the artefact, and a line of output is the proportionate answer
 to that. The destructive halves -- rotation and the sweep -- refuse rather than warn, and they are the
 ones that can take something away.

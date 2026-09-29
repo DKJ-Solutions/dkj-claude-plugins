@@ -54,6 +54,8 @@ is that the backup's moment becomes a per-store choice, stated once, with a rule
       docstring and message, plus the rotation docstring and the rotation plan's reason string, no
       longer say the cut is what rotates the backup. No logic changed.
 - [x] `shared-scripts-lib.ps1`: the registry comment says the same thing, corrected to match.
+- [x] `theme-lifecycle/SKILL.md`: the "cut/push order" section called an unpushed trunk "the other
+      order", which contradicts the new docstring and that page's own moment table. Reworded.
 
 ### TEST
 
