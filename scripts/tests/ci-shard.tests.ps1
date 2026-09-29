@@ -324,7 +324,8 @@ $summaryJob = [regex]::Match($ci, '(?ms)^  lint-en-tests:\s*$(?<body>.*)\z')
 Assert-True ($summaryJob.Success) 'the summary job block is readable'
 $summary = if ($summaryJob.Success) { $summaryJob.Groups['body'].Value } else { '' }
 
-Assert-True ($summary -match '(?m)^\s*needs:\s*\[\s*lint\s*,\s*suites\s*\]') 'it needs both legs'
+Assert-True ($summary -match '(?m)^\s*needs:\s*\[\s*lint\s*,\s*suites\s*,\s*linux-runner-path\s*\]') 'it needs all three legs, the Linux runner path included (#2488)'
+Assert-True ($summary -match '"\$\{\{ needs\.linux-runner-path\.result \}\}"\s*!=\s*"success"') 'and the Linux leg is required to be success too'
 Assert-True (($summary -match '(?m)^\s*if:\s*\$\{\{\s*!cancelled\(\)\s*\}\}') -and ($summary -notmatch '(?m)^\s*if:\s*always\(\)')) `
     'runs with if: !cancelled(), not always() -- true on a failed/skipped leg so a red shard still reports red, false only on a cancelled run where always() would report a superseded PR run as failure (#1356)'
 Assert-True ($summary -match 'needs\.lint\.result') 'it reads the lint result'

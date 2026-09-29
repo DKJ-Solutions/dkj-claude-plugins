@@ -86,24 +86,60 @@ leg in CI runs the runner-path suites under `pwsh`.
 - [x] Probe on ubuntu-latest: the nine suites of the runner path, twice (without and with a shim), plus
   the three read-only runner steps
 - [x] Size the repair from the probe, and decide the shape (all four runners, or phased) -- phased, above
-- [ ] Make the four red suites OS-portable (fake `gh`, PATH separator, `cmd` subject, fixture paths)
-- [ ] Move `fold-on-merge`, `verify-resolved`, `repo-settings` to ubuntu-latest + pwsh + shim, source
+- [x] Make the red suites OS-portable -- the four named here, plus `adopt-ci-floor`'s junction fixture
+  (#2546), which the probe on the merged-up branch found as a fifth
+- [x] Repair what the portable suites then exposed as RUNTIME differences in `native-capture-lib.ps1`,
+  every one measured on the runner: an absent variable restored as `''`, no tree kill without
+  `taskkill`, the Unix launch refusal missed by the `-Utf8` arm's catch, and pwsh 7's Unix
+  `Start-Process` redirect dropping every empty line of a capture
+- [x] Move `fold-on-merge`, `verify-resolved`, `repo-settings` to ubuntu-latest + pwsh + shim, source
   copies and `adopt-ci-floor.ps1` templates, with their `WINDOWS:` notes and the adopt-time cost line
-- [ ] A Linux leg in `ci.yml` running the runner-path suites under pwsh
+- [x] A Linux leg in `ci.yml` running the runner-path suites under pwsh, and in `lint-en-tests`' `needs:`
 - [x] File the follow-up for `merge-on-green` (and the other Windows-only workflows) -- #2616
-- [ ] Remove the probe files before the PR
+- [x] Remove the probe files before the PR
 
 ### TEST
 
+- [x] The probe on ubuntu-latest + pwsh 7 (run 8 of the branch): all nine runner-path suites exit 0, and a
+  `-Utf8` `git show` of `one\n\nthree\n` returns three lines on every arm, where it returned two before
+- [x] Windows PowerShell 5.1, locally: `native-capture` 355/0, `verify-pushed-merges` 49/0,
+  `verify-resolved-issues` 37/0, `unfolded-entry-gate` 28/0, `adopt-ci-floor` 271/0, `ci-shard` 92/0,
+  `check-plugin-integrity` 0 errors
+- [x] The Linux-only skips print `[SKIP]` with their reason: mandatory file locks, the OEM code page, and
+  5.1's NormalView error rendering. There is no such subject on Linux, so nothing there can go wrong
+
 ### DEPLOY: fix/2488-ci-floor-linux-runners
 
-**Score:**
+Three of the four CI-floor runners now run on `ubuntu-latest` under `pwsh`: `fold-on-merge`,
+`verify-resolved` and `repo-settings`. That covers both this repo's own copies and the templates
+`adopt-ci-floor` places. Each gets a one-line shim that makes `powershell` resolve to `pwsh`, because the
+scripts launch their children under that name. `merge-on-green` stays on `windows-latest`, since it drives
+`ship-pr`'s whole merge path and cannot be proved on its own PR (#2616). The move was measured before it
+was made: a probe ran the runner-path suites on the runner itself. Making those suites OS-portable then
+exposed four real Linux defects in `native-capture-lib.ps1`, all repaired here:
+
+- an absent environment variable was restored as `''`;
+- a timeout left grandchildren alive, because `taskkill` does not exist there;
+- a refused launch escaped the `-Utf8` arm's catch;
+- pwsh 7's Unix `Start-Process` redirect dropped every empty line of a capture, which would have handed
+  `Get-GitFileTextAtRef` a wrong document. Off Windows, that arm now copies the child's pipes byte for
+  byte.
+
+A new `linux-runner-path` job in CI runs the nine runner-path suites under `pwsh` on Linux. It is now
+part of the required `lint-en-tests` check (#2488).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A private repo that adopts the CI floor now pays the Linux minute rate for the two runners that fire on
+every push to the trunk ($0.006 against $0.010 a minute). In the consumer behind #2487 those two ran 265
+times each in September. A repo that already placed the runners keeps its `windows-latest` copies, since
+`adopt-ci-floor` never overwrites one. To take the saving there, move the runner by hand, or delete it
+and adopt again.
+
+**Score:** 3
 
 #### Pull Request
 
-Move the CI-floor runners to ubuntu-latest + pwsh
-
+Move fold-on-merge, verify-resolved and repo-settings to ubuntu-latest + pwsh

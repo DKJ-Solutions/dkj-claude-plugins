@@ -410,9 +410,9 @@ jobs:
   # move is proved only by the first live run in a consumer. Only the runner path's suites are listed; the
   # rest of scripts/tests stays on the Windows shards above, which is where the whole tree is judged.
   #
-  # A SEPARATE JOB, AND DELIBERATELY NOT IN lint-en-tests' `needs:` YET: the required check is not changed
-  # by this leg, so it reports red on its own without blocking a merge. Adding it to `needs:` is the
-  # step that makes it a gate, and it is one edit away when this leg has run green on the trunk.
+  # A SEPARATE JOB, AND IN lint-en-tests' `needs:`: it is a leg of the required check like the other two,
+  # because a consumer's runners take these scripts on Linux the moment it adopts them, so a red here is a
+  # broken runner, not an advisory.
   #
   # THE SHIM is the same one the three runners carry: the scripts launch children by the literal name
   # `powershell`, and ubuntu-latest has only `pwsh`. fetch-depth: 0 because the fold and merge-verify
@@ -461,7 +461,7 @@ jobs:
   # September 3, 2026) -- which changes nothing here. Do not rename this job. Renaming it silently un-gates
   # `main`: the ruleset would wait forever for a check nobody reports, and every merge would block.
   lint-en-tests:
-    needs: [lint, suites]
+    needs: [lint, suites, linux-runner-path]
     # `if: !cancelled()` PLUS AN EXPLICIT RESULT CHECK, AND BOTH HALVES ARE LOAD-BEARING. A job that
     # `needs:` a failed job is SKIPPED, not failed, and a skipped required check is not a reported failure --
     # so without an `if:` that outlives a failed dependency a red shard produces no verdict at all, and
@@ -496,11 +496,13 @@ jobs:
         run: |
           echo "lint:   ${{ needs.lint.result }}"
           echo "suites: ${{ needs.suites.result }}"
+          echo "linux:  ${{ needs.linux-runner-path.result }}"
           # A matrix job's aggregate result is 'success' only when EVERY entry succeeded, which is what
           # makes one comparison enough for every shard.
-          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.suites.result }}" != "success" ]; then
-            echo "::error::CI gate failed -- lint=${{ needs.lint.result }} suites=${{ needs.suites.result }}"
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.suites.result }}" != "success" ] ||
+             [ "${{ needs.linux-runner-path.result }}" != "success" ]; then
+            echo "::error::CI gate failed -- lint=${{ needs.lint.result }} suites=${{ needs.suites.result }} linux=${{ needs.linux-runner-path.result }}"
             exit 1
           fi
           # No shard count in this line: the matrix above is the one place that number lives (#2424).
-          echo "CI gate green: lint and all suite shards succeeded."
+          echo "CI gate green: lint, all suite shards and the Linux runner-path leg succeeded."
