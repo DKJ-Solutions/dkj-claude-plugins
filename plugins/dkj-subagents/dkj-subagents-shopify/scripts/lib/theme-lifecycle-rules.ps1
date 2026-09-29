@@ -558,7 +558,7 @@ function Get-BackupRotationPlan {
         backup theme -- Id, Name, Delete (bool), Reason.
 
     .DESCRIPTION
-        EXACTLY ONE BACKUP IS RETAINED, and the cut is what rotates it. The ORDER is create -> verify
+        EXACTLY ONE BACKUP IS RETAINED, and the run that takes the release's backup rotates it. The ORDER is create -> verify
         -> only then delete, so there is never a window in which the store holds no backup at all;
         that costs one theme slot transiently and is the whole reason rotation is a separate step
         from creation rather than a flag on it.
@@ -614,7 +614,7 @@ function Get-BackupRotationPlan {
             # answer is checked here too, the pairing the sweep already makes.
             $plan += [pscustomobject]@{ Id = $id; Name = $name; Delete = $false; Reason = "the STORE reports role '$role' -- a backup restored to live is the live theme now, not a backup to rotate" }
         } else {
-            $plan += [pscustomobject]@{ Id = $id; Name = $name; Delete = $true; Reason = 'the previous backup -- exactly one is retained, and the cut is what rotates it' }
+            $plan += [pscustomobject]@{ Id = $id; Name = $name; Delete = $true; Reason = 'the previous backup -- exactly one is retained, and this run is what rotates it' }
         }
     }
 
@@ -624,8 +624,8 @@ function Get-BackupRotationPlan {
 function Get-CutOrderWarning {
     <#
     .SYNOPSIS
-        The warning a backup run prints when the estate says it is being run in the order that makes
-        the backup mean something other than what the policy says it means. '' when it is not.
+        The warning a backup run prints when the estate says the trunk has not reached live yet, so the
+        copy is a rollback point rather than a baseline of what shipped. '' when the trunk is live.
 
     .DESCRIPTION
         THE ORDER DECIDES WHAT THE BACKUP IS, AND THE TWO ANSWERS ARE BOTH DEFENSIBLE -- which is
@@ -635,15 +635,17 @@ function Get-CutOrderWarning {
         target type: a Shopify live theme has no locking, third parties edit it through the theme
         editor while you work, and a live push is per-file rather than wholesale -- so cutting first
         risks a STRANDED RELEASE, a tag and a Release describing a state no customer ever saw, which
-        nothing detects. Under that order the backup taken at the cut is the clean BASELINE of what
-        actually shipped, which is the thing sync-main's whole existence implies a store needs: the
-        point third-party drift is measured from until the next release. Dave, September 14, 2026, on
-        inbound #1965.
+        nothing detects. Dave, September 14, 2026, on inbound #1965.
 
-        SO THE SIGNATURE OF THE WRONG ORDER IS AN UNPUSHED TRUNK. If the trunk has not reached live,
-        the cut is happening first, and the backup is then a rollback point for a push that has not
-        happened -- a different and also useful thing, but not what the policy page describes and not
-        what the next reader will assume the theme holds.
+        THE BACKUP'S MOMENT IS A PER-STORE CHOICE INSIDE THAT ORDER (#2228, #2635). Taken after the
+        push, as the closing step of the cut, the copy is the BASELINE of what shipped: the point
+        third-party drift is measured from until the next release. Taken before the push -- which is
+        what live-preflight does by default -- it is a ROLLBACK POINT for the push about to happen.
+        Both are policy; neither is the wrong order.
+
+        SO AN UNPUSHED TRUNK IS THE SIGNATURE OF THE ROLLBACK READING, not of a mistake. The warning
+        names which reading this copy has, because the next reader cannot tell from the theme itself
+        which of the two it holds.
 
         IT WARNS AND DOES NOT REFUSE, and that asymmetry is deliberate. The backup itself is correct
         and useful under either order -- nothing about the copy is wrong -- so refusing would block a
@@ -656,8 +658,8 @@ function Get-CutOrderWarning {
 
     if ($TrunkIsLive) { return '' }
     return ('ORDER: the trunk has NOT been pushed to live yet, so this backup is being taken BEFORE ' +
-        'the push rather than as the closing step of it. It is still a valid copy -- but this workflow ' +
-        'runs push-then-cut, where the backup is the baseline of WHAT SHIPPED. Taken now it is a ' +
-        'rollback point for a push that has not happened, which is not what the policy page says this ' +
-        'theme holds. See dkj-policy-bwj/THEME-LIFECYCLE-portable.md.')
+        'the push. That makes it a ROLLBACK POINT for the push about to happen (the moment ' +
+        'live-preflight takes it by default), not the baseline of WHAT SHIPPED that a backup at the ' +
+        'cut would be. The order is still push-then-cut; which moment holds the release''s one backup ' +
+        'is each store''s choice. See dkj-policy-bwj/THEME-LIFECYCLE-portable.md.')
 }
