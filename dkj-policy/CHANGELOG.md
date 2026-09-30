@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2656-asana-automation-comments · 20260930-130919Z
+
+The three automated Asana comments of the BWJ ticket flow (issue created, closed, reopened) now use fixed forms, with the
+issue as a link: *"— GitHub automation 🤖"* and one sentence, its verb (created, closed, reopened) in bold. The
+close update no longer lists the closing pull request, and a reopen now says the task is back in
+development.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store takes the CI half by copying the new `templates/asana-mirror.ps1` over its
+`.github/scripts/asana-mirror.ps1`. The CREATED comment comes with the plugin update itself.
+
+**Score:** 3
+
+#### Pull Request
+
+The three Asana automation comments in their fixed form
+
+Plugins: dkj-policy-bwj
+
+[PR #2657](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2657)
+
+---
 
 ### DEPLOY: feat/2653-asana-comment-back · 20260930-123802Z
 
