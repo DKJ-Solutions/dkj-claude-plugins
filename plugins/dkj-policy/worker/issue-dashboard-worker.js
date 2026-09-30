@@ -68,7 +68,7 @@ function connectionFragment(key, cursor) {
   if (key === "issues") {
     return `issues(states: OPEN, first: ${PAGE_SIZE}${after}, orderBy: {field: CREATED_AT, direction: ASC}) {
       totalCount ${page}
-      nodes { number title url createdAt labels(first: 20) { totalCount nodes { name } }
+      nodes { number title url createdAt labels(first: 20) { totalCount nodes { name color } }
         assignees(first: 10) { nodes { login } }
         blockedBy(first: 50) { totalCount nodes { number state repository { nameWithOwner } } } } }`;
   }
@@ -206,6 +206,7 @@ function flattenIssue(n, slug, orgMode, warnings) {
     number: n.number, title: n.title, url: n.url, createdAt: n.createdAt,
     ...(orgMode ? { repo: slug } : {}),
     labels: n.labels.nodes.map((l) => l.name),
+    labelColors: Object.fromEntries(n.labels.nodes.map((l) => [l.name, l.color])),
     assignees: n.assignees.nodes.map((a) => a.login),
     blockedBy: n.blockedBy.nodes.map((b) => ({ number: b.number, state: b.state, repo: b.repository.nameWithOwner })),
     blockedByTruncated: n.blockedBy.totalCount > n.blockedBy.nodes.length,
@@ -275,16 +276,28 @@ a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 .counts b{margin-left:.35rem}
 .warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:.5rem;padding:.6rem 1rem;margin:0 0 1rem}
 .warn ul{margin:.25rem 0 0;padding-left:1.2rem}
-.row{display:grid;grid-template-columns:2.5rem 1fr;gap:.25rem .75rem;padding:.7rem 0;border-top:1px solid var(--line)}
-.rank{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.row{display:grid;grid-template-columns:4rem 1fr;gap:.25rem .75rem;padding:.7rem 0;border-top:1px solid var(--line)}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.repo{color:var(--muted)}
 .title{font-weight:600}
 .pill{display:inline-block;border:1px solid currentColor;border-radius:1rem;padding:0 .55rem;font-size:.78rem;font-weight:600;white-space:nowrap}
 .detail{color:var(--muted);font-size:.85rem;margin-top:.15rem}
 .detail span{margin-right:1rem;display:inline-block}
-.tag{background:var(--card);border:1px solid var(--line);border-radius:.3rem;padding:0 .35rem;margin-right:.25rem;font-size:.78rem}
+.tag{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:2em;padding:0 .5rem;margin-right:.25rem;font-size:.75rem;font-weight:500;line-height:1.5}
 .flag{color:var(--s-blocked)}
 .empty{color:var(--muted);padding:1rem 0}
 `;
+
+// A label as GitHub draws it: its own colour as the fill, and dark or white text by perceived
+// lightness. The colour comes from GitHub, so anything but six hex digits falls back to the neutral
+// tag rather than reaching the style attribute.
+const HEX6 = /^[0-9a-f]{6}$/i;
+function labelTag(name, color) {
+  if (!HEX6.test(color || "")) return `<span class="tag">${escapeHtml(name)}</span>`;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(color.slice(i, i + 2), 16));
+  const light = (r * 299 + g * 587 + b * 114) / 1000 > 150;
+  return `<span class="tag" style="background:#${color};border-color:#${color};color:${light ? "#1f2328" : "#fff"}">${escapeHtml(name)}</span>`;
+}
 
 const STATUS_COLOUR = {
   "In review": "review", "In progress": "progress", Waiting: "waiting",
@@ -318,9 +331,11 @@ function renderPage(data, repoName, org) {
     if (r.prs.length) detail.push(`<span>PR: ${r.prs.map((p) => `<a href="${escapeHtml(p.url)}" rel="noopener noreferrer">#${Number(p.number)}</a>${p.isDraft ? " (draft)" : ""}`).join(", ")}</span>`);
     if (r.cycle) detail.push(`<span class="flag">Circular blocker chain</span>`);
     if (r.externalBlocker) detail.push(`<span>Waits on something outside this list</span>`);
-    const labels = r.labels.map((l) => `<span class="tag">${escapeHtml(l)}</span>`).join("");
-    return `<div class="row"><div class="rank">${r.rank}</div><div>
-      <div><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">${escapeHtml(prefix(r.repo))}#${Number(r.number)}</a> <span class="title">${escapeHtml(r.title)}</span>
+    const labels = r.labels.map((l) => labelTag(l, (r.labelColors || {})[l])).join("");
+    // The first column is the issue number, not the pick-up position: the page's order IS the order.
+    const repo = prefix(r.repo);
+    return `<div class="row"><div class="num"><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">#${Number(r.number)}</a></div><div>
+      <div>${repo ? `<span class="repo">${escapeHtml(repo)}</span> ` : ""}<span class="title">${escapeHtml(r.title)}</span>
       <span class="pill" style="color:var(--s-${STATUS_COLOUR[r.status]})">${escapeHtml(r.status)}</span></div>
       ${labels ? `<div class="detail">${labels}</div>` : ""}
       ${detail.length ? `<div class="detail">${detail.join("")}</div>` : ""}</div></div>`;

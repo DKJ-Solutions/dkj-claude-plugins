@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Dave (September 30, 2026), looking at the live DKJ-Solutions dashboard: show the issue number where the
+pick-up position 1..n stood, and draw the labels exactly as GitHub does. The org-wide scope is narrowed to
+dkj-claude-plugins in the gitignored wrangler.toml alone -- configuration, not code.
+
+#### Visible result
+
+This branch waits for Dave to look at it and is not merged until he has.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The worker fetches each label colour and draws the label in it: a GitHub fill, and dark or white text by lightness. A colour that is not six hex digits falls back to the neutral tag.
+- [x] The first column is the linked issue number instead of the rank. In org mode the repo name moves beside the title.
 
 ### TEST
 
+- [x] issue-dashboard.tests.ps1: 388 pass, 0 fail. There are new asserts for the colour fill, the text contrast, a bad colour and the number column, and the order regexes read the number column.
+
 ### DEPLOY: feat/dashboard-number-label-colours
 
-**Score:**
+The issue dashboard leads each row with its issue number instead of a 1..n position, and draws every label in
+its own GitHub colour.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo running the optional issue dashboard sees its rows keyed by the number it already uses, with labels it can recognise at a glance, after re-running -EmitWorker and redeploying.
+
+**Score:** 2
 
 #### Pull Request
 

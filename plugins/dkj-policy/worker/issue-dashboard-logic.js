@@ -9,14 +9,14 @@
 // so a blocker in another repo of the same org is an ordinary edge rather than an external sink.
 //
 // EXPECTED INPUT (the shape of the GraphQL nodes, flattened by the worker):
-//   issue    { number, title, url, createdAt, labels:[name], assignees:[login],
+//   issue    { number, title, url, createdAt, labels:[name], labelColors?:{name:"rrggbb"}, assignees:[login],
 //              blockedBy:[{ number, state:"OPEN"|"CLOSED", repo:"owner/name" }],
 //              blockedByTruncated:bool, repo?:"owner/name" }         (repo defaults to options.repo)
 //   pr       { number, url, isDraft, closes:[number | {number, repo}], repo? }
 //   branches [ "feat/12-some-name" | { repo, name:"feat/12-some-name" }, ... ]   (short ref names)
 //   options  { repo:"owner/name" }  or  { org:"login" }
 //
-// OUTPUT { rows:[{ number, repo, title, url, status, assignees, labels, blockers:[{number,repo,state}],
+// OUTPUT { rows:[{ number, repo, title, url, status, assignees, labels, labelColors, blockers:[{number,repo,state}],
 //                  blocking:[{number,repo}], prs:[{number,url,isDraft}], rank, cycle, externalBlocker }],
 //          warnings:[string] }
 //
@@ -180,6 +180,7 @@ export function deriveDashboard(issues, prs, branches, options = {}) {
       status: deriveStatus(i, linked, withBranch.has(k)),
       assignees: i.assignees || [],
       labels: i.labels || [],
+      labelColors: i.labelColors || {},
       blockers: (i.blockedBy || []).map((b) => ({ number: b.number, repo: b.repo, state: b.state })),
       blocking: blocking.get(k).sort(compare).map((d) => ({ ...ref.get(d) })),
       prs: linked,

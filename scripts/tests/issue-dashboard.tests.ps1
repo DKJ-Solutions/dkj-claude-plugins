@@ -355,10 +355,10 @@ globalThis.fetch = async (url, init) => {
 reply = { data: { repository: {
   issues: { ...conn([
     { number: 1, title: evilTitle, url: "https://github.com/acme/widgets/issues/1", createdAt: "2026-01-01T00:00:00Z",
-      labels: { totalCount: 1, nodes: [{ name: "<b>x</b>" }] }, assignees: { nodes: [{ login: "<i>u</i>" }] },
+      labels: { totalCount: 1, nodes: [{ name: "<b>x</b>", color: "d73a4a" }] }, assignees: { nodes: [{ login: "<i>u</i>" }] },
       blockedBy: { totalCount: 0, nodes: [] } },
     { number: 2, title: "second", url: "https://github.com/acme/widgets/issues/2", createdAt: "2026-01-02T00:00:00Z",
-      labels: { totalCount: 0, nodes: [] }, assignees: { nodes: [] },
+      labels: { totalCount: 2, nodes: [{ name: "light", color: "fbca04" }, { name: "odd", color: "red;x:y" }] }, assignees: { nodes: [] },
       blockedBy: { totalCount: 1, nodes: [{ number: 1, state: "OPEN", repository: { nameWithOwner: "acme/widgets" } }] } },
     { number: 12, title: "branch", url: "https://github.com/acme/widgets/issues/12", createdAt: "2026-01-03T00:00:00Z",
       labels: { totalCount: 0, nodes: [] }, assignees: { nodes: [] }, blockedBy: { totalCount: 0, nodes: [] } },
@@ -378,11 +378,16 @@ out.render = {
   scriptRaw: page.body.includes("<script"),
   titleEscaped: page.body.includes("&lt;script&gt;alert(1)&lt;/script&gt; &amp; &quot;q&quot; &#39;s&#39;"),
   labelEscaped: page.body.includes("&lt;b&gt;x&lt;/b&gt;") && !page.body.includes("<b>x</b>"),
+  labelColoured: page.body.includes('style="background:#d73a4a;border-color:#d73a4a;color:#fff">&lt;b&gt;x&lt;/b&gt;<'),
+  labelLightText: page.body.includes('style="background:#fbca04;border-color:#fbca04;color:#1f2328">light<'),
+  labelBadColour: page.body.includes('<span class="tag">odd<') && !page.body.includes("red;x:y"),
+  numberColumn: page.body.includes('<div class="num"><a href="https://github.com/acme/widgets/issues/12" rel="noopener noreferrer">#12</a></div>'),
+  noRank: !page.body.includes('class="rank"'),
   loginEscaped: page.body.includes("&lt;i&gt;u&lt;/i&gt;") && !page.body.includes("<i>u</i>"),
   metaNoindex: /<meta name="robots" content="noindex/.test(page.body),
   inReview: page.body.includes(">In review<"),
   inProgress: page.body.includes(">In progress<"),
-  order: [...page.body.matchAll(/class="rank">(\d+)<\/div>[\s\S]*?issues\/(\d+)"/g)].map((m) => m[1] + ":" + m[2]),
+  order: [...page.body.matchAll(/class="num"><a href="[^"]*?issues\/(\d+)"/g)].map((m, i) => (i + 1) + ":" + m[1]),
   githubCalls: calls.length,
   githubUrl: calls[0] && calls[0].url,
   githubAuth: calls[0] && calls[0].auth,
@@ -412,7 +417,7 @@ const gq = (num) => ({ number: num, title: "paged " + num, url: "https://github.
   labels: { totalCount: 0, nodes: [] }, assignees: { nodes: [] }, blockedBy: { totalCount: 0, nodes: [] } });
 const pageInfo = (more, cur) => ({ hasNextPage: more, endCursor: more ? cur : null });
 const asked = (q, key) => q.includes(key === "issues" ? "issues(" : key === "prs" ? "pullRequests(" : key + ": refs(");
-const numbersOnPage = (body) => [...body.matchAll(/class="rank">\d+<\/div>[\s\S]*?issues\/(\d+)"/g)].map((m) => Number(m[1]));
+const numbersOnPage = (body) => [...body.matchAll(/class="num"><a href="[^"]*?issues\/(\d+)"/g)].map((m) => Number(m[1]));
 
 // (a) issues need a second page, prs and refs finish on the first
 resetMemo();
@@ -512,8 +517,8 @@ out.orgHandler = {
   archivedAsked: orgQueries.some((q) => q.includes('name: "old"')),
   noIssuesAsked: orgQueries.some((q) => q.includes('name: "site"')),
   bothInOne: !!orgQueries[1] && orgQueries[1].includes("r0: repository(") && orgQueries[1].includes("r1: repository("),
-  order: [...orgPage.body.matchAll(/class="rank">(\d+)<\/div>[\s\S]*?github\.com\/([^"]+?)\/issues\/(\d+)"/g)].map((m) => m[2] + "#" + m[3]),
-  shortLinks: orgPage.body.includes(">b#1</a>") && orgPage.body.includes(">a#1</a>"),
+  order: [...orgPage.body.matchAll(/class="num"><a href="https:\/\/github\.com\/([^"]+?)\/issues\/(\d+)"/g)].map((m) => m[1] + "#" + m[2]),
+  shortLinks: orgPage.body.includes('<span class="repo">b</span>') && orgPage.body.includes('<span class="repo">a</span>'),
   heading: orgPage.body.includes("<title>Issue dashboard " + String.fromCharCode(0x2014) + " acme</title>"),
   noSink: !orgPage.body.includes("Waits on something outside this list"),
   cacheKeyOrg: cacheKeys.some((k) => k.includes("org%3Aacme")),
@@ -671,10 +676,15 @@ console.log(JSON.stringify(out));
         Assert-Equal 'False' "$($g.scriptRaw)" 'no raw <script appears anywhere on the page'
         Assert-Equal 'True' "$($g.titleEscaped)" 'a hostile issue title is escaped (& < > " and the apostrophe)'
         Assert-Equal 'True' "$($g.labelEscaped)" 'a hostile label is escaped'
+        Assert-Equal 'True' "$($g.labelColoured)" 'a label is filled with its GitHub colour, white text on a dark one'
+        Assert-Equal 'True' "$($g.labelLightText)" '...and dark text on a light one'
+        Assert-Equal 'True' "$($g.labelBadColour)" 'a colour that is not six hex digits never reaches the style attribute'
+        Assert-Equal 'True' "$($g.numberColumn)" 'the first column is the issue number, linked to the issue'
+        Assert-Equal 'True' "$($g.noRank)" 'no pick-up position is printed'
         Assert-Equal 'True' "$($g.loginEscaped)" 'a hostile assignee login is escaped'
         Assert-Equal 'True' "$($g.inReview)" 'the PR-linked issue shows In review'
         Assert-Equal 'True' "$($g.inProgress)" 'the branch-linked issue shows In progress'
-        Assert-Equal '1:1,2:2,3:12' (Join-N $g.order) 'rows appear in pick-up order with their rank (#2 waits on #1)'
+        Assert-Equal '1:1,2:2,3:12' (Join-N $g.order) 'rows appear in pick-up order, each led by its issue number (#2 waits on #1)'
         Assert-Equal 1 $g.githubCalls 'one GraphQL round trip when nothing needs a second page'
         Assert-Equal 'https://api.github.com/graphql' $g.githubUrl 'it reads GitHub GraphQL and nothing else'
         Assert-Equal 'Bearer ghs_FAKE' $g.githubAuth '...with the GITHUB_TOKEN from env'
@@ -739,7 +749,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 'False' "$($oh.noIssuesAsked)" '...nor one with issues disabled'
         Assert-Equal 'True' "$($oh.bothInOne)" 'the readable repositories are read as aliased fields of one request'
         Assert-Equal 'acme/b#1,acme/a#1' (Join-N $oh.order) 'the rows are in cross-repo pick-up order'
-        Assert-Equal 'True' "$($oh.shortLinks)" '...each named <repo>#<n> without the owner'
+        Assert-Equal 'True' "$($oh.shortLinks)" '...each shows its repo name without the owner'
         Assert-Equal 'True' "$($oh.heading)" 'the page is titled after the owner'
         Assert-Equal 'True' "$($oh.noSink)" 'the cross-repo blocker is not shown as outside the list'
         Assert-Equal 'True' "$($oh.cacheKeyOrg)" 'the cache key is org:<login>'
