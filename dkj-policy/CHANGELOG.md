@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**9 / 10 minor entries** <!-- pending-tally -->
+**9 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2665-split-chris-persona-second-pass · 20260930-205630Z
+
+Chris's always-on persona is 6.1 KB smaller (27,937 -> 21,819 B), about 2,000 tokens less per session.
+The full waiting and claim rules now live in
+[Chris's manual](../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-01-01-manual.md),
+which loads on demand. The persona keeps the core of each rule and says when to read the rest. The
+inbound route is shorter, and its six checks were already in the manual. Every heading stays where it
+was.
+
+Tier 0 is scored for every session in every consumer. The saving reaches each consumer with the next
+release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. It is instruction text for sessions, and nothing reaches a subscriber.
+
+**Score:** N/A
+
+#### Pull Request
+
+Second split of Chris's persona
+
+Plugins: dkj-subagents-alpha
+
+[PR #2666](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2666)
+
+---
 
 ### DEPLOY: fix/2659-no-ampersand-chains-in-hints · 20260930-142756Z
 
