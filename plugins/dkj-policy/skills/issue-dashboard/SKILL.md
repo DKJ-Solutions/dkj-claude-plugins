@@ -130,7 +130,7 @@ for the exact semantics.
 **In org mode** the worker lists the organization's non-archived repositories that have issues enabled
 and that the token can read, then reads them in batches. An issue is identified by its repo **and** its
 number, so a blocker in another repo of the same organization orders normally instead of sinking. Ties
-go by issue number, then by repo name. Each row is named `<repo>#<n>`. The request budget is 40 GitHub
+go by issue number, then by repo name. Each row leads with its issue number and shows its repo name beside the title. The request budget is 40 GitHub
 requests per refresh (under the free plan's 50 subrequests), and a list cut short by it is reported on
 the page.
 
