@@ -548,7 +548,7 @@ that way.
   Derek and Rendall on demand from that same path. Either way it holds only the `## Specific to this
   repo` part, so every portable rule lives once, in the plugin.
 - **Subagent definitions are not local.** They come from this marketplace's own team plugins, enabled
-  in [`.claude/settings.json`](../../settings.json) (which enables all six — read the file for the list),
+  in [`.claude/settings.json`](../../settings.json) (read the file for which are enabled),
   and are invoked as `@<plugin>:<name>`.
 
 **Bianca has a lens and no caller** (she is the fourth persona): nothing in Chris's routing sends an
