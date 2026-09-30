@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2653-asana-comment-back · 20260930-123802Z
+
+`report-issue` now writes back to an Asana task an issue was made from. The issue link goes on the
+first line of the task's description, and one comment in a fixed form goes on the task:
+`— New GitHub Issue (automation)`, then *"GitHub issue <url> is created and in development."* A task
+the skill creates itself now carries `Tracked on GitHub:` as its first line as well.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A colleague who files a request in Asana now sees on the task itself that it has been picked up and
+where it is tracked, without opening GitHub.
+
+**Score:** 3
+
+#### Pull Request
+
+report-issue: comment back on the Asana task an issue was made from, and put the issue link at the top of the task
+
+Plugins: dkj-policy-bwj
+
+[PR #2654](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2654)
+
+---
 
 ### DEPLOY: feat/dossier-parks-issue · 20260930-114905Z
 
