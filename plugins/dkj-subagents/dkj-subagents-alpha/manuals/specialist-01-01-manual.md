@@ -294,9 +294,72 @@ own subagents' background work has traded a wrong receipt for a wasted session. 
 sentence, not the schedule** — name the agent that is still running and what its death would cost, and the
 requester decides.
 
+## Waiting — the rule in full
+
+**The persona page carries whose clock it is, and the core of what follows. This is the whole of it, and
+it is read before any close-out where something is still running.**
+
+**Parking is a state, not a promise to come back within the turn.** The branch is on the remote, its plan
+with it, and the reasoning is in the pull request — all three outlive the session, which is what makes
+stopping safe rather than lossy. *"The PR is open and shipping"* is close-out shape A, a finished
+assignment, and not an open point.
+
+**That justification does not transfer to a ship still running.** A backgrounded shipping tool is a
+**child process of the harness**, so quitting the harness kills it — a merge and a fold that have not
+happened yet do not outlive the session the way a parked branch's document, plan and pull request do.
+*"The PR is open and shipping"* is still shape A; it is shape A about a process that is still alive, and
+the fold is the half that matters — a merge without its fold leaves the branch's document stranded on
+the trunk, a state a later session discovers rather than one anybody sees at the time.
+
+**And it ends on the trunk, which is what makes the session safe to clear.** Pushing the branch protects
+the work; leaving the checkout standing on it does not. The closing act is a checkout of the trunk —
+that is where a *finished* chain leaves you, and the answer to the mirror-image trap (a clean trunk
+reading as **ready** rather than as one command from working in the wrong place) is the branch check at
+the start of the next assignment, never a branch left checked out as a reminder.
+
+**A branch parked for the owner's eye is not a finished chain, so it does NOT end on the trunk.** Where the
+work has a visible result, its next step is the owner looking at the working copy, and a checkout of the
+trunk removes exactly that. A running dev server reverts to the old UI, and the owner sees nothing. So the
+checkout stays on that branch, and the receipt names the branch and how to view it. The trunk follows the
+merge, not the park, and the branch check at the next assignment still covers the wrong-place trap. The one
+exception is a session that moves on to OTHER work in this same checkout, such as a sweep's next issue.
+There the owner looks through the handover the repo prescribes (a preview, the pushed branch), and the
+receipt says so. (#2558)
+
+**Where a tool makes those two rules fight, the trunk wins and the tool is what changes.** Parking says
+*do not sit through somebody else's clock*; ending on the trunk says *do not hand back a tree the
+requester cannot act on*. A shipping tool that only returns you to the trunk after the wait puts them in
+conflict — name that as a defect in the tool and repair it there, never word around it in the close-out.
+Where you cannot reach the trunk, **say which of the two you are in and why**, and never claim the
+other.
+
+**So the word "cleared" is said precisely, and never conditionally.** Clearing the *context* and
+quitting the *harness* are two different acts. *"…once the ship lands"* is not a fourth shape: it is
+shape A with a string attached, and it reads as a contradiction to a requester who backgrounded the wait
+precisely so they would not have to sit through it. Where something is genuinely in flight, **name what
+it still holds** instead of hanging a condition on the clearance: what is owed is a fact, which is what a
+receipt carries, and a condition is a question, which is what a receipt must not be.
+
+**And "in flight" includes your OWN subagents, which is the half you cannot see.** A backgrounded command
+announces itself; a delegated agent announces its *report* — and a report is not a finish. It can hand back
+while work it forked is still running, so the last message you received is evidence about what it said, not
+about whether it stopped. **Read the agent list before you say *cleared*, rather than inferring it from your
+inbox**: a completion notice is the signal, a hand-back is not. The cost of getting it wrong lands entirely
+on the requester, because the receipt is the one line they act on immediately.
+
+**And say what they MAY do, because withholding is the worse half.** A requester who backgrounded a wait
+wants the *next* thing, so a receipt that only names what is unsafe leaves them holding a session they no
+longer want and cannot safely release — that is the feature cancelled at the one place they read. The
+answer is almost never a clearance: **a second session beside the running one** frees the person instead of
+the process, and it is strictly better, because the one still running is where the outcome gets delivered.
+Name the moment it is safe to open — normally the point at which the running work stops reading the working
+copy — and remember that two sessions share nothing but the tracker, so the claim rule is what keeps the
+second one off the first one's work.
+
 ## Waiting — the measurements behind the rule
 
-**The rule itself is on the persona page; this is the evidence it was built on.**
+**The rule's core is on the persona page and the whole of it is above; this is the evidence it was built
+on.**
 
 **Measured August 29, 2026, in this system's own source repo.** A background ship held the checkout on
 the branch until after CI, the close-out said the session could be cleared, and it took three exchanges
@@ -377,9 +440,47 @@ chain begins.
 issues that produced them; this page is the portable statement of what to check, and a repo that has
 measured its own instances says so in the lens.
 
+## Picking up an issue — the rule in full
+
+**The persona page carries the claim and the fact that it opens the work. This is the whole of it, and
+it is read wherever the repo ships no claim step of its own.**
+
+Before you start on an issue — or resume one — claim it: assign it to the account **your commits will
+name** (`gh issue edit <n> --add-assignee @me`, or that tracker's equivalent). And read the
+claim as well as write it (`gh issue view <n> --json assignees`) — an issue that already carries an
+assignee is somebody's, so pick another or ask rather than starting a second repair on the same
+defect.
+
+**Where the repo's workflow ships a claim step, run that instead of typing either command** — the step
+also refuses the two states the one-liner cannot see: a **closed** issue, which `--add-assignee` claims
+silently, and one somebody else holds, which it joins.
+
+**`@me` is not that account on every checkout, and the difference is silent.** `@me` resolves through
+the tracker's API, while the branch a second session correlates the claim with carries the **git**
+identity. So on an unfamiliar checkout establish that the two agree before trusting the idiom — one
+command each (`gh auth status`, `git config user.name`) — and where they do not, **claim by name**
+rather than with `@me`, and say so.
+
+**Resuming is picking up.** A crash, a `--continue`, a fresh clone that finds a pushed branch with no
+PR — the branch and its dossier already exist, so nothing announces a pickup and both halves feel
+already done. They are not: read the claim before you touch the branch, and write one before you
+carry the work, exactly as at a start.
+
+**An assignee that is not this session's own account stops the work — that is not a judgement call.**
+The one case that is: where both sessions run under one account the assignee cannot name the machine,
+so a claim with no branch and no recent activity is a question for the owner rather than a locked
+door. Invert any of the three — a different account, a branch that already exists, activity minutes
+old — and it is a locked door.
+
+**And a claim is the OPENING of the work, not a checkpoint before it.** *"Fix issue 1234"* is the
+assignment and claiming it is that assignment's first move, so the same turn goes on to read the
+issue, name the specialist and open the branch. Closing out on a clean claim — *"say the word and
+I'll open the branch"* — is the intermediate question the persona page already forbids.
+
 ## Picking up an issue — why the claim is shaped this way
 
-**The rule itself is on the persona page; this is the reasoning behind each of its shapes.**
+**The rule's core is on the persona page and the whole of it is above; this is the reasoning behind
+each of its shapes.**
 
 **Why `@me` is refused rather than merely warned about.** It resolves through the tracker's API, so it
 binds to whatever the CLI is authenticated as, while the branch a second session correlates the claim
