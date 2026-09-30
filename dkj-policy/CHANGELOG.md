@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**6 / 7 minor entries** <!-- pending-tally -->
+**7 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2651-npx-cmd-on-windows · 20260930-134630Z
+
+On Windows, the issue dashboard, the release-notes page and the BWJ page publisher now print
+`npx.cmd wrangler ...` instead of `npx wrangler ...`, so the commands they hand over run in PowerShell
+under the default execution policy. The deploy step prints on its own line and is no longer joined to
+`cd` with `&&`, which Windows PowerShell 5.1 rejects.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Whoever deploys one of these pages from Windows PowerShell can paste the printed commands as they are,
+where before each one failed, either as a blocked script (*"running scripts is disabled on this
+system"*) or, for the joined `Next:` line, as a parse error on `&&`.
+
+**Score:** 2
+
+#### Pull Request
+
+Print npx.cmd on Windows, where the default execution policy blocks npx.ps1
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2660](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2660)
+
+---
 
 ### DEPLOY: feat/dashboard-number-label-colours · 20260930-132109Z
 
