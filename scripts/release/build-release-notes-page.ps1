@@ -917,7 +917,11 @@ workers_dev = true
 
 Write-Host "  worker   : $workerPath ($([math]::Round((Get-Item -LiteralPath $workerPath).Length / 1KB)) KB), route $route" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Next:  cd `"$pageDir`"  &&  npx wrangler deploy" -ForegroundColor Cyan
+# Two lines, not '&&', which Windows PowerShell 5.1 cannot parse; and npx.cmd on Windows, because 'npx'
+# there resolves to node's npx.ps1, which the default execution policy refuses to load (#2651).
+$npx = if ($env:OS -eq 'Windows_NT') { 'npx.cmd' } else { 'npx' }
+Write-Host "  Next:  cd `"$pageDir`"" -ForegroundColor Cyan
+Write-Host "         $npx wrangler deploy" -ForegroundColor Cyan
 Write-Host "  Then verify the BYTES the URL serves, not the deploy command's output -- once wrangler has" -ForegroundColor DarkGray
 Write-Host "  deployed a worker, an API upload only creates inactive versions, silently. Fetch TWICE: a" -ForegroundColor DarkGray
 Write-Host "  read seconds after a good deploy can still be a cached 200 with the old body, which looks" -ForegroundColor DarkGray

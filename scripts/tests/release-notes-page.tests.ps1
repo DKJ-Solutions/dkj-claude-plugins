@@ -356,6 +356,11 @@ try {
 
     $w2 = Invoke-Build -Root $r7 -ScriptArgs @('-Worker', '-InitToken')
     Assert-Equal 0 $w2.Code 'token: -InitToken creates one and the worker builds'
+    # npx.cmd on Windows, where 'npx' resolves to npx.ps1 and the default execution policy blocks it;
+    # and no '&&', which Windows PowerShell 5.1 cannot parse (#2651).
+    $npx = if ($env:OS -eq 'Windows_NT') { 'npx.cmd' } else { 'npx' }
+    Assert-Says $w2.Out "$npx wrangler deploy" "deploy: it names the deploy command as $npx"
+    Assert-True ($w2.Out -notlike '*&&*') 'deploy: on lines of their own, not joined with && (a parse error in Windows PowerShell 5.1)'
     # A configured worker name means this repo has hosted the page before, so a fresh token may be
     # about to orphan a live one. Reported rather than refused: a first-ever token looks identical
     # from here, and -InitToken is explicit (issue #1453).

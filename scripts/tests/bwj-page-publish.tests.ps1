@@ -362,7 +362,11 @@ $toml = [System.IO.File]::ReadAllText((Join-Path $Fixture 'releases\page\wrangle
 Assert-True ($toml -like '*name = "bwj-pages"*')  'the wrangler.toml deploys the worker the seam names'
 Assert-True ($toml -like "*id = `"$HexB`"*")      '...and binds the namespace the seam names'
 Assert-True ($toml -like '*binding = "BWJ_PAGES"*') '...under the binding the worker reads'
-Assert-True ($emit.Text -like '*npx wrangler deploy*') 'it names the deploy command and deploys nothing itself'
+# npx.cmd on Windows, where 'npx' resolves to npx.ps1 and the default execution policy blocks it; and
+# no '&&', which Windows PowerShell 5.1 cannot parse (#2651).
+$npx = if ($env:OS -eq 'Windows_NT') { 'npx.cmd' } else { 'npx' }
+Assert-True ($emit.Text -like "*$npx wrangler deploy*") "it names the deploy command, as $npx, and deploys nothing itself"
+Assert-True ($emit.Text -notlike '*&&*') '...on lines of their own, not joined with && (a parse error in Windows PowerShell 5.1)'
 Assert-True ($emit.Text -like '*neither deploy can disturb a page the other store published*') '...and states the property that makes the worker shareable'
 
 Write-Host ''

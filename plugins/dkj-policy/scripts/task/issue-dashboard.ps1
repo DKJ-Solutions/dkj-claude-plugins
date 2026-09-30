@@ -36,6 +36,10 @@
       npx wrangler secret put DASHBOARD_TOKEN   (paste the contents of dashboard-path-token.txt)
       npx wrangler deploy
 
+    On Windows it prints `npx.cmd` where this says `npx` (#2651): in PowerShell `npx` resolves to
+    node's npx.ps1 shim, which the default execution policy refuses to load, and npx.cmd beside it is
+    not subject to that policy.
+
     The only secret-adjacent file it touches is the path token file. It never puts that value into a
     command line (wrangler prompts for the secret value, which is where you paste it) and it never
     prints the full URL either: it prints the URL SHAPE and names the file, because terminal output
@@ -376,6 +380,10 @@ if (Test-Path -LiteralPath (Join-Path $repoRoot 'wrangler.toml') -PathType Leaf)
                    "deploy THAT project. Run every command below from $dashDir.")
 }
 
+# In Windows PowerShell 'npx' resolves to node's npx.ps1, which the default execution policy refuses
+# to load; npx.cmd beside it is not subject to the policy, so that is the form printed there (#2651).
+$npx = if ($env:OS -eq 'Windows_NT') { 'npx.cmd' } else { 'npx' }
+
 Write-Host "== issue-dashboard ==" -ForegroundColor Cyan
 Write-Host "  worker   : $dashDir  ($($workerFiles -join ', '), copied from the plugin -- no content, no token)" -ForegroundColor Green
 if ($Org) { Write-Host "  owner    : $Org (every repository the token can read)   worker name: $workerName" }
@@ -384,8 +392,8 @@ Write-Host ""
 Write-Host "  Run these yourself, in order -- this script deploys nothing and never sees a secret:" -ForegroundColor Cyan
 Write-Host "    cd `"$dashDir`""
 Write-Host "        wrangler deploys to the Cloudflare account it is logged in to: check it with"
-Write-Host "        'npx wrangler whoami' first, and log out and in again if that is not this worker's account."
-Write-Host "    npx wrangler secret put GITHUB_TOKEN"
+Write-Host "        '$npx wrangler whoami' first, and log out and in again if that is not this worker's account."
+Write-Host "    $npx wrangler secret put GITHUB_TOKEN"
 if ($Org) {
 Write-Host "        fine-grained PAT with resource owner $Org, on the repositories the page should show: Issues read,"
 Write-Host "        Pull requests read, Contents read, Metadata read. Nothing that writes. Paste it at wrangler's prompt."
@@ -393,9 +401,9 @@ Write-Host "        Pull requests read, Contents read, Metadata read. Nothing th
 Write-Host "        fine-grained PAT, THIS ONE repository only: Issues read, Pull requests read,"
 Write-Host "        Contents read, Metadata read. Nothing that writes. Paste it at wrangler's prompt."
 }
-Write-Host "    npx wrangler secret put DASHBOARD_TOKEN"
+Write-Host "    $npx wrangler secret put DASHBOARD_TOKEN"
 Write-Host "        paste the 32 characters in $tokenPath at the prompt (not on the command line)."
-Write-Host "    npx wrangler deploy"
+Write-Host "    $npx wrangler deploy"
 Write-Host ""
 Write-Host "  Then open (the subdomain is your Cloudflare account's workers.dev subdomain, which wrangler prints):" -ForegroundColor Cyan
 Write-Host "    https://$workerName.<your-subdomain>.workers.dev/issues/<contents of $tokenPath>"
