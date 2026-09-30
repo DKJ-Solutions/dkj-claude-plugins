@@ -72,3 +72,5 @@ A repo running the optional issue dashboard sees its rows keyed by the number it
 
 #### Pull Request
 
+
+The issue dashboard lists newest first, leads with the issue number and draws labels in their GitHub colours
