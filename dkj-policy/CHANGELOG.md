@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**9 / 11 minor entries** <!-- pending-tally -->
+**9 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/disable-addon-teams · 20260930-215833Z
+
+The three add-on teams (`dkj-subagents-ecomm`, `dkj-subagents-lifehub`, `dkj-subagents-shopify`) are
+switched off in this repo's own `.claude/settings.json`. They had no work here and cost every session
+about 2.9k tokens. They are set to `false` rather than removed, so a user-scope setting cannot switch
+them back on. Their entries in the self-connector record, their 11 empty lenses and their roster rows go
+with them, so no gate and no session-start check reports them. What is given up is the early warning:
+a broken add-on plugin no longer surfaces at this repo's own session start. Sylvester's lens says how
+to switch one back on for a validation pass.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. Only this repo's own settings change. No consumer's installed plugins or shipped files change.
+
+**Score:** N/A
+
+#### Pull Request
+
+Disable the three add-on teams in this repo's own settings
+
+[PR #2668](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2668)
+
+---
 
 ### DEPLOY: docs/2665-split-chris-persona-second-pass · 20260930-205630Z
 
