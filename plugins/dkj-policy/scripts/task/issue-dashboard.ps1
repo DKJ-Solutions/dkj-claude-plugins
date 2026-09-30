@@ -86,6 +86,15 @@
     Copy the two worker files into the dashboard directory and write wrangler.toml if it is absent,
     then print the secret and deploy commands. Requires a path token (-InitToken first), gitignored.
 
+.PARAMETER Org
+    ORG MODE (issue #2649): prepare a dashboard for EVERY repository of this GitHub owner (an
+    organization or a user) instead of for this repo. Its files go into their own directory,
+    dkj-policy/dashboard/org-<login>/, with its own path token and its own wrangler.toml carrying
+    [vars] GITHUB_ORG, so one checkout can prepare several dashboards side by side. The worker is named
+    '<login>-issue-dashboard'; Get-IssueDashboardWorkerName names only this repo's own dashboard. The
+    GITHUB_TOKEN of an org worker is a fine-grained PAT whose resource owner is that org, with access
+    to all of its repositories -- one PAT per owner, because a fine-grained PAT has exactly one.
+
 .PARAMETER RepoRoot
     The repository root to read and write in, instead of the one git (or CLAUDE_PROJECT_DIR) names.
     A test seam; a consumer never types it.
@@ -95,6 +104,10 @@
     First-time setup: creates the token, emits the worker, and prints the commands to run.
 
 .EXAMPLE
+    ./scripts/task/issue-dashboard.ps1 -Org DKJ-Solutions -InitToken -EmitWorker
+    First-time setup of a dashboard over every repository of the DKJ-Solutions organization.
+
+.EXAMPLE
     ./scripts/task/issue-dashboard.ps1 -EmitWorker
     Refreshes the two worker files after a plugin update and prints the deploy commands again.
 #>
@@ -102,6 +115,7 @@
 param(
     [switch]$InitToken,
     [switch]$EmitWorker,
+    [string]$Org,
     [string]$RepoRoot
 )
 
@@ -143,14 +157,30 @@ $config = & {
     return $answers
 } $repoRoot
 
-$dashDir   = Join-Path $repoRoot 'dkj-policy\dashboard'
+# ORG MODE gets a directory of its own under the dashboard root (#2649), so this repo's dashboard and
+# any number of owner dashboards stand side by side, each with its own token and wrangler.toml.
+if ($Org -and $Org -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$') {
+    throw "-Org '$Org' is not a GitHub login (letters, digits and hyphens, at most 39 characters)."
+}
+$dashRoot  = Join-Path $repoRoot 'dkj-policy\dashboard'
+$dashRel   = if ($Org) { "dkj-policy/dashboard/org-$($Org.ToLowerInvariant())" } else { 'dkj-policy/dashboard' }
+$dashDir   = if ($Org) { Join-Path $dashRoot "org-$($Org.ToLowerInvariant())" } else { $dashRoot }
 $tokenPath = Join-Path $dashDir 'dashboard-path-token.txt'
+$tokenRel  = "$dashRel/dashboard-path-token.txt"
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 # NEVER THE ROOT (issue #2581). The directory is a fixed child of the root, so this cannot fire
 # through the parameters; it is here for whoever changes the constant above.
-if ((Split-Path -Parent (Split-Path -Parent $dashDir)).TrimEnd('\', '/') -ne $repoRoot.TrimEnd('\', '/')) {
-    throw "The dashboard directory must be a child of the repository root, never the root itself: $dashDir"
+if ((Split-Path -Parent (Split-Path -Parent $dashRoot)).TrimEnd('\', '/') -ne $repoRoot.TrimEnd('\', '/')) {
+    throw "The dashboard directory must be a child of the repository root, never the root itself: $dashRoot"
+}
+
+function Find-DashboardStrayToken {
+    <# Find-StrayToken, minus the tokens of the OTHER dashboards under the dashboard root: those are
+       siblings with their own directory (#2649), not debris of a moved folder. #>
+    $prefix = $dashRoot.TrimEnd('\') + '\'
+    return @(Find-StrayToken -Root $repoRoot -ExpectedPath $tokenPath -FileName 'dashboard-path-token.txt' |
+             Where-Object { -not $_.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) })
 }
 
 function Get-DashboardRepoSlug {
@@ -176,7 +206,7 @@ function Get-TokenIgnoreState {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'   # native stderr must not become a terminating error under Stop
     try {
-        & git -C $Root check-ignore -q -- 'dkj-policy/dashboard/dashboard-path-token.txt' 2>$null | Out-Null
+        & git -C $Root check-ignore -q -- $tokenRel 2>$null | Out-Null
         $code = $LASTEXITCODE
     } catch { return 'unknown' } finally { $ErrorActionPreference = $prev }
     if ($code -eq 0) { return 'ignored' }
@@ -189,7 +219,7 @@ function Assert-TokenIgnored {
     param([Parameter(Mandatory = $true)][string]$Root)
     switch (Get-TokenIgnoreState -Root $Root) {
         'not-ignored' {
-            throw ("The path token file (dkj-policy/dashboard/dashboard-path-token.txt) is NOT gitignored, so it " +
+            throw ("The path token file ($tokenRel) is NOT gitignored, so it " +
                    "could be committed -- and the token is the only lock on the dashboard. Add this line to " +
                    ".gitignore and run again: /dkj-policy/dashboard/")
         }
@@ -210,7 +240,7 @@ if ($InitToken) {
     }
     # @( ) at the call site: PowerShell unrolls a returned empty array to $null, and StrictMode Latest
     # then refuses .Count on it.
-    $strays = @(Find-StrayToken -Root $repoRoot -ExpectedPath $tokenPath -FileName 'dashboard-path-token.txt')
+    $strays = @(Find-DashboardStrayToken)
     if ($strays.Count -gt 0) {
         throw ("There is no token at $tokenPath, but this tree already holds one: $($strays -join ', '). " +
                "That is what a renamed or repointed dkj-policy folder leaves behind -- the directory is " +
@@ -231,7 +261,7 @@ if (-not $EmitWorker) { exit 0 }
 
 # --- 3. -EmitWorker ---------------------------------------------------------------------------------
 if (-not (Test-Path -LiteralPath $tokenPath -PathType Leaf)) {
-    $strays = @(Find-StrayToken -Root $repoRoot -ExpectedPath $tokenPath -FileName 'dashboard-path-token.txt')
+    $strays = @(Find-DashboardStrayToken)
     $lead = if ($strays.Count -gt 0) {
         "This tree already holds one, at $($strays -join ', '). The directory is gitignored, so it did " +
         "not travel with a renamed or repointed dkj-policy folder: MOVE that folder here rather than " +
@@ -265,14 +295,22 @@ foreach ($f in $workerFiles) {
     }
 }
 
-$workerName = if ($config.WorkerName) { $config.WorkerName } else { '' }
-$repoSlug   = Get-DashboardRepoSlug -FromConfig $config.Repo
-if (-not $repoSlug) {
+# The target is this repo, or in org mode the owner; the worker name follows it.
+$workerName = if ($config.WorkerName -and -not $Org) { $config.WorkerName } else { '' }
+$repoSlug   = if ($Org) { '' } else { Get-DashboardRepoSlug -FromConfig $config.Repo }
+if (-not $Org -and -not $repoSlug) {
     throw ("Could not tell which repository the dashboard is for: Get-RepoName is not answered in " +
            "scripts\repo-config.ps1 and `gh repo view` returned nothing. Answer Get-RepoName ('owner/name') " +
            "or authenticate gh, then retry.")
 }
-if (-not $workerName) { $workerName = (($repoSlug -split '/')[-1] + '-issue-dashboard').ToLowerInvariant() }
+if (-not $workerName) {
+    $base = if ($Org) { $Org } else { ($repoSlug -split '/')[-1] }
+    $workerName = ($base + '-issue-dashboard').ToLowerInvariant()
+}
+# The one [vars] line, and the one it must never carry beside it.
+$varName  = if ($Org) { 'GITHUB_ORG' } else { 'GITHUB_REPO' }
+$varValue = if ($Org) { $Org } else { $repoSlug }
+$otherVar = if ($Org) { 'GITHUB_REPO' } else { 'GITHUB_ORG' }
 if ($workerName -notmatch '^[a-z0-9][a-z0-9-]*$') {
     throw "The worker name '$workerName' is not a valid Cloudflare Worker name (lowercase letters, digits, hyphens)."
 }
@@ -296,11 +334,12 @@ enabled = false
 
 # GITHUB_TOKEN and DASHBOARD_TOKEN are SECRETS: set them with 'npx wrangler secret put', never here.
 [vars]
-GITHUB_REPO = "$repoSlug"
+$varName = "$varValue"
 
 # No account_id on purpose: it is one more identifier to keep out of a public repo, and wrangler
 # resolves the account from CLOUDFLARE_ACCOUNT_ID or from the token when it has only one. Add it
 # here if you work across several accounts -- this file is written once and never overwritten.
+
 "@
     [System.IO.File]::WriteAllText($wranglerPath, $wrangler, $Utf8NoBom)
     Write-Host "  wrangler : $wranglerPath (written -- it is yours from now on, never overwritten)" -ForegroundColor Yellow
@@ -315,10 +354,14 @@ GITHUB_REPO = "$repoSlug"
                        "'$workerName' (Get-IssueDashboardWorkerName, else '<repo>-issue-dashboard'). One of the two " +
                        "is wrong -- this script does not pick.")
     }
-    $declaredRepo = [regex]::Match($existing, '(?m)^\s*GITHUB_REPO\s*=\s*"([^"]+)"')
-    if ($declaredRepo.Success -and $declaredRepo.Groups[1].Value -ne $repoSlug) {
-        Write-Warning ("wrangler.toml serves issues of '$($declaredRepo.Groups[1].Value)' while this repo is " +
-                       "'$repoSlug'. One of the two is wrong -- this script does not pick.")
+    $declaredRepo = [regex]::Match($existing, "(?m)^\s*$varName\s*=\s*`"([^`"]+)`"")
+    if ($declaredRepo.Success -and $declaredRepo.Groups[1].Value -ne $varValue) {
+        Write-Warning ("wrangler.toml serves issues of '$($declaredRepo.Groups[1].Value)' while this run is for " +
+                       "'$varValue'. One of the two is wrong -- this script does not pick.")
+    }
+    if ($existing -match "(?m)^\s*$otherVar\s*=") {
+        Write-Warning ("wrangler.toml sets $otherVar as well as $varName, and the worker refuses both at once. " +
+                       "Remove the one that is wrong -- this script does not edit the file.")
     }
     if ($existing -notmatch '(?ms)^\s*\[observability\][^\[]*?^\s*enabled\s*=\s*false') {
         Write-Warning ("wrangler.toml does not set [observability] enabled = false. Request URLs carry the path " +
@@ -335,13 +378,21 @@ if (Test-Path -LiteralPath (Join-Path $repoRoot 'wrangler.toml') -PathType Leaf)
 
 Write-Host "== issue-dashboard ==" -ForegroundColor Cyan
 Write-Host "  worker   : $dashDir  ($($workerFiles -join ', '), copied from the plugin -- no content, no token)" -ForegroundColor Green
-Write-Host "  repo     : $repoSlug   worker name: $workerName"
+if ($Org) { Write-Host "  owner    : $Org (every repository the token can read)   worker name: $workerName" }
+else      { Write-Host "  repo     : $repoSlug   worker name: $workerName" }
 Write-Host ""
 Write-Host "  Run these yourself, in order -- this script deploys nothing and never sees a secret:" -ForegroundColor Cyan
 Write-Host "    cd `"$dashDir`""
+Write-Host "        wrangler deploys to the Cloudflare account it is logged in to: check it with"
+Write-Host "        'npx wrangler whoami' first, and log out and in again if that is not this worker's account."
 Write-Host "    npx wrangler secret put GITHUB_TOKEN"
+if ($Org) {
+Write-Host "        fine-grained PAT with resource owner $Org, on the repositories the page should show: Issues read,"
+Write-Host "        Pull requests read, Contents read, Metadata read. Nothing that writes. Paste it at wrangler's prompt."
+} else {
 Write-Host "        fine-grained PAT, THIS ONE repository only: Issues read, Pull requests read,"
 Write-Host "        Contents read, Metadata read. Nothing that writes. Paste it at wrangler's prompt."
+}
 Write-Host "    npx wrangler secret put DASHBOARD_TOKEN"
 Write-Host "        paste the 32 characters in $tokenPath at the prompt (not on the command line)."
 Write-Host "    npx wrangler deploy"
@@ -350,6 +401,7 @@ Write-Host "  Then open (the subdomain is your Cloudflare account's workers.dev 
 Write-Host "    https://$workerName.<your-subdomain>.workers.dev/issues/<contents of $tokenPath>"
 Write-Host "  The URL is not printed in full on purpose (terminal output lands in transcripts and logs). The file"
 Write-Host "  content is the ONLY lock: anyone holding it reads your open issues. Never paste it into a chat or issue."
+if ($Org) { Write-Host "  In org mode that is every repository the PAT can read, private ones included: the PAT is the scope." }
 Write-Host "  The worker answers 404 to everything else, sends noindex and no-store, and caches GitHub reads"
 Write-Host "  per worker isolate (and at the edge where Cloudflare provides a cache): roughly once a minute per isolate."
 Write-Host "  Never run wrangler from the repository root; run it from the directory above."

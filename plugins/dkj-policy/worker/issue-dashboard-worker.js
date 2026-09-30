@@ -1,10 +1,13 @@
-// The issue dashboard worker -- ONE Cloudflare Worker that renders a repo's open GitHub issues live,
-// each with a status and a pick-up order derived from blocked-by dependencies.
+// The issue dashboard worker -- ONE Cloudflare Worker that renders the open GitHub issues of one repo,
+// or of every repo of one owner, live, each with a status and a pick-up order derived from blocked-by
+// dependencies.
 //
 // Issue #2643. THIS WORKER CARRIES NO TOKEN, NO REPO NAME AND NO CONTENT. Everything comes from env:
-//   GITHUB_TOKEN     secret -- a fine-grained PAT, one repo, Issues / Pull requests / Contents read
+//   GITHUB_TOKEN     secret -- a fine-grained PAT, Issues / Pull requests / Contents / Metadata read
 //   DASHBOARD_TOKEN  secret -- 32 lowercase hex, the path lock
-//   GITHUB_REPO      var    -- "owner/name"
+//   GITHUB_REPO      var    -- "owner/name": repo mode, one repo
+//   GITHUB_ORG       var    -- "login": org mode (#2649), every non-archived repo with issues enabled
+//                             that the token can read. Set exactly one of GITHUB_REPO and GITHUB_ORG.
 //
 // THE ROUTE IS THE ONLY LOCK, as on the other dkj-policy workers: GET|HEAD /issues/<32 hex>, no login.
 // The shape is checked with a regex BEFORE anything else is done with the path, and the token is then
@@ -16,14 +19,19 @@
 // the repo, NEVER on the path token. The page the browser gets is no-store. Titles and labels are written by
 // whoever can open an issue, so every GitHub-derived string is escaped before it reaches the page.
 //
-// Deployed by hand from dkj-policy/dashboard/ (issue-dashboard.ps1 -EmitWorker writes it there).
+// Deployed by hand from dkj-policy/dashboard/, or dkj-policy/dashboard/org-<login>/ for an org
+// dashboard (issue-dashboard.ps1 -EmitWorker writes it there).
 
 import { deriveDashboard, STATUSES } from "./issue-dashboard-logic.js";
 
 const ROUTE = /^\/issues\/([0-9a-f]{32})\/?$/;
 const CACHE_SECONDS = 60;
-const MAX_PAGES = 10;
+const MAX_PAGES = 10;          // repo mode: GitHub requests per refresh
+const MAX_REQUESTS_ORG = 40;   // org mode: the same budget for a whole owner, under the 50-subrequest free plan
+const MAX_LIST_PAGES = 5;      // org mode: at most 500 repositories are listed
+const REPOS_PER_QUERY = 8;     // org mode: repositories read in one GraphQL request
 const PAGE_SIZE = 100;
+const LOGIN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 const REF_PREFIXES = ["feat", "fix", "docs"];
 
 const BASE_HEADERS = {
@@ -72,7 +80,10 @@ function connectionFragment(key, cursor) {
   return `${key}: refs(refPrefix: "refs/heads/${key}/", first: ${PAGE_SIZE}${after}) { ${page} nodes { name } }`;
 }
 
-async function graphql(env, query, variables) {
+// `partialAliases` (org mode): GitHub answers a repository it cannot read with data.<alias> = null PLUS
+// an error whose path starts at that alias. When every error is of that kind the data is returned and
+// the caller warns per repo; any other error still throws.
+async function graphql(env, query, variables, partialAliases = null) {
   const res = await fetch("https://api.github.com/graphql", {
     method: "POST",
     headers: {
@@ -84,6 +95,10 @@ async function graphql(env, query, variables) {
   });
   let body = null;
   try { body = await res.json(); } catch { /* handled below */ }
+  if (res.ok && body && body.data && body.errors && partialAliases &&
+      body.errors.every((e) => Array.isArray(e.path) && partialAliases.has(e.path[0]) && body.data[e.path[0]] === null)) {
+    return body.data;
+  }
   if (!res.ok || !body || body.errors) {
     const messages = body && body.errors ? body.errors.map((e) => e.message) : [`GitHub answered HTTP ${res.status}`];
     const err = new Error(messages.join("; "));
@@ -93,45 +108,103 @@ async function graphql(env, query, variables) {
   return body.data;
 }
 
-async function loadRepo(env) {
-  const [owner, name] = env.GITHUB_REPO.split("/");
+const notReadable = (what) => Object.assign(new Error(what), { messages: [what] });
+
+// Every connection of every repo is paged until it is exhausted or the shared request budget runs out.
+// One request carries up to REPOS_PER_QUERY repos, each an aliased repository() field asking only for
+// the connections that repo still has pages for -- in repo mode that is one field, aliased to its own name.
+async function loadRepos(env, slugs, budget, orgMode) {
   const warnings = [];
   const collected = { issues: [], prs: [], branches: [] };
-  const cursors = { issues: null, prs: null };
-  REF_PREFIXES.forEach((p) => (cursors[p] = null));
-  let active = Object.keys(cursors);
-  let pages = 0;
+  const keys = ["issues", "prs", ...REF_PREFIXES];
+  const state = slugs.map((slug) => ({ slug, cursors: Object.fromEntries(keys.map((k) => [k, null])), active: [...keys] }));
+  const alias = (idx) => (orgMode ? `r${idx}` : "repository");
+  let requests = 0;
 
-  while (active.length) {
-    if (pages >= MAX_PAGES) {
-      warnings.push(`Stopped after ${MAX_PAGES} GitHub requests; the list is incomplete (${active.join(", ")} had more pages).`);
+  for (;;) {
+    const pending = state.filter((s) => s.active.length);
+    if (!pending.length) break;
+    if (requests >= budget) {
+      const left = orgMode ? pending.map((s) => `${s.slug}: ${s.active.join(", ")}`).join("; ") : pending[0].active.join(", ");
+      warnings.push(`Stopped after ${budget} GitHub requests; the list is incomplete (${left} had more pages).`);
       break;
     }
-    pages++;
-    const query = `query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) {
-      ${active.map((k) => connectionFragment(k, cursors[k])).join("\n")} } }`;
-    const repo = (await graphql(env, query, { owner, name })).repository;
-    if (!repo) throw Object.assign(new Error("repository not found or not readable with this token"), { messages: ["repository not found or not readable with this token"] });
+    requests++;
+    const batch = pending.slice(0, REPOS_PER_QUERY);
+    const fields = batch.map((s, idx) => {
+      const [owner, name] = s.slug.split("/");
+      return `${alias(idx)}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) {
+      ${s.active.map((k) => connectionFragment(k, s.cursors[k])).join("\n")} }`;
+    });
+    const data = await graphql(env, `query { ${fields.join("\n")} }`, {}, orgMode ? new Set(batch.map((_, idx) => alias(idx))) : null);
 
-    const next = [];
-    for (const key of active) {
-      const conn = repo[key === "prs" ? "pullRequests" : key];
-      for (const node of conn.nodes) {
-        if (key === "issues") collected.issues.push(flattenIssue(node, warnings));
-        else if (key === "prs") collected.prs.push(flattenPr(node, env.GITHUB_REPO, warnings));
-        else collected.branches.push(`${key}/${node.name}`);
+    batch.forEach((s, idx) => {
+      const repo = data[alias(idx)];
+      if (!repo) {
+        if (!orgMode) throw notReadable("repository not found or not readable with this token");
+        warnings.push(`${s.slug} could not be read with this token; its issues are missing.`);
+        s.active = [];
+        return;
       }
-      if (conn.pageInfo.hasNextPage) { cursors[key] = conn.pageInfo.endCursor; next.push(key); }
-    }
-    active = next;
+      const next = [];
+      for (const key of s.active) {
+        const conn = repo[key === "prs" ? "pullRequests" : key];
+        for (const node of conn.nodes) {
+          if (key === "issues") collected.issues.push(flattenIssue(node, s.slug, orgMode, warnings));
+          else if (key === "prs") collected.prs.push(flattenPr(node, s.slug, orgMode, warnings));
+          else collected.branches.push(orgMode ? { repo: s.slug, name: `${key}/${node.name}` } : `${key}/${node.name}`);
+        }
+        if (conn.pageInfo.hasNextPage) { s.cursors[key] = conn.pageInfo.endCursor; next.push(key); }
+      }
+      s.active = next;
+    });
   }
-  return { ...collected, warnings };
+  return { ...collected, warnings, requests };
 }
 
-function flattenIssue(n, warnings) {
-  if (n.labels.totalCount > n.labels.nodes.length) warnings.push(`#${n.number} has more labels than were fetched.`);
+// Org mode: the owner's non-archived repositories with issues enabled, as far as the token can see them.
+// repositoryOwner answers for an organization and for a user alike.
+async function listOwnerRepos(env, login, warnings) {
+  const slugs = [];
+  let cursor = null;
+  let requests = 0;
+  for (;;) {
+    if (requests >= MAX_LIST_PAGES) {
+      warnings.push(`Stopped listing ${login}'s repositories after ${MAX_LIST_PAGES} requests; some repositories are missing.`);
+      break;
+    }
+    requests++;
+    const after = cursor ? `, after: ${JSON.stringify(cursor)}` : "";
+    const data = await graphql(env, `query { repositoryOwner(login: ${JSON.stringify(login)}) {
+      repositories(first: ${PAGE_SIZE}${after}, orderBy: {field: NAME, direction: ASC}) {
+        pageInfo { hasNextPage endCursor } nodes { nameWithOwner isArchived hasIssuesEnabled } } } }`, {});
+    const owner = data.repositoryOwner;
+    if (!owner) throw notReadable("owner not found or not readable with this token");
+    // For a user, GitHub's default affiliations also list repos they only collaborate on: owned ones only.
+    const own = (r) => r.nameWithOwner.split("/")[0].toLowerCase() === login.toLowerCase();
+    for (const r of owner.repositories.nodes) if (own(r) && !r.isArchived && r.hasIssuesEnabled) slugs.push(r.nameWithOwner);
+    if (!owner.repositories.pageInfo.hasNextPage) break;
+    cursor = owner.repositories.pageInfo.endCursor;
+  }
+  return { slugs, requests };
+}
+
+async function loadTarget(env) {
+  if (!env.GITHUB_ORG) return loadRepos(env, [env.GITHUB_REPO], MAX_PAGES, false);
+  const warnings = [];
+  const listed = await listOwnerRepos(env, env.GITHUB_ORG, warnings);
+  if (!listed.slugs.length) warnings.push(`No repository of ${env.GITHUB_ORG} with issues enabled is readable with this token.`);
+  const raw = await loadRepos(env, listed.slugs, MAX_REQUESTS_ORG - listed.requests, true);
+  raw.warnings.unshift(...warnings);
+  return raw;
+}
+
+function flattenIssue(n, slug, orgMode, warnings) {
+  const name = orgMode ? `${slug}#${n.number}` : `#${n.number}`;
+  if (n.labels.totalCount > n.labels.nodes.length) warnings.push(`${name} has more labels than were fetched.`);
   return {
     number: n.number, title: n.title, url: n.url, createdAt: n.createdAt,
+    ...(orgMode ? { repo: slug } : {}),
     labels: n.labels.nodes.map((l) => l.name),
     assignees: n.assignees.nodes.map((a) => a.login),
     blockedBy: n.blockedBy.nodes.map((b) => ({ number: b.number, state: b.state, repo: b.repository.nameWithOwner })),
@@ -139,37 +212,42 @@ function flattenIssue(n, warnings) {
   };
 }
 
-function flattenPr(n, repoName, warnings) {
-  if (n.closingIssuesReferences.totalCount > n.closingIssuesReferences.nodes.length) warnings.push(`PR #${n.number} closes more issues than were fetched.`);
+// A PR closes issues by repo and number; the logic keeps only the ones it has fetched.
+function flattenPr(n, slug, orgMode, warnings) {
+  const name = orgMode ? `${slug} PR #${n.number}` : `PR #${n.number}`;
+  if (n.closingIssuesReferences.totalCount > n.closingIssuesReferences.nodes.length) warnings.push(`${name} closes more issues than were fetched.`);
   return {
     number: n.number, url: n.url, isDraft: n.isDraft,
-    closes: n.closingIssuesReferences.nodes
-      .filter((c) => c.repository.nameWithOwner.toLowerCase() === repoName.toLowerCase())
-      .map((c) => c.number),
+    ...(orgMode ? { repo: slug } : {}),
+    closes: n.closingIssuesReferences.nodes.map((c) => ({ number: c.number, repo: c.repository.nameWithOwner })),
   };
 }
 
-// The cache holds the DERIVED data, keyed on the repo alone -- the path token never reaches the key.
+// What the dashboard is for: "owner/name" in repo mode, "org:<login>" in org mode.
+const targetOf = (env) => (env.GITHUB_ORG ? `org:${env.GITHUB_ORG}` : env.GITHUB_REPO);
+
+// The cache holds the DERIVED data, keyed on the target alone -- the path token never reaches the key.
 // In front of it sits an in-isolate memo, because the edge cache is not confirmed to work everywhere.
-let memo = null; // { repo, data, expires }
+let memo = null; // { target, data, expires }
 export function resetMemo() { memo = null; }
 
 async function getData(env, ctx) {
   const now = Date.now();
-  if (memo && memo.repo === env.GITHUB_REPO && memo.expires > now) return memo.data;
-  const data = await getEdgeOrFresh(env, ctx);
-  memo = { repo: env.GITHUB_REPO, data, expires: now + CACHE_SECONDS * 1000 };
+  const target = targetOf(env);
+  if (memo && memo.target === target && memo.expires > now) return memo.data;
+  const data = await getEdgeOrFresh(env, ctx, target);
+  memo = { target, data, expires: now + CACHE_SECONDS * 1000 };
   return data;
 }
 
-async function getEdgeOrFresh(env, ctx) {
+async function getEdgeOrFresh(env, ctx, target) {
   const cache = caches.default;
-  const key = new Request(`https://issue-dashboard.invalid/${encodeURIComponent(env.GITHUB_REPO)}`);
+  const key = new Request(`https://issue-dashboard.invalid/${encodeURIComponent(target)}`);
   const hit = await cache.match(key);
   if (hit) return hit.json();
 
-  const raw = await loadRepo(env);
-  const derived = deriveDashboard(raw.issues, raw.prs, raw.branches, { repo: env.GITHUB_REPO });
+  const raw = await loadTarget(env);
+  const derived = deriveDashboard(raw.issues, raw.prs, raw.branches, env.GITHUB_ORG ? { org: env.GITHUB_ORG } : { repo: env.GITHUB_REPO });
   derived.warnings.push(...raw.warnings);
   const data = { ...derived, generatedAt: new Date().toISOString() };
   const stored = new Response(JSON.stringify(data), {
@@ -213,12 +291,19 @@ const STATUS_COLOUR = {
   Blocked: "blocked", Claimed: "claimed", Filed: "filed",
 };
 
-function renderPage(data, repoName) {
+// `repoName` is the repo in repo mode; in org mode it is null and `org` names the owner.
+function renderPage(data, repoName, org) {
   const repoUrl = (r) => `https://github.com/${r}`;
-  const issueLink = (n, r) => {
-    const own = !r || r.toLowerCase() === repoName.toLowerCase();
-    return `<a href="${escapeHtml(repoUrl(own ? repoName : r))}/issues/${Number(n)}" rel="noopener noreferrer">${own ? "" : escapeHtml(r)}#${Number(n)}</a>`;
+  const heading = org || repoName;
+  // The text in front of "#<n>": nothing for this repo, the bare name for a repo of this org, else owner/name.
+  const prefix = (r) => {
+    if (!r) return "";
+    if (repoName && r.toLowerCase() === repoName.toLowerCase()) return "";
+    const [owner, name] = r.split("/");
+    return org && owner.toLowerCase() === org.toLowerCase() ? name : r;
   };
+  const issueLink = (n, r) =>
+    `<a href="${escapeHtml(repoUrl(r || repoName))}/issues/${Number(n)}" rel="noopener noreferrer">${escapeHtml(prefix(r))}#${Number(n)}</a>`;
   const counts = STATUSES.map((s) => `<li>${s}<b>${data.rows.filter((r) => r.status === s).length}</b></li>`).join("");
   const warnings = data.warnings.length
     ? `<div class="warn"><strong>Read with care</strong><ul>${data.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`
@@ -229,13 +314,13 @@ function renderPage(data, repoName) {
     if (r.assignees.length) detail.push(`<span>Assigned: ${r.assignees.map(escapeHtml).join(", ")}</span>`);
     const blockers = r.blockers.filter((b) => b.state === "OPEN");
     if (blockers.length) detail.push(`<span>Blocked by: ${blockers.map((b) => issueLink(b.number, b.repo)).join(", ")}</span>`);
-    if (r.blocking.length) detail.push(`<span>Unblocks: ${r.blocking.map((n) => issueLink(n, repoName)).join(", ")}</span>`);
+    if (r.blocking.length) detail.push(`<span>Unblocks: ${r.blocking.map((b) => issueLink(b.number, b.repo)).join(", ")}</span>`);
     if (r.prs.length) detail.push(`<span>PR: ${r.prs.map((p) => `<a href="${escapeHtml(p.url)}" rel="noopener noreferrer">#${Number(p.number)}</a>${p.isDraft ? " (draft)" : ""}`).join(", ")}</span>`);
     if (r.cycle) detail.push(`<span class="flag">Circular blocker chain</span>`);
     if (r.externalBlocker) detail.push(`<span>Waits on something outside this list</span>`);
     const labels = r.labels.map((l) => `<span class="tag">${escapeHtml(l)}</span>`).join("");
     return `<div class="row"><div class="rank">${r.rank}</div><div>
-      <div><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">#${Number(r.number)}</a> <span class="title">${escapeHtml(r.title)}</span>
+      <div><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">${escapeHtml(prefix(r.repo))}#${Number(r.number)}</a> <span class="title">${escapeHtml(r.title)}</span>
       <span class="pill" style="color:var(--s-${STATUS_COLOUR[r.status]})">${escapeHtml(r.status)}</span></div>
       ${labels ? `<div class="detail">${labels}</div>` : ""}
       ${detail.length ? `<div class="detail">${detail.join("")}</div>` : ""}</div></div>`;
@@ -245,9 +330,9 @@ function renderPage(data, repoName) {
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Issue dashboard — ${escapeHtml(repoName)}</title>
+<title>Issue dashboard — ${escapeHtml(heading)}</title>
 <style>${CSS}</style></head><body><main>
-<h1>Issue dashboard — <a href="${escapeHtml(repoUrl(repoName))}" rel="noopener noreferrer">${escapeHtml(repoName)}</a></h1>
+<h1>Issue dashboard — <a href="${escapeHtml(repoUrl(heading))}" rel="noopener noreferrer">${escapeHtml(heading)}</a></h1>
 <p class="meta">Generated ${escapeHtml(data.generatedAt)} · data up to ${CACHE_SECONDS} s old · ${data.rows.length} open, in pick-up order</p>
 <ul class="counts">${counts}</ul>
 ${warnings}
@@ -273,9 +358,12 @@ export default {
     if (!env || !tokenMatches(match[1], env.DASHBOARD_TOKEN)) return notFound();
 
     // Past the lock, so saying which binding is missing leaks nothing to a stranger.
-    const missing = ["GITHUB_TOKEN", "GITHUB_REPO"].filter((k) => !env[k]);
+    const missing = ["GITHUB_TOKEN"].filter((k) => !env[k]);
+    if (!env.GITHUB_REPO && !env.GITHUB_ORG) missing.push("GITHUB_REPO (or GITHUB_ORG)");
     if (missing.length) return errorPage(503, "Dashboard not configured", [`Missing binding: ${missing.join(", ")}`]);
-    if (!/^[\w.-]+\/[\w.-]+$/.test(env.GITHUB_REPO)) return errorPage(503, "Dashboard not configured", ["GITHUB_REPO must look like owner/name"]);
+    if (env.GITHUB_REPO && env.GITHUB_ORG) return errorPage(503, "Dashboard not configured", ["Set GITHUB_REPO or GITHUB_ORG, not both"]);
+    if (env.GITHUB_REPO && !/^[\w.-]+\/[\w.-]+$/.test(env.GITHUB_REPO)) return errorPage(503, "Dashboard not configured", ["GITHUB_REPO must look like owner/name"]);
+    if (env.GITHUB_ORG && !LOGIN.test(env.GITHUB_ORG)) return errorPage(503, "Dashboard not configured", ["GITHUB_ORG must be a GitHub login"]);
 
     let data;
     try {
@@ -283,7 +371,7 @@ export default {
     } catch (err) {
       return errorPage(502, "GitHub could not be read", err.messages || [String(err.message || err)]);
     }
-    const page = renderPage(data, env.GITHUB_REPO);
+    const page = env.GITHUB_ORG ? renderPage(data, null, env.GITHUB_ORG) : renderPage(data, env.GITHUB_REPO, null);
     return new Response(request.method === "HEAD" ? null : page, { headers: HTML });
   },
 };

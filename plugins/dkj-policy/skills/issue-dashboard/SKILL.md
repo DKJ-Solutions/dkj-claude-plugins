@@ -1,9 +1,10 @@
 ---
 name: issue-dashboard
 description: >-
-  OPTIONAL. Set up a live dashboard of this repo's open GitHub issues on a Cloudflare Worker -- each
-  issue with a status (In review, In progress, Waiting, Blocked, Claimed, Filed) and a pick-up order
-  derived from its blocked-by dependencies, served at an unguessable path. Needs a Cloudflare account and
+  OPTIONAL. Set up a live dashboard of this repo's open GitHub issues, or of every repo of one GitHub
+  organization, on a Cloudflare Worker -- each issue with a status (In review, In progress, Waiting,
+  Blocked, Claimed, Filed) and a pick-up order derived from its blocked-by dependencies, served at an
+  unguessable path. Needs a Cloudflare account and
   node/npx; a repo that does not want it never runs it. The script creates the path token and the worker
   bundle and PRINTS the wrangler commands -- it deploys nothing and never sees a secret.
 disable-model-invocation: true
@@ -23,6 +24,14 @@ link -- and the worker holds no content, so there is nothing to rebuild after a 
 - A **Cloudflare account** (the free plan is enough) and **node/npx** for `wrangler`.
 - A **fine-grained personal access token** for `GITHUB_TOKEN`, scoped to **this one repository** with
   exactly: Issues (read), Pull requests (read), Contents (read), Metadata (read). Nothing that writes.
+  An org dashboard needs a PAT whose **resource owner is that organization**, with access to the
+  repositories the page should show (all of them, or a selection -- see the lock section below) and the
+  same four read permissions. A fine-grained PAT has exactly one resource owner,
+  so every organization needs a PAT of its own.
+- **Logged in to the right Cloudflare account.** wrangler deploys to whichever account it is logged in
+  to. Where your dashboards belong to different Cloudflare accounts, check `npx wrangler whoami` before
+  every deploy, and switch with `npx wrangler logout` / `npx wrangler login`. Run these commands in your
+  own terminal: `wrangler login` and `wrangler secret put` prompt interactively.
 
 ## Setup
 
@@ -34,7 +43,13 @@ to run as a released copy in the source repo.):
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/issue-dashboard.ps1" -InitToken -EmitWorker
 ```
 
-It writes into **`dkj-policy/dashboard/`** (add `/dkj-policy/dashboard/` to your `.gitignore`; the source
+For a dashboard over a whole organization, add `-Org <login>`, once per organization:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/issue-dashboard.ps1" -Org <login> -InitToken -EmitWorker
+```
+
+It writes into **`dkj-policy/dashboard/`** (or `dkj-policy/dashboard/org-<login>/` with `-Org`) (add `/dkj-policy/dashboard/` to your `.gitignore`; the source
 repo already has it), then **prints**, for you to run from that directory:
 
 ```powershell
@@ -56,6 +71,7 @@ wrong thing. The script warns if a `wrangler.toml` stands at the root.
 |---|---|
 | `-InitToken` | create the 32-hex path token in `dkj-policy/dashboard/dashboard-path-token.txt`; refuses to replace one, and refuses when a token stands anywhere else in the tree, and refuses when the file is not gitignored (`git check-ignore -q`; add `/dkj-policy/dashboard/` to `.gitignore`), only warning where git cannot answer |
 | `-EmitWorker` | copy the two worker files from the plugin, write `wrangler.toml` if it is absent, and print the secret and deploy commands; needs the token, and refuses likewise when the token file is not gitignored |
+| `-Org <login>` | org mode: prepare a dashboard over **every repository of that organization** instead of this repo, in `dkj-policy/dashboard/org-<login>/` with its own token and `wrangler.toml` (`[vars] GITHUB_ORG`, worker `<login>-issue-dashboard`). Combine with `-InitToken` and `-EmitWorker` as above; several org dashboards and this repo's can stand side by side |
 | `-RepoRoot <path>` | test seam -- the repo root to work in instead of the one git names; a consumer never types it |
 
 ## What is written, and what is yours
@@ -66,6 +82,7 @@ dkj-policy/dashboard/
   issue-dashboard-worker.js       copied from the plugin, overwritten each run
   issue-dashboard-logic.js        copied from the plugin, overwritten each run
   wrangler.toml                   written ONCE, then yours: name, main, [vars] GITHUB_REPO
+  org-<login>/                    the same four files for an -Org dashboard, [vars] GITHUB_ORG
 ```
 
 `wrangler.toml` is never rewritten; a `name` or `GITHUB_REPO` that has drifted from what the script would
@@ -85,6 +102,12 @@ private from link holders. The response carries `noindex` and `no-store`. The to
 `DASHBOARD_TOKEN` secret, which cannot be read back from Cloudflare -- keep the token file and record the
 URL. A missing token is an error, never silently replaced: a fresh one 404s every link already sent.
 
+**An org dashboard is a wider disclosure.** Its link shows the open issues of **every repository the PAT
+can read**, private ones included: titles, labels, assignee logins, blocker links and PR numbers. What
+it shows follows the PAT, not any setting here. A PAT on "all repositories" therefore also shows a
+private repository created later. Where only some repositories belong on the page, give the PAT
+**only those repositories**. The worker lists what the token can see, so that choice is the scope.
+
 ## What it never does
 
 - Deploy, publish, or run `wrangler` -- it prints the commands.
@@ -103,6 +126,13 @@ do not order. An open blocker outside the repo sinks an issue, and any issue beh
 flagged on the page and broken by issue number; a truncated GitHub connection is reported, never dropped.
 The rules are `issue-dashboard-logic.js` (`deriveDashboard`), copied into `dkj-policy/dashboard/` -- read it
 for the exact semantics.
+
+**In org mode** the worker lists the organization's non-archived repositories that have issues enabled
+and that the token can read, then reads them in batches. An issue is identified by its repo **and** its
+number, so a blocker in another repo of the same organization orders normally instead of sinking. Ties
+go by issue number, then by repo name. Each row is named `<repo>#<n>`. The request budget is 40 GitHub
+requests per refresh (under the free plan's 50 subrequests), and a list cut short by it is reported on
+the page.
 
 ## Important
 
