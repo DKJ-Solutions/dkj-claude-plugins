@@ -25,7 +25,7 @@
 // input always gives the same page.
 
 export const STATUSES = ["In review", "In progress", "Waiting", "Blocked", "Claimed", "Filed"];
-export const PARKING_LABELS = ["needs-info", "needs-decision", "awaiting-recurrence"];
+export const PARKING_LABELS = ["needs-info", "needs-decision", "awaiting-recurrence", "dossier"];
 
 const BRANCH = /^(feat|fix|docs)\/(\d+)-/;
 

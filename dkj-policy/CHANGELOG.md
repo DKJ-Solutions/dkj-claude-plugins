@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/dossier-parks-issue · 20260930-114905Z
+
+A `dossier` issue is now parked like `needs-decision` and `awaiting-recurrence`. `sweep-issues` skips it,
+`claim-issue <n>` warns that it is parked, and the issue dashboard shows it as Waiting.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that sweeps its issues no longer spends a pickup on a dossier that cannot be finished in one repair.
+
+**Score:** 2
+
+#### Pull Request
+
+
+A dossier is parked, so the sweep and the claim skip it
+
+Plugins: dkj-policy
+
+[PR #2652](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2652)
+
+---
 
 ### DEPLOY: feat/2649-dashboard-org-mode · 20260930-100945Z
 

@@ -1252,7 +1252,9 @@ function Get-ExpectedRepoSettings {
 # AND A SEVENTH, A SECOND PARKING LABEL: 'awaiting-recurrence' (issue #2587, Dave September 28, 2026).
 # An issue with one unreproduced instance whose only remaining step is its FIRST reproducible occurrence
 # was picked up four times in one day (#2572), each pickup finding nothing to build. It is deliberately
-# NOT 'dossier': a dossier collects a problem that demonstrably recurs and stays sweepable. Once a
+# NOT 'dossier': a dossier collects a problem that demonstrably recurs. (A dossier is parked TOO since
+# September 30, 2026 -- Dave: it waits on its next instance or its root cause, so no sweep can finish
+# one -- but it keeps its own label, because it also changes how the issue is closed.) Once a
 # recurrence arrives the label comes off and the issue is worked, or becomes a dossier if it keeps
 # recurring. Same 'copy' reasoning: "waiting on evidence" asserts nothing about the adopting repo.
 $script:TriageLabels = @(
