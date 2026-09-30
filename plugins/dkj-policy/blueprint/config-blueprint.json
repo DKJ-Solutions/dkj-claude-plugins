@@ -78,7 +78,7 @@
                         "default":  "no extra commands -- the *.tests.ps1 suites in scripts/tests are the whole gate, unchanged from before the seam existed",
                         "returns":  "extra command lines the test gate runs alongside the *.tests.ps1 suites, e.g. @(\u0027npm test\u0027) -- each runs as its own child with the exit code propagated, and a non-zero exit fails the gate exactly like a failing suite",
                         "declared":  true,
-                        "text":  "# --- THE FOUR \u0027decide\u0027 SEAMS WHOSE FALLBACK IS THIS REPO\u0027S ANSWER (inbound #2555) -----------------\n#\n# Each of these used to be left undefined on purpose, because the shared fallback already says what this\n# repo means -- and check-script-contract could not tell that considered silence from a question nobody\n# ever put. Since #2555 it rolls every undefined \u0027decide\u0027 seam into one [UNANSWERED] line the session hook\n# forwards, so a considered answer has to be STATED to be told apart. Each function returns the fallback\n# on purpose; the reason is the one the contract record gives, restated in one line here.\n\nfunction Get-TestCommands {\n    \u003c# No extra commands: every suite here is a *.tests.ps1, and the gate already runs those. #\u003e\n    return @()\n}"
+                        "text":  "# --- THE \u0027decide\u0027 SEAMS WHOSE FALLBACK IS THIS REPO\u0027S ANSWER (inbound #2555; #2655 added one) -----\n#\n# Each of these used to be left undefined on purpose, because the shared fallback already says what this\n# repo means -- and check-script-contract could not tell that considered silence from a question nobody\n# ever put. Since #2555 it rolls every undefined \u0027decide\u0027 seam into one [UNANSWERED] line the session hook\n# forwards, so a considered answer has to be STATED to be told apart. Each function returns the fallback\n# on purpose; the reason is the one the contract record gives, restated in one line here.\n\nfunction Get-TestCommands {\n    \u003c# No extra commands: every suite here is a *.tests.ps1, and the gate already runs those. #\u003e\n    return @()\n}"
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
@@ -376,6 +376,17 @@
                         "returns":  "an array of matchers, each a string (the regex) or an object with Pattern (required), Name (what it recognises, printed in the refusal) and Why (one line: why a merge must not close such an issue, and what to do instead). Matched CASE-INSENSITIVELY against the body of every issue the PR would close, most-authoritative first -- the first match wins and open-pr REFUSES, naming -NoResolves as the way through. A pattern that does not compile is reported and skipped rather than taking the gate with it",
                         "declared":  true,
                         "text":  "function Get-ResolvesExemptMatchers {\n    \u003c# No matchers: this repo mirrors its issues into no second tracker, so no class of issue must stay\n       open past the merge that resolves it. #\u003e\n    return @()\n}"
+                    },
+                    {
+                        "lib":  "scripts\\repo-config.ps1",
+                        "function":  "Get-BranchClosingSteps",
+                        "adopt":  "decide",
+                        "adoptWhy":  "it states what this repo\u0027s branches OWE before their PR -- a step every branch here must resolve, which is a fact about the repo and not a default. Copying the source\u0027s answer would assert it about a consumer, and the source states nothing here itself: the one caller today is dkj-policy-bwj\u0027s preview question, whose reach is the two store repos and excludes the source (#2655). For those two, adopt-dkj-policy-bwj proposes it",
+                        "optional":  true,
+                        "default":  "no closing steps -- the document scaffolds with its one first step, exactly as before the seam existed",
+                        "returns":  "an array of step TEXTS, without the \u0027- [ ] \u0027 mark, which new-branch writes as open steps LAST under the first-step phase (CREATE by default), after the scaffolded first step. Branch documents only; blank entries are dropped. Being last is the point: the step-list gate refuses open-pr and ship-pr while any step is open, so a closing step holds the PR until somebody resolves it -- \u0027- [x]\u0027, or \u0027- [~]\u0027 with the reason",
+                        "declared":  true,
+                        "text":  "function Get-BranchClosingSteps {\n    \u003c# No closing steps (#2655): the one caller today is dkj-policy-bwj\u0027s preview question, and its reach\n       is the two store repos. This repo runs no theme, so the question would be \u0027- [~]\u0027 on every branch. #\u003e\n    return @()\n}"
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
