@@ -57,6 +57,7 @@
 - [x] `new-branch` reads the `Get-BranchClosingSteps` seam and passes it in
 - [x] Contract record (`decide`, optional); this repo states it as empty; count assert 47 -> 48
 - [x] adopt-dkj-policy-bwj step 2 proposes the seam for the store repos; PREVIEW-portable and the bwj README say what writes the step
+- [x] Security review advice: whitespace runs (newlines included) in a seam value collapse to one space, so one value cannot forge a `- [x]` step or a heading
 - [x] Mirrors kept byte-identical (entry-scaffold-lib, script-contract-lib, new-branch)
 - [~] Is the change visible in the frontend / storefront? -- no: scripts and docs, nothing renders
 

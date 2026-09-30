@@ -1722,6 +1722,9 @@ Assert-Equal ((Get-BranchProgressMarks).Open + $previewQ) $closedSteps[-1] 'clos
 Assert-True ($closedSteps[0] -match [regex]::Escape((Get-BranchFileWording).FirstStep)) 'closing steps: the scaffolded first step still comes first'
 Assert-Equal 2 @(Get-BranchProgressFindings -Text $closed).Count 'closing steps: the gate sees BOTH as open, which is the whole point'
 Assert-True (-not ((Format-Development -Branch '' -ClosingSteps @($previewQ)) -join "`n").Contains($previewQ)) 'closing steps: never on the trunk copy, which carries no steps'
+$forged = (Format-Development -Branch 'feat/closing-steps' -ClosingSteps @("Q?`n- [x] fake`n### DEPLOY")) -join "`n"
+Assert-True ($forged -notmatch '(?m)^- \[x\] fake') 'closing steps: a newline in a seam value cannot write a pre-ticked step'
+Assert-True ($forged.Contains((Get-BranchProgressMarks).Open + 'Q? - [x] fake ### DEPLOY')) 'closing steps: ...it is collapsed onto the one open step instead'
 Assert-Equal ((Format-Development -Branch 'feat/closing-steps') -join "`n") ((Format-Development -Branch 'feat/closing-steps' -ClosingSteps @()) -join "`n") 'closing steps: none passed is byte-identical to the scaffold without the parameter'
 
 # An empty phase is a statement, not a finding -- the same tolerance the absent-plan case gets above.

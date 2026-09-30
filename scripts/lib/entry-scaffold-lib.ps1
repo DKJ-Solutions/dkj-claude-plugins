@@ -7085,8 +7085,11 @@ function Format-Development {
         if ((-not $onTrunk) -and $phase -eq $firstStepPhase) {
             $open = (Get-BranchProgressMarks).Open
             $phaseBody = @($open + $w.FirstStep)
-            foreach ($step in @(@($ClosingSteps) | Where-Object { $_ -and $_.Trim() })) {
-                $phaseBody += ($open + $step.Trim())
+            # ONE LINE PER STEP, whatever the seam hands over: whitespace runs, newlines included, collapse
+            # to a space. A newline left in would let one value write a pre-ticked '- [x]' or a heading the
+            # step-list gate and the fold both read as structure.
+            foreach ($step in @(@($ClosingSteps) | ForEach-Object { ([string]$_ -replace '\s+', ' ').Trim() } | Where-Object { $_ })) {
+                $phaseBody += ($open + $step)
             }
         }
         # The parking note LEADS the first phase. The blank line between it and a step is needed only
