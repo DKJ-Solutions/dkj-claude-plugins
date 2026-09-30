@@ -1334,7 +1334,7 @@ function Get-CloseOutGateBand {
     return $script:CloseOutGateBand
 }
 
-# --- THE FOUR 'decide' SEAMS WHOSE FALLBACK IS THIS REPO'S ANSWER (inbound #2555) -----------------
+# --- THE 'decide' SEAMS WHOSE FALLBACK IS THIS REPO'S ANSWER (inbound #2555; #2655 added one) -----
 #
 # Each of these used to be left undefined on purpose, because the shared fallback already says what this
 # repo means -- and check-script-contract could not tell that considered silence from a question nobody
@@ -1350,6 +1350,12 @@ function Get-TestCommands {
 function Get-ResolvesExemptMatchers {
     <# No matchers: this repo mirrors its issues into no second tracker, so no class of issue must stay
        open past the merge that resolves it. #>
+    return @()
+}
+
+function Get-BranchClosingSteps {
+    <# No closing steps (#2655): the one caller today is dkj-policy-bwj's preview question, and its reach
+       is the two store repos. This repo runs no theme, so the question would be '- [~]' on every branch. #>
     return @()
 }
 

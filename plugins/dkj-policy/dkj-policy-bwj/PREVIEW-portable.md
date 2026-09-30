@@ -410,6 +410,17 @@ gate refuses the push and refuses the merge while anything under CREATE is still
 nothing but memory is one that gets skipped, and this one is now held by the gate that was already
 there.
 
+**The gate can hold only a step that was written, so the scaffold writes it.** The step is the store
+repo's answer to `dkj-policy`'s `Get-BranchClosingSteps` seam in `scripts/repo-config.ps1`, which
+[`adopt-dkj-policy-bwj`](skills/adopt-dkj-policy-bwj/SKILL.md) proposes. `new-branch` writes each
+answer as an open step, last under CREATE, on every branch it creates. **Until that seam is answered
+this paragraph describes nothing.** From #2100 until this seam existed no scaffold wrote the step, and
+the rule sat on memory alone
+([#2655](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2655), measured in
+`xoxowildhearts` on September 30, 2026: a visible theme change reached its PR with no preview handover,
+and no branch document there had ever carried the line). A branch opened before the seam gets the line
+by hand.
+
 **The bound on that, stated because the gate cannot state it:** the gate reads a mark, not a fact. A
 session that ticks the box without the confirmation passes every check in this workflow. What the
 position buys is that the step is the last thing between the branch and the PR, so skipping it is a

@@ -1287,6 +1287,18 @@ try {
     if (Test-Path -LiteralPath $prRoot) { Remove-Item -LiteralPath $prRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
+# --- the preview step's carrier (#2655) ---------------------------------------------------------
+# PREVIEW-portable.md names the step's exact words, and the adopt skill proposes the seam that makes
+# new-branch write them. Two copies of one sentence: this holds them to each other, so a reworded step
+# cannot leave the store repos scaffolding the old one.
+Write-Host "`nthe preview step and the seam that writes it (#2655)"
+$previewPage = Get-Content -Raw -LiteralPath (Join-Path $PluginRoot 'PREVIEW-portable.md')
+$adoptPage   = Get-Content -Raw -LiteralPath (Join-Path $PluginRoot 'skills\adopt-dkj-policy-bwj\SKILL.md')
+$pageStep = if ($previewPage -match '(?m)^- \[ \] (Is the change visible[^\r\n]*)') { $Matches[1].Trim() } else { '' }
+$seamStep = if ($adoptPage -match "function Get-BranchClosingSteps \{ @\('([^']+)'\) \}") { $Matches[1] } else { '' }
+Assert-True ($pageStep -ne '') 'the preview page still states the step in its own fenced line'
+Assert-Equal $pageStep $seamStep 'the adopt skill proposes Get-BranchClosingSteps with exactly the words the preview page prescribes'
+
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""
 if (Write-FixtureGitSummary -Subject 'build-golive-block.ps1') { $script:fail++ }

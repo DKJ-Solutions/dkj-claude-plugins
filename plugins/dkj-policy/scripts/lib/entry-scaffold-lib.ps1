@@ -6951,7 +6951,15 @@ function Format-Development {
         # adopt-workflow-folder -- resolves it in the SCRIPT and passes the answer in, because the default needs a
         # repo root and a lib that goes looking for one is a lib that can find the wrong tree. new-branch
         # does the same; the default keeps every other caller, the suites included, on today's wording.
-        [string]$LinkDestDirRel = ''
+        [string]$LinkDestDirRel = '',
+        # STEPS THAT CLOSE THE FIRST-STEP PHASE (#2655), written as open steps AFTER the scaffolded first
+        # step -- so under CREATE, last, by default. The texts come from the repo's Get-BranchClosingSteps
+        # seam, resolved in new-branch and passed in, for the same reason -LinkDestDirRel is: a lib that
+        # goes looking for repo-config is a lib that can read the wrong tree. dkj-policy-bwj's preview
+        # question is the case that produced it: PREVIEW-portable.md made that step the last one under
+        # CREATE so the step-list gate would hold the PR on it, and nothing ever wrote it, so the gate held
+        # nothing. Branch documents only -- the trunk copy is read as an example and carries no steps.
+        [AllowEmptyCollection()][string[]]$ClosingSteps = @()
     )
     $w      = Get-BranchFileWording
     $trunk  = Get-BranchTrunkName
@@ -7075,7 +7083,14 @@ function Format-Development {
     foreach ($phase in $phases) {
         $phaseBody = @()
         if ((-not $onTrunk) -and $phase -eq $firstStepPhase) {
-            $phaseBody = @((Get-BranchProgressMarks).Open + $w.FirstStep)
+            $open = (Get-BranchProgressMarks).Open
+            $phaseBody = @($open + $w.FirstStep)
+            # ONE LINE PER STEP, whatever the seam hands over: whitespace runs, newlines included, collapse
+            # to a space. A newline left in would let one value write a pre-ticked '- [x]' or a heading the
+            # step-list gate and the fold both read as structure.
+            foreach ($step in @(@($ClosingSteps) | ForEach-Object { ([string]$_ -replace '\s+', ' ').Trim() } | Where-Object { $_ })) {
+                $phaseBody += ($open + $step)
+            }
         }
         # The parking note LEADS the first phase. The blank line between it and a step is needed only
         # where both land in the same phase -- they do not by default, since FirstStepPhase is CREATE,
