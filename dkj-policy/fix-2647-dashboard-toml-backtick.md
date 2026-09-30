@@ -73,3 +73,4 @@ the start of the line that begins with `px wrangler secret put`, or delete the f
 
 #### Pull Request
 
+issue-dashboard writes a wrangler.toml that wrangler accepts
