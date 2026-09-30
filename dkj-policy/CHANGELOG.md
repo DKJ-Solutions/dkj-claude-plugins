@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**7 / 8 minor entries** <!-- pending-tally -->
+**8 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2655-preview-step-scaffolded · 20260930-140024Z
+
+`new-branch` can now close CREATE with steps a repo names through a new optional seam,
+`Get-BranchClosingSteps`, written as open steps after the first one. `adopt-dkj-policy-bwj` proposes it
+for the two store repos with the preview question. So *"Is the change visible in the frontend /
+storefront?"* is finally written as the last CREATE step, and the step-list gate holds the PR on it, as
+[`PREVIEW-portable.md`](../plugins/dkj-policy/dkj-policy-bwj/PREVIEW-portable.md) always said it did.
+Until now nothing wrote it
+([#2655](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2655)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a BWJ store repo, the preview handover stops depending on memory once `Get-BranchClosingSteps` is
+added to `scripts/repo-config.ps1` (adopt-dkj-policy-bwj, step 2). Every branch created after that
+carries the preview question and cannot reach its PR until it is answered. Branches already open get
+the line by hand.
+
+**Score:** 3
+
+#### Pull Request
+
+The preview question is scaffolded as the last CREATE step in the store repos
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2661](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2661)
+
+---
 
 ### DEPLOY: fix/2651-npx-cmd-on-windows · 20260930-134630Z
 
