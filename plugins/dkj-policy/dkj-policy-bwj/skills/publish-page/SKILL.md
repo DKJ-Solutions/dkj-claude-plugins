@@ -85,6 +85,10 @@ cd <note root>/../page
 npx wrangler deploy
 ```
 
+On Windows `publish-page.ps1` prints `npx.cmd` instead of `npx`, and every `npx` above reads that way
+there: in PowerShell `npx` resolves to node's `npx.ps1`, which the default execution policy refuses to
+load (#2651).
+
 `-EmitWorker` copies the worker out of the plugin unchanged and writes a `wrangler.toml` **only when
 one is absent** — after that the file is yours and is never overwritten, the same doctrine
 `build-release-notes-page.ps1` states for its own. A name or a namespace id that has drifted from the

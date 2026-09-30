@@ -101,6 +101,11 @@ $ErrorActionPreference = 'Stop'
 
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
+# The npx a PRINTED command names. In Windows PowerShell 'npx' resolves to node's npx.ps1, which the
+# default execution policy refuses to load; npx.cmd beside it is not subject to the policy (#2651).
+# Invoke-BwjNpx runs through cmd.exe and is unaffected -- this is only what a person is told to type.
+$npx = if ($env:OS -eq 'Windows_NT') { 'npx.cmd' } else { 'npx' }
+
 # Windows PowerShell 5.1 still negotiates TLS 1.0 by default on some hosts, and api.cloudflare.com
 # refuses it. Raised rather than replaced, so nothing a host already enabled is taken away.
 try {
@@ -201,7 +206,9 @@ id = "$($pages.NamespaceId)"
     }
 
     Write-Host ""
-    Write-Host "  Next:  cd `"$pageDir`"  &&  npx wrangler deploy" -ForegroundColor Cyan
+    # Two lines, not '&&', which Windows PowerShell 5.1 cannot parse (#2651).
+    Write-Host "  Next:  cd `"$pageDir`"" -ForegroundColor Cyan
+    Write-Host "         $npx wrangler deploy" -ForegroundColor Cyan
     Write-Host "  This is the SHARED worker: deploying it from either store repo is the same act, and" -ForegroundColor DarkGray
     Write-Host "  neither deploy can disturb a page the other store published -- the pages are in KV." -ForegroundColor DarkGray
     exit 0
@@ -352,11 +359,11 @@ if ([string]::IsNullOrWhiteSpace($apiToken)) {
     # decides.
     $who = Invoke-BwjNpx -Arguments @('wrangler', 'whoami')
     if (-not (Test-BwjWranglerSession -WhoamiText $who.Text -ExitCode $who.ExitCode -AccountId $pages.AccountId)) {
-        throw ("CLOUDFLARE_API_TOKEN is not set, and 'npx wrangler whoami' shows no login to account " +
+        throw ("CLOUDFLARE_API_TOKEN is not set, and '$npx wrangler whoami' shows no login to account " +
                "$($pages.AccountId). Either route publishes: (1) CLOUDFLARE_API_TOKEN in the environment " +
                "-- never a seam answer, never a file in the repo, because both of those are committed by " +
                "construction; it needs 'Workers KV Storage: Edit' on this account and nothing more -- or " +
-               "(2) 'npx wrangler login' as a user who can reach this account.")
+               "(2) '$npx wrangler login' as a user who can reach this account.")
     }
     Write-Host "  auth     : wrangler login to account $($pages.AccountId) (CLOUDFLARE_API_TOKEN is not set)" -ForegroundColor DarkGray
 

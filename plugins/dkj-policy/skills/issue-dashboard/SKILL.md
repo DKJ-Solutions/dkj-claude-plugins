@@ -59,7 +59,11 @@ npx wrangler secret put DASHBOARD_TOKEN   # paste the contents of dashboard-path
 npx wrangler deploy
 ```
 
-and the URL **shape** `https://<name>.<your-subdomain>.workers.dev/issues/<contents of dashboard-path-token.txt>`.
+**On Windows it prints `npx.cmd` instead of `npx`**, and every `npx` on this page reads that way there:
+in PowerShell `npx` resolves to node's `npx.ps1` shim, which the default execution policy refuses to
+load, while `npx.cmd` beside it is not subject to the policy (#2651).
+
+It also prints the URL **shape** `https://<name>.<your-subdomain>.workers.dev/issues/<contents of dashboard-path-token.txt>`.
 The full URL is deliberately **not printed** (terminal output lands in transcripts and logs); the file content
 is the only lock, so never paste it into a chat or an issue. **Never run wrangler from
 the repository root** (issue #2581): it finds no `wrangler.toml` there and deploys or asks about the
