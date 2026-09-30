@@ -39,19 +39,57 @@
 
 ### PLAN
 
+#2656 fixes three Asana comments word for word, one per GitHub event: CREATED (posted by
+`report-issue`'s session, replacing #2653's form), CLOSED and REOPENED (posted by the CI mirror).
+The requester's text shows the issue name as a link and the whole comment in italics, so the comments
+are posted as `html_text`. The CI used to post plain `text`, which would have shown a markdown link
+literally.
+
+#### Decisions taken on the way
+
+- **The close update loses its pull-request list and its "tick it off yourself" line.** The form has
+  neither. Every "no code path completes the task" guarantee is unchanged.
+- **The not-planned close keeps its meaning** under the CLOSED header in the same one-sentence shape.
+  #2656 names no form for it.
+- **The reopen now names a cause ("back in development")**, which reverses #2117's no-guess rule. It
+  is the requester's explicit wording, and WORKFLOW-portable says what it costs.
+- **De-duplication is untouched.** Asana stores the plain text of an `html_text` comment, and it
+  still opens with `GitHub issue <ref> is closed`. A test parses the html and holds its InnerText
+  equal to the plain form.
+- **The CREATED form is still posted only on a task that came from Asana**, as #2653 scoped it. A
+  task `report-issue` creates itself sits in `Filed`, so "now in development" would be false there.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-mirror.ps1`: `Get-MirrorCommentHeader -Event`, `New-MirrorComment` in the three forms,
+      `New-MirrorCommentHtml`, and `New-AsanaCommentRequest -Html`. Both comment writers now post html.
+- [x] `report-issue` step 2 carries the CREATED form and how to post it
+- [x] WORKFLOW-portable (the step-2 form, the header rule, the step-4 event table, the reopen
+      paragraph) and README follow
+- [~] Is the change visible in the frontend / storefront? Dropped: this repo has no storefront. The
+      comments land in Asana, and their text is pinned word for word by the suite.
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: exact-string asserts for all three forms, not-planned, the marker,
+      well-formed html whose InnerText is the plain form, XML escaping, and the skill's copy of the
+      CREATED form. 488/488 green in the lane.
+
 ### DEPLOY: feat/2656-asana-automation-comments
 
-**Score:**
+Every Asana comment the BWJ ticket flow writes now uses one of three fixed forms, in italics with the
+issue as a link: *"— GitHub Issue CREATED / CLOSED / REOPENED (automation)"* and one sentence. The
+close update no longer lists the closing pull request, and a reopen now says the task is back in
+development.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store takes the CI half by copying the new `templates/asana-mirror.ps1` over its
+`.github/scripts/asana-mirror.ps1`. The CREATED comment comes with the plugin update itself.
+
+**Score:** 3
 
 #### Pull Request
 

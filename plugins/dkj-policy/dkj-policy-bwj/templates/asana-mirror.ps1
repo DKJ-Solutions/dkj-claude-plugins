@@ -426,90 +426,90 @@ function Get-MirrorCommentMarker {
 
 function Get-MirrorCommentHeader {
     <#
-        The first line of every comment this script writes to Asana. Pure.
+        The first line of every comment this workflow writes to Asana, one per event. Pure.
 
         Asana shows a comment as written by the account whose token posted it, and ASANA_PAT belongs
         to a person -- so without this line a colleague reads the update as that person's own words
         (Dave, September 25, 2026, inbound #2476). It sits ABOVE the marker sentence rather than in
         place of it: Test-MirrorUpdatePosted matches the marker as a substring, so comments written
         before this header existed and comments written after it de-duplicate alike.
+
+        THE WORDING IS THE REQUESTER'S, WORD FOR WORD (#2656): '— GitHub Issue <EVENT> (automation)'.
+        'created' is never posted by this script -- report-issue's session posts it when an issue is
+        made from an existing Asana task -- but it is composed here too, so dkj-policy-bwj.tests.ps1
+        can hold the skill's copy of the form equal to this one.
     #>
-    return '[Automated message] Posted by the GitHub-Asana mirror workflow -- not written by the person whose account it shows.'
+    param([Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event)
+
+    return "$([char]0x2014) GitHub Issue $($Event.ToUpperInvariant()) (automation)"
 }
 
 function New-MirrorComment {
     <#
-        The comment text for one event. Pure -- no network.
+        The comment text for one event, as plain text. Pure -- no network.
 
-        'closed'   the work is built and ready for the person who asked for it to test. -ClosedBy
-                   carries the pull request(s) that closed the issue, so the update names WHERE the
-                   change was made and links straight to it: that is the first thing a colleague
-                   wants when they are about to test, and GitHub itself says it that way
-                   ("closed this as completed in #434"). Empty means the issue was closed by hand,
-                   and the update then says so rather than implying a PR that does not exist.
-        'reopened' a reopen carries at least two opposite meanings -- picked up again, or back with
-                   the requester -- and the workflow has no way of telling which, so the comment
-                   reports the state change, leaves the reason on the issue, and says plainly that
-                   it is not a request to test. Guessing is what inbound #2117 measured: told to
-                   hold off, a requester the ticket had just come back to sits still.
+        Two lines and a blank between them, in the requester's exact form (#2656): the event header,
+        then one sentence naming the issue as 'owner/repo#<n>'. New-MirrorCommentHtml turns that name
+        into the link, which is how the comment is posted.
+
+        'created'  the issue exists and the Asana task is now in development -- report-issue's form.
+        'closed'   the work behind the ticket is built and ready to test.
+        'reopened' the Asana task is back in development.
 
         -StateReason 'not_planned' turns the close update into its opposite: nothing was built, so
-        asking somebody to test it would be worse than saying nothing.
+        asking somebody to test it would be worse than saying nothing. #2656 names no form for it, so
+        it keeps the closed header and the sentence shape and says what actually happened.
 
-        No text here claims the ticket is done, and none asks anybody to hurry: this script has no
-        say over when a ticket is resolved.
+        The pull request list and the 'tick it off yourself' line the close update used to carry are
+        gone because the requester's form has neither. No text here claims the ticket is done: this
+        script has no say over when a ticket is resolved, and it still never completes the task.
+
+        The close sentence opens with Get-MirrorCommentMarker unchanged, so the sweeps' de-duplication
+        still finds it -- Asana stores the plain text of an html_text comment, link text included.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
-        [Parameter(Mandatory = $true)][ValidateSet('closed', 'reopened')][string]$Event,
-        [pscustomobject[]]$ClosedBy = @(),
+        [Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event,
+        [string]$StateReason = ''
+    )
+
+    $sentence = switch ($Event) {
+        'created'  { "GitHub issue $IssueRef is created: this Asana task is now in development." }
+        'reopened' { "GitHub issue $IssueRef is reopened: this Asana task is back in development." }
+        'closed'   {
+            $marker = Get-MirrorCommentMarker -IssueRef $IssueRef
+            if ($StateReason -eq 'not_planned') {
+                "$marker as not planned: nothing behind this ticket is going to be built, so there is nothing to test."
+            } else {
+                "$marker`: the work behind this ticket is built and ready to test."
+            }
+        }
+    }
+    return (@((Get-MirrorCommentHeader -Event $Event), '', $sentence) -join "`n")
+}
+
+function New-MirrorCommentHtml {
+    <#
+        The same comment as Asana html_text: italic, with 'owner/repo#<n>' as a link to the issue --
+        the requester's form (#2656) shows both. Pure -- no network.
+
+        The only elements used are <body>, <em> and <a>, all on Asana's allow-list for a story. The
+        text is XML-escaped before the link goes in, because the body must be well-formed XML or the
+        API answers 400 and the colleague is told nothing.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event,
         [string]$StateReason = ''
     )
 
     $parts = $IssueRef -split '#'
-    $url = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    $header = Get-MirrorCommentHeader
-
-    if ($Event -eq 'reopened') {
-        return @(
-            $header,
-            '',
-            "GitHub issue $IssueRef has been reopened.",
-            $url,
-            '',
-            'Why it was reopened is on the issue -- it may be back with you, or it may have been picked up again. This update is not a request to test.'
-        ) -join "`n"
-    }
-
-    $marker = Get-MirrorCommentMarker -IssueRef $IssueRef
-
-    if ($StateReason -eq 'not_planned') {
-        return @(
-            $header,
-            '',
-            "$marker, as not planned: this is not going to be built.",
-            $url,
-            '',
-            'There is nothing to test. The reason is on the issue; reply there or here if you disagree with it.'
-        ) -join "`n"
-    }
-
-    $lines = @($header, '', "$marker`: the work behind this ticket is built and ready to test.", $url, '')
-
-    if ($ClosedBy.Count -gt 0) {
-        $lines += if ($ClosedBy.Count -eq 1) { 'Closed by pull request:' } else { 'Closed by pull requests:' }
-        foreach ($pr in $ClosedBy) {
-            $lines += "  #$($pr.number) $($pr.title)"
-            $lines += "  $($pr.url)"
-        }
-        $lines += ''
-    } else {
-        $lines += 'Closed by hand -- no pull request is linked to it.'
-        $lines += ''
-    }
-
-    $lines += 'This ticket stays open on purpose. Tick it off yourself once you have checked that it does what you meant.'
-    return ($lines -join "`n")
+    $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
+    $text  = New-MirrorComment -IssueRef $IssueRef -Event $Event -StateReason $StateReason
+    $ref   = [System.Security.SecurityElement]::Escape($IssueRef)
+    $html  = [System.Security.SecurityElement]::Escape($text).Replace(
+                 "GitHub issue $ref ", "GitHub issue <a href=`"$([System.Security.SecurityElement]::Escape($url))`">$ref</a> ")
+    return "<body><em>$html</em></body>"
 }
 
 function Get-AsanaPasteBlockMarker {
@@ -1364,16 +1364,21 @@ function New-AsanaCommentRequest {
     <#
         Pure: describe the POST that adds a comment to a task. No network. One of the two writes this
         script knows how to build -- the other is New-AsanaSectionMoveRequest.
+
+        -Html sends html_text (New-MirrorCommentHtml, #2656) and -Text sends plain text; exactly one.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Gid,
-        [Parameter(Mandatory = $true)][string]$Text
+        [string]$Text = '',
+        [string]$Html = ''
     )
     if ($Gid -notmatch '^[0-9]+$') { throw "Refusing to build a request for a non-numeric task GID: '$Gid'." }
+    if ([bool]$Text -eq [bool]$Html) { throw 'New-AsanaCommentRequest takes exactly one of -Text and -Html.' }
+    $data = if ($Html) { @{ html_text = $Html } } else { @{ text = $Text } }
     [pscustomobject]@{
         Method = 'POST'
         Uri    = "$script:AsanaApiBase/tasks/$Gid/stories"
-        Body   = (ConvertTo-Json @{ data = @{ text = $Text } } -Compress -Depth 5)
+        Body   = (ConvertTo-Json @{ data = $data } -Compress -Depth 5)
     }
 }
 
@@ -1389,10 +1394,10 @@ function Invoke-AsanaRequest {
 function Add-AsanaComment {
     param(
         [Parameter(Mandatory = $true)][string]$Gid,
-        [Parameter(Mandatory = $true)][string]$Text,
+        [Parameter(Mandatory = $true)][string]$Html,
         [Parameter(Mandatory = $true)][string]$Pat
     )
-    Invoke-AsanaRequest -Request (New-AsanaCommentRequest -Gid $Gid -Text $Text) -Pat $Pat | Out-Null
+    Invoke-AsanaRequest -Request (New-AsanaCommentRequest -Gid $Gid -Html $Html) -Pat $Pat | Out-Null
 }
 
 function Get-AsanaTaskState {
@@ -1816,12 +1821,8 @@ function Invoke-EventMode {
     if ($Event -in @('closed', 'reopened')) {
         # No de-duplication here on purpose: an event is a real state change, so a close after a
         # reopen is news again and gets said again.
-        $text = if ($Event -eq 'closed') {
-            New-MirrorComment -IssueRef $IssueRef -Event 'closed' -ClosedBy $link.PullRequests -StateReason $link.StateReason
-        } else {
-            New-MirrorComment -IssueRef $IssueRef -Event 'reopened'
-        }
-        Add-AsanaComment -Gid $ref.Gid -Text $text -Pat $AsanaPat
+        $html = New-MirrorCommentHtml -IssueRef $IssueRef -Event $Event -StateReason $link.StateReason
+        Add-AsanaComment -Gid $ref.Gid -Html $html -Pat $AsanaPat
         Write-Host "Asana task $($ref.Gid) updated: $IssueRef $Event (matched by $($ref.Source)). The task was NOT completed -- that is the requester's call."
     }
 
@@ -1880,8 +1881,8 @@ function Update-MirroredTask {
     # GH_PROJECT_TOKEN notice once per swept issue in a repo that has not set one.
     $closure = Get-IssueLinkState -Repo ($IssueRef -split '#')[0] -Number ([int]($IssueRef -split '#')[1]) `
                    -StatusField ''
-    $text = New-MirrorComment -IssueRef $IssueRef -Event 'closed' -ClosedBy $closure.PullRequests -StateReason $closure.StateReason
-    Add-AsanaComment -Gid $Gid -Text $text -Pat $AsanaPat
+    $html = New-MirrorCommentHtml -IssueRef $IssueRef -Event 'closed' -StateReason $closure.StateReason
+    Add-AsanaComment -Gid $Gid -Html $html -Pat $AsanaPat
     $how = if ($MatchedBy) { " (matched by $MatchedBy)" } else { '' }
     Write-Host "  Updated: Asana task $Gid told that $IssueRef is closed$how."
     return 1

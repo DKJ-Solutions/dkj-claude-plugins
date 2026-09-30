@@ -292,33 +292,23 @@ Assert-Throws { New-AsanaCommentRequest -Gid '123; rm -rf /' -Text 'x' }   'and 
 $c = New-AsanaCommentRequest -Gid '123' -Text 'GitHub issue owner/repo#7 is closed'
 Assert-Equal 'POST' $c.Method 'comment request is a POST'
 Assert-True  ($c.Uri.EndsWith('/tasks/123/stories')) 'comment request posts to the stories endpoint'
+$ch = New-AsanaCommentRequest -Gid '123' -Html '<body>x</body>'
+Assert-True  ($ch.Body -match '"html_text"' -and $ch.Body -notmatch '"text"') 'an -Html request sends html_text and not text'
+Assert-Throws { New-AsanaCommentRequest -Gid '123' }                            'a comment request with neither -Text nor -Html throws'
+Assert-Throws { New-AsanaCommentRequest -Gid '123' -Text 'a' -Html '<body/>' }  'and so does one with both'
 
-# the update text -- what a colleague actually reads
-$pr = [pscustomobject]@{ number = 434; url = 'https://github.com/BWJ-ecommerce/smartwatchbanden/pull/434'; title = 'fix: close the delivery-date element' }
-$closed = New-MirrorComment -IssueRef 'BWJ-ecommerce/smartwatchbanden#388' -Event 'closed' -ClosedBy @($pr) -StateReason 'completed'
-Assert-True ($closed -match 'ready to test')                'the close update says the work is ready to test'
-Assert-True ($closed -match 'stays open on purpose')        'and says the ticket deliberately stays open'
-Assert-True ($closed -match 'Tick it off yourself')         'and puts the resolving in the requester hands'
-Assert-True ($closed -match 'https://github\.com/BWJ-ecommerce/smartwatchbanden/issues/388') 'and carries the issue URL'
-Assert-True ($closed -notmatch '(?i)resolved|completed|done\b') 'and never claims the ticket itself is resolved'
-
-# the closing pull request -- the first thing somebody about to test wants
-Assert-True ($closed -match 'Closed by pull request:')   'the close update names the pull request that closed the issue'
-Assert-True ($closed -match '#434')                      'by number'
-Assert-True ($closed -match 'close the delivery-date element') 'with its title'
-Assert-True ($closed -match 'https://github\.com/BWJ-ecommerce/smartwatchbanden/pull/434') 'and its URL, so it is one click away'
-
-$two = New-MirrorComment -IssueRef 'o/r#1' -Event 'closed' -StateReason 'completed' -ClosedBy @(
-    [pscustomobject]@{ number = 1; url = 'https://github.com/o/r/pull/1'; title = 'a' },
-    [pscustomobject]@{ number = 2; url = 'https://github.com/o/r/pull/2'; title = 'b' })
-Assert-True ($two -match 'Closed by pull requests:') 'two closing PRs are announced in the plural'
-Assert-True ($two -match '#1' -and $two -match '#2')  'and both are listed'
-
-# closed by hand -- say so rather than imply a PR that is not there
-$byHand = New-MirrorComment -IssueRef 'o/r#1' -Event 'closed' -StateReason 'completed'
-Assert-True ($byHand -match 'Closed by hand')            'an issue with no linked PR says it was closed by hand'
-Assert-True ($byHand -notmatch '/pull/' -and $byHand -notmatch 'Closed by pull request') 'and links none, rather than inventing a reference'
-Assert-True ($byHand -match 'ready to test')             'while still saying the ticket is ready to test'
+# the update text -- the requester's three forms, word for word (#2656)
+$dash = [string][char]0x2014
+$ref  = 'BWJ-Development/xoxowildhearts#334'
+Assert-Equal ("$dash GitHub Issue CREATED (automation)`n`nGitHub issue $ref is created: this Asana task is now in development.") `
+    (New-MirrorComment -IssueRef $ref -Event 'created') 'the created comment is the requester''s form exactly'
+$closed = New-MirrorComment -IssueRef $ref -Event 'closed' -StateReason 'completed'
+Assert-Equal ("$dash GitHub Issue CLOSED (automation)`n`nGitHub issue $ref is closed: the work behind this ticket is built and ready to test.") `
+    $closed 'the closed comment is the requester''s form exactly'
+$reopened = New-MirrorComment -IssueRef $ref -Event 'reopened'
+Assert-Equal ("$dash GitHub Issue REOPENED (automation)`n`nGitHub issue $ref is reopened: this Asana task is back in development.") `
+    $reopened 'the reopened comment is the requester''s form exactly'
+Assert-True ($closed -notmatch '(?i)resolved|completed|done\b') 'the close update never claims the ticket itself is resolved'
 
 # closed as not planned -- the opposite update, because nothing was built
 $notPlanned = New-MirrorComment -IssueRef 'o/r#1' -Event 'closed' -StateReason 'not_planned'
@@ -326,33 +316,32 @@ Assert-True ($notPlanned -match 'as not planned')        'a not-planned close sa
 Assert-True ($notPlanned -match 'nothing to test')       'and tells the requester there is nothing to test'
 Assert-True ($notPlanned -notmatch 'ready to test')      'rather than asking them to test something that was never built'
 Assert-True ($notPlanned.Contains((Get-MirrorCommentMarker -IssueRef 'o/r#1'))) 'and it still carries the de-duplication marker'
-
-$reopened = New-MirrorComment -IssueRef 'BWJ-ecommerce/smartwatchbanden#388' -Event 'reopened'
-Assert-True ($reopened -match 'has been reopened')                                              'the reopen update says so'
-Assert-True ($reopened -match '#388')                                                            'and names the issue'
-Assert-True ($reopened -match 'https://github\.com/BWJ-ecommerce/smartwatchbanden/issues/388')  'and its URL'
-Assert-True ($reopened -notmatch 'it is being worked on again, so hold off on testing')          'and does not assert a cause, unlike the old text'
-Assert-True ($reopened -notmatch 'hold off')                                                     'nor tells the requester to hold off'
-Assert-True ($reopened -match 'not a request to test')                                           'and withdraws the ready-to-test invitation without claiming to describe it'
+Assert-Equal (Get-MirrorCommentHeader -Event 'closed') (($notPlanned -split "`n")[0]) 'under the closed header'
 
 # the de-duplication key is the close update's own opening sentence, and it names the issue --
 # so two issues mirrored onto one task never mask each other
-$marker = Get-MirrorCommentMarker -IssueRef 'BWJ-ecommerce/smartwatchbanden#388'
+$marker = Get-MirrorCommentMarker -IssueRef $ref
 Assert-True ($closed.Contains($marker)) 'the close update carries the marker'
-Assert-True ($marker -match '#388')       'and it names the issue'
-Assert-True ($marker -ne (Get-MirrorCommentMarker -IssueRef 'BWJ-ecommerce/smartwatchbanden#390')) 'two issues get two different markers'
+Assert-True ($marker -match '#334')       'and it names the issue'
+Assert-True ($marker -ne (Get-MirrorCommentMarker -IssueRef 'BWJ-Development/xoxowildhearts#335')) 'two issues get two different markers'
+Assert-True (-not (Get-MirrorCommentHeader -Event 'closed').Contains($marker)) 'the header does not itself carry the marker'
 
-# every comment opens with the automated-message header (#2476): Asana shows it as written by the
-# token's owner, so without it a colleague reads a machine update as that person's own words
-$header = Get-MirrorCommentHeader
-Assert-True ($header -match '^\[Automated message\]') 'the header announces an automated message first'
-foreach ($update in @($closed, $byHand, $notPlanned, $reopened)) {
-    Assert-Equal $header (($update -split "`n")[0]) 'every mirror comment has the header as its first line'
+# what is posted: html_text, italic, the issue name as its link -- and the plain text Asana stores
+# for it still carries the marker, so the sweeps' de-duplication reads it
+$html = New-MirrorCommentHtml -IssueRef $ref -Event 'closed' -StateReason 'completed'
+Assert-True ($html.StartsWith('<body><em>') -and $html.EndsWith('</em></body>')) 'the posted comment is one italic body'
+Assert-True ($html.Contains("<a href=`"https://github.com/BWJ-Development/xoxowildhearts/issues/334`">$ref</a>")) 'with the issue name as the link to the issue'
+Assert-Equal $closed ([xml]$html).body.InnerText 'and its plain text is the plain comment, marker included'
+foreach ($ev in 'created', 'reopened') {
+    $x = [xml](New-MirrorCommentHtml -IssueRef $ref -Event $ev)
+    Assert-Equal (New-MirrorComment -IssueRef $ref -Event $ev) $x.body.InnerText "the $ev html is well-formed and reads as its plain form"
 }
-# and the header never shifts the de-duplication key: the sweep matches the marker as a substring,
-# so an update written before the header existed and one written after both read as already posted
-Assert-True (-not $header.Contains($marker)) 'the header does not itself carry the marker'
-Assert-True ($closed.IndexOf($marker) -gt $header.Length) 'the marker follows the header, unchanged'
+Assert-True ((New-MirrorCommentHtml -IssueRef 'o/r&x#1' -Event 'closed') -match '&amp;') 'a character XML reserves is escaped, so Asana is never sent a malformed body'
+
+# report-issue's session posts the created form itself -- its copy is held equal to this one
+$skillText = Get-Content -Raw -Encoding UTF8 (Join-Path $PluginRoot 'skills\report-issue\SKILL.md')
+Assert-True ($skillText.Contains((Get-MirrorCommentHeader -Event 'created'))) 'report-issue carries the created header this script composes'
+Assert-True ($skillText.Contains('is created: this Asana task is now in development.')) 'and the created sentence, word for word'
 
 # issue-ref parsing for the reconciliation sweep
 Assert-Equal 'BWJ-ecommerce/smartwatchbanden#42' (Get-IssueRefFromNotes -Notes 'see https://github.com/BWJ-ecommerce/smartwatchbanden/issues/42 for detail') 'Get-IssueRefFromNotes pulls owner/repo#n from a GitHub URL'
