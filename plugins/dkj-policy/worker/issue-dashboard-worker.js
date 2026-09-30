@@ -80,7 +80,10 @@ function connectionFragment(key, cursor) {
   return `${key}: refs(refPrefix: "refs/heads/${key}/", first: ${PAGE_SIZE}${after}) { ${page} nodes { name } }`;
 }
 
-async function graphql(env, query, variables) {
+// `partialAliases` (org mode): GitHub answers a repository it cannot read with data.<alias> = null PLUS
+// an error whose path starts at that alias. When every error is of that kind the data is returned and
+// the caller warns per repo; any other error still throws.
+async function graphql(env, query, variables, partialAliases = null) {
   const res = await fetch("https://api.github.com/graphql", {
     method: "POST",
     headers: {
@@ -92,6 +95,10 @@ async function graphql(env, query, variables) {
   });
   let body = null;
   try { body = await res.json(); } catch { /* handled below */ }
+  if (res.ok && body && body.data && body.errors && partialAliases &&
+      body.errors.every((e) => Array.isArray(e.path) && partialAliases.has(e.path[0]) && body.data[e.path[0]] === null)) {
+    return body.data;
+  }
   if (!res.ok || !body || body.errors) {
     const messages = body && body.errors ? body.errors.map((e) => e.message) : [`GitHub answered HTTP ${res.status}`];
     const err = new Error(messages.join("; "));
@@ -129,7 +136,7 @@ async function loadRepos(env, slugs, budget, orgMode) {
       return `${alias(idx)}: repository(owner: ${JSON.stringify(owner)}, name: ${JSON.stringify(name)}) {
       ${s.active.map((k) => connectionFragment(k, s.cursors[k])).join("\n")} }`;
     });
-    const data = await graphql(env, `query { ${fields.join("\n")} }`, {});
+    const data = await graphql(env, `query { ${fields.join("\n")} }`, {}, orgMode ? new Set(batch.map((_, idx) => alias(idx))) : null);
 
     batch.forEach((s, idx) => {
       const repo = data[alias(idx)];
@@ -173,7 +180,9 @@ async function listOwnerRepos(env, login, warnings) {
         pageInfo { hasNextPage endCursor } nodes { nameWithOwner isArchived hasIssuesEnabled } } } }`, {});
     const owner = data.repositoryOwner;
     if (!owner) throw notReadable("owner not found or not readable with this token");
-    for (const r of owner.repositories.nodes) if (!r.isArchived && r.hasIssuesEnabled) slugs.push(r.nameWithOwner);
+    // For a user, GitHub's default affiliations also list repos they only collaborate on: owned ones only.
+    const own = (r) => r.nameWithOwner.split("/")[0].toLowerCase() === login.toLowerCase();
+    for (const r of owner.repositories.nodes) if (own(r) && !r.isArchived && r.hasIssuesEnabled) slugs.push(r.nameWithOwner);
     if (!owner.repositories.pageInfo.hasNextPage) break;
     cursor = owner.repositories.pageInfo.endCursor;
   }

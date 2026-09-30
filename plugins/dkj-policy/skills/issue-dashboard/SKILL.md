@@ -24,8 +24,9 @@ link -- and the worker holds no content, so there is nothing to rebuild after a 
 - A **Cloudflare account** (the free plan is enough) and **node/npx** for `wrangler`.
 - A **fine-grained personal access token** for `GITHUB_TOKEN`, scoped to **this one repository** with
   exactly: Issues (read), Pull requests (read), Contents (read), Metadata (read). Nothing that writes.
-  An org dashboard needs a PAT whose **resource owner is that organization**, with access to **all its
-  repositories** and the same four read permissions. A fine-grained PAT has exactly one resource owner,
+  An org dashboard needs a PAT whose **resource owner is that organization**, with access to the
+  repositories the page should show (all of them, or a selection -- see the lock section below) and the
+  same four read permissions. A fine-grained PAT has exactly one resource owner,
   so every organization needs a PAT of its own.
 - **Logged in to the right Cloudflare account.** wrangler deploys to whichever account it is logged in
   to. Where your dashboards belong to different Cloudflare accounts, check `npx wrangler whoami` before
@@ -100,6 +101,12 @@ login, so **anyone holding the link reads your open issues**. Do not use it wher
 private from link holders. The response carries `noindex` and `no-store`. The token is also set as the
 `DASHBOARD_TOKEN` secret, which cannot be read back from Cloudflare -- keep the token file and record the
 URL. A missing token is an error, never silently replaced: a fresh one 404s every link already sent.
+
+**An org dashboard is a wider disclosure.** Its link shows the open issues of **every repository the PAT
+can read**, private ones included: titles, labels, assignee logins, blocker links and PR numbers. What
+it shows follows the PAT, not any setting here. A PAT on "all repositories" therefore also shows a
+private repository created later. Where only some repositories belong on the page, give the PAT
+**only those repositories**. The worker lists what the token can see, so that choice is the scope.
 
 ## What it never does
 

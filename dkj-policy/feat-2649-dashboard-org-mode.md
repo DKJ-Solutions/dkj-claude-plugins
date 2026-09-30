@@ -54,7 +54,7 @@ Decisions taken here:
 
 #### Open for review
 
-- [x] Victor and Sebastian review the diff
+- [x] Victor and Sebastian review the diff. Neither found a blocker. Victor: an unreadable repo came back as partial data plus `errors` and 502'd the whole org page, so it now becomes a per-repo warning, and a user's collaborator repos are filtered out of the listing. Sebastian: the wider disclosure of an org link and "the PAT is the scope" are now in the skill and the script output. Left as measured-later: the batch size of 8 repos against GitHub's query timeout.
 
 ### CREATE
 
@@ -65,7 +65,7 @@ Decisions taken here:
 
 ### TEST
 
-- [x] `issue-dashboard.tests.ps1`: 380 pass, 0 fail. New cases cover the org logic (cross-repo edge, ties, outside and unfetched sinks, branch and PR per repo, cycle labels), the org handler against a stubbed GitHub (listing, archived and issue-less repos skipped, one aliased batch, order, links, heading, cache key), config refusals, and `-Org` beside a repo dashboard
+- [x] `issue-dashboard.tests.ps1`: 383 pass, 0 fail. New cases cover the org logic (cross-repo edge, ties, outside and unfetched sinks, branch and PR per repo, cycle labels), the org handler against a stubbed GitHub (listing, archived, issue-less and other-owner repos skipped, one aliased batch, order, links, heading, cache key, an unreadable repo as a warning, any other error still 502), config refusals, and `-Org` beside a repo dashboard
 
 ### DEPLOY: feat/2649-dashboard-org-mode
 

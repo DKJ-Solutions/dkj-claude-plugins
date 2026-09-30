@@ -387,7 +387,7 @@ Write-Host "        wrangler deploys to the Cloudflare account it is logged in t
 Write-Host "        'npx wrangler whoami' first, and log out and in again if that is not this worker's account."
 Write-Host "    npx wrangler secret put GITHUB_TOKEN"
 if ($Org) {
-Write-Host "        fine-grained PAT with resource owner $Org and ALL its repositories: Issues read,"
+Write-Host "        fine-grained PAT with resource owner $Org, on the repositories the page should show: Issues read,"
 Write-Host "        Pull requests read, Contents read, Metadata read. Nothing that writes. Paste it at wrangler's prompt."
 } else {
 Write-Host "        fine-grained PAT, THIS ONE repository only: Issues read, Pull requests read,"
@@ -401,6 +401,7 @@ Write-Host "  Then open (the subdomain is your Cloudflare account's workers.dev 
 Write-Host "    https://$workerName.<your-subdomain>.workers.dev/issues/<contents of $tokenPath>"
 Write-Host "  The URL is not printed in full on purpose (terminal output lands in transcripts and logs). The file"
 Write-Host "  content is the ONLY lock: anyone holding it reads your open issues. Never paste it into a chat or issue."
+if ($Org) { Write-Host "  In org mode that is every repository the PAT can read, private ones included: the PAT is the scope." }
 Write-Host "  The worker answers 404 to everything else, sends noindex and no-store, and caches GitHub reads"
 Write-Host "  per worker isolate (and at the edge where Cloudflare provides a cache): roughly once a minute per isolate."
 Write-Host "  Never run wrangler from the repository root; run it from the directory above."

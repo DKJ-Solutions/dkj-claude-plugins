@@ -490,10 +490,17 @@ respond = (q) => {
     { nameWithOwner: "acme/b", isArchived: false, hasIssuesEnabled: true },
     { nameWithOwner: "acme/old", isArchived: true, hasIssuesEnabled: true },
     { nameWithOwner: "acme/site", isArchived: false, hasIssuesEnabled: false },
+    { nameWithOwner: "acme/sso", isArchived: false, hasIssuesEnabled: true },
+    { nameWithOwner: "friend/lib", isArchived: false, hasIssuesEnabled: true },
   ] } } } };
   const data = {};
   if (q.includes('r0: repository(owner: "acme", name: "a")')) data.r0 = emptyRepo([orgNode("acme/a", 1, [{ number: 1, state: "OPEN", repository: { nameWithOwner: "acme/b" } }])]);
   if (q.includes('r1: repository(owner: "acme", name: "b")')) data.r1 = emptyRepo([orgNode("acme/b", 1)]);
+  // The real shape of an unreadable repository: null data for its alias AND an error pathed at it.
+  if (q.includes('r2: repository(owner: "acme", name: "sso")')) {
+    data.r2 = null;
+    return { data, errors: [{ type: "FORBIDDEN", path: ["r2"], message: "Resource protected by organization SAML enforcement." }] };
+  }
   return { data };
 };
 const orgEnv = { DASHBOARD_TOKEN: HEX, GITHUB_TOKEN: "ghs_FAKE", GITHUB_ORG: "acme" };
@@ -511,7 +518,15 @@ out.orgHandler = {
   noSink: !orgPage.body.includes("Waits on something outside this list"),
   cacheKeyOrg: cacheKeys.some((k) => k.includes("org%3Aacme")),
   cacheKeyHasToken: cacheKeys.some((k) => k.includes(HEX)),
+  partialWarned: orgPage.body.includes("acme/sso could not be read with this token"),
+  collaboratorAsked: orgQueries.some((q) => q.includes('owner: "friend"')),
 };
+// An error that is NOT an unreadable repository still fails the page.
+resetMemo();
+respond = (q) => q.includes("repositoryOwner(")
+  ? { data: { repositoryOwner: { repositories: { pageInfo: pageInfo(false), nodes: [{ nameWithOwner: "acme/a", isArchived: false, hasIssuesEnabled: true }] } } } }
+  : { data: { r0: emptyRepo([]) }, errors: [{ type: "MAX_NODE_LIMIT_EXCEEDED", message: "too many nodes" }] };
+out.orgHardError = (await snap(await worker.fetch(req("/issues/" + HEX), orgEnv, ctx))).status;
 respond = null;
 out.orgConfig = {
   both:   await snap(await worker.fetch(req("/issues/" + HEX), { ...orgEnv, GITHUB_REPO: R }, ctx)),
@@ -729,6 +744,9 @@ console.log(JSON.stringify(out));
         Assert-Equal 'True' "$($oh.noSink)" 'the cross-repo blocker is not shown as outside the list'
         Assert-Equal 'True' "$($oh.cacheKeyOrg)" 'the cache key is org:<login>'
         Assert-Equal 'False' "$($oh.cacheKeyHasToken)" '...and never holds the path token'
+        Assert-Equal 'True' "$($oh.partialWarned)" 'a repository GitHub answers with null data plus an error pathed at it becomes a warning, not a 502'
+        Assert-Equal 'False' "$($oh.collaboratorAsked)" 'a listed repository of another owner is not read'
+        Assert-Equal 502 $r.orgHardError 'any other GitHub error still answers 502'
         Assert-Equal 503 $r.orgConfig.both.status 'GITHUB_REPO and GITHUB_ORG together are refused'
         Assert-True ($r.orgConfig.both.body -like '*not both*') '...saying so'
         Assert-Equal 503 $r.orgConfig.badOrg.status 'a GITHUB_ORG that is not a login is refused'
