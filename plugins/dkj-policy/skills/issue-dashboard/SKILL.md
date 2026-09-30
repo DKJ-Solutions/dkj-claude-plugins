@@ -124,13 +124,13 @@ or a `<prefix>/<n>-` branch under `feat/`, `fix/`, `docs/`), **Waiting** (label 
 **Filed**. Order is topological over open in-repo blockers, ties by issue number; priority labels and age
 do not order. An open blocker outside the repo sinks an issue, and any issue behind a sunk one, below every issue without one; a cycle is
 flagged on the page and broken by issue number; a truncated GitHub connection is reported, never dropped.
-The rules are `issue-dashboard-logic.js` (`deriveDashboard`), copied into `dkj-policy/dashboard/` -- read it
+**The page itself lists the issues newest first** (by creation date, ties by the higher number), each led by its issue number, and it answers the sweep question per row (Dave, September 30, 2026): only a Filed issue is sweepable, and every other row is **tinted red**, with a tooltip saying what it waits on (in review, in progress, the parking label, its open blockers, or who claimed it). The counts are Sweepable and Skip. A sweep claim-tag comment is not read, so an issue a sweep has just tagged reads as sweepable until it is assigned or gets a branch. The pick-up order above still decides the cycle and circular-chain warnings. The rules are `issue-dashboard-logic.js` (`deriveDashboard`), copied into `dkj-policy/dashboard/` -- read it
 for the exact semantics.
 
 **In org mode** the worker lists the organization's non-archived repositories that have issues enabled
 and that the token can read, then reads them in batches. An issue is identified by its repo **and** its
 number, so a blocker in another repo of the same organization orders normally instead of sinking. Ties
-go by issue number, then by repo name. Each row is named `<repo>#<n>`. The request budget is 40 GitHub
+go by issue number, then by repo name. Each row leads with its issue number and shows its repo name beside the title. The request budget is 40 GitHub
 requests per refresh (under the free plan's 50 subrequests), and a list cut short by it is reported on
 the page.
 

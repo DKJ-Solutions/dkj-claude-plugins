@@ -22,7 +22,7 @@
 // Deployed by hand from dkj-policy/dashboard/, or dkj-policy/dashboard/org-<login>/ for an org
 // dashboard (issue-dashboard.ps1 -EmitWorker writes it there).
 
-import { deriveDashboard, STATUSES } from "./issue-dashboard-logic.js";
+import { deriveDashboard, PARKING_LABELS } from "./issue-dashboard-logic.js";
 
 const ROUTE = /^\/issues\/([0-9a-f]{32})\/?$/;
 const CACHE_SECONDS = 60;
@@ -68,7 +68,7 @@ function connectionFragment(key, cursor) {
   if (key === "issues") {
     return `issues(states: OPEN, first: ${PAGE_SIZE}${after}, orderBy: {field: CREATED_AT, direction: ASC}) {
       totalCount ${page}
-      nodes { number title url createdAt labels(first: 20) { totalCount nodes { name } }
+      nodes { number title url createdAt labels(first: 20) { totalCount nodes { name color } }
         assignees(first: 10) { nodes { login } }
         blockedBy(first: 50) { totalCount nodes { number state repository { nameWithOwner } } } } }`;
   }
@@ -206,6 +206,7 @@ function flattenIssue(n, slug, orgMode, warnings) {
     number: n.number, title: n.title, url: n.url, createdAt: n.createdAt,
     ...(orgMode ? { repo: slug } : {}),
     labels: n.labels.nodes.map((l) => l.name),
+    labelColors: Object.fromEntries(n.labels.nodes.map((l) => [l.name, l.color])),
     assignees: n.assignees.nodes.map((a) => a.login),
     blockedBy: n.blockedBy.nodes.map((b) => ({ number: b.number, state: b.state, repo: b.repository.nameWithOwner })),
     blockedByTruncated: n.blockedBy.totalCount > n.blockedBy.nodes.length,
@@ -261,9 +262,9 @@ async function getEdgeOrFresh(env, ctx, target) {
 
 const CSS = `
 :root{--bg:#fff;--fg:#1f2328;--muted:#656d76;--line:#d8dee4;--card:#f6f8fa;--link:#0969da;--warn-bg:#fff8c5;--warn-line:#d4a72c;
---s-review:#1a7f37;--s-progress:#0969da;--s-waiting:#9a6700;--s-blocked:#cf222e;--s-claimed:#8250df;--s-filed:#656d76}
+--s-review:#1a7f37;--s-progress:#0969da;--s-waiting:#9a6700;--s-blocked:#cf222e;--s-claimed:#8250df;--s-filed:#656d76;--parked-bg:#ffebe9;--parked-line:#ffcecb}
 @media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8d96a0;--line:#30363d;--card:#161b22;--link:#58a6ff;--warn-bg:#3a2f00;--warn-line:#9e6a03;
---s-review:#3fb950;--s-progress:#58a6ff;--s-waiting:#d29922;--s-blocked:#f85149;--s-claimed:#a371f7;--s-filed:#8d96a0}}
+--s-review:#3fb950;--s-progress:#58a6ff;--s-waiting:#d29922;--s-blocked:#f85149;--s-claimed:#a371f7;--s-filed:#8d96a0;--parked-bg:#2d1517;--parked-line:#5a1e21}}
 *{box-sizing:border-box}
 body{margin:0;padding:1rem;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{max-width:64rem;margin:0 auto}
@@ -275,21 +276,60 @@ a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 .counts b{margin-left:.35rem}
 .warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:.5rem;padding:.6rem 1rem;margin:0 0 1rem}
 .warn ul{margin:.25rem 0 0;padding-left:1.2rem}
-.row{display:grid;grid-template-columns:2.5rem 1fr;gap:.25rem .75rem;padding:.7rem 0;border-top:1px solid var(--line)}
-.rank{color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.row{display:grid;grid-template-columns:4rem 1fr;gap:.25rem .75rem;padding:.7rem .5rem;border-top:1px solid var(--line)}
+.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.repo{color:var(--muted)}
 .title{font-weight:600}
 .pill{display:inline-block;border:1px solid currentColor;border-radius:1rem;padding:0 .55rem;font-size:.78rem;font-weight:600;white-space:nowrap}
+.row.parked{background:var(--parked-bg);border-top-color:var(--parked-line)}
 .detail{color:var(--muted);font-size:.85rem;margin-top:.15rem}
 .detail span{margin-right:1rem;display:inline-block}
-.tag{background:var(--card);border:1px solid var(--line);border-radius:.3rem;padding:0 .35rem;margin-right:.25rem;font-size:.78rem}
+.tag{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:2em;padding:0 .5rem;margin-right:.25rem;font-size:.75rem;font-weight:500;line-height:1.5}
 .flag{color:var(--s-blocked)}
 .empty{color:var(--muted);padding:1rem 0}
 `;
 
-const STATUS_COLOUR = {
-  "In review": "review", "In progress": "progress", Waiting: "waiting",
-  Blocked: "blocked", Claimed: "claimed", Filed: "filed",
+// A label as GitHub draws it: its own colour as the fill, and dark or white text by perceived
+// lightness. The colour comes from GitHub, so anything but six hex digits falls back to the neutral
+// tag rather than reaching the style attribute.
+const HEX6 = /^[0-9a-f]{6}$/i;
+function labelTag(name, color) {
+  if (!HEX6.test(color || "")) return `<span class="tag">${escapeHtml(name)}</span>`;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(color.slice(i, i + 2), 16));
+  const light = (r * 299 + g * 587 + b * 114) / 1000 > 150;
+  return `<span class="tag" style="background:#${color};border-color:#${color};color:${light ? "#1f2328" : "#fff"}">${escapeHtml(name)}</span>`;
+}
+
+// ONE QUESTION PER ROW (Dave, September 30, 2026): may a sweep pick this issue up, or does it wait on
+// something and get skipped? A skipped row is tinted red as a whole, and its tooltip names what it waits on.
+// Only Filed is sweepable: every other status is somebody's already, or parked. A sweep's claim-tag
+// comment is not read here, so an issue a sweep has just tagged still shows as sweepable until it is
+// assigned or gets a branch.
+const PARKED_BECAUSE = {
+  "needs-info": "waiting on the submitter",
+  "needs-decision": "waiting on the owner's decision",
+  "awaiting-recurrence": "waiting on a recurrence",
+  dossier: "dossier: waiting on the next instance or the root cause",
 };
+function sweepVerdict(r) {
+  if (r.status === "Filed") return { sweepable: true, text: "Sweepable" };
+  if (r.status === "In review") return { sweepable: false, text: "Skip: in review" };
+  if (r.status === "In progress") return { sweepable: false, text: "Skip: in progress" };
+  if (r.status === "Waiting") {
+    const label = PARKING_LABELS.find((l) => r.labels.includes(l));
+    return { sweepable: false, text: "Skip: " + (PARKED_BECAUSE[label] || "parked") };
+  }
+  if (r.status === "Blocked") {
+    const open = r.blockers.filter((b) => b.state === "OPEN").map((b) => "#" + Number(b.number));
+    return { sweepable: false, text: "Skip: blocked" + (open.length ? " by " + open.join(", ") : "") };
+  }
+  return { sweepable: false, text: "Skip: claimed" + (r.assignees.length ? " by " + r.assignees.join(", ") : "") };
+}
+
+// NEWEST FIRST ON THE PAGE (Dave, September 30, 2026). The logic still derives the pick-up order and
+// its warnings; the page lists by creation date, newest on top, ties by the higher number.
+const newestFirst = (a, b) =>
+  String(b.createdAt || "").localeCompare(String(a.createdAt || "")) || b.number - a.number || String(a.repo || "").localeCompare(String(b.repo || ""));
 
 // `repoName` is the repo in repo mode; in org mode it is null and `org` names the owner.
 function renderPage(data, repoName, org) {
@@ -304,12 +344,13 @@ function renderPage(data, repoName, org) {
   };
   const issueLink = (n, r) =>
     `<a href="${escapeHtml(repoUrl(r || repoName))}/issues/${Number(n)}" rel="noopener noreferrer">${escapeHtml(prefix(r))}#${Number(n)}</a>`;
-  const counts = STATUSES.map((s) => `<li>${s}<b>${data.rows.filter((r) => r.status === s).length}</b></li>`).join("");
+  const sweepable = data.rows.filter((r) => sweepVerdict(r).sweepable).length;
+  const counts = `<li>Sweepable<b>${sweepable}</b></li><li>Skip<b>${data.rows.length - sweepable}</b></li>`;
   const warnings = data.warnings.length
     ? `<div class="warn"><strong>Read with care</strong><ul>${data.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`
     : "";
 
-  const rows = data.rows.map((r) => {
+  const rows = [...data.rows].sort(newestFirst).map((r) => {
     const detail = [];
     if (r.assignees.length) detail.push(`<span>Assigned: ${r.assignees.map(escapeHtml).join(", ")}</span>`);
     const blockers = r.blockers.filter((b) => b.state === "OPEN");
@@ -318,10 +359,13 @@ function renderPage(data, repoName, org) {
     if (r.prs.length) detail.push(`<span>PR: ${r.prs.map((p) => `<a href="${escapeHtml(p.url)}" rel="noopener noreferrer">#${Number(p.number)}</a>${p.isDraft ? " (draft)" : ""}`).join(", ")}</span>`);
     if (r.cycle) detail.push(`<span class="flag">Circular blocker chain</span>`);
     if (r.externalBlocker) detail.push(`<span>Waits on something outside this list</span>`);
-    const labels = r.labels.map((l) => `<span class="tag">${escapeHtml(l)}</span>`).join("");
-    return `<div class="row"><div class="rank">${r.rank}</div><div>
-      <div><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">${escapeHtml(prefix(r.repo))}#${Number(r.number)}</a> <span class="title">${escapeHtml(r.title)}</span>
-      <span class="pill" style="color:var(--s-${STATUS_COLOUR[r.status]})">${escapeHtml(r.status)}</span></div>
+    const labels = r.labels.map((l) => labelTag(l, (r.labelColors || {})[l])).join("");
+    // The first column is the issue number, not the pick-up position: the page's order IS the order.
+    const repo = prefix(r.repo);
+    const verdict = sweepVerdict(r);
+    return `<div class="row${verdict.sweepable ? "" : " parked"}"${verdict.sweepable ? "" : ` title="${escapeHtml(verdict.text)}"`}><div class="num"><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">#${Number(r.number)}</a></div><div>
+      <div>${repo ? `<span class="repo">${escapeHtml(repo)}</span> ` : ""}<span class="title">${escapeHtml(r.title)}</span>
+</div>
       ${labels ? `<div class="detail">${labels}</div>` : ""}
       ${detail.length ? `<div class="detail">${detail.join("")}</div>` : ""}</div></div>`;
   }).join("");
@@ -333,7 +377,7 @@ function renderPage(data, repoName, org) {
 <title>Issue dashboard — ${escapeHtml(heading)}</title>
 <style>${CSS}</style></head><body><main>
 <h1>Issue dashboard — <a href="${escapeHtml(repoUrl(heading))}" rel="noopener noreferrer">${escapeHtml(heading)}</a></h1>
-<p class="meta">Generated ${escapeHtml(data.generatedAt)} · data up to ${CACHE_SECONDS} s old · ${data.rows.length} open, in pick-up order</p>
+<p class="meta">Generated ${escapeHtml(data.generatedAt)} · data up to ${CACHE_SECONDS} s old · ${data.rows.length} open, newest first</p>
 <ul class="counts">${counts}</ul>
 ${warnings}
 ${rows || '<p class="empty">No open issues.</p>'}
