@@ -217,18 +217,25 @@ they chased it in the one place that had no answer.
    skeleton's own label, and a blank line to the task's notes. Everything the colleague wrote stays below it, unchanged. Write through
    `html_notes` rather than `notes` when the task has formatting, or the rewrite flattens it. If the
    first line already carries this issue's URL, a re-run leaves it alone and never adds a second one.
-2. **One comment on the task, in exactly this form**, with the issue URL filled in and nothing else
-   changed:
+2. **One comment on the task, in exactly this form**, with only `<owner>/<repo>#<n>` and the issue
+   URL filled in:
 
    ```text
-   — New GitHub Issue (automation)
+   — GitHub automation 🤖
 
-   GitHub issue <issue URL> is created and in development.
+   GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in development.
    ```
 
-   The form is fixed and English on every board, whatever language the card is written in (the
-   requester's decision on #2653, after three drafts). Its header line is what tells a colleague that
-   the account holder did not type it. Post it after the move.
+   Post it as `html_text`, with the issue name as the link and **created:** in bold, the way the CI mirror posts its
+   own two forms:
+   `<body>— GitHub automation 🤖` + two newlines + `GitHub issue <a href="<issue URL>"><owner>/<repo>#<n></a> is <strong>created:</strong> this Asana task is now in development.</body>`.
+
+   It is the first of three fixed forms, one per event, all under the same header. The CI mirror posts the CLOSED and REOPENED
+   forms ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), superseding
+   #2653's wording). The form is fixed and English on every board, whatever language the card is
+   written in, and `dkj-policy-bwj.tests.ps1` holds this copy equal to the one `asana-mirror.ps1`
+   composes. Its header line is what tells a colleague that the account holder did not type it.
+   Post it after the move.
 
 If Asana is unreachable -- or a write is refused that the preflight's read could not cover -- report
 the GitHub issue URL, say the mirror did not happen and why, and stop. The issue can be mirrored later

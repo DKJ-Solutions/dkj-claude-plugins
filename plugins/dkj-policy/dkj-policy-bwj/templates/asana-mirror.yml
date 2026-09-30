@@ -23,7 +23,7 @@ permissions:
   # the prio-label sweep edits labels, and the paste-block backstop posts one comment on a closed
   # issue that has no paste-ready block yet (inbound #2049). Nothing else on GitHub is written.
   issues: write
-  # The close update names the pull request that closed the issue, which is a pull-requests read.
+  # The stage floor reads whether a pull request closed or links the issue, which is a pull-requests read.
   pull-requests: read
 
 # TWO GROUPS PER ISSUE, SPLIT BY WHAT AN ARRIVAL CAN LOSE -- not one shared group, and

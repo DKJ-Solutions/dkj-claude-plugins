@@ -242,14 +242,18 @@ link is prepended as the first line of its description, as `Tracked on GitHub: <
 colleague's own text left untouched below it. And one comment goes on the task, in exactly this form:
 
 ```text
-— New GitHub Issue (automation)
+— GitHub automation 🤖
 
-GitHub issue <issue URL> is created and in development.
+GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in development.
 ```
 
-Only the URL varies. The form is English on every board, and it is the one exception to the rule that
-what a session writes to a colleague follows their language: the requester fixed it word for word on
-#2653, after three drafts. The steps are in `report-issue`.
+Only the issue name varies. It is posted as the link to the issue, with **created:** in bold. It is the first of
+**three fixed forms, one per event** -- the CI mirror posts the other two, CLOSED and REOPENED, in
+[step 4](#4-write-the-paste-ready-block-then-close-the-github-issue---the-asana-task-gets-an-update)
+-- and all three are English on every board. They are the one exception to the rule that what a
+session writes to a colleague follows their language: the requester fixed them word for word
+([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), replacing #2653's
+wording). The steps are in `report-issue`.
 
 **A board may also carry a `Github Issue` text custom field** -- that capitalization is the field's
 literal, as-configured name in Asana, not a typo -- **and where it does, task creation is
@@ -298,11 +302,12 @@ text to say otherwise.
 - **A session** writes the line in the colleague's language, [as everything addressed to them
   is](#2-then-asana----a-translation-not-a-copy), and it names both facts: automated, and not written
   by the account holder personally. The comment `report-issue` posts on an Asana-origin ticket is the
-  exception: its header is fixed as *"— New GitHub Issue (automation)"* (#2653). The content comes
-  after the header and never before.
-- **The CI mirror** opens every update with `Get-MirrorCommentHeader`, above the marker sentence
-  step 4's de-duplication reads. The header sits above the marker and does not replace it, so updates
-  written before the header existed still de-duplicate.
+  exception: its header is fixed as *"— GitHub automation 🤖"* (#2656). The content
+  comes after the header and never before.
+- **The CI mirror** opens every update with `Get-MirrorCommentHeader`, which composes the event's
+  fixed header -- *"— GitHub automation 🤖"*, the same for every event
+  (#2656) -- above the marker sentence step 4's de-duplication reads. The header sits above the marker
+  and does not replace it, so updates written before the header existed still de-duplicate.
 
 **Write the line BEFORE you post, because you cannot add it afterwards.** The Asana MCP exposes adding
 a comment but no tool to edit or delete one, although the API itself supports both. So a comment a
@@ -364,20 +369,25 @@ GitHub Actions workflow in the repo (`.github/workflows/asana-mirror.yml`, copie
 
 | GitHub event | what happens in Asana |
 |---|---|
-| issue **closed** | a comment on the linked task: the work is built and ready to test, with the issue URL **and the pull request that closed it** -- number, title and link. The task stays open |
-| issue **closed as not planned** | the opposite comment: nothing was built, so there is nothing to test, and the reason is on the issue |
-| issue **reopened** | a comment pointing to the issue for why -- it may be back with the requester, or it may have been picked up again -- and saying this is not a request to test |
+| issue **closed** | a comment on the linked task: *"GitHub issue `<owner>/<repo>#<n>` is closed: the work behind this ticket is built and ready to test."* The task stays open |
+| issue **closed as not planned** | the opposite comment, in the same shape: nothing was built, so there is nothing to test |
+| issue **reopened** | a comment: *"GitHub issue `<owner>/<repo>#<n>` is reopened: this Asana task is back in development."* |
 | daily schedule | a reconciliation sweep in **both** directions, for events that never arrived: open tasks in the mirror project whose GitHub issue is closed, and issues closed in the last 30 days whose task has not been told yet |
 
-**A reopen carries at least two opposite meanings, the event cannot tell them apart, and so the
-comment asserts neither.** Either the work has been picked up again, or the issue is going back to
-the requester because what was built was reverted or was never this workflow's to begin with -- and
-in the second case a comment guessing "it is being worked on again, so hold off on testing" tells the
-person who has to act to sit still. So the comment names both possibilities, points to the issue for
-which one applies, and says plainly that it is not a request to test. That is the failure inbound
-#2117 measured, 2026-09-18: on three real Asana cards the guessed line contradicted the true state
-and outranked a colleague's own correction posted underneath it, because it carried the system's
-authority.
+**Each comment is the requester's fixed form, word for word**
+([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656)): the header line
+*"— GitHub automation 🤖"*, a blank line, and one sentence, the same header for every event. It is posted as `html_text`, with the issue name as the link and the verb (**closed:**, **reopened:**) in bold. The CREATED form is
+the third of the set, and `report-issue` posts it in step 2. The close update no longer lists the pull
+request that closed the issue, and it no longer carries the *"tick it off yourself"* line, because the
+form has neither. The pull request is still one click away on the issue.
+
+**The reopen form names a cause, and that reverses #2117's rule on purpose.** Until #2656 the reopen
+comment asserted no cause, because a reopen can also mean the issue is going back to the requester. On
+2026-09-18, inbound #2117 measured a guessed *"being worked on again, hold off"* line contradicting
+the true state on three real cards. The requester has now chosen *"back in development"* as the fixed
+wording. What that costs is exactly #2117's case: where a reopen really does hand the ticket back to
+the requester, the comment says otherwise, and the issue thread is where the difference shows. The
+card itself still follows the board rules below, and a reopen does not override the `needs-info` hold.
 
 **The task is never completed by any of this, and the script has no code path that can do it**
 (Dave, September 1, 2026). Closing a GitHub issue is a statement by whoever built the thing; resolving
@@ -391,14 +401,13 @@ September 1, 2026 the sweep that had just learned to read imported tickets compl
 tasks it should only have commented on -- five of them belonging to colleagues who had never been
 asked whether the work was any good.
 
-**The update names WHERE the change was made** (Dave, September 1, 2026), because that is the first
-thing somebody about to test wants and the ticket is the only place they are looking. GitHub says it
-as *"closed this as completed in #434"*; the update says the same, with the pull request's number,
-title and URL. It comes from the GraphQL field built for that question
+**The closing pull request is still read, but it no longer goes into the update** (#2656). From
+September 1, 2026 (Dave) until #2656, the close update named the pull request's number, title and URL.
+The requester's fixed form has no room for it, so it now lives one click away on the issue. The read
+itself stays. It comes from the GraphQL field built for that question
 (`closedByPullRequestsReferences`) rather than from the timeline, where a merge commit, a manual
-close and a passing cross-reference are easy to confuse. **An issue closed by hand says so**, and one
-GitHub cannot be asked about still gets its update with no pull request named -- an invented
-reference would be worse than a missing one.
+close and a passing cross-reference are easy to confuse. The board rules below use it: a linked pull
+request is what lifts a card to `InDevelopment`.
 
 **The de-duplication is the update's own opening sentence**, `GitHub issue <repo>#<n> is closed`, which
 names the issue. Sweeps look for it and stay silent when it is already there; **an event never
