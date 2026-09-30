@@ -2949,7 +2949,7 @@ function Get-MissingCheckSuiteNote {
         no check has measured is the conservative half of that probe and stays exactly as it is: this
         adds no state to any decision and cannot let a merge through. What moves is the DIAGNOSIS.
 
-        THE REMEDY IS NAMED BECAUSE IT IS NOT GUESSABLE. `gh pr close <n> && gh pr reopen <n>` re-fires
+        THE REMEDY IS NAMED BECAUSE IT IS NOT GUESSABLE. `gh pr close <n>; gh pr reopen <n>` re-fires
         the `pull_request` event, whose DEFAULT types include `reopened`, so every workflow that has not
         narrowed them with an explicit types: list is asked again -- and neither the head commit nor the
         PR body moves, which matters because the DEPLOY lock reads that body at the merge. Measured on
@@ -3069,7 +3069,7 @@ function Get-MissingCheckSuiteNote {
 
     $note += ' It is the event for THIS commit that went missing.'
     if ($PrNumber) {
-        $note += " Cheapest thing to try, and it is not a diagnosis: gh pr close $PrNumber && gh pr reopen $PrNumber -- 'reopened' is one of the default pull_request types, so it re-asks every workflow that has not narrowed them, and it moves neither the head commit nor the PR body."
+        $note += " Cheapest thing to try, and it is not a diagnosis: gh pr close $PrNumber; gh pr reopen $PrNumber -- 'reopened' is one of the default pull_request types, so it re-asks every workflow that has not narrowed them, and it moves neither the head commit nor the PR body."
     }
     return $note
 }

@@ -1740,7 +1740,8 @@ only ever existed in a working copy.
 The work is not missing; it is right here, uncommitted. Commit it and run again:
 
   git status
-  git add -A && git commit
+  git add -A
+  git commit
 
 If this branch really does ship its entry alone, run with -Force.
 "@
