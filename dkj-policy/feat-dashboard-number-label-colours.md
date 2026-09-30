@@ -50,6 +50,7 @@ This branch waits for Dave to look at it and is not merged until he has.
 ### CREATE
 
 - [x] The worker fetches each label colour and draws the label in it: a GitHub fill, and dark or white text by lightness. A colour that is not six hex digits falls back to the neutral tag.
+- [x] The page lists newest first and drops the In progress, Filed and Waiting pills and counts (Dave, the same day).
 - [x] The first column is the linked issue number instead of the rank. In org mode the repo name moves beside the title.
 
 ### TEST
@@ -58,8 +59,8 @@ This branch waits for Dave to look at it and is not merged until he has.
 
 ### DEPLOY: feat/dashboard-number-label-colours
 
-The issue dashboard leads each row with its issue number instead of a 1..n position, and draws every label in
-its own GitHub colour.
+The issue dashboard lists the open issues newest first, each led by its issue number instead of a 1..n position,
+draws every label in its own GitHub colour, and shows a status pill only for In review, Blocked and Claimed.
 
 **Score:** 2
 

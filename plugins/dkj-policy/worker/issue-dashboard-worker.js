@@ -299,6 +299,15 @@ function labelTag(name, color) {
   return `<span class="tag" style="background:#${color};border-color:#${color};color:${light ? "#1f2328" : "#fff"}">${escapeHtml(name)}</span>`;
 }
 
+// The page shows a status pill, and counts it, only where the status says something the row does not
+// already: In progress, Waiting and Filed carry no pill (Dave, September 30, 2026).
+const SHOWN_STATUSES = STATUSES.filter((s) => !["In progress", "Waiting", "Filed"].includes(s));
+
+// NEWEST FIRST ON THE PAGE (Dave, September 30, 2026). The logic still derives the pick-up order and
+// its warnings; the page lists by creation date, newest on top, ties by the higher number.
+const newestFirst = (a, b) =>
+  String(b.createdAt || "").localeCompare(String(a.createdAt || "")) || b.number - a.number || String(a.repo || "").localeCompare(String(b.repo || ""));
+
 const STATUS_COLOUR = {
   "In review": "review", "In progress": "progress", Waiting: "waiting",
   Blocked: "blocked", Claimed: "claimed", Filed: "filed",
@@ -317,12 +326,12 @@ function renderPage(data, repoName, org) {
   };
   const issueLink = (n, r) =>
     `<a href="${escapeHtml(repoUrl(r || repoName))}/issues/${Number(n)}" rel="noopener noreferrer">${escapeHtml(prefix(r))}#${Number(n)}</a>`;
-  const counts = STATUSES.map((s) => `<li>${s}<b>${data.rows.filter((r) => r.status === s).length}</b></li>`).join("");
+  const counts = SHOWN_STATUSES.map((s) => `<li>${s}<b>${data.rows.filter((r) => r.status === s).length}</b></li>`).join("");
   const warnings = data.warnings.length
     ? `<div class="warn"><strong>Read with care</strong><ul>${data.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul></div>`
     : "";
 
-  const rows = data.rows.map((r) => {
+  const rows = [...data.rows].sort(newestFirst).map((r) => {
     const detail = [];
     if (r.assignees.length) detail.push(`<span>Assigned: ${r.assignees.map(escapeHtml).join(", ")}</span>`);
     const blockers = r.blockers.filter((b) => b.state === "OPEN");
@@ -336,7 +345,7 @@ function renderPage(data, repoName, org) {
     const repo = prefix(r.repo);
     return `<div class="row"><div class="num"><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">#${Number(r.number)}</a></div><div>
       <div>${repo ? `<span class="repo">${escapeHtml(repo)}</span> ` : ""}<span class="title">${escapeHtml(r.title)}</span>
-      <span class="pill" style="color:var(--s-${STATUS_COLOUR[r.status]})">${escapeHtml(r.status)}</span></div>
+      ${SHOWN_STATUSES.includes(r.status) ? ` <span class="pill" style="color:var(--s-${STATUS_COLOUR[r.status]})">${escapeHtml(r.status)}</span>` : ""}</div>
       ${labels ? `<div class="detail">${labels}</div>` : ""}
       ${detail.length ? `<div class="detail">${detail.join("")}</div>` : ""}</div></div>`;
   }).join("");
@@ -348,7 +357,7 @@ function renderPage(data, repoName, org) {
 <title>Issue dashboard — ${escapeHtml(heading)}</title>
 <style>${CSS}</style></head><body><main>
 <h1>Issue dashboard — <a href="${escapeHtml(repoUrl(heading))}" rel="noopener noreferrer">${escapeHtml(heading)}</a></h1>
-<p class="meta">Generated ${escapeHtml(data.generatedAt)} · data up to ${CACHE_SECONDS} s old · ${data.rows.length} open, in pick-up order</p>
+<p class="meta">Generated ${escapeHtml(data.generatedAt)} · data up to ${CACHE_SECONDS} s old · ${data.rows.length} open, newest first</p>
 <ul class="counts">${counts}</ul>
 ${warnings}
 ${rows || '<p class="empty">No open issues.</p>'}

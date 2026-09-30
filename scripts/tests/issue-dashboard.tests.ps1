@@ -386,7 +386,7 @@ out.render = {
   loginEscaped: page.body.includes("&lt;i&gt;u&lt;/i&gt;") && !page.body.includes("<i>u</i>"),
   metaNoindex: /<meta name="robots" content="noindex/.test(page.body),
   inReview: page.body.includes(">In review<"),
-  inProgress: page.body.includes(">In progress<"),
+  noQuietPills: !page.body.includes(">In progress<") && !page.body.includes(">Filed<") && !page.body.includes(">Waiting<"),
   order: [...page.body.matchAll(/class="num"><a href="[^"]*?issues\/(\d+)"/g)].map((m, i) => (i + 1) + ":" + m[1]),
   githubCalls: calls.length,
   githubUrl: calls[0] && calls[0].url,
@@ -683,8 +683,8 @@ console.log(JSON.stringify(out));
         Assert-Equal 'True' "$($g.noRank)" 'no pick-up position is printed'
         Assert-Equal 'True' "$($g.loginEscaped)" 'a hostile assignee login is escaped'
         Assert-Equal 'True' "$($g.inReview)" 'the PR-linked issue shows In review'
-        Assert-Equal 'True' "$($g.inProgress)" 'the branch-linked issue shows In progress'
-        Assert-Equal '1:1,2:2,3:12' (Join-N $g.order) 'rows appear in pick-up order, each led by its issue number (#2 waits on #1)'
+        Assert-Equal 'True' "$($g.noQuietPills)" 'In progress, Filed and Waiting carry no pill and no count'
+        Assert-Equal '1:12,2:2,3:1' (Join-N $g.order) 'rows appear newest first, each led by its issue number (#2 waits on #1, and still comes above it)'
         Assert-Equal 1 $g.githubCalls 'one GraphQL round trip when nothing needs a second page'
         Assert-Equal 'https://api.github.com/graphql' $g.githubUrl 'it reads GitHub GraphQL and nothing else'
         Assert-Equal 'Bearer ghs_FAKE' $g.githubAuth '...with the GITHUB_TOKEN from env'
@@ -716,7 +716,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 1 $pg.secondAfterCount 'the second request carries exactly one after:'
         Assert-Equal 'True' "$($pg.secondCursor)" '...the cursor the first page returned'
         Assert-Equal 'True' "$($pg.secondIssuesOnly)" '...and asks only for issues -- prs and refs finished on page 1'
-        Assert-Equal '1,2,3,4' (Join-N $pg.numbers) 'all four issues are rendered, from both pages'
+        Assert-Equal '4,3,2,1' (Join-N $pg.numbers) 'all four issues are rendered, from both pages, the higher number first on a tied date'
         Assert-Equal 'True' "$($pg.unique)" '...none twice'
         Assert-Equal 'True' "$($pg.noWarning)" '...and no incomplete-list warning is shown'
         $en = $r.endless
@@ -748,7 +748,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 'False' "$($oh.archivedAsked)" 'an archived repository is not read'
         Assert-Equal 'False' "$($oh.noIssuesAsked)" '...nor one with issues disabled'
         Assert-Equal 'True' "$($oh.bothInOne)" 'the readable repositories are read as aliased fields of one request'
-        Assert-Equal 'acme/b#1,acme/a#1' (Join-N $oh.order) 'the rows are in cross-repo pick-up order'
+        Assert-Equal 'acme/a#1,acme/b#1' (Join-N $oh.order) 'the rows are newest first, a tied date and number going by repo name'
         Assert-Equal 'True' "$($oh.shortLinks)" '...each shows its repo name without the owner'
         Assert-Equal 'True' "$($oh.heading)" 'the page is titled after the owner'
         Assert-Equal 'True' "$($oh.noSink)" 'the cross-repo blocker is not shown as outside the list'

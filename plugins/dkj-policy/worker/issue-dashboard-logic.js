@@ -16,7 +16,7 @@
 //   branches [ "feat/12-some-name" | { repo, name:"feat/12-some-name" }, ... ]   (short ref names)
 //   options  { repo:"owner/name" }  or  { org:"login" }
 //
-// OUTPUT { rows:[{ number, repo, title, url, status, assignees, labels, labelColors, blockers:[{number,repo,state}],
+// OUTPUT { rows:[{ number, repo, title, createdAt, url, status, assignees, labels, labelColors, blockers:[{number,repo,state}],
 //                  blocking:[{number,repo}], prs:[{number,url,isDraft}], rank, cycle, externalBlocker }],
 //          warnings:[string] }
 //
@@ -176,6 +176,7 @@ export function deriveDashboard(issues, prs, branches, options = {}) {
       number: i.number,
       repo: ref.get(k).repo,
       title: i.title,
+      createdAt: i.createdAt,
       url: i.url,
       status: deriveStatus(i, linked, withBranch.has(k)),
       assignees: i.assignees || [],
