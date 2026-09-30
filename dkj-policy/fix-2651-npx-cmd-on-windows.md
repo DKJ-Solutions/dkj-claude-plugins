@@ -39,19 +39,45 @@
 
 ### PLAN
 
+#2651: every wrangler command `issue-dashboard.ps1 -EmitWorker` prints fails in Windows PowerShell under
+the default execution policy, because `npx` resolves to node's `npx.ps1` shim there. `npx.cmd` sits beside
+it and is not subject to the policy. The issue asks whether the release-notes-page and publish-page
+instructions print the same form. They do, and their `Next:` line also joins `cd` and the deploy with
+`&&`, which Windows PowerShell 5.1 cannot parse at all. It is the same line and the same failure (a
+printed command that cannot run in the default Windows shell), so it is repaired here too.
+
+The repair is one conditional per script (`npx.cmd` where `$env:OS` is `Windows_NT`), not a shared
+lib, because the three scripts sit in two plugins and a new lib would cross both mirror contracts for one
+line. `publish-page.ps1`'s own `Invoke-BwjNpx` already runs through `cmd.exe`, so it is unaffected. Only
+what a person is told to type changes.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `issue-dashboard.ps1` prints `$npx wrangler ...` (whoami, both secret puts, deploy), mirrored to the plugin copy
+- [x] `build-release-notes-page.ps1` and `publish-page.ps1`: the `Next:` line prints on two lines with `$npx`, and publish-page's no-login refusal names `$npx` too
+- [x] The three skill pages (issue-dashboard, release-notes-page, publish-page) say that Windows prints `npx.cmd`, and why
 
 ### TEST
 
+- [x] `issue-dashboard.tests.ps1`: asserts the platform form, and on Windows that no line names bare `npx wrangler` (397 pass)
+- [x] `bwj-page-publish.tests.ps1` and `release-notes-page.tests.ps1`: assert the platform form and no `&&` (114 and 167 pass)
+
 ### DEPLOY: fix/2651-npx-cmd-on-windows
 
-**Score:**
+On Windows, the issue dashboard, the release-notes page and the BWJ page publisher now print
+`npx.cmd wrangler ...` instead of `npx wrangler ...`, so the commands they hand over run in PowerShell
+under the default execution policy. The deploy step prints on its own line and is no longer joined to
+`cd` with `&&`, which Windows PowerShell 5.1 rejects.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Whoever deploys one of these pages from Windows PowerShell can paste the printed commands as they are,
+where before each one failed with *"running scripts is disabled on this system"* until they typed
+`npx.cmd` by hand.
+
+**Score:** 2
 
 #### Pull Request
 
