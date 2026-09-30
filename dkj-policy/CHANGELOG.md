@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/dashboard-number-label-colours · 20260930-132109Z
+
+The issue dashboard lists the open issues newest first, each led by its issue number instead of a 1..n position,
+draws every label in its own GitHub colour, and tints every issue a sweep must skip red.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo running the optional issue dashboard sees its rows keyed by the number it already uses, with labels it can recognise at a glance, after re-running -EmitWorker and redeploying.
+
+**Score:** 2
+
+#### Pull Request
+
+
+The issue dashboard lists newest first, leads with the issue number and draws labels in their GitHub colours
+
+Plugins: dkj-policy
+
+[PR #2658](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2658)
+
+---
 
 ### DEPLOY: feat/2656-asana-automation-comments · 20260930-130919Z
 
