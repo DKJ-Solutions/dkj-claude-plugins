@@ -41,11 +41,31 @@
 
 Move the Waiting, Claim and Inbound elaboration from Chris's always-on persona to his on-demand manual, keeping each core rule and a pointer.
 
+Baseline (#2665, `measure-always-on.ps1 -Depth 2`, September 30, 2026): persona 27,937 B, of which
+Waiting 5,651, Claim 2,496 and Inbound 1,360. The test for each move is the constitution's split rule:
+what governs every turn stays, what applies only once a situation has arrived moves, and each half names
+the other. Every heading stays where it is, so nothing that cites one by name breaks.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Waiting: the persona keeps whose clock it is (both bullets), parking as shape A, ending on the
+  trunk versus a branch parked for the owner's eye, "cleared" said precisely including in-flight
+  subagents, and a pointer that says when to read the rest. The seven elaborating paragraphs move
+  verbatim to a new manual section, "Waiting — the rule in full", ahead of the measurements.
+- [x] Claim: the persona keeps the claim, the read-back, the locked-door rule, the claim as the opening
+  of the work and the data boundary, plus a pointer for repos with no claim step. The one-liner, `@me`,
+  resuming and the same-account exception move verbatim to "Picking up an issue — the rule in full".
+  Where a repo ships `claim-issue`, that skill's always-on description carries the trigger across a
+  compaction.
+- [x] Inbound: the sending route and the six names are compacted in place; the six checks were already
+  in the manual.
+- [x] The persona's opening pointer names the two new manual sections.
 
 ### TEST
+
+- [x] Re-measured: persona 27,937 → 21,708 B (−6,229 B, ≈ 2.0k estimated tokens per session). Manual
+  grows by the same text, and it loads on demand only.
+- [x] No test pins the moved sentences, and no file cites a persona or manual anchor (grep over the tree).
 
 ### DEPLOY: docs/2665-split-chris-persona-second-pass
 
