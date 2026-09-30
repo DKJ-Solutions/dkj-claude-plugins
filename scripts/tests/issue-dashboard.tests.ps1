@@ -169,9 +169,16 @@ Assert-Equal (Join-N $jsStatuses) (Join-N $skillStatuses) 'STATUSES in the JS eq
 foreach ($s in $jsStatuses) {
     Assert-True ($skillText.Contains("**$s**")) "the skill body documents the status '$s'"
 }
-$statusColour = [regex]::Match($workerJs, 'const\s+STATUS_COLOUR\s*=\s*\{([\s\S]*?)\};').Groups[1].Value
-foreach ($s in $jsStatuses) {
-    Assert-True ($statusColour -match ('(?:^|[\s,{])"?' + [regex]::Escape($s) + '"?\s*:')) "the worker has a colour for '$s' -- otherwise the pill renders var(--s-undefined)"
+# Every status but Claimed is named in sweepVerdict, and Claimed is its fallback, so a status added to
+# the logic without a verdict of its own reads as claimed rather than as sweepable.
+$verdictFn = [regex]::Match($workerJs, 'function sweepVerdict\(r\) \{([\s\S]*?)\n\}').Groups[1].Value
+foreach ($s in @($jsStatuses | Where-Object { $_ -ne 'Claimed' })) {
+    Assert-True ($verdictFn.Contains('r.status === "' + $s + '"')) "the sweep verdict names the status '$s'"
+}
+Assert-True ($verdictFn.Contains('if (r.status === "Filed") return { sweepable: true')) 'only Filed is sweepable'
+$parkedBecause = [regex]::Match($workerJs, 'const PARKED_BECAUSE = \{([\s\S]*?)\};').Groups[1].Value
+foreach ($l in $jsParking) {
+    Assert-True ($parkedBecause -match ('(?:^|[\s,{])"?' + [regex]::Escape($l) + '"?\s*:')) "the page says what the parking label '$l' waits on"
 }
 
 $claimMatch = [regex]::Match($claimText, '(?m)^\s+\$SkipLabel\s*=\s*@\(([^)]*)\)')
@@ -385,7 +392,10 @@ out.render = {
   noRank: !page.body.includes('class="rank"'),
   loginEscaped: page.body.includes("&lt;i&gt;u&lt;/i&gt;") && !page.body.includes("<i>u</i>"),
   metaNoindex: /<meta name="robots" content="noindex/.test(page.body),
-  inReview: page.body.includes(">In review<"),
+  inReview: page.body.includes(">Skip: in review<"),
+  inProgress: page.body.includes(">Skip: in progress<"),
+  blockedBy: page.body.includes(">Skip: blocked by #1<"),
+  sweepCounts: page.body.includes("<li>Sweepable<b>0</b></li><li>Skip<b>3</b></li>"),
   noQuietPills: !page.body.includes(">In progress<") && !page.body.includes(">Filed<") && !page.body.includes(">Waiting<"),
   order: [...page.body.matchAll(/class="num"><a href="[^"]*?issues\/(\d+)"/g)].map((m, i) => (i + 1) + ":" + m[1]),
   githubCalls: calls.length,
@@ -682,7 +692,10 @@ console.log(JSON.stringify(out));
         Assert-Equal 'True' "$($g.numberColumn)" 'the first column is the issue number, linked to the issue'
         Assert-Equal 'True' "$($g.noRank)" 'no pick-up position is printed'
         Assert-Equal 'True' "$($g.loginEscaped)" 'a hostile assignee login is escaped'
-        Assert-Equal 'True' "$($g.inReview)" 'the PR-linked issue shows In review'
+        Assert-Equal 'True' "$($g.inReview)" 'the PR-linked issue is skipped as in review'
+        Assert-Equal 'True' "$($g.inProgress)" 'the branch-linked issue is skipped as in progress'
+        Assert-Equal 'True' "$($g.blockedBy)" 'the blocked issue is skipped and names its blocker'
+        Assert-Equal 'True' "$($g.sweepCounts)" 'the counts are Sweepable and Skip'
         Assert-Equal 'True' "$($g.noQuietPills)" 'In progress, Filed and Waiting carry no pill and no count'
         Assert-Equal '1:12,2:2,3:1' (Join-N $g.order) 'rows appear newest first, each led by its issue number (#2 waits on #1, and still comes above it)'
         Assert-Equal 1 $g.githubCalls 'one GraphQL round trip when nothing needs a second page'
