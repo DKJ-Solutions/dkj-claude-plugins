@@ -16,9 +16,9 @@
     the same split guard-working-copy.ps1 makes with working-copy-guard-lib.ps1.
 
     WHAT COUNTS AS A MIRROR is a GitHub issue URL anywhere in the call's tool_input, on a repo this
-    procedure is admitted in. report-issue writes that URL twice -- the `Tracked on GitHub:` line and
-    the optional `Github Issue` custom field -- so a mirror carries it by construction, and a task that
-    cites no issue of an admitted repo is not a mirror and is none of this gate's business. The repo
+    procedure is admitted in. report-issue writes that URL into the `Tracked on GitHub:` line (the
+    first line of the notes) and the optional `Github Issue` custom field -- so a mirror carries it by
+    construction, and a task that cites no issue of an admitted repo is not a mirror and is none of this gate's business. The repo
     list is report-issue's own "Before you start" list, matched on the NAME for the reason stated there:
     the two stores are no longer in one organisation.
 
