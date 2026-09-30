@@ -1366,7 +1366,8 @@ if ($Commit) {
             Write-Host ($pushRun.Output -join "`n") -ForegroundColor Red
             Write-Host 'git push ran but its exit code could not be measured (issue #1931), so THIS RUN DOES NOT KNOW whether the fold commit reached origin.' -ForegroundColor Red
             Write-Host '  The commit is on the local trunk and nothing was lost. Look before you push again:' -ForegroundColor Red
-            Write-Host '    git fetch origin && git log --oneline HEAD..origin/main origin/main..HEAD' -ForegroundColor Red
+            Write-Host '    git fetch origin' -ForegroundColor Red
+            Write-Host '    git log --oneline HEAD..origin/main origin/main..HEAD' -ForegroundColor Red
             Write-Host '  If it is already upstream, discard nothing and pull; if it is not, push it by hand.' -ForegroundColor Red
             exit 1
         }

@@ -41,19 +41,40 @@
 
 Three printed hints joined two commands with '&&', which Windows PowerShell 5.1 cannot parse; they now print on separate lines or join with ';'.
 
+#### A third site, found while verifying the issue
+
+The issue names two sites. A grep of every `.ps1` for `&&` found a third of the same kind: `open-pr.ps1`'s
+backing gate prints `git add -A && git commit` as its remedy. It is absorbed here, in both copies.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `fold-changelog-entry.ps1` (source and mirror): the push-unmeasured hint prints `git fetch origin`
+      and the `git log` on lines of their own.
+- [x] `open-pr.ps1` (source and mirror): the backing-gate remedy prints `git add -A` and `git commit` on
+      lines of their own.
+- [x] `pr-issues-lib.ps1` (source and mirror): the missing-check-suite note joins the reopen remedy with
+      `;` (it is one sentence, so a line break is not an option), and its docstring follows.
 
 ### TEST
 
+- [x] `pr-issues.tests.ps1`: the four asserts pinning the remedy text now read `;`, and a new assert
+      holds the note free of `&&`. The suite passes standalone (1137 asserts).
+
 ### DEPLOY: fix/2659-no-ampersand-chains-in-hints
 
-**Score:**
+Three recovery hints the shipping scripts print, from the fold, from `open-pr`'s backing gate and from
+the missing-check-suite note, no longer join two commands with `&&`. They print on separate lines, or
+join with `;` inside a sentence, so they paste into Windows PowerShell 5.1 as they are.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Prevents a failure nobody has reported yet: pasting one of these hints into Windows PowerShell 5.1 as
+printed fails with *"The token '&&' is not a valid statement separator in this version"*. That happens at
+the exact moment the hint is needed, which is after something has already gone wrong.
+
+**Score:** 1
 
 #### Pull Request
 

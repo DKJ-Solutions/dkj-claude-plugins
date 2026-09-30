@@ -1597,7 +1597,9 @@ Assert-True ($missNote -ne '') 'two suites and none from Actions is recognised a
 Assert-True ($missNote -like '*no Actions check suite*') 'and the note names what is MISSING rather than sending the reader to the workflow files'
 Assert-True ($missNote -like "*only 'netlify' and 'claude' registered*") 'the suites that DO exist are named, so the reader sees what was asked and what was not'
 Assert-True ($missNote -like '*NOT a paths: filter*') 'it states the negative too, since "check the workflow" is the reading being corrected'
-Assert-True ($missNote -like '*gh pr close 1233 && gh pr reopen 1233*') 'and it names the remedy, which is not a thing an operator guesses'
+Assert-True ($missNote -like '*gh pr close 1233; gh pr reopen 1233*') 'and it names the remedy, which is not a thing an operator guesses'
+# Joined with ';', not '&&', which Windows PowerShell 5.1 cannot parse (#2659).
+Assert-True ($missNote -notlike '*&&*') 'the remedy pastes into Windows PowerShell 5.1 -- no && between the two commands'
 Assert-True ($missNote -like '*not a diagnosis*') 'while saying plainly that the reopen is the cheapest thing to TRY, not a cause it has established'
 
 # THE ASSERT THAT KEEPS THIS FROM CRYING WOLF, the same one its three siblings carry. An Actions suite
@@ -1611,7 +1613,7 @@ Assert-Equal '' (Get-MissingCheckSuiteNote -SuitesJson '{"check_suites":[{"statu
 # sentence naming an empty list, which reads as a bug in the note.
 $missEmpty = Get-MissingCheckSuiteNote -SuitesJson '{"total_count":0,"check_suites":[]}' -PrNumber '7'
 Assert-True ($missEmpty -like '*nothing registered for it at all*') 'a commit carrying no suite whatsoever says so'
-Assert-True ($missEmpty -like '*gh pr close 7 && gh pr reopen 7*') 'and still gets the remedy -- the finding is the same one'
+Assert-True ($missEmpty -like '*gh pr close 7; gh pr reopen 7*') 'and still gets the remedy -- the finding is the same one'
 
 # Singular where one other provider registered, plural where several did.
 $missOne = Get-MissingCheckSuiteNote -SuitesJson '{"check_suites":[{"app":{"slug":"netlify"}}]}'
@@ -1654,7 +1656,7 @@ Assert-True ($missConflict -like '*refs/pull/*') 'and the note says WHICH commit
 Assert-True ($missConflict -like '*Resolve the conflict*') 'the repair named is the one that works -- resolve, then push'
 # THE POINT OF THE BRANCH, not a nicety: the reopen is measured to do nothing here, and printing it
 # beside the real repair leaves the reader to choose between them with the cheap one listed first.
-Assert-True ($missConflict -notlike '*gh pr close 1243 && gh pr reopen 1243*') 'and the reopen is WITHHELD rather than offered beside it'
+Assert-True ($missConflict -notlike '*gh pr close 1243; gh pr reopen 1243*') 'and the reopen is WITHHELD rather than offered beside it'
 Assert-True ($missConflict -like '*measured*') 'while saying the reopen was measured doing nothing, so the reader does not try it anyway'
 Assert-True ($missConflict -like '*no Actions check suite*') 'the #1234 finding still leads -- the conflict explains it, it does not replace it'
 
@@ -1663,7 +1665,7 @@ Assert-True ($missConflict -like '*no Actions check suite*') 'the #1234 finding 
 # exists to end. An absent argument is the back-compat path every existing caller takes.
 foreach ($state in @('MERGEABLE', 'UNKNOWN', '', '   ')) {
     $missOther = Get-MissingCheckSuiteNote -SuitesJson $suitesNoActions -PrNumber '1233' -Mergeable $state
-    Assert-True ($missOther -like '*gh pr close 1233 && gh pr reopen 1233*') "mergeable '$state' still gets the reopen -- only CONFLICTING is decisive"
+    Assert-True ($missOther -like '*gh pr close 1233; gh pr reopen 1233*') "mergeable '$state' still gets the reopen -- only CONFLICTING is decisive"
     Assert-True ($missOther -notlike '*Resolve the conflict*') "mergeable '$state' is never told to resolve a conflict it may not have"
 }
 Assert-Equal $missNote (Get-MissingCheckSuiteNote -SuitesJson $suitesNoActions -PrNumber '1233') 'and the note is byte-identical to the pre-#1247 one when nothing is passed'
