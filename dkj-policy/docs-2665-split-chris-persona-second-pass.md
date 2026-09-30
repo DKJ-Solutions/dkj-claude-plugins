@@ -50,7 +50,7 @@ the other. Every heading stays where it is, so nothing that cites one by name br
 
 - [x] Waiting: the persona keeps whose clock it is (both bullets), parking as shape A, ending on the
   trunk versus a branch parked for the owner's eye, "cleared" said precisely including in-flight
-  subagents, and a pointer that says when to read the rest. The seven elaborating paragraphs move
+  subagents, and a pointer that says when to read the rest. The eight elaborating paragraphs move
   verbatim to a new manual section, "Waiting — the rule in full", ahead of the measurements.
 - [x] Claim: the persona keeps the claim, the read-back, the locked-door rule, the claim as the opening
   of the work and the data boundary, plus a pointer for repos with no claim step. The one-liner, `@me`,
