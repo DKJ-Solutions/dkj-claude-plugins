@@ -103,9 +103,9 @@ it, both set at creation so nobody has to classify a tracker by hand a second ti
 repo jargon, so any BWJ colleague can read it. The two are **cross-linked both ways**. When the
 **GitHub issue is closed, the Asana task gets an update** saying the work is built and ready to test
 -- by a small GitHub Actions workflow this plugin ships as a template for each repo to copy into its
-own `.github/`. Reopening the issue posts a comment saying the task is back in development. Both
-updates, and the one `report-issue` posts when it makes an issue from an existing task, use three
-fixed forms, one per event (#2656). A daily
+own `.github/`. Reopening the issue posts a comment saying the task is back in development. All three
+comments, the third being the one `report-issue` posts when it makes an issue from an existing task,
+use a fixed form per event (#2656). A daily
 reconciliation sweep carries over anything a missed event left behind, without ever saying the same
 thing twice.
 

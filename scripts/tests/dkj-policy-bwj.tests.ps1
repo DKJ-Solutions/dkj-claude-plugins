@@ -333,8 +333,9 @@ Assert-True ($html.StartsWith('<body><em>') -and $html.EndsWith('</em></body>'))
 Assert-True ($html.Contains("<a href=`"https://github.com/BWJ-Development/xoxowildhearts/issues/334`">$ref</a>")) 'with the issue name as the link to the issue'
 Assert-Equal $closed ([xml]$html).body.InnerText 'and its plain text is the plain comment, marker included'
 foreach ($ev in 'created', 'reopened') {
-    $x = [xml](New-MirrorCommentHtml -IssueRef $ref -Event $ev)
-    Assert-Equal (New-MirrorComment -IssueRef $ref -Event $ev) $x.body.InnerText "the $ev html is well-formed and reads as its plain form"
+    $h = New-MirrorCommentHtml -IssueRef $ref -Event $ev
+    Assert-Equal (New-MirrorComment -IssueRef $ref -Event $ev) ([xml]$h).body.InnerText "the $ev html is well-formed and reads as its plain form"
+    Assert-True ($h.Contains("`">$ref</a>")) "and the $ev html links the issue name too"
 }
 Assert-True ((New-MirrorCommentHtml -IssueRef 'o/r&x#1' -Event 'closed') -match '&amp;') 'a character XML reserves is escaped, so Asana is never sent a malformed body'
 

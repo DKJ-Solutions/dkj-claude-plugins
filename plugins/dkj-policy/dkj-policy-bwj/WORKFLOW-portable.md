@@ -402,14 +402,13 @@ September 1, 2026 the sweep that had just learned to read imported tickets compl
 tasks it should only have commented on -- five of them belonging to colleagues who had never been
 asked whether the work was any good.
 
-**The update names WHERE the change was made** (Dave, September 1, 2026), because that is the first
-thing somebody about to test wants and the ticket is the only place they are looking. GitHub says it
-as *"closed this as completed in #434"*; the update says the same, with the pull request's number,
-title and URL. It comes from the GraphQL field built for that question
+**The closing pull request is still read, but it no longer goes into the update** (#2656). From
+September 1, 2026 (Dave) until #2656, the close update named the pull request's number, title and URL.
+The requester's fixed form has no room for it, so it now lives one click away on the issue. The read
+itself stays. It comes from the GraphQL field built for that question
 (`closedByPullRequestsReferences`) rather than from the timeline, where a merge commit, a manual
-close and a passing cross-reference are easy to confuse. **An issue closed by hand says so**, and one
-GitHub cannot be asked about still gets its update with no pull request named -- an invented
-reference would be worse than a missing one.
+close and a passing cross-reference are easy to confuse. The board rules below use it: a linked pull
+request is what lifts a card to `InDevelopment`.
 
 **The de-duplication is the update's own opening sentence**, `GitHub issue <repo>#<n> is closed`, which
 names the issue. Sweeps look for it and stay silent when it is already there; **an event never

@@ -61,10 +61,9 @@
                        -IssueBody is the issue body (the Asana task is resolved from it, see below);
                        -IssueRef is 'owner/repo#n'.
 
-                       'closed' and 'reopened' COMMENT and move the card. The comment on 'closed'
-                       names the pull request(s) that closed the issue and says the work is ready to
-                       test; 'reopened' reports the state change and asserts no cause for it, see
-                       New-MirrorComment. Neither de-duplicates -- an event is a real state change,
+                       'closed' and 'reopened' COMMENT and move the card, each in the requester's
+                       fixed form (#2656): 'closed' says the work is ready to test, 'reopened' that
+                       the task is back in development, see New-MirrorComment. Neither de-duplicates -- an event is a real state change,
                        and a second close after a reopen is news again.
 
                        'labeled' and 'unlabeled' ONLY move the card, deliberately: a label going on
@@ -146,7 +145,7 @@
     headings English while the analysis under them follows whoever filed the ticket.
 
     The pure helpers (Resolve-AsanaTaskRef, Get-AsanaTaskGid, Get-AsanaGidsFromText,
-    New-MirrorComment, Get-MirrorCommentMarker, Get-MirrorCommentHeader, New-AsanaCommentRequest, Get-IssueRefFromNotes,
+    New-MirrorComment, New-MirrorCommentHtml, Get-MirrorCommentMarker, Get-MirrorCommentHeader, New-AsanaCommentRequest, Get-IssueRefFromNotes,
     Get-AsanaPasteBlockMarker, Get-AsanaPasteBlockLead, New-AsanaPasteBlockComment,
     Get-StageFromSectionName, Select-StageMembership, Get-DefaultAsanaStageMap, Get-StageMapNumbers,
     Get-WritableStages, Test-StageIsWritable, Test-StageIsTerminal, Test-AsanaStageMap,
@@ -1387,8 +1386,11 @@ function Invoke-AsanaRequest {
         [Parameter(Mandatory = $true)][pscustomobject]$Request,
         [Parameter(Mandatory = $true)][string]$Pat
     )
-    $headers = @{ Authorization = "Bearer $Pat"; 'Content-Type' = 'application/json' }
-    return Invoke-RestMethod -Method $Request.Method -Uri $Request.Uri -Headers $headers -Body $Request.Body
+    # UTF-8 BYTES, not the string: Windows PowerShell 5.1 encodes a string body as ISO-8859-1, which
+    # would turn the comment header's em dash (#2656) into '?'. pwsh sends UTF-8 either way.
+    $headers = @{ Authorization = "Bearer $Pat"; 'Content-Type' = 'application/json; charset=utf-8' }
+    return Invoke-RestMethod -Method $Request.Method -Uri $Request.Uri -Headers $headers `
+        -Body ([System.Text.Encoding]::UTF8.GetBytes([string]$Request.Body))
 }
 
 function Add-AsanaComment {
@@ -1660,8 +1662,8 @@ function Get-IssueLinkState {
         why. Set GH_PROJECT_TOKEN to a token that can read the org's projects to get it back.
 
         Never throws. An unreachable API, a missing `gh`, or an issue nobody linked a pull request to
-        all give an empty PullRequests list -- the update then says the issue was closed by hand
-        instead of inventing a reference, and the stage sweep reads no status rather than moving a
+        all give an empty PullRequests list -- the stage floor then counts no linked pull request
+        instead of inventing one, and the stage sweep reads no status rather than moving a
         card on a guess.
     #>
     param(

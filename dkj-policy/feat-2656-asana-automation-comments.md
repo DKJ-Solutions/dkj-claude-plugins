@@ -77,7 +77,7 @@ literally.
 
 ### DEPLOY: feat/2656-asana-automation-comments
 
-Every Asana comment the BWJ ticket flow writes now uses one of three fixed forms, in italics with the
+The three automated Asana comments of the BWJ ticket flow (issue created, closed, reopened) now use fixed forms, in italics with the
 issue as a link: *"— GitHub Issue CREATED / CLOSED / REOPENED (automation)"* and one sentence. The
 close update no longer lists the closing pull request, and a reopen now says the task is back in
 development.
