@@ -80,7 +80,7 @@ before the step list is unchanged -- the issue, the branch, its `dkj-policy/<bra
 
 | the step | where it sits in the cycle | the rule |
 |---|---|---|
-| **Is the change visible in the frontend / storefront?** | the **last** step under `### CREATE` | a `- [~]` with its reason where nothing renders; otherwise a preview theme, a comment on the GitHub issue carrying the steps and the URLs, and `- [x]` only once a **person** confirms they looked -- [`PREVIEW-portable.md`](PREVIEW-portable.md) |
+| **Is the change visible in the frontend / storefront?** | the **last** step under `### CREATE`, written by `new-branch` from the store repo's `Get-BranchClosingSteps` seam | a `- [~]` with its reason where nothing renders; otherwise a preview theme, a comment on the GitHub issue carrying the steps and the URLs, and `- [x]` only once a **person** confirms they looked -- [`PREVIEW-portable.md`](PREVIEW-portable.md) |
 | **The go-live half of the paste-ready block** | just before the GitHub issue is closed | the block gains the next release date and the live URLs per market (a version only where `-Version` names one), written by `build-golive-block.ps1` -- [`WORKFLOW-portable.md`](WORKFLOW-portable.md) |
 
 **They are not a fifth chapter, deliberately.** Each belongs to the subject a chapter already owns --

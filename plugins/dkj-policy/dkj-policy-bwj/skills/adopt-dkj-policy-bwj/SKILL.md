@@ -183,6 +183,25 @@ the repo's label is not `minor`**: that is this workflow's default since
 default is a value somebody now has to maintain. Today that means proposing it in a store still carrying
 `tier-1` and not in one that has already renamed.
 
+**In the two store repos only, propose the preview question as well** -- chapter three's step, which
+[`PREVIEW-portable.md`](../../PREVIEW-portable.md#the-step-that-asks-the-question----always-last-under--create)
+makes the last one under `### CREATE`:
+
+```powershell
+# The step every branch here closes CREATE with. dkj-policy's new-branch writes each text as an open
+# step, last under CREATE, so the step-list gate holds the PR until it is resolved.
+function Get-BranchClosingSteps { @('Is the change visible in the frontend / storefront?') }
+```
+
+**This seam is what writes the step, and until it is answered nothing does**
+([#2655](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2655)). The page used to say the
+gate enforces the step by its position, but no scaffold ever wrote it. Measured in `xoxowildhearts`
+on September 30, 2026: no branch document there had ever carried it, and a branch with a visible theme
+change reached its PR with no handover at all. **Not in `dkj-claude-plugins`**: chapter three's reach
+excludes the source repo, which runs no theme, so there the question would be `- [~]` on every branch
+forever. It reaches branches created **after** the seam lands. A branch already open gets the line by
+hand.
+
 **`SubmitterPattern` is the one value here that decides whether a whole column is used.** Stage 6 is
 entered only once the submitter has been told, so a repo that names no pattern never enters it: every
 closed ticket waits in `InReview` for a person. That is a working configuration and the safe default,

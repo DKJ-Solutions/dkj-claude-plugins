@@ -1226,9 +1226,14 @@ if ($cycleTaken) {
         # old wording told the author to write the one link form the fold would break.
         $linkDestDirRel = ((Split-Path (Get-SeamValue -Name 'Get-ChangelogPath' `
             -Default (Get-DefaultChangelogPath -RepoRoot $repoRoot)) -Parent) -replace '\\', '/').Trim('/')
+        # THE STEPS A REPO CLOSES CREATE WITH (#2655), from its own seam -- dkj-policy-bwj's store repos
+        # answer it with the preview question, which PREVIEW-portable.md makes the last CREATE step so the
+        # step-list gate holds the PR on it. Unanswered is the ordinary case and writes nothing extra.
+        $closingSteps = @(Get-SeamValue -Name 'Get-BranchClosingSteps' -Default @()) |
+            Where-Object { $_ -is [string] -and $_.Trim() }
         $cycleText = ((Format-Development -Branch $branch -Intent $Intent `
             -Description $description -Type $branchType -Body $body `
-            -LinkDestDirRel $linkDestDirRel) -join "`n") + "`n"
+            -LinkDestDirRel $linkDestDirRel -ClosingSteps @($closingSteps)) -join "`n") + "`n"
         [System.IO.File]::WriteAllText($cyclePath, $cycleText, $Utf8NoBom)
         $branchFileWritten = $true
         # WHOSE FILE THIS WAS IS NAMED IN EVERY OUTCOME, and that is the reported defect's actual repair. A

@@ -485,6 +485,23 @@ Write-Output `$t.Type
     Assert-True (Test-EntryDeclaresType -EntryText (Get-DevelopmentEntryText -Text $entryTextL) -Type 'Feat') 'broken repo-config: and the branch type is still stated'
     Assert-True (Test-Phrase -Text $rL.Out -Phrase 'could not be loaded') 'broken repo-config: says so out loud instead of failing silently'
 
+    # --- (l2) Get-BranchClosingSteps reaches the document (#2655) --------------------------------------
+    #     The preview question was prescribed as the last CREATE step in the BWJ store repos, and nothing
+    #     wrote it -- so the step-list gate that was meant to hold the PR held nothing. The seam is what
+    #     writes it; this proves the answer travels from the fixture's own repo-config into the file.
+    Write-Host "new-branch.ps1 -- Get-BranchClosingSteps closes CREATE (#2655)" -ForegroundColor Cyan
+    $fixtureL2 = New-Fixture -Label 'l2'
+    [System.IO.File]::WriteAllText((Join-Path $fixtureL2 'scripts\repo-config.ps1'),
+        "function Get-BranchClosingSteps { @('Is the change visible in the frontend / storefront?') }`n",
+        (New-Object System.Text.UTF8Encoding $false))
+    $rL2 = Invoke-NewBranch -Dir $fixtureL2 -Name 'feat/closing-step-v1'
+    Assert-ExitCode 0 $rL2 'closing steps: new-branch exit 0'
+    $docL2 = [System.IO.File]::ReadAllText((Join-Path $fixtureL2 ((Get-BranchFilePaths -Branch 'feat/closing-step-v1').Deployment)), [System.Text.Encoding]::UTF8)
+    $createL2 = if ($docL2 -match '(?ms)^#+\s+CREATE\s*$(.*?)(?=^#+\s|\z)') { $Matches[1] } else { '' }
+    $stepsL2 = @(@($createL2 -split '\r?\n') | Where-Object { $_ -like '- `[ `]*' })
+    Assert-Equal 2 $stepsL2.Count 'closing steps: CREATE carries the first step and the closing step'
+    Assert-Equal '- [ ] Is the change visible in the frontend / storefront?' ([string]$stepsL2[-1]) 'closing steps: the repo''s answer is the LAST step under CREATE, open'
+
     # --- (m) A BRANCH STACKED ON AN UNFOLDED ONE (inbound #615, ANSWERED DIFFERENTLY SINCE #1255) ---
     #     The reported defect: both idempotency tests were true for any branch created off a branch
     #     whose entry was written but not yet folded -- "is the entry filled" and "is the owner not the
