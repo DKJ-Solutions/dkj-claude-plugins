@@ -262,9 +262,9 @@ async function getEdgeOrFresh(env, ctx, target) {
 
 const CSS = `
 :root{--bg:#fff;--fg:#1f2328;--muted:#656d76;--line:#d8dee4;--card:#f6f8fa;--link:#0969da;--warn-bg:#fff8c5;--warn-line:#d4a72c;
---s-review:#1a7f37;--s-progress:#0969da;--s-waiting:#9a6700;--s-blocked:#cf222e;--s-claimed:#8250df;--s-filed:#656d76;--go:#1a7f37;--go-bg:#dafbe1;--skip:#656d76;--skip-bg:#eaeef2}
+--s-review:#1a7f37;--s-progress:#0969da;--s-waiting:#9a6700;--s-blocked:#cf222e;--s-claimed:#8250df;--s-filed:#656d76;--parked-bg:#ffebe9;--parked-line:#ffcecb}
 @media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8d96a0;--line:#30363d;--card:#161b22;--link:#58a6ff;--warn-bg:#3a2f00;--warn-line:#9e6a03;
---s-review:#3fb950;--s-progress:#58a6ff;--s-waiting:#d29922;--s-blocked:#f85149;--s-claimed:#a371f7;--s-filed:#8d96a0;--go:#3fb950;--go-bg:#12261e;--skip:#8d96a0;--skip-bg:#21262d}}
+--s-review:#3fb950;--s-progress:#58a6ff;--s-waiting:#d29922;--s-blocked:#f85149;--s-claimed:#a371f7;--s-filed:#8d96a0;--parked-bg:#2d1517;--parked-line:#5a1e21}}
 *{box-sizing:border-box}
 body{margin:0;padding:1rem;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 main{max-width:64rem;margin:0 auto}
@@ -276,14 +276,12 @@ a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
 .counts b{margin-left:.35rem}
 .warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:.5rem;padding:.6rem 1rem;margin:0 0 1rem}
 .warn ul{margin:.25rem 0 0;padding-left:1.2rem}
-.row{display:grid;grid-template-columns:4rem 1fr;gap:.25rem .75rem;padding:.7rem 0;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:4rem 1fr;gap:.25rem .75rem;padding:.7rem .5rem;border-top:1px solid var(--line)}
 .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .repo{color:var(--muted)}
 .title{font-weight:600}
 .pill{display:inline-block;border:1px solid currentColor;border-radius:1rem;padding:0 .55rem;font-size:.78rem;font-weight:600;white-space:nowrap}
-.go{color:var(--go);background:var(--go-bg)}
-.skip{color:var(--skip);background:var(--skip-bg);font-weight:500}
-.row.parked .title{color:var(--muted);font-weight:500}
+.row.parked{background:var(--parked-bg);border-top-color:var(--parked-line)}
 .detail{color:var(--muted);font-size:.85rem;margin-top:.15rem}
 .detail span{margin-right:1rem;display:inline-block}
 .tag{display:inline-block;background:var(--card);border:1px solid var(--line);border-radius:2em;padding:0 .5rem;margin-right:.25rem;font-size:.75rem;font-weight:500;line-height:1.5}
@@ -303,7 +301,7 @@ function labelTag(name, color) {
 }
 
 // ONE QUESTION PER ROW (Dave, September 30, 2026): may a sweep pick this issue up, or does it wait on
-// something and get skipped? The answer is the row's one pill, and the reason names what it waits on.
+// something and get skipped? A skipped row is tinted red as a whole, and its tooltip names what it waits on.
 // Only Filed is sweepable: every other status is somebody's already, or parked. A sweep's claim-tag
 // comment is not read here, so an issue a sweep has just tagged still shows as sweepable until it is
 // assigned or gets a branch.
@@ -365,9 +363,9 @@ function renderPage(data, repoName, org) {
     // The first column is the issue number, not the pick-up position: the page's order IS the order.
     const repo = prefix(r.repo);
     const verdict = sweepVerdict(r);
-    return `<div class="row${verdict.sweepable ? "" : " parked"}"><div class="num"><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">#${Number(r.number)}</a></div><div>
+    return `<div class="row${verdict.sweepable ? "" : " parked"}"${verdict.sweepable ? "" : ` title="${escapeHtml(verdict.text)}"`}><div class="num"><a href="${escapeHtml(r.url)}" rel="noopener noreferrer">#${Number(r.number)}</a></div><div>
       <div>${repo ? `<span class="repo">${escapeHtml(repo)}</span> ` : ""}<span class="title">${escapeHtml(r.title)}</span>
-      <span class="pill ${verdict.sweepable ? "go" : "skip"}">${escapeHtml(verdict.text)}</span></div>
+</div>
       ${labels ? `<div class="detail">${labels}</div>` : ""}
       ${detail.length ? `<div class="detail">${detail.join("")}</div>` : ""}</div></div>`;
   }).join("");

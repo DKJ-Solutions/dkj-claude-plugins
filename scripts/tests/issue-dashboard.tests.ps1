@@ -392,9 +392,9 @@ out.render = {
   noRank: !page.body.includes('class="rank"'),
   loginEscaped: page.body.includes("&lt;i&gt;u&lt;/i&gt;") && !page.body.includes("<i>u</i>"),
   metaNoindex: /<meta name="robots" content="noindex/.test(page.body),
-  inReview: page.body.includes(">Skip: in review<"),
-  inProgress: page.body.includes(">Skip: in progress<"),
-  blockedBy: page.body.includes(">Skip: blocked by #1<"),
+  inReview: page.body.includes('class="row parked" title="Skip: in review"'),
+  inProgress: page.body.includes('class="row parked" title="Skip: in progress"'),
+  blockedBy: page.body.includes('class="row parked" title="Skip: blocked by #1"'),
   sweepCounts: page.body.includes("<li>Sweepable<b>0</b></li><li>Skip<b>3</b></li>"),
   noQuietPills: !page.body.includes(">In progress<") && !page.body.includes(">Filed<") && !page.body.includes(">Waiting<"),
   order: [...page.body.matchAll(/class="num"><a href="[^"]*?issues\/(\d+)"/g)].map((m, i) => (i + 1) + ":" + m[1]),
@@ -692,7 +692,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 'True' "$($g.numberColumn)" 'the first column is the issue number, linked to the issue'
         Assert-Equal 'True' "$($g.noRank)" 'no pick-up position is printed'
         Assert-Equal 'True' "$($g.loginEscaped)" 'a hostile assignee login is escaped'
-        Assert-Equal 'True' "$($g.inReview)" 'the PR-linked issue is skipped as in review'
+        Assert-Equal 'True' "$($g.inReview)" 'the PR-linked row is tinted as skipped, its tooltip saying in review'
         Assert-Equal 'True' "$($g.inProgress)" 'the branch-linked issue is skipped as in progress'
         Assert-Equal 'True' "$($g.blockedBy)" 'the blocked issue is skipped and names its blocker'
         Assert-Equal 'True' "$($g.sweepCounts)" 'the counts are Sweepable and Skip'

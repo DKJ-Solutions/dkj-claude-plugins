@@ -50,7 +50,7 @@ This branch waits for Dave to look at it and is not merged until he has.
 ### CREATE
 
 - [x] The worker fetches each label colour and draws the label in it: a GitHub fill, and dark or white text by lightness. A colour that is not six hex digits falls back to the neutral tag.
-- [x] Each row carries one pill that answers the sweep question: Sweepable, or Skip with what it waits on. The counts are Sweepable and Skip (Dave, the same day).
+- [x] Each row answers the sweep question: a row a sweep must skip is tinted red, with a tooltip naming what it waits on. There are no status pills. The counts are Sweepable and Skip (Dave, the same day).
 - [x] The page lists newest first and drops the In progress, Filed and Waiting pills and counts (Dave, the same day).
 - [x] The first column is the linked issue number instead of the rank. In org mode the repo name moves beside the title.
 
@@ -62,7 +62,7 @@ This branch waits for Dave to look at it and is not merged until he has.
 ### DEPLOY: feat/dashboard-number-label-colours
 
 The issue dashboard lists the open issues newest first, each led by its issue number instead of a 1..n position,
-draws every label in its own GitHub colour, and marks each issue Sweepable, or Skip with what it waits on.
+draws every label in its own GitHub colour, and tints every issue a sweep must skip red.
 
 **Score:** 2
 
