@@ -148,11 +148,15 @@ Compose the task body from the fixed skeleton -- plain language, outcome-framed,
 jargon:
 
 ```text
+Tracked on GitHub: <issue URL>
 What is wrong:   <one or two plain sentences -- what a visitor or colleague sees>
 Where:           <which store, and which page or flow>
 How urgent:      <blocking a sale / visible but not blocking / cosmetic / not customer-facing>
-Tracked on GitHub: <issue URL>
 ```
+
+**The issue link is the FIRST line of the task's description**, above everything else, so the card
+answers *where is this tracked* before a colleague has read a word of it
+([#2653](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2653)).
 
 **The four headings stay as written; what goes under them follows the colleague who reads the card.**
 This is the one place in the procedure where the language turns over -- the issue you just filed is
@@ -207,6 +211,31 @@ creating a second task. Leaving it in `Requests` is the failure inbound
 and the board still read `New`, so to the colleague waiting on it the request looked untouched, and
 they chased it in the one place that had no answer.
 
+**That existing task then gets two more writes, both in this step** (#2653):
+
+1. **The issue link goes on top of its description.** Prepend `Tracked on GitHub: <issue URL>`, the
+   skeleton's own label, and a blank line to the task's notes. Everything the colleague wrote stays below it, unchanged. Write through
+   `html_notes` rather than `notes` when the task has formatting, or the rewrite flattens it. If the
+   first line already carries this issue's URL, a re-run leaves it alone and never adds a second one.
+2. **One comment on the task, in this fixed form**, in the colleague's language:
+
+   ```text
+   — automatisch bericht vanuit GitHub #<n>
+
+   Asana taak is verplaatst naar sectie [<section name>] en aangemaakt als GitHub issue: <issue URL>
+
+   Hier wordt nu aan gewerkt.
+   ```
+
+   The header line is the house header the paste-ready block and the CI mirror already open with (its
+   English form is `— automated message from GitHub #<n>`). `<section name>` is the section's full
+   name as the board shows it, such as `1C. Todo`, not the stage code. Post it **after** the move, so
+   it names where the card actually is. **Where no move was made**, because the task sits on a
+   board other than the one `Get-AsanaProjectGid` names and this step does not move cards there, the
+   sentence reads *Asana taak staat in sectie [<section name>] en is aangemaakt als GitHub issue:
+   <issue URL>* instead. A comment cannot be corrected afterwards, so it never claims a move that did
+   not happen.
+
 If Asana is unreachable -- or a write is refused that the preflight's read could not cover -- report
 the GitHub issue URL, say the mirror did not happen and why, and stop. The issue can be mirrored later
 by re-running this skill's steps 2-3.
@@ -224,11 +253,12 @@ by re-running this skill's steps 2-3.
 
 - **Asana task** -- the `Tracked on GitHub:` line already carries the issue URL, so nothing more is
   needed unless you created the task before you had the issue URL; in that case edit the task notes
-  to add it.
+  to add it **as the first line**. A task that came from Asana got its link and its comment in step 2.
 
-**This procedure writes no comment on the task.** If you do write one, for example on a ticket that
-already existed, **its first line says it is an automated message and not written by the account
-holder personally**, in the colleague's language, and the content comes after it. The MCP posts as
+**The only comment this procedure writes is step 2's, on a ticket that came from Asana.** A task this
+procedure created itself gets none. Any comment an agent writes **opens with the header line** (`—
+automatisch bericht vanuit GitHub #<n>`, in the colleague's language), which says it is an automated
+message and not the account holder's own words, and the content comes after it. The MCP posts as
 the person who connected it and cannot edit or delete a comment afterwards, so a comment without that
 line reads as that person's own words for good. The rule and its reason are in
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#a-comment-an-agent-writes-on-a-task-says-so-in-its-first-line)

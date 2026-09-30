@@ -208,11 +208,14 @@ a BWJ colleague who does not read code and does not know the repo:
 - **A fixed skeleton**, so every mirrored task reads the same way:
 
   ```text
+  Tracked on GitHub: <issue URL>
   What is wrong:   <one or two plain sentences -- what a visitor or colleague sees>
   Where:           <which store, and which page or flow>
   How urgent:      <blocking a sale / visible but not blocking / cosmetic / not customer-facing>
-  Tracked on GitHub: <issue URL>
   ```
+
+  The issue link is the **first** line, so the card says where it is tracked before anything else
+  ([#2653](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2653)).
 
 - The task's assignee, section and due date are for the BWJ team to set in Asana. This page does not
   prescribe them.
@@ -233,6 +236,23 @@ between the two.
 English rule in step 1 makes. Quote it into the issue as it was written rather than translating it,
 because the wording is the evidence of what was actually reported, and write your own analysis around
 it in English. Nobody corrects the language of a card a colleague wrote, in either direction.
+
+**Such a card still learns where it is tracked, in two writes and nothing more** (#2653). The issue
+link is prepended as the first line of its description, as `Tracked on GitHub: <issue URL>`, with the
+colleague's own text left untouched below it. And one comment goes on the task, in a fixed form:
+
+```text
+— automatisch bericht vanuit GitHub #<n>
+
+Asana taak is verplaatst naar sectie [<section name>] en aangemaakt als GitHub issue: <issue URL>
+
+Hier wordt nu aan gewerkt.
+```
+
+`<section name>` is the section the card sits in once the procedure has moved it, by the full name the
+board shows. Where it made no move, the sentence reads *Asana taak staat in sectie [...] en is
+aangemaakt als GitHub issue: ...*, because a comment is never corrected afterwards. The steps are in
+`report-issue`.
 
 **A board may also carry a `Github Issue` text custom field** -- that capitalization is the field's
 literal, as-configured name in Asana, not a typo -- **and where it does, task creation is
@@ -279,9 +299,10 @@ colleague-facing comment, and the story's author read as the owner's own name wi
 text to say otherwise.
 
 - **A session** writes the line in the colleague's language, [as everything addressed to them
-  is](#2-then-asana----a-translation-not-a-copy), and it names both facts: automated, and not written
-  by the account holder personally. For example, *"🤖 Automatische reactie (Claude) -- niet
-  persoonlijk geschreven door Dave."* The content comes after it and never before.
+  is](#2-then-asana----a-translation-not-a-copy), and uses the house header the paste-ready block
+  already opens with: *"— automatisch bericht vanuit GitHub #`<n>`"* (English: *"— automated message
+  from GitHub #`<n>`"*). A free-form disclaimer sentence was used before, and it read worse beside the
+  cards that carry the header (#2653). The content comes after it and never before.
 - **The CI mirror** opens every update with `Get-MirrorCommentHeader`, above the marker sentence
   step 4's de-duplication reads. The header sits above the marker and does not replace it, so updates
   written before the header existed still de-duplicate.
@@ -335,7 +356,8 @@ matches on it:
   only form that cannot be misread, and an issue carrying one is never matched any other way.
 
 - **On the Asana task** -- the `Tracked on GitHub:` line of the skeleton already carries the issue
-  URL. Nothing else is required there.
+  URL. Nothing else is required there. A task that came from Asana got its link and its comment in
+  step 2.
 
 ### 4. Write the paste-ready block, THEN close the GitHub issue -> the Asana task gets an update
 

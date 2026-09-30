@@ -39,21 +39,49 @@
 
 ### PLAN
 
+Inbound #2653, from `BWJ-Development/xoxowildhearts`, requested by Maikel on September 30, 2026. When
+a session makes a GitHub issue from an Asana task, the colleague who filed that task should see it on
+the task itself. The format was dictated in the thread, where two earlier drafts were rejected:
+
+- the issue link as the **first line** of the task's description, and as the first line of the
+  skeleton for a task `report-issue` creates itself;
+- one comment on the Asana-origin task: the house header `— automatisch bericht vanuit GitHub #<n>`,
+  then `Asana taak is verplaatst naar sectie [<section>] en aangemaakt als GitHub issue: <url>`, then
+  `Hier wordt nu aan gewerkt.`
+
+Decided here, and stated so it can be overruled: the stage model is not changed. An Asana-origin card
+still moves to `Filed`, and the comment names the section it actually lands in. Where the task sits on
+a board the procedure does not move cards on (the case in xoxowildhearts, where it was on the BUILD
+board), the sentence says *staat in sectie*, because an Asana comment cannot be corrected afterwards.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `report-issue/SKILL.md`: the skeleton's link on top, step 2's two writes for an Asana-origin task, and step 3's comment rule rewritten around them
+- [x] `WORKFLOW-portable.md`: the same skeleton change, the fixed comment form beside the carve-out for colleague-filed tickets, and the house header replacing the free-form disclaimer example
 
 ### TEST
 
+- [x] Nothing parses the notes in skeleton order: `backlog-page-rules.ps1` renders notes verbatim, and `asana-mirror`'s sweep (a) reads a URL anywhere in the notes
+- [x] No test pins the text that changed (`grep` over `scripts/tests` and the plugin script trees)
+- [x] Gates green through `open-pr`
+
 ### DEPLOY: feat/2653-asana-comment-back
 
-**Score:**
+`report-issue` now writes back to an Asana task an issue was made from. The issue link goes on the
+first line of the task's description, and one comment in a fixed form goes on the task: the house
+header `— automatisch bericht vanuit GitHub #<n>`, the section the card is in, the issue link, and
+*"Hier wordt nu aan gewerkt."* A task the skill creates itself now carries `Tracked on GitHub:` as its
+first line as well.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A colleague who files a request in Asana now sees on the task itself that it has been picked up and
+where it is tracked, without opening GitHub.
+
+**Score:** 3
 
 #### Pull Request
 
 report-issue: comment back on the Asana task an issue was made from, and put the issue link at the top of the task
-
