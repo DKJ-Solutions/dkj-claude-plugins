@@ -156,6 +156,7 @@ an absent link is a fact rather than an oversight.
 | `lib/pr-scan-lib.ps1` | the bounded pull-request scan `check-stranded-sweep.ps1` and `check-unshipped-pr.ps1` share: one filtered `gh pr list`, one required-check read per record under a per-call and a total budget, the honest judged/unjudged split, and a display-safe finding with its paste-safe checkout line. Each check brings only its filter and its verdict | none — dot-sourced lib |
 | `lib/command-probe-lib.ps1` | `Test-FunctionDefined` — is a function of this name defined? Reads the function table directly, where `Get-Command` parses the name as a wildcard pattern and pays a full `PATH` scan on every miss — and a miss is the normal case for an optional seam | none — dot-sourced lib |
 | `lib/document-newline-lib.ps1` | `Get-DocumentNewline` — the newline style a document is already written in, read off the document rather than assumed, so a block composed for it neither reads as drifted on a CRLF checkout nor leaves the page mixed. One definition for a reading that was hand-typed at nine sites (issue #1832); its banner carries the whole-file limit of it | none — dot-sourced lib |
+| `lib/stray-token-lib.ps1` | `Find-StrayToken` — every copy of a gitignored path-token file in the tree other than the expected one, so a token a renamed folder left behind is found before a second one is minted (issue #1444). One definition for the release-notes page and the issue dashboard (issue #2644) | none — dot-sourced lib |
 <!-- /shared-scripts:mirror -->
 
 ## How the mirror works
