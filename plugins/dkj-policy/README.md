@@ -181,9 +181,10 @@ below changes for you, and nothing here asks you to run anything.
 ## The issue dashboard — optional, and the one worker that is live
 
 GitHub's issues page shows labels, but not what is in flight, what is blocked, or what to pick up next.
-The [`issue-dashboard`](skills/issue-dashboard/SKILL.md) skill sets up a page that does: one repo's open
-issues, each with a status and a pick-up order derived from GitHub's blocked-by dependencies, served
-from a Cloudflare Worker at an unguessable path.
+The [`issue-dashboard`](skills/issue-dashboard/SKILL.md) skill sets up a page that does: the open
+issues of one repo, or of every repo of one GitHub organization (`-Org`), each with a status and a
+pick-up order derived from GitHub's blocked-by dependencies, served from a Cloudflare Worker at an
+unguessable path.
 
 **It is optional, and adopting nothing loses nothing.** It needs a Cloudflare account, plus `node` and
 `npx` for the deploy; a consumer without those skips it and the rest of this plugin is unchanged.

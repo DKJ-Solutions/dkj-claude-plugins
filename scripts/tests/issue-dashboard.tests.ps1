@@ -26,6 +26,10 @@
       6. THE SCRIPT, in a temp repo through -RepoRoot: -InitToken once, -EmitWorker copies and writes a
          wrangler.toml exactly once, prints the commands, never a secret. Nothing reaches the network.
       7. THE .gitignore ANCHOR on /dkj-policy/dashboard/.
+      8. ORG MODE (#2649): issues keyed on repo AND number, a blocker in another repo of the owner is
+         an edge rather than a sink, the handler lists the owner's repos and reads them in aliased
+         batches, and -Org prepares a dashboard of its own beside this repo's without either token
+         reading as the other's stray.
 
     The live half -- the real GitHub GraphQL read and a real wrangler deploy -- stays untested: it
     runs against somebody's account.
@@ -120,8 +124,9 @@ foreach ($ch in @('&amp;', '&lt;', '&gt;', '&quot;', '&#39;')) {
     Assert-True ($escBody.Contains($ch)) "the escape function maps to $ch"
 }
 
-# The cache key is derived from the repo, never from the path token.
-Assert-True ($workerJs -match 'encodeURIComponent\(env\.GITHUB_REPO\)') 'the edge cache key is derived from the repo'
+# The cache key is derived from the target (the repo, or the owner in org mode), never from the path token.
+Assert-True ($workerJs -match 'encodeURIComponent\(target\)') 'the edge cache key is derived from the target'
+Assert-True ($workerJs -match 'const targetOf = \(env\) => \(env\.GITHUB_ORG \? `org:\$\{env\.GITHUB_ORG\}` : env\.GITHUB_REPO\)') '...which is the repo, or org:<login> in org mode'
 Assert-True ($workerJs -notmatch 'match\[1\][^;\n]*(cache|Request)') '...and the path token never reaches it'
 
 # ---------------------------------------------------------------------------------------------------
@@ -221,7 +226,8 @@ const chain = run([iss(1, { blockedBy: [blk(2)] }), iss(2, { blockedBy: [blk(3)]
 out.chain = order(chain);
 out.chainReversed = order(run([iss(4), iss(3), iss(2, { blockedBy: [blk(3)] }), iss(1, { blockedBy: [blk(2)] })]));
 out.chainRanks = chain.rows.map((r) => r.rank);
-out.chainBlocking3 = chain.rows.find((r) => r.number === 3).blocking;
+out.chainBlocking3 = chain.rows.find((r) => r.number === 3).blocking.map((b) => b.number);
+out.chainRepo = chain.rows.map((r) => r.repo);
 out.ties = order(run([iss(9), iss(3), iss(5)]));
 const closed = run([iss(1, { blockedBy: [blk(2, "CLOSED")], assignees: ["u"] }), iss(2)]);
 out.closed = { order: order(closed), external: flag(closed, "externalBlocker"), status1: closed.rows.find((r) => r.number === 1).status };
@@ -450,6 +456,67 @@ respond = (q) => {
 const endless = await snap(await worker.fetch(req("/issues/" + HEX), env, ctx));
 out.endless = { status: endless.status, requests: calls.length, stopped: endless.body.includes("Stopped after 10 GitHub requests"), rendered: numbersOnPage(endless.body).length };
 respond = null;
+
+// --- org mode (#2649): the logic
+const A = "acme/a", B = "acme/b";
+const oiss = (repo, number, o = {}) => ({ ...iss(number, o), repo, url: "https://github.com/" + repo + "/issues/" + number });
+const orun = (issues, prs = [], branches = []) => deriveDashboard(issues, prs, branches, { org: "acme" });
+const okey = (d) => d.rows.map((r) => r.repo + "#" + r.number);
+const oCross = orun([oiss(A, 1, { blockedBy: [blk(1, "OPEN", B)] }), oiss(B, 1), oiss(A, 2)]);
+out.org = {
+  cross: okey(oCross),
+  crossExternal: oCross.rows.filter((r) => r.externalBlocker).length,
+  crossBlocking: oCross.rows.find((r) => r.repo === B).blocking.map((b) => b.repo + "#" + b.number),
+  ties: okey(orun([oiss(B, 3), oiss(A, 3), oiss(B, 1)])),
+  outside: okey(orun([oiss(A, 1, { blockedBy: [blk(4, "OPEN", "other/x")] }), oiss(B, 2)])),
+  unfetched: okey(orun([oiss(A, 1, { blockedBy: [blk(9, "OPEN", B)] }), oiss(B, 2)])),
+  branch: Object.fromEntries(orun([oiss(A, 5), oiss(B, 5)], [], [{ repo: B, name: "feat/5-x" }]).rows.map((r) => [r.repo, r.status])),
+  pr: Object.fromEntries(orun([oiss(A, 6), oiss(B, 6)], [{ number: 30, url: "u", isDraft: false, repo: A, closes: [{ number: 6, repo: B }] }]).rows.map((r) => [r.repo, r.status])),
+  cycleWarnings: orun([oiss(A, 1, { blockedBy: [blk(1, "OPEN", B)] }), oiss(B, 1, { blockedBy: [blk(1, "OPEN", A)] })]).warnings,
+};
+
+// --- org mode: the handler against a stubbed GitHub
+const orgNode = (repo, num, blockedBy = []) => ({ number: num, title: repo + " " + num, url: "https://github.com/" + repo + "/issues/" + num,
+  createdAt: "2026-03-01T00:00:00Z", labels: { totalCount: 0, nodes: [] }, assignees: { nodes: [] },
+  blockedBy: { totalCount: blockedBy.length, nodes: blockedBy } });
+const emptyRepo = (issues) => ({ issues: { nodes: issues, totalCount: issues.length, pageInfo: pageInfo(false) },
+  pullRequests: { nodes: [], pageInfo: pageInfo(false) }, feat: conn([]), fix: conn([]), docs: conn([]) });
+resetMemo();
+calls.length = 0;
+cacheKeys.length = 0;
+respond = (q) => {
+  if (q.includes("repositoryOwner(")) return { data: { repositoryOwner: { repositories: { pageInfo: pageInfo(false), nodes: [
+    { nameWithOwner: "acme/a", isArchived: false, hasIssuesEnabled: true },
+    { nameWithOwner: "acme/b", isArchived: false, hasIssuesEnabled: true },
+    { nameWithOwner: "acme/old", isArchived: true, hasIssuesEnabled: true },
+    { nameWithOwner: "acme/site", isArchived: false, hasIssuesEnabled: false },
+  ] } } } };
+  const data = {};
+  if (q.includes('r0: repository(owner: "acme", name: "a")')) data.r0 = emptyRepo([orgNode("acme/a", 1, [{ number: 1, state: "OPEN", repository: { nameWithOwner: "acme/b" } }])]);
+  if (q.includes('r1: repository(owner: "acme", name: "b")')) data.r1 = emptyRepo([orgNode("acme/b", 1)]);
+  return { data };
+};
+const orgEnv = { DASHBOARD_TOKEN: HEX, GITHUB_TOKEN: "ghs_FAKE", GITHUB_ORG: "acme" };
+const orgPage = await snap(await worker.fetch(req("/issues/" + HEX), orgEnv, ctx));
+const orgQueries = calls.map((c) => JSON.parse(c.body).query);
+out.orgHandler = {
+  status: orgPage.status, requests: calls.length,
+  listedFirst: !!orgQueries[0] && orgQueries[0].includes('repositoryOwner(login: "acme")'),
+  archivedAsked: orgQueries.some((q) => q.includes('name: "old"')),
+  noIssuesAsked: orgQueries.some((q) => q.includes('name: "site"')),
+  bothInOne: !!orgQueries[1] && orgQueries[1].includes("r0: repository(") && orgQueries[1].includes("r1: repository("),
+  order: [...orgPage.body.matchAll(/class="rank">(\d+)<\/div>[\s\S]*?github\.com\/([^"]+?)\/issues\/(\d+)"/g)].map((m) => m[2] + "#" + m[3]),
+  shortLinks: orgPage.body.includes(">b#1</a>") && orgPage.body.includes(">a#1</a>"),
+  heading: orgPage.body.includes("<title>Issue dashboard " + String.fromCharCode(0x2014) + " acme</title>"),
+  noSink: !orgPage.body.includes("Waits on something outside this list"),
+  cacheKeyOrg: cacheKeys.some((k) => k.includes("org%3Aacme")),
+  cacheKeyHasToken: cacheKeys.some((k) => k.includes(HEX)),
+};
+respond = null;
+out.orgConfig = {
+  both:   await snap(await worker.fetch(req("/issues/" + HEX), { ...orgEnv, GITHUB_REPO: R }, ctx)),
+  badOrg: await snap(await worker.fetch(req("/issues/" + HEX), { ...orgEnv, GITHUB_ORG: 'a"><x' }, ctx)),
+};
 console.log(JSON.stringify(out));
 '@
     $runnerPath = Join-Path $nodeDir 'runner.mjs'
@@ -483,6 +550,7 @@ console.log(JSON.stringify(out));
         Assert-Equal (Join-N $r.chain) (Join-N $r.chainReversed) '...and the input order does not matter'
         Assert-Equal '1,2,3,4' (Join-N $r.chainRanks) 'rank is the 1-based position'
         Assert-Equal '2' (Join-N $r.chainBlocking3) '...and blocking lists who a row unblocks'
+        Assert-Equal 'acme/widgets,acme/widgets,acme/widgets,acme/widgets' (Join-N $r.chainRepo) '...and in repo mode every row carries the repo'
         Assert-Equal '3,5,9' (Join-N $r.ties) 'issues that are equally ready are ordered by issue number'
         Assert-Equal '1,2' (Join-N $r.closed.order) 'a CLOSED blocker imposes no order (1 stays before 2)'
         Assert-Equal '' (Join-N $r.closed.external) '...and does not sink the issue'
@@ -631,6 +699,40 @@ console.log(JSON.stringify(out));
         Assert-Equal 10 $en.requests 'it is stopped at exactly MAX_PAGES (10) GitHub requests'
         Assert-Equal 'True' "$($en.stopped)" '...and the page carries the "Stopped after 10 GitHub requests" warning'
         Assert-Equal 10 $en.rendered '...with what was fetched (one issue per request) rendered'
+
+        Write-Host '  -- org mode: the logic (#2649)' -ForegroundColor DarkCyan
+        $o = $r.org
+        Assert-Equal 'acme/b#1,acme/a#1,acme/a#2' (Join-N $o.cross) 'a blocker in another repo of the owner is an edge: acme/b#1 comes before acme/a#1'
+        Assert-Equal 0 $o.crossExternal '...and sinks nothing'
+        Assert-Equal 'acme/a#1' (Join-N $o.crossBlocking) '...and the blocker lists whom it unblocks, with the repo'
+        Assert-Equal 'acme/b#1,acme/a#3,acme/b#3' (Join-N $o.ties) 'ties go by issue number, then by repo name'
+        Assert-Equal 'acme/b#2,acme/a#1' (Join-N $o.outside) 'a blocker outside the owner still sinks'
+        Assert-Equal 'acme/b#2,acme/a#1' (Join-N $o.unfetched) '...and so does one in a repo of the owner that was not fetched'
+        Assert-Equal 'Filed' $o.branch.'acme/a' 'a feat/5- branch in acme/b does not move acme/a#5'
+        Assert-Equal 'In progress' $o.branch.'acme/b' '...it moves acme/b#5'
+        Assert-Equal 'Filed' $o.pr.'acme/a' 'a PR closing acme/b#6 does not touch acme/a#6'
+        Assert-Equal 'In review' $o.pr.'acme/b' '...even when the PR itself lives in acme/a'
+        Assert-Equal 1 @($o.cycleWarnings).Count 'a cycle across two repos warns once'
+        Assert-True ((@($o.cycleWarnings)[0]) -like '*acme/a#1, acme/b#1*') '...naming each member with its repo'
+
+        Write-Host '  -- org mode: the handler' -ForegroundColor DarkCyan
+        $oh = $r.orgHandler
+        Assert-Equal 200 $oh.status 'an org dashboard renders against the stubbed GitHub'
+        Assert-Equal 2 $oh.requests '...in two requests: one repository listing, one batch'
+        Assert-Equal 'True' "$($oh.listedFirst)" '...listing the owner through repositoryOwner first'
+        Assert-Equal 'False' "$($oh.archivedAsked)" 'an archived repository is not read'
+        Assert-Equal 'False' "$($oh.noIssuesAsked)" '...nor one with issues disabled'
+        Assert-Equal 'True' "$($oh.bothInOne)" 'the readable repositories are read as aliased fields of one request'
+        Assert-Equal 'acme/b#1,acme/a#1' (Join-N $oh.order) 'the rows are in cross-repo pick-up order'
+        Assert-Equal 'True' "$($oh.shortLinks)" '...each named <repo>#<n> without the owner'
+        Assert-Equal 'True' "$($oh.heading)" 'the page is titled after the owner'
+        Assert-Equal 'True' "$($oh.noSink)" 'the cross-repo blocker is not shown as outside the list'
+        Assert-Equal 'True' "$($oh.cacheKeyOrg)" 'the cache key is org:<login>'
+        Assert-Equal 'False' "$($oh.cacheKeyHasToken)" '...and never holds the path token'
+        Assert-Equal 503 $r.orgConfig.both.status 'GITHUB_REPO and GITHUB_ORG together are refused'
+        Assert-True ($r.orgConfig.both.body -like '*not both*') '...saying so'
+        Assert-Equal 503 $r.orgConfig.badOrg.status 'a GITHUB_ORG that is not a login is refused'
+        Assert-True ($r.orgConfig.badOrg.body -notlike '*<x*') '...and the value is not echoed raw'
     }
 }
 
@@ -807,6 +909,40 @@ $bad = Invoke-Dash $repo3 @('-InitToken', '-EmitWorker')
 Assert-True ($bad.ExitCode -ne 0) 'a worker name Cloudflare would refuse is refused first'
 Assert-True ($bad.Text -like '*not a valid Cloudflare Worker name*') '...saying why'
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $repo3 'dkj-policy\dashboard\wrangler.toml'))) '...before any wrangler.toml is written'
+
+# ORG MODE (#2649): a dashboard of its own beside this repo's, in repo1, which already holds a token.
+Remove-Item -LiteralPath (Join-Path $repo 'wrangler.toml') -Force   # the root-toml case above is done
+$orgDash = Join-Path $repo 'dkj-policy\dashboard\org-acme'
+$org = Invoke-Dash $repo @('-Org', 'Acme', '-InitToken', '-EmitWorker')
+Assert-Equal 0 $org.ExitCode '-Org -InitToken -EmitWorker works beside an existing repo dashboard'
+Assert-True ($org.Text -notlike '*already holds one*') '...the repo dashboard token is a sibling, not a stray'
+$orgToken = [System.IO.File]::ReadAllText((Join-Path $orgDash 'dashboard-path-token.txt'))
+Assert-True ($orgToken -cmatch '^[0-9a-f]{32}$') '...its token lives in dkj-policy/dashboard/org-acme/'
+Assert-True ($orgToken -ne $token) '...and is not the repo dashboard token'
+Assert-Equal $token ([System.IO.File]::ReadAllText($tokenFile)) '...which is untouched'
+$orgToml = [System.IO.File]::ReadAllText((Join-Path $orgDash 'wrangler.toml'))
+Assert-True ($orgToml -match '(?m)^GITHUB_ORG = "Acme"$') 'its wrangler.toml carries GITHUB_ORG'
+Assert-True ($orgToml -notmatch '(?m)^\s*GITHUB_REPO') '...and no GITHUB_REPO'
+Assert-True ($orgToml -match '(?m)^name = "acme-issue-dashboard"$') '...and is named <login>-issue-dashboard'
+Assert-True ($orgToml -match '(?m)^\[observability\]\s*\r?\nenabled = false\s*$') '...with observability off'
+Assert-True (Test-Path -LiteralPath (Join-Path $orgDash 'issue-dashboard-worker.js')) '...and the worker files copied in'
+Assert-True ($org.Text -like '*resource owner Acme*') 'it names the PAT the org worker needs'
+Assert-True ($org.Text -like '*wrangler whoami*') '...and says to check which Cloudflare account wrangler is logged in to'
+Assert-True ($org.Text -notlike "*$orgToken*") '...and never prints the token'
+$orgCd = @($org.Lines | Where-Object { $_ -match '^\s*cd\s' })
+Assert-True ($orgCd.Count -eq 1 -and $orgCd[0] -like "*org-acme*") 'the printed cd goes to the org dashboard directory'
+$orgAgain = Invoke-Dash $repo @('-Org', 'Acme', '-InitToken')
+Assert-True ($orgAgain.ExitCode -ne 0) 'a second -Org -InitToken refuses to replace its token'
+$repoAgain = Invoke-Dash $repo @('-EmitWorker')
+Assert-Equal 0 $repoAgain.ExitCode 'the repo dashboard still emits with an org dashboard beside it'
+Assert-True ($repoAgain.Text -notmatch '(?i)warning') '...without a warning'
+[System.IO.File]::AppendAllText((Join-Path $orgDash 'wrangler.toml'), "`nGITHUB_REPO = `"acme/widgets`"`n", $Utf8NoBom)
+$orgBoth = Invoke-Dash $repo @('-Org', 'Acme', '-EmitWorker')
+Assert-True ($orgBoth.Text -like '*sets GITHUB_REPO as well as GITHUB_ORG*') 'an org wrangler.toml that also sets GITHUB_REPO is warned about'
+$badOrg = Invoke-Dash $repo @('-Org', 'not/a-login', '-InitToken')
+Assert-True ($badOrg.ExitCode -ne 0) 'an -Org that is not a GitHub login is refused'
+Assert-True ($badOrg.Text -like '*not a GitHub login*') '...saying why'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $repo 'dkj-policy\dashboard\org-not'))) '...before anything is written'
 
 # The stray-token search: a renamed dkj-policy folder leaves the gitignored token behind.
 $repo4 = New-DashRepo 'repo4' $cfg

@@ -1,31 +1,36 @@
 // The issue dashboard's logic -- a PURE ES module: no I/O, no Workers globals, no dependencies.
 //
-// Issue #2643. It turns three plain-JSON reads of a repo (open issues, open PRs, branch names) into
-// the rows the dashboard shows: a status per issue and a pick-up order derived from blocked-by
-// dependencies. It is kept apart from the worker so it runs under plain `node` against fixtures.
+// Issue #2643. It turns three plain-JSON reads (open issues, open PRs, branch names) into the rows
+// the dashboard shows: a status per issue and a pick-up order derived from blocked-by dependencies.
+// It is kept apart from the worker so it runs under plain `node` against fixtures.
+//
+// ONE REPO OR A WHOLE OWNER (issue #2649). In repo mode every item belongs to options.repo. In org mode
+// (options.org set) every item carries its own `repo`, and an issue is identified by repo AND number,
+// so a blocker in another repo of the same org is an ordinary edge rather than an external sink.
 //
 // EXPECTED INPUT (the shape of the GraphQL nodes, flattened by the worker):
 //   issue    { number, title, url, createdAt, labels:[name], assignees:[login],
 //              blockedBy:[{ number, state:"OPEN"|"CLOSED", repo:"owner/name" }],
-//              blockedByTruncated:bool }
-//   pr       { number, url, isDraft, closes:[issue number] }      (closes: in-repo issues only)
-//   branches [ "feat/12-some-name", "fix/7-x", ... ]              (short ref names)
-//   options  { repo:"owner/name" }   the repo's own name, so a blocker in another repo is recognised
+//              blockedByTruncated:bool, repo?:"owner/name" }         (repo defaults to options.repo)
+//   pr       { number, url, isDraft, closes:[number | {number, repo}], repo? }
+//   branches [ "feat/12-some-name" | { repo, name:"feat/12-some-name" }, ... ]   (short ref names)
+//   options  { repo:"owner/name" }  or  { org:"login" }
 //
-// OUTPUT { rows:[{ number, title, url, status, assignees, labels, blockers:[{number,repo,state}],
-//                  blocking:[number], prs:[{number,url,isDraft}], rank, cycle, externalBlocker }],
+// OUTPUT { rows:[{ number, repo, title, url, status, assignees, labels, blockers:[{number,repo,state}],
+//                  blocking:[{number,repo}], prs:[{number,url,isDraft}], rank, cycle, externalBlocker }],
 //          warnings:[string] }
 //
 // ORDER IS BY BLOCKERS ONLY. Priority labels and age are deliberately not read: ties between issues
-// that are equally ready fall back to the issue number, so the same input always gives the same page.
+// that are equally ready fall back to the issue number (then the repo name, in org mode), so the same
+// input always gives the same page.
 
 export const STATUSES = ["In review", "In progress", "Waiting", "Blocked", "Claimed", "Filed"];
 export const PARKING_LABELS = ["needs-info", "needs-decision", "awaiting-recurrence"];
 
 const BRANCH = /^(feat|fix|docs)\/(\d+)-/;
 
-const sameRepo = (a, b) => !!a && !!b && a.toLowerCase() === b.toLowerCase();
 const byNumber = (a, b) => a - b;
+const keyOf = (repo, number) => `${String(repo || "").toLowerCase()}#${Number(number)}`;
 
 // Issue numbers that have a <prefix>/<n>- branch.
 export function branchIssueNumbers(branches) {
@@ -47,10 +52,10 @@ export function deriveStatus(issue, prsFor, hasBranch) {
   return "Filed";
 }
 
-// Kahn's algorithm over `nodes` (issue numbers) with `blockersOf` (number -> Set of numbers that
-// must come first). Lowest number goes first among the ready ones. A cycle never stalls it: the
-// lowest-numbered member of the first cycle found is released, every member is flagged.
-export function orderByBlockers(nodes, blockersOf, cycleSet = new Set(), warnings = []) {
+// Kahn's algorithm over `nodes` with `blockersOf` (node -> Set of nodes that must come first). The
+// node `compare` puts first goes first among the ready ones. A cycle never stalls it: the first
+// member of the first cycle found is released, every member is flagged. `label` names a node in a warning.
+export function orderByBlockers(nodes, blockersOf, cycleSet = new Set(), warnings = [], compare = byNumber, label = (n) => "#" + n) {
   const remaining = new Set(nodes);
   const waitingOn = new Map(nodes.map((n) => [n, new Set([...(blockersOf.get(n) || [])].filter((b) => remaining.has(b)))]));
   const dependents = new Map(nodes.map((n) => [n, []]));
@@ -76,89 +81,111 @@ export function orderByBlockers(nodes, blockersOf, cycleSet = new Set(), warning
   };
 
   while (remaining.size) {
-    const ready = [...remaining].filter((n) => waitingOn.get(n).size === 0);
+    const ready = [...remaining].filter((n) => waitingOn.get(n).size === 0).sort(compare);
     if (ready.length) {
-      release(Math.min(...ready));
+      release(ready[0]);
       continue;
     }
     // Stalled: every remaining node waits on another remaining one. Find those on a cycle.
     const reaches = new Map([...remaining].map((n) => [n, reach(n)]));
-    const cyclic = [...remaining].filter((n) => reaches.get(n).has(n)).sort(byNumber);
+    const cyclic = [...remaining].filter((n) => reaches.get(n).has(n)).sort(compare);
     const lowest = cyclic[0];
     const members = cyclic.filter((n) => n === lowest || (reaches.get(lowest).has(n) && reaches.get(n).has(lowest)));
     members.forEach((n) => cycleSet.add(n));
-    warnings.push(`Circular blocked-by chain: ${members.map((n) => "#" + n).join(", ")}; ordered by issue number from #${lowest}.`);
+    warnings.push(`Circular blocked-by chain: ${members.map(label).join(", ")}; ordered by issue number from ${label(lowest)}.`);
     release(lowest);
   }
   return order;
 }
 
 export function deriveDashboard(issues, prs, branches, options = {}) {
-  const repo = options.repo || "";
+  const home = options.repo || "";
+  const orgMode = !!options.org;
   const warnings = [];
-  const open = new Map((issues || []).map((i) => [i.number, i]));
-  const withBranch = branchIssueNumbers(branches);
+
+  // Every issue is keyed on repo AND number; `ref` keeps the display form of each key.
+  const open = new Map();
+  const ref = new Map();
+  for (const i of issues || []) {
+    const repo = i.repo || home;
+    const k = keyOf(repo, i.number);
+    open.set(k, i);
+    ref.set(k, { number: i.number, repo });
+  }
+  const label = (k) => (orgMode ? `${ref.get(k).repo}#${ref.get(k).number}` : `#${ref.get(k).number}`);
+  const compare = (a, b) => ref.get(a).number - ref.get(b).number || (a < b ? -1 : a > b ? 1 : 0);
+
+  const withBranch = new Set();
+  for (const b of branches || []) {
+    const repo = typeof b === "string" ? home : b.repo;
+    const name = typeof b === "string" ? b : b.name;
+    for (const n of branchIssueNumbers([name])) withBranch.add(keyOf(repo, n));
+  }
 
   const prsByIssue = new Map();
   for (const pr of prs || []) {
-    for (const n of pr.closes || []) {
-      if (!prsByIssue.has(n)) prsByIssue.set(n, []);
-      prsByIssue.get(n).push({ number: pr.number, url: pr.url, isDraft: !!pr.isDraft });
+    for (const c of pr.closes || []) {
+      const k = typeof c === "number" ? keyOf(pr.repo || home, c) : keyOf(c.repo, c.number);
+      if (!prsByIssue.has(k)) prsByIssue.set(k, []);
+      prsByIssue.get(k).push({ number: pr.number, url: pr.url, isDraft: !!pr.isDraft });
     }
   }
 
-  // Edges: open in-repo blockers that are in the fetched set. An open blocker elsewhere, or in this
-  // repo but not fetched, makes the issue "external" -- and so does anything waiting on such an issue.
+  // Edges: open blockers that are in the fetched set. An open blocker anywhere else -- another owner,
+  // or a repo in scope whose issue was not fetched -- makes the issue "external", and so does anything
+  // waiting on such an issue.
   const blockersOf = new Map();
-  const blocking = new Map([...open.keys()].map((n) => [n, []]));
+  const blocking = new Map([...open.keys()].map((k) => [k, []]));
   const external = new Set();
-  for (const i of open.values()) {
+  for (const [k, i] of open) {
     const edges = new Set();
     for (const b of i.blockedBy || []) {
       if (b.state !== "OPEN") continue;
-      if (sameRepo(b.repo, repo) && open.has(b.number)) {
-        edges.add(b.number);
-        blocking.get(b.number).push(i.number);
+      const bk = keyOf(b.repo, b.number);
+      if (open.has(bk)) {
+        edges.add(bk);
+        blocking.get(bk).push(k);
       } else {
-        external.add(i.number);
+        external.add(k);
       }
     }
-    blockersOf.set(i.number, edges);
-    if (i.blockedByTruncated) warnings.push(`#${i.number} has more blockers than were fetched; its order may be too optimistic.`);
+    blockersOf.set(k, edges);
+    if (i.blockedByTruncated) warnings.push(`${label(k)} has more blockers than were fetched; its order may be too optimistic.`);
   }
   // Sinking is inherited: an issue behind a sunk issue cannot be picked up before it either.
   for (let grew = true; grew; ) {
     grew = false;
-    for (const [n, edges] of blockersOf) {
-      if (!external.has(n) && [...edges].some((b) => external.has(b))) { external.add(n); grew = true; }
+    for (const [k, edges] of blockersOf) {
+      if (!external.has(k) && [...edges].some((b) => external.has(b))) { external.add(k); grew = true; }
     }
   }
 
   const cycleSet = new Set();
-  const numbers = [...open.keys()].sort(byNumber);
-  const free = numbers.filter((n) => !external.has(n));
-  const sunk = numbers.filter((n) => external.has(n));
+  const keys = [...open.keys()].sort(compare);
+  const free = keys.filter((k) => !external.has(k));
+  const sunk = keys.filter((k) => external.has(k));
   const order = [
-    ...orderByBlockers(free, blockersOf, cycleSet, warnings),
-    ...orderByBlockers(sunk, blockersOf, cycleSet, warnings),
+    ...orderByBlockers(free, blockersOf, cycleSet, warnings, compare, label),
+    ...orderByBlockers(sunk, blockersOf, cycleSet, warnings, compare, label),
   ];
 
-  const rows = order.map((n, idx) => {
-    const i = open.get(n);
-    const linked = prsByIssue.get(n) || [];
+  const rows = order.map((k, idx) => {
+    const i = open.get(k);
+    const linked = prsByIssue.get(k) || [];
     return {
-      number: n,
+      number: i.number,
+      repo: ref.get(k).repo,
       title: i.title,
       url: i.url,
-      status: deriveStatus(i, linked, withBranch.has(n)),
+      status: deriveStatus(i, linked, withBranch.has(k)),
       assignees: i.assignees || [],
       labels: i.labels || [],
       blockers: (i.blockedBy || []).map((b) => ({ number: b.number, repo: b.repo, state: b.state })),
-      blocking: blocking.get(n).sort(byNumber),
+      blocking: blocking.get(k).sort(compare).map((d) => ({ ...ref.get(d) })),
       prs: linked,
       rank: idx + 1,
-      cycle: cycleSet.has(n),
-      externalBlocker: external.has(n),
+      cycle: cycleSet.has(k),
+      externalBlocker: external.has(k),
     };
   });
   return { rows, warnings };
