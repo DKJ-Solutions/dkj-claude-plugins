@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**9 / 12 minor entries** <!-- pending-tally -->
+**9 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/disable-dkj-policy-bwj · 20260930-223035Z
+
+`dkj-policy-bwj` is switched off in this repo's own `.claude/settings.json`, so only the core team and
+`dkj-policy` remain enabled here. Its ticket-handling chapter was the one part that applied to this repo,
+and it was not in use. An issue here is now filed with a plain `gh issue create`. The root `CLAUDE.md` no
+longer imports the bwj extension, which takes 1,558 B off the always-on path. The self-connector record
+drops the plugin's block. The plugin source and the permission it gives this repo are unchanged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. Only this repo's own settings and always-on path change. No consumer's installed plugins or
+shipped files change.
+
+**Score:** N/A
+
+#### Pull Request
+
+Disable dkj-policy-bwj in this repo's own settings
+
+[PR #2669](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2669)
+
+---
 
 ### DEPLOY: feat/disable-addon-teams · 20260930-215833Z
 
