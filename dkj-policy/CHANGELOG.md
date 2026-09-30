@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2649-dashboard-org-mode · 20260930-100945Z
+
+The dashboard worker and `issue-dashboard.ps1` gain an org mode. The logic now keys issues on repo and
+number, and its rows carry `repo`. `blocking` is now a list of `{number, repo}`, and nothing outside
+the worker reads it. Repo mode's pages, order and output are unchanged, and the suite pins that.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The issue dashboard can now cover a whole GitHub organization instead of one repository. Run
+`issue-dashboard.ps1 -Org <login> -InitToken -EmitWorker` once per organization. Each organization gets
+its own worker, token and directory, so several dashboards can be deployed from one checkout. A blocker
+in another repository of the same organization now orders normally instead of sinking to the bottom.
+Each organization needs a fine-grained PAT of its own, with that organization as resource owner. Setup
+is in [the `issue-dashboard` skill](../plugins/dkj-policy/skills/issue-dashboard/SKILL.md).
+
+**Score:** 3
+
+#### Pull Request
+
+The issue dashboard gains an org mode: one worker for every repo of a GitHub org
+
+Plugins: dkj-policy
+
+[PR #2650](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2650)
+
+---
 
 ### DEPLOY: fix/2647-dashboard-toml-backtick · 20260930-090915Z
 
