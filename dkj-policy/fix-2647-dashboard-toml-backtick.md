@@ -39,19 +39,37 @@
 
 ### PLAN
 
+The first real deploy of the issue dashboard (#2643) failed: wrangler refused the generated
+`wrangler.toml` (`illegal character in key`, line 11). The secrets comment sits in an expandable
+here-string, and its Markdown backticks around `npx` made `` `n `` a newline escape.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Drop the backticks from the secrets comment in `issue-dashboard.ps1` and its plugin mirror (kept byte-identical)
+- [x] Suite assert: every emitted `wrangler.toml` line is blank, a comment, a `[table]` or a `key = value`
 
 ### TEST
 
+- [x] `issue-dashboard.tests.ps1` against the unfixed script: the new assert fails on the stray `px wrangler secret put` line (328 pass, 1 fail)
+- [x] The same suite against the fix: 329 pass, 0 fail
+
 ### DEPLOY: fix/2647-dashboard-toml-backtick
 
-**Score:**
+`issue-dashboard.ps1 -EmitWorker` now writes a `wrangler.toml` that wrangler accepts. A PowerShell
+escape had split one comment line and left a bare `px wrangler ...` line in the file. The suite now
+checks every line of the emitted file, so this class of break is caught before the file reaches wrangler.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The issue dashboard can now actually be deployed. Until now, a first `npx wrangler deploy` of the
+dashboard stopped with `Invalid TOML document: illegal character in key`. A `wrangler.toml` written
+by the old version stays broken, because the script never rewrites it. In that file, put `#` back at
+the start of the line that begins with `px wrangler secret put`, or delete the file and re-run
+`-EmitWorker`.
+
+**Score:** 3
 
 #### Pull Request
 

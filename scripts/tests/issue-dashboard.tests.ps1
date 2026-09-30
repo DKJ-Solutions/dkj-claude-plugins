@@ -722,6 +722,10 @@ Assert-True ($toml -notmatch '(?m)^\s*(GITHUB_TOKEN|DASHBOARD_TOKEN)\s*=') '...a
 Assert-True ($toml -notmatch $token) '...and never the path token'
 Assert-True ($toml -notmatch '(?m)^\s*account_id') '...and no account id'
 Assert-True ($toml -match '(?m)^\[observability\]\s*\r?\nenabled = false\s*$') '...and [observability] enabled = false, because request URLs carry the token and Workers Logs would record them'
+# Every line is blank, a comment, a table header or a key = value: a backtick-n in the expandable
+# here-string once broke a comment and left a bare 'px wrangler ...' line that wrangler refuses (#2647).
+$strayTomlLines = @(($toml -split '\r?\n') | Where-Object { $_ -notmatch '^\s*($|#|\[[A-Za-z0-9_.-]+\]\s*$|[A-Za-z0-9_-]+\s*=\s*\S)' })
+Assert-Equal 0 $strayTomlLines.Count "...and every line is valid TOML shape (blank, comment, [table] or key = value); stray: $($strayTomlLines -join ' | ')"
 
 Assert-True ($emit.Text -like '*npx wrangler secret put GITHUB_TOKEN*')    'it prints the GITHUB_TOKEN secret command'
 Assert-True ($emit.Text -like '*npx wrangler secret put DASHBOARD_TOKEN*') '...the DASHBOARD_TOKEN secret command'

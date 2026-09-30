@@ -294,7 +294,7 @@ workers_dev = true
 [observability]
 enabled = false
 
-# GITHUB_TOKEN and DASHBOARD_TOKEN are SECRETS: set them with `npx wrangler secret put`, never here.
+# GITHUB_TOKEN and DASHBOARD_TOKEN are SECRETS: set them with 'npx wrangler secret put', never here.
 [vars]
 GITHUB_REPO = "$repoSlug"
 
