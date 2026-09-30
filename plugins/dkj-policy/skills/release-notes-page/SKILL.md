@@ -207,6 +207,9 @@ cd <note root>/../page
 npx wrangler deploy
 ```
 
+On Windows `build-release-notes-page.ps1` prints `npx.cmd` instead of `npx`: in PowerShell `npx` resolves to node's `npx.ps1`, which the default
+execution policy refuses to load (#2651).
+
 **Verify a redeploy against the bytes the URL serves, never against the deploy command's output.**
 Measured in the consumer this was ported from: once wrangler has created a deployment on a worker, an
 API-side upload only creates **inactive versions** — with no error, while the live page stays the old

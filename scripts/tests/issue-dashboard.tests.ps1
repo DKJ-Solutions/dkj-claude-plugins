@@ -870,13 +870,18 @@ Assert-True ($toml -match '(?m)^\[observability\]\s*\r?\nenabled = false\s*$') '
 $strayTomlLines = @(($toml -split '\r?\n') | Where-Object { $_ -notmatch '^\s*($|#|\[[A-Za-z0-9_.-]+\]\s*$|[A-Za-z0-9_-]+\s*=\s*\S)' })
 Assert-Equal 0 $strayTomlLines.Count "...and every line is valid TOML shape (blank, comment, [table] or key = value); stray: $($strayTomlLines -join ' | ')"
 
-Assert-True ($emit.Text -like '*npx wrangler secret put GITHUB_TOKEN*')    'it prints the GITHUB_TOKEN secret command'
-Assert-True ($emit.Text -like '*npx wrangler secret put DASHBOARD_TOKEN*') '...the DASHBOARD_TOKEN secret command'
-Assert-True ($emit.Text -like '*npx wrangler deploy*')                     '...and the deploy command'
+# npx.cmd on Windows, where 'npx' resolves to npx.ps1 and the default execution policy blocks it (#2651).
+$npx = if ($env:OS -eq 'Windows_NT') { 'npx.cmd' } else { 'npx' }
+Assert-True ($emit.Text -like "*$npx wrangler secret put GITHUB_TOKEN*")    "it prints the GITHUB_TOKEN secret command, as $npx"
+Assert-True ($emit.Text -like "*$npx wrangler secret put DASHBOARD_TOKEN*") '...the DASHBOARD_TOKEN secret command'
+Assert-True ($emit.Text -like "*$npx wrangler deploy*")                     '...and the deploy command'
+if ($env:OS -eq 'Windows_NT') {
+    Assert-Equal 0 @($emit.Lines | Where-Object { $_ -match '(^|[\s''])npx wrangler' }).Count '...and on Windows no line names the bare npx the execution policy blocks'
+}
 $cdLine = @($emit.Lines | Where-Object { $_ -match '^\s*cd\s' })
 Assert-Equal 1 $cdLine.Count 'it prints one cd line, so wrangler runs from the dashboard directory (#2581)'
 Assert-True ($cdLine[0] -like "*$dash*") '...to that directory, not the repo root'
-$cmdLines = @($emit.Lines | Where-Object { $_ -match '^\s*(cd |npx )' })
+$cmdLines = @($emit.Lines | Where-Object { $_ -match '^\s*(cd |npx(\.cmd)? )' })
 Assert-Equal 4 $cmdLines.Count 'the printed commands are cd + two secret puts + deploy'
 Assert-Equal 0 @($cmdLines | Where-Object { $_.Contains($token) }).Count 'no command line contains the token'
 Assert-Equal 0 @($emit.Lines | Where-Object { $_ -match 'wrangler' -and $_.Contains($token) }).Count '...and no line mentioning wrangler does'

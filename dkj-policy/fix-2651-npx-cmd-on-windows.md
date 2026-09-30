@@ -74,8 +74,8 @@ under the default execution policy. The deploy step prints on its own line and i
 #### What makes this deploy extra special
 
 Whoever deploys one of these pages from Windows PowerShell can paste the printed commands as they are,
-where before each one failed with *"running scripts is disabled on this system"* until they typed
-`npx.cmd` by hand.
+where before each one failed, either as a blocked script (*"running scripts is disabled on this
+system"*) or, for the joined `Next:` line, as a parse error on `&&`.
 
 **Score:** 2
 
