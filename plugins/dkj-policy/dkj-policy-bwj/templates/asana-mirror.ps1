@@ -145,7 +145,7 @@
     headings English while the analysis under them follows whoever filed the ticket.
 
     The pure helpers (Resolve-AsanaTaskRef, Get-AsanaTaskGid, Get-AsanaGidsFromText,
-    New-MirrorComment, New-MirrorCommentHtml, Get-MirrorCommentMarker, Get-MirrorCommentHeader, New-AsanaCommentRequest, Get-IssueRefFromNotes,
+    New-MirrorComment, New-MirrorCommentHtml, Get-MirrorCommentParts, Get-MirrorCommentMarker, Get-MirrorCommentHeader, New-AsanaCommentRequest, Get-IssueRefFromNotes,
     Get-AsanaPasteBlockMarker, Get-AsanaPasteBlockLead, New-AsanaPasteBlockComment,
     Get-StageFromSectionName, Select-StageMembership, Get-DefaultAsanaStageMap, Get-StageMapNumbers,
     Get-WritableStages, Test-StageIsWritable, Test-StageIsTerminal, Test-AsanaStageMap,
@@ -425,7 +425,7 @@ function Get-MirrorCommentMarker {
 
 function Get-MirrorCommentHeader {
     <#
-        The first line of every comment this workflow writes to Asana, one per event. Pure.
+        The first line of every comment this workflow writes to Asana, the same for every event. Pure.
 
         Asana shows a comment as written by the account whose token posted it, and ASANA_PAT belongs
         to a person -- so without this line a colleague reads the update as that person's own words
@@ -433,38 +433,57 @@ function Get-MirrorCommentHeader {
         place of it: Test-MirrorUpdatePosted matches the marker as a substring, so comments written
         before this header existed and comments written after it de-duplicate alike.
 
-        THE WORDING IS THE REQUESTER'S, WORD FOR WORD (#2656): an em dash, then 'GitHub automation: Issue <EVENT>'.
-        'created' is never posted by this script -- report-issue's session posts it when an issue is
-        made from an existing Asana task -- but it is composed here too, so dkj-policy-bwj.tests.ps1
-        can hold the skill's copy of the form equal to this one.
+        THE WORDING IS THE REQUESTER'S, WORD FOR WORD (#2656): an em dash, 'GitHub automation', and the
+        robot emoji U+1F916 -- composed from code points, because the script layer is ASCII.
     #>
-    param([Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event)
-
-    return "$([char]0x2014) GitHub automation: Issue $($Event.ToUpperInvariant())"
+    return "$([char]0x2014) GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
 }
 
-function New-MirrorComment {
+function Get-MirrorCommentParts {
     <#
-        The comment text for one event, as plain text. Pure -- no network.
+        The sentence of one event's comment, in its three parts: the issue name, the bold verb (with
+        its colon), and the rest. Pure. New-MirrorComment joins them as plain text and
+        New-MirrorCommentHtml as html_text, so the two can never disagree about the wording.
 
-        Two lines and a blank between them, in the requester's exact form (#2656): the event header,
-        then one sentence naming the issue as 'owner/repo#<n>'. New-MirrorCommentHtml turns that name
-        into the link, which is how the comment is posted.
-
-        'created'  the issue exists and the Asana task is now in development -- report-issue's form.
+        'created'  the issue exists and the Asana task is now in development. This script never posts
+                   it -- report-issue's session does, when an issue is made from an existing Asana
+                   task -- but it is composed here so dkj-policy-bwj.tests.ps1 can hold the skill's
+                   copy of the form equal to this one.
         'closed'   the work behind the ticket is built and ready to test.
         'reopened' the Asana task is back in development.
 
         -StateReason 'not_planned' turns the close update into its opposite: nothing was built, so
         asking somebody to test it would be worse than saying nothing. #2656 names no form for it, so
-        it keeps the closed header and the sentence shape and says what actually happened.
+        it keeps the shape and says what actually happened.
 
-        The pull request list and the 'tick it off yourself' line the close update used to carry are
-        gone because the requester's form has neither. No text here claims the ticket is done: this
-        script has no say over when a ticket is resolved, and it still never completes the task.
+        The sentence always opens 'GitHub issue <ref> is closed' on a close -- Get-MirrorCommentMarker,
+        unchanged -- so the sweeps' de-duplication still finds it: Asana stores the plain text of an
+        html_text comment, link and bold included.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event,
+        [string]$StateReason = ''
+    )
 
-        The close sentence opens with Get-MirrorCommentMarker unchanged, so the sweeps' de-duplication
-        still finds it -- Asana stores the plain text of an html_text comment, link text included.
+    switch ($Event) {
+        'created'  { return @{ Verb = 'created:';  Rest = 'this Asana task is now in development.' } }
+        'reopened' { return @{ Verb = 'reopened:'; Rest = 'this Asana task is back in development.' } }
+        'closed'   {
+            if ($StateReason -eq 'not_planned') {
+                return @{ Verb = 'closed as not planned:'; Rest = 'nothing behind this ticket is going to be built, so there is nothing to test.' }
+            }
+            return @{ Verb = 'closed:'; Rest = 'the work behind this ticket is built and ready to test.' }
+        }
+    }
+}
+
+function New-MirrorComment {
+    <#
+        The comment text for one event, as plain text -- what Asana stores and the sweeps read. Pure.
+
+        The requester's form (#2656): the header, a blank line, then one sentence naming the issue as
+        'owner/repo#<n>'. New-MirrorCommentHtml is how it is posted: the name as the link, the verb bold.
+        No text here claims the ticket is done: this script never completes the task.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
@@ -472,29 +491,18 @@ function New-MirrorComment {
         [string]$StateReason = ''
     )
 
-    $sentence = switch ($Event) {
-        'created'  { "GitHub issue $IssueRef is created: this Asana task is now in development." }
-        'reopened' { "GitHub issue $IssueRef is reopened: this Asana task is back in development." }
-        'closed'   {
-            $marker = Get-MirrorCommentMarker -IssueRef $IssueRef
-            if ($StateReason -eq 'not_planned') {
-                "$marker as not planned: nothing behind this ticket is going to be built, so there is nothing to test."
-            } else {
-                "$marker`: the work behind this ticket is built and ready to test."
-            }
-        }
-    }
-    return (@((Get-MirrorCommentHeader -Event $Event), '', $sentence) -join "`n")
+    $p = Get-MirrorCommentParts -Event $Event -StateReason $StateReason
+    return (@((Get-MirrorCommentHeader), '', "GitHub issue $IssueRef is $($p.Verb) $($p.Rest)") -join "`n")
 }
 
 function New-MirrorCommentHtml {
     <#
-        The same comment as Asana html_text, with 'owner/repo#<n>' as a link to the issue -- the
-        requester's form (#2656) shows it as one. Plain, not italic: #2656 dropped the italics. Pure -- no network.
+        The same comment as Asana html_text: 'owner/repo#<n>' as a link to the issue and the verb in
+        bold, as the requester's form (#2656) shows them. Pure -- no network.
 
-        The only elements used are <body> and <a>, all on Asana's allow-list for a story. The
-        text is XML-escaped before the link goes in, because the body must be well-formed XML or the
-        API answers 400 and the colleague is told nothing.
+        The only elements used are <body>, <a> and <strong>, all on Asana's allow-list for a story.
+        Every piece of text is XML-escaped, because the body must be well-formed XML or the API
+        answers 400 and the colleague is told nothing.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
@@ -502,13 +510,11 @@ function New-MirrorCommentHtml {
         [string]$StateReason = ''
     )
 
+    $esc   = { param($s) [System.Security.SecurityElement]::Escape([string]$s) }
     $parts = $IssueRef -split '#'
     $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    $text  = New-MirrorComment -IssueRef $IssueRef -Event $Event -StateReason $StateReason
-    $ref   = [System.Security.SecurityElement]::Escape($IssueRef)
-    $html  = [System.Security.SecurityElement]::Escape($text).Replace(
-                 "GitHub issue $ref ", "GitHub issue <a href=`"$([System.Security.SecurityElement]::Escape($url))`">$ref</a> ")
-    return "<body>$html</body>"
+    $p     = Get-MirrorCommentParts -Event $Event -StateReason $StateReason
+    return "<body>$(& $esc (Get-MirrorCommentHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is <strong>$(& $esc $p.Verb)</strong> $(& $esc $p.Rest)</body>"
 }
 
 function Get-AsanaPasteBlockMarker {

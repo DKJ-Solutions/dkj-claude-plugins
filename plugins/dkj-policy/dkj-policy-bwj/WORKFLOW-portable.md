@@ -242,12 +242,12 @@ link is prepended as the first line of its description, as `Tracked on GitHub: <
 colleague's own text left untouched below it. And one comment goes on the task, in exactly this form:
 
 ```text
-— GitHub automation: Issue CREATED
+— GitHub automation 🤖
 
 GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in development.
 ```
 
-Only the issue name varies, and it is posted as the link to the issue. It is the first of
+Only the issue name varies. It is posted as the link to the issue, with **created:** in bold. It is the first of
 **three fixed forms, one per event** -- the CI mirror posts the other two, CLOSED and REOPENED, in
 [step 4](#4-write-the-paste-ready-block-then-close-the-github-issue---the-asana-task-gets-an-update)
 -- and all three are English on every board. They are the one exception to the rule that what a
@@ -302,10 +302,10 @@ text to say otherwise.
 - **A session** writes the line in the colleague's language, [as everything addressed to them
   is](#2-then-asana----a-translation-not-a-copy), and it names both facts: automated, and not written
   by the account holder personally. The comment `report-issue` posts on an Asana-origin ticket is the
-  exception: its header is fixed as *"— GitHub automation: Issue CREATED"* (#2656). The content
+  exception: its header is fixed as *"— GitHub automation 🤖"* (#2656). The content
   comes after the header and never before.
 - **The CI mirror** opens every update with `Get-MirrorCommentHeader`, which composes the event's
-  fixed header -- *"— GitHub automation: Issue CLOSED"* or *"— GitHub automation: Issue REOPENED"*
+  fixed header -- *"— GitHub automation 🤖"*, the same for every event
   (#2656) -- above the marker sentence step 4's de-duplication reads. The header sits above the marker
   and does not replace it, so updates written before the header existed still de-duplicate.
 
@@ -375,9 +375,8 @@ GitHub Actions workflow in the repo (`.github/workflows/asana-mirror.yml`, copie
 | daily schedule | a reconciliation sweep in **both** directions, for events that never arrived: open tasks in the mirror project whose GitHub issue is closed, and issues closed in the last 30 days whose task has not been told yet |
 
 **Each comment is the requester's fixed form, word for word**
-([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656)): the event's header line
-*"— GitHub automation: Issue CLOSED"* or *"— GitHub automation: Issue REOPENED"*, a blank line, and
-one sentence. It is posted as `html_text`, with the issue name as the link. The CREATED form is
+([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656)): the header line
+*"— GitHub automation 🤖"*, a blank line, and one sentence, the same header for every event. It is posted as `html_text`, with the issue name as the link and the verb (**closed:**, **reopened:**) in bold. The CREATED form is
 the third of the set, and `report-issue` posts it in step 2. The close update no longer lists the pull
 request that closed the issue, and it no longer carries the *"tick it off yourself"* line, because the
 form has neither. The pull request is still one click away on the issue.

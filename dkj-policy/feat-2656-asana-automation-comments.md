@@ -61,7 +61,7 @@ literally.
 
 ### CREATE
 
-- [x] `asana-mirror.ps1`: `Get-MirrorCommentHeader -Event`, `New-MirrorComment` in the three forms,
+- [x] `asana-mirror.ps1`: `Get-MirrorCommentHeader`, `Get-MirrorCommentParts`, `New-MirrorComment` in the three forms,
       `New-MirrorCommentHtml`, and `New-AsanaCommentRequest -Html`. Both comment writers now post html.
 - [x] `report-issue` step 2 carries the CREATED form and how to post it
 - [x] WORKFLOW-portable (the step-2 form, the header rule, the step-4 event table, the reopen
@@ -78,7 +78,7 @@ literally.
 ### DEPLOY: feat/2656-asana-automation-comments
 
 The three automated Asana comments of the BWJ ticket flow (issue created, closed, reopened) now use fixed forms, with the
-issue as a link: *"— GitHub automation: Issue CREATED / CLOSED / REOPENED"* and one sentence. The
+issue as a link: *"— GitHub automation 🤖"* and one sentence, its verb (created, closed, reopened) in bold. The
 close update no longer lists the closing pull request, and a reopen now says the task is back in
 development.
 

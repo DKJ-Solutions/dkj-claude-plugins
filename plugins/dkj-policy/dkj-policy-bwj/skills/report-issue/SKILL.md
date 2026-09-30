@@ -221,16 +221,16 @@ they chased it in the one place that had no answer.
    URL filled in:
 
    ```text
-   — GitHub automation: Issue CREATED
+   — GitHub automation 🤖
 
    GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in development.
    ```
 
-   Post it as `html_text`, plain rather than italic, with the issue name as the link, the way the CI mirror posts its
+   Post it as `html_text`, with the issue name as the link and **created:** in bold, the way the CI mirror posts its
    own two forms:
-   `<body>— GitHub automation: Issue CREATED` + two newlines + `GitHub issue <a href="<issue URL>"><owner>/<repo>#<n></a> is created: this Asana task is now in development.</body>`.
+   `<body>— GitHub automation 🤖` + two newlines + `GitHub issue <a href="<issue URL>"><owner>/<repo>#<n></a> is <strong>created:</strong> this Asana task is now in development.</body>`.
 
-   It is the first of three fixed forms, one per event. The CI mirror posts the CLOSED and REOPENED
+   It is the first of three fixed forms, one per event, all under the same header. The CI mirror posts the CLOSED and REOPENED
    forms ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), superseding
    #2653's wording). The form is fixed and English on every board, whatever language the card is
    written in, and `dkj-policy-bwj.tests.ps1` holds this copy equal to the one `asana-mirror.ps1`
