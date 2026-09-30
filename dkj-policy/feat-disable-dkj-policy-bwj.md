@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Dave, October 1, 2026, the day after #2668: he set `dkj-policy-bwj` to `false` in `.claude/settings.json`
+himself, because its ticket-handling chapter is not used here either. This branch carries that edit and
+everything that depends on it. An Explore pass mapped the dependencies first. Only one gate breaks (the
+connector self-manifest), and `adopt-dkj-policy-bwj` was never run here.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.claude/settings.json`: Dave's edit carried over (`dkj-policy-bwj` set to `false`), with the trailing
+  whitespace and the missing final newline tidied
+- [x] Root `CLAUDE.md`: the `@`-import of the bwj extension removed, because the constitution has a repo
+  import it only where it is installed
+- [x] `connectors/dkj-claude-plugins.json`: the bwj block removed and a dated note added, so
+  `connectors.tests.ps1` case 6 stays green
+- [x] Docs brought in line: `this-repo.md`, `SPECIALISTS.md`, Sylvester's lens and `.claude/specialists/UPDATE`
 
 ### TEST
 
+- [x] The four gates run locally
+- [x] `open-pr` runs the lint gate, all suites and the always-on budget gate, which lowers the baseline by
+  the removed import
+
 ### DEPLOY: feat/disable-dkj-policy-bwj
 
-**Score:**
+`dkj-policy-bwj` is switched off in this repo's own `.claude/settings.json`, so only the core team and
+`dkj-policy` remain enabled here. Its ticket-handling chapter was the one part that applied to this repo,
+and it was not in use. An issue here is now filed with a plain `gh issue create`. The root `CLAUDE.md` no
+longer imports the bwj extension, which takes 1,558 B off the always-on path. The self-connector record
+drops the plugin's block. The plugin source and the permission it gives this repo are unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. Only this repo's own settings and always-on path change. No consumer's installed plugins or
+shipped files change.
+
+**Score:** N/A
 
 #### Pull Request
 

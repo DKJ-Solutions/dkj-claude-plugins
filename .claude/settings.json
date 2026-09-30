@@ -39,7 +39,6 @@
       "PowerShell(git rm:*)",
       "PowerShell(git tag:*)",
       "PowerShell(git stash:*)",
-
       "Bash(gh pr:*)",
       "Bash(gh issue:*)",
       "Bash(gh run:*)",
@@ -52,21 +51,17 @@
       "PowerShell(gh label:*)",
       "PowerShell(gh workflow:*)",
       "PowerShell(gh repo view:*)",
-
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File scripts/:*)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"scripts/:*)",
       "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File \"scripts/release/cut-release.ps1\"*)",
-      
       "Bash(./scripts/:*)",
       "Bash(./scripts/release/cut-release.ps1*)",
       "Bash(./scripts/release/publish-to-business.ps1*)",
       "Bash(./scripts/release/ship-pr.ps1*)",
-
       "PowerShell(./scripts/:*)",
       "PowerShell(./scripts/release/cut-release.ps1*)",
       "PowerShell(./scripts/release/publish-to-business.ps1*)",
       "PowerShell(./scripts/release/ship-pr.ps1*)"
-      
     ]
   },
   "statusLine": {
@@ -75,12 +70,12 @@
     "refreshInterval": 2
   },
   "enabledPlugins": {
+    "dkj-policy@dkj-claude-plugins": true,
     "dkj-subagents-alpha@dkj-claude-plugins": true,
+    "dkj-policy-bwj@dkj-claude-plugins": false,
     "dkj-subagents-ecomm@dkj-claude-plugins": false,
     "dkj-subagents-lifehub@dkj-claude-plugins": false,
-    "dkj-subagents-shopify@dkj-claude-plugins": false,
-    "dkj-policy@dkj-claude-plugins": true,
-    "dkj-policy-bwj@dkj-claude-plugins": true
+    "dkj-subagents-shopify@dkj-claude-plugins": false
   },
   "extraKnownMarketplaces": {
     "dkj-claude-plugins": {

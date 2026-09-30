@@ -2167,8 +2167,8 @@ this repo's:
   the remedy and the reason a gate is the wrong answer, is in
   [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules);
   what is local is why it is met so often and what it costs here:
-  - **This repo consumes its own marketplace and names all six plugins in `enabledPlugins`** (three
-    `true`, three `false`), so plugin administration is
+  - **This repo consumes its own marketplace and names all six plugins in `enabledPlugins`** (two
+    `true`, four `false`), so plugin administration is
     routine maintenance rather than a one-off — the rename of #1698 alone needed nine commands.
   - **The grouping is deliberate authorship**, and it is what is lost: four labelled blocks in a
     60-entry list, gone in one command, quietly.
@@ -2310,7 +2310,7 @@ was folded into [`SPECIALISTS.md`](../SPECIALISTS.md): it is a procedure about t
 
 
 **This repo consumes itself**, so the system a session here runs is the *installed* copy, not the tree
-you are standing in. [`settings.json`](../../settings.json) enables three of the marketplace's six
+you are standing in. [`settings.json`](../../settings.json) enables two of the marketplace's six
 plugins ([which, and why](#the-plugins-enabled-here-and-what-that-costs)) from a `github` marketplace
 source pointing at this repo itself, as [the seam section of Tessa's lens](specialist-06-16-lens.md#the-seam-and-the-two-kinds-of-lens) records.
 That is what makes the update a step of its own rather than something a merge does for you, and the
@@ -2335,7 +2335,6 @@ enabled plugin:
 claude plugin marketplace update dkj-claude-plugins                            # 1. refresh the clone
 claude plugin update dkj-subagents-alpha@dkj-claude-plugins --scope project         # 2. then update, per plugin
 claude plugin update dkj-policy@dkj-claude-plugins --scope project
-claude plugin update dkj-policy-bwj@dkj-claude-plugins --scope project
 ```
 
 **The set step 2 walks is [`settings.json`](../../settings.json)'s own, and a plugin left off it simply
@@ -2423,28 +2422,30 @@ Moved here from `.claude/rules/this-repo.md` under
 [#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the rule keeps the one-line
 fact of which plugins are enabled, and this is the harness consequence behind it.
 
-**Three of the six are enabled, and the three add-on teams are set to `false`** (Dave, September 30,
-2026). From September 8 to September 30 all six were on, for validation (see below). **`false`, not
-absent, and that is load-bearing**: the harness and every check here read the settings chain user file →
+**Two of the six are enabled: the core team and `dkj-policy`.** The three add-on teams are set to
+`false` since September 30, 2026, and `dkj-policy-bwj` since October 1 (both Dave). From September 8 to
+September 30 all six were on, for validation (see below). **`false`, not absent, and that is
+load-bearing**: the harness and every check here read the settings chain user file →
 `.claude/settings.json` → `settings.local.json`, and the last layer that names a plugin wins
 (`Get-EnabledPlugins`, `scripts/lib/check-report-lib.ps1`). A machine's own `~/.claude/settings.json` can
-enable an add-on team, and a deleted key would let it through. The same change removed their blocks from
+enable any of them, and a deleted key would let it through. Each change removed the plugins' blocks from
 [`connectors/dkj-claude-plugins.json`](../../../connectors/dkj-claude-plugins.json), because
-`connectors.tests.ps1`'s self-manifest case fails on a registered plugin that is not enabled. It also
-removed their 11 empty lenses and roster rows, which would otherwise print an `[ORPHANS]` line at every
-session start.
+`connectors.tests.ps1`'s self-manifest case fails on a registered plugin that is not enabled. The first
+also removed the add-on teams' 11 empty lenses and roster rows, which would otherwise print an
+`[ORPHANS]` line at every session start. The second removed the root `CLAUDE.md`'s `@`-import of the
+bwj extension, because the constitution has a repo import that extension only where it is installed.
 
-**Only two of the six describe this repo outright, and a third does in one chapter of four.** The core
-team and `dkj-policy` are the two with real work here; the three add-on teams have none — this repo is
-not a webshop, not a Shopify store and not a personal-life repo. `dkj-policy-bwj` used to sit beside
-them on the same ground ("not a BWJ store"), and three of its four chapters still do: the sync log, the
-preview handover and the theme lifecycle are all about a Shopify store, and this repo has none. **Its
-ticket-handling chapter is the exception, since Dave admitted this repo as a third permitted target at
-`report-issue`'s and `adopt-dkj-policy-bwj`'s own gate, September 14, 2026** (commit `b9b2a65a`) — so a
-finding filed here can use that chapter's GitHub-first, Asana-mirrored procedure instead of a plain
-`gh issue create`. Its portable law pages state that reach per chapter — three repos for ticket
-handling, two for the other three — closing
-[#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982).
+**Only two of the six describe this repo outright.** The core team and `dkj-policy` are the two with real
+work here; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a
+personal-life repo. Three of `dkj-policy-bwj`'s four chapters are about a Shopify store too. **Its
+ticket-handling chapter admits this repo as a third permitted target** at `report-issue`'s and
+`adopt-dkj-policy-bwj`'s own gate (Dave, September 14, 2026, commit `b9b2a65a`; the per-chapter reach
+closed [#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982)). That permission stays
+in the plugin source. **This repo does not use it since October 1**, when the plugin was switched off
+here, and an issue here is filed with a plain `gh issue create`, carrying the `prio-N` label and, where
+it applies, `minor` ([Chris's lens](specialist-01-01-lens.md)). `adopt-dkj-policy-bwj` was never run
+here, so no Asana seam and no `asana-mirror` workflow had to be removed. To use that chapter again, set
+the plugin to `true`, restore the import and the connector block, and run `adopt-dkj-policy-bwj`.
 
 **Why they were on, and why they are off.** From September 8 the three add-on teams were enabled so that
 the repo that ships a plugin is also a repo that loads it: an agent def, a manifest, a frontmatter or a
