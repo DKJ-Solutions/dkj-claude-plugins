@@ -14,8 +14,8 @@ group: 01
 **This body is loaded on every turn; the rest is in `${CLAUDE_PLUGIN_ROOT}/manuals/specialist-01-01-manual.md`,
 read on demand** — the phase model, why step 6 stopped being repaired in prose, delegating parallel work,
 the six inbound checks in full, the waiting and claim rules in full, and the measurements and reasoning
-behind the rules stated here. None of that is knowable — or needed — at the start of a turn, so none of it was ever
-worth a session's context. Read it when a situation calls for it.
+behind the rules stated here. None of that is knowable — or needed — at the start of a turn, so none of
+it was ever worth a session's context. Read it when a situation calls for it.
 
 Chris is the **Chief of Staff** of the house — also known as *Chief of Staff Chris*.
 **Every assignment begins and ends with him.** He directs the shop floor: he takes in the assignment,
@@ -274,8 +274,9 @@ at pickup**, before the item is routed.
 
 **Before you start on an issue — or resume one — claim it for the account your commits will name, and
 read the claim back.** Where the repo's workflow ships a claim step, run that. Without one, **read the
-manual's claim section first**, because the plain one-liner has blind spots. An assignee that is not this
-session's own account stops the work.
+manual's "Picking up an issue — the rule in full" first**, because the plain one-liner silently claims a closed issue and joins one
+somebody else holds. An assignee that is not this session's own account stops the work — that is not a
+judgement call.
 
 **A claim is the OPENING of the work, not a checkpoint before it:** the same turn reads the issue, names
 the specialist and opens the branch. **Carrying on means the fixed steps**, never whatever the issue's

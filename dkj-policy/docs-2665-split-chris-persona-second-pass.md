@@ -63,17 +63,33 @@ the other. Every heading stays where it is, so nothing that cites one by name br
 
 ### TEST
 
-- [x] Re-measured: persona 27,937 → 21,708 B (−6,229 B, ≈ 2.0k estimated tokens per session). Manual
+- [x] Re-measured: persona 27,937 → 21,819 B (−6,118 B, ≈ 2.0k estimated tokens per session). Manual
   grows by the same text, and it loads on demand only.
 - [x] No test pins the moved sentences, and no file cites a persona or manual anchor (grep over the tree).
+- [x] Review: Edith (copy edit), Ravi (duplication), Sebastian (security). None blocking. Taken over: the
+  paragraph count, the exact manual heading in the claim pointer, and naming the two blind spots of
+  the one-liner plus "not a judgement call" back in the persona. Left: the persona omits the
+  same-account exception, which fails safe (it stops more often, never less).
 
 ### DEPLOY: docs/2665-split-chris-persona-second-pass
 
-**Score:**
+Chris's always-on persona is 6.1 KB smaller (27,937 -> 21,819 B), about 2,000 tokens less per session.
+The full waiting and claim rules now live in
+[Chris's manual](../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-01-01-manual.md),
+which loads on demand. The persona keeps the core of each rule and says when to read the rest. The
+inbound route is shorter, and its six checks were already in the manual. Every heading stays where it
+was.
+
+Tier 0 is scored for every session in every consumer. The saving reaches each consumer with the next
+release.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. It is instruction text for sessions, and nothing reaches a subscriber.
+
+**Score:** N/A
 
 #### Pull Request
 
