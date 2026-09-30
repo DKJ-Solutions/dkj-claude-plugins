@@ -18,12 +18,13 @@ them, and this file points there
 - **The home repo of one product** — the Claude Specialists system — and the **single source of truth**
   for every shareable subagent definition. One product, one repository, one marketplace, and lockstep
   versioning *within* it is correct: [Tessa's lens](../specialists/lenses/specialist-06-16-lens.md#one-product-one-repository).
-- **It consumes itself, with three of the six plugins enabled** in
-  [`.claude/settings.json`](../settings.json): the core team, `dkj-policy`, and `dkj-policy-bwj` for its
-  ticket-handling chapter. The three add-on teams are set to `false` (Dave, September 30, 2026), which
-  reverses the September 8 choice to enable every plugin for validation, because none of them has work
-  here. The roster is in [`SPECIALISTS.md`](../specialists/SPECIALISTS.md); what that choice cost, and
-  why the add-on teams are `false` rather than absent, is in
+- **It consumes itself, with two of the six plugins enabled** in
+  [`.claude/settings.json`](../settings.json): the core team and `dkj-policy`. The three add-on teams
+  (Dave, September 30, 2026) and `dkj-policy-bwj` (October 1) are set to `false`. That reverses the
+  September 8 choice to enable every plugin for validation, because none of the four has work here, so
+  an issue here is filed with a plain `gh issue create`. The roster is in
+  [`SPECIALISTS.md`](../specialists/SPECIALISTS.md); what the old choice cost, and why the four are
+  `false` rather than absent, is in
   [Sylvester's lens](../specialists/lenses/specialist-05-15-lens.md#the-plugins-enabled-here-and-what-that-costs).
 - **A session here runs the installed copy, not this tree** — so a change reaches a session after a
   release, while the CI runners scaffolded into consumers track `main` and reach them at once. **Name
