@@ -2167,7 +2167,8 @@ this repo's:
   the remedy and the reason a gate is the wrong answer, is in
   [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules);
   what is local is why it is met so often and what it costs here:
-  - **This repo consumes its own marketplace and enables all six plugins**, so plugin administration is
+  - **This repo consumes its own marketplace and names all six plugins in `enabledPlugins`** (three
+    `true`, three `false`), so plugin administration is
     routine maintenance rather than a one-off — the rename of #1698 alone needed nine commands.
   - **The grouping is deliberate authorship**, and it is what is lost: four labelled blocks in a
     60-entry list, gone in one command, quietly.
@@ -2309,9 +2310,8 @@ was folded into [`SPECIALISTS.md`](../SPECIALISTS.md): it is a procedure about t
 
 
 **This repo consumes itself**, so the system a session here runs is the *installed* copy, not the tree
-you are standing in. [`settings.json`](../../settings.json) enables **every plugin in the marketplace** —
-six of them since
-[#1573](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1573) — from a `github` marketplace
+you are standing in. [`settings.json`](../../settings.json) enables three of the marketplace's six
+plugins ([which, and why](#the-plugins-enabled-here-and-what-that-costs)) from a `github` marketplace
 source pointing at this repo itself, as [the seam section of Tessa's lens](specialist-06-16-lens.md#the-seam-and-the-two-kinds-of-lens) records.
 That is what makes the update a step of its own rather than something a merge does for you, and the
 whole reason the procedure is written down instead of left to the plugin's own
@@ -2334,17 +2334,15 @@ enabled plugin:
 ```powershell
 claude plugin marketplace update dkj-claude-plugins                            # 1. refresh the clone
 claude plugin update dkj-subagents-alpha@dkj-claude-plugins --scope project         # 2. then update, per plugin
-claude plugin update dkj-subagents-ecomm@dkj-claude-plugins --scope project
-claude plugin update dkj-subagents-lifehub@dkj-claude-plugins --scope project
-claude plugin update dkj-subagents-shopify@dkj-claude-plugins --scope project
 claude plugin update dkj-policy@dkj-claude-plugins --scope project
 claude plugin update dkj-policy-bwj@dkj-claude-plugins --scope project
 ```
 
 **The set step 2 walks is [`settings.json`](../../settings.json)'s own, and a plugin left off it simply
 stays on its old commit — no error, no verdict, nothing that reads as behind.** That is why the block
-names all six rather than only the two with real work here: read the enabled set from that file when
-the two disagree, and let `plugin-versions` above say which of them actually need the command.
+names every enabled plugin rather than only the two with real work here: read the enabled set from that
+file when the two disagree, and let `plugin-versions` above say which of them actually need the command.
+The `update-plugins` skill walks that set for you in one command.
 
 Then **restart the session** — a skill or a hook that arrived with the update is not in a session that
 started before it.
@@ -2419,11 +2417,22 @@ repo owner types, because that skill is reserved for explicit invocation. The me
 two commands are on the adoption page,
 [Installing it yourself](../../../plugins/ADOPTION.md#installing-it-yourself), rather than repeated here.
 
-### The six plugins enabled here, and what that costs
+### The plugins enabled here, and what that costs
 
 Moved here from `.claude/rules/this-repo.md` under
 [#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the rule keeps the one-line
-fact that every plugin is enabled, and this is the harness consequence behind it.
+fact of which plugins are enabled, and this is the harness consequence behind it.
+
+**Three of the six are enabled, and the three add-on teams are set to `false`** (Dave, September 30,
+2026). From September 8 to September 30 all six were on, for validation (see below). **`false`, not
+absent, and that is load-bearing**: the harness and every check here read the settings chain user file →
+`.claude/settings.json` → `settings.local.json`, and the last layer that names a plugin wins
+(`Get-EnabledPlugins`, `scripts/lib/check-report-lib.ps1`). A machine's own `~/.claude/settings.json` can
+enable an add-on team, and a deleted key would let it through. The same change removed their blocks from
+[`connectors/dkj-claude-plugins.json`](../../../connectors/dkj-claude-plugins.json), because
+`connectors.tests.ps1`'s self-manifest case fails on a registered plugin that is not enabled. It also
+removed their 11 empty lenses and roster rows, which would otherwise print an `[ORPHANS]` line at every
+session start.
 
 **Only two of the six describe this repo outright, and a third does in one chapter of four.** The core
 team and `dkj-policy` are the two with real work here; the three add-on teams have none — this repo is
@@ -2437,15 +2446,20 @@ finding filed here can use that chapter's GitHub-first, Asana-mirrored procedure
 handling, two for the other three — closing
 [#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982).
 
-**The three add-on teams are enabled so that the repo that ships a plugin is also a repo that loads
-it**: an agent def, a manifest, a frontmatter or a hook that stops resolving then surfaces at this repo's
-own session start instead of in somebody else's. Validation is the whole reason for them — none of the
-three is used for work here, and none is expected to be.
+**Why they were on, and why they are off.** From September 8 the three add-on teams were enabled so that
+the repo that ships a plugin is also a repo that loads it: an agent def, a manifest, a frontmatter or a
+hook that stops resolving then surfaced at this repo's own session start instead of in somebody else's.
+Validation was the whole reason. It cost every session here roughly 2.9k tokens (11 agent descriptions
+plus 6 Shopify skill descriptions, measured with `measure-skill` on September 30, 2026) for three teams
+with no work here, and Dave switched them off that day. **What is given up is that early warning**: a
+broken add-on plugin now surfaces in a consumer that runs it, or in this repo's own gates, which read the
+plugin trees directly rather than through a session. To validate one again, set it to `true`, run
+`sync-roster` for its rows and lenses, and re-add its block to the connector record.
 
-**What that costs, so nobody reads the noise as breakage.** Two things came with it; one stands and one
-is answered. First, every specialist an enabled plugin ships needs a roster row and a repo lens —
-[`SPECIALISTS.md`](../SPECIALISTS.md) says so without exception, and says why eleven of those lenses
-stay empty. Second, `dkj-subagents-shopify`'s floor check asks which theme is live, and a repo with no
+**What enabling them cost while they were on, so a re-enable does not read the noise as breakage.** Two
+things came with it; one stood and one was answered. First, every specialist an enabled plugin ships
+needs a roster row and a repo lens, which for the three teams meant eleven lenses kept empty on purpose.
+Second, `dkj-subagents-shopify`'s floor check asks which theme is live, and a repo with no
 store has no truthful answer, so it reported an `[ERROR]` at every session start until
 [#1570](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1570) gave the check a third
 state to be told that in. **This repo declares `Get-ShopifyRepoHasNoStore` in

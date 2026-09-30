@@ -18,13 +18,13 @@ them, and this file points there
 - **The home repo of one product** — the Claude Specialists system — and the **single source of truth**
   for every shareable subagent definition. One product, one repository, one marketplace, and lockstep
   versioning *within* it is correct: [Tessa's lens](../specialists/lenses/specialist-06-16-lens.md#one-product-one-repository).
-- **It consumes itself, with every plugin in the marketplace enabled** in
-  [`.claude/settings.json`](../settings.json) (Dave, September 8, 2026) — for validation: the repo that
-  ships a plugin is also a repo that loads it. Only the core team and `dkj-policy` have real work here,
-  plus `dkj-policy-bwj`'s ticket-handling chapter. The roster is in
-  [`SPECIALISTS.md`](../specialists/SPECIALISTS.md); what enabling all six costs, and why the Shopify
-  floor check is told there is no store, is in
-  [Sylvester's lens](../specialists/lenses/specialist-05-15-lens.md#the-six-plugins-enabled-here-and-what-that-costs).
+- **It consumes itself, with three of the six plugins enabled** in
+  [`.claude/settings.json`](../settings.json): the core team, `dkj-policy`, and `dkj-policy-bwj` for its
+  ticket-handling chapter. The three add-on teams are set to `false` (Dave, September 30, 2026), which
+  reverses the September 8 choice to enable every plugin for validation, because none of them has work
+  here. The roster is in [`SPECIALISTS.md`](../specialists/SPECIALISTS.md); what that choice cost, and
+  why the add-on teams are `false` rather than absent, is in
+  [Sylvester's lens](../specialists/lenses/specialist-05-15-lens.md#the-plugins-enabled-here-and-what-that-costs).
 - **A session here runs the installed copy, not this tree** — so a change reaches a session after a
   release, while the CI runners scaffolded into consumers track `main` and reach them at once. **Name
   the two channels together or name neither**:

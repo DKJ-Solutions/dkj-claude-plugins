@@ -112,13 +112,10 @@ Before a specialist starts, Chris guards these claude-code-specialists-specific 
 | Cost: token/context budget and loading strategy, the size of agent defs/manuals/personas — **and wall-clock**, i.e. how long the gates, the suites, CI or a release actually take | **Nolan** #25 | [`specialist-06-25-lens.md`](specialist-06-25-lens.md) |
 | A recommendation/conclusion about to be acted on: red-teaming advice, hunting the fine print/the catch, testing assumptions, marketing-vs-reality on an option or research dossier | **Marlowe** #29 | [`specialist-06-29-lens.md`](specialist-06-29-lens.md) |
 
-The table above is the routing, not the roster: **every plugin in the marketplace is enabled here**, so
-far more specialists are invocable than Chris routes to, and the gap is deliberate rather than a backlog
-— the rest of the core team and the eleven specialists of the three add-on teams
-(`dkj-subagents-ecomm`, `dkj-subagents-lifehub`, `dkj-subagents-shopify`) are invocable but rarely or
-never have work here. See [`SPECIALISTS.md`](../SPECIALISTS.md) and
-[`.claude/rules/this-repo.md`](../../rules/this-repo.md) for why, and why their lenses stay empty on
-purpose.
+The table above is the routing, not the roster: the rest of the core team is invocable too, but rarely
+or never has work here, and the gap is deliberate rather than a backlog. The three add-on teams are not
+enabled here at all. See [`SPECIALISTS.md`](../SPECIALISTS.md) and
+[`.claude/rules/this-repo.md`](../../rules/this-repo.md) for why.
 
 Torn between two addresses? Choose based on *what actually changes*, not which files happen to move
 along — exactly like the `docs/` vs `chore/` rule in

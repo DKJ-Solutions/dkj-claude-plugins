@@ -478,10 +478,10 @@ function Get-MachineLocalPaths {
 
 # --- THIS REPO HAS NO SHOPIFY STORE, AND SAYS SO (issue #1579; the seam from inbound #1570) --------
 #
-# dkj-subagents-shopify is enabled here and this repo is not a store. It is on for validation: the repo
-# that ships a plugin is also a repo that loads it, so an agent def, a manifest, a frontmatter or a
-# hook that stops resolving surfaces at this repo's own session start instead of in somebody else's.
-# The repo facts in .claude/rules/this-repo.md state that reason, for all four add-on teams at once.
+# This repo is not a store. dkj-subagents-shopify was enabled here from 2026-09-08 for validation (the
+# repo that ships a plugin is also a repo that loads it), and is set to false since 2026-09-30, so the
+# floor check does not run here today. The answer below stays, so re-enabling the plugin -- for a
+# validation pass -- does not bring back the [ERROR] this seam was built to answer.
 #
 # WHICH LEFT THE FLOOR CHECK ASKING A QUESTION THIS REPO CANNOT ANSWER TRUTHFULLY.
 # shopify-floor-sessioncheck.ps1 wants Get-ShopifyLiveThemeId -- the live theme's numeric id -- because
