@@ -41,7 +41,7 @@
 
 #2656 fixes three Asana comments word for word, one per GitHub event: CREATED (posted by
 `report-issue`'s session, replacing #2653's form), CLOSED and REOPENED (posted by the CI mirror).
-The requester's text shows the issue name as a link and the whole comment in italics, so the comments
+The requester's text shows the issue name as a link, so the comments
 are posted as `html_text`. The CI used to post plain `text`, which would have shown a markdown link
 literally.
 
@@ -77,8 +77,8 @@ literally.
 
 ### DEPLOY: feat/2656-asana-automation-comments
 
-The three automated Asana comments of the BWJ ticket flow (issue created, closed, reopened) now use fixed forms, in italics with the
-issue as a link: *"— GitHub Issue CREATED / CLOSED / REOPENED (automation)"* and one sentence. The
+The three automated Asana comments of the BWJ ticket flow (issue created, closed, reopened) now use fixed forms, with the
+issue as a link: *"— GitHub automation: Issue CREATED / CLOSED / REOPENED"* and one sentence. The
 close update no longer lists the closing pull request, and a reopen now says the task is back in
 development.
 

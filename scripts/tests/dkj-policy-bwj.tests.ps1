@@ -300,13 +300,13 @@ Assert-Throws { New-AsanaCommentRequest -Gid '123' -Text 'a' -Html '<body/>' }  
 # the update text -- the requester's three forms, word for word (#2656)
 $dash = [string][char]0x2014
 $ref  = 'BWJ-Development/xoxowildhearts#334'
-Assert-Equal ("$dash GitHub Issue CREATED (automation)`n`nGitHub issue $ref is created: this Asana task is now in development.") `
+Assert-Equal ("$dash GitHub automation: Issue CREATED`n`nGitHub issue $ref is created: this Asana task is now in development.") `
     (New-MirrorComment -IssueRef $ref -Event 'created') 'the created comment is the requester''s form exactly'
 $closed = New-MirrorComment -IssueRef $ref -Event 'closed' -StateReason 'completed'
-Assert-Equal ("$dash GitHub Issue CLOSED (automation)`n`nGitHub issue $ref is closed: the work behind this ticket is built and ready to test.") `
+Assert-Equal ("$dash GitHub automation: Issue CLOSED`n`nGitHub issue $ref is closed: the work behind this ticket is built and ready to test.") `
     $closed 'the closed comment is the requester''s form exactly'
 $reopened = New-MirrorComment -IssueRef $ref -Event 'reopened'
-Assert-Equal ("$dash GitHub Issue REOPENED (automation)`n`nGitHub issue $ref is reopened: this Asana task is back in development.") `
+Assert-Equal ("$dash GitHub automation: Issue REOPENED`n`nGitHub issue $ref is reopened: this Asana task is back in development.") `
     $reopened 'the reopened comment is the requester''s form exactly'
 Assert-True ($closed -notmatch '(?i)resolved|completed|done\b') 'the close update never claims the ticket itself is resolved'
 
@@ -326,10 +326,10 @@ Assert-True ($marker -match '#334')       'and it names the issue'
 Assert-True ($marker -ne (Get-MirrorCommentMarker -IssueRef 'BWJ-Development/xoxowildhearts#335')) 'two issues get two different markers'
 Assert-True (-not (Get-MirrorCommentHeader -Event 'closed').Contains($marker)) 'the header does not itself carry the marker'
 
-# what is posted: html_text, italic, the issue name as its link -- and the plain text Asana stores
+# what is posted: html_text, plain, the issue name as its link -- and the plain text Asana stores
 # for it still carries the marker, so the sweeps' de-duplication reads it
 $html = New-MirrorCommentHtml -IssueRef $ref -Event 'closed' -StateReason 'completed'
-Assert-True ($html.StartsWith('<body><em>') -and $html.EndsWith('</em></body>')) 'the posted comment is one italic body'
+Assert-True ($html.StartsWith('<body>') -and $html.EndsWith('</body>') -and $html -notmatch '<em>') 'the posted comment is one plain body, no italics'
 Assert-True ($html.Contains("<a href=`"https://github.com/BWJ-Development/xoxowildhearts/issues/334`">$ref</a>")) 'with the issue name as the link to the issue'
 Assert-Equal $closed ([xml]$html).body.InnerText 'and its plain text is the plain comment, marker included'
 foreach ($ev in 'created', 'reopened') {

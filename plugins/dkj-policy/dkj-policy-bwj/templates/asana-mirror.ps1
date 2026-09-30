@@ -433,14 +433,14 @@ function Get-MirrorCommentHeader {
         place of it: Test-MirrorUpdatePosted matches the marker as a substring, so comments written
         before this header existed and comments written after it de-duplicate alike.
 
-        THE WORDING IS THE REQUESTER'S, WORD FOR WORD (#2656): '— GitHub Issue <EVENT> (automation)'.
+        THE WORDING IS THE REQUESTER'S, WORD FOR WORD (#2656): an em dash, then 'GitHub automation: Issue <EVENT>'.
         'created' is never posted by this script -- report-issue's session posts it when an issue is
         made from an existing Asana task -- but it is composed here too, so dkj-policy-bwj.tests.ps1
         can hold the skill's copy of the form equal to this one.
     #>
     param([Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event)
 
-    return "$([char]0x2014) GitHub Issue $($Event.ToUpperInvariant()) (automation)"
+    return "$([char]0x2014) GitHub automation: Issue $($Event.ToUpperInvariant())"
 }
 
 function New-MirrorComment {
@@ -489,10 +489,10 @@ function New-MirrorComment {
 
 function New-MirrorCommentHtml {
     <#
-        The same comment as Asana html_text: italic, with 'owner/repo#<n>' as a link to the issue --
-        the requester's form (#2656) shows both. Pure -- no network.
+        The same comment as Asana html_text, with 'owner/repo#<n>' as a link to the issue -- the
+        requester's form (#2656) shows it as one. Plain, not italic: #2656 dropped the italics. Pure -- no network.
 
-        The only elements used are <body>, <em> and <a>, all on Asana's allow-list for a story. The
+        The only elements used are <body> and <a>, all on Asana's allow-list for a story. The
         text is XML-escaped before the link goes in, because the body must be well-formed XML or the
         API answers 400 and the colleague is told nothing.
     #>
@@ -508,7 +508,7 @@ function New-MirrorCommentHtml {
     $ref   = [System.Security.SecurityElement]::Escape($IssueRef)
     $html  = [System.Security.SecurityElement]::Escape($text).Replace(
                  "GitHub issue $ref ", "GitHub issue <a href=`"$([System.Security.SecurityElement]::Escape($url))`">$ref</a> ")
-    return "<body><em>$html</em></body>"
+    return "<body>$html</body>"
 }
 
 function Get-AsanaPasteBlockMarker {
