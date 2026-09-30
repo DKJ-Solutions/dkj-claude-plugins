@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Dave (September 30, 2026): an issue carrying a purple label always waits on something, so a sweep must
+ignore it. Of the two purple labels, `awaiting-recurrence` already parked. `dossier` did not: it was
+documented as "stays sweepable" (#2587). The mechanism behind that no longer holds. A dossier waits on its next instance or
+its root cause, and no single repair closes it, so a sweep that picks one up finds nothing to build.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dossier` joins the parking set: the sweep-issues command line, claim-issue's single-issue default (both copies), and the dashboard's PARKING_LABELS.
+- [x] The prose that called a dossier sweepable is revised in CONTRIBUTING-portable.md, repo-config.ps1, claim-issue.ps1 and the claim-issue and issue-dashboard skills.
 
 ### TEST
 
+- [x] claim-issue.tests.ps1: 560 passed, 0 failed. issue-dashboard.tests.ps1: 384 pass, 0 fail, and the parking-label asserts now cover four labels.
+
 ### DEPLOY: feat/dossier-parks-issue
 
-**Score:**
+A `dossier` issue is now parked like `needs-decision` and `awaiting-recurrence`. `sweep-issues` skips it,
+`claim-issue <n>` warns that it is parked, and the issue dashboard shows it as Waiting.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that sweeps its issues no longer spends a pickup on a dossier that cannot be finished in one repair.
+
+**Score:** 2
 
 #### Pull Request
 
