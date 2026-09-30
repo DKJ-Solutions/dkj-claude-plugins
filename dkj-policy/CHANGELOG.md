@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**8 / 9 minor entries** <!-- pending-tally -->
+**9 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2659-no-ampersand-chains-in-hints · 20260930-142756Z
+
+Three recovery hints the shipping scripts print, from the fold, from `open-pr`'s backing gate and from
+the missing-check-suite note, no longer join two commands with `&&`. They print on separate lines, or
+join with `;` inside a sentence, so they paste into Windows PowerShell 5.1 as they are.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Prevents a failure nobody has reported yet: pasting one of these hints into Windows PowerShell 5.1 as
+printed fails with *"The token '&&' is not a valid statement separator in this version"*. That happens at
+the exact moment the hint is needed, which is after something has already gone wrong.
+
+**Score:** 1
+
+#### Pull Request
+
+Printed console hints no longer chain commands with '&&'
+
+Plugins: dkj-policy
+
+[PR #2663](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2663)
+
+---
 
 ### DEPLOY: fix/2655-preview-step-scaffolded · 20260930-140024Z
 
