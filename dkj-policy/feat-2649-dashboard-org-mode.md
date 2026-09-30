@@ -39,19 +39,52 @@
 
 ### PLAN
 
+Dave wants two dashboards, one per GitHub organization (DKJ-Solutions and BWJ-Development), each
+covering every repository in it. #2643 scoped the worker to one repo. This branch adds an org mode
+beside repo mode and leaves repo mode's behaviour unchanged.
+
+Decisions taken here:
+- `GITHUB_ORG` is the alternative to `GITHUB_REPO`, exactly one of the two. It is read through
+  `repositoryOwner`, so a user login works too.
+- Only non-archived repositories with issues enabled are read.
+- Issues are keyed on repo and number. Ties go by number, then by repo name.
+- The org budget is 40 requests per refresh, under the free plan's 50 subrequests.
+- Each org gets its own directory, `dkj-policy/dashboard/org-<login>/`, and a sibling dashboard's
+  token is not treated as a stray.
+
+#### Open for review
+
+- [x] Victor and Sebastian review the diff
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `issue-dashboard-logic.js`: repo-and-number keys, a generic comparator and labels in `orderByBlockers`, `repo` on every row, and `blocking` as `{number, repo}`
+- [x] `issue-dashboard-worker.js`: `GITHUB_ORG`, `listOwnerRepos`, aliased batched `loadRepos`, cache and memo keyed on the target, org-aware links and heading, config validation
+- [x] `issue-dashboard.ps1` and its mirror: `-Org`, a directory per org, a sibling-aware stray filter, `GITHUB_ORG` in `wrangler.toml` plus a both-vars warning, the org PAT guidance, a `wrangler whoami` note, and a trailing newline on the emitted toml
+- [x] Skill page and plugin README describe org mode, the PAT per organization and the Cloudflare account check
 
 ### TEST
 
+- [x] `issue-dashboard.tests.ps1`: 380 pass, 0 fail. New cases cover the org logic (cross-repo edge, ties, outside and unfetched sinks, branch and PR per repo, cycle labels), the org handler against a stubbed GitHub (listing, archived and issue-less repos skipped, one aliased batch, order, links, heading, cache key), config refusals, and `-Org` beside a repo dashboard
+
 ### DEPLOY: feat/2649-dashboard-org-mode
 
-**Score:**
+The dashboard worker and `issue-dashboard.ps1` gain an org mode. The logic now keys issues on repo and
+number, and its rows carry `repo`. `blocking` is now a list of `{number, repo}`, and nothing outside
+the worker reads it. Repo mode's pages, order and output are unchanged, and the suite pins that.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The issue dashboard can now cover a whole GitHub organization instead of one repository. Run
+`issue-dashboard.ps1 -Org <login> -InitToken -EmitWorker` once per organization. Each organization gets
+its own worker, token and directory, so several dashboards can be deployed from one checkout. A blocker
+in another repository of the same organization now orders normally instead of sinking to the bottom.
+Each organization needs a fine-grained PAT of its own, with that organization as resource owner. Setup
+is in [the `issue-dashboard` skill](../plugins/dkj-policy/skills/issue-dashboard/SKILL.md).
+
+**Score:** 3
 
 #### Pull Request
 
