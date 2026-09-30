@@ -68,3 +68,5 @@ A repo that sweeps its issues no longer spends a pickup on a dossier that cannot
 
 #### Pull Request
 
+
+A dossier is parked, so the sweep and the claim skip it
