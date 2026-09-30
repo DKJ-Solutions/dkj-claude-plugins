@@ -158,7 +158,7 @@ adopting the convention costs one command instead of seven typed by hand.
 **`dossier` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A dossier gathers every
 instance of one recurring problem until its root cause is found. It is a *kind* of issue, not a rung, so
-it carries a `prio-N` of its own like any other issue. Three things follow from that:
+it carries a `prio-N` of its own like any other issue. Four things follow from that:
 
 - **A new instance is a comment on the dossier, not a new issue.** Record the date, where it happened and
   what was measured, so the pattern can be read from one thread.
@@ -171,6 +171,10 @@ it carries a `prio-N` of its own like any other issue. Three things follow from 
 - **The dossier is closed only when the root cause is repaired.** The closing comment names that repair,
   so a reader of the thread can see which of its instances the repair explains. Because `open-pr` refuses
   to close it, even that PR ships with `-NoResolves`, and the dossier is closed by hand after the merge.
+- **A dossier is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
+  and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
+  skip `dossier` by default, exactly as they skip `needs-decision` and `awaiting-recurrence`. Working a
+  dossier is a deliberate assignment, named by its number.
 
 **`needs-decision` parks an issue that ends in the owner's choice, and it is set when the issue is filed**
 (Dave, September 26, 2026, [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)).
@@ -197,7 +201,8 @@ it up, finds nothing to do and releases it. Both pickup routes skip this label b
 skip `needs-decision`.
 
 - **It is not `dossier`.** A dossier collects instances of a problem that *demonstrably* recurs, so there
-  is always a next instance to read and a root cause to hunt, and it stays sweepable. An issue carrying
+  is always a next instance to read and a root cause to hunt. Both are parked, but for different
+  reasons, and only a dossier changes how the issue is closed. An issue carrying
   `awaiting-recurrence` has a single unreproduced instance and waits for its first reproducible one.
 - **The recurrence takes the label off.** Record the new instance as a comment, remove the label, and the
   issue is ordinary work again. If it keeps recurring, it becomes a `dossier`.

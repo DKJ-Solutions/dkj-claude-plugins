@@ -1552,7 +1552,7 @@ Assert-True ((Format-ClaimOpening -ForeignParked -PrerequisiteFound -Parked) -ma
 # THE WIRING: read on the view, defaulted on the single-issue route, and handed to the headline.
 Assert-True ($body -match "else \{ 'number,title,state,url,assignees,body,labels' \}") 'the default-route issue read asks for the labels'
 Assert-True ($body -match "ParameterSetName -eq 'Issue' -and -not \`$PSBoundParameters\.ContainsKey\('SkipLabel'\)") 'the single-issue route defaults its skip list only when none was passed'
-Assert-True ($body -match "\`$SkipLabel = @\('needs-info', 'needs-decision', 'awaiting-recurrence'\)") 'and the default is the three labels sweep-issues skips on -- blocked on the submitter, waiting on the owner (#2519), and waiting on a recurrence (#2587)'
+Assert-True ($body -match "\`$SkipLabel = @\('needs-info', 'needs-decision', 'awaiting-recurrence', 'dossier'\)") 'and the default is the four labels sweep-issues skips on -- blocked on the submitter, waiting on the owner (#2519), waiting on a recurrence (#2587), and a dossier (September 30, 2026)'
 Assert-True ($body -match 'Select-ParkingLabels -Labels @\(Get-IssueLabelNames -Issue \$facts\) -SkipLabel \$SkipLabel') 'the view''s labels are held against the skip list'
 Assert-True ($body -match '\$opening\s*=\s*Format-ClaimOpening[^\r\n]*-Parked:\$parked') 'and the headline is told when the issue is parked'
 Assert-True ($body -match 'AND IT IS PARKED') 'the resume verdict carries it too'

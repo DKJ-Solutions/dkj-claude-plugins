@@ -613,7 +613,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 'Claimed'     $s.claimed              'an assignee alone is Claimed'
         Assert-Equal 'Filed'       $s.filed                'nothing at all is Filed'
         Assert-Equal 'Filed'       $s.prioLabelIsNotParking 'a prio or bug label is not a parking label'
-        Assert-Equal 'Waiting,Waiting,Waiting' (Join-N $s.parkingEach) 'each of the three parking labels parks on its own'
+        Assert-Equal 'Waiting,Waiting,Waiting,Waiting' (Join-N $s.parkingEach) 'each of the four parking labels parks on its own'
         Assert-Equal 'In review' $r.e2e.'1' 'end to end: an open non-draft PR closing #1 puts it In review'
         Assert-Equal 'In progress' $r.e2e.'2' '...a draft PR closing #2 puts it In progress'
         Assert-Equal 'In progress' $r.e2e.'3' '...a feat/3- branch puts #3 In progress'

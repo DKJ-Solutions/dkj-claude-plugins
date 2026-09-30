@@ -540,7 +540,7 @@ question the owner is for.
 ## A parking label: the issue waits on an answer, not a builder
 
 **The sweep route and this route used to disagree about one label.** [`sweep-issues`](../sweep-issues/SKILL.md)
-chooses with `-Candidates -SkipLabel needs-info,needs-decision,awaiting-recurrence`, so an issue parked with somebody else is
+chooses with `-Candidates -SkipLabel needs-info,needs-decision,awaiting-recurrence,dossier`, so an issue parked with somebody else is
 skipped there. This route read no labels at all, so the same issue came back `[OK] ... the work starts here`
 the moment a person named it. Measured in a consumer, September 26, 2026
 ([#2518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2518)): an issue ending in an open
@@ -569,8 +569,8 @@ It is a label of its own because `needs-info` already means *blocked on the subm
 **An issue waiting on EVIDENCE is parked too, under `awaiting-recurrence`**
 ([#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)). Measured September 28, 2026:
 an n=1 flake whose only remaining step was *wait for a recurrence* was picked up four times in one day,
-and each pickup ended with nothing to build. It is not `dossier`, which collects a problem that
-demonstrably recurs and stays sweepable; the rule is in the same
+and each pickup ended with nothing to build. A `dossier` is parked the same way (Dave, September 30,
+2026): it waits on its next instance or its root cause, so no sweep can finish one. The rules are in the same
 [`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from) section.
 
 ## Every `gh` call is bounded, so a stall is reported rather than waited out

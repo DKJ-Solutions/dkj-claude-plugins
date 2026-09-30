@@ -139,9 +139,10 @@
     With -Candidates: labels that park an issue with somebody else, so a sweep leaves it alone.
     With an issue number: the labels that make the claim WARN that the issue is parked (#2518) --
     it still claims, and the closing line points at the warning instead of "the work starts here".
-    Default on that route: 'needs-info', 'needs-decision' and 'awaiting-recurrence', the labels
-    sweep-issues skips on -- blocked on the submitter, waiting on the owner's choice (#2519), and
-    waiting on a first reproducible recurrence (#2587).
+    Default on that route: 'needs-info', 'needs-decision', 'awaiting-recurrence' and 'dossier', the
+    labels sweep-issues skips on -- blocked on the submitter, waiting on the owner's choice (#2519),
+    waiting on a first reproducible recurrence (#2587), and collecting instances until a root cause
+    is found (Dave, September 30, 2026).
 
 .PARAMETER SkipIssue
     With -Candidates: issue numbers held out of this round by hand.
@@ -160,7 +161,7 @@
     ./scripts/task/claim-issue.ps1 '#1234' -DryRun
 
 .EXAMPLE
-    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel needs-info,needs-decision,awaiting-recurrence
+    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel needs-info,needs-decision,awaiting-recurrence,dossier
 
 .EXAMPLE
     ./scripts/task/claim-issue.ps1 1234 -Tag
@@ -222,16 +223,17 @@ if ($Marker.Count -eq 0) { $Marker = @('claim-tag') }
 # a held issue handed out.
 $SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
 # THE SINGLE-ISSUE ROUTE HONOURS THE SWEEP'S PARKING LABEL BY DEFAULT (issue #2518). sweep-issues passes
-# '-SkipLabel needs-info,needs-decision,awaiting-recurrence' on its own command line; a person naming
+# '-SkipLabel needs-info,needs-decision,awaiting-recurrence,dossier' on its own command line; a person naming
 # one issue passes nothing, so without a default the route where somebody says "fix issue N" was the one
 # route blind to it. -Candidates keeps its empty default: the sweep names its labels itself. 'needs-decision' joined in #2519: an issue waiting
 # on the owner's choice is parked just as surely, and 'needs-info' could not carry it -- in dkj-policy-bwj
 # that label means blocked on the SUBMITTER and moves the mirrored Asana card. 'awaiting-recurrence'
 # joined in #2587: an issue whose only remaining step is a first reproducible occurrence was picked up
-# four times in one day, each pickup finding nothing to build. It is not 'dossier', which collects a
-# problem that demonstrably recurs and stays sweepable.
+# four times in one day, each pickup finding nothing to build. 'dossier' joined on September 30, 2026
+# (Dave): a dossier waits on its next instance or its root cause, and no single repair closes it, so a
+# sweep that picks one up finds nothing to build either.
 if ($PSCmdlet.ParameterSetName -eq 'Issue' -and -not $PSBoundParameters.ContainsKey('SkipLabel')) {
-    $SkipLabel = @('needs-info', 'needs-decision', 'awaiting-recurrence')
+    $SkipLabel = @('needs-info', 'needs-decision', 'awaiting-recurrence', 'dossier')
 }
 $skipIssueNumbers = @()
 foreach ($s in @(Split-CommaListArgument -Value $SkipIssue)) {
