@@ -123,6 +123,9 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # resolves in the plugin mirror as well as here.
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 
+# Find-StrayToken: a token left behind by a renamed or repointed release folder (issues #1444, #2644).
+. (Join-Path $PSScriptRoot '..\lib\stray-token-lib.ps1')
+
 # JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
 # -- same three-source precedence, but it names git's exit code and stderr instead of dying on
 # $null.Trim() where git answers nothing.
@@ -723,38 +726,6 @@ function Format-ReleaseIndexRows {
     return ($rows -join "`n")
 }
 
-function Find-StrayPathToken {
-    <#
-        Every worker-path-token.txt in this tree that is NOT the one this run expects.
-
-        WHY IT LOOKS AT ALL. The page directory is derived from the note root and gitignored -- two
-        good decisions that combine into one hazard. Rename or repoint the folder holding the release
-        documents and every tracked file moves with it, while the token stays behind in a folder
-        nothing points at any more: git mv cannot see an ignored sibling by construction, so the miss
-        is silent on the day it happens. In a public repo that file is the only copy of the live page's
-        path and nothing in git remembers the URL, so the orphan reads as rename debris -- and deleting
-        it 404s every link already sent (issue #1444, September 5, 2026, after this repo's own
-        contributing-davekjohn/ -> dkj-policy/ rename left exactly that folder behind).
-
-        AND IT IS WHAT MAKES -InitToken's REFUSAL MEAN WHAT IT SAYS. That guard reads the expected path
-        and nothing else, so after a move it finds no token and mints a second one happily -- the one
-        act the whole design exists to prevent. "Is there a token SOMEWHERE" is the question worth
-        asking; "is there a token HERE" was only ever a cheap approximation of it.
-
-        Cheap enough to sit on the two failure paths because that is the only place it runs. .git is
-        skipped: nothing writes a token there, and walking it is the expensive half of the search.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$Root,
-        [Parameter(Mandatory = $true)][string]$ExpectedPath
-    )
-
-    if (-not (Test-Path -LiteralPath $Root)) { return @() }
-    $hits = Get-ChildItem -LiteralPath $Root -Recurse -File -Filter 'worker-path-token.txt' -Force -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -ne $ExpectedPath -and $_.FullName -notlike '*\.git\*' }
-    return @($hits | ForEach-Object { $_.FullName })
-}
-
 # THE TWO PAGE-WIDE ANSWERS, DERIVED ONCE FROM THE LIST RATHER THAN PER ROW: whether the bump type
 # carries information here at all, and whether every version on this page ends in '.0'. Both are
 # properties of the SET, so neither can be decided inside the row loop -- and both are read off the data
@@ -811,10 +782,10 @@ if ($InitToken) {
     }
     # AND A COPY ANYWHERE ELSE IN THE TREE IS AN EXISTING TOKEN TOO (issue #1444). The refusal above
     # asks whether one is HERE, which stops meaning what it says the moment the page directory moves --
-    # see Find-StrayPathToken for why that move is silent by construction.
+    # see Find-StrayToken in stray-token-lib.ps1 for why that move is silent by construction.
     # @( ) at the call site, not in the function: PowerShell unrolls a returned empty array to $null,
     # and Set-StrictMode -Version Latest then refuses .Count on it.
-    $strays = @(Find-StrayPathToken -Root $repoRoot -ExpectedPath $tokenPath)
+    $strays = @(Find-StrayToken -Root $repoRoot -ExpectedPath $tokenPath -FileName 'worker-path-token.txt')
     if ($strays.Count -gt 0) {
         throw ("There is no token at $tokenPath, but this tree already holds one: $($strays -join ', '). " +
                "That is what a renamed or repointed release folder leaves behind -- the page directory " +
@@ -851,8 +822,8 @@ if (-not $config.WorkerName) {
 }
 if (-not (Test-Path -LiteralPath $tokenPath -PathType Leaf)) {
     # The missing token is worth ONE search before the refusal is printed, because the likeliest
-    # reason it is missing here is that it is somewhere else -- see Find-StrayPathToken.
-    $strays = @(Find-StrayPathToken -Root $repoRoot -ExpectedPath $tokenPath)
+    # reason it is missing here is that it is somewhere else -- see Find-StrayToken in stray-token-lib.ps1.
+    $strays = @(Find-StrayToken -Root $repoRoot -ExpectedPath $tokenPath -FileName 'worker-path-token.txt')
     $lead = if ($strays.Count -gt 0) {
         "This tree already holds one, at $($strays -join ', '). A page directory is gitignored, so it " +
         "did not travel with a renamed or repointed release folder: MOVE that folder here rather than " +

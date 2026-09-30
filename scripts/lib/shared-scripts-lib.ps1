@@ -1176,6 +1176,15 @@ function Get-SharedScriptPairs {
             Source  = 'scripts\lib\document-newline-lib.ps1'
             Plugin  = 'dkj-policy'
             LibOnly = $true
+        },
+        @{
+            # THE STRAY PATH-TOKEN FINDER (issue #2644). One walk for the two gitignored path tokens,
+            # build-release-notes-page's and issue-dashboard's, which each carried a copy differing only
+            # in the file name. A leaf with no dependencies; mirrored because both callers are.
+            Name    = 'stray-token-lib'
+            Source  = 'scripts\lib\stray-token-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
         },        @{
             Name    = 'pr-issues-lib'
             Source  = 'scripts\lib\pr-issues-lib.ps1'

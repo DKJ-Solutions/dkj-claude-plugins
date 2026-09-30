@@ -117,6 +117,8 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # through Get-Command, which treats the name as a wildcard and scans PATH on every miss.
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
+# Find-StrayToken: a token left behind by a renamed dkj-policy folder (issues #1444, #2644).
+. (Join-Path $PSScriptRoot '..\lib\stray-token-lib.ps1')
 $repoRoot = Resolve-RepoRootOrFail -Override $RepoRoot -ScriptName 'issue-dashboard.ps1' -OverrideName '-RepoRoot'
 
 if (-not $InitToken -and -not $EmitWorker) {
@@ -149,23 +151,6 @@ $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 # through the parameters; it is here for whoever changes the constant above.
 if ((Split-Path -Parent (Split-Path -Parent $dashDir)).TrimEnd('\', '/') -ne $repoRoot.TrimEnd('\', '/')) {
     throw "The dashboard directory must be a child of the repository root, never the root itself: $dashDir"
-}
-
-function Find-StrayDashboardToken {
-    <#
-        Every dashboard-path-token.txt in this tree that is NOT the one this run expects. The same
-        hazard as the release-notes token (issue #1444): the directory is gitignored, so a rename of
-        dkj-policy/ leaves the token behind where git mv cannot see it, and "is there a token HERE" is
-        only a cheap approximation of "is there a token SOMEWHERE". .git is skipped.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$Root,
-        [Parameter(Mandatory = $true)][string]$ExpectedPath
-    )
-    if (-not (Test-Path -LiteralPath $Root)) { return @() }
-    $hits = Get-ChildItem -LiteralPath $Root -Recurse -File -Filter 'dashboard-path-token.txt' -Force -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -ne $ExpectedPath -and $_.FullName -notlike '*\.git\*' }
-    return @($hits | ForEach-Object { $_.FullName })
 }
 
 function Get-DashboardRepoSlug {
@@ -225,7 +210,7 @@ if ($InitToken) {
     }
     # @( ) at the call site: PowerShell unrolls a returned empty array to $null, and StrictMode Latest
     # then refuses .Count on it.
-    $strays = @(Find-StrayDashboardToken -Root $repoRoot -ExpectedPath $tokenPath)
+    $strays = @(Find-StrayToken -Root $repoRoot -ExpectedPath $tokenPath -FileName 'dashboard-path-token.txt')
     if ($strays.Count -gt 0) {
         throw ("There is no token at $tokenPath, but this tree already holds one: $($strays -join ', '). " +
                "That is what a renamed or repointed dkj-policy folder leaves behind -- the directory is " +
@@ -246,7 +231,7 @@ if (-not $EmitWorker) { exit 0 }
 
 # --- 3. -EmitWorker ---------------------------------------------------------------------------------
 if (-not (Test-Path -LiteralPath $tokenPath -PathType Leaf)) {
-    $strays = @(Find-StrayDashboardToken -Root $repoRoot -ExpectedPath $tokenPath)
+    $strays = @(Find-StrayToken -Root $repoRoot -ExpectedPath $tokenPath -FileName 'dashboard-path-token.txt')
     $lead = if ($strays.Count -gt 0) {
         "This tree already holds one, at $($strays -join ', '). The directory is gitignored, so it did " +
         "not travel with a renamed or repointed dkj-policy folder: MOVE that folder here rather than " +

@@ -39,19 +39,38 @@
 
 ### PLAN
 
+One shared stray path-token finder for the release-notes page and the issue dashboard, which each carried a copy differing only in the file name.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Verified the reason in the tree: `Find-StrayPathToken` (build-release-notes-page.ps1) and
+  `Find-StrayDashboardToken` (issue-dashboard.ps1) were the same walk with a different `-Filter`.
+- [x] New `scripts/lib/stray-token-lib.ps1` with `Find-StrayToken -Root -ExpectedPath -FileName`,
+  carrying the #1444 reasoning once; registered as a `LibOnly` pair and mirrored into dkj-policy.
+- [x] Both scripts dot-source it and pass their own token file name; both local copies removed.
+- [x] Plugin mirrors synced; a row for the lib in the dkj-policy scripts README.
 
 ### TEST
 
+- [x] The existing stray-token asserts in both suites cover the refactor unchanged:
+  `release-notes-page.tests.ps1` 165/165, `issue-dashboard.tests.ps1` 328/328,
+  `shared-scripts.tests.ps1` 1131/1131; `check-plugin-integrity.ps1` 0 errors.
+
 ### DEPLOY: fix/2644-shared-stray-token-finder
 
-**Score:**
+The release-notes page and the issue dashboard now share one stray path-token finder
+([#2644](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2644)), and neither script behaves
+differently. The failure it prevents has not happened yet: a repair to the orphaned-token guard (#1444)
+landing in one script and not the other.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- nothing a subscriber runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
+One shared stray path-token finder for the release-notes page and the issue dashboard
