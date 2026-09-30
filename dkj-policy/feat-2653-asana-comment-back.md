@@ -41,23 +41,22 @@
 
 Inbound #2653, from `BWJ-Development/xoxowildhearts`, requested by Maikel on September 30, 2026. When
 a session makes a GitHub issue from an Asana task, the colleague who filed that task should see it on
-the task itself. The format was dictated in the thread, where two earlier drafts were rejected:
+the task itself. The requester settled the format after three rejected drafts, by editing the comment
+on Asana task 1218346245039866 into the final form:
 
 - the issue link as the **first line** of the task's description, and as the first line of the
   skeleton for a task `report-issue` creates itself;
-- one comment on the Asana-origin task: the house header `— automatisch bericht vanuit GitHub #<n>`,
-  then `Asana taak is verplaatst naar sectie [<section>] en aangemaakt als GitHub issue: <url>`, then
-  `Hier wordt nu aan gewerkt.`
+- one comment on the Asana-origin task, word for word, in English on every board:
+  `— New GitHub Issue (automation)`, a blank line, then `GitHub issue <url> is created and in
+  development.`
 
-Decided here, and stated so it can be overruled: the stage model is not changed. An Asana-origin card
-still moves to `Filed`, and the comment names the section it actually lands in. Where the task sits on
-a board the procedure does not move cards on (the case in xoxowildhearts, where it was on the BUILD
-board), the sentence says *staat in sectie*, because an Asana comment cannot be corrected afterwards.
+The stage model is not changed: an Asana-origin card still moves to `Filed`. The comment names no
+section, so it cannot name the wrong one.
 
 ### CREATE
 
 - [x] `report-issue/SKILL.md`: the skeleton's link on top, step 2's two writes for an Asana-origin task, and step 3's comment rule rewritten around them
-- [x] `WORKFLOW-portable.md`: the same skeleton change, the fixed comment form beside the carve-out for colleague-filed tickets, and the house header replacing the free-form disclaimer example
+- [x] `WORKFLOW-portable.md`: the same skeleton change, the fixed comment form beside the carve-out for colleague-filed tickets, and that comment's fixed header named as the exception in the automated-message rule
 
 ### TEST
 
@@ -68,10 +67,9 @@ board), the sentence says *staat in sectie*, because an Asana comment cannot be 
 ### DEPLOY: feat/2653-asana-comment-back
 
 `report-issue` now writes back to an Asana task an issue was made from. The issue link goes on the
-first line of the task's description, and one comment in a fixed form goes on the task: the house
-header `— automatisch bericht vanuit GitHub #<n>`, the section the card is in, the issue link, and
-*"Hier wordt nu aan gewerkt."* A task the skill creates itself now carries `Tracked on GitHub:` as its
-first line as well.
+first line of the task's description, and one comment in a fixed form goes on the task:
+`— New GitHub Issue (automation)`, then *"GitHub issue <url> is created and in development."* A task
+the skill creates itself now carries `Tracked on GitHub:` as its first line as well.
 
 **Score:** 2
 

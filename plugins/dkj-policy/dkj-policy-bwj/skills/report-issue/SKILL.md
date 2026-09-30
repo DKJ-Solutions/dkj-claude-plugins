@@ -217,24 +217,18 @@ they chased it in the one place that had no answer.
    skeleton's own label, and a blank line to the task's notes. Everything the colleague wrote stays below it, unchanged. Write through
    `html_notes` rather than `notes` when the task has formatting, or the rewrite flattens it. If the
    first line already carries this issue's URL, a re-run leaves it alone and never adds a second one.
-2. **One comment on the task, in this fixed form**, in the colleague's language:
+2. **One comment on the task, in exactly this form**, with the issue URL filled in and nothing else
+   changed:
 
    ```text
-   — automatisch bericht vanuit GitHub #<n>
+   — New GitHub Issue (automation)
 
-   Asana taak is verplaatst naar sectie [<section name>] en aangemaakt als GitHub issue: <issue URL>
-
-   Hier wordt nu aan gewerkt.
+   GitHub issue <issue URL> is created and in development.
    ```
 
-   The header line is the house header the paste-ready block and the CI mirror already open with (its
-   English form is `— automated message from GitHub #<n>`). `<section name>` is the section's full
-   name as the board shows it, such as `1C. Todo`, not the stage code. Post it **after** the move, so
-   it names where the card actually is. **Where no move was made**, because the task sits on a
-   board other than the one `Get-AsanaProjectGid` names and this step does not move cards there, the
-   sentence reads *Asana taak staat in sectie [<section name>] en is aangemaakt als GitHub issue:
-   <issue URL>* instead. A comment cannot be corrected afterwards, so it never claims a move that did
-   not happen.
+   The form is fixed and English on every board, whatever language the card is written in (the
+   requester's decision on #2653, after three drafts). Its header line is what tells a colleague that
+   the account holder did not type it. Post it after the move.
 
 If Asana is unreachable -- or a write is refused that the preflight's read could not cover -- report
 the GitHub issue URL, say the mirror did not happen and why, and stop. The issue can be mirrored later
@@ -256,9 +250,9 @@ by re-running this skill's steps 2-3.
   to add it **as the first line**. A task that came from Asana got its link and its comment in step 2.
 
 **The only comment this procedure writes is step 2's, on a ticket that came from Asana.** A task this
-procedure created itself gets none. Any comment an agent writes **opens with the header line** (`—
-automatisch bericht vanuit GitHub #<n>`, in the colleague's language), which says it is an automated
-message and not the account holder's own words, and the content comes after it. The MCP posts as
+procedure created itself gets none. Any comment an agent writes **opens with a header line** that
+says it is an automated message and not the account holder's own words, and the content comes after
+it. Step 2's comment has its header fixed in place. The MCP posts as
 the person who connected it and cannot edit or delete a comment afterwards, so a comment without that
 line reads as that person's own words for good. The rule and its reason are in
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#a-comment-an-agent-writes-on-a-task-says-so-in-its-first-line)

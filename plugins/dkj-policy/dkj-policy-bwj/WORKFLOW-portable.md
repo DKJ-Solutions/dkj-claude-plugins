@@ -239,20 +239,17 @@ it in English. Nobody corrects the language of a card a colleague wrote, in eith
 
 **Such a card still learns where it is tracked, in two writes and nothing more** (#2653). The issue
 link is prepended as the first line of its description, as `Tracked on GitHub: <issue URL>`, with the
-colleague's own text left untouched below it. And one comment goes on the task, in a fixed form:
+colleague's own text left untouched below it. And one comment goes on the task, in exactly this form:
 
 ```text
-— automatisch bericht vanuit GitHub #<n>
+— New GitHub Issue (automation)
 
-Asana taak is verplaatst naar sectie [<section name>] en aangemaakt als GitHub issue: <issue URL>
-
-Hier wordt nu aan gewerkt.
+GitHub issue <issue URL> is created and in development.
 ```
 
-`<section name>` is the section the card sits in once the procedure has moved it, by the full name the
-board shows. Where it made no move, the sentence reads *Asana taak staat in sectie [...] en is
-aangemaakt als GitHub issue: ...*, because a comment is never corrected afterwards. The steps are in
-`report-issue`.
+Only the URL varies. The form is English on every board, and it is the one exception to the rule that
+what a session writes to a colleague follows their language: the requester fixed it word for word on
+#2653, after three drafts. The steps are in `report-issue`.
 
 **A board may also carry a `Github Issue` text custom field** -- that capitalization is the field's
 literal, as-configured name in Asana, not a typo -- **and where it does, task creation is
@@ -299,10 +296,10 @@ colleague-facing comment, and the story's author read as the owner's own name wi
 text to say otherwise.
 
 - **A session** writes the line in the colleague's language, [as everything addressed to them
-  is](#2-then-asana----a-translation-not-a-copy), and uses the house header the paste-ready block
-  already opens with: *"— automatisch bericht vanuit GitHub #`<n>`"* (English: *"— automated message
-  from GitHub #`<n>`"*). A free-form disclaimer sentence was used before, and it read worse beside the
-  cards that carry the header (#2653). The content comes after it and never before.
+  is](#2-then-asana----a-translation-not-a-copy), and it names both facts: automated, and not written
+  by the account holder personally. The comment `report-issue` posts on an Asana-origin ticket is the
+  exception: its header is fixed as *"— New GitHub Issue (automation)"* (#2653). The content comes
+  after the header and never before.
 - **The CI mirror** opens every update with `Get-MirrorCommentHeader`, above the marker sentence
   step 4's de-duplication reads. The header sits above the marker and does not replace it, so updates
   written before the header existed still de-duplicate.
