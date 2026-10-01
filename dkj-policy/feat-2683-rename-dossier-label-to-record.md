@@ -43,17 +43,48 @@ Rename the dossier label to record everywhere it is read or prescribed, keeping 
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+#### Scope
+
+Only the LABEL is renamed. "Dossier" also names the branch document in older prose and code ("branch
+dossier", "pre-dossier entry", "the dossier form"); that is a different concept and is untouched.
+
+- [x] `pr-issues-lib.ps1`: `Get-DossierLabelName` returns `record`; new `Get-DossierLabelNames` adds the
+  legacy `dossier`, and `Get-DossierClosingFindings` matches every name, so `open-pr`'s refusal holds on a
+  tracker that has not renamed yet. The refusal text says `record` and names the former name.
+- [x] `claim-issue.ps1`: the single-issue route's default parking labels gain `record`, keeping `dossier`.
+  The sweep command lines in `claim-issue` and `sweep-issues` pass both.
+- [x] `adopt-triage-labels.ps1` and `repo-config.ps1` `Get-TriageLabels`: the canonical label is `record`.
+  Where a tracker still has `dossier`, the script prints `gh label edit 'dossier' --name 'record'` instead
+  of a create, so every issue moves with the label rather than splitting the kind across two names.
+- [x] Issue dashboard: `PARKING_LABELS` and the parked-because text read `record` and the legacy name.
+- [x] Docs: `CONTRIBUTING-portable.md` (the label section and the `awaiting-recurrence` cross-references),
+  the `claim-issue`, `sweep-issues` and `issue-dashboard` skills, `scripts/README.md`, and Derek's lens
+  (which also corrects "`dossier`, which stays sweepable", stale since September 30).
+- [x] Mirrors and blueprint regenerated (`build-shared-scripts.ps1`, `build-config-blueprint.ps1`).
+- [~] Renaming this tracker's own label (`gh label edit dossier --name record`) is not a branch step: it
+  runs right after the merge, because until then the trunk's gate matches only `dossier`.
 
 ### TEST
 
+- [x] Suites run locally, all green: `pr-issues`, `claim-issue`, `adopt-triage-labels` (new case 4b: a
+  tracker carrying `Dossier` gets the rename line and no create), `repo-config`, `issue-dashboard` (the
+  each-label-parks assert now follows the list's length), `script-contract`, `shared-scripts`.
+- [ ] Review: Victor (code), Edith (copy), Sebastian (security).
+
 ### DEPLOY: feat/2683-rename-dossier-label-to-record
 
-**Score:**
+Repo-internal half: this tracker's collecting issues carry `record` instead of `dossier`, and every
+gate and pickup route reads both names.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's collecting-issue label is now called `record`. Nothing breaks on update: `open-pr` still
+refuses to close an issue carrying `dossier`, and both pickup routes still skip it. Running
+`adopt-triage-labels` prints the one `gh label edit` that renames the label in place, issues and all.
+
+**Score:** 3
 
 #### Pull Request
 
