@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**11 / 12 minor entries** <!-- pending-tally -->
+**11 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2687-typographic-quotes-in-label-command · 20261001-135703Z
+
+`adopt-triage-labels` now escapes the four typographic single quotes (U+2018, U+2019, U+201A, U+201B)
+as well as the ASCII one in the `gh label create` line it prints. PowerShell reads all five as
+quote delimiters, so a consumer's own `Get-TriageLabels` description carrying a curly apostrophe
+closed the printed argument early and spilled the rest into separate tokens on paste (#2687).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A. Only a consumer that answers `Get-TriageLabels` with a curly apostrophe of its own is reached,
+and the script only prints the line; nothing a subscriber runs changes otherwise.
+
+**Score:** N/A
+
+#### Pull Request
+
+adopt-triage-labels: escape PowerShell's typographic single quotes in the printed command
+
+Plugins: dkj-policy
+
+[PR #2691](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2691)
+
+---
 
 ### DEPLOY: fix/2678-always-on-strip-frontmatter · 20261001-134316Z
 
