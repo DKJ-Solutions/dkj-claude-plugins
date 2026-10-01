@@ -22,7 +22,7 @@
 // Deployed by hand from dkj-policy/dashboard/, or dkj-policy/dashboard/org-<login>/ for an org
 // dashboard (issue-dashboard.ps1 -EmitWorker writes it there).
 
-import { deriveDashboard, PARKING_LABELS } from "./issue-dashboard-logic.js";
+import { deriveDashboard, parkingLabel } from "./issue-dashboard-logic.js";
 
 const ROUTE = /^\/issues\/([0-9a-f]{32})\/?$/;
 const CACHE_SECONDS = 60;
@@ -318,8 +318,7 @@ function sweepVerdict(r) {
   if (r.status === "In review") return { sweepable: false, text: "Skip: in review" };
   if (r.status === "In progress") return { sweepable: false, text: "Skip: in progress" };
   if (r.status === "Waiting") {
-    const label = PARKING_LABELS.find((l) => r.labels.includes(l));
-    return { sweepable: false, text: "Skip: " + (PARKED_BECAUSE[label] || "parked") };
+    return { sweepable: false, text: "Skip: " + (PARKED_BECAUSE[parkingLabel(r.labels)] || "parked") };
   }
   if (r.status === "Blocked") {
     const open = r.blockers.filter((b) => b.state === "OPEN").map((b) => "#" + Number(b.number));

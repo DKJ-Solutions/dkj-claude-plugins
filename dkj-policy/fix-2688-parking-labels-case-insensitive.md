@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#2688: the issue dashboard matched parking labels case-sensitively, while GitHub and
+`claim-issue.ps1` (`Select-ParkingLabels`) match them case-insensitively. Reason verified in the
+code before repairing: `PARKING_LABELS.includes(l)` in the logic module and `PARKING_LABELS.find`
+in the worker.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `parkingLabel(labels)` exported from `issue-dashboard-logic.js`: lower-cases the issue's labels and
+  returns the canonical `PARKING_LABELS` spelling; `deriveStatus` and the worker's sweep verdict both use it
+- [x] `issue-dashboard.tests.ps1`: mixed-case labels park in `deriveStatus`, and a `Needs-Decision` row in
+  the rendered page carries the owner's-decision tooltip
 
 ### TEST
 
+- [x] `issue-dashboard.tests.ps1` standalone: 401 pass, 0 fail
+
 ### DEPLOY: fix/2688-parking-labels-case-insensitive
 
-**Score:**
+The issue dashboard read a parking label only in lower case, so `Record` or `Needs-Decision` left an
+issue sweepable on the page while `claim-issue` and `open-pr` treated it as parked (#2688). It now
+compares case-insensitively, as GitHub and the pickup routes do.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer whose tracker spells a parking label with capitals now sees that issue skipped on the
+dashboard, matching what a sweep does with it.
+
+**Score:** 2
 
 #### Pull Request
+
+issue-dashboard: parking labels match in any letter case
 

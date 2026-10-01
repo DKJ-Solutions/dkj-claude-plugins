@@ -28,6 +28,13 @@ export const STATUSES = ["In review", "In progress", "Waiting", "Blocked", "Clai
 // "dossier" is the legacy name of "record" (#2683), still read because a tracker keeps it until renamed.
 export const PARKING_LABELS = ["needs-info", "needs-decision", "awaiting-recurrence", "record", "dossier"];
 
+// The first parking label on an issue, as PARKING_LABELS spells it, or undefined. Compared
+// case-insensitively, because GitHub label names are and claim-issue/open-pr match them that way (#2688).
+export function parkingLabel(labels) {
+  const names = new Set((labels || []).map((l) => String(l).toLowerCase()));
+  return PARKING_LABELS.find((l) => names.has(l));
+}
+
 const BRANCH = /^(feat|fix|docs)\/(\d+)-/;
 
 const byNumber = (a, b) => a - b;
@@ -47,7 +54,7 @@ export function branchIssueNumbers(branches) {
 export function deriveStatus(issue, prsFor, hasBranch) {
   if (prsFor.some((p) => !p.isDraft)) return "In review";
   if (prsFor.length > 0 || hasBranch) return "In progress";
-  if ((issue.labels || []).some((l) => PARKING_LABELS.includes(l))) return "Waiting";
+  if (parkingLabel(issue.labels)) return "Waiting";
   if ((issue.blockedBy || []).some((b) => b.state === "OPEN")) return "Blocked";
   if ((issue.assignees || []).length > 0) return "Claimed";
   return "Filed";
