@@ -43,17 +43,36 @@ Extend the sed \u trap in the sysadmin manual and the language-layers rule with 
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Extend the `sed` trap bullet in the system-administration manual (`specialist-05-15-manual.md`)
+  with the model's own `Edit`/`Write` path, staying within the same bullet so the
+  "thirteen traps" count and its anchor hold.
+- [x] Add a pointer to the same instance in `.claude/rules/language-layers.md`'s "the gate cannot vouch
+  for the composition" paragraph.
+- [x] Reproduced while writing: both `Edit` calls decoded the escape in Markdown too, so the bytes were
+  repaired with a backslash composed from its code point and read back with `od -c`. Recorded in the
+  manual as evidence that the trap is not specific to `.ps1`.
 
 ### TEST
 
+- [x] `od -c` on both lines: the six-character escape is on disk literally in both files.
+- [x] The lint and test gate runs in `open-pr`.
+
 ### DEPLOY: docs/2671-model-edit-decodes-u-escape
 
-**Score:**
+The system-administration manual's trap section and the language-layers rule now record that the
+model's own `Edit` and `Write` decode a typed code-point escape into its character. The result is pure
+ASCII, so the script-ASCII gate passes it. Both pages give the remedy: compose the escape, as in
+`('\' + 'u003c')`, and read the written line back by code point. It reproduced in Markdown while this
+was being written, so it is not specific to `.ps1`.
+Resolves [#2671](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2671).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. A documentation note for whoever edits the scripts. It changes nothing a subscriber takes.
+
+**Score:** N/A
 
 #### Pull Request
 
