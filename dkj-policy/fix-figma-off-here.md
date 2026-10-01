@@ -43,17 +43,30 @@ figma is enabled machine-wide and has no work in this maintenance repo; set it t
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.claude/settings.json`: `"figma@claude-plugins-official": false` under `enabledPlugins`, because
+  the machine's user settings enable it and a missing key would let that through.
+- [x] Sylvester's lens, *The plugins enabled here*: one paragraph saying why figma is `false` here.
 
 ### TEST
 
+- [x] Nothing to test separately for one settings key: the lint and test gates run in open-pr and again
+  as the required CI check.
+- [~] Checking that figma's skills are gone from a session can only happen in a new session, after
+  this merges. It is not a step this branch can tick.
+
 ### DEPLOY: fix/figma-off-here
 
-**Score:**
+figma, enabled machine-wide, is now switched off in this repo's `.claude/settings.json`. Its 14 skill
+descriptions (2,150 tokens, measured by `measure-session-start`) leave every session here. The reason is
+recorded in Sylvester's lens.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: this changes only this repo's own settings, and no consumer takes them.
+
+**Score:** N/A
 
 #### Pull Request
 
