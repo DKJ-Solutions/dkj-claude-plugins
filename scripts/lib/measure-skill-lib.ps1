@@ -24,9 +24,14 @@
 
     ONE FUNCTION RUNS A COMMAND, Get-PluginDetails at the bottom: it is the single place `claude plugin
     details` is invoked, lifted here from measure-skill.ps1 so measure-session-start.ps1 asks the CLI the
-    same question the same way instead of carrying a second copy. It is the only function in this file
-    that touches anything outside its arguments, and everything it returns still comes from the parsers
-    above, which stay pinned against captured output.
+    same question the same way instead of carrying a second copy. Everything it returns still comes from
+    the parsers above, which stay pinned against captured output.
+
+    THE OTHER FUNCTIONS THAT READ FILES sit below it, each moved here so measure-skill and
+    measure-session-start answer one question the same way: Get-InstalledVersionForRepo (#2670) and
+    Get-PayloadDirForPlugin read the install record and the plugin cache, Test-SkillModelInvocationDisabled
+    and Split-SkillRowsByInvocation read SKILL.md frontmatter (#2664). The first two need check-report-lib
+    (Get-InstallRecord, Get-UserClaudeHome, Get-CachedPluginDirs), which every caller dot-sources first.
 
     No Set-StrictMode here: dot-sourcing would change the strict mode of the calling script.
     Pure ASCII (repo convention for .ps1).

@@ -59,8 +59,8 @@ repo, read from the settings chain. Pass 1 only, nothing is written.
 
 ## Pass 1 — cost
 
-Per skill: always-on, the delta against the baseline, on-invoke, and its share of the plugin's
-always-on total. Ranked by always-on, because that is the figure paid unconditionally.
+Per skill: always-on, the delta against the baseline, on-invoke, and its share of what a session
+pays for the plugin. Ranked by always-on, because that is the figure paid unconditionally.
 
 Two rules are enforced by the script rather than left to whoever reads the output:
 
@@ -78,7 +78,7 @@ Two rules are enforced by the script rather than left to whoever reads the outpu
   including a skill whose frontmatter carries `disable-model-invocation: true` — and that flag keeps the
   skill out of a session's listing, so its description sits in the printed total and in no context
   ([#2664](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2664): ~3,300 of ~9,200 printed
-  tokens here, measured September 30, 2026). The flag is read from the priced copy's `SKILL.md` files,
+  always-on tokens across four plugins at v5.9.0, measured September 30, 2026). The flag is read from the priced copy's `SKILL.md` files,
   with the same split `measure-session-start` makes; such a row reads `0 (not listed; priced N)`, and the
   plugin line names both the printed total and what a session pays. A skill whose page cannot be found
   counts as listed, because dropping a row nobody checked would make the figure smaller on a guess.

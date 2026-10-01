@@ -43,7 +43,7 @@
       - It PRICES A NOT-LISTED SKILL AT 0. A skill whose frontmatter carries disable-model-invocation: true
         is priced by `claude plugin details` and never listed in a session, so its description is in the
         printed total and in no context (#2664): measured September 30, 2026, ~3,300 of ~9,200 printed
-        always-on tokens here. Such a row reads 0 with its priced figure beside it, and the plugin line names
+        always-on tokens across four plugins at v5.9.0. Such a row reads 0 with its priced figure beside it, and the plugin line names
         the printed total and what a session pays. The split is measure-session-start's, from the same lib.
       - It LEAVES THE FREQUENCY COLUMN EMPTY. An on-invoke figure without a firing frequency is not a
         cost, and a guessed frequency is worse than a blank one.

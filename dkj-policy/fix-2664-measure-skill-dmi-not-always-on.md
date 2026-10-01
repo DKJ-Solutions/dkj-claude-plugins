@@ -64,15 +64,14 @@ functions rather than writing a second reader.
 `measure-skill` no longer counts a skill whose frontmatter sets `disable-model-invocation: true` as
 always-on cost. A session never lists such a skill, so its description was in the printed total but in no
 context. Such a skill now reads `0 (not listed; priced N)`, and each plugin line gives the printed total
-next to what a session actually pays (#2664). For this repo's plugins that is about a third of the old
-always-on figure.
+next to what a session actually pays (#2664). For `dkj-policy` at v5.11.0 that is 3,000 of the 5,710 printed.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
 If you use `measure-skill` to judge what your plugins cost a session, the always-on figures now match what
-a session loads. Skills that are only ever run by typing them no longer inflate the total.
+a session loads. Skills that only run when typed no longer inflate the total.
 
 **Score:** 1
 
