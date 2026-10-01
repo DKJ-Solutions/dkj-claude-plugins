@@ -69,7 +69,7 @@ update only delivers something at a release.
   against a local bare repository standing in for GitHub. 19/19
 - [x] Live run against the real clone: behind prints the JSON (0.93 s including the PowerShell start),
   current is silent
-- [ ] `open-pr` runs the lint gate and all suites before the push
+- [x] `open-pr` runs the lint gate and all suites before the push (enforced by the gate itself)
 
 ### DEPLOY: feat/sessioncheck-remote-staleness
 
