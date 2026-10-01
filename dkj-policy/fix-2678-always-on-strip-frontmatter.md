@@ -51,19 +51,39 @@ disk, and the session that claimed this issue received the persona starting at `
 
 ### CREATE
 
-- [ ] Once #2679 has merged: merge `origin/main` in
-- [ ] Mark a leading `---` ... `---` block as `Stripped` in `Get-LoadedByteLines`, next to the comment rule
-- [ ] Test: a frontmatter fixture lands in `Stripped`, not `Bytes`; a `---` rule mid-document stays counted
+- [x] Once #2679 has merged: merge `origin/main` in
+- [x] Mark a leading `---` ... `---` block as `Stripped` in `Get-LoadedByteLines`, next to the comment rule
+  -- the comment scan starts after the block; an unclosed block, a late `---` pair and the blank line
+  after the block stay counted. The column keeps its name, `CommentBytes`; `measure-always-on`'s labels
+  now say "HTML comments and frontmatter".
+- [x] Test: a frontmatter fixture lands in `Stripped`, not `Bytes`; a `---` rule mid-document stays counted
+  -- plus a late pair, an unclosed block, a CRLF block, and a fence-looking value inside the block.
 
 ### TEST
 
+- [x] `measure-always-on.tests.ps1`: 112 passed, 0 failed.
+- [x] On this repo: the stripped column is now 1,066 B -- the persona's 25 B frontmatter plus the
+  orchestrator lens's 25 B, a tree file the issue had not counted. This session received both without
+  it, and a paths-scoped rule from `.claude/rules/` too, so the rule is not one install's quirk.
+
 ### DEPLOY: fix/2678-always-on-strip-frontmatter
 
-**Score:**
+The always-on measurement now leaves out a document's leading YAML frontmatter (a `---` ... `---` block
+opening the file), which the harness strips before the document reaches a session, just like the
+block-level HTML comments
+([#2678](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2678)). `measure-always-on`, the
+always-on budget gate and `always-on-sessioncheck` counted it, overstating this repo's path by 50 B.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer whose always-on documents carry frontmatter gains that many bytes of budget headroom; for a
+repo with none, nothing changes.
+
+**Score:** 1
 
 #### Pull Request
+
+measure-always-on and the budget gate leave out the frontmatter the harness strips
 
