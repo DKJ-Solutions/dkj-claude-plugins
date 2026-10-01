@@ -75,7 +75,8 @@
     "dkj-policy-bwj@dkj-claude-plugins": false,
     "dkj-subagents-ecomm@dkj-claude-plugins": false,
     "dkj-subagents-lifehub@dkj-claude-plugins": false,
-    "dkj-subagents-shopify@dkj-claude-plugins": false
+    "dkj-subagents-shopify@dkj-claude-plugins": false,
+    "figma@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
     "dkj-claude-plugins": {

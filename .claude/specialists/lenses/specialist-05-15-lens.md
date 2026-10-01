@@ -2435,6 +2435,12 @@ also removed the add-on teams' 11 empty lenses and roster rows, which would othe
 `[ORPHANS]` line at every session start. The second removed the root `CLAUDE.md`'s `@`-import of the
 bwj extension, because the constitution has a repo import that extension only where it is installed.
 
+**`figma@claude-plugins-official` is set to `false` here too** (Dave, October 1, 2026), although it is
+none of the six. It is enabled in the machine's own `~/.claude/settings.json`, so it loaded into every
+session here: 14 skill descriptions, 2,150 tokens measured by `measure-session-start`, and no frontend
+for them to work on. This needs the same `false`-not-absent rule as the six. It is not registered in the
+connector manifest, so no block had to go.
+
 **Only two of the six describe this repo outright.** The core team and `dkj-policy` are the two with real
 work here; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a
 personal-life repo. Three of `dkj-policy-bwj`'s four chapters are about a Shopify store too. **Its
