@@ -964,7 +964,18 @@ try {
         Assert-True ($rulesetJsonText -notlike '*~DEFAULT_BRANCH*') 'and never falls back to the ~DEFAULT_BRANCH placeholder'
         Assert-Equal 'lint-en-tests' $rulesetJsonParsed.rules[0].parameters.required_status_checks[0].context `
             'and names the one candidate job as the required check context'
+        # #2681: without a bypass actor the ruleset refuses every fold, because a direct push can never
+        # satisfy a required check. Pinned on the PARSED payload, so a key that is printed but not
+        # inside the JSON object fails here too.
+        $bypass = @(if ($rulesetJsonParsed.PSObject.Properties['bypass_actors']) { $rulesetJsonParsed.bypass_actors })
+        Assert-Equal 1 $bypass.Count 'and it carries exactly one bypass actor -- without one, every fold is refused (#2681)'
+        if ($bypass.Count -eq 1) {
+            Assert-Equal 'RepositoryRole' ([string]$bypass[0].actor_type) 'that actor is a repository role, valid on a user-owned and an org-owned repo alike'
+            Assert-Equal 5 ([int]$bypass[0].actor_id) 'and it is role 5, repository admin'
+            Assert-Equal 'always' ([string]$bypass[0].bypass_mode) 'with bypass_mode always, so a direct push (the fold) is covered and not only a pull request'
+        }
     }
+    Assert-True ($r.Flat -like '*THE BYPASS ACTOR ABOVE IS WHAT LETS THE FOLD LAND*') 'and the advice says why the bypass actor is there, so nobody strips it as noise'
 
     # THE TRUNK IS READ, NOT HARDCODED (same property as section 6, applied to the payload): a fixture
     # naming a non-main trunk must produce refs/heads/<that trunk>, never refs/heads/main.

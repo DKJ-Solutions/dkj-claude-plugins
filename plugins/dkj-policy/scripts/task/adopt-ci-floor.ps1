@@ -1551,6 +1551,7 @@ if (-not $queueReadable) {
         '  "target": "branch",',
         '  "enforcement": "active",',
         "  ""conditions"": { ""ref_name"": { ""include"": [""refs/heads/$rulesetTrunk""], ""exclude"": [] } },",
+        '  "bypass_actors": [ { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" } ],',
         '  "rules": [',
         '    {',
         '      "type": "required_status_checks",',
@@ -1573,6 +1574,19 @@ if (-not $queueReadable) {
     Write-Host '            STRICT MODE IS OFF ABOVE, ON PURPOSE: this workflow leaves "is my branch caught up"' -ForegroundColor Yellow
     Write-Host '            to ship-pr''s own detect-and-rebase rather than to GitHub. Set it to true instead if' -ForegroundColor Yellow
     Write-Host '            you want the ruleset itself to refuse a merge whose branch is behind the trunk.' -ForegroundColor Yellow
+    Write-Host '' -ForegroundColor Yellow
+    # THE BYPASS ACTOR IS NOT OPTIONAL (#2681). The fold is a direct push to the trunk, and a required
+    # status check can never be satisfied by a direct push -- so a ruleset with no bypass_actors refuses
+    # every fold (local ship-pr, fold-on-merge.yml, merge-on-green.yml) from the next PR on. Measured in a
+    # consumer, October 1, 2026: this payload pasted as-is, and ship-pr's next run read
+    # current_user_can_bypass = never for an org AND repo admin. RepositoryRole 5 (repository admin) is
+    # the one actor valid on a user-owned and an org-owned repo alike -- OrganizationAdmin, the second
+    # type the source repo declares, is refused on a user-owned one -- and an org owner holds the admin
+    # role on every repo of the org, so this single entry already covers them.
+    Write-Host '            THE BYPASS ACTOR ABOVE IS WHAT LETS THE FOLD LAND: the fold is a direct push to the' -ForegroundColor Yellow
+    Write-Host '            trunk, which a required check can never be satisfied by. It names repository admins' -ForegroundColor Yellow
+    Write-Host '            (an org owner is one on every repo), so a FOLD_PUSH_TOKEN must belong to one.' -ForegroundColor Yellow
+    Write-Host '            Remove it and every fold is refused from the next pull request on.' -ForegroundColor Yellow
     Write-Host '' -ForegroundColor Yellow
     if (-not $autoFillContext) {
         Write-Host '            CANDIDATE CHECKS (job id -- from workflow), since more than one exists (or none' -ForegroundColor Yellow
