@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2667-always-on-strip-html-comments · 20261001-100019Z
+
+The always-on measurement now counts what a session actually loads. Block-level HTML comments
+(`<!-- ... -->` on lines of their own) are on disk but are stripped by the harness before the document
+reaches the session. `measure-always-on`, the always-on budget gate and `always-on-sessioncheck` still
+counted them, and overstated this repo's path by about 1 kB. The comment bytes are now left out of every
+size the walk reports, and `measure-always-on` lists them per document in a block of their own.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's always-on figure and budget headroom grow by whatever their always-on documents hold in
+HTML comments, so a comment is now a free place for rationale on the always-on path. For a repo with no
+such comments nothing changes.
+
+**Score:** 1
+
+#### Pull Request
+
+measure-always-on and the budget gate leave out the HTML comments the harness strips
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2679](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2679)
+
+---
 
 ### DEPLOY: docs/2671-model-edit-decodes-u-escape · 20261001-095031Z
 
