@@ -158,13 +158,11 @@ adopting the convention costs one command instead of seven typed by hand.
 **`record` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A record gathers every
 instance of one recurring problem until its root cause is found. It is a *kind* of issue, not a rung, so
-it carries a `prio-N` of its own like any other issue. Five things follow from that:
-
-The label was named `dossier` until October 1, 2026
-([#2683](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2683)). `open-pr`'s refusal and both
+it carries a `prio-N` of its own like any other issue. The label was named `dossier` until October 1, 2026
+([#2683](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2683)): `open-pr`'s refusal and both
 pickup routes still match the old name, so a tracker that has not renamed it stays protected, and
 `task/adopt-triage-labels.ps1` prints the `gh label edit` that renames it in place, keeping every issue on
-it.
+it. Five things follow from being a record:
 
 - **Its title starts with `[RECORD]`** (Dave, October 1, 2026). A record stays open for weeks, and in an
   issue list it otherwise reads like any small finding. The prefix makes the difference visible without

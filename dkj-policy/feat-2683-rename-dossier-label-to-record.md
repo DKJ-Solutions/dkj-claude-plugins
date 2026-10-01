@@ -69,7 +69,12 @@ dossier", "pre-dossier entry", "the dossier form"); that is a different concept 
 - [x] Suites run locally, all green: `pr-issues`, `claim-issue`, `adopt-triage-labels` (new case 4b: a
   tracker carrying `Dossier` gets the rename line and no create), `repo-config`, `issue-dashboard` (the
   each-label-parks assert now follows the list's length), `script-contract`, `shared-scripts`.
-- [ ] Review: Victor (code), Edith (copy), Sebastian (security).
+- [x] Review: Victor (code), Edith (copy), Sebastian (security). No correctness or security finding.
+  Applied: the legacy-name paragraph no longer splits the list it introduces; the remaining label prose in
+  `repo-config.ps1`, `pr-issues-lib.ps1`, `open-pr.ps1` and `claim-issue.ps1` says `record`; the
+  former-name map in `adopt-triage-labels.ps1` is built once, from `Get-DossierLabelNames`, instead of a
+  second literal inside the loop. Two pre-existing findings filed: #2687 (typographic quotes in
+  `Format-SingleQuotedArg`) and #2688 (case-sensitive parking labels on the dashboard).
 
 ### DEPLOY: feat/2683-rename-dossier-label-to-record
 

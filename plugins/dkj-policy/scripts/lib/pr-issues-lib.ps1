@@ -1289,12 +1289,12 @@ function Get-DossierClosingFindings {
 
     .DESCRIPTION
         THE RULE IT ENFORCES (#2463) is CONTRIBUTING-portable.md's step 1: a repair of one instance does
-        not close a dossier. Until this, nothing held that rule -- the resolves-exempt matchers read an
-        issue's BODY and are silent by default, so `-Resolves <dossier>` went through and the merge closed
+        not close a record. Until this, nothing held that rule -- the resolves-exempt matchers read an
+        issue's BODY and are silent by default, so `-Resolves <record>` went through and the merge closed
         the collecting issue.
 
         ITS OWN CHECK RATHER THAN A SECOND SHAPE IN THE MATCHER SEAM, which was the issue's open question.
-        The matchers are one repo's own carve-out and default to nothing; the dossier rule is shared by
+        The matchers are one repo's own carve-out and default to nothing; the record rule is shared by
         every repo running this workflow, so it has to hold with no seam answered at all.
 
         PURE, the same split as Get-ResolvesExemptFindings above: the labels come from Get-IssueBodySet in

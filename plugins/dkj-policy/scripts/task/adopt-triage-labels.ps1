@@ -208,7 +208,7 @@ function Format-SingleQuotedArg {
 
         NOT NEEDED ON THE '[ok]'/'[missing]' DISPLAY LINES, deliberately: those are prose read by a
         person, never composed into something a shell parses, so escaping there would only make an
-        apostrophe read oddly for no safety gained. This function is called at exactly the one site
+        apostrophe read oddly for no safety gained. This function is called at each site
         that builds a command line.
     #>
     param([string]$Value)
@@ -239,6 +239,14 @@ if ($existingNames.Count -eq 0) {
     exit 0
 }
 
+# A RENAMED LABEL IS RENAMED, NOT CREATED BESIDE ITS OLD SELF (issue #2683). 'record' was 'dossier'
+# until October 1, 2026, and a tracker adopted before then carries the old name on its collecting
+# issues. A create would leave those issues on the old label and split the kind across two names;
+# `gh label edit --name` moves every issue with it. Keyed by the CURRENT name, and read from
+# pr-issues-lib.ps1 (already dot-sourced above), so the legacy names live in one place.
+$formerNames = @{}
+$formerNames[(Get-DossierLabelName)] = @(Get-DossierLabelNames | Select-Object -Skip 1)
+
 $missing = 0
 $ok = 0
 foreach ($label in $triageLabels) {
@@ -253,13 +261,12 @@ foreach ($label in $triageLabels) {
     }
     $missing++
     $repoArg = if ($repoSlug) { " --repo $repoSlug" } else { '' }
-    # A RENAMED LABEL IS RENAMED, NOT CREATED BESIDE ITS OLD SELF (issue #2683). 'record' was 'dossier'
-    # until October 1, 2026, and a tracker adopted before then carries the old name on its collecting
-    # issues. A create would leave those issues on the old label and split the kind across two names;
-    # `gh label edit --name` moves every issue with it. The map is keyed by the CURRENT name.
-    $formerNames = @{ 'record' = 'dossier' }
-    $former = if ($formerNames.ContainsKey($label.Name)) { $formerNames[$label.Name] } else { '' }
-    if ($former -and @($existingNames | Where-Object { $_ -eq $former }).Count -gt 0) {
+    # The first former name this tracker still carries, if any -- see the block above the loop.
+    $former = ''
+    if ($formerNames.ContainsKey($label.Name)) {
+        $former = [string](@($formerNames[$label.Name] | Where-Object { $f = $_; @($existingNames | Where-Object { $_ -eq $f }).Count -gt 0 }) | Select-Object -First 1)
+    }
+    if ($former) {
         Write-Host "  [rename]  '$former' -> '$($label.Name)' -- the same label under its former name; renaming keeps every issue on it" -ForegroundColor Yellow
         $qFormer = Format-SingleQuotedArg -Value $former
         $qName = Format-SingleQuotedArg -Value $label.Name
@@ -268,7 +275,7 @@ foreach ($label in $triageLabels) {
         continue
     }
     Write-Host "  [missing] '$($label.Name)' -- $($label.Description)" -ForegroundColor Yellow
-    # ESCAPED HERE, AND ONLY HERE (see Format-SingleQuotedArg's own docstring): this is the one line
+    # ESCAPED HERE, as on the rename line above (see Format-SingleQuotedArg's own docstring): this is a line
     # that composes an actual command a person pastes, and Name/Color/Description all come from
     # $triageLabels -- the built-in seven today, but a consumer's own free-text Get-TriageLabels answer
     # tomorrow, which test 6 in adopt-triage-labels.tests.ps1 proves fully replaces them.

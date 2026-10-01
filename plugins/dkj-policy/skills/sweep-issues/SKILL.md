@@ -65,7 +65,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 
 It prints every open issue as `free`, `mine`, `held`, `branch` or `skipped` with the reason, and names
 the lowest free number. `-SkipLabel` is the labels that park an issue with somebody else; `-SkipIssue`
-holds numbers out by hand.
+holds numbers out by hand. `dossier` is the former name of `record` (#2683), listed because a tracker
+keeps it until somebody renames it there.
 
 **`branch` means somebody pushed work for it without a claim marker** -- a `<prefix>/<n>-<name>` branch
 is on origin, and the reason names its author and how long ago it last moved. It is not free: a marker is
