@@ -86,5 +86,3 @@ the costs shown belong to the newer version on your machine, not the version thi
 
 measure-skill names the gap between the version it priced and the version this checkout's install record pins
 
-Plugins: dkj-policy
-
