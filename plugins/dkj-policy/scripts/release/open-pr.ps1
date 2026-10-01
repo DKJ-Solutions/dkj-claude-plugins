@@ -1365,11 +1365,12 @@ foreach ($bad in @($exemptSeam.Rejected)) {
     Write-Warning ("Get-ResolvesExemptMatchers: ignoring " + $bad.Name + " -- " + $bad.Reason + ". The other matchers still apply.")
 }
 
-# --- Dossier gate (issue #2463) -------------------------------------------------------------------
-# A dossier collects every instance of one recurring problem until its root cause is fixed, and a repair
+# --- Record gate (issue #2463) --------------------------------------------------------------------
+# A record collects every instance of one recurring problem until its root cause is fixed, and a repair
 # of one instance does not close it (CONTRIBUTING-portable.md, step 1; the label is #2462's). That rule
 # was held by memory alone: the matchers above read a BODY and default to nothing, so `-Resolves
-# <dossier>` went through and the merge closed the collecting issue.
+# <record>` went through and the merge closed the collecting issue. The label was named 'dossier' until
+# #2683, and both names are matched.
 #
 # NOT SEAM-GATED, UNLIKE THE MATCHERS, and that is the cost this gate adds: the rule is shared by every
 # repo running the workflow, so every PR that closes anything pays one `gh issue view` per closing issue
@@ -1379,10 +1380,10 @@ $bodySet = $null
 if ($closingAtMerge.Count -gt 0) {
     $bodySet = Get-IssueBodySet -Repo $repo -Numbers $closingAtMerge
     if (@($bodySet.Unreadable).Count -gt 0) {
-        Write-Warning ("could not read issue(s) " + ((@($bodySet.Unreadable) | ForEach-Object { "#$_" }) -join ', ') + " -- the dossier and resolves-exempt checks cannot judge them and do not block on them.")
+        Write-Warning ("could not read issue(s) " + ((@($bodySet.Unreadable) | ForEach-Object { "#$_" }) -join ', ') + " -- the record and resolves-exempt checks cannot judge them and do not block on them.")
     }
     if ($bodySet.Truncated) {
-        Write-Warning ("this PR closes more issues than the dossier and resolves-exempt checks read in one run -- the oldest were not judged.")
+        Write-Warning ("this PR closes more issues than the record and resolves-exempt checks read in one run -- the oldest were not judged.")
     }
 
     $dossiers = @(Get-DossierClosingFindings -Issues $closingAtMerge -Labels $bodySet.Labels)
@@ -1394,14 +1395,15 @@ if ($closingAtMerge.Count -gt 0) {
         }
         Write-Error @"
 resolves gate: this PR would close $dossierList, which carries the '$(Get-DossierLabelName)' label - nothing pushed, no PR opened.
+(An issue still carrying the former name 'dossier' is the same label, and is refused the same way.)
 
-A dossier collects every instance of one recurring problem until its root cause is fixed, and a repair
+A record collects every instance of one recurring problem until its root cause is fixed, and a repair
 of one instance does not close it (CONTRIBUTING-portable.md, step 1).
 
 Pick one:
-  -NoResolves   -- ship citing it as 'part of #<n>', and comment on the dossier what this instance was
+  -NoResolves   -- ship citing it as 'part of #<n>', and comment on the record what this instance was
   -Resolves with only the OTHER numbers, where this run declared several
-  and if this branch fixes the root cause: still -NoResolves, then close the dossier by hand after the merge
+  and if this branch fixes the root cause: still -NoResolves, then close the record by hand after the merge
 $dossierNote
 "@
         exit 1

@@ -152,33 +152,37 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `dossier`, `needs-decision` and `awaiting-recurrence`), so
+is missing (the four `prio-1`..`prio-4` rungs, `record`, `needs-decision` and `awaiting-recurrence`), so
 adopting the convention costs one command instead of seven typed by hand.
 
-**`dossier` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
-[#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A dossier gathers every
+**`record` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
+[#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A record gathers every
 instance of one recurring problem until its root cause is found. It is a *kind* of issue, not a rung, so
-it carries a `prio-N` of its own like any other issue. Five things follow from that:
+it carries a `prio-N` of its own like any other issue. The label was named `dossier` until October 1, 2026
+([#2683](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2683)): `open-pr`'s refusal and both
+pickup routes still match the old name, so a tracker that has not renamed it stays protected, and
+`task/adopt-triage-labels.ps1` prints the `gh label edit` that renames it in place, keeping every issue on
+it. Five things follow from being a record:
 
-- **Its title starts with `[RECORD]`** (Dave, October 1, 2026). A dossier stays open for weeks, and in an
+- **Its title starts with `[RECORD]`** (Dave, October 1, 2026). A record stays open for weeks, and in an
   issue list it otherwise reads like any small finding. The prefix makes the difference visible without
   opening the labels: `[RECORD] processes killed for low memory keep recurring`. Set it when the issue is
-  filed, or when an existing issue becomes a dossier, and take it off together with the label.
-- **A new instance is a comment on the dossier, not a new issue.** Record the date, where it happened and
+  filed, or when an existing issue becomes a record, and take it off together with the label.
+- **A new instance is a comment on the record, not a new issue.** Record the date, where it happened and
   what was measured, so the pattern can be read from one thread.
-- **A repair of one instance does not close it.** A PR that repairs one instance names the dossier
-  without a closing keyword (`part of #<n>`), in its commits as well as its body, and leaves the dossier
+- **A repair of one instance does not close it.** A PR that repairs one instance names the record
+  without a closing keyword (`part of #<n>`), in its commits as well as its body, and leaves the record
   out of `open-pr`'s `-Resolves`. A keyword in a commit message closes the issue whatever prose follows it.
   **`open-pr` refuses the PR body half** ([#2463](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2463)):
-  a PR that would close an issue carrying `dossier`, through `-Resolves` or a `Closes` already on the PR,
+  a PR that would close an issue carrying `record`, through `-Resolves` or a `Closes` already on the PR,
   stops before the push. The commit-message half is still yours, because no gate reads it.
-- **The dossier is closed only when the root cause is repaired.** The closing comment names that repair,
+- **The record is closed only when the root cause is repaired.** The closing comment names that repair,
   so a reader of the thread can see which of its instances the repair explains. Because `open-pr` refuses
-  to close it, even that PR ships with `-NoResolves`, and the dossier is closed by hand after the merge.
-- **A dossier is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
+  to close it, even that PR ships with `-NoResolves`, and the record is closed by hand after the merge.
+- **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `dossier` by default, exactly as they skip `needs-decision` and `awaiting-recurrence`. Working a
-  dossier is a deliberate assignment, named by its number.
+  skip `record` by default, exactly as they skip `needs-decision` and `awaiting-recurrence`. Working a
+  record is a deliberate assignment, named by its number.
 
 **`needs-decision` parks an issue that ends in the owner's choice, and it is set when the issue is filed**
 (Dave, September 26, 2026, [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)).
@@ -204,14 +208,14 @@ nothing left to build until it happens again. Without a label it reads as free w
 it up, finds nothing to do and releases it. Both pickup routes skip this label by default, exactly as they
 skip `needs-decision`.
 
-- **It is not `dossier`.** A dossier collects instances of a problem that *demonstrably* recurs, so there
+- **It is not `record`.** A record collects instances of a problem that *demonstrably* recurs, so there
   is always a next instance to read and a root cause to hunt. Both are parked, but for different
-  reasons, and only a dossier changes how the issue is closed. An issue carrying
+  reasons, and only a record changes how the issue is closed. An issue carrying
   `awaiting-recurrence` has a single unreproduced instance and waits for its first reproducible one.
-- **Its title starts with `[RECORD]` too** (Dave, October 1, 2026), for the reason a dossier's does: it
+- **Its title starts with `[RECORD]` too** (Dave, October 1, 2026), for the reason a record's does: it
   stays open far longer than an ordinary finding, and the prefix shows that in any issue list.
 - **The recurrence takes the label off.** Record the new instance as a comment, remove the label and the
-  `[RECORD]` prefix, and the issue is ordinary work again. If it keeps recurring, it becomes a `dossier`,
+  `[RECORD]` prefix, and the issue is ordinary work again. If it keeps recurring, it becomes a `record`,
   and the prefix goes back on.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**

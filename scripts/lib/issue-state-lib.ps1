@@ -139,7 +139,7 @@ function Get-IssueBodySet {
         resolve limit as Get-ClosedIssueSet above rather than at the size of the tracker.
 
         THE LABELS HALF (#2463) IS WHY EVERY CLOSING PR NOW PAYS THIS READ, where only a repo with
-        matchers used to. The dossier rule -- a repair of one instance does not close a collecting issue
+        matchers used to. The record rule -- a repair of one instance does not close a collecting issue
         -- is shared rather than seam-gated, so it has to be checked on every PR that closes anything. It
         rides on this call rather than on open-pr's open-issue list because that list is only fetched
         inside the -Resolves block, and a `Closes #<n>` already on a resumed PR survives -NoResolves.
