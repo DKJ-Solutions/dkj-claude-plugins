@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2664-measure-skill-dmi-not-always-on · 20261001-101138Z
+
+`measure-skill` no longer counts a skill whose frontmatter sets `disable-model-invocation: true` as
+always-on cost. A session never lists such a skill, so its description was in the printed total but in no
+context. Such a skill now reads `0 (not listed; priced N)`, and each plugin line gives the printed total
+next to what a session actually pays (#2664). For `dkj-policy` at v5.11.0 that is 3,000 of the 5,710 printed.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If you use `measure-skill` to judge what your plugins cost a session, the always-on figures now match what
+a session loads. Skills that only run when typed no longer inflate the total.
+
+**Score:** 1
+
+#### Pull Request
+
+measure-skill prices disable-model-invocation skills at 0 always-on, since a session never lists them
+
+Plugins: dkj-policy
+
+[PR #2680](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2680)
+
+---
 
 ### DEPLOY: fix/2667-always-on-strip-html-comments · 20261001-100019Z
 
