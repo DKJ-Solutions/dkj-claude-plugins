@@ -210,9 +210,18 @@ function Format-SingleQuotedArg {
         person, never composed into something a shell parses, so escaping there would only make an
         apostrophe read oddly for no safety gained. This function is called at each site
         that builds a command line.
+
+        ALL FIVE SINGLE QUOTES, NOT ONLY THE ASCII ONE (#2687). PowerShell's tokenizer reads U+2018,
+        U+2019, U+201A and U+201B as single-quote delimiters too, so a typographic apostrophe in a
+        consumer's Description ("won't" as typed by a word processor) closed the '...' exactly as the
+        ASCII one did -- measured on #2683's branch, where a U+2019 followed by ` --repo evil; calc #`
+        pasted as separate tokens. Doubling works for each of them: inside '...' any two consecutive
+        single-quote characters read back as one literal, so the value survives unchanged. Composed from
+        code points because the script layer is ASCII.
     #>
     param([string]$Value)
-    return ($Value -replace "'", "''")
+    $quoteClass = '[' + "'" + [char]0x2018 + [char]0x2019 + [char]0x201A + [char]0x201B + ']'
+    return ($Value -replace "($quoteClass)", '$1$1')
 }
 
 # Get-LabelNames only reads the 'name' field of each record and ignores the rest -- exactly what this

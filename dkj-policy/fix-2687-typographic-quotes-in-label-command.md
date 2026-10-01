@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#2687: `Format-SingleQuotedArg` doubled only U+0027, while PowerShell's tokenizer also reads U+2018,
+U+2019, U+201A and U+201B as single-quote delimiters. Reason verified before the repair: a
+`PSParser::Tokenize` of `'a` + U+2019 U+2019 + ` b'` yields one string token holding one U+2019, so
+doubling is the right escape for all five.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/task/adopt-triage-labels.ps1`: the escape covers all five single quotes, composed from
+  code points (the script layer is ASCII); plugin mirror synced.
+- [x] `adopt-triage-labels.tests.ps1` test 6c: per typographic quote, the composed line tokenizes into
+  exactly two string arguments, the description reads back raw, and `evil` is no token of its own.
+  Asserted in-process on the function, since the child's printed output is decoded with the console
+  code page and cp850 has no U+2019.
 
 ### TEST
 
+- [x] The suite passes (89 asserts); against the old function 6c fails on all four code points.
+
 ### DEPLOY: fix/2687-typographic-quotes-in-label-command
 
-**Score:**
+`adopt-triage-labels` now escapes the four typographic single quotes (U+2018, U+2019, U+201A, U+201B)
+as well as the ASCII one in the `gh label create` line it prints. PowerShell reads all five as
+quote delimiters, so a consumer's own `Get-TriageLabels` description carrying a curly apostrophe
+closed the printed argument early and spilled the rest into separate tokens on paste (#2687).
+
+**Score:** 1
 
 #### What makes this deploy extra special
+
+N/A
 
 **Score:**
 
 #### Pull Request
+
+adopt-triage-labels: escape PowerShell's typographic single quotes in the printed command
+
+Plugins: dkj-policy
 
