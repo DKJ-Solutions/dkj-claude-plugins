@@ -90,6 +90,9 @@ discovery — as an earlier pass did for `.github/workflows/ci.yml` — not a qu
   the consequence here is the same as above — compose the escape with
   `'-' + [char]0x2013 + [char]0x2014` rather than a non-PowerShell substitution, and where such a tool must
   write one anyway, read the written line back by code point before trusting it.
+  **The model's own `Edit`/`Write` is such a tool too** (October 1, 2026,
+  [#2671](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2671)): a typed `\u003c` reached disk
+  as a decoded `<`, still ASCII, so write it as `('\' + 'u003c')` and read the line back.
 - **And the mirror-image rule for READING: a native command's output that is DATA is not decoded with the
   console code page.** Measured August 21, 2026 (inbound
   [#821](https://github.com/DaveKJohn/claude-code-specialists/issues/821)). The bullet above is about a

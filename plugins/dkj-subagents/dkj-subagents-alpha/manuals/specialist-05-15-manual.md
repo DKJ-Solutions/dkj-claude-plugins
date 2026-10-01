@@ -410,6 +410,20 @@ holds all thirteen.
   (`'-' + [char]0x2013 + [char]0x2014`) — and where a non-PowerShell tool must write the escape, read the
   written line back and check the code points rather than trusting the substitution. No gate can stand in
   for that read-back, because a mangled repair passes an ASCII check by construction.
+  **The model's own `Edit` and `Write` do the same, in the other direction: they decode rather than
+  mangle.** Measured October 1, 2026
+  ([#2671](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2671)): a JSON escape typed as the
+  six characters `\u003c` into a `.ps1` reached disk as the decoded `<`, once through a subagent's `Write`
+  and once through the main loop's `Edit`, both read back with `od -c`. The line became
+  `$json.Replace('<', '<')`. That is pure ASCII, so the gate passed it, and it is a no-op on PowerShell 7,
+  whose `ConvertTo-Json` does not escape `<`, so a `</script` in a data string would have closed the
+  script element. Only a test that shadowed `ConvertTo-Json` with PowerShell 7's shape caught it. **It is
+  not specific to `.ps1`**: the two `Edit` calls that wrote this paragraph and its pointer in a Markdown
+  rule decoded the same escape the same way, while reporting success, and the bytes had to be repaired
+  with a backslash composed from its code point. Whether
+  the decoding happens in the model's output or in the tool layer was not measured, and the remedy does
+  not depend on it: **compose any escape whose literal form a tool may decode** (`('\' + 'u003c')`), and
+  read the written line back by code point.
 
 The general shape behind all thirteen, worth carrying to the next one: when a mistake cannot announce
 itself, the assert is the announcement. Prefer a test over a comment for anything in this class.
