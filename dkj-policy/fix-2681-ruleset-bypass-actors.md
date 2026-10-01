@@ -73,3 +73,5 @@ fold onto. A ruleset already pasted from the old output still needs the bypass a
 
 #### Pull Request
 
+adopt-ci-floor's composed ruleset carries a repository-admin bypass actor, so the fold can land
+
