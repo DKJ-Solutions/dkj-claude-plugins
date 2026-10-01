@@ -78,5 +78,3 @@ a session loads. Skills that only run when typed no longer inflate the total.
 #### Pull Request
 
 measure-skill prices disable-model-invocation skills at 0 always-on, since a session never lists them
-
-Plugins: dkj-policy
