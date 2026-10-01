@@ -2,4 +2,33 @@
 
 ## [Unreleased]
 
-**Nothing pending.** The last release took every entry. <!-- pending-tally -->
+**1 / 1 minor entry** <!-- pending-tally -->
+
+### DEPLOY: fix/2693-null-plugin-roots-under-pwsh · 20261001-185244Z
+
+Inside this repo: the plugin-tree lib no longer trusts `@($PluginRoots)` to drop a `$null`. That holds
+in Windows PowerShell 5.1 and not in pwsh 7, and every CI-floor runner executes under pwsh while the
+suites that reached this path ran under 5.1. A new `Get-PluginRootSet` filters it in the three loops,
+and `fold-changelog.tests.ps1` now asserts that call itself, so the Linux pwsh job covers it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For the maintainer of a consuming repo that declares no plugins: `fold-on-merge` no longer fails on a
+merge with `You cannot call a method on a null-valued expression` in `Get-PluginNameForPath`, so the
+changelog entry folds on the runner instead of waiting for somebody to fold it locally
+([#2693](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2693)).
+
+**Score:** 3
+
+#### Pull Request
+
+The fold no longer crashes under pwsh in a repo with no marketplace
+
+Plugins: dkj-policy
+
+[PR #2694](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2694)
+
+---
+
