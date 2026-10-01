@@ -74,6 +74,14 @@ Two rules are enforced by the script rather than left to whoever reads the outpu
   reads this checkout's install record, and where the two versions differ it says the figures are what a
   session here pays *after its next plugin update*. Where payload and tree differ it says so too, because
   that difference is *queued cost arriving at the next release* — not error to smooth away.
+- **A skill that is never listed costs 0 always-on.** `claude plugin details` prices every description,
+  including a skill whose frontmatter carries `disable-model-invocation: true` — and that flag keeps the
+  skill out of a session's listing, so its description sits in the printed total and in no context
+  ([#2664](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2664): ~3,300 of ~9,200 printed
+  tokens here, measured September 30, 2026). The flag is read from the priced copy's `SKILL.md` files,
+  with the same split `measure-session-start` makes; such a row reads `0 (not listed; priced N)`, and the
+  plugin line names both the printed total and what a session pays. A skill whose page cannot be found
+  counts as listed, because dropping a row nobody checked would make the figure smaller on a guess.
 - **The "fires how often" column is left empty.** An on-invoke figure without a firing frequency is not
   a cost, and a guessed frequency is worse than a blank one. Fill it in yourself; the script will not
   invent it.

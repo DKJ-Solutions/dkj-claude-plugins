@@ -26,8 +26,8 @@
     skill description, including those whose flag removes the page from the model's context entirely
     (issue #2664), so the always-on figure for such a plugin is too high by exactly those rows. This lib
     splits them out (Split-SkillRowsByInvocation) and records which were excluded, so the number is
-    reproducible and the exclusion is visible. It does not fix measure-skill, which still reports the raw
-    total.
+    reproducible and the exclusion is visible. The split itself lives in measure-skill-lib.ps1 since #2664,
+    and measure-skill.ps1 uses it too, so both reports subtract the same rows.
 
     Dot-source this file from a sibling of the script that needs it, relative to $PSScriptRoot. It loads
     its own dependencies. No Set-StrictMode here: dot-sourcing would change the strict mode of the calling
@@ -50,111 +50,9 @@ function Get-SessionStartMarkers {
     return [pscustomobject]@{ Begin = $script:SessionStartBegin; End = $script:SessionStartEnd }
 }
 
-function Test-SkillModelInvocationDisabled {
-    <#
-        Does this SKILL.md carry `disable-model-invocation: true` in its frontmatter? Only the frontmatter
-        counts -- the first '---' block -- and only a top-level key: a line further down the page, or an
-        indented one, is prose or a nested value and not the flag. Quoted `"true"` counts. An unreadable or
-        absent file is $false here; the CALLER decides what an absent file means (see
-        Split-SkillRowsByInvocation, which keeps the question apart from the answer).
-    #>
-    param([Parameter(Mandatory = $true)][string]$Path)
-
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
-    $text = [System.IO.File]::ReadAllText($Path, (New-Object System.Text.UTF8Encoding($false)))
-    $text = $text -replace "`r`n", "`n"
-    if (-not $text.StartsWith("---`n")) { return $false }
-    $close = $text.IndexOf("`n---", 4)
-    if ($close -lt 0) { return $false }
-    $front = $text.Substring(4, $close - 4)
-    return ($front -match '(?m)^disable-model-invocation:\s*["'']?true["'']?\s*(#.*)?$')
-}
-
-function Get-PayloadDirForPlugin {
-    <#
-        The PAYLOAD directory of the copy `claude plugin details` priced -- the only one whose SKILL.md files
-        say which of the priced rows are really loaded. That is not necessarily the copy this repo's install
-        record pins (#2670): Get-InstalledVersionForRepo reads that one. Picks the install record whose
-        version equals the version the details command reported (any scope: a plugin enabled for the whole
-        machine has a record with no projectPath), then falls back to any record that exists on disk, then to
-        the newest cached version. Returns $null when none exists.
-
-        Returns an object so the caller can say when it had to settle: Dir, Version, Exact (the version
-        matched the one measured).
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$RepoRoot,
-        [Parameter(Mandatory = $true)][string]$PluginId,
-        [string]$Version = ''
-    )
-
-    $candidates = @()
-    $rec = Get-InstallRecord -RepoRoot $RepoRoot
-    foreach ($map in @($rec.RecordsById, $rec.PathlessById)) {
-        if ($null -eq $map) { continue }
-        if ($map.ContainsKey($PluginId)) { $candidates += @($map[$PluginId]) }
-    }
-    $candidates = @($candidates | Where-Object { $_.InstallPath -and (Test-Path -LiteralPath $_.InstallPath -PathType Container) })
-
-    if ($Version) {
-        $hit = @($candidates | Where-Object { $_.Version -eq $Version } | Select-Object -First 1)
-        if ($hit.Count -eq 1) { return [pscustomobject]@{ Dir = $hit[0].InstallPath; Version = $hit[0].Version; Exact = $true } }
-    }
-    # THE CACHE BY VERSION NEXT, before settling for an install record of another version. Measured
-    # October 1, 2026: `claude plugin details` priced dkj-policy at 5.10.0 while this checkout's install
-    # record said 5.8.0, and 5.10.0 was sitting in the cache -- so the rows being split are the cache
-    # copy's, and its SKILL.md files are the ones that say which of them are loaded.
-    $cached = @()
-    $parts = $PluginId -split '@', 2
-    if ($parts.Count -eq 2) {
-        $userHome = Get-UserClaudeHome
-        if ($userHome) {
-            $cacheRoot = Join-Path $userHome '.claude\plugins\cache'
-            $cached = @(Get-CachedPluginDirs -Name $parts[0] -Marketplace $parts[1] -CacheRoot $cacheRoot)
-        }
-    }
-    if ($Version) {
-        $hit = @($cached | Where-Object { (Split-Path $_ -Leaf) -eq $Version } | Select-Object -First 1)
-        if ($hit.Count -eq 1) { return [pscustomobject]@{ Dir = $hit[0]; Version = $Version; Exact = $true } }
-    }
-    if ($candidates.Count -gt 0) {
-        return [pscustomobject]@{ Dir = $candidates[0].InstallPath; Version = $candidates[0].Version; Exact = (-not $Version) }
-    }
-    if ($cached.Count -gt 0) {
-        return [pscustomobject]@{ Dir = $cached[0]; Version = (Split-Path $cached[0] -Leaf); Exact = $false }
-    }
-    return $null
-}
-
-function Split-SkillRowsByInvocation {
-    <#
-        Splits the per-skill rows of one plugin into the skills a session LOADS and the ones it does not
-        (disable-model-invocation: true). The skill pages are read from -SkillsDir (<payload>/skills).
-
-        A skill whose SKILL.md cannot be found is kept in Loaded and named in Unverified. That is the
-        conservative direction on purpose: dropping a row nobody could check would shrink the figure on a
-        guess, and a smaller, healthier-looking number is the one wrong answer a measurement must not give.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Rows,
-        [string]$SkillsDir = ''
-    )
-
-    $loaded = @()
-    $excluded = @()
-    $unverified = @()
-    foreach ($row in @($Rows)) {
-        $page = ''
-        if ($SkillsDir) { $page = Join-Path (Join-Path $SkillsDir $row.Component) 'SKILL.md' }
-        if (-not $page -or -not (Test-Path -LiteralPath $page -PathType Leaf)) {
-            $unverified += $row.Component
-            $loaded += $row
-            continue
-        }
-        if (Test-SkillModelInvocationDisabled -Path $page) { $excluded += $row } else { $loaded += $row }
-    }
-    return [pscustomobject]@{ Loaded = @($loaded); Excluded = @($excluded); Unverified = @($unverified) }
-}
+# Test-SkillModelInvocationDisabled, Get-PayloadDirForPlugin and Split-SkillRowsByInvocation live in
+# measure-skill-lib.ps1 since #2664, so measure-skill.ps1 splits the priced rows the same way this report
+# does. This lib dot-sources that one, so its callers here are unaffected.
 
 function ConvertTo-SessionStartPluginEntry {
     <#

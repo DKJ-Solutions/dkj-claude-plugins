@@ -494,6 +494,28 @@ Assert-True (-not (Test-PricedIsLoaded -Installed '5.9.0' -Priced '5.11.0')) 're
 Assert-True (Test-PricedIsLoaded -Installed '' -Priced '5.11.0') 'no record: no evidence of a gap, so no warning'
 Assert-True (Test-PricedIsLoaded -Installed '5.9.0' -Priced '') 'no parsed version: no evidence of a gap either'
 
+# Split-SkillRowsByInvocation, from THIS lib alone (#2664). measure-skill.ps1 loads measure-skill-lib and not
+# session-start-lib, so a split defined only in the latter would leave measure-skill's not-listed figure
+# unreachable. The flag parser's edge cases are pinned in measure-session-start.tests.ps1; this pins the
+# arrangement and the conservative direction.
+$spRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('measure-skill-split-' + [guid]::NewGuid().ToString('N'))
+try {
+    foreach ($n in @('shown', 'hidden')) { $null = New-Item -ItemType Directory -Path (Join-Path $spRoot "skills\$n") -Force }
+    [System.IO.File]::WriteAllText((Join-Path $spRoot 'skills\shown\SKILL.md'), "---`nname: shown`n---`nBody`n")
+    [System.IO.File]::WriteAllText((Join-Path $spRoot 'skills\hidden\SKILL.md'), "---`nname: hidden`ndisable-model-invocation: true`n---`nBody`n")
+    $spRows = @(
+        [pscustomobject]@{ Component = 'shown';   AlwaysOn = 200; OnInvoke = 1000 }
+        [pscustomobject]@{ Component = 'hidden';  AlwaysOn = 300; OnInvoke = 2000 }
+        [pscustomobject]@{ Component = 'nopage';  AlwaysOn = 100; OnInvoke = 500 }
+    )
+    $sp = Split-SkillRowsByInvocation -Rows $spRows -SkillsDir (Join-Path $spRoot 'skills')
+    Assert-Equal 'hidden' (@($sp.Excluded | ForEach-Object { $_.Component }) -join ',') 'the flagged skill is the one excluded -- priced, never listed'
+    Assert-Equal 'shown,nopage' (@($sp.Loaded | ForEach-Object { $_.Component }) -join ',') 'an unflagged skill and an unreadable one both count as listed'
+    Assert-Equal 'nopage' (@($sp.Unverified) -join ',') 'the skill with no page is named as unverified, not dropped'
+} finally {
+    Remove-Item -LiteralPath $spRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 # ---------------------------------------------------------------------------------------------------
 Write-Host ''
 Write-Host "Result: $($script:pass) pass, $($script:fail) fail." -ForegroundColor $(if ($script:fail -gt 0) { 'Red' } else { 'Green' })

@@ -39,19 +39,45 @@
 
 ### PLAN
 
+#2664: `measure-skill` counted the descriptions of `disable-model-invocation: true` skills as always-on,
+though a session never lists them. `measure-session-start` already splits those rows out, so reuse its
+functions rather than writing a second reader.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Move `Test-SkillModelInvocationDisabled`, `Get-PayloadDirForPlugin` and `Split-SkillRowsByInvocation`
+      from `session-start-lib.ps1` to `measure-skill-lib.ps1` (the #2670 arrangement), so both reports split
+      the same way
+- [x] `measure-skill.ps1` reads the flag from the priced copy, prices a not-listed row at 0 with its priced
+      figure beside it, and names both the printed total and what a session pays
+- [x] Skill page and script header document the rule; mirrors regenerated
 
 ### TEST
 
+- [x] `measure-skill.tests.ps1` (104 pass) pins the split from `measure-skill-lib` alone;
+      `measure-session-start.tests.ps1` 198 pass; `check-plugin-integrity.ps1` no findings
+- [x] Live run, v5.11.0: `dkj-policy` printed 5,710, of which 2,710 is 12 not-listed skills; a session pays
+      3,000. `dkj-subagents-alpha` printed 821, of which 600 is 3 not-listed skills
+
 ### DEPLOY: fix/2664-measure-skill-dmi-not-always-on
 
-**Score:**
+`measure-skill` no longer counts a skill whose frontmatter sets `disable-model-invocation: true` as
+always-on cost. A session never lists such a skill, so its description was in the printed total but in no
+context. Such a skill now reads `0 (not listed; priced N)`, and each plugin line gives the printed total
+next to what a session actually pays (#2664). For this repo's plugins that is about a third of the old
+always-on figure.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+If you use `measure-skill` to judge what your plugins cost a session, the always-on figures now match what
+a session loads. Skills that are only ever run by typing them no longer inflate the total.
+
+**Score:** 1
 
 #### Pull Request
 
+measure-skill prices disable-model-invocation skills at 0 always-on, since a session never lists them
+
+Plugins: dkj-policy

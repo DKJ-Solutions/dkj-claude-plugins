@@ -40,6 +40,11 @@
         reads this checkout's install record too and names both versions where they differ. Every gap
         it reports -- priced vs. tree, priced vs. record -- is queued or already-arrived cost, not error
         to smooth away.
+      - It PRICES A NOT-LISTED SKILL AT 0. A skill whose frontmatter carries disable-model-invocation: true
+        is priced by `claude plugin details` and never listed in a session, so its description is in the
+        printed total and in no context (#2664): measured September 30, 2026, ~3,300 of ~9,200 printed
+        always-on tokens here. Such a row reads 0 with its priced figure beside it, and the plugin line names
+        the printed total and what a session pays. The split is measure-session-start's, from the same lib.
       - It LEAVES THE FREQUENCY COLUMN EMPTY. An on-invoke figure without a firing frequency is not a
         cost, and a guessed frequency is worse than a blank one.
 
@@ -335,19 +340,47 @@ foreach ($id in $pluginIds) {
         Write-Info "$pluginId -- the inventory reports 'Agents (0)' while the manifest declares $agentPhrase by path. Those load in a session and this inventory does not count them, so every always-on figure below -- the plugin's own printed total included -- is SKILLS ONLY and understates what the plugin costs. Read the 0 as 'not counted here', never as 'ships none'."
     }
 
-    $skillRows = @($details.Rows | Where-Object { $details.InventorySkills -contains $_.Component })
+    $allSkillRows = @($details.Rows | Where-Object { $details.InventorySkills -contains $_.Component })
+
+    # A SKILL WITH disable-model-invocation: true IS PRICED AND NEVER LISTED (#2664). `claude plugin
+    # details` prices every description, but that flag removes the skill from a session's listing, so its
+    # row is in the printed total and in no session's context. The flag is read from the SKILL.md files of
+    # the copy that was priced -- the same split measure-session-start makes, through the same functions --
+    # and those rows are reported as 0 always-on with their priced figure beside them. The split runs over
+    # every skill of the plugin, not only the -Skill filter, because the session figure is the plugin's.
+    $payload = Get-PayloadDirForPlugin -RepoRoot $repoRoot -PluginId $pluginId -Version ([string]$details.Version)
+    $skillsDir = ''
+    if ($null -ne $payload) {
+        $skillsDir = Join-Path $payload.Dir 'skills'
+        if (-not $payload.Exact) {
+            Write-Info "$pluginId -- no copy at the priced v$($details.Version) is on disk, so which skills carry disable-model-invocation was read from v$($payload.Version) instead."
+        }
+    }
+    $split = Split-SkillRowsByInvocation -Rows $allSkillRows -SkillsDir $skillsDir
+    $notListed = @($split.Excluded | ForEach-Object { $_.Component })
+    $notListedSum = 0
+    if ($notListed.Count -gt 0) { $notListedSum = [int](($split.Excluded | Measure-Object -Property AlwaysOn -Sum).Sum) }
+    # From the ROW SUM, not the printed total: that total is rounded on its own, so subtracting rounded rows
+    # from it measured a skills-only plugin at 104% of what a session pays.
+    $sessionTotal = [math]::Max(0, [int](($details.Rows | Measure-Object -Property AlwaysOn -Sum).Sum) - $notListedSum)
+    if (@($split.Unverified).Count -gt 0) {
+        Write-Info "$pluginId -- no SKILL.md found for $(@($split.Unverified) -join ', '), so those are counted as listed: a row nobody could check is kept rather than dropped on a guess."
+    }
+
+    $skillRows = $allSkillRows
     if ($Skill -and @($Skill).Count -gt 0) {
         $skillRows = @($skillRows | Where-Object { $Skill -contains $_.Component })
     }
     $skillRows = @($skillRows | Sort-Object -Property AlwaysOn -Descending)
 
     $skillAlwaysOn = 0
-    if ($skillRows.Count -gt 0) {
-        $skillAlwaysOn = ($skillRows | Measure-Object -Property AlwaysOn -Sum).Sum
+    $listedRows = @($skillRows | Where-Object { $notListed -notcontains $_.Component })
+    if ($listedRows.Count -gt 0) {
+        $skillAlwaysOn = ($listedRows | Measure-Object -Property AlwaysOn -Sum).Sum
     }
     $sharePct = 0
-    if ($details.AlwaysOnTotal -gt 0) {
-        $sharePct = [math]::Round(100.0 * $skillAlwaysOn / $details.AlwaysOnTotal, 1)
+    if ($sessionTotal -gt 0) {
+        $sharePct = [math]::Round(100.0 * $skillAlwaysOn / $sessionTotal, 1)
     }
 
     # A share AT OR ABOVE 100% is arithmetic, not a defect, and saying so is the point. Each row is
@@ -361,16 +394,22 @@ foreach ($id in $pluginIds) {
     # so the share is stated against what the total actually covers.
     $shareNote = ''
     if ($sharePct -ge 100) {
-        $shareNote = ' -- rounding puts the rows at or just above the printed total, i.e. the skill descriptions account for effectively ALL of this plugin''s always-on cost'
+        $shareNote = ' -- rounding puts the rows at or just above the total, i.e. the skill descriptions account for effectively ALL of this plugin''s always-on cost'
         if ($agentsUncounted) {
             $descPhrase = if ($uncountedAgents -gt 0) { "$uncountedAgents agent description(s)" } else { 'agent description(s)' }
-            $shareNote = ' -- rounding puts the rows at or just above the printed total, i.e. the skill descriptions account for effectively all of the total PRINTED here; the plugin also pays for ' +
+            $shareNote = ' -- rounding puts the rows at or just above the total, i.e. the skill descriptions account for effectively all of the total PRINTED here; the plugin also pays for ' +
                 "$descPhrase that this inventory does not count"
         }
     }
 
+    # The printed total and what a session pays differ by exactly the not-listed rows, so both are named.
+    $notListedNote = ''
+    if ($notListed.Count -gt 0) {
+        $notListedNote = "; the printed total is $(Format-Tok $details.AlwaysOnTotal), of which $(Format-Tok $notListedSum) is $($notListed.Count) skill(s) carrying disable-model-invocation: true, priced but never listed in a session ($($notListed -join ', '))"
+    }
+
     Write-Coverage -Category 'skills' -Checked $skillRows.Count -Of @($details.Rows).Count `
-        -Note "$pluginId v$($details.Version): the skills carry $(Format-Tok $skillAlwaysOn) of the plugin's $(Format-Tok $details.AlwaysOnTotal) always-on tokens ($(Format-Pct $sharePct)%)$shareNote"
+        -Note "$pluginId v$($details.Version): the listed skills carry $(Format-Tok $skillAlwaysOn) of the $(Format-Tok $sessionTotal) always-on tokens a session pays ($(Format-Pct $sharePct)%)$shareNote$notListedNote"
     Write-Ok 'parse cross-checks passed (rows sum to the printed total within tolerance; every inventory skill produced a row).'
 
     if ($skillRows.Count -eq 0) {
@@ -380,7 +419,7 @@ foreach ($id in $pluginIds) {
 
     $report.Add("### ``$pluginId`` v$($details.Version)")
     $report.Add('')
-    $report.Add("The skills carry **$(Format-Tok $skillAlwaysOn)** of this plugin's **$(Format-Tok $details.AlwaysOnTotal)** always-on tokens (**$(Format-Pct $sharePct)%**)$shareNote. Always-on is paid by every session whether the skill fires or not; on-invoke is paid per firing.")
+    $report.Add("The listed skills carry **$(Format-Tok $skillAlwaysOn)** of the **$(Format-Tok $sessionTotal)** always-on tokens a session pays for this plugin (**$(Format-Pct $sharePct)%**)$shareNote$notListedNote. Always-on is paid by every session whether the skill fires or not; on-invoke is paid per firing.")
     $report.Add('')
     $report.Add('| skill | always-on | vs. baseline | on-invoke | share of plugin always-on | fires how often |')
     $report.Add('|---|---:|---:|---:|---:|---|')
@@ -392,17 +431,26 @@ foreach ($id in $pluginIds) {
         if ($null -ne $prev) { $prevAlwaysOn = $prev.AlwaysOn }
         $delta = Format-Delta -Now $row.AlwaysOn -Then $prevAlwaysOn
 
+        # A not-listed skill costs a session 0 always-on; its priced figure stays beside the 0, because the
+        # baseline delta is about the description's size, which matters again the day the flag comes off.
+        $isListed = ($notListed -notcontains $row.Component)
         $rowShare = 0
-        if ($details.AlwaysOnTotal -gt 0) {
-            $rowShare = [math]::Round(100.0 * $row.AlwaysOn / $details.AlwaysOnTotal, 1)
+        if ($isListed -and $sessionTotal -gt 0) {
+            $rowShare = [math]::Round(100.0 * $row.AlwaysOn / $sessionTotal, 1)
+        }
+        $alwaysOnShown = Format-Tok $row.AlwaysOn
+        $hostSuffix = ''
+        if (-not $isListed) {
+            $alwaysOnShown = "0 (not listed; priced $(Format-Tok $row.AlwaysOn))"
+            $hostSuffix = "  not listed: disable-model-invocation, priced $(Format-Tok $row.AlwaysOn)"
         }
 
-        Write-Host ("    {0,-24} always-on {1,7}  {2,-12} on-invoke {3,8}  {4,5}%" -f `
-            $row.Component, (Format-Tok $row.AlwaysOn), $delta, (Format-Tok $row.OnInvoke), (Format-Pct $rowShare))
+        Write-Host ("    {0,-24} always-on {1,7}  {2,-12} on-invoke {3,8}  {4,5}%{5}" -f `
+            $row.Component, $(if ($isListed) { Format-Tok $row.AlwaysOn } else { '0' }), $delta, (Format-Tok $row.OnInvoke), (Format-Pct $rowShare), $hostSuffix)
 
         # The frequency column is left EMPTY on purpose: an on-invoke figure without a firing
         # frequency is not a cost, and a guessed frequency is worse than a blank one.
-        $report.Add("| ``$($row.Component)`` | $(Format-Tok $row.AlwaysOn) | $delta | $(Format-Tok $row.OnInvoke) | $(Format-Pct $rowShare)% | |")
+        $report.Add("| ``$($row.Component)`` | $alwaysOnShown | $delta | $(Format-Tok $row.OnInvoke) | $(Format-Pct $rowShare)% | |")
 
         $measured[$key] = [ordered]@{
             AlwaysOn = $row.AlwaysOn
