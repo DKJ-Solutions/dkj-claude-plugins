@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/dossier-record-title-prefix · 20261001-103813Z
+
+Repo-internal: the rule is how this tracker titles its own collecting issues.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A consumer following `CONTRIBUTING-portable.md` now titles a dossier `[RECORD] ...`, so a long-running
+collecting issue reads apart from a small finding in any issue list, without opening its labels. Nothing
+enforces it; it is a convention, like the label itself.
+
+**Score:** 2
+
+#### Pull Request
+
+A dossier's title starts with [RECORD]
+
+Plugins: dkj-policy
+
+[PR #2685](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2685)
+
+---
 
 ### DEPLOY: fix/2681-ruleset-bypass-actors · 20261001-102730Z
 
