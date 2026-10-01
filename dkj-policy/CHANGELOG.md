@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**7 / 8 minor entries** <!-- pending-tally -->
+**8 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2677-ci-skeleton-ignores-plugin-gates · 20261001-124022Z
+
+`adopt-ci-floor` no longer counts the plugin's own pull-request gates (`branch-entry`,
+`always-on-budget`) as the repo's CI. Measured in a consumer (#2677): running Part 1 before Part 3,
+the documented order, suppressed the `ci.yml` skeleton and left only those two pull-request-only gates
+as candidate checks, so no check could be made required. Part 3 now offers the skeleton and pre-fills
+the ruleset with `ci` whichever order the parts ran in.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A maintainer adopting dkj-policy in a new repo now gets a CI workflow to require from Part 3 even after
+running Part 1 first, instead of a ruleset naming a check that never runs.
+
+**Score:** 3
+
+#### Pull Request
+
+adopt-ci-floor: the plugin's own PR gates no longer suppress the CI skeleton
+
+Plugins: dkj-policy
+
+[PR #2684](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2684)
+
+---
 
 ### DEPLOY: docs/awaiting-recurrence-record-prefix · 20261001-121821Z
 
