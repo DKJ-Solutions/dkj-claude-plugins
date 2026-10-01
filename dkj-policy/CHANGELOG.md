@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**1 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/figma-off-here · 20261001-202811Z
+
+figma, enabled machine-wide, is now switched off in this repo's `.claude/settings.json`. Its 14 skill
+descriptions (2,150 tokens, measured by `measure-session-start`) leave every session here. The reason is
+recorded in Sylvester's lens.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: this changes only this repo's own settings, and no consumer takes them.
+
+**Score:** N/A
+
+#### Pull Request
+
+figma switched off for this repo
+
+[PR #2696](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2696)
+
+---
 
 ### DEPLOY: fix/2693-null-plugin-roots-under-pwsh · 20261001-185244Z
 
