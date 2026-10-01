@@ -77,7 +77,7 @@ with advice. **The script measures and never advises; the model that runs the sk
 - [x] `measure-skill` and `shared-scripts` suites still green after the move
 - [x] First real run: collect on this repo, render against the hand-built page, published to the
   existing `Sessiestart-context` artifact (version 9)
-- [ ] `open-pr` runs the lint gate and all suites before the push
+- [x] `open-pr` runs the lint gate and all suites before the push
 
 ### DEPLOY: feat/measure-session-start-skill
 
