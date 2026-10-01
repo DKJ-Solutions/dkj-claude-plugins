@@ -55,7 +55,8 @@ Extend the sed \u trap in the sysadmin manual and the language-layers rule with 
 ### TEST
 
 - [x] `od -c` on both lines: the six-character escape is on disk literally in both files.
-- [x] The lint and test gate runs in `open-pr`.
+- [x] Edith's copy edit: no substantive findings. The lint and test gate is left to `open-pr`, which
+  refuses on red.
 
 ### DEPLOY: docs/2671-model-edit-decodes-u-escape
 
