@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2681-ruleset-bypass-actors · 20261001-102730Z
+
+The paste-ready ruleset that `adopt-ci-floor` prints now carries a repository-admin bypass actor, and
+says why: without one, the required check refuses the fold's direct push to the trunk, so every fold
+after the next pull request was blocked
+([#2681](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2681)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer who follows Part 3 of `adopt-dkj-policy` to the letter no longer gets a trunk nothing can
+fold onto. A ruleset already pasted from the old output still needs the bypass actor added by hand.
+
+**Score:** 4
+
+#### Pull Request
+
+adopt-ci-floor's composed ruleset carries a repository-admin bypass actor, so the fold can land
+
+Plugins: dkj-policy
+
+[PR #2682](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2682)
+
+---
 
 ### DEPLOY: fix/2664-measure-skill-dmi-not-always-on · 20261001-101138Z
 
