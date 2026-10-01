@@ -478,6 +478,19 @@ function Get-WorkflowFacts {
         # one-line reader does not follow -- so it is treated as no name rather than as the indicator.
         if ($wfName -match '^[>|][+-]?\d*$') { $wfName = '' }
 
+        # THE PLUGIN'S OWN PR GATES ARE NOT THIS REPO'S CI (inbound #2677). adopt-workflow-folder (Part 1)
+        # places branch-entry.yml and always-on-budget.yml, both on pull_request, both a bare job-level
+        # `uses:` call into this plugin's source repo. Counted as "something triggers on pull_request",
+        # they suppressed the CI skeleton the moment Part 1 had run, and then stood alone as the
+        # candidate checks -- while both are pull-request-only and so cannot carry the required role.
+        # Measured in a consumer: Part 1 then Part 3, the documented order, left no requirable check.
+        # A file with a step of its own anywhere is the consumer's, whatever else it calls, so a mixed
+        # file is never excluded. Both repo names are read, as at the pinned-ref reader below: a caller
+        # scaffolded before the rename still names the old one, and still runs.
+        $pluginGate = $jobsBlock.Success `
+            -and ($jobsBlock.Groups['body'].Value -match '(?m)^\s{4}uses:\s*[^/\s]+/(?:dkj-claude-plugins|claude-code-specialists)/\.github/workflows/') `
+            -and ($jobsBlock.Groups['body'].Value -notmatch '(?m)^\s+(?:steps|runs-on):')
+
         $facts += [pscustomobject]@{
             Name          = $f.Name
             Rel           = ".github/workflows/$($f.Name)"
@@ -485,6 +498,7 @@ function Get-WorkflowFacts {
             JobIds        = @($ids | Sort-Object -Unique)
             HasMergeGroup = $hasMergeGroup
             OnPullRequest = $onPullRequest
+            PluginGate    = $pluginGate
         }
     }
     return @($facts)
@@ -505,9 +519,14 @@ $workflows = Get-WorkflowFacts -WorkflowDir $workflowDir
 # file name already has what this exists to give; placing a second, empty workflow beside a real one
 # would be noise. Once either file carries that trigger, $workflows picks it up on the very next run and
 # this arm has nothing left to offer -- no separate "already adopted" state to track.
+#
+# "ELSE" MEANS THIS REPO'S OWN WORKFLOWS (inbound #2677): the plugin's PR gates Part 1 places are left
+# out here and from the candidate checks below, because neither can be the required check -- see
+# PluginGate in Get-WorkflowFacts. Without that, the order the parts ran in decided the result.
 $ciSkeletonRel = '.github/workflows/ci.yml'
 $ciSkeletonAbs = Join-Path $repoRoot ($ciSkeletonRel -replace '/', '\')
-$noPrWorkflowAtAll = (@($workflows | Where-Object { $_.OnPullRequest })).Count -eq 0
+$repoPrWorkflows = @($workflows | Where-Object { $_.OnPullRequest -and -not $_.PluginGate })
+$noPrWorkflowAtAll = $repoPrWorkflows.Count -eq 0
 $ciSkeletonOffered = $noPrWorkflowAtAll -and -not (Test-Path -LiteralPath $ciSkeletonAbs)
 
 # THE JOB'S NAME COMES FROM THE SEAM THAT ALREADY OWNS THIS QUESTION, Get-CiTestCheckName -- the same
@@ -549,8 +568,8 @@ $ciSkeletonJobKey = 'ci'
 $ciSkeletonCheckName = if (Test-QuotedScalarSafe -Value $ciSkeletonDeclaredName) { $ciSkeletonDeclaredName } else { $ciSkeletonJobKey }
 
 $ciSkeletonRunner = @(
-    '# A minimal CI workflow, scaffolded because nothing in this repo triggered on pull_request at all',
-    '# (issue #1843). Its only purpose is to give this repo something to require on the trunk, which is',
+    '# A minimal CI workflow, scaffolded because no workflow of this repo''s own triggered on pull_request',
+    '# (issue #1843; the dkj-policy PR gates do not count, #2677). Its only purpose is to give this repo something to require on the trunk, which is',
     '# what switches ship-pr''s detect-and-rebase staleness guard on -- see this command''s own section 1:',
     '# with no required check named, that guard has no certificate to date and is simply off.',
     '#',
@@ -1436,7 +1455,8 @@ if (-not $queueReadable) {
     Write-Host '' -ForegroundColor Yellow
 
     if ($ciSkeletonOffered) {
-        Write-Host '            NOTHING IN THIS TREE TRIGGERS ON pull_request AT ALL, so section 2 below will' -ForegroundColor Yellow
+        Write-Host '            NOTHING IN THIS TREE TRIGGERS ON pull_request AT ALL (the plugin''s own PR gates' -ForegroundColor Yellow
+        Write-Host '            aside -- they cannot carry the role), so section 2 below will' -ForegroundColor Yellow
         Write-Host "            offer to scaffold $ciSkeletonRel -- a minimal, empty CI workflow to require." -ForegroundColor Yellow
         Write-Host "            Its one job is named '$ciSkeletonCheckName'; replace its placeholder step with" -ForegroundColor Yellow
         Write-Host '            whatever this repo wants a merge to prove before making it required (issue #1843).' -ForegroundColor Yellow
@@ -1483,7 +1503,7 @@ if (-not $queueReadable) {
     # reaches this predicate -- which is what keeps it from closing the surrounding here-string early
     # (that closes only on a line that STARTS with `'@`).
 
-    $prJobIds = @($workflows | Where-Object { $_.OnPullRequest } | ForEach-Object { $_.JobIds } | Sort-Object -Unique)
+    $prJobIds = @($repoPrWorkflows | ForEach-Object { $_.JobIds } | Sort-Object -Unique)
     $autoFillContext = $null
     if ($prJobIds.Count -eq 1 -and (Test-QuotedScalarSafe -Value $prJobIds[0])) { $autoFillContext = $prJobIds[0] }
     # NO REAL CANDIDATE, BUT THE SKELETON ABOUT TO BE PLACED HAS ONE (issue #1843): its check name was
@@ -1558,11 +1578,10 @@ if (-not $queueReadable) {
         Write-Host '            CANDIDATE CHECKS (job id -- from workflow), since more than one exists (or none' -ForegroundColor Yellow
         Write-Host '            does, or the one candidate was not safe to paste): pick the one your merge should' -ForegroundColor Yellow
         Write-Host '            actually wait on.' -ForegroundColor Yellow
-        $prWorkflows = @($workflows | Where-Object { $_.OnPullRequest })
-        if ($prWorkflows.Count -eq 0) {
-            Write-Host '              (no workflow here triggers on pull_request at all)' -ForegroundColor DarkGray
+        if ($repoPrWorkflows.Count -eq 0) {
+            Write-Host '              (no workflow of this repo''s own triggers on pull_request)' -ForegroundColor DarkGray
         }
-        foreach ($w in $prWorkflows) {
+        foreach ($w in $repoPrWorkflows) {
             foreach ($jid in $w.JobIds) {
                 # #2248: $w.Rel beside it is the same foreign-filename class $jid was already guarded for.
                 Write-Host "              $(Get-DisplayRef -Ref $jid) -- from $(Get-DisplayPath -Path $w.Rel)" -ForegroundColor DarkGray

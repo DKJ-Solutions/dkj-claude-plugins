@@ -1082,6 +1082,38 @@ try {
     Assert-True (-not ($untouchedCi -like '*TODO (issue #1843 template)*')) `
         'and -Apply never overwrites it with the skeleton'
 
+    # 9d2. THE PLUGIN'S OWN PR GATES DO NOT COUNT (inbound #2677). Part 1 places branch-entry.yml and
+    #      always-on-budget.yml, both on pull_request; run before Part 3 -- the documented order -- they
+    #      suppressed the skeleton and stood alone as the candidate checks, though neither can be
+    #      required. Same text Part 1 writes, including the pre-rename repo name a caller may still hold.
+    $part1Dir = New-FixtureConsumerNoCI -Label 'after-part1'
+    $part1Wf = Join-Path $part1Dir '.github\workflows'
+    [System.IO.File]::WriteAllText((Join-Path $part1Wf 'branch-entry.yml'), (@(
+        'name: Branch entry', 'on:', '  pull_request:', '    branches: [main]', '', 'jobs:', '  branch-entry:',
+        '    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-branch-entry.yml@main') -join "`n") + "`n")
+    [System.IO.File]::WriteAllText((Join-Path $part1Wf 'always-on-budget.yml'), (@(
+        'name: Always-on budget', 'on:', '  pull_request:', '    branches: [main]', '', 'jobs:', '  always-on-budget:',
+        '    uses: DKJ-Solutions/claude-code-specialists/.github/workflows/reusable-always-on-budget.yml@main') -join "`n") + "`n")
+    $rPart1 = Invoke-Adopt -Dir $part1Dir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True ($rPart1.Flat -like '*NOTHING IN THIS TREE TRIGGERS ON pull_request AT ALL*') `
+        'with only the plugin''s own PR gates in the tree, the skeleton is still offered'
+    Assert-True ($rPart1.Flat -like "*the check the skeleton below will carry, 'ci'*") `
+        'and the ruleset is pre-filled with the skeleton''s check, not left to a placeholder'
+    Assert-True (-not ($rPart1.Flat -like '*branch-entry -- from*')) 'branch-entry is never offered as a candidate check'
+    Assert-True (-not ($rPart1.Flat -like '*always-on-budget -- from*')) 'nor is always-on-budget'
+    Invoke-Adopt -Dir $part1Dir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks, '-Apply') | Out-Null
+    Assert-True (Test-Path -LiteralPath (Join-Path $part1Wf 'ci.yml')) 'Part 1 then Part 3 -Apply places ci.yml'
+
+    # 9d3. A file with a step of its own is the consumer's, whatever else it calls -- never excluded.
+    $mixedDir = New-FixtureConsumerNoCI -Label 'mixed-caller'
+    [System.IO.File]::WriteAllText((Join-Path $mixedDir '.github\workflows\gates.yml'), (@(
+        'name: Gates', 'on:', '  pull_request:', '', 'jobs:', '  branch-entry:',
+        '    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-branch-entry.yml@main',
+        '  build:', '    runs-on: ubuntu-latest', '    steps:', '      - run: echo build') -join "`n") + "`n")
+    $rMixed = Invoke-Adopt -Dir $mixedDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
+    Assert-True (-not ($rMixed.Flat -like '*NOTHING IN THIS TREE TRIGGERS ON pull_request AT ALL*')) `
+        'a workflow mixing a plugin call with a job of its own counts as this repo''s own CI'
+
     # 9e. The job's check name follows the Get-CiTestCheckName seam when the repo has declared one --
     #     the same seam open-pr's own local-gate-skip logic reads (#1715) -- so the two never need
     #     reconciling by hand.

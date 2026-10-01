@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Inbound #2677, verified against the tree: `adopt-ci-floor.ps1` offered its CI skeleton only when no
+workflow triggered on `pull_request`, and Part 1 (`adopt-workflow-folder.ps1`) places two that do --
+`branch-entry.yml` and `always-on-budget.yml`, each a bare `uses:` call into this plugin's source.
+Repair as proposed: recognise those callers and leave them out of the skeleton test and the
+candidate checks.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-WorkflowFacts` records `PluginGate`: a job-level `uses:` into the source repo (current or
+      retired name) with no `steps:`/`runs-on:` of its own, so a mixed file stays the consumer's
+- [x] The skeleton test, the ruleset auto-fill and the candidate list read `$repoPrWorkflows`
+      (pull_request workflows minus plugin gates); the generated `ci.yml` header and the console line say so
+- [x] Plugin mirror `plugins/dkj-policy/scripts/task/adopt-ci-floor.ps1` synced
 
 ### TEST
 
+- [x] `adopt-ci-floor.tests.ps1` 9d2: a tree holding only Part 1's two gates still gets the skeleton
+      offered, the ruleset pre-filled with `ci`, neither gate listed as a candidate, and `-Apply` places
+      `ci.yml`; 9d3: a workflow mixing a plugin call with its own job still counts -- 277 passed, 0 failed
+
 ### DEPLOY: fix/2677-ci-skeleton-ignores-plugin-gates
 
-**Score:**
+`adopt-ci-floor` no longer counts the plugin's own pull-request gates (`branch-entry`,
+`always-on-budget`) as the repo's CI. Measured in a consumer (#2677): running Part 1 before Part 3,
+the documented order, suppressed the `ci.yml` skeleton and left only those two pull-request-only gates
+as candidate checks, so no check could be made required. Part 3 now offers the skeleton and pre-fills
+the ruleset with `ci` whichever order the parts ran in.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer adopting dkj-policy in a new repo now gets a CI workflow to require from Part 3 even after
+running Part 1 first, instead of a ruleset naming a check that never runs.
+
+**Score:** 3
 
 #### Pull Request
 
