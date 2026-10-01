@@ -43,17 +43,28 @@ Every issue carrying a purple parking label -- dossier or awaiting-recurrence --
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `CONTRIBUTING-portable.md`: the `awaiting-recurrence` section gains the `[RECORD]` title prefix
+  the `dossier` section got in #2685, and the recurrence bullet now takes the prefix off with the label.
+- [x] The two open `awaiting-recurrence` issues here, #2662 and #2572, retitled `[RECORD] ...`. With
+  them, every open issue carrying a purple label (`5319E7`: `dossier`, `awaiting-recurrence`) has it.
 
 ### TEST
 
+- [x] Copy-edit pass on the two bullets.
+
 ### DEPLOY: docs/awaiting-recurrence-record-prefix
 
-**Score:**
+Repo-internal: how this tracker titles its own parked issues.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer following `CONTRIBUTING-portable.md` now titles an `awaiting-recurrence` issue `[RECORD] ...`
+as well as a dossier, so both kinds of long-open parked issue read apart from small findings in any
+issue list. A convention, enforced by nothing.
+
+**Score:** 2
 
 #### Pull Request
 
