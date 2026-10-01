@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**6 / 7 minor entries** <!-- pending-tally -->
+**7 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/awaiting-recurrence-record-prefix · 20261001-121821Z
+
+Repo-internal: how this tracker titles its own parked issues.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A consumer following `CONTRIBUTING-portable.md` now titles an `awaiting-recurrence` issue `[RECORD] ...`
+as well as a dossier, so both kinds of long-open parked issue read apart from small findings in any
+issue list. A convention, enforced by nothing.
+
+**Score:** 2
+
+#### Pull Request
+
+An awaiting-recurrence issue's title starts with [RECORD] too
+
+Plugins: dkj-policy
+
+[PR #2686](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2686)
+
+---
 
 ### DEPLOY: docs/dossier-record-title-prefix · 20261001-103813Z
 
