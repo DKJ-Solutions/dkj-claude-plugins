@@ -443,6 +443,58 @@ Assert-True $msLib[0].LibOnly 'as a dot-sourced lib, so the dual-context invaria
 Assert-True ($null -eq $msLib[0].Skill) 'and a LibOnly entry declares no skill'
 
 # ---------------------------------------------------------------------------------------------------
+# Get-InstalledVersionForRepo -- the version THIS checkout's install record pins (#2670). measure-skill
+# compares it with the version `claude plugin details` priced, because the command prices the newest copy
+# on the machine rather than the recorded one; a wrong answer here would silence that warning, or fire it
+# on every run.
+Write-Host "Get-InstalledVersionForRepo -- the recorded version, not the priced one (#2670)" -ForegroundColor Cyan
+. (Join-Path $RepoRoot 'scripts\lib\check-report-lib.ps1')
+$ivRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("measure-skill-iv-" + [guid]::NewGuid().ToString('N'))
+try {
+    $ivHome = Join-Path $ivRoot 'home'
+    $ivRepo = Join-Path $ivRoot 'repo'
+    $ivOther = Join-Path $ivRoot 'other'
+    New-Item -ItemType Directory -Path (Join-Path $ivHome '.claude\plugins') -Force | Out-Null
+    New-Item -ItemType Directory -Path $ivRepo -Force | Out-Null
+    New-Item -ItemType Directory -Path $ivOther -Force | Out-Null
+
+    Assert-True ($null -eq (Get-InstalledVersionForRepo -RepoRoot $ivRepo -PluginId 'p@m' -UserHomeOverride $ivHome)) `
+        'no administration file: $null, never a guessed version'
+
+    $esc = { param($p) $p.Replace('\', '\\') }
+    $json = @"
+{
+  "version": 2,
+  "plugins": {
+    "p@m": [
+      { "scope": "project", "projectPath": "$(& $esc $ivOther)", "version": "5.11.0" },
+      { "scope": "project", "projectPath": "$(& $esc $ivRepo)", "version": "5.9.0" }
+    ],
+    "q@m": [
+      { "scope": "user", "version": "2.0.0" }
+    ]
+  }
+}
+"@
+    [System.IO.File]::WriteAllText((Join-Path $ivHome '.claude\plugins\installed_plugins.json'), $json, (New-Object System.Text.UTF8Encoding($false)))
+
+    Assert-Equal '5.9.0' (Get-InstalledVersionForRepo -RepoRoot $ivRepo -PluginId 'p@m' -UserHomeOverride $ivHome) `
+        "this repo's own record wins over another checkout's newer one -- the #2670 shape"
+    Assert-Equal '2.0.0' (Get-InstalledVersionForRepo -RepoRoot $ivRepo -PluginId 'q@m' -UserHomeOverride $ivHome) `
+        'a machine-wide record with no path is used where this repo has none'
+    Assert-True ($null -eq (Get-InstalledVersionForRepo -RepoRoot $ivRepo -PluginId 'absent@m' -UserHomeOverride $ivHome)) `
+        'a plugin with no record at all: $null'
+} finally {
+    Remove-Item -LiteralPath $ivRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# Test-PricedIsLoaded -- the decision that gates measure-skill's #2670 [INFO] and its "loads today" claim.
+Assert-True (Test-PricedIsLoaded -Installed '5.11.0' -Priced '5.11.0') 'same version: the priced copy is the loaded one'
+Assert-True (-not (Test-PricedIsLoaded -Installed '5.9.0' -Priced '5.11.0')) 'record 5.9.0, priced 5.11.0: a gap -- the #2670 shape'
+Assert-True (Test-PricedIsLoaded -Installed '' -Priced '5.11.0') 'no record: no evidence of a gap, so no warning'
+Assert-True (Test-PricedIsLoaded -Installed '5.9.0' -Priced '') 'no parsed version: no evidence of a gap either'
+
+# ---------------------------------------------------------------------------------------------------
 Write-Host ''
 Write-Host "Result: $($script:pass) pass, $($script:fail) fail." -ForegroundColor $(if ($script:fail -gt 0) { 'Red' } else { 'Green' })
 if ($script:fail -gt 0) { exit 1 }

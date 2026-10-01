@@ -28,13 +28,18 @@
     PASS 1 -- COST. Free, seconds, no model call. Per skill: always-on, on-invoke, share of its
     plugin's always-on total, and the delta against the baseline. Two rules from the performance lens
     are enforced rather than remembered:
-      - It NAMES THE COPY IT MEASURED. `claude plugin details` prices the INSTALLED PAYLOAD -- the
-        extracted copy under ~/.claude/plugins/cache/ that a session actually loads -- and not this
-        tree. It is not the marketplace clone either, which is what this line said until #1812:
-        measured September 10, 2026 (CLI 2.1.267), the command reported Skills (17) for dkj-policy
-        while the clone's copy of that same version carried 18. When payload and tree differ the
-        difference is queued cost arriving at the next release, not error to smooth away, and the
-        report says so.
+      - It NAMES THE COPY IT MEASURED. `claude plugin details` prices an extracted copy under
+        ~/.claude/plugins/cache/ -- not this tree, and not the marketplace clone either, which is what
+        this line said until #1812: measured September 10, 2026 (CLI 2.1.267), the command reported
+        Skills (17) for dkj-policy while the clone's copy of that same version carried 18.
+        AND IT IS NOT NECESSARILY THE COPY THIS CHECKOUT LOADS, which is what this line said until #2670.
+        The command takes no project path, and measured October 1, 2026 it priced dkj-policy at 5.11.0
+        from a checkout whose install record pins 5.9.0 (and, earlier that day, at 5.10.0 against a
+        record of 5.8.0) -- a copy other than the recorded one, measured both times as the newest version
+        on the machine. So the report
+        reads this checkout's install record too and names both versions where they differ. Every gap
+        it reports -- priced vs. tree, priced vs. record -- is queued or already-arrived cost, not error
+        to smooth away.
       - It LEAVES THE FREQUENCY COLUMN EMPTY. An on-invoke figure without a firing frequency is not a
         cost, and a guessed frequency is worse than a blank one.
 
@@ -275,12 +280,20 @@ foreach ($id in $pluginIds) {
     }
     if (-not (Test-DetailsParse -Details $details -PluginId $pluginId)) { continue }
 
-    # WHICH COPY WAS MEASURED. The command prices the INSTALLED PAYLOAD -- the extracted copy a session
-    # loads -- and not this tree, and not the marketplace clone either (#1812).
+    # WHICH COPY WAS MEASURED. The command prices an extracted payload, not this tree and not the
+    # marketplace clone (#1812) -- and not necessarily the version this checkout's install record pins
+    # (#2670), so that record is read too and the figures are only called "what a session here loads
+    # today" where the two agree.
     $declared   = Get-DeclaredAgentCount -RepoRoot $repoRoot -ShortName $shortName
     $treeVersion = $declared.Version
+    $installedVersion = Get-InstalledVersionForRepo -RepoRoot $repoRoot -PluginId $pluginId
+    $pricedIsLoaded = Test-PricedIsLoaded -Installed ([string]$installedVersion) -Priced ([string]$details.Version)
+    if (-not $pricedIsLoaded) {
+        Write-Info "$pluginId -- priced v$($details.Version), but this checkout's install record pins v$installedVersion. ``claude plugin details`` does not price the copy this checkout loads (#2670; measured: the newest version on the machine), so every figure below is v$($details.Version)'s: what a session here pays after its next plugin update, not today."
+    }
     if ($treeVersion -and $details.Version -and $treeVersion -ne $details.Version) {
-        Write-Info "$pluginId -- measured the INSTALLED PAYLOAD at v$($details.Version) while this tree is at v$treeVersion. The difference is queued cost that arrives at the next plugin update, not error: every figure below is what a session loads today."
+        $today = if ($pricedIsLoaded) { ': every figure below is what a session loads today' } else { '' }
+        Write-Info "$pluginId -- measured the payload at v$($details.Version) while this tree is at v$treeVersion. The difference is queued cost that arrives at the next plugin update, not error$today."
     }
 
     # WHAT THE FIGURES DO NOT COVER, said before any of them is printed. A def named by the manifest's
@@ -291,8 +304,8 @@ foreach ($id in $pluginIds) {
     #
     # AND THE NUMBER IS THE TREE'S, so it is only stated where the tree is the copy that was measured.
     # $declared.AgentCount comes from the manifest on disk while every figure here comes from the
-    # installed payload, and those are different versions often enough to have their own [INFO] one line
-    # up -- which says 'every figure below is what a session loads today'. Asserting a count off the other
+    # priced payload, and those are different versions often enough to have their own [INFO] a few lines
+    # up -- which, where the priced copy is the loaded one, says 'every figure below is what a session loads today'. Asserting a count off the other
     # copy underneath that sentence contradicts it. So where the two versions differ, the caveat keeps the
     # part that is version-independent (the inventory counts no key-declared agent) and drops the count.
     $inventoryAgents = $null
