@@ -39,19 +39,59 @@
 
 ### PLAN
 
+Dave (October 1, 2026): *"I often don't notice at the start of a new session whether the plugins are out
+of date, and I see no warning."* Two causes, both verified (#2673):
+
+1. `connector-sessioncheck` compares the install against the **local** marketplace clone only, and stays
+   silent about a stale clone by design (#1591). Measured the same day: "up to date" on 5.10.0 while
+   GitHub had v5.11.0.
+2. Even a correct verdict would have been invisible: a SessionStart hook's plain stdout goes to the
+   model's context only (*"A successful hook's stdout is never shown in the transcript"*, hooks
+   reference). Only `systemMessage` in JSON output reaches the user.
+
+So: a new, separate hook `release-freshness-sessioncheck.ps1` that compares the running plugin version
+(its own `plugin.json`) against the highest `vX.Y.Z` tag on the clone's `origin` (`git ls-remote`, which
+writes nothing). It is silent unless behind and silent on every failure, bounded at 5 s, cached once per
+session through `session-cache-lib`, and it answers in JSON with a `systemMessage` for the user and
+`additionalContext` for the model. Tags rather than HEAD, because the trunk moves on every merge while an
+update only delivers something at a release.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins/dkj-policy/hooks/release-freshness-sessioncheck.ps1`, registered in `hooks.json`
+- [x] A pointer in `connector-sessioncheck.ps1`'s docstring, where the stale clone is deliberately silent
+- [x] Review (Victor, Sebastian, Edith): no findings
 
 ### TEST
 
+- [x] `scripts/tests/release-freshness-sessioncheck.tests.ps1` (Tycho): behind, numeric comparison,
+  current, ahead, tag shapes, no clone, unreachable origin, bad version, and the session-cache replay,
+  against a local bare repository standing in for GitHub. 19/19
+- [x] Live run against the real clone: behind prints the JSON (0.93 s including the PowerShell start),
+  current is silent
+- [ ] `open-pr` runs the lint gate and all suites before the push
+
 ### DEPLOY: feat/sessioncheck-remote-staleness
 
-**Score:**
+A new `dkj-policy` SessionStart hook, `release-freshness-sessioncheck`, warns the user visibly when
+GitHub carries a newer release of the dkj plugins than the one the session is running. It names both
+versions and the `update-plugins` skill. Until now nothing did: `connector-sessioncheck` compares against
+the local marketplace clone, which only moves on `claude plugin marketplace update`, and every
+session-start hook printed plain text that reaches the model but never the user. The new hook compares
+release tags rather than commits, so work merged between releases does not trigger it. It is silent
+when the session is current, offline or unable to check. The network probe runs once per session and is
+bounded at five seconds.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer who falls behind a release now sees a warning in the terminal at session start, telling them
+to run `/dkj-policy:update-plugins`. Before this they had to guess. A current session costs about one
+`git ls-remote` per session start and shows nothing.
+
+**Score:** 3
 
 #### Pull Request
 
+release-freshness-sessioncheck: warn the user at session start when a newer dkj release is out
