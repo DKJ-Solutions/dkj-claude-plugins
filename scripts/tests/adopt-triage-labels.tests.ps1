@@ -263,6 +263,36 @@ try {
     Assert-True ($r.Out -like "*[missing]*'team's-label'*") `
         'apostrophe seam: the prose [missing] line still carries the RAW apostrophe, unescaped -- it is not a shell argument'
 
+    # --- 6c. The four TYPOGRAPHIC single quotes are escaped too (#2687) ----------------------------
+    #         PowerShell's tokenizer reads U+2018, U+2019, U+201A and U+201B as single-quote delimiters,
+    #         so escaping only the ASCII one left a pasted line splittable. Asserted IN-PROCESS on the
+    #         function itself, not on the child's printed output: that output is decoded with the console
+    #         code page, and cp850 has no U+2019, so the very character under test would arrive as '?'
+    #         and the assert would pass or fail for reasons unrelated to the escape.
+    Write-Host '-- 6c. a typographic single quote is escaped as well, and the line tokenizes as intended --' -ForegroundColor Cyan
+    $scriptAst = [System.Management.Automation.Language.Parser]::ParseFile($Script, [ref]$null, [ref]$null)
+    $fnAst = $scriptAst.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Format-SingleQuotedArg' }, $true)
+    Assert-True ($null -ne $fnAst) 'typographic quotes: Format-SingleQuotedArg is found in the script'
+    if ($null -ne $fnAst) {
+        . ([scriptblock]::Create($fnAst.Extent.Text))
+        foreach ($cp in @(0x2018, 0x2019, 0x201A, 0x201B)) {
+            $q = [string][char]$cp
+            # The measured payload from the security review on #2683's branch.
+            $raw = "won$q" + 't --repo evil; calc #'
+            $line = "gh label create 'x' --description '$(Format-SingleQuotedArg -Value $raw)' --repo o/r"
+            $errs = $null
+            $toks = @([System.Management.Automation.PSParser]::Tokenize($line, [ref]$errs))
+            $strings = @($toks | Where-Object { $_.Type -eq 'String' })
+            $hex = '{0:X4}' -f $cp
+            Assert-Equal 0 @($errs).Count "typographic quotes: U+$hex -- the composed line parses without error"
+            Assert-Equal 2 $strings.Count "typographic quotes: U+$hex -- exactly two string arguments, nothing spilled out"
+            if ($strings.Count -eq 2) {
+                Assert-Equal $raw $strings[1].Content "typographic quotes: U+$hex -- the description reads back as the raw value"
+            }
+            Assert-True (@($toks | Where-Object { $_.Content -eq 'evil' }).Count -eq 0) "typographic quotes: U+$hex -- 'evil' is not a token of its own"
+        }
+    }
+
     # --- 7. Mirror byte-identity (drift is also covered generically by shared-scripts.tests.ps1; --
     #        asserted here too so whoever edits either copy finds the guard beside the script it touched)
     Write-Host '-- 7. the plugin mirror is LF-identical to the source --' -ForegroundColor Cyan
