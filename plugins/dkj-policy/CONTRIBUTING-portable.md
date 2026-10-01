@@ -208,8 +208,11 @@ skip `needs-decision`.
   is always a next instance to read and a root cause to hunt. Both are parked, but for different
   reasons, and only a dossier changes how the issue is closed. An issue carrying
   `awaiting-recurrence` has a single unreproduced instance and waits for its first reproducible one.
-- **The recurrence takes the label off.** Record the new instance as a comment, remove the label, and the
-  issue is ordinary work again. If it keeps recurring, it becomes a `dossier`.
+- **Its title starts with `[RECORD]` too** (Dave, October 1, 2026), for the reason a dossier's does: it
+  stays open far longer than an ordinary finding, and the prefix shows that in any issue list.
+- **The recurrence takes the label off.** Record the new instance as a comment, remove the label and the
+  `[RECORD]` prefix, and the issue is ordinary work again. If it keeps recurring, it becomes a `dossier`,
+  and the prefix goes back on.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where
