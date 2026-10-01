@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**9 / 13 minor entries** <!-- pending-tally -->
+**10 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/measure-session-start-skill · 20261001-084217Z
+
+A new `dkj-policy` skill, `measure-session-start`, measures what a clean session loads before the first
+question and republishes a page that shows it by influence. The page marks each layer as direct (files
+in the repo), via a setting, or none (Claude Code itself), ranks the actions by tokens saved, and ends
+with advice on where the biggest gain is and why. The script measures the always-on documents and the
+plugin skill listings, minus the skills with `disable-model-invocation`. It never advises: the model
+running the skill adds the estimated layers and writes the advice. The published page carries its own
+data, so the next run shows the deltas without a state file anywhere. The skill itself carries
+`disable-model-invocation: true` and costs no always-on tokens.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer gets one new skill, invoked by name only (`/measure-session-start`). It is not loaded into a
+session, so nothing changes until somebody runs it.
+
+**Score:** 2
+
+#### Pull Request
+
+measure-session-start: a skill that measures the session start and refreshes its artifact
+
+Plugins: dkj-policy
+
+[PR #2672](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2672)
+
+---
 
 ### DEPLOY: feat/disable-dkj-policy-bwj · 20260930-223035Z
 
