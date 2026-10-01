@@ -356,3 +356,46 @@ function Get-PluginDetails {
         Raw               = $lines
     }
 }
+
+function Get-InstalledVersionForRepo {
+    <#
+        The version of this plugin the INSTALL RECORD says this repo loads: the record for the repo's own
+        project path first, then a machine-wide one with no path. $null when none exists.
+
+        IT IS NOT THE VERSION `claude plugin details` PRICES, and that is why both callers read it (#2670).
+        The details command takes no project path, and it does not price the copy the record pins:
+        measured October 1, 2026, it priced dkj-policy at 5.10.0 for a checkout whose record said 5.8.0, and
+        later the same day at 5.11.0 when run from a checkout whose record said 5.9.0. So a caller that wants
+        to say what a session HERE pays compares the two, rather than assuming they agree.
+
+        Moved here from session-start-lib.ps1 so measure-skill.ps1 asks the question the same way. It reads
+        a file, through check-report-lib's Get-InstallRecord, which the caller has already dot-sourced --
+        both callers do, and loading it here as well would only redefine it. -UserHomeOverride is for
+        fixtures, passed straight through.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [Parameter(Mandatory = $true)][string]$PluginId,
+        [string]$UserHomeOverride = ''
+    )
+    $rec = Get-InstallRecord -RepoRoot $RepoRoot -UserHomeOverride $UserHomeOverride
+    foreach ($map in @($rec.RecordsById, $rec.PathlessById)) {
+        if ($null -eq $map) { continue }
+        if ($map.ContainsKey($PluginId)) {
+            $first = @($map[$PluginId] | Where-Object { $_.Version } | Select-Object -First 1)
+            if ($first.Count -eq 1) { return [string]$first[0].Version }
+        }
+    }
+    return $null
+}
+
+function Test-PricedIsLoaded {
+    <#
+        Is the version `claude plugin details` priced the one this checkout loads? True where the two
+        agree, and also where either is unknown -- an absent record or an unparsed version is no evidence
+        of a gap, and a warning that fires on missing data would teach a reader to ignore it (#2670).
+    #>
+    param([string]$Installed = '', [string]$Priced = '')
+    if (-not $Installed -or -not $Priced) { return $true }
+    return ($Installed -eq $Priced)
+}
