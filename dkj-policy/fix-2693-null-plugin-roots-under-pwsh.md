@@ -41,19 +41,45 @@
 
 Get-TouchedPlugins/Get-PluginNameForPath survive a null PluginRoots under pwsh 7, so fold-on-merge folds in a consumer without marketplace.json
 
+#### The reason, verified rather than inherited
+
+The report inferred the cause and said so. Measured on this branch with the same call under both
+editions: `Get-TouchedPlugins -PluginRoots (Get-RepoPluginRoots ...)` in a repo with no
+`marketplace.json` returns nothing under Windows PowerShell 5.1 and throws the reported error under
+pwsh 7.4.6. An `[object[]]` parameter bound to `$null` re-wraps as an empty array in 5.1 and as one
+`$null` element in pwsh 7. That explains why the consumer's local fold (5.1) succeeded where the
+runner (pwsh) failed. Why the merges of the consumer's PRs #17 and #18 folded under the same runner
+was not measured.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-PluginRootSet` in `scripts/lib/plugin-tree-lib.ps1`: every `$PluginRoots` loop in the lib
+      (`Get-PluginRootByName`, `Get-PluginNameForPath`, `Get-PluginSubdirs`) drops `$null` before it
+      iterates. The plugin mirror is copied byte for byte.
 
 ### TEST
 
+- [x] `fold-changelog.tests.ps1` gained six asserts on the call the fold makes. They fail 5 of 6 on the
+      old lib under pwsh 7.4.6 (1 of 6 under 5.1) and pass 6 of 6 on the new lib under both. They sit in
+      that suite because it is the one CI also runs under pwsh on Linux.
+
 ### DEPLOY: fix/2693-null-plugin-roots-under-pwsh
 
-**Score:**
+Inside this repo: the plugin-tree lib no longer trusts `@($PluginRoots)` to drop a `$null`. That holds
+in Windows PowerShell 5.1 and not in pwsh 7, and every CI-floor runner executes under pwsh while the
+suites that reached this path ran under 5.1. A new `Get-PluginRootSet` filters it in the three loops,
+and `fold-changelog.tests.ps1` now asserts that call itself, so the Linux pwsh job covers it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+For the maintainer of a consuming repo that declares no plugins: `fold-on-merge` no longer fails on a
+merge with `You cannot call a method on a null-valued expression` in `Get-PluginNameForPath`, so the
+changelog entry folds on the runner instead of waiting for somebody to fold it locally
+([#2693](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2693)).
+
+**Score:** 3
 
 #### Pull Request
 

@@ -1777,6 +1777,44 @@ if ($lsMade) {
     Assert-Equal $lsBefore (Get-Changelog -Dir $dirLS) 'linked sibling: the changelog is untouched'
 }
 
+Write-Host ""
+Write-Host "A repo with no marketplace.json yields no 'Plugins:' line, under either edition (#2693)" -ForegroundColor Cyan
+# The fold hands Get-RepoPluginRoots straight to Get-TouchedPlugins, so in a repo that declares no plugins
+# the empty set arrives as $null. Under pwsh 7 @($null) is one $null element, and the loop then threw
+# 'You cannot call a method on a null-valued expression' -- which is how fold-on-merge failed in a
+# consumer. The fixture cases above never reach that line, because no PR is resolved there; this asserts
+# the call itself, and it is here rather than in release-lib.tests.ps1 because this suite is the one CI
+# also runs under pwsh on Linux, where the defect lives.
+$nmDir = Join-Path ([System.IO.Path]::GetTempPath()) ("fold-nomkt-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $nmDir -Force | Out-Null
+$script:fixtures += $nmDir
+$nm = & {
+    . $PluginTreeSrc
+    $files = @('src/app/page.tsx', 'dkj-policy/fix-x.md')
+    $r = [ordered]@{}
+    foreach ($case in @(
+            @{ Name = 'the roots of a repo with no marketplace.json'; Roots = { Get-RepoPluginRoots -RepoRoot $nmDir } },
+            @{ Name = 'an explicit $null'; Roots = { $null } },
+            @{ Name = 'a set holding a $null element'; Roots = { , @($null) } })) {
+        try { $r[$case.Name] = 'count=' + @(Get-TouchedPlugins -Files $files -PluginRoots (& $case.Roots)).Count }
+        catch { $r[$case.Name] = "threw: $($_.Exception.Message)" }
+    }
+    try { $r['Get-PluginNameForPath'] = '' + (Get-PluginNameForPath -PluginRoots $null -Path 'src/a.ts') + '|' }
+    catch { $r['Get-PluginNameForPath'] = "threw: $($_.Exception.Message)" }
+    try { $r['Get-PluginRootByName'] = '' + (Get-PluginRootByName -PluginRoots $null -Name 'x') + '|' }
+    catch { $r['Get-PluginRootByName'] = "threw: $($_.Exception.Message)" }
+    try { $r['Get-PluginSubdirs'] = 'count=' + @(Get-PluginSubdirs -PluginRoots $null -Leaf 'agents').Count }
+    catch { $r['Get-PluginSubdirs'] = "threw: $($_.Exception.Message)" }
+    $r
+}
+Write-Host "  (edition: $($PSVersionTable.PSEdition) $($PSVersionTable.PSVersion))" -ForegroundColor DarkGray
+foreach ($k in @('the roots of a repo with no marketplace.json', 'an explicit $null', 'a set holding a $null element')) {
+    Assert-Equal 'count=0' $nm[$k] "no marketplace: Get-TouchedPlugins over $k touches no plugin and does not throw"
+}
+Assert-Equal '|' $nm['Get-PluginNameForPath'] 'no marketplace: Get-PluginNameForPath with $null roots answers $null'
+Assert-Equal '|' $nm['Get-PluginRootByName'] 'no marketplace: Get-PluginRootByName with $null roots answers $null'
+Assert-Equal 'count=0' $nm['Get-PluginSubdirs'] 'no marketplace: Get-PluginSubdirs with $null roots answers an empty set'
+
 # The teardown above runs mid-file, so everything registered after it -- the duplicate cases and the
 # remote-backed fixtures here -- is swept once more on the way out.
 foreach ($f in $script:fixtures) { Remove-Item -Recurse -Force -LiteralPath $f -ErrorAction SilentlyContinue }
