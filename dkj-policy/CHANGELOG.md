@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**10 / 11 minor entries** <!-- pending-tally -->
+**11 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2678-always-on-strip-frontmatter · 20261001-134316Z
+
+The always-on measurement now leaves out a document's leading YAML frontmatter (a `---` ... `---` block
+opening the file), which the harness strips before the document reaches a session, as it does the
+block-level HTML comments
+([#2678](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2678)). `measure-always-on`, the
+always-on budget gate and `always-on-sessioncheck` counted it, overstating this repo's path by 50 B.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A consumer whose always-on documents carry frontmatter gains that many bytes of budget headroom; for a
+repo with none, nothing changes.
+
+**Score:** 1
+
+#### Pull Request
+
+measure-always-on and the budget gate leave out the frontmatter the harness strips
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2692](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2692)
+
+---
 
 ### DEPLOY: fix/2688-parking-labels-case-insensitive · 20261001-133035Z
 
