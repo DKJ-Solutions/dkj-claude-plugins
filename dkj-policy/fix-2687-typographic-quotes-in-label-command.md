@@ -68,9 +68,10 @@ closed the printed argument early and spilled the rest into separate tokens on p
 
 #### What makes this deploy extra special
 
-N/A
+N/A. Only a consumer that answers `Get-TriageLabels` with a curly apostrophe of its own is reached,
+and the script only prints the line; nothing a subscriber runs changes otherwise.
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 
