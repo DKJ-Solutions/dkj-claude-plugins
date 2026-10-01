@@ -39,19 +39,52 @@
 
 ### PLAN
 
+#2670: `measure-skill` says `claude plugin details` prices the copy a session loads. Re-measured
+October 1, 2026, from `smartwatchbanden`, whose install record pins dkj-policy 5.9.0: the command still
+priced 5.11.0, the newest version on the machine. The issue's reason holds: the command takes no project
+path and does not price the recorded copy. Which of the clone and the newest cache entry it reads was not
+determined, and the fix doesn't depend on it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Move `Get-InstalledVersionForRepo` from `session-start-lib.ps1` into `measure-skill-lib.ps1`
+  (session-start-lib dot-sources it, so its caller is unchanged), with a `-UserHomeOverride` for fixtures.
+- [x] `measure-skill.ps1` reads this checkout's install record. Where it differs from the priced version,
+  it prints an `[INFO]` saying the figures are what a session here pays after its next update, and the
+  tree-vs-payload line no longer claims "what a session loads today" in that case.
+- [x] Correct the claim in the script docstring, `skills/measure-skill/SKILL.md`, and
+  `session-start-lib.ps1`'s payload docstring and `source` label. Mirror rebuilt with
+  `build-shared-scripts.ps1`.
 
 ### TEST
 
+- [x] `measure-skill.tests.ps1`: four new asserts on `Get-InstalledVersionForRepo` against a fixture
+  administration (no file, this repo's record beats another checkout's newer one, pathless fallback,
+  absent plugin). 97 pass.
+- [x] `measure-session-start.tests.ps1`: 198 pass (its caller of the moved function, and the mirror
+  byte-identity).
+- [x] Live: `measure-skill -Plugin dkj-policy` here (record 5.11.0 = priced) prints no new line. With
+  `-RootOverride` on smartwatchbanden (record 5.9.0) it prints the new `[INFO]`.
+
 ### DEPLOY: fix/2670-measure-skill-priced-copy
 
-**Score:**
+`measure-skill` no longer claims its figures are what a session in this checkout loads today when they
+aren't. `claude plugin details` prices the newest copy on the machine, not the version this checkout's
+install record pins. So the report now reads that record and, where the two differ, says the figures are
+what a session here pays after its next plugin update (#2670).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+If you run `measure-skill` in a checkout that hasn't taken the latest plugin update, it now tells you that
+the costs shown are for the newer version on your machine, not the one this checkout currently loads.
+
+**Score:** 1
 
 #### Pull Request
+
+measure-skill names the gap between the version it priced and the version this checkout's install record pins
+
+Plugins: dkj-policy
 
