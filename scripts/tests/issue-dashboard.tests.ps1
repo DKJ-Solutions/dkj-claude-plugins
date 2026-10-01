@@ -289,6 +289,7 @@ out.status = {
   filed:                statusOf(iss(1), [], false),
   prioLabelIsNotParking: statusOf(iss(1, { labels: ["prio-4", "bug"] }), [], false),
   parkingEach:          PARKING_LABELS.map((l) => statusOf(iss(1, { labels: [l] }), [], false)),
+  parkingMixedCase:     ["Record", "Needs-Decision", "AWAITING-RECURRENCE"].map((l) => statusOf(iss(1, { labels: [l] }), [], false)),
   externalOpenBlocker:  statusOf(iss(1, { blockedBy: [blk(7, "OPEN", "other/repo")] }), [], false),
 };
 // End to end through deriveDashboard: PR link, draft, branch, foreign-issue PR.
@@ -369,7 +370,9 @@ reply = { data: { repository: {
       blockedBy: { totalCount: 1, nodes: [{ number: 1, state: "OPEN", repository: { nameWithOwner: "acme/widgets" } }] } },
     { number: 12, title: "branch", url: "https://github.com/acme/widgets/issues/12", createdAt: "2026-01-03T00:00:00Z",
       labels: { totalCount: 0, nodes: [] }, assignees: { nodes: [] }, blockedBy: { totalCount: 0, nodes: [] } },
-  ]), totalCount: 3 },
+    { number: 13, title: "parked", url: "https://github.com/acme/widgets/issues/13", createdAt: "2025-12-31T00:00:00Z",
+      labels: { totalCount: 1, nodes: [{ name: "Needs-Decision", color: "" }] }, assignees: { nodes: [] }, blockedBy: { totalCount: 0, nodes: [] } },
+  ]), totalCount: 4 },
   pullRequests: conn([{ number: 40, url: "https://github.com/acme/widgets/pull/40", isDraft: false,
     closingIssuesReferences: { totalCount: 1, nodes: [{ number: 1, repository: { nameWithOwner: "acme/widgets" } }] } }]),
   feat: conn([{ name: "12-x" }]), fix: conn([]), docs: conn([]),
@@ -395,7 +398,8 @@ out.render = {
   inReview: page.body.includes('class="row parked" title="Skip: in review"'),
   inProgress: page.body.includes('class="row parked" title="Skip: in progress"'),
   blockedBy: page.body.includes('class="row parked" title="Skip: blocked by #1"'),
-  sweepCounts: page.body.includes("<li>Sweepable<b>0</b></li><li>Skip<b>3</b></li>"),
+  parkedMixedCase: page.body.includes('class="row parked" title="Skip: waiting on the owner&#39;s decision"'),
+  sweepCounts: page.body.includes("<li>Sweepable<b>0</b></li><li>Skip<b>4</b></li>"),
   noQuietPills: !page.body.includes(">In progress<") && !page.body.includes(">Filed<") && !page.body.includes(">Waiting<"),
   order: [...page.body.matchAll(/class="num"><a href="[^"]*?issues\/(\d+)"/g)].map((m, i) => (i + 1) + ":" + m[1]),
   githubCalls: calls.length,
@@ -629,6 +633,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 'Filed'       $s.filed                'nothing at all is Filed'
         Assert-Equal 'Filed'       $s.prioLabelIsNotParking 'a prio or bug label is not a parking label'
         Assert-Equal (Join-N @($jsParking | ForEach-Object { 'Waiting' })) (Join-N $s.parkingEach) 'each parking label parks on its own -- the legacy dossier as well as record (#2683)'
+        Assert-Equal 'Waiting,Waiting,Waiting' (Join-N $s.parkingMixedCase) '...in any letter case, as GitHub and claim-issue match labels (#2688)'
         Assert-Equal 'In review' $r.e2e.'1' 'end to end: an open non-draft PR closing #1 puts it In review'
         Assert-Equal 'In progress' $r.e2e.'2' '...a draft PR closing #2 puts it In progress'
         Assert-Equal 'In progress' $r.e2e.'3' '...a feat/3- branch puts #3 In progress'
@@ -695,9 +700,10 @@ console.log(JSON.stringify(out));
         Assert-Equal 'True' "$($g.inReview)" 'the PR-linked row is tinted as skipped, its tooltip saying in review'
         Assert-Equal 'True' "$($g.inProgress)" 'the branch-linked issue is skipped as in progress'
         Assert-Equal 'True' "$($g.blockedBy)" 'the blocked issue is skipped and names its blocker'
+        Assert-Equal 'True' "$($g.parkedMixedCase)" 'a parking label spelled Needs-Decision parks the row, its tooltip naming the owner''s decision (#2688)'
         Assert-Equal 'True' "$($g.sweepCounts)" 'the counts are Sweepable and Skip'
         Assert-Equal 'True' "$($g.noQuietPills)" 'In progress, Filed and Waiting carry no pill and no count'
-        Assert-Equal '1:12,2:2,3:1' (Join-N $g.order) 'rows appear newest first, each led by its issue number (#2 waits on #1, and still comes above it)'
+        Assert-Equal '1:12,2:2,3:1,4:13' (Join-N $g.order) 'rows appear newest first, each led by its issue number (#2 waits on #1, and still comes above it)'
         Assert-Equal 1 $g.githubCalls 'one GraphQL round trip when nothing needs a second page'
         Assert-Equal 'https://api.github.com/graphql' $g.githubUrl 'it reads GitHub GraphQL and nothing else'
         Assert-Equal 'Bearer ghs_FAKE' $g.githubAuth '...with the GITHUB_TOKEN from env'
