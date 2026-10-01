@@ -2,7 +2,135 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**7 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/awaiting-recurrence-record-prefix · 20261001-121821Z
+
+Repo-internal: how this tracker titles its own parked issues.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A consumer following `CONTRIBUTING-portable.md` now titles an `awaiting-recurrence` issue `[RECORD] ...`
+as well as a dossier, so both kinds of long-open parked issue read apart from small findings in any
+issue list. A convention, enforced by nothing.
+
+**Score:** 2
+
+#### Pull Request
+
+An awaiting-recurrence issue's title starts with [RECORD] too
+
+Plugins: dkj-policy
+
+[PR #2686](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2686)
+
+---
+
+### DEPLOY: docs/dossier-record-title-prefix · 20261001-103813Z
+
+Repo-internal: the rule is how this tracker titles its own collecting issues.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A consumer following `CONTRIBUTING-portable.md` now titles a dossier `[RECORD] ...`, so a long-running
+collecting issue reads apart from a small finding in any issue list, without opening its labels. Nothing
+enforces it; it is a convention, like the label itself.
+
+**Score:** 2
+
+#### Pull Request
+
+A dossier's title starts with [RECORD]
+
+Plugins: dkj-policy
+
+[PR #2685](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2685)
+
+---
+
+### DEPLOY: fix/2681-ruleset-bypass-actors · 20261001-102730Z
+
+The paste-ready ruleset that `adopt-ci-floor` prints now carries a repository-admin bypass actor, and
+says why: without one, the required check refuses the fold's direct push to the trunk, so every fold
+after the next pull request was blocked
+([#2681](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2681)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer who follows Part 3 of `adopt-dkj-policy` to the letter no longer gets a trunk nothing can
+fold onto. A ruleset already pasted from the old output still needs the bypass actor added by hand.
+
+**Score:** 4
+
+#### Pull Request
+
+adopt-ci-floor's composed ruleset carries a repository-admin bypass actor, so the fold can land
+
+Plugins: dkj-policy
+
+[PR #2682](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2682)
+
+---
+
+### DEPLOY: fix/2664-measure-skill-dmi-not-always-on · 20261001-101138Z
+
+`measure-skill` no longer counts a skill whose frontmatter sets `disable-model-invocation: true` as
+always-on cost. A session never lists such a skill, so its description was in the printed total but in no
+context. Such a skill now reads `0 (not listed; priced N)`, and each plugin line gives the printed total
+next to what a session actually pays (#2664). For `dkj-policy` at v5.11.0 that is 3,000 of the 5,710 printed.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If you use `measure-skill` to judge what your plugins cost a session, the always-on figures now match what
+a session loads. Skills that only run when typed no longer inflate the total.
+
+**Score:** 1
+
+#### Pull Request
+
+measure-skill prices disable-model-invocation skills at 0 always-on, since a session never lists them
+
+Plugins: dkj-policy
+
+[PR #2680](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2680)
+
+---
+
+### DEPLOY: fix/2667-always-on-strip-html-comments · 20261001-100019Z
+
+The always-on measurement now counts what a session actually loads. Block-level HTML comments
+(`<!-- ... -->` on lines of their own) are on disk but are stripped by the harness before the document
+reaches the session. `measure-always-on`, the always-on budget gate and `always-on-sessioncheck` still
+counted them, and overstated this repo's path by about 1 kB. The comment bytes are now left out of every
+size the walk reports, and `measure-always-on` lists them per document in a block of their own.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's always-on figure and budget headroom grow by whatever their always-on documents hold in
+HTML comments, so a comment is now a free place for rationale on the always-on path. For a repo with no
+such comments nothing changes.
+
+**Score:** 1
+
+#### Pull Request
+
+measure-always-on and the budget gate leave out the HTML comments the harness strips
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2679](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2679)
+
+---
 
 ### DEPLOY: docs/2671-model-edit-decodes-u-escape · 20261001-095031Z
 

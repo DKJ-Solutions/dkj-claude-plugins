@@ -423,6 +423,45 @@ try {
     Assert-True ($lfOut -notmatch 'it is CRLF here') 'an all-LF path does not print the CRLF-vs-LF block'
 
     Write-Host ''
+    Write-Host 'The byte column leaves out the HTML comments the harness strips (#2667)' -ForegroundColor Cyan
+
+    $commentLines = @(
+        '# Title',
+        '<!-- a block comment',
+        '     spanning two lines -->',
+        'body',
+        '  <!-- an indented one-liner -->',
+        '<!-- kept: text follows it --> visible',
+        'inline <!-- kept: opens mid-line -->',
+        '```',
+        '<!-- kept: inside a fence -->',
+        '```',
+        '<!-- kept: never closes'
+    )
+    $commentDoc = New-Fixture 'comments\doc.md' $commentLines
+    $stripped = @(Get-LoadedByteLines -Path $commentDoc | Where-Object { $_.Stripped } | ForEach-Object { $_.Text })
+    Assert-Equal 3 $stripped.Count 'only the two whole-line comment blocks are stripped'
+    Assert-True ($stripped -contains '     spanning two lines -->') 'a multi-line block is stripped through its closing line'
+    Assert-True ($stripped -contains '  <!-- an indented one-liner -->') 'an indented one-line comment is stripped'
+
+    $commentRow = @(Get-AlwaysOnDocuments -RootDocument $commentDoc -RepoRoot $Fixture)[0]
+    $expectedComment = 0
+    foreach ($l in $commentLines[1, 2, 4]) { $expectedComment += $Utf8NoBom.GetByteCount($l) + 1 }
+    Assert-Equal $expectedComment $commentRow.CommentBytes 'CommentBytes is the stripped lines, terminators included'
+    Assert-Equal ((Get-Item $commentDoc).Length) ($commentRow.Bytes + $commentRow.CommentBytes) 'Bytes plus CommentBytes is the file length'
+    $commentSections = @(Get-DocumentSections -Path $commentDoc -LoadedOnly)
+    Assert-Equal $commentRow.Bytes (($commentSections | Measure-Object -Property Bytes -Sum).Sum) 'the loaded sections sum to the row'
+
+    $crlfComment = New-CrlfFixture 'comments\crlf.md' @('# Title', '<!-- gone -->', 'body')
+    $crlfCommentRow = @(Get-AlwaysOnDocuments -RootDocument $crlfComment -RepoRoot $Fixture)[0]
+    Assert-Equal 2 $crlfCommentRow.CrlfLines 'a stripped CRLF line is not counted as a loaded CRLF line-end'
+    Assert-Equal ($crlfCommentRow.Bytes - 2) $crlfCommentRow.LfBytes 'LfBytes follows the loaded lines only'
+
+    $commentOut = ((& powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RepoRoot $Fixture -Root $commentDoc -Documents 2>&1) | Out-String)
+    Assert-True ($commentOut -match 'HTML comments the harness strips') 'a document with comments triggers the stripped-comments block'
+    Assert-True ($lfOut -notmatch 'HTML comments the harness strips') 'a path without comments does not print that block'
+
+    Write-Host ''
     Write-Host 'The script runs on this repo and agrees with the lib' -ForegroundColor Cyan
 
     $docs = @(Get-AlwaysOnDocuments -RootDocument (Join-Path $RepoRoot 'CLAUDE.md') -RepoRoot $RepoRoot)
@@ -432,11 +471,12 @@ try {
     $expected = 0
     foreach ($d in $docs) { if ($d.Exists) { $expected += (Get-Item -LiteralPath $d.Path).Length } }
     $reported = ($docs | Where-Object { $_.Exists } | Measure-Object -Property Bytes -Sum).Sum
-    Assert-Equal $expected $reported 'the reported bytes are the files on disk, re-read independently'
+    $comments = ($docs | Where-Object { $_.Exists } | Measure-Object -Property CommentBytes -Sum).Sum
+    Assert-Equal $expected ($reported + $comments) 'the reported bytes plus the stripped comments are the files on disk, re-read independently'
 
     foreach ($d in ($docs | Where-Object { $_.Exists })) {
-        $s = @(Get-DocumentSections -Path $d.Path -MaxLevel 3)
-        Assert-Equal $d.Bytes (($s | Measure-Object -Property Bytes -Sum).Sum) ("sections sum to the file for " + $d.Display)
+        $s = @(Get-DocumentSections -Path $d.Path -MaxLevel 3 -LoadedOnly)
+        Assert-Equal $d.Bytes (($s | Measure-Object -Property Bytes -Sum).Sum) ("the loaded sections sum to the row for " + $d.Display)
     }
 
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script -Top 3 2>&1

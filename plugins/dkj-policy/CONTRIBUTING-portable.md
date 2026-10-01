@@ -158,8 +158,12 @@ adopting the convention costs one command instead of seven typed by hand.
 **`dossier` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A dossier gathers every
 instance of one recurring problem until its root cause is found. It is a *kind* of issue, not a rung, so
-it carries a `prio-N` of its own like any other issue. Four things follow from that:
+it carries a `prio-N` of its own like any other issue. Five things follow from that:
 
+- **Its title starts with `[RECORD]`** (Dave, October 1, 2026). A dossier stays open for weeks, and in an
+  issue list it otherwise reads like any small finding. The prefix makes the difference visible without
+  opening the labels: `[RECORD] processes killed for low memory keep recurring`. Set it when the issue is
+  filed, or when an existing issue becomes a dossier, and take it off together with the label.
 - **A new instance is a comment on the dossier, not a new issue.** Record the date, where it happened and
   what was measured, so the pattern can be read from one thread.
 - **A repair of one instance does not close it.** A PR that repairs one instance names the dossier
@@ -204,8 +208,11 @@ skip `needs-decision`.
   is always a next instance to read and a root cause to hunt. Both are parked, but for different
   reasons, and only a dossier changes how the issue is closed. An issue carrying
   `awaiting-recurrence` has a single unreproduced instance and waits for its first reproducible one.
-- **The recurrence takes the label off.** Record the new instance as a comment, remove the label, and the
-  issue is ordinary work again. If it keeps recurring, it becomes a `dossier`.
+- **Its title starts with `[RECORD]` too** (Dave, October 1, 2026), for the reason a dossier's does: it
+  stays open far longer than an ordinary finding, and the prefix shows that in any issue list.
+- **The recurrence takes the label off.** Record the new instance as a comment, remove the label and the
+  `[RECORD]` prefix, and the issue is ordinary work again. If it keeps recurring, it becomes a `dossier`,
+  and the prefix goes back on.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where
