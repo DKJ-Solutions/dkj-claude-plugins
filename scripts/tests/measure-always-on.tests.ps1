@@ -458,8 +458,29 @@ try {
     Assert-Equal ($crlfCommentRow.Bytes - 2) $crlfCommentRow.LfBytes 'LfBytes follows the loaded lines only'
 
     $commentOut = ((& powershell -NoProfile -ExecutionPolicy Bypass -File $Script -RepoRoot $Fixture -Root $commentDoc -Documents 2>&1) | Out-String)
-    Assert-True ($commentOut -match 'HTML comments the harness strips') 'a document with comments triggers the stripped-comments block'
-    Assert-True ($lfOut -notmatch 'HTML comments the harness strips') 'a path without comments does not print that block'
+    Assert-True ($commentOut -match 'HTML comments and frontmatter the harness strips') 'a document with comments triggers the stripped-comments block'
+    Assert-True ($lfOut -notmatch 'HTML comments and frontmatter the harness strips') 'a path without comments does not print that block'
+
+    Write-Host ''
+    Write-Host 'The byte column leaves out a leading frontmatter block too (#2678)' -ForegroundColor Cyan
+
+    $frontLines = @('---', 'id: 01', '```', '---', '', '# Title', '<!-- still stripped -->', 'body', '---', 'after a rule')
+    $frontDoc = New-Fixture 'frontmatter\doc.md' $frontLines
+    $frontStripped = @(Get-LoadedByteLines -Path $frontDoc | Where-Object { $_.Stripped } | ForEach-Object { $_.Text })
+    Assert-Equal 5 $frontStripped.Count 'the four frontmatter lines and the comment after them are stripped'
+    Assert-True ($frontStripped -contains '<!-- still stripped -->') 'a fence-looking value inside the frontmatter does not hide a later comment'
+    $frontRow = @(Get-AlwaysOnDocuments -RootDocument $frontDoc -RepoRoot $Fixture)[0]
+    $expectedFront = 0
+    foreach ($l in $frontLines[0, 1, 2, 3, 6]) { $expectedFront += $Utf8NoBom.GetByteCount($l) + 1 }
+    Assert-Equal $expectedFront $frontRow.CommentBytes 'the blank line after the block and a mid-document rule stay counted'
+
+    $notFront = New-Fixture 'frontmatter\late.md' @('# Title', '---', 'key: value', '---')
+    Assert-Equal 0 (@(Get-LoadedByteLines -Path $notFront | Where-Object { $_.Stripped }).Count) 'a --- pair that does not open the file is not frontmatter'
+    $unclosed = New-Fixture 'frontmatter\open.md' @('---', 'key: value', '# Title')
+    Assert-Equal 0 (@(Get-LoadedByteLines -Path $unclosed | Where-Object { $_.Stripped }).Count) 'a frontmatter block that never closes is kept'
+    $crlfFront = New-CrlfFixture 'frontmatter\crlf.md' @('---', 'id: 01', '---', '# Title')
+    $crlfFrontRow = @(Get-AlwaysOnDocuments -RootDocument $crlfFront -RepoRoot $Fixture)[0]
+    Assert-Equal 1 $crlfFrontRow.CrlfLines 'a CRLF frontmatter block is recognised and its line-ends are not counted'
 
     Write-Host ''
     Write-Host 'The script runs on this repo and agrees with the lib' -ForegroundColor Cyan
