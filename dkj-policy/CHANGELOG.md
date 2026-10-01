@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**2 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2670-measure-skill-priced-copy · 20261001-094109Z
+
+`measure-skill` no longer claims its figures are what a session in this checkout loads today when they
+aren't. `claude plugin details` does not price the version recorded for this checkout in the plugin install
+record (measured: it prices the newest version on the machine). So the report now reads that record and, where the two differ, says the figures are
+what a session here pays after its next plugin update (#2670).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+If you run `measure-skill` in a checkout that has not yet taken the newest plugin update, it now says that
+the costs shown belong to the newer version on your machine, not the version this checkout currently loads.
+
+**Score:** 1
+
+#### Pull Request
+
+measure-skill names the gap between the version it priced and the version this checkout's install record pins
+
+Plugins: dkj-policy
+
+[PR #2675](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2675)
+
+---
 
 ### DEPLOY: feat/sessioncheck-remote-staleness · 20261001-092720Z
 
