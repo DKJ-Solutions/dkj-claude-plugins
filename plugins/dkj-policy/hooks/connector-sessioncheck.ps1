@@ -19,7 +19,8 @@
         checkout's installed plugin version is the one the local marketplace clone holds. Only an
         install that is BEHIND its clone is surfaced as a finding; a stale CLONE is deliberately not
         one (it is a cache this checkout does not own, and shouting about it teaches the reader to
-        skim). Every branch of that path says the register checks did not run -- true of all four
+        skim). The question a stale clone hides -- is there a newer RELEASE than the one running? --
+        is answered by release-freshness-sessioncheck.ps1 (#2673), visibly to the user. Every branch of that path says the register checks did not run -- true of all four
         since #1606. That is the [UNREGISTERED] lesson of 2026-07-28 below, applied to a new code
         path: a reader told "no errors" about checks that never happened has been handed a positive
         all-clear for nothing. Cited by date rather than by number because that finding has none,
