@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2671-model-edit-decodes-u-escape · 20261001-095031Z
+
+The system-administration manual's trap section and the language-layers rule now record that the
+model's own `Edit` and `Write` decode a typed code-point escape into its character. The result is pure
+ASCII, so the script-ASCII gate passes it. Both pages give the remedy: compose the escape, as in
+`('\' + 'u003c')`, and read the written line back by code point. It reproduced in Markdown while this
+was being written, so it is not specific to `.ps1`.
+Resolves [#2671](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2671).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. A documentation note for whoever edits the scripts. It changes nothing a subscriber takes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Record the model-Edit/Write \u-escape decode trap
+
+Plugins: dkj-subagents-alpha
+
+[PR #2676](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2676)
+
+---
 
 ### DEPLOY: fix/2670-measure-skill-priced-copy · 20261001-094109Z
 
