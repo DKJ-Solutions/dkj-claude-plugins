@@ -331,6 +331,24 @@ function Get-RepoPluginRoots {
     return @(Get-PluginRoots -RepoRoot $RepoRoot -MarketplaceJson $json -IncludeRemote:$IncludeRemote)
 }
 
+function Get-PluginRootSet {
+    <#
+        The $PluginRoots a function was handed, as an array with no $null in it. Every loop over a
+        $PluginRoots parameter in this lib goes through here, and that is load-bearing.
+
+        THE @() RE-WRAP IN THE HEADER IS NOT ENOUGH UNDER PWSH 7 (#2693, October 1, 2026). An empty set
+        arrives as $null (the unrolling the header describes), and a [object[]] parameter bound to $null
+        is wrapped differently by the two editions: Windows PowerShell 5.1 makes @($PluginRoots) an empty
+        array, pwsh 7 makes it a ONE-element array holding $null. So the loop ran once there, and
+        $p.RelativeRoot.TrimEnd(...) threw 'You cannot call a method on a null-valued expression'.
+        Measured with the same call under both editions: 5.1 returned no plugins, pwsh 7.4.6 threw. It
+        surfaced as fold-on-merge failing in a consumer with no marketplace.json, because every CI-floor
+        runner executes under pwsh and the suites that reach this path run under 5.1.
+    #>
+    param([AllowNull()][AllowEmptyCollection()][object[]]$PluginRoots = @())
+    return @(@($PluginRoots) | Where-Object { $null -ne $_ })
+}
+
 function Get-PluginRootByName {
     <#
         The one plugin with this name, or $null. Name comparison is ORDINAL and case-sensitive: a
@@ -342,7 +360,7 @@ function Get-PluginRootByName {
         [AllowNull()][AllowEmptyCollection()][object[]]$PluginRoots = @(),
         [Parameter(Mandatory)][string]$Name
     )
-    foreach ($p in @($PluginRoots)) {
+    foreach ($p in @(Get-PluginRootSet -PluginRoots $PluginRoots)) {
         if ([string]::Equals($p.Name, $Name, [System.StringComparison]::Ordinal)) { return $p }
     }
     return $null
@@ -378,7 +396,7 @@ function Get-PluginNameForPath {
     if (-not $Path) { return $null }
     $needle = ($Path -replace '/', '\').TrimStart('.', '\')
     $best = $null
-    foreach ($p in @($PluginRoots)) {
+    foreach ($p in @(Get-PluginRootSet -PluginRoots $PluginRoots)) {
         $prefix = $p.RelativeRoot.TrimEnd('\') + '\'
         if ($needle.StartsWith($prefix, [System.StringComparison]::Ordinal)) {
             if (-not $best -or $p.RelativeRoot.Length -gt $best.RelativeRoot.Length) { $best = $p }
@@ -442,7 +460,7 @@ function Get-PluginSubdirs {
         [Parameter(Mandatory)][string]$Leaf
     )
     $out = @()
-    foreach ($p in @($PluginRoots)) {
+    foreach ($p in @(Get-PluginRootSet -PluginRoots $PluginRoots)) {
         $dir = Join-Path $p.Root $Leaf
         if (Test-Path -LiteralPath $dir -PathType Container) { $out += $dir }
     }
