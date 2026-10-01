@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**8 / 9 minor entries** <!-- pending-tally -->
+**9 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2683-rename-dossier-label-to-record · 20261001-125032Z
+
+Repo-internal half: this tracker's collecting issues carry `record` instead of `dossier`, and every
+gate and pickup route reads both names.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's collecting-issue label is now called `record`. Nothing breaks on update: `open-pr` still
+refuses to close an issue carrying `dossier`, and both pickup routes still skip it. Running
+`adopt-triage-labels` prints the one `gh label edit` that renames the label in place, issues and all.
+
+**Score:** 3
+
+#### Pull Request
+
+The collecting-issue label is renamed from dossier to record
+
+Plugins: dkj-policy
+
+[PR #2689](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2689)
+
+---
 
 ### DEPLOY: fix/2677-ci-skeleton-ignores-plugin-gates · 20261001-124022Z
 
