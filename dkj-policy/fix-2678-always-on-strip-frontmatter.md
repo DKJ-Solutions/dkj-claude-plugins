@@ -69,7 +69,7 @@ disk, and the session that claimed this issue received the persona starting at `
 ### DEPLOY: fix/2678-always-on-strip-frontmatter
 
 The always-on measurement now leaves out a document's leading YAML frontmatter (a `---` ... `---` block
-opening the file), which the harness strips before the document reaches a session, just like the
+opening the file), which the harness strips before the document reaches a session, as it does the
 block-level HTML comments
 ([#2678](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2678)). `measure-always-on`, the
 always-on budget gate and `always-on-sessioncheck` counted it, overstating this repo's path by 50 B.
