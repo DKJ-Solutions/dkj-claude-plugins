@@ -35,7 +35,7 @@
     update. Measured August 24, 2026: 16,585 B loaded against 21,860 B in the tree -- 5,275 B waiting.
     So the walk reports the copy that ACTUALLY LOADS and names its tree counterpart beside it.
 
-    BYTES ARE COUNTED AS BYTES. Every size here is the file's length on disk, and the section split
+    BYTES ARE COUNTED AS BYTES. Every size here is read off the file on disk, and the section split
     works on the raw byte array rather than on decoded text, so the sections sum EXACTLY to the file
     length. That is not fussiness: this repo's own encoding history (Windows PowerShell 5.1 reading a
     BOM-less UTF-8 file as ANSI) is a long record of decoded-text arithmetic producing well-formed wrong
@@ -51,6 +51,11 @@
     size beside the on-disk one wherever they differ: the same treatment this lib gives a tree/clone
     divergence, for the same reason -- it is the number the next reader will compare against, not noise
     to smooth away. Inbound issue #1162.
+
+    AND IT IS THE WORKING COPY MINUS WHAT THE HARNESS STRIPS. A block-level HTML comment never reaches
+    the session, so a document row's Bytes leaves those lines out and names them in CommentBytes beside
+    it (Get-LoadedByteLines, #2667). Get-DocumentSections still tiles the whole file unless asked for
+    -LoadedOnly, because "the parts sum to the file" is the check its callers run.
 
     THIS FILE IS PURE ASCII, per the [script-ascii] gate.
 
@@ -318,10 +323,12 @@ function Split-FileIntoByteLines {
         $len = $i - $start + 1
         # Decode without the LF and without a preceding CR, so a CRLF file reads the same as an LF one.
         $textLen = $len - 1
-        if ($textLen -gt 0 -and $bytes[$start + $textLen - 1] -eq 0x0D) { $textLen-- }
+        $crlf = $false
+        if ($textLen -gt 0 -and $bytes[$start + $textLen - 1] -eq 0x0D) { $textLen--; $crlf = $true }
         $lines.Add([pscustomobject]@{
             Text  = $utf8.GetString($bytes, $start, $textLen)
             Bytes = [int64]$len
+            Crlf  = $crlf
         })
         $start = $i + 1
     }
@@ -330,9 +337,79 @@ function Split-FileIntoByteLines {
         $lines.Add([pscustomobject]@{
             Text  = $utf8.GetString($bytes, $start, $len)
             Bytes = [int64]$len
+            Crlf  = $false
         })
     }
     return $lines
+}
+
+function Get-LoadedByteLines {
+    <#
+        Split-FileIntoByteLines, with every line the harness STRIPS before the document reaches a session
+        marked Stripped = $true. Issue #2667.
+
+        WHAT IS STRIPPED: a block-level HTML comment -- a run of whole lines, outside a code fence, whose
+        first line begins (after indentation) with '<!--' and whose last line ends with '-->'. Measured
+        September 30, 2026: the six such blocks on this repo's always-on path (one in SPECIALISTS.md, five
+        in the orchestrator's persona body) were absent from the imported text a session received, so a
+        byte count that kept them overstated the loaded path by 1,010 B.
+
+        CONSERVATIVE WHERE THE HARNESS WAS NOT OBSERVED. A comment with text after its '-->' on the same
+        line, one that opens mid-line, and one that never closes are all kept as loaded: none of those
+        shapes was measured, and the one direction this measurement must not err in is undercounting
+        what a session pays.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $lines = @(Split-FileIntoByteLines -Path $Path)
+    foreach ($line in $lines) { $line | Add-Member -NotePropertyName Stripped -NotePropertyValue $false }
+
+    $fence = ''
+    $i = 0
+    while ($i -lt $lines.Count) {
+        $wasFence = $fence
+        $fence = Get-NextFenceState -Line $lines[$i].Text -Fence $fence
+        if ($wasFence -or $fence -or -not ($lines[$i].Text -match '^\s*<!--')) { $i++; continue }
+
+        # Find the line that closes the comment: the first '-->' after the opening '<!--'.
+        $end = -1
+        $openAt = $lines[$i].Text.IndexOf('<!--')
+        $closeAt = $lines[$i].Text.IndexOf('-->', $openAt + 4)
+        if ($closeAt -ge 0) { $end = $i }
+        else {
+            for ($j = $i + 1; $j -lt $lines.Count; $j++) {
+                $closeAt = $lines[$j].Text.IndexOf('-->')
+                if ($closeAt -ge 0) { $end = $j; break }
+            }
+        }
+        if ($end -lt 0) { break }
+
+        $tail = $lines[$end].Text.Substring($closeAt + 3)
+        if ($tail.Trim() -eq '') {
+            for ($k = $i; $k -le $end; $k++) { $lines[$k].Stripped = $true }
+        }
+        $i = $end + 1
+    }
+    return $lines
+}
+
+function Measure-LoadedBytes {
+    <#
+        One document's size as a session pays it: Bytes is the file on disk minus the lines
+        Get-LoadedByteLines marks Stripped, CrlfLines counts the CRLF line-ends among the lines that
+        remain, and CommentBytes is what was stripped -- on disk, so Bytes + CommentBytes is the file
+        length and the two always reconcile.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $bytes = [int64]0
+    $crlf = [int64]0
+    $comment = [int64]0
+    foreach ($line in (Get-LoadedByteLines -Path $Path)) {
+        if ($line.Stripped) { $comment += $line.Bytes; continue }
+        $bytes += $line.Bytes
+        if ($line.Crlf) { $crlf++ }
+    }
+    return [pscustomobject]@{ Bytes = $bytes; CrlfLines = $crlf; CommentBytes = $comment }
 }
 
 function Get-DocumentSections {
@@ -348,13 +425,18 @@ function Get-DocumentSections {
         toward the '###' it sits under. That is the level the useful readings of this repo happened at --
         the finding that one sub-item of a two-item list was 56% of CLAUDE.md came from reading at depth,
         while the finding that one section was 80% of it came from reading shallow.
+
+        -LoadedOnly drops the lines the harness strips (Get-LoadedByteLines), so the sections then sum
+        to the row's Bytes rather than to the file length (#2667).
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Path,
-        [ValidateRange(1, 6)][int]$MaxLevel = 3
+        [ValidateRange(1, 6)][int]$MaxLevel = 3,
+        [switch]$LoadedOnly
     )
 
-    $lines = Split-FileIntoByteLines -Path $Path
+    if ($LoadedOnly) { $lines = Get-LoadedByteLines -Path $Path }
+    else { $lines = Split-FileIntoByteLines -Path $Path }
     $sections = New-Object System.Collections.Generic.List[object]
     $fence = ''
     $lineNo = 0
@@ -368,6 +450,8 @@ function Get-DocumentSections {
 
     foreach ($line in $lines) {
         $lineNo++
+        # Skipped AFTER the count, so a heading's line number stays the one an editor shows.
+        if ($LoadedOnly -and $line.Stripped) { continue }
         $wasFence = $fence
         $fence = Get-NextFenceState -Line $line.Text -Fence $fence
 
@@ -534,7 +618,9 @@ function Get-AlwaysOnDocuments {
         smoothed away, and it is what the budget ratchet judges in place of the installed copy, which is
         why it needs both forms. It also carries CrlfLines and LfBytes: Bytes is
         the working copy on disk (CRLF and all), LfBytes is what it would be stored LF, and the caller
-        names the difference wherever it is non-zero -- inbound issue #1162.
+        names the difference wherever it is non-zero -- inbound issue #1162. Every one of those sizes,
+        the tree counterpart's included, leaves out the HTML comments the harness strips; CommentBytes
+        carries what was left out, on disk, so Bytes + CommentBytes is the file length (#2667).
     #>
     param(
         [Parameter(Mandatory = $true)][string]$RootDocument,
@@ -564,9 +650,14 @@ function Get-AlwaysOnDocuments {
         $exists = Test-Path -LiteralPath $item.Path -PathType Leaf
         $bytes = [int64]0
         $crlfLines = [int64]0
+        $commentBytes = [int64]0
         if ($exists) {
-            $bytes = (Get-Item -LiteralPath $item.Path).Length
-            $crlfLines = [int64](Get-CrlfPairCount -Path $item.Path)
+            # WHAT LOADS, not the file length: the harness strips block-level HTML comments before the
+            # document reaches a session, so they are measured out here (#2667) and named in CommentBytes.
+            $loaded = Measure-LoadedBytes -Path $item.Path
+            $bytes = $loaded.Bytes
+            $crlfLines = $loaded.CrlfLines
+            $commentBytes = $loaded.CommentBytes
         }
 
         $inTree = $item.Path.StartsWith($repo, [System.StringComparison]::OrdinalIgnoreCase)
@@ -576,7 +667,9 @@ function Get-AlwaysOnDocuments {
         if ($exists -and -not $inTree) {
             $counterpart = Get-TreeCounterpart -Path $item.Path -RepoRoot $repo
             if ($counterpart) {
-                $counterpartBytes = (Get-Item -LiteralPath $counterpart).Length
+                # Measured the same way as the loaded copy, comments out (#2667): the two are compared.
+                $counterpartLoaded = Measure-LoadedBytes -Path $counterpart
+                $counterpartBytes = $counterpartLoaded.Bytes
                 # THE COUNTERPART GETS THE LF TREATMENT TOO, and not for symmetry. TreeBytes answers
                 # measure-always-on's question -- "how much is queued for the next plugin update" -- where
                 # an on-disk figure either side is fine because both are read the same way. The BUDGET
@@ -584,7 +677,7 @@ function Get-AlwaysOnDocuments {
                 # place a CRLF working copy differs from a CI checkout by one byte per line (inbound
                 # #1162). A counterpart handed over in on-disk bytes would reintroduce that drift in the
                 # one consumer that most needs it gone. See always-on-budget-lib.ps1's substitution.
-                $counterpartLfBytes = $counterpartBytes - [int64](Get-CrlfPairCount -Path $counterpart)
+                $counterpartLfBytes = $counterpartBytes - $counterpartLoaded.CrlfLines
             }
         }
 
@@ -608,6 +701,7 @@ function Get-AlwaysOnDocuments {
             Bytes           = $bytes
             CrlfLines       = $crlfLines
             LfBytes         = $bytes - $crlfLines
+            CommentBytes    = $commentBytes
             Source          = $sourceKind
             TreeCounterpart = $counterpart
             TreeBytes       = $counterpartBytes

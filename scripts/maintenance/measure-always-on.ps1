@@ -164,7 +164,8 @@ Write-Host ''
 
 # --------------------------------------------------- provenance, stated up front
 
-Write-Host '  The byte column is a MEASUREMENT of the working copy on disk. The token column is an ESTIMATE.' -ForegroundColor DarkGray
+Write-Host '  The byte column is a MEASUREMENT of the working copy on disk, less the HTML comments the' -ForegroundColor DarkGray
+Write-Host '  harness strips before a session sees them. The token column is an ESTIMATE.' -ForegroundColor DarkGray
 $fx = Format-MeasuredNumber -Value $factor.Value -Format '{0:0.00}'
 Write-Host ("    factor {0} chars/token, calibrated {1} -- {2}" -f $fx, $factor.Calibrated, $factor.Basis) -ForegroundColor DarkGray
 Write-Host ("    n={0}, min {1}, median {2}, max {3}. {4}" -f `
@@ -175,6 +176,21 @@ Write-Host ("    n={0}, min {1}, median {2}, max {3}. {4}" -f `
     $factor.Caveat) -ForegroundColor DarkGray
 Write-Host '    This omits the plugin listings, which ARE API-priced -- run measure-skill for those.' -ForegroundColor DarkGray
 Write-Host ''
+
+# ------------------------------------------- what the byte column leaves out: HTML comments
+
+# A block-level HTML comment is on disk and never reaches the session, so the byte column leaves it out
+# (#2667). Named here, because a reader holding the file length would otherwise see a gap with no cause.
+$commented = @($docs | Where-Object { $_.Exists -and $_.CommentBytes -gt 0 })
+if ($commented.Count -gt 0) {
+    Write-Host '  HTML comments the harness strips -- on disk, and NOT in the byte column above' -ForegroundColor Cyan
+    foreach ($d in $commented) {
+        Write-Host ("    {0}  {1}" -f (Format-Bytes $d.CommentBytes), $d.Display) -ForegroundColor DarkGray
+    }
+    $commentTotal = ($commented | Measure-Object -Property CommentBytes -Sum).Sum
+    Write-Host ("    {0}  in all -- free on the always-on path, which makes a comment the home for rationale." -f (Format-Bytes $commentTotal)) -ForegroundColor DarkGray
+    Write-Host ''
+}
 
 # ------------------------------------------- the unit of the byte column: CRLF vs LF
 
@@ -256,13 +272,13 @@ foreach ($d in ($present | Sort-Object -Property Bytes -Descending)) {
     $docTokens = ConvertTo-EstimatedTokens -Bytes $d.Bytes -CharsPerToken $factor.Value
     Write-Host ("  {0}  --  {1} B, ~{2} tokens" -f $d.Display, (Format-MeasuredBytes $d.Bytes), (Format-MeasuredBytes $docTokens)) -ForegroundColor White
 
-    $sections = @(Get-DocumentSections -Path $d.Path -MaxLevel $Depth)
+    $sections = @(Get-DocumentSections -Path $d.Path -MaxLevel $Depth -LoadedOnly)
     $sum = ($sections | Measure-Object -Property Bytes -Sum).Sum
     if ($sum -ne $d.Bytes) {
         # An assertion about this script's own arithmetic, not about the repo. The sections tile the file
         # by construction, so a mismatch means the split is wrong and every share below it is wrong with
         # it -- which is worse than no table, the same reasoning measure-skill uses for its parse check.
-        Write-Host ("    [ERROR] sections sum to {0} B, file is {1} B -- the split is wrong, so no table is printed." -f (Format-MeasuredBytes $sum), (Format-MeasuredBytes $d.Bytes)) -ForegroundColor Red
+        Write-Host ("    [ERROR] sections sum to {0} B, document is {1} B -- the split is wrong, so no table is printed." -f (Format-MeasuredBytes $sum), (Format-MeasuredBytes $d.Bytes)) -ForegroundColor Red
         continue
     }
 
