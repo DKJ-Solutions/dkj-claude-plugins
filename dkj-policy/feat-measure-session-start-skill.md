@@ -61,17 +61,43 @@ with advice. **The script measures and never advises; the model that runs the sk
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `measure-session-start.ps1` (collect + render) and `session-start-lib.ps1`, both mirrored and
+  registered; `Get-PluginDetails` moved into `measure-skill-lib.ps1`
+- [x] The skill page and the data-driven template under `plugins/dkj-policy/skills/measure-session-start/`
+- [x] The footprint: plugin README, scripts README, ADOPTION list, one row on `measure-skill`'s page
+- [ ] Review fixes from Victor, Sebastian and Edith: the history merge, the home path in `importedBy`, the
+  untrusted previous page, and the wording
+- [x] `ConvertTo-SafeScriptJson` was a no-op: the literal escape reached disk decoded, so the escape is now
+  composed (#2671 files the class)
 
 ### TEST
 
+- [x] `measure-session-start.tests.ps1` (Tycho): the frontmatter flag, the row split, the data block,
+  the merge, injection safety, a render round trip, and mirror identity. It caught the no-op escape
+- [x] `measure-skill` and `shared-scripts` suites still green after the move
+- [x] First real run: collect on this repo, render against the hand-built page, published to the
+  existing `Sessiestart-context` artifact (version 9)
+- [ ] `open-pr` runs the lint gate and all suites before the push
+
 ### DEPLOY: feat/measure-session-start-skill
 
-**Score:**
+A new `dkj-policy` skill, `measure-session-start`, measures what a clean session loads before the first
+question and republishes a page that shows it by influence. The page marks each layer as direct (files
+in the repo), via a setting, or none (Claude Code itself), ranks the actions by tokens saved, and ends
+with advice on where the biggest gain is and why. The script measures the always-on documents and the
+plugin skill listings, minus the skills with `disable-model-invocation`. It never advises: the model
+running the skill adds the estimated layers and writes the advice. The published page carries its own
+data, so the next run shows the deltas without a state file anywhere. The skill itself carries
+`disable-model-invocation: true` and costs no always-on tokens.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer gets one new skill, invoked by name only (`/measure-session-start`). It is not loaded into a
+session, so nothing changes until somebody runs it.
+
+**Score:** 2
 
 #### Pull Request
 
