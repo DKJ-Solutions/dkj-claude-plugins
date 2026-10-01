@@ -58,9 +58,9 @@ determined, and the fix doesn't depend on it.
 
 ### TEST
 
-- [x] `measure-skill.tests.ps1`: four new asserts on `Get-InstalledVersionForRepo` against a fixture
+- [x] `measure-skill.tests.ps1`: new asserts on `Get-InstalledVersionForRepo` against a fixture
   administration (no file, this repo's record beats another checkout's newer one, pathless fallback,
-  absent plugin). 97 pass.
+  absent plugin), plus four on `Test-PricedIsLoaded`, the decision behind the new `[INFO]`. 101 pass.
 - [x] `measure-session-start.tests.ps1`: 198 pass (its caller of the moved function, and the mirror
   byte-identity).
 - [x] Live: `measure-skill -Plugin dkj-policy` here (record 5.11.0 = priced) prints no new line. With
@@ -69,16 +69,16 @@ determined, and the fix doesn't depend on it.
 ### DEPLOY: fix/2670-measure-skill-priced-copy
 
 `measure-skill` no longer claims its figures are what a session in this checkout loads today when they
-aren't. `claude plugin details` prices the newest copy on the machine, not the version this checkout's
-install record pins. So the report now reads that record and, where the two differ, says the figures are
+aren't. `claude plugin details` does not price the version recorded for this checkout in the plugin install
+record (measured: it prices the newest version on the machine). So the report now reads that record and, where the two differ, says the figures are
 what a session here pays after its next plugin update (#2670).
 
 **Score:** 1
 
 #### What makes this deploy extra special
 
-If you run `measure-skill` in a checkout that hasn't taken the latest plugin update, it now tells you that
-the costs shown are for the newer version on your machine, not the one this checkout currently loads.
+If you run `measure-skill` in a checkout that has not yet taken the newest plugin update, it now says that
+the costs shown belong to the newer version on your machine, not the version this checkout currently loads.
 
 **Score:** 1
 

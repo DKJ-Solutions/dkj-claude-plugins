@@ -64,12 +64,16 @@ always-on total. Ranked by always-on, because that is the figure paid unconditio
 
 Two rules are enforced by the script rather than left to whoever reads the output:
 
-- **It names the copy it measured.** `claude plugin details` prices the **installed payload** — the
-  extracted copy under `~/.claude/plugins/cache/` that a session loads — not the tree, and not the
-  marketplace clone, which is what this said until
-  [#1812](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1812). Where payload and tree
-  differ the report says so, because the difference is *queued cost arriving at the next release* — not
-  error to smooth away.
+- **It names the copy it measured.** `claude plugin details` prices an extracted copy under
+  `~/.claude/plugins/cache/` — not the tree, and not the marketplace clone, which is what this said until
+  [#1812](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1812). **Nor is it necessarily the
+  copy this checkout loads**, which is what this said until
+  [#2670](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2670): the command takes no project
+  path, and measured October 1, 2026 it priced `dkj-policy` at 5.11.0 from a checkout whose install
+  record pins 5.9.0, a copy other than the recorded one (measured: the newest version on the machine). So the report also
+  reads this checkout's install record, and where the two versions differ it says the figures are what a
+  session here pays *after its next plugin update*. Where payload and tree differ it says so too, because
+  that difference is *queued cost arriving at the next release* — not error to smooth away.
 - **The "fires how often" column is left empty.** An on-invoke figure without a firing frequency is not
   a cost, and a guessed frequency is worse than a blank one. Fill it in yourself; the script will not
   invent it.

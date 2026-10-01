@@ -72,8 +72,9 @@ function Test-SkillModelInvocationDisabled {
 
 function Get-PayloadDirForPlugin {
     <#
-        The INSTALLED PAYLOAD directory a session loads this plugin from -- the copy `claude plugin details`
-        prices and the only one whose SKILL.md files say what is really loaded. Picks the install record whose
+        The PAYLOAD directory of the copy `claude plugin details` priced -- the only one whose SKILL.md files
+        say which of the priced rows are really loaded. That is not necessarily the copy this repo's install
+        record pins (#2670): Get-InstalledVersionForRepo reads that one. Picks the install record whose
         version equals the version the details command reported (any scope: a plugin enabled for the whole
         machine has a record with no projectPath), then falls back to any record that exists on disk, then to
         the newest cached version. Returns $null when none exists.
@@ -203,7 +204,7 @@ function ConvertTo-SessionStartPluginEntry {
         payloadMatches   = $payloadExact
         enabledBy        = $EnabledBy
         measured         = $true
-        source           = 'claude plugin details (count_tokens API), installed payload'
+        source           = 'claude plugin details (count_tokens API), the copy it priced (version; installedVersion is the one the record pins)'
         printedAlwaysOn  = $Details.AlwaysOnTotal
         skills           = [ordered]@{
             loadedTokens   = $loadedSum
@@ -544,28 +545,10 @@ function Merge-SessionStartTemplate {
     return $out
 }
 
-function Get-InstalledVersionForRepo {
-    <#
-        The version of this plugin the INSTALL RECORD says this repo loads: the record for the repo's own
-        project path first, then a machine-wide one with no path. $null when none exists. It can differ from
-        the version `claude plugin details` priced (measured October 1, 2026: 5.8.0 recorded, 5.10.0 priced),
-        and the report carries both rather than choosing one, because the gap is queued cost arriving at the
-        next plugin update and not an error to smooth away.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][string]$RepoRoot,
-        [Parameter(Mandatory = $true)][string]$PluginId
-    )
-    $rec = Get-InstallRecord -RepoRoot $RepoRoot
-    foreach ($map in @($rec.RecordsById, $rec.PathlessById)) {
-        if ($null -eq $map) { continue }
-        if ($map.ContainsKey($PluginId)) {
-            $first = @($map[$PluginId] | Where-Object { $_.Version } | Select-Object -First 1)
-            if ($first.Count -eq 1) { return [string]$first[0].Version }
-        }
-    }
-    return $null
-}
+# Get-InstalledVersionForRepo lives in measure-skill-lib.ps1 since #2670, so measure-skill.ps1 reads the
+# install record the same way. This lib dot-sources that one, so its callers here are unaffected. The
+# entry carries both versions rather than choosing one, because the gap is queued cost arriving at the
+# next plugin update and not an error to smooth away.
 
 function Resolve-PluginRequest {
     <#
