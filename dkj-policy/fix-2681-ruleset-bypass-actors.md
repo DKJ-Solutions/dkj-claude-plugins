@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound [#2681](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2681): the ruleset
+`adopt-ci-floor` composes has no `bypass_actors`, so every fold is refused. Reason verified against
+the source's own declaration in `scripts/repo-config.ps1` (`ruleset.bypass_actor_types`: a required
+status check can never be satisfied by a direct push). One actor, `RepositoryRole` 5 (repository
+admin), because it is valid on a user-owned and an org-owned repo alike, where `OrganizationAdmin` is
+refused on a user-owned one -- and an org owner already holds the admin role.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] add `bypass_actors` to the composed payload, and a printed line saying why it is there
+- [x] sync the plugin mirror of `adopt-ci-floor.ps1`
 
 ### TEST
 
+- [x] `adopt-ci-floor.tests.ps1` pins the parsed actor (type, id, mode) and the explanation -- 276 passed, 0 failed
+
 ### DEPLOY: fix/2681-ruleset-bypass-actors
 
-**Score:**
+The paste-ready ruleset that `adopt-ci-floor` prints now carries a repository-admin bypass actor, and
+says why: without one, the required check refuses the fold's direct push to the trunk, so every fold
+after the next pull request was blocked
+([#2681](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2681)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer who follows Part 3 of `adopt-dkj-policy` to the letter no longer gets a trunk nothing can
+fold onto. A ruleset already pasted from the old output still needs the bypass actor added by hand.
+
+**Score:** 4
 
 #### Pull Request
 
