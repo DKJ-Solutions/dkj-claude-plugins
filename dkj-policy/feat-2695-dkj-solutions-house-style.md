@@ -41,19 +41,44 @@
 
 Give every DKJ-Solutions app one shared house style (tokens, light/dark, base CSS) from a new dkj-policy-dkjs add-on, so it is not rebuilt per repo and never reaches BWJ-Development.
 
+Dave chose the shape in-session (October 1, 2026). The style is for every DKJ-Solutions app, not only
+Artifacts and not BWJ-Development. It lives in a new DKJ-Solutions codex, the counterpart of
+`dkj-policy-bwj`, with the house style as its first chapter. A visible result, so the branch stops for
+his look and does not merge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Gwen: split the ETF dashboard's `<style>` block (`dkj-etf-tracker/etf_tracker/dashboard.py`)
+  into general and domain-specific parts, keeping every value. The result is
+  `plugins/dkj-policy/dkj-policy-dkjs/skills/house-style/house-style.css`.
+- [x] Sylvester: marketplace entry, `plugin.json` at the lockstep version, and `false` in this repo's
+  `enabledPlugins`.
+- [x] Tessa: the extension `CLAUDE.md`, the plugin `README.md` and the `house-style` skill page.
+- [x] Filed #2697: the extension-import tooling knows only bwj, so the dkjs import is added by hand.
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1`: 0 errors, after fixing a README link that left the plugin root and
+  an install line printed without the marketplace refresh.
+- [x] `check-roster-sync.ps1`: 0 errors. The agent-less plugin is skipped with an info line.
+
 ### DEPLOY: feat/2695-dkj-solutions-house-style
 
-**Score:**
+Adds `dkj-policy-dkjs`, the DKJ-Solutions codex: an additive add-on to `dkj-policy` whose first chapter
+is the house style. That chapter is one set of design tokens (light and dark), the light/dark mechanism
+and a base stylesheet, lifted from the hand-tuned ETF dashboard with every value kept. Every
+DKJ-Solutions app starts from it instead of rebuilding a style. A repo adds its own domain layer on top
+and never redefines a house token. It is enabled in DKJ-Solutions repos only. BWJ-Development keeps its
+own styling. Until #2697 lands, the extension's `CLAUDE.md` import is added by hand.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions maintainer enabling the new plugin gets a ready house style for any page, report or
+Artifact. Nothing changes for a repo that does not enable it, BWJ's included.
+
+**Score:** 2
 
 #### Pull Request
 
