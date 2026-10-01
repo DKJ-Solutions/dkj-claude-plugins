@@ -44,12 +44,15 @@ BWJ-Development has its own styling, and this skill says nothing about it.
 the page sets `<html data-theme="light">`; `<html data-theme="dark">` forces dark. That is why the dark
 block appears twice in the file. CSS cannot share it, so **an edit to one dark block is made to both**.
 
-**Components**: `header`, `main`/`.container`, `.hero`, `.tiles`/`.tile`, `.card`, `.grid-2`,
-`.table-wrap`/`.table` (with `.row-total`), `.legend`/`.legend__item`, `.swatch`, `.badge` (with
-`--good`, `--warn`, `--bad`, `--info`, `--neutral`, `--sm`), `.meter`, `.mini-cards`/`.mini-card`,
-`.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.num` (tabular numerals),
-`.delta--up`/`.delta--down`, `.btn`, `.info-button`, `.tooltip`, `.more` (a disclosure), `.chart`
-(the SVG chart scope), `.footer-note`. Each is commented in the file.
+**Components**, the complete list of reserved names, so a repo layer knows what not to redefine:
+the page header (`body > header`, `main > header`), `main`/`.container`, `.hero`, `.tiles`/`.tile`,
+`.card`, `.grid-2`, `.table-wrap`/`.table` (with `.row-total`), `.legend`/`.legend__item` (with
+`--line`), `.swatch`, `.badge` (with `--good`, `--warn`, `--bad`, `--info`, `--neutral`, `--sm`),
+`.badge-row`, `.meter` (with `--good`, `--warn`, `--bad`, `--info`), `.mini-cards`/`.mini-card` (with
+`--highlight`), `.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.num` (tabular
+numerals), `.delta` (with `--up`/`--down`, aliased `.pos`/`.neg`), `.btn`, `.info-button`, `.tooltip`
+(with `--explain`), `.more` (a disclosure), `.chart` (the SVG chart scope) and `.footer-note`. Each is
+commented in the file.
 
 ## What was deliberately left out
 

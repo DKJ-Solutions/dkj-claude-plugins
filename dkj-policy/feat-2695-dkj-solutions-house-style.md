@@ -61,6 +61,14 @@ his look and does not merge.
 - [x] `check-plugin-integrity.ps1`: 0 errors, after fixing a README link that left the plugin root and
   an install line printed without the marketplace refresh.
 - [x] `check-roster-sync.ps1`: 0 errors. The agent-less plugin is skipped with an info line.
+- [x] Review in parallel. Sebastian: clean, with no data from the private source in the comments and no
+  external requests. Edith: the skill's component list was incomplete, and it now names every reserved
+  class. Victor: two deviations from the source were applied. The bare `header` selector is scoped to
+  the page header (`body > header, main > header`), so it no longer styles a `<header>` inside a
+  card. `.badge--neutral` takes `--ink` text, which fixes the source's near-black-on-dark contrast in
+  dark mode. The missing `--c`/`--m` fallbacks were left as the source has them.
+- [x] Gwen built a specimen page of every component, with a light/dark/auto toggle, for the owner's
+  look. It sits in the session scratchpad and is not shipped.
 
 ### DEPLOY: feat/2695-dkj-solutions-house-style
 

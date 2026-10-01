@@ -80,7 +80,7 @@ body { margin: 0; background: var(--page); color: var(--ink);
 
 /* ---- Layout -------------------------------------------------------------- */
 main, .container { max-width: 1080px; margin: 0 auto; padding: 24px 16px 48px; }
-header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+body > header, main > header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: 16px; }
@@ -155,7 +155,7 @@ h3 { font-size: 14px; margin: 0 0 8px; font-weight: 600; }
 .badge--warn    { --b: var(--warn); }
 .badge--bad     { --b: var(--bad);  color: #fff; }
 .badge--info    { --b: var(--cat-1); color: #fff; }
-.badge--neutral { --b: var(--axis); }
+.badge--neutral { --b: var(--axis); color: var(--ink); }
 .badge--sm { width: 18px; height: 18px; font-size: 11px; }
 .badge-row { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 8px; }
 
