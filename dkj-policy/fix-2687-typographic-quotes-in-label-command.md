@@ -77,5 +77,3 @@ and the script only prints the line; nothing a subscriber runs changes otherwise
 
 adopt-triage-labels: escape PowerShell's typographic single quotes in the printed command
 
-Plugins: dkj-policy
-
