@@ -1,0 +1,385 @@
+<title>Session start context</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; summary tiles, then layered bars colored by who can change them */
+:root{
+  --page:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#77756f;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10); --wash:#f1f0ec;
+  --i-direct:#2a78d6; --i-setting:#eb6834; --i-none:#a9a79f;
+  --warn:#9a5200; --warn-bg:#fdf1e2; --budget:#d03b3b; --ok:#2f7d4f; --ok-bg:#e6f3ea;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#9a988f;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10); --wash:#232321;
+    --i-direct:#3987e5; --i-setting:#d95926; --i-none:#5e5d58;
+    --warn:#f2a95a; --warn-bg:#2b2116; --budget:#e66767; --ok:#6cc58f; --ok-bg:#16261c;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink-2:#c3c2b7; --muted:#9a988f;
+  --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10); --wash:#232321;
+  --i-direct:#3987e5; --i-setting:#d95926; --i-none:#5e5d58;
+  --warn:#f2a95a; --warn-bg:#2b2116; --budget:#e66767; --ok:#6cc58f; --ok-bg:#16261c;
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--ink);font:15px/1.55 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;padding-inline:16px;padding-block:32px 56px}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+code{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace;font-size:12.5px;background:var(--wash);border-radius:4px;padding:1px 5px;overflow-wrap:anywhere}
+header{display:flex;flex-direction:column;gap:6px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:30px;line-height:1.15;margin:0;font-weight:600;text-wrap:balance}
+h2{font-size:18px;margin:0;font-weight:600;text-wrap:balance}
+.lede{color:var(--ink-2);max-width:66ch;margin:0}
+.panel{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:22px 22px 18px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel > p{margin:0;color:var(--ink-2);max-width:70ch}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.tile{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:16px 18px;display:flex;flex-direction:column;gap:6px;border-top:4px solid var(--c)}
+.tile .k{display:flex;align-items:center;gap:8px;font-weight:600}
+.tile .v{font-size:28px;font-weight:600;line-height:1.1}
+.tile .v small{font-size:14px;color:var(--ink-2);font-weight:500;margin-left:6px}
+.tile p{margin:0;font-size:13.5px;color:var(--ink-2)}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--c);display:inline-block;flex:none}
+
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;display:inline-block}
+.hatch{background-image:repeating-linear-gradient(135deg,transparent 0 4px,rgba(255,255,255,.45) 4px 7px)}
+
+.stack{display:flex;gap:2px;height:40px;border-radius:6px;overflow:hidden}
+.stack .seg{height:100%}
+.stackcap{display:flex;gap:2px;font-size:12px;color:var(--ink-2)}
+.stackcap div{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-top:2px;border-top:2px solid var(--c)}
+
+.bars{display:flex;flex-direction:column;gap:10px}
+.row{display:grid;grid-template-columns:minmax(120px,220px) 1fr 70px;gap:12px;align-items:center}
+.row .lab{font-size:13.5px;line-height:1.3;display:flex;gap:8px;align-items:flex-start}
+.row .lab small{display:block;color:var(--muted);font-size:12px}
+.track{position:relative;height:18px}
+.gridl{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--grid)}
+.bar{position:absolute;left:0;top:0;height:100%;border-radius:0 4px 4px 0}
+.row .val{font-size:13px;text-align:right;font-variant-numeric:tabular-nums}
+.axis{display:grid;grid-template-columns:minmax(120px,220px) 1fr 70px;gap:12px;font-size:11.5px;color:var(--muted)}
+.axis .ticks{position:relative;height:16px;border-top:1px solid var(--axis)}
+.axis .ticks span{position:absolute;top:2px;transform:translateX(-50%);font-variant-numeric:tabular-nums}
+.marker{position:absolute;top:-8px;bottom:-8px;width:0;border-left:2px dashed var(--budget);z-index:2}
+.mlab{position:absolute;top:-24px;transform:translateX(-100%);font-size:11.5px;white-space:nowrap;padding-right:6px}
+.delta{display:inline-block;font-size:11px;font-weight:600;color:var(--ok);background:var(--ok-bg);border-radius:4px;padding:1px 6px;margin-left:4px}
+.delta.up{color:var(--warn);background:var(--warn-bg)}
+
+.actions{display:flex;flex-direction:column;border-top:1px solid var(--grid)}
+.act{display:grid;grid-template-columns:92px 1fr 140px;gap:16px;padding:14px 0;border-bottom:1px solid var(--grid);align-items:start}
+.act .save{font-size:20px;font-weight:600;line-height:1.1;font-variant-numeric:tabular-nums}
+.act .save small{display:block;font-size:11.5px;font-weight:400;color:var(--muted);margin-top:3px}
+.act .what{min-width:0}
+.act .what b{font-weight:600}
+.act .what p{margin:4px 0 0;font-size:13.5px;color:var(--ink-2);max-width:68ch}
+.act .how{margin-top:6px;font-size:13px}
+.act.done .save,.act.done .what b{color:var(--muted)}
+.act.done .what b{text-decoration:line-through;text-decoration-color:var(--axis)}
+.tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;border:1px solid var(--c);color:var(--ink);white-space:nowrap;justify-self:end}
+.tag.ok{--c:var(--ok);color:var(--ok)}
+.caveat{font-size:12.5px;color:var(--warn);margin-top:6px}
+.none-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 20px;margin:0;padding:0;list-style:none;font-size:13.5px;color:var(--ink-2)}
+.none-list b{color:var(--ink);font-weight:600}
+
+.advice{border-left:4px solid var(--i-direct)}
+.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:12px;max-width:74ch}
+.steps li{color:var(--ink-2);padding-left:4px}
+.steps li::marker{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:600;color:var(--i-direct)}
+.steps b{color:var(--ink);font-weight:600}
+.dont{font-size:13.5px;color:var(--ink-2);background:var(--wash);border-radius:6px;padding:10px 12px;max-width:74ch}
+.dont b{color:var(--ink)}
+details{font-size:13.5px}
+summary{cursor:pointer;color:var(--ink-2)}
+summary:focus-visible{outline:2px solid var(--i-direct);outline-offset:2px}
+.tablewrap{overflow-x:auto;margin-top:10px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--grid)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+.foot{font-size:12.5px;color:var(--muted);max-width:78ch;margin:0}
+.gone{font-size:12.5px;color:var(--muted);margin:0}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--surface);font-size:12.5px;line-height:1.4;padding:7px 10px;border-radius:6px;max-width:270px;z-index:10;opacity:0;transition:opacity .08s}
+@media (prefers-reduced-motion:reduce){#tip{transition:none}}
+@media (max-width:620px){
+  .row,.axis{grid-template-columns:1fr 56px}
+  .row .lab{grid-column:1 / -1}
+  .axis > div:first-child{display:none}
+  .act{grid-template-columns:1fr;gap:6px}
+  .tag{justify-self:start}
+  .stackcap{display:none}
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="h-eyebrow"></div>
+    <h1 id="h-title"></h1>
+    <p class="lede" id="h-lede"></p>
+  </header>
+
+  <div class="tiles" id="tiles"></div>
+
+  <section class="panel" aria-labelledby="h-over">
+    <h2 id="h-over"></h2>
+    <div class="legend" id="legend" aria-hidden="true"></div>
+    <div>
+      <div class="stack" id="stack" role="img"></div>
+      <div class="stackcap" id="stackcap" aria-hidden="true"></div>
+    </div>
+    <div class="bars" id="items"></div>
+    <div class="axis" aria-hidden="true"><div></div><div class="ticks" id="ticks1"></div><div></div></div>
+    <details>
+      <summary id="sum1"></summary>
+      <div class="tablewrap"><table id="t1"><thead></thead><tbody></tbody></table></div>
+    </details>
+  </section>
+
+  <section class="panel" aria-labelledby="h-act">
+    <h2 id="h-act"></h2>
+    <p id="act-lede"></p>
+    <div class="actions" id="actions"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-docs">
+    <h2 id="h-docs"></h2>
+    <p id="docs-lede"></p>
+    <div class="bars" id="docs" style="margin-top:22px"></div>
+    <div class="axis" aria-hidden="true"><div></div><div class="ticks" id="ticks2"></div><div></div></div>
+    <p class="gone" id="gone"></p>
+    <details>
+      <summary id="sum2"></summary>
+      <div class="tablewrap"><table id="t2"><thead></thead><tbody></tbody></table></div>
+    </details>
+  </section>
+
+  <section class="panel" aria-labelledby="h-none">
+    <h2 id="h-none"></h2>
+    <p id="none-lede"></p>
+    <ul class="none-list" id="none-list"></ul>
+  </section>
+
+  <section class="panel advice" aria-labelledby="h-adv">
+    <div class="eyebrow" id="adv-eyebrow"></div>
+    <h2 id="h-adv"></h2>
+    <p id="adv-lede"></p>
+    <ol class="steps" id="steps"></ol>
+    <div class="dont" id="dont"></div>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+(function(){
+/* Everything on this page comes from the data object below, written by the measure-session-start
+   script (the measured half) and the model that ran the skill (the estimated half and the advice).
+   Text is escaped on the way in; the only markup a string may carry is **bold** and `code`. */
+var D=/*SESSION-START-DATA*/{}/*END-SESSION-START-DATA*/;
+
+var L=Object.assign({
+  direct:'Direct', setting:'Via a setting', none:'No influence',
+  tileDirect:'Change it in this repo, through a branch and a PR. This is where the biggest gain is.',
+  tileSetting:'Switch it on or off on your machine or in claude.ai. Little work, small gain each.',
+  tileNone:'Ships with Claude Code itself. Accept it and move on.',
+  legendDirect:'Direct: files in this repo', legendSetting:'Via a setting: switch on or off',
+  legendNone:'No influence: Claude Code itself', legendHatch:'Hatched = estimated',
+  overviewHeading:'All layers, colored by influence',
+  stackAria:'Stacked bar',
+  showTable:'Show as table',
+  colItem:'Item', colInfluence:'Influence', colTokens:'Tokens', colSource:'Source',
+  actionsHeading:'What you can do, biggest gain first',
+  actionsLede:'The gain is in tokens per session. Blue actions are done in this repo, through a branch and a PR. Orange actions are a setting on your machine or in claude.ai. Struck through is already done.',
+  done:'Done', measured:'Measured', estimated:'Estimated',
+  docsHeading:'The biggest direct block: the always-on documents',
+  docsLede:'Every file each session loads: the @-imports from CLAUDE.md, plus the unscoped rules. Measured, and entirely in your hands. The red line is the budget.',
+  colDocument:'Document', colBytes:'Bytes', colPrevious:'Previous', colApprox:'~ Tokens',
+  total:'Total', totalSub:'all together', budget:'budget', newDoc:'new', gone:'No longer on the path:',
+  noneHeading:'What you cannot change', noneLede:'Claude Code ships this itself, in every repo.',
+  adviceEyebrow:'Advice', dont:'Do not:',
+  vs:'vs.', tokensWord:'tokens', bytesWord:'B'
+}, D.labels||{});
+
+var loc=D.locale||'en-US';
+var INF={
+  direct:{n:L.direct,c:'var(--i-direct)'},
+  setting:{n:L.setting,c:'var(--i-setting)'},
+  none:{n:L.none,c:'var(--i-none)'}
+};
+var KEYS=['direct','setting','none'];
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+function md(s){return esc(s).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>')}
+function fmt(n){return Number(n).toLocaleString(loc)}
+function k(n){return (Math.round(n/100)/10).toLocaleString(loc)+'k'}
+function setText(id,v){$(id).textContent=v==null?'':v}
+function setMd(id,v){$(id).innerHTML=md(v)}
+var tip=$('tip');
+function hover(el,html){
+  el.addEventListener('mouseenter',function(){tip.innerHTML=html;tip.style.opacity=1});
+  el.addEventListener('mousemove',function(e){var x=Math.min(e.clientX+14,innerWidth-tip.offsetWidth-8);tip.style.left=x+'px';tip.style.top=(e.clientY+16)+'px'});
+  el.addEventListener('mouseleave',function(){tip.style.opacity=0});
+}
+/* A readable axis: about five gridlines, on a 1/2/5 step. */
+function niceStep(max){
+  var raw=max/5,mag=Math.pow(10,Math.floor(Math.log10(raw||1)));
+  var c=[1,2,5,10];for(var i=0;i<c.length;i++){if(c[i]*mag>=raw)return c[i]*mag}
+  return 10*mag;
+}
+function ticks(id,max,step){var t=$(id);for(var v=0;v<=max+1e-9;v+=step){var s=document.createElement('span');s.style.left=(v/max*100)+'%';s.textContent=v===0?'0':fmt(v/1000)+'k';t.appendChild(s)}}
+function gridlines(tr,max,step){for(var v=step;v<max-1e-9;v+=step){var g=document.createElement('i');g.className='gridl';g.style.left=(v/max*100)+'%';tr.appendChild(g)}}
+function ths(id,cols){
+  var tr=document.createElement('tr');
+  cols.forEach(function(c){var th=document.createElement('th');if(c[1])th.className='n';th.textContent=c[0];tr.appendChild(th)});
+  document.querySelector('#'+id+' thead').appendChild(tr);
+}
+
+/* ---- header ---- */
+var H=D.header||{};
+document.title=D.pageTitle||H.title||document.title;
+setText('h-eyebrow',H.eyebrow);setText('h-title',H.title);setMd('h-lede',H.lede);
+
+/* ---- tiles, legend, stack ---- */
+var items=D.items||[];
+var tot={direct:0,setting:0,none:0};
+items.forEach(function(x){if(tot[x.influence]!=null)tot[x.influence]+=Number(x.tokens)||0});
+var all=tot.direct+tot.setting+tot.none||1;
+var tilesTxt={direct:L.tileDirect,setting:L.tileSetting,none:L.tileNone};
+KEYS.forEach(function(key){
+  var d=document.createElement('div');d.className='tile';d.style.setProperty('--c',INF[key].c);
+  d.innerHTML='<div class="k"><span class="dot"></span>'+esc(INF[key].n)+'</div><div class="v mono">≈ '+k(tot[key])+'<small>'+Math.round(tot[key]/all*100)+'%</small></div><p>'+esc(tilesTxt[key])+'</p>';
+  $('tiles').appendChild(d);
+});
+setText('h-over',L.overviewHeading);
+(function(){
+  var lg=$('legend'),defs=[['direct',L.legendDirect],['setting',L.legendSetting],['none',L.legendNone]];
+  defs.forEach(function(p){var s=document.createElement('span');s.innerHTML='<i class="sw" style="background:'+INF[p[0]].c+'"></i>'+esc(p[1]);lg.appendChild(s)});
+  var h=document.createElement('span');h.innerHTML='<i class="sw hatch" style="background-color:var(--muted)"></i>'+esc(L.legendHatch);lg.appendChild(h);
+})();
+$('stack').setAttribute('aria-label',L.stackAria+': '+KEYS.map(function(key){return INF[key].n+' ≈ '+k(tot[key])}).join(', '));
+KEYS.forEach(function(key){
+  var c=document.createElement('div');c.style.flex=tot[key]||0.0001;c.style.setProperty('--c',INF[key].c);c.textContent=INF[key].n;$('stackcap').appendChild(c);
+  items.filter(function(x){return x.influence===key}).sort(function(a,b){return b.tokens-a.tokens}).forEach(function(x){
+    var s=document.createElement('div');s.className='seg'+(x.measured?'':' hatch');s.style.flex=x.tokens||0.0001;s.style.background=INF[key].c;
+    hover(s,'<b>'+esc(x.name)+'</b><br>'+(x.measured?'':'≈ ')+fmt(x.tokens)+' '+esc(L.tokensWord)+'<br>'+esc(INF[key].n));$('stack').appendChild(s);
+  });
+});
+
+/* ---- per-layer bars ---- */
+var maxTok=items.reduce(function(m,x){return Math.max(m,Number(x.tokens)||0)},0)||1000;
+var STEP1=niceStep(maxTok),MAX1=Math.ceil(maxTok/STEP1)*STEP1;
+KEYS.forEach(function(key){
+  items.filter(function(x){return x.influence===key}).sort(function(a,b){return b.tokens-a.tokens}).forEach(function(x){
+    var r=document.createElement('div');r.className='row';
+    var dl='';
+    if(x.previousTokens!=null&&x.previousTokens!==x.tokens){var dd=x.tokens-x.previousTokens;dl='<span class="delta'+(dd>0?' up':'')+'">'+(dd>0?'+':'−')+fmt(Math.abs(dd))+'</span>'}
+    r.innerHTML='<div class="lab"><span class="dot" style="--c:'+INF[key].c+';margin-top:5px"></span><div>'+esc(x.name)+dl+'<small>'+esc(x.sub)+'</small></div></div><div class="track"></div><div class="val mono">'+(x.measured?'':'≈ ')+k(x.tokens)+'</div>';
+    var tr=r.querySelector('.track');gridlines(tr,MAX1,STEP1);
+    var b=document.createElement('div');b.className='bar'+(x.measured?'':' hatch');b.style.width=Math.max(x.tokens/MAX1*100,.6)+'%';b.style.background=INF[key].c;
+    hover(b,'<b>'+esc(x.name)+'</b><br>'+esc(x.measured?L.measured:L.estimated)+': '+fmt(x.tokens)+' '+esc(L.tokensWord)+'<br>'+esc(INF[key].n)+' · '+esc(x.source));
+    tr.appendChild(b);$('items').appendChild(r);
+  });
+});
+ticks('ticks1',MAX1,STEP1);
+setText('sum1',L.showTable);
+ths('t1',[[L.colItem],[L.colInfluence],[L.colTokens,1],[L.colSource]]);
+items.forEach(function(x){
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td>'+esc(x.name)+'</td><td>'+esc(INF[x.influence]?INF[x.influence].n:x.influence)+'</td><td class="n">'+(x.measured?'':'≈ ')+fmt(x.tokens)+'</td><td>'+esc(x.source)+'</td>';
+  document.querySelector('#t1 tbody').appendChild(tr);
+});
+
+/* ---- actions ---- */
+var A=D.actions||{};
+var acts=Array.isArray(A)?A:(A.items||[]);
+setText('h-act',L.actionsHeading);setMd('act-lede',(!Array.isArray(A)&&A.lede)||L.actionsLede);
+acts.forEach(function(a){
+  var d=document.createElement('div');d.className='act'+(a.done?' done':'');
+  var inf=INF[a.influence]||INF.none;
+  var tag=a.done?'<span class="tag ok"><span class="dot"></span>'+esc(L.done)+'</span>':'<span class="tag" style="--c:'+inf.c+'"><span class="dot"></span>'+esc(inf.n)+'</span>';
+  var save=a.save!=null?a.save:(a.tokens!=null?'≈ '+k(a.tokens):'');
+  d.innerHTML='<div class="save mono">'+esc(save)+'<small>'+esc(a.saveSub)+'</small></div><div class="what"><b>'+esc(a.title)+'</b><p>'+md(a.text)+'</p>'+(a.how?'<div class="how">'+md(a.how)+'</div>':'')+(a.caveat?'<div class="caveat">'+md(a.caveat)+'</div>':'')+'</div>'+tag;
+  $('actions').appendChild(d);
+});
+
+/* ---- the always-on documents, with the delta against the previous measurement ---- */
+var DOC=D.documents||{};
+var docs=DOC.items||[];
+var ratio=DOC.charsPerToken||3.12;
+var hasPrev=!!DOC.hasPrevious;
+var prevLabel=DOC.previousLabel||L.colPrevious;
+setText('h-docs',DOC.heading||L.docsHeading);setMd('docs-lede',DOC.lede||L.docsLede);
+var TOTAL=docs.reduce(function(a,d){return a+d.bytes},0);
+var budget=Number(DOC.budgetBytes)||0;
+var maxDoc=Math.max(budget,TOTAL,1);
+var STEP2=niceStep(maxDoc),MAX2=Math.ceil(maxDoc/STEP2)*STEP2;
+function pill(diff){
+  if(!diff)return '';
+  return '<span class="delta'+(diff>0?' up':'')+'">'+(diff>0?'+':'−')+fmt(Math.abs(diff))+'</span>';
+}
+docs.forEach(function(d){
+  var diff=hasPrev&&d.previousBytes!=null?d.bytes-d.previousBytes:0;
+  var tag=hasPrev&&d.previousBytes==null?'<span class="delta up">'+esc(L.newDoc)+'</span>':pill(diff);
+  var tokens=d.tokens!=null?d.tokens:Math.round(d.bytes/ratio);
+  var r=document.createElement('div');r.className='row';
+  r.innerHTML='<div class="lab"><div>'+esc(d.name)+tag+'<small>'+esc(d.sub)+'</small></div></div><div class="track"></div><div class="val mono">'+fmt(d.bytes)+'</div>';
+  var tr=r.querySelector('.track');gridlines(tr,MAX2,STEP2);
+  var b=document.createElement('div');b.className='bar';b.style.width=Math.max(d.bytes/MAX2*100,.6)+'%';b.style.background='var(--i-direct)';
+  hover(b,'<b>'+esc(d.name)+'</b><br>'+fmt(d.bytes)+' '+esc(L.bytesWord)+' · ≈ '+fmt(tokens)+' '+esc(L.tokensWord)+(hasPrev&&d.previousBytes!=null?'<br>'+esc(prevLabel)+': '+fmt(d.previousBytes)+' '+esc(L.bytesWord):''));
+  tr.appendChild(b);$('docs').appendChild(r);
+});
+(function(){
+  var prevTotal=DOC.previousTotalBytes;
+  var cum=document.createElement('div');cum.className='row';cum.style.marginTop='18px';
+  cum.innerHTML='<div class="lab"><div><b>'+esc(L.total)+'</b>'+(hasPrev&&prevTotal!=null?pill(TOTAL-prevTotal):'')+'<small>'+esc(L.totalSub)+'</small></div></div><div class="track"></div><div class="val mono">'+fmt(TOTAL)+'</div>';
+  var ctr=cum.querySelector('.track');gridlines(ctr,MAX2,STEP2);
+  var acc=0;
+  docs.forEach(function(d){
+    var s=document.createElement('div');s.className='bar';s.style.left=(acc/MAX2*100)+'%';s.style.width=(d.bytes/MAX2*100)+'%';s.style.borderRadius='0';
+    s.style.background='var(--i-direct)';s.style.boxShadow='inset -2px 0 0 var(--surface)';
+    hover(s,'<b>'+esc(d.name)+'</b><br>'+fmt(d.bytes)+' '+esc(L.bytesWord));ctr.appendChild(s);acc+=d.bytes;
+  });
+  if(budget>0){
+    var e=document.createElement('div');e.className='marker';e.style.left=(budget/MAX2*100)+'%';
+    e.innerHTML='<span class="mlab mono" style="color:var(--budget)">'+esc(L.budget)+': '+fmt(budget)+'</span>';ctr.appendChild(e);
+  }
+  $('docs').appendChild(cum);
+})();
+ticks('ticks2',MAX2,STEP2);
+var gone=DOC.removed||[];
+setText('gone',gone.length?L.gone+' '+gone.map(function(g){return g.name+' ('+fmt(g.previousBytes)+' '+L.bytesWord+')'}).join(', '):'');
+$('gone').hidden=!gone.length;
+setText('sum2',L.showTable);
+ths('t2',[[L.colDocument],[L.colBytes,1],[hasPrev?prevLabel:L.colPrevious,1],[L.colApprox,1]]);
+docs.forEach(function(d){
+  var tokens=d.tokens!=null?d.tokens:Math.round(d.bytes/ratio);
+  var tr=document.createElement('tr');
+  tr.innerHTML='<td>'+esc(d.name)+'</td><td class="n">'+fmt(d.bytes)+'</td><td class="n">'+(hasPrev&&d.previousBytes!=null?fmt(d.previousBytes):'')+'</td><td class="n">'+fmt(tokens)+'</td>';
+  document.querySelector('#t2 tbody').appendChild(tr);
+});
+
+/* ---- no influence ---- */
+var N=D.none||{};
+setText('h-none',N.heading||L.noneHeading);setMd('none-lede',N.lede||L.noneLede);
+(N.items||[]).forEach(function(x){
+  var li=document.createElement('li');li.innerHTML='<b>'+esc(x.title)+'</b> '+md(x.text);$('none-list').appendChild(li);
+});
+
+/* ---- advice ---- */
+var V=D.advice||{};
+setText('adv-eyebrow',V.eyebrow||L.adviceEyebrow);setText('h-adv',V.heading);setMd('adv-lede',V.lede);
+(V.steps||[]).forEach(function(s){
+  var li=document.createElement('li');li.innerHTML='<b>'+esc(s.title)+'</b> '+md(s.text);$('steps').appendChild(li);
+});
+if(V.dont&&V.dont.text){$('dont').innerHTML='<b>'+esc(V.dont.label||L.dont)+'</b> '+md(V.dont.text)}else{$('dont').hidden=true}
+
+/* ---- footer ---- */
+setMd('foot',D.footer);
+})();
+</script>

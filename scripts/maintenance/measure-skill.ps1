@@ -177,32 +177,7 @@ function Write-TextFile {
     [System.IO.File]::WriteAllText($Path, $normalized, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-# --- run `claude plugin details`; the parsing itself lives in the lib ----------------------------
-function Get-PluginDetails {
-    param([Parameter(Mandatory = $true)][string]$PluginId)
-
-    $res = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'details', $PluginId)
-    $lines = @($res.Output | ForEach-Object { [string]$_ })
-    if ($res.ExitCode -ne 0) {
-        return [pscustomobject]@{
-            Ok     = $false
-            Reason = "claude plugin details exited $($res.ExitCode)"
-            Raw    = $lines
-        }
-    }
-
-    $parsed = Read-PluginDetailsOutput -Lines $lines
-    return [pscustomobject]@{
-        Ok                = $true
-        Version           = $parsed.Version
-        AlwaysOnTotal     = $parsed.AlwaysOnTotal
-        InventoryCounts   = $parsed.InventoryCounts
-        RowProducingCount = $parsed.RowProducingCount
-        InventorySkills   = $parsed.InventorySkills
-        Rows              = $parsed.Rows
-        Raw               = $lines
-    }
-}
+# --- `claude plugin details` is run by Get-PluginDetails in measure-skill-lib.ps1, the one place it is invoked ---
 
 # Get-DeclaredAgentCount lives in measure-skill-lib.ps1, dot-sourced above -- it reads a file and returns
 # an object, with no I/O of its own, which is that lib's whole remit. It sat here first and had no test at

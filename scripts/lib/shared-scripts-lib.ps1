@@ -472,6 +472,35 @@ function Get-SharedScriptPairs {
             Skill  = 'measure-closeouts'
         },
         @{
+            # THE SESSION-START REPORT, turned from a hand-built page into a skill. The script measures the
+            # half of the session start a script can measure (the always-on documents, and the plugin
+            # listings minus the skills that are not in a session) and renders the page from a data file;
+            # the model that invokes the skill adds the estimated half and writes the advice. It reaches no
+            # verdict itself -- that is #861's boundary, and the reason the skill carries
+            # disable-model-invocation: its page costs no always-on tokens in any session.
+            #
+            # ITS OWN SKILL PAGE, for the reason measure-closeouts gives: measure-skill's page is about what
+            # a SKILL costs, and this is a different subject with a different procedure (it ends in a
+            # republished claude.ai artifact). The page is the one place its template path is documented.
+            #
+            # NO MeasureArgs: a plain run shells out to `claude plugin details` once per enabled plugin, so
+            # the median would move with the machine's plugin set rather than with this script -- the same
+            # reason measure-always-on declares none.
+            Name   = 'measure-session-start'
+            Source = 'scripts\maintenance\measure-session-start.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = 'measure-session-start'
+        },
+        @{
+            # measure-session-start's pure half: the install-payload lookup, the disable-model-invocation
+            # split, the previous-page reader and the template merge. A lib so a suite can pin each against a
+            # fixture without a `claude` on the machine -- the same reason measure-skill-lib exists.
+            Name    = 'session-start-lib'
+            Source  = 'scripts\lib\session-start-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # The preamble every consumer-facing lint check opens with (issue #1422): the dual-context
             # root resolution and the always-on prose corpus, in one definition where five entry points
             # carried near-copies. IT HAS TO TRAVEL for the ordinary lib reason -- all five callers are

@@ -29,6 +29,7 @@ joke at its own expense.
 | always-on + on-invoke tokens, per skill, with a baseline delta | **this skill**, pass 1 |
 | wall-clock of the script behind a skill | **this skill**, pass 2 — read-only invocations only |
 | the always-on **document** path — `CLAUDE.md` plus its `@`-imports, per document and per section | **this skill**, via [`measure-always-on.ps1`](#the-second-script-on-this-page--the-always-on-document-path) — a different subject: what the repo's own instruction documents cost, not what the plugins cost |
+| the WHOLE session start — documents, plugin listings and the layers only the running session can see — with a delta and advice | [`measure-session-start`](../measure-session-start/SKILL.md), which reuses this page's parser and leaves out the `disable-model-invocation` skills this page still counts ([#2664](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2664)) |
 | frontmatter, dead links, parameter coverage, printed install commands | `check-plugin-integrity.ps1`, which carries a numbered check for each. Not duplicated here: two verdicts on one subject is worse than one. |
 | whether the skill actually WORKS — does it fire, does it beat no-skill | `claude plugin eval`. Designed for, not built. See [Pass 3](#pass-3--effectiveness-designed-not-built) below. |
 

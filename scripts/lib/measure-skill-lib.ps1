@@ -22,6 +22,12 @@
     Contains NO Write-Host, no exit, and no counter. Reporting belongs to the caller, which owns the
     [OK]/[INFO]/[ERROR] vocabulary from check-report-lib.ps1.
 
+    ONE FUNCTION RUNS A COMMAND, Get-PluginDetails at the bottom: it is the single place `claude plugin
+    details` is invoked, lifted here from measure-skill.ps1 so measure-session-start.ps1 asks the CLI the
+    same question the same way instead of carrying a second copy. It is the only function in this file
+    that touches anything outside its arguments, and everything it returns still comes from the parsers
+    above, which stay pinned against captured output.
+
     No Set-StrictMode here: dot-sourcing would change the strict mode of the calling script.
     Pure ASCII (repo convention for .ps1).
 #>
@@ -31,6 +37,11 @@
 # pull in here for the reason plugin-tree-lib's own header states: it has no dependencies of its own, so
 # this costs one small file rather than a chain of them.
 . (Join-Path $PSScriptRoot 'plugin-tree-lib.ps1')
+
+# THE SECOND DEPENDENCY, for Get-PluginDetails' command runner. Invoke-NativeCapture was already loaded
+# beside this lib by its only caller (measure-skill.ps1); it is pulled in here so the lib is whole for
+# the second caller too. Dot-sourcing it twice only redefines the same functions.
+. (Join-Path $PSScriptRoot 'native-capture-lib.ps1')
 
 # EVERY FIGURE IS FORMATTED INVARIANTLY, and that is not a style choice. Formatted on a Dutch machine,
 # '{0:N0}' renders 13700 as '13.700' -- which an English reader of this repo reads as 13.7, off by a
@@ -312,4 +323,36 @@ function Get-DeclaredAgentCount {
     $agents = @(Get-ManifestAgentEntries -Manifest $json).Count
     $version = if ($json.PSObject.Properties['version']) { $json.version } else { $null }
     return [pscustomobject]@{ Found = $true; Version = $version; AgentCount = $agents }
+}
+
+function Get-PluginDetails {
+    <#
+        Runs `claude plugin details <id>` and parses it. The ONE place that command is invoked (measure-skill
+        and measure-session-start both call it). Returns Ok=$false with a Reason when the command fails,
+        else Ok=$true with the fields Read-PluginDetailsOutput returns, plus Raw (the lines as printed) so a
+        caller can say how much came back when the parse is refused.
+    #>
+    param([Parameter(Mandatory = $true)][string]$PluginId)
+
+    $res = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'details', $PluginId)
+    $lines = @($res.Output | ForEach-Object { [string]$_ })
+    if ($res.ExitCode -ne 0) {
+        return [pscustomobject]@{
+            Ok     = $false
+            Reason = "claude plugin details exited $($res.ExitCode)"
+            Raw    = $lines
+        }
+    }
+
+    $parsed = Read-PluginDetailsOutput -Lines $lines
+    return [pscustomobject]@{
+        Ok                = $true
+        Version           = $parsed.Version
+        AlwaysOnTotal     = $parsed.AlwaysOnTotal
+        InventoryCounts   = $parsed.InventoryCounts
+        RowProducingCount = $parsed.RowProducingCount
+        InventorySkills   = $parsed.InventorySkills
+        Rows              = $parsed.Rows
+        Raw               = $lines
+    }
 }
