@@ -39,6 +39,26 @@
 
 ### PLAN
 
+Turn the hand-built "session start prompt optimisation" (Dave, September 30, 2026) into a skill that
+measures what a clean session loads, republishes the claude.ai artifact "Sessiestart-context", and ends
+with advice. **The script measures and never advises; the model that runs the skill writes the advice**
+(#861's verdict, and why the skill is `disable-model-invocation: true`: zero always-on tokens).
+
+- `scripts/maintenance/measure-session-start.ps1` (+ plugin mirror, registered in the shared-scripts
+  registry): **collect** writes the measured half as JSON (always-on documents via
+  `Get-AlwaysOnDocuments`, the budget via `Resolve-AlwaysOnBudget`, plugin skill listings via `claude plugin
+  details` minus the `disable-model-invocation` skills, recorded as excluded -- #2664, not fixed in
+  `measure-skill`); **render** injects the data between two markers in the template, `<` escaped, and with
+  `-Previous` reads the history back out of the published page, so the page is its own state.
+- `scripts/lib/session-start-lib.ps1`: the pure half, so it can be tested without `claude`.
+  `Get-PluginDetails` moved from `measure-skill.ps1` into `measure-skill-lib.ps1` (behaviour identical)
+  so both scripts ask the CLI the same way.
+- `plugins/dkj-policy/skills/measure-session-start/`: the skill page and the data-driven template (same
+  look as the hand-built page, every string from the data, labels follow the session language).
+- Footprint as `measure-closeouts` had it: plugin README skill row, scripts README rows, ADOPTION list,
+  one line on `measure-skill`'s page.
+- Not in this branch: tests (Tycho), the DEPLOY and tier sections (Rendall).
+
 ### CREATE
 
 - [ ] TODO: the first step of this branch
