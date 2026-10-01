@@ -464,7 +464,7 @@ try {
     Write-Host ''
     Write-Host 'The byte column leaves out a leading frontmatter block too (#2678)' -ForegroundColor Cyan
 
-    $frontLines = @('---', 'id: 01', '```', '---', '', '# Title', '<!-- still stripped -->', 'body', '---', 'after a rule')
+    $frontLines = @('---', 'id: 01', '  ```', '---', '', '# Title', '<!-- still stripped -->', 'body', '---', 'after a rule')
     $frontDoc = New-Fixture 'frontmatter\doc.md' $frontLines
     $frontStripped = @(Get-LoadedByteLines -Path $frontDoc | Where-Object { $_.Stripped } | ForEach-Object { $_.Text })
     Assert-Equal 5 $frontStripped.Count 'the four frontmatter lines and the comment after them are stripped'
@@ -481,6 +481,18 @@ try {
     $crlfFront = New-CrlfFixture 'frontmatter\crlf.md' @('---', 'id: 01', '---', '# Title')
     $crlfFrontRow = @(Get-AlwaysOnDocuments -RootDocument $crlfFront -RepoRoot $Fixture)[0]
     Assert-Equal 1 $crlfFrontRow.CrlfLines 'a CRLF frontmatter block is recognised and its line-ends are not counted'
+
+    $bomFront = Join-Path $Fixture 'frontmatter\bom.md'
+    [System.IO.File]::WriteAllText($bomFront, "---`nid: 01`n---`n# Title`n", (New-Object System.Text.UTF8Encoding($true)))
+    Assert-Equal 3 (@(Get-LoadedByteLines -Path $bomFront | Where-Object { $_.Stripped }).Count) 'a BOM before the opening --- still opens the block'
+    $ruleDoc = New-Fixture 'frontmatter\rule.md' @('---', '# Title', 'text', '---', 'more')
+    Assert-Equal 0 (@(Get-LoadedByteLines -Path $ruleDoc | Where-Object { $_.Stripped }).Count) 'a markdown file opening with a horizontal rule keeps its heading and text'
+    $dotsDoc = New-Fixture 'frontmatter\dots.md' @('---', 'a: b', '...', 'body', '---')
+    Assert-Equal 0 (@(Get-LoadedByteLines -Path $dotsDoc | Where-Object { $_.Stripped }).Count) 'a block closed by ... is kept, and a later --- does not swallow the body'
+    $spaceDoc = New-Fixture 'frontmatter\space.md' @('---', 'a: b', '--- ', '# Title')
+    Assert-Equal 0 (@(Get-LoadedByteLines -Path $spaceDoc | Where-Object { $_.Stripped }).Count) 'a closer with trailing spaces is not the measured shape, so it is kept'
+    $listDoc = New-Fixture 'frontmatter\list.md' @('---', 'paths:', '  - "scripts/**"', '', '---', '# Title')
+    Assert-Equal 5 (@(Get-LoadedByteLines -Path $listDoc | Where-Object { $_.Stripped }).Count) 'a paths list with an indented item and a blank line is frontmatter'
 
     Write-Host ''
     Write-Host 'The script runs on this repo and agrees with the lib' -ForegroundColor Cyan

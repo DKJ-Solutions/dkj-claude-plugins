@@ -61,7 +61,9 @@ disk, and the session that claimed this issue received the persona starting at `
 
 ### TEST
 
-- [x] `measure-always-on.tests.ps1`: 112 passed, 0 failed.
+- [x] `measure-always-on.tests.ps1`: 117 passed, 0 failed. Victor's review tightened the rule to the measured
+  shape: exact `---` delimiters and YAML-looking lines between, so a markdown file opening with a
+  horizontal rule no longer loses its body. BOM, `...`, trailing-space and `paths:`-list cases pinned.
 - [x] On this repo: the stripped column is now 1,066 B -- the persona's 25 B frontmatter plus the
   orchestrator lens's 25 B, a tree file the issue had not counted. This session received both without
   it, and a paths-scoped rule from `.claude/rules/` too, so the rule is not one install's quirk.

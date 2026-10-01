@@ -366,9 +366,11 @@ function Get-LoadedByteLines {
         CONSERVATIVE WHERE THE HARNESS WAS NOT OBSERVED. A comment with text after its '-->' on the same
         line, one that opens mid-line, and one that never closes are all kept as loaded: none of those
         shapes was measured, and the one direction this measurement must not err in is undercounting
-        what a session pays. The same holds for frontmatter: a '---' that is not the file's first line,
-        a block that never closes, a block closed by YAML's '...', and the blank line after the closing
-        '---' are all kept.
+        what a session pays. The same holds for frontmatter, which is stripped only in the measured shape:
+        both delimiters exactly '---', and every line between them a 'key:' line, an indented
+        continuation or blank. A '---' that is not the file's first line, a block that never closes, one
+        closed by YAML's '...', one holding a line that is not YAML (a markdown file opening with a
+        horizontal rule), and the blank line after the closing '---' are all kept.
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
 
@@ -376,13 +378,16 @@ function Get-LoadedByteLines {
     foreach ($line in $lines) { $line | Add-Member -NotePropertyName Stripped -NotePropertyValue $false }
 
     $i = 0
-    if ($lines.Count -gt 1 -and $lines[0].Text.TrimStart([char]0xFEFF).TrimEnd() -eq '---') {
+    if ($lines.Count -gt 1 -and $lines[0].Text.TrimStart([char]0xFEFF) -eq '---') {
         for ($j = 1; $j -lt $lines.Count; $j++) {
-            if ($lines[$j].Text.TrimEnd() -ne '---') { continue }
-            for ($k = 0; $k -le $j; $k++) { $lines[$k].Stripped = $true }
-            # The comment scan starts after the block, so a value inside it never opens a fence or a comment.
-            $i = $j + 1
-            break
+            $text = $lines[$j].Text
+            if ($text -eq '---') {
+                for ($k = 0; $k -le $j; $k++) { $lines[$k].Stripped = $true }
+                # The comment scan starts after the block, so a value inside it never opens a fence or a comment.
+                $i = $j + 1
+                break
+            }
+            if ($text -notmatch '^([A-Za-z0-9_-]+\s*:|\s+\S|\s*$)') { break }
         }
     }
 
