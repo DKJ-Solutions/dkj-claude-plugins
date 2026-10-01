@@ -39,9 +39,21 @@
 
 ### PLAN
 
+#### Parked on a prerequisite -- PR #2679 (fix/2667)
+
+The repair goes in `Get-LoadedByteLines` (`scripts/lib/measure-context-lib.ps1`), and on October 1,
+2026 that function existed only on `fix/2667-always-on-strip-html-comments` (PR #2679, open). Dave
+chose to wait for #2679 to merge rather than stack on it. **Resume by merging `origin/main` into
+this branch once #2679 has landed**, then build on its `Stripped` column.
+
+Cause verified: the installed Chris persona opens with a `---`/`id: 01`/`group: 01`/`---` block on
+disk, and the session that claimed this issue received the persona starting at `# Chris`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Once #2679 has merged: merge `origin/main` in
+- [ ] Mark a leading `---` ... `---` block as `Stripped` in `Get-LoadedByteLines`, next to the comment rule
+- [ ] Test: a frontmatter fixture lands in `Stripped`, not `Bytes`; a `---` rule mid-document stays counted
 
 ### TEST
 
