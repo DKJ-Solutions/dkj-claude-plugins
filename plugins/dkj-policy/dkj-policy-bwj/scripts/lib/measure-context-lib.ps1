@@ -52,9 +52,10 @@
     divergence, for the same reason -- it is the number the next reader will compare against, not noise
     to smooth away. Inbound issue #1162.
 
-    AND IT IS THE WORKING COPY MINUS WHAT THE HARNESS STRIPS. A block-level HTML comment never reaches
-    the session, so a document row's Bytes leaves those lines out and names them in CommentBytes beside
-    it (Get-LoadedByteLines, #2667). Get-DocumentSections still tiles the whole file unless asked for
+    AND IT IS THE WORKING COPY MINUS WHAT THE HARNESS STRIPS. A block-level HTML comment and a leading
+    YAML frontmatter block never reach the session, so a document row's Bytes leaves those lines out and
+    names them in CommentBytes beside it (Get-LoadedByteLines, #2667, #2678; the column kept the name it
+    was born with). Get-DocumentSections still tiles the whole file unless asked for
     -LoadedOnly, because "the parts sum to the file" is the check its callers run.
 
     THIS FILE IS PURE ASCII, per the [script-ascii] gate.
@@ -346,7 +347,7 @@ function Split-FileIntoByteLines {
 function Get-LoadedByteLines {
     <#
         Split-FileIntoByteLines, with every line the harness STRIPS before the document reaches a session
-        marked Stripped = $true. Issue #2667.
+        marked Stripped = $true. Issues #2667 and #2678.
 
         WHAT IS STRIPPED: a block-level HTML comment -- a run of whole lines, outside a code fence, whose
         first line begins (after indentation) with '<!--' and whose last line ends with '-->'. Measured
@@ -354,18 +355,43 @@ function Get-LoadedByteLines {
         in the orchestrator's persona body) were absent from the imported text a session received, so a
         byte count that kept them overstated the loaded path by 1,010 B.
 
+        AND A LEADING YAML FRONTMATTER BLOCK -- the file's first line is '---', a later line is '---',
+        and every line from the one to the other is stripped. Issue #2678. Measured October 1, 2026: the
+        installed orchestrator persona opens with a four-line block ('---', 'id: 01', 'group: 01', '---')
+        on disk, and two sessions received that persona through the '@' import starting at its first
+        heading. The second session also received the orchestrator's repo lens (same four lines, a tree
+        file) and a paths-scoped rule from .claude/rules/ without theirs, so the rule is not one
+        install's quirk.
+
         CONSERVATIVE WHERE THE HARNESS WAS NOT OBSERVED. A comment with text after its '-->' on the same
         line, one that opens mid-line, and one that never closes are all kept as loaded: none of those
         shapes was measured, and the one direction this measurement must not err in is undercounting
-        what a session pays.
+        what a session pays. The same holds for frontmatter, which is stripped only in the measured shape:
+        both delimiters exactly '---', and every line between them a 'key:' line, an indented
+        continuation or blank. A '---' that is not the file's first line, a block that never closes, one
+        closed by YAML's '...', one holding a line that is not YAML (a markdown file opening with a
+        horizontal rule), and the blank line after the closing '---' are all kept.
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
 
     $lines = @(Split-FileIntoByteLines -Path $Path)
     foreach ($line in $lines) { $line | Add-Member -NotePropertyName Stripped -NotePropertyValue $false }
 
-    $fence = ''
     $i = 0
+    if ($lines.Count -gt 1 -and $lines[0].Text.TrimStart([char]0xFEFF) -eq '---') {
+        for ($j = 1; $j -lt $lines.Count; $j++) {
+            $text = $lines[$j].Text
+            if ($text -eq '---') {
+                for ($k = 0; $k -le $j; $k++) { $lines[$k].Stripped = $true }
+                # The comment scan starts after the block, so a value inside it never opens a fence or a comment.
+                $i = $j + 1
+                break
+            }
+            if ($text -notmatch '^([A-Za-z0-9_-]+\s*:|\s+\S|\s*$)') { break }
+        }
+    }
+
+    $fence = ''
     while ($i -lt $lines.Count) {
         $wasFence = $fence
         $fence = Get-NextFenceState -Line $lines[$i].Text -Fence $fence
@@ -619,8 +645,9 @@ function Get-AlwaysOnDocuments {
         why it needs both forms. It also carries CrlfLines and LfBytes: Bytes is
         the working copy on disk (CRLF and all), LfBytes is what it would be stored LF, and the caller
         names the difference wherever it is non-zero -- inbound issue #1162. Every one of those sizes,
-        the tree counterpart's included, leaves out the HTML comments the harness strips; CommentBytes
-        carries what was left out, on disk, so Bytes + CommentBytes is the file length (#2667).
+        the tree counterpart's included, leaves out the HTML comments and the frontmatter the harness
+        strips; CommentBytes carries what was left out, on disk, so Bytes + CommentBytes is the file
+        length (#2667, #2678).
     #>
     param(
         [Parameter(Mandatory = $true)][string]$RootDocument,
@@ -652,8 +679,9 @@ function Get-AlwaysOnDocuments {
         $crlfLines = [int64]0
         $commentBytes = [int64]0
         if ($exists) {
-            # WHAT LOADS, not the file length: the harness strips block-level HTML comments before the
-            # document reaches a session, so they are measured out here (#2667) and named in CommentBytes.
+            # WHAT LOADS, not the file length: the harness strips block-level HTML comments and a leading
+            # frontmatter block before the document reaches a session, so they are measured out here
+            # (#2667, #2678) and named in CommentBytes.
             $loaded = Measure-LoadedBytes -Path $item.Path
             $bytes = $loaded.Bytes
             $crlfLines = $loaded.CrlfLines

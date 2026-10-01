@@ -164,8 +164,8 @@ Write-Host ''
 
 # --------------------------------------------------- provenance, stated up front
 
-Write-Host '  The byte column is a MEASUREMENT of the working copy on disk, less the HTML comments the' -ForegroundColor DarkGray
-Write-Host '  harness strips before a session sees them. The token column is an ESTIMATE.' -ForegroundColor DarkGray
+Write-Host '  The byte column is a MEASUREMENT of the working copy on disk, less the HTML comments and the' -ForegroundColor DarkGray
+Write-Host '  frontmatter the harness strips before a session sees them. The token column is an ESTIMATE.' -ForegroundColor DarkGray
 $fx = Format-MeasuredNumber -Value $factor.Value -Format '{0:0.00}'
 Write-Host ("    factor {0} chars/token, calibrated {1} -- {2}" -f $fx, $factor.Calibrated, $factor.Basis) -ForegroundColor DarkGray
 Write-Host ("    n={0}, min {1}, median {2}, max {3}. {4}" -f `
@@ -177,13 +177,14 @@ Write-Host ("    n={0}, min {1}, median {2}, max {3}. {4}" -f `
 Write-Host '    This omits the plugin listings, which ARE API-priced -- run measure-skill for those.' -ForegroundColor DarkGray
 Write-Host ''
 
-# ------------------------------------------- what the byte column leaves out: HTML comments
+# ------------------------------- what the byte column leaves out: HTML comments and frontmatter
 
-# A block-level HTML comment is on disk and never reaches the session, so the byte column leaves it out
-# (#2667). Named here, because a reader holding the file length would otherwise see a gap with no cause.
+# A block-level HTML comment or a leading frontmatter block is on disk and never reaches the session, so
+# the byte column leaves it out (#2667, #2678). Named here, because a reader holding the file length would
+# otherwise see a gap with no cause.
 $commented = @($docs | Where-Object { $_.Exists -and $_.CommentBytes -gt 0 })
 if ($commented.Count -gt 0) {
-    Write-Host '  HTML comments the harness strips -- on disk, and NOT in the byte column above' -ForegroundColor Cyan
+    Write-Host '  HTML comments and frontmatter the harness strips -- on disk, and NOT in the byte column above' -ForegroundColor Cyan
     foreach ($d in $commented) {
         Write-Host ("    {0}  {1}" -f (Format-Bytes $d.CommentBytes), $d.Display) -ForegroundColor DarkGray
     }
