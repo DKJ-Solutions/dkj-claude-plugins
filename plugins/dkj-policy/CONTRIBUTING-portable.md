@@ -158,8 +158,12 @@ adopting the convention costs one command instead of seven typed by hand.
 **`dossier` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A dossier gathers every
 instance of one recurring problem until its root cause is found. It is a *kind* of issue, not a rung, so
-it carries a `prio-N` of its own like any other issue. Four things follow from that:
+it carries a `prio-N` of its own like any other issue. Five things follow from that:
 
+- **Its title starts with `[RECORD]`** (Dave, October 1, 2026). A dossier stays open for weeks, and in an
+  issue list it otherwise reads like any small finding. The prefix makes the difference visible without
+  opening the labels: `[RECORD] processes killed for low memory keep recurring`. Set it when the issue is
+  filed, or when an existing issue becomes a dossier, and take it off together with the label.
 - **A new instance is a comment on the dossier, not a new issue.** Record the date, where it happened and
   what was measured, so the pattern can be read from one thread.
 - **A repair of one instance does not close it.** A PR that repairs one instance names the dossier

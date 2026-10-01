@@ -43,17 +43,28 @@ Every issue carrying the dossier label opens its title with [RECORD], so a long-
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `CONTRIBUTING-portable.md`: the `dossier` section gains a fifth consequence -- the title starts
+  with `[RECORD]`, set at filing (or when an issue becomes a dossier) and removed with the label.
+- [x] The two open dossiers on this tracker, #2485 and #2454, retitled from `Dossier: ...` to
+  `[RECORD] ...`. No script composes a dossier title, so nothing else carried the old form.
 
 ### TEST
 
+- [x] Copy-edit pass on the new bullet.
+
 ### DEPLOY: docs/dossier-record-title-prefix
 
-**Score:**
+Repo-internal: the rule is how this tracker titles its own collecting issues.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer following `CONTRIBUTING-portable.md` now titles a dossier `[RECORD] ...`, so a long-running
+collecting issue reads apart from a small finding in any issue list, without opening its labels. Nothing
+enforces it; it is a convention, like the label itself.
+
+**Score:** 2
 
 #### Pull Request
 
