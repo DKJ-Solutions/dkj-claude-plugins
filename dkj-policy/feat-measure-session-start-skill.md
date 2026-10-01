@@ -65,7 +65,7 @@ with advice. **The script measures and never advises; the model that runs the sk
   registered; `Get-PluginDetails` moved into `measure-skill-lib.ps1`
 - [x] The skill page and the data-driven template under `plugins/dkj-policy/skills/measure-session-start/`
 - [x] The footprint: plugin README, scripts README, ADOPTION list, one row on `measure-skill`'s page
-- [ ] Review fixes from Victor, Sebastian and Edith: the history merge, the home path in `importedBy`, the
+- [x] Review fixes from Victor, Sebastian and Edith: the history merge, the home path in `importedBy`, the
   untrusted previous page, and the wording
 - [x] `ConvertTo-SafeScriptJson` was a no-op: the literal escape reached disk decoded, so the escape is now
   composed (#2671 files the class)

@@ -175,6 +175,7 @@ below changes for you, and nothing here asks you to run anything.
 | [`fix-mojibake`](skills/fix-mojibake/SKILL.md) | repairing encoding damage in markdown |
 | [`measure-skill`](skills/measure-skill/SKILL.md) | pricing what a skill costs the sessions that carry it — always-on against on-invoke tokens, the delta against a stored baseline, and the wall-clock of the script behind it |
 | [`measure-closeouts`](skills/measure-closeouts/SKILL.md) | the close-out rule keeps being repaired and keeps losing — counts how the receipt actually behaved against its three-line ceiling across every recorded session, so the next repair can be measured instead of judged by whether a complaint arrives |
+| [`measure-session-start`](skills/measure-session-start/SKILL.md) | the session start has grown and you want the whole picture — measures what a clean session loads before the first question (the always-on documents, the plugin listings), estimates the rest, republishes the "Sessiestart-context" artifact with the delta against last time, and ends with advice on where the most gain is and why. Run by name; its description is in no session |
 
 <!-- /skills:plugin -->
 
