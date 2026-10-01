@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**9 / 10 minor entries** <!-- pending-tally -->
+**10 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2688-parking-labels-case-insensitive · 20261001-133035Z
+
+The issue dashboard read a parking label only in lower case, so `Record` or `Needs-Decision` left an
+issue sweepable on the page while `claim-issue` and `open-pr` treated it as parked (#2688). It now
+compares case-insensitively, as GitHub and the pickup routes do.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A maintainer whose tracker spells a parking label with capitals now sees that issue skipped on the
+dashboard, matching what a sweep does with it.
+
+**Score:** 2
+
+#### Pull Request
+
+issue-dashboard: parking labels match in any letter case
+
+Plugins: dkj-policy
+
+[PR #2690](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2690)
+
+---
 
 ### DEPLOY: feat/2683-rename-dossier-label-to-record · 20261001-125032Z
 
