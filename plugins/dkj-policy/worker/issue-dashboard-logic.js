@@ -25,7 +25,8 @@
 // input always gives the same page.
 
 export const STATUSES = ["In review", "In progress", "Waiting", "Blocked", "Claimed", "Filed"];
-export const PARKING_LABELS = ["needs-info", "needs-decision", "awaiting-recurrence", "dossier"];
+// "dossier" is the legacy name of "record" (#2683), still read because a tracker keeps it until renamed.
+export const PARKING_LABELS = ["needs-info", "needs-decision", "awaiting-recurrence", "record", "dossier"];
 
 const BRANCH = /^(feat|fix|docs)\/(\d+)-/;
 

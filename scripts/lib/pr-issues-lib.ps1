@@ -1259,21 +1259,33 @@ function Get-ResolvesExemptFindings {
 }
 
 # THE LABEL THAT MARKS A COLLECTING ISSUE (issue #2462), and the literal it is compared against. It is the
-# 'dossier' record of Get-TriageLabels in the source repo's repo-config.ps1 -- Dave ruled it a shared way
+# 'record' entry of Get-TriageLabels in the source repo's repo-config.ps1 -- Dave ruled it a shared way
 # of working, not one repo's label -- and it is a constant here rather than a read of that seam, because
 # Get-TriageLabels is a LABEL-CREATION seam: it says which labels a tracker should have, and a consumer
 # answering it with its own set must not thereby switch off a rule about what a merge may close.
-$script:DossierLabelName = 'dossier'
+#
+# RENAMED FROM 'dossier' TO 'record' (issue #2683, Dave October 1, 2026 -- clearer, and plainer English).
+# The old name is still MATCHED and never prescribed: a consumer's tracker keeps 'dossier' until somebody
+# renames it there, and a rule about what a merge may close must not lapse the day the plugin updates.
+$script:DossierLabelName = 'record'
+$script:DossierLegacyLabelNames = @('dossier')
 
 function Get-DossierLabelName {
     <# The label that marks a collecting issue -- see the block above. #>
     return $script:DossierLabelName
 }
 
+function Get-DossierLabelNames {
+    <# Every name that marks a collecting issue: the current one first, then the legacy names that are
+       still matched (see the block above). #>
+    return @(@($script:DossierLabelName) + @($script:DossierLegacyLabelNames))
+}
+
 function Get-DossierClosingFindings {
     <#
     .SYNOPSIS
-        Which of the issues this PR would close carry the dossier label. Returns an int[], possibly empty.
+        Which of the issues this PR would close carry the record label, or its legacy name 'dossier'.
+        Returns an int[], possibly empty.
 
     .DESCRIPTION
         THE RULE IT ENFORCES (#2463) is CONTRIBUTING-portable.md's step 1: a repair of one instance does
@@ -1296,7 +1308,7 @@ function Get-DossierClosingFindings {
     param(
         [int[]]$Issues = @(),
         [hashtable]$Labels = @{},
-        [string]$Label = (Get-DossierLabelName)
+        [string[]]$Label = @(Get-DossierLabelNames)
     )
 
     $hits = @()
@@ -1305,8 +1317,9 @@ function Get-DossierClosingFindings {
         if     ($Labels.ContainsKey([int]$n)) { $names = $Labels[[int]$n] }
         elseif ($Labels.ContainsKey("$n"))    { $names = $Labels["$n"] }
         else                                  { continue }
-        # Case-insensitive, as GitHub itself treats label names.
-        if (@(@($names) | Where-Object { ([string]$_).Trim() -ieq $Label }).Count -gt 0) { $hits += [int]$n }
+        # Case-insensitive, as GitHub itself treats label names -- and against every name in $Label, so
+        # the legacy 'dossier' is caught as well as 'record'.
+        if (@(@($names) | Where-Object { $Label -icontains ([string]$_).Trim() }).Count -gt 0) { $hits += [int]$n }
     }
     return [int[]]@($hits)
 }

@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Reports which of this workflow's canonical triage labels (the priority rungs 'prio-1' through
-    'prio-4', plus the 'dossier' kind label, #2462, and the 'needs-decision' and 'awaiting-recurrence'
+    'prio-4', plus the 'record' kind label, #2462 (named 'dossier' until #2683), and the 'needs-decision' and 'awaiting-recurrence'
     parking labels, #2519 and #2587) this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
     -- never creates a label itself. Issue #1895, split from #1843.
 
@@ -136,7 +136,7 @@ $builtInTriageLabels = @(
     [pscustomobject]@{ Name = 'prio-3'; Color = 'E0321A'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     # Not a rung: the kind label for a collecting issue (#2462) -- see Get-TriageLabels' own comment.
-    [pscustomobject]@{ Name = 'dossier'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
+    [pscustomobject]@{ Name = 'record'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
     # Not a rung either: the parking label for an issue awaiting the owner's choice (#2519).
     [pscustomobject]@{ Name = 'needs-decision'; Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on its first reproducible recurrence (#2587).
@@ -253,6 +253,20 @@ foreach ($label in $triageLabels) {
     }
     $missing++
     $repoArg = if ($repoSlug) { " --repo $repoSlug" } else { '' }
+    # A RENAMED LABEL IS RENAMED, NOT CREATED BESIDE ITS OLD SELF (issue #2683). 'record' was 'dossier'
+    # until October 1, 2026, and a tracker adopted before then carries the old name on its collecting
+    # issues. A create would leave those issues on the old label and split the kind across two names;
+    # `gh label edit --name` moves every issue with it. The map is keyed by the CURRENT name.
+    $formerNames = @{ 'record' = 'dossier' }
+    $former = if ($formerNames.ContainsKey($label.Name)) { $formerNames[$label.Name] } else { '' }
+    if ($former -and @($existingNames | Where-Object { $_ -eq $former }).Count -gt 0) {
+        Write-Host "  [rename]  '$former' -> '$($label.Name)' -- the same label under its former name; renaming keeps every issue on it" -ForegroundColor Yellow
+        $qFormer = Format-SingleQuotedArg -Value $former
+        $qName = Format-SingleQuotedArg -Value $label.Name
+        $qDescription = Format-SingleQuotedArg -Value $label.Description
+        Write-Host "            gh label edit '$qFormer' --name '$qName' --description '$qDescription'$repoArg" -ForegroundColor Yellow
+        continue
+    }
     Write-Host "  [missing] '$($label.Name)' -- $($label.Description)" -ForegroundColor Yellow
     # ESCAPED HERE, AND ONLY HERE (see Format-SingleQuotedArg's own docstring): this is the one line
     # that composes an actual command a person pastes, and Name/Color/Description all come from

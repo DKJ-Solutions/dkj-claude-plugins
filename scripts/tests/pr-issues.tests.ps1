@@ -3316,8 +3316,11 @@ Assert-Equal 1 (@((Get-ResolvesExemptFindings -Issues @(731) -Bodies @{ '731' = 
 # --- Get-DossierClosingFindings (#2463) -- a repair of one instance does not close a dossier -------
 Write-Host ""
 Write-Host "Get-DossierClosingFindings -- the dossier label refuses a closing keyword (#2463)" -ForegroundColor Cyan
-Assert-Equal 'dossier' (Get-DossierLabelName) 'the label is the one #2462 made shared'
-$dLabels = @{ 801 = @('bug', 'dossier', 'prio-3'); 802 = @('enhancement'); 803 = @('Dossier'); '804' = @('dossier'); 805 = @() }
+Assert-Equal 'record' (Get-DossierLabelName) 'the label is the one #2462 made shared, renamed record by #2683'
+Assert-Equal 'record,dossier' ((Get-DossierLabelNames) -join ',') 'the legacy name is still matched, after the current one'
+$dLabels = @{ 801 = @('bug', 'record', 'prio-3'); 802 = @('enhancement'); 803 = @('Record'); '804' = @('record'); 805 = @(); 806 = @('dossier') }
+Assert-Equal '806' ((Get-DossierClosingFindings -Issues @(806) -Labels $dLabels) -join ',') 'an issue still carrying the legacy dossier label is caught too (#2683)'
+Assert-Equal 0 (@(Get-DossierClosingFindings -Issues @(806) -Labels $dLabels -Label @('record')).Count) 'and an explicit -Label narrows the match to the names it is given'
 Assert-Equal '801' ((Get-DossierClosingFindings -Issues @(801, 802) -Labels $dLabels) -join ',') 'the issue carrying the label is found, the other is not'
 Assert-Equal '803' ((Get-DossierClosingFindings -Issues @(803) -Labels $dLabels) -join ',') 'matched case-insensitively, as GitHub treats label names'
 Assert-Equal '804' ((Get-DossierClosingFindings -Issues @(804) -Labels $dLabels) -join ',') 'a table keyed by the string spelling is read too'

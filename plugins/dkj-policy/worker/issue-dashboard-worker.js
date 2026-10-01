@@ -309,7 +309,9 @@ const PARKED_BECAUSE = {
   "needs-info": "waiting on the submitter",
   "needs-decision": "waiting on the owner's decision",
   "awaiting-recurrence": "waiting on a recurrence",
-  dossier: "dossier: waiting on the next instance or the root cause",
+  record: "record: waiting on the next instance or the root cause",
+  // The legacy name of "record" (#2683), still read because a tracker keeps it until renamed.
+  dossier: "record: waiting on the next instance or the root cause",
 };
 function sweepVerdict(r) {
   if (r.status === "Filed") return { sweepable: true, text: "Sweepable" };
