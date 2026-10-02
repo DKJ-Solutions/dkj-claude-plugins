@@ -2275,9 +2275,9 @@ folder by folder:
 
 **Moved here from the root `README.md` on September 24, 2026, condensed rather than moved verbatim**:
 its hook-by-hook detail already lived a second time in
-[`plugins/dkj-policy/README.md`](../../../plugins/dkj-policy/README.md)'s `hooks/` row (a genuine
-duplicate — the root page and the plugin page described the same set in the same words), so that
-duplicate is dropped here and only the frame plus the one hook the plugin page cannot name is kept.
+`plugins/dkj-policy/README.md`'s `hooks/` row (a genuine duplicate — the root page and the plugin page
+described the same set in the same words), so that duplicate is dropped here and only the frame is kept.
+That plugin page was retired in turn on October 2, 2026.
 
 **Does live here:** the plugin folders under `plugins/` with subagent definitions and the portable
 playbook per specialist, plus — core team only — the persona templates of the main-loop specialists and
@@ -2289,15 +2289,14 @@ repo level deliberately, because they differ per repo (or are safety-critical). 
 safety/guardrail hooks** and **no repo-specific skills**, with a few named, repo-neutral exceptions:
 `specialists-init`, and a set of informational SessionStart hooks that never block, read-only with one
 stated exception (`claude-home-sessioncheck`, which snapshots a healthy `~/.claude` plugin
-administration so a clobber is restorable, #1609, and touches nothing in any repo). **The one hook this
-family ships that `dkj-policy/README.md`'s own table does not name is the core team's own**:
-`roster-sessioncheck` (roster-drift signalling), which ships with `dkj-subagents-alpha` rather than with
-the workflow, because it audits the roster against the plugin cache rather than against a way of
-working — everything else in the read-only set (`connector-sessioncheck`, `script-contract-sessioncheck`,
-`consumer-prose-sessioncheck`) and the two hooks that go beyond reporting (`cycle-autopark`, which
-commits and pushes a branch's development document until a PR publishes it, #900; `closeout-gate`,
-which blocks a close-out past this repo's stated band, #2050) ship with `dkj-policy` and are described
-there. **The set is not enumerated in full anywhere**: it was, as three, and went stale twice inside two
+administration so a clobber is restorable, #1609, and touches nothing in any repo). **One of them is the
+core team's own**: `roster-sessioncheck` (roster-drift signalling), which ships with
+`dkj-subagents-alpha` rather than with the workflow, because it audits the roster against the plugin
+cache rather than against a way of working — everything else in the read-only set
+(`connector-sessioncheck`, `script-contract-sessioncheck`, `consumer-prose-sessioncheck`) and the two
+hooks that go beyond reporting (`cycle-autopark`, which commits and pushes a branch's development
+document until a PR publishes it, #900; `closeout-gate`, which blocks a close-out past this repo's
+stated band, #2050) ship with `dkj-policy`. **The set is not enumerated in full anywhere**: it was, as three, and went stale twice inside two
 days as hooks were added; each plugin's own `hooks/hooks.json` is the one place that cannot.
 
 ### Updating the plugins — in every other checkout of this repo
@@ -2314,8 +2313,7 @@ you are standing in. [`settings.json`](../../settings.json) enables two of the m
 plugins ([which, and why](#the-plugins-enabled-here-and-what-that-costs)) from a `github` marketplace
 source pointing at this repo itself, as [the seam section of Tessa's lens](specialist-06-16-lens.md#the-seam-and-the-two-kinds-of-lens) records.
 That is what makes the update a step of its own rather than something a merge does for you, and the
-whole reason the procedure is written down instead of left to the plugin's own
-[README](../../../plugins/dkj-policy/README.md).
+whole reason the procedure is written down here.
 
 **First, whether an update is even due in this checkout.** The
 [`plugin-versions`](../../../plugins/dkj-policy/skills/plugin-versions/SKILL.md) skill — run

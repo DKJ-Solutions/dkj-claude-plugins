@@ -3771,8 +3771,8 @@ Write-Coverage -Category 'import' -Checked $importScanFiles.Count `
 # wrong instrument for a document that claims to list every skill of ONE plugin:
 #
 #   * its canonical set is repo-wide -- built from Get-PluginSubdirs over every published plugin -- so a
-#     span in plugins/dkj-policy/README.md, which enumerates the 16 that plugin
-#     ships, would report the team plugins' skills as 'missing';
+#     span in plugins/dkj-policy/README.md (retired October 2, 2026), which enumerated the 16 that
+#     plugin shipped, would report the team plugins' skills as 'missing';
 #   * every backtick-quoted token inside its span is a claimed name, which is why its own author
 #     condition is 'wrap tightly'. That table is two columns and three of its rows carry a backticked
 #     path or flag in the SECOND one -- so the span could not close around only the names without

@@ -11,8 +11,9 @@ idea behind both directories, and it is argued in full below under
 sections was moved here faithfully rather than rewritten —
 dated decisions, measurements and issue numbers are kept as recorded. The other pieces of that root
 document went to [`../ADOPTION.md`](../ADOPTION.md) (consumption, the bootstrap path, removal,
-invocation, where this runs), [`../dkj-policy/README.md`](../dkj-policy/README.md) (versioning, the
-skills-design philosophy), [`../../.claude/specialists/lenses/specialist-06-16-lens.md`](../../.claude/specialists/lenses/specialist-06-16-lens.md)
+invocation, where this runs), `../dkj-policy/README.md` (versioning, the
+skills-design philosophy — retired in turn on October 2, 2026, its versioning now in
+[`../dkj-policy/RELEASES-portable.md`](../dkj-policy/RELEASES-portable.md#cutting-a-release)), [`../../.claude/specialists/lenses/specialist-06-16-lens.md`](../../.claude/specialists/lenses/specialist-06-16-lens.md)
 (one product, one repository) and
 [`../../.claude/specialists/lenses/specialist-05-15-lens.md`](../../.claude/specialists/lenses/specialist-05-15-lens.md)
 (the repo layout).
