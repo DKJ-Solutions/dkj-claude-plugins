@@ -147,7 +147,7 @@ past it.
 other cycle step this plugin adds -- the storefront-visibility step, last under `### CREATE` -- is in
 [`PREVIEW-portable.md`](../../PREVIEW-portable.md), and both are indexed in
 [the README](../../README.md#what-the-cycle-gains-here). **The same output is that page's fourth
-block** -- a preview handover embeds it, with a copy button, rather than composing its own
+block** -- a preview handover embeds it read-only, as what the close will send, rather than composing its own
 ([#2474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2474)), so run it with `-OutFile`
 for the page and with `-Post` for the issue.
 

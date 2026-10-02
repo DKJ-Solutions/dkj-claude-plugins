@@ -50,7 +50,7 @@ names: the CI mirror's close comment carries the block the session left on the i
 
 The message is what a colleague reads in Asana, and how `html_text` renders there has not been seen by
 eye. So this branch stops before a PR (a visible result). Not touched: #2701's blank line before the
-closing `---`, held by another sweep.
+closing `---`, held by another sweep. #2708 rides along, so the PR resolves `2700,2703,2708`.
 
 ### CREATE
 
@@ -62,7 +62,10 @@ closing `---`, held by another sweep.
       `is closed` still counts as told; the backstop opens with the automation header.
 - [x] `build-golive-block.ps1` messages, the golive-block and report-issue skills, `WORKFLOW-portable.md`,
       the README, and the plugin/marketplace description: no paste, the close sends it.
-- [x] Filed #2708: PREVIEW-portable's copy button on the block has no paste left to serve.
+- [x] Filed #2708: PREVIEW-portable's copy button on the block has no paste left to serve. Absorbed
+      here (Dave, October 2, 2026), because on `main` the copy button is still right: the fourth
+      block stays as a read-only preview of what the close sends, the copy button and its clipboard
+      fallback note go, and the golive-block skill's pointer to it follows.
 
 ### TEST
 
@@ -91,7 +94,8 @@ separate *ready to test* close comment is gone, so the colleague reads one messa
 ([#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700),
 [#2703](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2703)). A store repo picks it up
 by refreshing its copy of `asana-mirror.ps1` through `adopt-dkj-policy-bwj` step 1, which diffs rather
-than overwrites.
+than overwrites. A preview handover page still shows the block, read-only and without a copy button,
+as what the close will send ([#2708](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2708)).
 
 **Score:** 4
 
