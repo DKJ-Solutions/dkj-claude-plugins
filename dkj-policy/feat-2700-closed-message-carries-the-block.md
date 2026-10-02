@@ -46,10 +46,10 @@ message carrying the go-live block. That only works if the block reaches Asana a
 paste, which is #2703's ask, so this branch resolves both. The route is the one #2700's last comment
 names: the CI mirror's close comment carries the block the session left on the issue.
 
-#### Parked for the owner's eye, no pull request
+#### Parked for the owner's eye, then reviewed
 
-The message is what a colleague reads in Asana, and how `html_text` renders there has not been seen by
-eye. So this branch stops before a PR (a visible result). Not touched: #2701's blank line before the
+The message is what a colleague reads in Asana, and how `html_text` renders there had not been seen by
+eye. So this branch stopped before a PR (a visible result) until Dave reviewed it (October 2, 2026). Not touched: #2701's blank line before the
 closing `---`, held by another sweep. #2708 rides along, so the PR resolves `2700,2703,2708`.
 
 ### CREATE
