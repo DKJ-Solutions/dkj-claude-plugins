@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**13 / 15 minor entries** <!-- pending-tally -->
+**13 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/session-start-score · 20261002-140135Z
+
+The session-start report now opens with an efficiency score from 1 to 100: the share of the session
+start that Claude Code itself brings along, set against what the repo and the account add. The page
+computes it from the layers alone, so the model writing the data cannot set it, and it shows the change
+against the previous measurement.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+An efficiency score on the session-start page
+
+Plugins: dkj-policy
+
+[PR #2727](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2727)
+
+---
 
 ### DEPLOY: docs/2724-pull-request-section-is-author-written · 20261002-132107Z
 
