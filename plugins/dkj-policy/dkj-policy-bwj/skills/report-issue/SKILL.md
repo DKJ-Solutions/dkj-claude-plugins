@@ -211,6 +211,23 @@ creating a second task. Leaving it in `Requests` is the failure inbound
 and the board still read `New`, so to the colleague waiting on it the request looked untouched, and
 they chased it in the one place that had no answer.
 
+**But the colleague's task need not be on this board at all** (#2699). A ticket filed in another
+project -- `SEO`, a workload overview -- is not a member of the project `Get-AsanaProjectGid` names, so
+there is no card here to move, and the two custom-field writes above are refused (`Custom field with ID
+<gid> is not on given object`): a field belongs to the board's project, not to the task. **Read the
+task's `memberships.project.gid` before the move**, and where this board is not among them:
+
+- **skip the move and both field writes**, and say so in this step's report. Do not create a second
+  task on the board to stand in for it: that is the second task the paragraph above rules out, and
+  the colleague would be watching the other one.
+- **still make the two writes below** -- the link on top of the description and the `created:` comment
+  -- because they are written on the task itself, wherever it lives.
+- **name the one act that is left to a person**: adding the task to this board in Asana (*Add to
+  project*, into the `Filed` section). The session cannot do it: the Asana MCP exposes no
+  add-to-project call. Nothing else is owed afterwards -- the `asana-mirror` sweep reads the board off
+  the task's own memberships, so from the moment the task is on a numbered board it is staged like
+  any other card. Until then it is on no pipeline and the sweep leaves it alone, by design.
+
 **That existing task then gets two more writes, both in this step** (#2653):
 
 1. **The issue link goes on top of its description.** Prepend `Tracked on GitHub: <issue URL>`, the
