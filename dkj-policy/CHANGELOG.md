@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**10 / 12 minor entries** <!-- pending-tally -->
+**11 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2697-extension-import-for-every-policy-extension · 20261002-121608Z
+
+Inside this repo: `claude-md-import-lib.ps1` loses `Get-BwjExtensionImportLine` and
+`Test-BwjExtensionImported`. In their place come per-extension functions keyed on a validated
+`dkj-policy-<slug>` name, with the set of extensions derived from the repo's enabled plugin ids. The
+session check and both adopters use them, and the suites cover dkjs alongside bwj.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For a DKJ-Solutions repo maintainer who enables `dkj-policy-dkjs`: the `adopt-dkj-policy` run now
+writes that extension's `CLAUDE.md` import directly below the constitution import, so the line no longer
+has to be added by hand. The `consumer-prose-sessioncheck` hook now warns while the line is missing. It
+did that for `dkj-policy-bwj` only. The same holds for any later `dkj-policy-*` extension, and a repo
+that enables two gets both lines
+([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2697)).
+
+**Score:** 3
+
+#### Pull Request
+
+Every dkj-policy extension's CLAUDE.md import is written and checked, not dkj-policy-bwj alone
+
+Plugins: dkj-policy, dkj-policy-bwj, dkj-policy-dkjs
+
+[PR #2722](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2722)
+
+---
 
 ### DEPLOY: fix/2717-asana-prefer-seam-board · 20261002-120138Z
 
