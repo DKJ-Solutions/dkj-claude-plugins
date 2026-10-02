@@ -100,3 +100,4 @@ place, issues and all.
 
 #### Pull Request
 
+The three purple waiting labels become one awaiting-* family
