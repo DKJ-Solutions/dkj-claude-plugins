@@ -1,0 +1,233 @@
+/* ==========================================================================
+   DKJ-Solutions house style
+   --------------------------------------------------------------------------
+   Extracted from the ETF dashboard (dashboard.py), whose values the owner
+   tuned by hand. Every value below is the source value; nothing is redesigned.
+   Self-contained: no external requests, no web fonts (system font stack only).
+   Use it inline in a <style> block (local HTML, Artifacts) or as a stylesheet.
+
+   Light/dark mechanism (keep exactly as is):
+     - Default is light.
+     - prefers-color-scheme: dark applies dark UNLESS the page forces light via
+       <html data-theme="light">.
+     - <html data-theme="dark"> forces dark.
+     The dark token block therefore appears twice; keep both in sync.
+
+   Categorical colours: --cat-1 .. --cat-3 are series slots. Pick a slot per
+   series in your own app; do not reuse one slot for two meanings in a view.
+   Semantic colours (--gain/--loss/--up/--down) are for direction and result,
+   never for categories.
+   ========================================================================== */
+
+/* ---- Tokens: light (default) -------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  /* surfaces and ink */
+  --page: #f9f9f7;        /* page background */
+  --surface: #fcfcfb;     /* cards, tiles, tooltips */
+  --ink: #0b0b0b;         /* primary text */
+  --ink-2: #52514e;       /* secondary text, labels */
+  --muted: #898781;       /* tertiary text, notes */
+  --grid: #e1e0d9;        /* row dividers, meter track, gridlines */
+  --axis: #c3c2b7;        /* axes, info-button outline, neutral badge */
+  --border: rgba(11,11,11,0.10);
+
+  /* categorical palette (series slots) */
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --cat-3: #1baf7a;
+
+  /* direction and result semantics */
+  --gain: #2a78d6;        /* positive result in charts */
+  --loss: #e34948;        /* negative result in charts */
+  --up: #006300;          /* positive number in text */
+  --down: #d03b3b;        /* negative number in text */
+
+  /* status colours (badges, meters); hardcoded in the source, same values */
+  --good: #0ca30c;
+  --warn: #fab219;
+  --bad: #d03b3b;
+
+  --warn-bg: #fff4e0;     /* notice background */
+  --shadow-pop: 0 4px 16px rgba(0,0,0,0.15);  /* tooltips; same in both modes */
+}
+
+/* ---- Tokens: dark, following the OS unless the page forces light --------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
+    --gain: #3987e5; --loss: #e66767; --up: #0ca30c; --down: #e66767; --warn-bg: #3a2a10;
+  }
+}
+
+/* ---- Tokens: dark, forced by the page ------------------------------------ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
+  --gain: #3987e5; --loss: #e66767; --up: #0ca30c; --down: #e66767; --warn-bg: #3a2a10;
+}
+
+/* ---- Base ---------------------------------------------------------------- */
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+
+/* ---- Layout -------------------------------------------------------------- */
+main, .container { max-width: 1080px; margin: 0 auto; padding: 24px 16px 48px; }
+body > header, main > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* The control row in the page header: a segmented switch and buttons share one line and one height. */
+.controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.controls .seg, .controls .btn { height: 30px; box-sizing: border-box; }
+.controls .btn { display: inline-flex; align-items: center; padding: 0 10px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
+.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: 16px; }
+.mini-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; margin-top: 12px; }
+@media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } .hero .value { font-size: 40px; } }
+
+/* ---- Typography ----------------------------------------------------------- */
+/* Headings set in a serif so they stand off from the sans body text. System fonts only (no
+   external requests): Iowan Old Style (macOS/iOS), Palatino Linotype (Windows), Georgia,
+   Noto Serif (Android/Linux). Their bold is heavier than the sans 600, so the tracking is
+   pulled in slightly. h3 stays in the body sans. */
+h1, h2 { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
+  font-weight: 600; letter-spacing: -0.01em; }
+h1 { font-size: 40px; margin: 0; }
+h2 { font-size: 29px; margin: 0 0 4px; }
+/* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
+   capitals sit almost exactly mid-line, so 1px corrects the rest. */
+h2 { display: flex; align-items: center; }
+h2 .info-button { top: 1px; }
+h3 { font-size: 18px; margin: 0 0 8px; font-weight: 600; }
+.sub { color: var(--ink-2); font-size: 13px; margin: 0 0 16px; }   /* line under a heading */
+.muted { color: var(--muted); font-size: 13px; }
+.meta { font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.note { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.footer-note { color: var(--muted); font-size: 12px; margin-top: 24px; }
+.num { font-variant-numeric: tabular-nums; }                        /* aligned digits */
+.delta { font-weight: 600; }
+.delta--up, .pos { color: var(--up); }
+.delta--down, .neg { color: var(--down); }
+
+/* ---- Surfaces ------------------------------------------------------------- */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; }
+.hero { display: flex; flex-wrap: wrap; gap: 24px 48px; align-items: flex-end; }   /* use with .card */
+.hero .value { font-size: 48px; font-weight: 600; line-height: 1.1; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile .label { color: var(--ink-2); font-size: 13px; }
+.tile .v { font-size: 22px; font-weight: 600; margin-top: 2px; }
+.mini-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.mini-card--highlight { border-color: var(--warn); }
+.mini-card__label { font-size: 13px; color: var(--ink-2); }
+.mini-card__value { font-size: 20px; font-weight: 600; margin: 2px 0 8px; font-variant-numeric: tabular-nums; }
+.notice { background: var(--warn-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-top: 16px; }
+.item { border-top: 1px solid var(--grid); padding: 10px 0; }
+.item b { display: block; font-size: 13px; margin-bottom: 2px; }
+.item p { margin: 0; font-size: 13px; color: var(--ink-2); }
+
+/* ---- Tables --------------------------------------------------------------- */
+.table-wrap { overflow-x: auto; }
+.table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.table th, .table td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+.table th { color: var(--ink-2); font-weight: 600; }
+.table th:first-child, .table td:first-child { text-align: left; white-space: normal; min-width: 180px; }
+.table td { font-variant-numeric: tabular-nums; }
+.table .row-total td { font-weight: 600; border-bottom: none; }
+/* Sortable column header: <th aria-sort="none|ascending|descending"><button class="sort">Label
+   <span class="arrow" aria-hidden="true"><svg viewBox="0 0 8 12"><path class="u" d="M1 4.5 4 1.5 7 4.5"/>
+   <path class="d" d="M1 7.5 4 10.5 7 7.5"/></svg></span></button></th>. The hit area grows beyond the
+   text (::before) without moving it; the underline (::after) spans the text only. The arrow takes no
+   width: it hangs in the cell's padding, so the header text lines up with the figures below it.
+   Idle: two faint chevrons, brighter on hover. Active: only the current direction, in full ink. */
+.table th .sort { position: relative; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; border-radius: 3px; }
+.table th .sort::before { content: ""; position: absolute; inset: -8px -4px; }
+.table th .sort::after { content: ""; position: absolute; left: 0; right: 0; bottom: -5px; height: 2px; border-radius: 1px; background: var(--ink); opacity: 0; transition: opacity .15s; }
+.table th .sort:hover, .table th .sort:focus-visible { color: var(--ink); }
+.table th .sort:hover::after, .table th .sort:focus-visible::after { opacity: .3; }
+.table th .sort:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
+.table th[aria-sort="ascending"] .sort, .table th[aria-sort="descending"] .sort { color: var(--ink); }
+.table th[aria-sort="ascending"] .sort::after, .table th[aria-sort="descending"] .sort::after { opacity: 1; }
+.table th .arrow { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 3px; width: 8px; height: 12px; line-height: 0; pointer-events: none; }
+.table th .arrow svg { display: block; width: 8px; height: 12px; fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.table th .arrow path { opacity: .5; transition: opacity .15s, stroke .15s; }
+.table th .sort:hover .arrow path, .table th .sort:focus-visible .arrow path { opacity: 1; stroke: var(--ink-2); }
+.table th[aria-sort="ascending"] .arrow .d, .table th[aria-sort="descending"] .arrow .u { opacity: 0; }
+.table th[aria-sort="ascending"] .arrow .u, .table th[aria-sort="descending"] .arrow .d { opacity: 1; stroke: var(--ink); stroke-width: 2; }
+@media (prefers-reduced-motion: reduce) { .table th .sort::after, .table th .arrow path { transition: none; } }
+
+/* ---- Legend and swatches -------------------------------------------------- */
+/* Set the colour per item with style="--c: var(--cat-1)". */
+.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin: 4px 0 12px; }
+.legend__item::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px;
+  background: var(--c); margin-right: 6px; vertical-align: -1px; }
+.legend__item--line::before { height: 2px; border-radius: 1px; vertical-align: 3px; width: 14px; }
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--c); }
+
+/* ---- Charts (inline SVG inside .chart) ------------------------------------ */
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart svg text { fill: var(--ink-2); font-size: 12px; }
+.chart svg .axis-note { fill: var(--muted); font-size: 11px; }
+.chart svg .val { fill: var(--ink); font-variant-numeric: tabular-nums; }
+.chart .bar:hover, .chart .bar:focus { opacity: 0.8; outline: none; }
+
+/* ---- Meter ---------------------------------------------------------------- */
+/* Fill colour via --m: <span style="--m: var(--good)"> or a .meter--* class on the meter. */
+.meter { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
+.meter span { display: block; height: 100%; border-radius: 3px; background: var(--m); }
+.meter--good { --m: var(--good); } .meter--warn { --m: var(--warn); }
+.meter--bad { --m: var(--bad); }   .meter--info { --m: var(--cat-1); }
+
+/* ---- Badge ---------------------------------------------------------------- */
+.badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%;
+  font: 700 12px/1 system-ui, sans-serif; color: #0b0b0b; background: var(--b); flex: none; }
+.badge--good    { --b: var(--good); color: #fff; }
+.badge--warn    { --b: var(--warn); }
+.badge--bad     { --b: var(--bad);  color: #fff; }
+.badge--info    { --b: var(--cat-1); color: #fff; }
+.badge--neutral { --b: var(--axis); color: var(--ink); }
+.badge--sm { width: 18px; height: 18px; font-size: 11px; }
+.badge-row { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 8px; }
+
+/* ---- Buttons -------------------------------------------------------------- */
+.btn { background: none; border: 1px solid var(--border); color: var(--ink-2); border-radius: 8px;
+  padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+/* Segmented switch: <span class="seg" role="group"><button aria-pressed="true">A</button><button aria-pressed="false">B</button></span>. */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; vertical-align: middle; }
+.seg button { background: none; border: 0; color: var(--ink-2); padding: 0 10px; height: 100%; font: inherit; font-size: 13px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
+/* The round "?" button that opens an explanation tooltip. */
+.info-button { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+  margin-left: 5px; padding: 0; border-radius: 50%; border: 1px solid var(--axis); background: none;
+  color: var(--ink-2); font: 600 10px/1 system-ui, sans-serif; cursor: help; vertical-align: 1px; position: relative; }
+.info-button::after { content: ""; position: absolute; inset: -8px; }  /* hit target larger than the mark */
+.info-button:hover, .info-button:focus-visible, .info-button[aria-expanded="true"] { border-color: var(--ink-2); color: var(--ink); outline: none; }
+
+/* ---- Tooltip -------------------------------------------------------------- */
+.tooltip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px;
+  box-shadow: var(--shadow-pop); display: none; max-width: 280px; z-index: 10; }
+.tooltip b { display: block; margin-bottom: 2px; }
+.tooltip--explain { max-width: 320px; line-height: 1.45; }
+.tooltip--explain p { margin: 6px 0 0; }
+
+/* ---- Disclosure (details/summary) ------------------------------------------ */
+.more { margin-top: 8px; }
+.more summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-2); list-style: none; }
+.more summary::-webkit-details-marker { display: none; }
+.more summary::after { content: " \25BE"; }
+.more[open] summary::after { content: " \25B4"; }
+.more[open] summary { margin-bottom: 4px; }
+/* A full-width "read more" button under a block; the extra detail opens ABOVE it, so the toggle
+   moves down with the text it reveals. Set aria-expanded from the script. */
+.moretoggle { display: flex; justify-content: center; align-items: center; gap: 4px; width: 100%; cursor: pointer; text-align: center; padding: 8px 16px; background: none; border: 0;
+  border-top: 1px solid var(--border); font: 600 13px/1.4 system-ui, sans-serif; color: var(--ink-2); }
+.moretoggle::after { content: " \25BE"; }
+.moretoggle[aria-expanded="true"]::after { content: " \25B4"; }
+.moretoggle:focus-visible { outline: 2px solid var(--ink-2); outline-offset: -2px; }
