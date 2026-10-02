@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**15 / 19 minor entries** <!-- pending-tally -->
+**16 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2730-findings-block-rules-only · 20261002-150031Z
+
+The shared block that tells every specialist to file findings as issues now states its eight rules
+briefly and links to the reasoning, instead of arguing each rule in place. Chris's persona is loaded
+into every session, and it shrinks by about 2,400 bytes. The rules keep their substance, every qualification included, and stay in
+every specialist's definition. The reasoning they carried until now, word for word, is in
+[the teams README](../plugins/dkj-subagents/README.md#why-the-filing-rules-read-the-way-they-do).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer session's always-on context is roughly 780 tokens smaller (an estimate from the byte count) once this release is installed,
+because Chris's persona ships in the core team. The filing behaviour is meant to stay exactly as it
+was.
+
+**Score:** 2
+
+#### Pull Request
+
+Shared findings-become-issues block states its rules briefly; the reasoning moves to the teams README
+
+The block is cut to its eight rules and links to a README section holding its previous text verbatim,
+regenerated into all 30 copies. Chris's always-on persona shrinks from 19,165 B to 16,732 B.
+
+Plugins: dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2738](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2738)
+
+---
 
 ### DEPLOY: fix/2728-update-plugins-summary-count · 20261002-144241Z
 
