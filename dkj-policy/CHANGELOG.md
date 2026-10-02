@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**7 / 9 minor entries** <!-- pending-tally -->
+**8 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2712-phone-factory-cro-and-board-reach · 20261002-102837Z
+
+Inside this repo: the BWJ extension's ticket-handling page and two of its skill pages now state the
+`CRO` label's and step 8's reach for `phone-factory`, instead of leaving it open.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+For the maintainer of `phone-factory`, the ticket-handling chapter now gives a definite answer on two
+points it had left open. Don't create the `CRO` label there. Colleagues' requests from that store's
+Asana board follow step 8, just as they do in the two Shopify stores
+([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)).
+
+**Score:** 3
+
+#### Pull Request
+
+dkj-policy-bwj: no CRO label in phone-factory, board requests reach it
+
+Plugins: dkj-policy-bwj
+
+[PR #2715](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2715)
+
+---
 
 ### DEPLOY: feat/2695-dkj-solutions-house-style · 20261002-095632Z
 
