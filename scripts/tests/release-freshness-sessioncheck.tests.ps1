@@ -101,7 +101,7 @@ if ($entries.Count -eq 1) {
     Assert-True ($entries[0].matcher -match 'startup') 'its matcher fires on startup'
 }
 
-# --- behind: the one case that speaks --------------------------------------------------------------
+# --- behind: the warning --------------------------------------------------------------------------
 $f = New-Fixture -Label behind -Tags @('v5.9.0', 'v5.10.0', 'v5.11.0') -Running '5.10.0'
 $r = Invoke-Hook -Fixture $f
 Assert-True ($r.Code -eq 0) 'behind -- exit 0'
@@ -118,21 +118,33 @@ if ($json) {
 # --- numeric, not string, comparison: v5.9.0 is OLDER than 5.10.0 -----------------------------------
 $f = New-Fixture -Label numeric -Tags @('v5.9.0') -Running '5.10.0'
 $r = Invoke-Hook -Fixture $f
-Assert-True ($r.Code -eq 0 -and $r.Out -eq '') 'v5.9.0 on origin against 5.10.0 running -- silent (compared as versions, not strings)'
+Assert-True ($r.Code -eq 0 -and $r.Out -match '\[CURRENT\]' -and $r.Out -notmatch '\[BEHIND\]') 'v5.9.0 on origin against 5.10.0 running -- current, not behind (compared as versions, not strings)'
 
-# --- current and ahead are silent -----------------------------------------------------------------
+# --- current and ahead confirm, visibly (#2702) ---------------------------------------------------
 $f = New-Fixture -Label current -Tags @('v5.10.0', 'v5.11.0') -Running '5.11.0'
 $r = Invoke-Hook -Fixture $f
-Assert-True ($r.Code -eq 0 -and $r.Out -eq '') 'running the newest release -- silent'
+Assert-True ($r.Code -eq 0) 'current -- exit 0'
+$json = $null
+try { $json = $r.Out | ConvertFrom-Json } catch { $json = $null }
+Assert-True ($null -ne $json) 'current -- stdout is one JSON object'
+if ($json) {
+    Assert-True ([string]$json.systemMessage -match 'up to date' -and [string]$json.systemMessage -match 'v5\.11\.0') 'current -- systemMessage confirms up to date and names the version'
+    Assert-True ([string]$json.systemMessage -notmatch 'update-plugins') 'current -- systemMessage asks for no action'
+    Assert-True ([string]$json.hookSpecificOutput.additionalContext -match '\[CURRENT\]') 'current -- the model is told too, under a marker'
+}
 
 $f = New-Fixture -Label ahead -Tags @('v5.11.0') -Running '5.12.0'
 $r = Invoke-Hook -Fixture $f
-Assert-True ($r.Code -eq 0 -and $r.Out -eq '') 'running ahead of origin (the source repo between cuts) -- silent'
+Assert-True ($r.Code -eq 0 -and $r.Out -match '\[CURRENT\]' -and $r.Out -notmatch '\[BEHIND\]') 'running ahead of origin (the source repo between cuts) -- confirms, never warns'
 
 # --- only an exact vX.Y.Z tag counts --------------------------------------------------------------
 $f = New-Fixture -Label shapes -Tags @('v5.10.0', 'v9.0.0-rc1', 'v9.0', 'release-9.0.0', '9.0.0') -Running '5.10.0'
 $r = Invoke-Hook -Fixture $f
-Assert-True ($r.Code -eq 0 -and $r.Out -eq '') 'tags that are not exactly vX.Y.Z are ignored -- silent'
+Assert-True ($r.Code -eq 0 -and $r.Out -match '\[CURRENT\]' -and $r.Out -notmatch '9\.0') 'tags that are not exactly vX.Y.Z are ignored -- v5.10.0 is the newest, so current'
+
+$f = New-Fixture -Label notags -Tags @() -Running '5.10.0'
+$r = Invoke-Hook -Fixture $f
+Assert-True ($r.Code -eq 0 -and $r.Out -eq '') 'no vX.Y.Z tag on origin at all -- silent, never a claim of up to date'
 
 # --- every failure is silent ----------------------------------------------------------------------
 $f = New-Fixture -Label noclone -Tags @('v6.0.0') -NoClone
