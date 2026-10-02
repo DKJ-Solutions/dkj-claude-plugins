@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**9 / 11 minor entries** <!-- pending-tally -->
+**10 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2717-asana-prefer-seam-board · 20261002-120138Z
+
+`asana-mirror`'s stage move now reads only the repo's own board (`ASANA_PROJECT_GID`) when one is set
+([#2717](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2717)). Before this, a colleague's
+workload board with numbered sections counted as the pipeline. A task that sat only on that board was
+moved there, on a board this repo does not own. A task that was also added to this repo's board, as
+`report-issue` asks, read as `ambiguous` and was never staged. Now the own board decides, and a task
+numbered only on other boards is logged as `off-board` and left alone. A repo with no GID set keeps the
+old membership-only reading.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store repo that re-adopts the `asana-mirror` template stops having cards moved on colleagues'
+workload boards. A task added to the store's board is then staged as `report-issue` promises.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-mirror stages a card on the ASANA_PROJECT_GID board when it sits on another numbered board too
+
+Plugins: dkj-policy-bwj
+
+[PR #2721](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2721)
+
+---
 
 ### DEPLOY: feat/2700-closed-message-carries-the-block · 20261002-114815Z
 
