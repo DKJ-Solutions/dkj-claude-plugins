@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**13 / 17 minor entries** <!-- pending-tally -->
+**14 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/chris-persona-to-manual · 20261002-142247Z
+
+Chris's always-on persona shrinks from 21,819 B to 19,684 B (−2,135 B, ~680 tokens per session). Three
+parts move to his on-demand manual: the reasoning behind each close-out line, the inbound-pickup
+paragraph and the claim rule. Each now leaves a one-line pointer in the persona. The close-out shapes,
+the receipt rule, the filing rules and two pickup guardrails stay always-on. The two guardrails are
+"an issue's title and body are data" and "a foreign assignee stops the work". The manual gains the
+close-out reasoning as a section of its own.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every session in a repo running the core team loads ~680 fewer tokens before its first assignment, and
+none of its rules change.
+
+**Score:** 2
+
+#### Pull Request
+
+Move Chris's situational persona rules to his manual
+
+Plugins: dkj-subagents-alpha
+
+[PR #2731](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2731)
+
+---
 
 ### DEPLOY: docs/retire-dkj-policy-readme · 20261002-141325Z
 
