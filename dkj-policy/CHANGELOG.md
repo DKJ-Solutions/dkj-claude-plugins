@@ -33,9 +33,10 @@ Plugins: dkj-policy-bwj
 
 ### DEPLOY: docs/2699-off-board-asana-ticket · 20261002-083549Z
 
-N/A inside this repo: it changes only a skill page that ships to consumers.
+Inside this repo: `report-issue`'s step 2 gains the off-board case, for an Asana-originated ticket that
+sits in another project. Its source is this tree's `plugins/dkj-policy/dkj-policy-bwj/skills/report-issue/SKILL.md`.
 
-**Score:** N/A
+**Score:** 2
 
 #### What makes this deploy extra special
 

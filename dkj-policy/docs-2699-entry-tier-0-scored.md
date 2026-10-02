@@ -39,19 +39,30 @@
 
 ### PLAN
 
+The folded entry of PR #2706 answered tier 0 with N/A, which `DEVELOPMENT-portable.md` does not allow
+(tier 0 takes a score, always). The owner caught it; the gate gap is #2709.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `CHANGELOG.md`: the `docs/2699-off-board-asana-ticket` entry's tier 0 says what changed in this
+      tree and scores it 2.
 
 ### TEST
 
+- [x] Docs-only; the gates run inside `ship-pr`.
+
 ### DEPLOY: docs/2699-entry-tier-0-scored
 
-**Score:**
+Inside this repo: one pending changelog entry, PR #2706's, now scores its tier 0 rather than answering
+N/A, so the next release counts it as the change it is.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a pending entry's wording reaches no user of what this repo ships.
+
+**Score:** N/A
 
 #### Pull Request
 
