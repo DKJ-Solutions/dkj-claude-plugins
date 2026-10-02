@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**11 / 13 minor entries** <!-- pending-tally -->
+**12 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2723-awaiting-label-family · 20261002-130508Z
+
+This tracker's three purple labels become one family named for what each one waits on:
+`awaiting-more-info`, `awaiting-first-recurrence` and `awaiting-more-recurrences`. Every gate and pickup
+route reads the old names too.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The three waiting labels a consumer's tracker carries are renamed: `needs-info` -> `awaiting-more-info`,
+`awaiting-recurrence` -> `awaiting-first-recurrence`, `record` -> `awaiting-more-recurrences`. Nothing
+breaks on update. `open-pr` still refuses to close an issue carrying `record` or `dossier`, both pickup
+routes and the dashboard still skip every old name, and a dkj-policy-bwj board still parks a `needs-info`
+card in its blocked column. `adopt-triage-labels` prints the `gh label edit` that renames each label in
+place, issues and all.
+
+**Score:** 3
+
+#### Pull Request
+
+The three purple waiting labels become one awaiting-* family
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2725](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2725)
+
+---
 
 ### DEPLOY: feat/2697-extension-import-for-every-policy-extension · 20261002-121608Z
 
