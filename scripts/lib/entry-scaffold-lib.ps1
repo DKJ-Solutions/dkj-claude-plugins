@@ -2436,7 +2436,13 @@ function Read-EntryTierSections {
         $score = 0
         $notApplicable = $false
         if ($scoreCell -and $scoreCell -ne $script:EntryImpactEmptyCell) {
-            if ($scoreCell -eq $script:EntryScoreNotApplicable) {
+            if ($scoreCell -eq $script:EntryScoreNotApplicable -and $tier -eq 0) {
+                # TIER 0 HAS NO 'N/A' (#2709): DEVELOPMENT-portable.md gives it a score, always, because every
+                # change matters to the repo's own maintainers. A value the model has no meaning for, so it is
+                # refused where an off-rubric score is -- open-pr and check-branch-entry, before the merge.
+                # Measured: PR #2706 shipped one through both gates, and it was caught by hand afterwards.
+                $errs += "'$($script:EntryScoreLabel) $scoreCell' under tier 0 -- tier 0 always takes a score, because every change matters to this repo's own maintainers, if only a little. Write $($range.Min) to $($range.Max); '$($script:EntryScoreNotApplicable)' is an answer for the audience tier only."
+            } elseif ($scoreCell -eq $script:EntryScoreNotApplicable) {
                 $notApplicable = $true
             } elseif ($scoreCell -notmatch '^\d+$') {
                 $errs += "'$($script:EntryScoreLabel) $scoreCell' under tier $tier is neither a number nor '$($script:EntryScoreNotApplicable)' -- write $($range.Min) to $($range.Max), or '$($script:EntryScoreNotApplicable)' with a line saying why the change reaches nobody there."
@@ -2670,8 +2676,10 @@ function Get-EntryImpactFindings {
         than a chore, because "reaches consumers" without "and here is what colleagues get out of it" is
         half a claim. Every tier from 1 up to the declared reach needs a row, a score and a why.
 
-        TIER 0 OWES NOTHING. It appears only in the record, which is complete and chronological and never
-        sorted, so there is no position for a score to decide.
+        TIER 0 OWES NO SCORE FOR THE RANKING. It appears only in the record, which is complete and
+        chronological and never sorted, so there is no position for a score to decide. What it may not do is
+        say 'N/A' (#2709) -- a malformed answer rather than a missing one, so it is the parser's error, and
+        arrives here through $impact.Errors like an off-rubric score.
 
         AN ENTRY WITH NO TABLE AT ALL IS NOT FAULTED FOR THAT, only for what its tier then requires. That
         keeps every pre-table entry in CHANGELOG.md readable rather than retroactively broken -- but it does

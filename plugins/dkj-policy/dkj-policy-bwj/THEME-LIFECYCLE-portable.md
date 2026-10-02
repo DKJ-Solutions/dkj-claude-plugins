@@ -12,7 +12,7 @@ September 13, 2026; built on inbound
 [#1965](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1965).
 
 **This chapter's reach did NOT widen when `dkj-claude-plugins` was admitted to chapter one on
-September 14, 2026** (commit `b9b2a65a`) -- a theme estate is a fact about a Shopify store, the source
+September 14, 2026, nor when `phone-factory`, a Lightspeed store, was on October 2, 2026** (commit `b9b2a65a`) -- a theme estate is a fact about a Shopify store, the source
 repo runs none, and there is nothing here for it to owe. See
 [`WORKFLOW-portable.md`](WORKFLOW-portable.md) for that widening and why it stops at chapter one.
 

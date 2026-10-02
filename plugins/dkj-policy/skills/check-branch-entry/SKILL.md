@@ -1,6 +1,6 @@
 ---
 name: check-branch-entry
-description: Answer whether this branch carries a WRITTEN changelog entry, the way the CI gate answers it -- so you learn it before the push rather than from a red check. Use it on a branch whose work is finished, when a PR was opened outside open-pr, or when a red "Branch entry" check needs explaining. It adds no rule of its own: it calls the same functions open-pr calls, and -- given a PR number -- the same DEPLOY-lock function ship-pr calls, so a section edited after the PR opened is refused here too. It reports the significance rather than refusing on it, because that refusal belongs to the release cut.
+description: Answer whether this branch carries a WRITTEN changelog entry, the way the CI gate answers it -- so you learn it before the push rather than from a red check. Use it on a branch whose work is finished, when a PR was opened outside open-pr, or when a red "Branch entry" check needs explaining. It adds no rule of its own: it calls the same functions open-pr calls, and -- given a PR number -- the same DEPLOY-lock function ship-pr calls, so a section edited after the PR opened is refused here too. It reports an unsettled significance rather than refusing on it, because that refusal belongs to the release cut -- a malformed value, such as N/A under tier 0, it refuses.
 ---
 
 # check-branch-entry -- is the entry written?
@@ -61,6 +61,7 @@ no evidence.
 | the **DEPLOY section no longer matches the PR** (with `-Pr`) | **exit 1**, naming the first line the PR body does not have. The section is fixed once the PR opens. |
 | the PR body **cannot be read** (with `-Pr`) | **exit 0**, said out loud -- a statement about the token, not about the section. |
 | **no `-Pr` given** | the lock is skipped and the run says so. Every other check above still runs. |
+| a tier or score is **malformed** -- off the rubric, an unknown tier, or `N/A` under tier 0 | **exit 1**, naming the value, as `open-pr` refuses it. A value the model has no meaning for is a typo, not an unsettled judgement ([#2709](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2709)). |
 | the **significance** is not settled | **exit 0**, with the finding printed and the release cut named as where the refusal lives. |
 | the branch prefix is **exempt** | **exit 0** -- see the seam below. |
 | the branch is the **trunk** | **exit 0**, said out loud: the trunk is where having no document at all is the *designed* state. |
@@ -71,6 +72,8 @@ not settled it is not blocked from merging over it -- that refusal sits at the r
 August 5, 2026). Both hand-written consumer gates refuse it, one of them reasoning that "tier 0 can never
 legitimately stay empty", while this system's own rule reads **TIER 0 OWES NOTHING**: an entry whose score
 lines are blank carries no number, so its reach *is* tier 0, which is a complete answer that owes nothing.
+**Blank is not `N/A`, though:** tier 0 answered `N/A` is malformed and refused, because tier 0 takes a
+score, always.
 
 ## Parameters
 

@@ -1,9 +1,9 @@
 ---
 name: adopt-dkj-policy-bwj
 description: >-
-  One-time setup of dkj-policy-bwj in a repo permitted to run it -- BWJ's two stores
-  (smartwatchbanden or xoxowildhearts, whichever org) and the plugin's own source repo
-  dkj-claude-plugins -- it refuses to run anywhere else -- both chapters: copy the asana-mirror CI
+  One-time setup of dkj-policy-bwj in a repo permitted to run it -- BWJ's two Shopify stores
+  (smartwatchbanden or xoxowildhearts, whichever org), and for ticket handling alone the plugin's own
+  source repo dkj-claude-plugins and BWJ's Lightspeed store phone-factory -- it refuses to run anywhere else -- both chapters: copy the asana-mirror CI
   mechanism into .github/, propose the Asana config seam for scripts/repo-config.ps1, print the repo
   secret and variables the CI needs, check that the classification labels exist, report whether the
   board's sections are numbered so the stage model can read them, write the BWJ extension import into
@@ -23,7 +23,7 @@ and the CI both read, and chapter two's `SYNC-LOG.md` scaffold (step 7).
 ## 0 -- establish that this repo is a permitted adoption target
 
 **Refuse, not warn: nothing is written, copied or proposed until this check passes.** The constraint
--- `smartwatchbanden`, `xoxowildhearts` or `dkj-claude-plugins`, and nothing else -- lived only in
+-- `smartwatchbanden`, `xoxowildhearts`, `dkj-claude-plugins` or `phone-factory`, and nothing else -- lived only in
 this file's own frontmatter until #1522; none of the seven steps below actually checked which repo
 the session is standing in.
 
@@ -36,7 +36,7 @@ git remote get-url origin
 `smartwatchbanden` moved to `BWJ-Development` as a fresh repo, the `BWJ-ecommerce` one was archived,
 and a fresh repo carries no redirect. An org-path match then refuses the one adoption it exists to
 serve, which is the worse of the two failure directions -- and the org may move again while the
-names will not. The list is closed at three, so nothing about the strength of this refusal changes.
+names will not. The list is closed at four, so nothing about the strength of this refusal changes.
 
 **Anything else stops the skill here**: report which
 repo the session is actually in and go no further -- no file copied, no config proposed, no label
@@ -50,7 +50,14 @@ likely wrong* target precisely because it is the source. That reading is retired
 `dkj-claude-plugins` and for nothing else: the repo is permitted because its maintainer decided it
 is, not because the guard stopped seeing it.
 
-**What that admission costs belongs here, where the permission is granted.**
+**The fourth name is `phone-factory`, BWJ's Lightspeed store, admitted for ticket handling alone**
+(Dave, October 2, 2026, [#2705](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2705)). It
+follows the BWJ procedure, so chapter one applies. Chapters two to four are written against the Shopify
+theme and CLI, which it does not run, so they do not reach it -- the same reach as `dkj-claude-plugins`,
+for a different reason. It needs its own Asana board in step 2: a GID copied from another store's
+config fails silently.
+
+**What the third admission costs belongs here, where the permission is granted.**
 `templates/asana-mirror.yml` and `templates/asana-mirror.ps1` are copied *from* this repo, so step 1
 here copies out of `plugins/dkj-policy/dkj-policy-bwj/templates/` into this repo's own `.github/` --
 a **public** repo, where the workflow holds `issues: write`, triggers on `issues: [closed, reopened,
@@ -382,11 +389,12 @@ report a failure, and the reach label is the one a consumer has actually renamed
 written here, where it has been paid for, rather than four times on speculation. If a second rename
 lands on one of the others, that is the moment for its own seam -- not a reason to widen this one now.
 
-**And the `CRO` label -- store repos only, never here.** It marks an issue filed by, or on behalf of,
+**And the `CRO` label -- Shopify store repos only.** It marks an issue filed by, or on behalf of,
 the CRO team (today: Johnno), and it exists in exactly two repos: `smartwatchbanden` and
-`xoxowildhearts`. **Skip this label entirely when this skill runs against `dkj-claude-plugins`** -- that
-repo has no Shopify store for a CRO team to measure, and it is a permitted adoption target for the
-ticket-handling chapter alone, not for this label. See
+`xoxowildhearts`. **Skip this label entirely when this skill runs against `dkj-claude-plugins` or
+`phone-factory`.** The first has no store at all. The second is a Lightspeed store the CRO team does not
+measure ([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)). Both are permitted
+adoption targets for the ticket-handling chapter alone, not for this label. See
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#the-cro-label----who-reported-it-not-what-it-is)
 for the reasoning.
 
@@ -560,6 +568,9 @@ Until the line is there, dkj-policy's `consumer-prose-sessioncheck` warns at ses
 whose own settings enable `dkj-policy-bwj`, and names this step.
 
 ## 7 -- scaffold the sync-log folder (chapter two)
+
+**Skip this step in `dkj-claude-plugins` and `phone-factory`.** Both are admitted for chapter one alone,
+and chapter two records drift on a live Shopify theme, which neither runs.
 
 Chapter two's record needs somewhere to land before the first `sync/` branch ever runs. If
 `Get-ShopifySyncLogPath` is not yet answered, propose it alongside the Asana seams in step 2, in the

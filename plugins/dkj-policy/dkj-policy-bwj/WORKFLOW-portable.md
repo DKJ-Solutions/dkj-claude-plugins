@@ -19,6 +19,14 @@ other three chapters of this plugin -- [`SYNC-LOG-portable.md`](SYNC-LOG-portabl
 through, and `dkj-claude-plugins` runs no store, so they stay at exactly the two names above; each says
 so on its own opening line.
 
+**The fourth is `phone-factory`, BWJ's Lightspeed store, admitted for this chapter alone by Dave on
+October 2, 2026 ([#2705](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2705)).** It follows
+the BWJ procedure for a discovered issue. It is a store, but not a Shopify one, and the other three
+chapters are written against the Shopify theme and CLI, so they do not reach it either. Two parts of this
+chapter state their reach by name, and Dave settled both for `phone-factory` on October 2, 2026
+([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)): the `CRO` label **never**
+reaches it, and the board-request step **does**.
+
 **Keep the two axes apart -- they read as one question and are not.** The org is left off the *store
 pair's* name because an org can move out from under a repo while the repo itself does not; the *repo
 count* differs by chapter because only this chapter's gate actually widened. `report-issue` and
@@ -165,6 +173,10 @@ alone, not for this axis. Concretely:
 - `smartwatchbanden` and `xoxowildhearts` -- create it, and set it where it applies.
 - `dkj-claude-plugins` -- never create it, and never set it. A finding filed here has no CRO team
   behind it to attribute, whatever else the ticket-handling chapter permits there.
+- `phone-factory` -- never create it, and never set it. It is a live store, but on Lightspeed, and
+  the CRO team does not measure it (Dave, October 2, 2026,
+  [#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)). So "an actual Shopify
+  store" above is meant literally: being a live store is not enough.
 
 **It carries no seam and needs none** -- the same shape `Get-ReachLabel`'s own paragraph reasons from:
 nobody has renamed this label, and which repos it applies to is a fixed list of two, stated here rather
@@ -1213,13 +1225,16 @@ layer are `dkj-policy`'s, under
 [Ticket work -- the layer before the branch](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#ticket-work--the-layer-before-the-branch),
 and they deliberately leave a list of questions to the repo under
 [What your repo answers](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#what-your-repo-answers).
-**This step is BWJ's answer to that list, once for both stores**, so neither can drift from the other.
+**This step is BWJ's answer to that list, once for all three stores**, so none can drift from the others.
 It restates none of the rules; read those first.
 
 **It lived in `smartwatchbanden`'s own tree until September 23, 2026**, as the only copy anywhere --
 `xoxowildhearts` had none -- and moved here on inbound
 [#2353](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2353), because an answer both stores
-owe is this plugin's rather than one repo's. **Its reach is the two stores.** `dkj-claude-plugins` was
+owe is this plugin's rather than one repo's. **Its reach is the three stores**: `smartwatchbanden`,
+`xoxowildhearts` and `phone-factory`. The last was added by Dave on October 2, 2026
+([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)), because the Lightspeed store
+gets an Asana board of its own, so colleagues' requests reach it the same way. `dkj-claude-plugins` was
 admitted to this chapter for *filing* (see the top of this page), and nothing reaches that repo from
 the Asana board as a request, so there this step has nothing to apply to.
 
