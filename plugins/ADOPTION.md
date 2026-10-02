@@ -235,7 +235,7 @@ version and still report success.
 
 **Seeing which release you're on — `plugin.json`.** Each plugin folder carries a `.claude-plugin/plugin.json`
 whose `version` is the release it belongs to, bumped in lockstep across every plugin — see
-[Versioning](dkj-policy/README.md#versioning) for the lockstep mechanics. Because
+[Cutting a release](dkj-policy/RELEASES-portable.md#cutting-a-release) for the lockstep mechanics. Because
 `claude plugin update` pins the cache to a specific version, the
 cached `version` is *exactly* the installed release. The full history of that release lives in the source
 repo's `CHANGELOG.md` and `dkj-policy/releases/` — and a consumer has both, because
@@ -273,8 +273,7 @@ in the marketplace clone you already have — `~/.claude/plugins/marketplaces/dk
 [Consumption](#consumption) above for the mechanics.
 
 A newly added **skill** additionally needs a session restart before it becomes visible, and the
-skill counters `/reload-plugins`/`/reload-skills` print are not reliable evidence either way — see
-[Versioning](dkj-policy/README.md#versioning).
+skill counters `/reload-plugins`/`/reload-skills` print are not reliable evidence either way.
 
 ## Invocation
 

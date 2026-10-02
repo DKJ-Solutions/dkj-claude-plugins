@@ -62,8 +62,7 @@ below). What it still enumerates nowhere is which changes count as visible -- th
 consumer's own reach rule, are untouched.
 
 That is the deliberate reading of the "second workflow" note left in
-[the `dkj-policy` README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/README.md)
-and [the `dkj-subagents` README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/README.md#teams-and-workflows--whats-the-difference) after
+[the `dkj-subagents` README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/README.md#teams-and-workflows--whats-the-difference) after
 [#886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/886): a second workflow plugin is
 safe here **because it is additive and non-overlapping**, not because the old guard was wrong.
 

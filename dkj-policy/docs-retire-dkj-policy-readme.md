@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Dave asked whether `plugins/dkj-policy/README.md` adds anything an agent needs, and said to remove it
+if it does not. Checked against the tree: nothing loads it, no script reads it, and lint check 29's
+`skills:plugin` span is opt-in, so zero spans passes.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Delete `plugins/dkj-policy/README.md`
+- [x] Rewire its inbound links: `plugins/ADOPTION.md` (two), `plugins/dkj-subagents/README.md`, the
+      `dkj-policy-bwj` README, Sylvester's and Nolan's lenses, and the check 29 comment
 
 ### TEST
 
+- [x] No live link to the retired page left outside released history (grep)
+- [x] Lint + suites green via `open-pr`
+
 ### DEPLOY: docs/retire-dkj-policy-readme
 
-**Score:**
+`plugins/dkj-policy/README.md` is gone. No agent needed it: nothing loads it, and every fact it held
+already had another home. The skill descriptions are always in context, the cycle is in
+`CONTRIBUTING-portable.md`, versioning and the cut are in `RELEASES-portable.md`, updating is in
+`plugins/ADOPTION.md` and the `update-plugins` skill, and the history is in Sylvester's lens. Its own
+copies had already drifted. It said `tidy-machine` had eleven lanes (the skill says twelve) and that
+`dkj-policy-bwj` had four skills (it has six). It described `orchestrator`, `push-preview` and
+`archive-theme` as if they were this plugin's skills, and it still cited the retired repo name. The
+inbound links now point at the page that owns each fact.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: nothing a consumer installs, loads or runs changes. The pages the README pointed to are all still
+shipped.
+
+**Score:** N/A
 
 #### Pull Request
 
