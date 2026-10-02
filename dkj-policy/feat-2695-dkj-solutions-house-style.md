@@ -55,6 +55,11 @@ his look and does not merge.
   `enabledPlugins`.
 - [x] Tessa: the extension `CLAUDE.md`, the plugin `README.md` and the `house-style` skill page.
 - [x] Filed #2697: the extension-import tooling knows only bwj, so the dkjs import is added by hand.
+- [x] Gwen: re-synced with the dashboard on `dkj-etf-tracker` `main` (October 2, 2026). The first
+  extraction predated PRs #42 to #45 there. Taken in: serif `h1`/`h2` at 40/29px, `h3` at 18px, the
+  header centred with a `.controls` row, `.seg`, sortable table headers and `.moretoggle` (in
+  `--ink-2`, not the danger zone's red). Left there: the danger zone, the market report, the bar
+  month-note and the primary/secondary view switch.
 
 ### TEST
 

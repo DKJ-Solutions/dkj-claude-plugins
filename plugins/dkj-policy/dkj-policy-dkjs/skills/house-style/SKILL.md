@@ -45,19 +45,22 @@ the page sets `<html data-theme="light">`; `<html data-theme="dark">` forces dar
 block appears twice in the file. CSS cannot share it, so **an edit to one dark block is made to both**.
 
 **Components**, the complete list of reserved names, so a repo layer knows what not to redefine:
-the page header (`body > header`, `main > header`), `main`/`.container`, `.hero`, `.tiles`/`.tile`,
-`.card`, `.grid-2`, `.table-wrap`/`.table` (with `.row-total`), `.legend`/`.legend__item` (with
+the page header (`body > header`, `main > header`) and its `.controls` row, `main`/`.container`,
+`.hero`, `.tiles`/`.tile`, `.card`, `.grid-2`, `.table-wrap`/`.table` (with `.row-total`, and
+sortable headers via `.sort`/`.arrow` on `aria-sort`), `.seg` (a segmented switch), `.legend`/`.legend__item` (with
 `--line`), `.swatch`, `.badge` (with `--good`, `--warn`, `--bad`, `--info`, `--neutral`, `--sm`),
 `.badge-row`, `.meter` (with `--good`, `--warn`, `--bad`, `--info`), `.mini-cards`/`.mini-card` (with
 `--highlight`), `.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.num` (tabular
 numerals), `.delta` (with `--up`/`--down`, aliased `.pos`/`.neg`), `.btn`, `.info-button`, `.tooltip`
-(with `--explain`), `.more` (a disclosure), `.chart` (the SVG chart scope) and `.footer-note`. Each is
+(with `--explain`), `.more` (a disclosure), `.moretoggle` (a full-width read-more button), `.chart` (the SVG chart scope) and `.footer-note`. Each is
 commented in the file.
 
 ## What was deliberately left out
 
 The parts of the ETF dashboard that only make sense there stayed there: the hazard-striped advice zone
-and its tokens, the mapping from ETF/share/cash to a colour, and the Dutch status class names. The three
+and its tokens, the market report's layout, the month-note button drawn on a chart bar, the
+primary/secondary view switch, the mapping from ETF/share/cash to a colour, and the Dutch status class
+names. The three
 series colours survive as `--cat-1..3`, with the same values. A generic danger/alert component is **not**
 in the house style yet. Adding one is a design decision for the owner, not something to back-fill from
 the advice zone.
