@@ -41,17 +41,24 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Hook: a probe that read a tag now confirms visibly when current or ahead (systemMessage + [CURRENT] for the model); every failure stays silent
+- [x] Suite: current/ahead/numeric/shape cases expect the confirmation; new case pins that no tag at all stays silent
 
 ### TEST
 
+- [x] release-freshness-sessioncheck.tests.ps1 green (24 asserts); a live run against GitHub printed the v5.12.0 confirmation
+
 ### DEPLOY: fix/2702-release-freshness-confirms-current
 
-**Score:**
+`release-freshness-sessioncheck` used to be silent when the running release matched GitHub's newest, so a quiet session start meant either "current" or "could not check". Now a probe that actually read a tag always says something: the existing warning when behind, and one confirmation line when current or ahead. Every failure (no clone, offline, a timeout, no tag at all) is still silent, so it never claims "up to date" without having checked. Resolves #2702.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A new session now shows *dkj plugins are up to date: this session runs v5.12.0*, so whether to run update-plugins is no longer guesswork.
+
+**Score:** 3
 
 #### Pull Request
 

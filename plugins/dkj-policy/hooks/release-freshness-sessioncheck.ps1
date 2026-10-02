@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    SessionStart hook of the workflow plugin: warns THE USER, visibly, when GitHub carries a newer
-    release of the dkj plugins than the one this session is running (issue #2673).
+    SessionStart hook of the workflow plugin: tells THE USER, visibly, whether GitHub carries a newer
+    release of the dkj plugins than the one this session is running (issues #2673, #2702).
 
 .DESCRIPTION
     THE GAP IT CLOSES. connector-sessioncheck compares this checkout's install against the LOCAL
@@ -34,10 +34,13 @@
     the first prompt of every new session". The lib's one-hour bound applies, for the reasons its header
     gives. A failed probe is never cached, so the next firing simply tries again.
 
-    SILENT UNLESS BEHIND, AND SILENT ON EVERY FAILURE. No clone, no git, no network, a timeout, a
-    short read, an unparseable version, no tag at all: each prints NOTHING. A warning that fires on
-    noise teaches the reader to skim, and "could not check" at every offline start is exactly that
-    noise -- plugin-versions remains the explicit, on-demand answer. The probe is bounded
+    BEHIND WARNS, CURRENT CONFIRMS (#2702), AND EVERY FAILURE IS SILENT. #2673 shipped this silent
+    when current, and that left silence meaning two things -- "current" and "could not check" -- so
+    the user still could not tell whether update-plugins was due. A probe that read a tag now always
+    speaks: a warning when behind, one confirmation line when current or ahead. No clone, no git, no
+    network, a timeout, a short read, an unparseable version, no tag at all: each still prints
+    NOTHING, because "could not check" at every offline start is noise that teaches the reader to
+    skim -- plugin-versions remains the explicit, on-demand answer. The probe is bounded
     (-TimeoutSeconds, default 5) and runs with GIT_TERMINAL_PROMPT=0, so an origin that suddenly wants
     credentials fails instead of waiting for a prompt nobody can see.
 
@@ -131,10 +134,20 @@ try {
         }
     }
 
-    if (-not $newest -or $newest -le $running) { exit 0 }
+    if (-not $newest) { exit 0 }
 
-    $user = "dkj plugins are out of date: this session runs v$running, GitHub has v$newest. Run /dkj-policy:update-plugins, then restart the session."
-    $model = "release-freshness-sessioncheck: [BEHIND] this session runs dkj plugins v$running; the marketplace's origin has release v$newest. The user has been shown this warning; the update-plugins skill closes the gap, and the new release loads only in a session started after it."
+    if ($newest -le $running) {
+        # CURRENT SPEAKS TOO (#2702). #2673 shipped this as silent, and silence turned out to be two
+        # facts the user could not tell apart -- "current" and "could not check" -- so the question it
+        # was built to answer ("do I need update-plugins?") was still guesswork on every good start.
+        # Only a probe that actually read a tag reaches here; every failure above still says nothing,
+        # so this line never claims "up to date" about a check that did not happen.
+        $user = "dkj plugins are up to date: this session runs v$running (GitHub's newest release: v$newest)."
+        $model = "release-freshness-sessioncheck: [CURRENT] this session runs dkj plugins v$running; the marketplace's origin's newest release is v$newest. The user has been shown this confirmation."
+    } else {
+        $user = "dkj plugins are out of date: this session runs v$running, GitHub has v$newest. Run /dkj-policy:update-plugins, then restart the session."
+        $model = "release-freshness-sessioncheck: [BEHIND] this session runs dkj plugins v$running; the marketplace's origin has release v$newest. The user has been shown this warning; the update-plugins skill closes the gap, and the new release loads only in a session started after it."
+    }
     $payload = [ordered]@{
         systemMessage      = $user
         hookSpecificOutput = [ordered]@{
