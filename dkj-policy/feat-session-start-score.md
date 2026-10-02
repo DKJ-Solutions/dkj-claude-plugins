@@ -43,17 +43,37 @@ Template computes score = 100 x no-influence tokens / total, with a delta agains
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The template shows a score panel above the tiles: `none` tokens over all tokens, rounded, 1-100, capped
+  at 99 while anything is added, with a meter and a delta against the previous run (up is green).
+- [x] The render adds `previous.noneTokens`, summed over the previous page's own items by their own
+  influence (Victor's review: pairing per current item let a removed or renamed `none` layer fake a delta).
+- [x] SKILL.md says how the score is computed and that it cannot be set from the data; the two labels are
+  `scoreHeading` and `scoreText`.
+- [x] Review: Victor (correctness, the previous-score skew) and Edith (the "never 100" claim, which was
+  false against the rounding, and "every token anywhere") -- both applied.
 
 ### TEST
 
+- [x] `measure-session-start.tests.ps1`: 200 passed, 0 failed, including two new asserts on
+  `previous.noneTokens` (a removed `none` item still counts; an empty previous gives 0).
+- [x] The page's own script run against a stub DOM on today's real data: 40/100, +3 against the previous
+  measurement (37). Test gap, named: the score's JavaScript has no automated test, because the suites are
+  PowerShell and no JS runner is part of the gates.
+
 ### DEPLOY: feat/session-start-score
 
-**Score:**
+The session-start report now opens with an efficiency score from 1 to 100: the share of the session
+start that Claude Code itself brings along, set against what the repo and the account add. The page
+computes it from the layers alone, so the model writing the data cannot set it, and it shows the change
+against the previous measurement.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 

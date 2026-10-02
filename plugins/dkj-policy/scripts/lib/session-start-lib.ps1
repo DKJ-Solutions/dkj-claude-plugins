@@ -330,12 +330,17 @@ function Merge-SessionStartPrevious {
     $prevItems = @(Get-JsonField $Previous 'items' @())
     $prevTok = @{}
     $prevTokTotal = [int64]0
+    # The page's efficiency score is the 'none' share; the previous one is summed HERE, over the previous
+    # items by their own influence, so a removed, renamed or reclassified layer cannot leave the denominator
+    # without the numerator and fake a delta.
+    $prevNoneTotal = [int64]0
     foreach ($prevIt in $prevItems) {
         $k = [string](Get-JsonField $prevIt 'id' (Get-JsonField $prevIt 'name' ''))
         $t = ConvertTo-Int64OrNull (Get-JsonField $prevIt 'tokens' $null)
         if ($null -eq $t) { $notes.Add("the previous tokens of '$k' are not a whole number, so that item has no history."); continue }
         if ($k) { $prevTok[$k] = $t }
         $prevTokTotal += $t
+        if ([string](Get-JsonField $prevIt 'influence' '') -eq 'none') { $prevNoneTotal += $t }
     }
     foreach ($it in @(Get-JsonField $Data 'items' @())) {
         $k = [string](Get-JsonField $it 'id' (Get-JsonField $it 'name' ''))
@@ -345,6 +350,7 @@ function Merge-SessionStartPrevious {
     Set-JsonProperty -Object $Data -Name 'previous' -Value ([pscustomobject]@{
         asOf        = [string](Get-JsonField $Previous 'asOf' '')
         totalTokens = $prevTokTotal
+        noneTokens  = $prevNoneTotal
         totalBytes  = $prevTotal
     })
     $script:SessionStartMergeNotes = @($notes)

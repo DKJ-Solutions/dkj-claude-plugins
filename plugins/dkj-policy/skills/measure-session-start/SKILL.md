@@ -158,6 +158,14 @@ Text may carry `**bold**` and `` `code` `` and nothing else: the page escapes th
 **The render adds `previousBytes`, `previousTokens`, `documents.previousTotalBytes`, `documents.removed`
 and a top-level `previous` itself. Do not write them.**
 
+**The efficiency score is computed by the page, never written.** It is the `none` items' tokens as a share
+of all items' tokens, rounded and held to 1-100: what Claude Code itself brings along, set against what the
+repo and the account add. Every token saved in a `direct` or `setting` item raises it, and it is capped at
+99 while anything is added. The previous score comes from `previous.noneTokens` and
+`previous.totalTokens`, which the render sums over the previous page's own items, so a removed or renamed
+layer cannot fake a delta, there is no field for the score, and no way to set it from the data. Its two
+strings are the `scoreHeading` and `scoreText` labels.
+
 ### What the collect JSON holds
 
 | field | contents |
