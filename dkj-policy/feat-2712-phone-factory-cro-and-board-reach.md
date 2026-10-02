@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Dave on #2712 (October 2, 2026): the `CRO` label never reaches `phone-factory` (a Lightspeed store the
+CRO team does not measure), and the board-request step does, because it gets an Asana board of its own.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `WORKFLOW-portable.md`: the opening reach paragraph records the decision, the CRO list names
+      `phone-factory` under "never", and step 8's reach goes from two stores to three.
+- [x] `adopt-dkj-policy-bwj` and `report-issue`: the CRO label is "Shopify store repos only" and skipped
+      in `phone-factory`.
 
 ### TEST
 
+- [x] Doc-only. The lint and test gates run through `open-pr`.
+
 ### DEPLOY: feat/2712-phone-factory-cro-and-board-reach
 
-**Score:**
+N/A inside this repo: the change is wording on the BWJ extension's pages.
+
+**Score:** N/A
 
 #### What makes this deploy extra special
 
-**Score:**
+For the maintainer of `phone-factory`, the ticket-handling chapter now gives a definite answer on two
+points it had left open. Don't create the `CRO` label there. Colleagues' requests from that store's
+Asana board follow step 8, just as they do in the two Shopify stores
+([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)).
+
+**Score:** 3
 
 #### Pull Request
+
+dkj-policy-bwj: no CRO label in phone-factory, board requests reach it
 
