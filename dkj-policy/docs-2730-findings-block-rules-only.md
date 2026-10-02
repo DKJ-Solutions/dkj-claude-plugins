@@ -51,10 +51,10 @@ them (`plugin-link`).
 ### CREATE
 
 - [x] `subagent-shared/findings-become-issues.md` cut to the eight rules, one bold sentence plus at
-      most a line each, ending in a link to the reasoning. 5,294 B to 1,927 B.
+      most a few lines each, every qualification kept, ending in a link to the reasoning. 5,294 B to 2,342 B.
 - [x] `plugins/dkj-subagents/README.md` gains *Why the filing rules read the way they do*, holding the
       block's previous text verbatim.
-- [x] `build-agent-defs.ps1` regenerated all 30 copies. Chris's persona goes from 19,165 B to 16,317 B.
+- [x] `build-agent-defs.ps1` regenerated all 30 copies. Chris's persona goes from 19,165 B to 16,732 B.
 - [x] The README's list of shared blocks named fourteen of the seventeen. Corrected, since the new
       section sits right under it.
 
@@ -66,7 +66,7 @@ them (`plugin-link`).
 
 The shared block that tells every specialist to file findings as issues now states its eight rules
 briefly and links to the reasoning, instead of arguing each rule in place. Chris's persona is loaded
-into every session, and it shrinks by about 2,850 bytes. The rules themselves are unchanged and stay in
+into every session, and it shrinks by about 2,400 bytes. The rules keep their substance, every qualification included, and stay in
 every specialist's definition. The reasoning they carried until now, word for word, is in
 [the teams README](../plugins/dkj-subagents/README.md#why-the-filing-rules-read-the-way-they-do).
 
@@ -74,7 +74,7 @@ every specialist's definition. The reasoning they carried until now, word for wo
 
 #### What makes this deploy extra special
 
-A consumer session's always-on context is about 900 tokens smaller once this release is installed,
+A consumer session's always-on context is roughly 780 tokens smaller (an estimate from the byte count) once this release is installed,
 because Chris's persona ships in the core team. The filing behaviour is meant to stay exactly as it
 was.
 
@@ -82,8 +82,8 @@ was.
 
 #### Pull Request
 
-Shared findings-become-issues block keeps its rules; the reasoning moves to the teams README
+Shared findings-become-issues block states its rules briefly; the reasoning moves to the teams README
 
 The block is cut to its eight rules and links to a README section holding its previous text verbatim,
-regenerated into all 30 copies. Chris's always-on persona shrinks from 19,165 B to 16,317 B.
+regenerated into all 30 copies. Chris's always-on persona shrinks from 19,165 B to 16,732 B.
 
