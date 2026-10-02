@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**4 / 6 minor entries** <!-- pending-tally -->
+**5 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2709-tier-zero-refuses-na · 20261002-092240Z
+
+**A tier 0 answered `N/A` is now refused before the merge.** `open-pr` and the CI `branch-entry` check
+refuse it, and so does the release cut. DEVELOPMENT-portable gives tier 0 a score, always, but no gate read
+that rule, so PR #2706 shipped one through both. It is now a malformed value, refused like an off-rubric
+score. `check-branch-entry` now refuses malformed values the way `open-pr` does, where before it only
+reported them. A blank tier-0 score still passes
+([#2709](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2709)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For a maintainer of a repo running this workflow: an entry with tier 0 written as `N/A` is refused at
+`open-pr` and by the `branch-entry` CI check, naming the rule, so it gets fixed on the branch rather than
+on the trunk. A green `branch-entry` check now also means no malformed score.
+
+**Score:** 2
+
+#### Pull Request
+
+The entry gates refuse N/A on tier 0, which always takes a score
+
+Plugins: dkj-policy
+
+[PR #2711](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2711)
+
+---
 
 ### DEPLOY: docs/2699-entry-tier-0-scored · 20261002-091058Z
 
