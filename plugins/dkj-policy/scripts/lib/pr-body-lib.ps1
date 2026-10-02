@@ -104,8 +104,8 @@ function Get-PrDescription {
           Branch type   -> the PR's label, and the prefix of the title one line up
 
         So a reviewer opened a PR and met three restatements before the first sentence about the change.
-        The trailing 'Pull Request' section goes for the mirror-image reason: the FOLD fills it, from the
-        merge -- in a PR body it is a heading with nothing under it, every time, by construction.
+        The trailing 'Pull Request' section goes for the same reason: its first line IS the PR title, and the
+        rest is what the FOLD writes at the merge -- so in a PR body it restates the title one line up.
 
         WHAT IS KEPT is the answer and the Significance sections. Significance is not front matter: it is
         the author saying how far the change reaches and what it is worth to each audience, which is

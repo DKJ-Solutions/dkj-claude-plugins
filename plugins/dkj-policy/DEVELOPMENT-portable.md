@@ -436,7 +436,11 @@ about is answered before a PR opens.
 
 ### Four things about this shape, each of which someone has got wrong before
 
-- **The PR line is not yours to write.** The fold fills `#### Pull Request` from the merge itself.
+- **`#### Pull Request` opens with the PR title, and the title is yours to write.** `new-branch -Title`
+  writes it at creation, and `open-pr` refuses the branch while it is empty, because the PR title is
+  composed from it (see *the PR title is the first line* above). The fold adds the rest — the `Plugins:`
+  line and the `PR #NN` link under the title, the merge moment on the entry's heading — and those are not
+  yours to write.
 - **Nothing may use `###` inside the section, and `####` only for its named headings.** A `###` becomes a
   *separate change* the moment the fold pastes this into `CHANGELOG.md` — one that declares no impact, so it
   reads as tier 0. A `####` collides with the named headings, truncating whichever one it lands in. Use

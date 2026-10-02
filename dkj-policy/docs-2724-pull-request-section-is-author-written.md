@@ -39,21 +39,41 @@
 
 ### PLAN
 
+Resolves #2724. Verified before repairing: `Get-EntryScaffoldFindings` (`entry-scaffold-lib.ps1`) refuses
+an entry whose `Pull Request` section carries no title, and the guidance block `new-branch` writes names
+the PR title as DEPLOY's one author-written exception. So the design is the author writes the title, and
+the texts saying the fold fills the section are the stale ones.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `DEVELOPMENT-portable.md`: the "PR line is not yours to write" bullet now says the title is
+  the author's, and names what the fold adds
+- [x] `entry-scaffold-lib.ps1`: the section-list comment and the emptiness-check comment, in both copies
+- [x] `pr-body-lib.ps1`: the comment on why the PR body drops the section, in both copies
 
 ### TEST
 
+- [x] Both lib pairs byte-identical after the edit (`cmp`), and still pure ASCII
+- [x] The lint and test gate, run by `open-pr`
+
 ### DEPLOY: docs/2724-pull-request-section-is-author-written
 
-**Score:**
+`DEVELOPMENT-portable.md` and the comments in two shared libs no longer say the fold fills a branch
+document's `#### Pull Request` section. Its first line is the PR title the author writes, which
+`open-pr` already refused to see empty.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+The workflow page said the `#### Pull Request` section was not yours to write, while `open-pr` refuses a
+branch that leaves it empty. It now says the section opens with the PR title you write, and that only
+the `Plugins:` line and the PR link under it are the fold's. A branch cut without `-Title` that
+followed the old line was stopped before the push.
+
+**Score:** 2
 
 #### Pull Request
 
-The branch document's Pull Request section is described as the author's to write: its first line is the PR title
+The Pull Request section is documented as the author's to title, not the fold's to fill
 

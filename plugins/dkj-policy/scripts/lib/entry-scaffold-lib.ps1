@@ -3332,7 +3332,7 @@ function Get-EntryInsertOffset {
 #   Branch type          feat / fix / docs / chore, from the branch prefix
 #   What does the ...    the description a reader of CHANGELOG.md arrives for
 #   Significance         one '#### Tier N' sub-section per reach the change claims
-#   Pull Request         filled by the fold, from the merge itself
+#   Pull Request         the PR title (new-branch -Title); the fold adds the PR link under it
 #
 # DAVE CHOSE THE VERBATIM ROUTE over having the fold derive a slimmer block from this one (August 6, 2026,
 # asked and answered before any of it was built). So CHANGELOG.md receives exactly this shape, branch line
@@ -5552,7 +5552,7 @@ function Get-EntryScaffoldFindings {
     # this shape. Test-EntryDeclaresShape is the same discriminator the parser uses, so the two cannot
     # disagree about which shape they are looking at.
     if (Test-EntryDeclaresShape -EntryText $EntryText) {
-        # PullRequest is deliberately absent: the fold fills it, so it is empty by design until the merge.
+        # PullRequest is deliberately absent from the loop below: its answer is the PR title, which the check right after these notes judges.
         # Id and Type are written by the scaffolder itself, so an empty one is a scaffolder fault rather
         # than an author's, and refusing the author for it would be pointing at the wrong person.
         # ONLY A SECTION THE ENTRY ACTUALLY HAS. An entry written before the dossier form carries no
