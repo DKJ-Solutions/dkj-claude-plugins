@@ -39,21 +39,42 @@
 
 ### PLAN
 
+#### The verified reason (inbound check, #2699)
+
+- The Asana MCP has no add-to-project call: `asana_update_task` takes no project, and
+  `asana_create_task` sets one only at creation. So a session cannot put an off-board task on the board.
+- `asana-mirror.ps1` deliberately reads the board off the task's own memberships
+  (`Select-StageMembership`) and leaves a task on no numbered board alone. Having CI multi-home a
+  colleague's task would reverse that design, so this branch takes the issue's other option: the
+  skill names the case and says what to do.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `report-issue` SKILL.md step 2: the off-board case -- read the memberships first, skip the move
+      and both field writes, still prepend the link and post the `created:` comment, name the one hand
+      act left (add the task to the board), and note that the sweep stages it from then on.
 
 ### TEST
 
+- [x] Docs-only change; the gates run inside `ship-pr`.
+
 ### DEPLOY: docs/2699-off-board-asana-ticket
 
-**Score:**
+N/A inside this repo: it changes only a skill page that ships to consumers.
+
+**Score:** N/A
 
 #### What makes this deploy extra special
 
-**Score:**
+For a BWJ store maintainer filing an issue from a colleague's Asana ticket that lives in another project
+(`SEO`, a workload overview): `report-issue` now says what to do instead of prescribing a card move and
+two field writes that Asana refuses. It skips those writes, still links the task and posts the
+`created:` comment, and names the one act left to a person, adding the task to the board, after which
+the daily sweep stages it like any other card
+([#2699](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2699)).
+
+**Score:** 2
 
 #### Pull Request
 
 report-issue: say what to do when an Asana-originated ticket is not on the repo board
-
