@@ -55,9 +55,10 @@ CRO team does not measure), and the board-request step does, because it gets an 
 
 ### DEPLOY: feat/2712-phone-factory-cro-and-board-reach
 
-N/A inside this repo: the change is wording on the BWJ extension's pages.
+Inside this repo: the BWJ extension's ticket-handling page and two of its skill pages now state the
+`CRO` label's and step 8's reach for `phone-factory`, instead of leaving it open.
 
-**Score:** N/A
+**Score:** 1
 
 #### What makes this deploy extra special
 
