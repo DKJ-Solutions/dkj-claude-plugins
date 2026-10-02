@@ -219,7 +219,7 @@ try {
   {"id":"CLAUDE.md","name":"CLAUDE.md","bytes":1000},
   {"id":"rules/a.md","name":"a.md","bytes":300},
   {"id":"rules/gone.md","name":"gone.md","bytes":50}]},
- "items":[{"id":"docs","tokens":400},{"name":"byname","tokens":100},{"id":"dead","tokens":7}]}
+ "items":[{"id":"docs","tokens":400,"influence":"direct"},{"name":"byname","tokens":100,"influence":"none"},{"id":"dead","tokens":7,"influence":"none"}]}
 '@
     $curJson = @'
 {"documents":{"items":[
@@ -243,12 +243,14 @@ try {
     Assert-Equal 100 $it[1].previousTokens 'item with no id matched on name'
     Assert-True ($null -eq ($it[2].PSObject.Properties | Where-Object { $_.Name -eq 'previousTokens' })) 'a new item has no previousTokens'
     Assert-Equal 507 $mg.previous.totalTokens 'previous.totalTokens sums every previous item, including ones now gone'
+    Assert-Equal 107 $mg.previous.noneTokens 'previous.noneTokens sums the previous none items by their OWN influence, the gone one included, so the score delta cannot be faked by a removed layer'
     Assert-Equal 1350 $mg.previous.totalBytes 'previous.totalBytes mirrors the documents block'
     Assert-Equal '2026-09-01' $mg.previous.asOf 'previous.asOf is carried'
 
     $thin = Merge-SessionStartPrevious -Data (ConvertFrom-Json '{"documents":{"items":[{"id":"x","name":"x","bytes":5}]}}') -Previous (ConvertFrom-Json '{"unrelated":true}')
     Assert-True ($null -eq ($thin.documents.PSObject.Properties | Where-Object { $_.Name -eq 'hasPrevious' })) 'a previous page with NO documents does not set hasPrevious (and merges without throwing)'
     Assert-Equal 0 $thin.previous.totalBytes 'and yields a zero previous total'
+    Assert-Equal 0 $thin.previous.noneTokens 'and a zero previous none total'
     Assert-True ($null -eq ($thin.documents.PSObject.Properties | Where-Object { $_.Name -eq 'removed' })) 'and writes no removed list'
     $noDocs = Merge-SessionStartPrevious -Data (ConvertFrom-Json '{"items":[{"id":"a","tokens":1}]}') -Previous (ConvertFrom-Json $prevJson)
     Assert-Equal 0 $noDocs.previous.totalBytes 'current data without a documents block: previous totalBytes is 0, no throw'
