@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2699-off-board-asana-ticket · 20261002-083549Z
+
+N/A inside this repo: it changes only a skill page that ships to consumers.
+
+**Score:** N/A
+
+#### What makes this deploy extra special
+
+For a BWJ store maintainer filing an issue from a colleague's Asana ticket that lives in another project
+(`SEO`, a workload overview): `report-issue` now says what to do instead of prescribing a card move and
+two field writes that Asana refuses. It skips those writes, still links the task and posts the
+`created:` comment, and names the one act left to a person, adding the task to the board, after which
+the daily sweep stages it like any other card
+([#2699](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2699)).
+
+**Score:** 2
+
+#### Pull Request
+
+report-issue: say what to do when an Asana-originated ticket is not on the repo board
+
+Plugins: dkj-policy-bwj
+
+[PR #2706](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2706)
+
+---
 
 ### DEPLOY: fix/2702-release-freshness-confirms-current · 20261002-082018Z
 
