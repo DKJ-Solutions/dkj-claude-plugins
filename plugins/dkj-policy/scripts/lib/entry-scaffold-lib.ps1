@@ -5552,7 +5552,8 @@ function Get-EntryScaffoldFindings {
     # this shape. Test-EntryDeclaresShape is the same discriminator the parser uses, so the two cannot
     # disagree about which shape they are looking at.
     if (Test-EntryDeclaresShape -EntryText $EntryText) {
-        # PullRequest is deliberately absent from the loop below: its answer is the PR title, which the check right after these notes judges.
+        # PullRequest is deliberately absent from the loop below: its answer is the PR title, which the
+        # check right after these notes judges.
         # Id and Type are written by the scaffolder itself, so an empty one is a scaffolder fault rather
         # than an author's, and refusing the author for it would be pointing at the wrong person.
         # ONLY A SECTION THE ENTRY ACTUALLY HAS. An entry written before the dossier form carries no
