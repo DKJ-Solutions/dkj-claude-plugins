@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Tests for scripts/task/adopt-triage-labels.ps1 -- the print-only adopter for the canonical triage
-    labels -- the 'prio-1'..'prio-4' rungs (issue #1895, split from #1843) plus 'record' (#2462; 'dossier' until #2683), 'needs-decision' (#2519) and 'awaiting-recurrence' (#2587).
+    labels -- the 'prio-1'..'prio-4' rungs (issue #1895, split from #1843) plus 'awaiting-more-recurrences' (#2462; 'dossier' until #2683, 'record' until #2723), 'needs-decision' (#2519) and 'awaiting-first-recurrence' (#2587; 'awaiting-recurrence' until #2723).
 
 .DESCRIPTION
     WHAT IS COVERED, AND WHY THESE PROPERTIES:
@@ -77,7 +77,7 @@ function Assert-Equal {
 # two of THOSE (and none of the four canonical ones) is the realistic shape of "this repo has not
 # adopted the convention yet", and it is what lets this scenario reach the [missing] branch at all.
 $LabelsNone    = '[{"name":"bug","color":"d73a4a","description":"unrelated default label"},{"name":"enhancement","color":"a2eeef","description":"unrelated default label"}]'
-$LabelsAll     = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"prio-2","color":"F9A825","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Record","color":"5319E7","description":"old text"},{"name":"needs-decision","color":"BFD4F2","description":"old text"},{"name":"awaiting-recurrence","color":"5319E7","description":"old text"}]'
+$LabelsAll     = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"prio-2","color":"F9A825","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Awaiting-More-Recurrences","color":"5319E7","description":"old text"},{"name":"needs-decision","color":"BFD4F2","description":"old text"},{"name":"awaiting-first-recurrence","color":"5319E7","description":"old text"}]'
 $LabelsPartial = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"}]'
 $LabelsBad     = 'not json'
 
@@ -154,7 +154,7 @@ try {
     $dir = New-FixtureConsumer -Label 'allmissing'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fNone
     Assert-Equal 0 $r.Code 'all missing: exit-code 0 -- this is a report, never a gate'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'record', 'needs-decision', 'awaiting-recurrence')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-more-recurrences', 'needs-decision', 'awaiting-first-recurrence')) {
         Assert-True ($r.Out -like "*[missing]*'$name'*") "all missing: '$name' reported [missing]"
     }
     Assert-True ($r.Flat -like "*READ-ONLY*never runs gh label create*") 'all missing: the header states the print-only contract on every run'
@@ -170,7 +170,7 @@ try {
     $dir = New-FixtureConsumer -Label 'allpresent'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fAll
     Assert-Equal 0 $r.Code 'all present: exit-code 0'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'record', 'needs-decision', 'awaiting-recurrence')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-more-recurrences', 'needs-decision', 'awaiting-first-recurrence')) {
         Assert-True ($r.Out -like "*[ok]*'$name' already exists*") "all present: '$name' reported [ok]"
     }
     Assert-Equal 0 (@([regex]::Matches($r.Out, '\[missing\]')).Count) 'all present: zero [missing] lines'
@@ -188,22 +188,34 @@ try {
     foreach ($name in @('prio-1', 'prio-3')) {
         Assert-True ($r.Out -like "*[ok]*'$name' already exists*") "partial: '$name' reported [ok]"
     }
-    foreach ($name in @('prio-2', 'prio-4', 'record', 'needs-decision', 'awaiting-recurrence')) {
+    foreach ($name in @('prio-2', 'prio-4', 'awaiting-more-recurrences', 'needs-decision', 'awaiting-first-recurrence')) {
         Assert-True ($r.Out -like "*[missing]*'$name'*") "partial: '$name' reported [missing]"
     }
     Assert-True ($r.Flat -like '*5 of 7 canonical triage label(s) missing*2 already exist*') 'partial: the summary line counts both halves'
 
     # --- 4b. A tracker still carrying the FORMER name: a rename, never a create beside it (#2683) ----
-    Write-Host '-- 4b. the former name dossier is renamed to record, not duplicated --' -ForegroundColor Cyan
+    Write-Host '-- 4b. the former name dossier is renamed to awaiting-more-recurrences, not duplicated --' -ForegroundColor Cyan
     $fLegacy = New-LabelsFile -Label 'legacy' -Json '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"Dossier","color":"5319E7","description":"old text"}]'
     $dir = New-FixtureConsumer -Label 'legacy'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fLegacy
     Assert-Equal 0 $r.Code 'legacy name: exit-code 0'
-    Assert-True ($r.Out -like "*[rename]*'dossier' -> 'record'*") "legacy name: 'record' is reported as a rename of 'dossier'"
-    Assert-True ($r.Flat -like "*gh label edit 'dossier' --name 'record' --description 'Collects every instance of one recurring problem until its root cause is fixed' --repo fixture-org/fixture-repo*") `
+    Assert-True ($r.Out -like "*[rename]*'dossier' -> 'awaiting-more-recurrences'*") "legacy name: 'awaiting-more-recurrences' is reported as a rename of 'dossier'"
+    Assert-True ($r.Flat -like "*gh label edit 'dossier' --name 'awaiting-more-recurrences' --description 'Collects every instance of one recurring problem until its root cause is fixed' --repo fixture-org/fixture-repo*") `
         'legacy name: the composed command is a paste-ready gh label edit, which keeps every issue on the label'
-    Assert-True ($r.Flat -notlike "*gh label create 'record'*") 'legacy name: and no create is printed beside it'
+    Assert-True ($r.Flat -notlike "*gh label create 'awaiting-more-recurrences'*") 'legacy name: and no create is printed beside it'
     Assert-True ($r.Flat -like '*6 of 7 canonical triage label(s) missing*1 already exist*') 'legacy name: the rename still counts as a to-do in the summary'
+
+    # --- 4c. The #2723 former names: 'record' and 'awaiting-recurrence', each renamed in place ------
+    Write-Host '-- 4c. the former names record and awaiting-recurrence are renamed, not duplicated (#2723) --' -ForegroundColor Cyan
+    $fLegacy2 = New-LabelsFile -Label 'legacy2' -Json '[{"name":"record","color":"5319E7","description":"old text"},{"name":"dossier","color":"5319E7","description":"old text"},{"name":"awaiting-recurrence","color":"5319E7","description":"old text"}]'
+    $dir = New-FixtureConsumer -Label 'legacy2'
+    $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fLegacy2
+    Assert-Equal 0 $r.Code 'former names: exit-code 0'
+    Assert-True ($r.Out -like "*[rename]*'record' -> 'awaiting-more-recurrences'*") "former names: the newest former name 'record' is the one renamed, when 'dossier' is there too"
+    Assert-True ($r.Out -like "*[rename]*'awaiting-recurrence' -> 'awaiting-first-recurrence'*") "former names: 'awaiting-recurrence' is renamed to 'awaiting-first-recurrence'"
+    Assert-True ($r.Flat -like "*gh label edit 'awaiting-recurrence' --name 'awaiting-first-recurrence' --description 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' --repo fixture-org/fixture-repo*") 
+        'former names: the composed rename is paste-ready'
+    Assert-True ($r.Flat -notlike "*gh label create 'awaiting-first-recurrence'*") 'former names: and no create is printed beside either'
 
     # --- 5. An unreadable payload: [skip], never a false [missing] or [ok] -------------------------
     Write-Host '-- 5. an unreadable label payload --' -ForegroundColor Cyan
@@ -227,7 +239,7 @@ try {
     Assert-True ($r.Out -like "*[missing]*'foo-team-label'*") 'custom seam: the CONSUMER''s own label is what gets reported'
     Assert-True ($r.Flat -like "*gh label create 'foo-team-label' --color 'abcdef' --description 'a made-up team convention' --repo fixture-org/fixture-repo*") `
         'custom seam: and the exact command composes from the seam''s own values'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'record', 'needs-decision', 'awaiting-recurrence')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-more-recurrences', 'needs-decision', 'awaiting-first-recurrence')) {
         Assert-True ($r.Out -notlike "*'$name'*") "custom seam: the built-in canonical '$name' is NOT reported -- the seam fully replaced it"
     }
 

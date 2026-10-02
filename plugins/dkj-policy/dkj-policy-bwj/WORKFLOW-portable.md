@@ -324,7 +324,7 @@ text to say otherwise.
 **Write the line BEFORE you post, because you cannot add it afterwards.** The Asana MCP exposes adding
 a comment but no tool to edit or delete one, although the API itself supports both. So a comment a
 session posts without the line stays that way. **A block a person pastes by hand** (step 4's
-paste-ready block, the `needs-info` question) is that person's own message once they post it, and it
+paste-ready block, the `awaiting-more-info` question) is that person's own message once they post it, and it
 takes no header: the rule covers what an agent writes, not what a person chooses to send.
 
 #### A task is read before it is offered for deletion, and a task a person has worked is never deleted
@@ -402,7 +402,7 @@ comment asserted no cause, because a reopen can also mean the issue is going bac
 the true state on three real cards. The requester has now chosen *"back in development"* as the fixed
 wording. What that costs is exactly #2117's case: where a reopen really does hand the ticket back to
 the requester, the comment says otherwise, and the issue thread is where the difference shows. The
-card itself still follows the board rules below, and a reopen does not override the `needs-info` hold.
+card itself still follows the board rules below, and a reopen does not override the `awaiting-more-info` hold.
 
 **The task is never completed by any of this, and the script has no code path that can do it**
 (Dave, September 1, 2026). Closing a GitHub issue is a statement by whoever built the thing; resolving
@@ -880,10 +880,16 @@ function Get-AsanaStageMap {
         InReview       = 5   # project status Done -- the issue is closed
         ReadyToTest    = 6   # the submitter has been TOLD -- their turn; never moved OUT of
         Completed      = 7   # the submitter says it is good -- never a target, never moved OUT of
-        NeedsInfoLabel = 'needs-info'
+        NeedsInfoLabel = 'awaiting-more-info'
     }
 }
 ```
+
+The label was named `needs-info` until October 2, 2026
+([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)), when the purple labels that
+mark an issue *waiting* on something became one `awaiting-` family. While a repo's map uses the default,
+an issue still carrying `needs-info` parks the card in the blocked column too; a map that names
+`NeedsInfoLabel = 'needs-info'` explicitly keeps working unchanged, and `''` still switches the column off.
 
 **That seam exists because the meanings were literals in the script for exactly one afternoon.** They
 shipped on September 2, 2026 against a six-section board; the board gained a section the same day, and
@@ -1022,7 +1028,7 @@ catches those.
 | stage | what a card there means | who puts it there | on what signal |
 |---|---|---|---|
 | `Requests` | new, and nobody has looked at it yet -- a colleague put it on your name | the submitter | **never this workflow** |
-| `NeedsInfo` | we cannot proceed until the submitter answers something | the `needs-info` label | that label is on the issue |
+| `NeedsInfo` | we cannot proceed until the submitter answers something | the `awaiting-more-info` label | that label is on the issue |
 | `Filed` | it is tracked on GitHub now, where the work happens | the daily sweep | project status **`Todo`** |
 | `InDevelopment` | somebody is building it | the daily sweep | project status **`In Progress`** |
 | `InReview` | closed on GitHub, and nobody has been told yet | the daily sweep | project status **`Done`** |
@@ -1069,7 +1075,7 @@ knowing about it.
 **Two answers may move a card backward, and both are a person saying something** rather than CI
 inferring it:
 
-- **The `needs-info` label**, which *outranks the project status*. A card blocked on the submitter
+- **The `awaiting-more-info` label**, which *outranks the project status*. A card blocked on the submitter
   stays blocked whatever the board says, because the person who set the label knows something the
   tracker does not. Removing the label hands the card straight back to its status-derived floor --
   which is forward, so it needs no permission. The label fires its own CI run (`labeled` /
@@ -1085,12 +1091,12 @@ workflow's to take back.
 waiting on the ticket; a label is a change in *our* state, and commenting on it would put a note on
 the submitter's ticket every time somebody triaged the issue.
 
-#### Setting `needs-info` IS writing the question -- one act, and the issue stays open
+#### Setting `awaiting-more-info` IS writing the question -- one act, and the issue stays open
 
 **The label moves the card to the submitter, so the question has to be on it** (inbound
 [#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352), carrying a rule that lived only
 in a consumer page until September 23, 2026). The paste-ready block of step 4 is one exit that ends
-with the requester; `needs-info` is the second, and it moves the card just as hard. Because the CI run
+with the requester; `awaiting-more-info` is the second, and it moves the card just as hard. Because the CI run
 above deliberately says nothing, the only message this exit ever carries is the one the session
 writes. Measured in `BWJ-Development/smartwatchbanden`,
 [#702](https://github.com/BWJ-Development/smartwatchbanden/issues/702) and
@@ -1162,7 +1168,7 @@ instead, per the section above.
 ### 7. What still needs a person
 
 - **Setup, once per repo:** the repo secrets `ASANA_PAT` and `GH_PROJECT_TOKEN`, the variable
-  `ASANA_PROJECT_GID`, the four prio labels of step 5 plus the `needs-info` label of step 6, and
+  `ASANA_PROJECT_GID`, the four prio labels of step 5 plus the `awaiting-more-info` label of step 6, and
   copying the two `templates/` files into `.github/`. The
   [`adopt-dkj-policy-bwj`](skills/adopt-dkj-policy-bwj/SKILL.md) skill walks this.
 - **Naming the project board's three statuses, and where the submitter's name sits.** `Get-AsanaStageMap`
@@ -1187,7 +1193,7 @@ instead, per the section above.
   issue moves the card there in the same breath, and **nothing catches it up** -- the sweep never
   derives that stage. Step 6 says why, and it is why the derivation is a floor: nothing undoes the move
   you made by hand.
-- **Deciding a ticket is blocked on the submitter.** The `needs-info` label is the whole mechanism for
+- **Deciding a ticket is blocked on the submitter.** The `awaiting-more-info` label is the whole mechanism for
   that column, and no automation sets or clears it. Putting it on is a judgement about whether the
   request can proceed -- and it is one act with writing the question, in the form step 6 prescribes;
   taking it off says the answer arrived, and the card returns to wherever the work actually is.
@@ -1250,7 +1256,7 @@ before anybody claims that issue -- read the **assignee of the Asana task**, and
 
 - **Is it assigned to somebody outside the dev team?** Then it is not an assignment. Either leave it
   unmirrored, or mirror it and open it as **blocked on that person** rather than as work -- which is
-  what the `needs-info` label of step 6 says, and it parks the card in the blocked column while it is
+  what the `awaiting-more-info` label of step 6 says, and it parks the card in the blocked column while it is
   true.
 - **`Ball with` is read, not assumed.** The header row below is a judgement about *who is up now*, and
   the task's assignee is the evidence for it. `us` is an answer, not a default: if the task is on

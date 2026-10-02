@@ -3316,11 +3316,15 @@ Assert-Equal 1 (@((Get-ResolvesExemptFindings -Issues @(731) -Bodies @{ '731' = 
 # --- Get-DossierClosingFindings (#2463) -- a repair of one instance does not close a dossier -------
 Write-Host ""
 Write-Host "Get-DossierClosingFindings -- the dossier label refuses a closing keyword (#2463)" -ForegroundColor Cyan
-Assert-Equal 'record' (Get-DossierLabelName) 'the label is the one #2462 made shared, renamed record by #2683'
-Assert-Equal 'record,dossier' ((Get-DossierLabelNames) -join ',') 'the legacy name is still matched, after the current one'
-$dLabels = @{ 801 = @('bug', 'record', 'prio-3'); 802 = @('enhancement'); 803 = @('Record'); '804' = @('record'); 805 = @(); 806 = @('dossier') }
+Assert-Equal 'awaiting-more-recurrences' (Get-DossierLabelName) 'the label is the one #2462 made shared, renamed record by #2683 and awaiting-more-recurrences by #2723'
+Assert-Equal 'awaiting-more-recurrences,record,dossier' ((Get-DossierLabelNames) -join ',') 'the legacy names are still matched, newest first, after the current one'
+$dLabels = @{ 801 = @('bug', 'awaiting-more-recurrences', 'prio-3'); 802 = @('enhancement'); 803 = @('Awaiting-More-Recurrences'); '804' = @('awaiting-more-recurrences'); 805 = @(); 806 = @('dossier'); 807 = @('record') }
 Assert-Equal '806' ((Get-DossierClosingFindings -Issues @(806) -Labels $dLabels) -join ',') 'an issue still carrying the legacy dossier label is caught too (#2683)'
-Assert-Equal 0 (@(Get-DossierClosingFindings -Issues @(806) -Labels $dLabels -Label @('record')).Count) 'and an explicit -Label narrows the match to the names it is given'
+Assert-Equal '807' ((Get-DossierClosingFindings -Issues @(807) -Labels $dLabels) -join ',') 'and so is one still carrying the legacy record label (#2723)'
+Assert-Equal 0 (@(Get-DossierClosingFindings -Issues @(806) -Labels $dLabels -Label @('awaiting-more-recurrences')).Count) 'and an explicit -Label narrows the match to the names it is given'
+$former = Get-FormerTriageLabelNames
+Assert-Equal 'record,dossier' (@($former['awaiting-more-recurrences']) -join ',') 'the rename table hands adopt-triage-labels both former names of the record label (#2723)'
+Assert-Equal 'awaiting-recurrence' (@($former['awaiting-first-recurrence']) -join ',') 'and the former name of the first-recurrence parking label'
 Assert-Equal '801' ((Get-DossierClosingFindings -Issues @(801, 802) -Labels $dLabels) -join ',') 'the issue carrying the label is found, the other is not'
 Assert-Equal '803' ((Get-DossierClosingFindings -Issues @(803) -Labels $dLabels) -join ',') 'matched case-insensitively, as GitHub treats label names'
 Assert-Equal '804' ((Get-DossierClosingFindings -Issues @(804) -Labels $dLabels) -join ',') 'a table keyed by the string spelling is read too'

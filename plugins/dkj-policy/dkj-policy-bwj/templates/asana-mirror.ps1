@@ -860,8 +860,35 @@ function Get-DefaultAsanaStageMap {
         InReview       = 5   # a pull request is open OR merged, and the issue is not closed yet
         ReadyToTest    = 6   # the issue is closed as completed -- the submitter's turn
         Completed      = 7   # the submitter says it is good -- never a target, never moved OUT of
-        NeedsInfoLabel = 'needs-info'
+        NeedsInfoLabel = 'awaiting-more-info'
     }
+}
+
+function Get-MatchedNeedsInfoLabel {
+    <#
+        The blocked-column label this issue carries, as it is spelled on the issue, or '' when it
+        carries none. Pure. Returned rather than tested, so the log names the label that actually
+        parked the card, not the map's name for it.
+
+        THE DEFAULT ALSO MATCHES ITS FORMER NAME. The label was 'needs-info' until #2723 (Dave, October
+        2, 2026), which renamed the three purple waiting labels into one family, and a tracker keeps the
+        old name until somebody renames it there. So where the map uses the default, 'needs-info' still
+        parks the card -- a board must not lose its blocked column the day the template updates. A map
+        that names its own label gets exactly that label, and an empty one switches the column off.
+    #>
+    param(
+        [string[]]$Labels = @(),
+        [Parameter(Mandatory = $true)]$Map
+    )
+    $label = [string]$Map.NeedsInfoLabel
+    if (-not $label) { return '' }
+    $names = @($label)
+    # Compared against the default map's own value rather than a second literal, so a later rename of
+    # the default cannot silently switch the former-name fallback off.
+    if ($label -eq [string](Get-DefaultAsanaStageMap).NeedsInfoLabel) { $names += 'needs-info' }
+    $hit = @(@($Labels) | Where-Object { $names -contains [string]$_ })
+    if ($hit.Count -eq 0) { return '' }
+    return [string]$hit[0]
 }
 
 function Get-DefaultGithubStatusMap {
@@ -1056,7 +1083,7 @@ function Resolve-AsanaStageMap {
     # The label is the one optional key: a map that names none keeps the default, and a map that sets
     # it to '' switches the needs-info column off altogether, which is a real answer.
     if (-not $own.ContainsKey('NeedsInfoLabel')) { $own['NeedsInfoLabel'] = $default.NeedsInfoLabel }
-    Write-Host "  Stage map from scripts/repo-config.ps1: $((Get-StageMapNumbers -Map $own) -join '/'), needs-info label '$($own.NeedsInfoLabel)'."
+    Write-Host "  Stage map from scripts/repo-config.ps1: $((Get-StageMapNumbers -Map $own) -join '/'), blocked-column label '$($own.NeedsInfoLabel)'."
     return $own
 }
 
@@ -1462,8 +1489,8 @@ function Resolve-TargetStage {
         [switch]$HasLinkedPullRequest
     )
 
-    $label = [string]$Map.NeedsInfoLabel
-    if ($label -and (@($Labels) -contains $label)) {
+    $label = Get-MatchedNeedsInfoLabel -Labels $Labels -Map $Map
+    if ($label) {
         return [pscustomobject]@{
             Stage         = $Map.NeedsInfo
             AllowBackward = $true
@@ -1954,8 +1981,7 @@ function Get-SubmitterHandoff {
 
     if (-not [string]$StatusMap.SubmitterPattern) { return $none }
     if ($null -eq $Floor -or $Floor -ne $Map.InReview) { return $none }
-    $label = [string]$Map.NeedsInfoLabel
-    if ($label -and (@($Labels) -contains $label)) { return $none }
+    if (Get-MatchedNeedsInfoLabel -Labels $Labels -Map $Map) { return $none }
 
     $task = Get-AsanaTaskState -Gid $Gid -Pat $Pat -OptFields 'completed,name,notes'
     if ($null -eq $task -or $task.completed) { return $none }

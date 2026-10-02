@@ -632,7 +632,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 'Claimed'     $s.claimed              'an assignee alone is Claimed'
         Assert-Equal 'Filed'       $s.filed                'nothing at all is Filed'
         Assert-Equal 'Filed'       $s.prioLabelIsNotParking 'a prio or bug label is not a parking label'
-        Assert-Equal (Join-N @($jsParking | ForEach-Object { 'Waiting' })) (Join-N $s.parkingEach) 'each parking label parks on its own -- the legacy dossier as well as record (#2683)'
+        Assert-Equal (Join-N @($jsParking | ForEach-Object { 'Waiting' })) (Join-N $s.parkingEach) 'each parking label parks on its own -- every former name as well as the current ones (#2683, #2723)'
         Assert-Equal 'Waiting,Waiting,Waiting' (Join-N $s.parkingMixedCase) '...in any letter case, as GitHub and claim-issue match labels (#2688)'
         Assert-Equal 'In review' $r.e2e.'1' 'end to end: an open non-draft PR closing #1 puts it In review'
         Assert-Equal 'In progress' $r.e2e.'2' '...a draft PR closing #2 puts it In progress'

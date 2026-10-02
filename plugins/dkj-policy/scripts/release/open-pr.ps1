@@ -1370,7 +1370,7 @@ foreach ($bad in @($exemptSeam.Rejected)) {
 # of one instance does not close it (CONTRIBUTING-portable.md, step 1; the label is #2462's). That rule
 # was held by memory alone: the matchers above read a BODY and default to nothing, so `-Resolves
 # <record>` went through and the merge closed the collecting issue. The label was named 'dossier' until
-# #2683, and both names are matched.
+# #2683 and 'record' until #2723, and all three names are matched.
 #
 # NOT SEAM-GATED, UNLIKE THE MATCHERS, and that is the cost this gate adds: the rule is shared by every
 # repo running the workflow, so every PR that closes anything pays one `gh issue view` per closing issue
@@ -1395,7 +1395,7 @@ if ($closingAtMerge.Count -gt 0) {
         }
         Write-Error @"
 resolves gate: this PR would close $dossierList, which carries the '$(Get-DossierLabelName)' label - nothing pushed, no PR opened.
-(An issue still carrying the former name 'dossier' is the same label, and is refused the same way.)
+(An issue still carrying a former name, 'record' or 'dossier', is the same label, and is refused the same way.)
 
 A record collects every instance of one recurring problem until its root cause is fixed, and a repair
 of one instance does not close it (CONTRIBUTING-portable.md, step 1).
