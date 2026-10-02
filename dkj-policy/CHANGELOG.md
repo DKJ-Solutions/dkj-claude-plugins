@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2702-release-freshness-confirms-current · 20261002-082018Z
+
+`release-freshness-sessioncheck` used to be silent when the running release matched GitHub's newest, so a quiet session start meant either "current" or "could not check". Now a probe that actually read a tag always says something: the existing warning when behind, and one confirmation line when current or ahead. Every failure (no clone, offline, a timeout, no tag at all) is still silent, so it never claims "up to date" without having checked. Resolves #2702.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A new session now shows *dkj plugins are up to date: this session runs v5.12.0*, so whether to run update-plugins is no longer guesswork.
+
+**Score:** 3
+
+#### Pull Request
+
+release-freshness-sessioncheck confirms visibly when the dkj plugins are up to date
+
+Plugins: dkj-policy
+
+[PR #2704](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2704)
+
+---
 
 ### DEPLOY: fix/figma-off-here · 20261001-202811Z
 
