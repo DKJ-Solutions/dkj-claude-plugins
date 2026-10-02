@@ -375,6 +375,10 @@ $betweenLines = @(($between.Trim()) -split "`n")
 Assert-Equal "$([char]0x2014) automatisch bericht vanuit GitHub #500" $betweenLines[0] 'the pasted block opens with the session route''s header line'
 Assert-Equal 'TE BEKIJKEN OP' $betweenLines[2] 'then the where-to-look heading'
 Assert-Equal 'Het resultaat is hier te bekijken: [ADD LINK]' $betweenLines[4] 'and the link sentence, in Dutch, with the placeholder'
+# A TEXT LINE DIRECTLY ABOVE '---' IS A SETEXT H2 (#2701): the closing rule needs a blank line above it.
+$pasteLines = @($pasteComment -split "`n")
+Assert-Equal '---' $pasteLines[-1] 'the backstop comment ends on the closing rule'
+Assert-Equal ''    $pasteLines[-2] 'and the line above it is blank, so the link sentence is not rendered as a heading'
 Assert-Equal 5 $betweenLines.Count 'and no further section -- nothing is placeholdered but the link'
 Assert-True ($between -notmatch 'The fix for')             'the old English sentence is gone'
 
@@ -1035,6 +1039,14 @@ Assert-True ($goLiveBare.Contains('release van maandag 21 september 2026.')) 'wi
 Assert-True ($goLiveBare -notmatch 'als versie') 'and no version clause at all'
 Assert-True ($goLiveBare -notmatch 'Zodra het live is') 'with no markets, there is no live-URL list'
 Assert-True ($goLiveBare -notmatch 'WAT WE VAN JE VRAGEN') 'with no link, there is nothing to look at, so no ask'
+
+# THE CLOSING RULE FOLLOWS A BLANK LINE, whichever section ends the block (#2701): a text line directly
+# above '---' is a setext H2, which rendered the block's last paragraph as a heading on GitHub.
+foreach ($glClosed in @(@{ Name = 'the ask section'; Block = $goLiveBlock }, @{ Name = 'the when section'; Block = $goLiveBare }, @{ Name = 'an English block'; Block = $goLiveEn })) {
+    $glClosedLines = @($glClosed.Block -split "`n")
+    Assert-Equal '---' $glClosedLines[-1] "a block ending on $($glClosed.Name) ends on the closing rule"
+    Assert-Equal ''    $glClosedLines[-2] "and the line above that rule is blank, so $($glClosed.Name) is not rendered as a heading"
+}
 
 # THE SESSION'S PROSE ARRIVES THROUGH A FILE, parsed strictly -- a misspelled section line must not
 # silently drop the paragraph under it.

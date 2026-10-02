@@ -428,6 +428,9 @@ function Format-GoLiveBlock {
     if ($notParas.Count -gt 0) { $lines += & $addSection $t.NotIncluded $notParas }
 
     $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink -Text $t
+    # THE BLANK LINE BEFORE THE CLOSING RULE IS LOAD-BEARING (#2701): a text line directly above '---'
+    # is a setext H2 in Markdown, so without it GitHub rendered the block's last paragraph as a heading.
+    $lines += ''
     $lines += '---'
 
     return ($lines -join "`n")

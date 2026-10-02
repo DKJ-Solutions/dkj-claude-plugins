@@ -648,6 +648,8 @@ function New-AsanaPasteBlockComment {
         'TE BEKIJKEN OP',
         '',
         'Het resultaat is hier te bekijken: [ADD LINK]',
+        # The blank line keeps the line above from rendering as a setext H2 (#2701).
+        '',
         '---'
     ) -join "`n"
 }
