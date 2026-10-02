@@ -468,7 +468,7 @@ Assert-True ('3' -eq (Get-StageFromSectionName -Name '3. Todo'))       'a bare d
 # filed a column early. The map is now a repo seam, and the default is what a repo stating none gets.
 $map = Get-DefaultAsanaStageMap
 Assert-Equal '1/2/3/4/5/6/7' ((Get-StageMapNumbers -Map $map) -join '/') 'the default map is the seven-section board, in cycle order'
-Assert-Equal 'needs-info' $map.NeedsInfoLabel 'and it names the label that drives the Need more info column'
+Assert-Equal 'awaiting-more-info' $map.NeedsInfoLabel 'and it names the label that drives the Need more info column (needs-info until #2723)'
 Assert-Equal 0 (Test-AsanaStageMap -Map $map).Count 'the default map validates'
 
 # Three ways a hand-written map goes wrong, and all three are SILENT at runtime rather than loud:
@@ -576,10 +576,19 @@ Assert-True ($derived -notcontains $map.ReadyToTest) 'and Ready to test is never
 
 # --- the target, and the two answers that may go BACKWARD -----------------------------------------
 # Everything else is a floor, and floors only rise. These two are a person saying something.
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'In Progress' -Labels @('tier-1', 'needs-info') -StatusMap $statusMap -Map $map
-Assert-Equal $map.NeedsInfo $t.Stage         'the needs-info label OUTRANKS the project status -- In Progress does not unblock a card somebody blocked'
+$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'In Progress' -Labels @('tier-1', 'awaiting-more-info') -StatusMap $statusMap -Map $map
+Assert-Equal $map.NeedsInfo $t.Stage         'the awaiting-more-info label OUTRANKS the project status -- In Progress does not unblock a card somebody blocked'
 Assert-True  $t.AllowBackward                'and it may move the card backward, because a person set it'
-Assert-True  ($t.Why -match 'needs-info')    'and the log says which label decided it'
+Assert-True  ($t.Why -match 'awaiting-more-info') 'and the log says which label decided it'
+
+# THE FORMER NAME STILL PARKS THE CARD under the default map (#2723): a tracker keeps 'needs-info' until
+# somebody renames it there, and a board must not lose its blocked column the day the template updates.
+$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'In Progress' -Labels @('needs-info') -StatusMap $statusMap -Map $map
+Assert-Equal $map.NeedsInfo $t.Stage 'the former name needs-info still parks the card while the map uses the default label'
+Assert-True  (Test-NeedsInfoLabelPresent -Labels @('Needs-Info') -Map $map) 'matched case-insensitively, as GitHub treats label names'
+Assert-True  (-not (Test-NeedsInfoLabelPresent -Labels @('needs-info') -Map $shifted)) 'but a map naming its OWN label gets exactly that label, and no former name beside it'
+Assert-True  (Test-NeedsInfoLabelPresent -Labels @('needs-info') -Map $lettered) 'and a map that still names needs-info explicitly keeps working unchanged'
+Assert-True  (-not (Test-NeedsInfoLabelPresent -Labels @('prio-2') -Map $map)) 'an issue carrying neither name is not parked'
 
 $t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'In Progress' -Labels @('tier-1') -StatusMap $statusMap -Map $map
 Assert-Equal $map.InDevelopment $t.Stage     'removing the label hands the card back to its status-derived floor'
@@ -591,7 +600,7 @@ Assert-Equal $map.Filed $t.Stage             'a reopen lands the card wherever t
 Assert-True  $t.AllowBackward                'and is the other answer allowed to go backward -- it is a real state change'
 Assert-True  ($t.Why -match 'reopen')        'and says so'
 
-$t = Resolve-TargetStage -State 'CLOSED' -StateReason 'not_planned' -ProjectStatus 'Done' -Labels @('needs-info') -StatusMap $statusMap -Map $map
+$t = Resolve-TargetStage -State 'CLOSED' -StateReason 'not_planned' -ProjectStatus 'Done' -Labels @('awaiting-more-info') -StatusMap $statusMap -Map $map
 Assert-Equal $map.NeedsInfo $t.Stage 'the label still answers for an issue whose status answers nothing'
 
 $t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'Todo' -Labels @('blocked') -StatusMap $statusMap -Map $shifted
@@ -599,7 +608,7 @@ Assert-Equal 20 $t.Stage 'the label name comes from the map too, so a repo may c
 $t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'Todo' -Labels @() -StatusMap $statusMap -Map $shifted
 Assert-Equal 30 $t.Stage 'and the stage NUMBERS still come off the stage map, so the status drives a board numbered any other way just the same'
 $noLabel = $map.Clone(); $noLabel['NeedsInfoLabel'] = ''
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'Todo' -Labels @('needs-info') -StatusMap $statusMap -Map $noLabel
+$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'Todo' -Labels @('awaiting-more-info', 'needs-info') -StatusMap $statusMap -Map $noLabel
 Assert-Equal $map.Filed $t.Stage 'and a map naming no label switches the column off -- a real answer for a board without one'
 
 # --- the feedback promotion, and the two stages nothing here takes a card back out of -------------
@@ -676,8 +685,8 @@ $t = Resolve-TargetStage @closed -StatusMap $boardless -Map $map -Submitter 'Jor
 Assert-Equal $map.ReadyToTest $t.Stage 'a closed issue in a board-less repo IS handed back to the submitter -- the transition #1536 measured as silently lost'
 $t = Resolve-TargetStage @closed -StatusMap $boardless -Map $map -Submitter 'Jordy Navarro'
 Assert-Equal $map.InReview $t.Stage 'and the two conditions still both apply -- an untold submitter waits in In review exactly as with a board'
-$t = Resolve-TargetStage -State 'OPEN' -StatusMap $boardless -Map $map -Labels @('needs-info')
-Assert-Equal $map.NeedsInfo $t.Stage 'the needs-info label still outranks everything, board or no board'
+$t = Resolve-TargetStage -State 'OPEN' -StatusMap $boardless -Map $map -Labels @('awaiting-more-info')
+Assert-Equal $map.NeedsInfo $t.Stage 'the awaiting-more-info label still outranks everything, board or no board'
 $t = Resolve-TargetStage -State 'OPEN' -StatusMap $boardless -Map $map
 Assert-True ($t.Why -match 'no project board') 'and the log says the stage came off the issue, so a move is still attributable'
 

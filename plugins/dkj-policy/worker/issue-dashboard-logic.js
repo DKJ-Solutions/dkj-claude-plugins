@@ -25,8 +25,13 @@
 // input always gives the same page.
 
 export const STATUSES = ["In review", "In progress", "Waiting", "Blocked", "Claimed", "Filed"];
-// "dossier" is the legacy name of "record" (#2683), still read because a tracker keeps it until renamed.
-export const PARKING_LABELS = ["needs-info", "needs-decision", "awaiting-recurrence", "record", "dossier"];
+// The last four are former names (#2683, #2723), still read because a tracker keeps a name until renamed:
+// "needs-info" is now "awaiting-more-info", "awaiting-recurrence" is "awaiting-first-recurrence", and
+// "record" and "dossier" are "awaiting-more-recurrences".
+export const PARKING_LABELS = [
+  "awaiting-more-info", "needs-decision", "awaiting-first-recurrence", "awaiting-more-recurrences",
+  "needs-info", "awaiting-recurrence", "record", "dossier",
+];
 
 // The first parking label on an issue, as PARKING_LABELS spells it, or undefined. Compared
 // case-insensitively, because GitHub label names are and claim-issue/open-pr match them that way (#2688).

@@ -1127,34 +1127,41 @@ is the half of #1685 that had a deadline: a taxonomy applied only to new issues 
 two, and the older half is where the backlog actually is. Two came out at `prio-4` (#1678, #1679), three
 at `prio-3` (#1685 itself among them), four at `prio-2` and one at `prio-1`.
 
-### The kind label — `record`, and a repair does not close it
+### The kind label — `awaiting-more-recurrences`, and a repair does not close it
 
-**`record` (`5319E7`) marks a collecting issue**: every instance of one recurring problem is added to it
+**`awaiting-more-recurrences` (`5319E7`) marks a collecting issue -- a *record* --**: every instance of one recurring problem is added to it
 as a comment until the root cause is found, so a repair of one instance never closes it. #2454 is the
 first one here. It is a shared way of working, not this repo's own label (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)), so it ships in
 `Get-TriageLabels` beside the rungs. A record still carries a `prio-N`. It was named `dossier` until
 [#2683](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2683) (Dave, October 1, 2026), and the
-gates still match that name; this tracker renamed it in place. The handling rule — comment
+gates still match that name; this tracker renamed it in place. It was then named `record` until
+[#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723) (Dave, October 2, 2026), which
+made the three purple labels, each marking an issue *waiting* on something, one family: `needs-info` became
+`awaiting-more-info`, `awaiting-recurrence` became `awaiting-first-recurrence`, and `record` became this
+label. Every former name is still matched and never prescribed, and `adopt-triage-labels.ps1` prints the
+`gh label edit` rename for a tracker that still carries one. The noun *record* and the `[RECORD]` title
+prefix did not change. The handling rule — comment
 instead of a new issue, `part of #<n>` instead of a keyword, close only on the root-cause repair — is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — `needs-decision` at filing, `awaiting-recurrence` once only evidence is owed
+### The parking labels — `needs-decision` at filing, `awaiting-first-recurrence` once only evidence is owed
 
 **`needs-decision` (`BFD4F2`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
 nor a sweep treats it as work that is ready (Dave, September 26, 2026,
 [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)). It is set in the same
-`gh issue create` as the `prio-N`, and it is not `needs-info`, which `dkj-policy-bwj` reserves for
+`gh issue create` as the `prio-N`, and it is not `awaiting-more-info` (`needs-info` until #2723), which `dkj-policy-bwj` reserves for
 *blocked on the submitter*. It ships in `Get-TriageLabels`, and the filing rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
 
-**`awaiting-recurrence` (`5319E7`) parks an issue waiting on its first reproducible occurrence** (Dave,
+**`awaiting-first-recurrence` (`5319E7`) parks an issue waiting on its first reproducible occurrence** (Dave,
 September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)), after
-#2572 was picked up four times in one day with nothing to build. Both pickup routes skip it as they skip
-`needs-decision`. It is not `record`, which collects a problem that demonstrably recurs, and it comes off
+#2572 was picked up four times in one day with nothing to build. It was named `awaiting-recurrence` until
+#2723 (October 2, 2026). Both pickup routes skip it as they skip
+`needs-decision`. It is not `awaiting-more-recurrences`, which collects a problem that demonstrably recurs, and it comes off
 when a recurrence arrives.
-**It shares `record`'s colour on purpose**: both mark an issue that is meant to stay open for a while, so
+**It shares `awaiting-more-recurrences`'s colour on purpose**: both mark an issue that is meant to stay open for a while, so
 the tracker shows the long-lived ones at a glance (Dave, September 28, 2026,
 [#2604](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2604)). `needs-decision` keeps its own
 colour, because it waits on an answer rather than on time.

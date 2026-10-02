@@ -148,7 +148,8 @@ The two ends stay the submitter's -- their untriaged inbox at one end and `Compl
 and the code permits the middle and nothing else, which is the same guarantee as *"it never ticks the
 task off"* in the board's own currency. **And the last two sections are terminal**: once a card is in
 *ready to test* or `Completed`, nothing here takes it back out, not even a reopen. Moves are otherwise
-forward, with exactly two exceptions that are both a person saying something: the `needs-info` label,
+forward, with exactly two exceptions that are both a person saying something: the `awaiting-more-info` label
+(`needs-info` until [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723), October 2, 2026),
 which blocks a card whatever the board is doing, and an issue being reopened. Dave, September 2, 2026, closing
 [#1222](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1222); **there is exactly one such
 board**, which is what makes the *"which board?"* question inbound

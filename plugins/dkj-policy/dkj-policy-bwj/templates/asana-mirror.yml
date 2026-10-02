@@ -52,7 +52,7 @@ permissions:
 # WHAT THE SPLIT COSTS, because it is not free: a `state` run and a `triage` run on ONE issue can now
 # run CONCURRENTLY, where the single group serialised them. Sync-AsanaTaskStage has no
 # compare-and-set -- it reads the card's membership and moves -- so the later WRITE wins regardless of
-# which EVENT was later. That only matters for `needs-info`, one of the two answers allowed to move a
+# which EVENT was later. That only matters for `awaiting-more-info` (`needs-info` until #2723), one of the two answers allowed to move a
 # card BACKWARD: triage resolves it to the hold and moves the card back, and a `state` run still
 # holding the reading it took before that label landed resolves a forward floor. A forward move needs
 # no permission, so nothing blocks it and the card leaves the hold. Reconciliation sweep (d) is the

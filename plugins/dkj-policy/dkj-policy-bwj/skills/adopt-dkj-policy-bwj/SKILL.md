@@ -118,7 +118,7 @@ function Get-AsanaStageMap {
         InReview       = 5   # project status Done -- the issue is closed
         ReadyToTest    = 6   # the submitter has been TOLD -- their turn; never moved OUT of
         Completed      = 7   # the submitter says it is good -- never a target, never moved OUT of
-        NeedsInfoLabel = 'needs-info'
+        NeedsInfoLabel = 'awaiting-more-info'
     }
 }
 
@@ -384,7 +384,7 @@ label, create it.
 
 **The hazard is not unique to this label; the measurement is.** Rename `documentation` or a prio label
 and this step would re-create that one beside it in exactly the same way -- the difference is that
-`needs-info` already has a seam (`NeedsInfoLabel`), the prio labels are written by a sweep that would
+`awaiting-more-info` already has a seam (`NeedsInfoLabel`), the prio labels are written by a sweep that would
 report a failure, and the reach label is the one a consumer has actually renamed. So the pause is
 written here, where it has been paid for, rather than four times on speculation. If a second rename
 lands on one of the others, that is the moment for its own seam -- not a reason to widen this one now.
@@ -453,14 +453,18 @@ gap costs one sweep and the next morning repairs it. The sweep also removes the 
 sets a new one, so a repo that ended up with all eight anyway is swept clean rather than left
 claiming two priorities at once.
 
-**And the `needs-info` label**, which is the entire mechanism for the board's blocked column: while it
+**And the `awaiting-more-info` label**, which is the entire mechanism for the board's blocked column: while it
 is on an issue the card sits in `NeedsInfo` whatever the branch and the pull request are doing, and
 taking it off returns the card to wherever the work actually is. Name it in
 `Get-AsanaStageMap`'s `NeedsInfoLabel` if the repo prefers another word; set that to `''` and the
-column is switched off, which is a real answer for a board without one.
+column is switched off, which is a real answer for a board without one. The label was named `needs-info`
+until October 2, 2026 ([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)): a
+tracker already carrying `needs-info` renames it in place, keeping every issue on it, with
+`gh label edit needs-info --name awaiting-more-info --repo <owner>/<repo>`, and until then the card still
+parks while the map uses the default.
 
 ```bash
-gh label create needs-info --repo <owner>/<repo> --color d4c5f9 \
+gh label create awaiting-more-info --repo <owner>/<repo> --color d4c5f9 \
   --description "Blocked on the person who filed it -- parks the Asana card in the blocked column"
 ```
 

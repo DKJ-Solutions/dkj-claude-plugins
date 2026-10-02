@@ -860,8 +860,29 @@ function Get-DefaultAsanaStageMap {
         InReview       = 5   # a pull request is open OR merged, and the issue is not closed yet
         ReadyToTest    = 6   # the issue is closed as completed -- the submitter's turn
         Completed      = 7   # the submitter says it is good -- never a target, never moved OUT of
-        NeedsInfoLabel = 'needs-info'
+        NeedsInfoLabel = 'awaiting-more-info'
     }
+}
+
+function Test-NeedsInfoLabelPresent {
+    <#
+        Does this issue carry the map's needs-info label? Pure.
+
+        THE DEFAULT ALSO MATCHES ITS FORMER NAME. The label was 'needs-info' until #2723 (Dave, October
+        2, 2026), which renamed the three purple waiting labels into one family, and a tracker keeps the
+        old name until somebody renames it there. So where the map uses the default, 'needs-info' still
+        parks the card -- a board must not lose its blocked column the day the template updates. A map
+        that names its own label gets exactly that label, and an empty one switches the column off.
+    #>
+    param(
+        [string[]]$Labels = @(),
+        [Parameter(Mandatory = $true)]$Map
+    )
+    $label = [string]$Map.NeedsInfoLabel
+    if (-not $label) { return $false }
+    $names = @($label)
+    if ($label -eq 'awaiting-more-info') { $names += 'needs-info' }
+    return (@(@($Labels) | Where-Object { $names -contains [string]$_ }).Count -gt 0)
 }
 
 function Get-DefaultGithubStatusMap {
@@ -1462,8 +1483,8 @@ function Resolve-TargetStage {
         [switch]$HasLinkedPullRequest
     )
 
-    $label = [string]$Map.NeedsInfoLabel
-    if ($label -and (@($Labels) -contains $label)) {
+    if (Test-NeedsInfoLabelPresent -Labels $Labels -Map $Map) {
+        $label = [string]$Map.NeedsInfoLabel
         return [pscustomobject]@{
             Stage         = $Map.NeedsInfo
             AllowBackward = $true
@@ -1954,8 +1975,7 @@ function Get-SubmitterHandoff {
 
     if (-not [string]$StatusMap.SubmitterPattern) { return $none }
     if ($null -eq $Floor -or $Floor -ne $Map.InReview) { return $none }
-    $label = [string]$Map.NeedsInfoLabel
-    if ($label -and (@($Labels) -contains $label)) { return $none }
+    if (Test-NeedsInfoLabelPresent -Labels $Labels -Map $Map) { return $none }
 
     $task = Get-AsanaTaskState -Gid $Gid -Pat $Pat -OptFields 'completed,name,notes'
     if ($null -eq $task -or $task.completed) { return $none }

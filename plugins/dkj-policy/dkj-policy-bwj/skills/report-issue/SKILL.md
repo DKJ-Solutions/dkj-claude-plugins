@@ -301,11 +301,11 @@ That hop is a session's to make and **nothing catches it up**: GitHub has no sig
 no pull request behind it, so the sweep never derives that stage at all. Nothing undoes the move
 either -- the sweep derives a floor, never a position.
 
-**A ticket blocked on the person who filed it gets the `needs-info` label**, and that is the whole
+**A ticket blocked on the person who filed it gets the `awaiting-more-info` label**, and that is the whole
 mechanism for the board's blocked column -- the label fires its own CI run, so the card moves as you
 triage. **Setting it and writing the question are one act**: the label moves the card to the submitter,
 so the comment asking them what you need goes on in the same movement, in the form
-[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#setting-needs-info-is-writing-the-question----one-act-and-the-issue-stays-open)
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#setting-awaiting-more-info-is-writing-the-question----one-act-and-the-issue-stays-open)
 step 6 prescribes, and the issue stays open. Take the label off when the answer arrives and the card
 returns to wherever the work actually is. Do not move that card by hand: the label is what the column is derived from, so a hand-move is
 undone on the next sweep while the label stays.

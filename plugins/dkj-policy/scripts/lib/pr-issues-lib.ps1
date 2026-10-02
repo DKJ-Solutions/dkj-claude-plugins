@@ -1267,8 +1267,24 @@ function Get-ResolvesExemptFindings {
 # RENAMED FROM 'dossier' TO 'record' (issue #2683, Dave October 1, 2026 -- clearer, and plainer English).
 # The old name is still MATCHED and never prescribed: a consumer's tracker keeps 'dossier' until somebody
 # renames it there, and a rule about what a merge may close must not lapse the day the plugin updates.
-$script:DossierLabelName = 'record'
-$script:DossierLegacyLabelNames = @('dossier')
+#
+# RENAMED AGAIN, TO 'awaiting-more-recurrences' (issue #2723, Dave October 2, 2026), as one of the three
+# purple labels that each mark an issue WAITING on something: 'awaiting-more-info' (was 'needs-info'),
+# 'awaiting-first-recurrence' (was 'awaiting-recurrence') and this one. The two awaiting-*-recurrence
+# names say the difference outright -- one instance and none reproduced yet, against a problem that has
+# demonstrably recurred and is still being collected. Both former names stay matched, for the reason above.
+$script:DossierLabelName = 'awaiting-more-recurrences'
+$script:DossierLegacyLabelNames = @('record', 'dossier')
+
+# EVERY RENAMED TRIAGE LABEL, current name -> its former names, newest first. Read by
+# adopt-triage-labels.ps1, which prints a `gh label edit` rather than a `gh label create` for a tracker
+# still carrying a former name, so a rename keeps every issue on its label.
+function Get-FormerTriageLabelNames {
+    return @{
+        (Get-DossierLabelName)      = @(Get-DossierLabelNames | Select-Object -Skip 1)
+        'awaiting-first-recurrence' = @('awaiting-recurrence')
+    }
+}
 
 function Get-DossierLabelName {
     <# The label that marks a collecting issue -- see the block above. #>
@@ -1284,7 +1300,8 @@ function Get-DossierLabelNames {
 function Get-DossierClosingFindings {
     <#
     .SYNOPSIS
-        Which of the issues this PR would close carry the record label, or its legacy name 'dossier'.
+        Which of the issues this PR would close carry the record label ('awaiting-more-recurrences'), or
+        one of its legacy names 'record' and 'dossier'.
         Returns an int[], possibly empty.
 
     .DESCRIPTION
@@ -1318,7 +1335,7 @@ function Get-DossierClosingFindings {
         elseif ($Labels.ContainsKey("$n"))    { $names = $Labels["$n"] }
         else                                  { continue }
         # Case-insensitive, as GitHub itself treats label names -- and against every name in $Label, so
-        # the legacy 'dossier' is caught as well as 'record'.
+        # the legacy 'record' and 'dossier' are caught as well as the current name.
         if (@(@($names) | Where-Object { $Label -icontains ([string]$_).Trim() }).Count -gt 0) { $hits += [int]$n }
     }
     return [int[]]@($hits)

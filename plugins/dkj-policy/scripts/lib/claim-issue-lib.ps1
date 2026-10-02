@@ -2469,7 +2469,7 @@ function Format-ParkingLabelNote {
         .DESCRIPTION
             WARNS, NEVER REFUSES -- the same bound as every pickup signal in this script (#1485): a label
             can be stale, and a claim that blocks costs the whole assignment. What it changes is the
-            reading. The sweep route skips such an issue outright (`-Candidates -SkipLabel needs-info,needs-decision,awaiting-recurrence,record,dossier`);
+            reading. The sweep route skips such an issue outright (`-Candidates -SkipLabel awaiting-more-info,needs-decision,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,awaiting-recurrence,record,dossier`);
             the single-issue route used to claim it and print "the work starts here", and a session took
             that literally and chose between the owner's options itself.
 
@@ -2546,7 +2546,7 @@ function Get-SweepCandidates {
             coordinating, so two sessions starting at the same moment collide on ONE issue and then
             diverge, rather than racing down the list together.
 
-            A SKIP IS NOT A VERDICT ABOUT THE WORK. A label the caller named (needs-info, blocked) means
+            A SKIP IS NOT A VERDICT ABOUT THE WORK. A label the caller named (awaiting-more-info, blocked) means
             the issue is parked with somebody else, and an explicitly excluded number means a person
             said so. Both are reported with their reason rather than silently dropped, because a sweep
             that says "nothing to do" while it is hiding six issues has told the operator nothing.

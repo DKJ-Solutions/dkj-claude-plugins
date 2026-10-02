@@ -152,17 +152,20 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `record`, `needs-decision` and `awaiting-recurrence`), so
-adopting the convention costs one command instead of seven typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `needs-decision` and
+`awaiting-first-recurrence`), so adopting the convention costs one command instead of seven typed by hand.
 
-**`record` marks a collecting issue, and it changes how the issue is closed** (Dave, September 24, 2026,
+**`awaiting-more-recurrences` marks a collecting issue -- a *record* -- and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A record gathers every
 instance of one recurring problem until its root cause is found. It is a *kind* of issue, not a rung, so
 it carries a `prio-N` of its own like any other issue. The label was named `dossier` until October 1, 2026
-([#2683](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2683)): `open-pr`'s refusal and both
-pickup routes still match the old name, so a tracker that has not renamed it stays protected, and
+([#2683](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2683)), then `record` until October 2,
+2026 ([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)), when the three purple
+labels that each mark an issue *waiting* on something became one family. `open-pr`'s refusal and both
+pickup routes still match both old names, so a tracker that has not renamed it stays protected, and
 `task/adopt-triage-labels.ps1` prints the `gh label edit` that renames it in place, keeping every issue on
-it. Five things follow from being a record:
+it. The noun *record* and the `[RECORD]` title prefix are unchanged; only the label's name moved. Five
+things follow from being a record:
 
 - **Its title starts with `[RECORD]`** (Dave, October 1, 2026). A record stays open for weeks, and in an
   issue list it otherwise reads like any small finding. The prefix makes the difference visible without
@@ -174,14 +177,15 @@ it. Five things follow from being a record:
   without a closing keyword (`part of #<n>`), in its commits as well as its body, and leaves the record
   out of `open-pr`'s `-Resolves`. A keyword in a commit message closes the issue whatever prose follows it.
   **`open-pr` refuses the PR body half** ([#2463](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2463)):
-  a PR that would close an issue carrying `record`, through `-Resolves` or a `Closes` already on the PR,
+  a PR that would close an issue carrying `awaiting-more-recurrences`, through `-Resolves` or a `Closes` already on the PR,
   stops before the push. The commit-message half is still yours, because no gate reads it.
 - **The record is closed only when the root cause is repaired.** The closing comment names that repair,
   so a reader of the thread can see which of its instances the repair explains. Because `open-pr` refuses
   to close it, even that PR ships with `-NoResolves`, and the record is closed by hand after the merge.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `record` by default, exactly as they skip `needs-decision` and `awaiting-recurrence`. Working a
+  skip `awaiting-more-recurrences` by default, exactly as they skip `needs-decision` and
+  `awaiting-first-recurrence`. Working a
   record is a deliberate assignment, named by its number.
 
 **`needs-decision` parks an issue that ends in the owner's choice, and it is set when the issue is filed**
@@ -193,29 +197,34 @@ work starts, and `sweep-issues` leaves it alone. The owner removes the label whe
 answer goes on the issue as a comment, so whoever picks it up next finds the decision in the thread
 rather than in a conversation that has since been cleared.
 
-- **It is not `needs-info`.** Where [`dkj-policy-bwj`](dkj-policy-bwj/WORKFLOW-portable.md) is installed,
-  `needs-info` means *blocked on the submitter*: it moves the mirrored Asana card to the blocked column and
+- **It is not `awaiting-more-info`.** Where [`dkj-policy-bwj`](dkj-policy-bwj/WORKFLOW-portable.md) is installed,
+  `awaiting-more-info` (named `needs-info` until October 2, 2026,
+  [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723); the old name is still matched)
+  means *blocked on the submitter*: it moves the mirrored Asana card to the blocked column and
   obliges a question comment addressed to the person who filed it. Neither is true of a decision that is
   the owner's, so the two labels stay separate, and both are skipped.
 - **An issue that is only the question has one answer route.** Once the owner answers, the label comes off
   and the issue is ordinary work. Where the answer is *"neither"*, the issue closes as `not_planned` with
   that reason.
 
-**`awaiting-recurrence` parks an issue whose only remaining step is its first reproducible occurrence**
+**`awaiting-first-recurrence` parks an issue whose only remaining step is its first reproducible occurrence**
 (Dave, September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)).
+It was named `awaiting-recurrence` until October 2, 2026
+([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)); the old name is still matched,
+and `task/adopt-triage-labels.ps1` prints the `gh label edit` that renames it in place.
 An issue with one instance that could not be reproduced, and whose diagnostic has already shipped, has
 nothing left to build until it happens again. Without a label it reads as free work, so every sweep picks
 it up, finds nothing to do and releases it. Both pickup routes skip this label by default, exactly as they
 skip `needs-decision`.
 
-- **It is not `record`.** A record collects instances of a problem that *demonstrably* recurs, so there
+- **It is not `awaiting-more-recurrences`.** A record collects instances of a problem that *demonstrably* recurs, so there
   is always a next instance to read and a root cause to hunt. Both are parked, but for different
   reasons, and only a record changes how the issue is closed. An issue carrying
-  `awaiting-recurrence` has a single unreproduced instance and waits for its first reproducible one.
+  `awaiting-first-recurrence` has a single unreproduced instance and waits for its first reproducible one.
 - **Its title starts with `[RECORD]` too** (Dave, October 1, 2026), for the reason a record's does: it
   stays open far longer than an ordinary finding, and the prefix shows that in any issue list.
 - **The recurrence takes the label off.** Record the new instance as a comment, remove the label and the
-  `[RECORD]` prefix, and the issue is ordinary work again. If it keeps recurring, it becomes a `record`,
+  `[RECORD]` prefix, and the issue is ordinary work again. If it keeps recurring, it becomes a record (`awaiting-more-recurrences`),
   and the prefix goes back on.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**

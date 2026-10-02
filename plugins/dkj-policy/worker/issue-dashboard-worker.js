@@ -306,11 +306,14 @@ function labelTag(name, color) {
 // comment is not read here, so an issue a sweep has just tagged still shows as sweepable until it is
 // assigned or gets a branch.
 const PARKED_BECAUSE = {
-  "needs-info": "waiting on the submitter",
+  "awaiting-more-info": "waiting on the submitter",
   "needs-decision": "waiting on the owner's decision",
-  "awaiting-recurrence": "waiting on a recurrence",
+  "awaiting-first-recurrence": "waiting on a first recurrence",
+  "awaiting-more-recurrences": "record: waiting on the next instance or the root cause",
+  // Former names (#2683, #2723), still read because a tracker keeps a name until renamed.
+  "needs-info": "waiting on the submitter",
+  "awaiting-recurrence": "waiting on a first recurrence",
   record: "record: waiting on the next instance or the root cause",
-  // The legacy name of "record" (#2683), still read because a tracker keeps it until renamed.
   dossier: "record: waiting on the next instance or the root cause",
 };
 function sweepVerdict(r) {
