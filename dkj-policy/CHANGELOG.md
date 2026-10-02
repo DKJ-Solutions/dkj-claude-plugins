@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**6 / 8 minor entries** <!-- pending-tally -->
+**7 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2695-dkj-solutions-house-style · 20261002-095632Z
+
+Adds `dkj-policy-dkjs`, the DKJ-Solutions codex: an additive add-on to `dkj-policy` whose first chapter
+is the house style. That chapter is one set of design tokens (light and dark), the light/dark mechanism
+and a base stylesheet, lifted from the hand-tuned ETF dashboard with every value kept. Every
+DKJ-Solutions app starts from it instead of rebuilding a style. A repo adds its own domain layer on top
+and never redefines a house token. It is enabled in DKJ-Solutions repos only. BWJ-Development keeps its
+own styling. Until #2697 lands, the extension's `CLAUDE.md` import is added by hand.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions maintainer enabling the new plugin gets a ready house style for any page, report or
+Artifact. Nothing changes for a repo that does not enable it, BWJ's included.
+
+**Score:** 2
+
+#### Pull Request
+
+A DKJ-Solutions codex plugin with the house style as its first chapter
+
+Plugins: dkj-policy-dkjs
+
+[PR #2698](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2698)
+
+---
 
 ### DEPLOY: feat/2705-admit-phone-factory · 20261002-093619Z
 
