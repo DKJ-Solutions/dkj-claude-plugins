@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**5 / 7 minor entries** <!-- pending-tally -->
+**6 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2705-admit-phone-factory · 20261002-093619Z
+
+Inside this repo: the BWJ extension's admitted-repo list, held in `asana-mirror-gate.ps1` and in the two
+skill pages that state it, grows to four, and a suite assert now holds the page's list to the gate's.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For the maintainer of `phone-factory`: `adopt-dkj-policy-bwj` and `report-issue` now run there instead
+of refusing at step 0, for ticket handling. The Shopify chapters (sync log, preview handover, theme
+lifecycle) do not apply, and adopt's step 7 says to skip the sync-log scaffold
+([#2705](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2705)).
+
+**Score:** 4
+
+#### Pull Request
+
+dkj-policy-bwj admits phone-factory, for ticket handling only
+
+Plugins: dkj-policy-bwj
+
+[PR #2714](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2714)
+
+---
 
 ### DEPLOY: fix/2709-tier-zero-refuses-na · 20261002-092240Z
 
