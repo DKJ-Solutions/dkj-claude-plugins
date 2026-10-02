@@ -201,6 +201,19 @@ try {
     Assert-True ($r.Code -eq 0) 'unscored: an unsettled significance does NOT block the merge -- that refusal is the cut''s'
     Assert-True ($r.Out -match 'RELEASE CUT will refuse') 'unscored: and the gate says where the refusal does live'
 
+    # A MALFORMED VALUE IS NOT AN UNSETTLED ONE, and it is refused here as open-pr refuses it (#2709). The
+    # measured case: tier 0 answered 'N/A', which PR #2706 shipped through this check with a green result.
+    $zeroNa = New-Consumer -Label 'zero-na'
+    $zeroNaLines = @(Format-EntryBlock -Branch 'feat/thing' -Type 'Feat' `
+        -Description 'The thing now does the thing.' -Body 'The thing now does the thing.' `
+        -ImpactRows @([pscustomobject]@{ Tier = 0; Score = 2; Why = 'Maintainers notice it.' }))
+    $zeroNaLines = @($zeroNaLines | ForEach-Object { $_ -replace '^\*\*Score:\*\* 2$', "**Score:** $(Get-EntryScoreNotApplicable)" })
+    Assert-True (@($zeroNaLines -match 'Score:\*\* N/A$').Count -eq 1) 'zero-na: (the fixture really carries tier 0 as N/A)'
+    Set-Entry -Dir $zeroNa -Lines $zeroNaLines
+    $r = Invoke-Gate -Dir $zeroNa -Branch 'feat/thing'
+    Assert-True ($r.Code -eq 1) 'zero-na: tier 0 answered N/A is refused before the merge'
+    Assert-True ($r.Out -match 'always takes a score') 'zero-na: and the refusal names the rule'
+
     # --- The document's SHAPE: four phases (#898) and a generic preamble (#899) ----------------------
     # BOTH RULES WERE CAUGHT BY EYE, on the same document, on the same afternoon, and neither had a
     # reader. #898: a fifth '## Where this stands (August 25, 2026, late)' above '## PLAN', which survived
