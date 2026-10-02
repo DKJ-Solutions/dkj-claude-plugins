@@ -22,12 +22,13 @@ BWJ's repos. It requires `dkj-subagents-alpha` and `dkj-policy`.
    clone reports success with the previous version. Then enable the plugin in the repo's
    `.claude/settings.json` (`"dkj-policy-dkjs@dkj-claude-plugins": true`) and install it with
    `claude plugin install dkj-policy-dkjs@dkj-claude-plugins --scope project`.
-2. Add the extension import to the repo's `CLAUDE.md`, on the line directly below the `dkj-policy`
-   import:
+2. Run the `adopt-dkj-policy` skill's Part 1 (`adopt-workflow-folder.ps1 -Apply`). It writes the
+   extension import into the repo's `CLAUDE.md`, on the line directly below the `dkj-policy` import:
    `@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/dkj-policy-dkjs/CLAUDE.md`
 
-No tooling writes that line yet. `dkj-policy-bwj` has an adopt step for its own import, and this
-plugin has none, so for now the line is added by hand.
+That run writes the line for every `dkj-policy` extension the repo enables, so this plugin needs no
+adopt step of its own. While the line is missing, the `consumer-prose-sessioncheck` hook warns at
+session start ([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2697)).
 
 ## In this source repo
 

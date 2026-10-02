@@ -50,14 +50,14 @@ $ErrorActionPreference = 'Stop'
 
 $root = Resolve-BwjRepoRoot -Override $RootOverride
 $claudeMd = Join-Path $root 'CLAUDE.md'
-$line = Get-BwjExtensionImportLine
+$line = Get-ExtensionImportLine -Extension 'dkj-policy-bwj'
 
 Write-Host "== adopt-extension-import$(if (-not $Apply) { ' (dry run)' }) -- $root ==" -ForegroundColor Cyan
 
 $elsewhere = (Test-Path -LiteralPath $claudeMd -PathType Leaf) -and
-    (Test-BwjExtensionImported -Documents @(Get-AlwaysOnDocuments -RootDocument $claudeMd -RepoRoot $root))
+    (Test-ExtensionImported -Extension 'dkj-policy-bwj' -Documents @(Get-AlwaysOnDocuments -RootDocument $claudeMd -RepoRoot $root))
 $action = Add-ClaudeMdImportLine -Path $claudeMd -Root $root -Line $line `
-    -ImportedPattern '^\s*@\S*/dkj-policy/dkj-policy-bwj/CLAUDE\.md\s*$' `
+    -ImportedPattern (Get-ExtensionImportPattern -Extension 'dkj-policy-bwj') `
     -AfterPattern '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$' `
     -ImportedElsewhere:$elsewhere -Apply:$Apply
 

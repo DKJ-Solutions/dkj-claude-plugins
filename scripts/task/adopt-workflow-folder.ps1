@@ -611,6 +611,33 @@ switch ($constitutionAction) {
                Write-Host "  $verb  the constitution import to CLAUDE.md: $constitutionLine" -ForegroundColor Green }
 }
 
+# --- The extension imports in CLAUDE.md (issue #2697) ----------------------------------------------
+# EVERY dkj-policy EXTENSION THIS REPO ENABLES gets its line too, directly below the constitution. An
+# extension (dkj-policy-bwj, dkj-policy-dkjs, ...) is one more CLAUDE.md of rules, and dkj-policy-dkjs
+# ships no script at all -- so before this, its README asked for the line by hand and nothing wrote it.
+# The set is derived from the repo's OWN enables (RepoEnabledIds), the same reading check-consumer-prose
+# warns on, so the writer and the warning cannot disagree about which lines are owed. dkj-policy-bwj's own
+# adopt-extension-import.ps1 stays: both call Add-ClaudeMdImportLine, so whichever runs second keeps.
+$enabledExtensions = @()
+try {
+    $enabledExtensions = @(Get-PolicyExtensionNames -PluginIds @((Get-EnabledPlugins -RepoRoot $repoRoot).RepoEnabledIds))
+} catch { $enabledExtensions = @() }
+foreach ($ext in $enabledExtensions) {
+    $extLine = Get-ExtensionImportLine -Extension $ext
+    $extElsewhere = (Test-Path -LiteralPath $claudeMdPath -PathType Leaf) -and
+        (Test-ExtensionImported -Extension $ext -Documents @(Get-CheckProseCorpus -RepoRoot $repoRoot))
+    $extAction = Add-ClaudeMdImportLine -Path $claudeMdPath -Root $repoRoot -Line $extLine `
+        -ImportedPattern (Get-ExtensionImportPattern -Extension $ext) `
+        -AfterPattern '^\s*@\S*/plugins/dkj-policy/CLAUDE\.md\s*$' `
+        -ImportedElsewhere:$extElsewhere -Apply:$Apply
+    switch ($extAction) {
+        'kept'    { Write-Host "  [keep]     CLAUDE.md already imports the $ext extension -- left as it is" -ForegroundColor DarkGray }
+        'refused' { Write-Host "  [refused]  CLAUDE.md is a symlink or junction, so the $ext import was NOT written -- add it by hand: $extLine" -ForegroundColor Yellow }
+        default   { $verb = if ($Apply) { '[added]  ' } else { '[add]    ' }
+                    Write-Host "  $verb  the $ext extension import to CLAUDE.md: $extLine" -ForegroundColor Green }
+    }
+}
+
 Write-Host ''
 if ($Apply) {
     Write-Host "Done: $created file(s) created, $kept left as they were." -ForegroundColor Green

@@ -219,25 +219,28 @@ if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-ConstitutionImpor
     Write-Host '          repo-specific rules into its lens.' -ForegroundColor Yellow
 }
 
-# THE EXTENSION IMPORT (#2538). The same gap one plugin over: a repo that enables dkj-policy-bwj but does
-# not import its extension CLAUDE.md runs without the four BWJ chapters, and nothing said so. #2531
-# measured that a warning alone changed nothing for weeks, which is why adopt-extension-import.ps1 WRITES
-# the line (#2532); this is the signal for the repo that enabled the plugin and never ran that adopter.
-# Judged only where the enable is the REPO'S OWN (RepoEnabledIds) -- a machine-wide enable is not this
-# repo's decision, and reading it would make the verdict depend on whose machine runs the check. Same
-# terms as the constitution warning: a [WARNING], never the exit code, only with a walked closure, and
-# wrapped so a malformed settings layer cannot take the SessionStart hook down.
-if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-BwjExtensionImported') -and
-    (Test-FunctionDefined 'Get-EnabledPlugins') -and -not (Test-BwjExtensionImported -Documents $documents)) {
-    $bwjEnabled = $false
+# THE EXTENSION IMPORTS (#2538, #2697). The same gap one plugin over: a repo that enables a dkj-policy
+# extension (dkj-policy-bwj, dkj-policy-dkjs, ...) but does not import its CLAUDE.md runs without that
+# extension's chapters, and nothing said so. #2531 measured that a warning alone changed nothing for
+# weeks, which is why the adoption WRITES the line (#2532); this is the signal for the repo that enabled
+# the plugin and never ran it. One warning per missing extension, the set derived from the enabled ids
+# (Get-PolicyExtensionNames), so a new extension needs no edit here -- #2697 was this block knowing only
+# bwj. Judged only where the enable is the REPO'S OWN (RepoEnabledIds) -- a machine-wide enable is not
+# this repo's decision, and reading it would make the verdict depend on whose machine runs the check.
+# Same terms as the constitution warning: a [WARNING], never the exit code, only with a walked closure,
+# and wrapped so a malformed settings layer cannot take the SessionStart hook down.
+if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-ExtensionImported') -and
+    (Test-FunctionDefined 'Get-EnabledPlugins')) {
+    $extensions = @()
     try {
-        $bwjEnabled = @(@((Get-EnabledPlugins -RepoRoot $repoRoot).RepoEnabledIds) | Where-Object { $_ -like 'dkj-policy-bwj@*' }).Count -gt 0
-    } catch { $bwjEnabled = $false }
-    if ($bwjEnabled) {
-        Write-Host '[WARNING] this repo enables dkj-policy-bwj, but its CLAUDE.md does not import the extension --' -ForegroundColor Yellow
-        Write-Host '          so the four BWJ chapters are not in context. Run the adopt-dkj-policy-bwj skill: its' -ForegroundColor Yellow
-        Write-Host '          adopt-extension-import.ps1 -Apply writes the line directly below the constitution import.' -ForegroundColor Yellow
-        Write-Host "          Or add it by hand: $(Get-BwjExtensionImportLine)" -ForegroundColor Yellow
+        $extensions = @(Get-PolicyExtensionNames -PluginIds @((Get-EnabledPlugins -RepoRoot $repoRoot).RepoEnabledIds))
+    } catch { $extensions = @() }
+    foreach ($ext in $extensions) {
+        if (Test-ExtensionImported -Extension $ext -Documents $documents) { continue }
+        Write-Host "[WARNING] this repo enables $ext, but its CLAUDE.md does not import the extension --" -ForegroundColor Yellow
+        Write-Host '          so its chapters are not in context. Run the adopt-dkj-policy skill: its' -ForegroundColor Yellow
+        Write-Host '          adopt-workflow-folder.ps1 -Apply writes the line directly below the constitution import.' -ForegroundColor Yellow
+        Write-Host "          Or add it by hand: $(Get-ExtensionImportLine -Extension $ext)" -ForegroundColor Yellow
     }
 }
 
