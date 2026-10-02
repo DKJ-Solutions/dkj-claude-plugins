@@ -389,11 +389,12 @@ report a failure, and the reach label is the one a consumer has actually renamed
 written here, where it has been paid for, rather than four times on speculation. If a second rename
 lands on one of the others, that is the moment for its own seam -- not a reason to widen this one now.
 
-**And the `CRO` label -- store repos only, never here.** It marks an issue filed by, or on behalf of,
+**And the `CRO` label -- Shopify store repos only.** It marks an issue filed by, or on behalf of,
 the CRO team (today: Johnno), and it exists in exactly two repos: `smartwatchbanden` and
-`xoxowildhearts`. **Skip this label entirely when this skill runs against `dkj-claude-plugins`** -- that
-repo has no Shopify store for a CRO team to measure, and it is a permitted adoption target for the
-ticket-handling chapter alone, not for this label. See
+`xoxowildhearts`. **Skip this label entirely when this skill runs against `dkj-claude-plugins` or
+`phone-factory`.** The first has no store at all. The second is a Lightspeed store the CRO team does not
+measure ([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)). Both are permitted
+adoption targets for the ticket-handling chapter alone, not for this label. See
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#the-cro-label----who-reported-it-not-what-it-is)
 for the reasoning.
 
