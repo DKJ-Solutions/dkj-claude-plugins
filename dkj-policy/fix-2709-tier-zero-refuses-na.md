@@ -39,19 +39,56 @@
 
 ### PLAN
 
+Issue [#2709](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2709): PR #2706 shipped tier 0 as
+`N/A` through `open-pr` and the CI `branch-entry` check. The reason held up against the code: the parser
+flagged `N/A` per tier but nothing refused it on tier 0.
+
+**Where the refusal goes, and why there.** `open-pr` already splits the entry faults by kind: a *malformed*
+value (off the rubric, an unknown tier) is refused before the push, and a *missing* score is only reported,
+because Dave placed that refusal at the cut (August 5, 2026). Tier 0 answered `N/A` is the malformed kind, a
+value the model has no meaning for. So it became a parser error in `Resolve-EntryImpact`, which `open-pr`
+refuses as it stands. `check-branch-entry` refused no malformed value at all, so it gains `open-pr`'s
+refusal. The cut sees it through `Get-EntryImpactFindings`, which carries the parser's errors.
+
+**A blank tier-0 score still passes, deliberately.** That is what keeps a repo that never adopted the
+ranking quiet ("TIER 0 OWES NOTHING"), and the issue asked about `N/A` only.
+
+#### The pending entry this would have stopped
+
+`#2706`'s entry is in `CHANGELOG.md`, pending the next cut with tier 0 as `N/A`. The cut refuses it after
+this change. Its tier 0 is scored `1` here, from its own reason ("it changes only a skill page").
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `entry-scaffold-lib.ps1` (both copies): `N/A` under tier 0 is a parse error naming the rule
+- [x] `check-branch-entry.ps1` (both copies): refuses a malformed tier or score, as `open-pr` does
+- [x] `check-branch-entry` SKILL.md: the new refusal in its table, and blank set apart from `N/A`
+- [x] `dkj-policy/CHANGELOG.md`: #2706's pending entry gets its tier-0 score
+- [x] tests: `entry-scaffold.tests.ps1` (both entry shapes, plus the valid audience-tier `N/A`) and `branch-entry-gate.tests.ps1` (exit 1 on the measured case)
 
 ### TEST
 
+- [x] `entry-scaffold.tests.ps1`: 898 of 898
+- [x] `branch-entry-gate.tests.ps1`: 67 of 67
+
 ### DEPLOY: fix/2709-tier-zero-refuses-na
 
-**Score:**
+**A tier 0 answered `N/A` is now refused before the merge.** `open-pr` and the CI `branch-entry` check
+refuse it, and so does the release cut. DEVELOPMENT-portable gives tier 0 a score, always, but no gate read
+that rule, so PR #2706 shipped one through both. It is now a malformed value, refused like an off-rubric
+score. `check-branch-entry` now refuses malformed values the way `open-pr` does, where before it only
+reported them. A blank tier-0 score still passes
+([#2709](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2709)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+For a maintainer of a repo running this workflow: an entry with tier 0 written as `N/A` is refused at
+`open-pr` and by the `branch-entry` CI check, naming the rule, so it gets fixed on the branch rather than
+on the trunk. A green `branch-entry` check now also means no malformed score.
+
+**Score:** 2
 
 #### Pull Request
 

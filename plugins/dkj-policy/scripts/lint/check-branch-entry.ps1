@@ -413,6 +413,19 @@ if ($Pr) {
     Write-Host '[INFO] no -Pr given, so the DEPLOY lock was not checked (every check above needs none).' -ForegroundColor DarkGray
 }
 
+# --- A malformed tier or score: refused, as open-pr refuses it ---------------------------------------
+# ONLY THE MALFORMED VALUE, the split open-pr draws: a value the model has no meaning for (an off-rubric
+# score, an unknown tier, 'N/A' under tier 0) is a typo with a one-cell fix now and an edit on the trunk
+# after the merge, while a MISSING score stays reported below and is refused at the cut. Before #2709
+# this gate reported both, so a PR opened outside open-pr shipped a tier-0 'N/A' (PR #2706) with a green
+# check.
+$malformed = @(@((Resolve-EntryImpact -EntryText $entryText).Errors) | Where-Object { $_ })
+if ($malformed.Count -gt 0) {
+    Write-Host "[FAIL] the entry's tier or score declaration is malformed:" -ForegroundColor Red
+    foreach ($m in $malformed) { Write-Host "         $m" -ForegroundColor Red }
+    exit 1
+}
+
 # --- The significance: reported, never refused ------------------------------------------------------
 if (Test-EntrySignificanceActive) {
     $impactFindings = @(Get-EntryImpactFindings -EntryText $entryText)

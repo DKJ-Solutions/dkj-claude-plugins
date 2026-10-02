@@ -1384,6 +1384,26 @@ $skipFindings = @(Get-EntryImpactFindings -EntryText $skipEntry)
 Assert-True ($skipFindings.Count -gt 0) 'ladder: N/A under a scored tier is refused'
 Assert-True (@($skipFindings -match 'cumulative').Count -gt 0) 'ladder: and the refusal names the reason rather than asking for a number'
 
+# TIER 0 IS NEVER N/A (#2709), in either shape: DEVELOPMENT-portable.md has it take a score, always. It is
+# a malformed value, so it is a parser ERROR -- refused by open-pr and check-branch-entry, as an off-rubric
+# score is. The DEPLOY-shaped case is the entry PR #2706 shipped through both gates; the audience tier keeps
+# its N/A. The audience heading needs a stated tier, so one is stated for these cases and removed after.
+function Get-ReleaseAudienceTier { 2 }
+$zeroNaDeploy = "### DEPLOY: docs/2699-off-board-asana-ticket`n`nN/A inside this repo: it changes only a skill page.`n`n**Score:** $naLabel`n`n" +
+                "#### What makes this deploy extra special`n`nA maintainer notices.`n`n**Score:** 2`n`n#### Pull Request`n`nreport-issue: a title`n"
+$zeroNaSection = "$sectH Significance`n`n$tierH Tier 0`n`nnothing here`n`n**Score:** $naLabel`n`n$tierH Tier 1`n`nb`n`n**Score:** $naLabel`n`n$tierH Tier 2`n`nc`n`n**Score:** $naLabel`n"
+foreach ($zeroCase in @(@{ Name = 'the DEPLOY shape'; Entry = $zeroNaDeploy }, @{ Name = 'the section shape'; Entry = $zeroNaSection })) {
+    $zeroErrors = @(@((Resolve-EntryImpact -EntryText $zeroCase.Entry).Errors) | Where-Object { $_ })
+    Assert-Equal 1 @($zeroErrors -match 'under tier 0').Count "tier 0 N/A is a parse error in $($zeroCase.Name)"
+    Assert-True (@($zeroErrors -match 'always takes a score').Count -gt 0) "and in $($zeroCase.Name) the error names the rule"
+    $zeroFindings = @(Get-EntryImpactFindings -EntryText $zeroCase.Entry)
+    Assert-True (@($zeroFindings -match 'under tier 0').Count -gt 0) "and in $($zeroCase.Name) it reaches the cut's findings too"
+}
+$zeroScoredAudienceNa = "### DEPLOY: x`n`nSmall here.`n`n**Score:** 1`n`n#### What makes this deploy extra special`n`nNobody outside notices.`n`n**Score:** $naLabel`n`n#### Pull Request`n`nt`n"
+Assert-Equal 0 @(@((Resolve-EntryImpact -EntryText $zeroScoredAudienceNa).Errors) | Where-Object { $_ }).Count 'tier 0 scored and the audience tier N/A parses clean'
+Assert-Equal 0 @(Get-EntryImpactFindings -EntryText $zeroScoredAudienceNa).Count 'and is a complete answer'
+Remove-Item function:Get-ReleaseAudienceTier
+
 # A score the rubric has no meaning for is still an error, and the message now offers N/A as the other
 # legitimate answer -- a gate that says "write 1 to 5" at somebody who meant "this reaches nobody" is
 # asking them to invent a number.

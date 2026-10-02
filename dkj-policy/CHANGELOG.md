@@ -33,9 +33,9 @@ Plugins: dkj-policy-bwj
 
 ### DEPLOY: docs/2699-off-board-asana-ticket · 20261002-083549Z
 
-N/A inside this repo: it changes only a skill page that ships to consumers.
+Small inside this repo: it changes only a skill page that ships to consumers.
 
-**Score:** N/A
+**Score:** 1
 
 #### What makes this deploy extra special
 
