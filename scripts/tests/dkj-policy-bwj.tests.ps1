@@ -585,10 +585,11 @@ Assert-True  ($t.Why -match 'awaiting-more-info') 'and the log says which label 
 # somebody renames it there, and a board must not lose its blocked column the day the template updates.
 $t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'In Progress' -Labels @('needs-info') -StatusMap $statusMap -Map $map
 Assert-Equal $map.NeedsInfo $t.Stage 'the former name needs-info still parks the card while the map uses the default label'
-Assert-True  (Test-NeedsInfoLabelPresent -Labels @('Needs-Info') -Map $map) 'matched case-insensitively, as GitHub treats label names'
-Assert-True  (-not (Test-NeedsInfoLabelPresent -Labels @('needs-info') -Map $shifted)) 'but a map naming its OWN label gets exactly that label, and no former name beside it'
-Assert-True  (Test-NeedsInfoLabelPresent -Labels @('needs-info') -Map $lettered) 'and a map that still names needs-info explicitly keeps working unchanged'
-Assert-True  (-not (Test-NeedsInfoLabelPresent -Labels @('prio-2') -Map $map)) 'an issue carrying neither name is not parked'
+Assert-True  ($t.Why -match "'needs-info'") 'and the log names the label that parked it, not the map''s name for it'
+Assert-Equal 'Needs-Info' (Get-MatchedNeedsInfoLabel -Labels @('Needs-Info') -Map $map) 'matched case-insensitively, as GitHub treats label names'
+Assert-Equal '' (Get-MatchedNeedsInfoLabel -Labels @('needs-info') -Map $shifted) 'but a map naming its OWN label gets exactly that label, and no former name beside it'
+Assert-Equal 'needs-info' (Get-MatchedNeedsInfoLabel -Labels @('needs-info') -Map $lettered) 'and a map that still names needs-info explicitly keeps working unchanged'
+Assert-Equal '' (Get-MatchedNeedsInfoLabel -Labels @('prio-2') -Map $map) 'an issue carrying neither name is not parked'
 
 $t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'In Progress' -Labels @('tier-1') -StatusMap $statusMap -Map $map
 Assert-Equal $map.InDevelopment $t.Stage     'removing the label hands the card back to its status-derived floor'

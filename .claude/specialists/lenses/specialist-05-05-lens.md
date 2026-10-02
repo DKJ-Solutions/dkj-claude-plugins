@@ -1129,7 +1129,7 @@ at `prio-3` (#1685 itself among them), four at `prio-2` and one at `prio-1`.
 
 ### The kind label — `awaiting-more-recurrences`, and a repair does not close it
 
-**`awaiting-more-recurrences` (`5319E7`) marks a collecting issue -- a *record* --**: every instance of one recurring problem is added to it
+**`awaiting-more-recurrences` (`5319E7`) marks a collecting issue** — a *record*: every instance of one recurring problem is added to it
 as a comment until the root cause is found, so a repair of one instance never closes it. #2454 is the
 first one here. It is a shared way of working, not this repo's own label (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)), so it ships in
