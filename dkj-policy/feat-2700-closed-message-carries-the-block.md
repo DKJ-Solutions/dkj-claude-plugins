@@ -39,19 +39,57 @@
 
 ### PLAN
 
+#### Scope: #2700 and #2703 are one change
+
+Dave's decision on #2700 (October 2, 2026) merges the `ready` and `closed` messages into one closed
+message carrying the go-live block. That only works if the block reaches Asana at the close without a
+paste, which is #2703's ask, so this branch resolves both. The route is the one #2700's last comment
+names: the CI mirror's close comment carries the block the session left on the issue.
+
+#### Parked for the owner's eye, no pull request
+
+The message is what a colleague reads in Asana, and how `html_text` renders there has not been seen by
+eye. So this branch stops before a PR (a visible result). Not touched: #2701's blank line before the
+closing `---`, held by another sweep.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `golive-block-rules.ps1`: header and closed line fixed and English (`Format-GoLiveClosedLine`),
+      `TE BEKIJKEN OP` first, a framing sentence saying no paste is needed (`Get-GoLiveBlockLead`).
+- [x] `asana-mirror.ps1`: the closed form reworded; `Get-PasteBlockSections`,
+      `Select-SessionPasteBlockSections`, `ConvertTo-AsanaStoryHtml`, `New-ClosedMessageHtml`; event mode
+      and the close sweep post the one closed message; the marker reads `is now closed` and the legacy
+      `is closed` still counts as told; the backstop opens with the automation header.
+- [x] `build-golive-block.ps1` messages, the golive-block and report-issue skills, `WORKFLOW-portable.md`,
+      the README, and the plugin/marketplace description: no paste, the close sends it.
+- [x] Filed #2708: PREVIEW-portable's copy button on the block has no paste left to serve.
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: the new closed form, the legacy marker, the closed line, the heading
+      order, the carried sections (old and new header, backstop skipped), the HTML conversion, and the
+      not-planned and no-block cases. 511 asserts pass.
+- [x] The full gate, run here because the branch stops before a PR (`open-pr -GatesOnly`).
+
 ### DEPLOY: feat/2700-closed-message-carries-the-block
 
-**Score:**
+N/A inside this repo: it changes only what the BWJ extension ships.
+
+**Score:** N/A
 
 #### What makes this deploy extra special
 
-**Score:**
+For a BWJ store maintainer: the go-live block no longer has to be pasted into the Asana task. When the
+issue closes, `asana-mirror` posts it on the task as its one closed message: *"GitHub issue
+[owner/repo#n](...) is now **closed**. It can be reopened anytime..."*, then the block's sections with
+`TE BEKIJKEN OP` first. The headings arrive bold, the links as links, and every line break intact. The
+separate *ready to test* close comment is gone, so the colleague reads one message instead of two
+([#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700),
+[#2703](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2703)). A store repo picks it up
+by refreshing its copy of `asana-mirror.ps1` through `adopt-dkj-policy-bwj` step 1, which diffs rather
+than overwrites.
+
+**Score:** 4
 
 #### Pull Request
 

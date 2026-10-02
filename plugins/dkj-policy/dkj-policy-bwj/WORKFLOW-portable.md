@@ -369,15 +369,18 @@ GitHub Actions workflow in the repo (`.github/workflows/asana-mirror.yml`, copie
 
 | GitHub event | what happens in Asana |
 |---|---|
-| issue **closed** | a comment on the linked task: *"GitHub issue `<owner>/<repo>#<n>` is closed: the work behind this ticket is built and ready to test."* The task stays open |
+| issue **closed** | ONE comment on the linked task, the closed message: *"GitHub issue `<owner>/<repo>#<n>` is now **closed**. It can be reopened anytime when something is still not working as expected."*, with the sections of the paste-ready block the session left on the issue under it ([#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700)). The task stays open |
 | issue **closed as not planned** | the opposite comment, in the same shape: nothing was built, so there is nothing to test |
 | issue **reopened** | a comment: *"GitHub issue `<owner>/<repo>#<n>` is reopened: this Asana task is back in development."* |
 | daily schedule | a reconciliation sweep in **both** directions, for events that never arrived: open tasks in the mirror project whose GitHub issue is closed, and issues closed in the last 30 days whose task has not been told yet |
 
 **Each comment is the requester's fixed form, word for word**
 ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656)): the header line
-*"— GitHub automation 🤖"*, a blank line, and one sentence, the same header for every event. It is posted as `html_text`, with the issue name as the link and the verb (**closed:**, **reopened:**) in bold. The CREATED form is
-the third of the set, and `report-issue` posts it in step 2. The close update no longer lists the pull
+*"— GitHub automation 🤖"*, a blank line, and one sentence, the same header for every event. It is posted as `html_text`, with the issue name as the link and the verb (**closed**, **reopened:**) in bold. The CREATED form is
+the third of the set, and `report-issue` posts it in step 2. **There are three automations, not four**
+(Dave, October 2, 2026, #2700): a separate *ready* message beside the close said the same thing twice,
+so the go-live block rides on the closed message instead of being pasted. A task told before #2700 read
+*"is closed:"*, and the sweeps still count that spelling as told. The close update no longer lists the pull
 request that closed the issue, and it no longer carries the *"tick it off yourself"* line, because the
 form has neither. The pull request is still one click away on the issue.
 
@@ -466,14 +469,19 @@ which is why a store answering this seam passes that record to every cut.
 
 **The order is the rule** (BWJ/Maikel, September 17, 2026, inbound
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049)). An issue with a linked Asana
-task carries a paragraph ready to paste into that task, telling the requester (today: Johnno) where to
-see the result -- and that paragraph goes on the issue **while it is still open**, written by the
-session that shipped the work, as the closing act of its own chain. **Closing the issue is then the
-confirmation that the block reached Asana**, and it is a person's act rather than a script's.
+task carries a block for that task, telling the requester (today: Johnno) where to see the result --
+and that block goes on the issue **while it is still open**, written by the session that shipped the
+work, as the closing act of its own chain. **Closing the issue is then what sends it**: `asana-mirror`
+posts the block on the task as its one closed message, the closed line on top
+([#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700),
+[#2703](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2703)). A hand paste could not carry
+it: without formatting the link and the bold arrived as raw Markdown, with formatting every line break
+was lost. Posted as `html_text` the headings arrive bold, the links as links, and the breaks as written.
+The name *paste-ready* is kept for the marker and the functions, which match on it.
 
 **Read "the block reached Asana" narrowly -- it is not the `ReadyToTest` handover further down this
-page.** Two different moments tell two different people something: this one is a paragraph a person
-carries into the task by hand, and `Get-SubmitterHandoff`'s is the submitter being told their card has
+page.** Two different moments tell two different people something: this one is the closed message
+carrying the block, and `Get-SubmitterHandoff`'s is the submitter being told their card has
 moved. They sit in the same pipeline, so this page never says "the handover" bare for either.
 
 It is one comment on the **GitHub** issue -- not on Asana. The marker and the framing sentence above
@@ -483,20 +491,22 @@ between the rules has a fixed **shape** too, and it is written in the **colleagu
 ```text
 <!-- asana-paste-block -->
 
-Paste the block into the Asana task, so the requester knows where to look and when it lands:
+When this issue closes, the asana-mirror workflow posts the block below on the Asana task as its closed message -- no paste needed:
 
 ---
-— automatisch bericht vanuit GitHub #<n>
+— GitHub automation 🤖
 
-WAT ER NU ANDERS IS
-
-<what changed, in plain language -- the session's prose>
+GitHub issue [<owner>/<repo>#<n>](<issue url>) is now **closed**. It can be reopened anytime when something is still not working as expected.
 
 TE BEKIJKEN OP
 
 Het resultaat is hier te bekijken: <the actual link>
 
 <where exactly to look, and how -- the session's prose>
+
+WAT ER NU ANDERS IS
+
+<what changed, in plain language -- the session's prose>
 
 WANNEER HET LIVE KOMT
 
@@ -528,7 +538,9 @@ turns the language over at exactly that boundary. Until #2507 the script wrote i
 unsectioned English. On `BWJ-Development/smartwatchbanden#769` (September 25, 2026) the owner rejected
 that printout, pointing at the reference block, and the block was rewritten by hand. **For a task
 written in English the same shape comes out in English** (`-Language en`). The framing sentence above
-the rules stays English in both cases, because it is read on GitHub.
+the rules stays English in both cases, because it is read on GitHub, and so do the header and the
+closed line, which are the automation's own and fixed on every board. **`TE BEKIJKEN OP` leads** (Dave,
+#2700): where to look is what the requester acts on; the other sections keep their order.
 
 **The facts are the script's, and the prose is the session's.** The link, the date, the version, the
 live URLs and the ask are derived or fixed. *What changed*, *where exactly to look* and *what was
@@ -536,16 +548,17 @@ deliberately left out* are judgements about the work, like the task body step 2 
 session writes them and hands them over through `-ProseFile`. A section with nothing in it is left
 out, heading and all, and is never replaced by a placeholder.
 
-**The marker sits OUTSIDE the block, and the block is what gets pasted.** Everything between the two
-`---` rules travels to Asana; the marker and the framing sentence stay on GitHub. A marker inside the
+**The marker sits OUTSIDE the block, and the block is what travels.** Everything between the two
+`---` rules goes to Asana -- the header and closed line composed by the mirror itself, the sections taken
+from the newest comment carrying the marker; the marker and the framing sentence stay on GitHub. A marker inside the
 block would arrive in the Asana task as visible junk. The backstop's de-duplication matches the marker
 and nothing inside the rules, which is what leaves the block's words free to follow the colleague.
 
-**Who carries it across is the Asana task's ASSIGNEE** (BWJ, September 23, 2026, inbound
+**Who closes the issue is the Asana task's ASSIGNEE** (BWJ, September 23, 2026, inbound
 [#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The assignee is the one in
-conversation with the requester, so they paste the block into the task and then close the GitHub
-issue. It is not a fixed relayer: a page naming one person as the relayer for every ticket was
-corrected on exactly that point the day it was retired.
+conversation with the requester, so they read the block on the issue and close it once it is right --
+the close is what sends it. It is not a fixed relayer: a page naming one person as the relayer for every
+ticket was corrected on exactly that point the day it was retired.
 
 #### What the block asks of the requester -- and the two closes it separates
 
@@ -554,8 +567,8 @@ September 18, 2026), carried here on inbound #2352 once the consumer page holdin
 `build-golive-block.ps1` writes the section that implements the middle three; the other two are about
 the block's position and the issue.
 
-1. **The first line says where the message comes from.** The block opens by naming it an automated
-   message and naming the issue -- *"— automatisch bericht vanuit GitHub #`<n>`"* -- so a reader knows
+1. **The first line says where the message comes from.** The block opens with the automation's header
+   -- *"— GitHub automation 🤖"* -- and its closed line names the issue as a link, so a reader knows
    from line one that there is an issue behind it, rather than finding out at the foot after reading
    it as hand-written.
 2. **The requester judges the result themselves, and their answer closes the TASK.** Not the gates, not
@@ -646,10 +659,10 @@ six days out, was rejected by the owner as a number nobody could know.
 fill in is that a plausible wrong answer is worse than a missing one, and that reasoning does not stop
 applying one paragraph further down.
 
-**The script does not touch Asana, and that is the rule above rather than a gap.** It writes the
-GitHub half; a person carries the block into the task, and closing the issue is their confirmation that
-it landed there. An automation posting into the ticket would take back exactly the decision this
-chapter keeps with the person who asked for the work.
+**The script does not touch Asana; the mirror does, at the close.** It writes the GitHub half, and
+the person who closes the issue decides when the block goes: `asana-mirror` carries it into the task as
+the closed message (#2700, #2703). The close still waits on a person, so the decision stays where this
+chapter keeps it.
 
 **It carries the marker, and only the marker.** The framing sentence is no longer the backstop's own
 `Get-AsanaPasteBlockLead` -- `Fill in the link below and paste the block into the Asana task` is
@@ -660,12 +673,14 @@ the reason this page quotes both strings at all: so a block can be written by ha
 
 ##### The backstop: `asana-mirror` still writes one, only where the session did not
 
-Where an Asana-linked issue closes and **no block is on it**, `asana-mirror` posts one -- with
-`[ADD LINK]`, because CI genuinely cannot know the link. It is the safety net under the rule above and
-not the route to it.
+Where an Asana-linked issue closes and **no block is on it**, the closed message goes to the task on
+its own, and `asana-mirror` posts a block on the issue -- with `[ADD LINK]`, because CI genuinely cannot
+know the link. That one is still pasted by hand, and it is never carried by a later close: the mirror
+skips a block holding `[ADD LINK]`. It is the safety net under the rule above and not the route to it.
 
 **It writes the same block as the session, cut down to what CI can know** (#2513). Between the rules
-it carries the opening line and the `TE BEKIJKEN OP` section with `Het resultaat is hier te bekijken:
+it carries the automation's header and the `TE BEKIJKEN OP` section -- no closed line, since the
+closed message already told the task -- with `Het resultaat is hier te bekijken:
 [ADD LINK]`, in the same Dutch words, because the block is addressed to the colleague. It writes
 nothing else. The other sections hold the session's prose, or facts this standalone template does not
 derive, and a section with nothing to say is left out rather than filled with a placeholder. The

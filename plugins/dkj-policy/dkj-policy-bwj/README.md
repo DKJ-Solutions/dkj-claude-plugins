@@ -101,7 +101,7 @@ type (Bug / Feature / Task), plus the reach label where management and the commi
 it, both set at creation so nobody has to classify a tracker by hand a second time. It is then
 **mirrored to Asana** as a colleague-friendly variant: plain language, outcome-framed, no code or
 repo jargon, so any BWJ colleague can read it. The two are **cross-linked both ways**. When the
-**GitHub issue is closed, the Asana task gets an update** saying the work is built and ready to test
+**GitHub issue is closed, the Asana task gets its closed message**, carrying the go-live block the session left on the issue (#2700)
 -- by a small GitHub Actions workflow this plugin ships as a template for each repo to copy into its
 own `.github/`. Reopening the issue posts a comment saying the task is back in development. All three
 comments, the third being the one `report-issue` posts when it makes an issue from an existing task,
