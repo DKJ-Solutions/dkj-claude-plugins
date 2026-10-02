@@ -39,21 +39,51 @@
 
 ### PLAN
 
+#### Issue and the decision it left open
+
+[#2730](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2730) asked whether the 29
+on-demand subagent copies still need the full reasoning, or whether Chris gets a short variant. The
+answer here is **one short source for everyone**. A second variant is a second shared block and its own
+duplication cost. Every copy keeps all eight rules. Only the arguments for them move, behind an
+absolute link, because the copies sit in four plugin roots and a relative link would escape each of
+them (`plugin-link`).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `subagent-shared/findings-become-issues.md` cut to the eight rules, one bold sentence plus at
+      most a line each, ending in a link to the reasoning. 5,294 B to 1,927 B.
+- [x] `plugins/dkj-subagents/README.md` gains *Why the filing rules read the way they do*, holding the
+      block's previous text verbatim.
+- [x] `build-agent-defs.ps1` regenerated all 30 copies. Chris's persona goes from 19,165 B to 16,317 B.
+- [x] The README's list of shared blocks named fourteen of the seventeen. Corrected, since the new
+      section sits right under it.
 
 ### TEST
 
+- [x] The generator reports 30 files updated and the rest in sync. The full gate runs in `ship-pr`.
+
 ### DEPLOY: docs/2730-findings-block-rules-only
 
-**Score:**
+The shared block that tells every specialist to file findings as issues now states its eight rules
+briefly and links to the reasoning, instead of arguing each rule in place. Chris's persona is loaded
+into every session, and it shrinks by about 2,850 bytes. The rules themselves are unchanged and stay in
+every specialist's definition. The reasoning they carried until now, word for word, is in
+[the teams README](../plugins/dkj-subagents/README.md#why-the-filing-rules-read-the-way-they-do).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer session's always-on context is about 900 tokens smaller once this release is installed,
+because Chris's persona ships in the core team. The filing behaviour is meant to stay exactly as it
+was.
+
+**Score:** 2
 
 #### Pull Request
 
 Shared findings-become-issues block keeps its rules; the reasoning moves to the teams README
+
+The block is cut to its eight rules and links to a README section holding its previous text verbatim,
+regenerated into all 30 copies. Chris's always-on persona shrinks from 19,165 B to 16,317 B.
 
