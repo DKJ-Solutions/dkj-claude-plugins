@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Dave on #2705 (October 2, 2026): `phone-factory` is a Lightspeed store, so admit it for ticket handling
+only. The two Shopify-named parts of chapter one (the `CRO` label, the board-request step) keep their
+reach; that decision is #2712.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-mirror-gate.ps1`: `phone-factory` joins the admitted list.
+- [x] `adopt-dkj-policy-bwj` (description, step 0 with the decision, step 7 skipped outside the two
+      Shopify stores), `report-issue` (description, "Before you start"), `WORKFLOW-portable.md`, the
+      README, and the opening of chapters two to four.
 
 ### TEST
 
+- [x] `guard-asana-mirror.tests.ps1`: a phone-factory issue counts as a mirror, and every admitted name
+      is in report-issue's list. 49 pass.
+
 ### DEPLOY: feat/2705-admit-phone-factory
 
-**Score:**
+Inside this repo: the BWJ extension's admitted-repo list, held in `asana-mirror-gate.ps1` and in the two
+skill pages that state it, grows to four, and a suite assert now holds the page's list to the gate's.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+For the maintainer of `phone-factory`: `adopt-dkj-policy-bwj` and `report-issue` now run there instead
+of refusing at step 0, for ticket handling. The Shopify chapters (sync log, preview handover, theme
+lifecycle) do not apply, and adopt's step 7 says to skip the sync-log scaffold
+([#2705](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2705)).
+
+**Score:** 4
 
 #### Pull Request
 

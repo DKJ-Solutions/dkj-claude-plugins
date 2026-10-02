@@ -19,6 +19,13 @@ other three chapters of this plugin -- [`SYNC-LOG-portable.md`](SYNC-LOG-portabl
 through, and `dkj-claude-plugins` runs no store, so they stay at exactly the two names above; each says
 so on its own opening line.
 
+**The fourth is `phone-factory`, BWJ's Lightspeed store, admitted for this chapter alone by Dave on
+October 2, 2026 ([#2705](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2705)).** It follows
+the BWJ procedure for a discovered issue. It is a store, but not a Shopify one, and the other three
+chapters are written against the Shopify theme and CLI, so they do not reach it either. Two parts of this
+chapter are stated for the two Shopify stores by name -- the `CRO` label and the board-request step --
+and they keep that reach until somebody decides otherwise for `phone-factory`.
+
 **Keep the two axes apart -- they read as one question and are not.** The org is left off the *store
 pair's* name because an org can move out from under a repo while the repo itself does not; the *repo
 count* differs by chapter because only this chapter's gate actually widened. `report-issue` and

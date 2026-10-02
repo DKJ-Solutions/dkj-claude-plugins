@@ -3,7 +3,7 @@
 **This page applies in exactly two repos, named by store rather than by org: `smartwatchbanden` and
 `xoxowildhearts`** -- see [`WORKFLOW-portable.md`](WORKFLOW-portable.md) for why the org is left out.
 **Unlike chapter one, this reach did NOT widen when `dkj-claude-plugins` was admitted on
-September 14, 2026** -- a preview handover exists to compare a theme against its own live control, and
+September 14, 2026, nor when `phone-factory`, a Lightspeed store, was on October 2, 2026** -- a preview handover exists to compare a theme against its own live control, and
 the source repo runs no theme and no store, so there is nothing here for it to hand over. That page's
 opening explains the widening; this one stays exactly the pair it always was. It is chapter three of
 this plugin, beside [`WORKFLOW-portable.md`](WORKFLOW-portable.md) and
