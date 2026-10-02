@@ -194,7 +194,7 @@ Four blocks on the page, and each is there because the other three cannot supply
 | **how to see the change** | the page under review named once -- with the tag or condition the change depends on -- and the steps a reviewer has to take before the change is even visible: which device, which viewport, which menu to open, and a clean-browser start where the route depends on one. No URL can say this, and a change that is invisible without it reads as *not shipped* |
 | **one card per market** | the market code and its domain, a **QR code to the preview**, the preview and control links as text beneath it, and the expected copy in that market's language where the change has copy in it |
 | **what is proven, and what is asked** | which gates ran and what they verified mechanically, then the one question the reviewer is being asked. This is the half that makes the link a self-contained handover rather than a bookmark needing the transcript beside it |
-| **the paste-ready block, for the requester** | where the issue has a linked Asana task: the block `build-golive-block.ps1` writes, **as it writes it** (its `-OutFile`) -- the text between its two `---` rules, in a `<pre>`, with a copy button -- and one line above it naming the Asana task it is for and why the page itself is not linked. The other three blocks are for the **reviewer**; this one is for the **requester**, who reads the Asana task and cannot open this page |
+| **the paste-ready block, as the requester will receive it** | where the issue has a linked Asana task: the block `build-golive-block.ps1` writes, **as it writes it** (its `-OutFile`) -- the text between its two `---` rules, in a `<pre>`, read-only -- and one line above it naming the Asana task it goes to, that closing the issue is what sends it, and why the page itself is not linked. The other three blocks are what the **reviewer** checks; this one shows the reviewer what the **requester** will read, in the Asana task, since they cannot open this page |
 
 Two things the cards inherit from the consumer's own preview rule rather than restating:
 
@@ -209,6 +209,16 @@ that actually reaches them was being written after every handover by hand, somew
 one surface the owner is already looking at did not carry it. Measured in `xoxowildhearts` on
 September 25, 2026 (inbound [#2474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2474)):
 a handover that added the message as a fourth block, with a copy button, did the job.
+
+**Nothing pastes it any more, so the block stays and the copy button is gone.** Since
+[#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700), closing the issue is what
+sends the block: `asana-mirror` posts it on the task as the one closed message, formatted, where a hand
+paste lost either the formatting or the line breaks
+([`WORKFLOW-portable.md`](WORKFLOW-portable.md#the-paste-ready-block----written-before-the-close-by-the-session-that-shipped-the-work)).
+The block keeps its place on the page because the owner looking at the handover is the last person to
+read it before the close sends it, and a wrong date or link is cheapest to catch there
+([#2708](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2708)). A copy button would now
+invite a second, hand-pasted copy beside the one the close posts.
 
 **That message already has a format, and it has one owner.** It is the paste-ready block of
 [`WORKFLOW-portable.md`](WORKFLOW-portable.md#the-paste-ready-block----written-before-the-close-by-the-session-that-shipped-the-work)
@@ -313,12 +323,6 @@ list of CDNs and blocks everything else -- images included, from every host. So 
 `<img src="https://some-qr-api/...">` is silently empty, and a page of five markets is a page of five
 blank squares with no error anywhere. The two shapes that do work: render the code **client-side** from
 a QR library loaded as a script from an allowlisted CDN, or embed it as a `data:` URI in the page.
-
-**The copy button on the paste-ready block needs no external host, and it needs a fallback.** It is
-`navigator.clipboard.writeText`, which a published Artifact can call without loading anything -- but a
-page served in a sandboxed frame can have the clipboard API refused, and then the button does nothing
-visible. So a refusal selects the block's text for a manual copy instead. **The fallback is required,
-not decoration**: without it, the one block meant to be carried across is the one that cannot be.
 
 This is mechanism on a policy page, deliberately and only where the carrier fails *silently*. A rule
 that prescribes a carrier and omits the constraint that makes it fail without an error is not a rule

@@ -180,9 +180,9 @@ function Get-GoLiveBlockText {
         BWJ-Development/smartwatchbanden#769 (September 25, 2026): the English printout was rejected by
         the owner, pointing at the Dutch block BWJ had actually sent a colleague, and rewritten by hand.
 
-        THE SHAPE IS THAT BLOCK'S: an opening line saying where the message comes from, then five
-        fixed headings. The Dutch words are the reference comment's own; the English ones are its
-        translation, for a task written in English.
+        THE SHAPE IS THAT BLOCK'S: the automation's header and closed line (English in both, see
+        below), then five fixed headings. The Dutch words are the reference comment's own; the English
+        ones are its translation, for a task written in English.
 
         Non-ASCII characters are composed from code points, because this file is read by Windows
         PowerShell 5.1 as the system ANSI code page (language-layers.md).
@@ -192,10 +192,18 @@ function Get-GoLiveBlockText {
     $dash = [string][char]0x2014
     $e    = [string][char]0x00E9
 
+    # THE HEADER AND THE CLOSED LINE ARE THE SAME IN EVERY LANGUAGE (#2700). They are the GitHub
+    # automation's own two lines, fixed and English on every board like its created and reopened forms
+    # (#2656), and the block IS the automation's closed message now: asana-mirror.ps1 carries it into
+    # the task when the issue closes. {0} is 'owner/repo#<n>', {1} the issue URL.
+    $header = "$dash GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
+    $closed = 'GitHub issue [{0}]({1}) is now **closed**. It can be reopened anytime when something is still not working as expected.'
+
     if ($Language -eq 'en') {
         return @{
-            Header       = "$dash automated message from GitHub #{0}"
-            Changed      = 'WHAT IS DIFFERENT NOW'
+            Header       = $header
+            Closed       = $closed
+            Changed     = 'WHAT IS DIFFERENT NOW'
             Where        = 'WHERE TO LOOK'
             When         = 'WHEN IT GOES LIVE'
             NotIncluded  = 'WHAT IS DELIBERATELY NOT IN IT'
@@ -211,8 +219,9 @@ function Get-GoLiveBlockText {
         }
     }
     return @{
-        Header       = "$dash automatisch bericht vanuit GitHub #{0}"
-        Changed      = 'WAT ER NU ANDERS IS'
+        Header       = $header
+        Closed       = $closed
+        Changed     = 'WAT ER NU ANDERS IS'
         Where        = 'TE BEKIJKEN OP'
         When         = 'WANNEER HET LIVE KOMT'
         NotIncluded  = 'WAT ER BEWUST NIET IN ZIT'
@@ -320,14 +329,44 @@ function Get-GoLiveBlockAsk {
     return @('', $t.Ask, '', $t.AskLook, '', $t.AskYes, '', $t.AskNo)
 }
 
+function Get-GoLiveBlockLead {
+    <#
+        Pure: the framing sentence above the rules, read on GitHub and never carried to Asana.
+
+        THE BLOCK IS NO LONGER PASTED (#2700, #2703). A hand paste lost either the formatting or every
+        line break, and the ready message and the close comment said the same thing twice -- so the
+        asana-mirror workflow now carries the block into the task as its one closed message, the moment
+        the issue closes. The sentence says so, so a reader on GitHub does not paste it a second time.
+    #>
+    return 'When this issue closes, the asana-mirror workflow posts the block below on the Asana task as its closed message -- no paste needed:'
+}
+
+function Format-GoLiveClosedLine {
+    <#
+        Pure: the closed line, in Markdown -- the issue name as a link, the verb bold (#2700).
+        -IssueRef is 'owner/repo#<n>'; a bare number has no repo to link to and is refused.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [hashtable]$Text
+    )
+    if ($IssueRef -notmatch '^([^\s#/]+/[^\s#/]+)#(\d+)$') {
+        throw "IssueRef '$IssueRef' is not 'owner/repo#<n>', so the closed line has no issue to link."
+    }
+    $url = "https://github.com/$($Matches[1])/issues/$($Matches[2])"
+    $t = if ($Text) { $Text } else { Get-GoLiveBlockText }
+    return ($t.Closed -f $IssueRef, $url)
+}
+
 function Format-GoLiveBlock {
     <#
         Pure: the whole GitHub comment -- the marker, the framing sentence that stays on GitHub, and
         the block between the two '---' rules that travels into the Asana task.
 
-        THE BLOCK HAS THE SHAPE BWJ ACTUALLY SENDS (#2507): an opening line naming where it comes from,
-        then up to five sections under fixed headings -- what changed, where to look, when it goes live,
-        what is deliberately not in it, and what we ask. The words follow -Language, which is the
+        THE BLOCK IS THE AUTOMATION'S CLOSED MESSAGE (#2700): the header and closed line, then up to
+        five sections under fixed headings -- where to look (first, Dave's order), what changed, when it
+        goes live, what is deliberately not in it, and what we ask. asana-mirror.ps1 carries everything
+        between the rules into the task when the issue closes (#2703). The words follow -Language, which is the
         colleague's (Get-GoLiveBlockText). The framing sentence above the rules stays English: it is
         read on GitHub, not pasted.
 
@@ -382,17 +421,18 @@ function Format-GoLiveBlock {
         [string[]]$NotIncluded = @()
     )
 
-    $t      = Get-GoLiveBlockText -Language $Language
-    $number = if ($IssueRef -match '#(\d+)\s*$') { $Matches[1] } else { $IssueRef }
-    $dash   = [string][char]0x2014
+    $t    = Get-GoLiveBlockText -Language $Language
+    $dash = [string][char]0x2014
 
     $lines = @(
         $Marker,
         '',
-        'Paste the block into the Asana task, so the requester knows where to look and when it lands:',
+        (Get-GoLiveBlockLead),
         '',
         '---',
-        ($t.Header -f $number)
+        $t.Header,
+        '',
+        (Format-GoLiveClosedLine -IssueRef $IssueRef -Text $t)
     )
 
     # One section: a blank line, the heading, a blank line, then its paragraphs a blank line apart.
@@ -403,13 +443,14 @@ function Format-GoLiveBlock {
         return , $out
     }
 
-    $changedParas = @($Changed | Where-Object { $_ -and $_.Trim() })
-    if ($changedParas.Count -gt 0) { $lines += & $addSection $t.Changed $changedParas }
-
+    # WHERE TO LOOK COMES FIRST (Dave, #2700): it is what the requester acts on, so it leads.
     $whereParas = @()
     if ($ResultLink) { $whereParas += ($t.ResultLink -f $ResultLink) }
     $whereParas += @($WhereToLook | Where-Object { $_ -and $_.Trim() })
     if ($whereParas.Count -gt 0) { $lines += & $addSection $t.Where $whereParas }
+
+    $changedParas = @($Changed | Where-Object { $_ -and $_.Trim() })
+    if ($changedParas.Count -gt 0) { $lines += & $addSection $t.Changed $changedParas }
 
     $whenParas = @(if ($Version) { $t.ReleaseVer -f $GoLiveDate, $Version } else { $t.ReleaseDay -f $GoLiveDate })
     $rows = @($LiveUrl | Where-Object { $_ })

@@ -62,7 +62,7 @@
                        -IssueRef is 'owner/repo#n'.
 
                        'closed' and 'reopened' COMMENT and move the card, each in the requester's
-                       fixed form (#2656): 'closed' says the work is ready to test, 'reopened' that
+                       fixed form (#2656, #2700): 'closed' says the issue is now closed and carries the session's go-live block, 'reopened' that
                        the task is back in development, see New-MirrorComment. Neither de-duplicates -- an event is a real state change,
                        and a second close after a reopen is news again.
 
@@ -151,6 +151,7 @@
     The pure helpers (Resolve-AsanaTaskRef, Get-AsanaTaskGid, Get-AsanaGidsFromText,
     New-MirrorComment, New-MirrorCommentHtml, Get-MirrorCommentParts, Get-MirrorCommentMarker, Get-MirrorCommentHeader, New-AsanaCommentRequest, Get-IssueRefFromNotes,
     Get-AsanaPasteBlockMarker, Get-AsanaPasteBlockLead, New-AsanaPasteBlockComment,
+    Get-PasteBlockSections, Select-SessionPasteBlockSections, ConvertTo-AsanaStoryHtml, New-ClosedMessageHtml,
     Get-StageFromSectionName, Select-StageMembership, Get-DefaultAsanaStageMap, Get-StageMapNumbers,
     Get-WritableStages, Test-StageIsWritable, Test-StageIsTerminal, Test-AsanaStageMap,
     Get-DefaultGithubStatusMap, Test-GithubStatusMap, Select-ProjectStatus, Get-StageForProjectStatus,
@@ -421,10 +422,18 @@ function Get-MirrorCommentMarker {
 
         Deliberately a readable sentence rather than an invisible token: this comment is read by a
         colleague, and a machine marker in it would be clutter they cannot act on.
-    #>
-    param([Parameter(Mandatory = $true)][string]$IssueRef)
 
-    return "GitHub issue $IssueRef is closed"
+        'is now closed' since #2700. -Legacy returns the spelling every close update before it
+        carried ('is closed'), which Test-MirrorUpdatePosted still matches, so a task told under the
+        old wording is not told a second time.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [switch]$Legacy
+    )
+
+    if ($Legacy) { return "GitHub issue $IssueRef is closed" }
+    return "GitHub issue $IssueRef is now closed"
 }
 
 function Get-MirrorCommentHeader {
@@ -445,24 +454,26 @@ function Get-MirrorCommentHeader {
 
 function Get-MirrorCommentParts {
     <#
-        The sentence of one event's comment, in its three parts: the issue name, the bold verb (with
-        its colon), and the rest. Pure. New-MirrorComment joins them as plain text and
-        New-MirrorCommentHtml as html_text, so the two can never disagree about the wording.
+        The sentence of one event's comment, in its parts: the words before the bold verb, the bold
+        verb itself, and the rest, which carries its own leading space or punctuation. Pure.
+        New-MirrorComment joins them as plain text and New-MirrorCommentHtml as html_text, so the two
+        can never disagree about the wording.
 
         'created'  the issue exists and the Asana task is now in development. This script never posts
                    it -- report-issue's session does, when an issue is made from an existing Asana
                    task -- but it is composed here so dkj-policy-bwj.tests.ps1 can hold the skill's
                    copy of the form equal to this one.
-        'closed'   the work behind the ticket is built and ready to test.
+        'closed'   the issue is now closed and can be reopened (#2700). It is the go-live block's own
+                   closed line as well: where the shipping session left a block on the issue, this
+                   comment carries the block's sections under it (New-ClosedMessageHtml).
         'reopened' the Asana task is back in development.
 
-        -StateReason 'not_planned' turns the close update into its opposite: nothing was built, so
-        asking somebody to test it would be worse than saying nothing. #2656 names no form for it, so
-        it keeps the shape and says what actually happened.
+        -StateReason 'not_planned' says nothing was built, so there is nothing to test. No requester's
+        form names it, so it keeps the closed shape and says what actually happened.
 
-        The sentence always opens 'GitHub issue <ref> is closed' on a close -- Get-MirrorCommentMarker,
-        unchanged -- so the sweeps' de-duplication still finds it: Asana stores the plain text of an
-        html_text comment, link and bold included.
+        A close always reads 'GitHub issue <ref> is now closed' -- Get-MirrorCommentMarker -- so the
+        sweeps' de-duplication finds it: Asana stores the plain text of an html_text comment, link and
+        bold included.
     #>
     param(
         [Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event,
@@ -470,13 +481,13 @@ function Get-MirrorCommentParts {
     )
 
     switch ($Event) {
-        'created'  { return @{ Verb = 'created:';  Rest = 'this Asana task is now in development.' } }
-        'reopened' { return @{ Verb = 'reopened:'; Rest = 'this Asana task is back in development.' } }
+        'created'  { return @{ Lead = ''; Verb = 'created:';  Rest = ' this Asana task is now in development.' } }
+        'reopened' { return @{ Lead = ''; Verb = 'reopened:'; Rest = ' this Asana task is back in development.' } }
         'closed'   {
             if ($StateReason -eq 'not_planned') {
-                return @{ Verb = 'closed as not planned:'; Rest = 'nothing behind this ticket is going to be built, so there is nothing to test.' }
+                return @{ Lead = 'now '; Verb = 'closed as not planned:'; Rest = ' nothing behind this ticket is going to be built, so there is nothing to test.' }
             }
-            return @{ Verb = 'closed:'; Rest = 'the work behind this ticket is built and ready to test.' }
+            return @{ Lead = 'now '; Verb = 'closed'; Rest = '. It can be reopened anytime when something is still not working as expected.' }
         }
     }
 }
@@ -496,7 +507,7 @@ function New-MirrorComment {
     )
 
     $p = Get-MirrorCommentParts -Event $Event -StateReason $StateReason
-    return (@((Get-MirrorCommentHeader), '', "GitHub issue $IssueRef is $($p.Verb) $($p.Rest)") -join "`n")
+    return (@((Get-MirrorCommentHeader), '', "GitHub issue $IssueRef is $($p.Lead)$($p.Verb)$($p.Rest)") -join "`n")
 }
 
 function New-MirrorCommentHtml {
@@ -518,7 +529,91 @@ function New-MirrorCommentHtml {
     $parts = $IssueRef -split '#'
     $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
     $p     = Get-MirrorCommentParts -Event $Event -StateReason $StateReason
-    return "<body>$(& $esc (Get-MirrorCommentHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is <strong>$(& $esc $p.Verb)</strong> $(& $esc $p.Rest)</body>"
+    return "<body>$(& $esc (Get-MirrorCommentHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is $(& $esc $p.Lead)<strong>$(& $esc $p.Verb)</strong>$(& $esc $p.Rest)</body>"
+}
+
+function Get-PasteBlockSections {
+    <#
+        Pure: the sections of a go-live block -- the text between its two '---' rules, minus the lines
+        the closed message composes itself (the header and the closed line). '' when there is no block.
+
+        The header is dropped by SHAPE, not by spelling -- the first non-blank line, opening with an em
+        dash -- so a block posted under the old header ('automatisch bericht vanuit GitHub #<n>') is
+        carried without it too. The closed line is dropped where it follows it.
+    #>
+    param([AllowEmptyString()][string]$Body)
+
+    $lines = @(([string]$Body) -split "`r?`n")
+    $rules = @(for ($i = 0; $i -lt $lines.Count; $i++) { if ($lines[$i].Trim() -eq '---') { $i } })
+    if ($rules.Count -lt 2 -or ($rules[1] - $rules[0]) -lt 2) { return '' }
+    $inner = @($lines[($rules[0] + 1)..($rules[1] - 1)])
+
+    $dash = [string][char]0x2014
+    $at = 0
+    while ($at -lt $inner.Count -and -not $inner[$at].Trim()) { $at++ }
+    if ($at -lt $inner.Count -and $inner[$at].TrimStart().StartsWith($dash)) {
+        $at++
+        while ($at -lt $inner.Count -and -not $inner[$at].Trim()) { $at++ }
+        if ($at -lt $inner.Count -and $inner[$at].StartsWith('GitHub issue ')) { $at++ }
+    }
+    $rest = @(if ($at -lt $inner.Count) { $inner[$at..($inner.Count - 1)] })
+    return (($rest -join "`n").Trim())
+}
+
+function ConvertTo-AsanaStoryHtml {
+    <#
+        Pure: a block's Markdown sections as the INSIDE of an Asana html_text body (#2703).
+
+        A hand paste could not carry them: without formatting the link and the bold arrived as raw
+        Markdown, with formatting every line break was lost. Posted through the API as html_text,
+        newlines survive as written (measured on smartwatchbanden#812's task, October 2, 2026).
+
+        Only what the block's own writers emit is converted, onto Asana's allow-list: a heading line
+        (capitals and spaces) becomes <strong>, '[text](url)' and a bare http(s) URL become <a>, and
+        '**x**' becomes <strong>. Everything else is XML-escaped text, so a body is always well-formed.
+    #>
+    param([AllowEmptyString()][string]$Markdown)
+
+    $esc = { param($s) [System.Security.SecurityElement]::Escape([string]$s) }
+    $out = foreach ($line in (([string]$Markdown) -split "`r?`n")) {
+        if ($line -cmatch '^[A-Z][A-Z /]*[A-Z]$') { "<strong>$(& $esc $line)</strong>"; continue }
+        $sb  = New-Object System.Text.StringBuilder
+        $pos = 0
+        foreach ($m in [regex]::Matches($line, '\[([^\]]+)\]\((https?://[^)\s]+)\)|(https?://[^\s<>()]+)|\*\*([^*]+)\*\*')) {
+            [void]$sb.Append((& $esc $line.Substring($pos, $m.Index - $pos)))
+            if ($m.Groups[1].Success) {
+                [void]$sb.Append("<a href=`"$(& $esc $m.Groups[2].Value)`">$(& $esc $m.Groups[1].Value)</a>")
+            } elseif ($m.Groups[3].Success) {
+                [void]$sb.Append("<a href=`"$(& $esc $m.Groups[3].Value)`">$(& $esc $m.Groups[3].Value)</a>")
+            } else {
+                [void]$sb.Append("<strong>$(& $esc $m.Groups[4].Value)</strong>")
+            }
+            $pos = $m.Index + $m.Length
+        }
+        [void]$sb.Append((& $esc $line.Substring($pos)))
+        $sb.ToString()
+    }
+    return (@($out) -join "`n")
+}
+
+function New-ClosedMessageHtml {
+    <#
+        Pure: the ONE closed message (#2700) -- the closed comment, with the go-live block's sections
+        under it when the shipping session left a block on the issue. Dave, October 2, 2026: a separate
+        'ready' message and a close comment said the same thing twice, so there are three automations
+        (created, closed, reopened) and the block rides on the closed one.
+
+        -BlockSections is Get-PasteBlockSections' answer; '' (no block, or a close as not planned)
+        leaves the closed comment alone.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [string]$StateReason = '',
+        [AllowEmptyString()][string]$BlockSections = ''
+    )
+    $html = New-MirrorCommentHtml -IssueRef $IssueRef -Event 'closed' -StateReason $StateReason
+    if ($StateReason -eq 'not_planned' -or -not $BlockSections) { return $html }
+    return ($html -replace '</body>$', '') + "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) + '</body>'
 }
 
 function Get-AsanaPasteBlockMarker {
@@ -588,6 +683,40 @@ function Test-AsanaPasteBlockPosted {
     return $false
 }
 
+function Select-SessionPasteBlockSections {
+    <#
+        Pure: out of an issue's comment bodies, the sections of the block the SHIPPING SESSION left --
+        the newest comment carrying the marker whose block is not the backstop's [ADD LINK] copy (a
+        reopen and a second close would otherwise carry a placeholder into the task). '' when none.
+    #>
+    param([string[]]$Bodies = @())
+
+    $marker = Get-AsanaPasteBlockMarker
+    $list = @($Bodies)
+    for ($i = $list.Count - 1; $i -ge 0; $i--) {
+        $body = [string]$list[$i]
+        if (-not $body.Contains($marker)) { continue }
+        $sections = Get-PasteBlockSections -Body $body
+        if ($sections -and -not $sections.Contains('[ADD LINK]')) { return $sections }
+    }
+    return ''
+}
+
+function Get-SessionPasteBlockSections {
+    <#
+        Select-SessionPasteBlockSections over the issue's comments, read through gh. An unreadable issue
+        answers '' -- the closed comment then goes out on its own, which is the backstop's case anyway.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+
+    $parts = $IssueRef -split '#'
+    $ErrorActionPreference = 'Continue'
+    $raw = & gh issue view $parts[1] --repo $parts[0] --json comments 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $raw) { return '' }
+    try { $comments = (($raw | Out-String) | ConvertFrom-Json).comments } catch { return '' }
+    return (Select-SessionPasteBlockSections -Bodies @(@($comments) | ForEach-Object { [string]$_.body }))
+}
+
 function New-AsanaPasteBlockComment {
     <#
         The GitHub comment carrying the paragraph that goes into the Asana task, so the requester
@@ -633,13 +762,9 @@ function New-AsanaPasteBlockComment {
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
-    # $IssueRef is always the workflow-built 'owner/repo#<n>' (ISSUE_REF in asana-mirror.yml, or
-    # "$Repo#<n>" in the sweeps), never free text -- so it is split the way the rest of this file
-    # splits it. The pasted header carries only the number, so the full ref goes in the framing
-    # sentence above the rules, where the old block used to name it.
-    $number = ($IssueRef -split '#')[1]
-    $dash   = [string][char]0x2014
-
+    # The header is the automation's own (#2700) and carries no issue number, so the full ref goes in
+    # the framing sentence above the rules. No closed line inside the rules: this backstop runs on the
+    # close, whose closed comment has already told the task -- the paste adds only where to look.
     return @(
         (Get-AsanaPasteBlockMarker),
         '',
@@ -647,7 +772,7 @@ function New-AsanaPasteBlockComment {
             ' knows where to look:',
         '',
         '---',
-        "$dash automatisch bericht vanuit GitHub #$number",
+        (Get-MirrorCommentHeader),
         '',
         'TE BEKIJKEN OP',
         '',
@@ -1473,14 +1598,16 @@ function Test-MirrorUpdatePosted {
         [Parameter(Mandatory = $true)][string]$Pat
     )
     if ($Gid -notmatch '^[0-9]+$') { throw "Refusing to read a non-numeric task GID: '$Gid'." }
-    $marker = Get-MirrorCommentMarker -IssueRef $IssueRef
+    $markers = @((Get-MirrorCommentMarker -IssueRef $IssueRef), (Get-MirrorCommentMarker -IssueRef $IssueRef -Legacy))
     $uri = "$script:AsanaApiBase/tasks/$Gid/stories" + '?opt_fields=text,type&limit=100'
     try {
         $seen = $false
         while ($uri) {
             $resp = Invoke-RestMethod -Method GET -Uri $uri -Headers @{ Authorization = "Bearer $Pat" }
             foreach ($s in @($resp.data)) {
-                if ([string]$s.text -and ([string]$s.text).Contains($marker)) { $seen = $true }
+                $text = [string]$s.text
+                if (-not $text) { continue }
+                foreach ($m in $markers) { if ($text.Contains($m)) { $seen = $true } }
             }
             $uri = if ($resp.next_page -and $resp.next_page.uri) { $resp.next_page.uri } else { $null }
         }
@@ -1862,7 +1989,15 @@ function Invoke-EventMode {
     if ($Event -in @('closed', 'reopened')) {
         # No de-duplication here on purpose: an event is a real state change, so a close after a
         # reopen is news again and gets said again.
-        $html = New-MirrorCommentHtml -IssueRef $IssueRef -Event $Event -StateReason $link.StateReason
+        #
+        # A CLOSE CARRIES THE SESSION'S GO-LIVE BLOCK (#2700, #2703): one closed message, the block's
+        # sections under the closed line, instead of a hand paste plus a second comment saying the same.
+        $html = if ($Event -eq 'closed') {
+            New-ClosedMessageHtml -IssueRef $IssueRef -StateReason $link.StateReason `
+                -BlockSections (Get-SessionPasteBlockSections -IssueRef $IssueRef)
+        } else {
+            New-MirrorCommentHtml -IssueRef $IssueRef -Event $Event -StateReason $link.StateReason
+        }
         Add-AsanaComment -Gid $ref.Gid -Html $html -Pat $AsanaPat
         Write-Host "Asana task $($ref.Gid) updated: $IssueRef $Event (matched by $($ref.Source)). The task was NOT completed -- that is the requester's call."
     }
@@ -1922,9 +2057,10 @@ function Update-MirroredTask {
     # GH_PROJECT_TOKEN notice once per swept issue in a repo that has not set one.
     $closure = Get-IssueLinkState -Repo ($IssueRef -split '#')[0] -Number ([int]($IssueRef -split '#')[1]) `
                    -StatusField ''
-    $html = New-MirrorCommentHtml -IssueRef $IssueRef -Event 'closed' -StateReason $closure.StateReason
+    $html = New-ClosedMessageHtml -IssueRef $IssueRef -StateReason $closure.StateReason `
+                -BlockSections (Get-SessionPasteBlockSections -IssueRef $IssueRef)
     Add-AsanaComment -Gid $Gid -Html $html -Pat $AsanaPat
-    $how = if ($MatchedBy) { " (matched by $MatchedBy)" } else { '' }
+    $how =if ($MatchedBy) { " (matched by $MatchedBy)" } else { '' }
     Write-Host "  Updated: Asana task $Gid told that $IssueRef is closed$how."
     return 1
 }

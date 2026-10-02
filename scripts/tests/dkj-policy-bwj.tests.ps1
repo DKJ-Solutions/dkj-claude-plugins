@@ -303,8 +303,9 @@ $ref  = 'BWJ-Development/xoxowildhearts#334'
 Assert-Equal ("$hdr`n`nGitHub issue $ref is created: this Asana task is now in development.") `
     (New-MirrorComment -IssueRef $ref -Event 'created') 'the created comment is the requester''s form exactly'
 $closed = New-MirrorComment -IssueRef $ref -Event 'closed' -StateReason 'completed'
-Assert-Equal ("$hdr`n`nGitHub issue $ref is closed: the work behind this ticket is built and ready to test.") `
-    $closed 'the closed comment is the requester''s form exactly'
+Assert-Equal ("$hdr`n`nGitHub issue $ref is now closed. It can be reopened anytime when something is still not working as expected.") `
+    $closed 'the closed comment is the requester''s form exactly (#2700)'
+Assert-True ($closed -notmatch 'ready to test') 'and no longer says ready to test -- the block under it says where to look'
 $reopened = New-MirrorComment -IssueRef $ref -Event 'reopened'
 Assert-Equal ("$hdr`n`nGitHub issue $ref is reopened: this Asana task is back in development.") `
     $reopened 'the reopened comment is the requester''s form exactly'
@@ -325,12 +326,17 @@ Assert-True ($closed.Contains($marker)) 'the close update carries the marker'
 Assert-True ($marker -match '#334')       'and it names the issue'
 Assert-True ($marker -ne (Get-MirrorCommentMarker -IssueRef 'BWJ-Development/xoxowildhearts#335')) 'two issues get two different markers'
 Assert-True (-not (Get-MirrorCommentHeader).Contains($marker)) 'the header does not itself carry the marker'
+# THE OLD SPELLING STILL COUNTS AS TOLD: every close update before #2700 read 'is closed', and the
+# sweeps must not tell those tasks a second time.
+Assert-Equal "GitHub issue $ref is closed" (Get-MirrorCommentMarker -IssueRef $ref -Legacy) 'the legacy marker is the pre-#2700 opening'
+$tmpText = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'templates\asana-mirror.ps1'))
+Assert-True ($tmpText.Contains('(Get-MirrorCommentMarker -IssueRef $IssueRef -Legacy)')) 'and Test-MirrorUpdatePosted matches it beside the current one'
 
 # what is posted: html_text, plain, the issue name as its link -- and the plain text Asana stores
 # for it still carries the marker, so the sweeps' de-duplication reads it
 $html = New-MirrorCommentHtml -IssueRef $ref -Event 'closed' -StateReason 'completed'
 Assert-True ($html.StartsWith('<body>') -and $html.EndsWith('</body>') -and $html -notmatch '<em>') 'the posted comment is one plain body, no italics'
-Assert-True ($html.Contains("<a href=`"https://github.com/BWJ-Development/xoxowildhearts/issues/334`">$ref</a> is <strong>closed:</strong> the work")) 'with the issue name as the link and the verb bold'
+Assert-True ($html.Contains("<a href=`"https://github.com/BWJ-Development/xoxowildhearts/issues/334`">$ref</a> is now <strong>closed</strong>. It can be reopened")) 'with the issue name as the link and the verb bold'
 Assert-Equal $closed ([xml]$html).body.InnerText 'and its plain text is the plain comment, marker included'
 foreach ($ev in 'created', 'reopened') {
     $h = New-MirrorCommentHtml -IssueRef $ref -Event $ev
@@ -372,7 +378,7 @@ Assert-True ($between -match '\[ADD LINK\]')              'and the pasted half i
 # THE SESSION ROUTE'S SHAPE, NOT THE OLD ENGLISH SENTENCE (#2513): the opening line, then the one
 # section CI can write -- the others are not placeholdered, they are left out.
 $betweenLines = @(($between.Trim()) -split "`n")
-Assert-Equal "$([char]0x2014) automatisch bericht vanuit GitHub #500" $betweenLines[0] 'the pasted block opens with the session route''s header line'
+Assert-Equal $hdr $betweenLines[0] 'the pasted block opens with the automation''s own header (#2700)'
 Assert-Equal 'TE BEKIJKEN OP' $betweenLines[2] 'then the where-to-look heading'
 Assert-Equal 'Het resultaat is hier te bekijken: [ADD LINK]' $betweenLines[4] 'and the link sentence, in Dutch, with the placeholder'
 # A TEXT LINE DIRECTLY ABOVE '---' IS A SETEXT H2 (#2701): the closing rule needs a blank line above it.
@@ -999,8 +1005,13 @@ Assert-True ($backstopPasted.Contains(($glTextNl.Header -f '500')))            '
 Assert-True ($backstopPasted.Contains($glTextNl.Where))                         'its heading is the where-to-look heading'
 Assert-True ($backstopPasted.Contains(($glTextNl.ResultLink -f '[ADD LINK]'))) 'and its link sentence is the session route''s, with the placeholder in the link''s place'
 Assert-True ($goLivePasted.TrimStart().StartsWith(($glTextNl.Header -f '500'))) 'the session route opens with the same header line'
-Assert-True ($goLivePasted.TrimStart().StartsWith("$glDash automatisch bericht vanuit GitHub #500")) 'the pasted block opens by naming where it comes from'
-$glHeadings = @('WAT ER NU ANDERS IS', 'TE BEKIJKEN OP', 'WANNEER HET LIVE KOMT', 'WAT ER BEWUST NIET IN ZIT', 'WAT WE VAN JE VRAGEN')
+Assert-True ($goLivePasted.TrimStart().StartsWith((Get-MirrorCommentHeader))) 'the block opens with the automation''s own header, the one asana-mirror composes (#2700)'
+$glPastedLines = @($goLivePasted.Trim() -split "`n")
+Assert-Equal 'GitHub issue [BWJ-Development/smartwatchbanden#500](https://github.com/BWJ-Development/smartwatchbanden/issues/500) is now **closed**. It can be reopened anytime when something is still not working as expected.' `
+    $glPastedLines[2] 'then the closed line, the issue name a link and the verb bold -- the requester''s form'
+Assert-Throws { Format-GoLiveClosedLine -IssueRef '500' } 'a bare number has no repo to link the closed line to'
+# WHERE TO LOOK LEADS (Dave, #2700); the rest keep their order.
+$glHeadings = @('TE BEKIJKEN OP', 'WAT ER NU ANDERS IS', 'WANNEER HET LIVE KOMT', 'WAT ER BEWUST NIET IN ZIT', 'WAT WE VAN JE VRAGEN')
 $glAt = -1
 foreach ($h in $glHeadings) {
     $i = $goLivePasted.IndexOf("`n$h`n")
@@ -1010,7 +1021,29 @@ foreach ($h in $glHeadings) {
 Assert-True ($goLivePasted.IndexOf('Er is een SEO-intro') -gt $goLivePasted.IndexOf('WAT ER NU ANDERS IS')) 'the session''s prose sits under its own heading'
 Assert-True ($goLivePasted.IndexOf('Kijk onder de titel.') -gt $goLivePasted.IndexOf('Het resultaat is hier te bekijken')) 'and the where-to-look prose follows the link'
 Assert-True ($goLivePasted -notmatch 'Planned to|What we ask|The fix for') 'the Dutch block carries no English words of the old shape'
-Assert-True ($goLiveBlock.Contains('Paste the block into the Asana task')) 'while the framing sentence, read on GitHub, stays English'
+Assert-True ($goLiveBlock.Contains((Get-GoLiveBlockLead))) 'while the framing sentence, read on GitHub, stays English'
+Assert-True ((Get-GoLiveBlockLead) -match 'no paste needed') 'and says the workflow carries it, so nobody pastes it twice (#2703)'
+
+# THE CI MIRROR CARRIES THE BLOCK AS ITS ONE CLOSED MESSAGE (#2700, #2703).
+$glSections = Get-PasteBlockSections -Body $goLiveBlock
+Assert-True ($glSections.StartsWith('TE BEKIJKEN OP')) 'the carried sections start at the first heading -- header and closed line are the comment''s own'
+Assert-True ($glSections -notmatch 'GitHub automation|is now \*\*closed') 'so neither arrives twice'
+$glOldShape = "<!-- asana-paste-block -->`n`nPaste it:`n`n---`n$glDash automatisch bericht vanuit GitHub #500`n`nWAT ER NU ANDERS IS`n`nIets.`n---"
+Assert-Equal "WAT ER NU ANDERS IS`n`nIets." (Get-PasteBlockSections -Body $glOldShape) 'a block posted under the old header is carried without it too'
+Assert-Equal '' (Get-PasteBlockSections -Body 'no rules here') 'a body with no block has no sections'
+$glBackstop = New-AsanaPasteBlockComment -IssueRef 'BWJ-Development/smartwatchbanden#500'
+Assert-Equal $glSections (Select-SessionPasteBlockSections -Bodies @('first', $goLiveBlock, $glBackstop)) 'the session''s block is carried, never the backstop''s [ADD LINK] copy beside it'
+Assert-Equal '' (Select-SessionPasteBlockSections -Bodies @('first', $glBackstop)) 'and a backstop copy alone carries nothing'
+$glClosedHtml = New-ClosedMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#500' -BlockSections $glSections
+$glClosedXml  = [xml]$glClosedHtml
+Assert-True ($glClosedXml.body.InnerText.StartsWith((New-MirrorComment -IssueRef 'BWJ-Development/smartwatchbanden#500' -Event 'closed'))) 'the closed message opens with the closed comment, so the sweeps'' marker is in it'
+Assert-True ($glClosedHtml.Contains('<strong>TE BEKIJKEN OP</strong>')) 'the headings arrive bold'
+Assert-True ($glClosedHtml.Contains('<a href="https://example.invalid/preview">https://example.invalid/preview</a>')) 'a bare URL arrives as a link'
+Assert-True ($glClosedHtml.Contains("`n`n<strong>WAT ER NU ANDERS IS</strong>`n`n")) 'and the line breaks arrive as written -- what a paste lost'
+Assert-Equal '<a href="https://x.invalid/?a=1&amp;b=2">t</a> en <strong>vet</strong> &amp; meer' (ConvertTo-AsanaStoryHtml -Markdown '[t](https://x.invalid/?a=1&b=2) en **vet** & meer') 'Markdown links and bold convert, and everything else is escaped'
+Assert-Equal (New-MirrorCommentHtml -IssueRef 'o/r#1' -Event 'closed' -StateReason 'not_planned') `
+    (New-ClosedMessageHtml -IssueRef 'o/r#1' -StateReason 'not_planned' -BlockSections $glSections) 'a close as not planned carries no block -- nothing was built'
+Assert-Equal (New-MirrorCommentHtml -IssueRef 'o/r#1' -Event 'closed') (New-ClosedMessageHtml -IssueRef 'o/r#1') 'and with no block the closed comment goes out alone'
 
 # A BARE LIST BESIDE A RESULT LINK SAYS HOW TO READ IT BEFORE THE RELEASE (#2477): a bare URL renders
 # the preview in any browser that opened the result link first, so both tabs would agree. The caveat is
@@ -1038,7 +1071,7 @@ Assert-True ($goLivePasted.Contains('hoe dan ook mee met die release')) 'the ask
 # THE SAME SHAPE IN ENGLISH, for a task written in English -- the words follow the task, not the repo.
 $goLiveEn = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#3' -GoLiveDate 'Monday 21 September 2026' `
     -ResultLink 'https://example.invalid/preview' -Version '2.0.1' -Language en -Changed @('A thing changed.')
-Assert-True ($goLiveEn.Contains("$glDash automated message from GitHub #3")) 'English opens the same way'
+Assert-True ($goLiveEn.Contains("$(Get-MirrorCommentHeader)`n`nGitHub issue [o/r#3]")) 'English opens the same way -- the automation''s lines are English on every board'
 Assert-True ($goLiveEn.Contains("`nWHAT IS DIFFERENT NOW`n") -and $goLiveEn.Contains("`nWHAT WE ASK OF YOU`n")) 'with the same sections'
 Assert-True ($goLiveEn.Contains('planned to go live with the release of Monday 21 September 2026, as version v2.0.1.')) 'and the plan wording'
 Assert-True ($goLiveEn -notmatch '(?m)will go live') 'never as a promise'
@@ -1164,7 +1197,7 @@ try {
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
         -RootOverride $glRoot -ProseFile $glProseFile -Language en -OutFile $glOutFile 2>&1 | Out-Null
     $glEnText = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
-    Assert-True ($glEnText.Contains("$glDash automated message from GitHub #7") -and $glEnText.Contains("`nWHAT IS DIFFERENT NOW`n")) 'the driver passes -Language en through to the block'
+    Assert-True ($glEnText.Contains("`nWHAT IS DIFFERENT NOW`n") -and -not $glEnText.Contains('WAT ER NU ANDERS IS')) 'the driver passes -Language en through to the block'
     Assert-True ($glEnText.Contains('as version v1.0.0.') -and $glEnText -notmatch 'maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag') 'and the date follows it too'
     [System.IO.File]::WriteAllText($glProseFile, "[wat]`r`nx`r`n", (New-Object System.Text.UTF8Encoding $false))
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `

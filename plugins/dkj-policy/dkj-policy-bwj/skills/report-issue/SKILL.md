@@ -10,7 +10,7 @@ description: >-
   because the board's sections are the cycle's stages. The GitHub issue always gets created
   even if Asana is unreachable, so the source-of-truth guarantee holds. Nothing here resolves a ticket
   and nothing downstream does either: closing the GitHub issue only makes the asana-mirror CI workflow
-  post an update saying the work is ready to test and move the card to `ReadyToTest`, and the colleague who
+  post the closed message, carrying the go-live block, and move the card to `ReadyToTest`, and the colleague who
   filed it ticks it off.
 ---
 
@@ -289,7 +289,7 @@ Give both URLs and stop -- or, for an issue without the reach label, the issue U
 that it is GitHub-only because it is tier 0, so the missing card reads as a decision rather than a
 failed mirror. **Do not resolve anything, and do not promise that anything else will.**
 When the GitHub issue is closed, the `asana-mirror` CI workflow posts an update on the Asana task
-saying the work is ready to test and moves the card to `ReadyToTest`; the task stays open until the
+carrying the go-live block as its closed message and moves the card to `ReadyToTest`; the task stays open until the
 colleague who filed it ticks it off. Nothing in this chain -- not you, not the CI -- completes a task,
 and nothing puts a card in `Completed` either.
 

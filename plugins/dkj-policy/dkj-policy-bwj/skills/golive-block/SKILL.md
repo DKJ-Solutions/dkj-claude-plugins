@@ -3,8 +3,8 @@ name: golive-block
 description: >-
   Write the paste-ready block for a GitHub issue, including its go-live half: where the result can be
   seen, when it is planned to go live (the next release day), and the live storefront URL per market.
-  Use it as the closing act of the chain that shipped the work, while the issue is still OPEN -- closing the issue is the confirmation that the block reached the
-  Asana task. It prints by default and posts only with -Post; it never touches Asana, and it never
+  Use it as the closing act of the chain that shipped the work, while the issue is still OPEN -- closing the issue then sends it: the asana-mirror workflow
+  posts the block on the Asana task as its one closed message. It prints by default and posts only with -Post; it never touches Asana itself, and it never
   writes a placeholder link.
 ---
 
@@ -45,9 +45,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    should change and reopens the issue, and the release happens either way
    ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The five rules behind it
    are in `WORKFLOW-portable.md`, under *What the block asks of the requester*.
-6. **The shape and the language** -- the block BWJ actually sends: an opening line naming it an
-   automated message from the issue, then five fixed headings (`WAT ER NU ANDERS IS` / `TE BEKIJKEN OP`
-   / `WANNEER HET LIVE KOMT` / `WAT ER BEWUST NIET IN ZIT` / `WAT WE VAN JE VRAGEN`), in the language
+6. **The shape and the language** -- the automation's closed message: its header (*— GitHub automation 🤖*)
+   and the closed line (`GitHub issue [<owner>/<repo>#<n>](<issue url>) is now **closed**.`, then
+   *"It can be reopened anytime when something is still not working as expected."*), both fixed and
+   English on every board, then five fixed
+   headings (`TE BEKIJKEN OP` / `WAT ER NU ANDERS IS` / `WANNEER HET LIVE KOMT` / `WAT ER BEWUST NIET IN ZIT`
+   / `WAT WE VAN JE VRAGEN`, where-to-look first, [#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700)), in the language
    of the Asana task -- Dutch by default, `-Language en` for a task written in English
    ([#2507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2507)). The prose sections are
    **yours to write**, and they come in through `-ProseFile` (below). The script fills in the facts.
@@ -108,10 +111,13 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 - **It never hands the requester a link they cannot open.** The handover page is the *reviewer's*
   surface, and it stays private until somebody shares it, so a `claude.ai/artifact/` or
   `claude.ai/code/artifact/` `-Link` is refused. That covers printing too, because the printout is
-  what gets pasted. Measured in `BWJ-Development/smartwatchbanden#750`.
-- **It never touches Asana.** A person pastes the block into the task, and closing the issue is their
-  confirmation that it landed there. That is the one decision this chapter keeps with the colleague
-  who asked for the work, and a script cannot reach the Asana MCP anyway.
+  what reaches the task. Measured in `BWJ-Development/smartwatchbanden#750`.
+- **It never touches Asana itself.** The `asana-mirror` workflow does, when the issue closes: it posts the
+  block on the task as its one closed message, the closed line on top and the sections under it, as
+  `html_text` so the links, the bold and every line break arrive. A hand paste lost either the formatting
+  or the line breaks ([#2703](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2703)), and a
+  separate *ready* message beside the close said the same thing twice (Dave, #2700). So closing the issue is
+  what sends the block -- close it once the block is right.
 - **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026"* is a
   cadence, and a release can slip. This block is the one surface a colleague quotes back, so it must
   not read as a commitment nobody made.
@@ -122,7 +128,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 ## The order is the rule, and this script is the second-to-last step
 
 ```text
-work shipped -> build-golive-block -Post -> paste into Asana -> close the GitHub issue
+work shipped -> build-golive-block -Post -> close the GitHub issue (asana-mirror carries the block)
 ```
 
 **While the issue is still OPEN.** Nobody returns to a closed one, which is the whole finding behind
@@ -141,7 +147,7 @@ past it.
 other cycle step this plugin adds -- the storefront-visibility step, last under `### CREATE` -- is in
 [`PREVIEW-portable.md`](../../PREVIEW-portable.md), and both are indexed in
 [the README](../../README.md#what-the-cycle-gains-here). **The same output is that page's fourth
-block** -- a preview handover embeds it, with a copy button, rather than composing its own
+block** -- a preview handover embeds it read-only, as what the close will send, rather than composing its own
 ([#2474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2474)), so run it with `-OutFile`
 for the page and with `-Post` for the issue.
 

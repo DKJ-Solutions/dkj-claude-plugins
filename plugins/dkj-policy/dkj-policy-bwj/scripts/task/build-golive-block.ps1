@@ -7,17 +7,16 @@
     Issue #2100 (Dave, September 18, 2026). WORKFLOW-portable.md's paste-ready block answered 'where
     can I see it' and stopped there; the requester's next question is always 'and when do I actually
     see it'. This script writes the whole block -- the marker, the framing sentence that stays on
-    GitHub, and the paragraph between the two '---' rules that a person pastes into the Asana task.
+    GitHub, and the paragraph between the two '---' rules that asana-mirror carries into the Asana task.
 
     IT IS THE ROUTE, NOT THE BACKSTOP. asana-mirror.ps1 still posts a placeholder block where an
     Asana-linked issue closed without one, and it writes [ADD LINK] because CI genuinely cannot know
     the link. This script runs in the session that shipped the work, which does know it -- so it
     never writes a placeholder: a link it was not given is a sentence it does not write.
 
-    WHAT IT NEVER DOES: touch Asana. The block reaches the task because a person pastes it, and
-    closing the issue is their confirmation that it landed there -- the one decision this chapter
-    deliberately keeps with the colleague who asked for the work. A script also cannot reach the
-    Asana MCP, so the alternative was never on offer.
+    WHAT IT NEVER DOES: touch Asana. The block reaches the task through the asana-mirror workflow,
+    which posts it as its one closed message when the issue closes (#2700, #2703) -- a hand paste lost
+    either the formatting or every line break. So the order is: post the block, then close the issue.
 
     THE THREE GO-LIVE FACTS AND WHERE EACH COMES FROM:
 
@@ -235,7 +234,7 @@ $targetRef = "$StoreRepo#$issueNumber"
 
 # --- The link its reader can open -------------------------------------------------------------------
 # A REFUSAL AND NOT A WARNING, and it applies to printing as much as posting: the printout IS what gets
-# pasted into the Asana task, so a warning under it would travel nowhere the requester looks (#2341).
+# carried into the Asana task, so a warning under it would travel nowhere the requester looks (#2341).
 if ((Test-PrivateResultLink -Link $LinkArg) -and -not $AllowPrivateLink) {
     Write-Host "[ERROR] -Link is a claude.ai Artifact ($LinkArg) -- private to its owner, so the requester" -ForegroundColor Red
     Write-Host "        reading the Asana task cannot open it. The handover page is the reviewer's surface." -ForegroundColor Red
@@ -366,8 +365,8 @@ if (-not $LinkArg) {
 }
 
 if (-not $PostArg) {
-    Write-Host "Printed only. Re-run with -Post to put it on $targetRef, then paste the block between the" -ForegroundColor DarkGray
-    Write-Host "'---' rules into the Asana task -- and close the issue once it is there." -ForegroundColor DarkGray
+    Write-Host "Printed only. Re-run with -Post to put it on $targetRef, then close the issue: the asana-mirror" -ForegroundColor DarkGray
+    Write-Host "workflow posts the block on the Asana task as its closed message." -ForegroundColor DarkGray
     return
 }
 
@@ -412,5 +411,5 @@ if ($postCode -ne 0) {
     exit 1
 }
 Write-Host "[OK] Block posted on $targetRef." -ForegroundColor Green
-Write-Host "     Now paste the block between the '---' rules into the Asana task, and close the issue" -ForegroundColor DarkGray
-Write-Host "     once it is there -- that close is your confirmation that it reached the requester." -ForegroundColor DarkGray
+Write-Host "     Now close the issue: the asana-mirror workflow posts the block on the Asana task as its" -ForegroundColor DarkGray
+Write-Host "     closed message. No paste needed." -ForegroundColor DarkGray

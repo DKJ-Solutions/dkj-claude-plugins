@@ -2,7 +2,42 @@
 
 ## [Unreleased]
 
-**8 / 10 minor entries** <!-- pending-tally -->
+**9 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2700-closed-message-carries-the-block · 20261002-114815Z
+
+Inside this repo: `asana-mirror.ps1` gains the closed-message composer (`Get-PasteBlockSections`,
+`Select-SessionPasteBlockSections`, `ConvertTo-AsanaStoryHtml`, `New-ClosedMessageHtml`), and its close
+marker becomes `is now closed`, with the old `is closed` kept as a legacy match.
+`golive-block-rules.ps1` composes the header and closed line once for both languages and puts
+`TE BEKIJKEN OP` first. `dkj-policy-bwj.tests.ps1` pins the new forms and the carry.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For a BWJ store maintainer: the go-live block no longer has to be pasted into the Asana task. When the
+issue closes, `asana-mirror` posts it on the task as its one closed message: *"GitHub issue
+[owner/repo#n](...) is now **closed**. It can be reopened anytime..."*, then the block's sections with
+`TE BEKIJKEN OP` first. The headings arrive bold, the links as links, and every line break intact. The
+separate *ready to test* close comment is gone, so the colleague reads one message instead of two
+([#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700),
+[#2703](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2703)). A store repo picks it up
+by refreshing its copy of `asana-mirror.ps1` through `adopt-dkj-policy-bwj` step 1, which diffs rather
+than overwrites. A preview handover page still shows the block, read-only and without a copy button,
+as what the close will send ([#2708](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2708)).
+
+**Score:** 4
+
+#### Pull Request
+
+The go-live block reaches Asana as the one closed message, carried by the CI mirror
+
+Plugins: dkj-policy-bwj
+
+[PR #2718](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2718)
+
+---
 
 ### DEPLOY: feat/2712-phone-factory-cro-and-board-reach · 20261002-102837Z
 
