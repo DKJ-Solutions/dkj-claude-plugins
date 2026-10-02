@@ -4,16 +4,23 @@
     them there. Issue #2532, extracted from #2531's constitution-import write.
 
 .DESCRIPTION
-    TWO LINES, ONE WRITER. adopt-workflow-folder.ps1 (dkj-policy) writes the constitution import and
-    adopt-extension-import.ps1 (dkj-policy-bwj) writes the BWJ extension import directly below it. Both
-    lines have the same shape and the same failure when missing: a consumer runs for weeks without the
-    rules in context, because a warning or a step on a skill page changes nothing a session knows
-    (#2531). Two copies of the insertion would drift, so Add-ClaudeMdImportLine is the one definition.
+    THE LINES, ONE WRITER. adopt-workflow-folder.ps1 (dkj-policy) writes the constitution import and,
+    below it, the import of every dkj-policy extension the repo enables (#2697); dkj-policy-bwj's
+    adopt-extension-import.ps1 writes its own. All of them have the same shape and the same failure when
+    missing: a consumer runs for weeks without the rules in context, because a warning or a step on a
+    skill page changes nothing a session knows (#2531). Two copies of the insertion would drift, so
+    Add-ClaudeMdImportLine is the one definition.
+
+    ANY EXTENSION, NOT A LIST (#2697). An extension is a plugin named 'dkj-policy-<slug>'
+    (Test-PolicyExtensionName), and its line, its pattern and its detector are built from that name, so
+    dkj-policy-dkjs needed no function of its own and the next extension will not either.
 
     WHAT IS HERE:
-      * Get-ConstitutionImportLine / Get-BwjExtensionImportLine -- the lines, marketplace segment read
-        off this file's own location (Get-DkjMarketplaceSegment).
-      * Test-ConstitutionImported / Test-BwjExtensionImported -- is the line already in the '@'-import
+      * Get-ConstitutionImportLine / Get-ExtensionImportLine -- the lines, marketplace segment read off
+        this file's own location (Get-DkjMarketplaceSegment).
+      * Test-PolicyExtensionName / Get-PolicyExtensionNames / Get-ExtensionImportPattern -- which plugins
+        are extensions, and the '@'-line pattern for one.
+      * Test-ConstitutionImported / Test-ExtensionImported -- is the line already in the '@'-import
         closure, judged on the rows Get-AlwaysOnDocuments returns.
       * Add-ClaudeMdImportLine -- the fence-aware scan and the byte-preserving insert.
 
@@ -47,7 +54,7 @@ function Get-DkjMarketplaceSegment {
     param([string]$LibDir = $PSScriptRoot)
     $parts = @(($LibDir -replace '\\', '/').Split('/') | Where-Object { $_ })
     for ($i = 0; $i -lt $parts.Count - 2; $i++) {
-        if ($parts[$i] -ieq 'cache' -and $i -gt 0 -and $parts[$i - 1] -ieq 'plugins' -and $parts[$i + 2] -imatch '^dkj-policy(-bwj)?$') {
+        if ($parts[$i] -ieq 'cache' -and $i -gt 0 -and $parts[$i - 1] -ieq 'plugins' -and $parts[$i + 2] -imatch '^dkj-policy(-[a-z0-9]+)*$') {
             if ($parts[$i + 1] -cmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}\z') { return $parts[$i + 1] }
             break
         }
@@ -66,14 +73,44 @@ function Get-ConstitutionImportLine {
     return "@~/.claude/plugins/marketplaces/$(Get-DkjMarketplaceSegment -LibDir $LibDir)/plugins/dkj-policy/CLAUDE.md"
 }
 
-function Get-BwjExtensionImportLine {
+function Test-PolicyExtensionName {
     <#
-        The '@'-line that loads the dkj-policy-bwj extension of the constitution (#2374), which a BWJ
-        repo carries directly below the constitution import. Same absolute-clone form, same marketplace
-        segment.
+        Is this the name of a dkj-policy extension -- 'dkj-policy-<slug>', such as dkj-policy-bwj or
+        dkj-policy-dkjs (#2697)? Every plugin under plugins/dkj-policy/ named that way extends the
+        constitution with a CLAUDE.md of its own, which a repo enabling it imports directly below the
+        constitution. A slug and nothing else, because the name is built into a line a hook prints.
     #>
-    param([string]$LibDir = $PSScriptRoot)
-    return "@~/.claude/plugins/marketplaces/$(Get-DkjMarketplaceSegment -LibDir $LibDir)/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md"
+    param([string]$Name)
+    return [bool]($Name -cmatch '^dkj-policy-[a-z0-9]+(-[a-z0-9]+)*\z')
+}
+
+function Get-PolicyExtensionNames {
+    <#
+        The dkj-policy extensions among a list of plugin ids ('<name>@<marketplace>' or a bare name),
+        sorted and de-duplicated -- the set a repo has to import, derived from what it enables rather than
+        from a list kept here, so a new extension needs no edit to this file (#2697).
+    #>
+    param([AllowNull()][AllowEmptyCollection()][string[]]$PluginIds)
+    return [string[]]@(@($PluginIds) | Where-Object { $_ } | ForEach-Object { ($_ -split '@', 2)[0] } |
+        Where-Object { Test-PolicyExtensionName $_ } | Sort-Object -Unique)
+}
+
+function Get-ExtensionImportLine {
+    <#
+        The '@'-line that loads a dkj-policy extension of the constitution (#2374, #2697), which a repo
+        enabling that extension carries directly below the constitution import. Same absolute-clone form,
+        same marketplace segment. Throws on a name Test-PolicyExtensionName refuses.
+    #>
+    param([Parameter(Mandatory)][string]$Extension, [string]$LibDir = $PSScriptRoot)
+    if (-not (Test-PolicyExtensionName $Extension)) { throw "not a dkj-policy extension name: '$Extension'" }
+    return "@~/.claude/plugins/marketplaces/$(Get-DkjMarketplaceSegment -LibDir $LibDir)/plugins/dkj-policy/$Extension/CLAUDE.md"
+}
+
+function Get-ExtensionImportPattern {
+    <# The regex Add-ClaudeMdImportLine's -ImportedPattern takes for one extension's line, under any marketplace name. #>
+    param([Parameter(Mandatory)][string]$Extension)
+    if (-not (Test-PolicyExtensionName $Extension)) { throw "not a dkj-policy extension name: '$Extension'" }
+    return "^\s*@\S*/dkj-policy/$Extension/CLAUDE\.md\s*$"
 }
 
 function Test-ConstitutionImported {
@@ -92,12 +129,16 @@ function Test-ConstitutionImported {
     return $false
 }
 
-function Test-BwjExtensionImported {
-    <# Test-ConstitutionImported's rule, for the extension's tail '.../dkj-policy/dkj-policy-bwj/CLAUDE.md'. #>
-    param([AllowNull()][AllowEmptyCollection()][object[]]$Documents)
+function Test-ExtensionImported {
+    <# Test-ConstitutionImported's rule, for one extension's tail '.../dkj-policy/<extension>/CLAUDE.md'. #>
+    param(
+        [Parameter(Mandatory)][string]$Extension,
+        [AllowNull()][AllowEmptyCollection()][object[]]$Documents
+    )
+    if (-not (Test-PolicyExtensionName $Extension)) { throw "not a dkj-policy extension name: '$Extension'" }
     foreach ($d in @($Documents)) {
         if ($null -eq $d) { continue }
-        if ((([string]$d.Path) -replace '\\', '/') -imatch '/dkj-policy/dkj-policy-bwj/CLAUDE\.md$') { return $true }
+        if ((([string]$d.Path) -replace '\\', '/') -imatch "/dkj-policy/$Extension/CLAUDE\.md$") { return $true }
     }
     return $false
 }

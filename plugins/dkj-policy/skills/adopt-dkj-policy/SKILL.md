@@ -290,6 +290,15 @@ the run reads that name off the plugin's own install path. The line resolves aft
 cache. Moving the prose out of `CLAUDE.md` is still yours to do. The `consumer-prose-sessioncheck` hook
 keeps warning at session start while a line is missing or prose sits beside the imports.
 
+**It writes the line of every `dkj-policy` extension your repo enables, too**
+([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2697)). An extension is a plugin
+named `dkj-policy-<name>`, such as `dkj-policy-bwj` or `dkj-policy-dkjs`, and it ships a `CLAUDE.md` of
+its own. For each one your `.claude/settings.json` enables, the run puts
+`@~/.claude/plugins/marketplaces/<marketplace>/plugins/dkj-policy/<extension>/CLAUDE.md` directly below
+the constitution import, on the same terms as above. An enable in your own user settings does not count,
+because it is not this repo's decision. The same hook warns once per enabled extension whose line is
+missing.
+
 ### After the scaffold: the note-root seam, which this run usually answers for you
 
 The release machinery finds the folder through a `decide` seam in your `scripts/repo-config.ps1`

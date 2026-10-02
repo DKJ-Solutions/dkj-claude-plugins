@@ -55,10 +55,37 @@ try {
 
     Write-Host ''
     Write-Host 'The line'
-    Assert-Equal $Ext (Get-BwjExtensionImportLine -LibDir (Join-Path $RepoRoot 'scripts\lib')) 'the source tree builds the canonical line'
+    Assert-Equal $Ext (Get-ExtensionImportLine -Extension 'dkj-policy-bwj' -LibDir (Join-Path $RepoRoot 'scripts\lib')) 'the source tree builds the canonical line'
     Assert-Equal '@~/.claude/plugins/marketplaces/claude-code-specialists/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md' `
-        (Get-BwjExtensionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\claude-code-specialists\dkj-policy-bwj\5.8.0\scripts\lib') `
+        (Get-ExtensionImportLine -Extension 'dkj-policy-bwj' -LibDir 'C:\Users\x\.claude\plugins\cache\claude-code-specialists\dkj-policy-bwj\5.8.0\scripts\lib') `
         'a bwj payload under an older marketplace name keeps that name'
+    Assert-Equal '@~/.claude/plugins/marketplaces/claude-code-specialists/plugins/dkj-policy/dkj-policy-dkjs/CLAUDE.md' `
+        (Get-ExtensionImportLine -Extension 'dkj-policy-dkjs' -LibDir 'C:\Users\x\.claude\plugins\cache\claude-code-specialists\dkj-policy\5.8.0\scripts\lib') `
+        'any extension builds its line, under the marketplace name read off the payload (#2697)'
+    Assert-Equal '@~/.claude/plugins/marketplaces/old-mkt/plugins/dkj-policy/CLAUDE.md' `
+        (Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\old-mkt\dkj-policy-dkjs\1.0.0\scripts\lib') `
+        'the marketplace segment is read off any dkj-policy-* payload, not bwj alone (#2697)'
+
+    Write-Host ''
+    Write-Host 'Which plugins are extensions (#2697)'
+    Assert-Equal 'dkj-policy-bwj|dkj-policy-dkjs' ((Get-PolicyExtensionNames -PluginIds @(
+        'dkj-policy-dkjs@dkj-claude-plugins', 'dkj-policy@dkj-claude-plugins', 'dkj-subagents-alpha@dkj-claude-plugins',
+        'dkj-policy-bwj@claude-code-specialists', 'dkj-policy-dkjs@other', 'dkj-policy-Evil/../x@m')) -join '|') `
+        'only dkj-policy-<slug> ids, de-duplicated and sorted; the constitution, a team and a non-slug are not'
+    Assert-Equal '' ((Get-PolicyExtensionNames -PluginIds @()) -join '|') 'no ids, no extensions'
+    $threw = $false
+    try { Get-ExtensionImportLine -Extension 'dkj-policy-../x' | Out-Null } catch { $threw = $true }
+    Assert-True $threw 'a name that is not a slug is refused rather than built into a line'
+    Assert-True (Test-ExtensionImported -Extension 'dkj-policy-dkjs' -Documents @([pscustomobject]@{ Path = 'C:\h\.claude\plugins\marketplaces\m\plugins\dkj-policy\dkj-policy-dkjs\CLAUDE.md' })) `
+        'Test-ExtensionImported matches its own extension'
+    Assert-True (-not (Test-ExtensionImported -Extension 'dkj-policy-dkjs' -Documents @([pscustomobject]@{ Path = 'C:\h\plugins\dkj-policy\dkj-policy-bwj\CLAUDE.md' }))) `
+        'and not another extension'
+
+    # Every extension in the source tree ships the CLAUDE.md its import line points at -- the convention
+    # Get-PolicyExtensionNames relies on when it treats any dkj-policy-* plugin as an extension.
+    foreach ($dir in @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy') -Directory | Where-Object { Test-PolicyExtensionName $_.Name })) {
+        Assert-True (Test-Path -LiteralPath (Join-Path $dir.FullName 'CLAUDE.md') -PathType Leaf) "extension $($dir.Name) ships a CLAUDE.md"
+    }
     Assert-Equal '@~/.claude/plugins/marketplaces/claude-code-specialists/plugins/dkj-policy/CLAUDE.md' `
         (Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\claude-code-specialists\dkj-policy-bwj\5.8.0\scripts\lib') `
         'the constitution line built from the bwj mirror reads the same segment'
