@@ -2,7 +2,28 @@
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**4 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2699-entry-tier-0-scored · 20261002-091058Z
+
+Inside this repo: one pending changelog entry, PR #2706's, now scores its tier 0 rather than answering
+N/A, so the next release counts it as the change it is.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: a pending entry's wording reaches no user of what this repo ships.
+
+**Score:** N/A
+
+#### Pull Request
+
+The #2699 changelog entry scores its tier 0 instead of N/A
+
+[PR #2710](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2710)
+
+---
 
 ### DEPLOY: fix/2701-golive-closing-rule-blank-line · 20261002-084959Z
 
@@ -33,9 +54,10 @@ Plugins: dkj-policy-bwj
 
 ### DEPLOY: docs/2699-off-board-asana-ticket · 20261002-083549Z
 
-Small inside this repo: it changes only a skill page that ships to consumers.
+Inside this repo: `report-issue`'s step 2 gains the off-board case, for an Asana-originated ticket that
+sits in another project. Its source is this tree's `plugins/dkj-policy/dkj-policy-bwj/skills/report-issue/SKILL.md`.
 
-**Score:** 1
+**Score:** 2
 
 #### What makes this deploy extra special
 

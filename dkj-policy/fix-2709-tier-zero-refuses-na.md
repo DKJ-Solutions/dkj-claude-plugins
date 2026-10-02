@@ -55,15 +55,16 @@ ranking quiet ("TIER 0 OWES NOTHING"), and the issue asked about `N/A` only.
 
 #### The pending entry this would have stopped
 
-`#2706`'s entry is in `CHANGELOG.md`, pending the next cut with tier 0 as `N/A`. The cut refuses it after
-this change. Its tier 0 is scored `1` here, from its own reason ("it changes only a skill page").
+`#2706`'s entry is in `CHANGELOG.md`, pending the next cut with tier 0 as `N/A`, and the cut would refuse
+it after this change. PR #2710 scored it on `main` while this branch was in CI, so the merge-up takes
+`main`'s version and this branch no longer touches `CHANGELOG.md`.
 
 ### CREATE
 
 - [x] `entry-scaffold-lib.ps1` (both copies): `N/A` under tier 0 is a parse error naming the rule
 - [x] `check-branch-entry.ps1` (both copies): refuses a malformed tier or score, as `open-pr` does
 - [x] `check-branch-entry` SKILL.md: the new refusal in its table, and blank set apart from `N/A`
-- [x] `dkj-policy/CHANGELOG.md`: #2706's pending entry gets its tier-0 score
+- [~] `dkj-policy/CHANGELOG.md`: #2706's pending entry gets its tier-0 score -- dropped, PR #2710 did it on `main` first
 - [x] tests: `entry-scaffold.tests.ps1` (both entry shapes, plus the valid audience-tier `N/A`) and `branch-entry-gate.tests.ps1` (exit 1 on the measured case)
 
 ### TEST
