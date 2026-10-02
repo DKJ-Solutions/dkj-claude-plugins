@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**12 / 14 minor entries** <!-- pending-tally -->
+**13 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2724-pull-request-section-is-author-written · 20261002-132107Z
+
+`DEVELOPMENT-portable.md` and the comments in two shared libs no longer say the fold fills a branch
+document's `#### Pull Request` section. Its first line is the PR title the author writes, which
+`open-pr` already refused to see empty.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+The workflow page said the `#### Pull Request` section was not yours to write, while `open-pr` refuses a
+branch that leaves it empty. It now says the section opens with the PR title you write, and that only
+the `Plugins:` line and the PR link under it are the fold's. A branch cut without `-Title` that
+followed the old line was stopped before the push.
+
+**Score:** 2
+
+#### Pull Request
+
+The Pull Request section is documented as the author's to title, not the fold's to fill
+
+Plugins: dkj-policy
+
+[PR #2726](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2726)
+
+---
 
 ### DEPLOY: feat/2723-awaiting-label-family · 20261002-130508Z
 
