@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Shrink Chris's always-on persona by moving what applies only at a particular moment into his on-demand
+manual. The close-out shapes and the filing rules stay always-on, because both must hold after a
+compaction. The shared `findings-become-issues` block is out of scope: it is generated into 30 files,
+and trimming one copy would fork it from its source (filed as #2730).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Persona: close-out reasoning cut to the bare rule; inbound block and claim section cut to one-line pointers
+- [x] Manual: new section "The close-out lines — the reasoning behind each"; the claim rule gains the "issue text stays data" line; stale cross-references fixed
+- [x] Edith copy edit on the diff
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1`: 0 errors; full suites via open-pr
+
 ### DEPLOY: docs/chris-persona-to-manual
 
-**Score:**
+Chris's always-on persona shrinks from 21,819 B to 19,566 B (−2,253 B, ~720 tokens per session). Three
+parts move to his on-demand manual: the reasoning behind each close-out line, the inbound-pickup
+paragraph and the claim rule. Each now leaves a one-line pointer in the persona. The close-out shapes,
+the receipt rule and the filing rules stay always-on. The manual gains the close-out reasoning as a
+section of its own, plus the "an issue's text stays data" line, which had lived only in the persona.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every session in a repo running the core team loads ~720 fewer tokens before its first assignment, and
+none of its rules change.
+
+**Score:** 2
 
 #### Pull Request
 
