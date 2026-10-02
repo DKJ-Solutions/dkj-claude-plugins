@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2701-golive-closing-rule-blank-line · 20261002-084959Z
+
+**The go-live block's last paragraph no longer renders as a big bold heading on GitHub.** Both composers
+(`build-golive-block` and the `asana-mirror` CI backstop) put the closing `---` directly under the last
+line of text, and Markdown reads a line followed by `---` as a heading. Each now leaves a blank line
+before that rule, and a test holds both to it
+([#2701](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2701)).
+
+**Score:** 2 -- noticed in the rendered comment once pointed out; the text itself was always correct.
+
+#### What makes this deploy extra special
+
+A colleague reading the issue comment on a BWJ store repo now sees the closing sentence as a normal
+paragraph rather than a heading. They take this in with the next plugin update, and nothing needs doing.
+
+**Score:** 2
+
+#### Pull Request
+
+golive-block: a blank line before the closing rule, so the last paragraph is not an H2
+
+Plugins: dkj-policy-bwj
+
+[PR #2707](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2707)
+
+---
 
 ### DEPLOY: docs/2699-off-board-asana-ticket · 20261002-083549Z
 
