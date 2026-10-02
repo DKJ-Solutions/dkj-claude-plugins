@@ -46,8 +46,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The five rules behind it
    are in `WORKFLOW-portable.md`, under *What the block asks of the requester*.
 6. **The shape and the language** -- the automation's closed message: its header (*— GitHub automation 🤖*)
-   and the closed line (*GitHub issue [owner/repo#n](url) is now **closed**. It can be reopened anytime when
-   something is still not working as expected.*), both fixed and English on every board, then five fixed
+   and the closed line (`GitHub issue [<owner>/<repo>#<n>](<issue url>) is now **closed**.`, then
+   *"It can be reopened anytime when something is still not working as expected."*), both fixed and
+   English on every board, then five fixed
    headings (`TE BEKIJKEN OP` / `WAT ER NU ANDERS IS` / `WANNEER HET LIVE KOMT` / `WAT ER BEWUST NIET IN ZIT`
    / `WAT WE VAN JE VRAGEN`, where-to-look first, [#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700)), in the language
    of the Asana task -- Dutch by default, `-Language en` for a task written in English

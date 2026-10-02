@@ -73,9 +73,13 @@ closing `---`, held by another sweep.
 
 ### DEPLOY: feat/2700-closed-message-carries-the-block
 
-N/A inside this repo: it changes only what the BWJ extension ships.
+Inside this repo: `asana-mirror.ps1` gains the closed-message composer (`Get-PasteBlockSections`,
+`Select-SessionPasteBlockSections`, `ConvertTo-AsanaStoryHtml`, `New-ClosedMessageHtml`), and its close
+marker becomes `is now closed`, with the old `is closed` kept as a legacy match.
+`golive-block-rules.ps1` composes the header and closed line once for both languages and puts
+`TE BEKIJKEN OP` first. `dkj-policy-bwj.tests.ps1` pins the new forms and the carry.
 
-**Score:** N/A
+**Score:** 2
 
 #### What makes this deploy extra special
 
