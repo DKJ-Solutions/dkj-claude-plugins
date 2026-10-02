@@ -844,8 +844,12 @@ the cross-link of step 3 already uses -- a marker for the machine, prose for the
 **And it is the containment.** A section with no leading number is on no pipeline, so a task sitting
 only in such sections is never written to. That is why pointing this workflow at a workspace full of
 other boards costs nothing, and it is the mechanism that made #1217's correction structural rather
-than a written warning. A card on **two** numbered boards has two answers and gets neither: the
-candidates are named in the log and nothing moves.
+than a written warning. **Where `ASANA_PROJECT_GID` is set, only that board counts**
+([#2717](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2717)): a colleague's workload
+board numbers its sections too, so a task on it is ignored there, and a task numbered on this repo's
+board is staged there even when it also sits on another. A task numbered only on other boards is left
+alone and the log names them. Where no GID is set, a card on **two** numbered boards has two answers
+and gets neither: the candidates are named in the log and nothing moves.
 
 **What each number MEANS is a separate question, and it belongs to the repo.** `Get-AsanaStageMap` in
 your own `scripts/repo-config.ps1` -- the file `dkj-policy` already dot-sources -- names

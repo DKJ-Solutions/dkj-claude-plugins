@@ -724,6 +724,22 @@ $twoBoards = @(
     [pscustomobject]@{ project = [pscustomobject]@{ gid = '222' }; section = [pscustomobject]@{ gid = '2'; name = '5. Testing' } })
 Assert-Equal 'ambiguous' (Select-StageMembership -Memberships $twoBoards).Source 'two numbered boards is two answers, and neither is taken'
 
+# #2717: where the repo names its own board, only that board counts. The measured case is a task on a
+# colleague's workload board ('2. In Progress') that report-issue then asks a person to add to this
+# repo's board -- 'ambiguous' after the add, and staged on the workload board before it.
+$own = Select-StageMembership -Memberships $twoBoards -ProjectGid '222'
+Assert-Equal 'stage-section' $own.Source                'with -ProjectGid, the own board settles two numbered boards'
+Assert-Equal '222'           $own.Membership.ProjectGid 'and the own board is the one read, not the first one listed'
+Assert-Equal 5               $own.Membership.Stage      'with that board''s stage'
+$elsewhere = Select-StageMembership -Memberships @($twoBoards[0]) -ProjectGid '222'
+Assert-Equal 'off-board' $elsewhere.Source            'a task numbered only on another board is off-board, not staged there'
+Assert-Equal '111'       ($elsewhere.Candidates -join ',') 'and the other board is named for the log'
+$ownUnnumbered = @(
+    [pscustomobject]@{ project = [pscustomobject]@{ gid = '222' }; section = [pscustomobject]@{ gid = '3'; name = 'Backlog' } },
+    $twoBoards[0])
+Assert-Equal 'off-board' (Select-StageMembership -Memberships $ownUnnumbered -ProjectGid '222').Source 'own board in an unnumbered section does not fall back to another numbered board'
+Assert-Equal 'none' (Select-StageMembership -Memberships $onBoard[0] -ProjectGid '222').Source 'no numbered section anywhere is still none'
+
 # --- Format-ForConsole: the foreign text this script prints (#2019) --------------------------------
 #
 # An Asana task's NAME and a GitHub project board's STATUS names are both free text typed by a

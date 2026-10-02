@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Dave chose option (a) on #2717 (2026-10-02): where `ASANA_PROJECT_GID` is set, only that board counts.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Select-StageMembership` takes `-ProjectGid`; only that board counts, else `off-board`
+- [x] `Sync-AsanaTaskStage` and both callers pass `$ProjectGid`; `off-board` is logged and left alone
+- [x] Script header, `WORKFLOW-portable.md` and the `report-issue` promise say the same
 
 ### TEST
 
+- [x] Four new asserts in `dkj-policy-bwj.tests.ps1` (own board wins, off-board, own board unnumbered, none); 507 pass
+
 ### DEPLOY: fix/2717-asana-prefer-seam-board
 
-**Score:**
+`asana-mirror`'s stage move now reads only the repo's own board (`ASANA_PROJECT_GID`) when one is set
+([#2717](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2717)). Before this, a colleague's
+workload board with numbered sections counted as the pipeline. A task that sat only on that board was
+moved there, on a board this repo does not own. A task that was also added to this repo's board, as
+`report-issue` asks, read as `ambiguous` and was never staged. Now the own board decides, and a task
+numbered only on other boards is logged as `off-board` and left alone. A repo with no GID set keeps the
+old membership-only reading.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store repo that re-adopts the `asana-mirror` template stops having cards moved on colleagues'
+workload boards. A task added to the store's board is then staged as `report-issue` promises.
+
+**Score:** 3
 
 #### Pull Request
 

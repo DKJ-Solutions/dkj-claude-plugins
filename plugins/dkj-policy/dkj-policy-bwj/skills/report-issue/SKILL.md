@@ -225,8 +225,9 @@ task's `memberships.project.gid` before the move**, and where this board is not 
 - **name the one act that is left to a person**: adding the task to this board in Asana (*Add to
   project*, into the `Filed` section). The session cannot do it: the Asana MCP exposes no
   add-to-project call. Nothing else is owed afterwards -- the `asana-mirror` sweep reads the board off
-  the task's own memberships, so from the moment the task is on a numbered board it is staged like
-  any other card. Until then it is on no pipeline and the sweep leaves it alone, by design.
+  the task's own memberships, narrowed to this repo's `ASANA_PROJECT_GID` board, so from the moment
+  the task is on that board it is staged like any other card, whatever other boards it also sits on
+  (#2717). Until then it is on no pipeline here and the sweep leaves it alone, by design.
 
 **That existing task then gets two more writes, both in this step** (#2653):
 

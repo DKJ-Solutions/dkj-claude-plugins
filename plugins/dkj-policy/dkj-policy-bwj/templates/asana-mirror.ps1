@@ -89,7 +89,8 @@
                            not a backstop like (a) and (b): stages 2, 3 and 4 have no GitHub event
                            this workflow subscribes to, so for three of the four writable stages the
                            daily sweep IS the mechanism. It needs no ASANA_PROJECT_GID either -- the
-                           board is read off the task's own memberships, see below.
+                           board is read off the task's own memberships, see below -- but where one
+                           is set, it narrows the read to that board.
 
     How the Asana task is found -- Resolve-AsanaTaskRef, three matchers tried in this order:
 
@@ -103,16 +104,19 @@
     More than one DIFFERENT task in matcher 3 is reported as 'ambiguous' and skipped: the script never
     guesses which ticket an issue belongs to. Add a marker to settle it.
 
-    How the BOARD is found -- Select-StageMembership, and it is deliberately not a configured GID.
-    A task carries one section per project it is in, so the script reads the task's memberships and
-    takes the one whose section name begins with a stage number ('3. ...'). The number is the
-    machine-readable half and the words after it are the board's own, so renaming a section changes
-    nothing here. A task on no numbered section is on no pipeline, and nothing is written to it --
-    which is how a board that has not adopted the convention is left alone rather than guessed at.
-    Two different numbered boards is 'ambiguous' and skipped, the same refusal to guess as above.
+    How the BOARD is found -- Select-StageMembership. A task carries one section per project it is
+    in, so the script reads the task's memberships and takes the one whose section name begins with a
+    stage number ('3. ...'). The number is the machine-readable half and the words after it are the
+    board's own, so renaming a section changes nothing here. A task on no numbered section is on no
+    pipeline, and nothing is written to it -- which is how a board that has not adopted the
+    convention is left alone rather than guessed at.
+    WHERE ASANA_PROJECT_GID IS SET, ONLY THAT BOARD COUNTS (#2717): other numbered boards -- a
+    colleague's workload board numbers its sections too -- are ignored, and a task numbered only
+    there is left alone. Where it is not set, two different numbered boards is 'ambiguous' and
+    skipped, the same refusal to guess as above.
 
     Auth: -AsanaPat (from the ASANA_PAT secret). Project: -ProjectGid (from the ASANA_PROJECT_GID
-    variable), read by sweep (a) alone. Sweep (c) reads the score field by name (-PrioFieldName,
+    variable), read by sweep (a) and, as a narrowing, by the stage move. Sweep (c) reads the score field by name (-PrioFieldName,
     default 'Prio-Score'). There is deliberately NO workspace parameter: every call this
     script makes addresses a task, a project or a section by GID. BOTH modes need `gh` on PATH with
     GH_TOKEN set -- a close update asks GitHub which pull request closed the issue -- and sweeps (b),
@@ -1144,15 +1148,29 @@ function Select-StageMembership {
         Which pipeline board this task is on, read off the task's own memberships. Returns an object
         shaped like Resolve-AsanaTaskRef's, for the same reason -- the caller logs the Source:
 
-            Source      'stage-section' | 'none' | 'ambiguous'
+            Source      'stage-section' | 'none' | 'ambiguous' | 'off-board'
             Membership  ProjectGid / SectionGid / Stage, or $null
-            Candidates  the distinct project GIDs seen, for the 'ambiguous' report
+            Candidates  the distinct project GIDs seen, for the 'ambiguous' and 'off-board' reports
 
         Pure -- no network. Asana gives a task one section per project, so a single numbered project
         resolves to a single section. Two DIFFERENT numbered projects is two answers and this script
         takes neither: a card on two pipelines is a board question, not a script question.
+
+        UNLESS THE REPO HAS NAMED ITS OWN BOARD (-ProjectGid, from ASANA_PROJECT_GID; #2717). Then only
+        that board counts: a numbered section on it is the answer, and every other numbered board is
+        ignored. Measured in a consumer: a colleague's workload board numbers its sections too, so a
+        task on it read as 'on the pipeline' before it was added to this repo's board -- and the sweep
+        would move the card within a board this repo does not own -- and as 'ambiguous' after, which
+        left unstaged exactly the task report-issue tells a person to add. A task with numbered
+        sections only on OTHER boards is 'off-board' and left alone. Without -ProjectGid the
+        membership-only reading above is unchanged, so a repo with no GID configured keeps working.
     #>
-    param($Memberships)
+    param(
+        $Memberships,
+
+        # This repo's own Asana board. Empty = no board named, and every numbered board counts.
+        [string]$ProjectGid = ''
+    )
 
     $found = @()
     foreach ($m in @($Memberships)) {
@@ -1168,6 +1186,11 @@ function Select-StageMembership {
 
     $projects = @($found | ForEach-Object { $_.ProjectGid } | Sort-Object -Unique)
     if ($projects.Count -eq 0) { return [pscustomobject]@{ Source = 'none';      Membership = $null;     Candidates = @() } }
+    if ($ProjectGid) {
+        $own = @($found | Where-Object { $_.ProjectGid -eq $ProjectGid })
+        if ($own.Count -gt 0) { return [pscustomobject]@{ Source = 'stage-section'; Membership = $own[0]; Candidates = $projects } }
+        return                         [pscustomobject]@{ Source = 'off-board';     Membership = $null;   Candidates = $projects }
+    }
     if ($projects.Count -gt 1) { return [pscustomobject]@{ Source = 'ambiguous'; Membership = $null;     Candidates = $projects } }
     return                             [pscustomobject]@{ Source = 'stage-section'; Membership = $found[0]; Candidates = $projects }
 }
@@ -1541,7 +1564,8 @@ function Sync-AsanaTaskStage {
             task unreadable        deleted, or in a workspace this PAT is not a member of
             task completed         a person resolved it; leave it exactly where they left it
             on no numbered board   it is on no pipeline at all
-            on two numbered boards two answers, so neither is taken
+            on two numbered boards two answers, so neither is taken -- unless -ProjectGid names one
+            numbered only elsewhere -ProjectGid set, and the task is numbered only on other boards
             in an UNMAPPED column  the board grew a section this repo's map does not name
             already in 6 or 7      the submitter is holding it; nothing here takes it back out
             already at or past     forward-only, unless the answer earned -AllowBackward
@@ -1570,7 +1594,10 @@ function Sync-AsanaTaskStage {
         [string]$Why = '',
 
         # Only the needs-info label and the reopen earn this; see Resolve-TargetStage.
-        [switch]$AllowBackward
+        [switch]$AllowBackward,
+
+        # This repo's own board (ASANA_PROJECT_GID); see Select-StageMembership (#2717).
+        [string]$ProjectGid = ''
     )
 
     if ($null -eq $TargetStage) { return $false }
@@ -1585,8 +1612,12 @@ function Sync-AsanaTaskStage {
     if ($null -eq $task) { return $false }
     if ($task.completed) { return $false }
 
-    $ref = Select-StageMembership -Memberships $task.memberships
+    $ref = Select-StageMembership -Memberships $task.memberships -ProjectGid $ProjectGid
     if ($ref.Source -eq 'none') { return $false }
+    if ($ref.Source -eq 'off-board') {
+        Write-Host "  Asana task $Gid has numbered sections only on other boards ($($ref.Candidates -join ', ')), not on this repo's board $ProjectGid -- left alone."
+        return $false
+    }
     if ($ref.Source -eq 'ambiguous') {
         Write-Host "  Asana task $Gid sits on two numbered boards ($($ref.Candidates -join ', ')) -- refusing to guess which pipeline it belongs to."
         return $false
@@ -1867,7 +1898,7 @@ function Invoke-EventMode {
                   -HasLinkedPullRequest:$hasPr `
                   -Reopened:($Event -eq 'reopened')
     Sync-AsanaTaskStage -Gid $ref.Gid -TargetStage $target.Stage -Pat $AsanaPat -Map $script:StageMap `
-        -For $IssueRef -Why $target.Why -AllowBackward:$target.AllowBackward | Out-Null
+        -For $IssueRef -Why $target.Why -AllowBackward:$target.AllowBackward -ProjectGid $ProjectGid | Out-Null
 }
 
 function Update-MirroredTask {
@@ -2112,7 +2143,8 @@ function Invoke-StageSweep {
 
         It walks GitHub rather than the Asana project, for the same two reasons sweep (c) does: it
         reaches a ticket imported FROM the board, whose task carries no GitHub back-link, and it needs
-        no ASANA_PROJECT_GID -- the board comes off the task's own memberships.
+        no ASANA_PROJECT_GID -- the board comes off the task's own memberships, narrowed to that
+        board where one is set (#2717).
 
         Two reads per issue that carries a task: one GraphQL for the issue's state, its linked pull
         requests AND its project status, one Asana GET for the card's current section. An issue with
@@ -2150,7 +2182,7 @@ function Invoke-StageSweep {
         if ($null -eq $target.Stage) { $unstaged++ }
         if (Sync-AsanaTaskStage -Gid $ref.Gid -TargetStage $target.Stage -Pat $AsanaPat `
                 -Map $script:StageMap -For "$Repo#$($i.number)" -Why $target.Why `
-                -AllowBackward:$target.AllowBackward) { $moved++ }
+                -AllowBackward:$target.AllowBackward -ProjectGid $ProjectGid) { $moved++ }
     }
     Write-Host "Stage sweep: $($issues.Count) issue(s) examined, $carded carrying an Asana task, $moved card(s) moved."
 
