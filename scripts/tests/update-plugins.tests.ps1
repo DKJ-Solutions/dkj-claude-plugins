@@ -266,12 +266,19 @@ function New-ClaudeShim {
         the arg line contains $FailNeedle (empty: never fails). A .cmd rather than a .ps1: Invoke-
         NativeCapture resolves 'claude' as a native command, found on PATHEXT only as an executable
         (same reasoning as park-cycle.tests.ps1's gh.cmd shim).
+
+        $CurrentNeedle (empty: never) makes a matching call print the CLI's no-op sentence, "is already
+        at the latest version", and still exit 0 -- the call that moved nothing (#2728).
     #>
-    param([Parameter(Mandatory = $true)][string]$BinDir, [string]$FailNeedle = '')
-    $body = if ($FailNeedle) {
-        "@echo off`r`necho CLAUDE-SHIM-CALLED %*`r`necho %* | findstr /C:`"$FailNeedle`" >nul`r`nif errorlevel 1 (exit /b 0) else (exit /b 1)`r`n"
+    param([Parameter(Mandatory = $true)][string]$BinDir, [string]$FailNeedle = '', [string]$CurrentNeedle = '')
+    $body = "@echo off`r`necho CLAUDE-SHIM-CALLED %*`r`n"
+    if ($CurrentNeedle) {
+        $body += "echo %* | findstr /C:`"$CurrentNeedle`" >nul`r`nif not errorlevel 1 echo Plugin is already at the latest version 9.9.9.`r`n"
+    }
+    $body += if ($FailNeedle) {
+        "echo %* | findstr /C:`"$FailNeedle`" >nul`r`nif errorlevel 1 (exit /b 0) else (exit /b 1)`r`n"
     } else {
-        "@echo off`r`necho CLAUDE-SHIM-CALLED %*`r`nexit /b 0`r`n"
+        "exit /b 0`r`n"
     }
     [System.IO.File]::WriteAllText((Join-Path $BinDir 'claude.cmd'), $body, $Utf8Ascii)
 }
@@ -566,6 +573,21 @@ try {
     Assert-Has   $r "claude plugin install $ID1 --scope project" '15: the install command is printed'
     Assert-Lacks $r "plugin update $ID1" '15: and no update command beside it'
     Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '15: and nothing ran'
+
+    # --- 16. a call that moved nothing is not counted as an update (#2728) ----------------------------
+    #     Measured in a consumer on 5.12.0: every call printed "is already at the latest version" and the
+    #     summary still said "5 plugin(s) updated", because it counted calls. One plugin current, one moved.
+    Write-Host "16. an already-current plugin is counted apart from an updated one" -ForegroundColor Cyan
+    $c = New-Case 'current'
+    New-ClaudeShim -BinDir $c.Bin -CurrentNeedle $ID1
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
+    Set-HereRecords -Case $c -Ids @($ID1, $ID2)
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-CleanExit -Run $r -Label '16: exit 0 -- a plugin already current is not a failure'
+    Assert-Has   $r 'already at the latest version 9.9.9' '16: the shim printed the no-op sentence for plugin 1'
+    Assert-Summary $r '1 plugin(s) updated, 1 already at the latest version, 0 failed' '16: the summary counts the no-op apart from the update'
+    Assert-Lacks $r '2 plugin(s) updated' '16: and no longer counts the no-op call as an update'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

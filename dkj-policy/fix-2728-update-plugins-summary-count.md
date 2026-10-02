@@ -39,21 +39,43 @@
 
 ### PLAN
 
+#### Issue
+
+[#2728](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2728): the summary counted
+`claude plugin update` calls, not plugins whose version moved.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `update-plugins.ps1` counts a clean call whose output says "already at the latest version" as
+      current, not updated, and the summary names that count. Mirror kept byte-identical.
+- [x] `update-plugins.tests.ps1` scenario 16: one plugin current, one moved. The shim gained
+      `-CurrentNeedle` to print the CLI's no-op sentence.
 
 ### TEST
 
+- [x] `update-plugins.tests.ps1` alone: 86 pass, 0 fail.
+
 ### DEPLOY: fix/2728-update-plugins-summary-count
 
-**Score:**
+`update-plugins` no longer says a plugin was updated when the CLI reported it already current. Its
+summary line counted every `claude plugin update` call as an update, so a run that moved nothing still
+ended with `5 plugin(s) updated`. It now counts the calls whose output says "already at the latest
+version" separately, and the line reads, for example, `0 plugin(s) updated, 5 already at the latest
+version, 0 failed`. If the CLI ever rewords that sentence, the count falls back to the old reading.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Whoever runs `update-plugins` in a consumer now gets a closing line that matches the step-2 output
+above it. A no-op run no longer reads like a run that updated something.
+
+**Score:** 2
 
 #### Pull Request
 
 update-plugins summary counts plugins whose version moved, not calls made
+
+The summary line counted every `claude plugin update` call as an update. A call whose output reports
+"already at the latest version" is now counted apart, and test scenario 16 pins it.
 

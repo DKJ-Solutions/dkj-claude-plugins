@@ -267,6 +267,14 @@ foreach ($mp in $marketplaces) {
 Write-Host ""
 Write-Host "Step 2/3 -- updating $($targets.Count) plugin(s), each at the scope it is installed at:" -ForegroundColor Cyan
 $updateFailures = 0
+# A CALL IS NOT A MOVE (issue #2728). `claude plugin update` exits 0 on a plugin that is already
+# current, so the summary counted calls and a no-op run read "5 plugin(s) updated" under five lines of
+# "is already at the latest version". The CLI's own sentence is the only per-call signal there is, so
+# it is matched here; should the CLI reword it, the count falls back to the old reading (every clean
+# call an update) rather than to a wrong "already current". Only the targets are counted -- the
+# shadows have their own clause in the summary.
+$alreadyCurrent = 0
+$inShadows = $false
 # ONE LOOP FOR BOTH: the path-less user-scope records beside a checkout record (#2459, see the block
 # above $targets' skip report) go through the same call site as the targets, after them. They are the
 # same question -- counted as update failures like any other call -- and one site is one audited
@@ -276,6 +284,7 @@ $firstShadow = if ($shadows.Count -gt 0) { $shadows[0] } else { $null }
 # List + List throws "argument types do not match" rather than concatenating.
 foreach ($t in ([object[]]$targets.ToArray() + [object[]]$shadows.ToArray())) {
     if ($null -ne $firstShadow -and [object]::ReferenceEquals($t, $firstShadow)) {
+        $inShadows = $true
         Write-Host ""
         Write-Host "  ...and $($shadows.Count) path-less user-scope record(s) beside this checkout's own, which a session can load instead (#2442):" -ForegroundColor Cyan
     }
@@ -286,6 +295,8 @@ foreach ($t in ([object[]]$targets.ToArray() + [object[]]$shadows.ToArray())) {
     if ($r.ExitCode -ne 0) {
         $updateFailures++
         Write-Host "    FAILED ($(Get-NativeExitLabel -Capture $r))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
+    } elseif ($t.Verb -eq 'update' -and -not $inShadows -and (@($r.Output) -join "`n") -match 'already at the latest version') {
+        $alreadyCurrent++
     }
 }
 
@@ -308,7 +319,8 @@ if ($totalFailures -eq 0) {
     $shadowText = if ($shadows.Count -gt 0) { " (plus $($shadows.Count) path-less user-scope record(s))" } else { '' }
     $installed = @($targets | Where-Object { $_.Verb -eq 'install' }).Count
     $installText = if ($installed -gt 0) { ", $installed installed into this checkout (it had no install record)" } else { '' }
-    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed, $($targets.Count - $installed) plugin(s) updated$shadowText$installText, 0 failed." -ForegroundColor Green
+    $currentText = if ($alreadyCurrent -gt 0) { ", $alreadyCurrent already at the latest version" } else { '' }
+    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed, $($targets.Count - $installed - $alreadyCurrent) plugin(s) updated$shadowText$currentText$installText, 0 failed." -ForegroundColor Green
     exit 0
 }
 Write-Host "update-plugins: $marketplaceFailures marketplace refresh(es) failed, $updateFailures plugin update(s) failed -- see FAILED lines above." -ForegroundColor Red
