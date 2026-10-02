@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**14 / 18 minor entries** <!-- pending-tally -->
+**15 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2728-update-plugins-summary-count · 20261002-144241Z
+
+`update-plugins` no longer says a plugin was updated when the CLI reported it already current. Its
+summary line counted every `claude plugin update` call as an update, so a run that moved nothing still
+ended with `5 plugin(s) updated`. It now counts the calls whose output says "already at the latest
+version" separately, and the line reads, for example, `0 plugin(s) updated, 5 already at the latest
+version, 0 failed`. If the CLI ever rewords that sentence, the count falls back to the old reading.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Whoever runs `update-plugins` in a consumer now gets a closing line that matches the step-2 output
+above it. A no-op run no longer reads like a run that updated something.
+
+**Score:** 2
+
+#### Pull Request
+
+update-plugins summary counts plugins whose version moved, not calls made
+
+The summary line counted every `claude plugin update` call as an update. A call whose output reports
+"already at the latest version" is now counted apart, and test scenario 16 pins it.
+
+Plugins: dkj-policy
+
+[PR #2734](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2734)
+
+---
 
 ### DEPLOY: docs/chris-persona-to-manual · 20261002-142247Z
 
