@@ -26,7 +26,7 @@
 #>
 
 # The repos report-issue admits, by NAME -- see "Before you start" in skills/report-issue/SKILL.md.
-$script:AsanaMirrorAdmittedRepos = @('smartwatchbanden', 'xoxowildhearts', 'dkj-claude-plugins')
+$script:AsanaMirrorAdmittedRepos = @('smartwatchbanden', 'xoxowildhearts', 'dkj-claude-plugins', 'phone-factory')
 
 function Get-MirroredIssueRefs {
     <#

@@ -76,6 +76,11 @@ Assert-Equal 0 @(Get-MirroredIssueRefs -Text 'https://github.com/someone/other-r
 Assert-Equal 0 @(Get-MirroredIssueRefs -Text 'https://github.com/BWJ-Development/smartwatchbanden/pull/771').Count 'a pull request URL is not an issue'
 Assert-Equal 1 @(Get-MirroredIssueRefs -Text 'https://github.com/DKJ-Solutions/DKJ-Claude-Plugins/issues/1').Count 'the repo name is matched case-insensitively'
 Assert-Equal 2 @(Get-MirroredIssueRefs -Text 'https://github.com/a/xoxowildhearts/issues/1 https://github.com/b/smartwatchbanden/issues/2').Count 'two admitted repos in one task are two mirrored issues'
+Assert-Equal 1 @(Get-MirroredIssueRefs -Text 'https://github.com/BWJ-Development/phone-factory/issues/3').Count 'phone-factory is admitted, for ticket handling (#2705)'
+$skillAdmits = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\dkj-policy-bwj\skills\report-issue\SKILL.md')
+foreach ($name in $script:AsanaMirrorAdmittedRepos) {
+    Assert-True ($skillAdmits.Contains("``$name``")) "report-issue's 'Before you start' names '$name', the list this gate matches on"
+}
 Assert-Equal 0 @(Get-MirroredIssueRefs -Text '').Count 'empty text is no mirror'
 Assert-Equal 0 @(Get-MirroredIssueRefs -Text 'https://github.com/a/smartwatchbanden/issues/12345678901234567890').Count 'a digit run past Int32 is skipped, not cast into a throw (#2482 review)'
 Assert-Equal 0 @(Get-MirroredIssueRefs -Text 'https://github.com/a/smartwatchbanden/issues/0').Count 'issue 0 does not exist and is not a mirror'

@@ -4,7 +4,7 @@ description: >-
   File a discovered issue the BWJ way -- GitHub first (the source of truth, classified at creation with
   its issue type and the reach label), then -- only where the issue carries the reach label -- a
   colleague-facing Asana task, cross-linked both ways. Use this in a repo that runs the BWJ procedure -- smartwatchbanden or xoxowildhearts
-  (whichever org), or the plugin's own source repo dkj-claude-plugins -- whenever a real finding
+  (whichever org), the plugin's own source repo dkj-claude-plugins, or phone-factory -- whenever a real finding
   needs tracking: a bug, a broken customer-facing behaviour, a stale doc, a decision that is
   not yours to make. The Asana card lands in the board's `Filed` section -- tracked on GitHub now --
   because the board's sections are the cycle's stages. The GitHub issue always gets created
@@ -24,13 +24,13 @@ rather than by this page**: the reach-label gate in step 2 below. The full rule 
 ## Before you start
 
 - Confirm you are in a repo permitted to run this procedure: `git remote get-url origin` ends in
-  `smartwatchbanden`, `xoxowildhearts` or `dkj-claude-plugins`. It applies nowhere else. **Match the
+  `smartwatchbanden`, `xoxowildhearts`, `dkj-claude-plugins` or `phone-factory`. It applies nowhere else. **Match the
   repo NAME, not the org** -- the two stores are no longer in one organisation (`smartwatchbanden`
   moved to `BWJ-Development` on September 7, 2026, its `BWJ-ecommerce` predecessor is archived, and
   there is no redirect), so a check written against an org path refuses in the live repo it was meant
-  to serve. The third name is this plugin's own source repo, admitted by Dave on September 14, 2026;
-  the whole of that decision, and what it costs there, is in
-  [`adopt-dkj-policy-bwj`](../adopt-dkj-policy-bwj/SKILL.md) step 0.
+  to serve. The third name is this plugin's own source repo, admitted by Dave on September 14, 2026,
+  and the fourth is BWJ's Lightspeed store, admitted on October 2, 2026 (#2705); both decisions, and
+  what they cost, are in [`adopt-dkj-policy-bwj`](../adopt-dkj-policy-bwj/SKILL.md) step 0.
 - Confirm `gh auth status` is clean.
 - Read `Get-AsanaWorkspaceGid` and `Get-AsanaProjectGid` from the repo's `scripts/repo-config.ps1`.
   If either is missing, run [`adopt-dkj-policy-bwj`](../adopt-dkj-policy-bwj/SKILL.md) first.
