@@ -35,7 +35,7 @@ table lives in [`scripts/lib/branch-info.ps1`](../../../scripts/lib/branch-info.
 
 | Type of work | Branch name | GitHub label | Changelog type |
 |---|---|---|---|
-| New or extended capability (new plugin/specialist, migrated manual, new script) | `feat/<description>` | `enhancement` | Feat |
+| New or extended capability (new plugin/specialist, migrated manual, new script) | `feat/<description>` | `feature` | Feat |
 | Correction of an error in an existing agent def/manual/script/manifest | `fix/<description>` | `bug` | Fix |
 | Documentation: `README.md`, `CLAUDE.md`, workflow explanation, manual content | `docs/<description>` | `documentation` | Docs |
 
@@ -850,10 +850,13 @@ tree that cannot both be true. Where your own branch created it, file it anyway 
 because that is the reader's first question. Scoping a contradiction out of the work is a reason not to
 edit the file; it is never a reason not to file it.
 
-**The labels are the branch prefixes, which is what makes an issue readable as work.** `enhancement`,
+**The labels are the branch prefixes, which is what makes an issue readable as work.** `feature`,
 `bug` and `documentation` map onto `feat/`, `fix/` and `docs/` and onto the changelog types they produce
 — the table is in [Classifying, naming, and creating a branch](#classifying-naming-and-creating-a-branch)
-above — so an issue already names the prefix its branch will get. The rung it also carries is a separate
+above — so an issue already names the prefix its branch will get. `feature` was GitHub's default
+`enhancement` until Dave renamed it (October 3, 2026,
+[#2764](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2764)); a consumer's own tracker keeps
+whatever its own seam names. The rung it also carries is a separate
 axis: see [Issue labels](#issue-labels--every-issue-carries-a-priority) below.
 
 **`bug-inbound` and `feature-inbound` are the inbound labels, and they mean something more.** Each marks
@@ -865,7 +868,7 @@ copy, and the improvement comes back to every consumer through a release. **They
 `inbound` label** (Dave, October 3, 2026,
 [#2756](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2756)), so an inbound issue names
 its prefix too: `bug-inbound` sits in the magenta `bug` family (`FF00FF`) and becomes a `fix/`, while
-`feature-inbound` sits in the cyan `enhancement` family (`a2eeef`) and becomes a `feat/`. The filer is a
+`feature-inbound` sits in the cyan `feature` family (`a2eeef`) and becomes a `feat/`. The filer is a
 Claude session in the consumer, and it picks one: something the plugin ships is wrong, or something is
 missing. Every issue labelled `inbound` before that day was relabelled with one of the two. **On this side that is
 simply the ordinary chain**, because this is the source — but not before the item is verified. A filed
@@ -1106,7 +1109,7 @@ every sighted reader brings to a badge is one rung off in this repo. **Read the 
 remains the standing rule for anything but the two rows marked deliberate.
 
 **It is a separate axis from the prefix→label mapping in
-[step 2](#classifying-naming-and-creating-a-branch), which is about a PULL REQUEST.** `enhancement`,
+[step 2](#classifying-naming-and-creating-a-branch), which is about a PULL REQUEST.** `feature`,
 `bug` and `documentation` say what *kind* of change a branch carries and are written by `open-pr.ps1`
 from the branch prefix; a `prio-N` says how much an *issue* weighs and is written by whoever files it.
 An issue therefore normally carries both, and neither can be derived from the other: a `documentation`
