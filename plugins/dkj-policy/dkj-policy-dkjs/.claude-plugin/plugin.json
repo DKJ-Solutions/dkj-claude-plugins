@@ -2,7 +2,7 @@
   "name": "dkj-policy-dkjs",
   "displayName": "Claude Specialists - DKJ policy for DKJ-Solutions (policy scaffold, DKJ-Solutions scope)",
   "description": "DKJ-Solutions' codex: the binding rules every DKJ-Solutions app shares, packaged so they are written once instead of rebuilt per repo. The counterpart of dkj-policy-bwj for the other organisation, and an ADDITIVE add-on to dkj-policy that contradicts nothing it decides. One chapter so far. THE HOUSE STYLE: one set of design tokens (light and dark), one light/dark mechanism and one base stylesheet for every page, report, dashboard or Artifact a DKJ-Solutions app renders, shipped as the house-style skill with a self-contained CSS file (no external requests, system fonts only). A repo adds its own domain tokens and components on top and never redefines a house token. Carries no specialists. Requires dkj-subagents-alpha and dkj-policy. Enable this in DKJ-Solutions repos only -- never in BWJ-Development, which has its own styling.",
-  "version": "5.12.0",
+  "version": "5.13.0",
   "author": { "name": "DaveKJohn" },
   "keywords": ["specialists", "workflow", "claude-code", "dkj-solutions", "house-style", "design-tokens", "opt-in"]
 }
