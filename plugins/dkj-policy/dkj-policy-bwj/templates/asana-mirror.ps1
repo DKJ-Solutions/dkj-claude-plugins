@@ -2073,11 +2073,12 @@ function Invoke-EventMode {
     # tracker, each of them asking somebody to go back to a closed issue, which is the very thing
     # #2049 measured as not working. The accepted gap is unchanged and stated on the page.
     #
-    # NOT ON A CLOSE WHILE WAITING FOR INFORMATION (#2732): its block is the question, already on the
-    # issue under the same marker, and a 'where to look' placeholder would point at a result that does
-    # not exist.
+    # NOT ON A CLOSE AS NOT PLANNED (#2765): nothing was built, so a 'where to look' placeholder would
+    # point at a result that does not exist -- the Asana side drops the block for the same reason. That
+    # covers the close while waiting for information too (#2732), whose block is the question, already
+    # on the issue under the same marker.
     if ($Event -eq 'closed' -and
-        -not (Test-ClosedAwaitingInfo -StateReason $link.StateReason -Labels $link.Labels -Map $script:StageMap) -and
+        $link.StateReason -ne 'not_planned' -and
         -not (Test-AsanaPasteBlockPosted -IssueRef $IssueRef)) {
         Add-GithubIssueComment -IssueRef $IssueRef -Text (New-AsanaPasteBlockComment -IssueRef $IssueRef)
     }

@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**7 / 20 minor entries** <!-- pending-tally -->
+**7 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2765-backstop-skips-not-planned · 20261003-124527Z
+
+An issue mirrored to Asana that is closed as **not planned** no longer gets the GitHub backstop block
+asking somebody to fill in where to look at the result. Nothing was built, so there is no result, and
+the Asana side already left that block out. Before this, only the close while waiting for information
+(#2732) was spared it. [`WORKFLOW-portable.md`](../plugins/dkj-policy/dkj-policy-bwj/WORKFLOW-portable.md)
+says so in its event table.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer has to copy the updated `templates/asana-mirror.ps1` into its `.github/` before the CI stops
+posting the block.
+
+**Score:** N/A
+
+#### Pull Request
+
+asana-mirror: no GitHub backstop on a close as not planned
+
+Plugins: dkj-policy-bwj
+
+[PR #2779](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2779)
+
+---
 
 ### DEPLOY: fix/2773-skipcheck-guard-launch-sites · 20261003-123252Z
 
