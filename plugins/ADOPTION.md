@@ -948,8 +948,10 @@ boundary. Delete them yourself, and the repo is genuinely free.
 ## Reporting back or improving something
 
 - **An improvement to the shared core** (an agent def, playbook, persona, or skill): don't rework it
-  locally, but report it as an issue on the source repo with the label `inbound` — an
-  [issue template](../.github/ISSUE_TEMPLATE/inbound-improvement.md) is ready for that. It is processed
+  locally, but report it as an issue on the source repo with the label `bug-inbound` when something
+  it ships is wrong, or `feature-inbound` when something is missing — an issue template is ready for
+  each ([bug](../.github/ISSUE_TEMPLATE/bug-inbound.md),
+  [feature](../.github/ISSUE_TEMPLATE/feature-inbound.md)). It is processed
   through that repo's own chain, and the improvement comes back to every consumer via a release.
 - **Repo-specific additions** belong in your own repo lenses in the seam
   (`.claude/specialists/lenses/`) — those are yours and do not travel with the plugin.

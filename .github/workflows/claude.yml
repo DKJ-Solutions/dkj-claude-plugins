@@ -4,7 +4,7 @@ name: Claude Code
 #
 # The upstream template also triggers on `issues: [opened, assigned]`, so an issue whose BODY
 # contains '@claude' starts a run at the moment it is filed. That trigger was removed here because
-# this repo publishes an `inbound` issue template and asks consumers to file reports through it --
+# this repo publishes two inbound issue templates and asks consumers to file reports through them --
 # a documented, encouraged stream of prose written by people outside this repo. The action's own
 # security doc states that its sanitisation is best-effort ("new bypass techniques may emerge") and
 # recommends reviewing raw external input before Claude processes it.
