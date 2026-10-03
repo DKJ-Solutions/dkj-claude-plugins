@@ -324,6 +324,56 @@ try {
     & git -C "$fixtureC.git" rev-parse --verify --quiet 'refs/heads/feat/committed' | Out-Null
     Assert-True ($LASTEXITCODE -eq 0) 'park (already committed): branch still pushed to origin'
 
+    # --- (c2) A branch the trunk already contains is refused, not resurrected (#2749) ---------------
+    # The measured case: the branch merged (a merge commit, as this workflow merges), its remote head was
+    # deleted, and the checkout still sat on it. Parking it used to push and recreate the head.
+    Write-Host "park-branch.ps1 -- refuses a branch the trunk already contains (#2749)" -ForegroundColor Cyan
+    $fixtureM = New-Fixture -Label 'merged'
+    Checkout-NewBranch -Dir $fixtureM -Name 'feat/merged'
+    [System.IO.File]::WriteAllText((Join-Path $fixtureM 'shipped.txt'), "shipped`n", (New-Object System.Text.UTF8Encoding $false))
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        Invoke-FixtureGitIn $fixtureM add -A
+        Invoke-FixtureGitIn $fixtureM commit -q -m 'shipped work'
+        Invoke-FixtureGitIn $fixtureM checkout -q main
+        Invoke-FixtureGitIn $fixtureM merge -q --no-ff --no-edit 'feat/merged'
+        Invoke-FixtureGitIn $fixtureM checkout -q 'feat/merged'
+    } finally { $ErrorActionPreference = $prevEap }
+    $rM = Invoke-ParkBranch -Dir $fixtureM
+    Assert-Equal 1 $rM.Code 'merged branch: exit 1 -- refused (#2749)'
+    Assert-Says $rM.Out 'already contained in' 'merged branch: the refusal says the trunk already contains it'
+    & git -C "$fixtureM.git" rev-parse --verify --quiet 'refs/heads/feat/merged' | Out-Null
+    Assert-True ($LASTEXITCODE -ne 0) 'merged branch: nothing pushed -- the head is not recreated on origin (#2749)'
+
+    # --- (c3) ...but a branch just cut, equal to the trunk's tip, still parks ------------------------
+    # Equal is not merged: it has shipped nothing. Pinned so the refusal above cannot widen into it.
+    $fixtureF = New-Fixture -Label 'fresh'
+    Checkout-NewBranch -Dir $fixtureF -Name 'feat/fresh'
+    $rF = Invoke-ParkBranch -Dir $fixtureF
+    Assert-Equal 0 $rF.Code 'fresh branch at the trunk tip: exit 0 -- not refused (#2749)'
+    & git -C "$fixtureF.git" rev-parse --verify --quiet 'refs/heads/feat/fresh' | Out-Null
+    Assert-True ($LASTEXITCODE -eq 0) 'fresh branch at the trunk tip: pushed to origin as before'
+
+    # --- (c4) ...and so does an EMPTY branch whose trunk has moved on since it was cut ---------------
+    # Its tip is now a strict ancestor of the trunk, exactly like a merged one -- ancestry alone cannot
+    # tell them apart. The trunk's first-parent line can: the trunk walked through this commit itself.
+    $fixtureS = New-Fixture -Label 'stale'
+    Checkout-NewBranch -Dir $fixtureS -Name 'feat/stale'
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        Invoke-FixtureGitIn $fixtureS checkout -q main
+        [System.IO.File]::WriteAllText((Join-Path $fixtureS 'later.txt'), "later`n", (New-Object System.Text.UTF8Encoding $false))
+        Invoke-FixtureGitIn $fixtureS add -A
+        Invoke-FixtureGitIn $fixtureS commit -q -m 'trunk moves on'
+        Invoke-FixtureGitIn $fixtureS checkout -q 'feat/stale'
+    } finally { $ErrorActionPreference = $prevEap }
+    $rS = Invoke-ParkBranch -Dir $fixtureS
+    Assert-Equal 0 $rS.Code 'empty branch behind the trunk: exit 0 -- not mistaken for a merged one (#2749)'
+    & git -C "$fixtureS.git" rev-parse --verify --quiet 'refs/heads/feat/stale' | Out-Null
+    Assert-True ($LASTEXITCODE -eq 0) 'empty branch behind the trunk: pushed to origin'
+
     # --- (d) -Intent recorded in the park commit message ------------------------------------------
     Write-Host "park-branch.ps1 -- -Intent recorded in the park commit message" -ForegroundColor Cyan
     $fixtureD = New-Fixture -Label 'd'
