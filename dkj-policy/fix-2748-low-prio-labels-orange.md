@@ -39,21 +39,37 @@
 
 ### PLAN
 
+#2748 (Dave): `prio-1` and `prio-2` move from the yellow family into the orange one. `prio-1` leans to
+yellow and `prio-2` leans to red, which leaves yellow free for another family. The colours were not only
+a tracker setting: they are pinned in the canonical triage-label list (`adopt-triage-labels.ps1`, its
+plugin mirror and this repo's `Get-TriageLabels` seam), in the config blueprint, in the BWJ adoption
+page and in Derek's lens. All of them change together.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `prio-1` `FFE033` → `FFA726`, `prio-2` `F9A825` → `F57C00`, in the two scripts, the seam, the
+  blueprint, the BWJ adoption page and the lens table and prose
+- [x] This repo's tracker: `gh label edit prio-1 --color FFA726`, `gh label edit prio-2 --color F57C00`
+- [~] The test fixtures that stand for an EXISTING tracker keep the old hex values. They describe a
+  tracker as it was, not the canonical list
 
 ### TEST
 
+- [x] `adopt-triage-labels.tests.ps1` 94/94, `repo-config.tests.ps1` 74/74
+
 ### DEPLOY: fix/2748-low-prio-labels-orange
 
-**Score:**
+The two low priority labels are now oranges: `prio-1` `FFA726`, leaning to yellow, and `prio-2`
+`F57C00`, leaning to red. Yellow is free for another label family. `adopt-triage-labels` prints the new
+colours for a tracker that does not have the labels yet. It matches existing labels by name, so a
+tracker that already has them keeps its colours until someone runs `gh label edit`.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 
 prio-1 and prio-2 move into the orange family, freeing yellow
-
