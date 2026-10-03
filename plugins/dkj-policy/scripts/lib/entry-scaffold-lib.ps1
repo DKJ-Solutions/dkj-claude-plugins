@@ -1519,7 +1519,7 @@ $script:EntrySignificanceRetiredRoutes = @(
 
 $script:EntryGuidanceDefaults = [ordered]@{
     # One block per field, written as an HTML comment ABOVE the place the answer goes. Borrowed from this
-    # repo's own .github/ISSUE_TEMPLATE/inbound-improvement.md, whose fields each say what a good answer
+    # repo's own inbound issue template (now .github/ISSUE_TEMPLATE/feature-inbound.md), whose fields each say what a good answer
     # looks like without occupying the line the answer is written on (Dave, August 6, 2026).
     #
     # THE VISIBLE 'TODO:' STAYS UNDERNEATH, and that is the half deliberately NOT borrowed. Replacing it

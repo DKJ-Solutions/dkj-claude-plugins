@@ -39,21 +39,52 @@
 
 ### PLAN
 
+#2756 (Dave): the single `inbound` label is replaced by two -- `bug-inbound` in the magenta `bug`
+family (`FF00FF`) and `feature-inbound` in the cyan `enhancement` family (`a2eeef`). Dave's answers on
+the thread: replace rather than add; the filer is always a Claude session, so the choice between the two
+is the shared block's to state; the colours are the family anchors. Whether #2750 (dropping GitHub
+issue types for labels) had to land first was left to the specialist: it does not, because #2750
+consumes the bug/feature families and this branch is what gives inbound issues one. The label is the
+route's name in the template, the constitution, the shared `inbound-behaviour` block and therefore every
+generated subagent def, Chris's persona and manual, ADOPTION, the connectors README and Derek's lens.
+The route itself keeps its name -- "inbound #NNN" citations are history and stay.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `inbound-behaviour.md`: the filer picks `bug-inbound` (something shipped is wrong) or
+  `feature-inbound` (something is missing); `build-agent-defs.ps1` regenerated the 26 subagent defs
+- [x] `.github/ISSUE_TEMPLATE/inbound-improvement.md` became `feature-inbound.md`, and `bug-inbound.md`
+  is new beside it, asking what is wrong rather than what should change
+- [x] The constitution, Chris's persona and manual, ADOPTION, connectors README, house-style, Derek's
+  lens (with the decision and the prefix mapping), the language-layers rule, Sylvester's lens, the
+  `claude.yml` comment and the `entry-scaffold-lib` comment (both copies)
+- [x] "keeps the `inbound` route" loses its code style in `findings-become-issues.md` and the personas:
+  it names the route, not a label
+- [x] Tracker: `bug-inbound` and `feature-inbound` created
+- [ ] Tracker: all 376 issues labelled `inbound` relabelled with one of the two, then `inbound` deleted
+- [~] Test fixtures and the `open-pr` skill's quoted refusal keep `'inbound'`: they record a tracker
+  payload as it was measured, not the canonical labels
 
 ### TEST
 
+- [ ] The gates, through `ship-pr`
+
 ### DEPLOY: feat/2756-bug-and-feature-inbound
 
-**Score:**
+An inbound report is now filed as `bug-inbound` when something the plugins ship is wrong, or as
+`feature-inbound` when something is missing, each with its own issue template. Every specialist's
+shared instructions say which to pick. The single `inbound` label is gone from the source tracker, so a
+session on an older release that files with `--label inbound` gets an error from `gh` until it
+updates.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing beyond the label split itself.
+
+**Score:** N/A
 
 #### Pull Request
 
 The inbound label splits into bug-inbound and feature-inbound
-

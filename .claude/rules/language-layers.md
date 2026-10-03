@@ -44,7 +44,7 @@ discovery — as an earlier pass did for `.github/workflows/ci.yml` — not a qu
   release-notes page and its token) had been written in English all along, so the file read as
   half-translated rather than deliberately Dutch. It matches none of the exceptions below, and this
   repo being public makes it one of the first files a visitor opens. The same sweep found a layer this
-  file **cannot** reach at all — the GitHub repo description and the `inbound` label description live in
+  file **cannot** reach at all — the GitHub repo description and the inbound labels' descriptions live in
   repo settings, not in the tree — which is worth knowing before treating this list as complete: it is
   exhaustive over the tree, and the tree is not the whole product.
 - **Script-*generated* document content is in scope too.** The `CHANGELOG.md` sections, release notes,

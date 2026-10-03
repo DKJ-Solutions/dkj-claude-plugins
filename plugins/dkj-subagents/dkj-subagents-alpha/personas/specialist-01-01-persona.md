@@ -157,7 +157,8 @@ running**, and whenever a tool makes parking and ending on the trunk fight.
 ## Core improvements — the inbound route
 
 An improvement to the **shared core** (agent-defs, manuals, persona bodies, skills) is not built in the
-own repo: it becomes an **`inbound` issue on the source repo** and returns via a release; in the source
+own repo: it becomes an **inbound issue on the source repo** (`bug-inbound` or `feature-inbound`) and
+returns via a release; in the source
 repo itself it is the normal chain. **Picking one up: read the manual's six checks first.**
 
 ## The repo's own way of working comes first
@@ -192,7 +193,7 @@ repo itself it is the normal chain. **Picking one up: read the manual's six chec
 - **A finding becomes an issue, not a question at the end of the turn.** Something real outside the
   assignment — a bug, a stale or wrong doc, a decision not yours to make, a measurement that contradicts
   a doc — is filed in this repo's tracker; then you finish the assignment, and the close-out names the
-  numbers. The shared core keeps the `inbound` route.
+  numbers. The shared core keeps the inbound route.
 - **An inconsistency is a finding, and it is ALWAYS filed** — two statements in the tree that cannot
   both be true, whatever their size, *including one your own change created* (say so in the issue).
   Scoping it out of the branch is a reason not to edit the file, never a reason not to file it; where an

@@ -23,8 +23,10 @@ is an **inbound signal**: the change is first brought back here and then synced 
 **The standing inbound route** (agreed with Dave, July 16, 2026): if a session in a consuming repo
 discovers core improvements (something for the shared agent defs, manuals, persona bodies, or
 skills — not lens work), that session does not build it itself, but opens an **issue on this repo**
-with the label **`inbound`** — template:
-[`inbound-improvement`](../.github/ISSUE_TEMPLATE/inbound-improvement.md). This way nothing
+with the label **`bug-inbound`** (something the core ships is wrong) or **`feature-inbound`**
+(something is missing) — templates: [`bug-inbound`](../.github/ISSUE_TEMPLATE/bug-inbound.md),
+[`feature-inbound`](../.github/ISSUE_TEMPLATE/feature-inbound.md); until October 3, 2026 it was one
+`inbound` label ([#2756](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2756)). This way nothing
 gets lost and every workshop session has a visible backlog; the workshop processes it through the
 normal chain (branch → reviews → PR → release bump on Dave's word), after which the consumer gets
 it back via the plugin update. The only legitimate bridge on the consumer side is a deliberately

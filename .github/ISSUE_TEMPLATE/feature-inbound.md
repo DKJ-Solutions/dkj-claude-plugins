@@ -1,8 +1,8 @@
 ---
-name: Inbound improvement (from a connector)
-about: Core improvement discovered in a consuming repo (life-hub, smartwatchbanden) that must land in the source first
-title: "inbound: <short summary>"
-labels: inbound
+name: Inbound feature (from a connector)
+about: Something missing from the shared core, discovered in a consuming repo (life-hub, smartwatchbanden) that must land in the source first
+title: "feature-inbound: <short summary>"
+labels: feature-inbound
 ---
 
 ## Which repo does this come from?

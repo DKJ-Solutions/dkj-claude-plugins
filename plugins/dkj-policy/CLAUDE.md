@@ -12,7 +12,7 @@ contradicting the plugin it had installed, and two copies of one rule always dri
 down to imports alone is what makes that drift structurally impossible rather than merely discouraged.
 
 **So nothing outside the imports restates or overrides a rule here.** Where a repo genuinely needs a
-rule to read differently, the route is an `inbound` issue on this plugin's source repo, not a local
+rule to read differently, the route is an inbound issue on this plugin's source repo, not a local
 edit. A local override is exactly the drift this file replaces. The mechanics these rules name (the
 branch document, the gates, the fold, the cut) are on
 [`CONTRIBUTING-portable.md`](CONTRIBUTING-portable.md), which sits beside this file and at the same
@@ -45,10 +45,10 @@ These rules take precedence over any convenience.
 - **`git push --force`** on any branch, **`git reset --hard`**, and **`git rebase`** on a shared
   branch.
 - **Publishing anything externally** beyond the normal PR flow: a gist, an external post, an issue on
-  somebody else's repository. **The inbound route is carved out of that by name.** Filing an `inbound`
-  issue on the source repo of a plugin this repo consumes needs nobody's permission. It is the one
-  outward-facing act a session performs unprompted, and the only way a defect found in a consumer
-  reaches the tree that can repair it. What applies to it is the ordinary filing bar: verify the
+  somebody else's repository. **The inbound route is carved out of that by name.** Filing an inbound
+  issue (`bug-inbound` or `feature-inbound`) on the source repo of a plugin this repo consumes needs
+  nobody's permission. It is the one outward-facing act a session performs unprompted, and the only
+  way a defect found in a consumer reaches the tree that can repair it. What applies to it is the ordinary filing bar: verify the
   finding still stands, search that tracker first, one subject per issue.
 
 ### Never directly on the trunk — via branch + PR
