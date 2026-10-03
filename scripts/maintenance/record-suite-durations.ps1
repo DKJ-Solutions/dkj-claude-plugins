@@ -54,7 +54,9 @@
     The repo to write into. Defaults to the git root of the working directory.
 
 .PARAMETER DryRun
-    Print the table that would be written and touch nothing.
+    Print the table that would be written and touch nothing. It prints the 12 slowest suites and the
+    pool total only: for the full table, a per-family total or a before/after comparison of two sets of
+    runs, use measure-suites.ps1 beside this script, which writes nothing at all (issue #2775).
 #>
 [CmdletBinding()]
 param(
@@ -98,73 +100,25 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw 'The gh CLI is required to read a run log - install it, or pass logs another way.'
 }
 
-# THE ONLY NAMES THAT COUNT are files that exist right now. This drops the fixture tables the gate's own
-# suite prints (see the docstring) and, for free, any suite that has since been deleted or renamed --
-# both of which would otherwise be carried forward for ever by an averaging pass that never looks at the
-# directory.
-$known = @{}
-Get-ChildItem -Path $testsDir -Filter '*.tests.ps1' -File | ForEach-Object { $known[$_.Name] = $true }
-if ($known.Count -eq 0) { throw "No *.tests.ps1 suites in $testsDir." }
+# THE PARSING LIVES IN suite-durations-lib.ps1 (issue #2775), shared with measure-suites.ps1. Its row
+# validation is what drops the fixture tables the gate's own suite prints (see the docstring) and, for
+# free, any suite that has since been deleted or renamed -- both of which would otherwise be carried
+# forward for ever by an averaging pass that never looks at the directory.
+. (Join-Path $PSScriptRoot '..\lib\suite-durations-lib.ps1')
+$known = Get-KnownSuiteNames -TestsDir $testsDir
 
-# '   249.2s  new-branch.tests.ps1  started +40.9s' -- anchored on the trailing 'started +' so a line that
-# merely mentions a suite and a number cannot match.
-$rowPattern = '\s(\d+(?:\.\d+)?)s\s+(\S+\.tests\.ps1)\s+started\s+\+'
-
-# SPLIT THE IDS OURSELVES, because `powershell -File` does not. Every documented way of running a
-# script in this repo is `-File`, and in that mode PowerShell passes each argument as a LITERAL string:
-# `-RunId 123,456` binds a one-element array holding the text "123,456", and gh then 404s on a run id
-# nobody typed. Measured here on the first run of this script. Splitting on commas and whitespace makes
-# the `-File` form and the `-Command` form (where the comma really is an array operator) agree.
-$runIds = @($RunId | ForEach-Object { "$_" -split '[,\s]+' } | Where-Object { $_ })
+$runIds = Split-RunIdList -RunId $RunId
 if ($runIds.Count -eq 0) { throw 'No run ids given.' }
 
-$slugCall = Invoke-NativeCapture -FilePath 'gh' -Arguments @('repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner') -DiscardStderr
-if ($slugCall.ExitCode -ne 0) { throw 'gh could not resolve the current repository - is it authenticated here?' }
-$slug = (@($slugCall.Output) | Where-Object { "$_".Trim() } | Select-Object -First 1).Trim()
+$slug = Get-RepoSlugFromGh
 
 $samples = @{}
 foreach ($id in $runIds) {
     Write-Host "reading run $id ..." -ForegroundColor Cyan
-    # -Utf8 because this output is PARSED, not echoed: Windows PowerShell 5.1 decodes a child's stdout
-    # with the console code page, so the same log yields different strings on cp850 and cp65001.
-    $run = Invoke-NativeCapture -FilePath 'gh' -Arguments @('run', 'view', $id, '--repo', $slug, '--log') -Utf8
-    # THE UNMEASURABLE CODE IS ASKED FOR FIRST (issue #1931, audited under #2081). `$null -ne 0` is true,
-    # so the throw below would fire on a read that may have SUCCEEDED -- and it quotes the first three
-    # captured lines as the reason, which on that path are the log's own opening lines rather than an
-    # error. Fail-closed is right either way here (a duration table parsed off a half-known capture is
-    # worse than no table), so only the sentence changes.
-    if (-not (Test-NativeExitMeasured -Capture $run)) {
-        throw "gh ran but its exit code could not be measured reading run ${id} (issue #1931) -- nothing is known about the read, so no durations were taken from it. Run this again; the next process almost always answers."
-    }
-    if ($run.ExitCode -ne 0) { throw "gh could not read run ${id}: $(@($run.Output) | Select-Object -First 3)" }
-
-    $found = 0
-    foreach ($line in $run.Output) {
-        $m = [regex]::Match("$line", $rowPattern)
-        if (-not $m.Success) { continue }
-        $name = $m.Groups[2].Value
-        if (-not $known.ContainsKey($name)) { continue }
-        if (-not $samples.ContainsKey($name)) { $samples[$name] = New-Object System.Collections.ArrayList }
-        $samples[$name].Add([double]$m.Groups[1].Value) | Out-Null
-        $found++
-    }
-    if ($found -eq 0) {
-        # THE FOLD COMMIT'S RUN IS THE ONE THAT LOOKS RIGHT AND IS NOT, so it is named rather than left
-        # to the caller to rediscover. ship-pr pushes to the trunk twice per branch and BOTH pushes get a
-        # CI run: the merge commit's runs the suites, the fold commit's skips the step outright (#1300 --
-        # its only untested delta is changelog prose). The second is the newer of the two, so it is the
-        # one at the top of `gh run list` and the one a caller reaches for; its suites jobs complete
-        # green having checked out and stopped, so nothing about the run says it measured nothing.
-        # Measured on #1833, whose own refresh reached for it first.
-        # THE MERGE COMMIT'S RUN IS NO LONGER THE ALTERNATIVE (#2388). Since the merge-commit certificate
-        # (#2303) a `merge:` push skips the suites too whenever its tree was already proved fresh -- the
-        # normal case after ship-pr -- so this throw used to send the caller from one tableless run to its
-        # tableless sibling. Measured on #2345's pair, 35903739236 (merge) and 35903751020 (fold). A merge
-        # run still carries the table when the certificate refuses, but nothing on the run list says which,
-        # so the advice names the run that always has one.
-        throw "run $id printed no per-suite duration table - is it a CI run that ran the suites job? Take a PR run: a trunk push skips that step by design, the 'fold:' push by its subject (#1300) and the 'merge:' push whenever the merge-commit certificate proves its tree was already certified (#2303), which is the normal case after ship-pr."
-    }
-    Write-Host "  $found suite rows" -ForegroundColor DarkGray
+    # A run with no table throws, naming the fold and merge pushes: their CI runs skip the suites and
+    # complete green having measured nothing, which is the run a caller reaches for first (#1833, #2388).
+    $read = Read-RunSuiteSamples -Id $id -Slug $slug -KnownNames $known -Samples $samples
+    Write-Host "  $($read.Found) suite rows" -ForegroundColor DarkGray
 }
 
 $missing = @($known.Keys | Where-Object { -not $samples.ContainsKey($_) } | Sort-Object)
@@ -174,10 +128,7 @@ if ($missing.Count -gt 0) {
     Write-Warning ("no rows for {0} suite(s) -- left out of the file, and the gate will charge each the maximum: {1}" -f $missing.Count, ($missing -join ', '))
 }
 
-$seconds = [ordered]@{}
-foreach ($name in ($samples.Keys | Sort-Object)) {
-    $seconds[$name] = [Math]::Round((($samples[$name] | Measure-Object -Average).Average), 1)
-}
+$seconds = Get-SuiteMeans -Samples $samples
 
 Write-Host ''
 # INVARIANT CULTURE, because these lines are MEASUREMENTS somebody copies into an issue or a changelog
