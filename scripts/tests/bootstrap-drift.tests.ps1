@@ -420,15 +420,31 @@ try {
     # (.../cache/<marketplace>/<plugin>/<version>/), so a rule carrying today's path stops matching at
     # the consumer's next plugin update -- silently, while still reading as covered. The wildcard is
     # what makes the rule outlive an update, so what has to hold is that the path IS wildcarded and
-    # that the plugin name and the script name are the literal parts anchoring it.
+    # that the install path's shape (.claude, plugins, cache, the plugin name, scripts, the script) is
+    # what stays literal around the wildcards, anchoring it (#2746).
     $sugWf = [System.IO.File]::ReadAllText((Join-Path $FixtureWf '.claude\settings.suggested.jsonc'))
     foreach ($entry in @('new-branch.ps1', 'open-pr.ps1', 'ship-pr.ps1')) {
-        Assert-True ($sugWf -match [regex]::Escape("`"Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *dkj-policy*$entry*)`"")) `
+        Assert-True ($sugWf -match [regex]::Escape("`"Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *.claude*plugins*cache*dkj-policy*scripts*$entry*)`"")) `
             "workflow plugin: allow half covers $entry through the Bash tool (#1075)"
-        Assert-True ($sugWf -match [regex]::Escape("`"PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *dkj-policy*$entry*)`"")) `
+        Assert-True ($sugWf -match [regex]::Escape("`"PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *.claude*plugins*cache*dkj-policy*scripts*$entry*)`"")) `
             "workflow plugin: allow half covers $entry through the PowerShell tool (#1075)"
     }
-    Assert-True ($sugWf -match 'gh repo edit --delete-branch-on-merge') 'workflow plugin: allow half covers the one gh repo edit the workflow assumes'
+    Assert-True ($sugWf -match [regex]::Escape('"Bash(gh repo edit --delete-branch-on-merge)"')) 'workflow plugin: allow half covers the one gh repo edit the workflow assumes, EXACTLY (#2746)'
+    # --- inbound #2746: the wildcard is anchored on the install path, not on the plugin name alone ---
+    # Each rule is read back as the glob it is ('*' matches anything) and run against the command a
+    # session actually types, so what is pinned is the BEHAVIOUR of the rule rather than its spelling.
+    $nbRule = ([regex]::Match($sugWf, '"Bash\((powershell[^"]*new-branch\.ps1\*)\)"')).Groups[1].Value
+    Assert-True ($nbRule -ne '') 'workflow plugin: the new-branch rule is extracted (guard on the extraction itself)'
+    $nbGlob = '^' + ([regex]::Escape($nbRule) -replace '\\\*', '.*') + '$'
+    $installed = 'powershell -NoProfile -ExecutionPolicy Bypass -File "C:/Users/someone/.claude/plugins/cache/dkj-claude-plugins/dkj-policy/5.13.0/scripts/task/new-branch.ps1" -Name fix/1-x -Title "x"'
+    Assert-True ($installed -match $nbGlob) 'workflow plugin: the anchored rule still matches the installed copy, forward slashes (#2746)'
+    Assert-True (($installed -replace '/', '\') -match $nbGlob) 'workflow plugin: and with backslashes (#2746)'
+    Assert-True (-not ('powershell -NoProfile -ExecutionPolicy Bypass -File dkj-policy/new-branch.ps1' -match $nbGlob)) `
+        "workflow plugin: the rule no longer matches a new-branch.ps1 in the consumer's own dkj-policy/ folder (#2746)"
+    Assert-True (-not ('powershell -NoProfile -ExecutionPolicy Bypass -File dkj-policy/scripts/new-branch.ps1' -match $nbGlob)) `
+        "workflow plugin: nor one under dkj-policy/scripts/ in the consumer's own tree (#2746)"
+    Assert-True (-not ('powershell -NoProfile -ExecutionPolicy Bypass -File .claude/plugins/dkj-policy/scripts/new-branch.ps1' -match $nbGlob)) `
+        'workflow plugin: nor a .claude/plugins/ path outside the install cache (#2746; the class is #2752)'
     # THE EXCLUSION IS THE POINT, so it is pinned rather than left to the comment beside it: a release
     # is irreversible and outward-facing, and the whole value of a narrow allow half is that a reader
     # can see what it does NOT wave through. Matched against the RULES only, not the whole file --
