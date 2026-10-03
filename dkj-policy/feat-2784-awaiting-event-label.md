@@ -51,7 +51,8 @@ labels and none of them fits. Built on the same touch set as `awaiting-pull` (#2
   docstring, the two skill pages) and to the issue dashboard's `PARKING_LABELS` and `PARKED_BECAUSE`.
 - [x] Document it in `CONTRIBUTING-portable.md`, the scripts README, the issue-dashboard skill and the
   05-05 lens; regenerate the config blueprint. Also correct two counts that were already stale before
-  this branch: the contract record's "the same seven labels" and CONTRIBUTING's "seven typed by hand".
+  this branch: the contract record's "the same seven labels" (and the script-contract assert that
+  pinned it) and CONTRIBUTING's "seven typed by hand".
 
 ### TEST
 
