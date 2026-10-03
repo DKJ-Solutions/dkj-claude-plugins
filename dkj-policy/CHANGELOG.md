@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**5 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2751-integrity-shared-parse-cache · 20261003-102824Z
+
+`check-plugin-integrity.ps1` now parses each `.ps1` once and walks it once per run, and every check that
+reads a script shares that pass. Before this, a run paid four parses and three full walks per file:
+check 5 parsed again for the errors, `exec-policy/script` for the tokens plus a second CommandAst walk,
+and `shopify-force` for the assignments. Over this repo's 451 scripts that work came to 13.8-17.1s,
+and it now takes 4.4-5.4s. A new assert keeps the gate down to a single parse site, because the sharing
+#1358 introduced eroded with nothing to hold it
+([#2751](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2751)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+check-plugin-integrity: one parse per .ps1, shared across the checks
+
+[PR #2762](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2762)
+
+---
 
 ### DEPLOY: feat/2757-awaiting-pull-label · 20261003-101718Z
 
