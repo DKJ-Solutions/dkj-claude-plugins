@@ -256,9 +256,10 @@ GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in developmen
 ```
 
 Only the issue name varies. It is posted as the link to the issue, with **created:** in bold. It is the first of
-**three fixed forms, one per event** -- the CI mirror posts the other two, CLOSED and REOPENED, in
+**four fixed forms** -- the CI mirror posts the other three, CLOSED, CLOSED WHILE WAITING FOR INFORMATION
+(#2732) and REOPENED, in
 [step 4](#4-write-the-paste-ready-block-then-close-the-github-issue---the-asana-task-gets-an-update)
--- and all three are English on every board. They are the one exception to the rule that what a
+-- and all four are English on every board. They are the one exception to the rule that what a
 session writes to a colleague follows their language: the requester fixed them word for word
 ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), replacing #2653's
 wording). The steps are in `report-issue`.
@@ -380,6 +381,7 @@ GitHub Actions workflow in the repo (`.github/workflows/asana-mirror.yml`, copie
 |---|---|
 | issue **closed** | ONE comment on the linked task, the closed message: *"GitHub issue `<owner>/<repo>#<n>` is now **closed**. It can be reopened anytime when something is still not working as expected."*, with the sections of the paste-ready block the session left on the issue under it ([#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700)). The task stays open |
 | issue **closed as not planned** | the opposite comment, in the same shape: nothing was built, so there is nothing to test |
+| issue **closed as not planned** while the `awaiting-more-info` label is on it | the waiting form instead ([#2732](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2732)): *"GitHub issue `<owner>/<repo>#<n>` is now **closed while waiting for information:** there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again."* No block rides on it, and the GitHub backstop block is not posted |
 | issue **reopened** | a comment: *"GitHub issue `<owner>/<repo>#<n>` is reopened: this Asana task is back in development."* |
 | daily schedule | a reconciliation sweep in **both** directions, for events that never arrived: open tasks in the mirror project whose GitHub issue is closed, and issues closed in the last 30 days whose task has not been told yet |
 
@@ -1131,11 +1133,19 @@ that records it by itself next time, for example -- and it is never "then it sto
 the shape above is stated in English, and the message is written in the language of the Asana task
 and of the colleague who reads it.
 
-**This exit does NOT close the issue**, where the delivered-work exit closes it one act after the block.
-That is not an inconsistency: there the development work is finished and only the judgement is with
-the colleague, while here the work itself is stalled on something only they can supply -- which is still
-an open item of ours, and belongs in the list where work is tracked. **Nor does the session remove the
-label**: whoever brings the answer does, and the card returns to its status-derived floor.
+**This exit does NOT close the issue by default**, where the delivered-work exit closes it one act after
+the block. That is not an inconsistency: there the development work is finished and only the judgement
+is with the colleague, while here the work itself is stalled on something only they can supply -- which
+is still an open item of ours, and belongs in the list where work is tracked. **Nor does the session
+remove the label**: whoever brings the answer does, and the card returns to its status-derived floor.
+
+**Closing while waiting is the one sanctioned alternative** (Dave, October 3, 2026,
+[#2732](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2732)), for an owner who wants the
+waiting ticket off the open list. Close it as **not planned** and **keep the `awaiting-more-info` label
+on through the close**: the pair is what the CI reads as the waiting form (the table above), rather than
+as a rejection, and the label still on is what holds the card in the blocked column and lands the
+reopen there. The question is written first, exactly as above; the close adds nothing to it, so no
+hand-written close comment goes on the task.
 
 #### The daily sweep is the mechanism, not a backstop
 
