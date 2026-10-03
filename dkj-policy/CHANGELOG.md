@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2746-allow-rules-anchored-on-plugin-path · 20261003-094037Z
+
+The `settings.suggested.jsonc` that `specialists-init` proposes no longer allows a `new-branch`,
+`open-pr` or `ship-pr` script just because its path contains `dkj-policy`. Each rule now requires the
+install path's shape (`.claude`, `plugins`, `cache`, the plugin, `scripts`, the script), so a script
+placed in your repo's own `dkj-policy/` folder through a pull request prompts like any other. This
+narrows the rule rather than pinning a location: a pull request that adds a `.claude/plugins/` tree to
+your repo still deserves a careful look (#2752). The
+`gh repo edit --delete-branch-on-merge` rule is now exact, so it no longer allows `--visibility` or other
+flags. Rules you already pasted are unchanged: re-run `specialists-init` and paste the new allow lines
+to pick this up.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The drift suite now reads each generated rule back as a pattern and runs it against real commands, so
+it pins what the rule allows rather than how it is spelled.
+
+**Score:** 2
+
+#### Pull Request
+
+specialists-init: anchor the allow rules on the plugin install path, make the gh rule exact
+
+Plugins: dkj-subagents-alpha
+
+[PR #2754](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2754)
+
+---
 
 ### DEPLOY: fix/2739-refresh-suite-durations · 20261003-093117Z
 
