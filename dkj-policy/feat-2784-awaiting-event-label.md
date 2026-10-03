@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Inbound #2784 (Dave, from a consumer): a fifth purple parking label, `awaiting-event`, for an issue that
+waits on an external event with a known date. Verified on pickup: the tracker carries four parking
+labels and none of them fits. Built on the same touch set as `awaiting-pull` (#2757), placed right after it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Add `awaiting-event` (`5319E7`) to `Get-TriageLabels` and adopt-triage-labels' built-in list, right
+  after `awaiting-pull`, with the reasoning in repo-config's header.
+- [x] Add it to the claim and sweep skip defaults (both copies of claim-issue, claim-issue-lib's
+  docstring, the two skill pages) and to the issue dashboard's `PARKING_LABELS` and `PARKED_BECAUSE`.
+- [x] Document it in `CONTRIBUTING-portable.md`, the scripts README, the issue-dashboard skill and the
+  05-05 lens; regenerate the config blueprint. Also correct two counts that were already stale before
+  this branch: the contract record's "the same seven labels" and CONTRIBUTING's "seven typed by hand".
 
 ### TEST
 
+- [x] adopt-triage-labels (106), claim-issue (560), repo-config (82), issue-dashboard (416) and
+  pr-issues (1144) all green, including a new assert that `awaiting-event` parks on the dashboard and
+  the fallback and the seam now agree on nine literals.
+
 ### DEPLOY: feat/2784-awaiting-event-label
 
-**Score:**
+New parking label `awaiting-event`, purple like the rest of the awaiting-* family, for an issue that
+waits on an external event or date, such as a launch or a third party's release
+([#2784](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2784)). The claim and sweep routes
+skip it by default and the issue dashboard shows it as parked. The issue states the event or date, and
+the label comes off once it has happened.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+For a consumer who runs `adopt-triage-labels`: it now offers one more `gh label create` line, for
+`awaiting-event`. A sweep no longer has to hold a date-bound issue out by hand with `-SkipIssue`.
+
+**Score:** 2
 
 #### Pull Request
 

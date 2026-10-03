@@ -2,7 +2,7 @@
 .SYNOPSIS
     Reports which of this workflow's canonical triage labels (the priority rungs 'prio-1' through
     'prio-4', plus the 'awaiting-more-recurrences' kind label, #2462 (named 'dossier' until #2683 and 'record'
-    until #2723), and the 'awaiting-decision', 'awaiting-pull' and 'awaiting-first-recurrence' parking labels, #2519, #2757 and #2587
+    until #2723), and the 'awaiting-decision', 'awaiting-pull', 'awaiting-event' and 'awaiting-first-recurrence' parking labels, #2519, #2757, #2784 and #2587
     ('awaiting-recurrence' until #2723, 'needs-decision' until #2741)) this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
     -- never creates a label itself. Issue #1895, split from #1843.
 
@@ -142,6 +142,8 @@ $builtInTriageLabels = @(
     [pscustomobject]@{ Name = 'awaiting-decision'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on another issue to land through a pull request (#2757).
     [pscustomobject]@{ Name = 'awaiting-pull'; Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
+    # And the parking label for an issue waiting on an external event or date (#2784).
+    [pscustomobject]@{ Name = 'awaiting-event'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on its first reproducible recurrence (#2587).
     [pscustomobject]@{ Name = 'awaiting-first-recurrence'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )

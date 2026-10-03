@@ -29,7 +29,7 @@ export const STATUSES = ["In review", "In progress", "Waiting", "Blocked", "Clai
 // "needs-info" is now "awaiting-more-info", "needs-decision" is "awaiting-decision", "awaiting-recurrence" is "awaiting-first-recurrence", and
 // "record" and "dossier" are "awaiting-more-recurrences".
 export const PARKING_LABELS = [
-  "awaiting-more-info", "awaiting-decision", "awaiting-pull", "awaiting-first-recurrence", "awaiting-more-recurrences",
+  "awaiting-more-info", "awaiting-decision", "awaiting-pull", "awaiting-event", "awaiting-first-recurrence", "awaiting-more-recurrences",
   "needs-info", "needs-decision", "awaiting-recurrence", "record", "dossier",
 ];
 
