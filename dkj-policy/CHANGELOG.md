@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**5 / 9 minor entries** <!-- pending-tally -->
+**6 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2759-sweep-decisions-skill · 20261003-103847Z
+
+New skill `/sweep-decisions`: it goes through every open issue parked on `awaiting-decision` (or its
+former name `needs-decision`) with you in one sitting. Each one is checked first (already answered,
+overtaken by a merged PR, or not yet a choice), then put to you as a short menu, four at a time, with
+"Not now" and "Drop it" beside the issue's own options. Your answer goes on the issue as a comment and
+the label comes off, so the next `/sweep-issues` finds it free with the decision in its thread.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+It is the other half of `sweep-issues`: between the two, nothing on the tracker waits without a route
+that reaches it.
+
+**Score:** 2
+
+#### Pull Request
+
+sweep-decisions: put every issue parked on awaiting-decision to the owner in one pass
+
+Plugins: dkj-policy
+
+[PR #2761](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2761)
+
+---
 
 ### DEPLOY: fix/2751-integrity-shared-parse-cache · 20261003-102824Z
 
