@@ -93,3 +93,27 @@ jobs:
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-branch-entry.ps1 -Branch $env:HEAD_REF -Pr $env:PR_NUMBER
           exit $LASTEXITCODE
+
+      # THE PLANTED PLUGIN TREE (issue #2752, after #2746). specialists-init allows the workflow's entry
+      # points without a prompt by a glob shaped like the install path, '*.claude*plugins*cache*<plugin>*
+      # scripts*<entry>*'. A leading '*' constrains a path's shape and never its location, so the same rule
+      # matches a .claude/plugins/cache/... tree committed INTO this repo -- and a script placed there would
+      # run in the next session unprompted, with -ExecutionPolicy Bypass. Pinning the install root breaks the
+      # rule at every plugin update, and a prompt per step reopens #1075, so the owner chose this third
+      # option: the pull request that brings such a tree in is the one place to stop it, and this check is
+      # the review gate every adopted repo already runs on every pull request.
+      # THE TREE, NOT THE DIFF: the checkout is the PR's merge result at depth 1, so `git ls-files` reads it
+      # with no history and no extra token scope. An installed plugin never belongs in a repo, so a tracked
+      # path there is a finding whichever commit brought it. Its own step, and run even when the entry check
+      # above failed, so the two verdicts are read apart.
+      - name: No .claude/plugins/ tree tracked in this repo
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          planted=$(git ls-files | grep -iE '(^|/)\.claude/plugins/' || true)
+          if [ -n "$planted" ]; then
+            echo "::error title=Plugin tree tracked in this repo (#2752)::This pull request's tree tracks a path under .claude/plugins/. That is where an INSTALLED plugin lives, and the allow rules specialists-init proposes run a workflow script found under such a path without asking. Remove these paths, or have the owner confirm by eye what they are before this merges."
+            echo "$planted"
+            exit 1
+          fi
+          echo "No path under .claude/plugins/ is tracked."

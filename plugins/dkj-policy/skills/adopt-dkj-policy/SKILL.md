@@ -222,6 +222,14 @@ re-run Part 1. **Whatever you write, keep a `permissions:` block in the caller.*
 so that it can inherit `pull-requests: read`. The cost is that a caller with no block hands a job that
 runs a fetched script the repo's default token, which is read-write on older repos.
 
+**It also fails a PR whose tree tracks a `.claude/plugins/` path**
+([#2752](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2752)). That is where an *installed*
+plugin lives, and the allow rules `specialists-init` proposes run a workflow script found under such a
+path without a prompt. A glob can constrain the path's shape but not its location, so a tree like that
+committed into your repo would match too. This is a separate step of the same job, it needs no extra
+token scope, and a caller gets it with no change of its own. A repo still on a full copy of the runner
+does not get it.
+
 **Which branches owe nothing** is a seam: `Get-EntryGateExemptPrefixes` in your `scripts/repo-config.ps1`,
 defaulting to `sync`. A mirror branch carries somebody else's work rather than your repo's, so it has
 nothing to declare -- both consumers reached that answer independently, with nothing recording that it was

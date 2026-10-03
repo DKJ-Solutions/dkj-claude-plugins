@@ -483,6 +483,32 @@ foreach ($wfName in @('branch-entry.yml', 'reusable-branch-entry.yml')) {
     Assert-True ($wfText -match '-Branch \$env:HEAD_REF') "$wfName and the script reads it from the environment"
 }
 
+# THE CONSUMER RUNNER FAILS A PR THAT TRACKS A .claude/plugins/ PATH (#2752). specialists-init's allow
+# rules match an install path by shape, never by location, so a planted in-repo plugin tree would run
+# unprompted; the owner chose to stop it at the pull request. The pattern is read OUT of the workflow and
+# run against sample paths, so what is pinned is the step's behaviour and not only its presence. The ERE
+# uses nothing .NET reads differently.
+Write-Host ''
+Write-Host 'The consumer runner refuses a tracked .claude/plugins/ tree (#2752)' -ForegroundColor Cyan
+$reusableText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot '.github\workflows\reusable-branch-entry.yml'))
+$plantedStep = [regex]::Match($reusableText, '(?ms)^      - name: No \.claude/plugins/ tree tracked in this repo\r?\n(.*?)(?=^      - |\z)')
+Assert-True $plantedStep.Success 'the reusable runner carries the planted-tree step'
+$plantedBody = $plantedStep.Groups[1].Value
+Assert-True ($plantedBody -match '(?m)^        if: \$\{\{ !cancelled\(\) \}\}') `
+    'it runs even when the entry check before it failed, so both verdicts are reported'
+Assert-True ($plantedBody -match 'git ls-files \| grep -iE') 'it reads the tracked tree, case-insensitively'
+Assert-True ($plantedBody -match '(?m)^\s+exit 1$') 'and a finding fails the job rather than only annotating it'
+Assert-True ($plantedBody -notmatch '\$\{\{\s*github\.') 'and splices no github context into its run: block'
+$plantedPattern = [regex]::Match($plantedBody, "grep -iE '([^']+)'").Groups[1].Value
+Assert-True ($plantedPattern -ne '') 'the pattern can be read back out of the step'
+foreach ($hit in @('.claude/plugins/cache/dkj-policy/scripts/new-branch.ps1', 'sub/.claude/plugins/x.ps1', '.Claude/Plugins/a')) {
+    Assert-True ($hit -match "(?i)$plantedPattern") "the pattern flags '$hit'"
+}
+foreach ($miss in @('.claude/settings.json', 'dkj-policy/new-branch.ps1', 'plugins/dkj-policy/scripts/x.ps1', 'my.claude/plugins/x', '.claude-plugin/plugin.json')) {
+    Assert-True ($miss -notmatch "(?i)$plantedPattern") "and leaves '$miss' alone"
+}
+Assert-True ($reusableText -match '#2752') 'and the reason is written beside the step, not only here'
+
 # --- open-pr READS THE SAME EXEMPTION, AND NAMES SUCH A BRANCH ANYWAY (#1962) ---------------------
 # The gate above and open-pr.ps1 used to disagree: this gate waved a sync/ branch through as owing no
 # entry, and open-pr -- which composes the PR title from the entry and nothing else -- then refused to
