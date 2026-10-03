@@ -380,7 +380,7 @@ GitHub Actions workflow in the repo (`.github/workflows/asana-mirror.yml`, copie
 | GitHub event | what happens in Asana |
 |---|---|
 | issue **closed** | ONE comment on the linked task, the closed message: *"GitHub issue `<owner>/<repo>#<n>` is now **closed**. It can be reopened anytime when something is still not working as expected."*, with the sections of the paste-ready block the session left on the issue under it ([#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700)). The task stays open |
-| issue **closed as not planned** | the opposite comment, in the same shape: nothing was built, so there is nothing to test |
+| issue **closed as not planned** | the opposite comment, in the same shape: nothing was built, so there is nothing to test. No block rides on it, and the GitHub backstop block is not posted ([#2765](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2765)) |
 | issue **closed as not planned** while the `awaiting-more-info` label is on it | the waiting form instead ([#2732](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2732)): *"GitHub issue `<owner>/<repo>#<n>` is now **closed while waiting for information:** there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again."* No block rides on it, and the GitHub backstop block is not posted |
 | issue **reopened** | a comment: *"GitHub issue `<owner>/<repo>#<n>` is reopened: this Asana task is back in development."* |
 | daily schedule | a reconciliation sweep in **both** directions, for events that never arrived: open tasks in the mirror project whose GitHub issue is closed, and issues closed in the last 30 days whose task has not been told yet |
@@ -688,6 +688,9 @@ Where an Asana-linked issue closes and **no block is on it**, the closed message
 its own, and `asana-mirror` posts a block on the issue -- with `[ADD LINK]`, because CI genuinely cannot
 know the link. That one is still pasted by hand, and it is never carried by a later close: the mirror
 skips a block holding `[ADD LINK]`. It is the safety net under the rule above and not the route to it.
+**A close as not planned gets no backstop**, the waiting form included
+([#2765](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2765)): nothing was built, so there
+is nowhere to look.
 
 **It writes the same block as the session, cut down to what CI can know** (#2513). Between the rules
 it carries the automation's header and the `TE BEKIJKEN OP` section -- no closed line, since the
