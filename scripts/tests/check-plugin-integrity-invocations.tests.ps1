@@ -178,7 +178,7 @@ try {
 #>
 Write-Host 'fixture'
 '@
-    $q1 = Invoke-Integrity -FixtureRoot $Fixture
+    $q1 = Invoke-Integrity -FixtureRoot $Fixture -Run 'exec-policy/script'
     Assert-True ($q1.Out -match '\[exec-policy/script\].*ep-fixture\.ps1:3: the printed command names no -ExecutionPolicy') `
         'exec-policy/script: a bare .EXAMPLE command is reported, with the file and the line'
     Assert-True ($q1.Out -match '\[exec-policy/script\] checked [1-9]') `
@@ -191,7 +191,7 @@ Write-Host 'fixture'
 # Prose: 'powershell -NoProfile -File <script> -Skill a,b,c' does NOT parse PowerShell syntax.
 Write-Host 'fixture'
 '@
-    $q2 = Invoke-Integrity -FixtureRoot $Fixture
+    $q2 = Invoke-Integrity -FixtureRoot $Fixture -Run 'exec-policy/script'
     Assert-True (-not ($q2.Out -match '\[exec-policy/script\] scripts')) `
         'exec-policy/script: prose naming the invocation form mid-sentence is not a subject'
 
@@ -203,7 +203,7 @@ Write-Host 'fixture'
 & powershell -NoProfile -File $child
 powershell -NoProfile -File $child
 '@
-    $q3 = Invoke-Integrity -FixtureRoot $Fixture
+    $q3 = Invoke-Integrity -FixtureRoot $Fixture -Run 'exec-policy/script'
     Assert-True (-not ($q3.Out -match '\[exec-policy/script\] scripts')) `
         'exec-policy/script: a command the script RUNS is not a subject, whether or not it carries "&"'
 
@@ -213,7 +213,7 @@ powershell -NoProfile -File $child
     Write-EpScript @'
 Write-Host "     powershell -NoProfile -File scripts/task/ep-fixture.ps1 -Compare"
 '@
-    $q4 = Invoke-Integrity -FixtureRoot $Fixture
+    $q4 = Invoke-Integrity -FixtureRoot $Fixture -Run 'exec-policy/script'
     Assert-True ($q4.Out -match '\[exec-policy/script\].*ep-fixture\.ps1:1:') `
         'exec-policy/script: a printed operator hint inside a string is reported -- it is pasted, not read'
 
@@ -225,7 +225,7 @@ Write-Host "     powershell -NoProfile -File scripts/task/ep-fixture.ps1 -Compar
     $epsTestSrc = Join-Path $Fixture 'scripts\tests\ep-layer.tests.ps1'
     New-Item -ItemType Directory -Path (Split-Path -Parent $epsTestSrc) -Force | Out-Null
     [System.IO.File]::WriteAllText($epsTestSrc, "powershell -NoProfile -File scripts/task/ep-fixture.ps1`n", $Utf8NoBom)
-    $q5 = Invoke-Integrity -FixtureRoot $Fixture
+    $q5 = Invoke-Integrity -FixtureRoot $Fixture -Run 'exec-policy/script'
     Assert-True (-not ($q5.Out -match '\[exec-policy/script\] scripts')) `
         'exec-policy/script: the fixture layer is excluded, so a suite may model the defect it proves'
 
@@ -239,7 +239,7 @@ Write-Host "     powershell -NoProfile -File scripts/task/ep-fixture.ps1 -Compar
 #>
 Write-Host 'fixture'
 '@
-    $q6 = Invoke-Integrity -FixtureRoot $Fixture
+    $q6 = Invoke-Integrity -FixtureRoot $Fixture -Run 'exec-policy/script'
     Assert-True (-not ($q6.Out -match '\[exec-policy/script\] scripts')) `
         'exec-policy/script: RemoteSigned clears the script layer too -- the policy is answered, not chosen'
     Assert-True ($q6.Out -match '\[exec-policy/script\] checked [1-9]') `

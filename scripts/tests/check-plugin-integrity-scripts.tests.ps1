@@ -111,7 +111,7 @@ try {
     #      everything passes the positive test below while being useless.
     [System.IO.File]::WriteAllText($depthSrc,
         ($depthKeep + ". (Join-Path `$PSScriptRoot '..\lib\native-capture-lib.ps1')`n"), $Utf8NoBom)
-    $d1 = Invoke-Integrity -FixtureRoot $Fixture
+    $d1 = Invoke-Integrity -FixtureRoot $Fixture -Run 'mirror-depth'
     Assert-True (-not ($d1.Out -match '\[mirror-depth\].*park-branch')) `
         'mirror-depth: a single-hop resolution is not a finding -- it means the same folder in both copies'
     Assert-True ($d1.Out -match '\[mirror-depth\] checked [1-9]') `
@@ -120,7 +120,7 @@ try {
     # 43b. TWO HOPS, UNDECLARED -- the defect itself.
     [System.IO.File]::WriteAllText($depthSrc,
         ($depthKeep + "`$ref = Join-Path `$PSScriptRoot '..\..\blueprint\thing.json'`n"), $Utf8NoBom)
-    $d2 = Invoke-Integrity -FixtureRoot $Fixture
+    $d2 = Invoke-Integrity -FixtureRoot $Fixture -Run 'mirror-depth'
     Assert-True ($d2.Out -match '\[mirror-depth\].*park-branch\.ps1.*ascends two') `
         'mirror-depth: a two-hop resolution with no declaration is reported, naming the script'
     Assert-True ($d2.Out -match '\[mirror-depth\].*MirrorRun') `
@@ -132,12 +132,12 @@ try {
     #      correctly -- it stopped climbing at the INNER pipeline, where one hop is in scope.
     [System.IO.File]::WriteAllText($depthSrc,
         ($depthKeep + "`$own = Split-Path (Split-Path `$PSScriptRoot -Parent) -Parent`n"), $Utf8NoBom)
-    $d3 = Invoke-Integrity -FixtureRoot $Fixture
+    $d3 = Invoke-Integrity -FixtureRoot $Fixture -Run 'mirror-depth'
     Assert-True ($d3.Out -match '\[mirror-depth\].*park-branch\.ps1') `
         'mirror-depth: a nested Split-Path ascent is reported too, not only a literal ..\.. path'
 
     [System.IO.File]::WriteAllText($depthSrc, $depthKeep, $Utf8NoBom)
-    $d4 = Invoke-Integrity -FixtureRoot $Fixture
+    $d4 = Invoke-Integrity -FixtureRoot $Fixture -Run 'mirror-depth'
     Assert-True (-not ($d4.Out -match '\[mirror-depth\].*park-branch')) `
         'mirror-depth: removing the resolution clears the finding, so the check reads the script and not its name'
 
@@ -442,7 +442,7 @@ try {
     #     why the suite could not see this.
     $goodMarketplace = [System.IO.File]::ReadAllText((Join-Path $Fixture '.claude-plugin\marketplace.json'), [System.Text.Encoding]::UTF8)
     [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude-plugin\marketplace.json'), '{ this is not json ', $Utf8NoBom)
-    $c5 = Invoke-Integrity -FixtureRoot $Fixture
+    $c5 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shared-script'
     Assert-True ($c5.Out -match 'Summary:') `
         'corrupt marketplace: the run still reaches its Summary instead of dying mid-gate'
     Assert-True ($c5.Out -match '\[skill-command\]') `
