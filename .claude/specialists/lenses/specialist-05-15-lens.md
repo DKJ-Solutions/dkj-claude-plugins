@@ -3344,6 +3344,12 @@ a **1.2%** delta. Two ways to get some of that back were measured and both were 
   property. Check 31's comment records the same answer for the same reason — *"NOT SKIPPABLE, like every
   check added since the `-SkipCheck` list was fixed"*. Three-and-a-half seconds on one lane does not buy
   a wider surface for switching a check off by accident.
+  **The list has since been widened to eight**
+  ([#2740](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2740), Dave, October 3, 2026),
+  by the five checks that carry most of a fixture run's check work: 35% off every child run, against
+  this check's ~60 ms. A scenario about one of those five passes `Invoke-Integrity -Run '<name>'`. The
+  verdict above still holds for `section-number`, because the bar is the size of the saving, and this
+  check does not clear it.
 - **Sharing the read with check 27** — the pure-ASCII check reads the *same* 205 files unconditionally,
   through `ReadAllText` where this one uses `ReadAllLines`, at **84–92 ms**. One pass would save roughly
   one of the two reads. **Declined as premature**, on #1358's own bar: that extraction was worth doing

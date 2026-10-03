@@ -170,9 +170,19 @@ function Assert-True {
 # the 3419-line parse, the libs -- and the rest is the checks' own work, of which barred-skill and
 # shopify-cli were 216ms and 174ms until #1358 gave them one shared pass.
 #
-# SO DO NOT REACH FOR -SkipCheck FOR SPEED. It buys 2% and it is the one knob here that can make an
-# absence assert pass vacuously; it stays the default only because the scenarios do not need those three,
-# not because it is fast.
+# THE PARAGRAPH ABOVE IS ABOUT THOSE THREE; FIVE MORE ARE NOW SKIPPED, AND THOSE ARE FOR SPEED (issue
+# #2740, Dave's option B, October 3, 2026). After #2751, a child run here spends about 17% on fixed cost
+# and 83% on checks, and five checks carry most of the check work: exec-policy/script, shopify-cli,
+# mirror-depth, shared-script and shopify-force. Over this fixture, n=5 medians, a child run with the
+# three skipped took 2.21s and with all eight skipped 1.43s, so 35% less, over roughly 280 runs per
+# gate. That is less than the ~47% the per-check stopwatch predicted, because three of the five read the
+# shared parse cache (Get-PsScriptParse). Skipping them does not remove the parse. It moves to the next
+# reader (barred-skill), so what is saved is their walks over the cached lists. The alternative,
+# -OnlyCheck on every check, was declined: it would make all of them switchable.
+#
+# SO A SCENARIO ABOUT ONE OF THOSE FIVE PASSES -Run '<name>', which takes that one name off the skip list
+# and leaves the other seven skipped. -Full stays for the original three, where a scenario needs the
+# whole run.
 #
 # NINE SCENARIOS PASS -Full, and this is the complete list: in the branch-document suite, the six check-13b
 # branch-template scenarios (r13bAbsent, r13bOnBranch, r13bLeftover, r13bNameless, r13bMaster,
@@ -184,15 +194,22 @@ function Assert-True {
 # It said FOUR until September 3, 2026 (issue #1358), naming two scenarios (r13bGood, r13bGone) that no
 # longer exist -- a count in a comment that the split and check 13b's growth had both moved past.
 #
-# If you add a scenario that asserts anything about those three checks, pass -Full. A presence assert
-# fails loudly without it; an absence assert does not, which is why this note is here rather than in a
-# commit message.
-$script:SkippedForSpeed = 'agent-def,parse,branch-template'
+# If you add a scenario that asserts anything about one of the eight skipped checks, pass -Run with its
+# name, or -Full for the original three. A presence assert fails loudly without it. An absence assert
+# does not, which is why this note is here rather than in a commit message.
+$script:SkippedForSpeed = @('agent-def', 'parse', 'branch-template',
+    'exec-policy/script', 'shopify-cli', 'mirror-depth', 'shared-script', 'shopify-force')
 
 function Invoke-Integrity {
-    param([string]$FixtureRoot, [switch]$Full)
+    param([string]$FixtureRoot, [switch]$Full, [string[]]$Run = @())
     $scriptPath = Join-Path $FixtureRoot 'scripts\lint\check-plugin-integrity.ps1'
-    $skipArgs = if ($Full) { @() } else { @('-SkipCheck', $script:SkippedForSpeed) }
+    # A -Run name that is not on the skip list is a typo, and a typo would leave the check skipped while
+    # the scenario reads as covering it, so it throws.
+    foreach ($r in $Run) {
+        if ($script:SkippedForSpeed -notcontains $r) { throw "Invoke-Integrity -Run '$r': not a default-skipped check. Skipped: $($script:SkippedForSpeed -join ', ')." }
+    }
+    $skipped = @($script:SkippedForSpeed | Where-Object { $Run -notcontains $_ })
+    $skipArgs = if ($Full -or $skipped.Count -eq 0) { @() } else { @('-SkipCheck', ($skipped -join ',')) }
     # $ErrorActionPreference IS RELAXED AROUND THE CHILD CALL, the same way Invoke-Fold does it in
     # fold-changelog.tests.ps1. With 'Stop' in force, anything the gate writes to stderr comes back as a
     # terminating NativeCommandError and kills THIS script -- so a scenario that makes the gate crash

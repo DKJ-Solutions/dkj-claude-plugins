@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Owner's decision on #2740 (option B, October 3, 2026): widen `$script:SkippableChecks` by the five
+expensive checks (exec-policy/script, shopify-cli, mirror-depth, shared-script, shopify-force), have the
+integrity fixture skip all eight by default, and let the scenarios about those five opt back in. No
+`-OnlyCheck`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `check-plugin-integrity.ps1`: the five blocks wrapped in `Test-CheckEnabled` with a `[SKIP]` line each; the list goes from 3 to 8; the docstring and the comments that said "three" or "NOT SKIPPABLE" updated
+- [x] `check-plugin-integrity-fixture.ps1`: `$SkippedForSpeed` holds eight; `Invoke-Integrity -Run <name>` takes one name off the skip list and throws on a name that is not on it
+- [x] 23 call sites opt back in with `-Run`: every scenario that asserts on one of the five, plus scenario 82, which asserts that no check reports anything
+- [x] Sylvester's lens: the passage that held the list at exactly three now says it is eight, and why `section-number` stays off it
 
 ### TEST
 
+- [x] Over a `New-IntegrityFixture` tree, n=5 medians: a child run with three skipped took 2.21s, and with eight skipped 1.43s (35% less). That is less than the ~47% the per-check stopwatch predicted, because three of the five read the shared parse cache, so the parse moves to `barred-skill` rather than going away
+- [x] With the new default and no opt-ins, 20 presence asserts in four suites failed, which proves the skip took effect. With the opt-ins, all 15 integrity suites pass
+
 ### DEPLOY: feat/2740-skip-expensive-integrity-checks
 
-**Score:**
+The 15 `check-plugin-integrity-*` suites now skip five more checks by default in each of their
+roughly 280 gate runs: `exec-policy/script`, `shopify-cli`, `mirror-depth`, `shared-script` and
+`shopify-force`. That takes each child run from 2.21s to 1.43s locally, so 35% less. Those suites
+were 35% of the test pool's work on CI. A scenario about one of those five names it with
+`Invoke-Integrity -Run '<name>'`, and an unknown name throws. The real gate (`open-pr`, CI) still runs
+every check. `-SkipCheck` now accepts eight names instead of three
+([#2740](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2740)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
+
+check-plugin-integrity suites: skip the five most expensive checks by default
 
