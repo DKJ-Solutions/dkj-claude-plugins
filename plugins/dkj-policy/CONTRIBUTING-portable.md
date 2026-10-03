@@ -152,7 +152,7 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `needs-decision` and
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision` and
 `awaiting-first-recurrence`), so adopting the convention costs one command instead of seven typed by hand.
 
 **`awaiting-more-recurrences` marks a collecting issue -- a *record* -- and it changes how the issue is closed** (Dave, September 24, 2026,
@@ -184,14 +184,14 @@ things follow from being a record:
   to close it, even that PR ships with `-NoResolves`, and the record is closed by hand after the merge.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `awaiting-more-recurrences` by default, exactly as they skip `needs-decision` and
+  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision` and
   `awaiting-first-recurrence`. Working a
   record is a deliberate assignment, named by its number.
 
-**`needs-decision` parks an issue that ends in the owner's choice, and it is set when the issue is filed**
-(Dave, September 26, 2026, [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)).
+**`awaiting-decision` parks an issue that ends in the owner's choice, and it is set when the issue is filed**
+(Dave, September 26, 2026, [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)); it was named `needs-decision` until October 3, 2026 ([#2741](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2741)), and the old name is still matched, so `task/adopt-triage-labels.ps1` prints the `gh label edit` that renames it in place.
 A finding whose next step is a decision rather than a repair (*reuse A or introduce B*) is filed like any
-other, with its `prio-N`, and carries `needs-decision` from the moment it is created. That is the label
+other, with its `prio-N`, and carries `awaiting-decision` from the moment it is created. That is the label
 both pickup routes skip by default: `claim-issue <n>` warns that the issue is parked instead of saying the
 work starts, and `sweep-issues` leaves it alone. The owner removes the label when they answer, and the
 answer goes on the issue as a comment, so whoever picks it up next finds the decision in the thread
@@ -215,7 +215,7 @@ and `task/adopt-triage-labels.ps1` prints the `gh label edit` that renames it in
 An issue with one instance that could not be reproduced, and whose diagnostic has already shipped, has
 nothing left to build until it happens again. Without a label it reads as free work, so every sweep picks
 it up, finds nothing to do and releases it. Both pickup routes skip this label by default, exactly as they
-skip `needs-decision`.
+skip `awaiting-decision`.
 
 - **It is not `awaiting-more-recurrences`.** A record collects instances of a problem that *demonstrably* recurs, so there
   is always a next instance to read and a root cause to hunt. Both are parked, but for different

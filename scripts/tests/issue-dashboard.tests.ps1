@@ -280,8 +280,9 @@ out.status = {
   draftOverParking:     statusOf(iss(1, all), draft, false),
   branchOverParking:    statusOf(iss(1, all), [], true),
   draftVsBranch:        statusOf(iss(1), draft, true),
-  parkingOverBlocked:   statusOf(iss(1, { ...bl, labels: ["needs-decision"] }), [], false),
+  parkingOverBlocked:   statusOf(iss(1, { ...bl, labels: ["awaiting-decision"] }), [], false),
   parkingOverAssignee:  statusOf(iss(1, { ...asg, labels: ["awaiting-recurrence"] }), [], false),
+  parkingFormerDecision: statusOf(iss(1, { ...bl, labels: ["needs-decision"] }), [], false),
   parkingOverAll:       statusOf(iss(1, all), [], false),
   blockedOverAssignee:  statusOf(iss(1, { ...bl, ...asg }), [], false),
   closedBlockerClaimed: statusOf(iss(1, { blockedBy: [blk(9, "CLOSED")], ...asg }), [], false),
@@ -625,6 +626,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 'In progress' $s.draftVsBranch        'a draft PR and a branch agree'
         Assert-Equal 'Waiting'     $s.parkingOverBlocked   'a parking label beats an open blocker'
         Assert-Equal 'Waiting'     $s.parkingOverAssignee  '...and an assignee'
+        Assert-Equal 'Waiting'     $s.parkingFormerDecision 'the former name needs-decision still parks (#2741)'
         Assert-Equal 'Waiting'     $s.parkingOverAll       '...and both'
         Assert-Equal 'Blocked'     $s.blockedOverAssignee  'an open blocker beats an assignee'
         Assert-Equal 'Claimed'     $s.closedBlockerClaimed 'a CLOSED blocker does not block'

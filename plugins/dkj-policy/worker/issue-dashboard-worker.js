@@ -307,11 +307,12 @@ function labelTag(name, color) {
 // assigned or gets a branch.
 const PARKED_BECAUSE = {
   "awaiting-more-info": "waiting on the submitter",
-  "needs-decision": "waiting on the owner's decision",
+  "awaiting-decision": "waiting on the owner's decision",
   "awaiting-first-recurrence": "waiting on a first recurrence",
   "awaiting-more-recurrences": "record: waiting on the next instance or the root cause",
-  // Former names (#2683, #2723), still read because a tracker keeps a name until renamed.
+  // Former names (#2683, #2723, #2741), still read because a tracker keeps a name until renamed.
   "needs-info": "waiting on the submitter",
+  "needs-decision": "waiting on the owner's decision",
   "awaiting-recurrence": "waiting on a first recurrence",
   record: "record: waiting on the next instance or the root cause",
   dossier: "record: waiting on the next instance or the root cause",
