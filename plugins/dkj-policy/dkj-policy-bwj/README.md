@@ -97,8 +97,8 @@ empty, because that repo declares no markets.
 ## Chapter one -- ticket handling, in one paragraph
 
 A discovered issue is **created on GitHub first** -- GitHub is the source of truth, full technical
-detail, the normal `dkj-subagents-alpha` filing bar unchanged. It is **classified in the same breath**: a `bug`
-or `feature` label (neither means a task), plus the reach label where management and the commissioner would notice
+detail, the normal `dkj-subagents-alpha` filing bar unchanged. It is **classified in the same breath**: always a `bug`
+or a `feature` label, plus the reach label where management and the commissioner would notice
 it, both set at creation so nobody has to classify a tracker by hand a second time. It is then
 **mirrored to Asana** as a colleague-friendly variant: plain language, outcome-framed, no code or
 repo jargon, so any BWJ colleague can read it. The two are **cross-linked both ways**. When the

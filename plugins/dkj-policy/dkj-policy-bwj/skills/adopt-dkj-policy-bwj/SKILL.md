@@ -337,10 +337,11 @@ workspace.
 
 ## 4 -- make sure the classification labels exist
 
-[`report-issue`](../report-issue/SKILL.md) files every issue with `bug` or `feature` where one
-applies, and with the reach label and `documentation` where they apply. It sets no GitHub issue type
+[`report-issue`](../report-issue/SKILL.md) files every issue with `bug` or `feature` -- always one of
+the two ([#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)) -- and with the reach
+label where it applies. It sets no GitHub issue type
 ([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)). **`gh issue create` fails
-outright on a label the repo does not have**, so check for all four and create whichever is missing. **Read `Get-ReachLabel` from
+outright on a label the repo does not have**, so check for all three and create whichever is missing. **Read `Get-ReachLabel` from
 `scripts/repo-config.ps1` first** and check for *that* name -- `minor` where the repo has never
 answered it, which since [#1870](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1870) is
 the workflow's own default. **A store still carrying `tier-1` and answering nothing is the one state
@@ -349,15 +350,13 @@ it -- no issue at all, not even one without the label. Repair it here rather tha
 rename the label, or state `tier-1` in the seam.
 
 ```bash
-gh label list --repo <owner>/<repo> | grep -E '^(bug|feature|<reach label>|documentation)\b'
+gh label list --repo <owner>/<repo> | grep -E '^(bug|feature|<reach label>)\b'
 gh label create bug --repo <owner>/<repo> --color FF00FF \
   --description "A defect in behaviour that already exists"
 gh label create feature --repo <owner>/<repo> --color a2eeef \
   --description "A capability the store does not have yet"
 gh label create "<reach label>" --repo <owner>/<repo> --color fbca04 \
   --description "Reaches the business: management and the commissioner notice it"
-gh label create documentation --repo <owner>/<repo> --color 0075ca \
-  --description "A doc finding, on top of its kind"
 ```
 
 **`bug` is magenta and `feature` cyan**, the same family colours as this workflow's source tracker. An
@@ -365,19 +364,23 @@ existing `bug` label in a different colour still works, and so does an existing 
 another description: `gh label create` never touches a label that exists.
 
 **Every name in that check has a `create` line beside it, and until September 11, 2026 one did not.**
-The grep then named two labels and the step created the reach label alone, so a repo missing
-`documentation` got a hit in the check and no instruction -- a check whose result nothing acts on
-([#1846](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1846)). It has never bitten,
-because `documentation` is one of GitHub's own default labels and both BWJ stores carry it; that is
-what kept the gap invisible, not what makes it safe. The label is load-bearing --
-[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#classify-it-as-you-file-it----labels-only-all-set-at-creation)
-records what it carries, and 42 doc issues across the two
-stores sit on it -- so a filing that reaches for it in a repo without it fails at the `gh issue
-create`, exactly as a filing that reaches for the reach label does.
+The grep named a label the step never created, so a repo missing it got a hit in the check and no
+instruction -- a check whose result nothing acts on
+([#1846](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1846)). That label was
+`documentation`, and it is no longer filed at all.
 
-**It gets no seam, and that is the same answer the reach label's own paragraph gives below**: a seam
-is written where a rename has actually been paid for. Nobody has renamed `documentation`, so what was
-missing here is a command, not a seam, and the two are not repaired the same way.
+**`documentation` is retired, so this step no longer checks for it** (Dave, October 3, 2026,
+[#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)): a doc finding is a `bug` or a
+`feature` like everything else. It is one of GitHub's default labels, so a store will still carry it.
+Give each **open** issue on it its kind, then take it off:
+
+```bash
+gh issue list --repo <owner>/<repo> --label documentation --state open
+gh issue edit <n> --repo <owner>/<repo> --add-label <bug|feature> --remove-label documentation
+```
+
+Deleting the label itself (`gh label delete documentation`) also strips it from every closed issue, so
+that one is the owner's call, not an adoption step.
 
 **A missing reach label is two different situations and this step must not assume the harmless one.**
 Every other label in this step is missing because the repo never had it; this one can be missing because the
@@ -392,7 +395,7 @@ and look for the axis under another name -- a label carrying issues and describi
 find one, the answer is `Get-ReachLabel`, not a second label. Where the list genuinely has no such
 label, create it.
 
-**The hazard is not unique to this label; the measurement is.** Rename `documentation` or a prio label
+**The hazard is not unique to this label; the measurement is.** Rename `bug`, `feature` or a prio label
 and this step would re-create that one beside it in exactly the same way -- the difference is that
 `awaiting-more-info` already has a seam (`NeedsInfoLabel`), the prio labels are written by a sweep that would
 report a failure, and the reach label is the one a consumer has actually renamed. So the pause is
@@ -485,7 +488,7 @@ gets no prio label at all rather than a guessed one; on the BWJ board the day th
 28 of 96 open tasks, so it is the common case and not an edge one.
 
 **GitHub issue types are not used** ([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)):
-the kind is the `bug` or `feature` label created above, and an issue with neither is a task. There is
+the kind is the `bug` or `feature` label created above, always one of the two (#2783). There is
 nothing to configure for types, and no `enhancement` label is created.
 
 **The same two labels classify the pull request, so answer the prefix table with them** (Dave, October
@@ -495,11 +498,15 @@ and this skill does not write it, so check it by hand:
 
 ```powershell
 $script:BranchPrefixTable = @{
-    feat  = @{ Label = 'feature';       Type = 'Feat' }
-    fix   = @{ Label = 'bug';           Type = 'Fix' }
-    docs  = @{ Label = 'documentation'; Type = 'Docs' }
+    feat  = @{ Label = 'feature'; Type = 'Feat' }
+    fix   = @{ Label = 'bug';     Type = 'Fix' }
+    docs  = @{ Label = $null;     Type = 'Docs' }
 }
 ```
+
+**`docs` answers `$null`, not `documentation`** (#2783). That label is retired, and a prefix cannot
+tell a new page from a corrected one, so a `docs/` PR goes out unlabelled and its issue carries the
+kind. A table still naming `documentation` there is stale: replace it.
 
 **A BWJ table adopted before #2750 answers `Label = $null` for `feat` and `fix`.** That was right while
 the issue type carried the kind and `bug` and `enhancement` were deleted org-wide, and it is stale now:

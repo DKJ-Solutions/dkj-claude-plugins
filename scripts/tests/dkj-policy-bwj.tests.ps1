@@ -961,6 +961,20 @@ if ($grepMatches.Count -eq 1) {
     }
 }
 
+# --- the documentation label is retired (issue #2783) ---------------------------------------------
+# Every issue is a bug or a feature, so nothing files with, checks for or creates 'documentation'.
+# Aimed at the WRITING commands only: the word stays legitimate prose, and step 4's cleanup still has
+# to LIST the issues on the label (gh issue list --label documentation) to take it off them.
+foreach ($rel in $reachDocs.Keys) {
+    $txt = Get-Content -LiteralPath (Join-Path $PluginRoot $rel) -Raw
+    Assert-True (-not [regex]::IsMatch($txt, '(?:--add-label\s+|gh\s+issue\s+create[^\r\n]*--label\s+)["'']?documentation\b')) `
+        "$($reachDocs[$rel]) files with no '--label documentation' (#2783)"
+}
+Assert-True (-not [regex]::IsMatch($adoptTxt, 'gh\s+label\s+create\s+["'']?documentation\b')) `
+    'adopt-dkj-policy-bwj step 4 creates no documentation label (#2783)'
+Assert-True (-not [regex]::IsMatch($adoptTxt, "Label\s*=\s*'documentation'")) `
+    'adopt-dkj-policy-bwj proposes no prefix-table row labelled documentation (#2783)'
+
 # --- the go-live half of the paste-ready block (issue #2100) --------------------------------------
 Write-Host "`n-- the go-live block --" -ForegroundColor Cyan
 

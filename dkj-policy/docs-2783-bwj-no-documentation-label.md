@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Dave on #2783: an issue is always a `feature` (something new) or a `bug` (something existing that
+changes); the `documentation` label stops. Scope is the BWJ plugin, where the store repos get the label.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `WORKFLOW-portable.md`, `report-issue` and the README: the kind is always one of two, no third
+  kind, no `documentation` row; the `Github Type` paragraph keeps `Task` for older issues only
+- [x] `adopt-dkj-policy-bwj` step 4: no check or create for `documentation`, a cleanup for open issues
+  still on it, and the `docs` prefix row answers `$null`
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: three asserts pin the retirement; 550 of 550 pass
+
 ### DEPLOY: docs/2783-bwj-no-documentation-label
 
-**Score:**
+In a BWJ store repo every issue is now filed as either a `feature` (something new being added) or a
+`bug` (something that exists and has to change), doc findings included. There is no third kind any
+more, and the `documentation` label is no longer set or created. The adoption skill (step 4) shows how
+to give the open issues still carrying `documentation` their kind and take it off, and a `docs/` pull
+request goes out without a label
+([#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
