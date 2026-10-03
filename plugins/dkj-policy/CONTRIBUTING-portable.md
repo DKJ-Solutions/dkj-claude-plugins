@@ -152,7 +152,7 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision` and
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision`, `awaiting-pull` and
 `awaiting-first-recurrence`), so adopting the convention costs one command instead of seven typed by hand.
 
 **`awaiting-more-recurrences` marks a collecting issue -- a *record* -- and it changes how the issue is closed** (Dave, September 24, 2026,
@@ -184,7 +184,7 @@ things follow from being a record:
   to close it, even that PR ships with `-NoResolves`, and the record is closed by hand after the merge.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision` and
+  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision`, `awaiting-pull` and
   `awaiting-first-recurrence`. Working a
   record is a deliberate assignment, named by its number.
 
@@ -228,6 +228,13 @@ skip `awaiting-decision`.
 - **The recurrence takes the label off.** Record the new instance as a comment, remove the label and the
   `[RECORD]` prefix, and the issue is ordinary work again. If it keeps recurring, it becomes a record (`awaiting-more-recurrences`),
   and the prefix goes back on.
+
+**`awaiting-pull` parks an issue that waits on another issue landing through its pull request**
+([#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757), Dave, October 3, 2026). Work that
+cannot start until a different issue has merged is not free work, and `awaiting-decision` (a person's
+answer) and `awaiting-first-recurrence` (evidence) say something else. Both pickup routes skip it by
+default, `claim-issue <n>` warns that the issue is parked, and the label comes off when the blocking pull
+request merges. It is a new label, so no former name is matched for it.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where
