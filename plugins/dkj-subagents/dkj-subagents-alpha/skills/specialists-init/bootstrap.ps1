@@ -1148,6 +1148,17 @@ $settingsPath = Join-Path $claudeDir 'settings.json'
 # the subcommand. Rule syntax per the permission reference: '*' matches at any position, and
 # PowerShell rules take the same shape as Bash rules.
 #
+# AND THE WILDCARD IS NARROWED TO THE INSTALL PATH'S SHAPE, not the plugin name alone (inbound #2746).
+# The first form, '*dkj-policy*new-branch.ps1*', matched ANY path carrying the plugin's name --
+# including the dkj-policy/ folder that adopt-dkj-policy's Part 1 scaffolds in the consumer's own
+# root, so a PR placing a new-branch.ps1 there would run in the next session with no prompt and
+# -ExecutionPolicy Bypass. Every installed copy sits under '.claude/plugins/cache/' and runs from its
+# 'scripts/' folder, so those segments are literal too; a '*' between them rather than a separator
+# keeps the rule valid whichever slash the command was typed with. The trailing '*' stays: the entry
+# points take -Name and -Title.
+# NARROWED, NOT CLOSED: a leading '*' constrains a path's shape, never its location, so a planted
+# in-repo .claude/plugins/cache/... tree still matches. Closing that is a decision (#2752).
+#
 # NAMED BY THE PLUGIN THAT IS ACTUALLY ENABLED, not by the current id -- $workflowNameHere, resolved
 # where $hasWorkflowPack is: a consumer still on a migration name ('contributing-davekjohn',
 # 'workflow-davekjohn') has that
@@ -1159,13 +1170,13 @@ $settingsPath = Join-Path $claudeDir 'settings.json'
 # following.
 $allowRules = if ($hasWorkflowPack) {
     @(
-        "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*new-branch.ps1*)",
-        "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*open-pr.ps1*)",
-        "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*ship-pr.ps1*)",
-        "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*new-branch.ps1*)",
-        "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*open-pr.ps1*)",
-        "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *$workflowNameHere*ship-pr.ps1*)",
-        'Bash(gh repo edit --delete-branch-on-merge*)'
+        "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *.claude*plugins*cache*$workflowNameHere*scripts*new-branch.ps1*)",
+        "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *.claude*plugins*cache*$workflowNameHere*scripts*open-pr.ps1*)",
+        "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File *.claude*plugins*cache*$workflowNameHere*scripts*ship-pr.ps1*)",
+        "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *.claude*plugins*cache*$workflowNameHere*scripts*new-branch.ps1*)",
+        "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *.claude*plugins*cache*$workflowNameHere*scripts*open-pr.ps1*)",
+        "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File *.claude*plugins*cache*$workflowNameHere*scripts*ship-pr.ps1*)",
+        'Bash(gh repo edit --delete-branch-on-merge)'
     )
 } else { @() }
 $denyRules = @(
@@ -1188,7 +1199,8 @@ $allowBlock = if ($hasWorkflowPack) {
     //
     // DELIBERATELY ABSENT: cut-release.ps1, because it cuts a release and that one is worth a
     // prompt; and 'gh repo delete' / 'gh repo archive', for the same reason. 'gh repo edit' earns
-    // its place in the single form the workflow assumes -- it needs deleteBranchOnMerge on.
+    // its place in the single form the workflow assumes -- it needs deleteBranchOnMerge on -- and
+    // EXACTLY that form: a trailing wildcard would also wave through --visibility and the rest.
     "allow": [
 $allowJsonc
     ],
