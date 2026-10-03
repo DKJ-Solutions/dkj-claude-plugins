@@ -39,21 +39,41 @@
 
 ### PLAN
 
+#2764 (Dave): the GitHub default label `enhancement` becomes `feature` on this tracker -- the cyan
+family `feature-inbound` (#2756) already belongs to. A `gh label edit --name` moves every issue and PR
+with it and keeps the colour (`a2eeef`). The label is also what `open-pr` puts on a `feat/` PR, read from
+this repo's own seam (`scripts/lib/branch-info.ps1`), so the seam changes with it; otherwise the
+missing-label gate refuses the next `feat/` PR. The config blueprint records the seam as `adopt:
+decide`, so a consumer keeps its own table and its own tracker's label -- this rename stays here.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `branch-info.ps1`: `feat` -> `feature`, and the header says why it departs from GitHub's default
+- [x] Derek's lens: the prefix table, the two paragraphs naming the label, and the `feature-inbound` family line
+- [x] `config-blueprint.json` regenerated from the seam
+- [x] Tracker: `gh label edit enhancement --name feature`, run just before the ship so the window in which
+  another machine's `feat/` PR meets the old seam stays minutes long -- `open-pr`'s missing-label gate
+  refuses that PR before the push, with the remedy, so nothing is left half-done
+- [~] Test fixtures that stand for a tracker as it was (`adopt-triage-labels`, `pr-issues`, `teardown`)
+  keep `enhancement`
 
 ### TEST
 
+- [x] `branch-info.tests.ps1` 42/42 with the pin moved to `feature`; the rest through `ship-pr`
+
 ### DEPLOY: feat/2764-enhancement-label-becomes-feature
 
-**Score:**
+The `enhancement` label on the source tracker is now `feature`, and a `feat/` pull request here is
+labelled `feature`. Consumers keep whatever label their own branch table names.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing beyond the rename itself.
+
+**Score:** N/A
 
 #### Pull Request
 
 The enhancement label is renamed to feature
-

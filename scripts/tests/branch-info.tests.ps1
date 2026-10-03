@@ -45,7 +45,7 @@ Assert-Equal 'wip'   (Get-BranchPrefix -Branch 'wip-loose-name') "hyphen prefix 
 Write-Host "Get-BranchInfo" -ForegroundColor Cyan
 $feat = Get-BranchInfo -Branch 'feat/new-plugin'
 Assert-Equal $true        $feat.IsKnown  'known prefix -> IsKnown'
-Assert-Equal 'enhancement' $feat.Label   'feat -> label enhancement'
+Assert-Equal 'feature' $feat.Label   'feat -> label feature (enhancement until #2764)'
 Assert-Equal 'Feat'        $feat.Type    'feat -> type Feat'
 Assert-Equal 'feat-new-plugin' $feat.SafeName 'SafeName replaces / with -'
 
