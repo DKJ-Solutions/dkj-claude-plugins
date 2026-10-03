@@ -3152,8 +3152,8 @@ function Get-MissingLabelNote {
 
     .DESCRIPTION
         Inbound #1221, measured in BWJ-ecommerce/smartwatchbanden on September 1, 2026: the labels 'bug'
-        and 'enhancement' were deleted org-wide because the issue TYPE now carries that classification,
-        and the next PR died on
+        and 'enhancement' were deleted org-wide because the issue TYPE carried that classification then
+        (#2750 has since moved BWJ back to labels), and the next PR died on
 
             could not add label: 'bug' not found
 
