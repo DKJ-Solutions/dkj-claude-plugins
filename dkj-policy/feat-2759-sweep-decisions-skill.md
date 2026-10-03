@@ -55,7 +55,8 @@ A procedure skill with no script of its own, as `sweep-issues` drives `claim-iss
 
 ### TEST
 
-- [ ] Copy edit (Edith) and security review (Sebastian) on the diff
+- [x] Security review (Sebastian): no blockers; the two silent label removals became menu options for the owner, authorship is checked by `author.login`, the body goes through `--body-file`, and a public-tracker note was added
+- [x] Copy edit (Edith): an invented quote removed, the Drop-it comment wording and the placeholders spelled out
 
 ### DEPLOY: feat/2759-sweep-decisions-skill
 

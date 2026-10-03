@@ -195,7 +195,9 @@ other, with its `prio-N`, and carries `awaiting-decision` from the moment it is 
 both pickup routes skip by default: `claim-issue <n>` warns that the issue is parked instead of saying the
 work starts, and `sweep-issues` leaves it alone. The owner removes the label when they answer, and the
 answer goes on the issue as a comment, so whoever picks it up next finds the decision in the thread
-rather than in a conversation that has since been cleared.
+rather than in a conversation that has since been cleared. `sweep-decisions` runs that step for every
+parked issue in one pass with the owner
+([#2759](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2759)).
 
 - **It is not `awaiting-more-info`.** Where [`dkj-policy-bwj`](dkj-policy-bwj/WORKFLOW-portable.md) is installed,
   `awaiting-more-info` (named `needs-info` until October 2, 2026,
