@@ -2,7 +2,53 @@
 
 ## [Unreleased]
 
-**6 / 12 minor entries** <!-- pending-tally -->
+**6 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2767-bwj-label-comments-reversed · 20261003-112354Z
+
+Comments and one `open-pr` skill paragraph no longer say BWJ's issue *type* carries the bug/feature
+classification; they say it did then, and point at #2750, which brings the labels back.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing beyond the wording.
+
+**Score:** N/A
+
+#### Pull Request
+
+Label-gate comments stop claiming BWJ classifies by issue type
+
+Plugins: dkj-policy
+
+[PR #2771](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2771)
+
+---
+
+### DEPLOY: feat/2764-enhancement-label-becomes-feature · 20261003-111316Z
+
+The `enhancement` label on the source tracker is now `feature`, and a `feat/` pull request here is
+labelled `feature`. Consumers keep whatever label their own branch table names.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing beyond the rename itself.
+
+**Score:** N/A
+
+#### Pull Request
+
+The enhancement label is renamed to feature
+
+Plugins: dkj-policy
+
+[PR #2768](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2768)
+
+---
 
 ### DEPLOY: feat/2756-bug-and-feature-inbound · 20261003-110038Z
 

@@ -766,7 +766,9 @@ the prefix at a label that exists (scripts\lib\branch-info.ps1). ...
 **It is not your mistake, which is why it is a gate rather than a better error message.** Measured in a
 consumer on September 1, 2026 (inbound
 [#1221](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1221)): `bug` and `enhancement` were
-deleted org-wide because the issue **type** now carries that classification. The seam table was correct
+deleted org-wide because the issue **type** carried that classification then
+([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750) has since moved that consumer
+back to labels). The seam table was correct
 the day before and nothing in the consumer changed. Any repo that renames or retires a label breaks the
 same way, and the first sign of it was a failed create after a push.
 
