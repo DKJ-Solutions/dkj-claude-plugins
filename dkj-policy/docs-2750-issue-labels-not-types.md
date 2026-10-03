@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Dave's decision on #2750 (October 3, 2026): stop using GitHub issue types, use labels only. An issue
+with no `bug` or `feature` label is a task. The Asana `Github Type` field stays, filled from the labels.
+Deleting the org-wide types is an org setting, so it is the owner's to do.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `report-issue`: classify with `--label bug` / `--label feature` on the create, drop the type `PATCH`, fill `Github Type` from the label
+- [x] `WORKFLOW-portable.md`: the classification section becomes labels-only, and the `Github Type` paragraph maps from the labels
+- [x] `adopt-dkj-policy-bwj` step 4: check for and create `bug` (magenta) and `feature` (cyan); seam comment updated
+- [x] `README.md`: the `Get-AsanaTypeFieldGid` line names the label as the source
 
 ### TEST
 
+- [x] No test or script pins the removed wording (searched every `.ps1` for the type `PATCH`, the old anchor and "issue type")
+- [x] Every link to the renamed `WORKFLOW-portable.md` heading points at the new anchor
+
 ### DEPLOY: docs/2750-issue-labels-not-types
 
-**Score:**
+`report-issue` no longer sets a GitHub issue type. It classifies an issue by label: `bug` for a defect
+in existing behaviour, `feature` for a capability the store does not have yet, and neither for
+everything else, which counts as a task. Where the Asana board has a `Github Type` field, it is filled
+from that label. `adopt-dkj-policy-bwj` now checks for `bug` and `feature` and prints the create line
+for whichever is missing. Both were deleted from the BWJ stores in September, so a store has to create
+them before the next filing that uses one.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing beyond the switch itself.
+
+**Score:** N/A
 
 #### Pull Request
 
