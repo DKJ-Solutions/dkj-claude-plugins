@@ -2229,7 +2229,8 @@ Assert-Equal 1 (@(Get-LabelNames -Json '[{"name":"bug"}]')).Count 'a ONE-record 
 Assert-Equal 1 (@(Get-LabelNames -Json '[{"name":"bug"},{"name":"bug"}]')).Count 'a duplicated name is counted once'
 
 # THE MEASURED CASE. 'bug' and 'enhancement' were deleted org-wide in BWJ-ecommerce/smartwatchbanden on
-# September 1, 2026 because the issue TYPE now carries that classification, and the next PR died on
+# September 1, 2026 because the issue TYPE carried that classification then (#2750 has since moved BWJ
+# back to labels), and the next PR died on
 # "could not add label: 'bug' not found" -- after every gate had run and the branch had been pushed.
 $missing = Get-MissingLabelNote -Labels $labelNames -Label 'bug' -Prefix 'fix' `
                                 -SeamPath 'scripts\lib\branch-info.ps1' -Repo 'BWJ-ecommerce/smartwatchbanden'
@@ -2295,7 +2296,8 @@ Assert-True ($openPrText -like '*if (-not $existingPr) {*') 'the gate is on the 
 Write-Host ""
 Write-Host "open-pr.ps1 sends NO --label when the seam answers none (inbound #1395)" -ForegroundColor Cyan
 # THE MEASURED CASE. BWJ-ecommerce/smartwatchbanden abolished PR labels outright on September 4, 2026 --
-# the issue TYPE carries the classification now -- so its prefix table answers Label = $null for every
+# the issue TYPE carried the classification then, until #2750 moved BWJ back to labels -- so its prefix
+# table answers Label = $null for every
 # prefix it knows. Get-MissingLabelNote reads that as "nothing to check" (asserted above) and the create
 # appended `--label ''` anyway, which gh reads as a label that does not exist: it refuses the WHOLE
 # create, after the push, with every gate including the label gate green.
