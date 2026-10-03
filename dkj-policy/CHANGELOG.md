@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**3 / 5 minor entries** <!-- pending-tally -->
+**4 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2741-awaiting-decision-label · 20261003-095111Z
+
+The parking label `needs-decision` is now `awaiting-decision`, in the purple (`5319E7`) of the other
+awaiting-* labels, because an issue waiting on the owner's choice is waiting like they are
+([#2741](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2741)). The old name stays matched
+by the claim and sweep skip defaults and by the issue dashboard. On a tracker that still has the old
+name, `adopt-triage-labels` prints a `gh label edit` rename rather than a create, so every issue keeps
+its label.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For a consumer who runs `adopt-triage-labels`: it now offers one rename for `needs-decision`.
+Nothing breaks if they skip it, because the old name still parks the issue.
+
+**Score:** 2
+
+#### Pull Request
+
+Rename needs-decision to awaiting-decision, in the purple family
+
+Plugins: dkj-policy
+
+[PR #2755](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2755)
+
+---
 
 ### DEPLOY: fix/2746-allow-rules-anchored-on-plugin-path · 20261003-094037Z
 
