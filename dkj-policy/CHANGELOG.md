@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**7 / 21 minor entries** <!-- pending-tally -->
+**7 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2769-bwj-pr-labels-from-prefix · 20261003-125427Z
+
+In a BWJ store repo, a `fix/` pull request is labelled `bug` again and a `feat/` pull request
+`feature`, now that #2750 brought those labels back for issues. The adoption skill (step 4) shows the
+prefix-table rows to use. A table adopted before #2750 still answers no label for those two prefixes,
+and the step says to replace those answers. It also says to create the labels first, because `open-pr`
+refuses a PR whose label the repo does not have
+([#2769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2769)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+BWJ: fix/ and feat/ PRs carry bug and feature again
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2780](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2780)
+
+---
 
 ### DEPLOY: fix/2765-backstop-skips-not-planned · 20261003-124527Z
 

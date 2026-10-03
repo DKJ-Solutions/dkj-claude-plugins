@@ -738,7 +738,7 @@ land with an unfinished plan.
 
 ## The label gate: does the label your seam names still exist?
 
-The PR is labelled from the branch prefix -- `fix/` -> `bug`, `feat/` -> `enhancement`, whatever your own
+The PR is labelled from the branch prefix -- `fix/` -> `bug`, `feat/` -> `feature`, whatever your own
 `scripts/lib/branch-info.ps1` says -- and that label used to go straight to `gh pr create --label`, with
 `gh` as the one to discover it does not exist. `gh` refuses the **whole** create, so no PR is opened:
 
