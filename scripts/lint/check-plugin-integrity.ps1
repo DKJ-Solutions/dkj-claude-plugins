@@ -1532,7 +1532,7 @@ function Get-PsScriptFiles {
 # the parse they come with, and a second parse to get them costs a whole one.
 #
 # Check 5 USES THE CACHE NOW, which the paragraph before #2751 ruled out because this accessor threw
-# the errors away. It keeps them, so the one skippable reader no longer needs its own pass. Skipping
+# the errors away. It keeps them, so check 5 no longer needs a pass of its own. Skipping
 # 'parse' still leaves every other reader working: whoever asks first fills the cache.
 #
 # An unparseable file yields an EMPTY list, not $null. The original two callers (barred-skill,
@@ -4385,11 +4385,11 @@ Write-Coverage -Category 'shared-script-list' -Checked $mirrorSpanCount `
 # line matching -- so a comment explaining the rule (this one included) is not a subject, and neither is
 # a variable name. Markdown is matched per line, where there is no such distinction to draw.
 #
-# NOT SKIPPABLE, deliberately: it is not on $script:SkippableChecks, whose comment says adding to it is a
-# deliberate act. Since #2740 it is the first reader of the parse cache in a default fixture run, so
-# that run's parse is paid here. This one does not reuse
-# check 5's pass, which is what lets it run when 'parse' is skipped -- it takes its CommandAsts from
-# Get-PsScriptCommandAsts, shared with the equally non-skippable shopify-cli check below (issue #1358).
+# NOT SKIPPABLE, deliberately: it is not on $script:SkippableChecks, whose comment says adding to it is
+# a deliberate act. It does not reuse check 5's pass, which is what lets it run when 'parse' is skipped
+# -- it takes its CommandAsts from Get-PsScriptCommandAsts, shared with the shopify-cli check above
+# (issue #1358). Since #2740 shopify-cli is skippable, so in a default fixture run this check is the
+# first reader of the parse cache and pays for the parse.
 # Both used to parse and walk the same file set separately; that accessor's comment holds the measurement.
 $barredSkills = New-Object System.Collections.Generic.HashSet[string]
 foreach ($skillsDir in (Get-PluginSubdirs -PluginRoots $publishedPlugins -Leaf 'skills')) {

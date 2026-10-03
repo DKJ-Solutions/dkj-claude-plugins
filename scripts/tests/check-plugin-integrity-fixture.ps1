@@ -157,8 +157,8 @@ function Assert-True {
     }
 }
 
-# THE THREE CHECKS THIS SUITE SKIPS BY DEFAULT. Profiled when this was one file, agent-def, parse and
-# branch-template were reported as half of every run's work, and almost no scenario here is about those
+# THE ORIGINAL THREE CHECKS THIS SUITE SKIPS BY DEFAULT (eight since #2740, see below). Profiled when
+# this was one file, agent-def, parse and branch-template were reported as half of every run's work, and almost no scenario here is about those
 # three -- so the fast path became the default.
 #
 # THAT SAVING IS NOW 2.0%, RE-MEASURED September 3, 2026 (issue #1358), and the figure is corrected here

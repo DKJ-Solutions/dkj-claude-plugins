@@ -1169,7 +1169,7 @@ are ~100% their lint invocations**, to within a second, which is the fact that m
 whole lever for them.
 
 **What was actually duplicated was the AST walk, not the parse either comment worried about.** Two
-non-skippable checks -- barred-skill and shopify-cli -- each called `ParseFile` and then
+checks, both non-skippable then -- barred-skill and shopify-cli (skippable since #2740) -- each called `ParseFile` and then
 `FindAll(CommandAst)` over the same file set. Over this repo's 184 script files one such pass is 1.413s, of
 which the **walk is 1.157s** and the parse only 0.256s; a second pass off a shared cache is 0.014s. Sharing
 it (`Get-PsScriptCommandAsts`) measured **-12.6%** across the four suites -- 58.7/55.7/51.0/34.5s to
