@@ -540,7 +540,15 @@ and `git status` silent.
    **The paths in those rules are wildcarded on purpose, so do not "fix" them into absolute paths.**
    `${CLAUDE_PLUGIN_ROOT}` resolves to the version-pinned install
    (`…/cache/<marketplace>/<plugin>/<version>/`), so a rule naming today's root stops matching at
-   your next plugin update — silently, while still reading as covered.
+   your next plugin update — silently, while still reading as covered. **What the rule keeps
+   literal, around the wildcards, is the install path's shape** — `.claude`, `plugins`, `cache`, the
+   plugin's name, `scripts`, the script — because the plugin's name alone also matched the
+   `dkj-policy/` folder in your own root, where a pull request could place a script that then ran
+   unprompted ([#2746](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2746)). That
+   **narrows** the rule; it does not pin a location, so review a pull request that adds a
+   `.claude/plugins/` tree to your repo with the same care
+   ([#2752](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2752)). The `gh repo edit`
+   rule is exact for the same reason: a trailing wildcard would also allow `--visibility`.
 6. **Register proposal** — prints a paste-ready **connector manifest** for the *workshop* repo: the
    repo name derived from the git remote, plus one row per **enabled plugin of this marketplace**,
    carrying that plugin's lens inventory (personas included).
