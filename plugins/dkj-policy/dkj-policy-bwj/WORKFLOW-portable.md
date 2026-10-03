@@ -102,30 +102,26 @@ is mirrored*, it does not loosen *when or whether it is filed*:
 - Say what you **measured** and what you only **inferred**.
 - Filing needs no permission, and asking for it is the same failure as not filing.
 
-#### Classify it as you file it -- three fields, all set at creation
+#### Classify it as you file it -- labels only, all set at creation
 
-An issue that arrives typeless and unlabelled has to be classified by hand afterwards, and afterwards
-never comes. Both BWJ trackers were brought to 100% type coverage by hand on September 1, 2026 -- 135
-issues across the two -- and that state holds only if every filing from here on maintains it.
+An issue that arrives unlabelled has to be classified by hand afterwards, and afterwards never comes.
+So every label goes on the `gh issue create` itself.
 
-| field | what it carries | how |
+| label | what it carries | how |
 |---|---|---|
-| **issue type** | Bug / Feature / Task | `gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=Bug`, straight after the create -- not `gh issue create --type`, which `gh 2.74.0` rejects as an unknown flag ([#2416](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2416)). A defect in behaviour that already exists is **Bug**, a capability the store does not have yet is **Feature**, and **Task** is everything else, which is most of it |
+| **`bug` or `feature`** | the kind | `--label bug` for a defect in behaviour that already exists, `--label feature` for a capability the store does not have yet, and **neither** for everything else, which is most of it. **An issue with neither is a task**: there is no `task` label, because absence already answers it. Never both |
 | **the reach label** | how far the issue reaches | one `--label`, and only where it reaches the audience tier. Absence is the answer for tier 0 and is not a missing field. Its **name** is `Get-ReachLabel`'s, default `minor` -- see below |
-| **`documentation` label** | the one content distinction the type system cannot express here | `--label documentation` on a doc finding, on top of whatever type it has |
-| **`CRO` label** | who raised it, not what it is -- store repos only | `--label CRO` on an issue filed by, or on behalf of, the CRO team (today: Johnno), on top of whatever type it has -- see below |
+| **`documentation` label** | a doc finding | `--label documentation` on top of the kind -- most doc findings are tasks, and this label keeps them findable among the rest |
+| **`CRO` label** | who raised it, not what it is -- store repos only | `--label CRO` on an issue filed by, or on behalf of, the CRO team (today: Johnno), on top of the kind -- see below |
 
-**The type is set directly, not derived from a label.** `bug` and `enhancement` were deleted from both
-repos on September 1, 2026, because the type already carried them: all 28 `bug` issues held type `Bug`
-and all 16 `enhancement` issues held `Feature`. Nothing was lost with them, and they are not re-added.
-
-**`documentation` was deliberately kept** (Dave). Both BWJ orgs have exactly three issue types and none
-of them is Documentation -- measured September 7, 2026: `gh api orgs/<org>/issue-types` returns Task,
-Bug and Feature in `BWJ-ecommerce` and in `BWJ-Development` alike, so the store that moved took the
-same three with it -- and the 42 doc issues sit on `Task` and `Feature`. Deleting the label
-would have buried them in a 91-issue `Task` pile -- that is not *covered by the type*, that is lost. A
-`Documentation` type was considered and not taken: issue types are **org-wide**, so adding one would put
-it in every BWJ repo, which is a wider decision than these two.
+**GitHub issue types are not used** (Dave, October 3, 2026,
+[#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)). Labels leave more room to
+customize, and issue types are **org-wide**, so the same three were imposed on every repo of both BWJ
+orgs. The history runs the other way: on September 1, 2026, `bug` and `enhancement` were deleted from
+both stores because the type then carried them, and the type was backfilled by hand onto 135 issues.
+**An issue filed before this change may still carry a type and no kind label.** Add the label when you
+touch it, and leave the type alone, because nothing reads it any more. Deleting the org-wide types is
+an org setting, so it is the owner's to do.
 
 #### The reach label -- the reach axis, carried onto issues
 
@@ -280,10 +276,11 @@ so the board's own list and filter views can jump straight to the issue without 
 first.
 
 **And a board may carry a `Github Type` select field beside it** -- again the field's literal,
-as-configured name -- **whose options are exactly the three issue types
-[step 1](#classify-it-as-you-file-it----three-fields-all-set-at-creation) chooses from**: `Bug`,
-`Feature`, `Task`. Where it exists it is set on the same creation call, **from the value step 1
-already decided**, never re-derived from the card. That is what makes it worth writing rather than
+as-configured name -- **whose options are exactly the three kinds
+[step 1](#classify-it-as-you-file-it----labels-only-all-set-at-creation) chooses from**: `Bug`,
+`Feature`, `Task`, filled from the kind label (`bug`, `feature`, or neither for `Task`). The field
+outlived the issue types it was built for on purpose (#2750). Where it exists it is set on the same
+creation call, **from the label step 1 already chose**, never re-derived from the card. That is what makes it worth writing rather than
 leaving to a colleague: the answer is not being composed here the way the issue URL is, it is being
 carried one step forward -- so a ticket this workflow files cannot have a board type its own issue
 contradicts.

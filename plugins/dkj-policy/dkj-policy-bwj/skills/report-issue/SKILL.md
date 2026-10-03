@@ -2,7 +2,7 @@
 name: report-issue
 description: >-
   File a discovered issue the BWJ way -- GitHub first (the source of truth, classified at creation with
-  its issue type and the reach label), then -- only where the issue carries the reach label -- a
+  its labels: bug or feature, and the reach label), then -- only where the issue carries the reach label -- a
   colleague-facing Asana task, cross-linked both ways. Use this in a repo that runs the BWJ procedure -- smartwatchbanden or xoxowildhearts
   (whichever org), the plugin's own source repo dkj-claude-plugins, or phone-factory -- whenever a real finding
   needs tracking: a bug, a broken customer-facing behaviour, a stale doc, a decision that is
@@ -68,28 +68,20 @@ rather than by this page**: the reach-label gate in step 2 below. The full rule 
 
 Apply the `dkj-subagents-alpha` filing bar in full: verify the finding still stands by reading the code, doc
 or output behind it; search the tracker for a duplicate; one subject per issue; state what you
-measured versus inferred. Then file it **classified** -- the labels on the create itself, and the type
-by the call straight after it, in the same step, never left for a later pass:
+measured versus inferred. Then file it **classified** -- every label on the create itself, never left
+for a later pass:
 
 ```bash
 gh issue create --repo <owner>/<repo> --title "<precise technical title>" --body "<full detail>" \
-  [--label "<reach label>"] [--label documentation]
+  [--label bug | --label feature] [--label "<reach label>"] [--label documentation]
 # gh prints the new issue's URL; its last segment is <n>
-gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=<Task|Bug|Feature>
 ```
-
-**The type is a second call, not a `--type` flag, on purpose.** `gh issue create --type` is not on every
-`gh` this workflow meets: measured September 24, 2026
-([#2416](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2416)), `gh 2.74.0` answers it with
-`unknown flag: --type` and creates nothing. The REST `PATCH` sets the type on that `gh` and on any newer
-one, so the step names the route that works everywhere rather than a minimum version. **If the `PATCH`
-fails, the issue already exists typeless** -- re-run the same call; never file a second issue.
 
 | what to set | how to decide it |
 |---|---|
-| the type (`-f type=`) | **Bug** for a defect in behaviour that already exists, **Feature** for a capability the store does not have yet, **Task** for everything else -- which is most of it, doc findings included. Always one of the three; both BWJ orgs have exactly these and no others (measured September 7, 2026 -- `gh api orgs/<org>/issue-types` returns Task, Bug, Feature in `BWJ-ecommerce` and in `BWJ-Development` alike) |
+| the kind (`--label bug` or `--label feature`) | **`bug`** for a defect in behaviour that already exists, **`feature`** for a capability the store does not have yet, and **neither** for everything else -- which is most of it, doc findings included. An issue with neither label **is a task**: there is no `task` label, and its absence is the answer, the same way the reach label's absence answers tier 0. Never both |
 | the reach label (`Get-ReachLabel`, default `minor`) | **only** where management or the commissioner would notice it. The test is whether that reader notices the **defect**, not whether the file renders to them: a customer-facing template with a developer-only defect is tier 0, and a build script whose breakage stops a release the business is waiting on is not. **In doubt, leave it off** |
-| `--label documentation` | on a doc finding, on top of its type -- the one content distinction the three types cannot express here |
+| `--label documentation` | on a doc finding, on top of its kind -- a doc finding is usually a task, and this label is what keeps it findable among them |
 | `--label CRO` (Shopify store repos only) | on an issue filed by, or on behalf of, the CRO team (today: Johnno). Never in this plugin's own source repo `dkj-claude-plugins`, which has no store, nor in `phone-factory`, a Lightspeed store the CRO team does not measure (#2712). See `WORKFLOW-portable.md`'s classification section |
 
 **Write it in English -- the title as much as the body.** Every consumer of `dkj-policy` runs this same
@@ -99,19 +91,19 @@ carve-out is a person's own words -- a request quoted from an Asana ticket stays
 halves are in
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#1-github-first----github-is-the-source-of-truth).
 
-**Do not add `bug` or `enhancement`.** Both labels were deleted from both repos on September 1, 2026
-because the issue type already carries them. The reasoning behind all three fields is in
-[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#classify-it-as-you-file-it----three-fields-all-set-at-creation).
+**Do not set a GitHub issue type.** The BWJ repos stopped setting issue types on October 3, 2026, in
+favour of labels alone ([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)), so
+`bug` and `feature` carry what the type used to. The reasoning behind every field is in
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#classify-it-as-you-file-it----labels-only-all-set-at-creation).
 
 Note the issue number and URL. If the finding collapses on verification, stop here and say so -- do
 not file a weakened version, and do not create an Asana task for a non-issue.
 
-**On an issue that is already filed** -- yours from an earlier run, or somebody else's -- the same two
-fields are set with the same calls:
+**On an issue that is already filed** -- yours from an earlier run, or somebody else's -- the same
+labels are added afterwards:
 
 ```bash
-gh api --method PATCH repos/<owner>/<repo>/issues/<n> -f type=Bug
-gh issue edit <n> --repo <owner>/<repo> --add-label "<reach label>"
+gh issue edit <n> --repo <owner>/<repo> --add-label bug --add-label "<reach label>"
 ```
 
 ## Step 2 -- the Asana task (a translation, not a copy)
@@ -172,10 +164,10 @@ above, never the bare issue number: Asana only renders a text custom field as a 
 its value is a complete URL. Where it is `$null` -- the default, and the common case -- skip the
 field silently; the board carries none and there is nothing to set.
 
-**Where `Get-AsanaTypeFieldGid` returns a GID, set that one on the same call too -- to the type step
-1 chose, never to a fresh reading of the finding.** The board's field offers exactly the three types
-step 1 picks from, so there is nothing to decide here: the answer is one step old and carrying it
-forward is the whole point. It is a **select** field, though, so the value is an option GID rather
+**Where `Get-AsanaTypeFieldGid` returns a GID, set that one on the same call too -- from the kind
+label step 1 chose, never from a fresh reading of the finding:** `bug` is `Bug`, `feature` is
+`Feature`, and neither is `Task`. The board's field offers exactly those three options, so there is
+nothing to decide here: the answer is one step old and carrying it forward is the whole point. It is a **select** field, though, so the value is an option GID rather
 than the word. Resolve it from **the project read the preflight already made** -- ask for the options
 there, in the same call that proved the board reachable, and carry both forward:
 
@@ -186,9 +178,9 @@ opt_fields: custom_field_settings.custom_field.gid,custom_field_settings.custom_
 
 **Name every subfield -- Asana's `opt_fields` takes no wildcard**, so `custom_field_settings.*`
 returns the options *absent* rather than an error, and the write then silently has nothing to send.
-Match the option whose `name` is the type you set in step 1, and send its `gid`: a
+Match the option whose `name` is the one step 1's label maps to, and send its `gid`: a
 **multi-select** field takes an **array** of option GIDs, a single-select the bare GID -- the BWJ
-board's is multi-select, so `["<option gid>"]`. **If the type matches no option on the board, write
+board's is multi-select, so `["<option gid>"]`. **If that name matches no option on the board, write
 nothing and say which option was missing** -- that is a board somebody has rebuilt or renamed, and
 guessing puts a wrong type on a card a colleague reads as authoritative.
 
@@ -310,7 +302,7 @@ step 6 prescribes, and the issue stays open. Take the label off when the answer 
 returns to wherever the work actually is. Do not move that card by hand: the label is what the column is derived from, so a hand-move is
 undone on the next sweep while the label stays.
 
-**Name the type and the tier you chose, and why.** You infer both rather than asking for them -- the
+**Name the kind and the tier you chose, and why.** You infer both rather than asking for them -- the
 reach question is answerable from the finding itself, and the whole backfill of 135 issues was
 classified from the issue text alone. Naming the call here is what makes it correctable: it puts the
 answer in front of the person who knows the store, at no extra turn, beside the one line that changes

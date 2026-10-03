@@ -144,7 +144,8 @@ function Get-GithubStatusMap {
 function Get-AsanaIssueFieldGid { $null }
 
 # The GID of the board's 'Github Type' multi-select custom field, so report-issue can set it at task
-# creation from the issue type step 1 already chose. Optional in the same way: $null (the default)
+# creation from the kind label step 1 already chose (bug, feature, or neither for Task -- #2750).
+# Optional in the same way: $null (the default)
 # means the board carries no such field. The field's OPTION GIDs are not configured -- report-issue
 # resolves Bug/Feature/Task by name from the project itself.
 function Get-AsanaTypeFieldGid { $null }
@@ -336,9 +337,10 @@ workspace.
 
 ## 4 -- make sure the classification labels exist
 
-[`report-issue`](../report-issue/SKILL.md) files every issue with an issue type, and with the reach
-label and `documentation` where they apply. **`gh issue create` fails outright on a label the repo
-does not have**, so check for both and create whichever is missing. **Read `Get-ReachLabel` from
+[`report-issue`](../report-issue/SKILL.md) files every issue with `bug` or `feature` where one
+applies, and with the reach label and `documentation` where they apply. It sets no GitHub issue type
+([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)). **`gh issue create` fails
+outright on a label the repo does not have**, so check for all four and create whichever is missing. **Read `Get-ReachLabel` from
 `scripts/repo-config.ps1` first** and check for *that* name -- `minor` where the repo has never
 answered it, which since [#1870](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1870) is
 the workflow's own default. **A store still carrying `tier-1` and answering nothing is the one state
@@ -347,21 +349,29 @@ it -- no issue at all, not even one without the label. Repair it here rather tha
 rename the label, or state `tier-1` in the seam.
 
 ```bash
-gh label list --repo <owner>/<repo> | grep -E '^(<reach label>|documentation)\b'
+gh label list --repo <owner>/<repo> | grep -E '^(bug|feature|<reach label>|documentation)\b'
+gh label create bug --repo <owner>/<repo> --color FF00FF \
+  --description "A defect in behaviour that already exists"
+gh label create feature --repo <owner>/<repo> --color a2eeef \
+  --description "A capability the store does not have yet"
 gh label create "<reach label>" --repo <owner>/<repo> --color fbca04 \
   --description "Reaches the business: management and the commissioner notice it"
 gh label create documentation --repo <owner>/<repo> --color 0075ca \
-  --description "A doc finding, on top of whatever issue type it has"
+  --description "A doc finding, on top of its kind"
 ```
 
-**Both names in that check now have a `create` line beside them, and until September 11, 2026 only
-one did.** The grep named two labels and the step created the reach label alone, so a repo missing
+**`bug` is magenta and `feature` cyan**, the same family colours as this workflow's source tracker. An
+existing `bug` label in a different colour still works, and so does an existing `feature` label with
+another description: `gh label create` never touches a label that exists.
+
+**Every name in that check has a `create` line beside it, and until September 11, 2026 one did not.**
+The grep then named two labels and the step created the reach label alone, so a repo missing
 `documentation` got a hit in the check and no instruction -- a check whose result nothing acts on
 ([#1846](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1846)). It has never bitten,
 because `documentation` is one of GitHub's own default labels and both BWJ stores carry it; that is
 what kept the gap invisible, not what makes it safe. The label is load-bearing --
-[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#classify-it-as-you-file-it----three-fields-all-set-at-creation)
-records why Dave kept it where `bug` and `enhancement` were deleted, and 42 doc issues across the two
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#classify-it-as-you-file-it----labels-only-all-set-at-creation)
+records what it carries, and 42 doc issues across the two
 stores sit on it -- so a filing that reaches for it in a repo without it fails at the `gh issue
 create`, exactly as a filing that reaches for the reach label does.
 
@@ -474,10 +484,9 @@ to 4.2 loses `prio-2` as it gains `prio-4`. A task with **no** score, or a score
 gets no prio label at all rather than a guessed one; on the BWJ board the day this shipped that was
 28 of 96 open tasks, so it is the common case and not an edge one.
 
-The three issue **types** (Task / Bug / Feature) are org-wide, not per repo, so there is nothing to
-create for them -- confirm in the org settings that they are enabled and stop there. Do **not** create
-`bug` or `enhancement` labels: the type carries both, and they were deliberately deleted from the
-existing BWJ repos.
+**GitHub issue types are not used** ([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)):
+the kind is the `bug` or `feature` label created above, and an issue with neither is a task. There is
+nothing to configure for types, and no `enhancement` label is created.
 
 ## 5 -- check the board's sections are numbered
 
