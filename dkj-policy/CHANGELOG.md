@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2757-awaiting-pull-label · 20261003-101718Z
+
+New parking label `awaiting-pull`, purple like the rest of the awaiting-* family, for an issue that
+cannot start until another issue has landed through its pull request
+([#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757)). The claim and sweep routes
+skip it by default and the issue dashboard shows it as parked. It comes off when the blocking PR
+merges.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For a consumer who runs `adopt-triage-labels`: it now offers one more `gh label create` line, for
+`awaiting-pull`.
+
+**Score:** 2
+
+#### Pull Request
+
+Add the awaiting-pull parking label to the purple family
+
+Plugins: dkj-policy
+
+[PR #2760](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2760)
+
+---
 
 ### DEPLOY: fix/2749-park-refuses-merged-branch · 20261003-100139Z
 
