@@ -488,6 +488,26 @@ gets no prio label at all rather than a guessed one; on the BWJ board the day th
 the kind is the `bug` or `feature` label created above, and an issue with neither is a task. There is
 nothing to configure for types, and no `enhancement` label is created.
 
+**The same two labels classify the pull request, so answer the prefix table with them** (Dave, October
+3, 2026, [#2769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2769)). `open-pr` labels a
+PR from the row of `scripts/lib/branch-info.ps1` its branch prefix matches. That file is the repo's own
+and this skill does not write it, so check it by hand:
+
+```powershell
+$script:BranchPrefixTable = @{
+    feat  = @{ Label = 'feature';       Type = 'Feat' }
+    fix   = @{ Label = 'bug';           Type = 'Fix' }
+    docs  = @{ Label = 'documentation'; Type = 'Docs' }
+}
+```
+
+**A BWJ table adopted before #2750 answers `Label = $null` for `feat` and `fix`.** That was right while
+the issue type carried the kind and `bug` and `enhancement` were deleted org-wide, and it is stale now:
+the PR goes out unlabelled while its issue carries the kind. Replace both `$null`s with the names above,
+and keep any other row the repo has as it is. **Run this step's label check first.** `open-pr`'s label
+gate refuses a create whose label the repo does not have, and it refuses before the push, so a table
+naming `feature` on a tracker without it stops every `feat/` PR.
+
 ## 5 -- check the board's sections are numbered
 
 The stage model of
