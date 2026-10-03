@@ -583,7 +583,7 @@ against each other.
   then you finish the assignment. The owner has to be able to close a finished session and clear its
   context without first answering everything you found along the way. Name the issues you filed when you
   close out, with their numbers, so they can see what was parked rather than lost. Improvements to the
-  shared core keep the `inbound` route above; this is for the repo in front of you.
+  shared core keep the inbound route above; this is for the repo in front of you.
 - **An inconsistency is a finding, and it is ALWAYS filed.** Two statements in the tree that cannot both
   be true: a portable page prescribing an arrangement its own source repo does not run, a doc naming a
   path a script no longer writes, a count in prose that disagrees with what the code produces, a gate

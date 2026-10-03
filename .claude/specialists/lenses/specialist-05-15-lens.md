@@ -663,7 +663,7 @@ infrastructure.
     `@claude fix this` work** — that it only answers is the decision, not a defect.
   - **The `issues: [opened, assigned]` trigger is deliberately absent** from the upstream template's set.
     The action's write-access gate governs who *triggers*, never who *wrote* the text a run then reads,
-    and this repo publishes an `inbound` issue template — external prose is a designed-for input here.
+    and this repo publishes two inbound issue templates — external prose is a designed-for input here.
   - **The `permissions:` block is NOT the boundary, and both files say so.** `id-token: write` lets the
     action mint a GitHub App token documented as Contents/Pull Requests/Issues at read **and** write; the
     read-only scopes bound `GITHUB_TOKEN` alone. Audit either file by its scopes and you conclude the
