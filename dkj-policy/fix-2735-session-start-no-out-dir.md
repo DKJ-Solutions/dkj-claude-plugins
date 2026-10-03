@@ -39,21 +39,37 @@
 
 ### PLAN
 
+#2735: step 2 of `measure-session-start` said to download the previous page "into the scratch
+directory". On Windows the harness can hand a session that path as an 8.3 short name, and the Artifact
+tool refuses an `out_dir` with a `NAME~1` segment, so every run on that machine failed at step 2. I
+checked the reason against the tree: line 65 of the skill page is the only place that sends the
+scratch path to the Artifact tool. Steps 3 and 7 pass it to PowerShell, which resolves short names.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Step 2: download with no `out_dir`, copy the result to `<scratch>/previous.html`, and say why in
+  one sentence
 
 ### TEST
 
+- [~] No automated test: this is prose a session follows, and no suite reads it. The repair is the
+  workaround the reporter already ran successfully (no `out_dir`, then `-Previous` on the named path)
+
 ### DEPLOY: fix/2735-session-start-no-out-dir
 
-**Score:**
+`/measure-session-start` no longer fails at step 2 on a Windows machine whose temp path has an 8.3
+short name. Step 2 now downloads the previous page to the Artifact tool's own default folder and copies
+it into the scratch directory, so the tool never sees an `out_dir` it refuses.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing beyond the repair. Steps 3 and 7 keep `<scratch>` on purpose, because they pass it to
+PowerShell rather than to the Artifact tool.
+
+**Score:** N/A
 
 #### Pull Request
 
 measure-session-start step 2: download the previous page without out_dir
-
