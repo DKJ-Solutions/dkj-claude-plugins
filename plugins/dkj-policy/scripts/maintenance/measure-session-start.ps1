@@ -44,6 +44,11 @@
     flag). A published page is data from outside the session; this is the way to read its history without
     reading its prose.
 
+    THE HISTORY MUST BE THIS REPO'S (#2736). Collect writes the repo's name into the data (`repo`) and the
+    lookup title derived from it (`pageTitle`). -ExtractPrevious and -Render read a previous page only when
+    its data names the same repo; a page naming another repo, or none (every page rendered before #2736),
+    yields no history, and the run says why.
+
     COLLECT RUNS THE MEASURED REPO'S CODE. It dot-sources that repo's scripts/repo-config.ps1 to read the
     Get-AlwaysOnBudget seam, exactly as the always-on gate does. Run it only on a repo you trust.
 
@@ -118,6 +123,19 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 
 function Write-Line { param([string]$Tag, [string]$Text) Write-Host ("[{0}] {1}" -f $Tag, $Text) }
 
+function Resolve-MeasuredRepoRoot {
+    # DUAL-CONTEXT, like measure-always-on: a consumer's harness sets CLAUDE_PROJECT_DIR and the mirror
+    # runs from the plugin cache, where a git root would be absent or the wrong repository.
+    param([string]$Given)
+    $r = $Given
+    if (-not $r) {
+        if ($env:CLAUDE_PROJECT_DIR) { $r = $env:CLAUDE_PROJECT_DIR }
+        else { $r = (Get-GitTopLevelPath).Path }
+    }
+    if (-not $r) { throw 'Not inside a git repository, and -RepoRoot was not given.' }
+    return [System.IO.Path]::GetFullPath($r.Trim())
+}
+
 # BOM-LESS, LF -- the repo convention for generated files (see measure-skill.ps1's writer, same reason).
 function Write-TextFile {
     param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][string]$Content)
@@ -142,8 +160,16 @@ if ($ExtractPrevious) {
         if (-not (Test-Path -LiteralPath $Previous -PathType Leaf)) { throw "-Previous file not found: $Previous" }
         if (Test-Path -LiteralPath $OutFile) { Remove-Item -LiteralPath $OutFile -Force }
         $prev = Read-SessionStartDataBlock -Html (Read-TextFile -Path $Previous)
+        $repoName = ''
+        if ($prev.Found) { $repoName = Get-SessionStartRepoName -RepoRoot (Resolve-MeasuredRepoRoot -Given $RepoRoot) }
+        $owner = $null
+        if ($prev.Found) { $owner = Test-SessionStartPreviousRepo -Previous $prev.Data -Repo $repoName }
         if (-not $prev.Found) {
             Write-Line 'INFO' "no history to extract: $($prev.Reason). The page's own prose is not read by this mode."
+        } elseif (-not $owner.Ok) {
+            $own = 'this repo''s own title'
+            if ($repoName) { $own = "'$(Get-SessionStartPageTitle -Repo $repoName)'" }
+            Write-Line 'ERROR' "no history extracted: $($owner.Reason). Treat this as a first run, and publish to $own rather than over that page."
         } else {
             $history = Get-SessionStartHistory -Previous $prev.Data
             Write-TextFile -Path $OutFile -Content (ConvertTo-Json -InputObject $history -Depth 10)
@@ -179,7 +205,11 @@ if ($Render) {
                 Write-Line 'INFO' "-Previous file not found ($Previous), so the page is rendered without deltas."
             } else {
                 $prev = Read-SessionStartDataBlock -Html $prevHtml
-                if ($prev.Found) {
+                $owner = $null
+                if ($prev.Found) { $owner = Test-SessionStartPreviousRepo -Previous $prev.Data -Repo ([string](Get-JsonField $dataObj 'repo' '')) }
+                if ($prev.Found -and -not $owner.Ok) {
+                    Write-Line 'ERROR' "no deltas: $($owner.Reason). This render becomes the first of this repo's history; do not publish it over that page."
+                } elseif ($prev.Found) {
                     $dataObj = Merge-SessionStartPrevious -Data $dataObj -Previous $prev.Data
                     Write-Line 'OK' 'read the previous measurement out of the published page and added the deltas.'
                     foreach ($note in @(Get-SessionStartMergeNotes)) { Write-Line 'INFO' $note }
@@ -221,14 +251,9 @@ $problems = New-Object System.Collections.Generic.List[string]
 try {
     if (-not $OutFile) { throw 'collect mode needs -OutFile <json> (or use -Render).' }
 
-    if (-not $RepoRoot) {
-        # DUAL-CONTEXT, like measure-always-on: a consumer's harness sets CLAUDE_PROJECT_DIR and the mirror
-        # runs from the plugin cache, where a git root would be absent or the wrong repository.
-        if ($env:CLAUDE_PROJECT_DIR) { $RepoRoot = $env:CLAUDE_PROJECT_DIR }
-        else { $RepoRoot = (Get-GitTopLevelPath).Path }
-    }
-    if (-not $RepoRoot) { throw 'Not inside a git repository, and -RepoRoot was not given.' }
-    $RepoRoot = [System.IO.Path]::GetFullPath($RepoRoot.Trim())
+    $RepoRoot = Resolve-MeasuredRepoRoot -Given $RepoRoot
+    $repoName = Get-SessionStartRepoName -RepoRoot $RepoRoot
+    if (-not $repoName) { $problems.Add('the repo has no usable name (no origin URL, and a folder name that is not one), so no pageTitle was written and no previous page can be matched to it.') }
 
     # repo-config.ps1 first and optional: the Get-AlwaysOnBudget seam lives there, and a repo that states
     # none runs on the built-in ceiling. Loaded BEFORE always-on-budget-lib, which probes for the seam.
@@ -310,6 +335,8 @@ try {
         schema   = 'session-start-collect/1'
         asOf     = (Get-Date).ToString('yyyy-MM-dd', [System.Globalization.CultureInfo]::InvariantCulture)
         measured = $true
+        repo     = $repoName
+        pageTitle = $(if ($repoName) { Get-SessionStartPageTitle -Repo $repoName } else { '' })
         factor   = [ordered]@{
             charsPerToken = $factor.Value
             calibrated    = $factor.Calibrated
