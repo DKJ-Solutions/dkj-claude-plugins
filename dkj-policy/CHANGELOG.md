@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2739-refresh-suite-durations · 20261003-093117Z
+
+The CI shard-packing hint `scripts/tests/suite-durations.json` has been regenerated from three
+October 2 PR runs. It now covers all 153 suites, where it had 141, and none is charged the maximum any
+more. Nolan's lens now says the "do not re-open" reason expired when CI became work-bound
+([#2739](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2739)). Whether this closes the
+70-80s shard overshoot is still to be measured over several PR runs.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. CI wall-clock inside this repo only, and nothing a consumer takes changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Refresh suite-durations.json at 153 suites
+
+[PR #2747](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2747)
+
+---
 
 ### DEPLOY: fix/2736-session-start-keyed-on-repo · 20261003-091530Z
 

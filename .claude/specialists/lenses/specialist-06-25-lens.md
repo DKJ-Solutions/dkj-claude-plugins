@@ -1458,6 +1458,17 @@ and take the opening lanes. The September 9 section above measured exactly this 
 most 13s of 1,806 locally and 0s on CI**, for the same reason that dominates here: no partition beats a
 file. Do not re-open it as a wall-clock lever.
 
+**That reason expired on CI at 153 suites, so the file was refreshed** (October 3, 2026,
+[#2739](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2739)). Three green PR runs on
+October 2 (5 shards x 4 lanes) put the pool's work at **8,129s**, about **406s per shard** on a perfect
+partition, while the longest file, `bootstrap-drift.tests.ps1`, sits at **311.7s**. A file no longer sets
+the CI makespan, so the partition does, and the slowest shard landed 70-80s above that 406s in all three
+runs. The file then listed 141 of the 153 suites. It has been regenerated from those same three runs
+(`record-suite-durations.ps1`), and now lists all 153. **The "do not re-open" rule holds only while one
+file is longer than work ÷ lanes**, so check that inequality before citing it. **Not yet measured:** whether
+the refresh closes the 70-80s. The inference comes from n=3 runs where one shard ranged 235-419s on runner
+noise alone, so read the shard spread over several PR runs before writing a figure here.
+
 **Honest limit: n=1 per stdin state**, on a machine that is not CI and does not convert to it (the #1713
 rule above). What is n=2 is the regime — September 9 at 16 lanes and today at 22, both within 1.4% of
 their bound.
