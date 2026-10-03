@@ -324,7 +324,8 @@ function Merge-SessionStartPrevious {
         labels it new). Each previous entry is consumed once, so two current documents cannot both claim it.
         Per item: previousTokens. On the documents block: hasPrevious (only when the previous page listed at
         least one document), previousLabel, previousTotalBytes and removed (documents that were on the path
-        then and are not now). A top-level `previous` object carries the date and totals.
+        then and are not now). A top-level `previous` object carries the date and totals, plus the previous
+        documents block's budgetBytes and charsPerToken, which the page's score floor needs (#2737).
 
         Every number is read with TryParse. A value that is not a whole number means no history for that row,
         and a note (Get-SessionStartMergeNotes) naming the row. Both inputs are parsed JSON objects, and
@@ -403,11 +404,25 @@ function Merge-SessionStartPrevious {
         if ($k -and $prevTok.ContainsKey($k)) { Set-JsonProperty -Object $it -Name 'previousTokens' -Value $prevTok[$k] }
     }
 
+    # The score's floor sets aside the always-on documents up to their budget (#2737), so the previous
+    # score needs the previous page's OWN budget and factor: a budget raised since then must not rescore
+    # the old page. Absent or not a number means no floor then, and the page scores it without one.
+    $prevBudget = $null
+    $prevRatio = $null
+    if ($null -ne $prevDocBlock) {
+        $prevBudget = ConvertTo-Int64OrNull (Get-JsonField $prevDocBlock 'budgetBytes' $null)
+        $rt = Get-JsonField $prevDocBlock 'charsPerToken' $null
+        $rv = [double]0
+        if ($null -ne $rt -and -not ($rt -is [bool]) -and [double]::TryParse([System.Convert]::ToString($rt, [System.Globalization.CultureInfo]::InvariantCulture), [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$rv) -and $rv -gt 0) { $prevRatio = $rv }
+    }
+
     Set-JsonProperty -Object $Data -Name 'previous' -Value ([pscustomobject]@{
-        asOf        = [string](Get-JsonField $Previous 'asOf' '')
-        totalTokens = $prevTokTotal
-        noneTokens  = $prevNoneTotal
-        totalBytes  = $prevTotal
+        asOf          = [string](Get-JsonField $Previous 'asOf' '')
+        totalTokens   = $prevTokTotal
+        noneTokens    = $prevNoneTotal
+        totalBytes    = $prevTotal
+        budgetBytes   = $prevBudget
+        charsPerToken = $prevRatio
     })
     $script:SessionStartMergeNotes = @($notes)
     return $Data

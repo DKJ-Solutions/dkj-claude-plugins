@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**6 / 14 minor entries** <!-- pending-tally -->
+**6 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2737-score-achievable-floor · 20261003-113415Z
+
+The efficiency score on the `measure-session-start` page now measures how far the session start is
+from the floor you can actually reach, not from an empty start. The floor is what Claude Code ships
+itself plus the always-on documents up to their budget, which are always-on on purpose. A start with
+nothing above it scores 100. The always-on path growing inside its budget no longer moves the score,
+and only a byte over the budget counts against it. Before this, the score was capped near 43 in this
+repo even with every action done. It now reads 66 on the same figures
+([#2737](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2737)). The first render after the
+update shows a jump in the score that comes from the new formula, not from a change in the session.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+measure-session-start: score against an achievable floor
+
+Plugins: dkj-policy
+
+[PR #2766](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2766)
+
+---
 
 ### DEPLOY: docs/2767-bwj-label-comments-reversed · 20261003-112354Z
 

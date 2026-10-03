@@ -208,7 +208,7 @@ var L=Object.assign({
   tileSetting:'Switch it on or off on your machine or in claude.ai. Little work, small gain each.',
   tileNone:'Ships with Claude Code itself. Accept it and move on.',
   scoreHeading:'Efficiency score',
-  scoreText:'The share of the session start that Claude Code itself brings along, against everything this repo and this account add on top. Only a start that adds nothing scores 100; every token saved in a direct or setting layer moves it up.',
+  scoreText:'How close the session start is to the floor you can actually reach: what Claude Code itself brings along, plus the always-on documents up to their budget, which are always-on on purpose. 100 means nothing is left above that floor; every token saved elsewhere, and every byte the always-on path runs over its budget, moves it.',
   legendDirect:'Direct: files in this repo', legendSetting:'Via a setting: switch on or off',
   legendNone:'No influence: Claude Code itself', legendHatch:'Hatched = estimated',
   overviewHeading:'All layers, colored by influence',
@@ -271,14 +271,25 @@ var items=D.items||[];
 var tot={direct:0,setting:0,none:0};
 items.forEach(function(x){if(tot[x.influence]!=null)tot[x.influence]+=Number(x.tokens)||0});
 var all=tot.direct+tot.setting+tot.none||1;
-/* ---- the efficiency score: the no-influence floor as a share of the whole start, 1-100 ----
-   Computed here from the items alone, so the model that writes the data cannot set it; the previous
-   score comes from the previousTokens and the previous total that the render already adds. */
-/* 100 is reserved for a start that adds nothing, so rounding never awards it while something is added. */
-function score(none,total){return total>0?Math.max(1,Math.min(none<total?99:100,Math.round(none/total*100))):null}
-var sc=score(tot.none,tot.direct+tot.setting+tot.none);
+/* ---- the efficiency score: the distance to an ACHIEVABLE floor, 1-100 (#2737) ----
+   The floor is the no-influence layers plus the always-on documents up to their budget: that path is
+   always-on on purpose, and the repo's own budget seam (read by collect, never typed) says how much of
+   it is deliberate. The score is the none share of the start once that deliberate part is set aside, so
+   it reaches 100 when nothing above the floor is left, growth inside the budget leaves it unchanged,
+   and only what runs over the budget counts against it. Computed here from the measured documents and
+   the items, never from the actions' estimated tokens, so the model that writes the data cannot set it;
+   the previous score comes from the totals the render adds under `previous`. */
+function keepTokens(bytes,budget,ratio){return budget>0&&ratio>0&&bytes>0?Math.round(Math.min(bytes,budget)/ratio):0}
+/* 100 is reserved for a start with nothing above the floor, so rounding never awards it before then. */
+function score(none,total,keep){var base=Math.max(none,total-(keep||0));return base>0?Math.max(1,Math.min(none<base?99:100,Math.round(none/base*100))):null}
+var DOC0=D.documents||{};
+var CPT=Number(DOC0.charsPerToken)||3.12;
+var keep=keepTokens((DOC0.items||[]).reduce(function(a,d){return a+(Number(d.bytes)||0)},0),Number(DOC0.budgetBytes)||0,CPT);
+var sc=score(tot.none,tot.direct+tot.setting+tot.none,keep);
 var P=D.previous||{};
-var prevSc=P.noneTokens!=null&&P.totalTokens?score(Number(P.noneTokens),Number(P.totalTokens)):null;
+var prevKeep=keepTokens(Number(P.totalBytes)||0,Number(P.budgetBytes)||0,Number(P.charsPerToken)||CPT);
+/* A previous page with no floor and a current one with a floor score on different bases, so no delta then. */
+var prevSc=P.noneTokens!=null&&P.totalTokens&&!(keep>0&&prevKeep===0)?score(Number(P.noneTokens),Number(P.totalTokens),prevKeep):null;
 setText('score-h',L.scoreHeading);setMd('score-text',L.scoreText);
 if(sc==null){$('score-num').textContent='-'}else{
   $('score-num').innerHTML=sc+'<small>/100</small>';
@@ -348,7 +359,7 @@ acts.forEach(function(a){
 /* ---- the always-on documents, with the delta against the previous measurement ---- */
 var DOC=D.documents||{};
 var docs=DOC.items||[];
-var ratio=DOC.charsPerToken||3.12;
+var ratio=CPT;
 var hasPrev=!!DOC.hasPrevious;
 var prevLabel=DOC.previousLabel||L.colPrevious;
 setText('h-docs',DOC.heading||L.docsHeading);setMd('docs-lede',DOC.lede||L.docsLede);
