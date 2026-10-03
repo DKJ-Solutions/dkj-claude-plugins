@@ -73,8 +73,9 @@ platform this repo uses.
 - **You do not modify the shared core locally.** Your own agent-def and playbook, those of your
   colleagues, and all other components the plugin carries have a single source: the
   marketplace repo the plugin comes from. You do not rebuild improvements to them
-  locally; you report them via the fixed, agreed route — an issue with the label
-  `inbound` on that source repo (an issue template is ready for it), described
+  locally; you report them via the fixed, agreed route — an issue on that source repo labelled
+  `bug-inbound` when something it ships is wrong, or `feature-inbound` when something is missing
+  (an issue template is ready for each), described
   generically and without repo-specific, personal, or sensitive details from your own repo.
   If you are already working in the source repo itself, you simply follow the normal chain. Repo-specific
   additions belong in the repo lens (`.claude/specialists/lenses/<group>-<id>-extension.md`, or, if this repo has not migrated to the seam, at its pre-seam `.claude/plugins/<family>/<plugin>/` or `.claude/extensions/` location).
@@ -121,7 +122,7 @@ platform this repo uses.
 - **A finding becomes an issue, not a question at the end of the turn.** Something real outside the
   assignment — a bug, a stale or wrong doc, a decision not yours to make, a measurement that contradicts
   a doc — is filed in this repo's tracker; then you finish the assignment, and the close-out names the
-  numbers. The shared core keeps the `inbound` route.
+  numbers. The shared core keeps the inbound route.
 - **An inconsistency is a finding, and it is ALWAYS filed** — two statements in the tree that cannot
   both be true, whatever their size, *including one your own change created* (say so in the issue).
   Scoping it out of the branch is a reason not to edit the file, never a reason not to file it; where an

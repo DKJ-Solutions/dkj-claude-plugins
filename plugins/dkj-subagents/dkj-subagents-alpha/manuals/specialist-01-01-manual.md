@@ -413,7 +413,7 @@ is still in flight as a fact, never as a condition on the clearance.
 
 ## Picking up an inbound report — the six checks, in full
 
-The persona carries the route (an improvement to the shared core becomes an `inbound` issue on the
+The persona carries the route (an improvement to the shared core becomes an inbound issue on the
 source repo) and a pointer to this section. This is what each of the six actually asks. The repo lens keeps only
 repo-specific additions, plus at most a temporary bridging note until the release reaches it. **They fail
 independently**, and getting any of them wrong produces a repair that satisfies the report and is

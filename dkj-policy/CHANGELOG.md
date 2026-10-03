@@ -2,7 +2,56 @@
 
 ## [Unreleased]
 
-**6 / 11 minor entries** <!-- pending-tally -->
+**6 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2764-enhancement-label-becomes-feature · 20261003-111316Z
+
+The `enhancement` label on the source tracker is now `feature`, and a `feat/` pull request here is
+labelled `feature`. Consumers keep whatever label their own branch table names.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing beyond the rename itself.
+
+**Score:** N/A
+
+#### Pull Request
+
+The enhancement label is renamed to feature
+
+Plugins: dkj-policy
+
+[PR #2768](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2768)
+
+---
+
+### DEPLOY: feat/2756-bug-and-feature-inbound · 20261003-110038Z
+
+An inbound report is now filed as `bug-inbound` when something the plugins ship is wrong, or as
+`feature-inbound` when something is missing, each with its own issue template. Every specialist's
+shared instructions say which to pick. The single `inbound` label is gone from the source tracker, so a
+session on an older release that files with `--label inbound` gets an error from `gh` until it
+updates.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing beyond the label split itself.
+
+**Score:** N/A
+
+#### Pull Request
+
+The inbound label splits into bug-inbound and feature-inbound
+
+Plugins: dkj-policy, dkj-policy-dkjs, dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2763](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2763)
+
+---
 
 ### DEPLOY: fix/2748-low-prio-labels-orange · 20261003-104752Z
 

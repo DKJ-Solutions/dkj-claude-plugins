@@ -8,8 +8,9 @@
         . (Join-Path $PSScriptRoot '..\lib\branch-info.ps1')
 
     Supplies Get-BranchPrefix, Get-BranchInfo and Get-BranchTypes. The prefix table determines both
-    the GitHub label of the PR and the changelog entry type, and follows the standard GitHub labels:
-    Enhancement -> label 'enhancement', Bug -> 'bug', Documentation -> 'documentation'.
+    the GitHub label of the PR and the changelog entry type. It follows the standard GitHub labels, except
+    that 'enhancement' was renamed to 'feature' on this tracker (Dave, October 3, 2026, #2764):
+    Feature -> label 'feature', Bug -> 'bug', Documentation -> 'documentation'.
     Changing the table? Do it here too -- and nowhere else: every script reads this one table.
 
     The branch types (Feat/Fix/Docs/Chore) have their single source here. release-lib.ps1 reads
@@ -57,7 +58,7 @@ $script:BranchTypeOrder = @('Feat', 'Fix', 'Docs', 'Chore')
 # their own copy with their own table, so refusing it here states our rule without touching a consumer
 # who legitimately runs chore/ branches of their own.
 $script:BranchPrefixTable = @{
-    feat  = @{ Label = 'enhancement';   Type = 'Feat' }
+    feat  = @{ Label = 'feature';       Type = 'Feat' }
     fix   = @{ Label = 'bug';           Type = 'Fix' }
     docs  = @{ Label = 'documentation'; Type = 'Docs' }
 }

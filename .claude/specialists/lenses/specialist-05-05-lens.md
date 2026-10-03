@@ -35,7 +35,7 @@ table lives in [`scripts/lib/branch-info.ps1`](../../../scripts/lib/branch-info.
 
 | Type of work | Branch name | GitHub label | Changelog type |
 |---|---|---|---|
-| New or extended capability (new plugin/specialist, migrated manual, new script) | `feat/<description>` | `enhancement` | Feat |
+| New or extended capability (new plugin/specialist, migrated manual, new script) | `feat/<description>` | `feature` | Feat |
 | Correction of an error in an existing agent def/manual/script/manifest | `fix/<description>` | `bug` | Fix |
 | Documentation: `README.md`, `CLAUDE.md`, workflow explanation, manual content | `docs/<description>` | `documentation` | Docs |
 
@@ -850,17 +850,27 @@ tree that cannot both be true. Where your own branch created it, file it anyway 
 because that is the reader's first question. Scoping a contradiction out of the work is a reason not to
 edit the file; it is never a reason not to file it.
 
-**The labels are the branch prefixes, which is what makes an issue readable as work.** `enhancement`,
+**The labels are the branch prefixes, which is what makes an issue readable as work.** `feature`,
 `bug` and `documentation` map onto `feat/`, `fix/` and `docs/` and onto the changelog types they produce
 — the table is in [Classifying, naming, and creating a branch](#classifying-naming-and-creating-a-branch)
-above — so an issue already names the prefix its branch will get. The rung it also carries is a separate
+above — so an issue already names the prefix its branch will get. `feature` was GitHub's default
+`enhancement` until Dave renamed it (October 3, 2026,
+[#2764](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2764)); a consumer's own tracker keeps
+whatever its own seam names. The rung it also carries is a separate
 axis: see [Issue labels](#issue-labels--every-issue-carries-a-priority) below.
 
-**`inbound` is the fourth label and it means something different.** It marks a core improvement
-discovered in a *consuming* repo: the shared agent defs, manuals, personas and skills have one source, so
-a consumer files here with
-[the inbound template](../../../.github/ISSUE_TEMPLATE/inbound-improvement.md) instead of patching its
-own copy, and the improvement comes back to every consumer through a release. **On this side that is
+**`bug-inbound` and `feature-inbound` are the inbound labels, and they mean something more.** Each marks
+a core improvement discovered in a *consuming* repo: the shared agent defs, manuals, personas and skills
+have one source, so a consumer files here with
+[the bug template](../../../.github/ISSUE_TEMPLATE/bug-inbound.md) or
+[the feature template](../../../.github/ISSUE_TEMPLATE/feature-inbound.md) instead of patching its own
+copy, and the improvement comes back to every consumer through a release. **They replaced the single
+`inbound` label** (Dave, October 3, 2026,
+[#2756](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2756)), so an inbound issue names
+its prefix too: `bug-inbound` sits in the magenta `bug` family (`FF00FF`) and becomes a `fix/`, while
+`feature-inbound` sits in the cyan `feature` family (`a2eeef`) and becomes a `feat/`. The filer is a
+Claude session in the consumer, and it picks one: something the plugin ships is wrong, or something is
+missing. Every issue labelled `inbound` before that day was relabelled with one of the two. **On this side that is
 simply the ordinary chain**, because this is the source — but not before the item is verified. A filed
 report is a snapshot of the moment somebody wrote it, and **six things fail independently**: the symptom,
 the reason, the proposed repair, the size, the subject and the repo. Getting one wrong produces a repair
@@ -937,7 +947,7 @@ gh issue edit <n> --add-label prio-4 --remove-label prio-2   # a re-rank, both h
 gh issue edit <n> --add-label prio-2                         # only for one that arrived without a rung
 ```
 
-**The rule binds the FILER, not the tracker — so an `inbound` issue is outside it** (Dave,
+**The rule binds the FILER, not the tracker — so an inbound issue is outside it** (Dave,
 September 19, 2026, [#2127](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2127)).
 *"Every issue filed here"* reads as a property of this tracker, and under that reading it binds a
 consumer's session filing inbound — which has no mechanism to obey it, and no reason to. The portable
@@ -956,14 +966,16 @@ recent `inbound` issues carried none (#2120, #2117, #2056, #2055, #2054, #2052, 
 was between a stated rule and a mechanism, never a backlog of untriaged work — which is why #2127 was
 filed at `prio-1` and why the answer is a sentence rather than a gate.
 
-**`.github/ISSUE_TEMPLATE/inbound-improvement.md` keeps `labels: inbound` and nothing else, and that
-is the decision rather than the unrepaired half.** The obvious repair — a default rung in the
+**The two inbound templates carry their own label and nothing else, and that is the decision rather
+than the unrepaired half.** The measurement below predates the split, when one template
+(`inbound-improvement.md`) carried `labels: inbound`. The obvious repair — a default rung in the
 template's front matter — was measured and declined: of those same 12 inbound issues, **2** were filed
 through the template at all (#2117 and #2048, recognisable by its `## Which repo does this come from?`
 heading), and #2048 already carried `prio-3`. A default would therefore have reached **one** of the
 eleven missing rungs, at the price of a rung nobody chose on every future template filing — the
 guess the triage pass already corrects today. The template covers the web form; the route the inbound
-rule actually names is a free-form `gh issue create --label inbound`, which no front matter can reach.
+rule actually names is a free-form `gh issue create --label bug-inbound` (or `feature-inbound`), which
+no front matter can reach.
 
 That is the same rule `dkj-policy-bwj` states for its own four buckets, where the Asana sweep removes
 the other three as it sets one — **and since September 11, 2026 it is the same four NAMES as well**
@@ -1097,21 +1109,22 @@ every sighted reader brings to a badge is one rung off in this repo. **Read the 
 remains the standing rule for anything but the two rows marked deliberate.
 
 **It is a separate axis from the prefix→label mapping in
-[step 2](#classifying-naming-and-creating-a-branch), which is about a PULL REQUEST.** `enhancement`,
+[step 2](#classifying-naming-and-creating-a-branch), which is about a PULL REQUEST.** `feature`,
 `bug` and `documentation` say what *kind* of change a branch carries and are written by `open-pr.ps1`
 from the branch prefix; a `prio-N` says how much an *issue* weighs and is written by whoever files it.
 An issue therefore normally carries both, and neither can be derived from the other: a `documentation`
 issue can be the one that has to be repaired first, and a `bug` can be the one nobody is waiting for.
 
-**The one route that lands without a rung is the inbound template**, and that is correct rather than a
-gap: `.github/ISSUE_TEMPLATE/inbound-improvement.md` can only set a fixed `labels:` line, and the
+**The one route that lands without a rung is the inbound templates**, and that is correct rather than a
+gap: `.github/ISSUE_TEMPLATE/bug-inbound.md` and `feature-inbound.md` can only set a fixed `labels:`
+line, and the
 reporter is a session in *another* repo, which is not the party who can rank this backlog. It asks for
 urgency in prose instead, and the rung is set here when the item is picked up — the same moment the
 [`triage-inbound`](../../skills/triage-inbound/SKILL.md) checks are run.
 
-**Nothing enforces any of it, deliberately — the same shape as the `inbound` label.** A gate would have
+**Nothing enforces any of it, deliberately — the same shape as the inbound labels.** A gate would have
 to ask GitHub on every run, which puts the tracker on the critical path of a local check for a field
-only a person can fill in. So this is prose, exactly like the `inbound` route in
+only a person can fill in. So this is prose, exactly like the inbound route in
 [`CLAUDE.md`](../../../plugins/dkj-policy/CLAUDE.md#never-without-the-owners-explicit-permission), and the always-on half of it
 lives in [Chris's lens](specialist-01-01-lens.md#the-dave-rules) so a session filing a finding reads it
 without loading this page. **What that costs is measured elsewhere in this very file**: the `chore/`
