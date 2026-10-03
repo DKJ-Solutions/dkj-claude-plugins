@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**6 / 15 minor entries** <!-- pending-tally -->
+**7 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2752-flag-plugin-tree-in-consumer-pr · 20261003-114702Z
+
+**Inside this repo:** the residual that #2746 left open, a planted plugin tree in a consumer, now has a
+CI check, pinned by `branch-entry-gate.tests.ps1`. The step is in the consumer runner only. This
+repo's own `branch-entry.yml` runs its own tree's scripts on its own PRs.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+**For a consumer that calls the reusable branch-entry runner:** its branch-entry check now goes red on a
+pull request whose tree tracks a path shaped like an installed plugin's, or a symlink or submodule under
+a `.claude` name, and an annotation says why. The allow rules `specialists-init` proposes run a workflow
+script at such a path without a prompt, with `-ExecutionPolicy Bypass`. A glob can pin the path's shape
+but not its location, so a plugin tree committed into the repo would have run unprompted. Callers get the
+check without re-adopting and without any extra token scope. A repo still on a full copy of the runner
+does not get it. It is a flag, not a guarantee: it binds only where the check is required. It prevents a
+failure that has not happened yet.
+
+**Score:** 1
+
+#### Pull Request
+
+The consumer's branch-entry check flags a pull request that tracks a plugin-shaped path
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2770](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2770)
+
+---
 
 ### DEPLOY: feat/2737-score-achievable-floor · 20261003-113415Z
 
