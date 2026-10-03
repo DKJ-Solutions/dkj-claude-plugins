@@ -412,9 +412,9 @@ gh label create prio-4 --repo <owner>/<repo> --color b60205 \
   --description "Asana Prio-Score 4.00-5.00"
 gh label create prio-3 --repo <owner>/<repo> --color e0321a \
   --description "Asana Prio-Score 3.00-3.99"
-gh label create prio-2 --repo <owner>/<repo> --color f9a825 \
+gh label create prio-2 --repo <owner>/<repo> --color f57c00 \
   --description "Asana Prio-Score 2.00-2.99"
-gh label create prio-1 --repo <owner>/<repo> --color ffe033 \
+gh label create prio-1 --repo <owner>/<repo> --color ffa726 \
   --description "Asana Prio-Score 1.00-1.99"
 ```
 
@@ -435,8 +435,8 @@ history is lost:
 ```bash
 gh label edit "very high" --repo <owner>/<repo> --name prio-4 --color b60205
 gh label edit "high"      --repo <owner>/<repo> --name prio-3 --color e0321a
-gh label edit "low"       --repo <owner>/<repo> --name prio-2 --color f9a825
-gh label edit "very low"  --repo <owner>/<repo> --name prio-1 --color ffe033
+gh label edit "low"       --repo <owner>/<repo> --name prio-2 --color f57c00
+gh label edit "very low"  --repo <owner>/<repo> --name prio-1 --color ffa726
 ```
 
 **The colours are two yellows and two reds** (Dave, September 28, 2026): `prio-1` yellow, `prio-2` a

@@ -1273,8 +1273,8 @@ function Get-ExpectedRepoSettings {
 # the rest of the awaiting-* family, and it comes off when the blocking pull request merges. Same 'copy'
 # reasoning: "waiting on another issue" asserts nothing about the adopting repo.
 $script:TriageLabels = @(
-    [pscustomobject]@{ Name = 'prio-1'; Color = 'FFE033'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
-    [pscustomobject]@{ Name = 'prio-2'; Color = 'F9A825'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
+    [pscustomobject]@{ Name = 'prio-1'; Color = 'FFA726'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
+    [pscustomobject]@{ Name = 'prio-2'; Color = 'F57C00'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
     [pscustomobject]@{ Name = 'prio-3'; Color = 'E0321A'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     [pscustomobject]@{ Name = 'awaiting-more-recurrences'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
