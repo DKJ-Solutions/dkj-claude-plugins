@@ -299,7 +299,25 @@ try {
         'barred-skill: still reports its coverage with a file the parser refuses in the set'
     Assert-True ($sa5.Out -match '\[shopify-cli\] checked \d+') `
         'shopify-cli: still reports its coverage with a file the parser refuses in the set -- the shared pass degrades to an empty list, not a null'
+    # AND THE TWO THAT JOINED THE SHARED PASS IN #2751, for the same reason: 42b reads the cached tokens
+    # and CommandAsts, shopify-force the cached assignments, and a broken file must cost neither its run.
+    Assert-True ($sa5.Out -match '\[exec-policy/script\] checked \d+') `
+        'exec-policy/script: still reports its coverage with a file the parser refuses in the set (#2751)'
+    Assert-True ($sa5.Out -match '\[shopify-force\] checked \d+') `
+        'shopify-force: still reports its coverage with a file the parser refuses in the set (#2751)'
     Remove-Item -LiteralPath $hookProbe -Force
+
+    # 75b. ONE PARSE SITE IN THE GATE (issue #2751). #1358 shared the walk between two checks and nothing
+    #      held it there, so three later checks each grew their own parse and the run paid four parses and
+    #      three walks per file again. Read from the gate's own source rather than timed, because a timing
+    #      assert is noise at fixture size and this is the property the saving rests on. Matched on the
+    #      member name alone, so a shortened type name or a type held in a variable cannot slip past.
+    $gateAst = [System.Management.Automation.Language.Parser]::ParseFile($IntegritySrc, [ref]$null, [ref]$null)
+    $gateParses = @($gateAst.FindAll({ param($n)
+                $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -and
+                $n.Member.Extent.Text -match '^Parse(File|Input)$' }, $true))
+    Assert-Equal 1 $gateParses.Count `
+        'the gate parses a .ps1 in exactly one place -- Get-PsScriptParse -- and every check reads that cache (#2751)'
     Assert-True ((Invoke-Integrity -FixtureRoot $Fixture).Out -notmatch '\[script-ascii\] \.') `
         'script-ascii: the fixture is clean again once both probes are gone'
 

@@ -1505,19 +1505,62 @@ function Get-PsScriptFiles {
 #
 # IT RETAINS THE ASTs, WHICH IS THE COST AND IT IS STATED RATHER THAN DISCOVERED: 25,476 CommandAst nodes
 # over that set hold ~72MB of heap and ~100MB of working set. That is affordable on a hosted runner and
-# trivial in the fixture (12 files), but it is the reason this caches the CommandAst LIST rather than the
-# whole AST per file -- the nodes are reachable from it either way, and a narrower promise is easier to
-# keep. If it ever needs to be memory-bounded, the answer is to run both checks in ONE pass over the file
-# set rather than to cache: the two loops are independent per file and neither needs a second look.
+# trivial in the fixture (12 files), and it was the reason #1358 cached the CommandAst LIST rather than
+# the whole AST per file. #2751 below keeps the AST and the tokens as well, since the nodes were reachable
+# from the list either way. If it ever needs to be memory-bounded, the answer is to run the readers in
+# ONE pass over the file set rather than to cache: their loops are independent per file.
 #
-# CHECK 5 ('parse') DELIBERATELY DOES NOT USE THIS, and the reason is the one its own comment gives from
-# the other direction: it is the only skippable one of the three, and it needs the PARSE ERRORS this
-# accessor throws away. So it keeps its own pass, which is what lets these two run when 'parse' is
-# skipped -- the property the barred-skill comment already relied on, now stated where the sharing is.
+# ONE PARSE AND ONE WALK PER FILE FOR EVERY CHECK, NOT JUST THOSE TWO -- issue #2751. #1358 shared the
+# CommandAst list, and three passes stayed outside it: check 5 ('parse') parsed again for the ERRORS,
+# 42b (exec-policy/script) parsed again for the TOKENS and then walked for CommandAsts a second time, and
+# shopify-force parsed again for the ASSIGNMENTS and walked for those. So a run paid four parses and three
+# full walks over the same set. Get-PsScriptParse below keeps all of it per path -- the AST, the tokens,
+# the errors, and the CommandAst and AssignmentStatementAst lists from ONE walk whose predicate takes both.
 #
-# An unparseable file yields an EMPTY list, not $null. Both callers counted such a file as covered and
-# then skipped it, so an empty list preserves their coverage numbers exactly.
-$script:PsScriptCommandAstCache = @{}
+# MEASURED, October 3, 2026, over 451 .ps1 files under scripts/ and plugins/ (two rounds): a parse is
+# 1.5-2.1s, a parse with tokens 2.0-2.2s, and a walk 4.4-6.4s whatever node type it selects -- the cost
+# is the predicate scriptblock invoked once per node, not the match. So the saving is three parses and
+# two walks, and a cache that ever needs tokens must always request them: they cost little on top of
+# the parse they come with, and a second parse to get them costs a whole one.
+#
+# Check 5 USES THE CACHE NOW, which the paragraph before #2751 ruled out because this accessor threw
+# the errors away. It keeps them, so the one skippable reader no longer needs its own pass. Skipping
+# 'parse' still leaves every other reader working: whoever asks first fills the cache.
+#
+# An unparseable file yields an EMPTY list, not $null. The original two callers (barred-skill,
+# shopify-cli) counted such a file as covered and then skipped it, so an empty list preserves their
+# coverage numbers exactly.
+$script:PsScriptParseCache = @{}
+function Get-PsScriptParse {
+    <#
+        The whole parse of one .ps1, once per run: Ast, Tokens, Errors, Commands (every CommandAst) and
+        Assignments (every AssignmentStatementAst). Keyed by full path. Ast is $null only where the
+        parser returned none, and then both lists are empty.
+    #>
+    param([Parameter(Mandatory)][string]$Path)
+    if ($script:PsScriptParseCache.ContainsKey($Path)) { return $script:PsScriptParseCache[$Path] }
+    $tokens = $null
+    $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$errors)
+    $cmds = New-Object System.Collections.Generic.List[object]
+    $asns = New-Object System.Collections.Generic.List[object]
+    if ($null -ne $ast) {
+        foreach ($n in $ast.FindAll({ param($n)
+                    $n -is [System.Management.Automation.Language.CommandAst] -or
+                    $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true)) {
+            if ($n -is [System.Management.Automation.Language.CommandAst]) { $cmds.Add($n) } else { $asns.Add($n) }
+        }
+    }
+    $entry = [pscustomobject]@{
+        Ast         = $ast
+        Tokens      = @($tokens)
+        Errors      = @($errors)
+        Commands    = $cmds.ToArray()
+        Assignments = $asns.ToArray()
+    }
+    $script:PsScriptParseCache[$Path] = $entry
+    return $entry
+}
 function Get-EnclosingFunction {
     <#
         The FunctionDefinitionAst a node sits inside, or $null at file scope. Used to keep a
@@ -1613,23 +1656,14 @@ function Get-DiscardedOuterPipeline {
 
 function Get-PsScriptCommandAsts {
     param([Parameter(Mandatory)][string]$Path)
-    if ($script:PsScriptCommandAstCache.ContainsKey($Path)) { return $script:PsScriptCommandAstCache[$Path] }
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$null, [ref]$null)
-    $cmds = if ($null -eq $ast) {
-        @()
-    } else {
-        @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true))
-    }
-    $script:PsScriptCommandAstCache[$Path] = $cmds
-    return $cmds
+    return (Get-PsScriptParse -Path $Path).Commands
 }
 
 $psScripts = @()
 if (Test-CheckEnabled 'parse') {
     $psScripts = @(Get-PsScriptFiles)
     $psScripts | ForEach-Object {
-        $parseErrors = $null
-        [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$parseErrors) | Out-Null
+        $parseErrors = (Get-PsScriptParse -Path $_.FullName).Errors
         if ($parseErrors -and $parseErrors.Count -gt 0) {
             $rel = $_.FullName.Replace($RepoRoot, '.')
             Add-Error "[parse] $rel`: $($parseErrors[0].Message)"
@@ -5634,13 +5668,13 @@ $epsFiles = @(Get-PsScriptFiles | Where-Object {
 foreach ($epsFile in $epsFiles) {
     $epsRel = $epsFile.FullName.Substring($RepoRoot.Length).TrimStart('\', '/')
     $epsText = [System.IO.File]::ReadAllText($epsFile.FullName)
-    $epsTokens = $null
-    $epsErrors = $null
-    $epsAst = [System.Management.Automation.Language.Parser]::ParseInput($epsText, [ref]$epsTokens, [ref]$epsErrors)
+    # The shared parse (issue #2751): its tokens and its CommandAst list, rather than a parse and a walk
+    # of this check's own.
+    $epsTokens = (Get-PsScriptParse -Path $epsFile.FullName).Tokens
     # The lines carrying a command the script RUNS. Check 5 has already reported a file that does not
     # parse, so a partial AST here costs a line of coverage rather than a wrong finding.
     $epsCmdLines = @{}
-    foreach ($epsCmd in $epsAst.FindAll({ param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)) {
+    foreach ($epsCmd in (Get-PsScriptCommandAsts -Path $epsFile.FullName)) {
         $epsName = $epsCmd.GetCommandName()
         if ($epsName -and $epsName -match '(?i)^powershell(\.exe)?$') {
             $epsCmdLines[$epsCmd.Extent.StartLineNumber] = $true
@@ -5860,10 +5894,11 @@ foreach ($psFile in (Get-PsScriptFiles)) {
     # The file's literal string arrays, by variable name, so `-Arguments $dupArgs` can be followed. Only
     # a plain `$name = @('a','b')` counts: anything assembled over several statements is what the
     # unresolved lane is for, and guessing at it would be inventing the very bytes under test.
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile($psFile.FullName, [ref]$null, [ref]$null)
-    if ($null -eq $ast) { continue }
+    # From the shared parse and walk (issue #2751), not a parse of this check's own.
+    $fParse = Get-PsScriptParse -Path $psFile.FullName
+    if ($null -eq $fParse.Ast) { continue }
     $literalArrays = @{}
-    foreach ($asn in @($ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.AssignmentStatementAst] }, $true))) {
+    foreach ($asn in $fParse.Assignments) {
         if ($asn.Left -isnot [System.Management.Automation.Language.VariableExpressionAst]) { continue }
         $rhs = $asn.Right
         if ($rhs -is [System.Management.Automation.Language.CommandExpressionAst]) { $rhs = $rhs.Expression }
