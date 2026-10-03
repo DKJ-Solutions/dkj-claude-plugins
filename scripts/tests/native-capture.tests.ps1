@@ -1972,7 +1972,11 @@ foreach ($af in $auditFiles) {
 # closingIssuesReferences`), at the shared network bound and -Utf8. Asks Test-NativeExitMeasured, and
 # anything but a measured, whole 0 costs only the hint: the pull-request refusal has already been decided
 # and prints either way, so an unread closing list says "run this again on the issue number you meant".
-Assert-Equal 86 $boundedTotal 'the parser still counts 86 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 86 -> 87 (#2775): scripts/lib/suite-durations-lib.ps1. Its log read moved there from
+# record-suite-durations.ps1 (net zero), and Read-RunShardSeconds adds $call (`gh run view --json jobs`),
+# -Utf8 because the JSON is parsed. It asks Test-NativeExitMeasured, and an unread jobs list THROWS:
+# measure-suites prints nothing rather than a set with a shard missing, which would read as data.
+Assert-Equal 87 $boundedTotal 'the parser still counts 87 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

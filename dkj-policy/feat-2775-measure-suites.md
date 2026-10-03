@@ -51,6 +51,7 @@ use, rather than being copied. Repo-local because both scripts read this repo's 
 - [x] `scripts/maintenance/measure-suites.ps1`: the read-only comparison
 - [x] `scripts/tests/suite-durations-lib.tests.ps1`: the pure functions, the fixture-row drop above all
 - [x] `.claude/skills/measure-suites/SKILL.md`: the page, documenting both scripts
+- [x] `native-capture.tests.ps1`: the bounded-site audit moves 86 -> 87 for the new `gh run view --json jobs` read, which asks `Test-NativeExitMeasured`
 
 ### TEST
 
