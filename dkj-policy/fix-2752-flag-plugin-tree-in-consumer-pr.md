@@ -68,10 +68,11 @@ flag goes there, and it reads the PR's whole merge tree rather than the diff.
 
 ### DEPLOY: fix/2752-flag-plugin-tree-in-consumer-pr
 
-**Inside this repo:** nothing changes here. The new step is in the consumer runner only. This repo's own
-`branch-entry.yml` runs its own tree's scripts on its own PRs.
+**Inside this repo:** the residual that #2746 left open, a planted plugin tree in a consumer, now has a
+CI check, pinned by `branch-entry-gate.tests.ps1`. The step is in the consumer runner only. This
+repo's own `branch-entry.yml` runs its own tree's scripts on its own PRs.
 
-**Score:** N/A
+**Score:** 1
 
 #### What makes this deploy extra special
 
