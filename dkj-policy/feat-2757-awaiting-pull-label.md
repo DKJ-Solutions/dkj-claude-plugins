@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Issue #2757 (Dave): a new parking label, `awaiting-pull`, in purple (`5319E7`), for an issue that waits
+on another issue landing through a PR. This branch was built after #2741 had merged, as the issue's
+thread asked.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Add `awaiting-pull` to `Get-TriageLabels` and adopt-triage-labels' built-in list, right after
+  `awaiting-decision`.
+- [x] Add it to the claim and sweep skip defaults and to the issue dashboard's `PARKING_LABELS` and
+  `PARKED_BECAUSE`. Update the docs, the 05-05 lens and the regenerated blueprint.
+- [x] Also add `needs-decision` to the former-names list in the claim-issue SKILL, which #2741 missed.
 
 ### TEST
 
+- [x] adopt-triage-labels (102), claim-issue (560), repo-config (78), issue-dashboard (413) and pr-issues
+  (1144) all green, including a new assert that `awaiting-pull` parks. check-plugin-integrity: 0
+  errors.
+
 ### DEPLOY: feat/2757-awaiting-pull-label
 
-**Score:**
+New parking label `awaiting-pull`, purple like the rest of the awaiting-* family, for an issue that
+cannot start until another issue has landed through its pull request
+([#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757)). The claim and sweep routes
+skip it by default and the issue dashboard shows it as parked. It comes off when the blocking PR
+merges.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+For a consumer who runs `adopt-triage-labels`: it now offers one more `gh label create` line, for
+`awaiting-pull`.
+
+**Score:** 2
 
 #### Pull Request
 
