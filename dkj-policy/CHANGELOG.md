@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**7 / 23 minor entries** <!-- pending-tally -->
+**7 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2775-measure-suites · 20261003-131806Z
+
+A new repo-local skill, `measure-suites`, measures the test suites' CI cost for one set of CI runs, or
+compares two sets: the pool total, a total per named family of suites, the slowest shard, and the suites
+that changed most. It writes nothing. Before this, a before/after check of a change to the suites was
+summed by hand. `record-suite-durations.ps1` now shares its log parser with it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the skill and both scripts are this repo's own, and nothing in a plugin changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+measure-suites: compare the test suites' CI cost between two sets of runs
+
+[PR #2782](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2782)
+
+---
 
 ### DEPLOY: fix/2778-shard-gap-result · 20261003-130600Z
 
