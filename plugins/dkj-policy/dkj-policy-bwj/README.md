@@ -97,8 +97,8 @@ empty, because that repo declares no markets.
 ## Chapter one -- ticket handling, in one paragraph
 
 A discovered issue is **created on GitHub first** -- GitHub is the source of truth, full technical
-detail, the normal `dkj-subagents-alpha` filing bar unchanged. It is **classified in the same breath**: an issue
-type (Bug / Feature / Task), plus the reach label where management and the commissioner would notice
+detail, the normal `dkj-subagents-alpha` filing bar unchanged. It is **classified in the same breath**: a `bug`
+or `feature` label (neither means a task), plus the reach label where management and the commissioner would notice
 it, both set at creation so nobody has to classify a tracker by hand a second time. It is then
 **mirrored to Asana** as a colleague-friendly variant: plain language, outcome-framed, no code or
 repo jargon, so any BWJ colleague can read it. The two are **cross-linked both ways**. When the
@@ -395,7 +395,7 @@ the project:
   that board's sections, so a task filed anywhere else is on no pipeline and never moves a column.
   Neither failure says anything in a log.
 - `Get-AsanaIssueFieldGid` and `Get-AsanaTypeFieldGid` -- the GIDs of the board's `Github Issue` and
-  `Github Type` custom fields, so a mirrored task carries the issue URL and the issue type from the
+  `Github Type` custom fields, so a mirrored task carries the issue URL and its kind (from the `bug` or `feature` label) from the
   moment it is created rather than waiting for somebody to type them in. **Both optional**, and
   `$null` -- the default -- is the common answer: most boards carry neither, and `report-issue`
   skips whichever is unset without saying anything. Where a board does carry one, leaving it unset is
