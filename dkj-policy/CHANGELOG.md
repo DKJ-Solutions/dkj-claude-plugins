@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2736-session-start-keyed-on-repo · 20261003-091530Z
+
+`/measure-session-start` now keeps one page per repo: `Sessiestart-context · <repo>`. Running it in a
+second repo no longer finds the first repo's page, and no longer computes deltas between two different
+trees or republishes over another repo's history. A previous page whose data names another repo, or no
+repo at all, is refused as history with an `[ERROR]` that says whose page it is. Pages published before
+this change name no repo, so the next run in each repo starts a fresh page and leaves the old one alone.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The repo key travels inside the page's own data, not only in its title. A title can be matched by
+mistake, but the data block decides, so the guard holds even when a session picks the wrong artifact.
+
+**Score:** 2
+
+#### Pull Request
+
+measure-session-start: key the published page on the repo, so a second repo never reads or overwrites the first one's history
+
+Plugins: dkj-policy
+
+[PR #2745](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2745)
+
+---
 
 ### DEPLOY: fix/2735-session-start-no-out-dir · 20261003-085508Z
 

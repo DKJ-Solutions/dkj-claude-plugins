@@ -2,7 +2,7 @@
 name: measure-session-start
 description: >-
   Measure what a CLEAN session loads before the first question, refresh the published
-  "Sessiestart-context" artifact with it, and end the page with advice on where the most gain is
+  "Sessiestart-context" artifact of this repo with it, and end the page with advice on where the most gain is
   and why. The script measures the always-on documents and the plugin listings and renders the page
   from a data file; this page tells the model how to add the estimated rest and write the advice. Run
   it by name when the session start has grown or before a change meant to shrink it.
@@ -58,11 +58,15 @@ the always-on gate does. That is that repo's code running in your session, so ru
 you trust.
 
 **2. Find the published page and download it.** Use the Artifact tool: `action: list`, and look for the
-artifact titled exactly **`Sessiestart-context`** that **you own** (the list marks yours `(mine)`; a page
-with the same title that someone else published is not yours to read or overwrite). `Sessiestart-context`
-is a fixed name and the lookup key, deliberately not translated: it is the proper name of an external
-object, which `language-layers` says is cited as it is. The template sets it from the data's `pageTitle`;
-keep it. If the artifact exists, download its `index.html` with the tool's `path` option and **no
+artifact titled exactly as **`pageTitle` in `collect.json`** — `Sessiestart-context · <repo>`, where
+`<repo>` is the name collect read from this repo's origin — that **you own** (the list marks yours
+`(mine)`; a page with the same title that someone else published is not yours to read or overwrite). The
+title is the lookup key, deliberately not translated: it is the proper name of an external object, which
+`language-layers` says is cited as it is. **It names the repo because one account measures several**: a
+bare `Sessiestart-context` was one key for all of them, so a second repo found the first one's page and
+would have computed its deltas against another tree and republished over that history (#2736). A page
+titled bare `Sessiestart-context` predates that and is left alone: it names no repo, so step 3 cannot
+attribute it, and this repo starts its own page. If the artifact exists, download its `index.html` with the tool's `path` option and **no
 `out_dir`**, then copy the file the result names to `<scratch>/previous.html`. The default folder needs no
 approval. On Windows the harness can hand you the scratch path as an 8.3 short name (`GEBRUI~1`), and
 the Artifact tool refuses an `out_dir` with a `NAME~1` segment in it. PowerShell resolves those names,
@@ -128,7 +132,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
   -Out <scratch>/index.html -Previous <scratch>/previous.html
 ```
 
-`-Previous` is the page you downloaded in step 2; leave it off on the first run. **Before publishing,
+`-Previous` is the page you downloaded in step 2; leave it off on the first run. Step 3 and this render
+both read that page only when its data names this repo; otherwise they print an `[ERROR]` saying whose
+history it is, and you publish to this repo's own title instead of over that page. **Before publishing,
 check that the render printed no `[ERROR]` line and that `index.html` exists**: a failed render deletes a
 pre-existing output, so a missing file means nothing was produced, and an `[INFO]` about an unusable
 previous number only means that row has no delta. Then publish `index.html` to
@@ -140,13 +146,15 @@ total now against the total then, and the one lever the page leads with.
 The page renders **everything** from one object, so a change to what it shows is a change to the data.
 Static labels come from `labels` and fall back to English; set `locale` and `labels` in the **language of
 the session** (a Dutch session writes Dutch labels and a `nl-NL` locale). `pageTitle` stays the fixed
-lookup name from step 2, whatever the session language.
+lookup name from step 2, whatever the session language. **Copy `repo` and `pageTitle` from `collect.json`
+unchanged**: the next run reads `repo` to decide whether this page is its history.
 
 | field | contents |
 |---|---|
 | `schema` | `session-start-data/1` |
 | `asOf` | the date of this measurement |
-| `pageTitle` | `Sessiestart-context`, the fixed lookup name |
+| `repo` | the measured repo's name, from `collect.json` — the key the next run's history check reads |
+| `pageTitle` | `Sessiestart-context · <repo>`, the lookup name, from `collect.json` |
 | `locale` | e.g. `nl-NL`; number formatting follows it |
 | `labels` | the static label overrides |
 | `header` | `eyebrow`, `title`, `lede` — the lede says what moved since last time and why |
@@ -205,7 +213,7 @@ strings are the `scoreHeading` and `scoreText` labels.
 | `-Template <path>` | Render mode: the page template. |
 | `-Out <path>` | Render mode: where to write the finished page. |
 | `-ExtractPrevious` | Instead of collecting or rendering: write only the numeric history of `-Previous` (ids, tokens, bytes, `done`, `asOf`) to `-OutFile`. No prose from the page comes out. |
-| `-Previous <path>` | The previously published page, to read the history out of (with `-Render` or `-ExtractPrevious`). A page without a data block renders without deltas, and the script says so. |
+| `-Previous <path>` | The previously published page, to read the history out of (with `-Render` or `-ExtractPrevious`). It is read only when its data names this repo (#2736). A page without a data block, or with another repo's or none, renders without deltas, and the script says so. |
 | `-RepoRoot <path>` | The repo to measure. Default: `CLAUDE_PROJECT_DIR` in a consumer, otherwise the git root of the working directory. |
 | `-Plugin <name...>` | Collect mode: limit the plugin listing. Default: every plugin enabled for this repo. |
 | `-Root <path>` | Collect mode: the root document of the always-on path. Default: `CLAUDE.md` in the repo root. |
