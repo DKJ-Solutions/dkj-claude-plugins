@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**4 / 6 minor entries** <!-- pending-tally -->
+**4 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2749-park-refuses-merged-branch · 20261003-100139Z
+
+`park-branch` (and `new-branch -Park` on a resumed branch) no longer re-pushes a branch that has
+already merged. It used to report "nothing new to commit" and push, which recreated the remote head the
+merge had deleted, and then `prune-merged -IncludeRemote` listed it as a merged head to delete again.
+Now a branch the trunk already contains is refused with exit 1, nothing is pushed, and the message
+points you at `prune-merged`. A branch with nothing on it yet still parks as before, even once the
+trunk has moved on.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+park refuses a branch that has already merged, instead of recreating its deleted remote head
+
+Plugins: dkj-policy
+
+[PR #2758](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2758)
+
+---
 
 ### DEPLOY: feat/2741-awaiting-decision-label · 20261003-095111Z
 
