@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**7 / 18 minor entries** <!-- pending-tally -->
+**7 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2732-closed-awaiting-info-form · 20261003-122344Z
+
+An issue mirrored to Asana can now be closed while it waits on the requester. Close it as **not
+planned** and keep the `awaiting-more-info` label on. The task then gets a fourth fixed form, *"closed
+while waiting for information"*, which says the issue will be reopened once the questions are
+answered. Before this, the requester got the *"nothing is going to be built"* comment, as if the ticket
+had been rejected. No GitHub placeholder block is posted on such a close, and the card stays in the
+blocked column. [`WORKFLOW-portable.md`](../plugins/dkj-policy/dkj-policy-bwj/WORKFLOW-portable.md)
+names this as the one alternative to keeping the issue open.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer has to copy the updated `templates/asana-mirror.ps1` into its `.github/` before the CI posts
+the new form.
+
+**Score:** N/A
+
+#### Pull Request
+
+dkj-policy-bwj: a fixed form for closing an issue while it waits on the requester
+
+Plugins: dkj-policy-bwj
+
+[PR #2776](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2776)
+
+---
 
 ### DEPLOY: feat/2740-skip-expensive-integrity-checks · 20261003-120538Z
 
