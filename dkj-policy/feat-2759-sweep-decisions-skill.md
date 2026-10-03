@@ -39,19 +39,40 @@
 
 ### PLAN
 
+#2759: the issues `sweep-issues` skips as `awaiting-decision` pile up where no sweep looks. The step to
+automate is already prescribed in `CONTRIBUTING-portable.md` (the owner answers, the answer goes on the
+issue as a comment, the label comes off), so the skill adds no rule, only the loop: list, check that
+each decision is still open, ask as menus four at a time, record comment-then-label.
+
+A procedure skill with no script of its own, as `sweep-issues` drives `claim-issue`: every step is one
+`gh` call already, and the lazy rule automates on the second manual repeat, not the first.
+`disable-model-invocation: true` like `sweep-issues`, because it is run with the owner, on request.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Tessa: `plugins/dkj-policy/skills/sweep-decisions/SKILL.md`, plus pointers in `CONTRIBUTING-portable.md` and `sweep-issues`, and the skill list in `plugins/ADOPTION.md`
+- [x] Lint: `check-plugin-integrity` 0 errors
 
 ### TEST
 
+- [ ] Copy edit (Edith) and security review (Sebastian) on the diff
+
 ### DEPLOY: feat/2759-sweep-decisions-skill
 
-**Score:**
+New skill `/sweep-decisions`: it goes through every open issue parked on `awaiting-decision` (or its
+former name `needs-decision`) with you in one sitting. Each one is checked first (already answered,
+overtaken by a merged PR, or not yet a choice), then put to you as a short menu, four at a time, with
+"Not now" and "Drop it" beside the issue's own options. Your answer goes on the issue as a comment and
+the label comes off, so the next `/sweep-issues` finds it free with the decision in its thread.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+It is the other half of `sweep-issues`: between the two, nothing on the tracker waits without a route
+that reaches it.
+
+**Score:** 2
 
 #### Pull Request
 
