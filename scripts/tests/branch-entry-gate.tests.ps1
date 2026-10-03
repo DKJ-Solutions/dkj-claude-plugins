@@ -30,6 +30,7 @@ $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Script   = Join-Path $RepoRoot 'scripts\lint\check-branch-entry.ps1'
 . (Join-Path $RepoRoot 'scripts\lib\entry-scaffold-lib.ps1')
+. (Join-Path $RepoRoot 'scripts\lib\fixture-git-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -521,16 +522,16 @@ function Invoke-PlantedStep {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
     Push-Location $dir
     try {
-        & git init -q 2>&1 | Out-Null
+        Invoke-FixtureGitIn $dir init -q
         foreach ($f in $Files) {
             $full = Join-Path $dir ($f -replace '/', '\')
             New-Item -ItemType Directory -Path (Split-Path $full) -Force | Out-Null
             [System.IO.File]::WriteAllText($full, 'x')
         }
-        if ($Files.Count) { & git -c core.autocrlf=false add -A 2>&1 | Out-Null }
+        if ($Files.Count) { Invoke-FixtureGitIn $dir -c core.autocrlf=false add -A }
         $blob = ('target' | & git hash-object -w --stdin).Trim()
         foreach ($p in $Links.Keys) {
-            & git update-index --add --cacheinfo "$($Links[$p]),$blob,$p" 2>&1 | Out-Null
+            Invoke-FixtureGitIn $dir update-index --add --cacheinfo "$($Links[$p]),$blob,$p"
         }
         $shPath = Join-Path $dir 'step.sh'
         [System.IO.File]::WriteAllText($shPath, $plantedSh)
@@ -601,8 +602,13 @@ Assert-True ($openPrSrc -match 'if \(Get-PrTitlePrefixFinding -Prefix \$exemptPr
 Assert-True ($openPrSrc -match "-Title is ignored since #506 - the PR title comes from the entry's title section") `
     '-Title is still ignored on an entry-bearing branch: the exception is bounded, not a rollback of #506'
 Write-Host ''
+$fixtureBroken = Write-FixtureGitSummary -Subject 'the planted-tree step of reusable-branch-entry.yml'
 if ($script:fail -gt 0) {
     Write-Host "FAILED: $($script:fail) of $($script:pass + $script:fail) asserts." -ForegroundColor Red
+    exit 1
+}
+if ($fixtureBroken) {
+    Write-Host "FAILED: every assert passed, but $(Get-FixtureGitFailureCount) fixture git command(s) did not." -ForegroundColor Red
     exit 1
 }
 Write-Host "OK: all $($script:pass) asserts passed." -ForegroundColor Green
