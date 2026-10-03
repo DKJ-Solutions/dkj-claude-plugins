@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Issue #2739: at 153 suites CI is work-bound, so the stale shard-packing hint costs time again.
+Regenerate it from the three runs the issue measured, and date the lens's expired reason.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Regenerate `scripts/tests/suite-durations.json` from runs 37020751335, 37018439168 and
+  37017328726 with `record-suite-durations.ps1`. All 153 suites have rows, and the pool total is
+  8,129s, matching the issue.
+- [x] Add a dated paragraph to Nolan's lens under "The pool at 121 suites" saying the "do not re-open"
+  reason expired, when it holds, and what is still unmeasured.
 
 ### TEST
 
+- [x] Data only. The gate reads the file as a hint, and the recorder printed 153 rows from each run.
+
 ### DEPLOY: fix/2739-refresh-suite-durations
 
-**Score:**
+The CI shard-packing hint `scripts/tests/suite-durations.json` has been regenerated from three
+October 2 PR runs. It now covers all 153 suites, where it had 141, and none is charged the maximum any
+more. Nolan's lens now says the "do not re-open" reason expired when CI became work-bound
+([#2739](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2739)). Whether this closes the
+70-80s shard overshoot is still to be measured over several PR runs.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. CI wall-clock inside this repo only, and nothing a consumer takes changes.
+
+**Score:** N/A
 
 #### Pull Request
 
