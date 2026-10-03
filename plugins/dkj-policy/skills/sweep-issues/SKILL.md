@@ -224,6 +224,9 @@ Nothing earlier ends it, and one shipped issue in particular does not.
 it as the cue for step 7, not as the end of the assignment. Measured September 28, 2026: a sweep shipped
 one issue, took that template as its own close-out, and left four `free` issues untouched.
 
+**What it skipped as `awaiting-decision` is the owner's half**, and `sweep-decisions` walks it with
+them in one pass; a decided issue comes back here as `free`.
+
 **The sweep closes out once, after the loop**, in the ordinary receipt shape: the PR number of each issue
 it shipped, the branch of each it parked, and the number of each it held out, with a clause for why.
 
