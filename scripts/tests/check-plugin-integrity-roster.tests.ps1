@@ -526,16 +526,34 @@ try {
 
     Write-Host "-SkipCheck: no gate that guards main passes it" -ForegroundColor Cyan
     # A reduced gate must never run where a merge depends on it. Asserted on the callers rather than on
-    # the parameter, because the parameter cannot know who invoked it -- and these three are the whole
-    # set of places this script runs outside its own suite.
-    foreach ($caller in @('scripts\release\open-pr.ps1', 'scripts\release\cut-release.ps1', '.github\workflows\ci.yml')) {
-        $callerPath = Join-Path $RepoRoot $caller
-        Assert-True (Test-Path -LiteralPath $callerPath) "-SkipCheck: $caller exists to be checked"
-        if (Test-Path -LiteralPath $callerPath) {
-            $callerText = [System.IO.File]::ReadAllText($callerPath, [System.Text.Encoding]::UTF8)
-            Assert-True (-not ($callerText -match '-SkipCheck')) `
-                "-SkipCheck: $caller runs the FULL gate -- it never reduces the check set"
-        }
+    # the parameter, because the parameter cannot know who invoked it.
+    #
+    # ON THE LAUNCH LINE, NOT ON THE FILE'S TEXT (issue #2773). The guard used to assert that the literal
+    # '-SkipCheck' was absent from open-pr.ps1, cut-release.ps1 and ci.yml, and that missed in three ways:
+    # PowerShell binds an unambiguous prefix ('-Skip agent-def' is -SkipCheck, the gate's only -Skip*
+    # parameter); the param block is positional, so a bare 'agent-def' after the path binds too; and
+    # open-pr.ps1 never launches the gate at all -- gate-lib.ps1's Invoke-WorkflowGates does, and nothing
+    # read it. Matching '-Skip\w*' on the whole file instead would trip on -SkipLint/-SkipTests, which these
+    # callers carry legitimately. So every line that launches the gate (`-File` beside the lint path) is
+    # found by scanning, and what follows the path on it may only close the launch: nothing, a pipe to
+    # Out-Host, or the ')' that ends an argument array -- with no ',' after it, since gate-lib's ')' first
+    # closes the path's own quoting parens. An argument, a splat, or a trailing ',' fails.
+    $lintLaunchRoots = @('scripts', '.github\workflows') | ForEach-Object { Join-Path $RepoRoot $_ } |
+        Where-Object { Test-Path -LiteralPath $_ }
+    $lintLaunches = @(Get-ChildItem -LiteralPath $lintLaunchRoots -Recurse -File -Include '*.ps1', '*.yml' |
+        Where-Object { $_.FullName -notmatch '\\tests\\' } |
+        Select-String -Pattern '-File\b.*(\$lintPath|check-plugin-integrity\.ps1)' |
+        Where-Object { $_.Line -notmatch '^\s*#' })
+    $launchFiles = @($lintLaunches | ForEach-Object { $_.Path.Substring($RepoRoot.TrimEnd('\').Length + 1) } | Sort-Object -Unique)
+    # The scan must find the known launchers, or a moved call would leave this guard asserting over nothing.
+    foreach ($caller in @('scripts\lib\gate-lib.ps1', 'scripts\release\cut-release.ps1', '.github\workflows\ci.yml')) {
+        Assert-True ($launchFiles -contains $caller) "-SkipCheck: the launch scan finds the lint gate's launch in $caller"
+    }
+    foreach ($launch in $lintLaunches) {
+        $rel  = $launch.Path.Substring($RepoRoot.TrimEnd('\').Length + 1)
+        $tail = ($launch.Line -split '\$lintPath|check-plugin-integrity\.ps1')[-1] -replace "^[\s'`"+]*", ''
+        Assert-True ($tail -match '^(\s*|\|\s*Out-Host\s*|\)+(?![\s)]*,).*)$') `
+            "-SkipCheck: ${rel}:$($launch.LineNumber) runs the FULL gate -- no argument follows the lint path (found: '$tail')"
     }
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

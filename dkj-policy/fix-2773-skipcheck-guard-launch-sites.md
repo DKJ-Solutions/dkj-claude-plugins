@@ -39,19 +39,45 @@
 
 ### PLAN
 
+#2773: the "no gate that guards main passes -SkipCheck" guard only looked for the literal text. Checked
+before the repair: the gate's `param([string[]]$SkipCheck)` is its only `-Skip*` parameter and is
+positional, so `-Skip x`, a bare `x` or a splat would all reduce it. Two more things the report missed:
+`open-pr.ps1` never launches the gate itself (`gate-lib.ps1`'s `Invoke-WorkflowGates` does), and the
+proposed `-Skip\w*` over the whole file would trip on the callers' own `-SkipLint`/`-SkipTests`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rewrite the guard in `check-plugin-integrity-roster.tests.ps1` to scan for every line that launches
+  the lint gate (`-File` beside the lint path, under `scripts/**` and `.github/workflows`, tests excluded)
+  and assert nothing but a closer follows the path: nothing, `| Out-Host`, or `)` with no `,` after it.
+- [x] Assert the scan finds the known launchers (`gate-lib.ps1`, `cut-release.ps1`, `ci.yml`), so a moved
+  call cannot leave the guard asserting over nothing.
 
 ### TEST
 
+- [x] Suite green, 62 of 62 asserts. The matcher was also run by hand on six crafted bypasses (`-Skip x`,
+  a positional `x`, a splat, `, '-SkipC'` inside an array, and `), '-Skip'` / `)), '-Skip'` after
+  gate-lib's quoting parens). The first draft let the `), '-Skip'` shape through, and the tightened rule
+  refuses all six.
+
 ### DEPLOY: fix/2773-skipcheck-guard-launch-sites
 
-**Score:**
+The guard that keeps every merge path on the full lint gate now checks the line that launches the gate,
+not the caller's text. Before, it only looked for the literal `-SkipCheck`, so an abbreviated `-Skip x`,
+a positional argument or a splat would have reduced the gate unnoticed. It also read `open-pr.ps1`, which
+never launches the gate. It now finds every launch under `scripts/` and `.github/workflows` and refuses
+any argument after the lint path. This prevents a reduced gate on a merge path, which has not happened
+yet ([#2773](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2773)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
+
+check-plugin-integrity guard: check the gate's launch lines, not the literal -SkipCheck
 
