@@ -246,6 +246,17 @@ try {
     Assert-Equal 107 $mg.previous.noneTokens 'previous.noneTokens sums the previous none items by their OWN influence, the gone one included, so the score delta cannot be faked by a removed layer'
     Assert-Equal 1350 $mg.previous.totalBytes 'previous.totalBytes mirrors the documents block'
     Assert-Equal '2026-09-01' $mg.previous.asOf 'previous.asOf is carried'
+    Assert-True ($null -eq $mg.previous.budgetBytes) 'a previous page with no budget yields a null previous budget, so the page scores it without a floor'
+    Assert-True ($null -eq $mg.previous.charsPerToken) 'and a null previous factor'
+
+    $prevBudgeted = ConvertFrom-Json '{"asOf":"2026-09-01","documents":{"budgetBytes":2000,"charsPerToken":3.5,"items":[{"id":"CLAUDE.md","name":"CLAUDE.md","bytes":1000}]},"items":[]}'
+    $mb = Merge-SessionStartPrevious -Data (ConvertFrom-Json $curJson) -Previous $prevBudgeted
+    Assert-Equal 2000 $mb.previous.budgetBytes 'the previous page''s OWN budget is carried, for the score floor (#2737)'
+    Assert-Equal 3.5 $mb.previous.charsPerToken 'and its own chars-per-token factor'
+    $prevBadBudget = ConvertFrom-Json '{"documents":{"budgetBytes":"lots","charsPerToken":true,"items":[]},"items":[]}'
+    $mbb = Merge-SessionStartPrevious -Data (ConvertFrom-Json $curJson) -Previous $prevBadBudget
+    Assert-True ($null -eq $mbb.previous.budgetBytes) 'a budget that is not a whole number is dropped, not guessed'
+    Assert-True ($null -eq $mbb.previous.charsPerToken) 'a factor that is a boolean is dropped, not read as 1'
 
     $thin = Merge-SessionStartPrevious -Data (ConvertFrom-Json '{"documents":{"items":[{"id":"x","name":"x","bytes":5}]}}') -Previous (ConvertFrom-Json '{"unrelated":true}')
     Assert-True ($null -eq ($thin.documents.PSObject.Properties | Where-Object { $_.Name -eq 'hasPrevious' })) 'a previous page with NO documents does not set hasPrevious (and merges without throwing)'
