@@ -39,21 +39,59 @@
 
 ### PLAN
 
+Inbound #2736 from `smartwatchbanden`: the lookup key of `/measure-session-start` was the fixed title
+`Sessiestart-context`. An account that runs the skill in a second repo finds the first repo's page,
+and following steps 2 to 7 literally computes deltas across two trees and republishes over the first
+repo's history. I checked the reason against the tree before repairing: `pageTitle` is pinned to that
+value in the skill page and the schema table, and neither the script nor the data carried a repo.
+
+Repair along the reporter's suggested direction:
+
+- collect writes `repo`, read from the origin URL with the folder leaf as fallback (a worktree lane's
+  folder is not the repo's name), and `pageTitle` = `Sessiestart-context · <repo>`
+- `-ExtractPrevious` and `-Render` read a previous page only when its data names that same repo. A page
+  naming another repo, or none (every page rendered before this change), yields no history and an
+  `[ERROR]` saying whose it is
+- the skill page looks up by the new title and leaves a bare `Sessiestart-context` page alone
+
+**Deliberate consequence:** the source repo's existing four-measurement page names no repo, so its next
+run starts a fresh page under the new title. That page cannot be told apart from another repo's
+without reading its prose, and reading prose is exactly what step 3 forbids.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `session-start-lib.ps1`: `ConvertTo-SessionStartRepoName`, `Get-SessionStartRepoName`,
+  `Get-SessionStartPageTitle`, `Test-SessionStartPreviousRepo`
+- [x] `measure-session-start.ps1`: collect writes `repo` and `pageTitle`; extract and render apply the
+  repo check; the repo-root resolution is shared between the three modes
+- [x] Plugin mirrors synced byte for byte
+- [x] `SKILL.md`: step 2's lookup, step 7, the schema table and the `-Previous` row
 
 ### TEST
 
+- [x] `measure-session-start.tests.ps1`: 219 passed, 0 failed. New asserts cover the repo-name parsing
+  (https, scp-style, trailing slash, folder fallback, nothing usable), the title, the check itself
+  (same repo, another repo, case, no repo, no current name), render against another repo's page and
+  against a legacy page, and extract on the #2736 case itself
+- [x] Code review (Victor) on the diff
+
 ### DEPLOY: fix/2736-session-start-keyed-on-repo
 
-**Score:**
+`/measure-session-start` now keeps one page per repo: `Sessiestart-context · <repo>`. Running it in a
+second repo no longer finds the first repo's page, and no longer computes deltas between two different
+trees or republishes over another repo's history. A previous page whose data names another repo, or no
+repo at all, is refused as history with an `[ERROR]` that says whose page it is. Pages published before
+this change name no repo, so the next run in each repo starts a fresh page and leaves the old one alone.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The repo key travels inside the page's own data, not only in its title. A title can be matched by
+mistake, but the data block decides, so the guard holds even when a session picks the wrong artifact.
+
+**Score:** 2
 
 #### Pull Request
 
 measure-session-start: key the published page on the repo, so a second repo never reads or overwrites the first one's history
-
