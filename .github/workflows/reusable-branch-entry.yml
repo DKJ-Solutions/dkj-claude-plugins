@@ -106,14 +106,32 @@ jobs:
       # with no history and no extra token scope. An installed plugin never belongs in a repo, so a tracked
       # path there is a finding whichever commit brought it. Its own step, and run even when the entry check
       # above failed, so the two verdicts are read apart.
+      # IT MIRRORS THE GLOB'S SHAPE, NOT THE INSTALL LAYOUT (security and code review on #2752). The rule's
+      # '*' spans characters inside a segment, so 'a.claude-x/pluginsY/cacheZ/p/scripts/e.ps1' matches it
+      # and a grep for '.claude/plugins/' does not. So a regular entry is flagged when '.claude', 'plugins',
+      # 'cache' and 'scripts' occur in that order anywhere in its path, case-insensitively. A symlink (120000)
+      # or submodule (160000) is flagged when its path holds '.claude' at all: through one, the spelled path
+      # continues inside a target this listing does not show. -z, because without it git C-quotes a path
+      # with one non-ASCII byte and the quote breaks the match. Not covered, and said here so nobody reads
+      # this as a guarantee: files inside a submodule, the segments smuggled into a command's arguments, and
+      # a PR that edits this repo's own caller to drop the call. The check binds only where it is required.
       - name: No .claude/plugins/ tree tracked in this repo
         if: ${{ !cancelled() }}
         shell: bash
         run: |
-          planted=$(git ls-files | grep -iE '(^|/)\.claude/plugins/' || true)
+          shopt -s nocasematch
+          planted=""
+          while IFS= read -r -d '' entry; do
+            mode=${entry%% *}
+            path=${entry#*$'\t'}
+            case "$mode" in
+              120000|160000) [[ "$path" == *.claude* ]] && planted+="$mode $path"$'\n' ;;
+              *) [[ "$path" == *.claude*plugins*cache*scripts* ]] && planted+="$path"$'\n' ;;
+            esac
+          done < <(git ls-files -z -s)
           if [ -n "$planted" ]; then
-            echo "::error title=Plugin tree tracked in this repo (#2752)::This pull request's tree tracks a path under .claude/plugins/. That is where an INSTALLED plugin lives, and the allow rules specialists-init proposes run a workflow script found under such a path without asking. Remove these paths, or have the owner confirm by eye what they are before this merges."
-            echo "$planted"
+            echo "::error title=Plugin tree tracked in this repo (#2752)::This pull request's tree tracks a path shaped like an installed plugin's (.claude, plugins, cache, scripts), or a symlink or submodule under .claude. The allow rules specialists-init proposes run a workflow script found at such a path without asking. Remove these entries. If they are intended, the owner decides whether to merge past this red check."
+            printf '%s' "$planted"
             exit 1
           fi
-          echo "No path under .claude/plugins/ is tracked."
+          echo "No path shaped like an installed plugin is tracked."

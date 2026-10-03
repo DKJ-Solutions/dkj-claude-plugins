@@ -483,31 +483,84 @@ foreach ($wfName in @('branch-entry.yml', 'reusable-branch-entry.yml')) {
     Assert-True ($wfText -match '-Branch \$env:HEAD_REF') "$wfName and the script reads it from the environment"
 }
 
-# THE CONSUMER RUNNER FAILS A PR THAT TRACKS A .claude/plugins/ PATH (#2752). specialists-init's allow
-# rules match an install path by shape, never by location, so a planted in-repo plugin tree would run
-# unprompted; the owner chose to stop it at the pull request. The pattern is read OUT of the workflow and
-# run against sample paths, so what is pinned is the step's behaviour and not only its presence. The ERE
-# uses nothing .NET reads differently.
+# THE CONSUMER RUNNER FAILS A PR THAT TRACKS A PLUGIN-SHAPED PATH (#2752). specialists-init's allow rules
+# match an install path by shape, never by location, so a planted in-repo plugin tree would run unprompted;
+# the owner chose to stop it at the pull request. The step's own run: block is lifted OUT of the workflow
+# and executed under bash against fixture indexes, so what is pinned is its behaviour, not its phrasing.
+# Every hit below is a bypass the first version of the step missed, found by the security and code
+# reviews: a '*' spanning characters inside a segment, a path git C-quotes for one non-ASCII byte, and a
+# symlink or submodule whose own path carries '.claude'. The symlink and the submodule go into the index
+# through update-index, so the case does not depend on whether this machine can create a symlink.
 Write-Host ''
-Write-Host 'The consumer runner refuses a tracked .claude/plugins/ tree (#2752)' -ForegroundColor Cyan
+Write-Host 'The consumer runner refuses a tracked plugin-shaped path (#2752)' -ForegroundColor Cyan
 $reusableText = [System.IO.File]::ReadAllText((Join-Path $RepoRoot '.github\workflows\reusable-branch-entry.yml'))
 $plantedStep = [regex]::Match($reusableText, '(?ms)^      - name: No \.claude/plugins/ tree tracked in this repo\r?\n(.*?)(?=^      - |\z)')
 Assert-True $plantedStep.Success 'the reusable runner carries the planted-tree step'
 $plantedBody = $plantedStep.Groups[1].Value
 Assert-True ($plantedBody -match '(?m)^        if: \$\{\{ !cancelled\(\) \}\}') `
     'it runs even when the entry check before it failed, so both verdicts are reported'
-Assert-True ($plantedBody -match 'git ls-files \| grep -iE') 'it reads the tracked tree, case-insensitively'
-Assert-True ($plantedBody -match '(?m)^\s+exit 1$') 'and a finding fails the job rather than only annotating it'
 Assert-True ($plantedBody -notmatch '\$\{\{\s*github\.') 'and splices no github context into its run: block'
-$plantedPattern = [regex]::Match($plantedBody, "grep -iE '([^']+)'").Groups[1].Value
-Assert-True ($plantedPattern -ne '') 'the pattern can be read back out of the step'
-foreach ($hit in @('.claude/plugins/cache/dkj-policy/scripts/new-branch.ps1', 'sub/.claude/plugins/x.ps1', '.Claude/Plugins/a')) {
-    Assert-True ($hit -match "(?i)$plantedPattern") "the pattern flags '$hit'"
-}
-foreach ($miss in @('.claude/settings.json', 'dkj-policy/new-branch.ps1', 'plugins/dkj-policy/scripts/x.ps1', 'my.claude/plugins/x', '.claude-plugin/plugin.json')) {
-    Assert-True ($miss -notmatch "(?i)$plantedPattern") "and leaves '$miss' alone"
-}
 Assert-True ($reusableText -match '#2752') 'and the reason is written beside the step, not only here'
+
+$plantedRun = [regex]::Match($plantedBody, '(?ms)^        run: \|\r?\n(.*)').Groups[1].Value
+$plantedSh = ((($plantedRun -split '\r?\n') | ForEach-Object { if ($_.Length -ge 10) { $_.Substring(10) } else { $_.Trim() } }) -join "`n") + "`n"
+Assert-True ($plantedSh -match 'git ls-files -z -s') 'the step reads the index NUL-separated, with modes'
+
+$bashExe = 'bash'
+if (-not $IsLinux -and -not $IsMacOS) {
+    $gitRoot = Split-Path (Split-Path (Split-Path ((& git --exec-path) -replace '/', '\')))
+    $bashExe = Join-Path $gitRoot 'bin\bash.exe'
+}
+Assert-True ($bashExe -eq 'bash' -or (Test-Path -LiteralPath $bashExe)) "a bash to run the step under is found ($bashExe)"
+
+function Invoke-PlantedStep {
+    <# Builds a fixture index from -Files (regular entries) and -Links (path -> mode 120000/160000),
+       runs the lifted step in it, and returns its exit code and output. #>
+    param([string]$Label, [string[]]$Files = @(), [hashtable]$Links = @{})
+    $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("planted-$PID-$Label-" + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    Push-Location $dir
+    try {
+        & git init -q 2>&1 | Out-Null
+        foreach ($f in $Files) {
+            $full = Join-Path $dir ($f -replace '/', '\')
+            New-Item -ItemType Directory -Path (Split-Path $full) -Force | Out-Null
+            [System.IO.File]::WriteAllText($full, 'x')
+        }
+        if ($Files.Count) { & git -c core.autocrlf=false add -A 2>&1 | Out-Null }
+        $blob = ('target' | & git hash-object -w --stdin).Trim()
+        foreach ($p in $Links.Keys) {
+            & git update-index --add --cacheinfo "$($Links[$p]),$blob,$p" 2>&1 | Out-Null
+        }
+        $shPath = Join-Path $dir 'step.sh'
+        [System.IO.File]::WriteAllText($shPath, $plantedSh)
+        $out = & $bashExe 'step.sh' 2>&1 | ForEach-Object { "$_" }
+        return @{ Code = $LASTEXITCODE; Out = @($out) }
+    } finally {
+        Pop-Location
+        Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+$clean = Invoke-PlantedStep -Label 'clean' -Files @(
+    '.claude/settings.json', '.claude/rules/plugins.md', 'scripts/cache/.claude-notes.md', 'dkj-policy/new-branch.ps1',
+    'plugins/dkj-policy/scripts/cache.ps1', '.claude-plugin/plugin.json') -Links @{ 'docs/link' = '120000' }
+Assert-True ($clean.Code -eq 0) "a repo with only near-misses passes (exit $($clean.Code))"
+
+$nonAscii = '.claude/plugins/cache/' + [char]0x00E9 + '/scripts/a.ps1'
+$hits = @('.claude/plugins/cache/dkj-policy/scripts/new-branch.ps1', 'a.claude-x/pluginsY/cacheZ/p/scripts/e.ps1',
+          'up/.Claude/Plugins/Cache/p/Scripts/e.ps1')
+$planted = Invoke-PlantedStep -Label 'planted' -Files ($hits + @($nonAscii, 'dkj-policy/new-branch.ps1')) `
+    -Links @{ 'sub/.claude' = '120000'; 'vendor/x.claude' = '160000' }
+Assert-True ($planted.Code -eq 1) "a repo with planted entries fails the step (exit $($planted.Code))"
+foreach ($h in $hits) {
+    Assert-True (@($planted.Out | Where-Object { $_ -eq $h }).Count -eq 1) "it names '$h'"
+}
+Assert-True (@($planted.Out | Where-Object { $_ -like '.claude/plugins/cache/*/scripts/a.ps1' }).Count -eq 1) `
+    'it names the path git would have C-quoted for its one non-ASCII byte'
+Assert-True (@($planted.Out | Where-Object { $_ -eq '120000 sub/.claude' }).Count -eq 1) 'it names a symlink whose path holds .claude'
+Assert-True (@($planted.Out | Where-Object { $_ -eq '160000 vendor/x.claude' }).Count -eq 1) 'and a submodule whose path holds .claude'
+Assert-True (@($planted.Out | Where-Object { $_ -like '*dkj-policy/new-branch.ps1' }).Count -eq 0) 'and leaves the near-miss beside them alone'
 
 # --- open-pr READS THE SAME EXEMPTION, AND NAMES SUCH A BRANCH ANYWAY (#1962) ---------------------
 # The gate above and open-pr.ps1 used to disagree: this gate waved a sync/ branch through as owing no
