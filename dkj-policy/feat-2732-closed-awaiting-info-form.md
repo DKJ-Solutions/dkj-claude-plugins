@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Dave's decision on #2732 (October 3, 2026): closing while waiting for information is a sanctioned exit,
+built as the fourth fixed form.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-mirror.ps1`: `Test-ClosedAwaitingInfo`, and `-AwaitingInfo` through the comment builders;
+  the event and the sweep both select the form, and the GitHub backstop block skips it
+- [x] `dkj-policy-bwj.tests.ps1` pins the form word for word, plus the selector and the skipped backstop
+- [x] `WORKFLOW-portable.md` and `report-issue` name it as the alternative exit, label kept on
+- [x] `Add-AsanaComment`'s error handling checked: under `$ErrorActionPreference = 'Stop'` a non-2xx
+  answer throws before the log line, so that line only prints after Asana accepted the POST. No defect
 
 ### TEST
 
+- [x] `dkj-policy-bwj.tests.ps1`: 543 of 543 asserts pass
+
 ### DEPLOY: feat/2732-closed-awaiting-info-form
 
-**Score:**
+An issue mirrored to Asana can now be closed while it waits on the requester. Close it as **not
+planned** and keep the `awaiting-more-info` label on. The task then gets a fourth fixed form, *"closed
+while waiting for information"*, which says the issue will be reopened once the questions are
+answered. Before this, the requester got the *"nothing is going to be built"* comment, as if the ticket
+had been rejected. No GitHub placeholder block is posted on such a close, and the card stays in the
+blocked column. [`WORKFLOW-portable.md`](../plugins/dkj-policy/dkj-policy-bwj/WORKFLOW-portable.md)
+names this as the one alternative to keeping the issue open.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer has to copy the updated `templates/asana-mirror.ps1` into its `.github/` before the CI posts
+the new form.
+
+**Score:** N/A
 
 #### Pull Request
 

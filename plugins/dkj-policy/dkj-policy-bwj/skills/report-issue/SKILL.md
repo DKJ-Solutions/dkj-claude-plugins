@@ -248,8 +248,8 @@ task's `memberships.project.gid` before the move**, and where this board is not 
    own two forms:
    `<body>— GitHub automation 🤖` + two newlines + `GitHub issue <a href="<issue URL>"><owner>/<repo>#<n></a> is <strong>created:</strong> this Asana task is now in development.</body>`.
 
-   It is the first of three fixed forms, one per event, all under the same header. The CI mirror posts the CLOSED and REOPENED
-   forms ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), superseding
+   It is the first of four fixed forms, all under the same header. The CI mirror posts the CLOSED, the
+   CLOSED WHILE WAITING FOR INFORMATION (#2732) and the REOPENED forms ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), superseding
    #2653's wording). The form is fixed and English on every board, whatever language the card is
    written in, and `dkj-policy-bwj.tests.ps1` holds this copy equal to the one `asana-mirror.ps1`
    composes. Its header line is what tells a colleague that the account holder did not type it.
@@ -306,7 +306,9 @@ mechanism for the board's blocked column -- the label fires its own CI run, so t
 triage. **Setting it and writing the question are one act**: the label moves the card to the submitter,
 so the comment asking them what you need goes on in the same movement, in the form
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#setting-awaiting-more-info-is-writing-the-question----one-act-and-the-issue-stays-open)
-step 6 prescribes, and the issue stays open. Take the label off when the answer arrives and the card
+step 6 prescribes, and the issue stays open -- unless the owner wants it off the open list, in which case
+it is closed as **not planned with the label kept on**, the one sanctioned alternative, and the CI posts
+the waiting form. Take the label off when the answer arrives and the card
 returns to wherever the work actually is. Do not move that card by hand: the label is what the column is derived from, so a hand-move is
 undone on the next sweep while the label stays.
 

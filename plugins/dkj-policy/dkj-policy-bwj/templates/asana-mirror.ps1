@@ -471,19 +471,28 @@ function Get-MirrorCommentParts {
         -StateReason 'not_planned' says nothing was built, so there is nothing to test. No requester's
         form names it, so it keeps the closed shape and says what actually happened.
 
+        -AwaitingInfo on top of it is the FOURTH fixed form (#2732, Dave, October 3, 2026): a close as
+        not planned while the blocked-column label is still on the issue (Test-ClosedAwaitingInfo). The
+        ticket is not rejected, it is waiting on the requester, and 'nothing is going to be built' would
+        tell them the opposite. It keeps the closed shape too, so the marker below still finds it.
+
         A close always reads 'GitHub issue <ref> is now closed' -- Get-MirrorCommentMarker -- so the
         sweeps' de-duplication finds it: Asana stores the plain text of an html_text comment, link and
         bold included.
     #>
     param(
         [Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event,
-        [string]$StateReason = ''
+        [string]$StateReason = '',
+        [switch]$AwaitingInfo
     )
 
     switch ($Event) {
         'created'  { return @{ Lead = ''; Verb = 'created:';  Rest = ' this Asana task is now in development.' } }
         'reopened' { return @{ Lead = ''; Verb = 'reopened:'; Rest = ' this Asana task is back in development.' } }
         'closed'   {
+            if ($StateReason -eq 'not_planned' -and $AwaitingInfo) {
+                return @{ Lead = 'now '; Verb = 'closed while waiting for information:'; Rest = ' there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again.' }
+            }
             if ($StateReason -eq 'not_planned') {
                 return @{ Lead = 'now '; Verb = 'closed as not planned:'; Rest = ' nothing behind this ticket is going to be built, so there is nothing to test.' }
             }
@@ -503,10 +512,11 @@ function New-MirrorComment {
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event,
-        [string]$StateReason = ''
+        [string]$StateReason = '',
+        [switch]$AwaitingInfo
     )
 
-    $p = Get-MirrorCommentParts -Event $Event -StateReason $StateReason
+    $p = Get-MirrorCommentParts -Event $Event -StateReason $StateReason -AwaitingInfo:$AwaitingInfo
     return (@((Get-MirrorCommentHeader), '', "GitHub issue $IssueRef is $($p.Lead)$($p.Verb)$($p.Rest)") -join "`n")
 }
 
@@ -522,13 +532,14 @@ function New-MirrorCommentHtml {
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [Parameter(Mandatory = $true)][ValidateSet('created', 'closed', 'reopened')][string]$Event,
-        [string]$StateReason = ''
+        [string]$StateReason = '',
+        [switch]$AwaitingInfo
     )
 
     $esc   = { param($s) [System.Security.SecurityElement]::Escape([string]$s) }
     $parts = $IssueRef -split '#'
     $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    $p     = Get-MirrorCommentParts -Event $Event -StateReason $StateReason
+    $p     = Get-MirrorCommentParts -Event $Event -StateReason $StateReason -AwaitingInfo:$AwaitingInfo
     return "<body>$(& $esc (Get-MirrorCommentHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is $(& $esc $p.Lead)<strong>$(& $esc $p.Verb)</strong>$(& $esc $p.Rest)</body>"
 }
 
@@ -604,14 +615,16 @@ function New-ClosedMessageHtml {
         (created, closed, reopened) and the block rides on the closed one.
 
         -BlockSections is Get-PasteBlockSections' answer; '' (no block, or a close as not planned)
-        leaves the closed comment alone.
+        leaves the closed comment alone. A close while waiting for information (-AwaitingInfo) is a close
+        as not planned too, so it never carries a block either: nothing was built.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [string]$StateReason = '',
-        [AllowEmptyString()][string]$BlockSections = ''
+        [AllowEmptyString()][string]$BlockSections = '',
+        [switch]$AwaitingInfo
     )
-    $html = New-MirrorCommentHtml -IssueRef $IssueRef -Event 'closed' -StateReason $StateReason
+    $html = New-MirrorCommentHtml -IssueRef $IssueRef -Event 'closed' -StateReason $StateReason -AwaitingInfo:$AwaitingInfo
     if ($StateReason -eq 'not_planned' -or -not $BlockSections) { return $html }
     return ($html -replace '</body>$', '') + "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) + '</body>'
 }
@@ -889,6 +902,25 @@ function Get-MatchedNeedsInfoLabel {
     $hit = @(@($Labels) | Where-Object { $names -contains [string]$_ })
     if ($hit.Count -eq 0) { return '' }
     return [string]$hit[0]
+}
+
+function Test-ClosedAwaitingInfo {
+    <#
+        Is this close the fourth fixed form -- closed while waiting for information (#2732)? Pure.
+
+        Both halves are a person's statement: 'not planned' says nothing is being built now, and the
+        blocked-column label, kept on through the close, says why. Either one alone is something else
+        -- a plain rejection, or an open issue waiting on the requester -- so only the pair selects the
+        form. The label staying on is also what keeps the card in the blocked column, and what lands a
+        reopen there (Resolve-TargetStage).
+    #>
+    param(
+        [AllowEmptyString()][string]$StateReason = '',
+        [string[]]$Labels = @(),
+        [Parameter(Mandatory = $true)]$Map
+    )
+    if (([string]$StateReason).ToLowerInvariant() -ne 'not_planned') { return $false }
+    return [bool](Get-MatchedNeedsInfoLabel -Labels $Labels -Map $Map)
 }
 
 function Get-DefaultGithubStatusMap {
@@ -2018,9 +2050,10 @@ function Invoke-EventMode {
         #
         # A CLOSE CARRIES THE SESSION'S GO-LIVE BLOCK (#2700, #2703): one closed message, the block's
         # sections under the closed line, instead of a hand paste plus a second comment saying the same.
+        $awaiting = Test-ClosedAwaitingInfo -StateReason $link.StateReason -Labels $link.Labels -Map $script:StageMap
         $html = if ($Event -eq 'closed') {
             New-ClosedMessageHtml -IssueRef $IssueRef -StateReason $link.StateReason `
-                -BlockSections (Get-SessionPasteBlockSections -IssueRef $IssueRef)
+                -BlockSections (Get-SessionPasteBlockSections -IssueRef $IssueRef) -AwaitingInfo:$awaiting
         } else {
             New-MirrorCommentHtml -IssueRef $IssueRef -Event $Event -StateReason $link.StateReason
         }
@@ -2039,7 +2072,13 @@ function Invoke-EventMode {
     # block on every one of them that predates this rule -- a burst of comments on a colleague's
     # tracker, each of them asking somebody to go back to a closed issue, which is the very thing
     # #2049 measured as not working. The accepted gap is unchanged and stated on the page.
-    if ($Event -eq 'closed' -and -not (Test-AsanaPasteBlockPosted -IssueRef $IssueRef)) {
+    #
+    # NOT ON A CLOSE WHILE WAITING FOR INFORMATION (#2732): its block is the question, already on the
+    # issue under the same marker, and a 'where to look' placeholder would point at a result that does
+    # not exist.
+    if ($Event -eq 'closed' -and
+        -not (Test-ClosedAwaitingInfo -StateReason $link.StateReason -Labels $link.Labels -Map $script:StageMap) -and
+        -not (Test-AsanaPasteBlockPosted -IssueRef $IssueRef)) {
         Add-GithubIssueComment -IssueRef $IssueRef -Text (New-AsanaPasteBlockComment -IssueRef $IssueRef)
     }
 
@@ -2083,8 +2122,9 @@ function Update-MirroredTask {
     # GH_PROJECT_TOKEN notice once per swept issue in a repo that has not set one.
     $closure = Get-IssueLinkState -Repo ($IssueRef -split '#')[0] -Number ([int]($IssueRef -split '#')[1]) `
                    -StatusField ''
+    $awaiting = Test-ClosedAwaitingInfo -StateReason $closure.StateReason -Labels $closure.Labels -Map $script:StageMap
     $html = New-ClosedMessageHtml -IssueRef $IssueRef -StateReason $closure.StateReason `
-                -BlockSections (Get-SessionPasteBlockSections -IssueRef $IssueRef)
+                -BlockSections (Get-SessionPasteBlockSections -IssueRef $IssueRef) -AwaitingInfo:$awaiting
     Add-AsanaComment -Gid $Gid -Html $html -Pat $AsanaPat
     $how =if ($MatchedBy) { " (matched by $MatchedBy)" } else { '' }
     Write-Host "  Updated: Asana task $Gid told that $IssueRef is closed$how."
