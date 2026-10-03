@@ -1318,8 +1318,9 @@ if ($NoPush) {
     # made -- are sections of this file now, so the pair that used to be listed here is one path. Named
     # explicitly rather than swept up, so the commit stays exactly as narrow as it was: this pushes to a
     # branch, but the pathspec discipline is the same everywhere.
+        # -Trunk (#2749): a resumed branch the trunk already contains is refused rather than re-pushed.
         $ok = Invoke-GitPark -RepoRoot $repoRoot -Branch $Name -Scope 'BranchFiles' `
-            -Paths @($cycleRel)
+            -Paths @($cycleRel) -Trunk $trunk
         if (-not $ok) {
             # THE PUSH REJECTION IS THIS CHECK'S OWN SYMPTOM (#1439), so the note is emitted here rather
             # than left to the tail of a run that never reaches it. git has just printed its own

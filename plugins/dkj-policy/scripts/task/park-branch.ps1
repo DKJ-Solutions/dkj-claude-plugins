@@ -140,7 +140,11 @@ if ($branch -eq 'main') {
 # that matters least to a script and most to a person: they wrote the IDENTICAL commit message while
 # committing different things. 'Everything' is this script's scope and always was; the scope now also
 # chooses the words, so the log says which half of the work is on origin.
-$ok = Invoke-GitPark -RepoRoot $repoRoot -Branch $branch -Scope 'Everything' -Intent $Intent
+# -Trunk TURNS ON THE MERGED-BRANCH REFUSAL (issue #2749): parking a branch the trunk already contains
+# would recreate the head its merge deleted. It passes 'main', the name the guard above already assumes,
+# because this script loads no repo-owned config (see the header); a trunk by another name does not
+# resolve, and the refusal is skipped rather than guessed at.
+$ok = Invoke-GitPark -RepoRoot $repoRoot -Branch $branch -Scope 'Everything' -Intent $Intent -Trunk 'main'
 if (-not $ok) { exit 1 }
 
 # THE RECEIPT SHAPE, LAST (issue #1884) -- see closeout-lib.ps1. A deliberate park is close-out shape
