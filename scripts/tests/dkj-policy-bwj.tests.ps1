@@ -319,6 +319,23 @@ Assert-True ($notPlanned -notmatch 'ready to test')      'rather than asking the
 Assert-True ($notPlanned.Contains((Get-MirrorCommentMarker -IssueRef 'o/r#1'))) 'and it still carries the de-duplication marker'
 Assert-Equal (Get-MirrorCommentHeader) (($notPlanned -split "`n")[0]) 'under the same header'
 
+# closed while waiting for information -- the fourth fixed form (#2732): not planned PLUS the
+# blocked-column label kept on through the close. Pinned word for word, like the created form.
+$waiting = New-MirrorComment -IssueRef $ref -Event 'closed' -StateReason 'not_planned' -AwaitingInfo
+Assert-Equal ("$hdr`n`nGitHub issue $ref is now closed while waiting for information: there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again.") `
+    $waiting 'a close while waiting for information is the fourth fixed form exactly'
+Assert-True ($waiting -notmatch 'not going to be built|nothing to test') 'and never tells the requester their ticket was rejected'
+Assert-True ($waiting.Contains((Get-MirrorCommentMarker -IssueRef $ref))) 'and it still carries the de-duplication marker, so the sweeps read it as told'
+Assert-Equal $waiting ([xml](New-MirrorCommentHtml -IssueRef $ref -Event 'closed' -StateReason 'not_planned' -AwaitingInfo)).body.InnerText 'its html reads as its plain form'
+Assert-Equal $closed (New-MirrorComment -IssueRef $ref -Event 'closed' -StateReason 'completed' -AwaitingInfo) 'a completed close ignores the switch -- only not planned can be a wait'
+$cMap = Get-DefaultAsanaStageMap
+Assert-True  (Test-ClosedAwaitingInfo -StateReason 'not_planned' -Labels @('awaiting-more-info') -Map $cMap) 'not planned with the label selects the form'
+Assert-True  (Test-ClosedAwaitingInfo -StateReason 'NOT_PLANNED' -Labels @('needs-info') -Map $cMap)        'and so does the label''s former name, in any case of the reason'
+Assert-True  (-not (Test-ClosedAwaitingInfo -StateReason 'not_planned' -Labels @('bug') -Map $cMap))        'not planned without the label is a plain rejection'
+Assert-True  (-not (Test-ClosedAwaitingInfo -StateReason 'completed' -Labels @('awaiting-more-info') -Map $cMap)) 'and a completed close with the label is not a wait'
+$tmpSrc = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'templates\asana-mirror.ps1'))
+Assert-True  ($tmpSrc -match '(?s)-not \(Test-ClosedAwaitingInfo [^\r\n]+\) -and\s+-not \(Test-AsanaPasteBlockPosted') 'the GitHub backstop block is not posted under a close while waiting -- its block is the question'
+
 # the de-duplication key is the close update's own opening sentence, and it names the issue --
 # so two issues mirrored onto one task never mask each other
 $marker = Get-MirrorCommentMarker -IssueRef $ref
@@ -1054,6 +1071,8 @@ Assert-Equal '<a href="https://x.invalid/?a=1&amp;b=2">t</a> en <strong>vet</str
 Assert-Equal (New-MirrorCommentHtml -IssueRef 'o/r#1' -Event 'closed' -StateReason 'not_planned') `
     (New-ClosedMessageHtml -IssueRef 'o/r#1' -StateReason 'not_planned' -BlockSections $glSections) 'a close as not planned carries no block -- nothing was built'
 Assert-Equal (New-MirrorCommentHtml -IssueRef 'o/r#1' -Event 'closed') (New-ClosedMessageHtml -IssueRef 'o/r#1') 'and with no block the closed comment goes out alone'
+Assert-Equal (New-MirrorCommentHtml -IssueRef 'o/r#1' -Event 'closed' -StateReason 'not_planned' -AwaitingInfo) `
+    (New-ClosedMessageHtml -IssueRef 'o/r#1' -StateReason 'not_planned' -BlockSections $glSections -AwaitingInfo) 'a close while waiting for information carries no block either, and is the waiting form'
 
 # A BARE LIST BESIDE A RESULT LINK SAYS HOW TO READ IT BEFORE THE RELEASE (#2477): a bare URL renders
 # the preview in any browser that opened the result link first, so both tabs would agree. The caveat is
