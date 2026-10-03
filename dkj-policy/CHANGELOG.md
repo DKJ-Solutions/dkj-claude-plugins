@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**7 / 19 minor entries** <!-- pending-tally -->
+**7 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2773-skipcheck-guard-launch-sites · 20261003-123252Z
+
+The guard that keeps every merge path on the full lint gate now checks the line that launches the gate,
+not the caller's text. Before, it only looked for the literal `-SkipCheck`, so an abbreviated `-Skip x`,
+a positional argument or a splat would have reduced the gate unnoticed. It also read `open-pr.ps1`, which
+never launches the gate. It now finds every launch under `scripts/` and `.github/workflows` and refuses
+any argument after the lint path. This prevents a reduced gate on a merge path, which has not happened
+yet ([#2773](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2773)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+check-plugin-integrity guard: check the gate's launch lines, not the literal -SkipCheck
+
+[PR #2777](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2777)
+
+---
 
 ### DEPLOY: feat/2732-closed-awaiting-info-form · 20261003-122344Z
 
