@@ -39,19 +39,39 @@
 
 ### PLAN
 
+#2749, verified on pickup: `Invoke-GitPark` pushes whenever its commit half returns Ok, with no question
+about whether the trunk already holds the branch. `park-cycle.ps1` has its own guard (it asks gh for
+the PR state), so it was never the path. `park-branch` and `new-branch -Park` were.
+
+The refusal sits in `Invoke-GitPark` behind a new `-Trunk` parameter, so both entry points share one
+definition and park-cycle's behaviour is unchanged. A HEAD **equal** to the trunk tip is not refused,
+because a branch just cut has shipped nothing. The issue's second proof, the head of a merged PR, is
+left out: it costs a gh call on every park, and this workflow merges with merge commits, where the
+ancestor proof already covers the measured case.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Sylvester: `Invoke-GitPark -Trunk` refuses a HEAD that `origin/<trunk>` or `<trunk>` already contains (strict ancestor), before the push; park-branch passes `'main'` (its existing guard's name, no repo config loaded), new-branch passes its resolved `$trunk`; plugin mirrors synced
+- [x] Tycho: park-branch suite pins the merged case (exit 1, nothing on origin) and the fresh-branch case (still parks), 36 passed
 
 ### TEST
 
 ### DEPLOY: fix/2749-park-refuses-merged-branch
 
-**Score:**
+`park-branch` (and `new-branch -Park` on a resumed branch) no longer re-pushes a branch that has
+already merged. It used to report "nothing new to commit" and push, which recreated the remote head the
+merge had deleted, and then `prune-merged -IncludeRemote` listed it as a merged head to delete again.
+Now a branch the trunk already contains is refused with exit 1, nothing is pushed, and the message
+points you at `prune-merged`. A branch just cut from the trunk, with nothing on it yet, still parks as
+before.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
