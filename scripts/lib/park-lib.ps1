@@ -698,6 +698,10 @@ function Invoke-GitPark {
         decides what it costs. park-branch.ps1 does not pass it and is byte-for-byte unaffected -- there
         the sentence IS the report, and the run stops on it.
 
+        -Trunk TURNS ON THE MERGED-BRANCH REFUSAL (issue #2749): with it, a HEAD the trunk already
+        contains is refused before the push instead of recreating a deleted head. Empty keeps the old
+        behaviour, for a caller that runs its own merged check (park-cycle.ps1 asks gh for the PR state).
+
         -PushTimeoutSeconds IS FOR THE CALLER RUNNING UNDER A HOOK'S CEILING (issue #1958). The push below
         is bounded by the shared per-call network number, which is TWICE the whole CEILING the Stop hook
         that drives park-cycle.ps1 runs under -- so this one call could legitimately outrun the hook and be
@@ -715,13 +719,46 @@ function Invoke-GitPark {
         [string]$Intent = '',
         [string]$BodyNote = '',
         [switch]$NoFailureMessage,
-        [int]$PushTimeoutSeconds = 0
+        [int]$PushTimeoutSeconds = 0,
+        [string]$Trunk = ''
     )
 
     $commit = Invoke-GitParkCommit -RepoRoot $RepoRoot -Branch $Branch -Scope $Scope -Paths $Paths `
                                    -Intent $Intent -BodyNote $BodyNote `
                                    -Continuation 'pushing the existing commits as-is'
     if (-not $commit.Ok) { return $false }
+
+    # A BRANCH THE TRUNK ALREADY CONTAINS IS NOT PARKED, IT IS RESURRECTED (issue #2749). Measured October
+    # 3, 2026: a checkout still on a branch that had merged as #2698, its remote head deleted, was parked;
+    # with nothing to commit the push went ahead and recreated the head on origin, where prune-merged
+    # -IncludeRemote then classified it as a deletable merged head. So before the push, with -Trunk given:
+    # a HEAD that the trunk contains -- local or remote-tracking, either proves it -- and that the trunk
+    # did NOT walk through on its own first-parent line is refused. That second half is what tells a
+    # merged branch from an EMPTY one: a branch cut and never committed to sits on a commit the trunk
+    # itself passed through (its tip, or an older one once the trunk moved on), while a branch merged
+    # with a merge commit arrives as that commit's second parent. An empty branch has shipped nothing,
+    # so it still parks. A commit made just above can never be contained, so this only bites on a park
+    # with nothing new to commit. Local reads only; a fast-forwarded or squash-merged head is not caught
+    # here (park-cycle.ps1 asks gh for the PR state itself).
+    if ($Trunk) {
+        $headRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'rev-parse', '--verify', '--quiet', 'HEAD') -DiscardStderr
+        $headSha = if ($headRes.ExitCode -eq 0) { ($headRes.Output | Out-String).Trim() } else { '' }
+        foreach ($ref in @("refs/remotes/origin/$Trunk", "refs/heads/$Trunk")) {
+            if (-not $headSha) { break }
+            $refRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'rev-parse', '--verify', '--quiet', "$ref^{commit}") -DiscardStderr
+            if ($refRes.ExitCode -ne 0) { continue }
+            $ancRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'merge-base', '--is-ancestor', $headSha, $ref) -DiscardStderr
+            if ($ancRes.ExitCode -ne 0) { continue }
+            $fpRes = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'rev-list', '--first-parent', "$ref^{commit}") -DiscardStderr
+            if ($fpRes.ExitCode -ne 0) { continue }
+            $onFirstParent = @(($fpRes.Output | Out-String) -split '\r?\n' | ForEach-Object { $_.Trim() }) -contains $headSha
+            if (-not $onFirstParent) {
+                Write-Error ("park: '$Branch' is already contained in $ref -- it has merged, and pushing it would recreate a branch head that was deleted after the merge (issue #2749). " +
+                             "Nothing was pushed. Switch to $Trunk and delete the local branch (prune-merged does it).") -ErrorAction Continue
+                return $false
+            }
+        }
+    }
 
     # Push + set upstream tracking, so the branch is reachable (and continuable) from another device.
     # No PR: push != PR (the PR rule stays intact and separate).
