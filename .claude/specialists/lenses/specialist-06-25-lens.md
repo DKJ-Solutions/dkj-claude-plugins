@@ -1465,9 +1465,21 @@ partition, while the longest file, `bootstrap-drift.tests.ps1`, sits at **311.7s
 the CI makespan, so the partition does, and the slowest shard landed 70-80s above that 406s in all three
 runs. The file then listed 141 of the 153 suites. It has been regenerated from those same three runs
 (`record-suite-durations.ps1`), and now lists all 153. **The "do not re-open" rule holds only while one
-file is longer than work ÷ lanes**, so check that inequality before citing it. **Not yet measured:** whether
-the refresh closes the 70-80s. The inference comes from n=3 runs where one shard ranged 235-419s on runner
-noise alone, so read the shard spread over several PR runs before writing a figure here.
+file is longer than work ÷ lanes**, so check that inequality before citing it.
+
+**Measured since: the refresh did not close the gap**
+([#2778](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2778)). Three PR runs carrying the
+refreshed file put the slowest shard **49-75s** above its perfect partition. Four more runs, which also carry
+#2774's integrity-suite skips, came out at **61 / 52 / 105 / 117s** above work ÷ 20 lanes (pool work 7,171 /
+7,257 / 6,339 / 5,689s, slowest shard 420 / 415 / 422 / 401s). The gap is widest on the two lightest runs,
+where the shard minimum also fell to about 250s, so the min-to-max spread inside one run reached 152-164s.
+Shard wall-clock is the whole job, setup included, so every one of those gaps is an upper bound. The
+inequality still holds, because the longest file (`bootstrap-drift.tests.ps1`, 247.8s mean) is below work ÷
+lanes on every run, but **a partition packed from means does not remove per-run noise of this size**. The
+file was regenerated from those four runs, because #2774 had left the 15 integrity suites about 30% cheaper
+than it recorded. **Whether the remainder is noise or packing is still open**, and it needs the spread over
+more runs than seven. That is the reading
+[#2775](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2775) would turn into one command.
 
 **Honest limit: n=1 per stdin state**, on a machine that is not CI and does not convert to it (the #1713
 rule above). What is n=2 is the regime — September 9 at 16 lanes and today at 22, both within 1.4% of

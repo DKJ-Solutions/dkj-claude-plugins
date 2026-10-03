@@ -41,17 +41,28 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Measure the shard spread on the four PR runs carrying #2774 (37121339222, 37122330637,
+  37122436214, 37122841927): max − ideal 61 / 52 / 105 / 117s
+- [x] Regenerate `scripts/tests/suite-durations.json` from those four runs (`record-suite-durations.ps1`)
+- [x] Replace the lens's "not yet measured" sentence with the result
 
 ### TEST
 
 ### DEPLOY: fix/2778-shard-gap-result
 
-**Score:**
+Refreshing the suite durations (#2747) did not close the CI shard gap. Across seven PR runs the slowest
+shard still lands 49-117s above a perfect partition, and the performance lens now records that figure
+instead of "not yet measured". `suite-durations.json` is regenerated from the four runs that carry #2774,
+which made the 15 integrity suites about 30% cheaper than the file recorded, so the gate packs from current
+figures again. Whether the remaining gap is runner noise or packing is still open (#2775).
+
+**Score:** 1 -- prevents the gate from packing CI shards off figures that overcharge the integrity suites.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- CI shard packing and a lens paragraph; nothing a consumer receives changes.
+
+**Score:** N/A
 
 #### Pull Request
 
