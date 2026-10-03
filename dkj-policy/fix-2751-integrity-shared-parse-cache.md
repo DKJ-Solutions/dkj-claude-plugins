@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Issue [#2751](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2751). Before building, I measured
+whether the parse is the cost, as the issue asked: over 451 `.ps1` files a parse is 1.5-2.1s and a
+`FindAll` walk 4.4-6.4s. So the walk is the cost, and 42b was walking for CommandAsts a second time,
+which the issue did not name. `mirror-depth` and `shared-script` compare bytes and never parse, so they
+are out of scope.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-PsScriptParse`: one parse per path, keeping the AST, tokens and errors, and one walk that collects CommandAsts and AssignmentStatementAsts together
+- [x] `Get-PsScriptCommandAsts`, check 5 (`parse`), 42b (`exec-policy/script`) and `shopify-force` read from it
+- [x] Scenario 75 asserts that 42b and shopify-force survive an unparseable file; 75b holds the gate to one parse site
 
 ### TEST
 
+- [x] The full gate on the real tree produces the same output as `main`, apart from the lines this branch's own document adds
+- [x] The removed work timed directly, three rounds: old passes 13.8-17.1s, new pass 4.4-5.4s
+- [x] `check-plugin-integrity-scripts` (61), `-invocations` (39) and `-script-set` (28) are green
+
 ### DEPLOY: fix/2751-integrity-shared-parse-cache
 
-**Score:**
+`check-plugin-integrity.ps1` now parses each `.ps1` once and walks it once per run, and every check that
+reads a script shares that pass. Before this, a run paid four parses and three full walks per file:
+check 5 parsed again for the errors, `exec-policy/script` for the tokens plus a second CommandAst walk,
+and `shopify-force` for the assignments. Over this repo's 451 scripts that work came to 13.8-17.1s,
+and it now takes 4.4-5.4s. A new assert keeps the gate down to a single parse site, because the sharing
+#1358 introduced eroded with nothing to hold it
+([#2751](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2751)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
