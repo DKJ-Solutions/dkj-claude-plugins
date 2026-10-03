@@ -1161,7 +1161,7 @@ instead of a new issue, `part of #<n>` instead of a keyword, close only on the r
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — `awaiting-decision` at filing, `awaiting-pull` while another issue lands, `awaiting-first-recurrence` once only evidence is owed
+### The parking labels — `awaiting-decision` at filing, `awaiting-pull` while another issue lands, `awaiting-event` until a date, `awaiting-first-recurrence` once only evidence is owed
 
 **`awaiting-decision` (`5319E7`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
 nor a sweep treats it as work that is ready (Dave, September 26, 2026,
@@ -1184,6 +1184,12 @@ the tracker shows the long-lived ones at a glance (Dave, September 28, 2026,
 October 3, 2026, [#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757)). Both pickup routes
 skip it as they skip `awaiting-decision`, and it comes off when the blocking pull request merges. It is new,
 so no former name is matched for it.
+
+**`awaiting-event` (`5319E7`) parks an issue that waits on an external event or date** — a launch, a third
+party's release (Dave, October 3, 2026, inbound
+[#2784](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2784), from a consumer whose issue could
+not start before a game opened). Both pickup routes skip it, the issue states the event or date, and the
+label comes off once it has happened. New, so no former name.
 
 ### The reach label — `minor`, and it is a second axis, not a fifth rung
 

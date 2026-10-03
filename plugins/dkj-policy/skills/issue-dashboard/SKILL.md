@@ -124,7 +124,7 @@ private repository created later. Where only some repositories belong on the pag
 
 Status is the first match of: **In review** (an open non-draft PR closes it), **In progress** (a draft PR,
 or a `<prefix>/<n>-` branch under `feat/`, `fix/`, `docs/`), **Waiting** (label `awaiting-more-info`,
-`awaiting-decision`, `awaiting-pull`, `awaiting-first-recurrence` or `awaiting-more-recurrences`, or any former name: `needs-info`, `needs-decision`,
+`awaiting-decision`, `awaiting-pull`, `awaiting-event`, `awaiting-first-recurrence` or `awaiting-more-recurrences`, or any former name: `needs-info`, `needs-decision`,
 `awaiting-recurrence`, `record`, `dossier`), **Blocked** (an open `blockedBy`), **Claimed** (an assignee),
 **Filed**. Order is topological over open in-repo blockers, ties by issue number; priority labels and age
 do not order. An open blocker outside the repo sinks an issue, and any issue behind a sunk one, below every issue without one; a cycle is

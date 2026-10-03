@@ -2469,7 +2469,7 @@ function Format-ParkingLabelNote {
         .DESCRIPTION
             WARNS, NEVER REFUSES -- the same bound as every pickup signal in this script (#1485): a label
             can be stale, and a claim that blocks costs the whole assignment. What it changes is the
-            reading. The sweep route skips such an issue outright (`-Candidates -SkipLabel awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-recurrence,record,dossier`);
+            reading. The sweep route skips such an issue outright (`-Candidates -SkipLabel awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-event,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-recurrence,record,dossier`);
             the single-issue route used to claim it and print "the work starts here", and a session took
             that literally and chose between the owner's options itself.
 
