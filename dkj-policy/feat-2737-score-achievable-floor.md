@@ -39,19 +39,44 @@
 
 ### PLAN
 
+Owner's decision on #2737 (October 3, 2026): score against an achievable floor made of the
+no-influence layers plus whatever is deliberately always-on, taken from the measured data and the
+render and never from the actions' estimated `tokens`.
+
+"Deliberately always-on" is read as **the always-on documents up to `documents.budgetBytes`**. The
+budget is the repo's own seam, which collect reads and nobody types in, so the model writing the data
+still cannot set the score. The score is `none / (total - keep)` and not `floor / total`, because
+`floor / total` would *rise* as the always-on path grew inside its budget.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Template: `keepTokens` + a three-argument `score`, the previous score fed by the previous page's own budget and factor; `scoreText` rewritten
+- [x] `Merge-SessionStartPrevious` carries `previous.budgetBytes` and `previous.charsPerToken` (null when absent or not a number); mirror copied
+- [x] SKILL.md: the score paragraph describes the floor
 
 ### TEST
 
+- [x] `measure-session-start.tests.ps1`: 226 passed, 0 failed, including new asserts for the carried budget and factor and for a malformed value being dropped
+- [x] The score function run under node on the issue's figures: no budget gives 40 (the old score), this repo now gives 66 (74 with every open action done), and a start at the floor gives 100
+
 ### DEPLOY: feat/2737-score-achievable-floor
 
-**Score:**
+The efficiency score on the `measure-session-start` page now measures how far the session start is
+from the floor you can actually reach, not from an empty start. The floor is what Claude Code ships
+itself plus the always-on documents up to their budget, which are always-on on purpose. A start with
+nothing above it scores 100. The always-on path growing inside its budget no longer moves the score,
+and only a byte over the budget counts against it. Before this, the score was capped near 43 in this
+repo even with every action done. It now reads 66 on the same figures
+([#2737](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2737)). The first render after the
+update shows a jump in the score that comes from the new formula, not from a change in the session.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
