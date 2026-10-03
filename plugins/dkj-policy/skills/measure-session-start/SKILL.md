@@ -179,10 +179,14 @@ the score where it is, a byte over the budget lowers it, and every token saved i
 `setting` item raises it. It used to be `none` against the whole start, which only an empty start could
 max out: here that capped it near 43 with every action done. **The actions' `tokens` never enter it**,
 because those are the model's estimates. The previous score comes from `previous.noneTokens`,
-`previous.totalTokens`, `previous.totalBytes` and the previous page's own `budgetBytes` and
-`charsPerToken`, all of which the render reads off the previous page. A removed or renamed layer therefore
-cannot fake a delta, there is no field for the score, and the data cannot set it. Its two strings are the
-`scoreHeading` and `scoreText` labels.
+`previous.totalTokens`, `previous.totalBytes` and the previous page's own `budgetBytes`, all of which the
+render reads off the previous page. Its `charsPerToken` is used too, falling back to the current factor
+where the previous page has none. A previous page with no budget is scored without a floor, and its delta
+against a floored score is not shown. A removed or renamed layer therefore cannot fake a delta, there is
+no field for the score, and the data cannot set it. **The always-on item's `tokens` must be
+`alwaysOn.totalTokens` as collect wrote it** (step 5): the floor is computed from the documents' bytes,
+so an always-on item typed lower than that would put the floor above what it sets aside and read 100
+early. Its two strings are the `scoreHeading` and `scoreText` labels.
 
 ### What the collect JSON holds
 

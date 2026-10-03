@@ -283,11 +283,13 @@ function keepTokens(bytes,budget,ratio){return budget>0&&ratio>0&&bytes>0?Math.r
 /* 100 is reserved for a start with nothing above the floor, so rounding never awards it before then. */
 function score(none,total,keep){var base=Math.max(none,total-(keep||0));return base>0?Math.max(1,Math.min(none<base?99:100,Math.round(none/base*100))):null}
 var DOC0=D.documents||{};
-var keep=keepTokens((DOC0.items||[]).reduce(function(a,d){return a+(Number(d.bytes)||0)},0),Number(DOC0.budgetBytes)||0,Number(DOC0.charsPerToken)||3.12);
+var CPT=Number(DOC0.charsPerToken)||3.12;
+var keep=keepTokens((DOC0.items||[]).reduce(function(a,d){return a+(Number(d.bytes)||0)},0),Number(DOC0.budgetBytes)||0,CPT);
 var sc=score(tot.none,tot.direct+tot.setting+tot.none,keep);
 var P=D.previous||{};
-var prevKeep=keepTokens(Number(P.totalBytes)||0,Number(P.budgetBytes)||0,Number(P.charsPerToken)||Number(DOC0.charsPerToken)||3.12);
-var prevSc=P.noneTokens!=null&&P.totalTokens?score(Number(P.noneTokens),Number(P.totalTokens),prevKeep):null;
+var prevKeep=keepTokens(Number(P.totalBytes)||0,Number(P.budgetBytes)||0,Number(P.charsPerToken)||CPT);
+/* A previous page with no floor and a current one with a floor score on different bases, so no delta then. */
+var prevSc=P.noneTokens!=null&&P.totalTokens&&!(keep>0&&prevKeep===0)?score(Number(P.noneTokens),Number(P.totalTokens),prevKeep):null;
 setText('score-h',L.scoreHeading);setMd('score-text',L.scoreText);
 if(sc==null){$('score-num').textContent='-'}else{
   $('score-num').innerHTML=sc+'<small>/100</small>';
@@ -357,7 +359,7 @@ acts.forEach(function(a){
 /* ---- the always-on documents, with the delta against the previous measurement ---- */
 var DOC=D.documents||{};
 var docs=DOC.items||[];
-var ratio=DOC.charsPerToken||3.12;
+var ratio=CPT;
 var hasPrev=!!DOC.hasPrevious;
 var prevLabel=DOC.previousLabel||L.colPrevious;
 setText('h-docs',DOC.heading||L.docsHeading);setMd('docs-lede',DOC.lede||L.docsLede);
