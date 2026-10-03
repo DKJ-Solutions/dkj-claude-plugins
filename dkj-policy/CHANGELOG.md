@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**6 / 10 minor entries** <!-- pending-tally -->
+**6 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2748-low-prio-labels-orange · 20261003-104752Z
+
+The two low priority labels are now oranges: `prio-1` `FFA726`, leaning to yellow, and `prio-2`
+`F57C00`, leaning to red. Yellow is free for another label family. `adopt-triage-labels` prints the new
+colours for a tracker that does not have the labels yet. It matches existing labels by name, so a
+tracker that already has them keeps its colours until someone runs `gh label edit`.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing beyond the colour change itself.
+
+**Score:** N/A
+
+#### Pull Request
+
+prio-1 and prio-2 move into the orange family, freeing yellow
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2753](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2753)
+
+---
 
 ### DEPLOY: feat/2759-sweep-decisions-skill · 20261003-103847Z
 
