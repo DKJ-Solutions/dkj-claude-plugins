@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Inbound #2746, verified on pickup: `bootstrap.ps1` generated `*dkj-policy*new-branch.ps1*` (and the
+same for open-pr/ship-pr, both tool shapes). That matches the consumer's own root `dkj-policy/` folder
+too, which `adopt-dkj-policy` Part 1 scaffolds. The proposed repair, anchoring on the install path,
+names a real mechanism. Separator-agnostic `*` between the literal segments keeps it valid for both
+slashes, and `cache` is left out so a plugin run from the marketplace clone still matches. The trailing
+`*` stays because Claude Code splits compound commands before matching.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Sylvester: anchor the six entry-point rules on `*.claude*plugins*<plugin>*scripts*<entry>*`, make the gh rule exact, comments say why
+- [x] Tessa: one sentence in the specialists-init SKILL.md on what the wildcard keeps literal
+- [x] Tycho: bootstrap-drift asserts the new spelling, the exact gh rule, and the rule's BEHAVIOUR (matches the installed copy with either slash, refuses `-File dkj-policy/new-branch.ps1`), 241 passed
 
 ### TEST
 
+- [ ] Code review (Victor), security review (Sebastian), copy edit (Edith) on the diff
+
 ### DEPLOY: fix/2746-allow-rules-anchored-on-plugin-path
 
-**Score:**
+The `settings.suggested.jsonc` that `specialists-init` proposes no longer allows a `new-branch`,
+`open-pr` or `ship-pr` script just because its path contains `dkj-policy`. Each rule now requires the
+install path's shape (`.claude`, `plugins`, the plugin, `scripts`, the script), so a script placed in
+your repo's own `dkj-policy/` folder through a pull request prompts like any other. The
+`gh repo edit --delete-branch-on-merge` rule is now exact, so it no longer allows `--visibility` or other
+flags. Rules you already pasted are unchanged: re-run `specialists-init` and paste the new allow lines
+to pick this up.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The drift suite now reads each generated rule back as a pattern and runs it against real commands, so
+it pins what the rule allows rather than how it is spelled.
+
+**Score:** 2
 
 #### Pull Request
 
