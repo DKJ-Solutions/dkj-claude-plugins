@@ -334,7 +334,7 @@ Assert-True  (Test-ClosedAwaitingInfo -StateReason 'NOT_PLANNED' -Labels @('need
 Assert-True  (-not (Test-ClosedAwaitingInfo -StateReason 'not_planned' -Labels @('bug') -Map $cMap))        'not planned without the label is a plain rejection'
 Assert-True  (-not (Test-ClosedAwaitingInfo -StateReason 'completed' -Labels @('awaiting-more-info') -Map $cMap)) 'and a completed close with the label is not a wait'
 $tmpSrc = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'templates\asana-mirror.ps1'))
-Assert-True  ($tmpSrc -match '(?s)-not \(Test-ClosedAwaitingInfo [^\r\n]+\) -and\s+-not \(Test-AsanaPasteBlockPosted') 'the GitHub backstop block is not posted under a close while waiting -- its block is the question'
+Assert-True  ($tmpSrc -match "(?s)\`$link\.StateReason -ne 'not_planned' -and\s+-not \(Test-AsanaPasteBlockPosted") 'the GitHub backstop block is not posted under any close as not planned (#2765) -- nothing was built, and the waiting form''s block is the question'
 
 # the de-duplication key is the close update's own opening sentence, and it names the issue --
 # so two issues mirrored onto one task never mask each other

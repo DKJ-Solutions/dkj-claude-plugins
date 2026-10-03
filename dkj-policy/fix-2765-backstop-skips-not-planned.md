@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Gate `asana-mirror`'s GitHub backstop on the close's `state_reason`, as #2765 proposes. Verified in
+the tree first: `New-ClosedMessageHtml` already drops the block for `not_planned`, while the backstop
+gate read only `Test-ClosedAwaitingInfo`, so a plain not-planned close still got the `[ADD LINK]` block.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `templates/asana-mirror.ps1`: the backstop gate reads `$link.StateReason -ne 'not_planned'`, which covers the waiting form (#2732) too
+- [x] `dkj-policy-bwj.tests.ps1`: the source pin follows the new gate
+- [x] `WORKFLOW-portable.md`: the event table and the backstop paragraph say a not-planned close gets no backstop
 
 ### TEST
 
+- [x] the full gate, through `ship-pr`
+
 ### DEPLOY: fix/2765-backstop-skips-not-planned
 
-**Score:**
+An issue mirrored to Asana that is closed as **not planned** no longer gets the GitHub backstop block
+asking somebody to fill in where to look at the result. Nothing was built, so there is no result, and
+the Asana side already left that block out. Before this, only the close while waiting for information
+(#2732) was spared it. [`WORKFLOW-portable.md`](../plugins/dkj-policy/dkj-policy-bwj/WORKFLOW-portable.md)
+says so in its event table.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer has to copy the updated `templates/asana-mirror.ps1` into its `.github/` before the CI stops
+posting the block.
+
+**Score:** N/A
 
 #### Pull Request
 
