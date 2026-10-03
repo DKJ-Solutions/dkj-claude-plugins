@@ -143,7 +143,8 @@
     repository. It used to be handed to `gh pr create --label` unchecked, so gh was the one to discover
     it does not exist -- and gh refuses the whole create, after every gate above has run and the branch
     has been pushed. Measured in a consumer whose 'bug' and 'enhancement' labels had been deleted
-    org-wide because the issue TYPE now carries that classification: the seam table was correct the day
+    org-wide because the issue TYPE carried that classification then (#2750 has since moved BWJ back to
+    labels): the seam table was correct the day
     before and nothing in the consumer changed. One `gh label list` answers it, and it runs BEFORE the
     lint and test gates so the author who has to go and create a label hears it in seconds. Create path
     only (an existing PR keeps its own labels and is never sent one), not -Force-able as the link and
@@ -1952,7 +1953,8 @@ If the title really does begin with that word, ship it with -Force.
 #     could not add label: 'bug' not found
 #
 # Measured in BWJ-ecommerce/smartwatchbanden on September 1, 2026, where 'bug' and 'enhancement' had
-# been deleted org-wide because the issue TYPE now carries that classification. The seam table was
+# been deleted org-wide because the issue TYPE carried that classification then (#2750 has since moved
+# BWJ back to labels). The seam table was
 # correct the day before and nothing in the consumer changed, which is why this is a gate and not a
 # better error message: any repo that renames or retires a label breaks the same way.
 #
@@ -1994,7 +1996,8 @@ if (-not $existingPr) {
     # NO LABEL AT ALL IS A LEGITIMATE SEAM ANSWER, AND NOT THIS GATE'S SUBJECT (inbound #1395).
     #
     # THE DEFECT. Measured in BWJ-ecommerce/smartwatchbanden on September 4, 2026, which abolished PR
-    # labels outright -- the issue TYPE now carries that classification -- so its prefix table answers
+    # labels outright -- the issue TYPE carried that classification then, until #2750 moved BWJ back to
+    # labels -- so its prefix table answers
     # Label = $null for every prefix it knows. Get-MissingLabelNote already reads an empty label as
     # "nothing to check"; nothing after it did. The lookup asked gh for a list whose answer could not
     # matter, the success line announced that '' exists in the repository, and the create appended

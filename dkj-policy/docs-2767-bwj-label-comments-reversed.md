@@ -39,19 +39,39 @@
 
 ### PLAN
 
+#2767: the label-gate comments explain BWJ's deleted `bug`/`enhancement` labels by "the issue TYPE now
+carries that classification", which #2750 (Dave, October 3, 2026) reverses. The measurements they cite
+stay true, so the repair is tense plus a pointer, not a rewrite. Worded against #2750's *decision*,
+which is on the tracker, so it holds whichever of the two PRs lands first. The behaviour question in
+#2767 (should BWJ `fix/`/`feat/` PRs carry `bug`/`feature` again) is the owner's call and went to #2769.
+The `dkj-policy-bwj` docs that state the type model are #2750's own branch, left alone here.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `pr-issues-lib.ps1` (`Get-MissingLabelNote`) and its mirror
+- [x] `open-pr.ps1`: header, label-gate block, no-label block, and its mirror
+- [x] `pr-issues.tests.ps1`: the two measured-case comments, found by a wider grep than the issue named
+- [x] `open-pr/SKILL.md`: the measured-case paragraph, found the same way
+- [x] Filed the behaviour question as #2769 (`awaiting-decision`)
 
 ### TEST
 
+- [x] Comment and prose only; the gates run through `open-pr`
+
 ### DEPLOY: docs/2767-bwj-label-comments-reversed
 
-**Score:**
+Comments and one `open-pr` skill paragraph no longer say BWJ's issue *type* carries the bug/feature
+classification; they say it did then, and point at #2750, which brings the labels back.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing beyond the wording.
+
+**Score:** N/A
 
 #### Pull Request
+
+Label-gate comments stop claiming BWJ classifies by issue type
 
