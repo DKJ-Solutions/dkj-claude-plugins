@@ -109,10 +109,15 @@ So every label goes on the `gh issue create` itself.
 
 | label | what it carries | how |
 |---|---|---|
-| **`bug` or `feature`** | the kind | `--label bug` for a defect in behaviour that already exists, `--label feature` for a capability the store does not have yet, and **neither** for everything else, which is most of it. **An issue with neither is a task**: there is no `task` label, because absence already answers it. Never both |
+| **`bug` or `feature`** | the kind | **always exactly one of the two.** `--label feature` for something new being added, `--label bug` for something that exists and has to change. A doc finding is one of them too: a missing page is a `feature`, a wrong one a `bug` |
 | **the reach label** | how far the issue reaches | one `--label`, and only where it reaches the audience tier. Absence is the answer for tier 0 and is not a missing field. Its **name** is `Get-ReachLabel`'s, default `minor` -- see below |
-| **`documentation` label** | a doc finding | `--label documentation` on top of the kind -- most doc findings are tasks, and this label keeps them findable among the rest |
 | **`CRO` label** | who raised it, not what it is -- store repos only | `--label CRO` on an issue filed by, or on behalf of, the CRO team (today: Johnno), on top of the kind -- see below |
+
+**There is no third kind, and no `documentation` label** (Dave, October 3, 2026,
+[#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)). Until then an issue with
+neither kind label was a task, and a doc finding carried `documentation` on top of it; both are gone.
+**An issue filed before this change may carry `documentation`, or no kind at all.** Give it its kind
+when you touch it, and take `documentation` off.
 
 **GitHub issue types are not used** (Dave, October 3, 2026,
 [#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)). Labels leave more room to
@@ -154,9 +159,9 @@ an error instead of an issue.
 
 #### The CRO label -- who reported it, not what it is
 
-**A fourth, independent axis: not what the issue is, but who raised it.** `--label CRO` marks an issue
+**A third, independent axis: not what the issue is, but who raised it.** `--label CRO` marks an issue
 filed by, or on behalf of, the CRO team -- today that is Johnno. It is written from judgement at the
-moment of filing, exactly like `documentation` and the reach label above: there is no automatic
+moment of filing, exactly like the reach label above: there is no automatic
 detection from a GitHub account, and none is planned -- a session files every issue itself, so
 `created_by` would read identically whether a CRO finding or anybody else's went through it, the same
 trap `SubmitterPattern` elsewhere in this page warns against for a different field.
@@ -277,9 +282,10 @@ so the board's own list and filter views can jump straight to the issue without 
 first.
 
 **And a board may carry a `Github Type` select field beside it** -- again the field's literal,
-as-configured name -- **whose options are exactly the three kinds
-[step 1](#classify-it-as-you-file-it----labels-only-all-set-at-creation) chooses from**: `Bug`,
-`Feature`, `Task`, filled from the kind label (`bug`, `feature`, or neither for `Task`). The field
+as-configured name -- **whose options are `Bug`, `Feature` and `Task`**, filled from the kind label
+[step 1](#classify-it-as-you-file-it----labels-only-all-set-at-creation) chose (`bug`, `feature`, or
+neither for `Task`). Step 1 now always chooses one of the two (#2783), so `Task` is only ever reached
+by an issue filed before that, still carrying no kind. The field
 outlived the issue types it was built for on purpose (#2750). Where it exists it is set on the same
 creation call, **from the label step 1 already chose**, never re-derived from the card. That is what makes it worth writing rather than
 leaving to a colleague: the answer is not being composed here the way the issue URL is, it is being

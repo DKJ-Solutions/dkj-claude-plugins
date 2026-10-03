@@ -73,15 +73,14 @@ for a later pass:
 
 ```bash
 gh issue create --repo <owner>/<repo> --title "<precise technical title>" --body "<full detail>" \
-  [--label bug | --label feature] [--label "<reach label>"] [--label documentation]
+  --label <bug | feature> [--label "<reach label>"]
 # gh prints the new issue's URL; its last segment is <n>
 ```
 
 | what to set | how to decide it |
 |---|---|
-| the kind (`--label bug` or `--label feature`) | **`bug`** for a defect in behaviour that already exists, **`feature`** for a capability the store does not have yet, and **neither** for everything else -- which is most of it, doc findings included. An issue with neither label **is a task**: there is no `task` label, and its absence is the answer, the same way the reach label's absence answers tier 0. Never both |
+| the kind (`--label bug` or `--label feature`) | **always exactly one of the two** (#2783): **`feature`** for something new being added, **`bug`** for something that exists and has to change. A doc finding is one of them too -- a missing page is a `feature`, a wrong one a `bug`. There is no third kind and no `documentation` label |
 | the reach label (`Get-ReachLabel`, default `minor`) | **only** where management or the commissioner would notice it. The test is whether that reader notices the **defect**, not whether the file renders to them: a customer-facing template with a developer-only defect is tier 0, and a build script whose breakage stops a release the business is waiting on is not. **In doubt, leave it off** |
-| `--label documentation` | on a doc finding, on top of its kind -- a doc finding is usually a task, and this label is what keeps it findable among them |
 | `--label CRO` (Shopify store repos only) | on an issue filed by, or on behalf of, the CRO team (today: Johnno). Never in this plugin's own source repo `dkj-claude-plugins`, which has no store, nor in `phone-factory`, a Lightspeed store the CRO team does not measure (#2712). See `WORKFLOW-portable.md`'s classification section |
 
 **Write it in English -- the title as much as the body.** Every consumer of `dkj-policy` runs this same
