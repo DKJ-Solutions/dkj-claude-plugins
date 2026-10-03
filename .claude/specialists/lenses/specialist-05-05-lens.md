@@ -915,16 +915,18 @@ with a closing keyword on the PR via `-Resolves`, per
 
 **Every issue in this tracker carries exactly one of `prio-1` … `prio-4`, and 4 is the highest**
 (Dave, September 9, 2026, [#1685](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1685)).
-The four exist in the repo since that day. **Their colours are two yellows and two reds** (Dave,
-September 28, 2026): `prio-1` yellow, `prio-2` a yellow leaning to orange, `prio-3` a red leaning to
-orange, `prio-4` red. The history below records the colours as they were before that day.
+The four exist in the repo since that day. **Their colours are two oranges and two reds** (Dave,
+October 3, 2026, [#2748](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2748)): `prio-1` an
+orange leaning to yellow, `prio-2` an orange leaning to red, `prio-3` a red leaning to orange, `prio-4`
+red. Yellow is left free for another family. From September 28 until then the two low rungs were
+yellows. The history below records the colours as they were before that day.
 
 | Label | Colour | What the rung means |
 |---|---|---|
 | `prio-4` | `B60205` | Highest — takes precedence over other work. A broken gate, or a wrong answer a gate reports as authority. |
 | `prio-3` | `E0321A` | Ahead of the ordinary backlog. Real, and it costs something every time it is met. |
-| `prio-2` | `F9A825` | Worth doing, no pressure. The ordinary backlog, and the common answer. |
-| `prio-1` | `FFE033` | Lowest — nobody is waiting for it. A question parked for the owner, or a tidy-up. |
+| `prio-2` | `F57C00` | Worth doing, no pressure. The ordinary backlog, and the common answer. |
+| `prio-1` | `FFA726` | Lowest — nobody is waiting for it. A question parked for the owner, or a tidy-up. |
 
 **Exactly one, which is a property the obvious command does not give you.** Set it with `--label` on
 the `gh issue create` that files the finding. On an issue that already carries a rung, `--add-label`

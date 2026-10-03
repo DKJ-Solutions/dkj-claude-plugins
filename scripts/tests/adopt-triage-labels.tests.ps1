@@ -160,7 +160,7 @@ try {
     Assert-True ($r.Flat -like "*READ-ONLY*never runs gh label create*") 'all missing: the header states the print-only contract on every run'
     # THE EXACT COMPOSED LINE for one concrete label -- name, colour, description and --repo, quoted
     # exactly as a person would paste it.
-    Assert-True ($r.Flat -like "*gh label create 'prio-2' --color 'F9A825' --description 'Priority 2 of 4 -- worth doing, no pressure' --repo fixture-org/fixture-repo*") `
+    Assert-True ($r.Flat -like "*gh label create 'prio-2' --color 'F57C00' --description 'Priority 2 of 4 -- worth doing, no pressure' --repo fixture-org/fixture-repo*") `
         "all missing: the composed command for 'prio-2' is exact and paste-ready, including --repo"
     Assert-Equal 0 (@([regex]::Matches($r.Out, '\[ok\]')).Count) 'all missing: zero [ok] lines'
     Assert-True ($r.Flat -like '*8 of 8 canonical triage label(s) missing*') 'all missing: the summary line counts 8 of 8'
