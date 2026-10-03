@@ -2,7 +2,58 @@
 
 ## [Unreleased]
 
-**7 / 21 minor entries** <!-- pending-tally -->
+**7 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2778-shard-gap-result · 20261003-130600Z
+
+Refreshing the suite durations (#2739) did not close the CI shard gap. Across seven PR runs the slowest
+shard still lands 49-117s above a perfect partition, and the performance lens now records that figure
+instead of "not yet measured". `suite-durations.json` is regenerated from the four runs that carry #2774,
+which made the 15 integrity suites about 30% cheaper than the file recorded, so the gate packs from current
+figures again. Whether the remaining gap is runner noise or packing is still open (#2775).
+
+**Score:** 1 -- prevents the gate from packing CI shards off figures that overcharge the integrity suites.
+
+#### What makes this deploy extra special
+
+N/A -- CI shard packing and a lens paragraph; nothing a consumer receives changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Record that the duration refresh did not close the CI shard gap, and refresh the integrity-suite figures
+
+[PR #2781](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2781)
+
+---
+
+### DEPLOY: docs/2769-bwj-pr-labels-from-prefix · 20261003-125427Z
+
+In a BWJ store repo, a `fix/` pull request is labelled `bug` again and a `feat/` pull request
+`feature`, now that #2750 brought those labels back for issues. The adoption skill (step 4) shows the
+prefix-table rows to use. A table adopted before #2750 still answers no label for those two prefixes,
+and the step says to replace those answers. It also says to create the labels first, because `open-pr`
+refuses a PR whose label the repo does not have
+([#2769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2769)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+BWJ: fix/ and feat/ PRs carry bug and feature again
+
+Plugins: dkj-policy, dkj-policy-bwj
+
+[PR #2780](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2780)
+
+---
 
 ### DEPLOY: fix/2765-backstop-skips-not-planned · 20261003-124527Z
 
