@@ -308,6 +308,7 @@ function labelTag(name, color) {
 const PARKED_BECAUSE = {
   "awaiting-more-info": "waiting on the submitter",
   "awaiting-decision": "waiting on the owner's decision",
+  "awaiting-pull": "waiting on another issue's pull request",
   "awaiting-first-recurrence": "waiting on a first recurrence",
   "awaiting-more-recurrences": "record: waiting on the next instance or the root cause",
   // Former names (#2683, #2723, #2741), still read because a tracker keeps a name until renamed.
