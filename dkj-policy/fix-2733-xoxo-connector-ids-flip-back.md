@@ -39,21 +39,41 @@
 
 ### PLAN
 
+Inbound #2733: `connectors/xoxowildhearts.json` still registered the five plugin ids as
+`@claude-code-specialists`, the state #1906 wrote deliberately while the consumer had not migrated, and
+said might flip back. Verified before repairing: the consumer's `origin/main` (58986cd, 2026-10-02)
+enables all five as `@dkj-claude-plugins` since 71f112f (2026-09-13), so decision A's precondition
+holds and the register follows its consumer.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rewrite the five ids in `connectors/xoxowildhearts.json` to `@dkj-claude-plugins`
+- [x] Append a dated `FLIPPED BACK 2026-10-03 (#2733)` paragraph to its `notes`, per #952 leaving the
+  earlier sentences in the names they were written with
 
 ### TEST
 
+- [x] The manifest parses, and lists the five `@dkj-claude-plugins` ids
+- [x] `check-connectors.ps1` on this machine: the five false `is NOT (or no longer) enabled` errors and
+  the `[UNLISTED]` line for xoxowildhearts are gone; the remaining lines for it are genuine (a machine
+  record behind the source, and two unpinned CI refs)
+
 ### DEPLOY: fix/2733-xoxo-connector-ids-flip-back
 
-**Score:**
+The consumer register named five plugin ids the `xoxowildhearts` consumer stopped enabling on
+September 13, so every session start in this repo printed five `[ERROR]`s claiming plugins that are
+enabled were not -- and hid the real ids behind an `[UNLISTED]` line. The ids now match what the
+consumer enables, and those false errors are gone.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+It is the flip-back the #1906 note predicted, taken on the evidence that note asked for: the consumer
+itself migrated, measured on its `main`, so the register follows it rather than churning.
+
+**Score:** 1
 
 #### Pull Request
 
 connectors/xoxowildhearts.json: plugin ids back to @dkj-claude-plugins (#1906 flip-back)
-
