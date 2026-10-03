@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**7 / 16 minor entries** <!-- pending-tally -->
+**7 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2750-issue-labels-not-types · 20261003-115007Z
+
+`report-issue` no longer sets a GitHub issue type. It classifies an issue by label: `bug` for a defect
+in existing behaviour, `feature` for a capability the store does not have yet, and neither for
+everything else, which counts as a task. Where the Asana board has a `Github Type` field, it is filled
+from that label. `adopt-dkj-policy-bwj` now checks for `bug` and `feature` and prints the create line
+for whichever is missing. Both were deleted from the BWJ stores in September, so a store has to create
+them before the next filing that uses one.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing beyond the switch itself.
+
+**Score:** N/A
+
+#### Pull Request
+
+dkj-policy-bwj: classify issues by label, not by GitHub issue type
+
+Plugins: dkj-policy-bwj
+
+[PR #2772](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2772)
+
+---
 
 ### DEPLOY: fix/2752-flag-plugin-tree-in-consumer-pr · 20261003-114702Z
 
