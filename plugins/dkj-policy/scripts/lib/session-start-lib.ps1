@@ -50,6 +50,62 @@ function Get-SessionStartMarkers {
     return [pscustomobject]@{ Begin = $script:SessionStartBegin; End = $script:SessionStartEnd }
 }
 
+# THE PAGE IS KEYED ON THE REPO (#2736). The lookup title was the fixed 'Sessiestart-context', so an
+# account that ran the skill in a second repo found the first repo's page, and step 2 would have computed
+# one repo's deltas against the other and republished over its history. The title now carries the repo
+# name, collect writes that name into the data, and a previous page whose data names a different repo --
+# or names none, which is every page rendered before this -- is not read as history.
+# KNOWN LIMIT: the key is the bare name, not owner/name, so two repos that share a name (a fork, or the
+# same name under two owners) still share a page. Kept short on purpose -- it is a visible title -- and
+# written down rather than built against until one account actually measures two such repos.
+$script:SessionStartTitleBase = 'Sessiestart-context'
+
+function ConvertTo-SessionStartRepoName {
+    <#
+        The repo's name from its origin URL ('https://host/owner/name.git', 'git@host:owner/name'), falling
+        back to the leaf of -RepoRoot when there is no usable URL. The URL comes first because a worktree
+        lane's folder is named after its lane, not its repo. Pure: the caller reads the URL.
+    #>
+    param([AllowEmptyString()][string]$RemoteUrl, [AllowEmptyString()][string]$RepoRoot)
+    $name = ''
+    if ($RemoteUrl) {
+        $u = $RemoteUrl.Trim().TrimEnd('/')
+        if ($u.EndsWith('.git', [System.StringComparison]::OrdinalIgnoreCase)) { $u = $u.Substring(0, $u.Length - 4) }
+        $name = @($u -split '[/:\\]')[-1]
+    }
+    if ($name -notmatch '^[A-Za-z0-9._-]{1,100}$' -and $RepoRoot) { $name = Split-Path -Leaf ($RepoRoot.TrimEnd('\', '/')) }
+    if ($name -notmatch '^[A-Za-z0-9._-]{1,100}$') { return '' }
+    return $name
+}
+
+function Get-SessionStartRepoName {
+    <# ConvertTo-SessionStartRepoName over the origin URL git reports for -RepoRoot. #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    $url = ''
+    try { $url = [string](& git -C $RepoRoot config --get remote.origin.url 2>$null) } catch { $url = '' }
+    return (ConvertTo-SessionStartRepoName -RemoteUrl $url -RepoRoot $RepoRoot)
+}
+
+function Get-SessionStartPageTitle {
+    <# The lookup title for -Repo: the fixed base, a middle dot, the repo name. ASCII source, so the dot is a code point. #>
+    param([Parameter(Mandatory = $true)][string]$Repo)
+    return ('{0} {1} {2}' -f $script:SessionStartTitleBase, [char]0x00B7, $Repo)
+}
+
+function Test-SessionStartPreviousRepo {
+    <#
+        Whether a previous page's data may be read as -Repo's history. Ok=$true only when the data names
+        exactly -Repo. A page that names no repo predates #2736 and cannot be attributed; a page that names
+        another repo is that repo's. Either way the caller renders without deltas and says why.
+    #>
+    param([Parameter(Mandatory = $true)]$Previous, [AllowEmptyString()][string]$Repo)
+    $prevRepo = [string](Get-JsonField $Previous 'repo' '')
+    if (-not $Repo) { return [pscustomobject]@{ Ok = $false; Reason = 'the repo being measured has no name (the data carries no repo field), so no previous page can be attributed to it' } }
+    if (-not $prevRepo) { return [pscustomobject]@{ Ok = $false; Reason = "the previous page names no repo (it was rendered before #2736), so it cannot be told apart from another repo's page" } }
+    if ($prevRepo -cne $Repo) { return [pscustomobject]@{ Ok = $false; Reason = "the previous page is the history of '$prevRepo', not of '$Repo'" } }
+    return [pscustomobject]@{ Ok = $true; Reason = '' }
+}
+
 # Test-SkillModelInvocationDisabled, Get-PayloadDirForPlugin and Split-SkillRowsByInvocation live in
 # measure-skill-lib.ps1 since #2664, so measure-skill.ps1 splits the priced rows the same way this report
 # does. This lib dot-sources that one, so its callers here are unaffected.

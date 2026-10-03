@@ -73,7 +73,7 @@ without reading its prose, and reading prose is exactly what step 3 forbids.
   (https, scp-style, trailing slash, folder fallback, nothing usable), the title, the check itself
   (same repo, another repo, case, no repo, no current name), render against another repo's page and
   against a legacy page, and extract on the #2736 case itself
-- [x] Code review (Victor) on the diff
+- [x] Code review (Victor): one bug, fixed -- `-ExtractPrevious` threw on a repo with no usable name, because the refusal line built a title from an empty name (now a regression assert, 220 passed); the bare-name key is written down as a known limit in the lib
 
 ### DEPLOY: fix/2736-session-start-keyed-on-repo
 
