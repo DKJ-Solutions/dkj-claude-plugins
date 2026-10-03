@@ -50,7 +50,7 @@
 
 ### DEPLOY: fix/2778-shard-gap-result
 
-Refreshing the suite durations (#2747) did not close the CI shard gap. Across seven PR runs the slowest
+Refreshing the suite durations (#2739) did not close the CI shard gap. Across seven PR runs the slowest
 shard still lands 49-117s above a perfect partition, and the performance lens now records that figure
 instead of "not yet measured". `suite-durations.json` is regenerated from the four runs that carry #2774,
 which made the 15 integrity suites about 30% cheaper than the file recorded, so the gate packs from current
