@@ -60,14 +60,14 @@ disagree you follow it and say so.
 ### 1. Choose -- and it writes nothing
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-more-info,needs-decision,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,awaiting-recurrence,record,dossier
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-more-info,awaiting-decision,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-recurrence,record,dossier
 ```
 
 It prints every open issue as `free`, `mine`, `held`, `branch` or `skipped` with the reason, and names
 the lowest free number. `-SkipLabel` is the labels that park an issue with somebody else; `-SkipIssue`
-holds numbers out by hand. The last four are former names -- `needs-info` became `awaiting-more-info`,
+holds numbers out by hand. The last five are former names -- `needs-info` became `awaiting-more-info`, `needs-decision` became `awaiting-decision`,
 `awaiting-recurrence` became `awaiting-first-recurrence`, and `dossier` then `record` became
-`awaiting-more-recurrences` (#2683, #2723, October 2, 2026) -- listed because a tracker keeps an old name until
+`awaiting-more-recurrences` (#2683, #2723, October 2, 2026; #2741, October 3, 2026) -- listed because a tracker keeps an old name until
 somebody renames it there.
 
 **`branch` means somebody pushed work for it without a claim marker** -- a `<prefix>/<n>-<name>` branch

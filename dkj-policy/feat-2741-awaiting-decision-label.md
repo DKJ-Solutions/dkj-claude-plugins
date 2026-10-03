@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Issue #2741 (Dave): the parking label `needs-decision` joins the purple awaiting-* family as
+`awaiting-decision`, colour `5319E7`. Follow #2723's rename pattern, where the new name is prescribed
+and the former name stays matched.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rename the label in `Get-TriageLabels` and in adopt-triage-labels' built-in list, with the new
+  colour and the same description.
+- [x] Map `awaiting-decision` to `needs-decision` in `Get-FormerTriageLabelNames`, so a tracker that
+  still has the old name gets a `gh label edit` rename and not a second label.
+- [x] Keep `needs-decision` matched as a former name in the claim/sweep skip defaults and in the
+  dashboard's `PARKING_LABELS`. Update the docs, the lens and the regenerated config blueprint.
 
 ### TEST
 
+- [x] adopt-triage-labels (98), claim-issue (560), repo-config (74), issue-dashboard (410) and pr-issues
+  (1144) all green. New asserts cover the former-name rename and the parking. check-plugin-integrity:
+  0 errors.
+
 ### DEPLOY: feat/2741-awaiting-decision-label
 
-**Score:**
+The parking label `needs-decision` is now `awaiting-decision`, in the purple (`5319E7`) of the other
+awaiting-* labels, because an issue waiting on the owner's choice is waiting like they are
+([#2741](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2741)). The old name stays matched
+by the claim and sweep skip defaults and by the issue dashboard. On a tracker that still has the old
+name, `adopt-triage-labels` prints a `gh label edit` rename rather than a create, so every issue keeps
+its label.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+For a consumer who runs `adopt-triage-labels`: it now offers one rename for `needs-decision`.
+Nothing breaks if they skip it, because the old name still parks the issue.
+
+**Score:** 2
 
 #### Pull Request
 

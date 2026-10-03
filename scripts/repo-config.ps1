@@ -1248,7 +1248,7 @@ function Get-ExpectedRepoSettings {
 # names are still matched by open-pr's gate and the parking defaults, and adopt-triage-labels prints a
 # rename rather than a create for a tracker that still carries one.
 #
-# AND A SIXTH, A PARKING LABEL: 'needs-decision' (issue #2519, Dave September 26, 2026). An issue that
+# AND A SIXTH, A PARKING LABEL: 'awaiting-decision' (issue #2519, Dave September 26, 2026; 'needs-decision' until #2741, October 3, 2026, when it joined the purple awaiting-* family and took that colour). An issue that
 # ends in an open choice for the owner is not work anybody can pick up yet, and the claim and sweep
 # routes skip it by default. It is deliberately NOT 'awaiting-more-info' ('needs-info' until #2723): in
 # dkj-policy-bwj that label means
@@ -1271,14 +1271,14 @@ $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'prio-3'; Color = 'E0321A'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     [pscustomobject]@{ Name = 'awaiting-more-recurrences'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
-    [pscustomobject]@{ Name = 'needs-decision'; Color = 'BFD4F2'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-decision'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-first-recurrence'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )
 
 function Get-TriageLabels {
     <# The canonical triage labels this workflow's consumers are invited to share -- the four
        priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'awaiting-more-recurrences', the kind label for
-       a collecting issue, and the two parking labels 'needs-decision' (an issue awaiting the owner's
+       a collecting issue, and the two parking labels 'awaiting-decision' (an issue awaiting the owner's
        choice) and 'awaiting-first-recurrence' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
        a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the
        create command for whichever of them this repo's tracker is missing; it never creates a label
