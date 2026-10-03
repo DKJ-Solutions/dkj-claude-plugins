@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**7 / 17 minor entries** <!-- pending-tally -->
+**7 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2740-skip-expensive-integrity-checks · 20261003-120538Z
+
+The 15 `check-plugin-integrity-*` suites, which start the gate about 280 times between them, now skip
+five more checks by default in each run: `exec-policy/script`, `shopify-cli`, `mirror-depth`, `shared-script` and
+`shopify-force`. That takes each child run from 2.21s to 1.43s locally, so 35% less. On the three CI runs
+measured in the issue, those suites were 35% of the test pool's work. A scenario about one of those five names it with
+`Invoke-Integrity -Run '<name>'`, and an unknown name throws. The real gate (`open-pr`, CI) still runs
+every check. `-SkipCheck` now accepts eight names instead of three
+([#2740](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2740)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+check-plugin-integrity suites: skip the five most expensive checks by default
+
+[PR #2774](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2774)
+
+---
 
 ### DEPLOY: docs/2750-issue-labels-not-types · 20261003-115007Z
 
