@@ -663,7 +663,7 @@ infrastructure.
     `@claude fix this` work** — that it only answers is the decision, not a defect.
   - **The `issues: [opened, assigned]` trigger is deliberately absent** from the upstream template's set.
     The action's write-access gate governs who *triggers*, never who *wrote* the text a run then reads,
-    and this repo publishes an `inbound` issue template — external prose is a designed-for input here.
+    and this repo publishes two inbound issue templates — external prose is a designed-for input here.
   - **The `permissions:` block is NOT the boundary, and both files say so.** `id-token: write` lets the
     action mint a GitHub App token documented as Contents/Pull Requests/Issues at read **and** write; the
     read-only scopes bound `GITHUB_TOKEN` alone. Audit either file by its scopes and you conclude the
@@ -3339,11 +3339,17 @@ a **1.2%** delta. Two ways to get some of that back were measured and both were 
   the ~60 ms it costs *per `Invoke-Integrity` call* stops being paid by the 175 scenarios across the four
   lint suites that are not about it. Worth **~10.5 s of CPU**, or up to **~3.6 s** off the slowest CI lane
   once the four suites' parallelism is accounted for. **Declined**, because it buys that by widening
-  `$script:SkippableChecks`, which the gate holds at exactly the three its own suites need and whose
+  `$script:SkippableChecks`, which the gate then held at exactly the three its own suites need and whose
   comment says in so many words that a fourth is a deliberate act and the narrow list is the safety
-  property. Check 31's comment records the same answer for the same reason — *"NOT SKIPPABLE, like every
+  property. Check 31's comment then recorded the same answer for the same reason — *"NOT SKIPPABLE, like every
   check added since the `-SkipCheck` list was fixed"*. Three-and-a-half seconds on one lane does not buy
   a wider surface for switching a check off by accident.
+  **The list has since been widened to eight**
+  ([#2740](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2740), Dave, October 3, 2026),
+  by the five checks that carry most of a fixture run's check work: about 0.78 s off every child run (35%),
+  against this check's ~60 ms. A scenario about one of those five passes `Invoke-Integrity -Run '<name>'`. The
+  verdict above still holds for `section-number`, because the bar is the size of the saving, and this
+  check does not clear it.
 - **Sharing the read with check 27** — the pure-ASCII check reads the *same* 205 files unconditionally,
   through `ReadAllText` where this one uses `ReadAllLines`, at **84–92 ms**. One pass would save roughly
   one of the two reads. **Declined as premature**, on #1358's own bar: that extraction was worth doing

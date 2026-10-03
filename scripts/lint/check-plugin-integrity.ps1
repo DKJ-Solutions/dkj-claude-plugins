@@ -467,6 +467,13 @@
     actually dominates an invocation, and check-plugin-integrity-fixture.ps1 is where that measurement
     lives.
 
+    FIVE MORE ARE SKIPPABLE SINCE ISSUE #2740 (October 3, 2026), and those five ARE for speed:
+    exec-policy/script, shopify-cli, mirror-depth, shared-script and shopify-force carry most of the check
+    work in a fixture run, and skipping them takes a child run from 2.21s to 1.43s. The fixture skips all
+    eight by default, and a scenario about one of the five names it with Invoke-Integrity -Run. Making
+    every check switchable (-OnlyCheck) was considered and declined. The list stays written out, and
+    adding a ninth is still a deliberate act.
+
     A SKIPPED CHECK IS NEVER REPORTED AS 'checked 0'. This gate deliberately makes an empty scan visible
     -- 'no agent def found' is a finding-shaped statement, because a check that examined nothing must not
     read as a check that passed. A skip therefore prints its own [SKIP] line and no coverage line at all,
@@ -547,10 +554,11 @@ function Add-BarredSkillFinding {
 # -SkipCheck, resolved once here so every wrapped block asks the same question. The list of skippable
 # names is written out rather than derived from the Write-Coverage calls: deriving it would accept any
 # category the file happens to mention, including one in a comment, and the whole point of validating is
-# that a name nobody implemented must not pass silently. Only the three the suite needs are skippable --
-# adding a fourth is a deliberate act, and the narrower the list the smaller the surface for a check to
-# be switched off by accident.
-$script:SkippableChecks = @('agent-def', 'parse', 'branch-template')
+# that a name nobody implemented must not pass silently. Eight are skippable: the three the suites never
+# needed, plus the five that carry most of a fixture run's check work (issue #2740, the docstring above
+# has the numbers). Adding a ninth is a deliberate act. The narrower the list, the less surface there is
+# for a check to be switched off by accident.
+$script:SkippableChecks = @('agent-def', 'parse', 'branch-template', 'exec-policy/script', 'shopify-cli', 'mirror-depth', 'shared-script', 'shopify-force')
 $script:SkippedChecks   = @()
 # SPLIT ON COMMAS AS WELL AS ON ARGUMENT BOUNDARIES, because the only caller invokes this script through
 # 'powershell -File', and -File does no PowerShell parsing of its arguments: '-SkipCheck a,b,c' arrives as
@@ -1492,7 +1500,7 @@ function Get-PsScriptFiles {
     return $script:PsScriptFileCache
 }
 
-# THE CommandAst SET PER SCRIPT FILE, PARSED AND WALKED ONCE -- issue #1358. Two non-skippable checks
+# THE CommandAst SET PER SCRIPT FILE, PARSED AND WALKED ONCE -- issue #1358. Two checks
 # want exactly this list over exactly the set above: check 33 (barred-skill) reads the strings printed by
 # a writer cmdlet, and shopify-cli looks for a command named 'shopify'. Each used to call ParseFile and
 # then FindAll(CommandAst) itself, so every run paid for the same parse and the same full-tree walk twice.
@@ -1524,7 +1532,7 @@ function Get-PsScriptFiles {
 # the parse they come with, and a second parse to get them costs a whole one.
 #
 # Check 5 USES THE CACHE NOW, which the paragraph before #2751 ruled out because this accessor threw
-# the errors away. It keeps them, so the one skippable reader no longer needs its own pass. Skipping
+# the errors away. It keeps them, so check 5 no longer needs a pass of its own. Skipping
 # 'parse' still leaves every other reader working: whoever asks first fills the cache.
 #
 # An unparseable file yields an EMPTY list, not $null. The original two callers (barred-skill,
@@ -1815,21 +1823,25 @@ Write-Coverage -Category 'shared' -Checked $sharedBlockFiles.Count `
 # ended the run, so checks 9 through 22 never reported and no Summary was printed. A gate that dies is
 # worse than a gate that reports zero, because zero is visible in the coverage line below.
 $sharedPairs = @(Get-SharedScriptPairs -RepoRoot $RepoRoot -PluginRoots $publishedPlugins)
-foreach ($pair in $sharedPairs) {
-    $src = Get-NormalizedScriptContent -Path $pair.SourcePath
-    if ($null -eq $src) {
-        Add-Error "[shared-script] source is missing: $($pair.SourceRel)."
-        continue
+if (Test-CheckEnabled 'shared-script') {
+    foreach ($pair in $sharedPairs) {
+        $src = Get-NormalizedScriptContent -Path $pair.SourcePath
+        if ($null -eq $src) {
+            Add-Error "[shared-script] source is missing: $($pair.SourceRel)."
+            continue
+        }
+        $mirror = Get-NormalizedScriptContent -Path $pair.MirrorPath
+        if ($null -eq $mirror) {
+            Add-Error "[shared-script] mirror is missing: $($pair.MirrorRel) -- run scripts/sync/build-shared-scripts.ps1."
+        } elseif ($src -ne $mirror) {
+            Add-Error "[shared-script] $($pair.MirrorRel) deviates from $($pair.SourceRel) -- run scripts/sync/build-shared-scripts.ps1."
+        }
     }
-    $mirror = Get-NormalizedScriptContent -Path $pair.MirrorPath
-    if ($null -eq $mirror) {
-        Add-Error "[shared-script] mirror is missing: $($pair.MirrorRel) -- run scripts/sync/build-shared-scripts.ps1."
-    } elseif ($src -ne $mirror) {
-        Add-Error "[shared-script] $($pair.MirrorRel) deviates from $($pair.SourceRel) -- run scripts/sync/build-shared-scripts.ps1."
-    }
+    Write-Coverage -Category 'shared-script' -Checked $sharedPairs.Count `
+        -Note $(if ($sharedPairs.Count -eq 0) { 'the source/mirror pair list is empty -- a mirror could not have been found out of sync, however far it had drifted' } else { '' })
+} else {
+    Write-Skip 'shared-script -- not run (-SkipCheck). Nothing is asserted about a plugin mirror matching its source in this run.'
 }
-Write-Coverage -Category 'shared-script' -Checked $sharedPairs.Count `
-    -Note $(if ($sharedPairs.Count -eq 0) { 'the source/mirror pair list is empty -- a mirror could not have been found out of sync, however far it had drifted' } else { '' })
 
 # RETIRED, AUGUST 8, 2026 -- check 9 ("RELEASE.md present per plugin + version match").
 # It held each plugin's RELEASE.md card against its plugin.json version, on the reasoning that both
@@ -4165,37 +4177,41 @@ Write-Coverage -Category 'plugin-link' -Checked $pluginLinkChecked `
 #
 # THROUGH THE PARSER, NOT BY LINE MATCHING, for the reason check 33 gives: a comment explaining the rule
 # (this one included) mentions the command, and so does every printed hint that tells a reader to run
-# 'shopify theme list'. Only a CommandAst is a call. NOT SKIPPABLE, like every check added since the
-# -SkipCheck list was fixed at the three the gate's own suites need -- and because both this check and
-# check 33 always run, the two share ONE parse and ONE walk of the script set through
-# Get-PsScriptCommandAsts (issue #1358) instead of each doing their own.
+# 'shopify theme list'. Only a CommandAst is a call. It shares ONE parse and ONE walk of the script set
+# with check 33 through Get-PsScriptCommandAsts (issue #1358) instead of each doing their own. SKIPPABLE
+# since #2740, for the fixture's speed only. Whoever reads the cache first pays for the parse, so a skip
+# here moves that cost to check 33 and removes only this check's walk.
 # TWO EXEMPTIONS, BOTH BY FILE NAME AND BOTH ABOUT THE SAME ONE CALL. The wrapper holds the permitted
 # call, and shopify-cli.tests.ps1 holds the assert that gives the wrapper its meaning: it invokes the
 # stub BARE, on purpose, to read back that the shim inherits the caller's 'Stop' -- which is what makes
 # the neighbouring 'Continue' assert prove anything. Matched on the name rather than a full path, so a
 # plugin mirror of either is exempt too; check 8 already holds a mirror byte-identical to its source.
 # The gate found the test's own probe the first time it ran, which is how the second name got here.
-$shopifyExempt = @('shopify-cli-lib.ps1', 'shopify-cli.tests.ps1')
-$shopifyChecked  = 0
-$shopifyFindings = 0
-foreach ($psFile in (Get-PsScriptFiles)) {
-    $shopifyChecked++
-    if ($shopifyExempt -contains $psFile.Name) { continue }
-    $shRel = $psFile.FullName.Replace($RepoRoot, '.')
-    foreach ($cmd in (Get-PsScriptCommandAsts -Path $psFile.FullName)) {
-        if ($cmd.GetCommandName() -ne 'shopify') { continue }
-        $shSample = ($cmd.Extent.Text -replace '\s+', ' ').Trim()
-        if ($shSample.Length -gt 120) { $shSample = $shSample.Substring(0, 120) + '...' }
-        Add-Error ("[shopify-cli] ${shRel}:$($cmd.Extent.StartLineNumber): invokes the Shopify CLI bare." +
-            " Under `$ErrorActionPreference = 'Stop' one stderr line from the CLI is a TERMINATING" +
-            " ErrorRecord, so the run dies before the `$LASTEXITCODE check below it -- at exit code 0 as" +
-            " much as any other. Route it through Invoke-ShopifyCli (scripts/lib/shopify-cli-lib.ps1) and" +
-            " judge the run on its .ExitCode. Found: `"$shSample`"")
-        $shopifyFindings++
+if (Test-CheckEnabled 'shopify-cli') {
+    $shopifyExempt = @('shopify-cli-lib.ps1', 'shopify-cli.tests.ps1')
+    $shopifyChecked  = 0
+    $shopifyFindings = 0
+    foreach ($psFile in (Get-PsScriptFiles)) {
+        $shopifyChecked++
+        if ($shopifyExempt -contains $psFile.Name) { continue }
+        $shRel = $psFile.FullName.Replace($RepoRoot, '.')
+        foreach ($cmd in (Get-PsScriptCommandAsts -Path $psFile.FullName)) {
+            if ($cmd.GetCommandName() -ne 'shopify') { continue }
+            $shSample = ($cmd.Extent.Text -replace '\s+', ' ').Trim()
+            if ($shSample.Length -gt 120) { $shSample = $shSample.Substring(0, 120) + '...' }
+            Add-Error ("[shopify-cli] ${shRel}:$($cmd.Extent.StartLineNumber): invokes the Shopify CLI bare." +
+                " Under `$ErrorActionPreference = 'Stop' one stderr line from the CLI is a TERMINATING" +
+                " ErrorRecord, so the run dies before the `$LASTEXITCODE check below it -- at exit code 0 as" +
+                " much as any other. Route it through Invoke-ShopifyCli (scripts/lib/shopify-cli-lib.ps1) and" +
+                " judge the run on its .ExitCode. Found: `"$shSample`"")
+            $shopifyFindings++
+        }
     }
+    Write-Coverage -Category 'shopify-cli' -Checked $shopifyChecked `
+        -Note "script file(s) parsed for a command named 'shopify' -- $shopifyFindings bare call(s). Two files are exempt by NAME, so a plugin mirror of either is exempt too: shopify-cli-lib.ps1, which holds the one permitted call, and shopify-cli.tests.ps1, whose probe invokes the CLI bare on purpose to prove the shim inherits the caller's preference. A comment or a printed hint naming the CLI is not a subject: only a CommandAst is"
+} else {
+    Write-Skip 'shopify-cli -- not run (-SkipCheck). Nothing is asserted about a bare Shopify CLI call in this run.'
 }
-Write-Coverage -Category 'shopify-cli' -Checked $shopifyChecked `
-    -Note "script file(s) parsed for a command named 'shopify' -- $shopifyFindings bare call(s). Two files are exempt by NAME, so a plugin mirror of either is exempt too: shopify-cli-lib.ps1, which holds the one permitted call, and shopify-cli.tests.ps1, whose probe invokes the CLI bare on purpose to prove the shim inherits the caller's preference. A comment or a printed hint naming the CLI is not a subject: only a CommandAst is"
 
 # --- 32. a mirror table's rows against the shared-scripts registry ----------------------------------------
 # THE FOURTH OCCURRENCE THIS EXISTS TO PREVENT (issue #1491). plugins/dkj-policy/scripts/README.md holds
@@ -4369,10 +4385,11 @@ Write-Coverage -Category 'shared-script-list' -Checked $mirrorSpanCount `
 # line matching -- so a comment explaining the rule (this one included) is not a subject, and neither is
 # a variable name. Markdown is matched per line, where there is no such distinction to draw.
 #
-# NOT SKIPPABLE, deliberately: -SkipCheck's list is the three checks the gate's own suites need, and the
-# comment on $script:SkippableChecks says adding a fourth is a deliberate act. This one does not reuse
-# check 5's pass, which is what lets it run when 'parse' is skipped -- it takes its CommandAsts from
-# Get-PsScriptCommandAsts, shared with the equally non-skippable shopify-cli check below (issue #1358).
+# NOT SKIPPABLE, deliberately: it is not on $script:SkippableChecks, whose comment says adding to it is
+# a deliberate act. It does not reuse check 5's pass, which is what lets it run when 'parse' is skipped
+# -- it takes its CommandAsts from Get-PsScriptCommandAsts, shared with the shopify-cli check above
+# (issue #1358). Since #2740 shopify-cli is skippable, so in a default fixture run this check is the
+# first reader of the parse cache and pays for the parse.
 # Both used to parse and walk the same file set separately; that accessor's comment holds the measurement.
 $barredSkills = New-Object System.Collections.Generic.HashSet[string]
 foreach ($skillsDir in (Get-PluginSubdirs -PluginRoots $publishedPlugins -Leaf 'skills')) {
@@ -5169,65 +5186,69 @@ Write-Coverage -Category 'agents-key' -Checked $akPlugins `
 # this gate caught it on its first CI run, because CI tests the merge and the branch's own working copy
 # could not see it. A count taken from a branch base is a snapshot, and this one went stale inside a
 # day -- so the live figures are in the coverage line below and this number is dated on purpose.
-$msPairs = @($sharedPairs)
-$msChecked = 0
-$msCrossing = 0
-$msDeclared = 0
-$msFindings = 0
-$msTestsDir = Join-Path $RepoRoot 'scripts\tests'
-foreach ($pair in $msPairs) {
-    if (-not (Test-Path -LiteralPath $pair.SourcePath -PathType Leaf)) { continue }
-    $msChecked++
-    $msHits = @(Get-DepthSensitiveResolutions -Path $pair.SourcePath)
-    if ($msHits.Count -gt 0) { $msCrossing++ }
+if (Test-CheckEnabled 'mirror-depth') {
+    $msPairs = @($sharedPairs)
+    $msChecked = 0
+    $msCrossing = 0
+    $msDeclared = 0
+    $msFindings = 0
+    $msTestsDir = Join-Path $RepoRoot 'scripts\tests'
+    foreach ($pair in $msPairs) {
+        if (-not (Test-Path -LiteralPath $pair.SourcePath -PathType Leaf)) { continue }
+        $msChecked++
+        $msHits = @(Get-DepthSensitiveResolutions -Path $pair.SourcePath)
+        if ($msHits.Count -gt 0) { $msCrossing++ }
 
-    if ($pair.MirrorRun -and $pair.MirrorRunExempt) {
-        $msFindings++
-        Add-Error ("[mirror-depth] shared-scripts registry: '$($pair.Name)' declares BOTH MirrorRun and" +
-            " MirrorRunExempt. They are opposite answers -- one says a suite runs the mirror, the other" +
-            " says none does and why -- so a pair carrying both leaves no reader able to say which is" +
-            " true. Keep one.")
-        continue
-    }
+        if ($pair.MirrorRun -and $pair.MirrorRunExempt) {
+            $msFindings++
+            Add-Error ("[mirror-depth] shared-scripts registry: '$($pair.Name)' declares BOTH MirrorRun and" +
+                " MirrorRunExempt. They are opposite answers -- one says a suite runs the mirror, the other" +
+                " says none does and why -- so a pair carrying both leaves no reader able to say which is" +
+                " true. Keep one.")
+            continue
+        }
 
-    if ($msHits.Count -gt 0 -and -not $pair.MirrorRun -and -not $pair.MirrorRunExempt) {
-        $msFindings++
-        $msShown = ($msHits | Select-Object -First 2) -join ' | '
-        Add-Error ("[mirror-depth] $($pair.SourceRel) resolves a path off `$PSScriptRoot that ascends two" +
-            " or more levels, so it means the repo root in this copy and the plugin root in" +
-            " $($pair.MirrorRel) -- and check 8 cannot see the difference, because the two files are" +
-            " byte-identical. Found: $msShown. Declare MirrorRun = '<suite>.tests.ps1' in the" +
-            " shared-scripts registry (scripts\lib\shared-scripts-lib.ps1), naming a suite that EXECUTES" +
-            " the mirror from its own directory the way git-identity-gate.tests.ps1 does -- or" +
-            " MirrorRunExempt = '<reason>' if that resolution genuinely cannot differ.")
-        continue
-    }
+        if ($msHits.Count -gt 0 -and -not $pair.MirrorRun -and -not $pair.MirrorRunExempt) {
+            $msFindings++
+            $msShown = ($msHits | Select-Object -First 2) -join ' | '
+            Add-Error ("[mirror-depth] $($pair.SourceRel) resolves a path off `$PSScriptRoot that ascends two" +
+                " or more levels, so it means the repo root in this copy and the plugin root in" +
+                " $($pair.MirrorRel) -- and check 8 cannot see the difference, because the two files are" +
+                " byte-identical. Found: $msShown. Declare MirrorRun = '<suite>.tests.ps1' in the" +
+                " shared-scripts registry (scripts\lib\shared-scripts-lib.ps1), naming a suite that EXECUTES" +
+                " the mirror from its own directory the way git-identity-gate.tests.ps1 does -- or" +
+                " MirrorRunExempt = '<reason>' if that resolution genuinely cannot differ.")
+            continue
+        }
 
-    if (-not $pair.MirrorRun) { continue }
-    $msDeclared++
-    $msSuite = Join-Path $msTestsDir $pair.MirrorRun
-    if (-not (Test-Path -LiteralPath $msSuite -PathType Leaf)) {
-        $msFindings++
-        Add-Error ("[mirror-depth] shared-scripts registry: '$($pair.Name)' declares MirrorRun =" +
-            " '$($pair.MirrorRun)', and no such suite exists under scripts\tests\. A declaration that" +
-            " names nothing is worse than none, because it reads as proof.")
-        continue
+        if (-not $pair.MirrorRun) { continue }
+        $msDeclared++
+        $msSuite = Join-Path $msTestsDir $pair.MirrorRun
+        if (-not (Test-Path -LiteralPath $msSuite -PathType Leaf)) {
+            $msFindings++
+            Add-Error ("[mirror-depth] shared-scripts registry: '$($pair.Name)' declares MirrorRun =" +
+                " '$($pair.MirrorRun)', and no such suite exists under scripts\tests\. A declaration that" +
+                " names nothing is worse than none, because it reads as proof.")
+            continue
+        }
+        $msText = [System.IO.File]::ReadAllText($msSuite, [System.Text.Encoding]::UTF8)
+        if (-not ($msText.Contains($pair.MirrorRel) -or $msText.Contains($pair.MirrorRel.Replace('\', '/')))) {
+            $msFindings++
+            Add-Error ("[mirror-depth] scripts\tests\$($pair.MirrorRun) is declared as the suite that runs" +
+                " '$($pair.Name)'s mirror, and it never names $($pair.MirrorRel). Either it does not run the" +
+                " mirror at all, or it reaches it by a path this check cannot follow -- both of which make" +
+                " the declaration unverifiable from here.")
+        }
     }
-    $msText = [System.IO.File]::ReadAllText($msSuite, [System.Text.Encoding]::UTF8)
-    if (-not ($msText.Contains($pair.MirrorRel) -or $msText.Contains($pair.MirrorRel.Replace('\', '/')))) {
-        $msFindings++
-        Add-Error ("[mirror-depth] scripts\tests\$($pair.MirrorRun) is declared as the suite that runs" +
-            " '$($pair.Name)'s mirror, and it never names $($pair.MirrorRel). Either it does not run the" +
-            " mirror at all, or it reaches it by a path this check cannot follow -- both of which make" +
-            " the declaration unverifiable from here.")
-    }
+    Write-Coverage -Category 'mirror-depth' -Checked $msChecked `
+        -Note $(if ($msChecked -eq 0) {
+            'the source/mirror pair list is empty, so no script was scanned -- read this as a broken gate rather than a clean one, the way check 8 reads its own empty set'
+        } else {
+            "shared script(s) scanned for a `$PSScriptRoot resolution ascending two or more levels -- the ONE class where a byte-identical mirror can behave differently, because the two copies sit at different depths: $msCrossing crossing, $msDeclared with a declared suite, $msFindings finding(s). One hop is not asked about and that is the point: '..\lib\...' is the same folder relative to the file in both copies, so asking about it would bury the crossings above under the thirty-odd that cannot. What this proves is that no such resolution is UNDECLARED, and what it deliberately leaves to the suite is whether the run asserts anything -- the same line check 18 draws between this gate and a skill page"
+        })
+} else {
+    Write-Skip 'mirror-depth -- not run (-SkipCheck). Nothing is asserted about a shared script resolving a path across the mirror depth in this run.'
 }
-Write-Coverage -Category 'mirror-depth' -Checked $msChecked `
-    -Note $(if ($msChecked -eq 0) {
-        'the source/mirror pair list is empty, so no script was scanned -- read this as a broken gate rather than a clean one, the way check 8 reads its own empty set'
-    } else {
-        "shared script(s) scanned for a `$PSScriptRoot resolution ascending two or more levels -- the ONE class where a byte-identical mirror can behave differently, because the two copies sit at different depths: $msCrossing crossing, $msDeclared with a declared suite, $msFindings finding(s). One hop is not asked about and that is the point: '..\lib\...' is the same folder relative to the file in both copies, so asking about it would bury the crossings above under the thirty-odd that cannot. What this proves is that no such resolution is UNDECLARED, and what it deliberately leaves to the suite is whether the run asserts anything -- the same line check 18 draws between this gate and a skill page"
-    })
 
 
 # --- 40. a plugin script's $PSScriptRoot-bound load, against the plugin that has to carry it --------
@@ -5657,68 +5678,72 @@ Write-Coverage -Category 'exec-policy' -Checked $epChecked `
 
 # 42b. the same rule over the script layer. See the header above for the three narrowings this pass needs
 # and the measurement behind each; the loop below is only their implementation.
-$epsChecked = 0
-$epsFindings = 0
-$epsProse = 0
-$epsCalls = 0
-# @() because a tree with no scripts/ comes back as a bare item, and .Count on one is a StrictMode throw.
-$epsFiles = @(Get-PsScriptFiles | Where-Object {
-        $_.FullName.Split([IO.Path]::DirectorySeparatorChar) -notcontains 'tests'
-    })
-foreach ($epsFile in $epsFiles) {
-    $epsRel = $epsFile.FullName.Substring($RepoRoot.Length).TrimStart('\', '/')
-    $epsText = [System.IO.File]::ReadAllText($epsFile.FullName)
-    # The shared parse (issue #2751): its tokens and its CommandAst list, rather than a parse and a walk
-    # of this check's own.
-    $epsTokens = (Get-PsScriptParse -Path $epsFile.FullName).Tokens
-    # The lines carrying a command the script RUNS. Check 5 has already reported a file that does not
-    # parse, so a partial AST here costs a line of coverage rather than a wrong finding.
-    $epsCmdLines = @{}
-    foreach ($epsCmd in (Get-PsScriptCommandAsts -Path $epsFile.FullName)) {
-        $epsName = $epsCmd.GetCommandName()
-        if ($epsName -and $epsName -match '(?i)^powershell(\.exe)?$') {
-            $epsCmdLines[$epsCmd.Extent.StartLineNumber] = $true
-        }
-    }
-    # The string literals, by line, so a printed hint can be read as the text it prints rather than as the
-    # Write-Host statement that wraps it.
-    $epsStrLines = @{}
-    foreach ($epsTok in $epsTokens) {
-        if ($epsTok.Kind -ne 'StringLiteral' -and $epsTok.Kind -ne 'StringExpandable') { continue }
-        foreach ($epsLn in ($epsTok.Extent.StartLineNumber..$epsTok.Extent.EndLineNumber)) {
-            $epsStrLines[$epsLn] = $epsTok
-        }
-    }
-    $epsLines = @($epsText -split "`r?`n")
-    for ($i = 0; $i -lt $epsLines.Count; $i++) {
-        $epsLine = $epsLines[$i]
-        $epsNo = $i + 1
-        foreach ($epsMatch in $epRegex.Matches($epsLine)) {
-            $epsPre = $epsMatch.Groups['pre'].Value
-            if ($epsPre -notmatch '-NoProfile\b') { continue }
-            if ($epsCmdLines.ContainsKey($epsNo)) { $epsCalls++; continue }
-            # Begins its own line (a comment marker is not text), or begins a line of the string it sits in.
-            $epsBare = $epsLine -replace '^\s*', '' -replace '^#+\s*', ''
-            $epsStarts = ($epsBare -match '(?i)^powershell(\.exe)?\b')
-            if (-not $epsStarts -and $epsStrLines.ContainsKey($epsNo)) {
-                foreach ($epsStrLine in ([string]$epsStrLines[$epsNo].Value -split "`r?`n")) {
-                    if (($epsStrLine -replace '^\s*', '') -match '(?i)^powershell(\.exe)?\b') { $epsStarts = $true }
-                }
+if (Test-CheckEnabled 'exec-policy/script') {
+    $epsChecked = 0
+    $epsFindings = 0
+    $epsProse = 0
+    $epsCalls = 0
+    # @() because a tree with no scripts/ comes back as a bare item, and .Count on one is a StrictMode throw.
+    $epsFiles = @(Get-PsScriptFiles | Where-Object {
+            $_.FullName.Split([IO.Path]::DirectorySeparatorChar) -notcontains 'tests'
+        })
+    foreach ($epsFile in $epsFiles) {
+        $epsRel = $epsFile.FullName.Substring($RepoRoot.Length).TrimStart('\', '/')
+        $epsText = [System.IO.File]::ReadAllText($epsFile.FullName)
+        # The shared parse (issue #2751): its tokens and its CommandAst list, rather than a parse and a walk
+        # of this check's own.
+        $epsTokens = (Get-PsScriptParse -Path $epsFile.FullName).Tokens
+        # The lines carrying a command the script RUNS. Check 5 has already reported a file that does not
+        # parse, so a partial AST here costs a line of coverage rather than a wrong finding.
+        $epsCmdLines = @{}
+        foreach ($epsCmd in (Get-PsScriptCommandAsts -Path $epsFile.FullName)) {
+            $epsName = $epsCmd.GetCommandName()
+            if ($epsName -and $epsName -match '(?i)^powershell(\.exe)?$') {
+                $epsCmdLines[$epsCmd.Extent.StartLineNumber] = $true
             }
-            if (-not $epsStarts) { $epsProse++; continue }
-            $epsChecked++
-            if ($epsPre -match '-ExecutionPolicy\s+\S+') { continue }
-            $epsFindings++
-            Add-Error ("[exec-policy/script] {0}:{1}: the printed command names no -ExecutionPolicy, so on a machine at the Windows default ('Restricted') it fails with 'running scripts is disabled on this system' before the script starts. Write 'powershell -NoProfile -ExecutionPolicy Bypass -File ...', which is what every hook, CI workflow and script-to-script call in this tree already passes." -f $epsRel, $epsNo)
+        }
+        # The string literals, by line, so a printed hint can be read as the text it prints rather than as the
+        # Write-Host statement that wraps it.
+        $epsStrLines = @{}
+        foreach ($epsTok in $epsTokens) {
+            if ($epsTok.Kind -ne 'StringLiteral' -and $epsTok.Kind -ne 'StringExpandable') { continue }
+            foreach ($epsLn in ($epsTok.Extent.StartLineNumber..$epsTok.Extent.EndLineNumber)) {
+                $epsStrLines[$epsLn] = $epsTok
+            }
+        }
+        $epsLines = @($epsText -split "`r?`n")
+        for ($i = 0; $i -lt $epsLines.Count; $i++) {
+            $epsLine = $epsLines[$i]
+            $epsNo = $i + 1
+            foreach ($epsMatch in $epRegex.Matches($epsLine)) {
+                $epsPre = $epsMatch.Groups['pre'].Value
+                if ($epsPre -notmatch '-NoProfile\b') { continue }
+                if ($epsCmdLines.ContainsKey($epsNo)) { $epsCalls++; continue }
+                # Begins its own line (a comment marker is not text), or begins a line of the string it sits in.
+                $epsBare = $epsLine -replace '^\s*', '' -replace '^#+\s*', ''
+                $epsStarts = ($epsBare -match '(?i)^powershell(\.exe)?\b')
+                if (-not $epsStarts -and $epsStrLines.ContainsKey($epsNo)) {
+                    foreach ($epsStrLine in ([string]$epsStrLines[$epsNo].Value -split "`r?`n")) {
+                        if (($epsStrLine -replace '^\s*', '') -match '(?i)^powershell(\.exe)?\b') { $epsStarts = $true }
+                    }
+                }
+                if (-not $epsStarts) { $epsProse++; continue }
+                $epsChecked++
+                if ($epsPre -match '-ExecutionPolicy\s+\S+') { continue }
+                $epsFindings++
+                Add-Error ("[exec-policy/script] {0}:{1}: the printed command names no -ExecutionPolicy, so on a machine at the Windows default ('Restricted') it fails with 'running scripts is disabled on this system' before the script starts. Write 'powershell -NoProfile -ExecutionPolicy Bypass -File ...', which is what every hook, CI workflow and script-to-script call in this tree already passes." -f $epsRel, $epsNo)
+            }
         }
     }
+    Write-Coverage -Category 'exec-policy/script' -Checked $epsChecked `
+        -Note $(if ($epsFiles.Count -eq 0) {
+            'the script set is empty -- no printed command in any .ps1 could have been read, which is not the same as every printed command being sound'
+        } else {
+            "printed powershell invocation(s) across $($epsFiles.Count) script file(s), the same rule check 42 holds the documents to, one layer over -- $epsFindings finding(s), with $epsProse match(es) skipped as prose and $epsCalls skipped as a command the script RUNS. THREE NARROWINGS, each measured rather than reasoned about, because the naive rule is born here at 93 findings tree-wide against check 42's 0. THE INVOCATION MUST BEGIN ITS LINE, or a line of the string it sits in: a command somebody pastes is the whole of its line, which is what an .EXAMPLE block and a printed operator hint both look like, while prose naming the form is a fragment of a sentence -- 93 to 75, all 18 dropped correct. A COMMANDAST IS NEVER A SUBJECT, read off the parser rather than by looking for a leading '&': the child of a process carrying Bypass inherits it, and the parser also catches the shapes an '&' rule misses. THE FIXTURE LAYER IS EXCLUDED, as a layer and not as an exemption list -- a suite proving this check fires has to contain what it forbids, and of the 75 subjects exactly 2 sit under a tests/ folder, both of them this check's own markdown fixtures. Born green at 73, swept in the same branch across 36 files, 0 exemptions"
+        })
+} else {
+    Write-Skip 'exec-policy/script -- not run (-SkipCheck). Nothing is asserted about a printed powershell command in a .ps1 naming an -ExecutionPolicy in this run.'
 }
-Write-Coverage -Category 'exec-policy/script' -Checked $epsChecked `
-    -Note $(if ($epsFiles.Count -eq 0) {
-        'the script set is empty -- no printed command in any .ps1 could have been read, which is not the same as every printed command being sound'
-    } else {
-        "printed powershell invocation(s) across $($epsFiles.Count) script file(s), the same rule check 42 holds the documents to, one layer over -- $epsFindings finding(s), with $epsProse match(es) skipped as prose and $epsCalls skipped as a command the script RUNS. THREE NARROWINGS, each measured rather than reasoned about, because the naive rule is born here at 93 findings tree-wide against check 42's 0. THE INVOCATION MUST BEGIN ITS LINE, or a line of the string it sits in: a command somebody pastes is the whole of its line, which is what an .EXAMPLE block and a printed operator hint both look like, while prose naming the form is a fragment of a sentence -- 93 to 75, all 18 dropped correct. A COMMANDAST IS NEVER A SUBJECT, read off the parser rather than by looking for a leading '&': the child of a process carrying Bypass inherits it, and the parser also catches the shapes an '&' rule misses. THE FIXTURE LAYER IS EXCLUDED, as a layer and not as an exemption list -- a suite proving this check fires has to contain what it forbids, and of the 75 subjects exactly 2 sit under a tests/ folder, both of them this check's own markdown fixtures. Born green at 73, swept in the same branch across 36 files, 0 exemptions"
-    })
 
 # --- 43. every tracked path is a name git can hand to a Windows checkout --------------------------------
 # THE FAILURE THIS IS BUILT FROM, so the rule is not read as tidiness. September 14, 2026: a tool was
@@ -5885,70 +5910,74 @@ function Get-AstStringArray {
     return ,$vals
 }
 
-$forceSubs = @('delete', 'duplicate', 'publish')
-$forceChecked  = 0
-$forceFindings = 0
-$forceUnresolved = @()
-foreach ($psFile in (Get-PsScriptFiles)) {
-    $fRel = $psFile.FullName.Replace($RepoRoot, '.')
-    # The file's literal string arrays, by variable name, so `-Arguments $dupArgs` can be followed. Only
-    # a plain `$name = @('a','b')` counts: anything assembled over several statements is what the
-    # unresolved lane is for, and guessing at it would be inventing the very bytes under test.
-    # From the shared parse and walk (issue #2751), not a parse of this check's own.
-    $fParse = Get-PsScriptParse -Path $psFile.FullName
-    if ($null -eq $fParse.Ast) { continue }
-    $literalArrays = @{}
-    foreach ($asn in $fParse.Assignments) {
-        if ($asn.Left -isnot [System.Management.Automation.Language.VariableExpressionAst]) { continue }
-        $rhs = $asn.Right
-        if ($rhs -is [System.Management.Automation.Language.CommandExpressionAst]) { $rhs = $rhs.Expression }
-        $vals = Get-AstStringArray -Node $rhs
-        if ($null -ne $vals) { $literalArrays[$asn.Left.VariablePath.UserPath] = $vals }
-    }
+if (Test-CheckEnabled 'shopify-force') {
+    $forceSubs = @('delete', 'duplicate', 'publish')
+    $forceChecked  = 0
+    $forceFindings = 0
+    $forceUnresolved = @()
+    foreach ($psFile in (Get-PsScriptFiles)) {
+        $fRel = $psFile.FullName.Replace($RepoRoot, '.')
+        # The file's literal string arrays, by variable name, so `-Arguments $dupArgs` can be followed. Only
+        # a plain `$name = @('a','b')` counts: anything assembled over several statements is what the
+        # unresolved lane is for, and guessing at it would be inventing the very bytes under test.
+        # From the shared parse and walk (issue #2751), not a parse of this check's own.
+        $fParse = Get-PsScriptParse -Path $psFile.FullName
+        if ($null -eq $fParse.Ast) { continue }
+        $literalArrays = @{}
+        foreach ($asn in $fParse.Assignments) {
+            if ($asn.Left -isnot [System.Management.Automation.Language.VariableExpressionAst]) { continue }
+            $rhs = $asn.Right
+            if ($rhs -is [System.Management.Automation.Language.CommandExpressionAst]) { $rhs = $rhs.Expression }
+            $vals = Get-AstStringArray -Node $rhs
+            if ($null -ne $vals) { $literalArrays[$asn.Left.VariablePath.UserPath] = $vals }
+        }
 
-    foreach ($cmd in (Get-PsScriptCommandAsts -Path $psFile.FullName)) {
-        if ($cmd.GetCommandName() -ne 'Invoke-ShopifyCli') { continue }
-        $forceChecked++
-        # The value of -Arguments, whichever spelling the call site used.
-        $argVals = $null
-        $els = $cmd.CommandElements
-        for ($i = 0; $i -lt $els.Count - 1; $i++) {
-            $p = $els[$i]
-            if ($p -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
-            if ($p.ParameterName -ne 'Arguments') { continue }
-            $v = $els[$i + 1]
-            $argVals = Get-AstStringArray -Node $v
-            if ($null -eq $argVals -and $v -is [System.Management.Automation.Language.VariableExpressionAst]) {
-                $n = $v.VariablePath.UserPath
-                if ($literalArrays.ContainsKey($n)) { $argVals = $literalArrays[$n] }
+        foreach ($cmd in (Get-PsScriptCommandAsts -Path $psFile.FullName)) {
+            if ($cmd.GetCommandName() -ne 'Invoke-ShopifyCli') { continue }
+            $forceChecked++
+            # The value of -Arguments, whichever spelling the call site used.
+            $argVals = $null
+            $els = $cmd.CommandElements
+            for ($i = 0; $i -lt $els.Count - 1; $i++) {
+                $p = $els[$i]
+                if ($p -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+                if ($p.ParameterName -ne 'Arguments') { continue }
+                $v = $els[$i + 1]
+                $argVals = Get-AstStringArray -Node $v
+                if ($null -eq $argVals -and $v -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                    $n = $v.VariablePath.UserPath
+                    if ($literalArrays.ContainsKey($n)) { $argVals = $literalArrays[$n] }
+                }
+                break
             }
-            break
+            if ($null -eq $argVals) {
+                $forceUnresolved += "${fRel}:$($cmd.Extent.StartLineNumber)"
+                continue
+            }
+            # 'theme' then the subcommand: the only shape in scope. A non-theme call (there are none today)
+            # is measured by nothing here and says so by not being counted as a subject.
+            if ($argVals.Count -lt 2 -or $argVals[0] -ne 'theme') { continue }
+            $sub = $argVals[1]
+            if ($forceSubs -notcontains $sub) { continue }
+            if ($argVals -contains '--force' -or $argVals -contains '-f') { continue }
+            Add-Error ("[shopify-force] ${fRel}:$($cmd.Extent.StartLineNumber): 'theme $sub' is invoked without" +
+                " --force. The Shopify CLI declares that flag `"Required if non interactive outside CI`" on all" +
+                " three of its prompting theme subcommands (delete, duplicate, publish), and an agent session" +
+                " has no TTY -- so this call cannot succeed from the caller these scripts are written for. It" +
+                " fails CLEANLY, which is why the measured instance (inbound #2031) went unnoticed for a" +
+                " release cut: the store never got its backup and every document said it did. Add '--force' to" +
+                " the argument list.")
+            $forceFindings++
         }
-        if ($null -eq $argVals) {
-            $forceUnresolved += "${fRel}:$($cmd.Extent.StartLineNumber)"
-            continue
-        }
-        # 'theme' then the subcommand: the only shape in scope. A non-theme call (there are none today)
-        # is measured by nothing here and says so by not being counted as a subject.
-        if ($argVals.Count -lt 2 -or $argVals[0] -ne 'theme') { continue }
-        $sub = $argVals[1]
-        if ($forceSubs -notcontains $sub) { continue }
-        if ($argVals -contains '--force' -or $argVals -contains '-f') { continue }
-        Add-Error ("[shopify-force] ${fRel}:$($cmd.Extent.StartLineNumber): 'theme $sub' is invoked without" +
-            " --force. The Shopify CLI declares that flag `"Required if non interactive outside CI`" on all" +
-            " three of its prompting theme subcommands (delete, duplicate, publish), and an agent session" +
-            " has no TTY -- so this call cannot succeed from the caller these scripts are written for. It" +
-            " fails CLEANLY, which is why the measured instance (inbound #2031) went unnoticed for a" +
-            " release cut: the store never got its backup and every document said it did. Add '--force' to" +
-            " the argument list.")
-        $forceFindings++
     }
+    $forceNote = "Invoke-ShopifyCli call site(s) parsed -- $forceFindings finding(s). THE SET IS MEASURED: of the seventeen 'shopify theme' subcommands in CLI 4.8.0, exactly three declare a -f/--force flag -- delete, duplicate, publish -- and all three document it as 'Required if non interactive'. So 'theme pull' and 'theme push' are out of scope because they accept no such flag, not by exemption. THE MEASURED DEFECT (#2031): backup-live-theme.ps1 duplicated the live theme without it and failed at step 1/3 in every agent session, while the rotate step in the same file had passed --force to 'theme delete' all along. A -Arguments naming a variable IS resolved, against a literal array assigned to that name in the same file -- without that this check would have been born blind to the call it was written for, since the repair builds `$dupArgs once so the dry run cannot print a different command than the one that runs"
+    if ($forceUnresolved.Count -gt 0) {
+        $forceNote += ". NOT REACHED: $($forceUnresolved.Count) call site(s) whose -Arguments is built conditionally or returned by a function, named here rather than passed over in silence -- $($forceUnresolved -join ', ')"
+    }
+    Write-Coverage -Category 'shopify-force' -Checked $forceChecked -Note $forceNote
+} else {
+    Write-Skip 'shopify-force -- not run (-SkipCheck). Nothing is asserted about a prompting theme subcommand missing --force in this run.'
 }
-$forceNote = "Invoke-ShopifyCli call site(s) parsed -- $forceFindings finding(s). THE SET IS MEASURED: of the seventeen 'shopify theme' subcommands in CLI 4.8.0, exactly three declare a -f/--force flag -- delete, duplicate, publish -- and all three document it as 'Required if non interactive'. So 'theme pull' and 'theme push' are out of scope because they accept no such flag, not by exemption. THE MEASURED DEFECT (#2031): backup-live-theme.ps1 duplicated the live theme without it and failed at step 1/3 in every agent session, while the rotate step in the same file had passed --force to 'theme delete' all along. A -Arguments naming a variable IS resolved, against a literal array assigned to that name in the same file -- without that this check would have been born blind to the call it was written for, since the repair builds `$dupArgs once so the dry run cannot print a different command than the one that runs"
-if ($forceUnresolved.Count -gt 0) {
-    $forceNote += ". NOT REACHED: $($forceUnresolved.Count) call site(s) whose -Arguments is built conditionally or returned by a function, named here rather than passed over in silence -- $($forceUnresolved -join ', ')"
-}
-Write-Coverage -Category 'shopify-force' -Checked $forceChecked -Note $forceNote
 
 # --- 45. a verdict marker sits at the START of the line a hook-read check writes ---------------------
 # THE CONVENTION THIS GUARDS (issue #2150, surfaced by the security review on the #2142 branch). Every

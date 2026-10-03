@@ -196,7 +196,7 @@ try {
         'if ($LASTEXITCODE -ne 0) { exit 1 }'
     )
     [System.IO.File]::WriteAllText($s51Path, (($s51Lines -join "`n") + "`n"), $Utf8NoBom)
-    $rC51 = Invoke-Integrity -FixtureRoot $Fixture
+    $rC51 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-cli'
     Assert-True ($rC51.Out -match $ShopifyFindingPattern) 'scenario 51: the bare call is a finding'
     Assert-True ($rC51.Out -match 'sync-something\.ps1:4:') 'scenario 51: and it names the line the call is on, not the file alone'
     Assert-Equal 1 ([regex]::Matches($rC51.Out, $ShopifyFindingPattern).Count) 'scenario 51: the comment and the printed hint are NOT subjects -- exactly one finding'
@@ -210,7 +210,7 @@ try {
     Remove-Item -LiteralPath $s51Path -Force
     $s52Path = Join-Path $Fixture 'scripts\lib\shopify-cli-lib.ps1'
     [System.IO.File]::WriteAllText($s52Path, "function Invoke-ShopifyCli {`n    & shopify @args`n}`n", $Utf8NoBom)
-    $rC52 = Invoke-Integrity -FixtureRoot $Fixture
+    $rC52 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-cli'
     Assert-True (-not ($rC52.Out -match $ShopifyFindingPattern)) 'scenario 52: the wrapper is not reported for holding the call it exists to hold'
     Remove-Item -LiteralPath $s52Path -Force
 

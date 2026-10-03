@@ -169,13 +169,24 @@ Text may carry `**bold**` and `` `code` `` and nothing else: the page escapes th
 **The render adds `previousBytes`, `previousTokens`, `documents.previousTotalBytes`, `documents.removed`
 and a top-level `previous` itself. Do not write them.**
 
-**The efficiency score is computed by the page, never written.** It is the `none` items' tokens as a share
-of all items' tokens, rounded and held to 1-100: what Claude Code itself brings along, set against what the
-repo and the account add. Every token saved in a `direct` or `setting` item raises it, and it is capped at
-99 while anything is added. The previous score comes from `previous.noneTokens` and
-`previous.totalTokens`, which the render sums over the previous page's own items, so a removed or renamed
-layer cannot fake a delta, there is no field for the score, and no way to set it from the data. Its two
-strings are the `scoreHeading` and `scoreText` labels.
+**The efficiency score is computed by the page, never written, and it measures the distance to an
+achievable floor** ([#2737](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2737)). The floor
+is the `none` items plus the always-on documents **up to `documents.budgetBytes`**: that path is always-on
+on purpose, and the budget is the repo's own seam, read by collect rather than typed. The score is the
+`none` tokens as a share of the start with that deliberate part set aside, rounded and held to 1-100, and
+capped at 99 while anything sits above the floor. So the always-on path growing inside its budget leaves
+the score where it is, a byte over the budget lowers it, and every token saved in another `direct` or
+`setting` item raises it. It used to be `none` against the whole start, which only an empty start could
+max out: here that capped it near 43 with every action done. **The actions' `tokens` never enter it**,
+because those are the model's estimates. The previous score comes from `previous.noneTokens`,
+`previous.totalTokens`, `previous.totalBytes` and the previous page's own `budgetBytes`, all of which the
+render reads off the previous page. Its `charsPerToken` is used too, falling back to the current factor
+where the previous page has none. A previous page with no budget is scored without a floor, and its delta
+against a floored score is not shown. A removed or renamed layer therefore cannot fake a delta, there is
+no field for the score, and the data cannot set it. **The always-on item's `tokens` must be
+`alwaysOn.totalTokens` as collect wrote it** (step 5): the floor is computed from the documents' bytes,
+so an always-on item typed lower than that would put the floor above what it sets aside and read 100
+early. Its two strings are the `scoreHeading` and `scoreText` labels.
 
 ### What the collect JSON holds
 

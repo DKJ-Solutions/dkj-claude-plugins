@@ -1157,7 +1157,9 @@ $settingsPath = Join-Path $claudeDir 'settings.json'
 # keeps the rule valid whichever slash the command was typed with. The trailing '*' stays: the entry
 # points take -Name and -Title.
 # NARROWED, NOT CLOSED: a leading '*' constrains a path's shape, never its location, so a planted
-# in-repo .claude/plugins/cache/... tree still matches. Closing that is a decision (#2752).
+# in-repo .claude/plugins/cache/... tree still matches. The owner chose to stop that tree at the pull
+# request rather than pin a root or prompt per step: the consumer's branch-entry check fails a PR whose
+# tree tracks a path of this rule's shape (#2752, .github/workflows/reusable-branch-entry.yml).
 #
 # NAMED BY THE PLUGIN THAT IS ACTUALLY ENABLED, not by the current id -- $workflowNameHere, resolved
 # where $hasWorkflowPack is: a consumer still on a migration name ('contributing-davekjohn',

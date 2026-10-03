@@ -302,7 +302,7 @@ try {
         '$ErrorActionPreference = ''Stop'''
         '& shopify theme list --store x'
     ) -join "`n") + "`n"), $Utf8NoBom)
-    $rC81 = Invoke-Integrity -FixtureRoot $Fixture
+    $rC81 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-cli'
     Assert-True (-not ($rC81.Out -match '\[parse\] .*asana-mirror\.ps1')) 'scenario 81: the valid file parses cleanly, so what follows is not the parse finding again'
     Assert-True ($rC81.Out -match $ShopifyFindingPattern) 'scenario 81: and the bare CLI call in a plugin templates/ script is a finding'
     Assert-True ($rC81.Out -match 'asana-mirror\.ps1:2:') 'scenario 81: named with its line, so the set really carried this file and not a sibling'
@@ -311,7 +311,7 @@ try {
     # Scenario 82: and the layer is not blanket-noisy -- a clean templates/ script reports nothing. The
     # guard against a repair that widens the set by making it accuse whatever it newly reads.
     [System.IO.File]::WriteAllText($s80Path, "`$ErrorActionPreference = 'Stop'`nWrite-Host 'mirrored'`n", $Utf8NoBom)
-    $rC82 = Invoke-Integrity -FixtureRoot $Fixture
+    $rC82 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-cli', 'shopify-force', 'exec-policy/script'
     Assert-True (-not ($rC82.Out -match 'asana-mirror\.ps1')) 'scenario 82: a clean plugin templates/ script draws no finding of any kind'
     Remove-Item -LiteralPath $s80Path -Force
 
@@ -348,7 +348,7 @@ try {
         '# A comment naming theme duplicate must NOT be a subject -- only a CommandAst is.'
         '$d = Invoke-ShopifyCli -Arguments @(''theme'', ''duplicate'', ''--store'', $s, ''--name'', $n)'
     ) -join "`n") + "`n"), $Utf8NoBom)
-    $rC83 = Invoke-Integrity -FixtureRoot $Fixture
+    $rC83 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-force'
     Assert-True ($rC83.Out -match $ForceFindingPattern) 'scenario 83: the flagless duplicate is a finding'
     Assert-True ($rC83.Out -match 'theme-thing\.ps1:3:') 'scenario 83: and it names the line the call is on, not the file alone'
     Assert-Equal 1 ([regex]::Matches($rC83.Out, $ForceFindingPattern).Count) 'scenario 83: the comment is NOT a subject -- exactly one finding'
@@ -359,7 +359,7 @@ try {
         '$ErrorActionPreference = ''Stop'''
         '$d = Invoke-ShopifyCli -Arguments @(''theme'', ''duplicate'', ''--store'', $s, ''--force'')'
     ) -join "`n") + "`n"), $Utf8NoBom)
-    $rC84 = Invoke-Integrity -FixtureRoot $Fixture
+    $rC84 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-force'
     Assert-True (-not ($rC84.Out -match $ForceFindingPattern)) 'scenario 84: --force present, so nothing is reported'
 
     # --- Scenario 85: -Arguments naming a VARIABLE is resolved, both ways ---------------------------
@@ -372,7 +372,7 @@ try {
         '$args1 = @(''theme'', ''publish'', ''--store'', $s, ''--theme'', $id)'
         '$p = Invoke-ShopifyCli -Arguments $args1'
     ) -join "`n") + "`n"), $Utf8NoBom)
-    $rC85 = Invoke-Integrity -FixtureRoot $Fixture
+    $rC85 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-force'
     Assert-True ($rC85.Out -match $ForceFindingPattern) 'scenario 85: a flagless list reached through a variable is still a finding'
     Assert-True ($rC85.Out -match 'theme-thing\.ps1:3:') 'scenario 85: reported at the CALL, which is the line a reader has to change'
     [System.IO.File]::WriteAllText($s83Path, ((@(
@@ -380,7 +380,7 @@ try {
         '$args1 = @(''theme'', ''publish'', ''--store'', $s, ''--force'')'
         '$p = Invoke-ShopifyCli -Arguments $args1'
     ) -join "`n") + "`n"), $Utf8NoBom)
-    $rC85b = Invoke-Integrity -FixtureRoot $Fixture
+    $rC85b = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-force'
     Assert-True (-not ($rC85b.Out -match $ForceFindingPattern)) 'scenario 85: and the flag is seen through the variable too, so the variable lane is not write-only'
 
     # --- Scenario 86: pull and push are NOT subjects, because they accept no --force ----------------
@@ -394,7 +394,7 @@ try {
         '$b = Invoke-ShopifyCli -Arguments @(''theme'', ''push'', ''--store'', $s, ''--theme'', $id)'
         '$c = Invoke-ShopifyCli -Arguments @(''theme'', ''list'', ''--store'', $s, ''--json'')'
     ) -join "`n") + "`n"), $Utf8NoBom)
-    $rC86 = Invoke-Integrity -FixtureRoot $Fixture
+    $rC86 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-force'
     Assert-True (-not ($rC86.Out -match $ForceFindingPattern)) 'scenario 86: no finding for pull, push or list -- none of them takes the flag'
 
     # --- Scenario 87: an unreadable argument list is COUNTED, never a finding -----------------------
@@ -406,7 +406,7 @@ try {
         '$ErrorActionPreference = ''Stop'''
         '$x = Invoke-ShopifyCli -Arguments (Get-SomeArgs -Store $s)'
     ) -join "`n") + "`n"), $Utf8NoBom)
-    $rC87 = Invoke-Integrity -FixtureRoot $Fixture
+    $rC87 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-force'
     Assert-True (-not ($rC87.Out -match $ForceFindingPattern)) 'scenario 87: an unresolvable list is not a finding'
     Assert-True ($rC87.Out -match 'NOT REACHED:.*theme-thing\.ps1:2') 'scenario 87: and it is named in the coverage line, so the check states its own reach'
     Remove-Item -LiteralPath $s83Path -Force

@@ -69,4 +69,4 @@ the advice zone.
 
 A change here reaches every DKJ-Solutions app at its next plugin update, so it is a **visible result**:
 the branch stops for the owner's look instead of merging. Bring a consumer's improvement here through
-an `inbound` issue on this repo. Don't make a local edit and hope it travels.
+an inbound issue on this repo. Don't make a local edit and hope it travels.

@@ -2,7 +2,192 @@
 
 ## [Unreleased]
 
-**6 / 11 minor entries** <!-- pending-tally -->
+**7 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2740-skip-expensive-integrity-checks · 20261003-120538Z
+
+The 15 `check-plugin-integrity-*` suites, which start the gate about 280 times between them, now skip
+five more checks by default in each run: `exec-policy/script`, `shopify-cli`, `mirror-depth`, `shared-script` and
+`shopify-force`. That takes each child run from 2.21s to 1.43s locally, so 35% less. On the three CI runs
+measured in the issue, those suites were 35% of the test pool's work. A scenario about one of those five names it with
+`Invoke-Integrity -Run '<name>'`, and an unknown name throws. The real gate (`open-pr`, CI) still runs
+every check. `-SkipCheck` now accepts eight names instead of three
+([#2740](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2740)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+check-plugin-integrity suites: skip the five most expensive checks by default
+
+[PR #2774](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2774)
+
+---
+
+### DEPLOY: docs/2750-issue-labels-not-types · 20261003-115007Z
+
+`report-issue` no longer sets a GitHub issue type. It classifies an issue by label: `bug` for a defect
+in existing behaviour, `feature` for a capability the store does not have yet, and neither for
+everything else, which counts as a task. Where the Asana board has a `Github Type` field, it is filled
+from that label. `adopt-dkj-policy-bwj` now checks for `bug` and `feature` and prints the create line
+for whichever is missing. Both were deleted from the BWJ stores in September, so a store has to create
+them before the next filing that uses one.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing beyond the switch itself.
+
+**Score:** N/A
+
+#### Pull Request
+
+dkj-policy-bwj: classify issues by label, not by GitHub issue type
+
+Plugins: dkj-policy-bwj
+
+[PR #2772](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2772)
+
+---
+
+### DEPLOY: fix/2752-flag-plugin-tree-in-consumer-pr · 20261003-114702Z
+
+**Inside this repo:** the residual that #2746 left open, a planted plugin tree in a consumer, now has a
+CI check, pinned by `branch-entry-gate.tests.ps1`. The step is in the consumer runner only. This
+repo's own `branch-entry.yml` runs its own tree's scripts on its own PRs.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+**For a consumer that calls the reusable branch-entry runner:** its branch-entry check now goes red on a
+pull request whose tree tracks a path shaped like an installed plugin's, or a symlink or submodule under
+a `.claude` name, and an annotation says why. The allow rules `specialists-init` proposes run a workflow
+script at such a path without a prompt, with `-ExecutionPolicy Bypass`. A glob can pin the path's shape
+but not its location, so a plugin tree committed into the repo would have run unprompted. Callers get the
+check without re-adopting and without any extra token scope. A repo still on a full copy of the runner
+does not get it. It is a flag, not a guarantee: it binds only where the check is required. It prevents a
+failure that has not happened yet.
+
+**Score:** 1
+
+#### Pull Request
+
+The consumer's branch-entry check flags a pull request that tracks a plugin-shaped path
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2770](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2770)
+
+---
+
+### DEPLOY: feat/2737-score-achievable-floor · 20261003-113415Z
+
+The efficiency score on the `measure-session-start` page now measures how far the session start is
+from the floor you can actually reach, not from an empty start. The floor is what Claude Code ships
+itself plus the always-on documents up to their budget, which are always-on on purpose. A start with
+nothing above it scores 100. The always-on path growing inside its budget no longer moves the score,
+and only a byte over the budget counts against it. Before this, the score was capped near 43 in this
+repo even with every action done. It now reads 66 on the same figures
+([#2737](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2737)). The first render after the
+update shows a jump in the score that comes from the new formula, not from a change in the session.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+measure-session-start: score against an achievable floor
+
+Plugins: dkj-policy
+
+[PR #2766](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2766)
+
+---
+
+### DEPLOY: docs/2767-bwj-label-comments-reversed · 20261003-112354Z
+
+Comments and one `open-pr` skill paragraph no longer say BWJ's issue *type* carries the bug/feature
+classification; they say it did then, and point at #2750, which brings the labels back.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing beyond the wording.
+
+**Score:** N/A
+
+#### Pull Request
+
+Label-gate comments stop claiming BWJ classifies by issue type
+
+Plugins: dkj-policy
+
+[PR #2771](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2771)
+
+---
+
+### DEPLOY: feat/2764-enhancement-label-becomes-feature · 20261003-111316Z
+
+The `enhancement` label on the source tracker is now `feature`, and a `feat/` pull request here is
+labelled `feature`. Consumers keep whatever label their own branch table names.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing beyond the rename itself.
+
+**Score:** N/A
+
+#### Pull Request
+
+The enhancement label is renamed to feature
+
+Plugins: dkj-policy
+
+[PR #2768](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2768)
+
+---
+
+### DEPLOY: feat/2756-bug-and-feature-inbound · 20261003-110038Z
+
+An inbound report is now filed as `bug-inbound` when something the plugins ship is wrong, or as
+`feature-inbound` when something is missing, each with its own issue template. Every specialist's
+shared instructions say which to pick. The single `inbound` label is gone from the source tracker, so a
+session on an older release that files with `--label inbound` gets an error from `gh` until it
+updates.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing beyond the label split itself.
+
+**Score:** N/A
+
+#### Pull Request
+
+The inbound label splits into bug-inbound and feature-inbound
+
+Plugins: dkj-policy, dkj-policy-dkjs, dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2763](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2763)
+
+---
 
 ### DEPLOY: fix/2748-low-prio-labels-orange · 20261003-104752Z
 

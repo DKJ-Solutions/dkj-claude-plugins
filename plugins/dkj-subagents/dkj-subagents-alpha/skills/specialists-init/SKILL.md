@@ -545,9 +545,11 @@ and `git status` silent.
    plugin's name, `scripts`, the script — because the plugin's name alone also matched the
    `dkj-policy/` folder in your own root, where a pull request could place a script that then ran
    unprompted ([#2746](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2746)). That
-   **narrows** the rule; it does not pin a location, so review a pull request that adds a
-   `.claude/plugins/` tree to your repo with the same care
-   ([#2752](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2752)). The `gh repo edit`
+   **narrows** the rule; it does not pin a location. A plugin-shaped tree committed into your repo
+   would still match, so it is stopped at the pull request instead. The branch-entry check that
+   `adopt-dkj-policy`'s Part 1 places fails any PR whose tree tracks a path of that shape
+   ([#2752](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2752)); where that check is
+   missing or not required, review such a PR by eye. The `gh repo edit`
    rule is exact for the same reason: a trailing wildcard would also allow `--visibility`.
 6. **Register proposal** — prints a paste-ready **connector manifest** for the *workshop* repo: the
    repo name derived from the git remote, plus one row per **enabled plugin of this marketplace**,

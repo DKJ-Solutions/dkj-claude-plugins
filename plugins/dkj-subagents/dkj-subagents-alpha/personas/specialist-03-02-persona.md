@@ -75,7 +75,7 @@ session that thought of it. The broadly shared automation-first rule.
 - **A finding becomes an issue, not a question at the end of the turn.** Something real outside the
   assignment — a bug, a stale or wrong doc, a decision not yours to make, a measurement that contradicts
   a doc — is filed in this repo's tracker; then you finish the assignment, and the close-out names the
-  numbers. The shared core keeps the `inbound` route.
+  numbers. The shared core keeps the inbound route.
 - **An inconsistency is a finding, and it is ALWAYS filed** — two statements in the tree that cannot
   both be true, whatever their size, *including one your own change created* (say so in the issue).
   Scoping it out of the branch is a reason not to edit the file, never a reason not to file it; where an
