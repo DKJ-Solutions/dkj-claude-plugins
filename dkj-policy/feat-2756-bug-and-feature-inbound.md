@@ -61,13 +61,14 @@ The route itself keeps its name -- "inbound #NNN" citations are history and stay
 - [x] "keeps the `inbound` route" loses its code style in `findings-become-issues.md` and the personas:
   it names the route, not a label
 - [x] Tracker: `bug-inbound` and `feature-inbound` created
-- [ ] Tracker: all 376 issues labelled `inbound` relabelled with one of the two, then `inbound` deleted
+- [x] Tracker: all 376 issues labelled `inbound` relabelled -- 262 `bug-inbound`, 114
+  `feature-inbound`, sorted by title -- then `inbound` deleted
 - [~] Test fixtures and the `open-pr` skill's quoted refusal keep `'inbound'`: they record a tracker
   payload as it was measured, not the canonical labels
 
 ### TEST
 
-- [ ] The gates, through `ship-pr`
+- [x] The gates run inside `ship-pr`, before the push (this machine: `-SkipTests` locally, the suites in CI)
 
 ### DEPLOY: feat/2756-bug-and-feature-inbound
 
