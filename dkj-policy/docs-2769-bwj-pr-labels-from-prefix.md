@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Dave decided yes on #2769. The labels half already landed with #2772, because adoption step 4 creates
+`bug` and `feature`. What is left is the prefix-table answer, and it lives in each BWJ consumer's own
+`branch-info.ps1`, so the source-side repair is the adoption page saying what to answer.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `adopt-dkj-policy-bwj` step 4: the prefix table answers `feature` / `bug` / `documentation`, and a pre-#2750 `$null` is replaced
+- [x] `open-pr` label-gate example: `feat/` -> `feature`, matching #2764 and #2750
 
 ### TEST
 
+- [x] The gates run inside `ship-pr`.
+
 ### DEPLOY: docs/2769-bwj-pr-labels-from-prefix
 
-**Score:**
+In a BWJ store repo, a `fix/` pull request is labelled `bug` again and a `feat/` pull request
+`feature`, now that #2750 brought those labels back for issues. The adoption skill (step 4) shows the
+prefix-table rows to use. A table adopted before #2750 still answers no label for those two prefixes,
+and the step says to replace those answers. It also says to create the labels first, because `open-pr`
+refuses a PR whose label the repo does not have
+([#2769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2769)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
