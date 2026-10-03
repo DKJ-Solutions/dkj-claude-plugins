@@ -189,17 +189,17 @@ Assert-True ($mlPaths -contains '.claude/settings.json') 'Get-MachineLocalPaths 
 Assert-Equal 0 (@($mlPaths | Where-Object { $_ -match '^[\\/]|^[A-Za-z]:' }).Count) 'Get-MachineLocalPaths entries are repo-root-relative, not absolute'
 
 # The shared triage labels (issue #1895; 'awaiting-more-recurrences' added by #2462 as 'dossier' and renamed by #2683 and #2723, 'awaiting-decision' by #2519 (named 'needs-decision' until #2741), 'awaiting-first-recurrence' by #2587 as 'awaiting-recurrence' and renamed by #2723), Adopt='copy' in the script contract -- this repo's
-# own live answer, and the same seven values adopt-triage-labels.ps1 carries as its own built-in
+# own live answer, and the same eight values adopt-triage-labels.ps1 carries as its own built-in
 # fallback (asserted there, against this repo's REAL gh labels, since that duality is the whole point
 # of the two copies never being allowed to disagree).
 $triageLabels = @(Get-TriageLabels)
-Assert-Equal 7 $triageLabels.Count 'Get-TriageLabels names exactly seven labels -- four rungs, the record kind and the two parking labels'
+Assert-Equal 8 $triageLabels.Count 'Get-TriageLabels names exactly eight labels -- four rungs, the record kind and the three parking labels'
 # Joined into one string rather than compared as two arrays: PowerShell's -eq on two arrays compares
 # elementwise against the WHOLE right-hand array per element, never a deep sequence equality, so
 # Assert-Equal would silently pass or fail on the wrong thing. Same join-then-compare shape
 # script-contract.tests.ps1 already uses for its own Scripts-list assertions.
-Assert-Equal 'prio-1,prio-2,prio-3,prio-4,awaiting-more-recurrences,awaiting-decision,awaiting-first-recurrence' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
-    'Get-TriageLabels names prio-1 through prio-4, then awaiting-more-recurrences, then awaiting-decision and awaiting-first-recurrence, in that order'
+Assert-Equal 'prio-1,prio-2,prio-3,prio-4,awaiting-more-recurrences,awaiting-decision,awaiting-pull,awaiting-first-recurrence' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
+    'Get-TriageLabels names prio-1 through prio-4, then awaiting-more-recurrences, then awaiting-decision, awaiting-pull and awaiting-first-recurrence, in that order'
 foreach ($l in $triageLabels) {
     Assert-Match $l.Color '^[0-9A-Fa-f]{6}$' "Get-TriageLabels: '$($l.Name)' has a 6-digit hex colour"
     Assert-True ([bool]$l.Description) "Get-TriageLabels: '$($l.Name)' has a non-empty description"
@@ -214,6 +214,7 @@ $expectedTriage = @{
     'prio-4' = @{ Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     'awaiting-more-recurrences' = @{ Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
     'awaiting-decision' = @{ Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    'awaiting-pull' = @{ Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
     'awaiting-first-recurrence' = @{ Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 }
 foreach ($l in $triageLabels) {
