@@ -3325,6 +3325,7 @@ Assert-Equal 0 (@(Get-DossierClosingFindings -Issues @(806) -Labels $dLabels -La
 $former = Get-FormerTriageLabelNames
 Assert-Equal 'record,dossier' (@($former['awaiting-more-recurrences']) -join ',') 'the rename table hands adopt-triage-labels both former names of the record label (#2723)'
 Assert-Equal 'awaiting-recurrence' (@($former['awaiting-first-recurrence']) -join ',') 'and the former name of the first-recurrence parking label'
+Assert-Equal 'needs-decision' (@($former['awaiting-decision']) -join ',') 'and the former name of the owner-decision parking label (#2741)'
 Assert-Equal '801' ((Get-DossierClosingFindings -Issues @(801, 802) -Labels $dLabels) -join ',') 'the issue carrying the label is found, the other is not'
 Assert-Equal '803' ((Get-DossierClosingFindings -Issues @(803) -Labels $dLabels) -join ',') 'matched case-insensitively, as GitHub treats label names'
 Assert-Equal '804' ((Get-DossierClosingFindings -Issues @(804) -Labels $dLabels) -join ',') 'a table keyed by the string spelling is read too'
