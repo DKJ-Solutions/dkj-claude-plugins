@@ -68,6 +68,8 @@ tracker that already has them keeps its colours until someone runs `gh label edi
 
 #### What makes this deploy extra special
 
+Nothing beyond the colour change itself.
+
 **Score:** N/A
 
 #### Pull Request
