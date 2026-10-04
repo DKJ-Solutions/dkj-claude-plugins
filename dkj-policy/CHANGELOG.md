@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**4 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2793-drop-live-lint-smokes · 20261004-094241Z
+
+The test suites no longer run the whole lint gate over the live repo just to check that it passes. `bootstrap-drift` drops that run entirely, which is ~70% of the heaviest suite. `fix-mojibake` now runs only the encoding tool behind check 14, and checks the gate's own parse of its file count against what the tool prints. `subagent-shared` keeps its run for the two coverage lines it reads, and no longer asserts the exit code. The CI lint job and `open-pr`'s local gate already run that command in every PR. Locally, `bootstrap-drift` went from 76.8 s to 23 s and `fix-mojibake` lost a 45.8 s gate run. The CI before/after with `measure-suites` comes from the runs after the merge.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing a consumer runs changes: these are this repo's own suites and gate notes.
+
+**Score:** N/A
+
+#### Pull Request
+
+bootstrap-drift and fix-mojibake no longer rerun the full lint over the live repo
+
+Plugins: dkj-policy
+
+[PR #2794](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2794)
+
+---
 
 ### DEPLOY: docs/2791-english-tracker-always-on · 20261004-083650Z
 
