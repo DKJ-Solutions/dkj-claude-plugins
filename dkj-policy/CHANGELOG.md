@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2788-rename-policy-extensions · 20261004-080146Z
+
+The two `dkj-policy` extensions were renamed after their organisation:
+`dkj-policy-bwj` is `bwj-development` and `dkj-policy-dkjs` is `dkj-solutions`
+([#2788](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2788)). An extension is now
+recognised by a list in `claude-md-import-lib.ps1` rather than by its name prefix. A retired name is
+mapped to its current one, so the adopters still owe and write the current import line, and the
+integrity gate fails until the list matches the plugin folders.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A migration is required for a repo that enables either extension. The marketplace no longer declares
+the old ids, so after this release nothing of the extension loads until `.claude/settings.json` enables
+the new name and it is installed. The old `CLAUDE.md` import points at a folder that is gone, and nothing
+fails loudly. The session-start check warns once for each old name, `adopt-workflow-folder.ps1 -Apply`
+rewrites the old import line in place, and [ADOPTION.md](../plugins/ADOPTION.md#consumption) gives the
+three steps.
+
+**Score:** 5
+
+#### Pull Request
+
+Rename the dkj-policy extensions to bwj-development and dkj-solutions
+
+Plugins: bwj-development, dkj-policy, dkj-solutions, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2790](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2790)
+
+---
 
 ### DEPLOY: fix/2786-docs-prefix-no-documentation-label · 20261004-074745Z
 
