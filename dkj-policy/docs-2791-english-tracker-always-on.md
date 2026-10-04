@@ -39,11 +39,20 @@
 
 ### PLAN
 
+Inbound #2791: the English-tracker rule lived only in Tessa's on-demand manual, so the session that
+files an issue (usually Chris) never saw it. Verified in the tree before repairing: the manual's
+lines 49-63 were the only statement, and no always-on filing rule named the language.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] One bullet in the shared `findings-become-issues` block (`subagent-shared/`), synced by
+  `build-agent-defs.ps1` into the 30 personas and subagents that carry it
+- [x] Tessa's manual keeps the reasoning and points at the block instead of restating the rule
 
 ### TEST
+
+- [ ] Copy edit (Edith) on the hand-written changes
+- [ ] Lint + test gate green via open-pr
 
 ### DEPLOY: docs/2791-english-tracker-always-on
 
