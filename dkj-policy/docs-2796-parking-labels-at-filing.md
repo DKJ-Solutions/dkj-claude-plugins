@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#2796: only `awaiting-decision` had a "set at filing" rule, and the filing rules a session has always
+loaded (Chris's lens) named `prio-N` and `minor` but no parking label. So #2795 was filed unparked.
+One rule for the whole `awaiting-*` family, placed where filing rules are read.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Chris's lens: a filing bullet beside `prio-N`/`minor` naming all five parking labels
+- [x] `CONTRIBUTING-portable.md`: a general "parking label goes on at filing" paragraph ahead of the per-label ones
+- [x] Derek's lens: the parking-labels heading and a lead line say all of them are set at filing
 
 ### TEST
 
+- [x] Lint and test gates through open-pr
+
 ### DEPLOY: docs/2796-parking-labels-at-filing
 
-**Score:**
+An issue whose next step waits on something other than work now carries its `awaiting-*` parking label
+from the moment it is filed, for all five labels rather than `awaiting-decision` alone. The rule now
+sits beside the `prio-N` and `minor` filing rules in Chris's lens, which every session here loads, so it
+is read when an issue is filed. Before, a waiting issue could be filed unparked and look like free work
+to both pickup routes.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+`CONTRIBUTING-portable.md` now says once that every parking label (`awaiting-decision`, `awaiting-pull`,
+`awaiting-event`, `awaiting-first-recurrence`, `awaiting-more-recurrences`) goes on in the same
+`gh issue create` as the `prio-N`. Before, it said that only for `awaiting-decision`. A consumer's
+waiting issues are parked from the start rather than picked up by a sweep that has nothing to build.
+
+**Score:** 2
 
 #### Pull Request
 
