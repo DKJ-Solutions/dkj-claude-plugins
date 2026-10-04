@@ -74,3 +74,5 @@ waiting issues are parked from the start rather than picked up by a sweep that h
 
 #### Pull Request
 
+
+Every parking label goes on at filing, not only awaiting-decision
