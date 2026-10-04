@@ -247,7 +247,7 @@ function ConvertTo-ConsoleStrippedText {
             count, so the one convention serves them all.
 
             SIX CATEGORIES AND NO EXCEPTIONS -- unlike ConvertTo-BacklogVisibleText (#2025,
-            dkj-policy-bwj's backlog-page-rules.ps1), which keeps eight invisible code points an HTML
+            bwj-development's backlog-page-rules.ps1), which keeps eight invisible code points an HTML
             page can afford to render (three bidi MARKS, two joiners) because an HTML element can be
             told a text direction and a console line cannot. That is why this is not a reuse of that
             function -- only of its LOOKUP; the policy differs; the code-point walk does not.

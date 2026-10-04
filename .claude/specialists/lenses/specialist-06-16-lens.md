@@ -232,7 +232,7 @@ answers that only the owning specialist has to keep true.
   weakened by this and must not be: a citation is auditable and a paraphrase is not, and this tree has
   scar tissue from measurements rewritten until nothing in them was checkable. What is bounded is the
   *excerpt*. The **repo name, the file and the line** are published as before — they are already in
-  `connectors/` and in the `dkj-policy-bwj` skill — and they are what carries the provenance, so the
+  `connectors/` and in the `bwj-development` skill — and they are what carries the provenance, so the
   quote itself shrinks to the characters the check, the count or the argument actually turns on.
   Everything the finding does not read is the consumer's own wording and stays in the consumer's own
   tree.

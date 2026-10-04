@@ -89,7 +89,7 @@ Four blocks, in this order:
 
 1. **RANK 1** -- the `*-portable.md` pages of every plugin **enabled here**, `dkj-policy`
    first. That order is the top rung's own: where two plugin pages speak to the same question, this
-   plugin's page wins and a companion's (`dkj-policy-bwj`) is an extension, never an override. Plugins are
+   plugin's page wins and a companion's (`bwj-development`) is an extension, never an override. Plugins are
    **discovered, not listed** -- a plugin shipping no portable page is not a legislator and drops out
    silently; one that could not be located at all gets a `[not located]` line, because whatever it
    legislates was not read.

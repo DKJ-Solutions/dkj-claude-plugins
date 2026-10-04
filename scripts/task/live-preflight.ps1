@@ -412,7 +412,7 @@ if (-not $sinceTag) {
         # on live -- pushing it back is a no-op on a good day, and on the day the third party has edited
         # again since, it silently reverts their work. Which commits came in through a sync, and which
         # paths only they touched, are Get-SyncMergeCommits and Get-SyncOwnedPaths in the lib (#2509):
-        # dkj-policy-bwj's prepare-release derives the same list days earlier, from the same two rules.
+        # bwj-development's prepare-release derives the same list days earlier, from the same two rules.
         $syncCommits = @()
         $heads = @(Get-SyncMergeCommits -SyncPrefix $syncPrefix -LogLines (Get-GitLines (Invoke-Git -Arguments @('log', '--no-renames', '--format=%H%x09%P%x09%s', "$sinceTag..HEAD"))))
         foreach ($h in $heads) {

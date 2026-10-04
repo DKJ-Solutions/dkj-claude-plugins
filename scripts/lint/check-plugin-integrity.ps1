@@ -1465,12 +1465,12 @@ function Get-PsScriptFiles {
     }
     # EVERY .ps1 UNDER A PLUGIN ROOT, rather than the three named subtrees this used to list -- issue
     # #1998. The old anchor took <plugin>/skills/**, <plugin>/scripts/** and <plugin>/hooks/**, and one
-    # tracked file sat in none of them: plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1, 1812
+    # tracked file sat in none of them: plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1, 1812
     # lines. So checks 5 (parse), 27 (script-ascii), 33 (shopify-cli), 36 (section-number) and 42b
     # (exec-policy/script) had each been silent about it since the day it was written.
     #
     # WHY THAT FILE IS NOT AN INERT TEMPLATE, which is the reading its directory invites and the reason
-    # this was worth inverting rather than exempting. adopt-dkj-policy-bwj COPIES it into a BWJ store repo as
+    # this was worth inverting rather than exempting. adopt-bwj-development COPIES it into a BWJ store repo as
     # .github/scripts/asana-mirror.ps1, driven by .github/workflows/asana-mirror.yml, where it runs in that
     # consumer's CI holding `issues: write`. A parse error in it reaches them and not us, which is check
     # 5's own argument for existing, one directory over from where it was looking.
@@ -3348,7 +3348,7 @@ Write-Coverage -Category 'skill-command' -Checked $skillCmdChecked `
 # one owner's contributing rules, not a workflow among several. '*-codex' joined the same way on
 # September 1, 2026, when 'workflow-bwj' was renamed 'bwj-codex' -- a codex is a body of law, i.e. a way
 # of working, and the leading word names whose. '*-policy' / '*-policy-*' joined on September 5, 2026
-# (#1437), when 'contributing-davekjohn' became 'dkj-policy' and 'bwj-codex' became 'dkj-policy-bwj':
+# (#1437), when 'contributing-davekjohn' became 'dkj-policy' and 'bwj-codex' became 'dkj-policy-bwj' (itself renamed 'bwj-development' on #2788):
 # a policy IS a way of working, the leading word says whose, and the trailing one -- where there is one --
 # says which ministry under it. THE RETIRED SHAPES STAY ACCEPTED rather than being swapped out, which is
 # this repo's standing answer to a rename (#952): a consumer who has not migrated still resolves a
@@ -3360,7 +3360,7 @@ Write-Coverage -Category 'skill-command' -Checked $skillCmdChecked `
 # rest of the name saying whose it is, and Dave kept that directory name through #886 (decision A on that
 # issue). #1467 renamed it to plugins/dkj-policy/ and lifted the prime ministry's own files to its root,
 # so the directory now names the GOVERNMENT: 'dkj-policy' at plugins\dkj-policy, and every other ministry
-# one level inside it ('dkj-policy-bwj' at plugins\dkj-policy\dkj-policy-bwj). That is what the anchored
+# one level inside it ('bwj-development' at plugins\dkj-policy\bwj-development). That is what the anchored
 # '^plugins\\dkj-policy($|\\)' below says, and the '($|\\)' is load-bearing rather than tidy: a bare
 # prefix would also accept a sibling directory merely beginning with the same characters, which is a
 # different plugin family and not a ministry.
@@ -3391,6 +3391,13 @@ Write-Coverage -Category 'skill-command' -Checked $skillCmdChecked `
 # at plugins\dkj-subagents\ and adding 'dkj-subagents-*' beside it. The first branch that matches wins, and
 # 'dkj-subagents-alpha' does not match 'team-*', so that arrangement reads as harmless and is -- until somebody
 # publishes a plugin literally named 'team-something', which is the one case the rule exists for.
+#
+# THE POLICY EXTENSIONS ARE CLASSIFIED BY LIST SINCE OCTOBER 4, 2026 (#2788), when 'dkj-policy-bwj' became
+# 'bwj-development' and 'dkj-policy-dkjs' became 'dkj-solutions'. Each is named after its organisation, so
+# no name shape covers both. Get-PolicyExtensionList (claude-md-import-lib.ps1) is the one list the import
+# machinery already reads, and a listed extension is held to plugins/dkj-policy/ like any other ministry.
+. (Join-Path $PSScriptRoot '..\lib\claude-md-import-lib.ps1')
+$policyExtensions = @(Get-PolicyExtensionList)
 $kindChecked = 0
 foreach ($p in $publishedPlugins) {
     $kindChecked++
@@ -3399,6 +3406,10 @@ foreach ($p in $publishedPlugins) {
         if ($rel -notmatch '^plugins\\dkj-subagents\\') {
             Add-Error "[plugin-kind] '$($p.Name)' is one of this family's teams by its name but its source is '$rel' -- 'dkj-subagents-*' belongs under plugins/dkj-subagents/."
         }
+    } elseif ($policyExtensions -ccontains $p.Name) {
+        if ($rel -notmatch '^plugins\\dkj-policy\\') {
+            Add-Error "[plugin-kind] '$($p.Name)' is a dkj-policy extension (Get-PolicyExtensionList) but its source is '$rel' -- an extension belongs one level inside plugins/dkj-policy/."
+        }
     } elseif ($p.Name -like '*-policy' -or $p.Name -like '*-policy-*') {
         if ($rel -notmatch '^plugins\\dkj-policy($|\\)') {
             Add-Error "[plugin-kind] '$($p.Name)' is a ministry of the policy by its name but its source is '$rel' -- '*-policy' and '*-policy-*' belong under plugins/dkj-policy/, the prime ministry at its root and every other ministry one level inside it."
@@ -3406,7 +3417,7 @@ foreach ($p in $publishedPlugins) {
     } elseif ($p.Name -like 'dkj-team-*' -or $p.Name -like 'team-*' -or $p.Name -like 'workflow-*' -or $p.Name -like 'contributing-*' -or $p.Name -like '*-codex') {
         # Accepted by name, held to no location: see the retired-shapes note above.
     } else {
-        Add-Error "[plugin-kind] '$($p.Name)' is none of 'dkj-subagents-*', 'dkj-team-*', 'team-*', 'workflow-*', 'contributing-*', '*-codex', '*-policy' or '*-policy-*'. Every plugin here is a team or a way of working, and the name is what says which: the directory rule is DERIVED from the name, so a plugin whose name matches none of them has its location held against nothing at all -- this check switches itself off for it."
+        Add-Error "[plugin-kind] '$($p.Name)' is none of 'dkj-subagents-*', 'dkj-team-*', 'team-*', 'workflow-*', 'contributing-*', '*-codex', '*-policy', '*-policy-*' or a listed dkj-policy extension. Every plugin here is a team or a way of working, and the name is what says which: the directory rule is DERIVED from the name, so a plugin whose name matches none of them has its location held against nothing at all -- this check switches itself off for it."
     }
 }
 Write-Coverage -Category 'plugin-kind' -Checked $kindChecked `
@@ -5021,7 +5032,7 @@ Write-Coverage -Category 'check-list' -Checked $clChecked `
 # Dave's chosen repair actually needs -- and it would put a CLI on this gate's critical path, in CI and in
 # every consumer, for an answer thirty lines of PowerShell give offline.
 #
-# A NESTED PLUGIN ROOT IS NOT ITS PARENT'S CONTENT. plugins/dkj-policy/dkj-policy-bwj sits inside
+# A NESTED PLUGIN ROOT IS NOT ITS PARENT'S CONTENT. plugins/dkj-policy/bwj-development sits inside
 # plugins/dkj-policy, so a plain recursive scan would credit the child's files to the parent and demand the
 # parent declare them. Neither ships an agent def today, so nothing bites -- which is exactly why it is
 # handled now rather than after it does.

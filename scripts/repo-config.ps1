@@ -1217,7 +1217,7 @@ function Get-ExpectedRepoSettings {
 # NOT THE SAME QUESTION AS #1686, AND NOT A REVERSAL OF IT. #1686 (closed September 9, 2026) kept this
 # repo's `prio-*` rungs and the BWJ tracker's own reach BUCKETS deliberately disjoint, in both
 # directions, so a session crossing families gets a refused label rather than one that quietly means
-# something else there. This seam does not touch dkj-policy-bwj's buckets or Get-ReachLabel's reach
+# something else there. This seam does not touch bwj-development's buckets or Get-ReachLabel's reach
 # axis at all -- it only offers the priority axis to an ORDINARY dkj-policy consumer, one with no BWJ
 # board of its own, which is a question #1686 never asked.
 #
@@ -1251,7 +1251,7 @@ function Get-ExpectedRepoSettings {
 # AND A SIXTH, A PARKING LABEL: 'awaiting-decision' (issue #2519, Dave September 26, 2026; 'needs-decision' until #2741, October 3, 2026, when it joined the purple awaiting-* family and took that colour). An issue that
 # ends in an open choice for the owner is not work anybody can pick up yet, and the claim and sweep
 # routes skip it by default. It is deliberately NOT 'awaiting-more-info' ('needs-info' until #2723): in
-# dkj-policy-bwj that label means
+# bwj-development that label means
 # blocked on the SUBMITTER -- it moves the mirrored Asana card to the blocked column and obliges a
 # question comment to the person who filed it -- and neither is true of a decision that is the owner's.
 # Same 'copy' reasoning: "waiting on the owner" asserts nothing about the adopting repo.
@@ -1380,7 +1380,7 @@ function Get-ResolvesExemptMatchers {
 }
 
 function Get-BranchClosingSteps {
-    <# No closing steps (#2655): the one caller today is dkj-policy-bwj's preview question, and its reach
+    <# No closing steps (#2655): the one caller today is bwj-development's preview question, and its reach
        is the two store repos. This repo runs no theme, so the question would be '- [~]' on every branch. #>
     return @()
 }

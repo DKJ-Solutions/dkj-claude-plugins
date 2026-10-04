@@ -234,7 +234,7 @@ gives, for the same reason. A repo that has not answered that seam is a repo tha
 automatic theme delete, which is a decision rather than a gap.
 
 **What the standing approval covers, and its bounds**, is not decided here. BWJ states it in
-`dkj-policy-bwj`'s `THEME-LIFECYCLE-portable.md`; another consumer states it wherever their own safety
+`bwj-development`'s `THEME-LIFECYCLE-portable.md`; another consumer states it wherever their own safety
 rules live.
 
 ## The seams

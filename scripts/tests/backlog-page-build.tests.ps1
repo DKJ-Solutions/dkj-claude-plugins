@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Regression tests for the minor-backlog page builder dkj-policy-bwj ships (issue #1979).
+    Regression tests for the minor-backlog page builder bwj-development ships (issue #1979).
 
 .DESCRIPTION
     Dependency-free: no Pester needed, only PowerShell.
@@ -25,7 +25,7 @@
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot   = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-policy-bwj'
+$PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy\bwj-development'
 $LibPath    = Join-Path $PluginRoot 'scripts\lib\backlog-page-rules.ps1'
 $ScriptPath = Join-Path $PluginRoot 'scripts\task\build-backlog-page.ps1'
 $Fixture    = Join-Path ([System.IO.Path]::GetTempPath()) "backlog-page-build-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
@@ -48,8 +48,8 @@ function Assert-Equal {
 Write-Host ''
 Write-Host 'The shared BWJ pages worker -- the backlog builder (#1979)' -ForegroundColor Cyan
 
-Assert-True (Test-Path -LiteralPath $LibPath)    'dkj-policy-bwj ships scripts/lib/backlog-page-rules.ps1'
-Assert-True (Test-Path -LiteralPath $ScriptPath) 'dkj-policy-bwj ships scripts/task/build-backlog-page.ps1'
+Assert-True (Test-Path -LiteralPath $LibPath)    'bwj-development ships scripts/lib/backlog-page-rules.ps1'
+Assert-True (Test-Path -LiteralPath $ScriptPath) 'bwj-development ships scripts/task/build-backlog-page.ps1'
 
 . $LibPath
 
@@ -215,7 +215,7 @@ function Invoke-BuildBacklogPage {
 try {
     $noConfig = Invoke-BuildBacklogPage -ScriptArgs @('-DryRun')
     Assert-True ($noConfig.ExitCode -ne 0) 'a fixture with no scripts\repo-config.ps1 cannot build'
-    Assert-True ($noConfig.Text -like '*adopt-dkj-policy-bwj*') '...and says which skill answers the seams'
+    Assert-True ($noConfig.Text -like '*adopt-bwj-development*') '...and says which skill answers the seams'
 
     # A dedicated call rather than Invoke-BuildBacklogPage: that helper always injects its own
     # -RootOverride pointing at the fixture, and a second one here would be a duplicate named

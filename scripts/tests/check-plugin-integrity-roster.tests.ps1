@@ -217,19 +217,19 @@ try {
     Assert-True (-not ($ak9.Out -match '\[agents-key\] \.')) `
         'check 38: no key with every def under agents/ is the convention and is silent'
 
-    # 10. A NESTED PLUGIN ROOT IS NOT ITS PARENT'S CONTENT. plugins/dkj-policy/dkj-policy-bwj really sits
+    # 10. A NESTED PLUGIN ROOT IS NOT ITS PARENT'S CONTENT. plugins/dkj-policy/bwj-development really sits
     #     inside plugins/dkj-policy in this repo, and neither ships a def today -- so nothing would fire
     #     if this were wrong, which is precisely why it is exercised here rather than left to the tree.
     #     The marketplace is rewritten for this scenario and restored immediately after: every later
     #     assert in this suite reads it.
     $akMpPath = Join-Path $Fixture '.claude-plugin\marketplace.json'
     $akMpOrig = [System.IO.File]::ReadAllText($akMpPath, [System.Text.Encoding]::UTF8)
-    $akChildRoot = Join-Path $Fixture 'plugins\dkj-policy\dkj-policy-bwj'
+    $akChildRoot = Join-Path $Fixture 'plugins\dkj-policy\bwj-development'
     try {
         New-Item -ItemType Directory -Path (Join-Path $akChildRoot '.claude-plugin') -Force | Out-Null
         New-Item -ItemType Directory -Path (Join-Path $akChildRoot 'agents') -Force | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $akChildRoot '.claude-plugin\plugin.json'),
-            "{ `"name`": `"dkj-policy-bwj`", `"version`": `"0.0.1`" }`n", $Utf8NoBom)
+            "{ `"name`": `"bwj-development`", `"version`": `"0.0.1`" }`n", $Utf8NoBom)
         # The child's def sits OUTSIDE its own agents/ dir on purpose: the child must be accused and the
         # parent must not. One file separates the two readings.
         New-Item -ItemType Directory -Path (Join-Path $akChildRoot 'subagents-stray') -Force | Out-Null
@@ -242,12 +242,12 @@ try {
     { "name": "dkj-subagents-alpha",         "source": "./plugins/dkj-subagents/dkj-subagents-alpha" },
     { "name": "dkj-subagents-shopify",       "source": "./plugins/dkj-subagents/dkj-subagents-shopify" },
     { "name": "dkj-policy", "source": "./plugins/dkj-policy" },
-    { "name": "dkj-policy-bwj", "source": "./plugins/dkj-policy/dkj-policy-bwj" }
+    { "name": "bwj-development", "source": "./plugins/dkj-policy/bwj-development" }
   ]
 }
 '@), $Utf8NoBom)
         $ak10 = Invoke-Integrity -FixtureRoot $Fixture
-        Assert-True ($ak10.Out -match "\[agents-key\] \./plugins/dkj-policy/dkj-policy-bwj.*declares no .agents. key|\[agents-key\] \.\\plugins\\dkj-policy\\dkj-policy-bwj.*declares no .agents. key") `
+        Assert-True ($ak10.Out -match "\[agents-key\] \./plugins/dkj-policy/bwj-development.*declares no .agents. key|\[agents-key\] \.\\plugins\\dkj-policy\\bwj-development.*declares no .agents. key") `
             'check 38: the nested plugin is accused of its own stray def'
         Assert-True (-not ($ak10.Out -match "\[agents-key\] \.[\\/]plugins[\\/]dkj-policy[\\/]\.claude-plugin")) `
             'check 38: and its PARENT is not -- a nested root is not its parent content'

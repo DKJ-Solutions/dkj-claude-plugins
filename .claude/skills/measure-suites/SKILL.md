@@ -23,7 +23,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/maintenance/measure-
 # before/after, with families
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/maintenance/measure-suites.ps1 `
   -BaselineRunId <before-ids> -RunId <after-ids> `
-  -Family 'integrity=check-plugin-integrity-*,bwj=bwj-*;dkj-policy-bwj.tests.ps1'
+  -Family 'integrity=check-plugin-integrity-*,bwj=bwj-*;bwj-development.tests.ps1'
 ```
 
 **Take PR runs.** Both trunk pushes a ship leaves behind normally skip the suites -- the `fold:` push by

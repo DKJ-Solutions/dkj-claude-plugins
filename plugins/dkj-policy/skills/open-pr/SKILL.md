@@ -904,7 +904,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 **An issue somebody else has to close by hand is `-NoResolves`, not `-Resolves`** — and the flag is
 where that distinction is *made*, because `Closes #<n>` hands the decision to GitHub at the merge, where
 no person is present. Whether it is also *checked* is the seam below. The measured case is
-`dkj-policy-bwj`: an issue with a mirrored Asana task carries a paste-ready block that the shipping
+`bwj-development`: an issue with a mirrored Asana task carries a paste-ready block that the shipping
 session writes while the issue is **open**, and closing it is a person's confirmation that the block
 reached Asana (inbound
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049)). A `Closes #<n>` bypasses

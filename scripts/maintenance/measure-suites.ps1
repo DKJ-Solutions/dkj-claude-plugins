@@ -36,7 +36,7 @@
 .PARAMETER Family
     Named groups of suites to total, as 'name=glob' with several globs joined by ';', several families
     comma-separated in one string under `-File`, e.g.
-    `-Family 'integrity=check-plugin-integrity-*,bwj=bwj-*;dkj-policy-bwj.tests.ps1'`. A suite may count
+    `-Family 'integrity=check-plugin-integrity-*,bwj=bwj-*;bwj-development.tests.ps1'`. A suite may count
     in more than one family.
 
 .PARAMETER Top

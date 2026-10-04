@@ -7,7 +7,7 @@
     checks judge the root 'CLAUDE.md' file alone (issue #2374): whether it '@'-imports the dkj-policy
     constitution, and whether it carries prose beyond that -- and a third (issue #2444) warns where the
     root is imports-only but no unscoped '.claude/rules/*.md' carries the repo's facts -- and a fourth
-    (issue #2538) warns where the repo's own settings enable dkj-policy-bwj but the closure does not import
+    (issue #2538) warns where the repo's own settings enable bwj-development but the closure does not import
     that plugin's extension CLAUDE.md. All advisory; none moves the exit code.
 
 .DESCRIPTION
@@ -220,7 +220,7 @@ if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-ConstitutionImpor
 }
 
 # THE EXTENSION IMPORTS (#2538, #2697). The same gap one plugin over: a repo that enables a dkj-policy
-# extension (dkj-policy-bwj, dkj-policy-dkjs, ...) but does not import its CLAUDE.md runs without that
+# extension (bwj-development, dkj-solutions, ...) but does not import its CLAUDE.md runs without that
 # extension's chapters, and nothing said so. #2531 measured that a warning alone changed nothing for
 # weeks, which is why the adoption WRITES the line (#2532); this is the signal for the repo that enabled
 # the plugin and never ran it. One warning per missing extension, the set derived from the enabled ids
@@ -241,6 +241,36 @@ if (@($documents).Count -gt 0 -and (Test-FunctionDefined 'Test-ExtensionImported
         Write-Host '          so its chapters are not in context. Run the adopt-dkj-policy skill: its' -ForegroundColor Yellow
         Write-Host '          adopt-workflow-folder.ps1 -Apply writes the line directly below the constitution import.' -ForegroundColor Yellow
         Write-Host "          Or add it by hand: $(Get-ExtensionImportLine -Extension $ext)" -ForegroundColor Yellow
+    }
+}
+
+# THE RETIRED EXTENSION NAMES (#2788). dkj-policy-bwj became bwj-development and dkj-policy-dkjs became
+# dkj-solutions. A repo that adopted before the rename keeps both old names until it migrates: the
+# enabledPlugins id, which the marketplace no longer declares, so nothing of the extension loads; and the
+# '@'-line, whose path the marketplace clone no longer has, so it imports nothing. Neither fails loudly,
+# so each gets a [WARNING] naming the current name. Same terms as the blocks above: never the exit code,
+# and wrapped so a malformed settings layer cannot take the SessionStart hook down.
+if (Test-FunctionDefined 'Get-RetiredPolicyExtensionNames') {
+    $retiredExt = Get-RetiredPolicyExtensionNames
+    if (Test-FunctionDefined 'Get-EnabledPlugins') {
+        $enabledIds = @()
+        try { $enabledIds = @((Get-EnabledPlugins -RepoRoot $repoRoot).RepoEnabledIds) } catch { $enabledIds = @() }
+        foreach ($id in $enabledIds) {
+            $name = ([string]$id -split '@', 2)[0]
+            if (-not $retiredExt.Contains($name)) { continue }
+            Write-Host "[WARNING] this repo enables $name, a retired name -- the extension is $($retiredExt[$name]) now, so" -ForegroundColor Yellow
+            Write-Host '          nothing of it loads until .claude/settings.json enables the current name and it is' -ForegroundColor Yellow
+            Write-Host "          installed: claude plugin install $($retiredExt[$name])@<marketplace> --scope project" -ForegroundColor Yellow
+        }
+    }
+    if (@($documents).Count -gt 0) {
+        foreach ($row in @(Get-RetiredExtensionImports -Documents $documents)) {
+            Write-Host "[WARNING] CLAUDE.md imports the $($row.Retired) extension under its retired name, a path that no" -ForegroundColor Yellow
+            Write-Host '          longer exists, so it loads nothing. Replace the line with the one below, or delete it' -ForegroundColor Yellow
+            Write-Host '          where that line is already there:' -ForegroundColor Yellow
+            Write-Host "            $(Get-ExtensionImportLine -Extension $row.Current)" -ForegroundColor Yellow
+            Write-Host '          adopt-workflow-folder.ps1 -Apply does either for you.' -ForegroundColor Yellow
+        }
     }
 }
 

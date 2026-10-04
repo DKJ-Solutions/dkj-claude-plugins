@@ -153,7 +153,7 @@
                                       New-SyncPrBody composes, which names both halves and every path
                                       with its kind.
       Get-ShopifySyncLogPath          where this repo keeps its durable sync record, repo-root-relative
-                                      (e.g. 'dkj-policy-bwj/SYNC-LOG.md'). Answered: every sync prepends an
+                                      (e.g. 'bwj-development/SYNC-LOG.md'). Answered: every sync prepends an
                                       entry there and it rides in the branch's own commit. Default:
                                       unanswered, and then nothing is written -- keeping a log is the
                                       repo's policy, not a Shopify fact (inbound #1382).
@@ -423,7 +423,7 @@ $seam = & {
     if (Test-FunctionDefined 'Get-TrunkBranchName') { $answers.Trunk        = [string](Get-TrunkBranchName) }
     if (Test-FunctionDefined 'Get-PrMergeMethod') { $answers.MergeMethod  = [string](Get-PrMergeMethod) }
     # UNANSWERED MEANS NO LOG, and that is why this seam is not required (inbound #1382). Keeping a sync
-    # log is a repo's POLICY -- dkj-policy-bwj's, for the two BWJ store repos -- while the machinery here is
+    # log is a repo's POLICY -- bwj-development's, for the two BWJ store repos -- while the machinery here is
     # generic and reaches every Shopify consumer through a plugin update. A repo that never asked for the
     # record must not find a new file in its tree because it updated a plugin, so the default is silence.
     if (Test-FunctionDefined 'Get-ShopifySyncLogPath') { $answers.SyncLogPath  = [string](Get-ShopifySyncLogPath) }

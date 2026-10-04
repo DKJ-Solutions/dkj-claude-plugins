@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Regression tests for the shared BWJ market URL builder that dkj-policy-bwj ships --
-    plugins/dkj-policy/dkj-policy-bwj/scripts/lib/market-urls.ps1 (issue #1886, candidate 1).
+    Regression tests for the shared BWJ market URL builder that bwj-development ships --
+    plugins/dkj-policy/bwj-development/scripts/lib/market-urls.ps1 (issue #1886, candidate 1).
 
 .DESCRIPTION
     Dependency-free: no Pester needed, only PowerShell.
@@ -47,7 +47,7 @@
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$LibPath  = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-policy-bwj\scripts\lib\market-urls.ps1'
+$LibPath  = Join-Path $RepoRoot 'plugins\dkj-policy\bwj-development\scripts\lib\market-urls.ps1'
 
 # Test-FunctionDefined, for the export cases at the foot of this file. This repo routes every function
 # probe through it rather than through Get-Command (issue #1729), and its own gate refuses the old
@@ -104,7 +104,7 @@ function Invoke-Probe {
 Write-Host ''
 Write-Host 'The shared BWJ market URL builder -- where the plugin ships it (#1886)' -ForegroundColor Cyan
 
-Assert-True (Test-Path -LiteralPath $LibPath) 'dkj-policy-bwj ships scripts/lib/market-urls.ps1'
+Assert-True (Test-Path -LiteralPath $LibPath) 'bwj-development ships scripts/lib/market-urls.ps1'
 . $LibPath
 
 # The two real storefront topologies, as each store's seam would answer them. Trimmed to the markets

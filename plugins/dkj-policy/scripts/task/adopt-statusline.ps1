@@ -200,7 +200,7 @@ try {
     # '<plugin>@<marketplace>', and the marketplace half is exactly the part that has changed under
     # this repo before -- so pinning the full id would strand every consumer whose marketplace is
     # named anything else, which is the staleness this whole file exists to avoid, arriving through
-    # the matcher instead of through the path. ('dkj-policy-bwj@...' does not match: the character
+    # the matcher instead of through the path. ('bwj-development@...' does not match: the character
     # after the name has to be the '@'.)
     #
     # WHICH MAKES SEVERAL MATCHES POSSIBLE, AND THAT IS THE CASE TO GET RIGHT. A marketplace rename

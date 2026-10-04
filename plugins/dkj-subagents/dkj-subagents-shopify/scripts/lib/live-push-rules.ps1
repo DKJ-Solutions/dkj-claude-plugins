@@ -216,7 +216,7 @@ function Get-SyncMergeCommits {
 
     .DESCRIPTION
         THE FIRST HALF OF SYNC PROVENANCE, and a lib function rather than a loop inside a script since
-        #2509: live-preflight.ps1 and dkj-policy-bwj's prepare-release.ps1 both derive a push list, and
+        #2509: live-preflight.ps1 and bwj-development's prepare-release.ps1 both derive a push list, and
         two copies of "which commits came in through a sync" are free to disagree about which files the
         push leaves out.
 

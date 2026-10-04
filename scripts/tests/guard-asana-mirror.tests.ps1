@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Tests for plugins/dkj-policy/dkj-policy-bwj/hooks/guard-asana-mirror.ps1 and its lib,
+    Tests for plugins/dkj-policy/bwj-development/hooks/guard-asana-mirror.ps1 and its lib,
     scripts/lib/asana-mirror-gate.ps1 -- the PreToolUse hook that refuses an Asana task mirroring a
     GitHub issue without the reach label (inbound #2482).
 
@@ -22,7 +22,7 @@
 #>
 $ErrorActionPreference = 'Continue'
 $RepoRoot   = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-policy-bwj'
+$PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy\bwj-development'
 $Hook       = Join-Path $PluginRoot 'hooks\guard-asana-mirror.ps1'
 $HooksJson  = Join-Path $PluginRoot 'hooks\hooks.json'
 
@@ -77,7 +77,7 @@ Assert-Equal 0 @(Get-MirroredIssueRefs -Text 'https://github.com/BWJ-Development
 Assert-Equal 1 @(Get-MirroredIssueRefs -Text 'https://github.com/DKJ-Solutions/DKJ-Claude-Plugins/issues/1').Count 'the repo name is matched case-insensitively'
 Assert-Equal 2 @(Get-MirroredIssueRefs -Text 'https://github.com/a/xoxowildhearts/issues/1 https://github.com/b/smartwatchbanden/issues/2').Count 'two admitted repos in one task are two mirrored issues'
 Assert-Equal 1 @(Get-MirroredIssueRefs -Text 'https://github.com/BWJ-Development/phone-factory/issues/3').Count 'phone-factory is admitted, for ticket handling (#2705)'
-$skillAdmits = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\dkj-policy-bwj\skills\report-issue\SKILL.md')
+$skillAdmits = Get-Content -Raw -Encoding UTF8 (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\bwj-development\skills\report-issue\SKILL.md')
 foreach ($name in $script:AsanaMirrorAdmittedRepos) {
     Assert-True ($skillAdmits.Contains("``$name``")) "report-issue's 'Before you start' names '$name', the list this gate matches on"
 }
@@ -134,7 +134,7 @@ Assert-True (-not ('"notes":"see github.com for details"' -match $preGate)) 'and
 # --- 3. The registration ----------------------------------------------------------------------------
 Write-Host 'hooks.json registration' -ForegroundColor Cyan
 
-Assert-True (Test-Path -LiteralPath $HooksJson -PathType Leaf) 'dkj-policy-bwj ships a hooks.json'
+Assert-True (Test-Path -LiteralPath $HooksJson -PathType Leaf) 'bwj-development ships a hooks.json'
 $manifest = Get-Content -Raw -LiteralPath $HooksJson | ConvertFrom-Json
 $entry = @($manifest.hooks.PreToolUse | Where-Object { @($_.hooks | Where-Object { $_.command -match 'guard-asana-mirror\.ps1' }).Count -gt 0 })
 Assert-Equal 1 $entry.Count 'guard-asana-mirror.ps1 is registered as a PreToolUse hook exactly once'

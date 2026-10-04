@@ -357,7 +357,7 @@ count is worth stating precisely because the wrong one is what kept the second s
    out of an issue BODY, so they are that same author one field over. Not capped.
 6. **`asana-mirror`'s stage lines** -- the Asana task NAME, the GitHub project board's STATUS names,
    and the phrase saying WHY a card moved, which carries a submitter's name off the task's notes
-   (`Format-ForConsole`, `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1`,
+   (`Format-ForConsole`, `plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1`,
    [#2019](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2019)) -- four sites in the CI
    template this workflow ships to a BWJ store. No author of any of the three needs push access, and
    less than entry 5's: a colleague types a task name and its notes through Asana's web UI and a
@@ -682,12 +682,12 @@ the technique works, not that it has run out of sites. A reader who needs every 
 prints foreign text has, at most, every place found so far.
 
 **A FOURTH copy sits outside the libs, and #2019 is why it is a copy rather than a call.**
-`plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1` ships standalone: `adopt-dkj-policy-bwj`
+`plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1` ships standalone: `adopt-bwj-development`
 copies it into a consumer as `.github/scripts/asana-mirror.ps1`, where none of these libs exist -- so a
 dot-source there names a path that is not there, and the argument that keeps the three libs apart does
 not even have to be made. It is the reason entry 6 went unguarded for as long as it did: every other
 site got the strip when its own lib acquired one, and this file has no lib. Its own suite
-(`dkj-policy-bwj.tests.ps1`) compares the class character for character against all three, so the
+(`bwj-development.tests.ps1`) compares the class character for character against all three, so the
 fourth copy cannot drift away from them either. **Entry 9's `check-report-lib.ps1` is not a fifth
 appearance of this same class, and the two "fourth"s in this section name different things**:
 `asana-mirror.ps1` replicates `ConvertTo-ConsoleStrippedText` character for character, as above, while

@@ -521,9 +521,9 @@ function Get-SharedScriptPairs {
         @{
             # THE CLAUDE.md IMPORT LINES AND THEIR ONE WRITER (#2532). Two mirrors, one per plugin with an
             # adoption that writes a line: dkj-policy's adopt-workflow-folder.ps1 (the constitution, loaded
-            # through consumer-check-lib) and dkj-policy-bwj's adopt-extension-import.ps1 (the extension).
+            # through consumer-check-lib) and bwj-development's adopt-extension-import.ps1 (the extension).
             # Its writer loads measure-context-lib from its own directory, so that lib travels into
-            # dkj-policy-bwj too (measure-context-lib-bwj below).
+            # bwj-development too (measure-context-lib-bwj below).
             Name    = 'claude-md-import-lib'
             Source  = 'scripts\lib\claude-md-import-lib.ps1'
             Plugin  = 'dkj-policy'
@@ -532,13 +532,13 @@ function Get-SharedScriptPairs {
         @{
             Name    = 'claude-md-import-lib-bwj'
             Source  = 'scripts\lib\claude-md-import-lib.ps1'
-            Plugin  = 'dkj-policy-bwj'
+            Plugin  = 'bwj-development'
             LibOnly = $true
         },
         @{
             # THE REPARSE-POINT GUARD (#2533), checked before every write into a file a consumer already
             # has. A leaf with no dependencies, mirrored into each plugin that carries such a writer:
-            # dkj-policy (adopt-workflow-folder, claude-md-import-lib), dkj-policy-bwj
+            # dkj-policy (adopt-workflow-folder, claude-md-import-lib), bwj-development
             # (claude-md-import-lib-bwj) and dkj-subagents-alpha (specialists-init's bootstrap.ps1).
             Name    = 'write-target-lib'
             Source  = 'scripts\lib\write-target-lib.ps1'
@@ -548,7 +548,7 @@ function Get-SharedScriptPairs {
         @{
             Name    = 'write-target-lib-bwj'
             Source  = 'scripts\lib\write-target-lib.ps1'
-            Plugin  = 'dkj-policy-bwj'
+            Plugin  = 'bwj-development'
             LibOnly = $true
         },
         @{
@@ -560,7 +560,7 @@ function Get-SharedScriptPairs {
         @{
             # THE ONE FENCE TRACKER (#2536), Get-NextFenceState. A leaf with no dependencies, mirrored
             # into each plugin that carries a reader of it: dkj-policy (measure-context-lib, pr-body-lib,
-            # pr-issues-lib, entry-scaffold-lib), dkj-policy-bwj (measure-context-lib-bwj) and
+            # pr-issues-lib, entry-scaffold-lib), bwj-development (measure-context-lib-bwj) and
             # dkj-subagents-alpha (check-roster-sync).
             Name    = 'fence-lib'
             Source  = 'scripts\lib\fence-lib.ps1'
@@ -570,7 +570,7 @@ function Get-SharedScriptPairs {
         @{
             Name    = 'fence-lib-bwj'
             Source  = 'scripts\lib\fence-lib.ps1'
-            Plugin  = 'dkj-policy-bwj'
+            Plugin  = 'bwj-development'
             LibOnly = $true
         },
         @{
@@ -581,10 +581,10 @@ function Get-SharedScriptPairs {
         },
         @{
             # Get-NextFenceState for claude-md-import-lib-bwj's writer (#2532); nothing else in
-            # dkj-policy-bwj loads it.
+            # bwj-development loads it.
             Name    = 'measure-context-lib-bwj'
             Source  = 'scripts\lib\measure-context-lib.ps1'
-            Plugin  = 'dkj-policy-bwj'
+            Plugin  = 'bwj-development'
             LibOnly = $true
         },
         @{
@@ -1156,7 +1156,7 @@ function Get-SharedScriptPairs {
             # ConvertTo-ConsoleStrippedText rides along for the PR titles and entry prose it echoes.
             Name    = 'ref-print-lib-bwj'
             Source  = 'scripts\lib\ref-print-lib.ps1'
-            Plugin  = 'dkj-policy-bwj'
+            Plugin  = 'bwj-development'
             LibOnly = $true
         },
         @{
@@ -1356,14 +1356,14 @@ function Get-SharedScriptPairs {
         },
         @{
             # THE THIRD MIRROR (inbound #2509, September 26, 2026), on the precedent one entry up:
-            # dkj-policy-bwj's prepare-release.ps1 reads a release's changed THEME paths out of git, and a
+            # bwj-development's prepare-release.ps1 reads a release's changed THEME paths out of git, and a
             # theme is exactly where a path with a byte above 0x7F turns up. Without Convert-GitQuotedPath
             # that path reaches the push list mis-decoded by the console code page and matches nothing on
             # live. Mirrored rather than reached across, for that entry's reason: separately versioned
             # plugins, and a cross-plugin path breaks silently on a version mismatch.
             Name    = 'git-porcelain-lib-bwj'
             Source  = 'scripts\lib\git-porcelain-lib.ps1'
-            Plugin = 'dkj-policy-bwj'
+            Plugin = 'bwj-development'
             LibOnly = $true
         },
         @{
@@ -1476,7 +1476,7 @@ function Get-SharedScriptPairs {
             # SKILL-LEVEL MERGE, SEPTEMBER 5, 2026: this script and adopt-workflow-folder below now
             # share ONE skill page, 'adopt-dkj-policy' -- Part 2 of it. The two scripts themselves are
             # untouched (different files, different tests, different behaviour); only the documenting
-            # page merged, for the same reason adopt-bwj-asana was renamed to adopt-dkj-policy-bwj
+            # page merged, for the same reason adopt-bwj-asana was renamed to adopt-dkj-policy-bwj (adopt-bwj-development since #2788)
             # earlier the same day: a name naming one plugin should not leave a sibling operation for
             # that plugin looking unrelated. check-plugin-integrity's skill-param check (18) already
             # supports several scripts sharing one Skill -- see verify-resolved-issues below, which has
@@ -2163,7 +2163,7 @@ function Get-SharedScriptPairs {
             # The theme archive (issue #1886 candidate 4, September 13, 2026). IT TRAVELS IN
             # dkj-subagents-shopify for the same reason sync-main and push-preview do: the plugin that
             # owns the live theme owns the estate around it. That is a DEPARTURE from the #1881
-            # ruling's default -- which sends what the two BWJ stores share to dkj-policy-bwj -- and
+            # ruling's default -- which sends what the two BWJ stores share to bwj-development -- and
             # the reason is that the ruling's axis is the wrong axis here. Archiving a theme is not a
             # BWJ practice, it is a Shopify one, and the two scripts already registered above ship
             # with exactly the same two readers.
@@ -2215,14 +2215,14 @@ function Get-SharedScriptPairs {
             # owns, what a backup is called, when a duplicate has finished filling, which backup rotates
             # out, and which previews a sweep may remove.
             #
-            # IT TRAVELS IN dkj-subagents-shopify RATHER THAN dkj-policy-bwj, WHICH IS NOT WHERE THE
+            # IT TRAVELS IN dkj-subagents-shopify RATHER THAN bwj-development, WHICH IS NOT WHERE THE
             # ISSUE ASKED FOR IT. The #1881 ruling sends what the two BWJ stores share to that plugin --
             # and names the exception this falls under in the same breath: dkj-subagents-shopify
             # 'already owns the theme mechanisms', and its own README says the chapters there are
             # 'policy, never mechanism'. Backing up a theme and sweeping an estate are Shopify craft,
             # not BWJ practice; any Shopify repo wants a verified backup and a prefix-keyed sweep. What
             # IS BWJ's is the policy that binds them to the cut and the live push, and that is a page in
-            # dkj-policy-bwj -- THEME-LIFECYCLE-portable.md. Same split, and the same reasoning, as
+            # bwj-development -- THEME-LIFECYCLE-portable.md. Same split, and the same reasoning, as
             # theme-archive-rules one entry up.
             #
             # PURE, AND THAT IS THE SAFETY PROPERTY RATHER THAN A STYLE. Two of the three mechanisms it
@@ -2247,7 +2247,7 @@ function Get-SharedScriptPairs {
             # IT TRAVELS IN dkj-subagents-shopify for the same reason theme-lifecycle-rules does, one
             # entry up: a live theme push is Shopify craft rather than BWJ practice -- any repo serving a
             # theme has to decide which of its changed files exist on one. What IS BWJ's is the policy
-            # binding this to their release day, and that stays a page in dkj-policy-bwj.
+            # binding this to their release day, and that stays a page in bwj-development.
             #
             # TWO SCRIPTS READ IT, WHICH IS WHY THE EIGHT DIRECTORIES LIVE HERE. sync-main.ps1 spelled
             # that set out itself until #2228 and the preflight needs exactly the same eight; two copies
@@ -2269,18 +2269,18 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
-            # THE SAME RULES, MIRRORED A SECOND TIME -- into dkj-policy-bwj, for prepare-release.ps1 (inbound
+            # THE SAME RULES, MIRRORED A SECOND TIME -- into bwj-development, for prepare-release.ps1 (inbound
             # #2509, September 26, 2026). That script derives the push list days before release day, and
             # the issue asked for it to reuse the preflight's derivation rather than copy it. The plugin's
             # scripts may not reach a second plugin's libs -- a store forwards to them from the plugin
             # cache, where dkj-subagents-shopify's folder is not a sibling path anybody can rely on -- so
             # the reuse is a registered mirror: one source, held byte-identical in both plugins by check 8.
             #
-            # A MIRROR AND NOT A MOVE. The preflight still owns these rules, and nothing in dkj-policy-bwj
+            # A MIRROR AND NOT A MOVE. The preflight still owns these rules, and nothing in bwj-development
             # edits them; a change lands in scripts/lib/live-push-rules.ps1 and reaches both copies.
             Name    = 'live-push-rules-bwj'
             Source  = 'scripts\lib\live-push-rules.ps1'
-            Plugin  = 'dkj-policy-bwj'
+            Plugin  = 'bwj-development'
             LibOnly = $true
         },
         @{

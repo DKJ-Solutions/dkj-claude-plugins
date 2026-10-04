@@ -569,7 +569,7 @@ is filed ([#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/251
 rule is in [`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
 (`awaiting-decision` was named `needs-decision` until [#2741](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2741), October 3, 2026.) It is a label of its own because `awaiting-more-info` (named `needs-info` until
 [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723), October 2, 2026) already means
-*blocked on the submitter* in `dkj-policy-bwj`, where it moves the mirrored Asana card to the blocked column.
+*blocked on the submitter* in `bwj-development`, where it moves the mirrored Asana card to the blocked column.
 
 **An issue waiting on EVIDENCE is parked too, under `awaiting-first-recurrence`**
 ([#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)). Measured September 28, 2026:

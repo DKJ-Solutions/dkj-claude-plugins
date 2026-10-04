@@ -1651,24 +1651,24 @@ this follows is the repo's own: a semantic decision gets one source (#309).
 
 **It reports and never prevents, and that was Dave's call** on September 11, 2026, choosing the
 detector-first shape over moving ownership immediately. `-FailOnFinding` exists; nothing passes it. The
-converging — which of `dkj-policy` and `dkj-policy-bwj` should own `test-lib.ps1`, `lint-brain.ps1` and the
+converging — which of `dkj-policy` and `bwj-development` should own `test-lib.ps1`, `lint-brain.ps1` and the
 market/theme mechanisms — is the follow-up, and it is an ownership decision rather than a repair a script
 can make.
 
 #### The ruling that followed, and the first thing moved under it (September 11, 2026, #1881)
 
-**Anything the two stores share goes to `dkj-policy-bwj`, unless it is obviously universal** (Dave, on
+**Anything the two stores share goes to `bwj-development`, unless it is obviously universal** (Dave, on
 [#1881](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1881)). The portable statement, the
 price it accepts and the second question a store has to ask before building anything are in
-[that plugin's own README](../../../plugins/dkj-policy/dkj-policy-bwj/README.md#what-this-plugin-owns),
+[that plugin's own README](../../../plugins/dkj-policy/bwj-development/README.md#what-this-plugin-owns),
 because they are read in a store repo rather than here. What belongs in this lens is the part that is
 this repo's:
 
-- **The ruling widened a plugin that said it carried no mechanism.** `dkj-policy-bwj`'s README opened with
+- **The ruling widened a plugin that said it carried no mechanism.** `bwj-development`'s README opened with
   *"policy, never mechanism"*, written when its only non-prose payload was `templates/`, which a consumer
   **copies**. A lib a consumer **dot-sources** is a second kind of payload, so the line was widened rather
   than quietly broken — the distinction that survives is copy-vs-dot-source, not prose-vs-code.
-- **The first increment is [`scripts/tests/test-lib.ps1`](../../../plugins/dkj-policy/dkj-policy-bwj/scripts/tests/test-lib.ps1)**,
+- **The first increment is [`scripts/tests/test-lib.ps1`](../../../plugins/dkj-policy/bwj-development/scripts/tests/test-lib.ps1)**,
   and it was chosen because it is the case where merging is a *decision* rather than a diff: each store's
   copy was ahead of the other. One had `ConvertTo-CapturedText` and `Add-SuiteFault`, both born from a
   **false green in the gate these suites are read by**; the other had `Assert-PluginLoadedForProject`, born
@@ -1907,7 +1907,7 @@ this repo's:
   `~/.claude/plugins/cache/<marketplace>/<plugin>/<version-or-sha>/`, and the running process writes a
   lease at `<installPath>/.in_use/<pid>` holding `{"pid":…,"procStartFt":…}` for the life of the
   session. Measured live: pid 51988 (`claude`, started 19:51:42) held one in `dkj-policy/4.33.0` and
-  `dkj-policy-bwj/4.33.0` and in no other tree, and the clone held none. Two corroborations, both from
+  `bwj-development/4.33.0` and in no other tree, and the clone held none. Two corroborations, both from
   the same run: `claude plugin details dkj-policy` reported `Skills (17)` while the clone's copy of the
   same 4.33.0 carried 18 — so that command prices the payload, not the clone — and a checkout enabling
   `dkj-subagents-alpha/-ecomm/-shopify` with no install record for its own path loaded none of them,
@@ -2200,7 +2200,7 @@ folder by folder:
   [Teams and workflows — what's the difference?](../../../plugins/dkj-subagents/README.md#teams-and-workflows--whats-the-difference)): the teams under
   [`plugins/dkj-subagents/`](../../../plugins/dkj-subagents/) (`dkj-subagents-alpha`, `dkj-subagents-lifehub`, `dkj-subagents-shopify`, `dkj-subagents-ecomm`) and
   the policy at [`plugins/dkj-policy/`](../../../plugins/dkj-policy/) — the prime ministry's own files at that
-  root, and its one ministry `dkj-policy-bwj` a level inside it — each of those two directories carrying
+  root, and its one ministry `bwj-development` a level inside it — each of those two directories carrying
   its own README for what belongs in it
   and the rules that govern it. One folder per plugin, each carrying
   `agents/`/`manuals/`/`personas/`/`skills/` plus its own `plugin.json` — and beside the four teams
@@ -2421,7 +2421,7 @@ Moved here from `.claude/rules/this-repo.md` under
 fact of which plugins are enabled, and this is the harness consequence behind it.
 
 **Two of the six are enabled: the core team and `dkj-policy`.** The three add-on teams are set to
-`false` since September 30, 2026, and `dkj-policy-bwj` since October 1 (both Dave). From September 8 to
+`false` since September 30, 2026, and the BWJ extension (then `dkj-policy-bwj`) since October 1 (both Dave). From September 8 to
 September 30 all six were on, for validation (see below). **`false`, not absent, and that is
 load-bearing**: the harness and every check here read the settings chain user file →
 `.claude/settings.json` → `settings.local.json`, and the last layer that names a plugin wins
@@ -2441,15 +2441,15 @@ connector manifest, so no block had to go.
 
 **Only two of the six describe this repo outright.** The core team and `dkj-policy` are the two with real
 work here; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a
-personal-life repo. Three of `dkj-policy-bwj`'s four chapters are about a Shopify store too. **Its
+personal-life repo. Three of `bwj-development`'s four chapters are about a Shopify store too. **Its
 ticket-handling chapter admits this repo as a third permitted target** at `report-issue`'s and
-`adopt-dkj-policy-bwj`'s own gate (Dave, September 14, 2026, commit `b9b2a65a`; the per-chapter reach
+`adopt-bwj-development`'s own gate (then `adopt-dkj-policy-bwj`; Dave, September 14, 2026, commit `b9b2a65a`; the per-chapter reach
 closed [#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982)). That permission stays
 in the plugin source. **This repo does not use it since October 1**, when the plugin was switched off
 here, and an issue here is filed with a plain `gh issue create`, carrying the `prio-N` label and, where
-it applies, `minor` ([Chris's lens](specialist-01-01-lens.md)). `adopt-dkj-policy-bwj` was never run
+it applies, `minor` ([Chris's lens](specialist-01-01-lens.md)). `adopt-bwj-development` was never run
 here, so no Asana seam and no `asana-mirror` workflow had to be removed. To use that chapter again, set
-the plugin to `true`, restore the import and the connector block, and run `adopt-dkj-policy-bwj`.
+the plugin to `true`, restore the import and the connector block, and run `adopt-bwj-development`.
 
 **Why they were on, and why they are off.** From September 8 the three add-on teams were enabled so that
 the repo that ships a plugin is also a repo that loads it: an agent def, a manifest, a frontmatter or a

@@ -62,7 +62,7 @@
     Get-ShopifyThemeDeleteMarker and the command carries it. That default is an absolute refusal and
     this script does not work around it: unanswered, the removals are PRINTED for a person to run.
     What the standing approval covers, and its bounds, is stated in
-    dkj-policy-bwj/THEME-LIFECYCLE-portable.md rather than assumed here.
+    bwj-development/THEME-LIFECYCLE-portable.md rather than assumed here.
 
     WHICH STORE IT TALKS TO: Get-ShopifyThemeEstateStore, a seam of its own rather than
     Get-ShopifyStoreDomain. The reasoning is in backup-live-theme.ps1's header -- answering that other

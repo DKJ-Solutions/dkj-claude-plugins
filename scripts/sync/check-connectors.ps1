@@ -1486,7 +1486,7 @@ foreach ($mf in $manifestFiles) {
     # against that manifest prints exactly one line about the whole six: '[OK] plugin is enabled' for
     # dkj-policy@, the one id that happens to appear, verbatim, in the manifest's own list. The other
     # five -- dkj-subagents-alpha@, dkj-subagents-ecomm@, dkj-subagents-lifehub@, dkj-subagents-shopify@
-    # and dkj-policy-bwj@ -- produce no line whatsoever from the loop above; #1775 describes four of
+    # and bwj-development@ -- produce no line whatsoever from the loop above; #1775 describes four of
     # those five as 'completely silent' and folds the fifth (dkj-subagents-alpha@) into 'one printed an
     # [INFO] because it carries a retired id', on the reading that the manifest's 'dkj-team-alpha@' entry
     # is that plugin's old name. That reading is about the underlying PLUGIN; this check compares ID

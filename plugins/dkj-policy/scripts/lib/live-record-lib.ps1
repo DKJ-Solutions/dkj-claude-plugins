@@ -229,7 +229,7 @@ function Get-TaskMarkerId {
         The id an issue body's '<!-- <marker>: <id> -->' comment carries, '' when it has none.
 
     .DESCRIPTION
-        THE MARKER IS THE AUTHORITATIVE LINK (#2567, and dkj-policy-bwj's WORKFLOW-portable.md, which
+        THE MARKER IS THE AUTHORITATIVE LINK (#2567, and bwj-development's WORKFLOW-portable.md, which
         calls it that): report-issue writes it at filing, and the asana-mirror workflow reads it at
         closing. A link in the issue's prose may point at a card that has since moved, so it is not
         read here. The id is held to letters, digits, '_' and '-', because it is spliced into a URL

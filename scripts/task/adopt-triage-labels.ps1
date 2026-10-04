@@ -42,7 +42,7 @@
     NOT THE SAME QUESTION AS #1686, AND NOT A REVERSAL OF IT. #1686 (closed 2026-09-09) kept this
     repo's `prio-*` rungs and the BWJ tracker's own reach BUCKETS deliberately disjoint -- a different
     axis, so a session crossing families gets a refused label rather than one that quietly means
-    something else there. This script never touches dkj-policy-bwj's buckets or `Get-ReachLabel`'s
+    something else there. This script never touches bwj-development's buckets or `Get-ReachLabel`'s
     reach axis; it only offers the priority axis to an ordinary dkj-policy consumer that has no BWJ
     board of its own.
 

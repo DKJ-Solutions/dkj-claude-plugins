@@ -712,20 +712,20 @@ try {
         'the hook forwards the warning inside the [ERROR] report as well, still exit 0'
 
     # --- the extension import (#2538) --------------------------------------------------------------
-    # Warned only where the repo's OWN settings enable dkj-policy-bwj and the closure does not import the
+    # Warned only where the repo's OWN settings enable bwj-development and the closure does not import the
     # extension. Every fixture imports the constitution, so the only warning in play is this one.
     Write-Host ''
     Write-Host 'extension import (#2538)'
     $constLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md"
-    $extLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md"
-    $bwjSettings = '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": true } }'
+    $extLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/bwj-development/CLAUDE.md"
+    $bwjSettings = '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "bwj-development@dkj-claude-plugins": true } }'
 
     $bwjMissing = New-Tree -Label 'bwjmissing'
     Set-Text -Dir $bwjMissing -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
     Set-Text -Dir $bwjMissing -Rel '.claude/settings.json' -Text $bwjSettings
     $r = Invoke-Script -Dir $bwjMissing
-    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables dkj-policy-bwj, but its CLAUDE\.md does not import the extension' -and
-                 $r.Out -match 'adopt-workflow-folder\.ps1' -and $r.Out -match [regex]::Escape('/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md')) `
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables bwj-development, but its CLAUDE\.md does not import the extension' -and
+                 $r.Out -match 'adopt-workflow-folder\.ps1' -and $r.Out -match [regex]::Escape('/plugins/dkj-policy/bwj-development/CLAUDE.md')) `
         'bwj enabled, no extension import -- a [WARNING] naming the adopter and the paste-ready line, still exit 0'
     $r = Invoke-Hook -Dir $bwjMissing
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'does not import the extension') `
@@ -747,35 +747,35 @@ try {
 
     $bwjOff = New-Tree -Label 'bwjoff'
     Set-Text -Dir $bwjOff -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
-    Set-Text -Dir $bwjOff -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": false } }'
+    Set-Text -Dir $bwjOff -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "bwj-development@dkj-claude-plugins": false } }'
     $r = Invoke-Script -Dir $bwjOff
     Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension') `
-        'dkj-policy-bwj present but disabled -- no warning'
+        'bwj-development present but disabled -- no warning'
 
     $bwjBadJson = New-Tree -Label 'bwjbadjson'
     Set-Text -Dir $bwjBadJson -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
-    Set-Text -Dir $bwjBadJson -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy-bwj@dkj-claude-plugins": true, } '
+    Set-Text -Dir $bwjBadJson -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "bwj-development@dkj-claude-plugins": true, } '
     $r = Invoke-Script -Dir $bwjBadJson
     Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension' -and $r.Out -match '\[OK\]') `
         'an unparseable settings.json is not an enable and does not take the check down'
 
     # Any dkj-policy extension, not bwj alone (#2697): one warning per enabled extension whose line is
     # missing, and none for an extension that is imported.
-    $dkjsLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/dkj-policy-dkjs/CLAUDE.md"
-    $bothSettings = '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": true, "dkj-policy-dkjs@dkj-claude-plugins": true } }'
+    $dkjsLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/dkj-solutions/CLAUDE.md"
+    $bothSettings = '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "bwj-development@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": true } }'
     $dkjsMissing = New-Tree -Label 'dkjsmissing'
     Set-Text -Dir $dkjsMissing -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
-    Set-Text -Dir $dkjsMissing -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-dkjs@dkj-claude-plugins": true } }'
+    Set-Text -Dir $dkjsMissing -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": true } }'
     $r = Invoke-Script -Dir $dkjsMissing
-    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables dkj-policy-dkjs, but its CLAUDE\.md does not import the extension' -and
-                 $r.Out -match [regex]::Escape('/plugins/dkj-policy/dkj-policy-dkjs/CLAUDE.md') -and $r.Out -notmatch 'enables dkj-policy-bwj') `
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables dkj-solutions, but its CLAUDE\.md does not import the extension' -and
+                 $r.Out -match [regex]::Escape('/plugins/dkj-policy/dkj-solutions/CLAUDE.md') -and $r.Out -notmatch 'enables bwj-development') `
         'dkjs enabled, no extension import -- a [WARNING] for dkjs, with its line, and none for bwj'
 
     $bothOneMissing = New-Tree -Label 'bothonemissing'
     Set-Text -Dir $bothOneMissing -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine`n$extLine"
     Set-Text -Dir $bothOneMissing -Rel '.claude/settings.json' -Text $bothSettings
     $r = Invoke-Script -Dir $bothOneMissing
-    Assert-True ($r.Code -eq 0 -and $r.Out -match 'enables dkj-policy-dkjs, but' -and $r.Out -notmatch 'enables dkj-policy-bwj, but') `
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'enables dkj-solutions, but' -and $r.Out -notmatch 'enables bwj-development, but') `
         'two extensions enabled, bwj imported -- warned for dkjs alone'
 
     $bothImported = New-Tree -Label 'bothimported'
@@ -784,6 +784,22 @@ try {
     $r = Invoke-Script -Dir $bothImported
     Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension') `
         'two extensions enabled and both imported -- no warning'
+    Assert-True ($r.Out -notmatch 'retired name') 'and no retired-name warning on a migrated repo'
+
+    # A consumer that adopted before the rename (#2788): it still enables dkj-policy-bwj and still imports
+    # the old path. Both are named, with the current name, and neither touches the exit code.
+    $retiredBwj = New-Tree -Label 'retiredbwj'
+    $oldBwjLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md"
+    Set-Text -Dir $retiredBwj -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine`n$oldBwjLine"
+    Set-Text -Dir $retiredBwj -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": true } }'
+    $r = Invoke-Script -Dir $retiredBwj
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables dkj-policy-bwj, a retired name -- the extension is bwj-development now') `
+        'a retired enabled id -- a [WARNING] naming the current extension'
+    Assert-True ($r.Out -match '\[WARNING\] CLAUDE\.md imports the dkj-policy-bwj extension under its retired name' -and
+                 $r.Out -match [regex]::Escape('/plugins/dkj-policy/bwj-development/CLAUDE.md')) `
+        'a retired import line -- a [WARNING] with the current line'
+    Assert-True ($r.Out -match 'enables bwj-development, but its CLAUDE\.md does not import the extension') `
+        'and the retired id still owes the current import, so the missing-line warning fires too'
 
     # --- the root-prose rule (#2374, superseded September 23, 2026) --------------------------------
     # Dave's second pass the same day: a root CLAUDE.md holds ONLY '@'-import lines now (plus at most an
