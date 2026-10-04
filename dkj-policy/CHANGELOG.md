@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2786-docs-prefix-no-documentation-label · 20261004-074745Z
+
+A `docs/` pull request in this repo now goes out without a label, because the `documentation` label is
+retired here too: an issue is always a `feature` or a `bug`
+([#2786](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2786), following
+[#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+For a new consumer running `specialists-init`: the commented example prefix table no longer proposes a
+`documentation` label for `docs/` or `chore/` branches, so it no longer suggests the label #2783
+retired.
+
+**Score:** 1
+
+#### Pull Request
+
+This repo's docs/ prefix stops labelling PRs 'documentation'
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #2789](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2789)
+
+---
 
 ### DEPLOY: feat/2784-awaiting-event-label · 20261003-143652Z
 
