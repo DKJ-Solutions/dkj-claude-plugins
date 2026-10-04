@@ -55,6 +55,16 @@ via a PR.
   search. Measured in a consuming store repo on the day this was written: of the fifteen most recent
   issues, three carried titles in the session-reply language rather than in English.
 
+  **The rule is also stated on the always-on path**: it is a bullet in the shared
+  `findings-become-issues` block, which every persona and subagent that files carries. This manual is
+  read only when the technical writer is assigned, while the session that files a finding is usually
+  the orchestrator, so a rule kept here alone would sit off the path of the act it governs. Measured in
+  a consuming repo
+  ([#2791](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2791), October 4, 2026): a
+  session replying in Dutch filed six issues, plus PR bodies and commit messages, in Dutch, as earlier
+  sessions there had for thirty-odd more. The block carries the rule where it is acted on; this
+  section carries the reasoning behind it.
+
   **A person's own words are not a fourth exception — they were never this system's to write.** The
   three above are places where content *this system authors* may stand in another language; a request
   quoted from somebody's ticket, and the reply that goes back to them, belong to that person. Quote
