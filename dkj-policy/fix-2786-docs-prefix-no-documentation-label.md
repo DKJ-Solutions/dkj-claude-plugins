@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#2786 asked whether Dave's #2783 rule (an issue is always a `feature` or a `bug`, no `documentation`
+label) reaches past the BWJ stores. #2783 states it as "vanaf nu altijd", and Dave asked for #2786 to be
+fixed, so it does: this repo's `docs/` prefix answers no label, as the BWJ table already does.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/branch-info.ps1`: the `docs` row answers `Label = $null`, docstring says why
+- [x] `scripts/tests/branch-info.tests.ps1`: the docs assert follows
+- [x] `specialists-init/bootstrap.ps1`: the commented example table proposes no `documentation` label (docs and chore)
 
 ### TEST
 
+- [x] `branch-info.tests.ps1` green; the full gate runs in open-pr
+
 ### DEPLOY: fix/2786-docs-prefix-no-documentation-label
 
-**Score:**
+A `docs/` pull request in this repo now goes out without a label, because the `documentation` label is
+retired here too: an issue is always a `feature` or a `bug`
+([#2786](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2786), following
+[#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+For a new consumer running `specialists-init`: the commented example prefix table no longer proposes a
+`documentation` label for `docs/` or `chore/` branches, so it no longer suggests the label #2783
+retired.
+
+**Score:** 1
 
 #### Pull Request
+
+This repo's docs/ prefix stops labelling PRs 'documentation'
 

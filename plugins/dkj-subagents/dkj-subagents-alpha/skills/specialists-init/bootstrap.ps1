@@ -745,8 +745,9 @@ $script:BranchTypeOrder = @()
 # VUL-IN: prefix -> GitHub label (PR) + branch type (changelog entry). Example:
 #   feat  = @{ Label = 'enhancement';   Type = 'Feat' }
 #   fix   = @{ Label = 'bug';           Type = 'Fix' }
-#   docs  = @{ Label = 'documentation'; Type = 'Docs' }
-#   chore = @{ Label = 'documentation'; Type = 'Chore' }
+#   docs  = @{ Label = $null;           Type = 'Docs' }
+#   chore = @{ Label = $null;           Type = 'Chore' }
+#   ($null = no PR label; an issue is a feature or a bug, never 'documentation' -- #2783)
 $script:BranchPrefixTable = @{
 }
 

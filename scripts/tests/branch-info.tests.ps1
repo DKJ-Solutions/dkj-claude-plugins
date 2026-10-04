@@ -50,7 +50,7 @@ Assert-Equal 'Feat'        $feat.Type    'feat -> type Feat'
 Assert-Equal 'feat-new-plugin' $feat.SafeName 'SafeName replaces / with -'
 
 $docs = Get-BranchInfo -Branch 'docs/update-readme'
-Assert-Equal 'documentation' $docs.Label 'docs -> label documentation'
+Assert-Equal $null           $docs.Label 'docs -> no label (documentation retired, #2783/#2786)'
 Assert-Equal 'Docs'          $docs.Type  'docs -> type Docs'
 
 $unknown = Get-BranchInfo -Branch 'wip/experiment'

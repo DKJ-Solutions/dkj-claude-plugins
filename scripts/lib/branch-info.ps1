@@ -10,7 +10,9 @@
     Supplies Get-BranchPrefix, Get-BranchInfo and Get-BranchTypes. The prefix table determines both
     the GitHub label of the PR and the changelog entry type. It follows the standard GitHub labels, except
     that 'enhancement' was renamed to 'feature' on this tracker (Dave, October 3, 2026, #2764):
-    Feature -> label 'feature', Bug -> 'bug', Documentation -> 'documentation'.
+    Feature -> label 'feature', Bug -> 'bug'. A docs/ branch gets NO label: an issue is always a
+    feature or a bug and the 'documentation' label is retired (Dave, October 3, 2026, #2783; carried
+    into this repo by #2786), so open-pr sends no --label for it at all.
     Changing the table? Do it here too -- and nowhere else: every script reads this one table.
 
     The branch types (Feat/Fix/Docs/Chore) have their single source here. release-lib.ps1 reads
@@ -60,7 +62,7 @@ $script:BranchTypeOrder = @('Feat', 'Fix', 'Docs', 'Chore')
 $script:BranchPrefixTable = @{
     feat  = @{ Label = 'feature';       Type = 'Feat' }
     fix   = @{ Label = 'bug';           Type = 'Fix' }
-    docs  = @{ Label = 'documentation'; Type = 'Docs' }
+    docs  = @{ Label = $null;           Type = 'Docs' }
 }
 
 function Get-BranchTypes {
