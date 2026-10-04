@@ -71,7 +71,7 @@ the one stated here.** The whole ranking, including where a companion plugin sit
 belongs to [the section further down](#a-third-rank-sits-above-both-and-nothing-named-it-until-inbound-1379),
 which is the corollary above applied one layer up: a copy of a rank order in a sibling plugin fails the
 same way a consumer's copy does, on the day this page moves and the copy does not. What a companion's
-page carries is a sentence naming its own rung and a link back — `dkj-policy-bwj`'s
+page carries is a sentence naming its own rung and a link back — `bwj-development`'s
 `WORKFLOW-portable.md` is the built instance.
 
 ---
@@ -199,7 +199,7 @@ rather than in a conversation that has since been cleared. `sweep-decisions` run
 parked issue in one pass with the owner
 ([#2759](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2759)).
 
-- **It is not `awaiting-more-info`.** Where [`dkj-policy-bwj`](dkj-policy-bwj/WORKFLOW-portable.md) is installed,
+- **It is not `awaiting-more-info`.** Where [`bwj-development`](bwj-development/WORKFLOW-portable.md) is installed,
   `awaiting-more-info` (named `needs-info` until October 2, 2026,
   [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723); the old name is still matched)
   means *blocked on the submitter*: it moves the mirrored Asana card to the blocked column and
@@ -380,7 +380,7 @@ failure mode this whole cycle exists to legislate against.
 
 **Scope is deliberately narrow: a durable surface whose source is committed.** A short-lived handover link
 that is delivered in a reply and never meant to be stored is not this — the same distinction, one layer
-over, that `dkj-policy-bwj`'s own [`PREVIEW-portable.md`](dkj-policy-bwj/PREVIEW-portable.md) chapter
+over, that `bwj-development`'s own [`PREVIEW-portable.md`](bwj-development/PREVIEW-portable.md) chapter
 already draws for its own kind of link (a Shopify preview-theme URL, handed over and not kept).
 
 **This page states the policy; the mechanism is a later, optional step.** How the URL actually gets
@@ -707,7 +707,7 @@ language, or a set of section headings. Those are yours, and
 [What your repo answers](#what-your-repo-answers) says which.
 
 **A repo may layer a stricter, tracker-specific rule on top of this step, packaged as its own
-workflow.** `dkj-policy-bwj` is the worked example: it fixes, for BWJ's two Shopify store repos and,
+workflow.** `bwj-development` is the worked example: it fixes, for BWJ's two Shopify store repos and,
 for this one chapter alone, this plugin's own source repo (admitted September 14, 2026, commit
 `b9b2a65a`), that a discovered issue is filed on GitHub first and mirrored to Asana as a
 colleague-facing variant, with the Asana task resolved automatically from the GitHub issue's close.
@@ -1051,7 +1051,7 @@ this layer has none — every other skill in this plugin exists because a `.ps1`
 Those are the pieces to build **once a second repo runs this**, at which point there is something real to
 generalise from rather than one repo's five hours. Until then, the rules travel and the shape stays local.
 
-**"Local" includes a tracker-specific add-on, and one now carries a shape.** `dkj-policy-bwj` ships BWJ's
+**"Local" includes a tracker-specific add-on, and one now carries a shape.** `bwj-development` ships BWJ's
 answers to [What your repo answers](#what-your-repo-answers) -- the header, the closed vocabularies, the
 section route -- once for both of its stores, in step 8 of its `WORKFLOW-portable.md` (inbound
 [#2353](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2353), September 23, 2026). That is one
@@ -1248,13 +1248,16 @@ stays on disk.
 `contributing-davekjohn` until that day, which named one of the things it does rather than what it is. It
 is `dkj-policy` now -- the top rung, the shared law -- and a companion is `dkj-policy-<who>`, a ministry
 under it holding one narrower brief. Nothing in the ranking changed with the names; what changed is that
-the ranking is now legible from the plugin list alone, without reading this page first. A repo installing
-`dkj-policy-bwj` can see it sits under `dkj-policy` before it has read a word of either.
+the ranking is now legible from the plugin list alone, without reading this page first.
+
+**The companions are named after their organisation since October 4, 2026 (#2788)**: `dkj-policy-bwj`
+became `bwj-development` and `dkj-policy-dkjs` became `dkj-solutions`. They still sit one level inside
+`plugins/dkj-policy/`, and they still extend this page and never override it.
 
 **The top rung has an order of its own as soon as a second workflow plugin is installed, and it is still
 one rank rather than a fourth.** `dkj-policy` legislates the cycle itself — the branch, the
 branch document, the gates, the fold, the cut — and a companion workflow plugin extends one step of that
-cycle for a named set of repos rather than replacing any of it; `dkj-policy-bwj` is the built instance, and it
+cycle for a named set of repos rather than replacing any of it; `bwj-development` is the built instance, and it
 extends the ticket-work step for two Shopify store repos. So **where two plugin pages speak to the same
 question, this plugin's page wins and the companion's is read as an extension, never as an override.**
 Where the companion legislates something these pages have no opinion on — which is the normal case and

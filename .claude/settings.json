@@ -72,8 +72,8 @@
   "enabledPlugins": {
     "dkj-policy@dkj-claude-plugins": true,
     "dkj-subagents-alpha@dkj-claude-plugins": true,
-    "dkj-policy-bwj@dkj-claude-plugins": false,
-    "dkj-policy-dkjs@dkj-claude-plugins": false,
+    "bwj-development@dkj-claude-plugins": false,
+    "dkj-solutions@dkj-claude-plugins": false,
     "dkj-subagents-ecomm@dkj-claude-plugins": false,
     "dkj-subagents-lifehub@dkj-claude-plugins": false,
     "dkj-subagents-shopify@dkj-claude-plugins": false

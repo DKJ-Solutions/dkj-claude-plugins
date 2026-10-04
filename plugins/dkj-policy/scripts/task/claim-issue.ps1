@@ -229,7 +229,7 @@ $SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
 # the same eleven names on its own -SkipLabel command line; a person naming
 # one issue passes nothing, so without a default the route where somebody says "fix issue N" was the one
 # route blind to it. -Candidates keeps its empty default: the sweep names its labels itself. 'awaiting-decision' ('needs-decision' until #2741) joined in #2519: an issue waiting
-# on the owner's choice is parked just as surely, and 'needs-info' could not carry it -- in dkj-policy-bwj
+# on the owner's choice is parked just as surely, and 'needs-info' could not carry it -- in bwj-development
 # that label means blocked on the SUBMITTER and moves the mirrored Asana card. 'awaiting-recurrence'
 # joined in #2587: an issue whose only remaining step is a first reproducible occurrence was picked up
 # four times in one day, each pickup finding nothing to build. 'record' joined on September 30, 2026

@@ -65,7 +65,7 @@ function ConvertTo-ConsoleStrippedText {
             count, so the one convention serves them all.
 
             SIX CATEGORIES AND NO EXCEPTIONS -- unlike ConvertTo-BacklogVisibleText (#2025,
-            dkj-policy-bwj's backlog-page-rules.ps1), which keeps eight invisible code points an HTML
+            bwj-development's backlog-page-rules.ps1), which keeps eight invisible code points an HTML
             page can afford to render (three bidi MARKS, two joiners) because an HTML element can be
             told a text direction and a console line cannot. That is why this is not a reuse of that
             function -- only of its LOOKUP; the policy differs; the code-point walk does not.
@@ -146,12 +146,12 @@ function Format-ForConsole {
             title is evidence that must not be re-spaced; Get-DisplayPath answers the all-stripped case
             with '(no printable path)', the wrong noun for an issue title.
 
-            A FOURTH COPY LIVES OUTSIDE THE LIBS, and it is not a fourth of these. The dkj-policy-bwj
+            A FOURTH COPY LIVES OUTSIDE THE LIBS, and it is not a fourth of these. The bwj-development
             template asana-mirror.ps1 ships standalone into a consumer's .github/scripts/, where none
             of these libs exist -- so it could not call one even if a function fitted (#2019), and it
             carries its own copy of ConvertTo-ConsoleStrippedText for the same reason. What the four
             copies may not do is DISAGREE, so pr-issues.tests.ps1 compares the three here and
-            dkj-policy-bwj.tests.ps1 holds the template to the same characters.
+            bwj-development.tests.ps1 holds the template to the same characters.
 
             IT IS IN THIS LIB RATHER THAN IN THE SCRIPT so that it can be tested at all: a lib is
             dot-sourceable and claim-issue.ps1 is not. Same reasoning as the two decisions below.

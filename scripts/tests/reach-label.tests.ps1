@@ -8,7 +8,7 @@
 
         powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/reach-label.tests.ps1
 
-    WHAT THIS SUITE IS FOR. The axis moved out of dkj-policy-bwj on September 11, 2026 and became a
+    WHAT THIS SUITE IS FOR. The axis moved out of bwj-development on September 11, 2026 and became a
     dkj-policy rule, with 'minor' as the name and Get-ReachLabel as the seam for a repo that spells it
     otherwise. Four documents now have to agree about that, and none of them is executable -- so the
     failure they can produce is the silent one: a default stated as 'minor' in one page and 'tier-1' in
@@ -128,7 +128,7 @@ Write-Host "`n-- no stale default --" -ForegroundColor Cyan
 #   * WORD ORDER. 'defaulting to tier-1' was the only shape matched, so 'tier-1 is the default' passed
 #     -- and that is not hypothetical phrasing: report-issue/SKILL.md carried exactly it until this
 #     branch happened to reword that line for an unrelated reason.
-#   * A SENTENCE THAT NEVER SAYS 'DEFAULT'. adopt-dkj-policy-bwj said "check for THAT name -- 'tier-1'
+#   * A SENTENCE THAT NEVER SAYS 'DEFAULT'. adopt-bwj-development said "check for THAT name -- 'tier-1'
 #     where the repo has never answered it", which is the same claim with the word absent. That file
 #     was also missing from the list, so the drift survived in the one document #1841 had named as a
 #     call site, while the branch's own step list ticked the box.
@@ -137,7 +137,7 @@ Write-Host "`n-- no stale default --" -ForegroundColor Cyan
 #
 # MEASURED AGAINST THE PRE-BRANCH TREE rather than asserted: run over 'main', the three patterns hit
 # 5 times across 4 of these 7 files -- and two of those hits are shapes the first draft could not see
-# (report-issue's 'tier-1 is the default' and adopt-dkj-policy-bwj's 'never answered'). A sweep that
+# (report-issue's 'tier-1 is the default' and adopt-bwj-development's 'never answered'). A sweep that
 # is green on the tree it was written for proves nothing about the tree it was written against.
 $defaultClaims = @(
     @{ Pattern = 'default(?:ing to)?\s+`?tier-1';                       What = "states tier-1 as the default" }
@@ -145,9 +145,9 @@ $defaultClaims = @(
     @{ Pattern = '`?tier-1`?[^.\r\n]{0,80}never\s+answered';            What = "calls tier-1 what an unanswered repo gets" }
 )
 foreach ($rel in @('RELEASES-portable.md', 'CONTRIBUTING-portable.md', 'skills\adopt-dkj-policy\SKILL.md',
-                   'dkj-policy-bwj\WORKFLOW-portable.md', 'dkj-policy-bwj\README.md',
-                   'dkj-policy-bwj\skills\report-issue\SKILL.md',
-                   'dkj-policy-bwj\skills\adopt-dkj-policy-bwj\SKILL.md')) {
+                   'bwj-development\WORKFLOW-portable.md', 'bwj-development\README.md',
+                   'bwj-development\skills\report-issue\SKILL.md',
+                   'bwj-development\skills\adopt-bwj-development\SKILL.md')) {
     $txt = Get-Text $rel
     foreach ($claim in $defaultClaims) {
         Assert-True (-not [regex]::IsMatch($txt, $claim.Pattern)) `

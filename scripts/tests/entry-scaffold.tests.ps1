@@ -1730,7 +1730,7 @@ Assert-Equal 0 @(Get-BranchProgressFindings -Text $deployBlock).Count 'DEPLOY is
 $createBlock = if ($freshScaffold -match "(?ms)^$cycleSec\s+CREATE\s*`$(.*?)(?=^$cycleSec\s|\z)") { $Matches[1] } else { '' }
 Assert-True ($createBlock -match [regex]::Escape((Get-BranchFileWording).FirstStep)) 'the scaffolded step sits under CREATE'
 
-# CLOSING STEPS (#2655). dkj-policy-bwj's preview question has to be the LAST step under CREATE so the
+# CLOSING STEPS (#2655). bwj-development's preview question has to be the LAST step under CREATE so the
 # step-list gate holds the PR on it -- and nothing wrote it, so the gate held nothing. -ClosingSteps is what
 # writes it: open, after the first step, in the same phase, on a branch only.
 $previewQ = 'Is the change visible in the frontend / storefront?'

@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Regression tests for the shared BWJ test harness that dkj-policy-bwj ships --
-    plugins/dkj-policy/dkj-policy-bwj/scripts/tests/test-lib.ps1 (issue #1881).
+    Regression tests for the shared BWJ test harness that bwj-development ships --
+    plugins/dkj-policy/bwj-development/scripts/tests/test-lib.ps1 (issue #1881).
 
 .DESCRIPTION
     Dependency-free: no Pester needed, only PowerShell.
@@ -36,7 +36,7 @@
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$Lib      = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-policy-bwj\scripts\tests\test-lib.ps1'
+$Lib      = Join-Path $RepoRoot 'plugins\dkj-policy\bwj-development\scripts\tests\test-lib.ps1'
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-test-lib-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
 
 $script:pass = 0
@@ -67,7 +67,7 @@ function Invoke-Probe {
 Write-Host ''
 Write-Host 'The shared BWJ test harness -- it is where the plugin ships it (#1881)' -ForegroundColor Cyan
 
-Assert-True (Test-Path -LiteralPath $Lib) 'dkj-policy-bwj ships scripts/tests/test-lib.ps1'
+Assert-True (Test-Path -LiteralPath $Lib) 'bwj-development ships scripts/tests/test-lib.ps1'
 $body = [System.IO.File]::ReadAllText($Lib)
 
 $errors = $null

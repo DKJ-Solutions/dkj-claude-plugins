@@ -263,7 +263,7 @@ try {
     # --- the SET every script-layer check shares: a plugin's templates/ is inside it -----------------
     #     Issue #1998. Get-PsScriptFiles used to anchor on three named subtrees inside plugins/ --
     #     skills/, scripts/ and hooks/ -- and ONE tracked file sat in none of them:
-    #     plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1, 1812 lines. Checks 5 (parse), 27
+    #     plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1, 1812 lines. Checks 5 (parse), 27
     #     (script-ascii), 33 (shopify-cli), 36 (section-number) and 42b (exec-policy/script) had
     #     therefore never read a line of it.
     #
@@ -276,7 +276,7 @@ try {
     #     check 5 parses each file itself, while check 33 reads the shared CommandAst cache built over
     #     the same set (#1358). A set change that fed one and not the other would pass a single assert.
     #
-    #     AND THE FILE IS NAMED asana-mirror.ps1 on purpose: adopt-dkj-policy-bwj copies that real file
+    #     AND THE FILE IS NAMED asana-mirror.ps1 on purpose: adopt-bwj-development copies that real file
     #     into a consumer's repo as .github/scripts/asana-mirror.ps1, where it runs in their CI holding
     #     `issues: write`. A parse error in it reaches them and not us, which is check 5's own argument
     #     for existing.

@@ -528,7 +528,7 @@ Write-Host 'repo-root decoding -- repo-wide guard over every rev-parse --show-to
 # So the flag itself is what is refused here, rather than a missing wrapper around it. The replacement
 # is --is-inside-work-tree joined to --show-cdup, whose output is a run of '../' segments and no
 # filename at all; scripts\lib\repo-root-lib.ps1 carries it, and the two sites that may not reach a lib
-# (new-branch's no-lib refusal branch, dkj-policy-bwj's own self-contained lib) write that same
+# (new-branch's no-lib refusal branch, bwj-development's own self-contained lib) write that same
 # question out by hand -- which is why this scans for the FLAG and not for "did you call the lib".
 $rawToplevelRx = [regex]'rev-parse[^\r\n]*--show-toplevel'
 

@@ -977,7 +977,7 @@ guess the triage pass already corrects today. The template covers the web form; 
 rule actually names is a free-form `gh issue create --label bug-inbound` (or `feature-inbound`), which
 no front matter can reach.
 
-That is the same rule `dkj-policy-bwj` states for its own four buckets, where the Asana sweep removes
+That is the same rule `bwj-development` states for its own four buckets, where the Asana sweep removes
 the other three as it sets one — **and since September 11, 2026 it is the same four NAMES as well**
 (Dave, [#1842](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1842)), on the same four
 colour codes. `prio-1`…`prio-4` is one vocabulary across the whole family now.
@@ -1001,9 +1001,9 @@ are still worth knowing:
 
 1. **The BWJ names are not a convention, they are code** — which is exactly why the reversal arrived as
    an inbound issue rather than as a label rename somebody typed.
-   `plugins/dkj-policy/dkj-policy-bwj/templates/asana-mirror.ps1` holds them as a literal
+   `plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1` holds them as a literal
    (`$script:PrioLabels`), `Get-PrioLabelForScore` returns those exact strings from a score band, and
-   `scripts/tests/dkj-policy-bwj.tests.ps1` asserts every boundary from both sides. Unifying was an
+   `scripts/tests/bwj-development.tests.ps1` asserts every boundary from both sides. Unifying was an
    edit to a shipped CI mechanism that runs daily against two live stores, a re-pinning of its suite,
    and a label rename on two live trackers.
 2. **The collision could never mis-file anything.** Measured on all three trackers with
@@ -1076,7 +1076,7 @@ issue list with no command in it to fail. That is
 
 **Why the repair came from this side in September, and why #1842 then did the other half anyway.**
 Re-colouring BWJ's `low` was an edit to live labels in **two repos this one does not own**, and doing
-only the half that lives here — the hex codes `adopt-dkj-policy-bwj`'s step 4 prescribes — would have
+only the half that lives here — the hex codes `adopt-bwj-development`'s step 4 prescribes — would have
 left the fleet in a third state, since that skill is additive and never rewrites an existing label.
 Both halves belonged to one change and to Dave; moving **`prio-1`** instead was one `gh label edit` in
 the repo in front of you, and `006B75` was verified unused across all three trackers before it was
@@ -1166,7 +1166,7 @@ restated here.
 **`awaiting-decision` (`5319E7`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
 nor a sweep treats it as work that is ready (Dave, September 26, 2026,
 [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)). It was named `needs-decision` (`BFD4F2`) until #2741 (October 3, 2026), when it joined the purple `awaiting-*` family; the old name is still matched, and `adopt-triage-labels` prints the `gh label edit` rename. It is set in the same
-`gh issue create` as the `prio-N`, and it is not `awaiting-more-info` (`needs-info` until #2723), which `dkj-policy-bwj` reserves for
+`gh issue create` as the `prio-N`, and it is not `awaiting-more-info` (`needs-info` until #2723), which `bwj-development` reserves for
 *blocked on the submitter*. It ships in `Get-TriageLabels`, and the filing rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
 

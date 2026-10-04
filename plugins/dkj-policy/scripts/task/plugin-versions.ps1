@@ -626,7 +626,7 @@ foreach ($id in $ids) {
                     # unconditionally to `claude plugin update`. That command arbitrates on the VERSION
                     # STRING, so where the two sides carry the same one it has nothing to compare and
                     # exits successfully without moving the install -- measured September 10, 2026 in
-                    # the source repo, on dkj-policy and dkj-policy-bwj at 4.33.0 on both sides:
+                    # the source repo, on dkj-policy and bwj-development at 4.33.0 on both sides:
                     # "already at the latest version (4.33.0)". The run then reported them as behind and
                     # handed over a command that reports success and changes nothing, which is the worst
                     # shape a report can have: it looks acted on.

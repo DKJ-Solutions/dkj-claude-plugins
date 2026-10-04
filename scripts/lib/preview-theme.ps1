@@ -404,7 +404,7 @@ function Get-PreviewHandoverNote {
 
        AND IT STAYS GENERIC, naming no repo and no workflow. What is true in every multi-market Shopify
        repo is that a wrapped column of 90-character URLs is not a handover and that the reviewer is on a
-       phone. What the handover IS instead is a house rule -- BWJ states it in dkj-policy-bwj's
+       phone. What the handover IS instead is a house rule -- BWJ states it in bwj-development's
        PREVIEW-HANDOVER-portable.md -- so this points at whatever the repo's own workflow says rather than
        at a page most consumers do not have.
 

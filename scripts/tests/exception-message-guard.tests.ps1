@@ -142,7 +142,7 @@ try {
     #
     #     BOTH ROOTS ARE SCANNED, AND plugins/ IS NOT REDUNDANT WITH scripts/. Most of plugins/ is a
     #     byte-identical mirror the drift lint already pins, so scanning it changes nothing there --
-    #     but the HOOKS (plugins/*/hooks/*.ps1) and the dkj-policy-bwj templates are plugin-NATIVE,
+    #     but the HOOKS (plugins/*/hooks/*.ps1) and the bwj-development templates are plugin-NATIVE,
     #     with no counterpart under scripts/ at all. A scripts/-only scan is exactly how #2271's own
     #     measurement reported 34 and missed the eight hook catch-alls, which are the highest-severity
     #     members of the class: their output IS what a SessionStart hook forwards into session context.
@@ -165,8 +165,8 @@ try {
             # THREE GUARD FAMILIES ARE ACCEPTED, because three kinds of file reach a console here and
             # they cannot all reach the same helper:
             #   - Format-Safe*Token / Get-Display*  -- check-report-lib's, for anything that can load it.
-            #   - Format-ForConsole                 -- the dkj-policy-bwj templates' own, hand-typed
-            #     because adopt-dkj-policy-bwj copies them into a consumer as .github/scripts/*.ps1
+            #   - Format-ForConsole                 -- the bwj-development templates' own, hand-typed
+            #     because adopt-bwj-development copies them into a consumer as .github/scripts/*.ps1
             #     where none of this repo's libs exist. It is STRICTER on control and format characters
             #     (six categories, a code point at a time) and does not substitute brackets, which is
             #     right there: that output is a GitHub Actions log, not session context a hook counts.

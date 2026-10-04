@@ -10,8 +10,8 @@
     why the sibling check reported them as ALIASED and no grep in either repo would ever have found
     the other.
 
-    IT IS dkj-subagents-shopify AND NOT dkj-policy-bwj, WHICH IS A DEPARTURE FROM THE #1881 RULING'S
-    DEFAULT AND NOT FROM ITS REASONING. That ruling sends what the two stores share to dkj-policy-bwj
+    IT IS dkj-subagents-shopify AND NOT bwj-development, WHICH IS A DEPARTURE FROM THE #1881 RULING'S
+    DEFAULT AND NOT FROM ITS REASONING. That ruling sends what the two stores share to bwj-development
     unless it is obviously universal, and its test for the exception is a demonstrated reader outside
     the two stores. This bullet does not need that test, because the ruling's axis is the wrong axis
     for it: archiving a theme is not a BWJ practice, it is a Shopify one. The plugin that owns the

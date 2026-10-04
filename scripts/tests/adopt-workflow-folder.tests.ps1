@@ -771,7 +771,7 @@ try {
 
     # --- The extension imports in CLAUDE.md (issue #2697) ------------------------------------------
     # Every dkj-policy-* extension the repo's OWN settings enable gets its line, below the constitution;
-    # a disabled one does not. dkj-policy-dkjs ships no adopter of its own, so this run is its only writer.
+    # a disabled one does not. dkj-solutions ships no adopter of its own, so this run is its only writer.
     Write-Host ''
     Write-Host 'The extension imports'
     $extRx = { param($e) "^@~/\.claude/plugins/marketplaces/[^/]+/plugins/dkj-policy/$e/CLAUDE\.md$" }
@@ -779,7 +779,7 @@ try {
     $cE1 = New-FixtureConsumer -Label 'ext-both'
     New-Item -ItemType Directory -Path (Join-Path $cE1 '.claude') -Force | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $cE1 '.claude\settings.json'),
-        '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-dkjs@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": false } }')
+        '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": true, "bwj-development@dkj-claude-plugins": false } }')
     $cE1Md = Join-Path $cE1 'CLAUDE.md'
     [System.IO.File]::WriteAllText($cE1Md, "# T`n`n@~/.claude/other.md`n")
     $rE1 = Invoke-Adopt -Dir $cE1 -ScriptArgs @('-Apply')
@@ -787,12 +787,12 @@ try {
     $cE1Text = [System.IO.File]::ReadAllText($cE1Md)
     $cE1Lines = @($cE1Text.TrimEnd() -split "`n")
     Assert-Match $constRx $cE1Lines[2] 'extensions: the constitution lands above the first import'
-    Assert-Match (& $extRx 'dkj-policy-dkjs') $cE1Lines[3] 'extensions: the enabled dkjs extension lands directly below it'
+    Assert-Match (& $extRx 'dkj-solutions') $cE1Lines[3] 'extensions: the enabled dkjs extension lands directly below it'
     Assert-Equal '@~/.claude/other.md' $cE1Lines[4] 'extensions: and the existing import follows unchanged'
-    Assert-True ($cE1Text -notmatch 'dkj-policy-bwj') 'extensions: a disabled extension gets no line'
+    Assert-True ($cE1Text -notmatch 'bwj-development') 'extensions: a disabled extension gets no line'
     $rE1b = Invoke-Adopt -Dir $cE1 -ScriptArgs @('-Apply')
     Assert-Equal $cE1Text ([System.IO.File]::ReadAllText($cE1Md)) 'extensions: a re-run changes nothing'
-    Assert-Match '\[keep\]\s+CLAUDE\.md already imports the dkj-policy-dkjs extension' $rE1b.Flat 'extensions: and the re-run says it kept it'
+    Assert-Match '\[keep\]\s+CLAUDE\.md already imports the dkj-solutions extension' $rE1b.Flat 'extensions: and the re-run says it kept it'
 
     $cE2 = New-FixtureConsumer -Label 'ext-none'
     $rE2 = Invoke-Adopt -Dir $cE2 -ScriptArgs @('-Apply')

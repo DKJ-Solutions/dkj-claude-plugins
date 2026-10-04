@@ -76,7 +76,7 @@
                     "cut-release-drive.tests.ps1":  60.8,
                     "cut-release-guardrail.tests.ps1":  6.8,
                     "cycle-autopark.tests.ps1":  9,
-                    "dkj-policy-bwj.tests.ps1":  35.8,
+                    "bwj-development.tests.ps1":  35.8,
                     "document-newline.tests.ps1":  8.5,
                     "entry-scaffold.tests.ps1":  52.5,
                     "exception-message-guard.tests.ps1":  9.2,

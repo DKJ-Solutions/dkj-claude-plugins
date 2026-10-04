@@ -314,7 +314,7 @@ function New-IntegrityFixture {
     New-Item -ItemType Directory -Path (Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-alpha\.claude-plugin') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $Fixture 'plugins\dkj-subagents\dkj-subagents-shopify\.claude-plugin') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $Fixture 'plugins\dkj-policy\.claude-plugin') -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $Fixture 'plugins\dkj-policy\dkj-policy-bwj\.claude-plugin') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $Fixture 'plugins\dkj-policy\bwj-development\.claude-plugin') -Force | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude-plugin\marketplace.json'), (@'
 {
   "name": "fixture-marketplace",
@@ -322,7 +322,7 @@ function New-IntegrityFixture {
     { "name": "dkj-subagents-alpha",         "source": "./plugins/dkj-subagents/dkj-subagents-alpha" },
     { "name": "dkj-subagents-shopify",       "source": "./plugins/dkj-subagents/dkj-subagents-shopify" },
     { "name": "dkj-policy", "source": "./plugins/dkj-policy" },
-    { "name": "dkj-policy-bwj",              "source": "./plugins/dkj-policy/dkj-policy-bwj" }
+    { "name": "bwj-development",              "source": "./plugins/dkj-policy/bwj-development" }
   ]
 }
 '@), $Utf8NoBom)
@@ -336,11 +336,11 @@ function New-IntegrityFixture {
         "{ `"name`": `"dkj-subagents-shopify`", `"version`": `"0.0.1`" }`n", $Utf8NoBom)
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'plugins\dkj-policy\.claude-plugin\plugin.json'),
         "{ `"name`": `"dkj-policy`", `"version`": `"0.0.1`" }`n", $Utf8NoBom)
-    # dkj-policy-bwj joined the registry on September 26, 2026 (#2509), with its mirrors of live-push-rules,
+    # bwj-development joined the registry on September 26, 2026 (#2509), with its mirrors of live-push-rules,
     # git-porcelain-lib and ref-print-lib -- the third measured instance of the failure the paragraph above
     # names: 15 unrelated scenarios failed in one suite before this list grew with it.
-    [System.IO.File]::WriteAllText((Join-Path $Fixture 'plugins\dkj-policy\dkj-policy-bwj\.claude-plugin\plugin.json'),
-        "{ `"name`": `"dkj-policy-bwj`", `"version`": `"0.0.1`" }`n", $Utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $Fixture 'plugins\dkj-policy\bwj-development\.claude-plugin\plugin.json'),
+        "{ `"name`": `"bwj-development`", `"version`": `"0.0.1`" }`n", $Utf8NoBom)
 
     Copy-Item -Path $IntegritySrc -Destination (Join-Path $Fixture 'scripts\lint\check-plugin-integrity.ps1') -Force
     Copy-Item -Path $AgentSharedLibSrc -Destination (Join-Path $Fixture 'scripts\lib\subagent-shared-lib.ps1') -Force

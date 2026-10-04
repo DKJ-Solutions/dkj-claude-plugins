@@ -63,7 +63,7 @@ checkout's plugins current, in
 ### The team: roster & routing
 
 Small and maintenance-focused — **only the core team and `dkj-policy` are enabled here**. The three
-add-on teams and `dkj-policy-bwj` are switched off, because none of them has work here (Dave, September
+add-on teams and `bwj-development` are switched off, because none of them has work here (Dave, September
 30 and October 1, 2026).
 [`.claude/rules/this-repo.md`](../rules/this-repo.md) states the fact, and why.
 

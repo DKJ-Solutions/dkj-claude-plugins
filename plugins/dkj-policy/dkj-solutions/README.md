@@ -1,0 +1,36 @@
+# dkj-solutions — DKJ-Solutions' codex
+
+The binding rules every DKJ-Solutions app shares, written once instead of rebuilt in each repo. It is
+the counterpart of `bwj-development` (BWJ-Development's codex) for the other organisation: an
+**additive** add-on to `dkj-policy` that contradicts nothing that workflow decides, and that carries
+no specialists.
+
+## Chapters
+
+| Chapter | Where | What it holds |
+|---|---|---|
+| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The design tokens (light and dark), the light/dark mechanism and the base stylesheet, as one self-contained CSS file |
+
+## Who enables it
+
+**DKJ-Solutions repos only.** BWJ-Development has its own styling, so this plugin is never enabled in
+BWJ's repos. It requires `dkj-subagents-alpha` and `dkj-policy`.
+
+## Installing it in a DKJ-Solutions repo
+
+1. Refresh the marketplace clone first (`claude plugin marketplace update dkj-claude-plugins`). A stale
+   clone reports success with the previous version. Then enable the plugin in the repo's
+   `.claude/settings.json` (`"dkj-solutions@dkj-claude-plugins": true`) and install it with
+   `claude plugin install dkj-solutions@dkj-claude-plugins --scope project`.
+2. Run the `adopt-dkj-policy` skill's Part 1 (`adopt-workflow-folder.ps1 -Apply`). It writes the
+   extension import into the repo's `CLAUDE.md`, on the line directly below the `dkj-policy` import:
+   `@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/dkj-solutions/CLAUDE.md`
+
+That run writes the line for every `dkj-policy` extension the repo enables, so this plugin needs no
+adopt step of its own. While the line is missing, the `consumer-prose-sessioncheck` hook warns at
+session start ([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2697)).
+
+## In this source repo
+
+The plugin is listed as `false` in this repo's `.claude/settings.json`: there is no app here that
+renders anything. The house style is maintained here, and only tried out in a consumer.

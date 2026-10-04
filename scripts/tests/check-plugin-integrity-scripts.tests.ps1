@@ -485,7 +485,7 @@ try {
     { "name": "dkj-subagents-alpha",         "source": "./plugins/dkj-subagents/dkj-subagents-alpha" },
     { "name": "dkj-subagents-shopify",       "source": "./plugins/dkj-subagents/dkj-subagents-shopify" },
     { "name": "dkj-policy", "source": "./plugins/dkj-policy" },
-    { "name": "dkj-policy-bwj",              "source": "./plugins/dkj-policy/dkj-policy-bwj" }
+    { "name": "bwj-development",              "source": "./plugins/dkj-policy/bwj-development" }
   ]
 }
 '@

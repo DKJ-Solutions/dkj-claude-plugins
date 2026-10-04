@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Regression tests for the shared BWJ pages worker that dkj-policy-bwj ships -- its route, its
+    Regression tests for the shared BWJ pages worker that bwj-development ships -- its route, its
     publish rules and the script that drives them (issue #1977).
 
 .DESCRIPTION
@@ -41,7 +41,7 @@
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot   = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-policy-bwj'
+$PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy\bwj-development'
 $LibPath    = Join-Path $PluginRoot 'scripts\lib\page-publish-rules.ps1'
 $ScriptPath = Join-Path $PluginRoot 'scripts\task\publish-page.ps1'
 $WorkerPath = Join-Path $PluginRoot 'worker\bwj-pages-worker.js'
@@ -84,9 +84,9 @@ $HexB = 'b' * 32
 Write-Host ''
 Write-Host 'The shared BWJ pages worker -- what the plugin ships (#1977)' -ForegroundColor Cyan
 
-Assert-True (Test-Path -LiteralPath $WorkerPath) 'dkj-policy-bwj ships worker/bwj-pages-worker.js'
-Assert-True (Test-Path -LiteralPath $LibPath)    'dkj-policy-bwj ships scripts/lib/page-publish-rules.ps1'
-Assert-True (Test-Path -LiteralPath $ScriptPath) 'dkj-policy-bwj ships scripts/task/publish-page.ps1'
+Assert-True (Test-Path -LiteralPath $WorkerPath) 'bwj-development ships worker/bwj-pages-worker.js'
+Assert-True (Test-Path -LiteralPath $LibPath)    'bwj-development ships scripts/lib/page-publish-rules.ps1'
+Assert-True (Test-Path -LiteralPath $ScriptPath) 'bwj-development ships scripts/task/publish-page.ps1'
 
 . $LibPath
 $workerJs = [System.IO.File]::ReadAllText($WorkerPath, [System.Text.Encoding]::UTF8)

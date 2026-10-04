@@ -52,7 +52,7 @@ N/A
 
 BWJ: every issue is a bug or a feature, and the documentation label goes
 
-Plugins: dkj-policy-bwj
+Plugins: bwj-development
 
 [PR #2785](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2785)
 

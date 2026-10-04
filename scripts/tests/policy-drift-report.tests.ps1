@@ -171,23 +171,23 @@ try {
   "name": "fixture",
   "plugins": [
     { "name": "dkj-policy", "source": "./plugins/dkj-policy" },
-    { "name": "dkj-policy-bwj", "source": "./plugins/dkj-policy/dkj-policy-bwj" }
+    { "name": "bwj-development", "source": "./plugins/dkj-policy/bwj-development" }
   ]
 }
 '@
     Add-FixturePlugin -Dir $source -Root './plugins/dkj-policy' -Name 'dkj-policy' -Page 'CONTRIBUTING-portable.md'
-    Add-FixturePlugin -Dir $source -Root './plugins/dkj-policy/dkj-policy-bwj' -Name 'dkj-policy-bwj' -Page 'WORKFLOW-portable.md'
+    Add-FixturePlugin -Dir $source -Root './plugins/dkj-policy/bwj-development' -Name 'bwj-development' -Page 'WORKFLOW-portable.md'
     Set-Text -Dir $source -Rel '.claude/settings.json' -Text @'
 {
   "enabledPlugins": {
-    "dkj-policy-bwj@fixture": true,
+    "bwj-development@fixture": true,
     "dkj-policy@fixture": true
   }
 }
 '@
     $r = Invoke-Report -Dir $source
     $atPrime = $r.Out.IndexOf('dkj-policy', [System.StringComparison]::Ordinal)
-    $atCompanion = $r.Out.IndexOf('dkj-policy-bwj', [System.StringComparison]::Ordinal)
+    $atCompanion = $r.Out.IndexOf('bwj-development', [System.StringComparison]::Ordinal)
     Assert-True ($r.Code -eq 0) 'a tree publishing both plugins -- exit 0'
     Assert-True ($atPrime -ge 0 -and $atCompanion -ge 0) 'both plugins are located and printed'
     Assert-True ($atPrime -ge 0 -and $atCompanion -gt $atPrime) `
@@ -338,7 +338,7 @@ try {
     Assert-True ($rMirror.Out -match 'RANK 1' -and $rMirror.Out -match 'RANK 2' -and $rMirror.Out -match 'RANK 3') `
         'the mirror prints all three ranks, so its own $PSScriptRoot-relative dot-sources resolved from the plugin tree'
     $mPrime = $rMirror.Out.IndexOf('dkj-policy', [System.StringComparison]::Ordinal)
-    $mCompanion = $rMirror.Out.IndexOf('dkj-policy-bwj', [System.StringComparison]::Ordinal)
+    $mCompanion = $rMirror.Out.IndexOf('bwj-development', [System.StringComparison]::Ordinal)
     Assert-True ($mPrime -ge 0 -and $mCompanion -gt $mPrime) `
         'the mirror locates both plugins and keeps the rank-1 order -- step 4a resolved from its own depth'
 }

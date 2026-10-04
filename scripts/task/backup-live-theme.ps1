@@ -89,7 +89,7 @@
     delete' from a session unless the repo has answered Get-ShopifyThemeDeleteMarker and the command
     carries it. That is the right default and this script does not work around it: with the seam
     unanswered the rotation is PRINTED for a person to run rather than performed. What the standing
-    approval covers, and its bounds, is stated in dkj-policy-bwj/THEME-LIFECYCLE-portable.md rather
+    approval covers, and its bounds, is stated in bwj-development/THEME-LIFECYCLE-portable.md rather
     than assumed here.
 
 .PARAMETER Store

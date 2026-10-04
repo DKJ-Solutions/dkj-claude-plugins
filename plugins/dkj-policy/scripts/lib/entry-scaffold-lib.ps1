@@ -6964,7 +6964,7 @@ function Format-Development {
         # STEPS THAT CLOSE THE FIRST-STEP PHASE (#2655), written as open steps AFTER the scaffolded first
         # step -- so under CREATE, last, by default. The texts come from the repo's Get-BranchClosingSteps
         # seam, resolved in new-branch and passed in, for the same reason -LinkDestDirRel is: a lib that
-        # goes looking for repo-config is a lib that can read the wrong tree. dkj-policy-bwj's preview
+        # goes looking for repo-config is a lib that can read the wrong tree. bwj-development's preview
         # question is the case that produced it: PREVIEW-portable.md made that step the last one under
         # CREATE so the step-list gate would hold the PR on it, and nothing ever wrote it, so the gate held
         # nothing. Branch documents only -- the trunk copy is read as an example and carries no steps.

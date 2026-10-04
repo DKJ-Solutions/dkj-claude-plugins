@@ -157,7 +157,7 @@ Assert-True @(Get-LivePushRows -ChangedPaths @('sections/hero.liquid'))[0].Push 
 # BOTH DRIVERS FEED THE SET, and read the range with renames split so a renamed file's old path is in it.
 # The drivers read git and the Shopify CLI, so this is asserted on their source rather than by running them.
 $pfSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\task\live-preflight.ps1') -Raw
-$prSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-policy-bwj\scripts\task\prepare-release.ps1') -Raw
+$prSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\bwj-development\scripts\task\prepare-release.ps1') -Raw
 foreach ($drv in @(@{ Name = 'live-preflight'; Src = $pfSrc }, @{ Name = 'prepare-release'; Src = $prSrc })) {
     Assert-True ($drv.Src -match 'Get-LivePushRows\b[^\r\n]*-DeletedPaths') "$($drv.Name) passes the range's deletions to Get-LivePushRows"
     Assert-True ($drv.Src -match "'--no-renames',\s*'--name-only',\s*'--diff-filter=D'") "$($drv.Name) reads the deletions with renames split"

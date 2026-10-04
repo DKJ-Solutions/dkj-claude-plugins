@@ -431,7 +431,7 @@ function Select-PublishedPlugins {
     #
     # ONE RISK THE NESTING ADDS, NAMED RATHER THAN GUARDED. Dropping 'dkj-policy' removes
     # plugins/dkj-policy/ recursively and takes the ministry nested inside it along, even if
-    # 'dkj-policy-bwj' is in $keep. That combination is incoherent -- a ministry requires its prime
+    # 'bwj-development' is in $keep. That combination is incoherent -- a ministry requires its prime
     # ministry -- and Assert-MarketplaceIntegrity below throws on it by name, loudly, because the kept
     # source no longer resolves. So it cannot ship a silently broken tree, which is where a guard would
     # earn its place; build one the day it actually happens.

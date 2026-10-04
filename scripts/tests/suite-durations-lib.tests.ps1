@@ -81,8 +81,8 @@ Assert-Equal 401 $shards[0].Seconds 'a shard''s wall-clock is its completedAt mi
 Assert-Equal 235 $shards[1].Seconds 'for every shard'
 
 # 5 -- the families
-$fm = [ordered]@{ 'check-plugin-integrity-a.tests.ps1' = 10.0; 'check-plugin-integrity-b.tests.ps1' = 5.5; 'bwj-x.tests.ps1' = 2.0; 'dkj-policy-bwj.tests.ps1' = 3.0 }
-$fam = Get-FamilyTotals -Means $fm -Family @('integrity=check-plugin-integrity-*', 'bwj=bwj-*;dkj-policy-bwj.tests.ps1', 'none=zzz-*')
+$fm = [ordered]@{ 'check-plugin-integrity-a.tests.ps1' = 10.0; 'check-plugin-integrity-b.tests.ps1' = 5.5; 'bwj-x.tests.ps1' = 2.0; 'bwj-development.tests.ps1' = 3.0 }
+$fam = Get-FamilyTotals -Means $fm -Family @('integrity=check-plugin-integrity-*', 'bwj=bwj-*;bwj-development.tests.ps1', 'none=zzz-*')
 Assert-Equal 15.5 $fam['integrity'].Seconds 'a family totals the suites its glob matches'
 Assert-Equal 2 $fam['integrity'].Suites 'and counts them'
 Assert-Equal 5 $fam['bwj'].Seconds 'several globs joined by ; all count, each suite once'

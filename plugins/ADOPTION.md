@@ -262,6 +262,20 @@ own), so an install on that channel silently yields an older plugin version. If 
 update the marketplace registration (a marketplace update) or re-add it under `dkj-claude-plugins` — a
 fresh install should always use `DKJ-Solutions/dkj-claude-plugins`.
 
+**The two `dkj-policy` extensions were renamed** on October 4, 2026
+([#2788](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2788)): `dkj-policy-bwj` is
+`bwj-development` and `dkj-policy-dkjs` is `dkj-solutions`. The marketplace no longer declares the old
+ids, so a repo that enabled one loads nothing of it until it migrates. Nothing fails loudly, and the
+session-start check warns once for each old name. Migrating takes three steps, run from the repo's root:
+
+1. In `.claude/settings.json`, replace the old key in `enabledPlugins` with the new one, e.g.
+   `"bwj-development@dkj-claude-plugins": true`.
+2. Install it: `claude plugin marketplace update dkj-claude-plugins`, then
+   `claude plugin install bwj-development@dkj-claude-plugins --scope project`, and
+   `claude plugin uninstall dkj-policy-bwj@dkj-claude-plugins --scope project` for the stale record.
+3. Rewrite the `CLAUDE.md` import with the `adopt-dkj-policy` skill's `adopt-workflow-folder.ps1 -Apply`.
+   It replaces the old `.../dkj-policy/dkj-policy-bwj/CLAUDE.md` line in place.
+
 ## Which release am I on?
 
 Read the `version` in your cached `<plugin>/.claude-plugin/plugin.json`. It travels with the plugin
@@ -302,7 +316,7 @@ function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `live-preflight`,
 `check-branch-entry`, `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `check-fanout`,
-`measure-skill`, `measure-closeouts`, `measure-session-start`, `worktree-lane`, `report-issue`, `adopt-dkj-policy-bwj`, `publish-page`,
+`measure-skill`, `measure-closeouts`, `measure-session-start`, `worktree-lane`, `report-issue`, `adopt-bwj-development`, `publish-page`,
 `build-backlog-page`, `golive-block`,
 `orchestrator`) remain available there.
 
