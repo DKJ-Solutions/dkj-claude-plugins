@@ -64,6 +64,14 @@ is small and focused on maintaining this product — agent defs, manuals, docs, 
   workflow ([#1870](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1870), Dave,
   September 11, 2026), and a **second axis** independent of priority. Detail in
   [Derek #05](specialist-05-05-lens.md#the-reach-label--minor-and-it-is-a-second-axis-not-a-fifth-rung).
+- **And it carries its parking label from the moment it is filed, when its next step waits on something
+  other than work**: `awaiting-decision` (Dave's choice), `awaiting-pull` (another issue's pull request),
+  `awaiting-event` (an external event or date), `awaiting-first-recurrence` (its first reproducible
+  recurrence), or `awaiting-more-recurrences` (a record). It goes in the same `gh issue create` as the
+  `prio-N`, because an unparked waiting issue reads as free work to every pickup route
+  ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796): #2795 was filed waiting on
+  CI runs and had to be parked by hand). What each label means is in
+  [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
 
 ### The gatekeepers, as implemented here
 
