@@ -65,7 +65,9 @@ $action = Add-ClaudeMdImportLine -Path $claudeMd -Root $root -Line $line `
 switch ($action) {
     'kept'   { Write-Host '  [keep]     CLAUDE.md already imports the bwj-development extension -- left as it is' -ForegroundColor DarkGray }
     'replace' { $verb = if ($Apply) { '[renamed]' } else { '[rename] ' }
-                Write-Host "  $verb  the extension import still named dkj-policy-bwj, the extension's retired name -- now: $line" -ForegroundColor Green }
+                Write-Host "  $verb  the extension import still named the extension by its retired name -- now: $line" -ForegroundColor Green }
+    'removed' { $verb = if ($Apply) { '[removed]' } else { '[remove] ' }
+                Write-Host "  $verb  the extension import under its retired name, beside the current line CLAUDE.md already has" -ForegroundColor Green }
     'refused' { Write-Host "  [refused]  CLAUDE.md is a symlink or junction, so the extension import was NOT written -- add it by hand: $line" -ForegroundColor Yellow }
     'create' { $verb = if ($Apply) { '[created]' } else { '[create] ' }
                Write-Host "  $verb  CLAUDE.md, holding the extension import: $line" -ForegroundColor Green }

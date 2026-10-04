@@ -44,7 +44,7 @@ colleagues, while a workflow hands it an answer to a question that can only have
 
 **That used to read "where **at most one** plugin may be enabled at a time", and it had been false
 twice over.** [#886](https://github.com/DaveKJohn/claude-code-specialists/issues/886) retired the check
-that counted enabled workflows, and `bwj-development` has been a second enabled one since August 31,
+that counted enabled workflows, and the BWJ extension (then `dkj-policy-bwj`, now `bwj-development`) has been a second enabled one since August 31,
 2026 — additive rather than competing, which is why it is safe. The distinction the sentence exists to
 draw survives: stacking teams is *free*, while a second way of working has to be shown not to answer a
 question the first one already answers.

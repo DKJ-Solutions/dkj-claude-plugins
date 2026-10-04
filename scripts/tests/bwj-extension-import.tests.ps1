@@ -181,6 +181,32 @@ try {
     $r9b = Invoke-Script -Dir $c9 -ScriptArgs @('-Apply')
     Assert-True ($r9b.Flat -match '\[keep\]') 'a re-run keeps it'
 
+    # The current line already there beside the retired one: the retired one goes, whichever comes first.
+    foreach ($order in @('retired-first', 'current-first')) {
+        $c10 = New-Consumer "both-$order"
+        $c10Md = Join-Path $c10 'CLAUDE.md'
+        $pair = if ($order -eq 'retired-first') { "$c9Old`n$Ext" } else { "$Ext`n$c9Old" }
+        [System.IO.File]::WriteAllText($c10Md, "$Const`n$pair`n", (New-Object System.Text.UTF8Encoding($false)))
+        $r10 = Invoke-Script -Dir $c10 -ScriptArgs @('-Apply')
+        Assert-True ($r10.Flat -match '\[removed\]') "both lines present ($order): reports the retired one removed"
+        Assert-Equal "$Const`n$Ext`n" ([System.IO.File]::ReadAllText($c10Md)) "both lines present ($order): only the current line is left"
+    }
+
+    # Two retired lines: the first becomes the current line, the second goes.
+    $c11 = New-Consumer 'two-retired'
+    $c11Md = Join-Path $c11 'CLAUDE.md'
+    [System.IO.File]::WriteAllText($c11Md, "$Const`n$c9Old`n@~/.claude/other.md`n$c9Old`n", (New-Object System.Text.UTF8Encoding($false)))
+    Invoke-Script -Dir $c11 -ScriptArgs @('-Apply') | Out-Null
+    Assert-Equal "$Const`n$Ext`n@~/.claude/other.md`n" ([System.IO.File]::ReadAllText($c11Md)) 'two retired lines: one rewritten in place, the other removed'
+
+    # A dry run reports and writes nothing.
+    $c12 = New-Consumer 'retired-dry'
+    $c12Md = Join-Path $c12 'CLAUDE.md'
+    [System.IO.File]::WriteAllText($c12Md, "$Const`n$c9Old`n", (New-Object System.Text.UTF8Encoding($false)))
+    $r12 = Invoke-Script -Dir $c12
+    Assert-True ($r12.Flat -match '\[rename\]') 'a dry run reports the rename'
+    Assert-Equal "$Const`n$c9Old`n" ([System.IO.File]::ReadAllText($c12Md)) 'and writes nothing'
+
     Write-Host ''
     Write-Host 'Already imported, and quoted in a fence'
     $c5 = New-Consumer 'old-name'

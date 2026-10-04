@@ -223,8 +223,8 @@ function Test-ExtensionImported {
 function Add-ClaudeMdImportLine {
     <#
         Puts one '@'-import line into a consumer's CLAUDE.md, or reports that it is already there.
-        Returns the action as a word: 'kept', 'create', 'insert', 'replace', 'append' or 'refused'. Writes only with -Apply, so
-        a dry run gets the same answer without a byte changing.
+        Returns the action as a word: 'kept', 'create', 'insert', 'replace', 'removed', 'append' or
+        'refused'. Writes only with -Apply, so a dry run gets the same answer without a byte changing.
 
         ALREADY THERE is -ImportedPattern matched on an '@'-line of the file outside a fence, OR
         -ImportedElsewhere, the caller's verdict over the whole '@'-import closure (a line sitting in a
@@ -242,7 +242,8 @@ function Add-ClaudeMdImportLine {
         A RETIRED LINE IS REWRITTEN IN PLACE (#2788). With -ReplacePattern, the first '@'-line matching it
         is replaced by -Line, keeping its own terminator, and the answer is 'replace'. That line imports an
         extension under a name the marketplace no longer has, so inserting beside it would leave a dead
-        import behind.
+        import behind. Every further retired line is removed; where the current line is already imported,
+        all of them are, and the answer is 'removed'.
 
         WHERE THE LINE GOES: directly BELOW the first '@'-line matching -AfterPattern, when one is given
         and found -- the extension sits under the constitution; otherwise directly ABOVE the first
@@ -286,7 +287,8 @@ function Add-ClaudeMdImportLine {
     $lines = [System.Collections.Generic.List[string]]::new([string[]]@($text -split '(?<=\n)' | Where-Object { $_ -ne '' }))
     $firstImport = -1
     $anchor = -1
-    $replace = -1
+    $imported = $false
+    $retiredAt = [System.Collections.Generic.List[int]]::new()
     $fence = ''
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $bare = $lines[$i].TrimEnd("`r", "`n")
@@ -295,19 +297,28 @@ function Add-ClaudeMdImportLine {
         # Get-ImportLinePath, not a looser pattern: Claude Code reads only a column-0 '@' as an import, so
         # an indented look-alike (a bullet, a blockquote) is prose -- neither "already there" nor an anchor.
         if ($wasFence -or $fence -or -not (Get-ImportLinePath -Line $bare)) { continue }
-        if ($bare -imatch $ImportedPattern) { return 'kept' }
+        if ($bare -imatch $ImportedPattern) { $imported = $true; continue }
+        if ($ReplacePattern -and $bare -imatch $ReplacePattern) { $retiredAt.Add($i); continue }
         if ($firstImport -lt 0) { $firstImport = $i }
         if ($AfterPattern -and $anchor -lt 0 -and $bare -imatch $AfterPattern) { $anchor = $i }
-        if ($ReplacePattern -and $replace -lt 0 -and $bare -imatch $ReplacePattern) { $replace = $i }
     }
-    if ($ImportedElsewhere) { return 'kept' }
 
     $firstEol = if ($text -match '\r?\n') { $Matches[0] } else { "`n" }
-    if ($replace -ge 0) {
-        $action = 'replace'
-        $eol = if ($lines[$replace] -match '\r?\n$') { $Matches[0] } else { '' }
-        $lines[$replace] = $Line + $eol
+    if ($retiredAt.Count -gt 0) {
+        # Every retired line goes. Where the current line is not there yet, the FIRST retired line becomes
+        # it, in place; where it already is (in this file or elsewhere in the closure), none of them is
+        # needed, and keeping one would leave a dead import behind and a warning that never clears.
+        $keepFirst = -not ($imported -or $ImportedElsewhere)
+        $action = if ($keepFirst) { 'replace' } else { 'removed' }
+        if ($keepFirst) {
+            $eol = if ($lines[$retiredAt[0]] -match '\r?\n$') { $Matches[0] } else { '' }
+            $lines[$retiredAt[0]] = $Line + $eol
+        }
+        $drop = if ($keepFirst) { @($retiredAt | Select-Object -Skip 1) } else { @($retiredAt) }
+        foreach ($k in @($drop | Sort-Object -Descending)) { $lines.RemoveAt($k) }
         $new = $lines -join ''
+    } elseif ($imported -or $ImportedElsewhere) {
+        return 'kept'
     } elseif ($anchor -ge 0) {
         $action = 'insert'
         if ($lines[$anchor] -match '\r?\n$') {

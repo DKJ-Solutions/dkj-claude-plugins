@@ -51,7 +51,7 @@ gets a migration path for its retired id and its import line.
 - [x] The adopters rewrite a retired import line in place; `check-consumer-prose` warns on a retired id and a retired import line
 - [x] `check-plugin-integrity`'s plugin-kind check classifies a listed extension and holds it to `plugins/dkj-policy/`
 - [x] Repoint archived release-note link targets to the new folders, keeping their text
-- [x] Restore the two rename-history lines the bulk replace rewrote
+- [x] Restore the rename-history lines the bulk replace rewrote (two found by hand, five more by the copy edit)
 - [x] Prose: the adopt-dkj-policy skill, CONTRIBUTING-portable and the scripts README name the new rule; ADOPTION.md gives consumers the three-step migration
 
 ### TEST
@@ -59,6 +59,8 @@ gets a migration path for its retired id and its import line.
 - [x] `bwj-extension-import.tests.ps1`: the list equals the plugin folders, retired ids map, a retired line is rewritten in place with its CRLF kept (48 pass)
 - [x] `consumer-prose-gate.tests.ps1`: both retired-name warnings fire, none on a migrated repo (142 pass)
 - [x] `check-plugin-integrity.ps1`: 0 errors; roster, script-contract and unfolded-entry gates green
+- [x] Review: the code review found a retired line beside a current one was never cleaned up; Add-ClaudeMdImportLine now removes every retired line where the current one is present (`removed`), and rewrites the first and drops the rest otherwise, with suites for both orders and for two retired lines (55 pass). The security review found nothing
+- [x] The integrity fixture copies claude-md-import-lib.ps1 and write-target-lib.ps1, which the plugin-kind check now loads
 - [x] The other suites the rename touches pass locally
 
 ### DEPLOY: feat/2788-rename-policy-extensions

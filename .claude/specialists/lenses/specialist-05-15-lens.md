@@ -2421,7 +2421,7 @@ Moved here from `.claude/rules/this-repo.md` under
 fact of which plugins are enabled, and this is the harness consequence behind it.
 
 **Two of the six are enabled: the core team and `dkj-policy`.** The three add-on teams are set to
-`false` since September 30, 2026, and `bwj-development` since October 1 (both Dave). From September 8 to
+`false` since September 30, 2026, and the BWJ extension (then `dkj-policy-bwj`) since October 1 (both Dave). From September 8 to
 September 30 all six were on, for validation (see below). **`false`, not absent, and that is
 load-bearing**: the harness and every check here read the settings chain user file →
 `.claude/settings.json` → `settings.local.json`, and the last layer that names a plugin wins
@@ -2443,7 +2443,7 @@ connector manifest, so no block had to go.
 work here; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a
 personal-life repo. Three of `bwj-development`'s four chapters are about a Shopify store too. **Its
 ticket-handling chapter admits this repo as a third permitted target** at `report-issue`'s and
-`adopt-bwj-development`'s own gate (Dave, September 14, 2026, commit `b9b2a65a`; the per-chapter reach
+`adopt-bwj-development`'s own gate (then `adopt-dkj-policy-bwj`; Dave, September 14, 2026, commit `b9b2a65a`; the per-chapter reach
 closed [#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982)). That permission stays
 in the plugin source. **This repo does not use it since October 1**, when the plugin was switched off
 here, and an issue here is filed with a plain `gh issue create`, carrying the `prio-N` label and, where

@@ -266,9 +266,10 @@ if (Test-FunctionDefined 'Get-RetiredPolicyExtensionNames') {
     if (@($documents).Count -gt 0) {
         foreach ($row in @(Get-RetiredExtensionImports -Documents $documents)) {
             Write-Host "[WARNING] CLAUDE.md imports the $($row.Retired) extension under its retired name, a path that no" -ForegroundColor Yellow
-            Write-Host '          longer exists, so it loads nothing. Replace the line with:' -ForegroundColor Yellow
+            Write-Host '          longer exists, so it loads nothing. Replace the line with the one below, or delete it' -ForegroundColor Yellow
+            Write-Host '          where that line is already there:' -ForegroundColor Yellow
             Write-Host "            $(Get-ExtensionImportLine -Extension $row.Current)" -ForegroundColor Yellow
-            Write-Host '          or run adopt-workflow-folder.ps1 -Apply, which rewrites it in place.' -ForegroundColor Yellow
+            Write-Host '          adopt-workflow-folder.ps1 -Apply does either for you.' -ForegroundColor Yellow
         }
     }
 }

@@ -8,7 +8,7 @@
 
         powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/reach-label.tests.ps1
 
-    WHAT THIS SUITE IS FOR. The axis moved out of bwj-development on September 11, 2026 and became a
+    WHAT THIS SUITE IS FOR. The axis moved out of bwj-development (then dkj-policy-bwj) on September 11, 2026 and became a
     dkj-policy rule, with 'minor' as the name and Get-ReachLabel as the seam for a repo that spells it
     otherwise. Four documents now have to agree about that, and none of them is executable -- so the
     failure they can produce is the silent one: a default stated as 'minor' in one page and 'tier-1' in
