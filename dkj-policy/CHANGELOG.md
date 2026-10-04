@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2791-english-tracker-always-on · 20261004-083650Z
+
+The rule that issue titles and bodies, PR bodies and commit messages are English, whatever language a
+session replies in, now sits in the shared filing rules every persona and subagent carries, rather
+than only in the technical writer's on-demand manual. The manual keeps the reasoning and points there.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's tracker stops filling with issues, PR bodies and commits in the session-reply language,
+because the session that files them now carries the rule on every turn.
+
+**Score:** 3
+
+#### Pull Request
+
+Put the English-tracker rule on the always-on filing path
+
+Plugins: dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2792](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2792)
+
+---
 
 ### DEPLOY: feat/2788-rename-policy-extensions · 20261004-080146Z
 
