@@ -1004,8 +1004,8 @@ try {
     Assert-True ($d3.Out -match 'DRIFTED\]   specialist-01-01-persona') 'persona 01-01 DRIFTED after a body change'
 
     # NO LIVE-REPO LINT SMOKE HERE ANY MORE (issue #2793, October 4, 2026). Section 5 ran
-    # check-plugin-integrity.ps1 over the live repo and asserted exit 0 -- ~54s of a 76.8s local run, ~70%
-    # of the heaviest suite on CI. The lint job in ci.yml and open-pr's local gate run that exact command
+    # check-plugin-integrity.ps1 over the live repo and asserted exit 0 -- ~54s of a 76.8s local run (~70%),
+    # in the suite that is the heaviest on CI. The lint job in ci.yml and open-pr's local gate run that exact command
     # over the same tree in the same PR, so the assert added no coverage, and as a live-repo read it was one
     # of the asserts that went red from collisions with concurrent suites rather than from the branch.
 }
