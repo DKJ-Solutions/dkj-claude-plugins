@@ -25,7 +25,6 @@ $RepoRoot   = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
 $Bootstrap  = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-alpha\skills\specialists-init\bootstrap.ps1'
 $DriftLint  = Join-Path $RepoRoot 'scripts\lint\check-consumer-drift.ps1'
-$Integrity  = Join-Path $RepoRoot 'scripts\lint\check-plugin-integrity.ps1'
 $Fixture    = Join-Path ([System.IO.Path]::GetTempPath()) "specialists-init-test-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
 # Where a FRESH consumer's lenses land as of the seam (issue #221): one flat directory, no per-plugin
 # segment, because <group>-<id> is unique family-wide.
@@ -1004,22 +1003,11 @@ try {
     Assert-Equal 0 $d3.Code 'drift exit stays 0 (persona drift is informational)'
     Assert-True ($d3.Out -match 'DRIFTED\]   specialist-01-01-persona') 'persona 01-01 DRIFTED after a body change'
 
-    # --- 5. Lint smoke: the repo itself stays green ----------------------------------------------------
-    Write-Host "check-plugin-integrity.ps1 -- smoke" -ForegroundColor Cyan
-    $li = Invoke-Script -Path $Integrity -ScriptArgs @()
-    Assert-Equal 0 $li.Code 'lint gate green on the repo'
-    # AND IT PRINTS WHAT THE GATE SAID WHEN IT IS NOT (August 16, 2026). This assert runs the gate over the
-    # LIVE repo, so it is one of the handful that can fail from a collision with a concurrently running
-    # suite rather than from anything in the branch -- Sylvester's lens names it by name for exactly that.
-    # Measured that day: it failed in one pooled run of 43 suites and passed in the next three, alongside
-    # fix-mojibake's twin assert, and 'expected 0, got 1' was everything either of them said. A failure
-    # that cannot distinguish a real finding from a collision sends the next reader to the wrong place, so
-    # the findings themselves are printed here. Silent on success, deliberately: this is diagnosis, not
-    # coverage.
-    if ($li.Code -ne 0) {
-        @($li.Out -split "`r?`n" | Where-Object { $_ -match '^\s*\[' -and $_ -notmatch 'checked \d' } | Select-Object -First 10) |
-            ForEach-Object { Write-Host ("         gate said: " + $_.Trim()) -ForegroundColor DarkYellow }
-    }
+    # NO LIVE-REPO LINT SMOKE HERE ANY MORE (issue #2793, October 4, 2026). Section 5 ran
+    # check-plugin-integrity.ps1 over the live repo and asserted exit 0 -- ~54s of a 76.8s local run (~70%),
+    # in the suite that is the heaviest on CI. The lint job in ci.yml and open-pr's local gate run that exact command
+    # over the same tree in the same PR, so the assert added no coverage, and as a live-repo read it was one
+    # of the asserts that went red from collisions with concurrent suites rather than from the branch.
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
