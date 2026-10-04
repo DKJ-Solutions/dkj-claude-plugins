@@ -1161,7 +1161,12 @@ instead of a new issue, `part of #<n>` instead of a keyword, close only on the r
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — `awaiting-decision` at filing, `awaiting-pull` while another issue lands, `awaiting-event` until a date, `awaiting-first-recurrence` once only evidence is owed
+### The parking labels — all set at filing: `awaiting-decision` for a choice, `awaiting-pull` while another issue lands, `awaiting-event` until a date, `awaiting-first-recurrence` once only evidence is owed
+
+**All five `awaiting-*` labels, `awaiting-more-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision`
+([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796)); the rule is in
+[`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from),
+and Chris's lens carries it beside the `prio-N` and `minor` filing rules, where a session reads it at filing time.
 
 **`awaiting-decision` (`5319E7`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
 nor a sweep treats it as work that is ready (Dave, September 26, 2026,

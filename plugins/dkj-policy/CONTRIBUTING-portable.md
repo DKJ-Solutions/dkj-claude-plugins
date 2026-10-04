@@ -155,6 +155,17 @@ prints (never creates) a `gh label create` line for whichever of the canonical t
 is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision`, `awaiting-pull`, `awaiting-event` and
 `awaiting-first-recurrence`), so adopting the convention costs one command instead of nine typed by hand.
 
+**A parking label goes on when the issue is filed, whichever one it is**
+([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The five
+`awaiting-*` labels below each park an issue whose next step waits on something other than work: the
+owner's choice, another issue's pull request, an external event or date, a first recurrence, or a
+record's next instance. Such an issue carries the matching label in the same `gh issue create` that
+files it, beside its `prio-N`. Filed without it, it reads as free work to both pickup routes until
+somebody notices. Measured in this plugin's source repo: an issue whose own body said it waited on
+later CI runs was filed with only its `prio-N`, and was parked by hand six minutes later. Each
+paragraph below says what its label parks and when it comes off. When it goes on is this rule, for all
+five alike.
+
 **`awaiting-more-recurrences` marks a collecting issue -- a *record* -- and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A record gathers every
 instance of one recurring problem until its root cause is found. It is a *kind* of issue, not a rung, so
