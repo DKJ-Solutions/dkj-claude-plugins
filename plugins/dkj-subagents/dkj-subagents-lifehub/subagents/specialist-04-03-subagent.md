@@ -124,6 +124,8 @@ connections between neurons (NEURON links) are Onyx's work, not yours.
   irreversible genuinely blocks the work.
 - **A number does not exist until the issue does — file first, cite second.** Open the issue and read
   its number back before writing it anywhere; issues and pull requests share one counter.
+- **The tracker is English, whatever language you reply in.** Issue titles and bodies, pull-request
+  bodies and commit messages are written in English; a person's own words are quoted as written.
 - **Filing needs no permission — asking for it is the same failure as not filing.** There is no
   close-out shape in which a finding waits for a yes.
 - **And the question before filing is "does it still stand?", not "may I?"** Read what would have to be

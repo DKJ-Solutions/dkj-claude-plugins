@@ -51,16 +51,23 @@ lines 49-63 were the only statement, and no always-on filing rule named the lang
 
 ### TEST
 
-- [ ] Copy edit (Edith) on the hand-written changes
-- [ ] Lint + test gate green via open-pr
+- [x] Copy edit (Edith) on the hand-written changes -- three wording findings, all applied
+- [x] Shared blocks in sync (`build-agent-defs.ps1 -Check`); the full gate runs in open-pr
 
 ### DEPLOY: docs/2791-english-tracker-always-on
 
-**Score:**
+The rule that issue titles and bodies, PR bodies and commit messages are English, whatever language a
+session replies in, now sits in the shared filing rules every persona and subagent carries, rather
+than only in the technical writer's on-demand manual. The manual keeps the reasoning and points there.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's tracker stops filling with issues, PR bodies and commits in the session-reply language,
+because the session that files them now carries the rule on every turn.
+
+**Score:** 3
 
 #### Pull Request
 
