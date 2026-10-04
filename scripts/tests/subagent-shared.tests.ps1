@@ -114,18 +114,16 @@ try {
     Assert-True (-not ($o5 -match 'old2')) 'stale content of the second block replaced'
 
     # --- 6. Smoke: the real repo is in sync ----------------------------------------------------------
-    Write-Host "build-agent-defs.ps1 -Check + check-plugin-integrity.ps1 -- repo in sync" -ForegroundColor Cyan
+    Write-Host "build-agent-defs.ps1 -Check -- repo in sync; check-plugin-integrity.ps1 run for its coverage lines" -ForegroundColor Cyan
     $rb = Invoke-Script -Path $Build -ScriptArgs @('-Check')
     Assert-Equal 0 $rb.Code 'build -Check: all shared blocks in sync on the repo'
+    # THE GATE STILL RUNS HERE, BUT ITS VERDICT IS NO LONGER ASSERTED (issue #2793, October 4, 2026). Its
+    # exit code repeated the CI lint job and open-pr's local gate over the same tree in the same PR, and as
+    # a read of the live repo it went red from collisions with concurrent suites rather than from the
+    # branch. The run stays because sections 7 and 9 read the gate's [shared] and [tool-block] COVERAGE
+    # lines -- what the gate walked, which its exit code cannot say. Narrowing it with -SkipCheck was
+    # measured and declined: 40.7s against 45.7s for the full run on the live repo, n=1.
     $ri = Invoke-Script -Path $Integrity -ScriptArgs @()
-    Assert-Equal 0 $ri.Code 'lint gate green on the repo (incl. shared check)'
-    # The findings, on failure only -- same reason as the twin assert in bootstrap-drift.tests.ps1: this
-    # one runs the gate over the LIVE repo, so it can fail from a collision with a concurrent suite, and
-    # 'expected 0, got 1' cannot tell that apart from a real finding in the branch under test.
-    if ($ri.Code -ne 0) {
-        @($ri.Out -split "`r?`n" | Where-Object { $_ -match '^\s*\[' -and $_ -notmatch 'checked \d' } | Select-Object -First 10) |
-            ForEach-Object { Write-Host ("         gate said: " + $_.Trim()) -ForegroundColor DarkYellow }
-    }
 
     # --- 7. THE GENERATOR AND THE GATE WALK THE PERSONAS TOO ----------------------------------------
     # The widening of August 8, 2026. Both halves are tested, because a generator that writes a file the

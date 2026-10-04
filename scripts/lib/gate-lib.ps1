@@ -1023,6 +1023,12 @@ function Get-NoteTreeOnlyVerdict {
         not already providing in the same run. That is the inversion worth stating plainly: lint-only here
         is not an APPROXIMATION of the test gate's answer, it is that answer.
 
+        TWO OF THOSE THREE SMOKES ARE GONE SINCE #2793 (October 4, 2026), and the deduction holds more
+        strongly for it. bootstrap-drift.tests.ps1 no longer runs the gate at all. fix-mojibake.tests.ps1
+        runs only check 14's own tool (fix-mojibake.ps1 -Check, whose path set reaches the notes), which the
+        lint half runs too. subagent-shared.tests.ps1 still runs the whole gate, for its [shared] and
+        [tool-block] coverage lines, but no longer asserts its exit code.
+
         WHAT IT COSTS, WITH EACH FIGURE CREDITED TO THE RUN THAT PRODUCED IT. On the v5.5.0 cut, the
         second gate leg -- the gates run again from the trunk, over one hand-written markdown file -- cost
         325s. It is one of the two runs that together are 652s of that 1,166s release: 56% of it spent on

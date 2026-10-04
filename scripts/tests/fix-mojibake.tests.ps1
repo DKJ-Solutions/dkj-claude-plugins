@@ -290,37 +290,47 @@ function Get-MojibakePaths {
     Assert-Equal "### #1 $MIDDOT Title $MIDDOT Fix" (Get-FixtureText -Path (Join-Path $rootC 'CHANGELOG.md')) 'broken repo-config: the root fallback ran'
     Assert-Says $rC.Out 'could not be loaded' 'broken repo-config: says so out loud instead of silently examining a different set'
 
-    Write-Host 'The lint gate (check 14) reports its category on the real repo' -ForegroundColor Cyan
-    #      Asserted on the coverage line rather than on a fixture: the gate consults the tool over the
-    #      repo's own docs, and "the category was examined" is the property that a refactor could silently
-    #      drop. The damage-detected direction is covered by the -Check asserts above, on a fixture --
-    #      deliberately, because deliberately corrupting the real CHANGELOG.md to test a gate is how a
-    #      suite leaves damage behind when it fails halfway.
+    Write-Host 'The lint gate (check 14) and the tool agree on the file count, on the real repo' -ForegroundColor Cyan
+    #      "The category was examined, and over how many files" is the property a refactor could silently
+    #      drop -- of the tool's closing line or of the gate's parse of it. The damage-detected direction is
+    #      covered by the -Check asserts above, on a fixture -- deliberately, because deliberately
+    #      corrupting the real CHANGELOG.md to test a gate is how a suite leaves damage behind when it
+    #      fails halfway.
     #      The count is FILES, and asserted as "more than one" rather than as a literal (August 2, 2026).
     #      It used to read 'checked 1' -- the number of tool invocations, which is true of every possible
     #      scope and therefore evidence of none. Pinning the exact figure here would only mean editing this
-    #      test whenever a release note is added, so the assert is on the property: the gate reports a real
-    #      file count that grew past the old placeholder.
-    $lintOut = (& powershell -NoProfile -ExecutionPolicy Bypass -File $Lint 2>&1 | Out-String)
-    # This capture is NOT whitespace-normalized like Invoke-Fix's, so it is read whitespace-free: the
-    # gate wraps its own lines at the console width and a break lands mid-word as readily as on a
-    # space (#1512). The coverage regex is matched against the stripped text for the same reason --
-    # '[mojibake] checked 42' split after 'check' would otherwise report the gate as never having run.
-    $lintFlat = ($lintOut -replace '\s', '')
-    $mjCov = [regex]::Match($lintFlat, '\[mojibake\]checked(\d+)')
-    Assert-True $mjCov.Success 'the lint gate ran the encoding check'
-    Assert-True ([int]$mjCov.Groups[1].Value -gt 1) 'and reports how many files it examined, not how many times it ran the tool'
-    Assert-Says $lintOut 'releases/' 'and its coverage line names the releases/ notes, which were outside the scope until #360-era'
-    Assert-Says $lintOut 'Summary: 0 error' 'and the repo is clean of mojibake'
-    # The findings, on failure only -- same reason as the twin asserts in bootstrap-drift.tests.ps1 and
-    # subagent-shared.tests.ps1: this reads the gate's verdict over the LIVE repo, so it can fail from a
-    # collision with a concurrent suite. Measured August 16, 2026: this assert and bootstrap-drift's failed
-    # together in one pooled run of 43 suites and passed in the next three, and neither said WHAT the gate
-    # had found. Note it fires on any non-zero summary, including one that names no mojibake at all -- that
-    # is the point: the assert reads the whole gate, so its failure has to be readable as such.
-    if ($lintOut -notmatch 'Summary: 0 error') {
-        @($lintOut -split "`r?`n" | Where-Object { $_ -match '^\s*\[' -and $_ -notmatch 'checked \d' } | Select-Object -First 10) |
-            ForEach-Object { Write-Host ("         gate said: " + $_.Trim()) -ForegroundColor DarkYellow }
+    #      test whenever a release note is added, so the assert is on the property.
+    #
+    #      WITHOUT RUNNING THE WHOLE GATE (issue #2793, October 4, 2026). This used to run all of
+    #      check-plugin-integrity.ps1 over the live repo to read one coverage line -- a full lint run per test
+    #      pass, repeating the CI lint job, and an assert that went red from collisions with concurrent
+    #      suites. Check 14's coverage figure is the tool's own closing line, parsed by the gate with one
+    #      regex. So the contract is tested at its two ends instead: the tool is run exactly as the gate runs
+    #      it, and the gate's OWN regex -- read from its source, never retyped here, so the two cannot drift
+    #      apart -- is applied to what the tool printed.
+    $gateSrc = [System.IO.File]::ReadAllText($Lint, [System.Text.Encoding]::UTF8)
+    Assert-True ($gateSrc -match "'-File', \`$mjScript, '-Check'") 'the gate runs the tool in -Check mode'
+    $parseRx = [regex]::Match($gateSrc, '\$mjMatch = \[regex\]::Match\(\(\$mjOut -join "`n"\), ''([^'']+)''\)')
+    Assert-True $parseRx.Success 'the gate parses the tool''s file count with a regex this suite can read'
+    $mjCovNote = [regex]::Match($gateSrc, "(?s)Write-Coverage -Category 'mojibake'.*?\}\)")
+    Assert-True ($mjCovNote.Success -and $mjCovNote.Value -match 'releases/') 'and its coverage line names the releases/ notes, which were outside the scope until #360-era'
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $toolOut = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $Script -Check 2>&1 | ForEach-Object { "$_" })
+        $toolCode = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $prevEap }
+    Assert-Equal 0 $toolCode 'and the repo is clean of mojibake'
+    if ($parseRx.Success) {
+        $mjCov = [regex]::Match(($toolOut -join "`n"), $parseRx.Groups[1].Value)
+        Assert-True $mjCov.Success 'the gate''s parse finds the count the tool states'
+        Assert-True ($mjCov.Success -and [int]$mjCov.Groups[1].Value -gt 1) 'and it is how many files were examined, not how many times the tool ran'
+    }
+    # The findings, on failure only: a non-zero exit names the damaged files, and 'expected 0, got 1' alone
+    # would not say which.
+    if ($toolCode -ne 0) {
+        @($toolOut | Where-Object { $_ -match '\[mojibake\]' } | Select-Object -First 10) |
+            ForEach-Object { Write-Host ("         tool said: " + $_.Trim()) -ForegroundColor DarkYellow }
     }
 } finally {
     Remove-Item -LiteralPath $Fixture -Recurse -Force -ErrorAction SilentlyContinue

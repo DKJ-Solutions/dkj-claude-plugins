@@ -39,23 +39,43 @@
 
 ### PLAN
 
-Remove the exit-0 live-repo lint smoke from bootstrap-drift and subagent-shared, and give fix-mojibake's coverage assert a route that runs only the encoding tool, so the heaviest suite loses ~70% of its runtime
+Remove the exit-0 live-repo lint smoke from bootstrap-drift and subagent-shared, and give fix-mojibake's coverage assert a route that runs only the encoding tool, so the heaviest suite loses ~70% of its runtime.
+
+#### Where this deviates from the issue's proposal
+
+The issue's step 1 reads `subagent-shared`'s smoke as an exit-0 assert only. It is not: sections 7 and 9 of
+that suite read the gate's `[shared]` and `[tool-block]` **coverage lines** from the same run, which is what
+holds the gate to walking every agent def, every persona and every obliged def. Removing the run removes
+those asserts. Narrowing it with `-SkipCheck` was measured on the live repo and declined: 40.7 s against
+45.7 s for the full run (n=1). So `subagent-shared` keeps its one gate run and drops only the exit-code
+assert, which was the redundant and collision-prone part.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `bootstrap-drift.tests.ps1`: section 5 (the live-repo lint smoke) and the unused `$Integrity` removed.
+- [x] `subagent-shared.tests.ps1`: the exit-code assert on the live-repo gate run removed; the run stays for the two coverage-line asserts.
+- [x] `fix-mojibake.tests.ps1`: the full gate run replaced by `fix-mojibake.ps1 -Check` run exactly as check 14 runs it, with the gate's own parse regex read from its source and applied to the tool's output, plus the `releases/` coverage-note assert read from the source.
+- [x] `gate-lib.ps1` (`Get-NoteTreeOnlyVerdict`) and the `open-pr` skill page: a dated note that two of the three smokes are gone, and why the note-tree deduction still holds.
+- [x] `check-plugin-integrity-links.tests.ps1`: its test-gap note no longer points at the removed smokes.
 
 ### TEST
 
+- [x] `bootstrap-drift.tests.ps1` alone: 242 asserts green, 23 s locally (was 76.8 s, #2793's own measurement).
+- [x] `fix-mojibake.tests.ps1` alone: 40 asserts green, 8 s locally (the full gate run it dropped took 45.8 s on this machine).
+- [x] `subagent-shared.tests.ps1` alone: 43 asserts green.
+
 ### DEPLOY: feat/2793-drop-live-lint-smokes
 
-**Score:**
+The test suites no longer run the whole lint gate over the live repo just to check that it passes. `bootstrap-drift` drops that run entirely, which is ~70% of the heaviest suite. `fix-mojibake` now runs only the encoding tool behind check 14, and checks the gate's own parse of its file count against what the tool prints. `subagent-shared` keeps its run for the two coverage lines it reads, and no longer asserts the exit code. The CI lint job and `open-pr`'s local gate already run that command in every PR. Locally, `bootstrap-drift` went from 76.8 s to 23 s and `fix-mojibake` lost a 45.8 s gate run. The CI before/after with `measure-suites` comes from the runs after the merge.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing a consumer runs changes: these are this repo's own suites and gate notes.
+
+**Score:** N/A
 
 #### Pull Request
 
-Three suites no longer rerun the full lint over the live repo
-
+bootstrap-drift and fix-mojibake no longer rerun the full lint over the live repo

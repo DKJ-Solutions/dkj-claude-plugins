@@ -25,8 +25,9 @@
     compares its coverage count against check 4's, so the two sets cannot silently drift apart.
 
     Test gap (honest, inherited from the single file): the anchor-slug logic and the full scan engine
-    are not re-exercised here -- they are covered by the repo-wide lint smoke checks in
-    subagent-shared.tests.ps1 and bootstrap-drift.tests.ps1.
+    are not re-exercised here -- they are covered by the lint gate's own run over the repo (the CI lint
+    job and open-pr's local gate), not by a suite: the live-repo lint smokes that used to stand in for it
+    in subagent-shared.tests.ps1 and bootstrap-drift.tests.ps1 were removed by #2793.
 
     Pure ASCII (repo convention for .ps1).
 #>

@@ -200,6 +200,12 @@ So the suites' entire coverage of that tree **is** the lint gate, run three more
 inversion worth stating plainly: lint-only here is not an *approximation* of the test gate's answer over a
 release note, it is that answer.
 
+**That table is the September 18 measurement, and two of its three smokes are gone since
+[#2793](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2793)** (October 4, 2026), which only
+strengthens the deduction. `bootstrap-drift` no longer runs the gate. `fix-mojibake` runs only check 14's
+own tool, which the lint half runs too. `subagent-shared` still runs the gate for two coverage lines, but no
+longer asserts its exit code.
+
 **It proves; it does not filter.** #2102 declined a docs-only path predicate by name, on the grounds that a
 wrong matcher is silent. This asks one question whose only affirmative answer is *"every changed path is
 inside the exception's own bound"* — the same bound the release-notes commit already has to name in its own
