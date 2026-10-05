@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**5 / 7 minor entries** <!-- pending-tally -->
+**6 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/remove-asana-mirror · 20261005-082732Z
+
+The `asana-mirror` CI workflow is retired from `dkj-policy-bwj` (Dave, October 5, 2026): the two
+templates are gone, and `adopt-bwj-development` no longer copies them. The helpers `build-backlog-page`
+and `build-golive-block` still use now live in `scripts/lib/asana-task-lib.ps1`. The template's
+self-containment suite went with it, and the tests, docs, skills and lenses describe the new state.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Closing a GitHub issue in a BWJ store no longer posts anything on the Asana task, and the card is no longer
+moved through the board. The go-live block stays on the GitHub issue, and you paste it into the task by
+hand where the task needs it. To finish the job in a store repo, delete `.github/workflows/asana-mirror.yml`
+and `.github/scripts/asana-mirror.ps1`, and drop `Get-GithubStatusMap` from `scripts/repo-config.ps1`.
+`report-issue` still files the card in `Filed`.
+
+**Score:** 4
+
+#### Pull Request
+
+Retire the asana-mirror CI workflow from dkj-policy-bwj
+
+Plugins: bwj-development, dkj-policy, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #2804](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2804)
+
+---
 
 ### DEPLOY: docs/2796-parking-labels-at-filing · 20261004-101059Z
 
