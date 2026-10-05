@@ -59,6 +59,14 @@
 # harmless here anyway (the second finds every issue already closed), but a per-SHA group serialises
 # nothing at all, which is not a property to rely on by accident.
 #
+# A FOLD-ONLY PUSH GETS A GROUP OF ITS OWN (#2813), for fold-on-merge.yml's reason, whose header has the
+# measurement. cancel-in-progress: false guards only the RUNNING job; a third arrival cancels the
+# pending one regardless. October 5, 2026: this workflow's run on the merge of #2811 (1d35a59b) was
+# cancelled with zero jobs allocated by a fold-only push four seconds behind it, whose own run was then
+# skipped -- so that merge's resolves check never ran. A fold-only push is skipped by the job's if:
+# anyway, so a per-commit group of its own costs nothing and stops it displacing a run that had work.
+# The condition is the job's if: verbatim; workflow-concurrency.tests.ps1 holds the two equal.
+#
 # IT USED TO COST A SECOND RUN PER SHIP, KNOWINGLY, AND THAT REASONING HAS EXPIRED FOR A METERED REPO
 # (issue #2487, September 25, 2026). fold-on-merge.yml pushes the fold commit as a PAT, and a PAT push
 # triggers workflows where the default GITHUB_TOKEN's would not -- so every shipped branch started this
@@ -93,7 +101,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: verify-resolved-${{ github.ref }}
+  group: ${{ (startsWith(github.event.head_commit.message, 'fold:') && github.event.commits[0].id == github.event.head_commit.id) && format('verify-resolved-fold-only-{0}', github.sha) || format('verify-resolved-{0}', github.ref) }}
   cancel-in-progress: false
 
 jobs:
