@@ -176,7 +176,7 @@ Write-Host "[UNSHIPPED] $($unshipped.Count) open pull request(s) by this account
 foreach ($u in ($unshipped | Sort-Object { [int]$_.Number })) {
     $titlePart = if ($u.Title) { " -- $($u.Title)" } else { '' }
     Write-Host "  #$($u.Number) ($($u.Branch)), green for $($u.GreenMinutes) minute(s)$titlePart"
-    Get-PrScanResumeLines -Finding $u | ForEach-Object { Write-Host $_ }
+    Get-PrScanResumeLines -Finding $u -RepoRoot $repoRoot | ForEach-Object { Write-Host $_ }
 }
 Write-Host '  Either a ship died before it armed the pull request, or it is held back on purpose for the owner''s word (ship-pr -NoMerge) -- the tracker cannot tell which. Resume the first; leave the second.'
 if ($incompleteLine) { Write-Host $incompleteLine }

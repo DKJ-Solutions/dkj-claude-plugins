@@ -219,7 +219,7 @@ Write-Host "[STRANDED] $($stranded.Count) armed pull request(s) the sweep will n
 foreach ($s in ($stranded | Sort-Object { [int]$_.Number })) {
     $titlePart = if ($s.Title) { " -- $($s.Title)" } else { '' }
     Write-Host "  #$($s.Number) ($($s.Branch))$titlePart"
-    Get-PrScanResumeLines -Finding $s | ForEach-Object { Write-Host $_ }
+    Get-PrScanResumeLines -Finding $s -RepoRoot $repoRoot | ForEach-Object { Write-Host $_ }
 }
 if ($incompleteLine) { Write-Host $incompleteLine }
 exit 0

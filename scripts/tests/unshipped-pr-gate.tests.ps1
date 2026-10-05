@@ -347,6 +347,26 @@ $rawHook  = Get-Content -LiteralPath $Hook -Raw
 Assert-True (-not ($rawCheck -cmatch '[^\x00-\x7F]')) 'check-unshipped-pr.ps1 is pure ASCII'
 Assert-True (-not ($rawHook -cmatch '[^\x00-\x7F]')) 'unshipped-pr-sessioncheck.ps1 is pure ASCII'
 
+# THE RESUME LINE NAMES A SHIP-PR THAT EXISTS (inbound #2825). The source repo has its own copy; a consumer
+# does not, so there the line names the plugin's copy beside the lib, as a quoted full path.
+Write-Host '-- the resume line names a ship-pr that exists (#2825) --' -ForegroundColor Cyan
+. (Join-Path $RepoRoot 'scripts\lib\pr-scan-lib.ps1')
+$resumeFinding = [pscustomobject]@{ CheckoutToken = 'fix/1-x'; CheckoutNote = '' }
+$ownRoot = Join-Path ([System.IO.Path]::GetTempPath()) "resume-own-$PID-$([guid]::NewGuid().ToString('n'))"
+New-Item -ItemType Directory -Path (Join-Path $ownRoot 'scripts\release') -Force | Out-Null
+Set-Content -LiteralPath (Join-Path $ownRoot 'scripts\release\ship-pr.ps1') -Value '# stub' -Encoding ascii
+$consumerRoot = Join-Path ([System.IO.Path]::GetTempPath()) "resume-consumer-$PID-$([guid]::NewGuid().ToString('n'))"
+New-Item -ItemType Directory -Path (Join-Path $consumerRoot 'scripts\release') -Force | Out-Null
+$script:trees += $ownRoot; $script:trees += $consumerRoot
+$ownLines = @(Get-PrScanResumeLines -Finding $resumeFinding -RepoRoot $ownRoot)
+Assert-True ($ownLines[-1] -match '-File scripts/release/ship-pr\.ps1$') 'a repo with its own ship-pr is told to run that copy'
+$consumerLines = @(Get-PrScanResumeLines -Finding $resumeFinding -RepoRoot $consumerRoot)
+$expectedSibling = [System.IO.Path]::GetFullPath((Join-Path $RepoRoot 'scripts\release\ship-pr.ps1'))
+Assert-True ($consumerLines[-1].EndsWith("-File `"$expectedSibling`"")) 'a consumer without one is told to run the copy beside the lib, quoted'
+Assert-True (Test-Path -LiteralPath $expectedSibling -PathType Leaf) 'and that copy exists'
+Assert-True ($ownLines[0] -eq '    git checkout fix/1-x') 'the checkout line is unchanged'
+$checkSrc = Get-Content -LiteralPath $Script -Raw
+Assert-True ($checkSrc -match 'Get-PrScanResumeLines -Finding \$u -RepoRoot \$repoRoot') 'check-unshipped-pr passes its repo root to the resume line'
 foreach ($t in $script:trees) {
     if ($t -and (Test-Path -LiteralPath $t)) { Remove-Item -LiteralPath $t -Recurse -Force -ErrorAction SilentlyContinue }
 }
