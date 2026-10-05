@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**11 / 13 minor entries** <!-- pending-tally -->
+**12 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2810-rename-carries-colour · 20261005-094004Z
+
+`adopt-triage-labels` now prints a rename of a former label name with the canonical colour as well as the
+new name and description. A label found under an older name, such as `needs-decision`, moves into its
+family's colour in the same `gh label edit` that renames it. The `needs-info` rename on the
+`adopt-bwj-development` page does the same.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Pasting the rename that `adopt-triage-labels` prints now also gives the label its new colour, so a renamed
+`awaiting-decision` turns purple beside the other parking labels instead of keeping its old orange.
+
+**Score:** 2
+
+#### Pull Request
+
+adopt-triage-labels' rename line carries the canonical colour
+
+Plugins: bwj-development, dkj-policy
+
+[PR #2817](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2817)
+
+---
 
 ### DEPLOY: fix/2805-foreign-checkout-guard · 20261005-093112Z
 
