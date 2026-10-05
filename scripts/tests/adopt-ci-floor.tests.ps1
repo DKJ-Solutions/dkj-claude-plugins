@@ -1296,6 +1296,24 @@ try {
     [System.IO.File]::WriteAllText($mogPath, "name: Merge on green`n# hand-written`n")
     $rUnread = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
     Assert-True ($rUnread.Flat -like '*its checkout shape could not be read*') 'a runner of neither shape is said to be unread, never judged clean'
+
+    # THE PRE-#2813 CONCURRENCY GROUP IS NAMED ON A RE-RUN TOO (#2816), and the runners this floor just
+    # placed carry the current one, so the pin-rerun pass above already proved the silent case.
+    Assert-True ($rPin.Flat -notlike '*`[group`]*') 'a fold or resolves runner with the current group line draws no group advisory'
+    $groupRe = '(?m)^  group:[^\n]*$'
+    $foldPath = Join-Path $pinDir '.github\workflows\fold-on-merge.yml'
+    $verifyPath = Join-Path $pinDir '.github\workflows\verify-resolved.yml'
+    $oldFold = [regex]::Replace([System.IO.File]::ReadAllText($foldPath), $groupRe, '  group: fold-on-merge-$${{ github.ref }}')
+    $oldVerify = [regex]::Replace([System.IO.File]::ReadAllText($verifyPath), $groupRe, '  group: verify-resolved-$${{ github.ref }}')
+    [System.IO.File]::WriteAllText($foldPath, $oldFold)
+    [System.IO.File]::WriteAllText($verifyPath, $oldVerify)
+    $rGroup = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-Equal 2 ([regex]::Matches($rGroup.Flat, '\[group\] a fold-only push shares its concurrency group')).Count 'both pre-#2813 runners are reported, each once'
+    Assert-True ($rGroup.Flat -like '*re-run adopt-ci-floor -Apply*') 'and the advisory says how to fix it'
+    Assert-Equal $oldFold ([System.IO.File]::ReadAllText($foldPath)) 'and the runner itself is left exactly as it was'
+    [System.IO.File]::WriteAllText($foldPath, ($oldFold -replace '(?m)^  group:[^\n]*$', '  group: something-else'))
+    $rGroupUnread = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-True ($rGroupUnread.Flat -like '*its concurrency group could not be read*') 'a group line of neither shape is said to be unread, never judged clean'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
