@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**20 / 22 minor entries** <!-- pending-tally -->
+**21 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2828-awaiting-owner-act-label · 20261005-135738Z
+
+New parking label `awaiting-owner-act`, purple like the rest of the awaiting-* family. It is for an
+issue whose decision is already made and whose only remaining step is an act the owner performs
+in person, such as a live push, a release or a deletion the session may not run
+([#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828)). The claim and sweep routes
+skip it by default and the issue dashboard shows it as parked. The issue names the act, and the label
+comes off once it is done.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For a consumer who runs `adopt-triage-labels`: it now offers one more `gh label create` line, for
+`awaiting-owner-act`. A sweep no longer has to read an issue that only the owner can move and hold it
+out by hand with `-SkipIssue`.
+
+**Score:** 2
+
+#### Pull Request
+
+A sixth parking label: awaiting-owner-act
+
+Plugins: dkj-policy
+
+[PR #2834](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2834)
+
+---
 
 ### DEPLOY: feat/2812-release-note-form-check · 20261005-134511Z
 
