@@ -52,9 +52,11 @@
   you get the complete index and empty notes, and the <noscript> line says so on the page itself.
 
   PAGE_STYLE SITS AFTER THE DARK-MODE BLOCK ON PURPOSE, so a repo's own values win over both the light
-  and the dark defaults rather than being overridden by whichever matched last. That is also what lets
-  a brand with no dark variant pin 'color-scheme: light' and keep its colours on any background: the
-  override is later in the cascade than the @media rule it has to beat.
+  and the dark defaults rather than being overridden by whichever matched last. A brand with no dark
+  variant that pins 'color-scheme: light' gets the dark block REMOVED by the builder, because the
+  property alone does not stop the media query matching -- every token the brand did not name would
+  still turn dark (inbound #2800). So the dark block below keeps its exact shape: the builder finds it
+  by that shape, and warns when it cannot.
 
   Every placeholder is replaced with a JSON string or with already-escaped text, so nothing a release
   note can contain reaches the markup raw. Measured rather than assumed: Windows PowerShell 5.1's

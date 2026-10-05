@@ -107,8 +107,11 @@ function Get-ReleasePageTheme {
 Three things to know before you write one:
 
 - **`color-scheme` is accepted as a name**, alongside the `--custom-properties`. That is how a brand with
-  no dark variant says so: pin `light` and the page keeps its colours on any background. Without it the
-  seam could say *these colours* but not *no dark mode*.
+  no dark variant says so: pin `light` and the builder **removes the template's dark-mode block**, so
+  every token you did not name keeps its light default on a dark-mode browser too. The property alone
+  would not do that -- `prefers-color-scheme` follows the OS, not `color-scheme` -- and a page with your
+  near-black `--ink` on the template's dark `--bg` is unreadable (#2800). Without the pin the seam could say
+  *these colours* but not *no dark mode*.
 - **The overrides are written after the dark-mode block**, so they beat both the light and the dark
   defaults. You do not need to restate a colour twice to make it stick.
 - **Values are validated, not escaped**, because they land in a `<style>` element where escaping a `#`
