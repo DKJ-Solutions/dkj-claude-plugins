@@ -503,6 +503,43 @@ try {
     Assert-True (Test-Phrase -Text $rZ.Out -Phrase 'rev-parse --is-inside-work-tree --show-cdup') 'no repo root: names the command whose answer it needed'
     Assert-True (Test-Phrase -Text $rZ.Out -Phrase 'Nothing was created') 'no repo root: and states that nothing was created, which is what a reader needs before re-running'
     Assert-True (-not (Test-Phrase -Text $rZ.Out -Phrase 'null-valued expression')) 'no repo root: and NOT the null-dereference this replaced'
+
+    # --- (z2) ANOTHER REPOSITORY'S PRIMARY CHECKOUT IS REFUSED (#2805) ---------------------------------
+    # Measured: a session in the plugin source cut a branch in two consumers' own checkouts, under the
+    # sessions working there. The session's project is fixture A; the target is fixture B, whose origin is
+    # a hosted url (an unreachable loopback port, so nothing waits on a network). A linked worktree of B is
+    # the route the refusal names, and must pass the guard.
+    Write-Host "new-branch.ps1 -- another repository's primary checkout is refused (#2805)" -ForegroundColor Cyan
+    $fixSession = New-Fixture -Label 'z2a'
+    $fixTarget  = New-Fixture -Label 'z2b'
+    $laneZ2 = Join-Path ([System.IO.Path]::GetTempPath()) ("new-branch-test-$PID-z2-lane-" + [guid]::NewGuid().ToString('n'))
+    Invoke-FixtureGitIn $fixTarget remote add origin 'https://127.0.0.1:9/target.git'
+    Invoke-FixtureGitIn $fixTarget worktree add --detach --quiet $laneZ2
+    $script:fixtures += $laneZ2
+    $prevPdZ2 = $env:CLAUDE_PROJECT_DIR
+    try {
+        $env:CLAUDE_PROJECT_DIR = $fixSession
+        $z2Script = Join-Path $fixSession 'scripts\task\new-branch.ps1'
+        $rZ2 = Invoke-CapturedChild -WorkDir $fixSession -ChildArgs @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $z2Script,
+            '-Name', 'fix/foreign-checkout-z2', '-Title', 'Foreign', '-NoPush', '-RepoRoot', $fixTarget)
+        $rZ2Lane = Invoke-CapturedChild -WorkDir $fixSession -ChildArgs @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $z2Script,
+            '-Name', 'fix/foreign-lane-z2', '-Title', 'Foreign lane', '-NoPush', '-SkipStaleBase', '-RepoRoot', $laneZ2)
+    } finally {
+        if ($null -eq $prevPdZ2) { Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue } else { $env:CLAUDE_PROJECT_DIR = $prevPdZ2 }
+    }
+    Assert-ExitCode 1 $rZ2 'foreign primary checkout: exits 1'
+    Assert-True (Test-Phrase -Text $rZ2.Out -Phrase 'primary checkout of another repository') 'foreign primary checkout: says why'
+    Assert-True (Test-Phrase -Text $rZ2.Out -Phrase 'worktree add --detach') 'foreign primary checkout: and names the worktree route'
+    $prevEap = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $z2Branch = ((& git -C $fixTarget symbolic-ref --short HEAD 2>$null) | Out-String).Trim()
+        & git -C $fixTarget rev-parse --verify --quiet 'refs/heads/fix/foreign-checkout-z2' 2>$null | Out-Null
+        $z2NoBranch = ($LASTEXITCODE -ne 0)
+    } finally { $ErrorActionPreference = $prevEap }
+    Assert-Equal 'main' $z2Branch 'foreign primary checkout: the target stays on the branch it was on'
+    Assert-True $z2NoBranch 'foreign primary checkout: and no branch was created there'
+    Assert-True (-not (Test-Phrase -Text $rZ2Lane.Out -Phrase 'primary checkout of another repository')) 'a linked worktree of that repository passes the guard'
 } finally {
     Remove-NewBranchFixtures
 }
