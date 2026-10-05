@@ -667,6 +667,32 @@ Assert-True ((((Invoke-Git -Dir $dir9 -GitArgs @('status', '--porcelain')) -join
     '-Commit: the working tree is clean afterwards -- nothing half-done is left behind'
 
 # ---------------------------------------------------------------------------------------------------
+Write-Host "-ExpectBranch: a fold commit is never written onto another branch (#2803)" -ForegroundColor Cyan
+#      Measured in a consumer: a second session switched the shared tree between ship-pr's pull and the
+#      fold, and the fold commit landed on that session's branch. The fixture stands on a branch that is
+#      not the expected one; the run must refuse before it writes anything.
+$dirEB = New-FoldFixture -Label 'expectbranch'
+New-EntryFile -Dir $dirEB -Name 'fix-expect-branch.md' -Title 'Expect branch'
+Initialize-FoldGitRepo -Dir $dirEB
+$ebChangelogBefore = [System.IO.File]::ReadAllText((Join-Path $dirEB 'CHANGELOG.md'))
+Invoke-FixtureGitIn $dirEB checkout --quiet -b 'feat/another-session'
+$rEB = Invoke-Fold -Dir $dirEB -ExtraArgs @('-Commit', '-ExpectBranch', 'the-trunk')
+Assert-True ($rEB.ExitCode -eq 1) '-ExpectBranch: a checkout on another branch exits 1'
+Assert-True ($rEB.Output -match "not on 'the-trunk'") '-ExpectBranch: the refusal names the branch it expected'
+Assert-True ([System.IO.File]::ReadAllText((Join-Path $dirEB 'CHANGELOG.md')) -eq $ebChangelogBefore) '-ExpectBranch: nothing was folded into CHANGELOG.md'
+Assert-True (Test-Path -LiteralPath (Join-Path $dirEB 'fix-expect-branch.md')) '-ExpectBranch: the entry file is untouched'
+Assert-True (@(Invoke-Git -Dir $dirEB -GitArgs @('log', '--oneline')).Count -eq 1) '-ExpectBranch: no commit was made'
+$rEB2 = Invoke-Fold -Dir $dirEB -ExtraArgs @('-Commit', '-ExpectBranch', 'feat/another-session')
+Assert-True ($rEB2.ExitCode -eq 0) '-ExpectBranch: on the expected branch the fold commits as before'
+
+# THE TWO LATER READS cannot be raced deterministically in a fixture, so they are asserted on the source.
+$foldSrcEB = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\fold-changelog-entry.ps1'))
+Assert-True ([regex]::Matches($foldSrcEB, '= Get-FoldCheckoutPosition').Count -eq 3) 'the fold reads its position at the start, before the commit and before the push'
+Assert-True ($foldSrcEB -match '\$parentSha -ne \$preCommit\.Head') 'the push is refused unless HEAD is the commit this run made'
+$shipSrcEB = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\ship-pr.ps1'))
+Assert-True ($shipSrcEB -match "'-ExpectBranch', 'main'") 'ship-pr tells the fold which branch it must land on'
+
+# ---------------------------------------------------------------------------------------------------
 Write-Host "-Commit on a fold-all run names every entry it folded" -ForegroundColor Cyan
 #      THE RARE HALF, AND THE ONE NOBODY WATCHES. Measured on August 10, 2026: of 410 fold commits in
 #      this repo's history exactly ONE folded more than one entry, and it did so under wording that has

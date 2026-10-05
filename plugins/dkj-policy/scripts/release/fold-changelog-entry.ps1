@@ -184,7 +184,11 @@ param(
     # -SkipLint/-SkipTests and ship-pr.ps1 with -SkipStaleCheck. Folding a duplicate and folding onto a
     # stale trunk are two different mistakes, and one flag that waves through both is a flag nobody can
     # use safely for either.
-    [switch]$SkipTrunkCheck
+    [switch]$SkipTrunkCheck,
+    # The branch the fold commit must land on (#2803). With -Commit/-Push the run refuses before folding
+    # when the checkout is elsewhere, and refuses the commit and the push when the checkout has moved
+    # since the run began, with or without this. ship-pr passes the trunk.
+    [string]$ExpectBranch = ''
 )
 
 $ErrorActionPreference = "Stop"
@@ -734,6 +738,44 @@ if (-not $SkipTrunkCheck) {
         # for one agreement. fold-on-merge.yml already matches two sentences out of these scripts'
         # stdout; a third, spanning both boundaries, is drift waiting to happen.
         exit 2
+    }
+}
+
+# --- Pre-pass: THE CHECKOUT THIS RUN COMMITS ON IS THE ONE IT STARTED ON (inbound #2803) --------------
+#
+# A WORKING TREE CAN BE SHARED BY MORE THAN ONE SESSION, and nothing in git stops another one from
+# switching it. Measured October 5, 2026 in a consumer: ship-pr pulled the trunk at 10:02:55, a second
+# session checked out its own branch in the same tree at 10:02:57, and the fold commit landed on THAT
+# branch at 10:02:59 and was pushed there -- while ship-pr printed "folded on main". This commit lands
+# under a named exception that holds only on the trunk, so where it lands is not a detail.
+#
+# SO THE POSITION IS READ THREE TIMES: here, before anything is written; again just before the commit;
+# and once more just before the push, which must find HEAD on the commit this run made. -ExpectBranch is
+# the caller's statement of where that is (ship-pr passes the trunk), and it is optional because the
+# fixtures run on whatever branch `git init` gave them. Without it the run still refuses a position that
+# MOVED, which is the race itself. Only with -Commit: a disk-only fold writes nothing git can misplace.
+function Get-FoldCheckoutPosition {
+    $ref  = Invoke-NativeCapture -FilePath 'git' -Arguments @('symbolic-ref', '--short', '-q', 'HEAD')
+    $head = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', 'HEAD')
+    $branchName = if ($ref.ExitCode -eq 0) { ((@($ref.Output) -join '').Trim()) } else { '' }
+    $headSha    = if ($head.ExitCode -eq 0) { ((@($head.Output) -join '').Trim()) } else { '' }
+    return [pscustomobject]@{ Branch = $branchName; Head = $headSha }
+}
+function Format-FoldCheckoutPosition {
+    param($Position)
+    $name = if ($Position.Branch) { "'$($Position.Branch)'" } else { 'a detached HEAD' }
+    $sha  = if ($Position.Head) { $Position.Head.Substring(0, [Math]::Min(8, $Position.Head.Length)) } else { 'no commit' }
+    return "$name at $sha"
+}
+if ($Push) { $Commit = $true }
+$startPosition = $null
+if ($Commit) {
+    $startPosition = Get-FoldCheckoutPosition
+    if ($ExpectBranch -and $startPosition.Branch -ne $ExpectBranch) {
+        Write-Host "Refused: this checkout is on $(Format-FoldCheckoutPosition $startPosition), not on '$ExpectBranch', so nothing was folded." -ForegroundColor Red
+        Write-Host "  The fold commit lands under the trunk exception and must not be written onto another branch (#2803)." -ForegroundColor DarkGray
+        Write-Host "  If another session switched this tree, leave it there: fold from a tree that holds '$ExpectBranch' instead." -ForegroundColor DarkGray
+        exit 1
     }
 }
 
@@ -1336,6 +1378,14 @@ if ($Commit) {
         # reader looking for a file that was still on disk.
         Write-Host "  (not in the commit, because git never tracked them: $($untracked -join ', ') -- the fold deleted them from disk all the same.)" -ForegroundColor DarkYellow
     }
+    # THE SECOND READ (#2803): the fold above took seconds, and that is the window the measured race used.
+    $preCommit = Get-FoldCheckoutPosition
+    if ($preCommit.Branch -ne $startPosition.Branch -or $preCommit.Head -ne $startPosition.Head) {
+        Write-Host "Refused: the checkout moved while the fold ran -- it started on $(Format-FoldCheckoutPosition $startPosition) and is now on $(Format-FoldCheckoutPosition $preCommit). NOTHING was committed (#2803)." -ForegroundColor Red
+        Write-Host "  Another session has probably switched this working tree. The fold's writes ($($paths -join ', ')) are in the tree as it now stands -- read 'git status' before anyone commits there." -ForegroundColor DarkGray
+        Write-Host "  Then fold again from a tree that holds the trunk; the entry is still in the trunk's history, so nothing is lost." -ForegroundColor DarkGray
+        exit 1
+    }
     $commitRun = Invoke-NativeCapture -FilePath 'git' -Arguments (@('commit', '-m', $message, '--') + $paths)
     if ($commitRun.ExitCode -ne 0) {
         Write-Host ($commitRun.Output -join "`n") -ForegroundColor Red
@@ -1345,6 +1395,17 @@ if ($Commit) {
     Write-Host "Committed: $message" -ForegroundColor Green
 
     if ($Push) {
+        # THE THIRD READ (#2803): HEAD must still be the commit this run made -- a child of the HEAD the
+        # second read saw, on the branch the run began on -- or the plain `git push` below sends whatever
+        # the tree now holds.
+        $prePush = Get-FoldCheckoutPosition
+        $parent  = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', 'HEAD^')
+        $parentSha = if ($parent.ExitCode -eq 0) { ((@($parent.Output) -join '').Trim()) } else { '' }
+        if ($prePush.Branch -ne $startPosition.Branch -or $parentSha -ne $preCommit.Head) {
+            Write-Host "Refused: the checkout moved after the fold commit -- it is now on $(Format-FoldCheckoutPosition $prePush). The fold commit was made on '$($startPosition.Branch)' and NOT pushed (#2803)." -ForegroundColor Red
+            Write-Host "  Push it from a tree that holds that branch once you have checked where it is: git log --oneline -1 $($startPosition.Branch)" -ForegroundColor DarkGray
+            exit 1
+        }
         # BOUNDED (inbound #1179). The state this flag exists to avoid -- committed on main and not
         # pushed -- is exactly what a hang produces, except a hang does not REPORT it: it reads as a
         # push still in progress, and the fold commit sits on the trunk unnoticed. The lib's
