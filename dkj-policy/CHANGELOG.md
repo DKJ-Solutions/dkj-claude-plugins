@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**6 / 8 minor entries** <!-- pending-tally -->
+**7 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2798-preflight-live-role · 20261005-085454Z
+
+`live-preflight`'s step 5 now reads the live theme's role as either `live` or `main`. Shopify CLI 4.8.x
+reports `live`, so the `main`-only compare never matched, and the refusal for a configured live theme id
+that disagrees with the store's own live theme could not fire. A source pin in `live-push-rules.tests.ps1`
+holds the preflight and both theme rules libs to accepting both spellings.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+`live-preflight` once again refuses when `Get-ShopifyLiveThemeId` names a theme the store does not
+report as live. Before, a stale id that still pointed at an existing unpublished theme passed step 5, and
+the preflight printed a push aimed at a theme no customer sees.
+
+**Score:** 1
+
+#### Pull Request
+
+live-preflight's role check accepts 'live' as well as 'main'
+
+Plugins: dkj-subagents-shopify
+
+[PR #2807](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2807)
+
+---
 
 ### DEPLOY: feat/remove-asana-mirror · 20261005-082732Z
 
