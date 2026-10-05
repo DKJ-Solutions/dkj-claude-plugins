@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**9 / 11 minor entries** <!-- pending-tally -->
+**10 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2801-cut-release-page-step · 20261005-091940Z
+
+`cut-release` now names the release-notes page as a step. Where a repo answers `Get-ReleasePageWorkerName`,
+the cut's closing block prints the `build-release-notes-page.ps1 -Worker` command after the GitHub Release
+line, with the instruction to verify the bytes the URL serves. The `cut-release` skill carries it as step 5b.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that publishes a release-notes page is told to rebuild and redeploy it at every cut. Before, nothing
+named the step, so the page could stay on the previous release until somebody asked.
+
+**Score:** 3
+
+#### Pull Request
+
+cut-release names the release-notes page step where a repo publishes one
+
+Plugins: dkj-policy
+
+[PR #2811](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2811)
+
+---
 
 ### DEPLOY: fix/2800-light-pin-drops-dark-block · 20261005-091938Z
 
