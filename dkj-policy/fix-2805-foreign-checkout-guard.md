@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Inbound [#2805](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2805) (with #2806 folded in as
+the same event). `-RepoRoot` is new-branch's only route into another repository, because
+`CLAUDE_PROJECT_DIR` otherwise wins over the cwd, so the guard sits there. It refuses only a hosted clone's
+primary checkout. A fixture (no remote, or a local path) and a linked worktree pass, so every suite that runs
+new-branch against a fixture from inside a session keeps working. #2806's extra idea (refuse a checkout whose
+HEAD moved recently) is noted on #2805 and not built.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] new-branch refuses `-RepoRoot` on another repository's hosted primary checkout, naming the worktree route (both copies)
+- [x] The `new-branch` skill documents the refusal under `-RepoRoot`
+- [x] Fixture case (z2) in `new-branch.tests.ps1`: refused, nothing created, and a linked worktree passes
 
 ### TEST
 
+- [x] `new-branch.tests.ps1`: 85 pass
+
 ### DEPLOY: fix/2805-foreign-checkout-guard
 
-**Score:**
+`new-branch` now refuses to cut a branch in another repository's primary checkout. When `-RepoRoot` names
+the main working tree of a repository other than the session's project, and that tree was cloned from a
+host, the run stops before creating anything and names the worktree route. A session in one repository can
+no longer switch a branch under a session working in another.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A session that carries a change into a sibling repository is stopped at `new-branch` and told to open a
+worktree of it, rather than switching that repository's own checkout. Before, the checkout moved under
+whoever was working there, and on October 5, 2026 that put one store's fold commit on another session's
+branch.
+
+**Score:** 2
 
 #### Pull Request
 

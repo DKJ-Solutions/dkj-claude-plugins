@@ -343,6 +343,46 @@ if (-not (Test-Path -LiteralPath $branchInfoPath)) {
 $identityLib = Join-Path $PSScriptRoot '..\lib\git-identity-lib.ps1'
 if (Test-Path -LiteralPath $identityLib -PathType Leaf) { . $identityLib }
 
+# --- ANOTHER REPOSITORY'S PRIMARY CHECKOUT IS NOT THIS SESSION'S TO SWITCH (inbound #2805) ---------------
+#
+# Measured October 5, 2026: a session whose project was the plugin source rolled a change out into two
+# consumer stores by cutting a branch IN EACH STORE'S OWN CHECKOUT. Both checkouts were in use by their own
+# sessions. One found itself on a branch it had never created, and the other's ship-pr fold landed on it
+# (#2803). A checkout is shared by whoever has a session in it, and nothing in git says so.
+#
+# -RepoRoot is the only route by which this script reaches another repository, because CLAUDE_PROJECT_DIR
+# otherwise wins over the cwd. So this refuses exactly when all three hold:
+#   - the session's project (CLAUDE_PROJECT_DIR) is a DIFFERENT repository from -RepoRoot's;
+#   - -RepoRoot is that repository's PRIMARY checkout, not a linked worktree, which is the route to use;
+#   - its origin is a HOSTED url. A checkout cloned from a host is one somebody else may be working in;
+#     a test fixture (no remote, or a local path) is nobody's, which is what keeps every suite that
+#     passes -RepoRoot to a fixture from a session unaffected.
+function Get-NewBranchGitDir {
+    param([string]$Dir, [string]$Which)
+    $cap = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $Dir, 'rev-parse', '--path-format=absolute', $Which) -DiscardStderr
+    if ($cap.ExitCode -ne 0) { return '' }
+    $p = ((@($cap.Output) -join '').Trim())
+    if (-not $p) { return '' }
+    return [System.IO.Path]::GetFullPath($p).TrimEnd('\', '/')
+}
+if ($PSBoundParameters.ContainsKey('RepoRoot') -and ([string]$env:CLAUDE_PROJECT_DIR).Trim()) {
+    $sessionCommon = Get-NewBranchGitDir -Dir $env:CLAUDE_PROJECT_DIR -Which '--git-common-dir'
+    $targetCommon  = Get-NewBranchGitDir -Dir $repoRoot -Which '--git-common-dir'
+    $targetGitDir  = Get-NewBranchGitDir -Dir $repoRoot -Which '--git-dir'
+    $originCap     = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'remote', 'get-url', 'origin') -DiscardStderr
+    $originUrl     = if ($originCap.ExitCode -eq 0) { ((@($originCap.Output) -join '').Trim()) } else { '' }
+    if ($sessionCommon -and $targetCommon -and $sessionCommon -ne $targetCommon -and
+        $targetGitDir -eq $targetCommon -and $originUrl -match '^(https?://|ssh://|git@)') {
+        Write-Host "Refused: $repoRoot is the primary checkout of another repository than this session's ($env:CLAUDE_PROJECT_DIR)." -ForegroundColor Red
+        Write-Host "  Another session may be working in it, and switching its branch moves HEAD under that session (#2805)." -ForegroundColor DarkGray
+        Write-Host "  Nothing was created. Open the change in a worktree of that repository instead, and run this there:" -ForegroundColor DarkGray
+        Write-Host "    git -C `"$repoRoot`" fetch origin" -ForegroundColor DarkGray
+        Write-Host "    git -C `"$repoRoot`" worktree add --detach <new folder> origin/<trunk>" -ForegroundColor DarkGray
+        Write-Host "    new-branch.ps1 -RepoRoot <new folder> -Name $Name" -ForegroundColor DarkGray
+        exit 1
+    }
+}
+
 # The repo-owned fallback type (#410) -- OPTIONAL, unlike branch-info.ps1 above. repo-config.ps1 may
 # be absent (a repo that never needed it) or may fail to load (a syntax error in someone's edit);
 # neither is a reason to stop, because every string it supplies has a working default. So: Test-Path,
