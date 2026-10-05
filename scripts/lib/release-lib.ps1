@@ -2052,7 +2052,8 @@ function Get-ReleaseNoteFormShape {
     $titlePrefix = $null
     $labels   = New-Object System.Collections.Generic.List[string]
     $headings = New-Object System.Collections.Generic.List[string]
-    $inFence = $false
+    # The fence remembers its own marker, so a '~~~' line inside a '```' block does not close it.
+    $fence = ''
     $inComment = $false
     foreach ($raw in ($Text -split "\r?\n")) {
         $line = $raw
@@ -2062,8 +2063,13 @@ function Get-ReleaseNoteFormShape {
             $inComment = $false
             $line = $line.Substring($end + 3)
         }
-        if ($line -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
-        if ($inFence) { continue }
+        if ($line -match '^ {0,3}(```|~~~)') {
+            if (-not $fence) { $fence = $Matches[1]; continue }
+            if ($Matches[1] -eq $fence) { $fence = ''; continue }
+        }
+        if ($fence) { continue }
+        # Inline code first: prose that writes `<!--` in backticks is explaining a comment, not opening one.
+        $line = [regex]::Replace($line, '`[^`]*`', '')
         $line = [regex]::Replace($line, '<!--.*?-->', '')
         $open = $line.IndexOf('<!--')
         if ($open -ge 0) { $inComment = $true; $line = $line.Substring(0, $open) }

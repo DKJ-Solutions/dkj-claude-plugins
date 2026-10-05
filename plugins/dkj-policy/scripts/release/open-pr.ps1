@@ -691,7 +691,7 @@ if ($GatesOnly) {
         $formCheck = Join-Path $PSScriptRoot '..\lint\check-release-note-form.ps1'
         if (Test-Path -LiteralPath $formCheck -PathType Leaf) {
             $formRun = Start-Process -FilePath 'powershell' `
-                -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $formCheck + '"'), '-RootOverride', ('"' + $repoRoot + '"')) `
+                -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $formCheck + '"'), '-RootOverride', ('"' + $repoRoot.TrimEnd('\') + '"')) `
                 -NoNewWindow -Wait -PassThru -WorkingDirectory (Get-Location).Path
             if ($formRun.ExitCode -ne 0) {
                 Write-Error "the release note's form differs from the drafted one - nothing else ran, nothing was written." -ErrorAction Continue
