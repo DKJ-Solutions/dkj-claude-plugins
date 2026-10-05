@@ -1315,7 +1315,7 @@ try {
     [System.IO.File]::WriteAllText($verifyPath, $oldVerify)
     $rGroup = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
     Assert-Equal 2 ([regex]::Matches($rGroup.Flat, '\[group\] a fold-only push shares its concurrency group')).Count 'both pre-#2813 runners are reported, each once'
-    Assert-True ($rGroup.Flat -like '*re-run adopt-ci-floor -Apply*') 'and the advisory says how to fix it'
+    Assert-True ($rGroup.Flat -like '*Replace the group: line*') 'and the advisory says how to fix it'
     Assert-Equal $oldFold ([System.IO.File]::ReadAllText($foldPath)) 'and the runner itself is left exactly as it was'
     [System.IO.File]::WriteAllText($foldPath, ($oldFold -replace '(?m)^  group:[^\n]*$', '  group: something-else'))
     $rGroupUnread = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
