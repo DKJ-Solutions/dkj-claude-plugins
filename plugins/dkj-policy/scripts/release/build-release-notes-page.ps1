@@ -583,9 +583,10 @@ function Format-ReleasePageStyle {
 
         WHAT PASSES, deliberately narrow rather than a blocklist. A NAME is a custom property
         ('--accent') or the literal 'color-scheme', which is the one standard property a palette has to
-        be able to set: a brand with no dark variant pins 'light' and keeps its colours on any
-        background, and without that the seam could say "these colours" but not "no dark mode" (inbound
-        #759 named exactly that case). A VALUE is hex, a colour function, a keyword or a short list of
+        be able to set: a brand with no dark variant pins 'light', and without that the seam could say
+        "these colours" but not "no dark mode" (inbound #759 named exactly that case). The property
+        ALONE does not make the pin hold -- Test-ReleasePageLightPin below says why, and the builder
+        removes the template's dark block when it answers yes. A VALUE is hex, a colour function, a keyword or a short list of
         them -- letters, digits, '#', parentheses, commas, dots, percent, spaces, hyphens. Nothing else:
         no braces, semicolons, colons, angle brackets, quotes, backslashes, comment markers or 'url('.
         A repo needing a gradient or a font file is asking for the design pass, not for a wider regex.
@@ -628,6 +629,53 @@ function Format-ReleasePageStyle {
     }
     if ($lines.Count -eq 0) { return '' }
     return (@("  /* This repo's own palette -- Get-ReleasePageTheme. */", '  :root {') + $lines + @('  }')) -join "`n"
+}
+
+function Test-ReleasePageLightPin {
+    <#
+        Pure: whether the repo's palette pins light -- a 'color-scheme' that names 'light' and not 'dark'.
+
+        WHY THE PROPERTY IS NOT ENOUGH ON ITS OWN (inbound #2800). 'color-scheme' tells the browser how
+        to draw its own controls and scrollbars; it does NOT stop '@media (prefers-color-scheme: dark)'
+        matching, because that query reads the OS/browser setting rather than the element's property.
+        So on a dark-mode machine the template's dark block still restyled every token the repo had not
+        named, while the ones it had named stayed light -- measured in a consumer that set only --ink
+        among the text and surface tokens: near-black text on a near-black background, on the page that
+        goes to management. A pin therefore has to remove the dark block, which the builder does when
+        this answers yes. Removing it rather than back-filling the light values keeps one source for
+        those values -- the template's own ':root'.
+
+        Read from the same pairs Format-ReleasePageStyle writes, so a value that function drops cannot
+        pin anything here either.
+    #>
+    param($Theme)
+    if ($null -eq $Theme) { return $false }
+    $value = $null
+    if ($Theme -is [System.Collections.IDictionary]) {
+        foreach ($k in $Theme.Keys) { if ("$k".Trim() -eq 'color-scheme') { $value = "$($Theme[$k])" } }
+    } elseif ($Theme -is [psobject]) {
+        foreach ($p in $Theme.PSObject.Properties) { if ("$($p.Name)".Trim() -eq 'color-scheme') { $value = "$($p.Value)" } }
+    }
+    if (-not $value -or $value -notmatch '^[A-Za-z0-9#(),.%\s-]+$') { return $false }
+    $words = @($value.Trim().ToLowerInvariant() -split '\s+')
+    return (($words -contains 'light') -and -not ($words -contains 'dark'))
+}
+
+function Remove-ReleasePageDarkBlock {
+    <#
+        Pure: the template with its '@media (prefers-color-scheme: dark) { :root { ... } }' rule removed.
+
+        A template whose dark rule no longer has that shape is returned untouched with a warning rather
+        than failing the build -- the page is a report and must still be generated -- but the warning
+        says the pin no longer holds, because a silently unpinned page is the defect this exists for.
+    #>
+    param([string]$Template)
+    $rx = '(?m)^[ \t]*@media \(prefers-color-scheme: dark\) \{\s*:root \{[^{}]*\}\s*\}[ \t]*\r?\n'
+    if (-not [regex]::IsMatch($Template, $rx)) {
+        Write-Warning "Get-ReleasePageTheme pins 'color-scheme: light', but the template's dark-mode block was not found in its expected shape -- a dark-mode browser may still restyle the tokens this repo did not name."
+        return $Template
+    }
+    return [regex]::Replace($Template, $rx, '', 1)
 }
 
 function Format-ReleaseDate {
@@ -736,6 +784,9 @@ $trimVersion  = Test-ReleaseVersionTrimmable -Releases $releases
 
 $masthead = Format-ReleaseMastheadMarks -Marks $config.Masthead
 foreach ($w in $masthead.Warnings) { Write-Warning $w }
+
+# A light pin removes the dark block before anything is written -- see Test-ReleasePageLightPin.
+if (Test-ReleasePageLightPin -Theme $config.Theme) { $template = Remove-ReleasePageDarkBlock -Template $template }
 
 $page = $template.
     Replace('@@PAGE_TITLE@@',    (ConvertTo-HtmlText $config.Title)).

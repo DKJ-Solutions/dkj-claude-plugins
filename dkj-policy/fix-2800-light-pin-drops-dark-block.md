@@ -39,21 +39,42 @@
 
 ### PLAN
 
+Inbound #2800, verified against the tree: the template's `@media (prefers-color-scheme: dark)` block
+redefines all nine tokens, and `color-scheme` does not stop that query matching. Fix by removing the
+dark block when the theme pins light, rather than back-filling light values (one source for them).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Test-ReleasePageLightPin` + `Remove-ReleasePageDarkBlock` in `build-release-notes-page.ps1`, applied before the placeholders are filled
+- [x] Template comment and the `release-notes-page` skill page say what the pin actually does
+- [x] Mirror copied to `scripts/release/`
 
 ### TEST
 
+- [x] `release-notes-page.tests.ps1`: a light pin leaves no dark block and keeps unnamed tokens light; `light dark` is not a pin -- 175 passed, 0 failed
+
 ### DEPLOY: fix/2800-light-pin-drops-dark-block
 
-**Score:**
+**A `'color-scheme' = 'light'` answer from `Get-ReleasePageTheme` now actually pins the release-notes
+page light** ([#2800](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2800)). The property
+alone never stopped the template's `@media (prefers-color-scheme: dark)` block matching, because that
+query follows the OS rather than `color-scheme`; so on a dark-mode browser every token the repo did not
+name turned dark while the ones it did name stayed light. `build-release-notes-page.ps1` now removes the
+template's dark block when the theme names `light` and not `dark` (`Test-ReleasePageLightPin`,
+`Remove-ReleasePageDarkBlock`), and warns if the block is no longer in the shape it looks for. The
+template comment and the `release-notes-page` skill page are corrected, and the suite asserts a pin
+leaves no dark override behind.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that pins its release-notes page light and names only some colours no longer gets an unreadable
+page -- dark text on the template's dark background -- for every reader whose browser is in dark mode.
+The hand-pinning of every token that repo did as a workaround can come out after the update.
+
+**Score:** 3
 
 #### Pull Request
 
 release-notes page: a 'color-scheme: light' pin removes the template's dark block
-

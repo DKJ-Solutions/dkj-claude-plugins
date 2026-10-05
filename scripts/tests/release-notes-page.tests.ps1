@@ -471,12 +471,14 @@ try {
     # palette emitted above it is silently ignored on a dark-mode machine and correct everywhere else,
     # which is the worst kind of wrong: it works on the developer's screen.
     Write-Host "build -- the repo's own palette (Get-ReleasePageTheme)" -ForegroundColor Cyan
-    $r11 = New-FixtureRepo -Label 'theme' -ThemeBody "return @{ '--accent' = '#FF4F01'; 'color-scheme' = 'light' }"
+    # 'light dark' rather than 'light': this fixture is about position, and a light PIN removes the
+    # dark block it is positioned against -- that half is 11c below.
+    $r11 = New-FixtureRepo -Label 'theme' -ThemeBody "return @{ '--accent' = '#FF4F01'; 'color-scheme' = 'light dark' }"
     $b11 = Invoke-Build -Root $r11
     Assert-Equal 0 $b11.Code 'theme: exit 0'
     $p11 = Get-PageData -PagePath (Join-Path $r11 'releases\page\release-notes.html')
     Assert-Match '--accent:\s*#FF4F01;' $p11.Html 'theme: the custom property reaches the page'
-    Assert-Match 'color-scheme:\s*light;' $p11.Html "theme: 'color-scheme' is accepted, which is how a brand with no dark variant says so"
+    Assert-Match 'color-scheme:\s*light dark;' $p11.Html "theme: 'color-scheme' is accepted as a name"
     Assert-True (-not ($p11.Html -match '@@[A-Z_]+@@')) 'theme: no template placeholder survives'
     # The position assert: the LAST occurrence of the override must come after the media query.
     $darkAt  = $p11.Html.IndexOf('prefers-color-scheme: dark')
@@ -506,6 +508,23 @@ try {
     Assert-Equal 2 ([regex]::Matches($p11c.Html, '(?m)^\s*:root \{').Count) 'no palette: the page carries the two shipped :root blocks and no third'
     Assert-True (-not ($p11c.Html -match "own palette --")) 'no palette: and no override comment either'
     Assert-Match '--accent: #b8562f' $p11c.Html 'no palette: the shipped palette is untouched'
+
+    # A LIGHT PIN HOLDS (inbound #2800). 'color-scheme: light' alone does not stop the dark media query
+    # matching, so the consumer that named --ink but not --bg read near-black on near-black on a
+    # dark-mode browser. The pin has to leave no dark override in the page at all, and the tokens the
+    # repo did not name have to keep the template's LIGHT values.
+    $r11d = New-FixtureRepo -Label 'lightpin' -ThemeBody "return @{ '--ink' = '#13191b'; 'color-scheme' = 'light' }"
+    $b11d = Invoke-Build -Root $r11d
+    Assert-Equal 0 $b11d.Code 'light pin: exit 0'
+    $p11d = Get-PageData -PagePath (Join-Path $r11d 'releases\page\release-notes.html')
+    Assert-True (-not ($p11d.Html -match '@media \(prefers-color-scheme: dark\)')) 'light pin: no dark-mode block survives in the page'
+    Assert-True (-not ($p11d.Html -match '--bg: #191917')) 'light pin: the dark background is gone'
+    Assert-Match '--bg: #fbfbfa' $p11d.Html 'light pin: an unnamed token keeps the template light value'
+    Assert-Match '--ink:\s*#13191b;' $p11d.Html 'light pin: the named token still lands'
+    Assert-Equal 2 ([regex]::Matches($p11d.Html, '(?m)^\s*:root \{').Count) 'light pin: the light :root plus the palette -- the dark one is removed, nothing else'
+    Assert-True (-not ($b11d.Out -match 'not found in its expected shape')) 'light pin: the template dark block was found, so no warning'
+    # 'light dark' (fixture 11) is NOT a pin: the dark block stays.
+    Assert-Match '@media \(prefers-color-scheme: dark\)' $p11.Html "light dark: not a pin, so the dark block stays"
 
     # --- 12. The palette is validated, not escaped ------------------------------------------------
     # THE VECTOR THIS EXISTS FOR. These values land in a <style> element, so a value carrying a closing
