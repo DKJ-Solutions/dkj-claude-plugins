@@ -64,5 +64,5 @@ skill and the live-push preflight, which it used to leave out.
 
 #### Pull Request
 
-docs: the shopify README lists all seven skills
+The shopify README lists all seven skills
 
