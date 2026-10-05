@@ -604,11 +604,17 @@ try {
     # --- 2b. The three corrections that landed together (inbound #1539/#1543/#1544) -----------------
     # THE CONCURRENCY GROUP IS CONSTANT PER TRUNK, NOT PER COMMIT (#1544). A per-SHA group is its own
     # group every run and serialises nothing, so two trunk pushes race -- and this job pushes.
-    Assert-True ($fold -match '(?m)^\s*group:\s*fold-on-merge-\$\{\{\s*github\.ref\s*\}\}\s*$') `
-        'the fold runner concurrency group is keyed on github.ref, so two trunk pushes queue rather than race'
-    Assert-True ($fold -notmatch '(?m)^\s*group:[^\r\n]*github\.sha') 'and the group line is never keyed on github.sha, which would serialise nothing'
-    Assert-True ($verify -match '(?m)^\s*group:\s*verify-resolved-\$\{\{\s*github\.ref\s*\}\}\s*$') `
-        'the resolves runner group is keyed on github.ref too'
+    # AND A FOLD-ONLY PUSH GETS A GROUP OF ITS OWN (#2813). The shape itself -- github.ref for every push
+    # the job runs on, github.sha for the one its if: skips, the two conditions equal -- is asserted on
+    # this repo's live files by workflow-concurrency.tests.ps1; here the placed copies must carry the
+    # same group line, character for character, so the template cannot keep the shape that lost a fold.
+    $groupLine = { param($y) [regex]::Match($y, '(?m)^\s*group:[^\r\n]*$').Value.Trim() }
+    $liveFold = [System.IO.File]::ReadAllText((Join-Path $RepoRoot '.github\workflows\fold-on-merge.yml'))
+    $liveVerify = [System.IO.File]::ReadAllText((Join-Path $RepoRoot '.github\workflows\verify-resolved.yml'))
+    Assert-True ((& $groupLine $fold) -like '*github.ref*' -and (& $groupLine $fold) -eq (& $groupLine $liveFold)) `
+        'the fold runner group is the source repo''s own line: github.ref-keyed, with the fold-only split (#1544, #2813)'
+    Assert-True ((& $groupLine $verify) -like '*github.ref*' -and (& $groupLine $verify) -eq (& $groupLine $liveVerify)) `
+        'the resolves runner group is the source repo''s own line too'
     Assert-True ($fold -like '*cancel-in-progress: false*') 'and cancellation stays off -- no fold is dropped'
 
     # THE FOLD CHECKOUT TAKES THE TRUNK TIP, NOT THE EVENT SHA (#1543). On a push event actions/checkout
@@ -732,7 +738,7 @@ try {
     Assert-True ($fold.Contains('branches: [trunk]')) 'the fold runner triggers on the trunk Get-TrunkBranchName names, not on a hardcoded main'
     Assert-True ($fold -like '*-Branch trunk*') 'and passes that same trunk to the check it runs'
     Assert-True ($fold -match '(?m)^\s*ref:\s*trunk\s*$') 'and its first checkout pins ref to that same trunk, not a hardcoded main (#1543)'
-    Assert-True ($fold -match '(?m)^\s*group:\s*fold-on-merge-\$\{\{\s*github\.ref\s*\}\}\s*$') 'the concurrency group is still github.ref-keyed on a non-main trunk (#1544)'
+    Assert-True ($fold -match "(?m)^\s*group:[^\r\n]*format\('fold-on-merge-\{0\}', github\.ref\)") 'the concurrency group is still github.ref-keyed on a non-main trunk (#1544)'
     $repoSettings = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\repo-settings.yml'))
     Assert-True ($repoSettings -like '*-Trunk trunk*') `
         'the repo-settings runner is baked with the same non-main trunk (issue #1843), not a hardcoded main'
