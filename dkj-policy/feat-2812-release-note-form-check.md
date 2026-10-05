@@ -39,19 +39,40 @@
 
 ### PLAN
 
+#### The design question #2812 left open
+
+Judge only the newest note. Published notes are records, and eight of this repo's own 5.x notes carry a
+section the form has since dropped, so judging every note would refuse its history. A cutoff would need a
+per-repo version nobody maintains.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ReleaseNoteFormShape` and `Compare-ReleaseNoteForm` in `release-lib.ps1`, with the expected form drawn from `Build-ReleaseNoteDraft` itself
+- [x] `scripts/lint/check-release-note-form.ps1`, mirrored into dkj-policy and registered in `shared-scripts-lib.ps1`
+- [x] `open-pr.ps1 -GatesOnly -NoteTreeOnly` runs it after the gates
+- [x] the cut-release skill page, steps 2 and 4
 
 ### TEST
 
+- [x] `release-note-form.tests.ps1`: 26 asserts, green; the check run on this repo passes 5.14.0 and flags 5.11.0's extra section with `-Path`
+
 ### DEPLOY: feat/2812-release-note-form-check
 
-**Score:**
+`check-release-note-form.ps1` compares the newest audience release note with what `cut-release` drafts for
+the repo: the title line, the header labels, and the section headings in order. It takes the expected form
+from the draft function, using the repo's own `Get-ReleaseNoteWording`, `Get-ReleaseNoteSections` and
+audience tier. `open-pr -GatesOnly -NoteTreeOnly`, the cut's release-notes gate run, now runs it too. Older
+notes are records and are not judged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+At the release-notes step the gate run now refuses a note whose labels or section headings drifted from the
+drafted form. So a translated label or an extra section is caught before the commit, rather than found
+later by comparing two notes by eye. To change the form, answer `Get-ReleaseNoteWording` once.
+
+**Score:** 2
 
 #### Pull Request
 

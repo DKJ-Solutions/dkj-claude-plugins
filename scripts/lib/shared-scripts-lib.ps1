@@ -1774,6 +1774,19 @@ function Get-SharedScriptPairs {
             MeasureArgs = @()
         },
         @{
+            # The release-note form gate (issue #2812). open-pr -GatesOnly -NoteTreeOnly runs it as a
+            # sibling, so the copy that runs in a consumer is this mirror. Documented on the cut-release
+            # page, step 4, which is where that command is prescribed.
+            Name   = 'check-release-note-form'
+            Source = 'scripts\lint\check-release-note-form.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = 'cut-release'
+            # A fixture root, so the suite can judge scratch trees. A consumer never types it.
+            SkillParamsExempt = @('RootOverride')
+            # Timeable with no arguments: it reads one note and reports, no write of any kind.
+            MeasureArgs = @()
+        },
+        @{
             # The skipped-fold gate (issue #1270). The fold runs from ship-pr.ps1, as the shipping
             # session's own step, so a merge that session never observes -- from the GitHub UI, or via
             # the merge queue since #1492 -- never folds, and nothing downstream reported the leftover.

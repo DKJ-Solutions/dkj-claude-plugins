@@ -683,6 +683,22 @@ if ($GatesOnly) {
     if (-not (Invoke-WorkflowGates -RepoRoot $repoRoot -SkipLint:$SkipLint -SkipTests:$SkipTests -NoteTreeOnly:$NoteTreeOnly -MaxParallel $MaxParallel -Context 'the gate run' -FailureConsequence 'nothing else ran, nothing was written')) {
         exit 1
     }
+    # AND THE NOTE'S FORM, where the caller says this is the release-notes step (issue #2812). -NoteTreeOnly
+    # is the flag the cut-release skill's step 4 passes before the release-notes commit, so this is the
+    # moment the hand-edited note exists and nothing has landed yet. The check is a sibling script rather
+    # than a function call so a consumer runs the mirror's copy and the source runs its own.
+    if ($NoteTreeOnly) {
+        $formCheck = Join-Path $PSScriptRoot '..\lint\check-release-note-form.ps1'
+        if (Test-Path -LiteralPath $formCheck -PathType Leaf) {
+            $formRun = Start-Process -FilePath 'powershell' `
+                -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $formCheck + '"'), '-RootOverride', ('"' + $repoRoot + '"')) `
+                -NoNewWindow -Wait -PassThru -WorkingDirectory (Get-Location).Path
+            if ($formRun.ExitCode -ne 0) {
+                Write-Error "the release note's form differs from the drafted one - nothing else ran, nothing was written." -ErrorAction Continue
+                exit 1
+            }
+        }
+    }
     Write-Host "gates green -- nothing was pushed and no PR was opened (-GatesOnly)." -ForegroundColor Green
     exit 0
 }
