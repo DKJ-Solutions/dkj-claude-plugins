@@ -10,7 +10,8 @@
 
     The asana-mirror CI workflow (templates/asana-mirror.yml and .ps1) was retired on October 5, 2026;
     the helpers that survived live in scripts/lib/asana-task-lib.ps1 and are exercised by dot-sourcing
-    it. Section 1 asserts the templates no longer ship.
+    it. Section 1 asserts those templates no longer ship. The closed message came back the same day as
+    templates/asana-closed-message.yml and .ps1 (#2818), exercised by dot-sourcing that template.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -74,6 +75,10 @@ foreach ($rel in @('README.md', 'WORKFLOW-portable.md', 'SYNC-LOG-portable.md', 
 # stray re-add of the folder is loud rather than a quiet second copy of the helpers.
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'templates\asana-mirror.yml'))) 'templates\asana-mirror.yml no longer ships'
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'templates\asana-mirror.ps1'))) 'templates\asana-mirror.ps1 no longer ships'
+# THE CLOSED MESSAGE CAME BACK, AND ONLY IT (#2818, Dave, October 5, 2026): one workflow, one script.
+foreach ($rel in @('templates\asana-closed-message.yml', 'templates\asana-closed-message.ps1')) {
+    Assert-True (Test-Path -LiteralPath (Join-Path $PluginRoot $rel)) "ships $rel"
+}
 
 # EVERY CHAPTER PAGE IS LINKED FROM THE README, and the README's own count agrees with how many there
 # are. The count is stated in five places across four files, each edited by hand -- and it has now gone
@@ -436,9 +441,9 @@ Assert-True ($goLivePasted.IndexOf('Er is een SEO-intro') -gt $goLivePasted.Inde
 Assert-True ($goLivePasted.IndexOf('Kijk onder de titel.') -gt $goLivePasted.IndexOf('Het resultaat is hier te bekijken')) 'and the where-to-look prose follows the link'
 Assert-True ($goLivePasted -notmatch 'Planned to|What we ask|The fix for') 'the Dutch block carries no English words of the old shape'
 Assert-True ($goLiveBlock.Contains((Get-GoLiveBlockLead))) 'while the framing sentence, read on GitHub, stays English'
-Assert-True ((Get-GoLiveBlockLead) -match 'Nothing carries the block below into Asana') 'and says nothing carries the block into Asana (Dave, October 5, 2026)'
-Assert-True ((Get-GoLiveBlockLead) -match 'by hand') 'and that it is pasted by hand where the task needs it'
-Assert-True ((Get-GoLiveBlockLead) -notmatch 'no paste needed|workflow posts') 'and no longer promises the retired workflow carries it (#2703)'
+Assert-True ((Get-GoLiveBlockLead) -match 'The closed message carries the block below into the Asana task') 'and says the closed message carries the block into the task (#2818)'
+Assert-True ((Get-GoLiveBlockLead) -match 'closes as completed') 'and only on a close as completed -- the one close that posts'
+Assert-True ((Get-GoLiveBlockLead) -match 'no paste needed') 'so nobody pastes it a second time (#2703)'
 
 # A BARE LIST BESIDE A RESULT LINK SAYS HOW TO READ IT BEFORE THE RELEASE (#2477): a bare URL renders
 # the preview in any browser that opened the result link first, so both tabs would agree. The caveat is
@@ -758,6 +763,85 @@ $pageStep = if ($previewPage -match '(?m)^- \[ \] (Is the change visible[^\r\n]*
 $seamStep = if ($adoptPage -match "function Get-BranchClosingSteps \{ @\('([^']+)'\) \}") { $Matches[1] } else { '' }
 Assert-True ($pageStep -ne '') 'the preview page still states the step in its own fenced line'
 Assert-Equal $pageStep $seamStep 'the adopt skill proposes Get-BranchClosingSteps with exactly the words the preview page prescribes'
+
+# --- the closed message (templates/asana-closed-message.ps1, #2818) --------------------------------
+# LAST IN THE SUITE ON PURPOSE: dot-sourcing the template redefines the lib helpers it carries copies of,
+# so the lib's own answers are taken first and held against the copies after.
+Write-Host "`n-- the closed message template (#2818) --" -ForegroundColor Cyan
+$cmSamples = @(
+    "Body`n<!-- asana-task: 1234 -->",
+    "| **Asana** | https://app.asana.com/0/111/2222 |`nsee also https://app.asana.com/0/111/3333",
+    'one link https://app.asana.com/1/9/project/8/task/4444 only',
+    'two https://app.asana.com/0/1/5555 and https://app.asana.com/0/1/6666',
+    'none at all')
+$cmLibRefs   = @($cmSamples | ForEach-Object { $r = Resolve-AsanaTaskRef -IssueBody $_; "$($r.Gid)|$($r.Source)" })
+$cmLibMarker = Get-AsanaPasteBlockMarker
+$cmTemplate  = Join-Path $PluginRoot 'templates\asana-closed-message.ps1'
+. $cmTemplate
+
+Assert-Equal ($cmLibRefs -join ';') (@($cmSamples | ForEach-Object { $r = Resolve-AsanaTaskRef -IssueBody $_; "$($r.Gid)|$($r.Source)" }) -join ';') `
+    'the template''s task matchers answer exactly as asana-task-lib.ps1''s on every matcher shape'
+Assert-Equal $cmLibMarker (Get-AsanaPasteBlockMarker) 'and its block marker is the lib''s, so it finds the block build-golive-block wrote'
+Assert-Equal (Get-GoLiveBlockText).Header (Get-ClosedMessageHeader) 'it opens with the same header the block does'
+
+# WHEN IT POSTS: a close as completed (or with no reason) on an issue linking exactly one task.
+Assert-True (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[0]).Post 'a close as completed with a linked task posts'
+Assert-Equal '1234' (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[0]).Gid 'to the task the marker names'
+Assert-True (Get-ClosedMessageDecision -StateReason '' -IssueBody $cmSamples[0]).Post 'a close with no reason is a close as completed'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0]).Post) 'a close as not planned posts nothing (#2765)'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'duplicate' -IssueBody $cmSamples[0]).Post) 'and neither does a close as a duplicate'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Post) 'several different tasks is ambiguous and posts nothing'
+Assert-True ((Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Why -match 'refusing to guess') 'and says so'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[4]).Post) 'no linked task posts nothing'
+
+# WHAT IT POSTS: the header, the closed line, and the block's sections under it.
+$cmSections = Select-SessionPasteBlockSections -Bodies @('first', $goLiveBlock)
+Assert-True ($cmSections.StartsWith('TE BEKIJKEN OP')) 'the carried sections start at the first heading -- the header and closed line are the message''s own'
+Assert-True ($cmSections -notmatch 'GitHub automation|is now \*\*closed') 'so neither arrives twice'
+Assert-Equal '' (Select-SessionPasteBlockSections -Bodies @('first', 'no block here')) 'an issue with no block carries no sections'
+$cmQuestion = "Wat we van je vragen: 1. Een tijdstip.`n`n$cmLibMarker"
+Assert-Equal $cmSections (Select-SessionPasteBlockSections -Bodies @($goLiveBlock, $cmQuestion)) 'an awaiting-more-info question carries the marker but no rules, so the block before it is still the one carried'
+$cmHtml = New-ClosedMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#500' -BlockSections $cmSections
+$cmXml  = [xml]$cmHtml
+Assert-True ($cmXml.body.InnerText.StartsWith((New-ClosedMessage -IssueRef 'BWJ-Development/smartwatchbanden#500'))) 'the message is well-formed XML and opens with the plain closed message'
+Assert-True ($cmHtml.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/500">BWJ-Development/smartwatchbanden#500</a> is now <strong>closed</strong>')) 'the issue name is a link and closed is bold -- the requester''s form'
+Assert-True ($cmHtml.Contains('<strong>TE BEKIJKEN OP</strong>')) 'the headings arrive bold'
+Assert-True ($cmHtml.Contains("`n`n<strong>WAT ER NU ANDERS IS</strong>`n`n")) 'and the line breaks arrive as written'
+Assert-Equal '<a href="https://x.invalid/?a=1&amp;b=2">t</a> en <strong>vet</strong> &amp; meer' (ConvertTo-AsanaStoryHtml -Markdown '[t](https://x.invalid/?a=1&b=2) en **vet** & meer') 'Markdown links and bold convert, and everything else is escaped'
+$cmBare = New-ClosedMessageHtml -IssueRef 'o/r#1'
+Assert-True ($cmBare -cnotmatch '<strong>[A-Z ]+</strong>') 'with no block the header and the closed line go out alone (#2818, item 3)'
+[void][xml]$cmBare
+Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r&x#1') -match '&amp;') 'a character XML reserves is escaped, so Asana is never sent a malformed body'
+Assert-Throws { New-AsanaCommentRequest -Gid '123; rm -rf /' -Html '<body/>' } 'a non-numeric GID never reaches a request URL'
+$cmReq = New-AsanaCommentRequest -Gid '123' -Html '<body>x</body>'
+Assert-Equal 'https://app.asana.com/api/1.0/tasks/123/stories' $cmReq.Uri 'the one write is a story on the task'
+Assert-True ($cmReq.Body -match '"html_text"') 'posted as html_text'
+
+# WHAT IT NEVER DOES: no write but the comment, no card, no completion, no label, no other event.
+$cmSrc = [System.IO.File]::ReadAllText($cmTemplate)
+Assert-True ($cmSrc -notmatch "completed\s*=\s*\`$true|addProject|/sections/|gh issue edit|gh label") 'the template carries no completion, card move or label write'
+# THE STRUCTURAL HALF (code review): one HTTP call site, and the request it sends is New-AsanaCommentRequest's.
+Assert-Equal 1 ([regex]::Matches($cmSrc, '(?m)^\s*Invoke-RestMethod\b')).Count 'the template makes exactly one HTTP call'
+Assert-True ($cmSrc -match '\$request\s*=\s*New-AsanaCommentRequest' -and $cmSrc -match 'Invoke-RestMethod -Method \$request\.Method -Uri \$request\.Uri') 'and that call sends the one request New-AsanaCommentRequest builds'
+
+# THE SECURITY REVIEW'S REPAIRS (#2818).
+Assert-True (Test-TrustedCommentAuthor -Association 'MEMBER') 'a member''s comment may supply the block'
+Assert-True (Test-TrustedCommentAuthor -Association 'collaborator') 'and so may a collaborator''s, in any case'
+Assert-True (-not (Test-TrustedCommentAuthor -Association 'CONTRIBUTOR')) 'a contributor''s may not -- anyone else could put a link on the task under the automation''s header'
+Assert-True (-not (Test-TrustedCommentAuthor -Association '')) 'nor a comment whose association is unknown'
+Assert-True ($cmSrc -match 'Where-Object \{ Test-TrustedCommentAuthor -Association') 'and the comment read filters on it'
+Assert-Equal 'a b' (ConvertTo-AsanaXmlText -Text ("a" + [char]0x0B + " b")) 'an XML-invalid control character is dropped, so Asana never answers 400 on it'
+Assert-Equal "it's" (ConvertTo-AsanaXmlText -Text "it's") 'an apostrophe stays as typed -- no &apos; Asana was never measured accepting'
+Assert-Equal 'Zie <a href="https://x.nl/a">https://x.nl/a</a>.' (ConvertTo-AsanaStoryHtml -Markdown 'Zie https://x.nl/a.') 'a bare URL does not swallow the full stop after it'
+Assert-Throws { New-AsanaCommentRequest -Gid "123`n" -Html '<body/>' } 'a GID with a trailing newline is refused -- the guard is anchored with \z'
+$cmYml = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'templates\asana-closed-message.yml'))
+Assert-True ($cmYml -match 'types:\s*\[closed\]') 'the workflow runs on a close only'
+Assert-True ($cmYml -notmatch '(?m)^\s*(schedule|workflow_dispatch|pull_request|push):') 'with no schedule, manual or other trigger -- and the types line above names closed alone'
+Assert-True ($cmYml -match 'secrets\.ASANA_PAT' -and $cmYml -notmatch 'GH_PROJECT_TOKEN|ASANA_PROJECT_GID') 'and needs ASANA_PAT alone'
+Assert-True ($cmYml -match 'issues:\s*read') 'and only reads issues on GitHub'
+Assert-True ($cmYml -match 'state_reason') 'it hands the close reason to the script, which decides'
+Assert-True ($cmYml -match 'persist-credentials:\s*false') 'the checkout leaves no token behind'
+Assert-True ($cmYml -notmatch '-IssueBody') 'and the body reaches the script through the environment, not the command line'
 
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""

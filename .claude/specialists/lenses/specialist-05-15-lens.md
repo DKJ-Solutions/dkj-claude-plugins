@@ -3372,7 +3372,7 @@ records a lens citing check 19 for what the lint implements as check 20.
 
 #### The template self-containment gate, which is a SUITE and not a numbered check (September 7, 2026, [#1556](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1556))
 
-**Retired on October 5, 2026, with the one template it guarded.** It lived in `scripts/tests/template-selfcontained.tests.ps1`, a suite rather than a check number, and the suite was deleted with `asana-mirror.ps1`, because no `.ps1` ships under `plugins/**/templates/` any more and a suite with no subject is not a guard. The reasoning below is kept for the next template, which should bring the suite back with it.
+**Retired on October 5, 2026, with the one template it guarded.** It lived in `scripts/tests/template-selfcontained.tests.ps1`, a suite rather than a check number, and the suite was deleted with `asana-mirror.ps1`, because no `.ps1` ships under `plugins/**/templates/` any more and a suite with no subject is not a guard. The reasoning below is kept for the next template, which should bring the suite back with it. **It did, the same day:** `asana-closed-message.ps1` (#2818) is the next template, and the suite came back with it unchanged, globbing every `.ps1` under `plugins/**/templates/`.
 The section above is about `check-plugin-integrity.ps1`; this one is a test suite, and the placement is
 the point rather than an accident. The subject is a **PowerShell AST**, which the lint gate reads nowhere
 else, and the property is per-file rather than repo-wide — while the lint gate is what every consumer's

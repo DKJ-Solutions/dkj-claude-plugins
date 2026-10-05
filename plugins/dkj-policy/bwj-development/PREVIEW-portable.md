@@ -212,9 +212,9 @@ a handover that added the message as a fourth block, with a copy button, did the
 
 **The block stays on the page and the copy button is gone.** From
 [#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700) until October 5, 2026, closing
-the issue sent the block: `asana-mirror` posted it on the task. That workflow is retired (Dave, October
-5, 2026), so now the block lives on the GitHub issue and a person pastes it into the task where the task
-needs it
+the issue sent the block: `asana-mirror` posted it on the task. That workflow was retired on October 5,
+2026, and its closed message came back the same day as `asana-closed-message` (#2818), so closing the
+issue as completed still sends it and nobody pastes it
 ([`WORKFLOW-portable.md`](WORKFLOW-portable.md#the-go-live-block----written-before-the-close-by-the-session-that-shipped-the-work)).
 The block keeps its place on the page because the owner looking at the handover is the last person to
 read it before the close, and a wrong date or link is cheapest to catch there

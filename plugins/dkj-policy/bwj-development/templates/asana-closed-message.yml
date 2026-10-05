@@ -1,0 +1,51 @@
+# Copied from bwj-development/templates/asana-closed-message.yml into
+# .github/workflows/asana-closed-message.yml, beside .github/scripts/asana-closed-message.ps1.
+#
+# Posts ONE comment on the Asana task a GitHub issue belongs to, when that issue closes as completed:
+# the automation's header, the closed line, and the go-live block the shipping session left on the
+# issue. It never moves a card, completes a task or writes a label -- the closed message is the one
+# part of the retired asana-mirror workflow that came back (Dave, October 5, 2026, #2818). See
+# bwj-development/WORKFLOW-portable.md.
+name: asana-closed-message
+
+on:
+  issues:
+    # closed ONLY: no reopened, no labeled, no schedule. The script decides on the close reason.
+    types: [closed]
+
+permissions:
+  contents: read
+  # READ: the script reads the issue's comments for the go-live block, and writes nothing on GitHub.
+  issues: read
+
+# One group per issue: a running post is never killed half way. A group holds one running and one
+# pending run, and a newer arrival drops the pending one, so a burst of three or more closes of one
+# issue posts fewer messages than closes. That cap is accepted: each close says the same thing.
+concurrency:
+  group: asana-closed-message-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  closed-message:
+    runs-on: ubuntu-latest
+    # A job with no timeout-minutes runs to GitHub's six-hour default (#2296), holding ASANA_PAT.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The job needs the script file and nothing else from git, so the token is not left in .git/config.
+          persist-credentials: false
+
+      - name: Tell the Asana task the issue is closed
+        shell: pwsh
+        env:
+          ASANA_PAT: ${{ secrets.ASANA_PAT }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_REF: ${{ github.repository }}#${{ github.event.issue.number }}
+          STATE_REASON: ${{ github.event.issue.state_reason }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The body is read from ISSUE_BODY by the script itself, not passed as an argument.
+          ./.github/scripts/asana-closed-message.ps1 `
+            -IssueRef $env:ISSUE_REF `
+            -StateReason $env:STATE_REASON

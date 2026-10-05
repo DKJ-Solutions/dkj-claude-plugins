@@ -211,9 +211,10 @@ issue without the reach label. Where it cannot read the labels, it lets the call
 The mechanics are in step 2 of [`report-issue`](skills/report-issue/SKILL.md).
 
 Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
-`Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **That is the whole
-of the mirroring** (Dave, October 5, 2026): the CI automation that used to follow the issue afterwards
-is retired (steps 4 to 6), so nothing updates the task when the issue changes. The Asana task is **not** a paste of the issue body. It is written for
+`Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **After that, one
+thing updates the task: the closed message** (Dave, October 5, 2026, #2818). When the issue closes as
+completed, the `asana-closed-message` workflow posts it on the task (step 4). The rest of the CI
+automation that used to follow the issue is retired (steps 5 and 6). The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
 
 - **Plain language, outcome-framed.** What a customer or colleague actually experiences, not what the
@@ -260,10 +261,10 @@ colleague's own text left untouched below it. And one comment goes on the task, 
 GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in development.
 ```
 
-Only the issue name varies. It is posted as the link to the issue, with **created:** in bold. It is the
-one fixed form that remains: the three the CI mirror used to post (CLOSED, CLOSED WHILE WAITING FOR
-INFORMATION and REOPENED) were retired with it on October 5, 2026
-([step 4](#4-write-the-go-live-block-then-close-the-github-issue----nothing-carries-it-into-asana)).
+Only the issue name varies. It is posted as the link to the issue, with **created:** in bold. The CI
+mirror's CLOSED form came back as the `asana-closed-message` workflow (#2818,
+[step 4](#4-write-the-go-live-block-then-close-the-github-issue----the-closed-message-carries-it-into-asana));
+its CLOSED WHILE WAITING FOR INFORMATION and REOPENED forms stay retired (October 5, 2026).
 It is English on every board, the one exception to the rule that what a
 session writes to a colleague follows their language: the requester fixed it word for word
 ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), replacing #2653's
@@ -318,7 +319,8 @@ A session writes the line in the colleague's language, [as everything addressed 
 is](#2-then-asana----a-translation-not-a-copy), and it names both facts: automated, and not written
 by the account holder personally. The comment `report-issue` posts on an Asana-origin ticket is the
 exception: its header is fixed as *"— GitHub automation 🤖"* (#2656). The content
-comes after the header and never before. (The CI mirror that used to be the second writer is retired.)
+comes after the header and never before. The second writer is the `asana-closed-message` workflow, whose
+closed message opens with the same header (#2818).
 
 **Write the line BEFORE you post, because you cannot add it afterwards.** The Asana MCP exposes adding
 a comment but no tool to edit or delete one, although the API itself supports both. So a comment a
@@ -372,19 +374,22 @@ backlog page, the release-note task link, the resolves gate):
   URL. Nothing else is required there. A task that came from Asana got its link and its comment in
   step 2.
 
-### 4. Write the go-live block, THEN close the GitHub issue -- nothing carries it into Asana
+### 4. Write the go-live block, THEN close the GitHub issue -- the closed message carries it into Asana
 
-**Closing the GitHub issue is the signal that the work is BUILT, not that the ticket is DONE -- and it
-tells Asana nothing.** Until October 5, 2026 a GitHub Actions workflow (`asana-mirror`, copied into each
-store's `.github/`) carried the close across: it commented on the linked task when the issue closed or
-reopened, moved the card through the board's numbered sections, ran a daily reconciliation sweep, synced
-the task's `Prio-Score` into `prio-N` labels and posted a placeholder backstop block on the issue.
-**Dave retired all of it on that day (October 5, 2026), and nothing replaces it.** What that means in
-practice:
+**Closing the GitHub issue is the signal that the work is BUILT, not that the ticket is DONE.** Until
+October 5, 2026 a GitHub Actions workflow (`asana-mirror`, copied into each store's `.github/`) followed
+the issue: it commented on the linked task when the issue closed or reopened, moved the card through the
+board's numbered sections, ran a daily reconciliation sweep, synced the task's `Prio-Score` into `prio-N`
+labels and posted a placeholder backstop block on the issue. Dave retired all of it that morning, and the
+same day brought back **one part: the closed message** (#2818). It is the `asana-closed-message`
+workflow, copied into each store by `adopt-bwj-development`, and it needs `ASANA_PAT` only. In practice:
 
-- Closing or reopening an issue posts nothing on the task.
+- **Closing an issue as completed** posts one comment on the linked task: the automation's header, the
+  closed line, and the go-live block's sections under it. Where the issue carries no block, it posts the
+  header and the closed line alone, so the requester still hears.
+- **Closing as not planned or as a duplicate posts nothing** (#2765): nothing was built, so there is
+  nothing to test. Reopening posts nothing either.
 - A card stays where `report-issue` put it (`Filed`) unless a person moves it.
-- The go-live block stays on the GitHub issue; a person pastes it into the Asana task where the task needs it.
 - A priority is set in Asana and, where wanted, typed onto the issue by a person.
 
 **The task is never completed by this plugin, and no code path can do it** (Dave, September 1, 2026).
@@ -445,11 +450,11 @@ which is why a store answering this seam passes that record to every cut.
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049)). An issue with a linked Asana
 task carries a block for that task, telling the requester (today: Johnno) where to see the result --
 and that block goes on the issue **while it is still open**, written by the session that shipped the
-work, as the closing act of its own chain. The close then follows. **The block stays on the GitHub issue
-only** (Dave, October 5, 2026): from #2700 until then closing the issue made `asana-mirror` post it on the
-task as its closed message, and with that workflow retired nothing carries it across. Where the task
-needs it, the task's assignee pastes it in by hand. The name *paste-ready* is kept for the marker and the
-functions, which match on it.
+work, as the closing act of its own chain. The close then follows, and **the close carries the block**:
+closing the issue as completed makes `asana-closed-message` post it on the task as its closed message
+(#2818, the shape #2700 gave `asana-mirror`). Nobody pastes it. The closed message reads the newest
+comment carrying the marker, so a block rewritten after a reopen is the one that goes. The name
+*paste-ready* is kept for the marker and the functions, which match on it.
 
 It is one comment on the **GitHub** issue -- not on Asana. The marker and the framing sentence above
 the rules are fixed, because the duplicate check has to be able to recognise the comment. The block
@@ -458,7 +463,7 @@ between the rules has a fixed **shape** too, and it is written in the **colleagu
 ```text
 <!-- asana-paste-block -->
 
-Nothing carries the block below into Asana -- paste it into the Asana task by hand where the task needs it:
+The closed message carries the block below into the Asana task when this issue closes as completed -- no paste needed:
 
 ---
 — GitHub automation 🤖
@@ -622,15 +627,16 @@ six days out, was rejected by the owner as a number nobody could know.
 fill in is that a plausible wrong answer is worse than a missing one, and that reasoning does not stop
 applying one paragraph further down.
 
-**The script does not touch Asana, and nothing else does either.** It writes the GitHub half only.
-The person who closes the issue decides whether and when the block is pasted into the task.
+**The script does not touch Asana.** It writes the GitHub half only, and the close carries it across:
+the `asana-closed-message` workflow posts the block on the task when the issue closes as completed.
 
 **It carries the marker, and only the marker.** The duplicate check (`Test-AsanaPasteBlockPosted`, which
 makes the script refuse a second block unless told otherwise) rides on `<!-- asana-paste-block -->`,
 the machine marker tried first and unconditionally. The second matcher is a lead sentence somebody typed
 by hand -- `Fill in the link below and paste the block into the Asana task` -- quoted here so a block can
 be written by hand. The backstop that used to post a placeholder-only block on a close with no block on it is
-retired with the mirror (Dave, October 5, 2026): an issue closed without a block simply has none.
+retired with the mirror (Dave, October 5, 2026) and did not come back: an issue closed without a block
+has none, and its closed message goes out with the header and the closed line only.
 
 ### 5. (Retired October 5, 2026) The Asana prio score no longer comes back as a label
 
@@ -670,7 +676,9 @@ only -- and a card with the submitter and no question is a waiting room nobody k
 **So the label and the comment are ONE act**, done by the session that knows what was investigated, at
 the moment the issue is parked -- not later, by somebody reconstructing the dossier. The comment goes on
 the issue, carries the same `<!-- asana-paste-block -->` marker below the text so the duplicate check
-recognises it, and is pasted into the task by its assignee exactly like the delivered-work block. Its shape:
+recognises it, and is pasted into the task by its assignee. Unlike the delivered-work block nothing carries
+it: the issue stays open, so no closed message fires, and the question carries no `---` rules, so a later
+closed message never mistakes it for a block. Its shape:
 
 ```text
 <one to three plain sentences: what was investigated and what came out of it. No file names, no
@@ -910,10 +918,10 @@ matters, more than one market.
   Asana is the window the rest of BWJ looks through, not the workbench.
 - **A translation, not a copy**, because a mirrored task that is just the issue body helps nobody: a
   non-technical colleague cannot act on a stack trace, and a technical reader already has the issue.
-- **No CI mirror** (Dave, October 5, 2026). The close comments, the card moves, the sweep, the prio sync
-  and the backstop block were retired together and nothing replaces them: the board and the issue
-  tracker are two surfaces people read, and keeping them in step is now a person's act. The cost is
-  stated in step 4, and it is accepted.
+- **No CI mirror, and one closed message** (Dave, October 5, 2026). The card moves, the sweep, the prio
+  sync, the reopen and label comments and the backstop block were retired together, and keeping the
+  board in step with the tracker is a person's act. The closed message alone came back (#2818): it is the
+  one moment the requester has something to do, and the block it carries is already written by then.
 - **The block before the close, and not at it**, because the close is the only event a person in this
   chain actually performs, and hanging the composition on it put the paragraph underneath an item that
   had already left every open-issue view. Writing it first turns the close into a **receipt** -- the

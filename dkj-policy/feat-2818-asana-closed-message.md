@@ -39,19 +39,51 @@
 
 ### PLAN
 
+[#2818](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2818), Dave's decision of October 5, 2026:
+bring back only the closed message of the `asana-mirror` workflow #2804 retired that morning. Built as a new,
+small template rather than a revert: the old 2,109-line script's close path is six pure helpers, and
+everything else in it (card moves, sweeps, prio sync, reopen and label comments, backstop) stays retired.
+The issue's item 3 proposal is taken as written: a close as completed with no block posts the header and
+the closed line alone. It is `issues: closed` only, needs `ASANA_PAT` only, and reads the issue on GitHub
+without writing to it. The template-self-containment suite comes back with it, as Sylvester's lens said
+the next template should. One correction to the issue: `Select-SessionPasteBlockSections` did not survive
+in `asana-task-lib.ps1`, so it is taken from the retired template.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `templates/asana-closed-message.yml` + `.ps1`: closed only, posts on a close as completed, nothing on not planned or duplicate, self-contained
+- [x] The framing sentence, `build-golive-block`'s closing line and `asana-task-lib`'s header say the close carries the block again
+- [x] WORKFLOW-portable step 4 and its other passages, the `golive-block`, `report-issue` and `adopt-bwj-development` skills, PREVIEW-portable and the README describe the closed message; adopt copies the template in the two stores and names `ASANA_PAT`
+- [x] `bwj-development.tests.ps1`: the template's own section (copies equal the lib, decision, HTML, yml shape); `template-selfcontained.tests.ps1` restored, with its duration row
+- [x] Code and security review before shipping: nothing blocking. Applied: the block is taken only from an OWNER/MEMBER/COLLABORATOR comment, XML-invalid control characters are dropped, no `&apos;`, a bare URL keeps its full stop outside the link, `\z` anchors, `persist-credentials: false`, the body via env, a corrected concurrency comment, and a structural one-call-site assert. Declined, with reasons in the template's header: the marker pointing at any task the token reaches (the retired workflow's trust model; checking the project needs a read this workflow does without), a nested-parenthesis URL in a Markdown link, and digits in a heading (both cosmetic and unmeasured in a real block)
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: 303 pass
+- [x] `template-selfcontained.tests.ps1`: 8 pass; `workflow-timeouts`, `check-plugin-integrity-script-set`, `exception-message-guard`, `hook-stdin-guard`, `guard-asana-mirror` green
+- [x] `check-plugin-integrity.ps1`: 0 errors
+
 ### DEPLOY: feat/2818-asana-closed-message
 
-**Score:**
+The closed message on the Asana task is back, and it is the only part of the retired `asana-mirror`
+workflow that is. A new template, `asana-closed-message`, runs on `issues: closed` only. On a close as
+completed it posts one comment on the linked task: the automation's header, the closed line, and the
+go-live block the shipping session left on the issue. On a close as not planned or as a duplicate it
+posts nothing. It needs `ASANA_PAT` alone, moves no card and completes no task. The go-live block's
+framing sentence and the pages that said the block is pasted by hand say again that the close carries
+it. `adopt-bwj-development` copies the template into the two store repos.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+When a store's issue closes as completed, the requester's Asana task hears about it again, with the
+go-live block in it, and nobody pastes anything. To turn it on in a store, run `adopt-bwj-development`
+after the update (it copies `.github/workflows/asana-closed-message.yml` and its script) and keep the
+`ASANA_PAT` secret. A store that still has the old `asana-mirror` files should delete them, or the closed
+message is posted twice.
+
+**Score:** 4
 
 #### Pull Request
 

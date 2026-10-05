@@ -7,8 +7,9 @@ description: >-
   propose the Asana config seam for scripts/repo-config.ps1, check that the classification labels
   exist, report the board's numbered sections so the Filed section report-issue writes to can be
   found, write the BWJ extension import into CLAUDE.md, and scaffold chapter two's
-  bwj-development/SYNC-LOG.md with its masthead, ready for the first sync branch. It copies no CI
-  mechanism and needs no repo secret: the asana-mirror workflow was retired on October 5, 2026.
+  bwj-development/SYNC-LOG.md with its masthead, ready for the first sync branch. In the two store
+  repos it also copies the asana-closed-message workflow into .github/ and names the one repo secret it
+  needs, ASANA_PAT.
   Strictly additive and dry-run by default; it never overwrites an existing file, only adds the one
   import line to CLAUDE.md, and it renames nothing on the board.
   Run this right after enabling the plugin, or when report-issue reports the Asana config seam
@@ -19,8 +20,9 @@ description: >-
 
 An install writes nothing into your repo. This command places what `bwj-development` needs on your
 side, across both chapters: the config functions the skill reads, the labels, and chapter two's
-`SYNC-LOG.md` scaffold (step 7). **It no longer copies a CI workflow into `.github/`**: the asana-mirror
-mechanism was retired entirely on October 5, 2026 (Dave), and nothing replaces it.
+`SYNC-LOG.md` scaffold (step 7). **In the two store repos it copies one CI workflow into `.github/`**:
+`asana-closed-message`, the closed message on the Asana task (#2818). It is the one part of the retired
+asana-mirror mechanism that came back (Dave, October 5, 2026).
 
 ## 0 -- establish that this repo is a permitted adoption target
 
@@ -78,13 +80,29 @@ the check rather than the verdict -- so the check still runs here. It now return
 and the difference between the two runs is not the guard but the decision behind it, which is on the
 record above.
 
-## 1 -- (retired October 5, 2026) no CI mechanism to copy
+## 1 -- copy the closed message into `.github/` (the two store repos only)
 
-This step used to copy `asana-mirror.yml` and `asana-mirror.ps1` into the repo's `.github/`. The plugin
-no longer ships them (Dave, October 5, 2026), so there is nothing to copy. **A repo that adopted earlier
-still has the two files**, and the plugin no longer maintains them: report them to the maintainer, who can
-delete `.github/workflows/asana-mirror.yml` and `.github/scripts/asana-mirror.ps1`. Do not delete them
-here -- this skill only ever adds. The step keeps its number so the references to steps 2 to 7 stay valid.
+GitHub only runs a workflow from a repo's own `.github/`, so these are copied, not imported:
+
+| from this plugin | to your repo |
+|---|---|
+| `templates/asana-closed-message.yml` | `.github/workflows/asana-closed-message.yml` |
+| `templates/asana-closed-message.ps1` | `.github/scripts/asana-closed-message.ps1` |
+
+Copy them verbatim. If a file already exists at the target, **stop and diff** rather than overwriting:
+report the difference and let the maintainer decide. **Only in `smartwatchbanden` and `xoxowildhearts`**
+(#2818). The source repo and `phone-factory` adopt this plugin for ticket handling alone, and no closed
+message was asked for there.
+
+When an issue closes as completed, the workflow posts one comment on its Asana task: the automation's
+header, the closed line, and the go-live block the shipping session left on the issue. It posts nothing on
+a close as not planned or as a duplicate, never moves a card, and never completes a task. The behaviour is
+in [`WORKFLOW-portable.md`, step 4](../../WORKFLOW-portable.md#4-write-the-go-live-block-then-close-the-github-issue----the-closed-message-carries-it-into-asana).
+
+**A repo that adopted before October 5, 2026 still has `asana-mirror.yml` and `asana-mirror.ps1`**, which
+the plugin no longer maintains: report them to the maintainer, who can delete
+`.github/workflows/asana-mirror.yml` and `.github/scripts/asana-mirror.ps1`. Do not delete them here --
+this skill only ever adds -- and say that running both would post the closed message twice.
 
 ## 2 -- propose the config seam for `scripts/repo-config.ps1`
 
@@ -246,12 +264,13 @@ buys: rebuild an option and nothing breaks; **rename** one away from `Bug`, `Fea
 the write is skipped with a note rather than guessing, because an unmatched name on a board that
 reads as authoritative is worse than a blank.
 
-## 3 -- (retired October 5, 2026) no CI secret or variable to set
+## 3 -- the one repo secret: `ASANA_PAT` (the two store repos only)
 
-This step used to print the repo secrets `ASANA_PAT` and `GH_PROJECT_TOKEN` and the variable
-`ASANA_PROJECT_GID` for the CI workflow. With the workflow retired (Dave, October 5, 2026) **nothing in
-the repo's Actions settings is needed for this plugin**, and the question whether the repo has a GitHub
-Project board no longer matters to it. What is still true, and is not a repo setting:
+The closed message from step 1 needs **one** Actions secret, `ASANA_PAT`: a token that may comment on the
+board's tasks. Print it for the maintainer to set (`gh secret set ASANA_PAT --repo <owner>/<repo>`);
+this skill never sets a secret. Nothing else is needed: no `GH_PROJECT_TOKEN` and no `ASANA_PROJECT_GID`,
+which the retired asana-mirror read, because a comment addresses its task by GID alone. What is also
+true, and is not a repo setting:
 
 - `ASANA_PAT` in the **session's own environment** is what
   [`build-backlog-page`](../build-backlog-page/SKILL.md) reads the Asana tasks with. It is a personal
@@ -259,8 +278,8 @@ Project board no longer matters to it. What is still true, and is not a repo set
 - `Get-AsanaWorkspaceGid` from step 2 stays: `report-issue` reads it session-side, where it CREATES a
   task and the API does want a workspace.
 
-A repo that adopted earlier may still carry the three Actions entries. They are harmless and dead; the
-maintainer can delete them.
+A repo that adopted earlier may still carry `GH_PROJECT_TOKEN` and `ASANA_PROJECT_GID`. Both are dead now
+and the maintainer can delete them. **`ASANA_PAT` stays**, because the closed message reads it.
 
 ## 4 -- make sure the classification labels exist
 
