@@ -96,6 +96,8 @@
 .PARAMETER Language
     The language of the Asana task, which is the language of the block between the rules: 'nl' (the
     default) or 'en'. The framing sentence above the rules stays English -- it is read on GitHub.
+    Omitted, the repo's own answer is used where scripts/repo-config.ps1 defines
+    Get-GoLiveBlockLanguage (returning 'nl' or 'en'), so a store states its language once (#2830).
 
 .PARAMETER ProseFile
     A UTF-8 text file with the session's own prose for the block, under section lines '[changed]',
@@ -189,6 +191,17 @@ if (Test-Path -LiteralPath $configPath -PathType Leaf) {
     . $configPath
     Set-StrictMode -Version Latest
     $repoRoot = $resolvedRoot
+}
+
+# THE REPO MAY STATE ITS LANGUAGE ONCE (#2830). A store that writes GitHub in English otherwise had to
+# remember '-Language en' on every call, and a session running this from the skill page alone wrote a
+# Dutch block. An explicit -Language still wins; without the seam the default stays 'nl'.
+if (-not $PSBoundParameters.ContainsKey('Language') -and (Test-Path -LiteralPath 'function:Get-GoLiveBlockLanguage')) {
+    $seamLanguage = [string](Get-GoLiveBlockLanguage)
+    if (@('nl', 'en') -notcontains $seamLanguage) {
+        throw "Get-GoLiveBlockLanguage in scripts/repo-config.ps1 answers '$seamLanguage'; it must be 'nl' or 'en'."
+    }
+    $LanguageArg = $seamLanguage
 }
 
 function Invoke-Native {
