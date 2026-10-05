@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**23 / 25 minor entries** <!-- pending-tally -->
+**24 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2836-claim-tag-checkout · 20261005-142837Z
+
+A sweep's claim tag now names the checkout as well as the machine and the account:
+`machine:checkout/account`, where the checkout is the first 8 hex digits of a hash of its root path.
+Two sweeps on one machine under one account, in two checkouts or worktree lanes, now claim apart, and
+`-Candidates` no longer reads the other's claim as `mine`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+If you run more than one sweep on a machine, each one now claims under its own tag, so it can no longer
+pick up and rebuild an issue the other sweep is still working on. A claim written by an older version
+names no checkout and shows as `held`, with a note that it belongs to this machine and account. Read its
+branch, and run `claim-issue <n> -Tag -TakeOver` if the work is yours.
+
+**Score:** 3
+
+#### Pull Request
+
+A claim tag names the checkout, so two sweeps on one machine no longer read each other's claim as mine
+
+Plugins: dkj-policy
+
+[PR #2840](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2840)
+
+---
 
 ### DEPLOY: fix/2829-sync-branch-name-pr-heads · 20261005-141821Z
 
