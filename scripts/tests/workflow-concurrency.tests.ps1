@@ -130,11 +130,26 @@ Write-Host "== fold-on-merge.yml + verify-resolved.yml: a THIRD arrangement -- s
 # must not run their folds concurrently), but cancel-in-progress: false unlike it (a superseded fold is
 # the silent skip #1493 exists to close). A per-SHA group -- what these carried until #1544 -- is its own
 # group every run and serialises nothing, so two pushes minutes apart raced for the trunk.
-Assert-True ($fom -match '(?m)^\s*group:\s*fold-on-merge-\$\{\{\s*github\.ref\s*\}\}\s*$') 'fold-on-merge.yml groups on github.ref, so two trunk pushes queue rather than race'
-Assert-True ($fom -notmatch 'group:[^\r\n]*github\.sha') 'and NOT on github.sha, which would serialise nothing while this job pushes'
+# A FOLD-ONLY PUSH GETS A GROUP OF ITS OWN (#2813). cancel-in-progress: false guards only the running
+# job; a third arrival cancels the PENDING one regardless, and a skipped fold-only run surviving it
+# dropped a merge's fold and its resolves check (October 5, 2026). So the group is the shared
+# github.ref one for every push the job RUNS on, and per-commit for exactly the push its if: skips.
+# The two conditions must be the same text: drift either way puts a skipped run back in the shared
+# group (the bug) or a running one outside it (unserialised).
+function Get-FoldOnlyGroupShape([string]$Yaml, [string]$Prefix) {
+    $p = [regex]::Escape($Prefix)
+    $g = [regex]::Match($Yaml, "(?m)^\s*group:\s*\$\{\{\s*\((?<cond>[^\r\n]+?)\)\s*&&\s*format\('$p-fold-only-\{0\}',\s*github\.sha\)\s*\|\|\s*format\('$p-\{0\}',\s*github\.ref\)\s*\}\}\s*$")
+    $i = [regex]::Match($Yaml, '(?m)^\s*if:\s*\$\{\{\s*!\((?<cond>[^\r\n]+)\)\s*\}\}\s*$')
+    [pscustomobject]@{ Group = $g.Success; JobIf = $i.Success; Same = ($g.Success -and $i.Success -and $g.Groups['cond'].Value -eq $i.Groups['cond'].Value) }
+}
+$fomShape = Get-FoldOnlyGroupShape $fom 'fold-on-merge'
+$vrShape = Get-FoldOnlyGroupShape $vr 'verify-resolved'
+Assert-True $fomShape.Group 'fold-on-merge.yml groups on github.ref, and a fold-only push on its own github.sha (#1544, #2813)'
+Assert-True $fomShape.Same 'and the group''s fold-only condition is the job''s if: verbatim'
+Assert-True ($fom -like '*#2813*') 'fold-on-merge.yml cites the issue behind the fold-only group'
 Assert-True ($fom -match '(?m)^\s*cancel-in-progress:\s*false\s*$') 'cancel-in-progress: false -- a superseded fold is a dropped fold'
-Assert-True ($vr -match '(?m)^\s*group:\s*verify-resolved-\$\{\{\s*github\.ref\s*\}\}\s*$') 'verify-resolved.yml groups on github.ref too'
-Assert-True ($vr -notmatch 'group:[^\r\n]*github\.sha\s*\}\}\s*$') 'and its group is not per-commit (PUSH_SHA in the run body is a different use)'
+Assert-True $vrShape.Group 'verify-resolved.yml groups on github.ref too, with the same fold-only split'
+Assert-True $vrShape.Same 'and its fold-only condition is its job''s if: verbatim'
 Assert-True ($vr -match '(?m)^\s*cancel-in-progress:\s*false\s*$') 'cancel-in-progress: false -- a superseded verification is a dropped one'
 Assert-True ($fom -like '*#1544*') 'fold-on-merge.yml cites the issue behind the constant group'
 

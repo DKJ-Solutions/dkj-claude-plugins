@@ -143,6 +143,19 @@
 # serialises nothing. Two folds that still overlap are handled by fold-changelog-entry.ps1's own
 # push-failure diagnosis, which tells them apart rather than corrupting anything.
 #
+# cancel-in-progress: false GUARDS THE RUNNING JOB ONLY, AND THE SENTENCE ABOVE OVERSTATED IT (#2813).
+# A group holds one running and one PENDING run, and a third arrival cancels the pending one whatever
+# that field says. Between two real pushes that is harmless here -- the survivor is the newer, and
+# fold-all mode reads the tip. It loses a fold only when the survivor is a run that does nothing: a
+# fold-only push, skipped by the job's if: below. Measured, October 5, 2026: the merge of #2811
+# (1d35a59b) queued behind #2809's run, the other session's fold-only push (efb327c0) arrived four
+# seconds later, the merge's run was cancelled with zero jobs allocated, its replacement was skipped,
+# and the entry sat on the trunk until it was folded by hand. So A FOLD-ONLY PUSH GETS A GROUP OF ITS
+# OWN, keyed per commit: it is skipped either way and serialises nothing it needed, and it can no
+# longer displace the run that had work. The condition is the job's if: verbatim, and
+# workflow-concurrency.tests.ps1 holds the two equal -- if they drift, a push either skips inside the
+# shared group (the bug again) or runs outside it (unserialised).
+#
 # LINUX, UNDER PWSH 7 (issue #2488). This runner used to be windows-latest under `shell: powershell` (5.1),
 # and on a private repo a Windows minute costs $0.010 against $0.006 for Linux. It now runs on
 # ubuntu-latest under `shell: pwsh`, with one shim step that points `powershell` at pwsh, because the
@@ -160,7 +173,7 @@ on:
     branches: [main]
 
 concurrency:
-  group: fold-on-merge-${{ github.ref }}
+  group: ${{ (startsWith(github.event.head_commit.message, 'fold:') && github.event.commits[0].id == github.event.head_commit.id) && format('fold-on-merge-fold-only-{0}', github.sha) || format('fold-on-merge-{0}', github.ref) }}
   cancel-in-progress: false
 
 jobs:
