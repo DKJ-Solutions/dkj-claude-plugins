@@ -354,7 +354,10 @@ a release for a missing timestamp would be ceremony rather than a guard.
    organisation sections, and the page styling (`Get-ReleasePageTheme`). **A lens, a seam comment or a
    hand edit that restates or translates the form is drift**, and it is removed rather than followed.
    Measured October 5, 2026: two BWJ stores took their form from two such local statements, and their
-   latest notes differed in language, header labels and section shape.
+   latest notes differed in language, header labels and section shape. **Step 4's gate run holds the
+   newest note to this form** ([#2812](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2812)),
+   so drift is refused before the release-notes commit rather than found later by reading two notes side by
+   side.
 
    **The language is a per-repo content answer**, and it is the language the note's reader reads. Where
    that is not English, the drafted labels and headings are translated through `Get-ReleaseNoteWording`,
@@ -514,6 +517,20 @@ a release for a missing timestamp would be ceremony rather than a guard.
 
    **In the source repo, run its own copy instead** — `scripts/release/open-pr.ps1 -GatesOnly -NoteTreeOnly` —
    for the reason given at the top of this page.
+
+   **With `-NoteTreeOnly` the run also checks the note's form** (#2812). After the gates pass it runs
+   `check-release-note-form.ps1`, which compares the **newest** note under `Get-ReleaseNoteRoot` with
+   what the cut drafts for this repo: the title line, the header labels, and the section headings in order.
+   The expected form comes from the cut's own draft function, built from the same `Get-ReleaseNoteWording`,
+   `Get-ReleaseNoteSections` and audience tier, so the two cannot disagree. A missing audience heading is
+   fine, because the draft leaves it out too, but an added or renamed one is not. Only the newest note is
+   judged. Published notes are records and keep the form they were written with, and the newest is the one
+   being finished here and the one the next writer copies. To check another note, pass
+   `-Path <note>`:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/lint/check-release-note-form.ps1" -Path <note root>/<dir>/<X.Y.Z>.md
+   ```
 
    **`-NoteTreeOnly` is what stops this step paying for the suites twice**
    ([#2102](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2102), September 18, 2026). It asks

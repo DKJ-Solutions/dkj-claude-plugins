@@ -2036,6 +2036,108 @@ function Resolve-ReleaseNoteSections {
     return @($all | Where-Object { $given -contains $_ })
 }
 
+function Get-ReleaseNoteFormShape {
+    <#
+        Pure: the parts of a release note that make up its FORM (#2812) -- the title line's words before
+        the version, the bold header labels above the first section, and every '## ' section heading in
+        order. Returns {TitlePrefix, Labels, Headings}; TitlePrefix is $null where no '# <words> v<X.Y.Z>'
+        line was found.
+
+        FENCED CODE AND HTML COMMENTS ARE SKIPPED, because a note that quotes a heading in a code block,
+        or a hint comment that names one, is writing ABOUT the form rather than having it. Labels stop
+        being collected at the first section heading: below it a bold lead-in such as
+        '**Nothing breaks on update.**' is content, not a header label.
+    #>
+    param([AllowEmptyString()][string]$Text = '')
+    $titlePrefix = $null
+    $labels   = New-Object System.Collections.Generic.List[string]
+    $headings = New-Object System.Collections.Generic.List[string]
+    # The fence remembers its own marker, so a '~~~' line inside a '```' block does not close it.
+    $fence = ''
+    $inComment = $false
+    foreach ($raw in ($Text -split "\r?\n")) {
+        $line = $raw
+        if ($inComment) {
+            $end = $line.IndexOf('-->')
+            if ($end -lt 0) { continue }
+            $inComment = $false
+            $line = $line.Substring($end + 3)
+        }
+        if ($line -match '^ {0,3}(```|~~~)') {
+            if (-not $fence) { $fence = $Matches[1]; continue }
+            if ($Matches[1] -eq $fence) { $fence = ''; continue }
+        }
+        if ($fence) { continue }
+        # Inline code first: prose that writes `<!--` in backticks is explaining a comment, not opening one.
+        $line = [regex]::Replace($line, '`[^`]*`', '')
+        $line = [regex]::Replace($line, '<!--.*?-->', '')
+        $open = $line.IndexOf('<!--')
+        if ($open -ge 0) { $inComment = $true; $line = $line.Substring(0, $open) }
+        if ($null -eq $titlePrefix -and $line -match '^# (.+) v\d+\.\d+') { $titlePrefix = $Matches[1]; continue }
+        if ($line -match '^## (.+?)\s*$') { $headings.Add($Matches[1]); continue }
+        if ($headings.Count -eq 0 -and $line -match '^\*\*([^*]+?):\*\*') { $labels.Add($Matches[1]) }
+    }
+    return [pscustomobject]@{
+        TitlePrefix = $titlePrefix
+        Labels      = @($labels.ToArray())
+        Headings    = @($headings.ToArray())
+    }
+}
+
+function Compare-ReleaseNoteForm {
+    <#
+        Pure: how a hand-finished release note's FORM differs from the one cut-release.ps1 drafts for this
+        repo (#2812). One string per difference; an empty array means the form matches.
+
+        THE EXPECTED FORM IS DRAWN BY THE GENERATOR ITSELF, not restated here. Build-ReleaseNoteDraft is
+        called with the same Wording, Sections and AudienceTier the cut passes, and its output is read
+        with the same Get-ReleaseNoteFormShape as the note. A second list of default headings in this
+        function would be the exact drift the check exists to find, one layer down. The draft is asked in
+        task form with a placeholder item, so the audience section is present without needing a real
+        changelog entry.
+
+        THE AUDIENCE HEADING MAY BE ABSENT, because the draft itself leaves it out when no entry reached
+        the audience tier. Every other heading must be there, spelled exactly, in order, and nothing may be
+        added: the skill page states the form as "the section headings and their order", and a section a
+        writer adds by hand is a form the next writer copies.
+
+        WHAT IT DOES NOT JUDGE: the audience sentence, the items, the organisation sections' text, and the
+        title paragraph -- all content, and the repo's own.
+    #>
+    param(
+        [AllowEmptyString()][string]$Text = '',
+        [hashtable]$Wording = @{},
+        [string[]]$Sections = @('Audience', 'Value', 'Open'),
+        [int]$AudienceTier = 2
+    )
+    $draft = Build-ReleaseNoteDraft -Version '0.0.0' -Date '1970-01-01' -Type 'Minor' -Wording $Wording `
+        -AudienceTier $AudienceTier -Sections $Sections -TaskItems '- placeholder'
+    $want = Get-ReleaseNoteFormShape -Text $draft
+    $have = Get-ReleaseNoteFormShape -Text $Text
+    $findings = New-Object System.Collections.Generic.List[string]
+
+    if ($null -eq $have.TitlePrefix) {
+        $findings.Add("no title line of the form '# $($want.TitlePrefix) v<X.Y.Z>'")
+    } elseif ($have.TitlePrefix -cne $want.TitlePrefix) {
+        $findings.Add("title reads '# $($have.TitlePrefix) v...', the draft writes '# $($want.TitlePrefix) v...'")
+    }
+
+    if (($have.Labels -join "`n") -cne ($want.Labels -join "`n")) {
+        $findings.Add("header labels are '$($have.Labels -join "', '")', the draft writes '$($want.Labels -join "', '")'")
+    }
+
+    $wantAll = @($want.Headings)
+    $matched = (($have.Headings -join "`n") -ceq ($wantAll -join "`n"))
+    if (-not $matched -and ($Sections -contains 'Audience') -and $wantAll.Count -gt 0) {
+        $withoutAudience = @($wantAll | Select-Object -Skip 1)
+        $matched = (($have.Headings -join "`n") -ceq ($withoutAudience -join "`n"))
+    }
+    if (-not $matched) {
+        $findings.Add("section headings are '$($have.Headings -join "', '")', the draft writes '$($wantAll -join "', '")'")
+    }
+    return @($findings.ToArray())
+}
+
 function Build-GitHubReleaseBody {
     <#
         The body of a GitHub Release: the release title, an optional pointer at the attached document,
