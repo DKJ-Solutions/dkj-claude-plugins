@@ -60,8 +60,10 @@ the path, because the path carries a user name onto the tracker.
 
 ### TEST
 
-- [x] `claim-issue.tests.ps1`: 579 passed, 0 failed, with the new asserts for the id, the tag, the verdict
-  in both directions, the relation and the `-Candidates` reason
+- [x] review: Victor #19 (no bugs; legacy take-over test added) and Sebastian #23 (no findings)
+
+- [x] `claim-issue.tests.ps1`: 580 passed, 0 failed, with the new asserts for the id, the tag, the verdict
+  in both directions, the relation, the `-Candidates` reason and the legacy take-over
 
 ### DEPLOY: fix/2836-claim-tag-checkout
 

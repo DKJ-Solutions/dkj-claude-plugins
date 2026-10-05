@@ -63,8 +63,8 @@
     one backlog at once, the assignee cannot be the claim on either half: two checkouts under one
     account write the same name and neither can tell its own claim from the other's, and an assignee a
     colleague put on their own ticket months ago is not somebody mid-flight. So -Tag claims with a
-    MARKER COMMENT carrying 'machine/account', writes the assignee beside it as the visible signal, and
-    settles a two-session race on the tracker's own timestamps -- earliest comment wins, and only the
+    MARKER COMMENT carrying 'machine:checkout/account', writes the assignee beside it as the visible
+    signal, and settles a two-session race on the tracker's own timestamps -- earliest comment wins, and only the
     losers release. The default mode is untouched by all of it: without -Tag this script behaves
     exactly as it did, refusals and all. The lib section 'THE CLAIM TAG' carries the measurements.
 
@@ -87,7 +87,8 @@
 
 .PARAMETER Tag
     Claim by TAG rather than by assignee -- the sweep mode (issue #2243). The tag is
-    'machine/account', written as a marker comment, and it is what a second machine reads. The
+    'machine:checkout/account' -- the checkout a short hash of its root path (#2836), so two checkouts
+    on one machine claim apart -- written as a marker comment, and it is what a second session reads. The
     assignee is still written beside it, as the tracker's own visible signal rather than as the claim.
     Everything the default mode refuses on the assignee is unchanged OUTSIDE this switch: in tag mode a
     foreign assignee is a NOTE, because an issue carrying the name of the colleague who owns the ticket
@@ -410,7 +411,9 @@ if ($Tag -or $Candidates) {
             $machineName = (@($hostCapture.Output) -join '').Trim()
         }
     }
-    $claimTag = Get-ClaimTag -MachineName $machineName -Account $identity.GhAccount
+    # THE CHECKOUT IS PART OF THE TAG (#2836): two sweeps on one machine under one account, in two
+    # checkouts, otherwise write one tag and each reads the other's claim as 'mine'.
+    $claimTag = Get-ClaimTag -MachineName $machineName -Account $identity.GhAccount -Checkout $repoRoot
 
     if (-not $claimTag.Complete) {
         # REFUSED BEFORE ANY READ, because every mode below this line reasons about "mine" against
@@ -423,7 +426,7 @@ if ($Tag -or $Candidates) {
             default   { 'neither this machine nor gh could be named' }
         }
         Write-Host "[ERROR] there is no complete claim tag to work under: $missing." -ForegroundColor Red
-        Write-Host '        A tag is machine/account, and BOTH halves carry weight: the machine tells two sessions' -ForegroundColor Red
+        Write-Host '        A tag is machine:checkout/account, and BOTH halves carry weight: the machine tells two sessions' -ForegroundColor Red
         Write-Host '        under one account apart, the account tells two machines under one name apart. Half a tag' -ForegroundColor Red
         Write-Host '        reads like a claim and settles nothing.' -ForegroundColor Red
         exit 1
@@ -827,7 +830,7 @@ if ($Tag) {
             Write-Host "     $($facts.url)"
             exit 0
         }
-        $held = if (@($tagVerdict.Holders).Count -gt 0) { " -- it is held by $(Format-ForConsole -Text (@($tagVerdict.Holders) -join ', '))" } else { ' -- nobody holds it' }
+        $held = if (@($tagVerdict.Holders).Count -gt 0) { " -- it is held by $(Format-ForConsole -Text (@($tagVerdict.Holders) -join ', '))$(Format-ClaimHolderNote -Tag $claimTag.Tag -Holder @($tagVerdict.Holders)[0])" } else { ' -- nobody holds it' }
         Write-Host "[NO] #$number is NOT held by this tag ($($claimTag.Tag))$held." -ForegroundColor Yellow
         Write-Host '     Do not resume it. A branch built under another tag is another session''s work, and on this' -ForegroundColor Yellow
         Write-Host '     machine it is indistinguishable from your own once it is checked out.' -ForegroundColor Yellow
