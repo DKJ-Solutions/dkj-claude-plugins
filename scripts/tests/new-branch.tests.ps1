@@ -513,12 +513,8 @@ try {
     $fixSession = New-Fixture -Label 'z2a'
     $fixTarget  = New-Fixture -Label 'z2b'
     $laneZ2 = Join-Path ([System.IO.Path]::GetTempPath()) ("new-branch-test-$PID-z2-lane-" + [guid]::NewGuid().ToString('n'))
-    $prevEap = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = 'Continue'
-        & git -C $fixTarget remote add origin 'https://127.0.0.1:9/target.git' 2>$null | Out-Null
-        & git -C $fixTarget worktree add --detach --quiet $laneZ2 2>$null | Out-Null
-    } finally { $ErrorActionPreference = $prevEap }
+    Invoke-FixtureGitIn $fixTarget remote add origin 'https://127.0.0.1:9/target.git'
+    Invoke-FixtureGitIn $fixTarget worktree add --detach --quiet $laneZ2
     $script:fixtures += $laneZ2
     $prevPdZ2 = $env:CLAUDE_PROJECT_DIR
     try {
