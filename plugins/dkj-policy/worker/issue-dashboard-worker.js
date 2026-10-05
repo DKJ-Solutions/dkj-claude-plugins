@@ -310,6 +310,7 @@ const PARKED_BECAUSE = {
   "awaiting-decision": "waiting on the owner's decision",
   "awaiting-pull": "waiting on another issue's pull request",
   "awaiting-event": "waiting on an external event or date",
+  "awaiting-owner-act": "waiting on an act only the owner performs",
   "awaiting-first-recurrence": "waiting on a first recurrence",
   "awaiting-more-recurrences": "record: waiting on the next instance or the root cause",
   // Former names (#2683, #2723, #2741), still read because a tracker keeps a name until renamed.

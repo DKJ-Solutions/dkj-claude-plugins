@@ -1161,7 +1161,7 @@ instead of a new issue, `part of #<n>` instead of a keyword, close only on the r
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — all set at filing: `awaiting-decision` for a choice, `awaiting-pull` while another issue lands, `awaiting-event` until a date, `awaiting-first-recurrence` once only evidence is owed
+### The parking labels — all set at filing: `awaiting-decision` for a choice, `awaiting-pull` while another issue lands, `awaiting-event` until a date, `awaiting-owner-act` until Dave acts, `awaiting-first-recurrence` once only evidence is owed
 
 **All five `awaiting-*` labels, `awaiting-more-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision`
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796)); the rule is in
@@ -1189,6 +1189,12 @@ the tracker shows the long-lived ones at a glance (Dave, September 28, 2026,
 October 3, 2026, [#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757)). Both pickup routes
 skip it as they skip `awaiting-decision`, and it comes off when the blocking pull request merges. It is new,
 so no former name is matched for it.
+
+**`awaiting-owner-act` (`5319E7`) parks an issue whose decision is made and whose only remaining step is
+an act only Dave performs** — a live push, a release, a deletion the session may not run (inbound
+[#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828), October 5, 2026, from a consumer whose sweep re-read four such issues on every
+machine). Both pickup routes skip it, the issue names the act, and the label comes off once it is done.
+New, so no former name.
 
 **`awaiting-event` (`5319E7`) parks an issue that waits on an external event or date** — a launch, a third
 party's release (Dave, October 3, 2026, inbound
