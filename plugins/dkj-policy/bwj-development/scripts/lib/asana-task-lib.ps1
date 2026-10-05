@@ -142,8 +142,10 @@ function Get-AsanaPasteBlockLead {
 function Test-AsanaPasteBlockPosted {
     <#
         Has a paste-ready block already been written on this issue? Reads the issue's comments and
-        looks for the marker, or -- for a block somebody typed by hand -- the lead sentence this
-        script writes. The same two-matcher shape, and the same ordering, as the task link itself:
+        looks for the marker, or -- for a block somebody typed by hand -- the lead sentence
+        Get-AsanaPasteBlockLead returns, which WORKFLOW-portable.md publishes for exactly that case
+        (build-golive-block.ps1 writes a different framing sentence and is found by the marker). The
+        same two-matcher shape, and the same ordering, as the task link itself:
         the machine marker first and unconditionally, prose second.
 
         AN UNREADABLE ISSUE ANSWERS $true, so a run that cannot check does not comment blindly. The

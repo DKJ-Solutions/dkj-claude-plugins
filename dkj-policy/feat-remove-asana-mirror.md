@@ -52,7 +52,7 @@ Dave (Oct 5, 2026): remove the whole asana-mirror automation from the BWJ repos.
 ### TEST
 
 - [x] check-plugin-integrity: 0 errors; touched suites green
-- [ ] Review: Victor, Edith, Sebastian
+- [x] Review: Victor (one bug -- the `$bodyFile` line folded into a comment -- fixed, with a regression assert), Edith (stale prio-motor prose in the 05-05 lens, fixed), Sebastian (no findings)
 
 ### DEPLOY: feat/remove-asana-mirror
 

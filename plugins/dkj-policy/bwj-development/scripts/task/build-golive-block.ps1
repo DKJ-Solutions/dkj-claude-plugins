@@ -384,7 +384,8 @@ if ((Test-AsanaPasteBlockPosted -IssueRef $targetRef) -and -not $ForceArg) {
 # Body through a FILE, never as an inline argument -- a shell mangles embedded newlines and quoting
 # silently rather than loudly -- and not through stdin either (#2507): Windows PowerShell 5.1 encodes a
 # pipe into a native command with $OutputEncoding, ASCII there, so every accent and dash in the
-# colleague's language arrived on the issue as '?'. A UTF-8 file is read by gh byte for byte.$bodyFile = Join-Path ([System.IO.Path]::GetTempPath()) "golive-block-$PID-$([guid]::NewGuid().ToString('n')).md"
+# colleague's language arrived on the issue as '?'. A UTF-8 file is read by gh byte for byte.
+$bodyFile = Join-Path ([System.IO.Path]::GetTempPath()) "golive-block-$PID-$([guid]::NewGuid().ToString('n')).md"
 $prevEap = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 try {

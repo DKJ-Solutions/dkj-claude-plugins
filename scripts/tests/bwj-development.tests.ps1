@@ -402,10 +402,10 @@ $goLiveBlock = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef 
     -Changed @('Er is een SEO-intro per collectie.') -WhereToLook @('Kijk onder de titel.') -NotIncluded @('Geen A/B-test.')
 
 # ONE SPELLING OF THE MARKER, and this is the assert that holds it: the driver reads
-# Get-AsanaPasteBlockMarker and hands it to a lib that hard-codes nothing, so the CI backstop's
-# de-duplication cannot start posting a duplicate under a block this route already wrote.
-Assert-True ($goLiveBlock.Contains((Get-AsanaPasteBlockMarker))) 'the block carries the marker the backstop de-duplicates on'
-Assert-True ($goLiveBlock -notmatch '\[ADD LINK\]') 'it never writes the backstop placeholder -- this route knows the link'
+# Get-AsanaPasteBlockMarker and hands it to a lib that hard-codes nothing, so the duplicate check
+# (Test-AsanaPasteBlockPosted) cannot miss a block this route already wrote.
+Assert-True ($goLiveBlock.Contains((Get-AsanaPasteBlockMarker))) 'the block carries the marker the duplicate check matches on'
+Assert-True ($goLiveBlock -notmatch '\[ADD LINK\]') 'it never writes a placeholder -- this route knows the link'
 Assert-True ($goLiveBlock.Contains('Het staat gepland voor de release van')) 'the release fact is worded as a plan'
 Assert-True ($goLiveBlock.Contains('als versie v1.4.0.')) 'it names the version it is on course for'
 Assert-True ($goLiveBlock.Contains("NL $glDash https://example.invalid/nl/p")) 'one live URL per market, labelled by market'
@@ -524,6 +524,10 @@ Assert-True ($goLiveDriver.IndexOf('Test-PrivateResultLink -Link') -lt $goLiveDr
 # native command as ASCII, which posted every accent and dash of the colleague's language as '?'.
 Assert-True ($goLiveDriver -notmatch '\|\s*&?\s*gh issue comment') 'the driver never pipes the block into gh'
 Assert-True ($goLiveDriver -match 'gh issue comment \$issueNumber --repo \$StoreRepo --body-file \$bodyFile') 'it posts from the UTF-8 body file'
+# AND THAT FILE IS ACTUALLY ASSIGNED, on a line of its own. The asana-mirror retirement once folded the
+# assignment into the comment above it, which left -Post dying on an unset variable under StrictMode while
+# every assert here stayed green -- nothing in this suite runs -Post.
+Assert-True ($goLiveDriver -match '(?m)^\$bodyFile = Join-Path') 'the body file is assigned on its own line, not inside a comment'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
 # to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path
