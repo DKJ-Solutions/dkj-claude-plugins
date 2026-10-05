@@ -165,6 +165,15 @@ foreach ($drv in @(@{ Name = 'live-preflight'; Src = $pfSrc }, @{ Name = 'prepar
     Assert-True ($drv.Src -notmatch 'push cannot (remove|carry)') "$($drv.Name) no longer claims a push cannot remove a file (#2641)"
 }
 
+# THE LIVE THEME'S ROLE HAS TWO SPELLINGS, and every reader of it accepts both (#2798). Shopify CLI 4.8.x
+# reports 'live'; a 'main'-only compare in step 5 left the id/role refusal unable to fire. Asserted on the
+# source because the preflight needs a store to run, and across every reader so none drifts back alone.
+Assert-True ($pfSrc -match "\`$byRole = [^\r\n]*@\('live', 'main'\) -contains") "live-preflight's role check accepts both 'live' and 'main'"
+foreach ($reader in @('scripts\task\live-preflight.ps1', 'scripts\lib\theme-lifecycle-rules.ps1', 'scripts\lib\theme-archive-rules.ps1')) {
+    $mainOnly = @((Get-Content -LiteralPath (Join-Path $RepoRoot $reader)) | Where-Object { $_ -match "-eq 'main'" -and $_ -notmatch "'live'" })
+    Assert-Equal 0 $mainOnly.Count "$reader has no role compare that accepts 'main' without 'live'"
+}
+
 # THE PREFLIGHT COMPOSES THE DELETION AS ITS OWN COMMAND, drift-checked on its own (#2641). Asserted on the
 # source for the reason above: the driver needs git, the CLI and a store to run.
 Assert-True ($pfSrc -match '\$deleteCommand = Format-LivePushCommand [^\r\n]*-Only \$deleteFiles') 'live-preflight composes the deletion command from the deleted paths'
