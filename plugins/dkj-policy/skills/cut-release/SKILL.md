@@ -345,6 +345,21 @@ a release for a missing timestamp would be ceremony rather than a guard.
    those paths is held. Everything left out of a task-form or entries-form section is named, and why, in
    a `<!-- LEFT OUT ... -->` comment — see the live-push record below.
 
+   **The note's FORM is this plugin's, and one seam changes it**
+   ([#2802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2802)). The form is what
+   `cut-release.ps1` drafts: the title line, the `Date` / `Type` / `For whom` labels, and the section
+   headings and their order. A repo that needs any of it to read differently answers
+   `Get-ReleaseNoteWording` in `scripts/repo-config.ps1`, which is merged over the defaults one key at a
+   time. That is the only route. A repo's own content is the audience sentence, the items, the two
+   organisation sections, and the page styling (`Get-ReleasePageTheme`). **A lens, a seam comment or a
+   hand edit that restates or translates the form is drift**, and it is removed rather than followed.
+   Measured October 5, 2026: two BWJ stores took their form from two such local statements, and their
+   latest notes differed in language, header labels and section shape.
+
+   **The language is a per-repo content answer**, and it is the language the note's reader reads. Where
+   that is not English, the drafted labels and headings are translated through `Get-ReleaseNoteWording`,
+   once, so every later draft arrives in that language. They are never retyped in each note.
+
    **Which of the three the draft carries is the repo's answer, not a fixed three** (inbound #2564).
    `Get-ReleaseNoteSections` names them — `Audience`, `Value`, `Open` — and a section left out is left out
    whole, heading and hint; absent, it means all three. So work through the rows **the draft actually

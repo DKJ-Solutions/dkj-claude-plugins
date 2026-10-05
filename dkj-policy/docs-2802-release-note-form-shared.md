@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Inbound [#2802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2802), four asks. Verified first:
+`Build-ReleaseNote` merges `Get-ReleaseNoteWording` over its defaults key by key (title, `For whom`, the section
+headings), so a repo can already rename the form. The rule therefore names that seam as the one route,
+rather than forbidding any change. Item 2 (language) is answered as a per-repo content answer, translated
+once through the same seam. Item 3 is proposed in `adopt-bwj-development`. Item 4, the optional check, is
+split to #2812, because published notes keep their old form and the check needs a cutoff it cannot infer.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release` skill, step 2: the form is the plugin's, `Get-ReleaseNoteWording` is the one route, a lens restating it is drift, and the language is a per-repo content answer
+- [x] `adopt-bwj-development`, step 2: propose `Get-ReleaseNoteTaskLink` in both store repos
+- [x] Item 4 filed as #2812
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1`: 0 errors
+
 ### DEPLOY: docs/2802-release-note-form-shared
 
-**Score:**
+The `cut-release` skill now says whose the audience release note's form is. The title line, the `Date` /
+`Type` / `For whom` labels and the section headings are what the cut drafts, and `Get-ReleaseNoteWording`
+is the only route to change them. A lens or comment that restates or translates them is drift. The note's
+language is a per-repo content answer, translated once through that seam. `adopt-bwj-development` now
+proposes `Get-ReleaseNoteTaskLink` to both stores, so their drafts arrive as solved tasks.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store writes its release note in the plugin's form, not in one a local page invented. To use other
+labels or another language, answer `Get-ReleaseNoteWording` once and drop the lens section or comment that
+restated the form. The BWJ stores are offered the task form of the note at adoption, so the cut drafts
+which Asana tasks were solved and nobody rewrites the entries by hand.
+
+**Score:** 3
 
 #### Pull Request
 
