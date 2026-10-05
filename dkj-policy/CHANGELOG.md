@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**13 / 15 minor entries** <!-- pending-tally -->
+**14 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2813-fold-only-own-group · 20261005-095833Z
+
+`fold-on-merge.yml` and `verify-resolved.yml` put a fold-only push in a concurrency group of its own,
+keyed per commit, so it can no longer cancel a merge's pending run and leave the fold and the resolves
+check undone (#2813). `cancel-in-progress: false` only ever protected the *running* job; a third arrival
+drops the pending one regardless, and a skipped fold-only run was the worst possible survivor. Measured
+October 5, 2026: the merge of #2811 lost both its fold and its resolves check this way.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo whose CI floor was placed by `adopt-ci-floor` keeps the old group lines: re-running it leaves an
+existing runner as it is. There, two sessions shipping seconds apart can still leave an entry unfolded
+on the trunk and a merge's closing keywords unverified. To take the fix, copy the new `group:` line
+into `.github/workflows/fold-on-merge.yml` and `verify-resolved.yml`, or delete both files and re-run
+`adopt-ci-floor -Apply`, which places them fresh.
+
+**Score:** 2
+
+#### Pull Request
+
+A fold-only push no longer displaces a pending merge run in fold-on-merge and verify-resolved
+
+Plugins: dkj-policy
+
+[PR #2819](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2819)
+
+---
 
 ### DEPLOY: docs/2802-release-note-form-shared · 20261005-094845Z
 
