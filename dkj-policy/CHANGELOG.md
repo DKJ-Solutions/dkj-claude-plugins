@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**15 / 17 minor entries** <!-- pending-tally -->
+**16 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2816-runner-group-verdict · 20261005-102208Z
+
+`adopt-ci-floor` now reports a `[group]` advisory when an existing `fold-on-merge.yml` or
+`verify-resolved.yml` still carries the single `github.ref`-keyed concurrency group #2813 replaced,
+beside the `[pin]` line it already printed. The scaffolder still never rewrites a placed runner, so
+this re-run is the one moment that shape gets noticed (#2816).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer re-running `adopt-ci-floor` is told, file by file, whether its fold and resolves runners
+still carry the concurrency group that can cancel a merge's pending run, and how to fix it: replace
+the `group:` line, or delete the file and re-run with `-Apply`.
+
+**Score:** 2
+
+#### Pull Request
+
+adopt-ci-floor says when an existing fold or resolves runner still carries the concurrency group #2813 replaced
+
+Plugins: dkj-policy
+
+[PR #2822](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2822)
+
+---
 
 ### DEPLOY: fix/2815-plugin-tree-separator · 20261005-100955Z
 
