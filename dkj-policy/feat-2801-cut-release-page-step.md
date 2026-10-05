@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Inbound [#2801](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2801), verified: `cut-release.ps1`'s
+closing block names the GitHub Release and the hand-written documents, and nothing for the release-notes page,
+and the skill's Block 1 has no step for it. The consumer's own publish script is not shipped upstream:
+`build-release-notes-page.ps1 -Worker` already prints the deploy and the byte check, and the deploy stays a
+command a person runs.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release.ps1` prints the page step after the GitHub Release line where `Get-ReleasePageWorkerName` is answered (both copies)
+- [x] `cut-release` skill: step 5b, after the GitHub Release
+- [x] Static asserts in `cut-release-guardrail.tests.ps1`
 
 ### TEST
 
+- [x] `cut-release-guardrail.tests.ps1`: 120 pass
+
 ### DEPLOY: feat/2801-cut-release-page-step
 
-**Score:**
+`cut-release` now names the release-notes page as a step. Where a repo answers `Get-ReleasePageWorkerName`,
+the cut's closing block prints the `build-release-notes-page.ps1 -Worker` command after the GitHub Release
+line, with the instruction to verify the bytes the URL serves. The `cut-release` skill carries it as step 5b.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that publishes a release-notes page is told to rebuild and redeploy it at every cut. Before, nothing
+named the step, so the page could stay on the previous release until somebody asked.
+
+**Score:** 3
 
 #### Pull Request
 
