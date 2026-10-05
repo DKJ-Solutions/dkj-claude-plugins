@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound #2824: the connector register entries for both BWJ store repos still name the BWJ extension
+by its retired id `dkj-policy-bwj`, renamed to `bwj-development` in #2788. Verified before building:
+both consumers' `main` enable `bwj-development@dkj-claude-plugins` (smartwatchbanden at `f380241`,
+xoxowildhearts at `37c4140`, both 2026-10-05), and the marketplace ships only `bwj-development`. The
+report's inferred `phone-factory.json` does not exist in `connectors/`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace the fifth plugin id in `connectors/smartwatchbanden.json` and `connectors/xoxowildhearts.json`
+- [x] Append a dated, measured note to each record's `notes`, older sentences left as written (#952)
 
 ### TEST
 
+- [x] Both files parse as JSON
+- [x] `check-connectors.ps1`: 0 errors, no `[UNLISTED]` line for either store; the four `[INFO]` lines are #2333's and predate this branch
+
 ### DEPLOY: fix/2824-register-bwj-development
 
-**Score:**
+The connector register now names the BWJ extension by its current id, `bwj-development`, in the
+entries for both BWJ store repos. Both entries still listed `dkj-policy-bwj` after the rename in #2788,
+so `check-connectors` read the plugin both stores really enable as unlisted.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In smartwatchbanden and xoxowildhearts, `connector-sessioncheck` stops reporting
+`bwj-development@dkj-claude-plugins` as a plugin the register does not list, once the marketplace
+clone is updated.
+
+**Score:** 2
 
 #### Pull Request
 
