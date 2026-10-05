@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Issue #2815: `Get-PluginRoots` built its containment check with a hard-coded `\`, so under pwsh on Linux
+every local plugin read as outside the repo. Verified in the code before repairing: lines 196-197 and
+254-260 of `scripts/lib/plugin-tree-lib.ps1`. `RelativeRoot` keeps its `\`-separated logical form,
+because `Get-PluginNameForPath` and `release-lib.tests.ps1` both depend on it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Containment check uses `DirectorySeparatorChar` and trims both separators; `ManifestPath` built
+  with nested `Join-Path`; `RelativeRoot` normalised to `\` -- source lib and its `dkj-policy` mirror
+- [x] A fold-changelog block that declares a local plugin, the first on the Linux leg to do so
 
 ### TEST
 
+- [x] Windows PowerShell 5.1: the new fixture and this repo's own seven roots resolve exactly as before
+- [x] Linux: proved by the `linux-runner-path` leg of the required check, which runs `fold-changelog`
+
 ### DEPLOY: fix/2815-plugin-tree-separator
 
-**Score:**
+The plugin-root lookup now works under pwsh on Linux. Its containment check had hard-coded the Windows
+separator, so on the Linux fold runner every local plugin in `marketplace.json` was refused as "points
+outside the repo" and fold-on-merge went red (run 37289296605). A new `fold-changelog` block declares a
+local plugin, so the Linux leg of CI now exercises this path.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer whose own `marketplace.json` declares local plugins would have seen the same red
+fold-on-merge on any merge the runner resolves to a pull request, because the CI-floor runners execute on Linux. That
+failure is now prevented. It had not yet been reported in a consumer.
+
+**Score:** 1
 
 #### Pull Request
 
