@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**21 / 23 minor entries** <!-- pending-tally -->
+**22 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2830-golive-language-seam · 20261005-140547Z
+
+`build-golive-block` now reads an optional `Get-GoLiveBlockLanguage` seam from `scripts/repo-config.ps1`
+when `-Language` is not passed. An explicit `-Language` still wins, an answer other than `nl` or `en` is
+refused, and without the seam the default stays `nl`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store that writes GitHub in English can state that once: add
+`function Get-GoLiveBlockLanguage { 'en' }` to `scripts/repo-config.ps1`, and every go-live block is
+English without remembering `-Language en` on each call.
+
+**Score:** 2
+
+#### Pull Request
+
+build-golive-block reads its language from an optional repo seam
+
+Plugins: bwj-development
+
+[PR #2837](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2837)
+
+---
 
 ### DEPLOY: feat/2828-awaiting-owner-act-label · 20261005-135738Z
 
