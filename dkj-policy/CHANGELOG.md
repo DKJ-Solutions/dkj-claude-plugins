@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**17 / 19 minor entries** <!-- pending-tally -->
+**18 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2824-register-bwj-development · 20261005-104352Z
+
+The connector register now names the BWJ extension by its current id, `bwj-development`, in the
+entries for both BWJ store repos. Both entries still listed `dkj-policy-bwj` after the rename in #2788,
+so `check-connectors` read the plugin both stores really enable as unlisted.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In smartwatchbanden and xoxowildhearts, `connector-sessioncheck` stops reporting
+`bwj-development@dkj-claude-plugins` as a plugin the register does not list, once the marketplace
+clone is updated.
+
+**Score:** 2
+
+#### Pull Request
+
+Connector register: follow the dkj-policy-bwj rename to bwj-development
+
+[PR #2826](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2826)
+
+---
 
 ### DEPLOY: feat/2818-asana-closed-message · 20261005-103226Z
 
