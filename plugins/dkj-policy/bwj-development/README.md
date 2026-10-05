@@ -35,8 +35,8 @@ questions for different readers, and each of the last three was added later -- t
 [#1965](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1965). Shipping several portable
 pages is the established form here -- `dkj-policy` carries three.
 
-**The chapters are policy, never mechanism.** The Asana CI and the sync machinery both live
-elsewhere (`.github/` in each repo, and `dkj-subagents-shopify` respectively); what this plugin states is what
+**The chapters are policy, never mechanism.** The sync machinery lives
+elsewhere (`dkj-subagents-shopify`); what this plugin states is what
 the two repos *owe*, which is Dave's house rule for them rather than a fact about Asana or Shopify.
 
 **Beside the chapters, it now also ships mechanism the two stores share** -- see
@@ -101,58 +101,18 @@ detail, the normal `dkj-subagents-alpha` filing bar unchanged. It is **classifie
 or a `feature` label, plus the reach label where management and the commissioner would notice
 it, both set at creation so nobody has to classify a tracker by hand a second time. It is then
 **mirrored to Asana** as a colleague-friendly variant: plain language, outcome-framed, no code or
-repo jargon, so any BWJ colleague can read it. The two are **cross-linked both ways**. When the
-**GitHub issue is closed, the Asana task gets its closed message**, carrying the go-live block the session left on the issue (#2700)
--- by a small GitHub Actions workflow this plugin ships as a template for each repo to copy into its
-own `.github/`. Reopening the issue posts a comment saying the task is back in development. All three
-comments, the third being the one `report-issue` posts when it makes an issue from an existing task,
-use a fixed form per event (#2656). A daily
-reconciliation sweep carries over anything a missed event left behind, without ever saying the same
-thing twice.
+repo jargon, so any BWJ colleague can read it. The two are **cross-linked both ways**, and the task
+lands in the board's `Filed` section.
 
-And that same daily run carries exactly one thing the other way: the Asana task's **`Prio-Score`**
-becomes one of four prio labels on the GitHub issue (`prio-4` / `prio-3` / `prio-2` / `prio-1`), so
-the priority the business sets on the board is readable where the work actually happens. It is the
-only step that moves Asana -> GitHub, and the only thing this plugin writes outside Asana.
-
-**It never ticks the task off, and it has no code path that could** (Dave, September 1, 2026): closing
-the issue says the work is *built*, and only the colleague who asked for it can say it is *good*.
-**A ticket that came the other way -- filed in Asana and copied into an issue for analysis -- is
-covered too:** the workflow reads the Asana link in such an issue's header row when it carries no
-machine marker of its own.
-
-**And the card moves with it.** The board's sections **are** the cycle, in order, from *a colleague put
-this on your name* to *tested and good*. Two questions, deliberately kept apart: a section is
-recognised by the **number its name starts with**, so the words after it belong to the team and can be
-rewritten any day; what each number **means** is stated once by the repo, in `Get-AsanaStageMap`. A
-board whose sections are not numbered is never written to, and a column the map does not name is left
-alone rather than guessed at.
-
-**The three middle stages are the GitHub Project's three statuses, and always in sync with them** --
-`Todo` / `In Progress` / `Done` are *filed* / *being built* / *closed*, read off the project board
-rather than re-derived from the issue, because GitHub's own project workflows already write that field
-and deriving it twice made two writers of one fact. `Get-GithubStatusMap` is where a repo states it.
-
-**A board is not required, and a repo without one says so** -- an empty `FieldName` in that same map,
-and the three stages come off the issue instead (closed / a pull request linked / neither). That is the
-declaration the seam could not express until inbound #1536, which is what made its absence silent: the
-missing floor also switched off *ready to test* below, so closing an issue told the submitter the work
-was ready and left their card where it stood.
-
-**The stage past those is reached by FEEDBACK, not by a column:** a card moves to *ready to test* once
-the submitter has actually been told, which is the workflow's own close update -- and where a ticket
-has no submitter that stage is skipped entirely, because there is nobody to hand it to.
-
-The two ends stay the submitter's -- their untriaged inbox at one end and `Completed` at the other --
-and the code permits the middle and nothing else, which is the same guarantee as *"it never ticks the
-task off"* in the board's own currency. **And the last two sections are terminal**: once a card is in
-*ready to test* or `Completed`, nothing here takes it back out, not even a reopen. Moves are otherwise
-forward, with exactly two exceptions that are both a person saying something: the `awaiting-more-info` label
-(`needs-info` until [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723), October 2, 2026),
-which blocks a card whatever the board is doing, and an issue being reopened. Dave, September 2, 2026, closing
-[#1222](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1222); **there is exactly one such
-board**, which is what makes the *"which board?"* question inbound
-[#1217](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1217) ran into moot.
+**Nothing connects the two afterwards, and that is the decision** (Dave, October 5, 2026): the
+asana-mirror CI automation -- the close and reopen comments on the task, the moving of the card through
+the board's numbered sections, the daily reconciliation sweep, the `Prio-Score` to prio-label sync and
+the backstop comment -- is **retired entirely**, and nothing replaces it. Closing the GitHub issue tells
+Asana nothing, and a card stays in `Filed` unless a person moves it. The go-live block stays on the
+GitHub issue only and is pasted into the Asana task by hand where the task needs it. What still runs is
+the gate on the create-task call, `hooks/guard-asana-mirror.ps1`: it is not part of the retired CI.
+**The task is still never ticked off by this plugin** (Dave, September 1, 2026): only the colleague who
+asked for it can say it is *good*.
 
 **And a ticket that arrives the other way -- filed in Asana as a request -- has one form in both
 stores**: the Asana assignee decides whose ticket it is, and a seven-row header, a closed `State`
@@ -224,8 +184,7 @@ all, and when the PR may open, both still the consumer's and `dkj-policy`'s.
 | [`scripts/`](scripts/) | the mechanism both stores share, to **dot-source** from the plugin cache rather than copy -- see [What this plugin owns](#what-this-plugin-owns) |
 | [`worker/`](worker/) | the one Cloudflare Worker both stores publish through, as source -- deployed once, never copied into a repo, and carrying no page content of its own |
 | [`skills/`](skills/) | the skills a specialist invokes |
-| [`templates/`](templates/) | the CI mechanism to **copy** into each repo's `.github/` -- GitHub only runs workflows from a repo's own `.github/`, so what ships here is the reference to copy and diff against, the same pattern as `dkj-policy/templates/pull_request_template.md` |
-| [`hooks/`](hooks/) | one PreToolUse hook, `guard-asana-mirror.ps1`: it refuses an Asana task that mirrors a GitHub issue without the reach label, which is the one chapter-one rule a session was measured forgetting ([#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)) |
+| [`hooks/`](hooks/) | one PreToolUse hook, `guard-asana-mirror.ps1`: it refuses an Asana create-task call for a task that cites a GitHub issue without the reach label, which is the one chapter-one rule a session was measured forgetting ([#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)) |
 
 **No `subagents/`, no `manuals/`, no `blueprint/`.** Agents and manuals belong to a team. A workflow
 carries hooks and a blueprint "only where it needs them". This one needed a hook once a prose rule was
@@ -344,8 +303,8 @@ matched, so the sibling check could see the pair only as `ALIASED`
 
 | skill | when |
 |---|---|
-| [`report-issue`](skills/report-issue/SKILL.md) | a real issue has been found in a BWJ store repo -- files it on GitHub with its type and reach label, mirrors it to Asana as the colleague-facing variant, and writes the cross-links |
-| [`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md) | one-time setup in a store repo -- copies the CI mechanism into `.github/`, proposes the Asana config seam, and prints the secret/variable setup |
+| [`report-issue`](skills/report-issue/SKILL.md) | a real issue has been found in a BWJ store repo -- files it on GitHub with its type and reach label, mirrors it to Asana (in `Filed`) as the colleague-facing variant, and writes the cross-links |
+| [`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md) | one-time setup in a store repo -- proposes the Asana config seam, checks the classification labels and scaffolds the sync log |
 | [`build-backlog-page`](skills/build-backlog-page/SKILL.md) | the minor-backlog page needs refreshing -- reads the open, reach-labelled issues and shows each one's mirrored Asana task text, never the issue's own |
 | [`publish-page`](skills/publish-page/SKILL.md) | a built page has to reach somebody outside the development work -- publishes it to the one worker both stores share, at an unguessable path, and verifies by reading the bytes back |
 | [`golive-block`](skills/golive-block/SKILL.md) | the work is shipped and the issue is about to close -- writes the paste-ready block with its go-live half: where the result can be seen, the next release day, and the live URL per market |
@@ -367,33 +326,20 @@ Both chapters answer themselves out of your repo-owned `scripts/repo-config.ps1`
   that file as commented guidance.
 
 **Chapter one needs the Asana answers**, a set of functions in that same file. The `report-issue`
-skill needs to know which workspace and project a mirrored task lands in, and the CI mechanism needs
-the project:
+skill needs to know which workspace and project a mirrored task lands in:
 
 - `Get-AsanaWorkspaceGid` -- the Asana workspace GID.
-- `Get-AsanaStageMap` -- which numbered section of the board each stage of the cycle is, plus the
-  label that drives the blocked column. **Optional**: leave it out and the built-in map is used, which
-  is right only if your board happens to be numbered the same way, and the run says which map it read.
-  Semantic keys rather than GIDs, so a rebuilt column costs nothing.
-- `Get-GithubStatusMap` -- which **GitHub Project status** each of the three middle stages is, keyed on
-  the project board's own column names, plus `SubmitterPattern`: the regex over an Asana task's notes
-  that names who asked for it. It is also where a repo with **no board** says so, by naming no field at
-  all; the stages then come off the issue and no `GH_PROJECT_TOKEN` is needed. **Also optional**, with
-  one consequence worth knowing: leave the pattern
-  out and *ready to test* is never entered automatically, so every closed ticket waits a column short
-  for a person. That is the fail-safe default rather than a fault -- a card pushed into the submitter's
-  column claims a handover that never happened -- but it is silent, so it is worth stating deliberately.
 - `Get-AsanaProjectGid` -- the project a mirrored task is created in, and it has exactly one correct
-  value: **the board the team reads**. Two independent constraints land on the same answer. `Prio-Score`
-  only reaches a task once it has been added to that task's project via the project's own
-  `custom_field_settings` -- sitting in the board's workspace is not enough to guarantee that -- so a
-  project that does not carry the field makes the prio labels of
-  [step 5](WORKFLOW-portable.md#5-the-asana-prio-score-comes-back-as-a-github-label) reach only the
-  tickets imported from the board; and the stages of
-  [step 6](WORKFLOW-portable.md#6-the-boards-sections-are-the-cycle----one-card-one-column-per-stage)
-  live on
-  that board's sections, so a task filed anywhere else is on no pipeline and never moves a column.
-  Neither failure says anything in a log.
+  value: **the board the team reads**, because a task created anywhere else is on no board a colleague
+  looks at.
+- `Get-AsanaStageMap` -- which numbered section of the board each stage is. **Still read, for one
+  thing:** `report-issue` uses it to find the `Filed` section a new card lands in. The other stages are
+  only the board's sections a person moves cards through; nothing moves them automatically any more.
+  **Optional**: leave it out and the built-in map is used, which is right only if your board happens to
+  be numbered the same way.
+- **Retired with the CI mirror (Dave, October 5, 2026):** `Get-GithubStatusMap` (with its
+  `SubmitterPattern`) was read only by the mirror's stage sweep. Nothing reads it any more; a repo that
+  still answers it can delete the answer.
 - `Get-AsanaIssueFieldGid` and `Get-AsanaTypeFieldGid` -- the GIDs of the board's `Github Issue` and
   `Github Type` custom fields, so a mirrored task carries the issue URL and its kind (from the `bug` or `feature` label) from the
   moment it is created rather than waiting for somebody to type them in. **Both optional**, and
@@ -423,9 +369,8 @@ the project:
   gets.
 
 `adopt-bwj-development` **proposes** these, it never places them: they state what your repo *is*, and the
-project may differ per brand. The CI half reads the project from the repo variable
-`ASANA_PROJECT_GID` and its token from the secret `ASANA_PAT` -- it addresses every task by GID, so
-it needs no workspace of its own.
+project may differ per brand. There is no CI half any more: nothing runs in `.github/`, so no repo
+secret or variable is needed for the mirror.
 
 **And the mechanism under [What this plugin owns](#what-this-plugin-owns) needs one answer of its own**,
 in that same file. It belongs to no chapter, because a chapter is policy and this is the data half of a
@@ -465,5 +410,5 @@ sync after it prepends. See [`SYNC-LOG-portable.md`](SYNC-LOG-portable.md#where-
 why scaffolding it unconditionally at adopt time is what removes the old ambiguity rather than
 reintroducing it.
 
-Disabling the plugin removes nothing it already wrote to your repo -- the CI workflow, the config and
-the sync log stay; the skills and the pages that explain them stop.
+Disabling the plugin removes nothing it already wrote to your repo -- the config and
+the sync log stay (and so does any `asana-mirror` workflow an earlier adopt copied into `.github/`: the plugin no longer ships it, and a repo that still has the two files can delete them); the skills and the pages that explain them stop.

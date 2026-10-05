@@ -27,6 +27,13 @@ resolves each one's mirrored Asana task from the marker `report-issue` already w
 title and body -- into `minor-backlog.html` in the page directory `publish-page.ps1` already derives
 from `Get-ReleaseNoteRoot` (`<note root>/../page`).
 
+The marker matching and the task read come from the plugin's own
+[`scripts/lib/asana-task-lib.ps1`](../../scripts/lib/asana-task-lib.ps1) (`Resolve-AsanaTaskRef`,
+`Get-AsanaTaskState`), which used to be borrowed from the `asana-mirror` template and is now this
+plugin's own after that workflow was retired on October 5, 2026 (Dave). **Nothing keeps the Asana task
+in step with its issue any more**, so a task Asana shows as completed or a card nobody moved is a person's
+state, read as it stands.
+
 ## Whose text renders, and why this is not a re-parse of report-issue's skeleton
 
 Decided on the issue before this was written (Dave, September 14, 2026): the page shows the **Asana
@@ -96,8 +103,8 @@ rendered page entirely (`Number` exists in the resolved entry only to sort by; i
 
 ## A failed issue listing throws -- it does not fall back to an empty page
 
-`asana-mirror.ps1`'s own `Get-OpenIssues` returns nothing on a `gh` failure, correctly: it drives a
-best-effort CI sweep where a skipped run costs nothing. This script produces the one artifact a
+The retired `asana-mirror.ps1`'s own `Get-OpenIssues` returned nothing on a `gh` failure, correctly: it
+drove a best-effort CI sweep where a skipped run cost nothing. This script produces the one artifact a
 colleague reads, and a silently empty page from a broken `gh issue list` would read as **"nothing
 outstanding"** -- the one wrong answer this script must never give by accident. So a failed listing
 stops the run instead.

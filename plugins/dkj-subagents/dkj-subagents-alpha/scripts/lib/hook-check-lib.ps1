@@ -254,9 +254,8 @@ function Select-CheckMarkerLine {
         connector-sessioncheck's engine branch runs BEFORE this lib is dot-sourced, because that
         dot-source sits inside the branch that has a source checkout and moving it up was measured to
         take out three of that hook's engine-branch test cases. So that block writes the anchor out by
-        hand and says so at the line. Same shape as asana-mirror.ps1's standalone copy of the
-        foreign-text strip: a file that cannot reach the lib carries the rule, and the lib stays the
-        place the rule is argued.
+        hand and says so at the line: a file that cannot reach the lib carries the rule, and the lib
+        stays the place the rule is argued.
 
         ANCHORED TO '^\s*', NOT TO '^'. Continuation and roll-up lines are legitimately indented, and
         the callers Trim() before printing; the leading whitespace is the check's own layout rather

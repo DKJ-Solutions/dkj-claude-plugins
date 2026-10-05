@@ -1469,11 +1469,11 @@ function Get-PsScriptFiles {
     # lines. So checks 5 (parse), 27 (script-ascii), 33 (shopify-cli), 36 (section-number) and 42b
     # (exec-policy/script) had each been silent about it since the day it was written.
     #
-    # WHY THAT FILE IS NOT AN INERT TEMPLATE, which is the reading its directory invites and the reason
-    # this was worth inverting rather than exempting. adopt-bwj-development COPIES it into a BWJ store repo as
-    # .github/scripts/asana-mirror.ps1, driven by .github/workflows/asana-mirror.yml, where it runs in that
-    # consumer's CI holding `issues: write`. A parse error in it reaches them and not us, which is check
-    # 5's own argument for existing, one directory over from where it was looking.
+    # WHY THAT FILE WAS NOT AN INERT TEMPLATE, which is the reading its directory invited and the reason
+    # this was worth inverting rather than exempting. adopt-bwj-development COPIED it into a BWJ store repo
+    # as .github/scripts/asana-mirror.ps1, where it ran in that consumer's CI holding `issues: write`, so a
+    # parse error in it reached them and not us. The file was retired with its workflow on October 5,
+    # 2026; the inversion stays, because the argument below is about the next subtree, not that file.
     #
     # INVERTED RATHER THAN EXTENDED BY ONE NAME, and the choice is measured rather than reasoned about:
     # TODAY THE TWO FORMS PRODUCE THE IDENTICAL SET. Every tracked .ps1 under plugins/ sits in skills/,

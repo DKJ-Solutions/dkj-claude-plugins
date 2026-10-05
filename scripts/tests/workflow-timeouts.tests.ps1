@@ -181,20 +181,11 @@ foreach ($rel in $scaffolders) {
     }
 }
 
-# THE BWJ MIRROR IS A REAL FILE RATHER THAN A COMPOSED ONE -- adopt-bwj-development copies it into a
-# consumer's .github/ verbatim -- so it is parsed the same way this repo's own workflows are. It is
-# outside .github/workflows/ and would otherwise be reached by nothing above.
+# THE BWJ ASANA-MIRROR WORKFLOW TEMPLATE IS RETIRED (Dave, October 5, 2026). It was a real file outside
+# .github/workflows/ that adopt-bwj-development copied into a consumer, parsed here for the same cap.
+# Pinned as absent so a stray re-add of a workflow template is noticed rather than slipping past.
 $asanaMirror = Join-Path $repoRoot 'plugins\dkj-policy\bwj-development\templates\asana-mirror.yml'
-Assert-True (Test-Path -LiteralPath $asanaMirror) 'the asana-mirror template exists'
-if (Test-Path -LiteralPath $asanaMirror) {
-    foreach ($job in (Get-WorkflowJobTimeouts -Path $asanaMirror)) {
-        Assert-True ($null -ne $job.Timeout) "asana-mirror.yml: job '$($job.Name)' declares timeout-minutes"
-        if ($null -ne $job.Timeout) {
-            Assert-True ($job.Timeout -ge 1 -and $job.Timeout -le $maxAllowedMinutes) `
-                "asana-mirror.yml: job '$($job.Name)' caps at $($job.Timeout)m, inside 1..$maxAllowedMinutes"
-        }
-    }
-}
+Assert-True (-not (Test-Path -LiteralPath $asanaMirror)) 'the asana-mirror workflow template no longer ships'
 
 # ------------------------------------------------------------------------------------------------
 Write-Host ""

@@ -355,14 +355,16 @@ count is worth stating precisely because the wrong one is what kept the second s
    **prerequisite scan** prints (#2064). The title is the entry here whose author needed no push
    access at all -- on a public tracker anybody can open an issue -- and those cited paths are read
    out of an issue BODY, so they are that same author one field over. Not capped.
-6. **`asana-mirror`'s stage lines** -- the Asana task NAME, the GitHub project board's STATUS names,
-   and the phrase saying WHY a card moved, which carries a submitter's name off the task's notes
-   (`Format-ForConsole`, `plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1`,
+6. **(Retired October 5, 2026 -- the site no longer exists.) `asana-mirror`'s stage lines** -- the Asana
+   task NAME, the GitHub project board's STATUS names, and the phrase saying WHY a card moved, which
+   carried a submitter's name off the task's notes (`Format-ForConsole`,
+   `plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1`,
    [#2019](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2019)) -- four sites in the CI
-   template this workflow ships to a BWJ store. No author of any of the three needs push access, and
-   less than entry 5's: a colleague types a task name and its notes through Asana's web UI and a
-   board's column names through GitHub's project settings, none of which touches a repository at all.
-   Not capped -- the console here is a CI log, which wraps rather than truncates.
+   template this workflow shipped to a BWJ store. The template was removed with the whole asana-mirror
+   automation (Dave, October 5, 2026), so the entry is kept for the history and the numbering and guards
+   nothing now. No author of any of the three needed push access, and less than entry 5's: a colleague
+   types a task name and its notes through Asana's web UI and a board's column names through GitHub's
+   project settings, none of which touches a repository at all.
 7. **`ship-pr`'s forward lap** -- GitHub's own answer to `PUT .../update-branch`, relayed in the refusal
    when the lap cannot bring the branch up to date, and the NAME of the workflow that now owns this
    run's fold, read straight off disk by `Get-RepoWorkflowRecord`
@@ -535,9 +537,9 @@ count is worth stating precisely because the wrong one is what kept the second s
     override or a zero-width run is committed and printed raw with that lint green. The JSON key is not
     a path at all, and no lint has an opinion about it.
 
-    **DOT-SOURCED, not copied, and that is the decision #2280 asked for.** The two precedents are the
-    fourth copy in `asana-mirror.ps1` and the three libs below: that file types the class out because it
-    SHIPS STANDALONE into a consumer where no lib of this repo exists (#2019), and a suite in
+    **DOT-SOURCED, not copied, and that is the decision #2280 asked for.** The two precedents were the
+    fourth copy in `asana-mirror.ps1` (retired October 5, 2026) and the three libs below: that file typed
+    the class out because it SHIPPED STANDALONE into a consumer where no lib of this repo exists (#2019), and a suite in
     `scripts/tests` never leaves this repo. A copy would also be an edit to `pr-issues.tests.ps1`'s pin,
     which compares the copies character for character; a dot-source is neither, because that pin counts
     files in `scripts/lib` that DEFINE `ConvertTo-ConsoleStrippedText`. **And the load cannot perturb
@@ -569,8 +571,8 @@ count is worth stating precisely because the wrong one is what kept the second s
     same helper.** The 34 sites under `scripts/**` take `Format-SafeProseToken` -- the sibling for a
     SENTENCE somebody else wrote, which is what this is; three of those files (`check-branch-entry.ps1`,
     `check-unfolded-entry.ps1`, `new-internal-note.ps1`) had to dot-source `check-report-lib.ps1` to
-    reach it. `asana-mirror.ps1`'s seven sites take `Format-ForConsole`, this page's own fourth copy
-    above, for the reason that section already gives. **The nine hook catch-alls take an
+    reach it. `asana-mirror.ps1`'s seven sites took `Format-ForConsole`, this page's own fourth copy
+    above, for the reason that section gives -- until that file was retired on October 5, 2026. **The nine hook catch-alls take an
     INLINE `-replace` chain and deliberately not a call**: `hook-check-lib.ps1` is dot-sourced INSIDE
     their `try`, so "the lib did not load" is one of the failures that lands in the catch, and a guard
     call there would throw inside the catch and escape it -- breaking the session start on its own
@@ -681,16 +683,17 @@ find (#2280) and to fifteen the same day off a second deliberate sweep (#2271) -
 the technique works, not that it has run out of sites. A reader who needs every place this workflow
 prints foreign text has, at most, every place found so far.
 
-**A FOURTH copy sits outside the libs, and #2019 is why it is a copy rather than a call.**
-`plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1` ships standalone: `adopt-bwj-development`
-copies it into a consumer as `.github/scripts/asana-mirror.ps1`, where none of these libs exist -- so a
-dot-source there names a path that is not there, and the argument that keeps the three libs apart does
-not even have to be made. It is the reason entry 6 went unguarded for as long as it did: every other
-site got the strip when its own lib acquired one, and this file has no lib. Its own suite
-(`bwj-development.tests.ps1`) compares the class character for character against all three, so the
-fourth copy cannot drift away from them either. **Entry 9's `check-report-lib.ps1` is not a fifth
+**A FOURTH copy sat outside the libs until October 5, 2026 (retired with the asana-mirror automation, Dave),
+and #2019 was why it was a copy rather than a call.**
+`plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1` shipped standalone: `adopt-bwj-development`
+copied it into a consumer as `.github/scripts/asana-mirror.ps1`, where none of these libs exist -- so a
+dot-source there named a path that was not there, and the argument that keeps the three libs apart did
+not even have to be made. It was the reason entry 6 went unguarded for as long as it did: every other
+site got the strip when its own lib acquired one, and that file had no lib. Its own suite
+(`bwj-development.tests.ps1`) compared the class character for character against all three. The history
+is kept for the "no claim of completeness" argument above; no fourth copy exists now. **Entry 9's `check-report-lib.ps1` is not a fifth
 appearance of this same class, and the two "fourth"s in this section name different things**:
-`asana-mirror.ps1` replicates `ConvertTo-ConsoleStrippedText` character for character, as above, while
+`asana-mirror.ps1` replicated `ConvertTo-ConsoleStrippedText` character for character, as above, while
 `check-report-lib.ps1` strips `\p{C}` under its own pattern, was built for an unrelated set of callers,
 and carries its own three-issue lineage. The two mechanisms have never been asked to agree with each
 other, and nothing here asks them to.

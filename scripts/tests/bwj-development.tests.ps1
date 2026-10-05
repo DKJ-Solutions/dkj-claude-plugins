@@ -1,15 +1,16 @@
 <#
 .SYNOPSIS
-    Regression tests for the bwj-development plugin: its structure, its marketplace registration, and
-    the pure helpers of the asana-mirror CI script it ships as a template.
+    Regression tests for the bwj-development plugin: its structure, its marketplace registration, the
+    Asana task helpers in scripts/lib/asana-task-lib.ps1, and the go-live block.
 
 .DESCRIPTION
     Dependency-free: no Pester, only PowerShell. Exit 0 if everything passes, 1 on a failure.
 
         powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/bwj-development.tests.ps1
 
-    The asana-mirror helpers are exercised by dot-sourcing the template: it runs its main flow only
-    when invoked directly, so a dot-source loads the functions and does nothing else.
+    The asana-mirror CI workflow (templates/asana-mirror.yml and .ps1) was retired on October 5, 2026;
+    the helpers that survived live in scripts/lib/asana-task-lib.ps1 and are exercised by dot-sourcing
+    it. Section 1 asserts the templates no longer ship.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -65,9 +66,14 @@ foreach ($rel in @('README.md', 'WORKFLOW-portable.md', 'SYNC-LOG-portable.md', 
                    'scripts\lib\golive-block-rules.ps1', 'scripts\task\build-golive-block.ps1',
                    'skills\prepare-release\SKILL.md', 'scripts\lib\prepare-release-rules.ps1',
                    'scripts\task\prepare-release.ps1',
-                   'templates\asana-mirror.yml', 'templates\asana-mirror.ps1')) {
+                   'scripts\lib\asana-task-lib.ps1')) {
     Assert-True (Test-Path -LiteralPath (Join-Path $PluginRoot $rel)) "ships $rel"
 }
+# THE ASANA-MIRROR CI TEMPLATES ARE RETIRED (Dave, October 5, 2026): the workflow and its script are
+# gone and the helpers that survived moved to scripts\lib\asana-task-lib.ps1. Pinned so a revert or a
+# stray re-add of the folder is loud rather than a quiet second copy of the helpers.
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'templates\asana-mirror.yml'))) 'templates\asana-mirror.yml no longer ships'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'templates\asana-mirror.ps1'))) 'templates\asana-mirror.ps1 no longer ships'
 
 # EVERY CHAPTER PAGE IS LINKED FROM THE README, and the README's own count agrees with how many there
 # are. The count is stated in five places across four files, each edited by hand -- and it has now gone
@@ -162,19 +168,23 @@ foreach ($blurb in @(
         "$($blurb.What) description states '$countWord chapters' -- the two blurbs cannot disagree on the count"
 }
 
-# --- 3. asana-mirror pure helpers ------------------------------------------------------------------
-Write-Host "`n-- asana-mirror helpers --" -ForegroundColor Cyan
+# --- 3. the Asana task helpers (scripts/lib/asana-task-lib.ps1) ------------------------------------
+Write-Host "`n-- asana-task-lib helpers --" -ForegroundColor Cyan
 
-. (Join-Path $PluginRoot 'templates\asana-mirror.ps1')
+. (Join-Path $PluginRoot 'scripts\lib\asana-task-lib.ps1')
+
+# The task GID an issue body resolves to, or $null -- the one answer most asserts below want.
+function Get-TestTaskGid {
+    param([string]$IssueBody)
+    return (Resolve-AsanaTaskRef -IssueBody $IssueBody).Gid
+}
 
 # GID extraction
-Assert-Equal '1201234567890123' (Get-AsanaTaskGid -IssueBody "text`n<!-- asana-task: 1201234567890123 -->`nmore") 'Get-AsanaTaskGid reads the marker'
-Assert-Equal '1201234567890123' (Get-AsanaTaskGid -IssueBody '<!--asana-task:1201234567890123-->') 'Get-AsanaTaskGid tolerates no inner spaces'
-Assert-True  ($null -eq (Get-AsanaTaskGid -IssueBody 'no marker here')) 'Get-AsanaTaskGid returns null when absent'
-Assert-True  ($null -eq (Get-AsanaTaskGid -IssueBody '<!-- asana-task: not-a-number -->')) 'Get-AsanaTaskGid rejects a non-numeric marker'
-Assert-True  ($null -eq (Get-AsanaTaskGid -IssueBody '')) 'Get-AsanaTaskGid handles an empty body'
-
-
+Assert-Equal '1201234567890123' (Get-TestTaskGid "text`n<!-- asana-task: 1201234567890123 -->`nmore") 'Resolve-AsanaTaskRef reads the marker'
+Assert-Equal '1201234567890123' (Get-TestTaskGid '<!--asana-task:1201234567890123-->') 'Resolve-AsanaTaskRef tolerates no inner spaces'
+Assert-True  ($null -eq (Get-TestTaskGid 'no marker here')) 'Resolve-AsanaTaskRef returns a null GID when absent'
+Assert-True  ($null -eq (Get-TestTaskGid '<!-- asana-task: not-a-number -->')) 'Resolve-AsanaTaskRef rejects a non-numeric marker'
+Assert-True  ($null -eq (Get-TestTaskGid '')) 'Resolve-AsanaTaskRef handles an empty body'
 # matcher 2 -- the header row of a ticket imported FROM Asana (the intake shape). This is the case the
 # marker alone could not reach: issue #388 in smartwatchbanden closed with its Asana task untouched,
 # and the CI log said so in as many words -- "No <!-- asana-task: ... --> marker ... nothing to mirror".
@@ -194,16 +204,16 @@ Assert-Equal 'header-row'       $ref.Source 'and reports header-row as the sourc
 
 # the header row wins over any other Asana link in the body -- it is the ticket's own task
 $sibling = "| **Asana** | [a](https://app.asana.com/1/9/project/8/task/111) |`nalso https://app.asana.com/1/9/project/8/task/222"
-Assert-Equal '111' (Get-AsanaTaskGid -IssueBody $sibling) 'the header row wins over a sibling link further down'
+Assert-Equal '111' (Get-TestTaskGid $sibling) 'the header row wins over a sibling link further down'
 
 # the marker wins over everything, so an issue that carries one is never re-matched
 $both = "| **Asana** | [a](https://app.asana.com/1/9/project/8/task/111) |`n<!-- asana-task: 999 -->"
 Assert-Equal 'marker' (Resolve-AsanaTaskRef -IssueBody $both).Source 'the marker outranks the header row'
-Assert-Equal '999'    (Get-AsanaTaskGid    -IssueBody $both)        'and it is the marker GID that is used'
+Assert-Equal '999'    (Get-TestTaskGid $both)      'and it is the marker GID that is used'
 
 # matcher 3 -- a single Asana task URL anywhere, in either URL shape Asana hands out
-Assert-Equal '1216905543348385' (Get-AsanaTaskGid -IssueBody 'see https://app.asana.com/1/9/project/8/task/1216905543348385') 'a sole modern task URL resolves'
-Assert-Equal '1216905543348385' (Get-AsanaTaskGid -IssueBody 'see https://app.asana.com/0/1214594032889511/1216905543348385/f') 'a sole classic task URL resolves'
+Assert-Equal '1216905543348385' (Get-TestTaskGid 'see https://app.asana.com/1/9/project/8/task/1216905543348385') 'a sole modern task URL resolves'
+Assert-Equal '1216905543348385' (Get-TestTaskGid 'see https://app.asana.com/0/1214594032889511/1216905543348385/f') 'a sole classic task URL resolves'
 Assert-Equal 'sole-url'         (Resolve-AsanaTaskRef -IssueBody 'https://app.asana.com/1/9/project/8/task/77').Source 'and reports sole-url as the source'
 
 # several DIFFERENT tasks and no marker -- reported, never guessed
@@ -213,667 +223,35 @@ Assert-Equal 'ambiguous' $ambiguous.Source 'and are reported as ambiguous'
 Assert-Equal 2 $ambiguous.Candidates.Count 'with both candidates named for the log'
 
 # the same task linked twice is not ambiguous
-Assert-Equal '111' (Get-AsanaTaskGid -IssueBody 'a https://app.asana.com/1/9/project/8/task/111 b https://app.asana.com/1/9/project/8/task/111') 'the same task linked twice still resolves'
+Assert-Equal '111' (Get-TestTaskGid 'a https://app.asana.com/1/9/project/8/task/111 b https://app.asana.com/1/9/project/8/task/111') 'the same task linked twice still resolves'
 
 # a project link names no task
-Assert-True ($null -eq (Get-AsanaTaskGid -IssueBody 'board: https://app.asana.com/1/9/project/8')) 'a project link contributes no task GID'
+Assert-True ($null -eq (Get-TestTaskGid 'board: https://app.asana.com/1/9/project/8')) 'a project link contributes no task GID'
 
 # a non-numeric task GID can never reach a request URL
 Assert-Throws { Get-AsanaTaskState -Gid 'abc' -Pat 'x' } 'Get-AsanaTaskState throws on a non-numeric GID'
-
-# THE CENTRAL GUARANTEE (Dave, 2026-09-01): automation never resolves a mirrored ticket -- the
-# colleague who filed it does, after testing. So the script must carry no way to write 'completed'
-# at all. This is asserted over the source text rather than over behaviour, because the guarantee is
-# the ABSENCE of a code path and no call can demonstrate an absence.
-$mirrorSrc = Get-Content -LiteralPath (Join-Path $PluginRoot 'templates\asana-mirror.ps1') -Raw
+# THE CENTRAL GUARANTEE (Dave, 2026-09-01): automation never resolves a task -- the colleague who
+# filed it does, after testing. So the lib must carry no way to write 'completed' at all. This is
+# asserted over the source text rather than over behaviour, because the guarantee is the ABSENCE of a
+# code path and no call can demonstrate an absence.
+$libSrc = Get-Content -LiteralPath (Join-Path $PluginRoot 'scripts\lib\asana-task-lib.ps1') -Raw
 Assert-True (-not (Test-FunctionDefined 'New-AsanaCompleteRequest')) 'no request builder for completing a task exists'
 Assert-True (-not (Test-FunctionDefined 'Set-AsanaTaskCompleted')) 'no helper for completing a task exists'
-Assert-True ($mirrorSrc -notmatch "completed\s*=\s*\`$(true|false)") 'the script never builds a completed=true/false payload'
-Assert-True ($mirrorSrc -notmatch "(?m)^\s*[^#]*-Method\s+PUT")      'the script issues no PUT at all -- the only write it knows is a comment'
+Assert-True ($libSrc -notmatch "completed\s*=\s*\`$(true|false)") 'the lib never builds a completed=true/false payload'
+Assert-True ($libSrc -notmatch "(?m)^\s*[^#]*-Method\s+(PUT|POST|DELETE)") 'the lib issues no write at all -- Get-AsanaTaskState only reads'
 
-# THE CI HALF NEEDS NO WORKSPACE (#1210): every call it makes addresses a task or a project by GID,
-# so the parameter it used to declare had no reader, while the yml handed BOTH steps a variable
-# nothing consumed -- which reads as a possible cause the next time a sweep reports 0 updated.
-# Asserted over the source text and over the workflow, because this too is the absence of a thing.
-$mirrorYml = Get-Content -LiteralPath (Join-Path $PluginRoot 'templates\asana-mirror.yml') -Raw
-Assert-True ($mirrorSrc -notmatch 'WorkspaceGid')        'the script declares no workspace parameter'
-Assert-True ($mirrorYml -notmatch 'ASANA_WORKSPACE_GID') 'and the workflow hands neither step a workspace variable'
-Assert-True ($mirrorYml -match 'ASANA_PROJECT_GID')      'while the project variable it does read is still passed'
-
-# THE CONCURRENCY GROUP IS SPLIT BY WHAT AN ARRIVAL CAN LOSE (#1301). One group per issue put the
-# `closed`/`reopened` runs -- the only ones whose work is keyed on the event rather than recomputed
-# from live state -- in the same queue as a triage burst, and a group drops its PENDING run without
-# consulting `cancel-in-progress`. A dropped `reopened` is unrecoverable: no sweep comments on a
-# reopen, and it is the only thing that sets AllowBackward while every sweep moves forward only.
-# Asserted over the yml text because the defect is a group two kinds of event SHARE -- there is no
-# helper to call, and the collapse back to one key is a one-line edit that changes nothing visible.
-Assert-True ($mirrorYml -match "(?m)^\s*group:\s*asana-mirror-.*github\.event\.issue\.number") 'the concurrency group is still keyed per issue'
-Assert-True ($mirrorYml -match "(?m)^\s*group:.*github\.event\.action\s*==\s*'closed'")   "and the group key separates 'closed'"
-Assert-True ($mirrorYml -match "(?m)^\s*group:.*github\.event\.action\s*==\s*'reopened'") "and 'reopened' from the label events, so a triage burst cannot displace one"
-Assert-True ($mirrorYml -match "(?m)^\s*cancel-in-progress:\s*false") 'while a run already going is still never killed'
-
-# AND THE BLOCK STATES WHAT THE SPLIT COSTS (#1306). Two groups mean a `state` run and a `triage` run
-# on ONE issue can overlap, where one group serialised them -- and Sync-AsanaTaskStage has no
-# compare-and-set, so the later write wins whichever event was later. The split is still the better
-# side of the trade, so the first three asserts pin that the comment SAYS SO: it is a property no
-# reader can see in the key itself, and the previous comment was convincing while naming only the
-# half that improved.
-Assert-True ($mirrorYml -like '*#1306*')          'the block cites the issue for the cost the split carries'
-Assert-True ($mirrorYml -like '*CONCURRENTLY*')   'and states that a state run and a triage run can overlap on one issue'
-Assert-True ($mirrorYml -like '*sweep (d)*')      'and names the sweep that recovers the one case where that loses'
-
-# The three above are claims about the COMMENT; the two below are the mechanism the comment PROMISES.
-# Sweep (d) only re-derives a needs-info hold because it passes -Labels into Resolve-TargetStage, and
-# dropping that argument would leave the block above describing a backstop that no longer exists --
-# silently, since a card left at its forward floor looks exactly like a card that belongs there.
-#
-# READ THROUGH THE PARSER, NOT AS TEXT, and that is the whole reason this is not a regex. A pattern
-# over the call's span is satisfied by any nearby MENTION of -Labels: a comment reading
-# '# TODO: consider -Labels here' passes it while the argument itself is gone, which is exactly the
-# silence these asserts exist to break. Only a CommandParameterAst is an argument -- the same rule
-# check-plugin-integrity states for the Shopify CLI, where a comment naming the CLI is not a subject.
-# It is also why neither assert is coupled to the call-site FORMATTING: reordering the arguments or
-# switching either site to splatting changes the count rather than sneaking past a text anchor.
-$mirrorAst = [System.Management.Automation.Language.Parser]::ParseFile(
-    (Join-Path $PluginRoot 'templates\asana-mirror.ps1'), [ref]$null, [ref]$null)
-$stageCalls = @($mirrorAst.FindAll({ param($n)
-    $n -is [System.Management.Automation.Language.CommandAst] -and
-    $n.GetCommandName() -eq 'Resolve-TargetStage' }, $true))
-$stageWithLabels = @($stageCalls | Where-Object {
-    @($_.CommandElements | Where-Object {
-        $_ -is [System.Management.Automation.Language.CommandParameterAst] -and
-        $_.ParameterName -eq 'Labels' }).Count -gt 0 })
-Assert-Equal 2 $stageCalls.Count      'Resolve-TargetStage is still called at exactly two sites (event mode and sweep (d))'
-Assert-Equal 2 $stageWithLabels.Count 'and BOTH pass -Labels as a real argument, so sweep (d) can still re-derive the needs-info hold'
-
-# comment request -- the only write this script builds
-Assert-Throws { New-AsanaCommentRequest -Gid 'abc' -Text 'x' }             'New-AsanaCommentRequest throws on a non-numeric GID'
-Assert-Throws { New-AsanaCommentRequest -Gid '123; rm -rf /' -Text 'x' }   'and on a GID carrying a shell payload'
-$c = New-AsanaCommentRequest -Gid '123' -Text 'GitHub issue owner/repo#7 is closed'
-Assert-Equal 'POST' $c.Method 'comment request is a POST'
-Assert-True  ($c.Uri.EndsWith('/tasks/123/stories')) 'comment request posts to the stories endpoint'
-$ch = New-AsanaCommentRequest -Gid '123' -Html '<body>x</body>'
-Assert-True  ($ch.Body -match '"html_text"' -and $ch.Body -notmatch '"text"') 'an -Html request sends html_text and not text'
-Assert-Throws { New-AsanaCommentRequest -Gid '123' }                            'a comment request with neither -Text nor -Html throws'
-Assert-Throws { New-AsanaCommentRequest -Gid '123' -Text 'a' -Html '<body/>' }  'and so does one with both'
-
-# the update text -- the requester's three forms, word for word (#2656)
-$hdr  = "$([char]0x2014) GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
-$ref  = 'BWJ-Development/xoxowildhearts#334'
-Assert-Equal ("$hdr`n`nGitHub issue $ref is created: this Asana task is now in development.") `
-    (New-MirrorComment -IssueRef $ref -Event 'created') 'the created comment is the requester''s form exactly'
-$closed = New-MirrorComment -IssueRef $ref -Event 'closed' -StateReason 'completed'
-Assert-Equal ("$hdr`n`nGitHub issue $ref is now closed. It can be reopened anytime when something is still not working as expected.") `
-    $closed 'the closed comment is the requester''s form exactly (#2700)'
-Assert-True ($closed -notmatch 'ready to test') 'and no longer says ready to test -- the block under it says where to look'
-$reopened = New-MirrorComment -IssueRef $ref -Event 'reopened'
-Assert-Equal ("$hdr`n`nGitHub issue $ref is reopened: this Asana task is back in development.") `
-    $reopened 'the reopened comment is the requester''s form exactly'
-Assert-True ($closed -notmatch '(?i)resolved|completed|done\b') 'the close update never claims the ticket itself is resolved'
-
-# closed as not planned -- the opposite update, because nothing was built
-$notPlanned = New-MirrorComment -IssueRef 'o/r#1' -Event 'closed' -StateReason 'not_planned'
-Assert-True ($notPlanned -match 'as not planned')        'a not-planned close says so'
-Assert-True ($notPlanned -match 'nothing to test')       'and tells the requester there is nothing to test'
-Assert-True ($notPlanned -notmatch 'ready to test')      'rather than asking them to test something that was never built'
-Assert-True ($notPlanned.Contains((Get-MirrorCommentMarker -IssueRef 'o/r#1'))) 'and it still carries the de-duplication marker'
-Assert-Equal (Get-MirrorCommentHeader) (($notPlanned -split "`n")[0]) 'under the same header'
-
-# closed while waiting for information -- the fourth fixed form (#2732): not planned PLUS the
-# blocked-column label kept on through the close. Pinned word for word, like the created form.
-$waiting = New-MirrorComment -IssueRef $ref -Event 'closed' -StateReason 'not_planned' -AwaitingInfo
-Assert-Equal ("$hdr`n`nGitHub issue $ref is now closed while waiting for information: there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again.") `
-    $waiting 'a close while waiting for information is the fourth fixed form exactly'
-Assert-True ($waiting -notmatch 'not going to be built|nothing to test') 'and never tells the requester their ticket was rejected'
-Assert-True ($waiting.Contains((Get-MirrorCommentMarker -IssueRef $ref))) 'and it still carries the de-duplication marker, so the sweeps read it as told'
-Assert-Equal $waiting ([xml](New-MirrorCommentHtml -IssueRef $ref -Event 'closed' -StateReason 'not_planned' -AwaitingInfo)).body.InnerText 'its html reads as its plain form'
-Assert-Equal $closed (New-MirrorComment -IssueRef $ref -Event 'closed' -StateReason 'completed' -AwaitingInfo) 'a completed close ignores the switch -- only not planned can be a wait'
-$cMap = Get-DefaultAsanaStageMap
-Assert-True  (Test-ClosedAwaitingInfo -StateReason 'not_planned' -Labels @('awaiting-more-info') -Map $cMap) 'not planned with the label selects the form'
-Assert-True  (Test-ClosedAwaitingInfo -StateReason 'NOT_PLANNED' -Labels @('needs-info') -Map $cMap)        'and so does the label''s former name, in any case of the reason'
-Assert-True  (-not (Test-ClosedAwaitingInfo -StateReason 'not_planned' -Labels @('bug') -Map $cMap))        'not planned without the label is a plain rejection'
-Assert-True  (-not (Test-ClosedAwaitingInfo -StateReason 'completed' -Labels @('awaiting-more-info') -Map $cMap)) 'and a completed close with the label is not a wait'
-$tmpSrc = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'templates\asana-mirror.ps1'))
-Assert-True  ($tmpSrc -match "(?s)\`$link\.StateReason -ne 'not_planned' -and\s+-not \(Test-AsanaPasteBlockPosted") 'the GitHub backstop block is not posted under any close as not planned (#2765) -- nothing was built, and the waiting form''s block is the question'
-
-# the de-duplication key is the close update's own opening sentence, and it names the issue --
-# so two issues mirrored onto one task never mask each other
-$marker = Get-MirrorCommentMarker -IssueRef $ref
-Assert-True ($closed.Contains($marker)) 'the close update carries the marker'
-Assert-True ($marker -match '#334')       'and it names the issue'
-Assert-True ($marker -ne (Get-MirrorCommentMarker -IssueRef 'BWJ-Development/xoxowildhearts#335')) 'two issues get two different markers'
-Assert-True (-not (Get-MirrorCommentHeader).Contains($marker)) 'the header does not itself carry the marker'
-# THE OLD SPELLING STILL COUNTS AS TOLD: every close update before #2700 read 'is closed', and the
-# sweeps must not tell those tasks a second time.
-Assert-Equal "GitHub issue $ref is closed" (Get-MirrorCommentMarker -IssueRef $ref -Legacy) 'the legacy marker is the pre-#2700 opening'
-$tmpText = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'templates\asana-mirror.ps1'))
-Assert-True ($tmpText.Contains('(Get-MirrorCommentMarker -IssueRef $IssueRef -Legacy)')) 'and Test-MirrorUpdatePosted matches it beside the current one'
-
-# what is posted: html_text, plain, the issue name as its link -- and the plain text Asana stores
-# for it still carries the marker, so the sweeps' de-duplication reads it
-$html = New-MirrorCommentHtml -IssueRef $ref -Event 'closed' -StateReason 'completed'
-Assert-True ($html.StartsWith('<body>') -and $html.EndsWith('</body>') -and $html -notmatch '<em>') 'the posted comment is one plain body, no italics'
-Assert-True ($html.Contains("<a href=`"https://github.com/BWJ-Development/xoxowildhearts/issues/334`">$ref</a> is now <strong>closed</strong>. It can be reopened")) 'with the issue name as the link and the verb bold'
-Assert-Equal $closed ([xml]$html).body.InnerText 'and its plain text is the plain comment, marker included'
-foreach ($ev in 'created', 'reopened') {
-    $h = New-MirrorCommentHtml -IssueRef $ref -Event $ev
-    Assert-Equal (New-MirrorComment -IssueRef $ref -Event $ev) ([xml]$h).body.InnerText "the $ev html is well-formed and reads as its plain form"
-    Assert-True ($h.Contains("`">$ref</a> is <strong>${ev}:</strong> ")) "and the $ev html links the issue name and bolds the verb too"
-}
-Assert-True ((New-MirrorCommentHtml -IssueRef 'o/r&x#1' -Event 'closed') -match '&amp;') 'a character XML reserves is escaped, so Asana is never sent a malformed body'
-
-# report-issue's session posts the created form itself -- its copy is held equal to this one
-$skillText = Get-Content -Raw -Encoding UTF8 (Join-Path $PluginRoot 'skills\report-issue\SKILL.md')
-Assert-True ($skillText.Contains((Get-MirrorCommentHeader))) 'report-issue carries the created header this script composes'
-Assert-True ($skillText.Contains('is created: this Asana task is now in development.')) 'and the created sentence, word for word'
-
-# issue-ref parsing for the reconciliation sweep
-Assert-Equal 'BWJ-ecommerce/smartwatchbanden#42' (Get-IssueRefFromNotes -Notes 'see https://github.com/BWJ-ecommerce/smartwatchbanden/issues/42 for detail') 'Get-IssueRefFromNotes pulls owner/repo#n from a GitHub URL'
-Assert-True  ($null -eq (Get-IssueRefFromNotes -Notes 'no link at all')) 'Get-IssueRefFromNotes returns null without a GitHub issue URL'
-
-# the paste-ready Asana block -- the BACKSTOP copy, since #2049 moved the route to the shipping
-# session. The CRO gate is gone: reaching this comment at all IS the Asana link, because
-# Invoke-EventMode returns before it when no task resolved.
+# the GitHub-side marker and lead sentence of the paste-ready go-live block
+$hdr = "$([char]0x2014) GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
 $pasteMarker = Get-AsanaPasteBlockMarker
 $pasteLead   = Get-AsanaPasteBlockLead
 Assert-True ($pasteMarker -match '^<!--.*-->$')  'the paste-block marker is an HTML comment, so it renders as nothing'
 Assert-True ($pasteLead.Length -gt 20)           'and the prose matcher is a whole sentence, not a word that could occur by chance'
-
-$pasteComment = New-AsanaPasteBlockComment -IssueRef 'BWJ-Development/smartwatchbanden#500'
-Assert-True ($pasteComment.Contains($pasteMarker))                              'the backstop comment carries the marker the de-duplication matches on'
-Assert-True ($pasteComment.Contains($pasteLead))                                'and the lead sentence, which is the second matcher'
-Assert-True ($pasteComment -match '\[ADD LINK\]')                          'and leaves the link as an explicit placeholder -- CI cannot know it'
-Assert-True ($pasteComment -match 'BWJ-Development/smartwatchbanden#500')  'and names the issue it belongs to'
-Assert-True ($pasteComment -notmatch 'https://')                           'and invents no URL of its own'
-Assert-True ($pasteComment -notmatch 'CRO')                                'and no longer names the label it used to be gated on'
-
-# THE MARKER SITS OUTSIDE THE PASTED BLOCK. Everything between the two '---' rules travels to the
-# Asana task, so a marker in there would arrive as visible junk in a colleague's ticket.
-$between = ($pasteComment -split '(?m)^---$')[1]
-Assert-True ($between -notmatch [regex]::Escape($pasteMarker)) 'the marker is outside the block that gets pasted into Asana'
-Assert-True ($between -match '\[ADD LINK\]')              'and the pasted half is the sentence carrying the link'
-# THE SESSION ROUTE'S SHAPE, NOT THE OLD ENGLISH SENTENCE (#2513): the opening line, then the one
-# section CI can write -- the others are not placeholdered, they are left out.
-$betweenLines = @(($between.Trim()) -split "`n")
-Assert-Equal $hdr $betweenLines[0] 'the pasted block opens with the automation''s own header (#2700)'
-Assert-Equal 'TE BEKIJKEN OP' $betweenLines[2] 'then the where-to-look heading'
-Assert-Equal 'Het resultaat is hier te bekijken: [ADD LINK]' $betweenLines[4] 'and the link sentence, in Dutch, with the placeholder'
-# A TEXT LINE DIRECTLY ABOVE '---' IS A SETEXT H2 (#2701): the closing rule needs a blank line above it.
-$pasteLines = @($pasteComment -split "`n")
-Assert-Equal '---' $pasteLines[-1] 'the backstop comment ends on the closing rule'
-Assert-Equal ''    $pasteLines[-2] 'and the line above it is blank, so the link sentence is not rendered as a heading'
-Assert-Equal 5 $betweenLines.Count 'and no further section -- nothing is placeholdered but the link'
-Assert-True ($between -notmatch 'The fix for')             'the old English sentence is gone'
 
 # The two matchers are what a session-written block has to carry, so they are asserted against the
 # shape WORKFLOW-portable.md publishes rather than only against this script's own output.
 $bwjWorkflowText = Get-Content -LiteralPath (Join-Path $PluginRoot 'WORKFLOW-portable.md') -Raw
 Assert-True ($bwjWorkflowText.Contains($pasteMarker)) 'WORKFLOW-portable.md publishes the same marker the script matches on'
 Assert-True ($bwjWorkflowText.Contains($pasteLead))   'and the same lead sentence'
-
-# --- the prio label ------------------------------------------------------------------------------
-# Dave's mapping, September 2, 2026: 1.00-1.99 prio-1 | 2.00-2.99 prio-2 | 3.00-3.99 prio-3 |
-# 4.00-5.00 prio-4. EVERY boundary is asserted from both sides, because an off-by-a-hundredth
-# here mislabels real work and nothing downstream would notice it had happened.
-#
-# The NAMES are the family's shared ones since September 11, 2026 (#1842); the bands are Dave's
-# original four and did not move with them.
-Assert-Equal 'prio-1' (Get-PrioLabelForScore -Score 1)    'score 1.00 is prio-1 -- the bottom of the scale'
-Assert-Equal 'prio-1' (Get-PrioLabelForScore -Score 1.99) 'and 1.99 is still prio-1'
-Assert-Equal 'prio-2' (Get-PrioLabelForScore -Score 2)    '2.00 flips to prio-2'
-Assert-Equal 'prio-2' (Get-PrioLabelForScore -Score 2.99) 'and 2.99 is still prio-2'
-Assert-Equal 'prio-3' (Get-PrioLabelForScore -Score 3)    '3.00 flips to prio-3'
-Assert-Equal 'prio-3' (Get-PrioLabelForScore -Score 3.99) 'and 3.99 is still prio-3'
-Assert-Equal 'prio-4' (Get-PrioLabelForScore -Score 4)    '4.00 flips to prio-4'
-Assert-Equal 'prio-4' (Get-PrioLabelForScore -Score 5)    'and 5.00, the top of the scale, is prio-4'
-
-# no score and an out-of-range score give the same answer -- no label, never the nearest bucket
-Assert-True ($null -eq (Get-PrioLabelForScore -Score $null)) 'a task with no score gets no label at all'
-Assert-True ($null -eq (Get-PrioLabelForScore -Score 0.99))  'and a score below the scale gets none rather than the nearest one'
-Assert-True ($null -eq (Get-PrioLabelForScore -Score 5.01))  'and one above the scale gets none either'
-
-# THE MAPPING IS CULTURE-INVARIANT, which is not obvious and was measured rather than assumed: the
-# machine this repo is maintained on runs nl-NL, where the decimal separator is a comma. A score
-# arriving as a string must still read as three-and-a-half and not as thirty-five.
-Assert-Equal 'prio-3' (Get-PrioLabelForScore -Score '3.5') "a score arriving as the string '3.5' still reads as 3.5"
-
-# every label the mapper can return is one the enforcer knows how to remove: if these two drift, a
-# rescored ticket keeps a stale label forever and the issue claims two priorities at once
-foreach ($s in @(1.5, 2.5, 3.5, 4.5)) {
-    Assert-True ($script:PrioLabels -contains (Get-PrioLabelForScore -Score $s)) "the label for score $s is one PrioLabels knows"
-}
-Assert-Equal 4 $script:PrioLabels.Count 'and PrioLabels holds exactly the four buckets -- there is no medium'
-
-# reading the score off a task object, past the other custom fields Asana returns beside it
-$scoredTask = [pscustomobject]@{ custom_fields = @(
-    [pscustomobject]@{ name = 'Type';       number_value = $null },
-    [pscustomobject]@{ name = 'Prio-Score'; number_value = 3.8 }) }
-Assert-Equal 3.8 (Get-PrioScoreFromTask -Task $scoredTask -FieldName 'Prio-Score') 'Get-PrioScoreFromTask finds the field by name, past another field'
-Assert-True ($null -eq (Get-PrioScoreFromTask -Task $scoredTask -FieldName 'Nope'))      'and returns null for a field the task has not got'
-Assert-True ($null -eq (Get-PrioScoreFromTask -Task $null       -FieldName 'Prio-Score')) 'and null for a task that could not be read at all'
-$emptyScore = [pscustomobject]@{ custom_fields = @([pscustomobject]@{ name = 'Prio-Score'; number_value = $null }) }
-Assert-True ($null -eq (Get-PrioScoreFromTask -Task $emptyScore -FieldName 'Prio-Score')) 'and null for a field that is present but empty'
-
-# an issue that already reads correctly is not written to -- what keeps the daily re-run quiet. This
-# path returns before any gh call, so it is safe to assert here with no network and no repo.
-Assert-True (-not (Set-IssuePrioLabel -Repo 'o/r' -Number 1 -Label 'prio-3' -Current @('prio-3', 'tier-1'))) 'an issue already carrying the right prio label is left alone'
-
-# --- the stage sections --------------------------------------------------------------------------
-# The board's six sections are the cycle's stages, and a section is recognised by the NUMBER its name
-# starts with -- the words after it belong to the board and may change any day.
-Assert-Equal 3 (Get-StageFromSectionName -Name '3. In development - branch open') 'a numbered section yields its stage'
-Assert-Equal 3 (Get-StageFromSectionName -Name '3. Building it')                  'and still does after the words are rewritten -- the number is the only machine-read half'
-Assert-Equal 6 (Get-StageFromSectionName -Name '  6. Completed')                   'leading whitespace does not hide the number'
-Assert-Equal 2 (Get-StageFromSectionName -Name '2.')                               'a bare number and dot is enough'
-Assert-True ($null -eq (Get-StageFromSectionName -Name 'Waiting for more info'))   'an unnumbered section is on no pipeline'
-Assert-True ($null -eq (Get-StageFromSectionName -Name 'Stap 3: bouwen'))          'and a number that is not the prefix does not count -- the anchor is the start of the name'
-Assert-True ($null -eq (Get-StageFromSectionName -Name ''))                        'an empty name yields nothing rather than throwing'
-
-# A code may carry ONE trailing letter (inbound #2016) -- a board that aligns its own numbering to a
-# coarser second board (e.g. a Workload Overview with fewer columns) needs several of its own stages to
-# share a leading digit while staying distinct. Returned as a string always, letter or not.
-Assert-Equal '1A' (Get-StageFromSectionName -Name '1A. Requests')     'a lettered code yields the code, not just the digit'
-Assert-Equal '1B' (Get-StageFromSectionName -Name '1B. Need more info') 'a second letter under the same digit is a different code'
-Assert-Equal '1C' (Get-StageFromSectionName -Name '1C. Todo')          'and a third'
-Assert-Equal '3A' (Get-StageFromSectionName -Name '3A. Done')          'the letter is not anchored to any one digit'
-Assert-True ('3' -eq (Get-StageFromSectionName -Name '3. Todo'))       'a bare digit still compares equal to itself as a string -- every unlettered board is unaffected'
-
-# --- the stage MAP ------------------------------------------------------------------------------
-# The number convention says how a section is RECOGNISED; the map says what each one MEANS. They were
-# one question until the board this was written against grew a section the same afternoon, shifting
-# every stage above it by one -- silently, since nothing failed and every card would simply have been
-# filed a column early. The map is now a repo seam, and the default is what a repo stating none gets.
-$map = Get-DefaultAsanaStageMap
-Assert-Equal '1/2/3/4/5/6/7' ((Get-StageMapNumbers -Map $map) -join '/') 'the default map is the seven-section board, in cycle order'
-Assert-Equal 'awaiting-more-info' $map.NeedsInfoLabel 'and it names the label that drives the Need more info column (needs-info until #2723)'
-Assert-Equal 0 (Test-AsanaStageMap -Map $map).Count 'the default map validates'
-
-# Three ways a hand-written map goes wrong, and all three are SILENT at runtime rather than loud:
-# a missing key reads as stage 0, a non-numeric one as 0 too, and a duplicate makes two stages one
-# column so a card can never leave one of them.
-$noKey = $map.Clone(); $noKey.Remove('InReview')
-Assert-True (((Test-AsanaStageMap -Map $noKey) -join ' ') -match 'InReview') 'a map missing a stage is refused, naming which'
-$notNum = $map.Clone(); $notNum['Filed'] = 'three'
-Assert-True ((Test-AsanaStageMap -Map $notNum).Count -gt 0) 'a stage that is not a section number is refused'
-$dupe = $map.Clone(); $dupe['InReview'] = $dupe['Filed']
-Assert-True (((Test-AsanaStageMap -Map $dupe) -join ' ') -match 'more than one stage') 'two stages naming one section is refused -- a card could never leave one of them'
-Assert-True ((Test-AsanaStageMap -Map $null).Count -gt 0) 'and an empty map is refused rather than treated as a default'
-
-# The two ends of the board, asserted rather than assumed -- the same treatment the 'completes
-# nothing' guarantee gets. Requests is the submitter's inbox; Completed is their verdict.
-Assert-True (-not (Test-StageIsWritable -Stage $map.Requests  -Map $map)) 'Requests is the submitter inbox and is never a target'
-Assert-True (-not (Test-StageIsWritable -Stage $map.Completed -Map $map)) 'Completed is NEVER a target -- the section-move twin of never completing a task'
-Assert-True (Test-StageIsWritable -Stage $map.NeedsInfo   -Map $map) 'Need more info is ours to set, because a label drives it'
-Assert-True (Test-StageIsWritable -Stage $map.Filed       -Map $map) 'Filed is ours'
-Assert-True (Test-StageIsWritable -Stage $map.ReadyToTest -Map $map) 'and so is Ready to test, the last one that is'
-Assert-True (-not (Test-StageIsWritable -Stage $null -Map $map)) 'no stage at all is not writable either'
-Assert-Equal 5 (Get-WritableStages -Map $map).Count 'five writable stages -- the whole board minus its two ends'
-
-# A REMAPPED board is the real test of the seam: the same assertions must hold against numbers this
-# suite never mentions, or the map is decoration over hard-coded literals.
-$shifted = @{ Requests = 10; NeedsInfo = 20; Filed = 30; InDevelopment = 40
-              InReview = 50; ReadyToTest = 60; Completed = 70; NeedsInfoLabel = 'blocked' }
-Assert-Equal 0 (Test-AsanaStageMap -Map $shifted).Count 'a board numbered any other way validates too'
-Assert-True (Test-StageIsWritable -Stage 30 -Map $shifted)        'and its Filed stage is writable'
-Assert-True (-not (Test-StageIsWritable -Stage 3 -Map $shifted))  'while the DEFAULT Filed number is not, under that map'
-Assert-True (-not (Test-StageIsWritable -Stage 70 -Map $shifted))  'and its Completed stage is still the untouchable end'
-
-# A LETTERED board (inbound #2016) -- smartwatchbanden's actual GitHub - SWB renaming, three of its
-# own stages sharing the digit a coarser Workload Overview board also uses. The map states the exact
-# section prefix per stage; nothing here is derived from the letters themselves.
-$lettered = @{ Requests = '1A'; NeedsInfo = '1B'; Filed = '1C'; InDevelopment = '2'
-               InReview = '3A'; ReadyToTest = '3B'; Completed = '4'; NeedsInfoLabel = 'needs-info' }
-Assert-Equal 0 (Test-AsanaStageMap -Map $lettered).Count 'a lettered map validates -- a code is not required to be a bare number'
-Assert-True (Test-StageIsWritable -Stage '1C' -Map $lettered) 'Filed is writable under its lettered code'
-Assert-True (-not (Test-StageIsWritable -Stage '1A' -Map $lettered)) 'Requests is still never a target, lettered or not'
-Assert-True (-not (Test-StageIsWritable -Stage '4' -Map $lettered))  'and Completed is still the untouchable end'
-Assert-True (Test-StageIsTerminal -Stage '3B' -Map $lettered) 'Ready to test is terminal under its lettered code'
-Assert-True (-not (Test-StageIsTerminal -Stage '1C' -Map $lettered)) 'while an ordinary stage is not'
-
-# Get-StageRank is the one place order is read back out of a lettered map -- the RAW codes do not sort
-# numerically ('1C' is not > '2'), so Sync-AsanaTaskStage's forward-only guard goes through this instead
-# of comparing the codes themselves.
-Assert-Equal 0 (Get-StageRank -Stage '1A' -Map $lettered) 'Requests is first in cycle order'
-Assert-Equal 2 (Get-StageRank -Stage '1C' -Map $lettered) 'Filed is third, despite sharing its leading digit with Requests and Need more info'
-Assert-Equal 3 (Get-StageRank -Stage '2'  -Map $lettered) 'In development is fourth'
-Assert-Equal 4 (Get-StageRank -Stage '3A' -Map $lettered) 'In review is fifth'
-Assert-Equal 6 (Get-StageRank -Stage '4'  -Map $lettered) 'Completed is last'
-Assert-True ((Get-StageRank -Stage '1C' -Map $lettered) -lt (Get-StageRank -Stage '2' -Map $lettered)) 'Filed ranks before In development, though "1C" > "2" as plain text'
-Assert-True ((Get-StageRank -Stage '3B' -Map $lettered) -gt (Get-StageRank -Stage '1C' -Map $lettered)) 'and Wait on approval ranks well after Todo'
-Assert-True ($null -eq (Get-StageRank -Stage 'Z9' -Map $lettered)) 'a code the map does not name has no rank'
-Assert-True ($null -eq (Get-StageRank -Stage $null -Map $lettered)) 'and neither does no code at all'
-
-# And an UNLETTERED map's ranks still agree with its own plain-integer order -- Get-StageRank is not a
-# second, different answer for a board that never adopted letters.
-Assert-Equal 2 (Get-StageRank -Stage $map.Filed -Map $map) 'Filed is third in the default seven-stage cycle'
-Assert-True ((Get-StageRank -Stage $map.Filed -Map $map) -lt (Get-StageRank -Stage $map.InDevelopment -Map $map)) 'and still ranks before In development, exactly as the raw numbers already said'
-
-# The derivation. THE PROJECT STATUS IS THE SOURCE since September 2, 2026 -- the issue's own state
-# and its pull requests are no longer read for it. GitHub's own built-in project workflows already
-# write that field ('Pull request linked to issue' sets In Progress, 'Item closed' sets Done), so
-# deriving the same answer here a second time made two writers of one fact, which is a race.
-$statusMap = Get-DefaultGithubStatusMap
-Assert-Equal 0 (Test-GithubStatusMap -Map $statusMap).Count 'the default status map validates'
-Assert-Equal 'Status' $statusMap.FieldName 'and it names the project field the stage is read from'
-Assert-Equal $map.Filed         (Get-StageFloorForIssue -State 'OPEN'   -ProjectStatus 'Todo'        -StatusMap $statusMap -Map $map) 'status Todo floors at Filed'
-Assert-Equal $map.InDevelopment (Get-StageFloorForIssue -State 'OPEN'   -ProjectStatus 'In Progress' -StatusMap $statusMap -Map $map) 'status In Progress floors at In development'
-Assert-Equal $map.InReview      (Get-StageFloorForIssue -State 'CLOSED' -StateReason 'completed' -ProjectStatus 'Done' -StatusMap $statusMap -Map $map) 'and status Done floors at In review -- Dave, September 2, 2026: stages 3/4/5 ARE Todo/In Progress/Done'
-Assert-True ($null -eq (Get-StageFloorForIssue -State 'OPEN' -ProjectStatus '' -StatusMap $statusMap -Map $map)) 'an issue on no board floors nowhere, rather than reading as stage 0'
-Assert-True ($null -eq (Get-StageFloorForIssue -State 'OPEN' -ProjectStatus 'Blocked' -StatusMap $statusMap -Map $map)) 'and a column nobody has mapped floors nowhere either -- leaving the card alone is the answer to not knowing'
-Assert-True ($null -eq (Get-StageFloorForIssue -State 'CLOSED' -StateReason 'not_planned' -ProjectStatus 'Done' -StatusMap $statusMap -Map $map)) "closed as not planned floors nowhere, though 'Item closed' set Done on it anyway -- nothing was built, so there is nothing to test"
-Assert-Equal $map.InReview (Get-StageFloorForIssue -State 'closed' -StateReason 'COMPLETED' -ProjectStatus 'Done' -StatusMap $statusMap -Map $map) 'and the state is still read case-insensitively, since two GitHub surfaces disagree on it'
-
-# The three stages a status may NOT name: two are a person's, and the third is the feedback rule's.
-foreach ($stage in @('Requests', 'ReadyToTest', 'Completed')) {
-    $badTarget = Get-DefaultGithubStatusMap
-    $badTarget.Statuses = @{ 'Done' = $stage }
-    Assert-True ((Test-GithubStatusMap -Map $badTarget).Count -gt 0) "a status naming $stage is refused -- that stage is reached by a person or by the feedback rule, never by a column"
-}
-$badStage = Get-DefaultGithubStatusMap
-$badStage.Statuses = @{ 'Done' = 'Nonsense' }
-Assert-True (((Test-GithubStatusMap -Map $badStage) -join ' ') -match 'not a stage') 'one naming something that is no stage at all is refused, naming it'
-Assert-True ((Test-GithubStatusMap -Map $null).Count -gt 0) 'and an empty status map is refused rather than treated as a default'
-
-# Keyed on the BOARD's own column names, so a board that renames its columns states that once here.
-$renamed = @{ FieldName = 'Fase'; SubmitterPattern = ''
-              Statuses = @{ 'Te doen' = 'Filed'; 'Bezig' = 'InDevelopment'; 'Klaar' = 'InReview' } }
-Assert-Equal 0 (Test-GithubStatusMap -Map $renamed).Count 'a board with its own column names validates too'
-Assert-Equal $map.InReview (Get-StageFloorForIssue -State 'CLOSED' -StateReason 'completed' -ProjectStatus 'Klaar' -StatusMap $renamed -Map $map) 'and its own words drive the same stage'
-Assert-True ($null -eq (Get-StageFloorForIssue -State 'OPEN' -ProjectStatus 'Todo' -StatusMap $renamed -Map $map)) "while the DEFAULT column names mean nothing under it -- or the map is decoration over literals"
-
-# WHICH PAIR CHANGED: InDevelopment IS derived now, and ReadyToTest no longer is.
-$derived = @()
-foreach ($s in @('Todo', 'In Progress', 'Done')) {
-    $f = Get-StageFloorForIssue -State 'OPEN' -ProjectStatus $s -StatusMap $statusMap -Map $map
-    $derived += $f
-    Assert-True (Test-StageIsWritable -Stage $f -Map $map) "the derivation never leaves the writable range ($s)"
-}
-Assert-True ($derived -contains $map.InDevelopment) 'In development IS derived now -- GitHub sets In Progress itself when a pull request is linked'
-Assert-True ($derived -notcontains $map.ReadyToTest) 'and Ready to test is never derived from a status -- only the feedback rule reaches it'
-
-# --- the target, and the two answers that may go BACKWARD -----------------------------------------
-# Everything else is a floor, and floors only rise. These two are a person saying something.
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'In Progress' -Labels @('tier-1', 'awaiting-more-info') -StatusMap $statusMap -Map $map
-Assert-Equal $map.NeedsInfo $t.Stage         'the awaiting-more-info label OUTRANKS the project status -- In Progress does not unblock a card somebody blocked'
-Assert-True  $t.AllowBackward                'and it may move the card backward, because a person set it'
-Assert-True  ($t.Why -match 'awaiting-more-info') 'and the log says which label decided it'
-
-# THE FORMER NAME STILL PARKS THE CARD under the default map (#2723): a tracker keeps 'needs-info' until
-# somebody renames it there, and a board must not lose its blocked column the day the template updates.
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'In Progress' -Labels @('needs-info') -StatusMap $statusMap -Map $map
-Assert-Equal $map.NeedsInfo $t.Stage 'the former name needs-info still parks the card while the map uses the default label'
-Assert-True  ($t.Why -match "'needs-info'") 'and the log names the label that parked it, not the map''s name for it'
-Assert-Equal 'Needs-Info' (Get-MatchedNeedsInfoLabel -Labels @('Needs-Info') -Map $map) 'matched case-insensitively, as GitHub treats label names'
-Assert-Equal '' (Get-MatchedNeedsInfoLabel -Labels @('needs-info') -Map $shifted) 'but a map naming its OWN label gets exactly that label, and no former name beside it'
-Assert-Equal 'needs-info' (Get-MatchedNeedsInfoLabel -Labels @('needs-info') -Map $lettered) 'and a map that still names needs-info explicitly keeps working unchanged'
-Assert-Equal '' (Get-MatchedNeedsInfoLabel -Labels @('prio-2') -Map $map) 'an issue carrying neither name is not parked'
-
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'In Progress' -Labels @('tier-1') -StatusMap $statusMap -Map $map
-Assert-Equal $map.InDevelopment $t.Stage     'removing the label hands the card back to its status-derived floor'
-Assert-True  (-not $t.AllowBackward)         'which is forward, so it needs no permission'
-Assert-True  ($t.Why -match 'In Progress')   'and the log names the status that decided it, not just that a status did'
-
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'Todo' -Labels @() -StatusMap $statusMap -Map $map -Reopened
-Assert-Equal $map.Filed $t.Stage             'a reopen lands the card wherever the board now says it is'
-Assert-True  $t.AllowBackward                'and is the other answer allowed to go backward -- it is a real state change'
-Assert-True  ($t.Why -match 'reopen')        'and says so'
-
-$t = Resolve-TargetStage -State 'CLOSED' -StateReason 'not_planned' -ProjectStatus 'Done' -Labels @('awaiting-more-info') -StatusMap $statusMap -Map $map
-Assert-Equal $map.NeedsInfo $t.Stage 'the label still answers for an issue whose status answers nothing'
-
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'Todo' -Labels @('blocked') -StatusMap $statusMap -Map $shifted
-Assert-Equal 20 $t.Stage 'the label name comes from the map too, so a repo may call it anything'
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'Todo' -Labels @() -StatusMap $statusMap -Map $shifted
-Assert-Equal 30 $t.Stage 'and the stage NUMBERS still come off the stage map, so the status drives a board numbered any other way just the same'
-$noLabel = $map.Clone(); $noLabel['NeedsInfoLabel'] = ''
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'Todo' -Labels @('awaiting-more-info', 'needs-info') -StatusMap $statusMap -Map $noLabel
-Assert-Equal $map.Filed $t.Stage 'and a map naming no label switches the column off -- a real answer for a board without one'
-
-# --- the feedback promotion, and the two stages nothing here takes a card back out of -------------
-# Dave, September 2, 2026, in two rules. A card reaches Ready to test only once the submitter has
-# actually been TOLD -- and once a card is in 6 or 7 it does not come back.
-$withPattern = Get-DefaultGithubStatusMap
-$withPattern.SubmitterPattern = '(?m)^\s*Aangevraagd door:\s*(.+?)\s*$'
-$closed = @{ State = 'CLOSED'; StateReason = 'completed'; ProjectStatus = 'Done' }
-
-$t = Resolve-TargetStage @closed -StatusMap $withPattern -Map $map -Submitter 'Jordy Navarro' -SubmitterTold
-Assert-Equal $map.ReadyToTest $t.Stage  'a closed issue whose submitter has been told advances one stage past its status, to Ready to test'
-Assert-True  ($t.Why -match 'Jordy')    'and the log names who was told, so the hop is attributable'
-Assert-True  (-not $t.AllowBackward)    'the promotion never earns a backward move -- it only ever goes one stage up'
-
-$t = Resolve-TargetStage @closed -StatusMap $withPattern -Map $map -Submitter 'Jordy Navarro'
-Assert-Equal $map.InReview $t.Stage 'while one whose submitter has NOT been told waits in In review -- no status means anybody has been told'
-
-$t = Resolve-TargetStage @closed -StatusMap $withPattern -Map $map -Submitter '' -SubmitterTold
-Assert-Equal $map.InReview $t.Stage 'and a ticket nobody else asked for SKIPS stage 6 entirely -- there is nobody to hand it to, so its owner accepts it into Completed himself'
-
-$t = Resolve-TargetStage -State 'OPEN' -ProjectStatus 'Todo' -StatusMap $withPattern -Map $map -Submitter 'Jordy Navarro' -SubmitterTold
-Assert-Equal $map.Filed $t.Stage 'the promotion fires only off In review -- a Todo card is not handed to anybody however much they have been told'
-
-# The pattern is the repo's, because where a submitter's name sits is a property of the intake form.
-$notes = "Type: Automation`nAangevraagd door: Jordy Navarro`nDeadline: 2026-10-30"
-Assert-Equal 'Jordy Navarro' (Get-SubmitterFromNotes -Notes $notes -Pattern $withPattern.SubmitterPattern) 'the submitter comes off the intake form line in the notes'
-Assert-True ($null -eq (Get-SubmitterFromNotes -Notes 'n8n query splitter' -Pattern $withPattern.SubmitterPattern)) "notes naming nobody name nobody -- created_by is NOT the submitter, measured September 2, 2026: the intake form creates every card as its own owner, so it reads the same either way"
-Assert-True ($null -eq (Get-SubmitterFromNotes -Notes $notes -Pattern '')) 'and a repo naming no pattern can never tell, so the promotion never fires at all -- the fail-safe direction'
-Assert-Equal '' ([string]$statusMap.SubmitterPattern) 'which is what the DEFAULT map does, so stage 6 is opt-in per repo'
-Assert-True ($null -eq (Get-SubmitterFromNotes -Notes $notes -Pattern '(unclosed')) 'a pattern that will not compile names nobody rather than throwing mid-sweep'
-
-# --- a repo with NO project board (inbound #1536) --------------------------------------------------
-# An empty FieldName is the repo SAYING it has no board, which is the declaration that did not exist
-# before. Without it a board-less repo derived $null for every issue, which also switched off the
-# feedback promotion below -- so closing an issue told the submitter it was ready and left their card
-# where it stood. Four stages lost, not the three the docs described.
-$boardless = @{ FieldName = ''; Statuses = @{}; SubmitterPattern = $withPattern.SubmitterPattern }
-Assert-Equal 0 (Test-GithubStatusMap -Map $boardless).Count 'a map naming no project field validates -- "this repo has no board" is an answer, not a gap'
-
-# AND THE ONE LINE A RUN PRINTS ABOUT ITS MAP SAYS SO (#2375). It rendered the declaration as
-# "field '', ." -- a deliberate answer that read like a broken one in the CI log.
-$smRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-statusmap-$PID-$([guid]::NewGuid().ToString('n'))"
-try {
-    New-Item -ItemType Directory -Path (Join-Path $smRoot 'scripts') -Force | Out-Null
-    [System.IO.File]::WriteAllText((Join-Path $smRoot 'scripts\repo-config.ps1'),
-        "function Get-GithubStatusMap { @{ FieldName = ''; Statuses = @{}; SubmitterPattern = '' } }`r`n",
-        (New-Object System.Text.UTF8Encoding $false))
-    $smLine = (@(Resolve-GithubStatusMap -RepoRoot $smRoot 6>&1) | Where-Object { "$_" -match 'Status map' } | ForEach-Object { "$_" }) -join "`n"
-    Assert-True ($smLine -match 'has no project board') 'board-less: the status-map line says there is no board'
-    Assert-True ($smLine -notmatch "field ''") 'board-less: and no longer prints an empty field and a dangling comma'
-} finally {
-    if (Test-Path -LiteralPath $smRoot) { Remove-Item -LiteralPath $smRoot -Recurse -Force -ErrorAction SilentlyContinue }
-}
-
-$bothWays = @{ FieldName = ''; Statuses = @{ 'Done' = 'InReview' }; SubmitterPattern = '' }
-Assert-True (((Test-GithubStatusMap -Map $bothWays) -join ' ') -match 'not both') 'while saying there is no board AND naming its columns is refused as a half-finished edit'
-
-# The floor comes off the issue itself, and only here.
-Assert-Equal $map.InReview      (Get-StageFloorForIssue -State 'CLOSED' -StateReason 'completed' -StatusMap $boardless -Map $map) 'with no board a closed issue floors at In review'
-Assert-Equal $map.InDevelopment (Get-StageFloorForIssue -State 'OPEN' -StatusMap $boardless -Map $map -HasLinkedPullRequest) 'an open one with a pull request linked floors at In development'
-Assert-Equal $map.Filed         (Get-StageFloorForIssue -State 'OPEN' -StatusMap $boardless -Map $map) 'and an open one with nothing linked floors at Filed'
-Assert-True ($null -eq (Get-StageFloorForIssue -State '' -StatusMap $boardless -Map $map)) 'while an issue GitHub could not be asked about floors nowhere -- nothing is derived from silence'
-Assert-True ($null -eq (Get-StageFloorForIssue -State 'CLOSED' -StateReason 'not_planned' -StatusMap $boardless -Map $map)) 'and the not_planned guard outranks the fallback too -- nothing was built, so nothing is staged'
-Assert-Equal $shifted.InReview (Get-StageFloorForIssue -State 'CLOSED' -StateReason 'completed' -StatusMap $boardless -Map $shifted) 'the numbers come off the stage map here as well, or the fallback is literals'
-
-foreach ($case in @(@{ S = 'CLOSED'; P = $false }, @{ S = 'OPEN'; P = $true }, @{ S = 'OPEN'; P = $false })) {
-    $f = Get-StageFloorForIssue -State $case.S -StatusMap $boardless -Map $map -HasLinkedPullRequest:$case.P
-    Assert-True (Test-StageIsWritable -Stage $f -Map $map) "the board-less derivation never leaves the writable range ($($case.S), PR=$($case.P))"
-    Assert-True ($f -ne $map.ReadyToTest) "and never reaches Ready to test off the floor alone ($($case.S), PR=$($case.P)) -- that stays the feedback rule's"
-}
-
-# THE HEADLINE: the promotion this issue was filed about now fires without a board.
-$t = Resolve-TargetStage @closed -StatusMap $boardless -Map $map -Submitter 'Jordy Navarro' -SubmitterTold
-Assert-Equal $map.ReadyToTest $t.Stage 'a closed issue in a board-less repo IS handed back to the submitter -- the transition #1536 measured as silently lost'
-$t = Resolve-TargetStage @closed -StatusMap $boardless -Map $map -Submitter 'Jordy Navarro'
-Assert-Equal $map.InReview $t.Stage 'and the two conditions still both apply -- an untold submitter waits in In review exactly as with a board'
-$t = Resolve-TargetStage -State 'OPEN' -StatusMap $boardless -Map $map -Labels @('awaiting-more-info')
-Assert-Equal $map.NeedsInfo $t.Stage 'the awaiting-more-info label still outranks everything, board or no board'
-$t = Resolve-TargetStage -State 'OPEN' -StatusMap $boardless -Map $map
-Assert-True ($t.Why -match 'no project board') 'and the log says the stage came off the issue, so a move is still attributable'
-
-# THE CONTAINMENT, and it is the assert that matters most: a repo that HAS a board is untouched, and
-# the pull-request fact cannot leak onto that path -- the September 2, 2026 rule is not weakened.
-Assert-True ($null -eq (Get-StageFloorForIssue -State 'OPEN' -ProjectStatus '' -StatusMap $statusMap -Map $map -HasLinkedPullRequest)) 'where a repo names a project field, a linked pull request derives NOTHING -- an issue off that board stays off it'
-Assert-Equal $map.Filed (Get-StageFloorForIssue -State 'CLOSED' -StateReason 'completed' -ProjectStatus 'Todo' -StatusMap $statusMap -Map $map -HasLinkedPullRequest) 'and the column still outranks the issue there -- the status is the source, unchanged'
-
-# Terminal, and it OUTRANKS -AllowBackward: a card the submitter is holding is never taken back.
-Assert-True (Test-StageIsTerminal -Stage $map.ReadyToTest -Map $map) 'a card in Ready to test is never moved out of it'
-Assert-True (Test-StageIsTerminal -Stage $map.Completed   -Map $map) 'nor one in Completed'
-Assert-True (-not (Test-StageIsTerminal -Stage $map.InReview -Map $map)) 'while In review is an ordinary stage a sweep may still move'
-Assert-True (-not (Test-StageIsTerminal -Stage $map.Requests -Map $map)) 'and Requests is not terminal -- cards do leave it, they are just never sent there'
-Assert-True (Test-StageIsTerminal -Stage 60 -Map $shifted) 'the terminal pair comes off the map too, so a board numbered any other way is protected the same'
-Assert-True (-not (Test-StageIsTerminal -Stage $null -Map $map)) 'and no stage at all is not terminal'
-
-# Select-ProjectStatus: one answer, none, or a refusal to guess -- the same three the Asana side gives.
-$one = @([pscustomobject]@{ fieldValueByName = [pscustomobject]@{ name = 'Todo' } })
-Assert-Equal 'Todo'   (Select-ProjectStatus -ProjectItems $one).Status 'one board, one status'
-Assert-Equal 'status' (Select-ProjectStatus -ProjectItems $one).Source 'and it says where the answer came from'
-Assert-Equal 'none'   (Select-ProjectStatus -ProjectItems @()).Source 'an issue on no board is on no pipeline'
-$empty = @([pscustomobject]@{ fieldValueByName = $null })
-Assert-Equal 'none'   (Select-ProjectStatus -ProjectItems $empty).Source 'and one on a board whose status is unset is the same answer'
-$twoDifferent = @(
-    [pscustomobject]@{ fieldValueByName = [pscustomobject]@{ name = 'Todo' } },
-    [pscustomobject]@{ fieldValueByName = [pscustomobject]@{ name = 'Done' } }
-)
-Assert-Equal 'ambiguous' (Select-ProjectStatus -ProjectItems $twoDifferent).Source 'two boards naming two different statuses is two answers, so it gets neither'
-$twoSame = @(
-    [pscustomobject]@{ fieldValueByName = [pscustomobject]@{ name = 'Done' } },
-    [pscustomobject]@{ fieldValueByName = [pscustomobject]@{ name = 'Done' } }
-)
-Assert-Equal 'Done' (Select-ProjectStatus -ProjectItems $twoSame).Status 'while two boards that agree are one answer, not a conflict'
-
-# Which board -- read off the task's own memberships, so no repo keeps six section GIDs in its config.
-# A task on an unnumbered board only is on no pipeline, which is how any other board is left alone.
-$onBoard = @(
-    [pscustomobject]@{ project = [pscustomobject]@{ gid = '1201907543904785' }; section = [pscustomobject]@{ gid = '11'; name = 'Backlog' } },
-    [pscustomobject]@{ project = [pscustomobject]@{ gid = '1216936502427971' }; section = [pscustomobject]@{ gid = '22'; name = '4. Development done' } })
-$sel = Select-StageMembership -Memberships $onBoard
-Assert-Equal 'stage-section'    $sel.Source                'a numbered section past an unnumbered one still resolves'
-Assert-Equal 4                  $sel.Membership.Stage      'and reports the stage the card is in now'
-Assert-Equal '1216936502427971' $sel.Membership.ProjectGid 'and the board it read that from'
-Assert-Equal '22'               $sel.Membership.SectionGid 'and that section GID, which is what a move needs'
-
-Assert-Equal 'none' (Select-StageMembership -Memberships $onBoard[0]).Source 'a task on an unnumbered board only is on no pipeline'
-Assert-Equal 'none' (Select-StageMembership -Memberships @()).Source         'and a task on no board at all is the same answer'
-$twoBoards = @(
-    [pscustomobject]@{ project = [pscustomobject]@{ gid = '111' }; section = [pscustomobject]@{ gid = '1'; name = '2. Filed' } },
-    [pscustomobject]@{ project = [pscustomobject]@{ gid = '222' }; section = [pscustomobject]@{ gid = '2'; name = '5. Testing' } })
-Assert-Equal 'ambiguous' (Select-StageMembership -Memberships $twoBoards).Source 'two numbered boards is two answers, and neither is taken'
-
-# #2717: where the repo names its own board, only that board counts. The measured case is a task on a
-# colleague's workload board ('2. In Progress') that report-issue then asks a person to add to this
-# repo's board -- 'ambiguous' after the add, and staged on the workload board before it.
-$own = Select-StageMembership -Memberships $twoBoards -ProjectGid '222'
-Assert-Equal 'stage-section' $own.Source                'with -ProjectGid, the own board settles two numbered boards'
-Assert-Equal '222'           $own.Membership.ProjectGid 'and the own board is the one read, not the first one listed'
-Assert-Equal 5               $own.Membership.Stage      'with that board''s stage'
-$elsewhere = Select-StageMembership -Memberships @($twoBoards[0]) -ProjectGid '222'
-Assert-Equal 'off-board' $elsewhere.Source            'a task numbered only on another board is off-board, not staged there'
-Assert-Equal '111'       ($elsewhere.Candidates -join ',') 'and the other board is named for the log'
-$ownUnnumbered = @(
-    [pscustomobject]@{ project = [pscustomobject]@{ gid = '222' }; section = [pscustomobject]@{ gid = '3'; name = 'Backlog' } },
-    $twoBoards[0])
-Assert-Equal 'off-board' (Select-StageMembership -Memberships $ownUnnumbered -ProjectGid '222').Source 'own board in an unnumbered section does not fall back to another numbered board'
-Assert-Equal 'none' (Select-StageMembership -Memberships $onBoard[0] -ProjectGid '222').Source 'no numbered section anywhere is still none'
-
-# --- Format-ForConsole: the foreign text this script prints (#2019) --------------------------------
-#
-# An Asana task's NAME and a GitHub project board's STATUS names are both free text typed by a
-# colleague through a web UI, and this script prints both to a CI log. Neither author needs push
-# access to any repository -- which is the shape of entry 5 in new-branch's list of the places this
-# workflow writes somebody else's words to a console, and the reason those two values belong under
-# the same class as an issue title rather than under the looser treatment a commit subject gets.
-#
-# A SPACE PER CHARACTER, AND NOTHING COLLAPSED: a name is quoted evidence, so deleting a character
-# could make it read as a different sentence and re-spacing it makes it no longer what the board
-# says. Same contract, deliberately, as claim-issue-lib.ps1's function of this name.
-Assert-Equal 'a [31mb' (Format-ForConsole "a$([char]27)[31mb") 'the ESC of an ANSI escape run is stripped out of a task name -- backtick-e is PowerShell 7, so the char is built by code point'
-Assert-Equal 'a ]8;;x b' (Format-ForConsole "a$([char]27)]8;;x`ab") 'and both control characters of an OSC hyperlink -- the ESC that opens it and the BEL that ends it'
-Assert-Equal 'a b'   (Format-ForConsole "a$([char]0x202E)b") 'U+202E RIGHT-TO-LEFT OVERRIDE goes, which git would have accepted in a ref'
-Assert-Equal 'a b'   (Format-ForConsole "a$([char]0x200B)b") 'and a zero-width space, which renders as nothing at all'
-Assert-Equal 'a b'   (Format-ForConsole "a$([char]0x009B)b") 'and C1 0x9B, which some terminals read as CSI'
-Assert-Equal 'a b'   (Format-ForConsole "a`nb")          'a newline too -- one log line cannot be made into two'
-# The code points are spelled out rather than typed: this file is a BOM-less .ps1, which Windows
-# PowerShell 5.1 reads as the system ANSI code page -- see .claude/rules/language-layers.md. U+00FC is
-# a German umlaut, the everyday case on a BWJ board, and it must survive untouched.
-$keepMe = "Bestellung $([char]0x00FC)berpr$([char]0x00FC)fen -- 50%"
-Assert-Equal $keepMe (Format-ForConsole $keepMe) 'while every printable character survives exactly as the board wrote it, non-ASCII included'
-Assert-Equal ''      (Format-ForConsole '')              'an empty name is an empty string, not a throw'
-Assert-Equal ''      (Format-ForConsole $null)           'and so is no name at all'
-Assert-Equal ' [0m'  (Format-ForConsole "$([char]27)[0m")   'a name whose every control character is stripped keeps its printable remainder -- it is never given a noun it does not have'
-Assert-Equal ' a  b ' (Format-ForConsole " a$([char]0x200B)$([char]0x200B)b ") 'nothing is collapsed or trimmed: the name stays the length the board gave it'
-
-# ISSUE #2024. Neither Zl/Zp nor Mn/Me is Cc or Cf, so both survived this strip until it widened.
-Assert-Equal 'one two' (Format-ForConsole "one$([char]0x2028)two") 'a LINE SEPARATOR (U+2028) becomes a space -- it cannot make one printed line read as two'
-Assert-Equal 'one two' (Format-ForConsole "one$([char]0x2029)two") 'a PARAGRAPH SEPARATOR (U+2029) becomes a space, same reasoning'
-Assert-Equal 'e   ' (Format-ForConsole "e$([char]0x0301)$([char]0x0301)$([char]0x0301)") 'stacking combining marks (Zalgo text) each become a space rather than piling onto the base character'
-
-# ISSUE #2024'S SECOND HALF, MEASURED WHILE REPAIRING #2025. On Windows PowerShell 5.1 a regex class
-# over these six categories is silently wrong twice, so the strip is a code-point walk
-# (ConvertTo-ConsoleStrippedText) rather than a regex -- these two are exactly the cases it misses.
-Assert-Equal 'a b' (Format-ForConsole "a$([char]0xAD)b") 'U+00AD SOFT HYPHEN is Format to the runtime and Dash Punctuation to the regex engine -- a regex [\p{Cf}] class does not match it, and this strip does'
-Assert-Equal 'a  b' (Format-ForConsole ("a" + [char]::ConvertFromUtf32(0xE0074) + "b")) 'a format character above the BMP (the U+E0020..U+E007F TAG block, a surrogate pair) is invisible to a regex [\p{Cf}] class outright, and this strip catches it -- one space per UTF-16 unit consumed'
-
-# THE FOUR CALL SITES, asserted over the source because each is a Write-Host whose argument cannot be
-# reached without a live Asana and GitHub. Two print the task name, one the board's column names, and
-# one the phrase saying WHY a card moved -- a fifth site added later has to be added here too, which
-# is the point of pinning the count.
-$foreignPrints = [regex]::Matches($mirrorSrc, '(?m)^\s*Write-Host[^\r\n]*\$\(Format-ForConsole \$task\.name\)')
-Assert-Equal 2 $foreignPrints.Count 'both lines printing an Asana task name strip it first'
-Assert-True ($mirrorSrc -match 'Format-ForConsole \$_ \}\) -join') 'and the project board''s status names are stripped one by one before they are joined'
-Assert-Equal 0 ([regex]::Matches($mirrorSrc, '\$\(\$task\.name\)').Count) 'no raw task name reaches a string anywhere in the script'
-
-# THE FOURTH SITE IS THE ONE THE FIRST REPAIR MISSED, and it is the busiest: the stage sweep prints
-# this phrase on every card it moves. Resolve-TargetStage composes it, and two of its branches
-# interpolate foreign text -- a submitter's name off the task NOTES, and the single resolved project
-# board column name, which is the same value the ambiguity line strips. Pinned from BOTH ends, so a
-# partial revert cannot pass by leaving the strip in beside a restored raw interpolation.
-Assert-True ($mirrorSrc -match [regex]::Escape("' -- ' + (Format-ForConsole `$Why)")) 'the phrase saying why a card moved is stripped before it is printed'
-Assert-Equal 0 ([regex]::Matches($mirrorSrc, [regex]::Escape('" -- $Why"')).Count) 'and the raw interpolation it replaced is gone'
-# The two foreign values it carries, pinned where they are BUILT, so a later branch that renames
-# either still has to come past this assert rather than quietly emptying the site above.
-Assert-True ($mirrorSrc -match [regex]::Escape('Why           = "$Submitter has been told"')) 'the submitter branch of Why still interpolates a name off the task notes'
-Assert-True ($mirrorSrc -match [regex]::Escape('"the project status ''$ProjectStatus''"')) 'and the status branch still interpolates a project board column name'
-
-# IT IS HAND-TYPED HERE ON PURPOSE, because this file ships standalone: adopt-bwj-development copies it
-# into a consumer as .github/scripts/asana-mirror.ps1, where none of this repo's libs exist, so
-# ConvertTo-ConsoleStrippedText cannot be dot-sourced and is typed here instead. What the four copies
-# may not do is DISAGREE -- #2024's second half (measured while repairing #2025) moved the comparison
-# from a regex literal to a function's CODE, since the class stopped being a regex at all; the same
-# guard pr-issues.tests.ps1 keeps over the three libs.
-Assert-Equal 1 ([regex]::Matches($mirrorSrc, 'function ConvertTo-ConsoleStrippedText').Count) 'ONE definition in this template'
-Assert-Equal 1 ([regex]::Matches($mirrorSrc, [regex]::Escape('ConvertTo-ConsoleStrippedText -Text $Text')).Count) 'and Format-ForConsole is its one caller here -- all three sites go through it'
-function Get-ConsoleStrippedTextCode {
-    param([string]$Text)
-    # The CODE only, not the docstring: param through the closing brace. The docstring legitimately
-    # differs per file (this one explains being hand-typed and standalone), but the stripping LOGIC
-    # -- the six categories and the surrogate-pair walk -- may never disagree between the four copies.
-    # Anchored on the array declaration first, since it is unique in the file and unambiguous, then
-    # the docstring is cut away and only 'param(...)' onward is kept.
-    $block = [regex]::Match($Text, '(?s)\$script:ConsoleDeceptiveCategories = @\(.*?\r?\nfunction ConvertTo-ConsoleStrippedText \{.*?\r?\n\}\r?\n')
-    if (-not $block.Success) { return $null }
-    $code = [regex]::Match($block.Value, '(?s)\r?\n    param\(\[string\]\$Text\).*$')
-    if (-not $code.Success) { return $null }
-    return $code.Value
-}
-$mirrorWalkerCode = Get-ConsoleStrippedTextCode -Text $mirrorSrc
-Assert-True ([bool]$mirrorWalkerCode) 'the template''s walker code was found for comparison'
-foreach ($lib in @('claim-issue-lib.ps1', 'pr-issues-lib.ps1', 'ref-print-lib.ps1')) {
-    $libText = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot "..\lib\$lib"))
-    Assert-True ($libText -match 'function ConvertTo-ConsoleStrippedText') "$lib carries ConvertTo-ConsoleStrippedText too"
-    $libWalkerCode = Get-ConsoleStrippedTextCode -Text $libText
-    Assert-Equal $mirrorWalkerCode $libWalkerCode "the template's stripping code is byte-identical to $lib's, even though the docstrings differ"
-}
-# And the template still dot-sources nothing, which is WHY the copy exists -- if that ever stops being
-# true the argument above expires and the copy should go, not be re-justified.
-Assert-Equal 0 ([regex]::Matches($mirrorSrc, '(?m)^\s*\.\s+\(Join-Path').Count) 'the template dot-sources no lib at all, which is what makes the fourth copy necessary'
-Assert-Equal 2           (Select-StageMembership -Memberships $twoBoards).Candidates.Count 'and both are named for the log'
-
-# The move request. Pure, and it refuses non-numeric input on BOTH sides -- a section name is read out
-# of Asana and a GID out of an issue body, and neither may reach a request URL unchecked.
-$move = New-AsanaSectionMoveRequest -Gid '1216905543348385' -SectionGid '1217315819287423'
-Assert-Equal 'POST' $move.Method 'a section move is a POST'
-Assert-Equal 'https://app.asana.com/api/1.0/sections/1217315819287423/addTask' $move.Uri 'to the section addTask endpoint -- the task is the payload, not the path'
-Assert-Equal '{"data":{"task":"1216905543348385"}}' $move.Body 'and the body carries the task GID'
-Assert-Throws { New-AsanaSectionMoveRequest -Gid 'abc' -SectionGid '123' } 'a non-numeric task GID is refused'
-Assert-Throws { New-AsanaSectionMoveRequest -Gid '123' -SectionGid 'x/y' } 'and so is a non-numeric section GID'
 
 # --- the reach label is a seam, not a literal (issue #1841) ---------------------------------------
 Write-Host "`n-- the reach label --" -ForegroundColor Cyan
@@ -1024,10 +402,10 @@ $goLiveBlock = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef 
     -Changed @('Er is een SEO-intro per collectie.') -WhereToLook @('Kijk onder de titel.') -NotIncluded @('Geen A/B-test.')
 
 # ONE SPELLING OF THE MARKER, and this is the assert that holds it: the driver reads
-# Get-AsanaPasteBlockMarker and hands it to a lib that hard-codes nothing, so the CI backstop's
-# de-duplication cannot start posting a duplicate under a block this route already wrote.
-Assert-True ($goLiveBlock.Contains((Get-AsanaPasteBlockMarker))) 'the block carries the marker the backstop de-duplicates on'
-Assert-True ($goLiveBlock -notmatch '\[ADD LINK\]') 'it never writes the backstop placeholder -- this route knows the link'
+# Get-AsanaPasteBlockMarker and hands it to a lib that hard-codes nothing, so the duplicate check
+# (Test-AsanaPasteBlockPosted) cannot miss a block this route already wrote.
+Assert-True ($goLiveBlock.Contains((Get-AsanaPasteBlockMarker))) 'the block carries the marker the duplicate check matches on'
+Assert-True ($goLiveBlock -notmatch '\[ADD LINK\]') 'it never writes a placeholder -- this route knows the link'
 Assert-True ($goLiveBlock.Contains('Het staat gepland voor de release van')) 'the release fact is worded as a plan'
 Assert-True ($goLiveBlock.Contains('als versie v1.4.0.')) 'it names the version it is on course for'
 Assert-True ($goLiveBlock.Contains("NL $glDash https://example.invalid/nl/p")) 'one live URL per market, labelled by market'
@@ -1037,16 +415,11 @@ Assert-True ($goLiveBlock.IndexOf("NL $glDash") -lt $goLiveBlock.IndexOf("DE $gl
 # headings, in the reference block's order.
 $goLivePasted = ($goLiveBlock -split '(?m)^---$')[1]
 
-# TWO WRITERS OF ONE BLOCK, ONE SET OF WORDS (#2513). asana-mirror.ps1 ships standalone and so
-# carries a copy of the words rather than a call; this holds the copy equal to the source, so the
-# backstop cannot drift back to a shape the session route no longer writes.
-$glTextNl       = Get-GoLiveBlockText -Language nl
-$backstopPasted = ((New-AsanaPasteBlockComment -IssueRef 'BWJ-Development/smartwatchbanden#500') -split '(?m)^---$')[1]
-Assert-True ($backstopPasted.Contains(($glTextNl.Header -f '500')))            'the backstop''s header line is Get-GoLiveBlockText''s'
-Assert-True ($backstopPasted.Contains($glTextNl.Where))                         'its heading is the where-to-look heading'
-Assert-True ($backstopPasted.Contains(($glTextNl.ResultLink -f '[ADD LINK]'))) 'and its link sentence is the session route''s, with the placeholder in the link''s place'
-Assert-True ($goLivePasted.TrimStart().StartsWith(($glTextNl.Header -f '500'))) 'the session route opens with the same header line'
-Assert-True ($goLivePasted.TrimStart().StartsWith((Get-MirrorCommentHeader))) 'the block opens with the automation''s own header, the one asana-mirror composes (#2700)'
+# ONE SET OF WORDS FOR THE BLOCK'S OPENING (#2513, #2700): the header line is Get-GoLiveBlockText's,
+# and it is the automation's own line, English on every board.
+$glTextNl = Get-GoLiveBlockText -Language nl
+Assert-True ($goLivePasted.TrimStart().StartsWith(($glTextNl.Header -f '500'))) 'the block opens with the header line'
+Assert-True ($goLivePasted.TrimStart().StartsWith($hdr)) 'the block opens with the automation''s own header (#2700)'
 $glPastedLines = @($goLivePasted.Trim() -split "`n")
 Assert-Equal 'GitHub issue [BWJ-Development/smartwatchbanden#500](https://github.com/BWJ-Development/smartwatchbanden/issues/500) is now **closed**. It can be reopened anytime when something is still not working as expected.' `
     $glPastedLines[2] 'then the closed line, the issue name a link and the verb bold -- the requester''s form'
@@ -1063,30 +436,9 @@ Assert-True ($goLivePasted.IndexOf('Er is een SEO-intro') -gt $goLivePasted.Inde
 Assert-True ($goLivePasted.IndexOf('Kijk onder de titel.') -gt $goLivePasted.IndexOf('Het resultaat is hier te bekijken')) 'and the where-to-look prose follows the link'
 Assert-True ($goLivePasted -notmatch 'Planned to|What we ask|The fix for') 'the Dutch block carries no English words of the old shape'
 Assert-True ($goLiveBlock.Contains((Get-GoLiveBlockLead))) 'while the framing sentence, read on GitHub, stays English'
-Assert-True ((Get-GoLiveBlockLead) -match 'no paste needed') 'and says the workflow carries it, so nobody pastes it twice (#2703)'
-
-# THE CI MIRROR CARRIES THE BLOCK AS ITS ONE CLOSED MESSAGE (#2700, #2703).
-$glSections = Get-PasteBlockSections -Body $goLiveBlock
-Assert-True ($glSections.StartsWith('TE BEKIJKEN OP')) 'the carried sections start at the first heading -- header and closed line are the comment''s own'
-Assert-True ($glSections -notmatch 'GitHub automation|is now \*\*closed') 'so neither arrives twice'
-$glOldShape = "<!-- asana-paste-block -->`n`nPaste it:`n`n---`n$glDash automatisch bericht vanuit GitHub #500`n`nWAT ER NU ANDERS IS`n`nIets.`n---"
-Assert-Equal "WAT ER NU ANDERS IS`n`nIets." (Get-PasteBlockSections -Body $glOldShape) 'a block posted under the old header is carried without it too'
-Assert-Equal '' (Get-PasteBlockSections -Body 'no rules here') 'a body with no block has no sections'
-$glBackstop = New-AsanaPasteBlockComment -IssueRef 'BWJ-Development/smartwatchbanden#500'
-Assert-Equal $glSections (Select-SessionPasteBlockSections -Bodies @('first', $goLiveBlock, $glBackstop)) 'the session''s block is carried, never the backstop''s [ADD LINK] copy beside it'
-Assert-Equal '' (Select-SessionPasteBlockSections -Bodies @('first', $glBackstop)) 'and a backstop copy alone carries nothing'
-$glClosedHtml = New-ClosedMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#500' -BlockSections $glSections
-$glClosedXml  = [xml]$glClosedHtml
-Assert-True ($glClosedXml.body.InnerText.StartsWith((New-MirrorComment -IssueRef 'BWJ-Development/smartwatchbanden#500' -Event 'closed'))) 'the closed message opens with the closed comment, so the sweeps'' marker is in it'
-Assert-True ($glClosedHtml.Contains('<strong>TE BEKIJKEN OP</strong>')) 'the headings arrive bold'
-Assert-True ($glClosedHtml.Contains('<a href="https://example.invalid/preview">https://example.invalid/preview</a>')) 'a bare URL arrives as a link'
-Assert-True ($glClosedHtml.Contains("`n`n<strong>WAT ER NU ANDERS IS</strong>`n`n")) 'and the line breaks arrive as written -- what a paste lost'
-Assert-Equal '<a href="https://x.invalid/?a=1&amp;b=2">t</a> en <strong>vet</strong> &amp; meer' (ConvertTo-AsanaStoryHtml -Markdown '[t](https://x.invalid/?a=1&b=2) en **vet** & meer') 'Markdown links and bold convert, and everything else is escaped'
-Assert-Equal (New-MirrorCommentHtml -IssueRef 'o/r#1' -Event 'closed' -StateReason 'not_planned') `
-    (New-ClosedMessageHtml -IssueRef 'o/r#1' -StateReason 'not_planned' -BlockSections $glSections) 'a close as not planned carries no block -- nothing was built'
-Assert-Equal (New-MirrorCommentHtml -IssueRef 'o/r#1' -Event 'closed') (New-ClosedMessageHtml -IssueRef 'o/r#1') 'and with no block the closed comment goes out alone'
-Assert-Equal (New-MirrorCommentHtml -IssueRef 'o/r#1' -Event 'closed' -StateReason 'not_planned' -AwaitingInfo) `
-    (New-ClosedMessageHtml -IssueRef 'o/r#1' -StateReason 'not_planned' -BlockSections $glSections -AwaitingInfo) 'a close while waiting for information carries no block either, and is the waiting form'
+Assert-True ((Get-GoLiveBlockLead) -match 'Nothing carries the block below into Asana') 'and says nothing carries the block into Asana (Dave, October 5, 2026)'
+Assert-True ((Get-GoLiveBlockLead) -match 'by hand') 'and that it is pasted by hand where the task needs it'
+Assert-True ((Get-GoLiveBlockLead) -notmatch 'no paste needed|workflow posts') 'and no longer promises the retired workflow carries it (#2703)'
 
 # A BARE LIST BESIDE A RESULT LINK SAYS HOW TO READ IT BEFORE THE RELEASE (#2477): a bare URL renders
 # the preview in any browser that opened the result link first, so both tabs would agree. The caveat is
@@ -1114,7 +466,7 @@ Assert-True ($goLivePasted.Contains('hoe dan ook mee met die release')) 'the ask
 # THE SAME SHAPE IN ENGLISH, for a task written in English -- the words follow the task, not the repo.
 $goLiveEn = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#3' -GoLiveDate 'Monday 21 September 2026' `
     -ResultLink 'https://example.invalid/preview' -Version '2.0.1' -Language en -Changed @('A thing changed.')
-Assert-True ($goLiveEn.Contains("$(Get-MirrorCommentHeader)`n`nGitHub issue [o/r#3]")) 'English opens the same way -- the automation''s lines are English on every board'
+Assert-True ($goLiveEn.Contains("$hdr`n`nGitHub issue [o/r#3]")) 'English opens the same way -- the automation''s lines are English on every board'
 Assert-True ($goLiveEn.Contains("`nWHAT IS DIFFERENT NOW`n") -and $goLiveEn.Contains("`nWHAT WE ASK OF YOU`n")) 'with the same sections'
 Assert-True ($goLiveEn.Contains('planned to go live with the release of Monday 21 September 2026, as version v2.0.1.')) 'and the plan wording'
 Assert-True ($goLiveEn -notmatch '(?m)will go live') 'never as a promise'
@@ -1172,6 +524,10 @@ Assert-True ($goLiveDriver.IndexOf('Test-PrivateResultLink -Link') -lt $goLiveDr
 # native command as ASCII, which posted every accent and dash of the colleague's language as '?'.
 Assert-True ($goLiveDriver -notmatch '\|\s*&?\s*gh issue comment') 'the driver never pipes the block into gh'
 Assert-True ($goLiveDriver -match 'gh issue comment \$issueNumber --repo \$StoreRepo --body-file \$bodyFile') 'it posts from the UTF-8 body file'
+# AND THAT FILE IS ACTUALLY ASSIGNED, on a line of its own. The asana-mirror retirement once folded the
+# assignment into the comment above it, which left -Post dying on an unset variable under StrictMode while
+# every assert here stayed green -- nothing in this suite runs -Post.
+Assert-True ($goLiveDriver -match '(?m)^\$bodyFile = Join-Path') 'the body file is assigned on its own line, not inside a comment'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
 # to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path

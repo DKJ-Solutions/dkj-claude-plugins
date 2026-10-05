@@ -3,8 +3,9 @@ name: golive-block
 description: >-
   Write the paste-ready block for a GitHub issue, including its go-live half: where the result can be
   seen, when it is planned to go live (the next release day), and the live storefront URL per market.
-  Use it as the closing act of the chain that shipped the work, while the issue is still OPEN -- closing the issue then sends it: the asana-mirror workflow
-  posts the block on the Asana task as its one closed message. It prints by default and posts only with -Post; it never touches Asana itself, and it never
+  Use it as the closing act of the chain that shipped the work, while the issue is still OPEN, then close the issue. The block stays on the GitHub issue only:
+  nothing carries it into Asana (the asana-mirror workflow was retired on October 5, 2026), so the task's assignee pastes it into the task by hand
+  where the task needs it. It prints by default and posts only with -Post; it never touches Asana, and it never
   writes a placeholder link.
 ---
 
@@ -45,7 +46,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    should change and reopens the issue, and the release happens either way
    ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The five rules behind it
    are in `WORKFLOW-portable.md`, under *What the block asks of the requester*.
-6. **The shape and the language** -- the automation's closed message: its header (*— GitHub automation 🤖*)
+6. **The shape and the language** -- the block as it was written for Asana: its header (*— GitHub automation 🤖*)
    and the closed line (`GitHub issue [<owner>/<repo>#<n>](<issue url>) is now **closed**.`, then
    *"It can be reopened anytime when something is still not working as expected."*), both fixed and
    English on every board, then five fixed
@@ -105,19 +106,18 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 
 ## What it deliberately does not do
 
-- **It never writes `[ADD LINK]`.** That placeholder belongs to `asana-mirror`'s CI backstop, which
-  genuinely cannot know the link. A session running this script does know it, so a link it was not
-  given is a **sentence it does not write** -- a missing line, never a placeholder.
+- **It never writes `[ADD LINK]`.** That placeholder belonged to the retired `asana-mirror` backstop,
+  which genuinely could not know the link. A session running this script does know it, so a link it was
+  not given is a **sentence it does not write** -- a missing line, never a placeholder.
 - **It never hands the requester a link they cannot open.** The handover page is the *reviewer's*
   surface, and it stays private until somebody shares it, so a `claude.ai/artifact/` or
   `claude.ai/code/artifact/` `-Link` is refused. That covers printing too, because the printout is
   what reaches the task. Measured in `BWJ-Development/smartwatchbanden#750`.
-- **It never touches Asana itself.** The `asana-mirror` workflow does, when the issue closes: it posts the
-  block on the task as its one closed message, the closed line on top and the sections under it, as
-  `html_text` so the links, the bold and every line break arrive. A hand paste lost either the formatting
-  or the line breaks ([#2703](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2703)), and a
-  separate *ready* message beside the close said the same thing twice (Dave, #2700). So closing the issue is
-  what sends the block -- close it once the block is right.
+- **It never touches Asana, and nothing else does either.** From #2700 until October 5, 2026 the
+  `asana-mirror` workflow posted the block on the task when the issue closed. That workflow is retired
+  (Dave) and nothing replaces it, so the framing sentence above the rules now reads *"Nothing carries the
+  block below into Asana -- paste it into the Asana task by hand where the task needs it:"*. The task's
+  assignee pastes it; closing the issue sends nothing.
 - **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026"* is a
   cadence, and a release can slip. This block is the one surface a colleague quotes back, so it must
   not read as a commitment nobody made.
@@ -128,26 +128,26 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 ## The order is the rule, and this script is the second-to-last step
 
 ```text
-work shipped -> build-golive-block -Post -> close the GitHub issue (asana-mirror carries the block)
+work shipped -> build-golive-block -Post -> close the GitHub issue (the block stays on the issue)
 ```
 
 **While the issue is still OPEN.** Nobody returns to a closed one, which is the whole finding behind
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049): a comment posted at the close
 appears underneath an item that has just left every open-issue view. The script warns where the issue
-is already closed and posts anyway -- a late block beats the backstop's placeholder copy.
+is already closed and posts anyway -- a late block beats none.
 
-**And it refuses a second block by default.** `Test-AsanaPasteBlockPosted` -- the backstop's own
-de-duplication -- answers *true* where it cannot read the comments, which is the safe default for CI
-and the wrong one here, so an unreadable issue is reported as exactly that and `-Force` is the way
+**And it refuses a second block by default.** `Test-AsanaPasteBlockPosted` (in
+`scripts/lib/asana-task-lib.ps1`) answers *true* where it cannot read the comments, which is the safe
+default for a duplicate check, so an unreadable issue is reported as exactly that and `-Force` is the way
 past it.
 
 ## Where the rule lives
 
-[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md), chapter one, under *The paste-ready block*. The
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md), chapter one, under *The go-live block*. The
 other cycle step this plugin adds -- the storefront-visibility step, last under `### CREATE` -- is in
 [`PREVIEW-portable.md`](../../PREVIEW-portable.md), and both are indexed in
 [the README](../../README.md#what-the-cycle-gains-here). **The same output is that page's fourth
-block** -- a preview handover embeds it read-only, as what the close will send, rather than composing its own
+block** -- a preview handover embeds it read-only, as what the requester will read, rather than composing its own
 ([#2474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2474)), so run it with `-OutFile`
 for the page and with `-Post` for the issue.
 

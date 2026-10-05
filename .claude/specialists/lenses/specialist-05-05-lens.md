@@ -977,22 +977,21 @@ guess the triage pass already corrects today. The template covers the web form; 
 rule actually names is a free-form `gh issue create --label bug-inbound` (or `feature-inbound`), which
 no front matter can reach.
 
-That is the same rule `bwj-development` states for its own four buckets, where the Asana sweep removes
-the other three as it sets one — **and since September 11, 2026 it is the same four NAMES as well**
+That is the same rule `bwj-development` states for its own four buckets, where the Asana sweep removed
+the other three as it set one until it was retired on October 5, 2026 — **and since September 11, 2026 it is the same four NAMES as well**
 (Dave, [#1842](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1842)), on the same four
 colour codes. `prio-1`…`prio-4` is one vocabulary across the whole family now.
 
-**The two MOTORS are still two motors, and that is the part a shared vocabulary no longer says out
-loud.** A rung in a BWJ store repo is **derived** from the Asana `Prio-Score` the sweep reads, and is
-never typed; a rung here is **typed** by whoever files, because there is no board behind this tracker
-to derive one from. So a session moving between the two repo families now gets an accepted label where
-it used to get a refusal from `gh` — the axis is shared, the mechanism is not, and nothing mechanical
-separates them any more.
+**There were two MOTORS until October 5, 2026, and there is one source of truth for each rung still.**
+A rung in a BWJ store repo was **derived** from the Asana `Prio-Score` by the asana-mirror sweep; since
+that sweep was retired it is **typed** by a person from the score read in Asana, while a rung here is
+typed by whoever files, because there is no board behind this tracker. Both are typed now, but they
+answer to different sources — the BWJ rung to the Asana score, this one to the filer's own judgement.
 
 **What separates them is the label's DESCRIPTION, which a rename leaves untouched.** `prio-4` here
 reads `Priority 4 of 4 (highest)`; in a BWJ repo it reads `Asana Prio-Score 4.00-5.00`. That is the
-one place a badge still says which motor set it, and it is why the BWJ side's descriptions stay
-score-shaped.
+one place a badge still says which source the rung answers to, and it is why the BWJ side's
+descriptions stay score-shaped.
 
 **This reverses half 1 of
 [#1686](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1686)**, which had held the two
@@ -1001,8 +1000,9 @@ are still worth knowing:
 
 1. **The BWJ names are not a convention, they are code** — which is exactly why the reversal arrived as
    an inbound issue rather than as a label rename somebody typed.
-   `plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1` holds them as a literal
-   (`$script:PrioLabels`), `Get-PrioLabelForScore` returns those exact strings from a score band, and
+   `plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1` (retired October 5, 2026, with the
+   whole sweep that set the labels) held them as a literal
+   (`$script:PrioLabels`), `Get-PrioLabelForScore` returned those exact strings from a score band, and
    `scripts/tests/bwj-development.tests.ps1` asserts every boundary from both sides. Unifying was an
    edit to a shipped CI mechanism that runs daily against two live stores, a re-pinning of its suite,
    and a label rename on two live trackers.
@@ -1018,10 +1018,10 @@ are still worth knowing:
 
 **The third ground is the one Dave overrode**, and it was paid rather than argued away: *"the names are
 the only thing that says which motor owns the rung."* The description paragraph above is what replaces
-it. The residual risk is worth naming plainly — a single vocabulary reads as a single mechanism, so a
-session that assumes the Asana sweep applies here, or that a rung over there was typed by somebody, is
-making exactly the mistake #1686 predicted. **Read the description, not just the name**, wherever it
-matters which motor set the rung.
+it. The residual risk is worth naming plainly — a single vocabulary reads as a single source, so a
+session that reads a BWJ rung as the filer's judgement, or a rung here as an Asana score, is making
+exactly the mistake #1686 predicted. **Read the description, not just the name**, wherever it matters
+which source the rung answers to.
 
 **What was NOT weighed either time: how recently anything was created.** #1686 was committed 32 minutes
 after `feat/1685-prio-labels` merged, and #1842 reversed half of it two days after that. Neither

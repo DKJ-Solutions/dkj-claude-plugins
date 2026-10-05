@@ -9,9 +9,9 @@ description: >-
   not yours to make. The Asana card lands in the board's `Filed` section -- tracked on GitHub now --
   because the board's sections are the cycle's stages. The GitHub issue always gets created
   even if Asana is unreachable, so the source-of-truth guarantee holds. Nothing here resolves a ticket
-  and nothing downstream does either: closing the GitHub issue only makes the asana-mirror CI workflow
-  post the closed message, carrying the go-live block, and move the card to `ReadyToTest`, and the colleague who
-  filed it ticks it off.
+  and nothing downstream does either: closing the GitHub issue tells Asana nothing (the asana-mirror CI
+  was retired on October 5, 2026), the card stays where this skill put it unless a person moves it, and
+  the colleague who filed it ticks it off.
 ---
 
 # report-issue -- the BWJ GitHub-first, Asana-mirrored filing procedure
@@ -61,8 +61,8 @@ rather than by this page**: the reach-label gate in step 2 below. The full rule 
   and is not something a session can do from here. Measured on a `smartwatchbanden` checkout,
   September 15, 2026 ([#2028](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2028)): both
   registered Asana connectors authenticated and both `Not Authorized` for the project the seam names,
-  while `asana-mirror`'s CI half drove that same board green over its own `ASANA_PAT` -- so the two
-  halves were bound to different workspaces and only the MCP was wrong.
+  while a script over a personal `ASANA_PAT` read that same board fine -- so the connector was bound to a
+  different workspace than the token, and only the MCP was wrong.
 
 ## Step 1 -- the GitHub issue (always)
 
@@ -190,9 +190,9 @@ Where it is `$null` -- the default -- skip it silently, exactly as for `Github I
 section **number** that stage is (leave it unset and the default is `3`), then read the project's
 sections and take the one whose name starts with that number. The words after the number are the
 team's and tell you nothing, so match on the **number** only.
-[Step 6](https://github.com/DaveKJohn/claude-code-specialists/blob/main/plugins/dkj-policy/bwj-development/WORKFLOW-portable.md#6-the-boards-sections-are-the-cycle----one-card-one-column-per-stage)
-has the whole stage model. **If the project has no numbered sections, place nothing and say so** --
-that board is not a pipeline, and the daily sweep will not move this card either.
+`WORKFLOW-portable.md` step 6 says what remains of the stage model: `Filed` is the one section the
+tooling writes, and a person moves a card through the others. **If the project has no numbered sections,
+place nothing and say so** -- that board is not a pipeline.
 
 **On a ticket that came the other way** -- filed in Asana by a colleague and copied into an issue for
 analysis -- the task already exists and is sitting in `Requests`, their untriaged inbox. Filing the
@@ -215,10 +215,7 @@ task's `memberships.project.gid` before the move**, and where this board is not 
   -- because they are written on the task itself, wherever it lives.
 - **name the one act that is left to a person**: adding the task to this board in Asana (*Add to
   project*, into the `Filed` section). The session cannot do it: the Asana MCP exposes no
-  add-to-project call. Nothing else is owed afterwards -- the `asana-mirror` sweep reads the board off
-  the task's own memberships, narrowed to this repo's `ASANA_PROJECT_GID` board, so from the moment
-  the task is on that board it is staged like any other card, whatever other boards it also sits on
-  (#2717). Until then it is on no pipeline here and the sweep leaves it alone, by design.
+  add-to-project call. Until a person does, the task is on no board of this repo's.
 
 **That existing task then gets two more writes, both in this step** (#2653):
 
@@ -235,15 +232,14 @@ task's `memberships.project.gid` before the move**, and where this board is not 
    GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in development.
    ```
 
-   Post it as `html_text`, with the issue name as the link and **created:** in bold, the way the CI mirror posts its
-   own two forms:
+   Post it as `html_text`, with the issue name as the link and **created:** in bold:
    `<body>— GitHub automation 🤖` + two newlines + `GitHub issue <a href="<issue URL>"><owner>/<repo>#<n></a> is <strong>created:</strong> this Asana task is now in development.</body>`.
 
-   It is the first of four fixed forms, all under the same header. The CI mirror posts the CLOSED, the
-   CLOSED WHILE WAITING FOR INFORMATION (#2732) and the REOPENED forms ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), superseding
-   #2653's wording). The form is fixed and English on every board, whatever language the card is
-   written in, and `bwj-development.tests.ps1` holds this copy equal to the one `asana-mirror.ps1`
-   composes. Its header line is what tells a colleague that the account holder did not type it.
+   It is the one fixed form that remains: the CLOSED, CLOSED WHILE WAITING FOR INFORMATION (#2732) and
+   REOPENED forms the CI mirror used to post were retired with it on October 5, 2026
+   ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656) fixed the wording, superseding
+   #2653's). The form is fixed and English on every board, whatever language the card is
+   written in. Its header line is what tells a colleague that the account holder did not type it.
    Post it after the move.
 
 If Asana is unreachable -- or a write is refused that the preflight's read could not cover -- report
@@ -279,29 +275,23 @@ line reads as that person's own words for good. The rule and its reason are in
 Give both URLs and stop -- or, for an issue without the reach label, the issue URL and the sentence
 that it is GitHub-only because it is tier 0, so the missing card reads as a decision rather than a
 failed mirror. **Do not resolve anything, and do not promise that anything else will.**
-When the GitHub issue is closed, the `asana-mirror` CI workflow posts an update on the Asana task
-carrying the go-live block as its closed message and moves the card to `ReadyToTest`; the task stays open until the
-colleague who filed it ticks it off. Nothing in this chain -- not you, not the CI -- completes a task,
-and nothing puts a card in `Completed` either.
+Closing the GitHub issue tells Asana nothing: the `asana-mirror` CI that used to post a closed message
+and move the card was retired on October 5, 2026 (Dave), and nothing replaces it. The card stays in
+`Filed` unless a person moves it, and the task stays open until the colleague who filed it ticks it off.
+Nothing in this chain completes a task, and nothing puts a card in `Completed` either. The go-live
+block (the `golive-block` skill) stays on the GitHub issue; the task's assignee pastes it into the task
+where the task needs it.
 
 **Say which section the card is in**, alongside the two URLs. It is the half a colleague can see
 without a GitHub account, and it is the one part of this run somebody may need to correct.
 
-**And when a branch is opened for this issue, the card moves to `InDevelopment` in the same breath.**
-That hop is a session's to make and **nothing catches it up**: GitHub has no signal for a branch with
-no pull request behind it, so the sweep never derives that stage at all. Nothing undoes the move
-either -- the sweep derives a floor, never a position.
-
-**A ticket blocked on the person who filed it gets the `awaiting-more-info` label**, and that is the whole
-mechanism for the board's blocked column -- the label fires its own CI run, so the card moves as you
-triage. **Setting it and writing the question are one act**: the label moves the card to the submitter,
-so the comment asking them what you need goes on in the same movement, in the form
-[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#setting-awaiting-more-info-is-writing-the-question----one-act-and-the-issue-stays-open)
+**A ticket blocked on the person who filed it gets the `awaiting-more-info` label.** It is a flag on the
+GitHub issue only now: it moves no card. **Setting it and writing the question are one act**: the
+comment asking the requester what you need goes on in the same movement, in the form
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#setting-awaiting-more-info-is-still-writing-the-question----one-act-and-the-issue-stays-open)
 step 6 prescribes, and the issue stays open -- unless the owner wants it off the open list, in which case
-it is closed as **not planned with the label kept on**, the one sanctioned alternative, and the CI posts
-the waiting form. Take the label off when the answer arrives and the card
-returns to wherever the work actually is. Do not move that card by hand: the label is what the column is derived from, so a hand-move is
-undone on the next sweep while the label stays.
+it is closed as **not planned with the label kept on**, the one sanctioned alternative. Take the label
+off when the answer arrives.
 
 **Name the kind and the tier you chose, and why.** You infer both rather than asking for them -- the
 reach question is answerable from the finding itself, and the whole backfill of 135 issues was

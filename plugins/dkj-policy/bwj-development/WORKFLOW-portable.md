@@ -163,8 +163,7 @@ an error instead of an issue.
 filed by, or on behalf of, the CRO team -- today that is Johnno. It is written from judgement at the
 moment of filing, exactly like the reach label above: there is no automatic
 detection from a GitHub account, and none is planned -- a session files every issue itself, so
-`created_by` would read identically whether a CRO finding or anybody else's went through it, the same
-trap `SubmitterPattern` elsewhere in this page warns against for a different field.
+`created_by` would read identically whether a CRO finding or anybody else's went through it.
 
 **This label exists ONLY in a repo that is an actual Shopify store**, because a CRO team measures
 conversion on a live storefront and this plugin's own source repo, `dkj-claude-plugins`, has none --
@@ -188,7 +187,7 @@ labelling step creates it only where the repo is one of those two.
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049) this label was what
 turned on the paste-ready block at the close. That block is now gated on the **Asana link** instead --
 a mirrored task is a mirrored task -- and it is written before the close rather than at it. See
-[step 4 below](#the-paste-ready-block----written-before-the-close-by-the-session-that-shipped-the-work).
+[step 4 below](#the-go-live-block----written-before-the-close-by-the-session-that-shipped-the-work).
 This label is purely a filing axis again: who raised it, and nothing else.
 
 ### 2. Then Asana -- a translation, not a copy
@@ -212,7 +211,9 @@ issue without the reach label. Where it cannot read the labels, it lets the call
 The mechanics are in step 2 of [`report-issue`](skills/report-issue/SKILL.md).
 
 Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
-`Get-AsanaProjectGid` names. The Asana task is **not** a paste of the issue body. It is written for
+`Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **That is the whole
+of the mirroring** (Dave, October 5, 2026): the CI automation that used to follow the issue afterwards
+is retired (steps 4 to 6), so nothing updates the task when the issue changes. The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
 
 - **Plain language, outcome-framed.** What a customer or colleague actually experiences, not what the
@@ -238,8 +239,7 @@ The colleague-facing wording is Claude's to draft; a colleague may refine it in 
 GitHub issue is right and the Asana task is corrected to match.
 
 **This is where the language turns over, and it is the ONLY place in this procedure that it does.**
-The skeleton's four headings stay as written above -- they are the form, which is why the CI mirror's
-own comments are English too -- while what you write under them is addressed to a colleague and
+The skeleton's four headings stay as written above -- they are the form -- while what you write under them is addressed to a colleague and
 follows **that colleague**, not the repo. So one finding legitimately reads English on GitHub and the
 colleague's own language on the board: that is the translation this step is named for, and not drift
 between the two.
@@ -260,12 +260,12 @@ colleague's own text left untouched below it. And one comment goes on the task, 
 GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in development.
 ```
 
-Only the issue name varies. It is posted as the link to the issue, with **created:** in bold. It is the first of
-**four fixed forms** -- the CI mirror posts the other three, CLOSED, CLOSED WHILE WAITING FOR INFORMATION
-(#2732) and REOPENED, in
-[step 4](#4-write-the-paste-ready-block-then-close-the-github-issue---the-asana-task-gets-an-update)
--- and all four are English on every board. They are the one exception to the rule that what a
-session writes to a colleague follows their language: the requester fixed them word for word
+Only the issue name varies. It is posted as the link to the issue, with **created:** in bold. It is the
+one fixed form that remains: the three the CI mirror used to post (CLOSED, CLOSED WHILE WAITING FOR
+INFORMATION and REOPENED) were retired with it on October 5, 2026
+([step 4](#4-write-the-go-live-block-then-close-the-github-issue----nothing-carries-it-into-asana)).
+It is English on every board, the one exception to the rule that what a
+session writes to a colleague follows their language: the requester fixed it word for word
 ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), replacing #2653's
 wording). The steps are in `report-issue`.
 
@@ -307,23 +307,18 @@ card is corrected to match the issue, never the issue to match the card.
 **No agent writes a comment on an Asana task unless its very first line says it is an automated
 message** (Dave, September 25, 2026, inbound
 [#2476](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2476)). Asana shows a comment as
-written by the account that posted it, and neither writer below posts under an account of its own: a
-session writes through the Asana MCP as the person who connected it, and the CI mirror writes with
-`ASANA_PAT`, which also belongs to a person. So a comment without that line reads to a colleague as
-that person's own words, and they did not write it. Measured in `BWJ-Development/smartwatchbanden` the
+written by the account that posted it, and a session posts under no account of its own: it writes
+through the Asana MCP as the person who connected it. So a comment without that line reads to a
+colleague as that person's own words, and they did not write it. Measured in `BWJ-Development/smartwatchbanden` the
 day the rule was written: a session running `report-issue` on an existing ticket posted a
 colleague-facing comment, and the story's author read as the owner's own name with nothing in the
 text to say otherwise.
 
-- **A session** writes the line in the colleague's language, [as everything addressed to them
-  is](#2-then-asana----a-translation-not-a-copy), and it names both facts: automated, and not written
-  by the account holder personally. The comment `report-issue` posts on an Asana-origin ticket is the
-  exception: its header is fixed as *"— GitHub automation 🤖"* (#2656). The content
-  comes after the header and never before.
-- **The CI mirror** opens every update with `Get-MirrorCommentHeader`, which composes the event's
-  fixed header -- *"— GitHub automation 🤖"*, the same for every event
-  (#2656) -- above the marker sentence step 4's de-duplication reads. The header sits above the marker
-  and does not replace it, so updates written before the header existed still de-duplicate.
+A session writes the line in the colleague's language, [as everything addressed to them
+is](#2-then-asana----a-translation-not-a-copy), and it names both facts: automated, and not written
+by the account holder personally. The comment `report-issue` posts on an Asana-origin ticket is the
+exception: its header is fixed as *"— GitHub automation 🤖"* (#2656). The content
+comes after the header and never before. (The CI mirror that used to be the second writer is retired.)
 
 **Write the line BEFORE you post, because you cannot add it afterwards.** The Asana MCP exposes adding
 a comment but no tool to edit or delete one, although the API itself supports both. So a comment a
@@ -344,7 +339,7 @@ created it.
   the colleague's record of a request and what became of it, and a card that should not have existed
   is repaired by **unlinking** it: remove the `Asana:` line and the `asana-task` marker from the
   GitHub issue (step 3) and leave the task where it is. The same goes for a task a colleague created
-  rather than the account the session or the mirror writes through, and for one that also sits in a
+  rather than the account the session writes through, and for one that also sits in a
   project other than the board.
 - **Any other task can be offered, and the offer shows the state it was read with.** Each option
   names the task's state (open, no comments, the board only, created by whom) beside its title. A
@@ -359,8 +354,8 @@ question as it was put. Nobody noticed for two days, until the task could not be
 
 ### 3. Cross-link both ways
 
-The link is stored on both sides, and one half is machine-readable because the automation in step 4
-matches on it:
+The link is stored on both sides, and one half is machine-readable because scripts match on it (the
+backlog page, the release-note task link, the resolves gate):
 
 - **On the GitHub issue** -- appended to the issue body:
 
@@ -369,74 +364,39 @@ matches on it:
   <!-- asana-task: <numeric task GID> -->
   ```
 
-  The HTML-comment marker holds the bare numeric GID and nothing else, and it is what the CI workflow
-  matches on **first and unconditionally**. Write it whenever you create the task yourself: it is the
+  The HTML-comment marker holds the bare numeric GID and nothing else, and it is what the matchers
+  below try **first and unconditionally**. Write it whenever you create the task yourself: it is the
   only form that cannot be misread, and an issue carrying one is never matched any other way.
 
 - **On the Asana task** -- the `Tracked on GitHub:` line of the skeleton already carries the issue
   URL. Nothing else is required there. A task that came from Asana got its link and its comment in
   step 2.
 
-### 4. Write the paste-ready block, THEN close the GitHub issue -> the Asana task gets an update
+### 4. Write the go-live block, THEN close the GitHub issue -- nothing carries it into Asana
 
-**Closing the GitHub issue is the signal that the work is BUILT, not that the ticket is DONE.** A
-GitHub Actions workflow in the repo (`.github/workflows/asana-mirror.yml`, copied from this plugin's
-`templates/`) carries that news across:
+**Closing the GitHub issue is the signal that the work is BUILT, not that the ticket is DONE -- and it
+tells Asana nothing.** Until October 5, 2026 a GitHub Actions workflow (`asana-mirror`, copied into each
+store's `.github/`) carried the close across: it commented on the linked task when the issue closed or
+reopened, moved the card through the board's numbered sections, ran a daily reconciliation sweep, synced
+the task's `Prio-Score` into `prio-N` labels and posted a placeholder backstop block on the issue.
+**Dave retired all of it on that day (October 5, 2026), and nothing replaces it.** What that means in
+practice:
 
-| GitHub event | what happens in Asana |
-|---|---|
-| issue **closed** | ONE comment on the linked task, the closed message: *"GitHub issue `<owner>/<repo>#<n>` is now **closed**. It can be reopened anytime when something is still not working as expected."*, with the sections of the paste-ready block the session left on the issue under it ([#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700)). The task stays open |
-| issue **closed as not planned** | the opposite comment, in the same shape: nothing was built, so there is nothing to test. No block rides on it, and the GitHub backstop block is not posted ([#2765](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2765)) |
-| issue **closed as not planned** while the `awaiting-more-info` label is on it | the waiting form instead ([#2732](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2732)): *"GitHub issue `<owner>/<repo>#<n>` is now **closed while waiting for information:** there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again."* No block rides on it, and the GitHub backstop block is not posted |
-| issue **reopened** | a comment: *"GitHub issue `<owner>/<repo>#<n>` is reopened: this Asana task is back in development."* |
-| daily schedule | a reconciliation sweep in **both** directions, for events that never arrived: open tasks in the mirror project whose GitHub issue is closed, and issues closed in the last 30 days whose task has not been told yet |
+- Closing or reopening an issue posts nothing on the task.
+- A card stays where `report-issue` put it (`Filed`) unless a person moves it.
+- The go-live block stays on the GitHub issue; a person pastes it into the Asana task where the task needs it.
+- A priority is set in Asana and, where wanted, typed onto the issue by a person.
 
-**Each comment is the requester's fixed form, word for word**
-([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656)): the header line
-*"— GitHub automation 🤖"*, a blank line, and one sentence, the same header for every event. It is posted as `html_text`, with the issue name as the link and the verb (**closed**, **reopened:**) in bold. The CREATED form is
-the third of the set, and `report-issue` posts it in step 2. **There are three automations, not four**
-(Dave, October 2, 2026, #2700): a separate *ready* message beside the close said the same thing twice,
-so the go-live block rides on the closed message instead of being pasted. A task told before #2700 read
-*"is closed:"*, and the sweeps still count that spelling as told. The close update no longer lists the pull
-request that closed the issue, and it no longer carries the *"tick it off yourself"* line, because the
-form has neither. The pull request is still one click away on the issue.
-
-**The reopen form names a cause, and that reverses #2117's rule on purpose.** Until #2656 the reopen
-comment asserted no cause, because a reopen can also mean the issue is going back to the requester. On
-2026-09-18, inbound #2117 measured a guessed *"being worked on again, hold off"* line contradicting
-the true state on three real cards. The requester has now chosen *"back in development"* as the fixed
-wording. What that costs is exactly #2117's case: where a reopen really does hand the ticket back to
-the requester, the comment says otherwise, and the issue thread is where the difference shows. The
-card itself still follows the board rules below, and a reopen does not override the `awaiting-more-info` hold.
-
-**The task is never completed by any of this, and the script has no code path that can do it**
-(Dave, September 1, 2026). Closing a GitHub issue is a statement by whoever built the thing; resolving
-the ticket is a statement by whoever asked for it, and only that person can make it -- after they have
-tested it. An automation that ticks the box takes the one decision the ticket exists to record and
-replaces it with a guess, and it does so silently, so nobody can tell an accepted change from an
-unverified one afterwards.
-
-This is the shape after a measured mistake, and the mistake is worth the sentence: on
-September 1, 2026 the sweep that had just learned to read imported tickets completed **six** Asana
-tasks it should only have commented on -- five of them belonging to colleagues who had never been
-asked whether the work was any good.
-
-**The closing pull request is still read, but it no longer goes into the update** (#2656). From
-September 1, 2026 (Dave) until #2656, the close update named the pull request's number, title and URL.
-The requester's fixed form has no room for it, so it now lives one click away on the issue. The read
-itself stays. It comes from the GraphQL field built for that question
-(`closedByPullRequestsReferences`) rather than from the timeline, where a merge commit, a manual
-close and a passing cross-reference are easy to confuse. The board rules below use it: a linked pull
-request is what lifts a card to `InDevelopment`.
-
-**The de-duplication is the update's own opening sentence**, `GitHub issue <repo>#<n> is closed`, which
-names the issue. Sweeps look for it and stay silent when it is already there; **an event never
-de-duplicates**, because a close after a reopen is news again. A task somebody has already ticked off
-is left alone by both.
+**The task is never completed by this plugin, and no code path can do it** (Dave, September 1, 2026).
+Closing a GitHub issue is a statement by whoever built the thing; resolving the ticket is a statement by
+whoever asked for it, and only that person can make it -- after they have tested it. An automation that
+ticks the box takes the one decision the ticket exists to record and replaces it with a guess, and it
+does so silently, so nobody can tell an accepted change from an unverified one afterwards.
 
 **Which task an issue belongs to is answered by three matchers, tried in order** -- 'tier' is the reach
-label above and means nothing here -- because a repo has two kinds of issue and only one of them was ever
-written by this workflow:
+label above and means nothing here. They are read by the backlog page, the go-live block's duplicate
+check and the release-note task link, because a repo has two kinds of issue and only one of them was
+ever written by this workflow:
 
 1. **the marker** -- `<!-- asana-task: <gid> -->`, written in step 3 above. Authoritative.
 2. **the header row** -- a `| **Asana** | ... |` row carrying a task URL. This is the shape of a
@@ -444,16 +404,13 @@ written by this workflow:
    analysis, and the link in its header was written for a reader rather than for a machine.
 3. **a sole task URL** anywhere else in the body.
 
-**The header-row matcher exists because of what the marker alone could not reach.** In
-`BWJ-ecommerce/smartwatchbanden`,
-[#388](https://github.com/BWJ-ecommerce/smartwatchbanden/issues/388) was closed on 2026-09-01 and its
-Asana task stayed open; the workflow had run, and its log said why -- *"No `<!-- asana-task: ... -->`
-marker ... nothing to mirror"*. Measured across that repo the same day: of 55 issues, **4** carried a
-marker and **11** carried an Asana link in a header row only, **6** of those already closed. The
-mirror was working exactly as written, and reached 4 of the 15 issues that carry an Asana link at all.
+**The header-row matcher exists because of what the marker alone could not reach.** Measured in
+`BWJ-ecommerce/smartwatchbanden` on 2026-09-01: of 55 issues, **4** carried a marker and **11** carried an
+Asana link in a header row only, so a marker-only reader reached 4 of the 15 issues that carry an Asana
+link at all.
 
-**More than one different task, and no marker, resolves to nothing** -- the workflow names the
-candidates in its log and moves on. It never guesses which ticket an issue belongs to, and the way to
+**More than one different task, and no marker, resolves to nothing** -- the reader names the
+candidates and moves on. It never guesses which ticket an issue belongs to, and the way to
 settle it is to add a marker.
 
 **The same three matchers answer every OTHER document that names an issue's Asana task** -- an item in
@@ -482,33 +439,26 @@ the last two only checkable with the live-push record `live-preflight` writes (s
 [`live-preflight` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md#the-live-push-record-it-writes-for-the-cut-2570-2586)),
 which is why a store answering this seam passes that record to every cut.
 
-#### The paste-ready block -- written BEFORE the close, by the session that shipped the work
+#### The go-live block -- written BEFORE the close, by the session that shipped the work
 
 **The order is the rule** (BWJ/Maikel, September 17, 2026, inbound
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049)). An issue with a linked Asana
 task carries a block for that task, telling the requester (today: Johnno) where to see the result --
 and that block goes on the issue **while it is still open**, written by the session that shipped the
-work, as the closing act of its own chain. **Closing the issue is then what sends it**: `asana-mirror`
-posts the block on the task as its one closed message, the closed line on top
-([#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700),
-[#2703](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2703)). A hand paste could not carry
-it: without formatting the link and the bold arrived as raw Markdown, with formatting every line break
-was lost. Posted as `html_text` the headings arrive bold, the links as links, and the breaks as written.
-The name *paste-ready* is kept for the marker and the functions, which match on it.
-
-**Read "the block reached Asana" narrowly -- it is not the `ReadyToTest` handover further down this
-page.** Two different moments tell two different people something: this one is the closed message
-carrying the block, and `Get-SubmitterHandoff`'s is the submitter being told their card has
-moved. They sit in the same pipeline, so this page never says "the handover" bare for either.
+work, as the closing act of its own chain. The close then follows. **The block stays on the GitHub issue
+only** (Dave, October 5, 2026): from #2700 until then closing the issue made `asana-mirror` post it on the
+task as its closed message, and with that workflow retired nothing carries it across. Where the task
+needs it, the task's assignee pastes it in by hand. The name *paste-ready* is kept for the marker and the
+functions, which match on it.
 
 It is one comment on the **GitHub** issue -- not on Asana. The marker and the framing sentence above
-the rules are fixed, because the backstop below has to be able to recognise the comment. The block
+the rules are fixed, because the duplicate check has to be able to recognise the comment. The block
 between the rules has a fixed **shape** too, and it is written in the **colleague's language**:
 
 ```text
 <!-- asana-paste-block -->
 
-When this issue closes, the asana-mirror workflow posts the block below on the Asana task as its closed message -- no paste needed:
+Nothing carries the block below into Asana -- paste it into the Asana task by hand where the task needs it:
 
 ---
 — GitHub automation 🤖
@@ -556,7 +506,7 @@ unsectioned English. On `BWJ-Development/smartwatchbanden#769` (September 25, 20
 that printout, pointing at the reference block, and the block was rewritten by hand. **For a task
 written in English the same shape comes out in English** (`-Language en`). The framing sentence above
 the rules stays English in both cases, because it is read on GitHub, and so do the header and the
-closed line, which are the automation's own and fixed on every board. **`TE BEKIJKEN OP` leads** (Dave,
+closed line, which are fixed on every board. **`TE BEKIJKEN OP` leads** (Dave,
 #2700): where to look is what the requester acts on; the other sections keep their order.
 
 **The facts are the script's, and the prose is the session's.** The link, the date, the version, the
@@ -566,16 +516,15 @@ session writes them and hands them over through `-ProseFile`. A section with not
 out, heading and all, and is never replaced by a placeholder.
 
 **The marker sits OUTSIDE the block, and the block is what travels.** Everything between the two
-`---` rules goes to Asana -- the header and closed line composed by the mirror itself, the sections taken
-from the newest comment carrying the marker; the marker and the framing sentence stay on GitHub. A marker inside the
-block would arrive in the Asana task as visible junk. The backstop's de-duplication matches the marker
-and nothing inside the rules, which is what leaves the block's words free to follow the colleague.
+`---` rules is what a person pastes into Asana; the marker and the framing sentence stay on GitHub. A
+marker inside the block would arrive in the Asana task as visible junk. The duplicate check matches the
+marker and nothing inside the rules, which is what leaves the block's words free to follow the colleague.
 
 **Who closes the issue is the Asana task's ASSIGNEE** (BWJ, September 23, 2026, inbound
 [#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The assignee is the one in
-conversation with the requester, so they read the block on the issue and close it once it is right --
-the close is what sends it. It is not a fixed relayer: a page naming one person as the relayer for every
-ticket was corrected on exactly that point the day it was retired.
+conversation with the requester, so they read the block on the issue, paste it into the task where it is
+needed, and close the issue once it is right. It is not a fixed relayer: a page naming one person as the
+relayer for every ticket was corrected on exactly that point the day it was retired.
 
 #### What the block asks of the requester -- and the two closes it separates
 
@@ -609,17 +558,14 @@ the block's position and the issue.
 written: there is nothing to look at before the release, and an ask to judge a result the block cannot
 point at is noise.
 
-**Three things made the old order unworkable, and the third could not be fixed inside it:**
+**Two things made the old order (block at the close) unworkable:**
 
 1. **Nobody returns to a closed issue.** A comment posted at the close appears underneath an item that
-   has just left every open-issue view, so whether it ever reaches Asana depends on somebody going back.
-2. **There was no backstop.** A missed event was a comment that never posted, and nothing detected it
-   afterwards.
-3. **The link could not be filled in.** `New-AsanaPasteBlockComment` writes `[ADD LINK]` and is right to
-   -- "where the result can be viewed" depends on what the ticket was about, and nothing the workflow
-   reads says that reliably. **The session that built the thing does know it**: its preview URL, or the
-   live page after a push. Moving the composition to that session removes the placeholder instead of
-   working around it.
+   has just left every open-issue view, so whether anybody ever sees it depends on somebody going back.
+2. **The link could not be filled in by anything but the session.** "Where the result can be viewed"
+   depends on what the ticket was about, and nothing a workflow reads says that reliably. **The session
+   that built the thing does know it**: its preview URL, or the live page after a push. Composing the
+   block in that session removes the placeholder link instead of working around it.
 
 **It is gated on the Asana link, not on the `CRO` label.** A mirrored task is a mirrored task, so the
 reach is the same three matchers this step already defines for *which* task an issue belongs to. The
@@ -663,7 +609,7 @@ cycle -- the other is the storefront-visibility step in
 **It is written by a script, because all three are derivable and none of them is a judgement** --
 [`build-golive-block.ps1`](skills/golive-block/SKILL.md), which prints the block and, with `-Post`,
 puts it on the issue. That is the difference from the link in the first line, which stays a person's
-answer for the reason the backstop below gives.
+answer: a plausible wrong link is worse than a missing one.
 
 **The release day is a PLAN, and the block says so in that word.** *"Het staat gepland voor de
 release van maandag 22 september"* is a cadence, not a commitment anybody made: a release can slip.
@@ -676,447 +622,55 @@ six days out, was rejected by the owner as a number nobody could know.
 fill in is that a plausible wrong answer is worse than a missing one, and that reasoning does not stop
 applying one paragraph further down.
 
-**The script does not touch Asana; the mirror does, at the close.** It writes the GitHub half, and
-the person who closes the issue decides when the block goes: `asana-mirror` carries it into the task as
-the closed message (#2700, #2703). The close still waits on a person, so the decision stays where this
-chapter keeps it.
-
-**It carries the marker, and only the marker.** The framing sentence is no longer the backstop's own
-`Get-AsanaPasteBlockLead` -- `Fill in the link below and paste the block into the Asana task` is
-false once the links are filled in -- so the de-duplication rides on `<!-- asana-paste-block -->`,
-which is the matcher tried first and unconditionally. That lead sentence stays exactly what it always
-was -- the backstop's own wording, and the second matcher -- and it is quoted in full one line up for
-the reason this page quotes both strings at all: so a block can be written by hand.
-
-##### The backstop: `asana-mirror` still writes one, only where the session did not
-
-Where an Asana-linked issue closes and **no block is on it**, the closed message goes to the task on
-its own, and `asana-mirror` posts a block on the issue -- with `[ADD LINK]`, because CI genuinely cannot
-know the link. That one is still pasted by hand, and it is never carried by a later close: the mirror
-skips a block holding `[ADD LINK]`. It is the safety net under the rule above and not the route to it.
-**A close as not planned gets no backstop**, the waiting form included
-([#2765](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2765)): nothing was built, so there
-is nowhere to look.
-
-**It writes the same block as the session, cut down to what CI can know** (#2513). Between the rules
-it carries the automation's header and the `TE BEKIJKEN OP` section -- no closed line, since the
-closed message already told the task -- with `Het resultaat is hier te bekijken:
-[ADD LINK]`, in the same Dutch words, because the block is addressed to the colleague. It writes
-nothing else. The other sections hold the session's prose, or facts this standalone template does not
-derive, and a section with nothing to say is left out rather than filled with a placeholder. The
-template ships without the plugin's libs, so it holds a copy of those words. The plugin's suite keeps
-that copy equal to `Get-GoLiveBlockText`.
-
-**It de-duplicates on the block's own marker, and on its lead sentence for one somebody typed by
-hand** -- the same two-matcher shape, in the same order, as the task link itself: the machine marker
-first and unconditionally, prose second. So a session that did its job never sees a second,
-placeholder-only copy appear under its own.
-
-**Either matcher anywhere in any comment counts, so anybody who can comment can switch the backstop
-off** -- including by quoting this page, which publishes both strings verbatim so the block can be
-written by hand. That is accepted rather than tightened. What is suppressed is an informational
-paragraph, in the case where the shipping session had already skipped its own step, so the worst
-outcome is the state this workflow was in before #2049; and no exact-match rule survives a person who
-can equally well delete the real block.
-
-**An issue whose comments cannot be read gets nothing**, and the run says so. The costs are not
-symmetrical: a missed backstop leaves a closed issue without a paragraph nobody was going to read there
-anyway, while a blind post puts a placeholder-only copy underneath a block that was already filled in
-correctly.
-
-**It runs on the `closed` event only, and the accepted gap is unchanged.** The de-duplication would now
-make a sweep safe, and it is still deliberately not swept: a sweep walks every Asana-linked issue closed
-in the last 30 days, so its first run would post a placeholder-only block on every one of them that predates
-this rule -- a burst of comments on a colleague's tracker, each asking somebody to go back to a closed
-issue, which is exactly what #2049 measured as not working. A close that happens while the workflow
-cannot run is therefore still a block that never posts, the same accepted gap this page already carries
-for a dropped `reopened` event.
-
-### 5. The Asana prio score comes back as a GitHub label
-
-Everything above moves GitHub -> Asana. This one step goes the other way, and it is the only one that
-does. The BWJ team scores a task on the board's **`Prio-Score`** number field, 1.00 to 5.00; the
-reconcile run reads that score and puts the matching label on the GitHub issue:
-
-| Prio-Score | GitHub label |
-|---|---|
-| 4.00 - 5.00 | `prio-4` |
-| 3.00 - 3.99 | `prio-3` |
-| 2.00 - 2.99 | `prio-2` |
-| 1.00 - 1.99 | `prio-1` |
-
-Dave's mapping, September 2, 2026. **Four buckets and deliberately no `medium`**, and each boundary is
-closed at the bottom and open at the top, so a field with two decimals can never land between two of
-them.
-
-**Exactly one prio label sits on an issue at a time.** The sweep removes the other three as it sets
-one, so a ticket rescored from 2.5 to 4.2 loses `prio-2` as it gains `prio-4` rather than claiming two
-priorities at once. Where the issue already reads correctly nothing is written, so a daily re-run is
-quiet.
-
-**ONE VOCABULARY ACROSS THE WHOLE FAMILY, AND THE NAMES SAY NOTHING ABOUT WHICH MOTOR SET THE RUNG**
-(Dave, September 11, 2026,
-[#1842](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1842)). The source repo's own
-tracker ranks its issues on these same four, `prio-1` lowest to `prio-4` highest -- a judgement typed
-by whoever files, because there is no Asana behind it to derive one from. The two motors are still two
-motors: **here the rung is derived from a score and is never typed**, and a task nobody has scored
-carries no label at all.
-
-**What tells them apart now is the label's DESCRIPTION, not its name**, and that is the half worth
-knowing before reading a badge. A BWJ repo's `prio-4` reads `Asana Prio-Score 4.00-5.00`; the source
-repo's reads `Priority 4 of 4 (highest)`. Keep the score-shaped wording when creating or renaming
-these labels -- it survives a rename untouched, and it is the only remaining signal at the one place
-somebody looks when the name has stopped distinguishing.
-
-**This reverses half 1 of
-[#1686](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1686)**, decided two days
-earlier, which held the two sets deliberately disjoint so that a session moving between the families
-got a refused label rather than an issue filed at a rung meaning something else. Two of that
-decision's three grounds are untouched and still correct -- the BWJ names are code rather than
-convention, and the collision could never mis-file anything. The third, *"the names are the only
-signal of which motor owns the rung"*, is the one Dave overrode, and the paragraph above is what
-replaces it rather than drops it. **Half 2 of #1686 is NOT reopened**: nothing in the portable
-workflow reads a priority, `adopt-dkj-policy` still owes no label-creation step, and the rule that
-every issue carries a rung remains deliberately NOT part of this workflow.
-
-**Migrating a repo adopted before that day is one command per label**, and the direction matters more
-than the order: `gh label edit "very high" --name prio-4 --color b60205` renames in place, so every
-issue keeps the label it had and nothing is relabelled by hand. **Carry the `--color` on all four**,
-not just this one -- the bottom two rungs change colour as well as name, so a rename without it leaves
-the right word on the wrong badge.
-[`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md) step 4 carries all four lines. Do that
-and the `asana-mirror.ps1` refresh in one sitting: the sweep runs only on the daily `reconcile` cron,
-so a run caught between the two costs one sweep and the next morning repairs it. And the sweep sheds
-the four **old** names as it sets a new one -- never writing them -- so a repo that was brought over
-with the additive create step instead, and so holds all eight, is swept clean rather than left
-claiming two priorities at once.
-
-**No score means no label, and that is the common case.** A task whose `Prio-Score` is empty, or whose
-score falls outside 1.00-5.00, is left without a prio label rather than given a guessed one -- measured
-on the board the day this shipped, 28 of its 96 open tasks carried no score at all.
-
-**It walks GitHub, not the Asana project**, and that is what separates it from the sweeps in step 4.
-Two consequences worth knowing. It reaches a ticket **imported from Asana**, whose task carries no
-GitHub back-link for a project walk to follow -- the same gap the header-row matcher exists for. And it
-needs **no `ASANA_PROJECT_GID`**: a repo whose project GID is still wrong or provisional gets its
-labels right anyway.
-
-**But `Prio-Score` has to be ON THE PROJECT, and that is the limit to know before relying on this
-step.** An Asana custom field is *defined* in a workspace and does not cross into another -- which is why
-this sweep looks the field up by *name* and never by GID -- but definition is not the operative test.
-A field only becomes readable on a task once it has separately been *added to* that task's project, via
-the project's own `custom_field_settings`. Two real BWJ boards sit in the very same workspace and answer
-that second question differently: `GitHub - SWB` carries `Prio-Score`, `GitHub - WH` carries no custom
-fields at all. Set the per-project test against the two populations the step reaches and they come apart.
-A ticket **imported from** the board *is* a task on that board, so it carries whatever fields the board
-carries. A ticket the workflow **files itself** lands in whatever `Get-AsanaProjectGid` points at, and
-where *that* project does not carry `Prio-Score` -- whether because it sits in a different workspace or
-simply because the field was never added to it -- its tasks have no `Prio-Score` for the sweep to find --
-not an empty one, none. So the paragraph above reads too generously: a project missing the field costs an
-imported ticket nothing, and costs a self-filed one every label it could have had.
-
-**Which gives `Get-AsanaProjectGid` an answer it did not have before.** Whichever project a repo mirrors
-into, `Prio-Score` has to be added to it, or step 5 is a feature only imported tickets can use --
-`get_project` (`opt_fields=custom_field_settings.custom_field.name`) is the one call that answers whether
-it is. Measured across both BWJ stores on September 2, 2026, the day after this shipped: of
-the 12 open issues that resolved to a task, every one that came away with a label was an imported one
-(4 of the 5 matched by header row; the fifth was unscored), and no self-filed ticket was labelled in
-either repo. **The workspace boundary was the first reading of *why*** -- inferred from the field model
-above rather than measured, because in that run the same self-filed tasks were unreadable to the
-session's own token, which is the separate cause described three bullets into step 7, and from outside
-the two cannot be told apart. Issue
-[#1213](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1213). **That reading turned out too
-narrow, in the safe-looking direction**: measured directly against both boards on September 4, 2026, they
-sit in the *same* workspace, and `GitHub - WH` still carries no `Prio-Score` -- a case the workspace rule
-cannot express, because nothing about it crosses a workspace boundary. The per-project test above is what
-actually gates the field. Issue
-[#1386](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1386).
-
-**Why this direction does not contradict "GitHub first".** That rule is about where a ticket is *born*
-and where its lifecycle is *tracked*. Priority is neither: it is the business's judgement, made in the
-window the rest of BWJ looks through, and the workbench is where it has to be visible. Nothing in this
-step writes to Asana.
-
-**What it costs on the GitHub side:** the workflow's `issues:` permission is `write` rather than
-`read`. It makes exactly two writes outside Asana, both on this repo's own issues: this step's label
-edit, and the one comment
-[the step-4 backstop](#the-backstop-asana-mirror-still-writes-one-only-where-the-session-did-not)
-posts on a closed issue that has no paste-ready block yet. Nothing else on GitHub is written.
-
-### 6. The board's sections ARE the cycle -- one card, one column per stage
-
-Everything above says what is written *into* a ticket. This step says *where the ticket sits*, and it
-is the one view of this workflow a BWJ colleague actually reads: the board's sections, in order, are
-the steps of the contributing cycle. A card's column is the answer to *"where is my request?"*, which
-until now the board could not give.
-
-**There is exactly ONE board, and its name is the team's** (Dave, September 2, 2026, closing
-[#1222](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1222)). At BWJ that is
-`Workload Overview`; `Development BWJ` was retired in the same decision, and every card of Dave's was
-taken off it that day. So the *"which board, and what happens to the others"* edge that inbound
-[#1217](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1217) had to be corrected on by
-hand does not arise here any more -- there is no other board to advance by mistake. The containment
-that answered it is still in the mechanism, and it is what the next two headings are about.
-
-#### How a section is recognised, and what it MEANS -- two questions, not one
-
-**A section is recognised by the NUMBER its name starts with.** `3. In development` and
-`3. Building it` are the same stage; rename the words whenever the team likes. It is the same split
-the cross-link of step 3 already uses -- a marker for the machine, prose for the reader.
-
-**And it is the containment.** A section with no leading number is on no pipeline, so a task sitting
-only in such sections is never written to. That is why pointing this workflow at a workspace full of
-other boards costs nothing, and it is the mechanism that made #1217's correction structural rather
-than a written warning. **Where `ASANA_PROJECT_GID` is set, only that board counts**
-([#2717](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2717)): a colleague's workload
-board numbers its sections too, so a task on it is ignored there, and a task numbered on this repo's
-board is staged there even when it also sits on another. A task numbered only on other boards is left
-alone and the log names them. Where no GID is set, a card on **two** numbered boards has two answers
-and gets neither: the candidates are named in the log and nothing moves.
-
-**What each number MEANS is a separate question, and it belongs to the repo.** `Get-AsanaStageMap` in
-your own `scripts/repo-config.ps1` -- the file `dkj-policy` already dot-sources -- names
-one section per stage of the cycle:
-
-```powershell
-function Get-AsanaStageMap {
-    return @{
-        Requests       = 1   # the submitter's inbox -- never a target, though cards do leave it
-        NeedsInfo      = 2   # blocked on the submitter -- driven by the label below
-        Filed          = 3   # project status Todo -- tracked on GitHub, nothing linked yet
-        InDevelopment  = 4   # project status In Progress -- a pull request is linked
-        InReview       = 5   # project status Done -- the issue is closed
-        ReadyToTest    = 6   # the submitter has been TOLD -- their turn; never moved OUT of
-        Completed      = 7   # the submitter says it is good -- never a target, never moved OUT of
-        NeedsInfoLabel = 'awaiting-more-info'
-    }
-}
-```
-
-The label was named `needs-info` until October 2, 2026
-([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)), when the purple labels that
-mark an issue *waiting* on something became one `awaiting-` family. While a repo's map uses the default,
-an issue still carrying `needs-info` parks the card in the blocked column too; a map that names
-`NeedsInfoLabel = 'needs-info'` explicitly keeps working unchanged, and `''` still switches the column off.
-
-**That seam exists because the meanings were literals in the script for exactly one afternoon.** They
-shipped on September 2, 2026 against a six-section board; the board gained a section the same day, and
-every stage from `Filed` upward moved by one. **Nothing failed** -- the sweep would simply have put
-every card a column early, quietly, on a board whose whole purpose is telling somebody where their
-request is. Semantic keys and not GIDs, deliberately: a rebuilt column keeps its number and loses its
-GID, so a GID map is born with the failure mode it was meant to prevent.
-
-**A section the map does not name is a HOLD -- not a target, and not a source.** That is the repair
-for what just happened: a board that grows a column no longer has its cards yanked into whatever the
-old numbering meant. A repo that states no map at all gets the default above, and the run says which
-map it used.
-
-#### The three middle stages ARE the GitHub Project's three statuses
-
-**`Filed`, `InDevelopment` and `InReview` are linked to `Todo`, `In Progress` and `Done`, and are
-always in sync with them** (Dave, September 2, 2026). The project board's `Status` field is the
-**source**; the Asana board follows it. So the sweep reads that field instead of re-deriving the same
-answer from the issue and its pull requests:
-
-```powershell
-function Get-GithubStatusMap {
-    return @{
-        FieldName        = 'Status'
-        Statuses         = @{
-            'Todo'        = 'Filed'
-            'In Progress' = 'InDevelopment'
-            'Done'        = 'InReview'
-        }
-        # Where the submitter's name sits in the task notes. '' means stage 6 is never entered.
-        SubmitterPattern = ''
-    }
-}
-```
-
-**Why read it rather than derive it: GitHub already writes that field.** The project's own built-in
-workflows do it -- `Item added to project` sets `Todo`, `Pull request linked to issue` sets
-`In Progress`, `Item closed` sets `Done`. Deriving the same fact a second time in the sweep made
-**two writers of one thing**, which is a race and not a sync. Measured on the BWJ board the day this
-shipped: all 144 items carried a status, and every one of the 108 closed issues read `Done` -- so the
-field is maintained, and it is maintained by GitHub.
-
-**The status names are the keys because they are the board's, not ours.** A team that renames a column
-states that once here and nothing else changes. The *values* are stage keys of `Get-AsanaStageMap` and
-never section numbers, so renumbering the Asana board is still stated in one place too.
-
-**A status may only name those three stages, and `Test-GithubStatusMap` refuses a map that tries
-otherwise.** `Requests` and `Completed` are the submitter's ends, and `ReadyToTest` is reached by the
-feedback rule below -- a column change must never hand a card to somebody.
-
-**An issue with no status, or one in a column nobody has mapped, derives no stage at all** and its card
-is left where it is. That is the same containment as an unnamed Asana section: the answer to not
-knowing is to do nothing, because a missing status must never read as stage 0.
-
-**One thing does still come from the issue rather than the status: `closed as not planned`.**
-`Item closed` sets `Done` whatever the reason, so a ticket that will never be built arrives looking
-exactly like a finished one. It derives no stage, because nothing was built.
-
-#### A repo with NO project board says so, and then the issue is read instead
-
-**The board is not a requirement of this workflow, and a repo that has none states that by giving
-`Get-GithubStatusMap` an empty `FieldName` and no `Statuses`:**
-
-```powershell
-function Get-GithubStatusMap {
-    return @{
-        FieldName        = ''   # this repo has no GitHub Project board
-        Statuses         = @{}
-        SubmitterPattern = '(?m)^\s*Requested by:\s*(.+?)\s*$'
-    }
-}
-```
-
-The sweep then never sends the `projectItems` query at all -- so **such a repo needs no
-`GH_PROJECT_TOKEN`** -- and derives the floor from the issue: **closed** means `InReview`, **open with a
-pull request linked** means `InDevelopment`, **open with nothing linked** means `Filed`. An issue GitHub
-could not be asked about derives nothing, and `closed as not planned` still derives nothing.
-
-**Saying both is refused.** An empty `FieldName` beside a `Statuses` table that still names columns
-reads as "there is no board" and "here are its columns" at once, so the validator complains instead of
-guessing which half was meant.
-
-**This does not weaken the rule above, and the reason is mechanical rather than a promise.** The
-two-writers race that made the status the source *is* GitHub's project workflow being the other
-writer -- so a derivation that fires only where there is no board has no second writer to race with. A
-repo naming a `FieldName` takes exactly the path it took before.
-
-**It is the repo's declaration that switches this on, never a missing status**, and those are two
-different facts that both used to arrive as nothing: *this repo has no board* and *this issue is not on
-the board*. Only the first may derive a stage; deriving one from the second would stage every issue a
-board deliberately leaves off its pipeline.
-
-**What its absence cost, because it is four stages and not the three this page describes** (inbound
-[#1536](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1536)). With no board every
-issue derived nothing, and that also switched off the one promotion no column names: `ReadyToTest` is
-reached from a floor already at `InReview`, so **closing an issue stopped handing the card back to the
-submitter** -- the transition the whole board model exists for. The close update still went out, so the
-person was told the work was ready while their card never moved, and no run failed. Advising a token was
-no answer either, there being no board to read.
-
-**And the sweep now says so in one line when a whole run derives nothing at all** -- naming the three
-reasons it can be: the project field could not be read, the board's columns are not named in the map, or
-the repo has no board and has not said so. Silence is what made that issue expensive: `N card(s) moved`
-reads the same on a quiet day as on a run that could not answer for a single ticket. A *partial* figure
-is deliberately not reported -- one issue off the pipeline is the design working.
-
-#### `ReadyToTest` is entered on FEEDBACK, and no status can reach it
-
-**A card advances from `InReview` to `ReadyToTest` once the submitter has actually been told** (Dave,
-September 2, 2026) -- which is this workflow's own close update, the comment of step 4. Two things
-must hold: the issue is closed, and that comment is on the task. So the two columns say genuinely
-different things:
-
-- **`InReview`** -- closed on GitHub, and nobody has been told yet.
-- **`ReadyToTest`** -- the submitter has the update naming what was fixed, and it is their turn.
-
-**Where a ticket has no submitter, stage 6 is skipped entirely.** Nobody else asked for it, so there
-is nobody to hand it to: the card waits in `InReview` until the person who owns it accepts it into
-`Completed` themselves. `SubmitterPattern` is how a repo says where the submitter's name is written,
-and **`''` -- the default -- means this workflow can never tell, so the promotion never fires at all.**
-That is the fail-safe direction: a card held one column short is visible and a person can move it,
-where a card pushed into the submitter's column claims a handover that never happened.
-
-**`created_by` is NOT the submitter**, measured on the BWJ board the same day: the intake form creates
-every card as its own owner, so it reads identically on a colleague's request and on one filed by a
-session. The submitter is the name the form writes into the notes, and is added as a follower when the
-form can find them in Asana.
-
-**Being told is MEASURED, not assumed.** The close event posts the comment before it checks, so a card
-normally reaches `ReadyToTest` on the event itself; but the check reads the task's own comments, so a
-run whose comment failed does not hand the card over on the strength of having tried. The daily sweep
-catches those.
-
-#### The stages, and who moves a card into each
-
-| stage | what a card there means | who puts it there | on what signal |
-|---|---|---|---|
-| `Requests` | new, and nobody has looked at it yet -- a colleague put it on your name | the submitter | **never this workflow** |
-| `NeedsInfo` | we cannot proceed until the submitter answers something | the `awaiting-more-info` label | that label is on the issue |
-| `Filed` | it is tracked on GitHub now, where the work happens | the daily sweep | project status **`Todo`** |
-| `InDevelopment` | somebody is building it | the daily sweep | project status **`In Progress`** |
-| `InReview` | closed on GitHub, and nobody has been told yet | the daily sweep | project status **`Done`** |
-| `ReadyToTest` | the submitter has the update naming what was fixed -- their turn | the close event, and the daily sweep | that update is **on the task**; skipped when there is no submitter |
-| `Completed` | the submitter has tested it and says it is good | the submitter | **never this workflow** |
-
-**The two ends of the board belong to the submitter, and the code says so and not only this page.**
-`Test-StageIsWritable` permits the five middle stages and nothing else. That is the *section-move twin*
-of the rule in step 4: closing an issue says the work is built, and only the person who asked for it
-can say it is good. A workflow that could slide a card into `Completed` would take that judgement and
-replace it with a guess -- in the board's own currency this time, but the same guess.
-
-#### And TWO stages are terminal, not just one
-
-**A card sitting in `ReadyToTest` or `Completed` is never moved out of it by this workflow** (Dave,
-September 2, 2026). Both mean the submitter is holding the card:
-
-> *"it is not the intention that if I drag a ticket to section 6, GitHub syncs it back to 5 later. Once
-> it is in six it does not just go back."*
-
-**This outranks even the reopen**, which everywhere else in this model earns a backward move. If the
-work turns out not to be done, the person holding the card moves it -- that is what holding it means,
-and having it pulled back out from under them by the next morning's sweep is the failure the rule
-names. `Test-StageIsTerminal` is the guard, and it is checked **before** the backward-move permission
-rather than after.
-
-**It is also the one place `always in sync` deliberately does not hold**, and it is worth saying which
-way: the Asana board may sit *ahead* of the GitHub status, never behind it. A closed issue reads `Done`
-forever, so a card in 6 or 7 keeps a status that would floor it at 5 -- and that is correct, because
-6 and 7 are answers GitHub has no column for at all.
-
-#### Forward only, and the two answers that may go back
-
-`Get-StageFloorForIssue` derives a **floor** from the project status rather than a position, and the
-difference is what keeps a person's own move safe: a card somebody advanced by hand is never dragged
-back by a sweep reading a column GitHub has no event to update. The concrete case is a branch open
-with no pull request yet -- GitHub sets nothing, so the status still reads `Todo`, which floors at
-`Filed`, which is **backward** from the `InDevelopment` the session moved the card to. Nothing moves.
-
-**That asymmetry is the deliberate exception to *always in sync***, and the alternative is worse:
-syncing it would mean undoing a person's own move on the strength of a column that has no way of
-knowing about it.
-
-**Two answers may move a card backward, and both are a person saying something** rather than CI
-inferring it:
-
-- **The `awaiting-more-info` label**, which *outranks the project status*. A card blocked on the submitter
-  stays blocked whatever the board says, because the person who set the label knows something the
-  tracker does not. Removing the label hands the card straight back to its status-derived floor --
-  which is forward, so it needs no permission. The label fires its own CI run (`labeled` /
-  `unlabeled`), so the column changes as the triage happens rather than a day later.
-- **An `issue reopened` event**, which is a real state change: the card lands wherever the board now
-  says it is, which is out of the review column and back into the one the work is actually in.
-
-**Both are outranked in turn by the terminal rule above.** A reopen moves a card back out of
-`InReview`; it does **not** reach into `ReadyToTest` or `Completed`, because those are not this
-workflow's to take back.
-
-**A label event moves the card and says nothing.** `closed` and `reopened` are news for the person
-waiting on the ticket; a label is a change in *our* state, and commenting on it would put a note on
-the submitter's ticket every time somebody triaged the issue.
-
-#### Setting `awaiting-more-info` IS writing the question -- one act, and the issue stays open
-
-**The label moves the card to the submitter, so the question has to be on it** (inbound
+**The script does not touch Asana, and nothing else does either.** It writes the GitHub half only.
+The person who closes the issue decides whether and when the block is pasted into the task.
+
+**It carries the marker, and only the marker.** The duplicate check (`Test-AsanaPasteBlockPosted`, which
+makes the script refuse a second block unless told otherwise) rides on `<!-- asana-paste-block -->`,
+the machine marker tried first and unconditionally. The second matcher is a lead sentence somebody typed
+by hand -- `Fill in the link below and paste the block into the Asana task` -- quoted here so a block can
+be written by hand. The backstop that used to post a placeholder-only block on a close with no block on it is
+retired with the mirror (Dave, October 5, 2026): an issue closed without a block simply has none.
+
+### 5. (Retired October 5, 2026) The Asana prio score no longer comes back as a label
+
+The daily run that read the board's **`Prio-Score`** field and set one of `prio-4` / `prio-3` / `prio-2` /
+`prio-1` on the GitHub issue is retired with the rest of the mirror (Dave, October 5, 2026), and nothing
+replaces it. **The four labels themselves stay**: the source repo's own tracker ranks its issues on them,
+typed by whoever files, and a BWJ repo's priority label is now typed by a person too, from the score
+they read in Asana. The step keeps its number so the references to step 8 stay valid.
+
+### 6. (Retired October 5, 2026) The board's sections are no longer moved automatically
+
+The board's numbered sections are still the stages a colleague reads, from *a colleague put this on your
+name* to *tested and good*, and `Get-AsanaStageMap` still names what each number means. **But no workflow
+moves a card between them any more** (Dave, October 5, 2026): the stage sweep, the three GitHub Project
+statuses that drove it, the `ReadyToTest` promotion on feedback and the terminal-stage guard are retired
+with the mirror, and `Get-GithubStatusMap` is no longer read. **`Filed` is the one section the tooling
+writes**: `report-issue` creates the card there and reads the stage map to find it. Every other move is a
+person dragging the card, so a card stays in `Filed` after the issue is built, closed or reopened until
+somebody moves it.
+
+The two ends were always the submitter's -- their untriaged inbox at one end and `Completed` at the other
+-- and that is unchanged: **this plugin never ticks a task off** (step 4).
+
+#### Setting `awaiting-more-info` is still writing the question -- one act, and the issue stays open
+
+**The label is a GitHub-side flag now, not a card mover** (inbound
 [#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352), carrying a rule that lived only
-in a consumer page until September 23, 2026). The paste-ready block of step 4 is one exit that ends
-with the requester; `awaiting-more-info` is the second, and it moves the card just as hard. Because the CI run
-above deliberately says nothing, the only message this exit ever carries is the one the session
-writes. Measured in `BWJ-Development/smartwatchbanden`,
+in a consumer page until September 23, 2026). It used to park the card in the blocked column; with the
+mirror retired it moves nothing in Asana, so the question has to reach the requester some other way. The
+go-live block of step 4 is one exit that ends with the requester; `awaiting-more-info` is the second.
+Measured in `BWJ-Development/smartwatchbanden`,
 [#702](https://github.com/BWJ-Development/smartwatchbanden/issues/702) and
 [#721](https://github.com/BWJ-Development/smartwatchbanden/issues/721): a card sat a day in the
 blocked column with no question on it, because the procedure prescribed a message for delivered work
 only -- and a card with the submitter and no question is a waiting room nobody knows the subject of.
 
 **So the label and the comment are ONE act**, done by the session that knows what was investigated, at
-the moment the card moves -- not later, by somebody reconstructing the dossier. The comment goes on the
-issue, carries the same `<!-- asana-paste-block -->` marker below the text so the step-4 backstop never
-adds a placeholder copy, and is carried into the task by its assignee exactly like the delivered-work
-block. Its shape:
+the moment the issue is parked -- not later, by somebody reconstructing the dossier. The comment goes on
+the issue, carries the same `<!-- asana-paste-block -->` marker below the text so the duplicate check
+recognises it, and is pasted into the task by its assignee exactly like the delivered-work block. Its shape:
 
 ```text
 <one to three plain sentences: what was investigated and what came out of it. No file names, no
@@ -1146,101 +700,42 @@ and of the colleague who reads it.
 the block. That is not an inconsistency: there the development work is finished and only the judgement
 is with the colleague, while here the work itself is stalled on something only they can supply -- which
 is still an open item of ours, and belongs in the list where work is tracked. **Nor does the session
-remove the label**: whoever brings the answer does, and the card returns to its status-derived floor.
+remove the label**: whoever brings the answer does.
 
 **Closing while waiting is the one sanctioned alternative** (Dave, October 3, 2026,
 [#2732](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2732)), for an owner who wants the
 waiting ticket off the open list. Close it as **not planned** and **keep the `awaiting-more-info` label
-on through the close**: the pair is what the CI reads as the waiting form (the table above), rather than
-as a rejection, and the label still on is what holds the card in the blocked column and lands the
-reopen there. The question is written first, exactly as above; the close adds nothing to it, so no
-hand-written close comment goes on the task.
-
-#### The daily sweep is the mechanism, not a backstop
-
-**A project status changes with no `issues:` event at all** -- somebody drags a card to `In Progress`,
-or a built-in project workflow sets `Done` -- and this workflow subscribes to none of that. So unlike
-the reconciliation of step 4, sweep (d) is not a safety net for a missed webhook: for the three
-statuses it **is** the mechanism, and a column change shows up on the Asana board the next morning.
-Only the close, the reopen and the label have events of their own, and they are the ones that matter
-most to the submitter, which is why they are also the ones that do not wait a day.
-
-**What that costs at `InDevelopment`, said plainly:** GitHub sets `In Progress` when a pull request is
-*linked*, and nothing at all when a branch merely opens. `linkedBranches` answers only for a branch
-created through GitHub's own issue UI, and `dkj-policy` branches are not. **So that hop is
-still a session's to make first**, and forward-only is what keeps it: a card left in `Filed` while a
-branch is open is the one inaccuracy this model tolerates, and it corrects itself the moment the pull
-request opens and the board says `In Progress`.
-
-**And the stage sweep needs its own token -- where there is a board.** `GITHUB_TOKEN` cannot read an
-organization's Projects v2 at all -- there is no `permissions:` key that grants it -- so with the
-workflow's own token the status comes back as an error rather than a value. That failure is **contained
-rather than fatal**: the query retries once without the project field, so the close update of step 4
-goes out exactly as before and only the staging goes quiet, naming the missing token in the log. Set
-`GH_PROJECT_TOKEN` to a PAT that can read the org's projects to turn staging on. **A repo with no board
-needs neither the token nor the board** -- it says so with an empty `FieldName` and the issue is read
-instead, per the section above.
+on through the close**, so the pair still reads as *waiting for information* and not as a rejection. The
+question is written first, exactly as above. (The CI comment that used to say so on the task is retired.)
 
 ### 7. What still needs a person
 
-- **Setup, once per repo:** the repo secrets `ASANA_PAT` and `GH_PROJECT_TOKEN`, the variable
-  `ASANA_PROJECT_GID`, the four prio labels of step 5 plus the `awaiting-more-info` label of step 6, and
-  copying the two `templates/` files into `.github/`. The
-  [`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md) skill walks this.
-- **Naming the project board's three statuses, and where the submitter's name sits.** `Get-AsanaStageMap`
-  says which Asana section each stage is; `Get-GithubStatusMap` says which GitHub status each of the
-  three middle stages is, and carries `SubmitterPattern`. Leave that pattern out and stage 6 is never
-  entered automatically -- which is a working configuration, not a broken one, but it does mean every
-  card waits in `InReview` for a person. **Or say there is no board at all** -- an empty `FieldName` with
-  no `Statuses` -- and the three middle stages come off the issue instead; that is a working
-  configuration too, and the one thing this seam could not express until inbound #1536.
-- **Numbering the board's sections, once, and stating what each number means.** Step 6 reads a stage
-  off the number a section's name starts with, so a board whose sections are named in prose has no
-  stages and nothing is ever moved on it. That is the safe default rather than a failure -- but it is
-  also silent, so a board that is meant to be a pipeline and is not numbered looks exactly like one
-  that works. The meanings go in `Get-AsanaStageMap`; leave it out and the default map is used, which
-  is right only if your board happens to be numbered the same way.
-- **Re-reading that map whenever the board changes shape.** Adding or removing a column shifts every
-  stage above it, and the map is the one place that has to learn it. A section the map does not name is
-  left alone rather than guessed at, so the symptom of a forgotten update is cards that stop moving --
-  not cards in the wrong place. That is deliberate, and it is still yours to notice.
-- **The `InDevelopment` hop, at `new-branch`.** The one stage transition CI cannot see: GitHub has no
-  signal for a branch that has no pull request behind it yet. A session opening a branch for a mirrored
-  issue moves the card there in the same breath, and **nothing catches it up** -- the sweep never
-  derives that stage. Step 6 says why, and it is why the derivation is a floor: nothing undoes the move
-  you made by hand.
-- **Deciding a ticket is blocked on the submitter.** The `awaiting-more-info` label is the whole mechanism for
-  that column, and no automation sets or clears it. Putting it on is a judgement about whether the
-  request can proceed -- and it is one act with writing the question, in the form step 6 prescribes;
-  taking it off says the answer arrived, and the card returns to wherever the work actually is.
-- **Scoring the ticket.** The label follows the board and nothing here decides a priority. A task
-  nobody has scored carries no prio label, and putting a number on it is the team's call to make in
-  Asana -- the same shape as resolving a ticket, further down this list.
-- **A token that can reach the tickets.** `ASANA_PAT` is a *user* token: it can only see the
-  workspaces that user is a member of. An imported ticket often lives in the requester's own Asana
-  organisation rather than in the one the mirror project sits in, and a task the token cannot read is
-  logged and skipped rather than failing the run -- so a sweep that reports `0 updated` with a line
-  per unreadable task is telling you about the token, not about the tickets.
-- **Closing an Asana-linked issue, once the paste-ready block is on it.** Step 4 reverses the old
-  order: the session writes the block while the issue is open, and closing it is the confirmation that
-  the task's assignee pasted it into Asana. That is why such a branch ships with `-NoResolves` -- a `Closes #<n>`
-  would have GitHub close the issue at the merge, with nobody having confirmed anything. Where the repo has
-  stated `Get-ResolvesExemptMatchers` (inbound #2120), the resolves gate refuses that `-Resolves` instead
-  of leaving it to memory.
-- **Resolving the ticket. That is the whole point of step 4**: the colleague who filed
-  it ticks it off once they have tested the change, and nothing in this workflow will do it for them.
-- **The Asana project answer, and step 6 has now settled it.** This used to be an open BWJ decision --
-  one shared project for both stores or one each, as long as both repos made the *same* kind of
-  choice. It is not open any more: the board a card is staged on is the board the team reads, there is
-  exactly **one** of those (Dave, September 2, 2026), and a task this workflow files anywhere else
-  lands on no pipeline and is never staged. Put together with the `Prio-Score` constraint of step 5,
-  which independently requires that project to carry the field -- added to it, not merely reachable
-  from its workspace -- `Get-AsanaProjectGid`
-  has one correct value per repo: **the board itself**. A **provisional** GID is the case where both
-  costs land at once -- such a ticket carries no prio label and never moves a column, and neither
-  failure says anything in a log. And the board itself is not automatically enough: `GitHub - WH`
-  proves a real board can still lack the field, so pointing `Get-AsanaProjectGid` at the right board is
-  necessary and not sufficient -- see step 5.
+- **Setup, once per repo:** the classification labels (`bug`, `feature`, the reach label, the four prio
+  labels and `awaiting-more-info`) and the Asana config seam. The
+  [`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md) skill walks this. **No CI secret and no
+  `.github/` file is needed for the mirror any more.**
+- **Everything that happens to a card after it is filed.** `report-issue` puts it in `Filed`; moving it
+  through the board's sections, pasting the go-live block into it and ticking it off are people's acts.
+- **Deciding a ticket is blocked on the submitter.** The `awaiting-more-info` label is a flag on the
+  GitHub issue, and no automation sets, clears or reads it into Asana. Putting it on is a judgement about
+  whether the request can proceed -- and it is one act with writing the question, in the form step 6
+  prescribes; taking it off says the answer arrived.
+- **Scoring the ticket.** A priority is the team's call, made in Asana; typing the matching `prio-N` label
+  onto the issue is a person's act now (step 5).
+- **A token that can reach the tickets, locally.** `ASANA_PAT` is a *user* token: it can only see the
+  workspaces that user is a member of. It is still what [`build-backlog-page`](skills/build-backlog-page/SKILL.md)
+  reads the tasks with, from the session's environment, and an imported ticket often lives in the
+  requester's own Asana organisation rather than the board's.
+- **Closing an Asana-linked issue, once the go-live block is on it.** Step 4's order: the session writes
+  the block while the issue is open, and the task's assignee closes it. That is why such a branch ships
+  with `-NoResolves` -- a `Closes #<n>` would have GitHub close the issue at the merge, with nobody having
+  confirmed anything. Where the repo has stated `Get-ResolvesExemptMatchers` (inbound #2120), the
+  resolves gate refuses that `-Resolves` instead of leaving it to memory.
+- **Resolving the ticket.** The colleague who filed it ticks it off once they have tested the change, and
+  nothing in this workflow will do it for them.
+- **The Asana project answer.** `Get-AsanaProjectGid` has one correct value per repo: **the board the
+  team reads**, and there is exactly one of those (Dave, September 2, 2026). A task filed anywhere else is
+  on no board a colleague looks at.
 
 ### 8. A ticket that arrives FROM Asana -- whose it is, and the form it takes
 
@@ -1272,8 +767,7 @@ before anybody claims that issue -- read the **assignee of the Asana task**, and
 
 - **Is it assigned to somebody outside the dev team?** Then it is not an assignment. Either leave it
   unmirrored, or mirror it and open it as **blocked on that person** rather than as work -- which is
-  what the `awaiting-more-info` label of step 6 says, and it parks the card in the blocked column while it is
-  true.
+  what the `awaiting-more-info` label of step 6 says.
 - **`Ball with` is read, not assumed.** The header row below is a judgement about *who is up now*, and
   the task's assignee is the evidence for it. `us` is an answer, not a default: if the task is on
   somebody else's name, the answer is that name.
@@ -1299,7 +793,8 @@ traffic split, in comments on the tasks nobody read.
 
 **One GitHub issue per Asana ticket**, in the store's repo, with the Asana link in its header. The issue
 is the analysis; Asana keeps the request. `report-issue` files it and puts the card in `Filed` in one
-call, and everything after that is `asana-mirror`'s job (step 6) -- **move no card by hand.**
+call. Nothing moves the card after that (step 6 is retired), so a person moves it through the board's
+sections as the ticket progresses.
 
 **Everything that comes out of Asana stays in that issue** -- the request, what was worked out, what
 was measured, what went back to the requester. There is no second home for it, and the issue's own
@@ -1415,49 +910,21 @@ matters, more than one market.
   Asana is the window the rest of BWJ looks through, not the workbench.
 - **A translation, not a copy**, because a mirrored task that is just the issue body helps nobody: a
   non-technical colleague cannot act on a stack trace, and a technical reader already has the issue.
-- **CI, not a session**, for the update step, because it must happen every time an issue closes
-  whether or not anyone is running Claude, and because a workflow file is version-controlled and
-  reviewable where an Asana-side automation rule is not.
-- **A reconciliation sweep**, because a single webhook can be missed and a colleague waiting on a
-  ticket nobody told them about is exactly the drift this plugin exists to prevent.
-- **The prio label goes Asana -> GitHub**, against the grain of everything else here, because
-  priority is the one thing the business owns and the developers consume. The board is where it is
-  decided and the issue list is where it has to be read; carrying it across beats asking a developer
-  to keep a second window open.
+- **No CI mirror** (Dave, October 5, 2026). The close comments, the card moves, the sweep, the prio sync
+  and the backstop block were retired together and nothing replaces them: the board and the issue
+  tracker are two surfaces people read, and keeping them in step is now a person's act. The cost is
+  stated in step 4, and it is accepted.
 - **The block before the close, and not at it**, because the close is the only event a person in this
   chain actually performs, and hanging the composition on it put the paragraph underneath an item that
   had already left every open-issue view. Writing it first turns the close into a **receipt** -- the
   issue is open for exactly as long as the block is outstanding -- and it puts the composing in the
-  hands of the one party that knows the link, which is what retires the `[ADD LINK]` placeholder
-  instead of working around it.
+  hands of the one party that knows the link.
 - **An update and not a tick**, because the two are different claims by different people. The build
   is finished when the person who built it says so; the request is finished when the person who made
   it says so. A tracker that lets one stand in for the other cannot afterwards tell you which of its
   closed tickets anybody actually looked at.
-- **The board's sections, and not a status field**, because a section is what a colleague already
-  reads. The stages could have been a custom field with six options and nothing about the mechanism
-  would change -- but then the answer to *"where is my request?"* would sit one click inside a card
-  instead of being the shape of the board, and a card would look identical whether it had been picked
-  up or not. That is the failure inbound #1217 measured: an issue existed here while the board still
-  said `New`, and the person waiting on it had no way to tell.
 - **A number in the section name, and not a GID per section in a config**, because the two halves
   have different owners. The number identifies the column; the words are the team's and change
-  whenever one reads badly. Configured GIDs would put both halves in a file only a developer edits,
-  and would go stale the first time somebody rebuilt a column -- the way a provisional project GID
-  went stale and cost every prio label behind it.
-- **But the MEANING of each number in a config after all**, because that half turned out to belong to
-  the board rather than to the workflow. It was a literal in the script for one afternoon and the
-  board changed shape the same day. The two questions look like one and are not: *which column is
-  this?* is answered by the board, and *what does that column mean?* is answered by the team who
-  built it.
-- **An unnamed column is a hold rather than a stage**, because the alternative is the failure that
-  produced the seam. Treating an unknown number as an ordinary stage means a board that grows a column
-  has its cards dragged to whatever the old numbering meant, silently. Stopping is the only answer
-  that is wrong in a way somebody notices.
-- **A label for the blocked column, not an inference**, because "we are waiting on the submitter" is
-  not visible in any state GitHub tracks. An open pull request does not mean the question was
-  answered, so the card has to stay blocked until a person says otherwise -- which is why the label
-  outranks the issue's state instead of competing with it.
-- **A floor rather than a position**, because CI knows less than the person at the keyboard. A sweep
-  that set the stage outright would spend every night undoing the one hop only a session can see -- a
-  branch opening -- and the card would flap between two columns with nothing wrong.
+  whenever one reads badly. The *meaning* of each number is in the `Get-AsanaStageMap` seam, because that
+  half belongs to the board: it was a literal in a script for one afternoon and the board changed shape
+  the same day. Today `report-issue` is its one reader, to find `Filed`.

@@ -142,7 +142,7 @@ try {
     #
     #     BOTH ROOTS ARE SCANNED, AND plugins/ IS NOT REDUNDANT WITH scripts/. Most of plugins/ is a
     #     byte-identical mirror the drift lint already pins, so scanning it changes nothing there --
-    #     but the HOOKS (plugins/*/hooks/*.ps1) and the bwj-development templates are plugin-NATIVE,
+    #     but the HOOKS (plugins/*/hooks/*.ps1) and the bwj-development scripts are plugin-NATIVE,
     #     with no counterpart under scripts/ at all. A scripts/-only scan is exactly how #2271's own
     #     measurement reported 34 and missed the eight hook catch-alls, which are the highest-severity
     #     members of the class: their output IS what a SessionStart hook forwards into session context.
@@ -165,15 +165,16 @@ try {
             # THREE GUARD FAMILIES ARE ACCEPTED, because three kinds of file reach a console here and
             # they cannot all reach the same helper:
             #   - Format-Safe*Token / Get-Display*  -- check-report-lib's, for anything that can load it.
-            #   - Format-ForConsole                 -- the bwj-development templates' own, hand-typed
-            #     because adopt-bwj-development copies them into a consumer as .github/scripts/*.ps1
-            #     where none of this repo's libs exist. It is STRICTER on control and format characters
-            #     (six categories, a code point at a time) and does not substitute brackets, which is
-            #     right there: that output is a GitHub Actions log, not session context a hook counts.
+            #   - Format-ForConsole                 -- claim-issue-lib's, and its callee ConvertTo-ConsoleStrippedText
+            #     (ref-print-lib's), which the bwj-development scripts call directly. It is STRICTER on control and
+            #     format characters (six categories, a code point at a time) and does not substitute
+            #     brackets, which is right there: that output is a terminal line, not session context
+            #     a hook counts. (The bwj-development asana-mirror template's own copy was retired on
+            #     October 5, 2026.)
             #   - an INLINE -replace chain          -- the eight hook catch-alls, where a guard CALL is
             #     itself the hazard (hook-check-lib is dot-sourced inside the try, so "the lib did not
             #     load" is one of the failures that lands in the catch).
-            if ($line -match 'Format-Safe(Prose|Path)?Token|Get-Display(Ref|Path|Name)|Format-ForConsole') { continue }
+            if ($line -match 'Format-Safe(Prose|Path)?Token|Get-Display(Ref|Path|Name)|Format-ForConsole|ConvertTo-ConsoleStrippedText') { continue }
             $rel = $f.FullName.Substring($RepoRoot.Length).TrimStart('\', '/')
             $unguarded += "$rel`:$($i + 1)"
         }

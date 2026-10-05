@@ -25,9 +25,8 @@
 
     AND A FACT THAT CANNOT BE DERIVED IS LEFT OUT, NEVER GUESSED. No version resolves to a sentence
     with no number in it, not to a plausible one; no live URLs resolve to no list at all. That is
-    the same reasoning that makes the RESULT link a person's answer rather than a derived one
-    (WORKFLOW-portable.md's own paragraph on the backstop's [ADD LINK] placeholder), applied one
-    paragraph further down.
+    the same reasoning that makes the RESULT link a person's answer rather than a derived one,
+    applied one paragraph further down.
 
     WHY THE SEMVER ARITHMETIC IS LOCAL AND NOT dkj-policy's Get-NextVersion. Every script in this
     plugin deliberately pulls in nothing outside its own folder -- a store forwards to them from the
@@ -194,8 +193,8 @@ function Get-GoLiveBlockText {
 
     # THE HEADER AND THE CLOSED LINE ARE THE SAME IN EVERY LANGUAGE (#2700). They are the GitHub
     # automation's own two lines, fixed and English on every board like its created and reopened forms
-    # (#2656), and the block IS the automation's closed message now: asana-mirror.ps1 carries it into
-    # the task when the issue closes. {0} is 'owner/repo#<n>', {1} the issue URL.
+    # (#2656), kept as the block's own opening after the asana-mirror workflow that posted it was
+    # retired (October 5, 2026). {0} is 'owner/repo#<n>', {1} the issue URL.
     $header = "$dash GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
     $closed = 'GitHub issue [{0}]({1}) is now **closed**. It can be reopened anytime when something is still not working as expected.'
 
@@ -277,7 +276,7 @@ function ConvertFrom-GoLiveProse {
         }
         # THE BLOCK'S OWN BOUNDARIES MAY NOT APPEAR IN IT: a bare '---' line is a third rule, which cuts
         # the pasted block short, and an HTML comment would arrive in the colleague's ticket as junk --
-        # the marker the backstop matches on being the one that matters.
+        # the block's own marker being the one that matters.
         if ($line -match '^\s*---\s*$') { throw "Prose line ${lineNo}: a bare '---' line is the block's own rule and would cut the pasted block short." }
         if ($line.Contains('<!--')) { throw "Prose line ${lineNo}: an HTML comment would arrive in the Asana task as visible text." }
         if (-not $current) {
@@ -333,12 +332,11 @@ function Get-GoLiveBlockLead {
     <#
         Pure: the framing sentence above the rules, read on GitHub and never carried to Asana.
 
-        THE BLOCK IS NO LONGER PASTED (#2700, #2703). A hand paste lost either the formatting or every
-        line break, and the ready message and the close comment said the same thing twice -- so the
-        asana-mirror workflow now carries the block into the task as its one closed message, the moment
-        the issue closes. The sentence says so, so a reader on GitHub does not paste it a second time.
+        THE BLOCK STAYS ON GITHUB (Dave, October 5, 2026). From #2700/#2703 until that day the
+        asana-mirror workflow carried it into the Asana task as its closed message; that workflow is
+        retired and nothing replaces it, so the sentence says the block is pasted by hand where wanted.
     #>
-    return 'When this issue closes, the asana-mirror workflow posts the block below on the Asana task as its closed message -- no paste needed:'
+    return 'Nothing carries the block below into Asana -- paste it into the Asana task by hand where the task needs it:'
 }
 
 function Format-GoLiveClosedLine {
@@ -361,29 +359,27 @@ function Format-GoLiveClosedLine {
 function Format-GoLiveBlock {
     <#
         Pure: the whole GitHub comment -- the marker, the framing sentence that stays on GitHub, and
-        the block between the two '---' rules that travels into the Asana task.
+        the block between the two '---' rules that a colleague can paste into the Asana task.
 
-        THE BLOCK IS THE AUTOMATION'S CLOSED MESSAGE (#2700): the header and closed line, then up to
-        five sections under fixed headings -- where to look (first, Dave's order), what changed, when it
-        goes live, what is deliberately not in it, and what we ask. asana-mirror.ps1 carries everything
-        between the rules into the task when the issue closes (#2703). The words follow -Language, which is the
-        colleague's (Get-GoLiveBlockText). The framing sentence above the rules stays English: it is
-        read on GitHub, not pasted.
+        THE BLOCK'S SHAPE (#2700): the header and closed line, then up to five sections under fixed
+        headings -- where to look (first, Dave's order), what changed, when it goes live, what is
+        deliberately not in it, and what we ask. The words follow -Language, which is the colleague's
+        (Get-GoLiveBlockText). The framing sentence above the rules stays English: it is read on
+        GitHub, not pasted.
 
-        THE MARKER SITS OUTSIDE THE BLOCK. Everything between the rules is pasted into a colleague's
-        ticket, so a marker in there would arrive as visible junk. It is passed IN rather than
-        hard-coded, so this file and asana-mirror.ps1's backstop cannot end up holding two spellings
-        of one string -- the driver reads Get-AsanaPasteBlockMarker and hands it over. The backstop's
-        de-duplication matches that marker and nothing inside the rules, so the block's own words are
-        free to follow the colleague.
+        THE MARKER SITS OUTSIDE THE BLOCK. Everything between the rules may be pasted into a
+        colleague's ticket, so a marker in there would arrive as visible junk. It is passed IN rather
+        than hard-coded, so this file and asana-task-lib.ps1's duplicate check cannot end up holding two
+        spellings of one string -- the driver reads Get-AsanaPasteBlockMarker and hands it over. That
+        check matches the marker and nothing inside the rules, so the block's own words are free to
+        follow the colleague.
 
         WHAT IS OPTIONAL, AND WHAT HAPPENS WHERE IT IS ABSENT -- a section with nothing to say is not
         written, heading included, never placeholdered:
 
           -Changed      the session's prose. Omitted -> no 'what changed' section (the driver warns).
-          -ResultLink   omitted -> no link sentence. This function never writes the backstop's
-                        [ADD LINK] placeholder: that placeholder exists because CI cannot know the
-                        link, and a session running this script can.
+          -ResultLink   omitted -> no link sentence, never a placeholder: a session running this
+                        script knows the link.
           -WhereToLook  the session's prose under the link: steps, what to look for. With neither it
                         nor -ResultLink, the 'where to look' section is not written.
           -Version      omitted -> the release sentence names the day and no number.

@@ -29,8 +29,8 @@
 
     WHAT IS MECHANISM HERE AND WHAT IS FETCHED BY THE CALLER. The driver script resolves, per open
     issue carrying the reach label, which Asana task mirrors it (Resolve-AsanaTaskRef, dot-sourced
-    from ../../templates/asana-mirror.ps1 -- the same pure helper report-issue's own marker and the
-    CI sweep both resolve against) and reads that task's Name/Notes/Completed
+    from asana-task-lib.ps1 beside this file -- the pure helper report-issue's own marker resolves
+    against) and reads that task's Name/Notes/Completed
     (Get-AsanaTaskState, same file). Everything past that point -- which entries survive, what order
     they render in, what markup they become -- is this file.
 
