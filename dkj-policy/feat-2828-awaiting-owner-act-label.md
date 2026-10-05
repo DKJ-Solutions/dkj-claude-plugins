@@ -58,7 +58,7 @@ The gate runs inside ship-pr.
 
 New parking label `awaiting-owner-act`, purple like the rest of the awaiting-* family. It is for an
 issue whose decision is already made and whose only remaining step is an act the owner performs
-himself, such as a live push, a release or a deletion the session may not run
+in person, such as a live push, a release or a deletion the session may not run
 ([#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828)). The claim and sweep routes
 skip it by default and the issue dashboard shows it as parked. The issue names the act, and the label
 comes off once it is done.

@@ -1191,7 +1191,7 @@ skip it as they skip `awaiting-decision`, and it comes off when the blocking pul
 so no former name is matched for it.
 
 **`awaiting-owner-act` (`5319E7`) parks an issue whose decision is made and whose only remaining step is
-an act Dave performs himself** — a live push, a release, a deletion the session may not run (inbound
+an act only Dave performs** — a live push, a release, a deletion the session may not run (inbound
 [#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828), October 5, 2026, from a consumer whose sweep re-read four such issues on every
 machine). Both pickup routes skip it, the issue names the act, and the label comes off once it is done.
 New, so no former name.
