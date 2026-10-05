@@ -19,28 +19,18 @@
     half of that decision (a completed or unreadable task is dropped, never shown broken).
 
     WHY THIS PLUGIN'S FUNCTIONS AND NOT A FRESH COPY. Resolving which Asana task an issue body names,
-    and reading that task's fields, are exactly what report-issue's own marker and the asana-mirror CI
-    sweep already do -- so this script dot-sources ../../templates/asana-mirror.ps1 for
-    Resolve-AsanaTaskRef and Get-AsanaTaskState rather than re-implementing either. That file
-    documents itself as safe to dot-source for its pure helpers alone (its main flow runs only when
-    invoked directly, guarded by $MyInvocation.InvocationName), which is exactly what
-    scripts/tests/bwj-development.tests.ps1 already relies on to exercise it.
-
-    THE ASANA-MIRROR TEMPLATE'S OWN PARAMETERS ARE NOT THIS SCRIPT'S. Dot-sourcing a param()-bearing
-    file binds its parameters fresh in the CALLING scope, so this script's own -Repo and -AsanaPat
-    values are captured into differently-named local variables BEFORE that dot-source runs -- $StoreRepo
-    and $Pat -- so the template's own defaults (empty $Repo, $env:ASANA_PAT again into $AsanaPat, '.'
-    into $RepoRoot) cannot silently overwrite anything this script already resolved.
+    and reading that task's fields, are shared helpers -- so this script dot-sources
+    ../lib/asana-task-lib.ps1 for Resolve-AsanaTaskRef and Get-AsanaTaskState rather than
+    re-implementing either. Until October 5, 2026 they came from templates/asana-mirror.ps1, which was
+    retired with the asana-mirror CI workflow.
 
     WHAT IT NEVER DOES: write to GitHub or to Asana. Every gh call is a read (repo view, issue list);
     every Asana call is a read (GET a task). The one write in this whole flow is the local HTML file,
     which is why -- unlike publish-page.ps1, which sends that file out from behind a private repo's
     walls -- this script is left model-invocable: nothing here leaves the checkout.
 
-    A FAILED ISSUE LISTING THROWS RATHER THAN PRODUCING AN EMPTY PAGE. asana-mirror.ps1's own
-    Get-OpenIssues returns @() on a gh failure, correctly, because it drives a best-effort CI sweep
-    where a skipped run costs nothing. This script produces the one artifact a colleague reads, and an
-    empty page from a broken 'gh issue list' reads as "nothing outstanding" -- which is the one answer
+    A FAILED ISSUE LISTING THROWS RATHER THAN PRODUCING AN EMPTY PAGE. This script produces the one
+    artifact a colleague reads, and an empty page from a broken 'gh issue list' reads as "nothing outstanding" -- which is the one answer
     this script must never give by accident. So Get-BacklogOpenIssues throws instead of swallowing.
 
     Pure ASCII (repo convention for .ps1).
@@ -87,14 +77,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Captured BEFORE the template dot-source below rebinds $Repo/$AsanaPat/$RepoRoot to its own defaults
-# -- see the .DESCRIPTION's "THE ASANA-MIRROR TEMPLATE'S OWN PARAMETERS" paragraph.
+# The parameters, captured under names of their own before the libs below are dot-sourced.
 $StoreRepo    = if ($Repo) { $Repo } else { $env:GITHUB_REPOSITORY }
 $Pat          = $AsanaPat
 $HtmlOverride = $Html
 $RootArg      = $RootOverride
 
-. (Join-Path $PSScriptRoot '..\..\templates\asana-mirror.ps1')
+. (Join-Path $PSScriptRoot '..\lib\asana-task-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\backlog-page-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
@@ -113,9 +102,8 @@ $root = Resolve-BwjRepoRoot -Override $RootArg
 # --- The repo's own answers: Get-ReachLabel, Get-ReleaseNoteRoot -------------------------------------
 # Read in a child scope with StrictMode explicitly off: repo-config.ps1 is written on the assumption
 # its callers do not run under StrictMode Latest. This script never turns StrictMode on itself --
-# unlike publish-page.ps1, which runs under -Version Latest throughout and only relaxes it here --
-# because it dot-sources templates/asana-mirror.ps1 for Resolve-AsanaTaskRef/Get-AsanaTaskState, and
-# that file was not written against strict mode. The explicit -Off here is kept anyway: it documents
+# unlike publish-page.ps1, which runs under -Version Latest throughout and only relaxes it here. The
+# explicit -Off here is kept anyway: it documents
 # the same assumption about repo-config.ps1 that publish-page.ps1 states, rather than relying on it
 # being ambient.
 $config = & {
@@ -155,8 +143,7 @@ Write-Host "  reach label : $($config.ReachLabel)" -ForegroundColor DarkGray
 function Get-BacklogOpenIssues {
     <#
         This repo's open issues carrying $Label, with title/url/body/labels. THROWS on a gh failure --
-        see the .DESCRIPTION's "A FAILED ISSUE LISTING THROWS" paragraph for why this differs from
-        asana-mirror.ps1's own best-effort Get-OpenIssues.
+        see the .DESCRIPTION's "A FAILED ISSUE LISTING THROWS" paragraph.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Repo,

@@ -7,16 +7,14 @@
     Issue #2100 (Dave, September 18, 2026). WORKFLOW-portable.md's paste-ready block answered 'where
     can I see it' and stopped there; the requester's next question is always 'and when do I actually
     see it'. This script writes the whole block -- the marker, the framing sentence that stays on
-    GitHub, and the paragraph between the two '---' rules that asana-mirror carries into the Asana task.
+    GitHub, and the paragraph between the two '---' rules that a colleague can paste into the Asana task.
 
-    IT IS THE ROUTE, NOT THE BACKSTOP. asana-mirror.ps1 still posts a placeholder block where an
-    Asana-linked issue closed without one, and it writes [ADD LINK] because CI genuinely cannot know
-    the link. This script runs in the session that shipped the work, which does know it -- so it
-    never writes a placeholder: a link it was not given is a sentence it does not write.
+    IT NEVER WRITES A PLACEHOLDER. This script runs in the session that shipped the work, which knows
+    where the result can be seen -- so a link it was not given is a sentence it does not write.
 
-    WHAT IT NEVER DOES: touch Asana. The block reaches the task through the asana-mirror workflow,
-    which posts it as its one closed message when the issue closes (#2700, #2703) -- a hand paste lost
-    either the formatting or every line break. So the order is: post the block, then close the issue.
+    WHAT IT NEVER DOES: touch Asana. The block stays on the GitHub issue (Dave, October 5, 2026): the
+    asana-mirror CI workflow that used to carry it into the task as its closed message (#2700, #2703)
+    is retired, and nothing replaces it. Whoever wants the block in the Asana task pastes it there.
 
     THE THREE GO-LIVE FACTS AND WHERE EACH COMES FROM:
 
@@ -48,13 +46,10 @@
     a minor -- which is why it left the block. Where a fact cannot be derived it is left out rather than
     guessed -- see golive-block-rules.ps1's header.
 
-    WHY IT DOT-SOURCES templates/asana-mirror.ps1. For Get-AsanaPasteBlockMarker and
-    Test-AsanaPasteBlockPosted alone -- the marker the backstop's de-duplication matches on, and the
-    read that answers whether a block is already there. Holding a second spelling of that marker here
-    is exactly how the backstop would start posting a duplicate under a block this script had already
-    written. That file documents itself as safe to dot-source for its pure helpers (its main flow runs
-    only when invoked directly), which the source repo's suite already relies on. Its own parameters
-    are captured out of the way first, the same guard build-backlog-page.ps1 states.
+    WHY IT DOT-SOURCES scripts/lib/asana-task-lib.ps1. For Get-AsanaPasteBlockMarker and
+    Test-AsanaPasteBlockPosted -- the marker the block's comment carries, and the read that answers
+    whether a block is already there -- plus ConvertTo-ConsoleStrippedText through ref-print-lib.ps1.
+    Until October 5, 2026 these came from templates/asana-mirror.ps1, retired with the workflow.
 
     Pure ASCII (repo convention for .ps1).
 
@@ -156,8 +151,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-# Captured BEFORE the template dot-source below rebinds $Repo to its own default -- see the
-# .DESCRIPTION's "WHY IT DOT-SOURCES" paragraph, and build-backlog-page.ps1's identical guard.
+# The parameters, captured under names of their own before the libs below are dot-sourced.
 $StoreRepo   = if ($Repo) { $Repo } else { $env:GITHUB_REPOSITORY }
 $IssueArg    = $Issue
 $LinkArg     = $Link
@@ -172,7 +166,7 @@ $PostArg     = [bool]$Post
 $ForceArg    = [bool]$Force
 $RootArg     = $RootOverride
 
-. (Join-Path $PSScriptRoot '..\..\templates\asana-mirror.ps1')
+. (Join-Path $PSScriptRoot '..\lib\asana-task-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\golive-block-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
@@ -255,7 +249,7 @@ if ($ProseArg) {
     try {
         $prose = ConvertFrom-GoLiveProse -Text ([System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $ProseArg).ProviderPath, [System.Text.Encoding]::UTF8))
     } catch {
-        Write-Host "[ERROR] -ProseFile: $(Format-ForConsole -Text $_.Exception.Message) Nothing written." -ForegroundColor Red
+        Write-Host "[ERROR] -ProseFile: $(ConvertTo-ConsoleStrippedText -Text $_.Exception.Message) Nothing written." -ForegroundColor Red
         exit 1
     }
 }
@@ -349,7 +343,7 @@ if ($OutFileArg) {
     try {
         [System.IO.File]::WriteAllText([System.IO.Path]::GetFullPath($OutFileArg), $block, $utf8)
     } catch {
-        Write-Host "[ERROR] -OutFile '$OutFileArg' could not be written: $(Format-ForConsole -Text $_.Exception.Message) Nothing posted." -ForegroundColor Red
+        Write-Host "[ERROR] -OutFile '$OutFileArg' could not be written: $(ConvertTo-ConsoleStrippedText -Text $_.Exception.Message) Nothing posted." -ForegroundColor Red
         exit 1
     }
     Write-Host "  written  : $OutFileArg (UTF-8 -- the faithful copy; the console above may have lost characters)" -ForegroundColor DarkGray
@@ -365,24 +359,22 @@ if (-not $LinkArg) {
 }
 
 if (-not $PostArg) {
-    Write-Host "Printed only. Re-run with -Post to put it on $targetRef, then close the issue: the asana-mirror" -ForegroundColor DarkGray
-    Write-Host "workflow posts the block on the Asana task as its closed message." -ForegroundColor DarkGray
+    Write-Host "Printed only. Re-run with -Post to put it on $targetRef, then close the issue." -ForegroundColor DarkGray
     return
 }
 
 # --- Posting ------------------------------------------------------------------------------------------
 # THE STATE CHECK IS A WARNING, NOT A REFUSAL. The rule is that the block goes on while the issue is
 # still open, because nobody returns to a closed one -- but a session that got there late is better off
-# posting than not, and the backstop's own placeholder copy is what it would otherwise be left with.
+# posting than not.
 $stateRun = Invoke-Native { gh issue view $issueNumber --repo $StoreRepo --json state -q .state }
 if ($stateRun.Code -eq 0 -and $stateRun.Output.Count -gt 0 -and ([string]$stateRun.Output[0]).Trim() -eq 'CLOSED') {
     Write-Host "[WARNING] $targetRef is already closed. The block belongs on it while it is OPEN -- nobody" -ForegroundColor Yellow
     Write-Host "          returns to a closed issue, which is why the order is the rule. Posting anyway." -ForegroundColor Yellow
 }
 
-# Test-AsanaPasteBlockPosted answers TRUE where it cannot READ the comments -- the safe default for the
-# CI backstop, whose mistake would be a blind duplicate. Here the cost runs the other way, so an
-# unreadable issue is reported as exactly that and -Force is the way past it.
+# Test-AsanaPasteBlockPosted answers TRUE where it cannot READ the comments, so a blind duplicate is
+# never posted; an unreadable issue is reported as exactly that and -Force is the way past it.
 if ((Test-AsanaPasteBlockPosted -IssueRef $targetRef) -and -not $ForceArg) {
     Write-Host "[ERROR] A paste-ready block already appears to be on $targetRef -- or its comments could" -ForegroundColor Red
     Write-Host "        not be read, which answers the same way. Nothing posted. Re-run with -Force." -ForegroundColor Red
@@ -392,10 +384,7 @@ if ((Test-AsanaPasteBlockPosted -IssueRef $targetRef) -and -not $ForceArg) {
 # Body through a FILE, never as an inline argument -- a shell mangles embedded newlines and quoting
 # silently rather than loudly -- and not through stdin either (#2507): Windows PowerShell 5.1 encodes a
 # pipe into a native command with $OutputEncoding, ASCII there, so every accent and dash in the
-# colleague's language arrived on the issue as '?'. A UTF-8 file is read by gh byte for byte.
-# Add-GithubIssueComment beside it is not reused because its own success line is the backstop's
-# ("the session that shipped the work did not"), and this IS that session.
-$bodyFile = Join-Path ([System.IO.Path]::GetTempPath()) "golive-block-$PID-$([guid]::NewGuid().ToString('n')).md"
+# colleague's language arrived on the issue as '?'. A UTF-8 file is read by gh byte for byte.$bodyFile = Join-Path ([System.IO.Path]::GetTempPath()) "golive-block-$PID-$([guid]::NewGuid().ToString('n')).md"
 $prevEap = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 try {
@@ -411,5 +400,4 @@ if ($postCode -ne 0) {
     exit 1
 }
 Write-Host "[OK] Block posted on $targetRef." -ForegroundColor Green
-Write-Host "     Now close the issue: the asana-mirror workflow posts the block on the Asana task as its" -ForegroundColor DarkGray
-Write-Host "     closed message. No paste needed." -ForegroundColor DarkGray
+Write-Host "     Now close the issue. Nothing carries the block into Asana -- paste it there if the task needs it." -ForegroundColor DarkGray
