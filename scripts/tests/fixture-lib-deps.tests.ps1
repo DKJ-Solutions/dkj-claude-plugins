@@ -16,7 +16,7 @@
     check list (#1680), and appending a check would have meant both of us rewriting the same block. The
     merits were even -- that file already carries a fixture-shaped check ([fixture-git]) and this one
     already carries three tree-walking meta-suites (shared-scripts, subagent-shared,
-    and template-selfcontained, retired with the templates it read) -- so collision decided it. Moving it later is a one-call change: the
+    template-selfcontained) -- so collision decided it. Moving it later is a one-call change: the
     reading is all in the lib, and Get-FixtureDepReport is the whole answer.
 
     WHAT WAS MEASURED BEFORE ANY OF IT WAS BUILT, because a gate here arrives measured:

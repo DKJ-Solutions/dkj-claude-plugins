@@ -130,6 +130,10 @@ $Exceptions = @{
     # -- these two calls are the EVIDENCE for the rule, and a gate that refused them would be refusing
     # the proof that it is worth having. The first assert of each pair covers the replacement; the
     # Get-Command half is what shows the two answers differ.
+    # Asks whether a name resolves to ANY command. A template legitimately calls cmdlets, and the
+    # fixture strings there are simulated TEMPLATE source, which cannot dot-source a lib at all.
+    # Back with the suite on October 5, 2026 (#2818), the same day #2804 removed both.
+    'scripts\tests\template-selfcontained.tests.ps1' = 'judges any command type, and carries template fixture text'
     'scripts\tests\command-probe-lib.tests.ps1'      = 'calls the replaced idiom deliberately, as the contrast half of sections 2 and 3'
 }
 

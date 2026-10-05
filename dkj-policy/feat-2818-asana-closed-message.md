@@ -55,6 +55,7 @@ in `asana-task-lib.ps1`, so it is taken from the retired template.
 - [x] The framing sentence, `build-golive-block`'s closing line and `asana-task-lib`'s header say the close carries the block again
 - [x] WORKFLOW-portable step 4 and its other passages, the `golive-block`, `report-issue` and `adopt-bwj-development` skills, PREVIEW-portable and the README describe the closed message; adopt copies the template in the two stores and names `ASANA_PAT`
 - [x] `bwj-development.tests.ps1`: the template's own section (copies equal the lib, decision, HTML, yml shape); `template-selfcontained.tests.ps1` restored, with its duration row
+- [x] The two traces #2804 left of the self-containment suite restored with it: its exception in `command-probe-lib.tests.ps1` (CI went red without it on PR #2823) and its name in `fixture-lib-deps.tests.ps1`'s header
 - [x] Code and security review before shipping: nothing blocking. Applied: the block is taken only from an OWNER/MEMBER/COLLABORATOR comment, XML-invalid control characters are dropped, no `&apos;`, a bare URL keeps its full stop outside the link, `\z` anchors, `persist-credentials: false`, the body via env, a corrected concurrency comment, and a structural one-call-site assert. Declined: the marker pointing at any task the token reaches (the retired workflow's trust model, stated in the template's header; checking the project needs a read this workflow does without), a nested-parenthesis URL in a Markdown link, and digits in a heading (both cosmetic and unmeasured in a real block)
 
 ### TEST
