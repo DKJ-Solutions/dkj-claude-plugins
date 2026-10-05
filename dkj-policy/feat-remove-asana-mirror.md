@@ -43,17 +43,35 @@ Dave (Oct 5, 2026): remove the whole asana-mirror automation from the BWJ repos.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Disable the asana-mirror workflow in smartwatchbanden and xoxowildhearts (`gh workflow disable`)
+- [x] Move the helpers build-backlog-page and build-golive-block still need into `scripts/lib/asana-task-lib.ps1`
+- [x] Delete `templates/asana-mirror.yml` and `templates/asana-mirror.ps1`
+- [x] Go-live block: framing sentence says it stays on GitHub and is pasted into Asana by hand
+- [x] Tests (Tycho), docs/skills/lenses (Tessa), lib/lint comments and plugin.json (Sylvester)
 
 ### TEST
 
+- [x] check-plugin-integrity: 0 errors; touched suites green
+- [ ] Review: Victor, Edith, Sebastian
+
 ### DEPLOY: feat/remove-asana-mirror
 
-**Score:**
+The `asana-mirror` CI workflow is retired from `dkj-policy-bwj` (Dave, October 5, 2026): the two
+templates are gone, and `adopt-bwj-development` no longer copies them. The helpers `build-backlog-page`
+and `build-golive-block` still use now live in `scripts/lib/asana-task-lib.ps1`. The template's
+self-containment suite went with it, and the tests, docs, skills and lenses describe the new state.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Closing a GitHub issue in a BWJ store no longer posts anything on the Asana task, and the card is no longer
+moved through the board. The go-live block stays on the GitHub issue, and you paste it into the task by
+hand where the task needs it. To finish the job in a store repo, delete `.github/workflows/asana-mirror.yml`
+and `.github/scripts/asana-mirror.ps1`, and drop `Get-GithubStatusMap` from `scripts/repo-config.ps1`.
+`report-issue` still files the card in `Filed`.
+
+**Score:** 4
 
 #### Pull Request
 
