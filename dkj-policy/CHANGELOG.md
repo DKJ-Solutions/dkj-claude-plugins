@@ -2,7 +2,62 @@
 
 ## [Unreleased]
 
-**11 / 13 minor entries** <!-- pending-tally -->
+**13 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2802-release-note-form-shared · 20261005-094845Z
+
+The `cut-release` skill now says whose the audience release note's form is. The title line, the `Date` /
+`Type` / `For whom` labels and the section headings are what the cut drafts, and `Get-ReleaseNoteWording`
+is the only route to change them. A lens or comment that restates or translates them is drift. The note's
+language is a per-repo content answer, translated once through that seam. `adopt-bwj-development` now
+proposes `Get-ReleaseNoteTaskLink` to both stores, so their drafts arrive as solved tasks.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store writes its release note in the plugin's form, not in one a local page invented. To use other
+labels or another language, answer `Get-ReleaseNoteWording` once and drop the lens section or comment that
+restated the form. The BWJ stores are offered the task form of the note at adoption, so the cut drafts
+which Asana tasks were solved and nobody rewrites the entries by hand.
+
+**Score:** 3
+
+#### Pull Request
+
+The audience release note's form is the plugin's, and only Get-ReleaseNoteWording changes it
+
+Plugins: bwj-development, dkj-policy
+
+[PR #2820](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2820)
+
+---
+
+### DEPLOY: fix/2810-rename-carries-colour · 20261005-094004Z
+
+`adopt-triage-labels` now prints a rename of a former label name with the canonical colour as well as the
+new name and description. A label found under an older name, such as `needs-decision`, moves into its
+family's colour in the same `gh label edit` that renames it. The `needs-info` rename on the
+`adopt-bwj-development` page does the same.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Pasting the rename that `adopt-triage-labels` prints now also gives the label its new colour, so a renamed
+`awaiting-decision` turns purple beside the other parking labels instead of keeping its old orange.
+
+**Score:** 2
+
+#### Pull Request
+
+adopt-triage-labels' rename line carries the canonical colour
+
+Plugins: bwj-development, dkj-policy
+
+[PR #2817](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2817)
+
+---
 
 ### DEPLOY: fix/2805-foreign-checkout-guard · 20261005-093112Z
 

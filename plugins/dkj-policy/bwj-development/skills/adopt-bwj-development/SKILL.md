@@ -188,6 +188,21 @@ excludes the source repo, which runs no theme, so there the question would be `-
 forever. It reaches branches created **after** the seam lands. A branch already open gets the line by
 hand.
 
+**In the two store repos, propose the task form of the audience release note too**
+([#2802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2802)). Both stores keep an Asana
+board, and their colleagues read a note to see which of *their* tasks are solved. Without this answer the
+cut drafts the entries form, and somebody rewrites it into tasks by hand at every release:
+
+```powershell
+# dkj-policy's cut-release drafts the audience section as one item per solved Asana task, read from the
+# same marker report-issue writes. Pass the live-push record to every cut: only it can say which
+# storefront changes are live.
+function Get-ReleaseNoteTaskLink { @{ Marker = 'asana-task'; Url = 'https://app.asana.com/0/0/{0}'; Label = 'Asana task' } }
+```
+
+The rest of the note's form (title, labels, headings) is `dkj-policy`'s, and only `Get-ReleaseNoteWording`
+changes it (the `cut-release` skill, step 2). Neither store restates it in a lens.
+
 **Propose the stage map against the board you actually read in step 5, not against the example.** The
 keys are the cycle and are fixed; the numbers are that board's and nothing else can supply them. Say
 plainly that a wrong map is *silent*: the new card lands in whatever section the map's `Filed` number
@@ -374,8 +389,9 @@ re-colour in place with `gh label edit prio-<n> --repo <owner>/<repo> --color <h
 filed it. It is a GitHub-side flag only now: it used to park the Asana card in the blocked column, and with
 the mirror retired it moves nothing in Asana. The label was named `needs-info` until October 2, 2026
 ([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)): a tracker already carrying
-`needs-info` renames it in place, keeping every issue on it, with
-`gh label edit needs-info --name awaiting-more-info --repo <owner>/<repo>`.
+`needs-info` renames it in place, keeping every issue on it, and takes the colour below in the same command
+([#2810](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2810)):
+`gh label edit needs-info --name awaiting-more-info --color d4c5f9 --repo <owner>/<repo>`.
 
 ```bash
 gh label create awaiting-more-info --repo <owner>/<repo> --color d4c5f9 \
