@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Issue #2816, narrowed on the issue itself: an existing write runner is already read on a re-run for its
+pin (#2333) and merge-on-green.yml for its checkout shape (#2449). What was missing is the same advisory
+for #2813's concurrency-group fix in fold-on-merge.yml and verify-resolved.yml. A whole-file diff
+against the template is not the repair: trunk names and pins differ per consumer, so it would fire
+everywhere.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Write-RunnerGroupVerdict` in `adopt-ci-floor.ps1` (+ plugin mirror): silent on the template's
+      own group line (read from the template, not restated), `[group]` on the pre-#2813 line, "could not
+      be read" on anything else; the file stays untouched
 
 ### TEST
 
+- [x] `adopt-ci-floor.tests.ps1`: current line silent, both pre-#2813 runners reported once each, file
+      unchanged, neither shape reported as unread (286 passed)
+
 ### DEPLOY: fix/2816-runner-group-verdict
 
-**Score:**
+`adopt-ci-floor` now reports a `[group]` advisory when an existing `fold-on-merge.yml` or
+`verify-resolved.yml` still carries the single `github.ref`-keyed concurrency group #2813 replaced,
+beside the `[pin]` line it already printed. The scaffolder still never rewrites a placed runner, so
+this re-run is the one moment that shape gets noticed (#2816).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer re-running `adopt-ci-floor` is told, file by file, whether its fold and resolves runners
+still carry the concurrency group that can cancel a merge's pending run, and how to fix it: replace
+the `group:` line, or delete the file and re-run with `-Apply`.
+
+**Score:** 2
 
 #### Pull Request
 
