@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**22 / 24 minor entries** <!-- pending-tally -->
+**23 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2829-sync-branch-name-pr-heads · 20261005-141821Z
+
+`sync-main.ps1` now treats a name as taken when it is already the head of a pull request in any state, as
+well as when a ref for it exists. A second sync on the same day therefore gets `-2` even after the first
+one's PR has merged and its branch is deleted. Where `gh` cannot answer, the name is chosen from refs
+alone, as before, and the run says so.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A Shopify repo that syncs twice in one day no longer gets a branch that `ship-pr` refuses with "PR #...
+is already merged", so the hand rename to `-2` is no longer needed.
+
+**Score:** 2
+
+#### Pull Request
+
+sync-main: skip a same-day name that is already a PR's head
+
+Plugins: dkj-subagents-shopify
+
+[PR #2835](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2835)
+
+---
 
 ### DEPLOY: feat/2830-golive-language-seam · 20261005-140547Z
 
