@@ -374,8 +374,9 @@ re-colour in place with `gh label edit prio-<n> --repo <owner>/<repo> --color <h
 filed it. It is a GitHub-side flag only now: it used to park the Asana card in the blocked column, and with
 the mirror retired it moves nothing in Asana. The label was named `needs-info` until October 2, 2026
 ([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)): a tracker already carrying
-`needs-info` renames it in place, keeping every issue on it, with
-`gh label edit needs-info --name awaiting-more-info --repo <owner>/<repo>`.
+`needs-info` renames it in place, keeping every issue on it, and takes the colour below in the same command
+([#2810](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2810)):
+`gh label edit needs-info --name awaiting-more-info --color d4c5f9 --repo <owner>/<repo>`.
 
 ```bash
 gh label create awaiting-more-info --repo <owner>/<repo> --color d4c5f9 \

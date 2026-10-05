@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound [#2810](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2810), verified at
+`adopt-triage-labels.ps1`'s `[rename]` branch: it printed `--name` and `--description` and no `--color`. The
+issue's second option, a general `[recolour]` line for any existing label in an off colour, is not built,
+because #1895 scoped colour drift on an existing label out on purpose (a repo may have retextured its own
+label), and the script's header says so. A rename is different: it is the adoption, so it may set the colour.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The `[rename]` command carries `--color <canonical>` (both copies); the header's NO DRIFT DETECTION paragraph names the exception
+- [x] The `adopt-bwj-development` page's `needs-info` rename takes its colour too
+- [x] `adopt-triage-labels.tests.ps1`: the rename asserts expect the colour, plus one that the old colour is not kept
 
 ### TEST
 
+- [x] `adopt-triage-labels.tests.ps1`: 107 pass
+
 ### DEPLOY: fix/2810-rename-carries-colour
 
-**Score:**
+`adopt-triage-labels` now prints a rename of a former label name with the canonical colour as well as the
+new name and description. A label found under an older name, such as `needs-decision`, moves into its
+family's colour in the same `gh label edit` that renames it. The `needs-info` rename on the
+`adopt-bwj-development` page does the same.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Pasting the rename that `adopt-triage-labels` prints now also gives the label its new colour, so a renamed
+`awaiting-decision` turns purple beside the other parking labels instead of keeping its old orange.
+
+**Score:** 2
 
 #### Pull Request
 
