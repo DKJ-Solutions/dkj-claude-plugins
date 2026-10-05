@@ -39,19 +39,47 @@
 
 ### PLAN
 
+#### Issue
+
+[#2836](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2836), with its inbound duplicate
+[#2838](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2838): two sweeps on one machine under
+one account wrote one claim tag, so each read the other's claim as `mine`.
+
+#### Direction chosen
+
+The checkout id goes into the machine half (`machine:checkout/account`), not a per-session nonce: the
+step-6 resume runs in a new session in the same checkout, which a nonce would read as `[NO]`. A hash, not
+the path, because the path carries a user name onto the tracker.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-CheckoutClaimId`, `Get-ClaimTagRelation`, `Format-ClaimHolderNote`; `Get-ClaimTag -Checkout`
+- [x] `claim-issue.ps1` passes the checkout root; `-Candidates` and `-Verify` explain a same-machine holder
+- [x] plugin mirrors of the lib and the script, byte-identical
+- [x] `sweep-issues` and `claim-issue` skill pages state the new tag
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: 579 passed, 0 failed, with the new asserts for the id, the tag, the verdict
+  in both directions, the relation and the `-Candidates` reason
+
 ### DEPLOY: fix/2836-claim-tag-checkout
 
-**Score:**
+A sweep's claim tag now names the checkout as well as the machine and the account:
+`machine:checkout/account`, where the checkout is the first 8 hex digits of a hash of its root path.
+Two sweeps on one machine under one account, in two checkouts or worktree lanes, now claim apart, and
+`-Candidates` no longer reads the other's claim as `mine`.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+If you run more than one sweep on a machine, each one now claims under its own tag, so it can no longer
+pick up and rebuild an issue the other sweep is still working on. A claim written by an older version
+names no checkout and shows as `held`, with a note that it belongs to this machine and account. Read its
+branch, and run `claim-issue <n> -Tag -TakeOver` if the work is yours.
+
+**Score:** 3
 
 #### Pull Request
 
