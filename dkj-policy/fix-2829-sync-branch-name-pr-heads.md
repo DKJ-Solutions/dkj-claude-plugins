@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound #2829: a second same-day `sync-main` run reused the name of a sync branch whose PR had already
+merged, because the namer only checked whether a ref existed. Verified in the source: steps [3/6] chose
+the name by `refs/heads/<name>` and `refs/remotes/origin/<name>` alone.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Select-SyncBranchName` in `scripts/lib/sync-rules.ps1`: the suffix loop, with an "is it taken?" probe.
+- [x] `sync-main.ps1` passes a probe that also asks `gh pr list --head <name> --state all`. Where gh cannot
+  answer, it falls back to refs alone and says so.
+- [x] Mirrors rebuilt with `build-shared-scripts.ps1`.
 
 ### TEST
 
+- [x] `sync-rules.tests.ps1`: the namer's behaviour, including the measured merged-PR-head case and the limit (178 asserts green).
+- [x] `sync-main.tests.ps1`: the network-call pin is 12 now, plus source pins for the `--state all` probe (160 asserts green).
+
 ### DEPLOY: fix/2829-sync-branch-name-pr-heads
 
-**Score:**
+`sync-main.ps1` now treats a name as taken when it is already the head of a pull request in any state, as
+well as when a ref for it exists. A second sync on the same day therefore gets `-2` even after the first
+one's PR has merged and its branch is deleted. Where `gh` cannot answer, the name is chosen from refs
+alone, as before, and the run says so.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify repo that syncs twice in one day no longer gets a branch that `ship-pr` refuses with "PR #...
+is already merged", so the hand rename to `-2` is no longer needed.
+
+**Score:** 2
 
 #### Pull Request
 
