@@ -57,7 +57,7 @@ if (Test-Path -LiteralPath $checkLib -PathType Leaf) { . $checkLib }
 
 $repoRoot = if (Test-FunctionDefined 'Resolve-CheckRepoRoot') {
     Resolve-CheckRepoRoot -RootOverride $RootOverride
-} elseif ($RootOverride) { $RootOverride } else {
+} elseif ($RootOverride) { $RootOverride } elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else {
     $p = (Get-GitTopLevelPath).Path
     if ($p) { $p } else { '' }
 }
