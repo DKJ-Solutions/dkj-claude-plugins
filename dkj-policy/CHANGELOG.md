@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**19 / 21 minor entries** <!-- pending-tally -->
+**20 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2812-release-note-form-check · 20261005-134511Z
+
+`check-release-note-form.ps1` compares the newest audience release note with what `cut-release` drafts for
+the repo: the title line, the header labels, and the section headings in order. It takes the expected form
+from the draft function, using the repo's own `Get-ReleaseNoteWording`, `Get-ReleaseNoteSections` and
+audience tier. `open-pr -GatesOnly -NoteTreeOnly`, the cut's release-notes gate run, now runs it too. Older
+notes are records and are not judged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+At the release-notes step the gate run now refuses a note whose labels or section headings drifted from the
+drafted form. So a translated label or an extra section is caught before the commit, rather than found
+later by comparing two notes by eye. To change the form, answer `Get-ReleaseNoteWording` once.
+
+**Score:** 2
+
+#### Pull Request
+
+A check that flags an audience release note whose headings differ from the shared form
+
+Plugins: dkj-policy
+
+[PR #2832](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2832)
+
+---
 
 ### DEPLOY: fix/2825-resume-line-plugin-path · 20261005-105214Z
 
