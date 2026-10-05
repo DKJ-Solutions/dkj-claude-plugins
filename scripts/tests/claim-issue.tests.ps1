@@ -1301,6 +1301,49 @@ Assert-True (-not $t.Complete) 'a half carrying the separator is unusable -- it 
 $t = Get-ClaimTag -MachineName '  DAVE  ' -Account '  davekokbwj  '
 Assert-True ($t.Tag -eq 'DAVE/davekokbwj') 'both halves are trimmed -- whitespace is not part of the name'
 
+# THE CHECKOUT HALF (#2836, #2838): two sweeps on one machine under one account wrote one tag and each
+# read the other's claim as 'mine'. The asserts below are that measurement, in both directions.
+$idA = Get-CheckoutClaimId -Path 'C:\Users\x\GitHub\repo'
+$idB = Get-CheckoutClaimId -Path 'C:\Users\x\GitHub\repo-lane-2'
+Assert-True ($idA -match '^[0-9a-f]{8}$') 'a checkout id is eight lower-case hex digits'
+Assert-True ($idA -ne $idB) 'two checkouts on one machine get two ids -- the defect was that they got one tag'
+Assert-True ((Get-CheckoutClaimId -Path 'c:/users/X/github/repo/') -eq $idA) 'one checkout spelled two ways is one id -- case folded, separators and a trailing one normalised'
+Assert-True ((Get-CheckoutClaimId -Path '') -eq '') 'no path, no id -- rather than the hash of nothing'
+
+$tA = Get-ClaimTag -MachineName 'DAVE' -Account 'davekokbwj' -Checkout 'C:\Users\x\GitHub\repo'
+$tB = Get-ClaimTag -MachineName 'DAVE' -Account 'davekokbwj' -Checkout 'C:\Users\x\GitHub\repo-lane-2'
+Assert-True ($tA.Tag -eq "DAVE:$idA/davekokbwj" -and $tA.CheckoutId -eq $idA -and $tA.Complete) 'with a checkout the tag is machine:checkout/account'
+Assert-True ($tA.Tag -ine $tB.Tag) 'two checkouts, one machine, one account -- two tags'
+Assert-True ($tA.Tag -notmatch 'Users') 'the path itself is never written -- it would publish a user name on the tracker'
+Assert-True (-not (Get-ClaimTag -MachineName 'a:b' -Account 'davekokbwj').Complete) "a machine name carrying ':' is unusable -- it would parse back as machine:checkout"
+
+$both = @(
+    [pscustomobject]@{ Tag = $tB.Tag; Author = 'davekokbwj'; CreatedAt = '2026-10-05T13:39:16Z'; Id = 'IC_b' }
+)
+Assert-True ((Get-TagClaimVerdict -Tag $tA.Tag -State 'OPEN' -Records $both).Code -eq 'held') "the other checkout's claim is HELD, not mine -- the measured failure, closed"
+Assert-True ((Get-TagClaimVerdict -Tag $tB.Tag -State 'OPEN' -Records $both).Code -eq 'already-yours') 'and the checkout that wrote it still resumes it -- the step-6 resume a per-session nonce would have broken'
+
+Assert-True ((Get-ClaimTagRelation -Tag $tA.Tag -Other $tA.Tag) -eq 'same') 'relation: the same tag'
+Assert-True ((Get-ClaimTagRelation -Tag $tA.Tag -Other $tB.Tag) -eq 'other-checkout') 'relation: another checkout of this machine and account'
+Assert-True ((Get-ClaimTagRelation -Tag $tA.Tag -Other 'DAVE/davekokbwj') -eq 'legacy') 'relation: an older tag naming no checkout -- may be this one, may be a parallel one'
+Assert-True ((Get-ClaimTagRelation -Tag $tA.Tag -Other 'DAVE/maikel-bwj') -eq 'other') 'relation: another account on a machine of the same name is somebody else'
+Assert-True ((Get-ClaimTagRelation -Tag $tA.Tag -Other 'garbage') -eq 'other') 'relation: an unparseable tag is somebody else, never self'
+Assert-True ((Format-ClaimHolderNote -Tag $tA.Tag -Holder $tB.Tag) -match 'parallel session') "the note beside 'held' says why your own machine and account read as somebody else"
+Assert-True ((Format-ClaimHolderNote -Tag $tA.Tag -Holder 'DAVE/davekokbwj') -match '-TakeOver') 'and for an older tag it names the way back to your own work'
+Assert-True ((Format-ClaimHolderNote -Tag $tA.Tag -Holder 'OTHER/someone') -eq '') 'and says nothing about a genuinely foreign holder'
+
+$legacyRecord = @([pscustomobject]@{ Tag = 'DAVE/davekokbwj'; Author = 'davekokbwj'; CreatedAt = '2026-10-05T12:00:00Z'; Id = 'IC_old' })
+$takeLegacy = Get-TakeOverVerdict -Tag $tA.Tag -State 'OPEN' -Records $legacyRecord -Branches @('fix/7-x') -SelfNames @('davekokbwj')
+Assert-True ($takeLegacy.Code -eq 'take' -and $takeLegacy.Branch -eq 'fix/7-x') 'an older tag of this account with one branch on origin is taken over -- the way back the held note names'
+
+$sweepJson = @(
+    [pscustomobject]@{ number = 7; title = 't'; labels = @(); comments = @(
+        [pscustomobject]@{ id = 'IC_b'; body = (Format-ClaimComment -Tag $tB.Tag); author = [pscustomobject]@{ login = 'davekokbwj' }; createdAt = '2026-10-05T13:39:16Z' }
+    ) }
+) | ConvertTo-Json -Depth 8
+$sweep = @(Get-SweepCandidates -Json $sweepJson -Tag $tA.Tag)
+Assert-True ($sweep.Count -eq 1 -and $sweep[0].Verdict -eq 'held' -and $sweep[0].Reason -match 'parallel session') "-Candidates prints the other checkout's claim as held, and says it is a parallel session's (#2836)"
+
 Write-Host ''
 Write-Host 'The marker -- written once, read in several spellings' -ForegroundColor Cyan
 

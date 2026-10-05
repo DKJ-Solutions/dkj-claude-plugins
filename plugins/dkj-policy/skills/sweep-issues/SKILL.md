@@ -2,8 +2,8 @@
 name: sweep-issues
 description: >-
   Work an open-issue backlog with SEVERAL machines at once, without two of them building the same
-  thing. Each session claims by TAG -- machine/account, written as a marker comment -- so a claim names
-  the machine even where two checkouts share one GitHub account, and a two-session race is settled on
+  thing. Each session claims by TAG -- machine:checkout/account, written as a marker comment -- so a claim names
+  the checkout even where two of them share one machine and one GitHub account, and a two-session race is settled on
   the tracker's own timestamps: earliest marker wins, and only the losers let go. Use it when issues
   have piled up and you want them worked through rather than picked at one by one. It claims, builds,
   runs the gates and STOPS where a result has to be judged by eye -- it never opens a pull request on
@@ -22,9 +22,10 @@ specific to the repo it came from.
 source repo, run its own copy instead* -- `scripts/task/claim-issue.ps1`: `${CLAUDE_PLUGIN_ROOT}`
 resolves into the plugin cache, which holds the last released mirror.
 
-**Run it in one checkout at a time.** One machine, one issue, start to finish -- claim, build, gates,
-hand over, next. The parallelism is the MACHINES, not the issues: a second issue in the same checkout
-means two branches in one working copy, and nothing on the tracker can tell those apart.
+**One sweep per checkout, one issue at a time.** Claim, build, gates, hand over, next. The parallelism is
+the CHECKOUTS, not the issues: a second issue in the same checkout means two branches in one working copy,
+and nothing on the tracker can tell those apart. A second checkout -- another clone, or a
+[worktree-lane](../worktree-lane/SKILL.md) -- is a second tag, on the same machine or another.
 
 ## Why the assignee cannot be the claim
 
@@ -37,10 +38,18 @@ one issue. A sweep breaks it on both halves:
   not somebody mid-flight. Measured on the BWJ board, September 17, 2026: three of fourteen open issues
   carried such a name, on work that was the ordinary business of that round.
 
-So a sweep claims with a **tag**: `machine/account`, written as a marker comment. Both halves carry
+So a sweep claims with a **tag**: `machine:checkout/account`, written as a marker comment. Both halves carry
 weight -- two accounts can share a machine name and two machines can share an account
 ([#701](https://github.com/BWJ-Development/smartwatchbanden/issues/701)) -- and the assignee is still
 written beside it as the tracker's own visible signal.
+
+**The checkout is a short hash of the checkout's root path**, never the path itself, which would put a
+user name on the tracker. Without it two sweeps on one machine under one account wrote one tag, and each
+read the other's claim as `mine` -- measured October 5, 2026, when two sessions built the same issue and
+one shipped it while the other ran its gates
+([#2836](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2836)). A claim written before the
+checkout half existed reads as `held`, with a note that it is this machine's and account's: read its
+branch, and `-TakeOver` resumes it when the work is yours.
 
 **The word "lane" is not used for it.** It already means a git worktree here
 ([`worktree-lane`](../worktree-lane/SKILL.md)), and the two are unrelated.
