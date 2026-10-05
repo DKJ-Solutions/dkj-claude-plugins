@@ -1568,6 +1568,21 @@ function Write-FollowUpSteps {
     Write-Host "The GitHub Release body is written for you:" -ForegroundColor Cyan
     Write-Host "  gh release create $tagName --title `"Release Version $tagName`" --notes-file $bodyRelPath"
 
+    # THE RELEASE-NOTES PAGE IS A SNAPSHOT (inbound #2801). A repo that answers Get-ReleasePageWorkerName
+    # publishes one built from its audience documents, and nothing rebuilds it: measured at a consumer's
+    # v2.46.0, the page management reads stayed on v2.45.0 until the owner asked. The path printed is the
+    # repo's own copy where it has one and this script's sibling otherwise, for #461's reason above.
+    $pageWorker = ''
+    if (Test-FunctionDefined 'Get-ReleasePageWorkerName') { $pageWorker = ([string](Get-ReleasePageWorkerName)).Trim() }
+    if ($pageWorker) {
+        $pageOwn = Join-Path $repoRoot 'scripts\release\build-release-notes-page.ps1'
+        $pageScript = if (Test-Path -LiteralPath $pageOwn -PathType Leaf) { 'scripts/release/build-release-notes-page.ps1' } else { Join-Path $PSScriptRoot 'build-release-notes-page.ps1' }
+        Write-Host ""
+        Write-Host "The release-notes page ('$pageWorker') still shows the previous release -- rebuild and redeploy it:" -ForegroundColor Cyan
+        Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File `"$pageScript`" -Worker"
+        Write-Host "  then run the deploy it prints, and verify the bytes the URL serves (fetch twice), not the deploy's own output."
+    }
+
     # ONE DOCUMENT, AND NO SECOND SCRIPT TO INVOKE (Dave, August 10, 2026). This block used to name two
     # follow-ups: the consumer draft, and an invocation of new-internal-note.ps1 gated on that script being
     # present in one of two trees -- machinery that existed only because the second document was written by

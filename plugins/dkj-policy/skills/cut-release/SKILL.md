@@ -613,6 +613,21 @@ a release for a missing timestamp would be ceremony rather than a guard.
 
    Attach whatever hand-written documents this release produced, plus the development notes.
 
+5b. **Where the repo answers `Get-ReleasePageWorkerName`, rebuild and redeploy the release-notes page.**
+   The page is a snapshot of the audience documents, so after the cut it still shows the previous
+   release until it is rebuilt
+   ([#2801](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2801): measured at a consumer's
+   v2.46.0, where the page management reads stayed on v2.45.0 until the owner asked). `cut-release.ps1`
+   prints this step in its closing block where the seam is answered:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/build-release-notes-page.ps1" -Worker
+   ```
+
+   Then run the deploy it prints, and verify the bytes the URL serves, fetching twice, as that script
+   says. Do not trust the deploy command's own output. The request for the cut covers this step, just as it
+   covers publishing the release document. A repo without the seam publishes no page and skips it.
+
 6. **Name the cache refresh in the closing report — pushing the tag is not the end of a release.** A
    `github` marketplace source is a **cached clone**, and `plugin install` compares against *that*, not
    against the repo you just tagged. So the safe closing line for a consumer is one idempotent command

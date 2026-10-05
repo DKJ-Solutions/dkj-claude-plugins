@@ -264,6 +264,16 @@ Assert-True ($createLine.Value -match 'Release Version \$tagName') `
     'the printed command names the release "Release Version <tag>", derived from the tag and nothing else'
 Assert-True ($createLine.Value -notmatch 'short title') `
     'and carries no placeholder inviting a composed title'
+# THE RELEASE-NOTES PAGE STEP IS PRINTED WHERE THE REPO PUBLISHES ONE (inbound #2801). The page is a snapshot,
+# and a cut that names no step for it left a consumer's page on the previous release. Static for the same
+# reason as the line above: it is printed for a person to run.
+$pageBlock = [regex]::Match($cutReleaseText, "(?s)Test-FunctionDefined 'Get-ReleasePageWorkerName'.{0,900}")
+Assert-True $pageBlock.Success 'the closing block reads Get-ReleasePageWorkerName'
+Assert-True ($pageBlock.Value -match 'if \(\$pageWorker\)') 'and prints the page step only where the seam is answered'
+Assert-True ($pageBlock.Value -match '\$pageScript = [^\r\n]*build-release-notes-page\.ps1' -and $pageBlock.Value -match '\$pageScript`" -Worker') 'and the step it prints rebuilds the page with its worker bundle'
+Assert-True ($pageBlock.Value -match 'verify the bytes') 'and says to verify what the URL serves rather than the deploy output'
+Assert-True ($cutReleaseText.IndexOf("Test-FunctionDefined 'Get-ReleasePageWorkerName'") -gt $cutReleaseText.IndexOf('gh release create $tagName')) `
+    'and it comes after the GitHub Release line, as the skill orders it'
 # THE TIER-0 NOTES' LINK PREFIX IS DERIVED, NOT DEFAULTED (issue #914, August 26, 2026). Build-ReleaseNotes
 # defaults $LinkPrefix to '../../../', the depth of a root sitting directly under releases/ -- and #914 moved
 # this repo's root one level deeper, into dkj-policy/. The call had been relying on that default
