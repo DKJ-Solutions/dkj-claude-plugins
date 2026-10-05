@@ -1,6 +1,6 @@
 # `dkj-subagents-shopify` — the Shopify add-on team
 
-Three specialists for a Shopify store repo, five skills, and an **operational floor**: the part that is
+Three specialists for a Shopify store repo, the skills in the table below, and an **operational floor**: the part that is
 not advice.
 
 | what | who / where |
@@ -13,6 +13,8 @@ not advice.
 | `adopt-shopify-floor` | the skill that **places** the floor in your repo: the guard's seams, a starter `.theme-check.yml`, and the CI workflow over it |
 | `sync-main` | the **pre-task sync**: mirror the live theme into the trunk without letting live overwrite what the trunk has done since |
 | `archive-theme` | the backup that makes removing a spent preview theme recoverable: a verified local copy plus a **committed receipt**. It never removes a theme — see below |
+| `theme-lifecycle` | keeps the theme estate from filling up: one verified backup of the live theme with the previous one rotated out, and a dry-run-by-default sweep of the spent preview themes this repo created. Both are keyed on a name prefix this repo wrote, so a theme somebody else created is never in the delete set |
+| `live-preflight` | the step between a merged trunk and a live push: it derives the push list from the range, runs the drift check over it, takes one verified backup as the rollback point, and prints the push command. It never runs the push and never writes the authorisation marker |
 | `hooks/guard-live-theme.ps1` | **the floor** — a `PreToolUse` guard on the live theme |
 | `hooks/shopify-floor-sessioncheck.ps1` | says when that guard is only half armed, and when a second one is registered beside it |
 

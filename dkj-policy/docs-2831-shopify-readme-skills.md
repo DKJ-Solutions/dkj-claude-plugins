@@ -41,17 +41,26 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Drop the stale "five skills" count from the README intro and add rows for `theme-lifecycle` and `live-preflight`
 
 ### TEST
 
+The gate runs inside ship-pr.
+
 ### DEPLOY: docs/2831-shopify-readme-skills
 
-**Score:**
+The `dkj-subagents-shopify` README no longer states a skill count, which had gone stale at five, and
+its table now lists all seven skills the plugin ships, adding `theme-lifecycle` and `live-preflight`
+([#2831](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2831)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+For someone opening the Shopify team's README for the first time: it now names the backup-and-sweep
+skill and the live-push preflight, which it used to leave out.
+
+**Score:** 1
 
 #### Pull Request
 
