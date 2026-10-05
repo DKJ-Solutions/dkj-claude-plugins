@@ -47,8 +47,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# NO SOURCE-REPO GUARD, for the reason check-unfolded-entry.ps1 gives: open-pr runs this from its own
-# directory's sibling, which in a consumer is the plugin mirror -- the copy that is supposed to run there.
+# THE SOURCE-REPO GUARD, as in cut-release.ps1. open-pr runs this as its own sibling, so the copy that
+# runs is always the one beside the open-pr that called it -- and the guard passes for exactly that copy.
+$guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
+if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCopy -ScriptPath $PSCommandPath }
+
 . (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')

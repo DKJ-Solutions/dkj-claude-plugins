@@ -1783,8 +1783,8 @@ function Get-SharedScriptPairs {
             Skill  = 'cut-release'
             # A fixture root, so the suite can judge scratch trees. A consumer never types it.
             SkillParamsExempt = @('RootOverride')
-            # Timeable with no arguments: it reads one note and reports, no write of any kind.
-            MeasureArgs = @()
+            # NO MeasureArgs, although it is read-only: measure-skill's canary holds that nothing behind
+            # the cut-release skill is ever run by pass 2, and that rule is worth more than one timing.
         },
         @{
             # The skipped-fold gate (issue #1270). The fold runs from ship-pr.ps1, as the shipping
