@@ -152,8 +152,8 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision`, `awaiting-pull`, `awaiting-event` and
-`awaiting-first-recurrence`), so adopting the convention costs one command instead of nine typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act` and
+`awaiting-first-recurrence`), so adopting the convention costs one command instead of ten typed by hand.
 
 **A parking label goes on when the issue is filed, whichever one it is**
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The five
@@ -195,7 +195,7 @@ things follow from being a record:
   to close it, even that PR ships with `-NoResolves`, and the record is closed by hand after the merge.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision`, `awaiting-pull`, `awaiting-event` and
+  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act` and
   `awaiting-first-recurrence`. Working a
   record is a deliberate assignment, named by its number.
 
@@ -255,6 +255,16 @@ sweep picks it up and has to hold it out by hand with `-SkipIssue`, which does n
 sweep. Both pickup routes skip it by default, and `claim-issue <n>` warns that the issue is parked. **The
 issue states the event or date**, and the label comes off once it has happened. It is a new label, so no
 former name is matched for it.
+
+**`awaiting-owner-act` parks an issue whose decision is made and whose only remaining step is an act the
+owner performs** (a live push, a release, a deletion the session may not run;
+[#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828), October 5, 2026). None of
+the others fits: the choice is already made, so it is not `awaiting-decision`; no pull request is pending;
+and nothing outside the owner's own hands has to happen first, so it is not `awaiting-event`. Without a
+label every sweep on every machine reads such an issue in full, finds nothing it may do, and holds it out
+by hand with `-SkipIssue`. Both pickup routes skip it by default, and `claim-issue <n>` warns that the
+issue is parked. **The issue names the act**, and the label comes off once the owner has performed it.
+It is a new label, so no former name is matched for it.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where

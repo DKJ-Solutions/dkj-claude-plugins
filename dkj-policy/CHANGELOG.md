@@ -2,7 +2,90 @@
 
 ## [Unreleased]
 
-**19 / 21 minor entries** <!-- pending-tally -->
+**22 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2830-golive-language-seam · 20261005-140547Z
+
+`build-golive-block` now reads an optional `Get-GoLiveBlockLanguage` seam from `scripts/repo-config.ps1`
+when `-Language` is not passed. An explicit `-Language` still wins, an answer other than `nl` or `en` is
+refused, and without the seam the default stays `nl`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store that writes GitHub in English can state that once: add
+`function Get-GoLiveBlockLanguage { 'en' }` to `scripts/repo-config.ps1`, and every go-live block is
+English without remembering `-Language en` on each call.
+
+**Score:** 2
+
+#### Pull Request
+
+build-golive-block reads its language from an optional repo seam
+
+Plugins: bwj-development
+
+[PR #2837](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2837)
+
+---
+
+### DEPLOY: feat/2828-awaiting-owner-act-label · 20261005-135738Z
+
+New parking label `awaiting-owner-act`, purple like the rest of the awaiting-* family. It is for an
+issue whose decision is already made and whose only remaining step is an act the owner performs
+in person, such as a live push, a release or a deletion the session may not run
+([#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828)). The claim and sweep routes
+skip it by default and the issue dashboard shows it as parked. The issue names the act, and the label
+comes off once it is done.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+For a consumer who runs `adopt-triage-labels`: it now offers one more `gh label create` line, for
+`awaiting-owner-act`. A sweep no longer has to read an issue that only the owner can move and hold it
+out by hand with `-SkipIssue`.
+
+**Score:** 2
+
+#### Pull Request
+
+A sixth parking label: awaiting-owner-act
+
+Plugins: dkj-policy
+
+[PR #2834](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2834)
+
+---
+
+### DEPLOY: feat/2812-release-note-form-check · 20261005-134511Z
+
+`check-release-note-form.ps1` compares the newest audience release note with what `cut-release` drafts for
+the repo: the title line, the header labels, and the section headings in order. It takes the expected form
+from the draft function, using the repo's own `Get-ReleaseNoteWording`, `Get-ReleaseNoteSections` and
+audience tier. `open-pr -GatesOnly -NoteTreeOnly`, the cut's release-notes gate run, now runs it too. Older
+notes are records and are not judged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+At the release-notes step the gate run now refuses a note whose labels or section headings drifted from the
+drafted form. So a translated label or an extra section is caught before the commit, rather than found
+later by comparing two notes by eye. To change the form, answer `Get-ReleaseNoteWording` once.
+
+**Score:** 2
+
+#### Pull Request
+
+A check that flags an audience release note whose headings differ from the shared form
+
+Plugins: dkj-policy
+
+[PR #2832](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2832)
+
+---
 
 ### DEPLOY: fix/2825-resume-line-plugin-path · 20261005-105214Z
 

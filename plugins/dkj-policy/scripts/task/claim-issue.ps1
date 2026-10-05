@@ -139,10 +139,10 @@
     With -Candidates: labels that park an issue with somebody else, so a sweep leaves it alone.
     With an issue number: the labels that make the claim WARN that the issue is parked (#2518) --
     it still claims, and the closing line points at the warning instead of "the work starts here".
-    Default on that route: 'awaiting-more-info', 'awaiting-decision', 'awaiting-pull', 'awaiting-event', 'awaiting-first-recurrence' and
+    Default on that route: 'awaiting-more-info', 'awaiting-decision', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-first-recurrence' and
     'awaiting-more-recurrences', plus the former names 'needs-info', 'needs-decision', 'awaiting-recurrence', 'record' and
     'dossier' (#2683, #2723, #2741), the labels sweep-issues skips on -- blocked on the submitter, waiting on the
-    owner's choice (#2519), waiting on another issue's pull request (#2757), waiting on an external event or date (#2784),
+    owner's choice (#2519), waiting on another issue's pull request (#2757), waiting on an external event or date (#2784), waiting on an act only the owner performs (#2828),
     waiting on a first
     reproducible recurrence (#2587), and collecting instances
     until a root cause is found (Dave, September 30, 2026).
@@ -164,7 +164,7 @@
     ./scripts/task/claim-issue.ps1 '#1234' -DryRun
 
 .EXAMPLE
-    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-event,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-recurrence,record,dossier
+    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-recurrence,record,dossier
 
 .EXAMPLE
     ./scripts/task/claim-issue.ps1 1234 -Tag
@@ -226,7 +226,7 @@ if ($Marker.Count -eq 0) { $Marker = @('claim-tag') }
 # a held issue handed out.
 $SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
 # THE SINGLE-ISSUE ROUTE HONOURS THE SWEEP'S PARKING LABEL BY DEFAULT (issue #2518). sweep-issues passes
-# the same eleven names on its own -SkipLabel command line; a person naming
+# the same twelve names on its own -SkipLabel command line; a person naming
 # one issue passes nothing, so without a default the route where somebody says "fix issue N" was the one
 # route blind to it. -Candidates keeps its empty default: the sweep names its labels itself. 'awaiting-decision' ('needs-decision' until #2741) joined in #2519: an issue waiting
 # on the owner's choice is parked just as surely, and 'needs-info' could not carry it -- in bwj-development
@@ -245,8 +245,10 @@ $SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
 # pull request is parked just as surely. It is new, so it has no former name.
 # #2784 (Dave, October 3, 2026) added 'awaiting-event': an issue waiting on an external event or date (a
 # launch, a third party's release) has nothing to build until then. New too, so no former name.
+# #2828 (October 5, 2026) added 'awaiting-owner-act': an issue whose decision is made and whose only
+# remaining step is an act the owner performs (a live push, a release, a deletion). New, no former name.
 if ($PSCmdlet.ParameterSetName -eq 'Issue' -and -not $PSBoundParameters.ContainsKey('SkipLabel')) {
-    $SkipLabel = @('awaiting-more-info', 'awaiting-decision', 'awaiting-pull', 'awaiting-event', 'awaiting-first-recurrence', 'awaiting-more-recurrences',
+    $SkipLabel = @('awaiting-more-info', 'awaiting-decision', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-first-recurrence', 'awaiting-more-recurrences',
                    'needs-info', 'needs-decision', 'awaiting-recurrence', 'record', 'dossier')
 }
 $skipIssueNumbers = @()

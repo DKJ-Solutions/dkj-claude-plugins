@@ -1586,7 +1586,7 @@ function Get-SharedScriptPairs {
         @{
             # The triage-priority label adopter (issue #1895, split from #1843). Print-only, the same
             # shape Get-MissingLabelNote already established for a PR label: composes a paste-ready
-            # `gh label create` for whichever of the canonical triage labels ('prio-*', 'awaiting-more-recurrences', 'awaiting-decision', 'awaiting-pull', 'awaiting-event', 'awaiting-first-recurrence') this repo's tracker
+            # `gh label create` for whichever of the canonical triage labels ('prio-*', 'awaiting-more-recurrences', 'awaiting-decision', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-first-recurrence') this repo's tracker
             # is missing, and never runs it. Shared for the same reason every entry here is -- the
             # alternative is each consumer retyping four names and four colours out of a page instead
             # of a seam.
@@ -1772,6 +1772,19 @@ function Get-SharedScriptPairs {
             # Timeable with no arguments: this script reads the branch dossier and reports. Verified
             # rather than assumed from its check- prefix -- it contains no write of any kind.
             MeasureArgs = @()
+        },
+        @{
+            # The release-note form gate (issue #2812). open-pr -GatesOnly -NoteTreeOnly runs it as a
+            # sibling, so the copy that runs in a consumer is this mirror. Documented on the cut-release
+            # page, step 4, which is where that command is prescribed.
+            Name   = 'check-release-note-form'
+            Source = 'scripts\lint\check-release-note-form.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = 'cut-release'
+            # A fixture root, so the suite can judge scratch trees. A consumer never types it.
+            SkillParamsExempt = @('RootOverride')
+            # NO MeasureArgs, although it is read-only: measure-skill's canary holds that nothing behind
+            # the cut-release skill is ever run by pass 2, and that rule is worth more than one timing.
         },
         @{
             # The skipped-fold gate (issue #1270). The fold runs from ship-pr.ps1, as the shipping
