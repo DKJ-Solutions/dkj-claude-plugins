@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**16 / 18 minor entries** <!-- pending-tally -->
+**17 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2818-asana-closed-message · 20261005-103226Z
+
+The closed message on the Asana task is back, and it is the only part of the retired `asana-mirror`
+workflow that is. A new template, `asana-closed-message`, runs on `issues: closed` only. On a close as
+completed it posts one comment on the linked task: the automation's header, the closed line, and the
+go-live block the shipping session left on the issue. On a close as not planned or as a duplicate it
+posts nothing. It needs `ASANA_PAT` alone, moves no card and completes no task. The go-live block's
+framing sentence and the pages that said the block is pasted by hand say again that the close carries
+it. `adopt-bwj-development` copies the template into the two store repos.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+When a store's issue closes as completed, the requester's Asana task hears about it again, with the
+go-live block in it, and nobody pastes anything. To turn it on in a store, run `adopt-bwj-development`
+after the update (it copies `.github/workflows/asana-closed-message.yml` and its script) and keep the
+`ASANA_PAT` secret. A store that still has the old `asana-mirror` files should delete them, or the closed
+message is posted twice.
+
+**Score:** 4
+
+#### Pull Request
+
+The closed message on the Asana task is back, and it is the only automation
+
+Plugins: bwj-development
+
+[PR #2823](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2823)
+
+---
 
 ### DEPLOY: fix/2816-runner-group-verdict · 20261005-102208Z
 
