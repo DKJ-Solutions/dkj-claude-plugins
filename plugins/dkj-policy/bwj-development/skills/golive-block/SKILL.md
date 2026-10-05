@@ -3,9 +3,9 @@ name: golive-block
 description: >-
   Write the paste-ready block for a GitHub issue, including its go-live half: where the result can be
   seen, when it is planned to go live (the next release day), and the live storefront URL per market.
-  Use it as the closing act of the chain that shipped the work, while the issue is still OPEN, then close the issue. The block stays on the GitHub issue only:
-  nothing carries it into Asana (the asana-mirror workflow was retired on October 5, 2026), so the task's assignee pastes it into the task by hand
-  where the task needs it. It prints by default and posts only with -Post; it never touches Asana, and it never
+  Use it as the closing act of the chain that shipped the work, while the issue is still OPEN, then close the issue as completed:
+  the asana-closed-message workflow then carries the block into the Asana task as its closed message, so nobody pastes it.
+  It prints by default and posts only with -Post; it never touches Asana itself, and it never
   writes a placeholder link.
 ---
 
@@ -113,11 +113,11 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
   surface, and it stays private until somebody shares it, so a `claude.ai/artifact/` or
   `claude.ai/code/artifact/` `-Link` is refused. That covers printing too, because the printout is
   what reaches the task. Measured in `BWJ-Development/smartwatchbanden#750`.
-- **It never touches Asana, and nothing else does either.** From #2700 until October 5, 2026 the
-  `asana-mirror` workflow posted the block on the task when the issue closed. That workflow is retired
-  (Dave) and nothing replaces it, so the framing sentence above the rules now reads *"Nothing carries the
-  block below into Asana -- paste it into the Asana task by hand where the task needs it:"*. The task's
-  assignee pastes it; closing the issue sends nothing.
+- **It never touches Asana itself.** The close does: when the issue closes as completed, the
+  `asana-closed-message` workflow posts the block on the task as its closed message (#2818), the job the
+  retired `asana-mirror` did from #2700. So the framing sentence above the rules reads *"The closed
+  message carries the block below into the Asana task when this issue closes as completed -- no paste
+  needed:"*. A close as not planned sends nothing.
 - **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026"* is a
   cadence, and a release can slip. This block is the one surface a colleague quotes back, so it must
   not read as a commitment nobody made.

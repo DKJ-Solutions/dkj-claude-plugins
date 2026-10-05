@@ -193,8 +193,8 @@ function Get-GoLiveBlockText {
 
     # THE HEADER AND THE CLOSED LINE ARE THE SAME IN EVERY LANGUAGE (#2700). They are the GitHub
     # automation's own two lines, fixed and English on every board like its created and reopened forms
-    # (#2656), kept as the block's own opening after the asana-mirror workflow that posted it was
-    # retired (October 5, 2026). {0} is 'owner/repo#<n>', {1} the issue URL.
+    # (#2656), and the same two lines the asana-closed-message workflow opens its comment with (#2818).
+    # {0} is 'owner/repo#<n>', {1} the issue URL.
     $header = "$dash GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
     $closed = 'GitHub issue [{0}]({1}) is now **closed**. It can be reopened anytime when something is still not working as expected.'
 
@@ -332,11 +332,11 @@ function Get-GoLiveBlockLead {
     <#
         Pure: the framing sentence above the rules, read on GitHub and never carried to Asana.
 
-        THE BLOCK STAYS ON GITHUB (Dave, October 5, 2026). From #2700/#2703 until that day the
-        asana-mirror workflow carried it into the Asana task as its closed message; that workflow is
-        retired and nothing replaces it, so the sentence says the block is pasted by hand where wanted.
+        THE CLOSED MESSAGE CARRIES IT (#2818, Dave, October 5, 2026). The asana-mirror workflow did so
+        from #2700/#2703 until it was retired that morning; the closed message was the one part brought
+        back, as the asana-closed-message workflow, so the sentence says again that nobody pastes it.
     #>
-    return 'Nothing carries the block below into Asana -- paste it into the Asana task by hand where the task needs it:'
+    return 'The closed message carries the block below into the Asana task when this issue closes as completed -- no paste needed:'
 }
 
 function Format-GoLiveClosedLine {

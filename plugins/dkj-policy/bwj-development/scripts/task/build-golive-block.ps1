@@ -12,9 +12,9 @@
     IT NEVER WRITES A PLACEHOLDER. This script runs in the session that shipped the work, which knows
     where the result can be seen -- so a link it was not given is a sentence it does not write.
 
-    WHAT IT NEVER DOES: touch Asana. The block stays on the GitHub issue (Dave, October 5, 2026): the
-    asana-mirror CI workflow that used to carry it into the task as its closed message (#2700, #2703)
-    is retired, and nothing replaces it. Whoever wants the block in the Asana task pastes it there.
+    WHAT IT NEVER DOES: touch Asana. It writes the block on the GitHub issue, and the asana-closed-message
+    CI workflow carries it into the task as its closed message when the issue closes as completed (#2818,
+    Dave, October 5, 2026; the shape is #2700/#2703's). Nobody pastes it.
 
     THE THREE GO-LIVE FACTS AND WHERE EACH COMES FROM:
 
@@ -401,4 +401,4 @@ if ($postCode -ne 0) {
     exit 1
 }
 Write-Host "[OK] Block posted on $targetRef." -ForegroundColor Green
-Write-Host "     Now close the issue. Nothing carries the block into Asana -- paste it there if the task needs it." -ForegroundColor DarkGray
+Write-Host "     Now close the issue as completed. The closed message carries the block into the Asana task -- no paste needed." -ForegroundColor DarkGray

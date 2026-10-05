@@ -9,8 +9,9 @@
     MOVED OUT OF templates/asana-mirror.ps1 WHEN THAT TEMPLATE WAS RETIRED (Dave, October 5, 2026).
     build-backlog-page.ps1 and build-golive-block.ps1 used to dot-source the whole CI template for these
     few pure helpers; with the template gone they live here, beside the other libs those two scripts
-    already load. Nothing in this file writes to Asana: Get-AsanaTaskState only reads, and the go-live
-    block now stays on the GitHub issue -- a colleague who wants it in the Asana task pastes it there.
+    already load. Nothing in this file writes to Asana: Get-AsanaTaskState only reads. The go-live block
+    reaches the Asana task through the asana-closed-message CI workflow (#2818), whose template carries
+    its own copies of the matchers and the marker below, because it ships standalone.
 
     Console text goes through ConvertTo-ConsoleStrippedText from ref-print-lib.ps1, dot-sourced below,
     rather than a private copy: the template carried its own copy only because it shipped standalone

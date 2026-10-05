@@ -9,9 +9,9 @@ description: >-
   not yours to make. The Asana card lands in the board's `Filed` section -- tracked on GitHub now --
   because the board's sections are the cycle's stages. The GitHub issue always gets created
   even if Asana is unreachable, so the source-of-truth guarantee holds. Nothing here resolves a ticket
-  and nothing downstream does either: closing the GitHub issue tells Asana nothing (the asana-mirror CI
-  was retired on October 5, 2026), the card stays where this skill put it unless a person moves it, and
-  the colleague who filed it ticks it off.
+  and nothing downstream does either: closing the GitHub issue as completed posts one closed message on
+  the task (the asana-closed-message workflow), the card stays where this skill put it unless a person
+  moves it, and the colleague who filed it ticks it off.
 ---
 
 # report-issue -- the BWJ GitHub-first, Asana-mirrored filing procedure
@@ -275,12 +275,12 @@ line reads as that person's own words for good. The rule and its reason are in
 Give both URLs and stop -- or, for an issue without the reach label, the issue URL and the sentence
 that it is GitHub-only because it is tier 0, so the missing card reads as a decision rather than a
 failed mirror. **Do not resolve anything, and do not promise that anything else will.**
-Closing the GitHub issue tells Asana nothing: the `asana-mirror` CI that used to post a closed message
-and move the card was retired on October 5, 2026 (Dave), and nothing replaces it. The card stays in
-`Filed` unless a person moves it, and the task stays open until the colleague who filed it ticks it off.
-Nothing in this chain completes a task, and nothing puts a card in `Completed` either. The go-live
-block (the `golive-block` skill) stays on the GitHub issue; the task's assignee pastes it into the task
-where the task needs it.
+Closing the GitHub issue as completed posts one comment on the task: the `asana-closed-message`
+workflow's closed message, carrying the go-live block (the `golive-block` skill) the shipping session
+left on the issue (#2818). That is all it does. The rest of the retired `asana-mirror` CI (moving the
+card, the reopen comment, the sweeps) did not come back, so the card stays in `Filed` unless a person
+moves it, and the task stays open until the colleague who filed it ticks it off. Nothing in this chain
+completes a task, and nothing puts a card in `Completed` either.
 
 **Say which section the card is in**, alongside the two URLs. It is the half a colleague can see
 without a GitHub account, and it is the one part of this run somebody may need to correct.

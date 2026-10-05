@@ -158,6 +158,7 @@
                     "sync-rules.tests.ps1":  33.7,
                     "teardown.tests.ps1":  142,
                     "teardown-protocol.tests.ps1":  4,
+                    "template-selfcontained.tests.ps1":  1.3,
                     "test-suite-gate.tests.ps1":  195.7,
                     "theme-archive-rules.tests.ps1":  8.3,
                     "theme-lifecycle-rules.tests.ps1":  5.8,
