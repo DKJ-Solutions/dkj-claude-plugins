@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Inbound [#2803](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2803), verified: `fold-changelog-entry.ps1`
+commits with `git commit -- <paths>` and pushes with a plain `git push`, and reads neither the branch nor HEAD
+in between, so a tree another session switches mid-run takes the fold commit with it. The guard is in the
+fold rather than in ship-pr, because the fold is the step that writes. The temporary-worktree idea from the
+issue is not built: the three reads close the race this report measured, and a worktree for every fold is a
+larger change than the defect needs.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The fold reads branch + HEAD at the start, before the commit, and before the push (with `-Commit`/`-Push`), and refuses on any movement
+- [x] New `-ExpectBranch`: refuses before folding when the checkout is on another branch
+- [x] ship-pr passes `-ExpectBranch main`; both scripts mirrored into `plugins/dkj-policy/scripts/release/`
+- [x] Fixture cases and source pins in `fold-changelog.tests.ps1`
 
 ### TEST
 
+- [x] `fold-changelog.tests.ps1`: 289 pass, the raced-push cases among them
+
 ### DEPLOY: fix/2803-fold-head-check
 
-**Score:**
+`fold-changelog-entry.ps1` now refuses to write a fold commit anywhere but where it started. With `-Commit`
+or `-Push` it reads the branch and HEAD three times: at the start, before the commit, and before the push.
+It refuses on any movement, so a second session switching a shared working tree mid-run no longer takes the
+fold commit onto its own branch. A new `-ExpectBranch` parameter refuses before anything is folded when the
+checkout is not on the named branch, and `ship-pr` passes `main`.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+When another session switches the working tree under `ship-pr`, the fold now stops with the merge done and
+the fold still owed, and it says why. Before, the `fold:` commit was written and pushed onto that session's
+branch, and `ship-pr` still reported "folded on main".
+
+**Score:** 2
 
 #### Pull Request
 
