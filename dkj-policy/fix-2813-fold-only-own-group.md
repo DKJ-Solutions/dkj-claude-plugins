@@ -39,19 +39,48 @@
 
 ### PLAN
 
+Issue #2813: a fold-only push queued behind a merge's pending fold-on-merge run cancelled it, and was
+then skipped by the job's own `if:` -- so neither fold path ran. Verified before repairing: the
+cancelled run 37289301517 had zero jobs allocated (pending, not running), and verify-resolved's run on
+the same push (37289301501) was cancelled the same way, so that merge's resolves check was lost too.
+
+Repair: give a fold-only push a per-commit concurrency group of its own, keyed on the job's `if:`
+condition verbatim. It is skipped either way (the #2487 billing saving stands), and it can no longer
+displace a run that has work. Two real pushes still share the `github.ref` group, where the newer
+survivor is harmless for fold-all mode.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `fold-on-merge.yml` + `verify-resolved.yml`: the split group, and headers that say what
+      `cancel-in-progress: false` does and does not guard
+- [x] `adopt-ci-floor.ps1` templates (and the plugin mirror) carry the same group lines
+- [x] Sylvester's lens: the #1544 bullet no longer promises "no fold dropped"
 
 ### TEST
 
+- [x] `workflow-concurrency.tests.ps1`: asserts the split shape and that the group's condition equals
+      the job's `if:`; mutated back to the old group line it goes red (2 FAIL)
+- [x] `adopt-ci-floor.tests.ps1`: the placed runners carry the source repo's own group line (281 passed)
+
 ### DEPLOY: fix/2813-fold-only-own-group
 
-**Score:**
+`fold-on-merge.yml` and `verify-resolved.yml` put a fold-only push in a concurrency group of its own,
+keyed per commit, so it can no longer cancel a merge's pending run and leave the fold and the resolves
+check undone (#2813). `cancel-in-progress: false` only ever protected the *running* job; a third arrival
+drops the pending one regardless, and a skipped fold-only run was the worst possible survivor. Measured
+October 5, 2026: the merge of #2811 lost both its fold and its resolves check this way.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo whose CI floor was placed by `adopt-ci-floor` keeps the old group lines: re-running it leaves an
+existing runner as it is. There, two sessions shipping seconds apart can still leave an entry unfolded
+on the trunk and a merge's closing keywords unverified. To take the fix, copy the new `group:` line
+into `.github/workflows/fold-on-merge.yml` and `verify-resolved.yml`, or delete both files and re-run
+`adopt-ci-floor -Apply`, which places them fresh.
+
+**Score:** 2
 
 #### Pull Request
 
