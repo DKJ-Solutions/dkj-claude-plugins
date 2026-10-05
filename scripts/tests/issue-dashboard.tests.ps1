@@ -283,6 +283,7 @@ out.status = {
   parkingOverBlocked:   statusOf(iss(1, { ...bl, labels: ["awaiting-decision"] }), [], false),
   parkingPull:          statusOf(iss(1, { ...bl, labels: ["awaiting-pull"] }), [], false),
   parkingEvent:         statusOf(iss(1, { ...bl, labels: ["awaiting-event"] }), [], false),
+  parkingOwnerAct:      statusOf(iss(1, { ...bl, labels: ["awaiting-owner-act"] }), [], false),
   parkingOverAssignee:  statusOf(iss(1, { ...asg, labels: ["awaiting-recurrence"] }), [], false),
   parkingFormerDecision: statusOf(iss(1, { ...bl, labels: ["needs-decision"] }), [], false),
   parkingOverAll:       statusOf(iss(1, all), [], false),
@@ -630,6 +631,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 'Waiting'     $s.parkingOverAssignee  '...and an assignee'
         Assert-Equal 'Waiting'     $s.parkingPull          'awaiting-pull parks (#2757)'
         Assert-Equal 'Waiting'     $s.parkingEvent         'awaiting-event parks (#2784)'
+        Assert-Equal 'Waiting'     $s.parkingOwnerAct      'awaiting-owner-act parks (#2828)'
         Assert-Equal 'Waiting'     $s.parkingFormerDecision 'the former name needs-decision still parks (#2741)'
         Assert-Equal 'Waiting'     $s.parkingOverAll       '...and both'
         Assert-Equal 'Blocked'     $s.blockedOverAssignee  'an open blocker beats an assignee'

@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Inbound #2828: an issue whose decision is made and whose only remaining step is an act the owner
+performs (a live push, a release, a deletion) has no parking label, so every sweep re-reads it. Same
+shape as #2784 (`awaiting-event`, PR #2787), which this branch follows file for file.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `awaiting-owner-act` added to the canonical triage labels (`Get-TriageLabels` and the
+  adopt-triage-labels fallback), the claim/sweep `-SkipLabel` defaults, the issue dashboard, and the
+  skill, contract and portable pages that list the family; mirrors and the blueprint regenerated
+- [x] Tests: adopt-triage-labels, repo-config, claim-issue, issue-dashboard and script-contract counts and records
 
 ### TEST
 
+The gate runs inside ship-pr.
+
 ### DEPLOY: feat/2828-awaiting-owner-act-label
 
-**Score:**
+New parking label `awaiting-owner-act`, purple like the rest of the awaiting-* family. It is for an
+issue whose decision is already made and whose only remaining step is an act the owner performs
+himself, such as a live push, a release or a deletion the session may not run
+([#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828)). The claim and sweep routes
+skip it by default and the issue dashboard shows it as parked. The issue names the act, and the label
+comes off once it is done.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+For a consumer who runs `adopt-triage-labels`: it now offers one more `gh label create` line, for
+`awaiting-owner-act`. A sweep no longer has to read an issue that only the owner can move and hold it
+out by hand with `-SkipIssue`.
+
+**Score:** 2
 
 #### Pull Request
 

@@ -1280,6 +1280,15 @@ function Get-ExpectedRepoSettings {
 # by hand with -SkipIssue, which does not carry over to the next sweep. The issue states the event or date,
 # and the label comes off once it has happened. New, so no former name; same purple, same 'copy'
 # reasoning: "waiting on a date" asserts nothing about the adopting repo.
+#
+# AND A TENTH, A FIFTH PARKING LABEL: 'awaiting-owner-act' (inbound issue #2828, October 5, 2026). An
+# issue whose decision is MADE and whose only remaining step is an act the owner performs -- a live push,
+# a release, a deletion the session may not run -- is not free work, and none of the others says so: the
+# choice is made (not awaiting-decision), no pull request is pending, and nothing outside the owner's own
+# hands has to happen first (not awaiting-event). A consumer's sweep read four such issues in full on every
+# machine and held them out by hand. The issue names the act, and the label comes off once it is done.
+# New, so no former name; same purple, same 'copy' reasoning: "waiting on the owner's hands" asserts
+# nothing about the adopting repo.
 $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'prio-1'; Color = 'FFA726'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
     [pscustomobject]@{ Name = 'prio-2'; Color = 'F57C00'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
@@ -1289,15 +1298,17 @@ $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'awaiting-decision'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-pull'; Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-event'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-owner-act'; Color = '5319E7'; Description = 'Waiting on an act only the owner performs (a live push, a release, a deletion) -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-first-recurrence'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )
 
 function Get-TriageLabels {
     <# The canonical triage labels this workflow's consumers are invited to share -- the four
        priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'awaiting-more-recurrences', the kind label for
-       a collecting issue, and the four parking labels 'awaiting-decision' (an issue awaiting the owner's
+       a collecting issue, and the five parking labels 'awaiting-decision' (an issue awaiting the owner's
        choice), 'awaiting-pull' (an issue awaiting another issue's pull request), 'awaiting-event' (an issue
-       awaiting an external event or date) and 'awaiting-first-recurrence' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
+       awaiting an external event or date), 'awaiting-owner-act' (an issue awaiting an act only the owner
+       performs) and 'awaiting-first-recurrence' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
        a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the
        create command for whichever of them this repo's tracker is missing; it never creates a label
        itself. Optional in the script contract -- a consumer that has not answered this seam gets the
