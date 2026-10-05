@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Inbound [#2825](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2825), verified: `Get-PrScanResumeLines`
+in `pr-scan-lib.ps1` hard-coded `scripts/release/ship-pr.ps1`, which exists only in the source repo. Its two
+callers (`check-unshipped-pr`, `check-stranded-sweep`, both behind session hooks) already know the repo root,
+so the line now names the repo's own copy where there is one and the plugin's copy beside the lib otherwise.
+The same resolution `cut-release` uses for the scripts it prints (#461).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-PrScanShipPrPath` + `-RepoRoot` on `Get-PrScanResumeLines`; both callers pass their root (all copies mirrored)
+- [x] Asserts in `unshipped-pr-gate.tests.ps1`
 
 ### TEST
 
+- [x] `unshipped-pr-gate.tests.ps1`: 47 pass; `stranded-sweep-gate.tests.ps1`: 46 pass
+
 ### DEPLOY: fix/2825-resume-line-plugin-path
 
-**Score:**
+The resume command the unshipped-PR and stranded-sweep session checks print now names a `ship-pr.ps1` that
+exists. In the source repo that is still `scripts/release/ship-pr.ps1`; in a consumer, which has no copy
+there, it is the plugin's own copy, as a quoted full path.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+When a session check says a green pull request is waiting to ship, the command it prints works as pasted.
+Before, it named `scripts/release/ship-pr.ps1`, which no consumer has, and failed with "the argument to the
+-File parameter does not exist".
+
+**Score:** 2
 
 #### Pull Request
 

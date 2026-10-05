@@ -225,10 +225,33 @@ function Get-PrScanResumeLines {
         SHIP-PR.PS1 TAKES NO -Pr OR -Branch PARAMETER: it resumes the open pull request of the CURRENT
         branch, so the resume is a checkout followed by a bare run -- two commands, not one chained with
         '&&', which Windows PowerShell 5.1 does not have.
+
+        THE PATH IS THE ONE THAT EXISTS (inbound #2825). 'scripts/release/ship-pr.ps1' is the source
+        repo's own copy, and a consumer has none: its scripts/release/ holds open-pr.ps1 at most, so the
+        printed command failed there with "the argument to the -File parameter does not exist". The repo's
+        own copy is named where -RepoRoot has one, and otherwise the copy that travels beside this lib --
+        the plugin's, in the cache -- quoted as a full path.
     #>
-    param([Parameter(Mandatory = $true)]$Finding)
+    param(
+        [Parameter(Mandatory = $true)]$Finding,
+        [string]$RepoRoot = ''
+    )
     $lines = @("    git checkout $($Finding.CheckoutToken)")
     if ($Finding.CheckoutNote) { $lines += $Finding.CheckoutNote }
-    $lines += '    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/release/ship-pr.ps1'
+    $lines += "    powershell -NoProfile -ExecutionPolicy Bypass -File $(Get-PrScanShipPrPath -RepoRoot $RepoRoot)"
     return $lines
+}
+
+function Get-PrScanShipPrPath {
+    <#
+    .SYNOPSIS
+        The ship-pr.ps1 a resume line should name: the repo's own 'scripts/release/ship-pr.ps1' where it
+        exists under -RepoRoot, else this lib's sibling in the plugin, as a quoted full path (#2825).
+    #>
+    param([string]$RepoRoot = '')
+    if ($RepoRoot -and (Test-Path -LiteralPath (Join-Path $RepoRoot 'scripts\release\ship-pr.ps1') -PathType Leaf)) {
+        return 'scripts/release/ship-pr.ps1'
+    }
+    $sibling = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\release\ship-pr.ps1'))
+    return "`"$sibling`""
 }
