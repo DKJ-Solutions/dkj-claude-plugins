@@ -1841,6 +1841,37 @@ Assert-Equal '|' $nm['Get-PluginNameForPath'] 'no marketplace: Get-PluginNameFor
 Assert-Equal '|' $nm['Get-PluginRootByName'] 'no marketplace: Get-PluginRootByName with $null roots answers $null'
 Assert-Equal 'count=0' $nm['Get-PluginSubdirs'] 'no marketplace: Get-PluginSubdirs with $null roots answers an empty set'
 
+Write-Host ""
+Write-Host "A repo that declares a LOCAL plugin resolves it inside the repo, under either edition (#2815)" -ForegroundColor Cyan
+# The containment check in Get-PluginRoots hard-coded '\', so on Linux every local plugin 'pointed outside
+# the repo' and the fold threw -- fold-on-merge run 37289296605. Every fixture above writes a '{}'
+# marketplace, so no suite on the Linux leg had ever declared a plugin; this one does, for the same reason
+# the block above sits in this suite.
+$lpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("fold-localplugin-" + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path (Join-Path $lpDir '.claude-plugin') -Force | Out-Null
+$script:fixtures += $lpDir
+[System.IO.File]::WriteAllText((Join-Path (Join-Path $lpDir '.claude-plugin') 'marketplace.json'),
+    '{"plugins": [{"name": "nested-one", "source": "./plugins/group/nested-one"}]}', $Utf8NoBom)
+$lp = & {
+    . $PluginTreeSrc
+    $r = [ordered]@{}
+    try {
+        $roots = @(Get-RepoPluginRoots -RepoRoot $lpDir)
+        $r['count'] = $roots.Count
+        $r['rel'] = $roots[0].RelativeRoot
+        $r['manifest-under-root'] = $roots[0].ManifestPath.StartsWith($roots[0].Root) -and ((Split-Path -Leaf $roots[0].ManifestPath) -eq 'plugin.json')
+        $r['touched'] = (@(Get-TouchedPlugins -PluginRoots $roots -Files @('plugins/group/nested-one/skills/a/SKILL.md', 'README.md')) -join ',')
+    } catch { $r['count'] = "threw: $($_.Exception.Message)" }
+    try { Get-PluginRoots -RepoRoot $lpDir -MarketplaceJson '{"plugins": [{"name": "x", "source": "../outside"}]}' | Out-Null; $r['outside'] = 'did not throw' }
+    catch { $r['outside'] = 'threw' }
+    $r
+}
+Assert-Equal 1 $lp['count'] 'local plugin: Get-RepoPluginRoots resolves it instead of throwing that it points outside the repo'
+Assert-Equal 'plugins\group\nested-one' $lp['rel'] 'local plugin: RelativeRoot keeps its one logical, backslash-separated form on every OS'
+Assert-Equal $true $lp['manifest-under-root'] 'local plugin: ManifestPath is plugin.json under the plugin root'
+Assert-Equal 'nested-one' $lp['touched'] 'local plugin: a forward-slash PR path under it is attributed to it'
+Assert-Equal 'threw' $lp['outside'] 'local plugin: a ..-source outside the repo is still refused'
+
 # The teardown above runs mid-file, so everything registered after it -- the duplicate cases and the
 # remote-backed fixtures here -- is swept once more on the way out.
 foreach ($f in $script:fixtures) { Remove-Item -Recurse -Force -LiteralPath $f -ErrorAction SilentlyContinue }

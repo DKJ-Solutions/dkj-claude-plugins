@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**14 / 16 minor entries** <!-- pending-tally -->
+**15 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2815-plugin-tree-separator · 20261005-100955Z
+
+The plugin-root lookup now works under pwsh on Linux. Its containment check had hard-coded the Windows
+separator, so on the Linux fold runner every local plugin in `marketplace.json` was refused as "points
+outside the repo" and fold-on-merge went red (run 37289296605). A new `fold-changelog` block declares a
+local plugin, so the Linux leg of CI now exercises this path.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer whose own `marketplace.json` declares local plugins would have seen the same red
+fold-on-merge on any merge the runner resolves to a pull request, because the CI-floor runners execute on Linux. That
+failure is now prevented. It had not yet been reported in a consumer.
+
+**Score:** 1
+
+#### Pull Request
+
+plugin-tree-lib containment check works on Linux
+
+Plugins: dkj-policy
+
+[PR #2821](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2821)
+
+---
 
 ### DEPLOY: fix/2813-fold-only-own-group · 20261005-095833Z
 
