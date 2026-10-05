@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound [#2798](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2798), verified: `live-preflight.ps1`
+step 5 was the one role reader comparing against `'main'` alone; `theme-lifecycle-rules.ps1` (twice) and
+`theme-archive-rules.ps1` already accept both spellings. No shared helper: the two rules libs are tested
+standalone and share no lib with the preflight, so a helper would add a dependency to pure libs. The drift
+guard is a source pin across all three readers instead.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Step 5's `$byRole` accepts `live` and `main`, in both copies of `live-preflight.ps1`
+- [x] Pin in `live-push-rules.tests.ps1`: the preflight accepts both, and no reader compares `'main'` without `'live'`
 
 ### TEST
 
+- [x] `live-push-rules.tests.ps1`: 116 pass; with the preflight fix stashed, the two new asserts fail
+
 ### DEPLOY: fix/2798-preflight-live-role
 
-**Score:**
+`live-preflight`'s step 5 now reads the live theme's role as either `live` or `main`. Shopify CLI 4.8.x
+reports `live`, so the `main`-only compare never matched, and the refusal for a configured live theme id
+that disagrees with the store's own live theme could not fire. A source pin in `live-push-rules.tests.ps1`
+holds the preflight and both theme rules libs to accepting both spellings.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+`live-preflight` once again refuses when `Get-ShopifyLiveThemeId` names a theme the store does not
+report as live. Before, a stale id that still pointed at an existing unpublished theme passed step 5, and
+the preflight printed a push aimed at a theme no customer sees.
+
+**Score:** 1
 
 #### Pull Request
 
