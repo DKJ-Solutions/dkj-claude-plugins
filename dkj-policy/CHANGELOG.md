@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**18 / 20 minor entries** <!-- pending-tally -->
+**19 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2825-resume-line-plugin-path · 20261005-105214Z
+
+The resume command the unshipped-PR and stranded-sweep session checks print now names a `ship-pr.ps1` that
+exists. In the source repo that is still `scripts/release/ship-pr.ps1`; in a consumer, which has no copy
+there, it is the plugin's own copy, as a quoted full path.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+When a session check says a green pull request is waiting to ship, the command it prints works as pasted.
+Before, it named `scripts/release/ship-pr.ps1`, which no consumer has, and failed with "the argument to the
+-File parameter does not exist".
+
+**Score:** 2
+
+#### Pull Request
+
+The unshipped-PR resume line names a ship-pr that exists in the consumer
+
+Plugins: dkj-policy
+
+[PR #2827](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2827)
+
+---
 
 ### DEPLOY: fix/2824-register-bwj-development · 20261005-104352Z
 
