@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**8 / 10 minor entries** <!-- pending-tally -->
+**9 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2800-light-pin-drops-dark-block · 20261005-091938Z
+
+**A `'color-scheme' = 'light'` answer from `Get-ReleasePageTheme` now actually pins the release-notes
+page light** ([#2800](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2800)). The property
+alone never stopped the template's `@media (prefers-color-scheme: dark)` block matching, because that
+query follows the OS rather than `color-scheme`; so on a dark-mode browser every token the repo did not
+name turned dark while the ones it did name stayed light. `build-release-notes-page.ps1` now removes the
+template's dark block when the theme names `light` and not `dark` (`Test-ReleasePageLightPin`,
+`Remove-ReleasePageDarkBlock`), and warns if the block is no longer in the shape it looks for. The
+template comment and the `release-notes-page` skill page are corrected, and the suite asserts a pin
+leaves no dark override behind.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that pins its release-notes page light and names only some colours no longer gets an unreadable
+page -- dark text on the template's dark background -- for every reader whose browser is in dark mode.
+The hand-pinning of every token that repo did as a workaround can come out after the update.
+
+**Score:** 3
+
+#### Pull Request
+
+release-notes page: a 'color-scheme: light' pin removes the template's dark block
+
+Plugins: dkj-policy
+
+[PR #2809](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2809)
+
+---
 
 ### DEPLOY: fix/2803-fold-head-check · 20261005-090710Z
 
