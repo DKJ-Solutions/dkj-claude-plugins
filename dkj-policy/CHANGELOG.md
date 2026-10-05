@@ -2,7 +2,91 @@
 
 ## [Unreleased]
 
-**13 / 15 minor entries** <!-- pending-tally -->
+**16 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2816-runner-group-verdict · 20261005-102208Z
+
+`adopt-ci-floor` now reports a `[group]` advisory when an existing `fold-on-merge.yml` or
+`verify-resolved.yml` still carries the single `github.ref`-keyed concurrency group #2813 replaced,
+beside the `[pin]` line it already printed. The scaffolder still never rewrites a placed runner, so
+this re-run is the one moment that shape gets noticed (#2816).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer re-running `adopt-ci-floor` is told, file by file, whether its fold and resolves runners
+still carry the concurrency group that can cancel a merge's pending run, and how to fix it: replace
+the `group:` line, or delete the file and re-run with `-Apply`.
+
+**Score:** 2
+
+#### Pull Request
+
+adopt-ci-floor says when an existing fold or resolves runner still carries the concurrency group #2813 replaced
+
+Plugins: dkj-policy
+
+[PR #2822](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2822)
+
+---
+
+### DEPLOY: fix/2815-plugin-tree-separator · 20261005-100955Z
+
+The plugin-root lookup now works under pwsh on Linux. Its containment check had hard-coded the Windows
+separator, so on the Linux fold runner every local plugin in `marketplace.json` was refused as "points
+outside the repo" and fold-on-merge went red (run 37289296605). A new `fold-changelog` block declares a
+local plugin, so the Linux leg of CI now exercises this path.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer whose own `marketplace.json` declares local plugins would have seen the same red
+fold-on-merge on any merge the runner resolves to a pull request, because the CI-floor runners execute on Linux. That
+failure is now prevented. It had not yet been reported in a consumer.
+
+**Score:** 1
+
+#### Pull Request
+
+plugin-tree-lib containment check works on Linux
+
+Plugins: dkj-policy
+
+[PR #2821](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2821)
+
+---
+
+### DEPLOY: fix/2813-fold-only-own-group · 20261005-095833Z
+
+`fold-on-merge.yml` and `verify-resolved.yml` put a fold-only push in a concurrency group of its own,
+keyed per commit, so it can no longer cancel a merge's pending run and leave the fold and the resolves
+check undone (#2813). `cancel-in-progress: false` only ever protected the *running* job; a third arrival
+drops the pending one regardless, and a skipped fold-only run was the worst possible survivor. Measured
+October 5, 2026: the merge of #2811 lost both its fold and its resolves check this way.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo whose CI floor was placed by `adopt-ci-floor` keeps the old group lines: re-running it leaves an
+existing runner as it is. There, two sessions shipping seconds apart can still leave an entry unfolded
+on the trunk and a merge's closing keywords unverified. To take the fix, copy the new `group:` line
+into `.github/workflows/fold-on-merge.yml` and `verify-resolved.yml`, or delete both files and re-run
+`adopt-ci-floor -Apply`, which places them fresh.
+
+**Score:** 2
+
+#### Pull Request
+
+A fold-only push no longer displaces a pending merge run in fold-on-merge and verify-resolved
+
+Plugins: dkj-policy
+
+[PR #2819](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2819)
+
+---
 
 ### DEPLOY: docs/2802-release-note-form-shared · 20261005-094845Z
 

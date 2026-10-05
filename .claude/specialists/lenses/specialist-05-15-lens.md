@@ -1141,8 +1141,10 @@ infrastructure.
     what stayed the tested behaviour on the caller side through #1586.
   - **#1544 — the concurrency group is constant per trunk.** Keyed on `github.sha` it was its own group
     every run and serialised nothing, so two trunk pushes close together raced — and this job *pushes*.
-    `github.ref` keeps `cancel-in-progress: false` (no fold dropped) and adds queueing (no race). Same
-    change to `verify-resolved.yml`.
+    `github.ref` keeps `cancel-in-progress: false` (no *running* fold dropped) and adds queueing (no
+    race). Same change to `verify-resolved.yml`. **That field never protected a *pending* run**, and
+    #2813 measured the cost: a skipped fold-only push displaced a merge's pending run in both files, so
+    a fold-only push now takes a per-commit group of its own (the measurement is in `fold-on-merge.yml`'s header).
   - **#1539 — the red-run triage names three causes, not two.** An absent or under-scoped
     `FOLD_PUSH_TOKEN` fails `actions/checkout` and leaves every later step `skipped`, with no fold step
     to read — the cause a consumer meets first, on adoption day, and the one to rule out first. The

@@ -193,8 +193,14 @@ function Get-PluginRoots {
     if (-not ($marketplace.PSObject.Properties.Name -contains 'plugins') -or -not $marketplace.plugins) {
         throw "marketplace.json has no 'plugins' list."
     }
-    $fullRoot = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd('\')
-    $rootPrefix = $fullRoot + '\'
+    # THE CONTAINMENT CHECK USES THE PLATFORM'S OWN SEPARATOR (#2815). It hard-coded '\' until October 5,
+    # 2026, and GetFullPath answers with '/' on Linux, so under pwsh on the fold runner the prefix never
+    # matched and every local plugin 'pointed outside the repo' -- fold-on-merge run 37289296605. Both
+    # characters are trimmed because on Windows either may arrive; RelativeRoot below stays '\'-separated
+    # on every OS, since Get-PluginNameForPath compares against it in that one logical form.
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $fullRoot = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd('\', '/')
+    $rootPrefix = $fullRoot + $sep
     foreach ($p in $marketplace.plugins) {
         if (-not $p.source) { throw "plugin '$($p.name)' is missing a 'source'." }
         # A SOURCE THAT IS NOT A STRING IS A PLUGIN THAT DOES NOT LIVE IN THIS TREE, so this function --
@@ -251,16 +257,16 @@ function Get-PluginRoots {
         } catch {
             throw "plugin '$($p.name)': source '$($p.source)' is not a valid path."
         }
-        $root = $root.TrimEnd('\')
-        if (-not ($root + '\').StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $root = $root.TrimEnd('\', '/')
+        if (-not ($root + $sep).StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
             throw "plugin '$($p.name)': source '$($p.source)' points outside the repo ($root)."
         }
         [pscustomobject]@{
             Name         = [string]$p.name
             Source       = [string]$p.source
-            RelativeRoot = $root.Substring($fullRoot.Length).TrimStart('\')
+            RelativeRoot = $root.Substring($fullRoot.Length).TrimStart('\', '/') -replace '/', '\'
             Root         = $root
-            ManifestPath = Join-Path $root '.claude-plugin\plugin.json'
+            ManifestPath = Join-Path (Join-Path $root '.claude-plugin') 'plugin.json'
             IsLocal      = $true
         }
     }

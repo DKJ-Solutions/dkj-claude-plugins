@@ -702,6 +702,13 @@ $foldRunner = @(
     '# trunk (github.ref, not github.sha) so two trunk pushes close together QUEUE instead of racing for',
     '# the trunk -- a per-SHA group is its own group every time and serialises nothing.',
     '#',
+    '# A FOLD-ONLY PUSH GETS A GROUP OF ITS OWN (#2813). cancel-in-progress: false guards only the RUNNING',
+    '# job; a third arrival cancels the PENDING one whatever that field says. Between two real pushes the',
+    '# survivor is the newer and fold-all reads the tip, so nothing is lost -- but a fold-only push is',
+    '# skipped by the job''s if: below, and as the survivor it dropped a merge''s fold outright (measured in',
+    '# the source repo, October 5, 2026). Keyed per commit, it is skipped either way and displaces nothing.',
+    '# The condition is the job''s if: verbatim; keep the two equal.',
+    '#',
     '# LINUX, UNDER PWSH 7 (issue #2488): this runs on ubuntu-latest under ''shell: pwsh'', because a Linux',
     '# minute is billed below a Windows one on a private repo. The shared scripts start child processes by',
     '# the literal name ''powershell'', which ubuntu-latest does not have, so one shim step points it at pwsh.',
@@ -720,7 +727,7 @@ $foldRunner = @(
     ('    branches: [' + $trunk + ']'),
     '',
     'concurrency:',
-    '  group: fold-on-merge-${{ github.ref }}',
+    '  group: ${{ (startsWith(github.event.head_commit.message, ''fold:'') && github.event.commits[0].id == github.event.head_commit.id) && format(''fold-on-merge-fold-only-{0}'', github.sha) || format(''fold-on-merge-{0}'', github.ref) }}',
     '  cancel-in-progress: false',
     '',
     'jobs:',
@@ -878,6 +885,11 @@ $resolvesRunner = @(
     '# constant per trunk; two overlapping runs are harmless here (the second finds every issue already',
     '# closed) but a constant group keeps them ordered anyway.',
     '#',
+    '# A FOLD-ONLY PUSH GETS A GROUP OF ITS OWN (#2813), for the fold runner''s reason: a third arrival',
+    '# cancels the pending run regardless of cancel-in-progress, and a skipped fold-only run surviving',
+    '# it dropped a merge''s resolves check for good, since this job reads only the pushed range. The',
+    '# condition is the job''s if: verbatim; keep the two equal.',
+    '#',
     '# LINUX, UNDER PWSH 7 (issue #2488): ubuntu-latest and ''shell: pwsh'', with one shim step pointing the',
     '# literal child name ''powershell'' at pwsh -- see the fold runner''s header.',
     'name: Verify resolved issues',
@@ -894,7 +906,7 @@ $resolvesRunner = @(
     ('    branches: [' + $trunk + ']'),
     '',
     'concurrency:',
-    '  group: verify-resolved-${{ github.ref }}',
+    '  group: ${{ (startsWith(github.event.head_commit.message, ''fold:'') && github.event.commits[0].id == github.event.head_commit.id) && format(''verify-resolved-fold-only-{0}'', github.sha) || format(''verify-resolved-{0}'', github.ref) }}',
     '  cancel-in-progress: false',
     '',
     'jobs:',
@@ -1417,6 +1429,37 @@ function Write-MergeOnGreenShapeVerdict {
     Write-Host '            token (#2449) was NOT established.' -ForegroundColor DarkGray
 }
 
+function Write-RunnerGroupVerdict {
+    <#
+        One line about the concurrency group of an existing fold-on-merge.yml or verify-resolved.yml
+        (#2816): still the single github.ref-keyed group this scaffolder wrote before #2813, or neither
+        that nor the current one. It prints nothing when the group line is the template's own.
+
+        WHY THIS IS SAID AT ALL -- #2449's reason, for a different correction. In the old shape a
+        fold-only push, which the job's if: skips, shares the group with a merge's pending run and
+        cancels it, so that merge's fold (or its resolves check) never runs (#2813). The file is never
+        rewritten, so a re-run of this command is the one moment anything looks at it again.
+
+        THE CURRENT LINE IS READ FROM THE TEMPLATE THIS RUN WOULD PLACE, not restated here, so a later
+        change to that line needs no second edit. The OLD line is spelled out, because it is gone from
+        the template. A group line that is neither is said to be unread, never judged clean.
+    #>
+    param([string]$Rel, [string]$Text, [string]$TemplateText)
+
+    $groupLine = { param($y) [regex]::Match($y, '(?m)^\s*group:[^\n]*$').Value.Trim() }
+    $have = & $groupLine $Text
+    if ($have -and $have -eq (& $groupLine $TemplateText)) { return }
+    $name = [System.IO.Path]::GetFileNameWithoutExtension($Rel)
+    if ($have -match ('^group:[ \t]*' + [regex]::Escape($name) + '-\$\{\{[ \t]*github\.ref[ \t]*\}\}$')) {
+        Write-Host '            [group] a fold-only push shares its concurrency group with the merge before it, and can' -ForegroundColor Yellow
+        Write-Host '            cancel that merge''s pending run, so its work never runs (#2813). Replace the group: line' -ForegroundColor Yellow
+        Write-Host '            with the one this command places, or delete this file and re-run adopt-ci-floor -Apply.' -ForegroundColor Yellow
+        return
+    }
+    Write-Host '            its concurrency group could not be read, so whether a fold-only push can cancel a merge''s' -ForegroundColor DarkGray
+    Write-Host '            pending run (#2813) was NOT established.' -ForegroundColor DarkGray
+}
+
 # --- Report ------------------------------------------------------------------------------------------
 Write-Host "== adopt-ci-floor -- $repoRoot ==" -ForegroundColor Cyan
 if (-not $Apply) { Write-Host '  DRY RUN -- nothing is written. Re-run with -Apply to place the files below.' -ForegroundColor Yellow }
@@ -1676,6 +1719,7 @@ foreach ($t in $targets) {
             $existing = ([System.IO.File]::ReadAllText($abs)) -replace "`r`n", "`n"
             Write-WriteRunnerPinVerdict -Rel $t.Rel -Text $existing
             if ($t.Rel -eq $mergeOnGreenRunnerRel) { Write-MergeOnGreenShapeVerdict -Text $existing }
+            else { Write-RunnerGroupVerdict -Rel $t.Rel -Text $existing -TemplateText $t.Content }
         }
         continue
     }
