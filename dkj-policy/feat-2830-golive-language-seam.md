@@ -41,17 +41,28 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `build-golive-block.ps1` reads `Get-GoLiveBlockLanguage` from `scripts/repo-config.ps1` when `-Language` is not passed, and refuses an answer other than `nl` or `en`
+- [x] the `golive-block` skill page names the seam
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the seam sets the language, an explicit `-Language` wins, a bad answer is refused -- 306 asserts green
+
 ### DEPLOY: feat/2830-golive-language-seam
 
-**Score:**
+`build-golive-block` now reads an optional `Get-GoLiveBlockLanguage` seam from `scripts/repo-config.ps1`
+when `-Language` is not passed. An explicit `-Language` still wins, an answer other than `nl` or `en` is
+refused, and without the seam the default stays `nl`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store that writes GitHub in English can state that once: add
+`function Get-GoLiveBlockLanguage { 'en' }` to `scripts/repo-config.ps1`, and every go-live block is
+English without remembering `-Language en` on each call.
+
+**Score:** 2
 
 #### Pull Request
 

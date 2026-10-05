@@ -603,6 +603,31 @@ try {
     $glEnText = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
     Assert-True ($glEnText.Contains("`nWHAT IS DIFFERENT NOW`n") -and -not $glEnText.Contains('WAT ER NU ANDERS IS')) 'the driver passes -Language en through to the block'
     Assert-True ($glEnText.Contains('as version v1.0.0.') -and $glEnText -notmatch 'maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|zondag') 'and the date follows it too'
+
+    # THE REPO STATES ITS LANGUAGE ONCE (#2830): Get-GoLiveBlockLanguage is read when -Language is not
+    # passed, an explicit -Language still wins, and an answer outside nl/en is refused.
+    $glCfgLang = [System.IO.File]::ReadAllText((Join-Path $glRoot 'scripts\repo-config.ps1'))
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
+        ($glCfgLang + "function Get-GoLiveBlockLanguage { 'en' }`r`n"), (New-Object System.Text.UTF8Encoding $false))
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -RootOverride $glRoot -ProseFile $glProseFile -OutFile $glOutFile 2>&1 | Out-Null
+    Assert-True ([System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8).Contains("`nWHAT IS DIFFERENT NOW`n")) 'Get-GoLiveBlockLanguage en: the block is English without -Language'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -RootOverride $glRoot -ProseFile $glProseFile -Language nl -OutFile $glOutFile 2>&1 | Out-Null
+    Assert-True ([System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8).Contains('WAT ER NU ANDERS IS')) 'and an explicit -Language nl still wins over the seam'
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
+        ($glCfgLang + "function Get-GoLiveBlockLanguage { 'de' }`r`n"), (New-Object System.Text.UTF8Encoding $false))
+    # EAP Continue around the call: the refusal is a throw, so the child writes stderr, and under this
+    # suite's 'Stop' a redirected native stderr line would end the suite instead of being judged.
+    $glEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -ProseFile $glProseFile -OutFile $glOutFile 2>&1 | Out-Null
+        $glBadCode = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $glEap }
+    Assert-True ($glBadCode -ne 0) 'a seam answering a language other than nl or en is refused'
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'), $glCfgLang, (New-Object System.Text.UTF8Encoding $false))
     [System.IO.File]::WriteAllText($glProseFile, "[wat]`r`nx`r`n", (New-Object System.Text.UTF8Encoding $false))
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
         -RootOverride $glRoot -ProseFile $glProseFile 2>&1 | Out-Null
