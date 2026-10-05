@@ -200,7 +200,7 @@ try {
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fLegacy
     Assert-Equal 0 $r.Code 'legacy name: exit-code 0'
     Assert-True ($r.Out -like "*[rename]*'dossier' -> 'awaiting-more-recurrences'*") "legacy name: 'awaiting-more-recurrences' is reported as a rename of 'dossier'"
-    Assert-True ($r.Flat -like "*gh label edit 'dossier' --name 'awaiting-more-recurrences' --description 'Collects every instance of one recurring problem until its root cause is fixed' --repo fixture-org/fixture-repo*") `
+    Assert-True ($r.Flat -like "*gh label edit 'dossier' --name 'awaiting-more-recurrences' --color '5319E7' --description 'Collects every instance of one recurring problem until its root cause is fixed' --repo fixture-org/fixture-repo*") `
         'legacy name: the composed command is a paste-ready gh label edit, which keeps every issue on the label'
     Assert-True ($r.Flat -notlike "*gh label create 'awaiting-more-recurrences'*") 'legacy name: and no create is printed beside it'
     Assert-True ($r.Flat -like '*8 of 9 canonical triage label(s) missing*1 already exist*') 'legacy name: the rename still counts as a to-do in the summary'
@@ -213,7 +213,7 @@ try {
     Assert-Equal 0 $r.Code 'former names: exit-code 0'
     Assert-True ($r.Out -like "*[rename]*'record' -> 'awaiting-more-recurrences'*") "former names: the newest former name 'record' is the one renamed, when 'dossier' is there too"
     Assert-True ($r.Out -like "*[rename]*'awaiting-recurrence' -> 'awaiting-first-recurrence'*") "former names: 'awaiting-recurrence' is renamed to 'awaiting-first-recurrence'"
-    Assert-True ($r.Flat -like "*gh label edit 'awaiting-recurrence' --name 'awaiting-first-recurrence' --description 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' --repo fixture-org/fixture-repo*") 
+    Assert-True ($r.Flat -like "*gh label edit 'awaiting-recurrence' --name 'awaiting-first-recurrence' --color '5319E7' --description 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' --repo fixture-org/fixture-repo*") 
         'former names: the composed rename is paste-ready'
     Assert-True ($r.Flat -notlike "*gh label create 'awaiting-first-recurrence'*") 'former names: and no create is printed beside either'
 
@@ -224,9 +224,12 @@ try {
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fLegacy3
     Assert-Equal 0 $r.Code 'needs-decision: exit-code 0'
     Assert-True ($r.Out -like "*[rename]*'needs-decision' -> 'awaiting-decision'*") "needs-decision: 'awaiting-decision' is reported as a rename of 'needs-decision'"
-    Assert-True ($r.Flat -like "*gh label edit 'needs-decision' --name 'awaiting-decision' --description 'Waiting on the owner''s choice -- parks the issue so no session picks it up' --repo fixture-org/fixture-repo*") `
+    Assert-True ($r.Flat -like "*gh label edit 'needs-decision' --name 'awaiting-decision' --color '5319E7' --description 'Waiting on the owner''s choice -- parks the issue so no session picks it up' --repo fixture-org/fixture-repo*") `
         'needs-decision: the composed rename is paste-ready'
     Assert-True ($r.Flat -notlike "*gh label create 'awaiting-decision'*") 'needs-decision: and no create is printed beside it'
+    # THE COLOUR TRAVELS WITH THE RENAME (#2810): the fixture's old label is BFD4F2, and the rename must move it
+    # into the purple awaiting-* family rather than keep it.
+    Assert-True ($r.Flat -like "*gh label edit 'needs-decision' --name 'awaiting-decision' --color '5319E7'*") 'needs-decision: the rename sets the canonical colour, not the old one'
 
     # --- 5. An unreadable payload: [skip], never a false [missing] or [ok] -------------------------
     Write-Host '-- 5. an unreadable label payload --' -ForegroundColor Cyan

@@ -62,7 +62,9 @@
 
     NO DRIFT DETECTION. A label that already exists is reported '[ok]' without comparing its colour or
     description against the canonical values -- that is a different, harder problem (a repo may have
-    deliberately retextured its own label) and #1895 scoped it out. This script only answers "does a
+    deliberately retextured its own label) and #1895 scoped it out. A label found under a FORMER name is
+    the exception: the printed rename sets the canonical colour and description too, because the rename
+    is the adoption (#2810). This script only answers "does a
     label with this name exist at all", the same question `Get-MissingLabelNote` already asks and the
     same case-insensitive comparison, because GitHub itself is case-insensitive on label names.
 
@@ -284,8 +286,14 @@ foreach ($label in $triageLabels) {
         Write-Host "  [rename]  '$former' -> '$($label.Name)' -- the same label under its former name; renaming keeps every issue on it" -ForegroundColor Yellow
         $qFormer = Format-SingleQuotedArg -Value $former
         $qName = Format-SingleQuotedArg -Value $label.Name
+        $qColor = Format-SingleQuotedArg -Value $label.Color
         $qDescription = Format-SingleQuotedArg -Value $label.Description
-        Write-Host "            gh label edit '$qFormer' --name '$qName' --description '$qDescription'$repoArg" -ForegroundColor Yellow
+        # THE COLOUR TRAVELS WITH THE RENAME (inbound #2810). 'needs-decision' became 'awaiting-decision' to
+        # join the purple awaiting-* family, so a rename that kept the old colour left an orange parking
+        # label beside the purple ones -- the state the rename was meant to end. A rename IS adopting the
+        # canonical label, which is why it may set the colour where the NO DRIFT DETECTION rule above
+        # leaves an existing label's colour alone.
+        Write-Host "            gh label edit '$qFormer' --name '$qName' --color '$qColor' --description '$qDescription'$repoArg" -ForegroundColor Yellow
         continue
     }
     Write-Host "  [missing] '$($label.Name)' -- $($label.Description)" -ForegroundColor Yellow
