@@ -565,7 +565,10 @@ if ($null -eq $themes) {
     Add-Step -Name 'live theme' -State 'refuse' -Detail 'could not read the store''s theme list -- the Shopify CLI is missing, not authenticated, or the store is wrong. Which theme is live is therefore unverified, and everything after this is about that theme.'
 } else {
     $match = @($themes | Where-Object { $_ -and ([string]$_.id).Trim() -eq $liveId })
-    $byRole = @($themes | Where-Object { $_ -and ([string]$_.role).Trim().ToLower() -eq 'main' })
+    # BOTH SPELLINGS, as theme-lifecycle-rules and theme-archive-rules already read them: Shopify CLI 4.8.x
+    # reports the live theme as role 'live', and a 'main'-only compare left $byRole empty, so the id/role
+    # refusal below never fired and step 5 passed on the id alone (#2798).
+    $byRole = @($themes | Where-Object { $_ -and (@('live', 'main') -contains ([string]$_.role).Trim().ToLower()) })
     if ($match.Count -ne 1) {
         Add-Step -Name 'live theme' -State 'refuse' -Detail "the configured live theme id ($liveId) is not in this store's theme list. Get-ShopifyLiveThemeId has gone stale, or this is the wrong store."
     } elseif ($byRole.Count -eq 1 -and ([string]$byRole[0].id).Trim() -ne $liveId) {

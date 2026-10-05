@@ -3760,7 +3760,10 @@ that output -- then fold by hand from a tree standing on an up-to-date main:
     $foldArgs = @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-File', (Join-Path $PSScriptRoot 'fold-changelog-entry.ps1'),
-        '-Branch', $branch, '-Push')
+        '-Branch', $branch, '-Push',
+        # Every arm above has put the fold tree on 'main'. Said here so a tree another session switched in
+        # the meantime is refused by the fold, rather than folded onto and reported as main (#2803).
+        '-ExpectBranch', 'main')
     if ($foldTree) { $foldArgs += @('-RepoRoot', $foldTree) }
     # ONE CHAIN, ONE RECEIPT (issue #1884) -- the same reason as the open-pr spawn above.
     if (Test-FunctionDefined 'Push-CloseOutSuppression') { Push-CloseOutSuppression }

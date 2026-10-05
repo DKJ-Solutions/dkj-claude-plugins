@@ -308,6 +308,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
   -Branch <prefix>/<name> -Push
 ```
 
+**And it commits only where it started**
+([#2803](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2803)). With `-Commit` or `-Push` the
+fold reads the branch and HEAD at the start, before the commit and before the push, and refuses if the
+checkout has moved. That happens when a second session switches a shared working tree mid-run, which once
+put a fold commit onto that session's branch. Add `-ExpectBranch <trunk>` to also refuse before anything
+is folded when the checkout is not on the trunk. `ship-pr` passes `-ExpectBranch main`.
+
 **The subject is typed `fold:`, and names the branch and its PR:**
 
 ```text

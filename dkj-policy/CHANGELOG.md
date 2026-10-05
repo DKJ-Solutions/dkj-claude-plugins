@@ -2,7 +2,62 @@
 
 ## [Unreleased]
 
-**6 / 8 minor entries** <!-- pending-tally -->
+**8 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2803-fold-head-check · 20261005-090710Z
+
+`fold-changelog-entry.ps1` now refuses to write a fold commit anywhere but where it started. With `-Commit`
+or `-Push` it reads the branch and HEAD three times: at the start, before the commit, and before the push.
+It refuses on any movement, so a second session switching a shared working tree mid-run no longer takes the
+fold commit onto its own branch. A new `-ExpectBranch` parameter refuses before anything is folded when the
+checkout is not on the named branch, and `ship-pr` passes `main`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+When another session switches the working tree under `ship-pr`, the fold now stops with the merge done and
+the fold still owed, and it says why. Before, the `fold:` commit was written and pushed onto that session's
+branch, and `ship-pr` still reported "folded on main".
+
+**Score:** 2
+
+#### Pull Request
+
+The fold refuses to commit or push off the trunk
+
+Plugins: dkj-policy
+
+[PR #2808](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2808)
+
+---
+
+### DEPLOY: fix/2798-preflight-live-role · 20261005-085454Z
+
+`live-preflight`'s step 5 now reads the live theme's role as either `live` or `main`. Shopify CLI 4.8.x
+reports `live`, so the `main`-only compare never matched, and the refusal for a configured live theme id
+that disagrees with the store's own live theme could not fire. A source pin in `live-push-rules.tests.ps1`
+holds the preflight and both theme rules libs to accepting both spellings.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+`live-preflight` once again refuses when `Get-ShopifyLiveThemeId` names a theme the store does not
+report as live. Before, a stale id that still pointed at an existing unpublished theme passed step 5, and
+the preflight printed a push aimed at a theme no customer sees.
+
+**Score:** 1
+
+#### Pull Request
+
+live-preflight's role check accepts 'live' as well as 'main'
+
+Plugins: dkj-subagents-shopify
+
+[PR #2807](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2807)
+
+---
 
 ### DEPLOY: feat/remove-asana-mirror · 20261005-082732Z
 
