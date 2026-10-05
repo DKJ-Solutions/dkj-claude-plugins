@@ -97,7 +97,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-Version <X.Y.Z>` | the version to name in the block. Omitted, the block names the release day alone; pass it once the number can no longer change (the cut is prepared, or a major is decided) |
 | `-ReleaseDay <day>` | the weekday releases are cut on. `Monday` |
 | `-From <date>` | the day the next release day is counted from. Today |
-| `-Language nl\|en` | the language of the Asana task, and so of the block between the rules. `nl` |
+| `-Language nl\|en` | the language of the Asana task, and so of the block between the rules. Omitted, the repo's own `Get-GoLiveBlockLanguage` in `scripts/repo-config.ps1` (returning `nl` or `en`) answers it, so a store that writes GitHub in English states that once ([#2830](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2830)); without that seam, `nl` |
 | `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
