@@ -424,6 +424,10 @@ try {
     # substring of a whole run's output was the defect.
     Assert-True ($r.Out -notmatch 'sections/caf') 'quotepath: a path with a non-ASCII byte is compared, not read as a new file'
     Assert-True ($r.Out -match 'drift on 2 file\(s\)') 'take: exactly the two foreign files go into the sync'
+    # THE NAMER'S FALLBACK RUNS HERE FOR REAL (inbound #2829): the fixture's origin is a local bare repo,
+    # so 'gh pr list --head' has no GitHub repository to answer for and fails. The run must carry on,
+    # named by refs alone, and say so rather than read the failure as "no PR".
+    Assert-True ($r.Out -match 'named by refs alone') 'name/fallback: a gh that cannot answer leaves the name to refs, and the run says so'
     # THE MIRROR MODEL'S OWN GUARANTEE: a held-back file is never written, so it cannot be damaged by a
     # rule that got it wrong or by a failure halfway. The wholesale version overwrote first and restored
     # afterwards, so every bug in the rule was a bug that had already happened.
@@ -898,20 +902,30 @@ try {
     Assert-True ($src -notmatch '\$poll\.ExitCode') `
         'net/poll: and the exit code is deliberately not judged -- gh exits 8 on pending and 1 on red'
 
-    # EVERY Invoke-NativeCapture HERE CARRIES THE SHARED BOUND, and the count is pinned at eleven so a
-    # twelfth network call added without one fails this assert rather than passing unnoticed. The number
-    # rather than a ratio: 11 == 11 would also hold if somebody deleted a call and its bound together.
+    # EVERY Invoke-NativeCapture HERE CARRIES THE SHARED BOUND, and the count is pinned at twelve so a
+    # thirteenth network call added without one fails this assert rather than passing unnoticed. The number
+    # rather than a ratio: 12 == 12 would also hold if somebody deleted a call and its bound together.
     # '-FilePath' IS PART OF THE PATTERN rather than the bare function name, because the banner at the
     # top of the script names the function in prose -- and a bare-name count read 6 against 5 real calls.
-    # WAS FIVE UNTIL #1184 added the four gh calls, NINE UNTIL #1187 routed the poll, and TEN UNTIL #1945
-    # added -ReconcileBase's push; the git half is otherwise unchanged throughout.
+    # WAS FIVE UNTIL #1184 added the four gh calls, NINE UNTIL #1187 routed the poll, TEN UNTIL #1945
+    # added -ReconcileBase's push, and ELEVEN UNTIL #2829 gave the namer its PR-head probe; the git half
+    # is otherwise unchanged throughout.
     $calls  = @([regex]::Matches($src, 'Invoke-NativeCapture\s+-FilePath\b')).Count
     $bounds = @([regex]::Matches($src, [regex]::Escape('-TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds'))).Count
-    Assert-True ($calls -eq 11) "net: eleven network calls go through the lib (found $calls)"
-    Assert-True ($bounds -eq 11) "net: and all eleven pass the shared bound (found $bounds)"
+    Assert-True ($calls -eq 12) "net: twelve network calls go through the lib (found $calls)"
+    Assert-True ($bounds -eq 12) "net: and all twelve pass the shared bound (found $bounds)"
 
-    # THE FIVE gh CALLS BY NAME, because the count above is blind to WHICH eleven they are: it would
-    # still read 11 if a gh call went back to being bare and a git call were split in two.
+    # THE NAMER ASKS FOR A PR IN ANY STATE (inbound #2829). '--state all' is the whole repair: the default
+    # state is 'open', and the PR that made the reused name collide was MERGED, so the default would read
+    # the measured case as free exactly as the ref-only check did.
+    Assert-True ($src -match [regex]::Escape("'pr', 'list', '--head', `$Name, '--state', 'all'")) `
+        'net/name: the namer asks gh whether a candidate is a PR head in any state, merged included'
+    Assert-True ($src -match [regex]::Escape('Select-SyncBranchName -Prefix $branchPrefix -Stamp $stamp -IsTaken $isTaken')) `
+        'net/name: and the name is settled by the shared namer, not a loop of its own'
+
+    # THE gh VERBS BY NAME, because the count above is blind to WHICH twelve they are: it would
+    # still read 12 if a gh call went back to being bare and a git call were split in two. 'list' covers
+    # both list calls (the merged-set read and #2829's namer probe, pinned by its own assert above).
     foreach ($verb in @('list', 'create', 'view', 'merge', 'checks')) {
         Assert-True ($src -match "Invoke-NativeCapture -FilePath 'gh'(?s).{0,400}?'pr', '$verb'") `
             "net: gh pr $verb goes through the lib"

@@ -916,18 +916,37 @@ Write-Host '      A path no sync has ever taken has no agreement point, and is r
 # is a repair of its own -- on a day after the last commit the old stamp produced a name that already
 # existed. Remote refs are checked too, because a sync branch that is pushed but not merged is the
 # ordinary state of this workflow.
+#
+# AND A NAME THAT IS ALREADY A PR'S HEAD IS TAKEN, IN ANY STATE (inbound #2829). Refs alone read a
+# same-day name as free once its PR merged and delete_branch_on_merge, 'fetch --prune' and prune-merged
+# had removed every ref -- and ship-pr then refused the reused name as already merged. Select-SyncBranchName
+# carries the measurement. WHERE gh CANNOT ANSWER, the name is decided by refs alone, as before, and the
+# run says so: the cost of a miss is a refusal at ship-pr, which is cheaper than refusing the sync here --
+# the offline -MirrorPath rehearsal has no gh to ask at all.
 Write-Host ''
 Write-Host '[3/6] naming the sync branch ...' -ForegroundColor Yellow
-$stamp  = (Get-Date -Format 'yyyy-MM-dd')
-$branch = "$branchPrefix$stamp"
-$n = 1
-while (
-    @(Invoke-SyncGitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$branch")).Where({ $_ }).Count -gt 0 -or
-    @(Invoke-SyncGitQuiet @('rev-parse', '--verify', '--quiet', "refs/remotes/origin/$branch")).Where({ $_ }).Count -gt 0
-) {
-    $n++
-    $branch = "$branchPrefix$stamp-$n"
-    if ($n -gt 20) { Write-Host "Twenty sync branches already exist for $stamp. Something is wrong; stopping." -ForegroundColor Red; exit 1 }
+$stamp   = (Get-Date -Format 'yyyy-MM-dd')
+$prProbe = @{ Known = [bool](Get-Command 'gh' -ErrorAction SilentlyContinue); Why = 'gh is not installed' }
+$isTaken = {
+    param([string]$Name)
+    if (@(Invoke-SyncGitQuiet @('rev-parse', '--verify', '--quiet', "refs/heads/$Name")).Where({ $_ }).Count -gt 0) { return $true }
+    if (@(Invoke-SyncGitQuiet @('rev-parse', '--verify', '--quiet', "refs/remotes/origin/$Name")).Where({ $_ }).Count -gt 0) { return $true }
+    if (-not $prProbe.Known) { return $false }
+    $prHead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr `
+                                   -Arguments @('pr', 'list', '--head', $Name, '--state', 'all', '--limit', '1',
+                                                '--json', 'number', '--jq', '.[].number') `
+                                   -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if ($prHead.ExitCode -ne 0) {
+        $prProbe.Known = $false
+        $prProbe.Why   = if ($prHead.TimedOut) { "'gh pr list' did not answer within $NativeCaptureNetworkTimeoutSeconds seconds" } else { "'gh pr list --head': $(Get-NativeExitLabel -Capture $prHead)" }
+        return $false
+    }
+    return (@($prHead.Output).Where({ ([string]$_).Trim() }).Count -gt 0)
+}
+$branch = Select-SyncBranchName -Prefix $branchPrefix -Stamp $stamp -IsTaken $isTaken
+if (-not $branch) { Write-Host "Twenty sync branches already exist for $stamp. Something is wrong; stopping." -ForegroundColor Red; exit 1 }
+if (-not $prProbe.Known) {
+    Write-Host "      ($($prProbe.Why), so a same-day name whose PR already merged reads as free -- named by refs alone.)" -ForegroundColor DarkGray
 }
 # BOTH VERDICTS ARE TAKEN HERE, ABOVE THE FIRST LINE THAT PRINTS THE NAME. The paste verdict is for the
 # two printed commands further down (issue #1594); the display name is for the six sentences that merely
