@@ -354,8 +354,8 @@ function Get-ShippedScriptIndex {
         README.md and a SKILL.md, so a basename index over all files would answer "yes, shipped" for
         every README in every consumer -- a false positive on the single commonest filename in any
         repo. The .github/workflows templates are the same trap with the opposite cause: those are
-        MEANT to be copied verbatim into a consumer (asana-mirror.yml is), so a consumer holding one
-        is the mechanism working, not an adoption gap.
+        MEANT to be copied verbatim into a consumer (the CI runners adopt-dkj-policy places are), so
+        a consumer holding one is the mechanism working, not an adoption gap.
 
         A NAME CAN BE SHIPPED FROM MORE THAN ONE PLACE, so the value is a list rather than one site.
         A registered mirror and the plugin file it is mirrored to are the same script by construction,

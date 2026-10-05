@@ -462,9 +462,8 @@ try {
         # engine branch is the "no source checkout on this machine" path, and a load-time dependency up
         # here took out three of connector-sessioncheck.tests' engine-branch cases when it was measured.
         # So the rule (issue #2142) is met by writing it out rather than by calling it: a marker counts
-        # only where the engine WROTE it, never inside a value it is reporting. Same reasoning as the
-        # standalone copy in asana-mirror.ps1 -- a file that cannot reach the lib carries the rule, and
-        # the lib stays the place the rule is argued.
+        # only where the engine WROTE it, never inside a value it is reporting. A file that cannot reach
+        # the lib carries the rule, and the lib stays the place the rule is argued.
         $vsignals = @($vout | Where-Object { $_ -cmatch '^\s*\[ERROR\]' })
         $vnotices = @($vout | Where-Object { $_ -cmatch '^\s*\[INFO\]' })
         # -Last, NOT -First. The engine emits its tally as the final line, so the last match is the

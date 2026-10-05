@@ -124,9 +124,6 @@ $Exceptions = @{
     # Asks WHICH FILE defines the function: it reads .ScriptBlock.File off the returned CommandInfo,
     # which a boolean cannot carry. The note above that call says the same.
     'scripts\tests\release-lib.tests.ps1'            = 'reads .ScriptBlock.File off the CommandInfo'
-    # Asks whether a name resolves to ANY command. A template legitimately calls cmdlets, and the
-    # fixture strings there are simulated TEMPLATE source, which cannot dot-source a lib at all.
-    'scripts\tests\template-selfcontained.tests.ps1' = 'judges any command type, and carries template fixture text'
     # THIS FILE, because sections 2 and 3 call the replaced idiom ON PURPOSE: each is one half of a
     # contrast that has no meaning unless the old call is really made. Exempting the gate's own suite
     # looks like the exemption that swallows the rule, so it is worth being exact about why it does not

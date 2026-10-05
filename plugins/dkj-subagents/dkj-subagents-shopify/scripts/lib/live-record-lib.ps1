@@ -230,8 +230,8 @@ function Get-TaskMarkerId {
 
     .DESCRIPTION
         THE MARKER IS THE AUTHORITATIVE LINK (#2567, and bwj-development's WORKFLOW-portable.md, which
-        calls it that): report-issue writes it at filing, and the asana-mirror workflow reads it at
-        closing. A link in the issue's prose may point at a card that has since moved, so it is not
+        calls it that): report-issue writes it at filing, and build-backlog-page reads it back. A link
+        in the issue's prose may point at a card that has since moved, so it is not
         read here. The id is held to letters, digits, '_' and '-', because it is spliced into a URL
         that a published document carries.
     #>
@@ -268,7 +268,7 @@ function Format-ReleaseTaskItems {
         Get-TaskMarkerId holds to [0-9A-Za-z_-]. A marker in an issue body can be typed by whoever wrote
         the body, so a forged one can point the link at a different task in the SAME tracker -- and only
         for an issue a maintainer's merged PR closed. That is stated here rather than guarded, because the
-        marker is this workflow's authoritative link everywhere else too (asana-mirror reads it the same way).
+        marker is this workflow's authoritative link everywhere else too (build-backlog-page reads it the same way).
     #>
     param(
         [AllowNull()][AllowEmptyCollection()][object[]]$Items = @(),

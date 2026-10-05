@@ -263,7 +263,7 @@ try {
     # --- the SET every script-layer check shares: a plugin's templates/ is inside it -----------------
     #     Issue #1998. Get-PsScriptFiles used to anchor on three named subtrees inside plugins/ --
     #     skills/, scripts/ and hooks/ -- and ONE tracked file sat in none of them:
-    #     plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1, 1812 lines. Checks 5 (parse), 27
+    #     plugins/dkj-policy/bwj-development/templates/asana-mirror.ps1 (1812 lines then, retired since). Checks 5 (parse), 27
     #     (script-ascii), 33 (shopify-cli), 36 (section-number) and 42b (exec-policy/script) had
     #     therefore never read a line of it.
     #
@@ -276,23 +276,23 @@ try {
     #     check 5 parses each file itself, while check 33 reads the shared CommandAst cache built over
     #     the same set (#1358). A set change that fed one and not the other would pass a single assert.
     #
-    #     AND THE FILE IS NAMED asana-mirror.ps1 on purpose: adopt-bwj-development copies that real file
-    #     into a consumer's repo as .github/scripts/asana-mirror.ps1, where it runs in their CI holding
-    #     `issues: write`. A parse error in it reaches them and not us, which is check 5's own argument
-    #     for existing.
+    #     THE FIXTURE FILE IS NAMED LIKE THE ONE THAT PROMPTED THIS, in spirit: a template is copied into a
+    #     consumer's repo and runs in their CI, where a parse error reaches them and not us, which is check 5's
+    #     own argument for existing. The real asana-mirror.ps1 that surfaced the gap was retired on
+    #     October 5, 2026; the property outlives it, so the scenarios run on a synthetic template.
     Write-Host "the shared script set -- a .ps1 under a plugin's templates/ is read (#1998)" -ForegroundColor Cyan
     $tplDir = Join-Path $Fixture 'plugins\dkj-policy\templates'
     New-Item -ItemType Directory -Path $tplDir -Force | Out-Null
 
     # Scenario 80: check 5 reaches it. An unclosed brace, so the parser has something to object to.
-    $s80Path = Join-Path $tplDir 'asana-mirror.ps1'
+    $s80Path = Join-Path $tplDir 'example-template.ps1'
     [System.IO.File]::WriteAllText($s80Path, "function Invoke-Mirror {`n    if (`$true) {`n", $Utf8NoBom)
     # -Full, AND IT IS THE ONLY CALL IN THIS SUITE THAT NEEDS IT: $SkippedForSpeed names 'parse', so the
     # ordinary invocation cannot see check 5 at all. Written without it first, and the scenario failed
     # while its two siblings passed -- which is worth leaving here, because that is what the gap looks
     # like from the outside and the next reader will reach for the same one-liner.
     $rC80 = Invoke-Integrity -FixtureRoot $Fixture -Full
-    Assert-True ($rC80.Out -match '\[parse\] .*asana-mirror\.ps1') 'scenario 80: a parse error in a plugin templates/ script is reported at all'
+    Assert-True ($rC80.Out -match '\[parse\] .*example-template\.ps1') 'scenario 80: a parse error in a plugin templates/ script is reported at all'
     Remove-Item -LiteralPath $s80Path -Force
 
     # Scenario 81: and the AST-reading checks reach it too, off the shared cache rather than their own
@@ -303,16 +303,16 @@ try {
         '& shopify theme list --store x'
     ) -join "`n") + "`n"), $Utf8NoBom)
     $rC81 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-cli'
-    Assert-True (-not ($rC81.Out -match '\[parse\] .*asana-mirror\.ps1')) 'scenario 81: the valid file parses cleanly, so what follows is not the parse finding again'
+    Assert-True (-not ($rC81.Out -match '\[parse\] .*example-template\.ps1')) 'scenario 81: the valid file parses cleanly, so what follows is not the parse finding again'
     Assert-True ($rC81.Out -match $ShopifyFindingPattern) 'scenario 81: and the bare CLI call in a plugin templates/ script is a finding'
-    Assert-True ($rC81.Out -match 'asana-mirror\.ps1:2:') 'scenario 81: named with its line, so the set really carried this file and not a sibling'
+    Assert-True ($rC81.Out -match 'example-template\.ps1:2:') 'scenario 81: named with its line, so the set really carried this file and not a sibling'
     Remove-Item -LiteralPath $s80Path -Force
 
     # Scenario 82: and the layer is not blanket-noisy -- a clean templates/ script reports nothing. The
     # guard against a repair that widens the set by making it accuse whatever it newly reads.
     [System.IO.File]::WriteAllText($s80Path, "`$ErrorActionPreference = 'Stop'`nWrite-Host 'mirrored'`n", $Utf8NoBom)
     $rC82 = Invoke-Integrity -FixtureRoot $Fixture -Run 'shopify-cli', 'shopify-force', 'exec-policy/script'
-    Assert-True (-not ($rC82.Out -match 'asana-mirror\.ps1')) 'scenario 82: a clean plugin templates/ script draws no finding of any kind'
+    Assert-True (-not ($rC82.Out -match 'example-template\.ps1')) 'scenario 82: a clean plugin templates/ script draws no finding of any kind'
     Remove-Item -LiteralPath $s80Path -Force
 
     # --- check 44: a prompting Shopify theme call carries --force ------------------------------------

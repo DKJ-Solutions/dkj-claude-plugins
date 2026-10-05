@@ -1345,7 +1345,8 @@ infrastructure.
 
   **And the consumer half is the one no gate here could ever see.** Every runner this workflow scaffolds
   carries a cap too — `adopt-ci-floor.ps1`'s four, `adopt-workflow-folder.ps1`'s two,
-  `adopt-shopify-floor.ps1`'s theme check, and the `asana-mirror.yml` template — because a wedge there
+  `adopt-shopify-floor.ps1`'s theme check, and (until October 5, 2026, when the template was retired)
+  the `asana-mirror.yml` template — because a wedge there
   blocks a *consumer's* required check with nobody watching at all. The skeleton `ci.yml` is deliberately
   the loosest of them at 30, and says in its own comment that it is the one number you re-size when you
   replace the placeholder step with real work. [`scripts/tests/workflow-timeouts.tests.ps1`](../../../scripts/tests/workflow-timeouts.tests.ps1)
@@ -2448,7 +2449,8 @@ closed [#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982))
 in the plugin source. **This repo does not use it since October 1**, when the plugin was switched off
 here, and an issue here is filed with a plain `gh issue create`, carrying the `prio-N` label and, where
 it applies, `minor` ([Chris's lens](specialist-01-01-lens.md)). `adopt-bwj-development` was never run
-here, so no Asana seam and no `asana-mirror` workflow had to be removed. To use that chapter again, set
+here, so no Asana seam had to be removed (the `asana-mirror` workflow itself was retired in the plugin
+on October 5, 2026). To use that chapter again, set
 the plugin to `true`, restore the import and the connector block, and run `adopt-bwj-development`.
 
 **Why they were on, and why they are off.** From September 8 the three add-on teams were enabled so that
@@ -3370,7 +3372,7 @@ records a lens citing check 19 for what the lint implements as check 20.
 
 #### The template self-containment gate, which is a SUITE and not a numbered check (September 7, 2026, [#1556](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1556))
 
-**It lives in [`scripts/tests/template-selfcontained.tests.ps1`](../../../scripts/tests/template-selfcontained.tests.ps1), so do not go looking for a check number.**
+**Retired on October 5, 2026, with the one template it guarded.** It lived in `scripts/tests/template-selfcontained.tests.ps1`, a suite rather than a check number, and the suite was deleted with `asana-mirror.ps1`, because no `.ps1` ships under `plugins/**/templates/` any more and a suite with no subject is not a guard. The reasoning below is kept for the next template, which should bring the suite back with it.
 The section above is about `check-plugin-integrity.ps1`; this one is a test suite, and the placement is
 the point rather than an accident. The subject is a **PowerShell AST**, which the lint gate reads nowhere
 else, and the property is per-file rather than repo-wide — while the lint gate is what every consumer's
@@ -3381,10 +3383,12 @@ would.
 **What it guards.** A template under `plugins/**/templates/` is copied wholesale into a consumer's
 `.github/` and run by *their* CI. It dot-sources none of this repo's libraries — it cannot, since none of
 them travel with it — so every Verb-Noun name it calls must be one it defines, one PowerShell provides, or
-one it declares external. Today that is one file, `asana-mirror.ps1`.
+one it declares external. Until October 5, 2026 that was one file, `asana-mirror.ps1`, retired with the
+whole asana-mirror automation (Dave). What follows is the reasoning, kept because it is what any future
+template inherits.
 
 **The `Get-Command` guard IS the declaration, and reading it is what keeps the check allowlist-free.**
-That template legitimately calls `Get-AsanaStageMap` and `Get-GithubStatusMap`, which live in the
+That template legitimately called `Get-AsanaStageMap` and `Get-GithubStatusMap`, which lived in the
 *consumer's* `scripts/repo-config.ps1` and are dot-sourced at run time — and it tests for each with
 `Get-Command -Name '<name>'` before calling it, because a consumer defining neither must still get a
 working run. The check believes that guard. A hand-maintained exemption list was the obvious alternative

@@ -146,12 +146,10 @@ function Format-ForConsole {
             title is evidence that must not be re-spaced; Get-DisplayPath answers the all-stripped case
             with '(no printable path)', the wrong noun for an issue title.
 
-            A FOURTH COPY LIVES OUTSIDE THE LIBS, and it is not a fourth of these. The bwj-development
-            template asana-mirror.ps1 ships standalone into a consumer's .github/scripts/, where none
-            of these libs exist -- so it could not call one even if a function fitted (#2019), and it
-            carries its own copy of ConvertTo-ConsoleStrippedText for the same reason. What the four
-            copies may not do is DISAGREE, so pr-issues.tests.ps1 compares the three here and
-            bwj-development.tests.ps1 holds the template to the same characters.
+            A FOURTH COPY LIVED OUTSIDE THE LIBS until October 5, 2026: the bwj-development template
+            asana-mirror.ps1, which shipped standalone into a consumer's .github/scripts/ (#2019) and
+            was retired with its workflow. What the remaining copies may not do is DISAGREE, so
+            pr-issues.tests.ps1 compares the three here.
 
             IT IS IN THIS LIB RATHER THAN IN THE SCRIPT so that it can be tested at all: a lib is
             dot-sourceable and claim-issue.ps1 is not. Same reasoning as the two decisions below.

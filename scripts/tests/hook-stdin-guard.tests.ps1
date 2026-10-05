@@ -69,11 +69,9 @@ $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 # tracked, committed and printed raw with that lint green. The JSON key is not a path at all, and no
 # lint has an opinion about it.
 #
-# DOT-SOURCED RATHER THAN COPIED, between the two precedents this repo has already argued.
-# asana-mirror.ps1 types the class out by hand because it SHIPS STANDALONE into a consumer where none of
-# these libs exist (#2019) -- a dot-source there would name a path that is not there. A suite in
-# scripts/tests never leaves this repo and scripts/lib sits beside it, so that argument does not reach
-# here. A copy would cost what the copies already cost: pr-issues.tests.ps1 pins WHICH files carry the
+# DOT-SOURCED RATHER THAN COPIED. A suite in scripts/tests never leaves this repo and scripts/lib sits
+# beside it, so nothing argues for a standalone copy of the kind the retired asana-mirror CI template
+# once typed (#2019). A copy would cost what the copies already cost: pr-issues.tests.ps1 pins WHICH files carry the
 # class by comparing them character for character, so a fifth copy is an edit to that pin as well. A
 # dot-source is neither -- the pin counts files in scripts/lib that DEFINE
 # ConvertTo-ConsoleStrippedText, and this file defines nothing.
@@ -337,8 +335,8 @@ function Test-WrapperDrainsPayload {
 #                of a logical OR -- which is a plausible typo that also short-circuits, so the naive
 #                form went green on a wrapper that hands the interpreter an unredirected stdin.
 #   (powershell|pwsh)\b   both interpreters. This repo runs Windows PowerShell 5.1 for its own hooks,
-#                and it SHIPS 'shell: pwsh' in the asana-mirror CI template; command-guard-lib.ps1
-#                carries both in its own interpreter set for the same reason.
+#                and a consumer's CI may run 'shell: pwsh'; command-guard-lib.ps1 carries both in
+#                its own interpreter set for the same reason.
 #   [^;|&]*-File  the piped invocation must be the one running a SCRIPT, before any statement ends it.
 #                Without this, 'somecmd | powershell -Command "..."; powershell -File guard.ps1'
 #                passes on an unrelated pipe while the guard itself is invoked unpiped, which is
