@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**7 / 9 minor entries** <!-- pending-tally -->
+**8 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2803-fold-head-check · 20261005-090710Z
+
+`fold-changelog-entry.ps1` now refuses to write a fold commit anywhere but where it started. With `-Commit`
+or `-Push` it reads the branch and HEAD three times: at the start, before the commit, and before the push.
+It refuses on any movement, so a second session switching a shared working tree mid-run no longer takes the
+fold commit onto its own branch. A new `-ExpectBranch` parameter refuses before anything is folded when the
+checkout is not on the named branch, and `ship-pr` passes `main`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+When another session switches the working tree under `ship-pr`, the fold now stops with the merge done and
+the fold still owed, and it says why. Before, the `fold:` commit was written and pushed onto that session's
+branch, and `ship-pr` still reported "folded on main".
+
+**Score:** 2
+
+#### Pull Request
+
+The fold refuses to commit or push off the trunk
+
+Plugins: dkj-policy
+
+[PR #2808](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2808)
+
+---
 
 ### DEPLOY: fix/2798-preflight-live-role · 20261005-085454Z
 
