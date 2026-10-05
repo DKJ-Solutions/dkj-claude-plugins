@@ -2,7 +2,61 @@
 
 ## [Unreleased]
 
-**10 / 12 minor entries** <!-- pending-tally -->
+**12 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2810-rename-carries-colour · 20261005-094004Z
+
+`adopt-triage-labels` now prints a rename of a former label name with the canonical colour as well as the
+new name and description. A label found under an older name, such as `needs-decision`, moves into its
+family's colour in the same `gh label edit` that renames it. The `needs-info` rename on the
+`adopt-bwj-development` page does the same.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Pasting the rename that `adopt-triage-labels` prints now also gives the label its new colour, so a renamed
+`awaiting-decision` turns purple beside the other parking labels instead of keeping its old orange.
+
+**Score:** 2
+
+#### Pull Request
+
+adopt-triage-labels' rename line carries the canonical colour
+
+Plugins: bwj-development, dkj-policy
+
+[PR #2817](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2817)
+
+---
+
+### DEPLOY: fix/2805-foreign-checkout-guard · 20261005-093112Z
+
+`new-branch` now refuses to cut a branch in another repository's primary checkout. When `-RepoRoot` names
+the main working tree of a repository other than the session's project, and that tree was cloned from a
+host, the run stops before creating anything and names the worktree route. A session in one repository can
+no longer switch a branch under a session working in another.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A session that carries a change into a sibling repository is stopped at `new-branch` and told to open a
+worktree of it, rather than switching that repository's own checkout. Before, the checkout moved under
+whoever was working there, and on October 5, 2026 that put one store's fold commit on another session's
+branch.
+
+**Score:** 2
+
+#### Pull Request
+
+new-branch refuses a foreign repo's primary checkout and points at a worktree
+
+Plugins: dkj-policy
+
+[PR #2814](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2814)
+
+---
 
 ### DEPLOY: feat/2801-cut-release-page-step · 20261005-091940Z
 

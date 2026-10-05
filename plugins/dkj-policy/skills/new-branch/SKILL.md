@@ -1036,6 +1036,14 @@ Two optional parameters cover the "start now, continue later (maybe on another d
   it maintains. The env var answers which repo the session is working on; `-RepoRoot` answers which tree
   one call writes to.
 
+  **Another repository's primary checkout is refused**
+  ([#2805](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2805)). When `-RepoRoot` names the
+  main working tree of a repository other than the session's project, and that tree was cloned from a
+  host, the run stops before creating anything. A checkout is shared by every session working in it, and
+  on October 5, 2026 a session in the plugin source cut branches in two stores' own checkouts while their
+  own sessions were in them. To change another repository, open a worktree of it and pass that:
+  `git -C <repo> worktree add --detach <folder> origin/<trunk>`, then `-RepoRoot <folder>`.
+
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/new-branch.ps1" `
   -Name "feat/spotify-dashboard" -Title "Spotify dashboard" `
