@@ -119,6 +119,11 @@ Assert-True ("$($settings.statusLine.command)" -notmatch '\\\\') `
 Assert-True ("$($settings.statusLine.command)" -match '\.claude/statusline/dkj-progress\.ps1') `
     'apply: the command names the SHIM, never a versioned plugin-cache path'
 
+# ANCHORED, LIKE EVERY HOOK COMMAND (#2848). A relative path resolves against the status line's cwd,
+# which misses the shim -- or runs another file at the same relative path -- from below the root.
+Assert-True ("$($settings.statusLine.command)" -cmatch '-File "\$\{CLAUDE_PROJECT_DIR\}/\.claude/statusline/dkj-progress\.ps1"') `
+    'apply: the shim path is anchored on ${CLAUDE_PROJECT_DIR}, not left relative to the cwd'
+
 # THE CENTRAL CLAIM OF THE WHOLE DESIGN, asserted as its own case because it is the one that would be
 # lost first. A path into the plugin cache keeps working after an update and renders the payload
 # installed the day it was written -- silently, forever.
@@ -197,7 +202,7 @@ function Get-ExpectedInsert {
     $member = @(
         "$Unit`"statusLine`": {"
         "$Unit$Unit`"type`": `"command`","
-        "$Unit$Unit`"command`": `"powershell -NoProfile -ExecutionPolicy Bypass -File \`".claude/statusline/dkj-progress.ps1\`"`","
+        "$Unit$Unit`"command`": `"powershell -NoProfile -ExecutionPolicy Bypass -File \`"`${CLAUDE_PROJECT_DIR}/.claude/statusline/dkj-progress.ps1\`"`","
         "$Unit$Unit`"refreshInterval`": 2"
         "$Unit}"
     ) -join $Eol

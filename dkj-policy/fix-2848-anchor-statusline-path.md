@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#2848 (inbound, smartwatchbanden): `adopt-statusline` writes `-File ".claude/statusline/dkj-progress.ps1"`,
+relative to the status line's cwd, while every hook command anchors on `${CLAUDE_PROJECT_DIR}`. The
+issue's first check -- is the variable available to a `statusLine` command at all -- was measured
+before changing anything: two probe `statusLine`s in `.claude/settings.local.json` (removed afterwards).
+Double-quoted, `"${CLAUDE_PROJECT_DIR}/x"` arrived expanded; single-quoted it arrived literally. So
+Claude Code exports the variable and Git Bash expands it, exactly as for the hooks. The PowerShell
+fallback without Git Bash is filed as #2850; the invalid JSON in the printed block as #2849.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `adopt-statusline.ps1` (source and plugin mirror, byte-identical) emits the anchored path
+- [x] Part 5 of the `adopt-dkj-policy` page says what the key names, and why
+- [x] `adopt-statusline.tests.ps1`: the anchored form asserted, the byte-exact expected insert updated
 
 ### TEST
 
+- [x] `adopt-statusline.tests.ps1`: 74 asserts green
+
 ### DEPLOY: fix/2848-anchor-statusline-path
 
-**Score:**
+`adopt-statusline` now writes the status line's shim path as
+`${CLAUDE_PROJECT_DIR}/.claude/statusline/dkj-progress.ps1`, anchored like the hook commands beside it.
+The relative path it wrote before resolved against the status line's working directory, so from below
+the repo root it missed the shim, or ran a different file at the same relative path.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that already ran Part 5 keeps its relative line; `adopt-statusline` never replaces an existing
+`statusLine`. To anchor it, change the `command` in `.claude/settings.json` by hand to
+`powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PROJECT_DIR}/.claude/statusline/dkj-progress.ps1"`.
+
+**Score:** 2
 
 #### Pull Request
+
+adopt-statusline anchors the statusLine shim path on CLAUDE_PROJECT_DIR
 
