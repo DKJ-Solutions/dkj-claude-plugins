@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**29 / 31 minor entries** <!-- pending-tally -->
+**30 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2854-asana-reopened-message · 20261006-091501Z
+
+The reopened message on the Asana task is back, beside the closed message. The `asana-closed-message`
+template now runs on `issues: reopened` as well, and on a reopen with a linked task it posts one comment:
+the automation's header and *"GitHub issue <owner>/<repo>#<n> **reopened:** this Asana task is back in
+development."*, the requester's fixed form from #2656. It posts whatever the issue was closed as, reads no
+go-live block, moves no card and un-completes nothing. The template keeps its name, so a re-adopt replaces
+it instead of adding a second copy. The pages that said a reopen posts nothing now say it does.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+When a store's issue is reopened, the requester's Asana task hears about it again, so nobody goes on
+testing a result that is being reworked. To turn it on in a store, run `adopt-bwj-development` after the
+update: the two files already exist there, so it stops and shows the difference, and the maintainer copies
+the new `.github/workflows/asana-closed-message.yml` and `.github/scripts/asana-closed-message.ps1` over
+the old ones. Nothing else is needed: the same `ASANA_PAT` secret serves both messages.
+
+**Score:** 3
+
+#### Pull Request
+
+Bring back the reopened message on the Asana task
+
+Plugins: bwj-development
+
+[PR #2855](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2855)
+
+---
 
 ### DEPLOY: fix/2848-anchor-statusline-path · 20261006-085425Z
 
