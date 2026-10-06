@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Issue #2856, Dave's rule of October 6, 2026: a closed issue is reopened only once research shows there
+is something to build. Write it where a reopen is prescribed: the reopened-message bullet and the
+rejection round in `bwj-development/WORKFLOW-portable.md`, and the claim-issue page's "reopen it first".
+Point 3 of the issue, how an explain-only answer reaches the task, is the owner's choice and was split
+out as #2860 (`awaiting-decision`).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `WORKFLOW-portable.md`: the precondition under *Reopening an issue*, with the measurement, and the rejection round pointing at it
+- [x] `skills/claim-issue/SKILL.md`: "still broken" is established, not asked
+- [~] `claim-issue.ps1`'s refusal text left as is -- it already conditions the reopen on "closed and still broken"
 
 ### TEST
 
+- [x] doc-only; the gates run in `ship-pr`
+
 ### DEPLOY: docs/2856-reopen-only-to-build
 
-**Score:**
+The `bwj-development` workflow page now says when to reopen a closed issue: only once research shows
+something has to be built. A follow-up question or a rejection on the Asana task is researched with
+the issue still closed. Since #2854 a reopen posts "back in development" on the task. Reopened at the
+question, it told the requester something false whenever the answer turned out to be an explanation.
+The `claim-issue` page reads the same way.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store repo, a colleague's follow-up question no longer reopens the issue by itself. They hear
+"back in development" only when work has actually restarted. An answer that is only an explanation
+goes to them without a reopen; how it reaches the task is still open (#2860).
+
+**Score:** 2
 
 #### Pull Request
 

@@ -182,7 +182,12 @@ closed by a merged PR **four minutes earlier**, found only when the PR sat witho
 Nothing downstream catches it, because every gate reads the branch and the branch is fine.
 
 If a closed issue is still broken, **reopen it first**. The reopening is the record that the earlier
-repair did not hold, and this step is not the place to make that record silently.
+repair did not hold, and this step is not the place to make that record silently. **"Still broken" is
+something you have established, not something you were asked**: a follow-up question on a closed issue
+is researched with it still closed, and it is reopened only once that shows there is something to build
+([#2856](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2856)) -- where a reopen notifies
+somebody, as the `bwj-development` reopened message does, a reopen at the question tells them something
+false whenever the answer is an explanation.
 
 **There is deliberately no flag past that fourth verdict.** An assignee that is not this checkout's own
 account stops the work; the way through is asking whoever holds it, and a switch cannot have a
