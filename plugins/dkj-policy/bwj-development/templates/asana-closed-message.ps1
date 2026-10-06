@@ -54,7 +54,8 @@
     can edit the body can point that marker at any task the token reaches. That is the retired
     asana-mirror's trust model unchanged, and it is accepted rather than closed here: the write is one
     comment, and checking the task's project would need a project read this workflow deliberately does
-    without.
+    without. A reopen (#2854) is one more trigger on that same model, not a new one: an issue's author
+    can reopen it, but what a reopen posts is fixed text, with nothing from the issue in it.
 
     IT PRINTS NOTHING ANOTHER PERSON WROTE. The only foreign text this run could meet is a task name or
     an API error message, and neither is printed: a failed post reports its HTTP status and nothing else.
@@ -389,7 +390,6 @@ function Invoke-Main {
     }
     if (-not $AsanaPat) { throw 'ASANA_PAT is not set.' }
 
-    $sections = ''
     if ($Event -eq 'reopened') {
         $html = New-ReopenedMessageHtml -IssueRef $IssueRef
     } else {

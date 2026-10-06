@@ -108,9 +108,9 @@ lands in the board's `Filed` section.
 5 and 6, 2026, #2818 and #2854). Closing the GitHub issue as completed makes the `asana-closed-message`
 workflow, which `adopt-bwj-development` copies into each store, post one comment on the task: the closed
 line and the go-live block the shipping session left on the issue. Reopening it posts the reopened line,
-so the requester stops testing. The rest of the asana-mirror CI automation is **retired**: the moving of the card through the board's numbered sections, the daily reconciliation sweep,
-the `Prio-Score` to prio-label sync and the backstop comment. A card stays in `Filed` unless a person
-moves it. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
+so the requester stops testing. The rest of the asana-mirror CI automation is **retired**: the moving of
+the card through the board's numbered sections, the daily reconciliation sweep, the `Prio-Score` to
+prio-label sync and the backstop comment. A card stays in `Filed` unless a person moves it. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
 was never part of that CI.
 **The task is still never ticked off by this plugin** (Dave, September 1, 2026): only the colleague who
 asked for it can say it is *good*.

@@ -10,8 +10,8 @@ description: >-
   because the board's sections are the cycle's stages. The GitHub issue always gets created
   even if Asana is unreachable, so the source-of-truth guarantee holds. Nothing here resolves a ticket
   and nothing downstream does either: closing the GitHub issue as completed posts one closed message on
-  the task, and reopening it one reopened message (the asana-closed-message workflow), the card stays where this skill put it unless a person
-  moves it, and the colleague who filed it ticks it off.
+  the task, and reopening it posts one reopened message (the asana-closed-message workflow); the card
+  stays where this skill put it unless a person moves it, and the colleague who filed it ticks it off.
 ---
 
 # report-issue -- the BWJ GitHub-first, Asana-mirrored filing procedure
