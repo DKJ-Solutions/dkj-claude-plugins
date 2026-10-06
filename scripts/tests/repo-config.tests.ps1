@@ -216,7 +216,7 @@ $expectedTriage = @{
     'awaiting-decision' = @{ Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     'awaiting-pull' = @{ Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
     'awaiting-event' = @{ Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
-    'awaiting-owner-act' = @{ Color = '5319E7'; Description = 'Waiting on an act only the owner performs (a live push, a release, a deletion) -- parks the issue so no session picks it up' }
+    'awaiting-owner-act' = @{ Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
     'awaiting-first-recurrence' = @{ Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 }
 foreach ($l in $triageLabels) {
