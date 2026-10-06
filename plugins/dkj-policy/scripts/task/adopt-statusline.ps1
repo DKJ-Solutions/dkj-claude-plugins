@@ -314,6 +314,15 @@ function Get-MemberNames {
     return @($Object.PSObject.Properties | ForEach-Object { $_.Name })
 }
 
+function ConvertTo-JsonStringBody {
+    <# The body of a JSON string literal for $Value: backslash and double quote escaped, nothing else.
+       One definition for both writers -- the insert below and the block printed for placing by hand --
+       because the printed block once interpolated the command raw, and its inner quotes made it a block
+       that broke the settings file it was pasted into (#2849). #>
+    param([string]$Value)
+    return ($Value -replace '\\', '\\') -replace '"', '\"'
+}
+
 function Add-StatusLineMember {
     <# Insert the statusLine member into a settings file's TEXT, before the root object's closing brace,
        and return the new text -- or $null where the text has no closing brace to insert before.
@@ -336,7 +345,7 @@ function Add-StatusLineMember {
     $tail = $Text.Substring($close)
     # An empty root ends its head in the '{' itself; anything else ends in a member, which takes a comma.
     $sep  = $(if ($head.EndsWith('{')) { '' } else { ',' })
-    $cmd  = ($Command -replace '\\', '\\') -replace '"', '\"'
+    $cmd  = ConvertTo-JsonStringBody -Value $Command
     $member = @(
         "$unit`"statusLine`": {"
         "$unit$unit`"type`": `"command`","
@@ -356,7 +365,7 @@ $refreshIntervalSeconds = 2
 $blockForPrinting = @"
   "statusLine": {
     "type": "command",
-    "command": "$statusLineCommand",
+    "command": "$(ConvertTo-JsonStringBody -Value $statusLineCommand)",
     "refreshInterval": $refreshIntervalSeconds
   }
 "@

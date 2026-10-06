@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Issue #2849: the `statusLine` block `adopt-statusline.ps1` prints for placing by hand interpolated the
+command raw, so its inner quotes were unescaped and the block was not valid JSON. Escape it the way
+`Add-StatusLineMember` already does, from one shared function, and assert the printed block parses.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ConvertTo-JsonStringBody` in `scripts/task/adopt-statusline.ps1`, used by both the insert and `$blockForPrinting`
+- [x] the plugin mirror `plugins/dkj-policy/scripts/task/adopt-statusline.ps1` kept byte-identical
 
 ### TEST
 
+- [x] `adopt-statusline.tests.ps1`: the dry run's printed block parses as JSON when wrapped in `{}`, and its command keeps the quoted `-File` path -- 76/76 green; the same two asserts fail against the unfixed script
+
 ### DEPLOY: fix/2849-statusline-block-json
 
-**Score:**
+The `statusLine` block that `adopt-statusline` prints for placing by hand is now valid JSON. The
+command's inner quotes around the `-File` path were printed unescaped, so the block broke the settings
+file it was pasted into. It is printed on a dry run, beside an existing `statusLine`, and wherever the
+command refuses to edit the file itself. The insert `-Apply` writes was always correct.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+If you placed the block by hand and your settings file then failed to parse, this was the cause: write
+the inner quotes as `\"`, or run `adopt-statusline` again and paste the block it prints now.
+
+**Score:** 2
 
 #### Pull Request
 
