@@ -60,7 +60,7 @@ fallback without Git Bash is filed as #2850; the invalid JSON in the printed blo
 ### DEPLOY: fix/2848-anchor-statusline-path
 
 `adopt-statusline` now writes the status line's shim path as
-`${CLAUDE_PROJECT_DIR}/.claude/statusline/dkj-progress.ps1`, anchored like the hook commands beside it.
+`${CLAUDE_PROJECT_DIR}/.claude/statusline/dkj-progress.ps1`, anchored like the hook commands in the same settings file.
 The relative path it wrote before resolved against the status line's working directory, so from below
 the repo root it missed the shim, or ran a different file at the same relative path.
 
