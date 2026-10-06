@@ -152,19 +152,19 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act` and
-`awaiting-first-recurrence`), so adopting the convention costs one command instead of ten typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act`, `awaiting-release` and
+`awaiting-first-recurrence`), so adopting the convention costs one command instead of eleven typed by hand.
 
 **A parking label goes on when the issue is filed, whichever one it is**
-([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The five
+([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The seven
 `awaiting-*` labels below each park an issue whose next step waits on something other than work: the
-owner's choice, another issue's pull request, an external event or date, a first recurrence, or a
-record's next instance. Such an issue carries the matching label in the same `gh issue create` that
+owner's choice, another issue's pull request, an external event or date, an act only the owner performs,
+the next release, a first recurrence, or a record's next instance. Such an issue carries the matching label in the same `gh issue create` that
 files it, beside its `prio-N`. Filed without it, it reads as free work to both pickup routes until
 somebody notices. Measured in this plugin's source repo: an issue whose own body said it waited on
 later CI runs was filed with only its `prio-N`, and was parked by hand six minutes later. Each
 paragraph below says what its label parks and when it comes off. When it goes on is this rule, for all
-five alike.
+seven alike.
 
 **`awaiting-more-recurrences` marks a collecting issue -- a *record* -- and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A record gathers every
@@ -195,7 +195,7 @@ things follow from being a record:
   to close it, even that PR ships with `-NoResolves`, and the record is closed by hand after the merge.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act` and
+  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act`, `awaiting-release` and
   `awaiting-first-recurrence`. Working a
   record is a deliberate assignment, named by its number.
 
@@ -265,6 +265,16 @@ label every sweep on every machine reads such an issue in full, finds nothing it
 by hand with `-SkipIssue`. Both pickup routes skip it by default, and `claim-issue <n>` warns that the
 issue is parked. **The issue names the act**, and the label comes off once the owner has performed it.
 It is a new label, so no former name is matched for it.
+
+**`awaiting-release` parks an issue whose remaining work may only run inside the next release** — its
+cut or its live step
+([#2851](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2851), October 6, 2026). It is not
+`awaiting-owner-act`, which tells the owner there is something to do *now*, when here nothing is
+actionable until a release is cut. Nor is it `awaiting-event`: a release is the repo's own act and has
+no date. Both pickup routes skip it by default, so **the release is where it surfaces**: once the commit
+and tag are written, `release/cut-release.ps1` lists every open issue carrying it among its follow-up
+steps. The issue names the step that runs at the release, and the label comes off once that step has
+run. It is a new label, so no former name is matched for it.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where

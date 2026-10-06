@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Inbound #2851, decided by Dave on October 6, 2026: option (a), a new `awaiting-release` parking label
+that the cut lists. Modelled on #2828's `awaiting-owner-act` for every place a parking label is
+registered. The listing goes in `cut-release.ps1`, the cut every consumer runs, rather than the
+Shopify-only `live-preflight`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The label in both canonical copies (`Get-TriageLabels`, `adopt-triage-labels`' fallback), the claim/sweep default skip lists, the dashboard's parking set and reason text, and the contract record
+- [x] `Write-ParkedForRelease` in `cut-release.ps1`'s follow-up block: lists open `awaiting-release` issues, prints nothing when there are none, and prints the hand command on a failed read instead of throwing
+- [x] Docs: `CONTRIBUTING-portable.md` (its own paragraph; the filing rule's count corrected from five to seven, because it had missed `awaiting-owner-act`), the claim, sweep and dashboard skills, the scripts README, and Chris's and Derek's lenses
+- [x] Mirrors and blueprint regenerated; the label created on this repo's tracker
 
 ### TEST
 
+- [x] `cut-release-guardrail.tests.ps1` drives the lifted function with the native call stubbed: two issues are listed in number order, an empty list prints nothing, and a failed read neither throws nor goes silent (128/128 green)
+- [x] The count and record asserts in the label, contract, repo-config, claim and dashboard suites now include the eleventh label
+
 ### DEPLOY: feat/2851-awaiting-release-label
 
-**Score:**
+New parking label `awaiting-release`, purple like the rest of the awaiting-* family. It is for an issue
+whose remaining work may only run inside the next release, in its cut or its live step
+([#2851](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2851)). The claim and sweep routes
+skip it by default and the issue dashboard shows it as parked. `cut-release.ps1` now lists the open
+issues that carry it among its follow-up steps, so parked work comes up at the release it is waiting for.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer who parks "do this at the next release" work no longer has to borrow `awaiting-owner-act`,
+which told the owner to act now. At the cut, the parked issues are listed right after the tag, so nobody
+has to remember them. `adopt-triage-labels` offers one more `gh label create` line.
+
+**Score:** 2
 
 #### Pull Request
 

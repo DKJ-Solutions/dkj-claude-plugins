@@ -679,6 +679,49 @@ if ($reminderFn.Count -eq 1) {
     }
 }
 
+Write-Host ""
+Write-Host "cut-release.ps1 -- the cut lists the issues parked for it with 'awaiting-release' (#2851)" -ForegroundColor Cyan
+# Driven for real, the same way as the reminder above: the function is lifted out by the parser and its
+# one native call is stubbed, so what is pinned is what a cutter actually sees -- the list, the silence
+# when there is nothing, and the hand command when the read fails after the tag is already written.
+Assert-True ($cutReleaseText -match '(?m)^\s*Write-ParkedForRelease\s*[\r\n]') `
+    'the follow-up block calls the parked-for-release list, so both exit paths reach it'
+$parkedFn = ([System.Management.Automation.Language.Parser]::ParseInput($cutReleaseText, [ref]$null, [ref]$null)).FindAll(
+    { param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Write-ParkedForRelease' }, $true)
+Assert-True ($parkedFn.Count -eq 1) 'the parked-for-release list is liftable as a single function definition'
+if ($parkedFn.Count -eq 1) {
+    Invoke-Expression $parkedFn[0].Extent.Text
+    $script:NativeCaptureNetworkTimeoutSeconds = 5
+    function Get-SeamValue { param($Name, $Default) 'fixture-org/fixture-repo' }
+    function Test-NativeExitMeasured { param($Capture) $true }
+    function Get-NativeExitLabel { param($Capture) "exit $($Capture.ExitCode)" }
+    $script:prStub = $null
+    $script:prArgs = $null
+    function Invoke-NativeCapture { param($FilePath, $Arguments, [switch]$Utf8, [switch]$DiscardStderr, $TimeoutSeconds)
+        $script:prArgs = @($Arguments)
+        return $script:prStub
+    }
+
+    $script:prStub = [pscustomobject]@{ ExitCode = 0; Output = @('[{"number":352,"title":"Remove page.spring from live"},{"number":41,"title":"Rotate the old backup"}]') }
+    $outList = (Write-ParkedForRelease 6>&1 | Out-String)
+    Assert-True (($script:prArgs -join ' ') -like '*issue list --label awaiting-release --state open*--repo fixture-org/fixture-repo*') `
+        'it asks the tracker for the OPEN issues carrying awaiting-release, in the repo the seam names'
+    Assert-True ($outList -match "Parked for this release \('awaiting-release'\)") 'two parked: the heading names the label'
+    Assert-True ($outList -match '(?s)#41\s+Rotate the old backup.*#352\s+Remove page\.spring from live') `
+        'two parked: both are listed with their titles, in issue-number order'
+
+    $script:prStub = [pscustomobject]@{ ExitCode = 0; Output = @('[]') }
+    $outNone = (Write-ParkedForRelease 6>&1 | Out-String)
+    Assert-True ([string]::IsNullOrWhiteSpace($outNone)) 'nothing parked: it prints nothing at all, so an ordinary cut carries no noise'
+
+    $script:prStub = [pscustomobject]@{ ExitCode = 1; Output = @('HTTP 401') }
+    $threw = $false
+    try { $outFail = (Write-ParkedForRelease 6>&1 | Out-String) } catch { $threw = $true }
+    Assert-True (-not $threw) 'a failed read never throws -- the commit and the tag are already written when this runs'
+    Assert-True ($outFail -match 'gh issue list --label awaiting-release --state open') `
+        'a failed read prints the command to run by hand instead of staying silent'
+}
+
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
     exit 1

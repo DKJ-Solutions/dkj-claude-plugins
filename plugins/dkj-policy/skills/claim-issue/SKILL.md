@@ -51,7 +51,7 @@ The script:
    anything the issue names sits there and not on the trunk (below). A warning, never a refusal, and
    no git call at all where nothing was surfaced.
 7. **Warns when the issue carries a parking label** -- `awaiting-more-info`, `awaiting-decision`, `awaiting-pull`,
-   `awaiting-event`, `awaiting-owner-act`, `awaiting-first-recurrence` and `awaiting-more-recurrences` by default, plus the former names
+   `awaiting-event`, `awaiting-owner-act`, `awaiting-release`, `awaiting-first-recurrence` and `awaiting-more-recurrences` by default, plus the former names
    `needs-info`, `needs-decision`, `awaiting-recurrence`, `record` and `dossier`, the labels a sweep skips on (below). A warning,
    never a refusal.
 8. Writes the assignee, then **reads the claim back** and fails if it did not land.
@@ -65,7 +65,7 @@ The script:
 - **`-DryRun`** -- read and judge, write nothing. Prints the verdict it would act on, so you can see
   **who holds an issue without taking it**.
 - **`-SkipLabel`** -- the labels that park an issue with somebody else. On this route it defaults to
-  `awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-first-recurrence,awaiting-more-recurrences` and the five
+  `awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-release,awaiting-first-recurrence,awaiting-more-recurrences` and the five
   former names `needs-info,needs-decision,awaiting-recurrence,record,dossier`; passing it replaces that default (below).
 
 ## And a second claim, for a backlog worked by several machines (`-Tag`)
@@ -549,7 +549,7 @@ question the owner is for.
 ## A parking label: the issue waits on an answer, not a builder
 
 **The sweep route and this route used to disagree about one label.** [`sweep-issues`](../sweep-issues/SKILL.md)
-chooses with `-Candidates -SkipLabel awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-recurrence,record,dossier`, so an issue parked with somebody else is
+chooses with `-Candidates -SkipLabel awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-release,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-recurrence,record,dossier`, so an issue parked with somebody else is
 skipped there. This route read no labels at all, so the same issue came back `[OK] ... the work starts here`
 the moment a person named it. Measured in a consumer, September 26, 2026
 ([#2518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2518)): an issue ending in an open
@@ -557,7 +557,7 @@ choice for the owner was left alone by a sweep, and claimed through this route b
 picked one of the two options itself and shipped it.
 
 **So the issue read asks for `labels` too, and holds them against `-SkipLabel`** -- `awaiting-more-info`,
-`awaiting-decision`, `awaiting-pull` (#2757, waiting on another issue's pull request) `awaiting-event` (#2784, waiting on an external event or date) and `awaiting-owner-act` (#2828, waiting on an act only the owner performs) by default on this route, plus `awaiting-first-recurrence` since
+`awaiting-decision`, `awaiting-pull` (#2757, waiting on another issue's pull request) `awaiting-event` (#2784, waiting on an external event or date), `awaiting-owner-act` (#2828, waiting on an act only the owner performs) and `awaiting-release` (#2851, waiting on the next release) by default on this route, plus `awaiting-first-recurrence` since
 [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587) and `awaiting-more-recurrences`, and
 each former name too -- the labels the sweep skips on; passing `-SkipLabel` replaces
 the default. On a claim or a resume where one matches, it prints a `PARKED:` verdict naming the label, the closing

@@ -1589,6 +1589,7 @@ function Write-FollowUpSteps {
     # a second tool AFTER the cut. The draft above is both readers' sections in one file, so the follow-up
     # is an edit rather than a command. new-internal-note.ps1 is still shipped and still works for a repo
     # running the two-document flow; nothing here calls it.
+    Write-ParkedForRelease
     Write-SelfConsumptionReminder
 
     # THE RECEIPT SHAPE (issue #1884), placed INSIDE this function rather than after its two call
@@ -1611,6 +1612,43 @@ function Write-FollowUpSteps {
         Write-Host "      'what it is worth' and 'what was still open' are empty and cannot be generated."
     } else {
         Write-Host "      no entry reached tier $audienceTier, so it carries the organisation's sections only -- both empty."
+    }
+}
+
+function Write-ParkedForRelease {
+    <#
+        Lists the open issues parked with 'awaiting-release' -- the work that was waiting for exactly this
+        cut (inbound #2851, Dave October 6, 2026).
+
+        WHY THE CUT READS A LABEL AT ALL. An issue whose remaining work may only run inside the next
+        release -- a live write in the consumer's live step, say -- had no parking label of its own and
+        borrowed 'awaiting-owner-act', which tells the owner to act NOW. The new label parks it honestly,
+        but a parked issue is skipped by every pickup route, so without this list it would surface only
+        if the person cutting happened to remember it. Printing it here makes the release the pickup.
+
+        A REPORT, NEVER A GATE, AND IT CANNOT BREAK THE CUT. It runs after the commit and the tag, so a
+        failed read prints the command to run by hand rather than throwing; nothing listed here holds the
+        release up either, because the work it names runs AFTER the cut, not before it. An empty list
+        prints nothing: a line saying "none" on every cut would be noise.
+    #>
+    try {
+        $repoArgs = @()
+        $repoName = [string](Get-SeamValue -Name 'Get-RepoName' -Default '')
+        if ($repoName.Trim()) { $repoArgs = @('--repo', $repoName.Trim()) }
+        $cap = Invoke-NativeCapture -FilePath 'gh' -Arguments (@('issue', 'list', '--label', 'awaiting-release', '--state', 'open',
+                '--limit', '100', '--json', 'number,title') + $repoArgs) `
+            -Utf8 -DiscardStderr -TimeoutSeconds $script:NativeCaptureNetworkTimeoutSeconds
+        if (-not (Test-NativeExitMeasured -Capture $cap) -or $cap.ExitCode -ne 0) { throw "gh issue list failed ($(Get-NativeExitLabel -Capture $cap))" }
+        $parked = @(((($cap.Output | Out-String).Trim()) | ConvertFrom-Json) | Where-Object { $_ } | Sort-Object { [int]$_.number })
+        if ($parked.Count -eq 0) { return }
+        Write-Host ""
+        Write-Host "Parked for this release ('awaiting-release') -- their remaining work runs now:" -ForegroundColor Cyan
+        foreach ($i in $parked) { Write-Host ("  #{0}  {1}" -f $i.number, $i.title) }
+        Write-Host "  Each issue names its remaining step; take the label off once it has run."
+    } catch {
+        Write-Host ""
+        Write-Host "Could not list the issues parked for this release ($($_.Exception.Message)) -- check by hand:" -ForegroundColor Yellow
+        Write-Host "  gh issue list --label awaiting-release --state open"
     }
 }
 
