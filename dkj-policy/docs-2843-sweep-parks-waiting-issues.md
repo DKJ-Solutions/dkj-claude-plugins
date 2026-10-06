@@ -39,19 +39,36 @@
 
 ### PLAN
 
+The sweep page tells a session to hold a waiting issue out with `-SkipIssue`. That writes nothing, so
+every later sweep judges the same issue again. The page now has it set the matching `awaiting-*` label
+plus a one-line comment instead, and keeps `-SkipIssue` for a hold-out that is not a wait.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `skills/sweep-issues/SKILL.md`: a waiting `free` issue is parked with its label (step 1); the end
+  condition and the close-out name that outcome
 
 ### TEST
 
+- [x] No suite pins the changed text (`held out` / `SkipIssue` searched in `scripts/tests`); the gate
+  runs in `ship-pr`
+
 ### DEPLOY: docs/2843-sweep-parks-waiting-issues
 
-**Score:**
+The `sweep-issues` page now says what to do with a `free` issue that turns out to be waiting on a live
+push, a release, another issue's pull request, an external event or the owner's choice. Set the
+matching `awaiting-*` label and leave a one-line comment saying what it waits on. Until now the page
+held such an issue out with `-SkipIssue`, which lasts one run, so every sweep judged it again.
+`-SkipIssue` remains for a hold-out that is not a wait.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+If you run sweeps, an issue that waits on you is now labelled the first time a sweep meets it, and the
+next sweep skips it instead of judging it again and listing it in its close-out once more.
+
+**Score:** 3
 
 #### Pull Request
 
