@@ -147,7 +147,7 @@ $builtInTriageLabels = @(
     # And the parking label for an issue waiting on an external event or date (#2784).
     [pscustomobject]@{ Name = 'awaiting-event'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on an act only the owner performs (#2828).
-    [pscustomobject]@{ Name = 'awaiting-owner-act'; Color = '5319E7'; Description = 'Waiting on an act only the owner performs (a live push, a release, a deletion) -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-owner-act'; Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on its first reproducible recurrence (#2587).
     [pscustomobject]@{ Name = 'awaiting-first-recurrence'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )

@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Measured: of the ten canonical triage labels only `awaiting-owner-act` is over GitHub's limit (123
+characters; `awaiting-pull` sits at exactly 100). Shorten it to the text already created on
+smartwatchbanden, which keeps the suffix every sibling carries, and add the limit test #2842 asks for.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Shorten the description in `scripts/task/adopt-triage-labels.ps1`, its plugin mirror,
+  `scripts/repo-config.ps1` and `scripts/tests/repo-config.tests.ps1`; regenerate the config blueprint
+- [x] Test: every canonical label's name is at most 50 characters and its description at most 100
 
 ### TEST
 
+- [x] `adopt-triage-labels.tests.ps1` and `repo-config.tests.ps1` green
+
 ### DEPLOY: fix/2842-owner-act-label-length
 
-**Score:**
+The `awaiting-owner-act` label's canonical description is now 86 characters:
+`Waiting on an act only the owner performs -- parks the issue so no session picks it up`. The old
+text was 123 characters, so the `gh label create` line that `adopt-triage-labels` prints failed on
+every tracker with HTTP 422. A test now holds every canonical label to GitHub's limits of 50 characters
+for a name and 100 for a description.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+If you adopt the triage labels, the printed command for `awaiting-owner-act` now creates the label
+instead of failing. A tracker where you already created it with a text of your own is left alone.
+
+**Score:** 2
 
 #### Pull Request
 

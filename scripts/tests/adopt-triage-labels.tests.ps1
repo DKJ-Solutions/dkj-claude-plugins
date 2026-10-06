@@ -352,6 +352,16 @@ try {
     Assert-Equal ($repoConfigLiterals -join "`n") ($scriptLiterals -join "`n") `
         'the built-in fallback and Get-TriageLabels are the exact same ten literal records -- an unanswered consumer and an answered one are told the same set'
 
+    # --- 8b. Every canonical label fits GitHub's own limits (name 50, description 100), #2842 -------
+    #         A label over either limit makes the printed `gh label create` fail with HTTP 422, on every
+    #         tracker: awaiting-owner-act shipped with a 123-character description and could not be
+    #         created from its own printed line. Read through the seam, so the real values are measured.
+    . $RepoConfigSrc
+    foreach ($label in @(Get-TriageLabels)) {
+        Assert-True ($label.Name.Length -le 50) "label '$($label.Name)': name is $($label.Name.Length) characters, within GitHub's 50"
+        Assert-True ($label.Description.Length -le 100) "label '$($label.Name)': description is $($label.Description.Length) characters, within GitHub's 100"
+    }
+
     # --- 9. The contract record itself (Get-ScriptContract), the same shape reach-label.tests.ps1 ----
     #        already asserts for its neighbouring axis.
     Write-Host '-- 9. the Get-TriageLabels contract record --' -ForegroundColor Cyan
