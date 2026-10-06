@@ -27,7 +27,7 @@ the plugin cache path out.
 | Parameter | What it is for |
 |---|---|
 | `-ThemeId` | one or more ids, comma-separated. Required. |
-| `-Store` | overrides `Get-ShopifyStoreDomain`. |
+| `-Store` | overrides `Get-ShopifyThemeEstateStore` (or `Get-ShopifyStoreDomain`, where only that one is answered). |
 | `-ArchiveRoot` | where the bytes land. Default `<repo>/theme-archive`, which belongs in `.gitignore`. |
 | `-ManifestRoot` | where the receipts land. Default `<repo>/theme-archive-manifests`, which is **committed**. |
 | `-Refresh` | re-pull a theme that already has a verified archive. Without it, an existing archive is reused. |

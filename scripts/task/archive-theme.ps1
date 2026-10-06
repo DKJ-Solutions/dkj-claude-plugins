@@ -44,9 +44,11 @@
     plural is the common case: -ThemeId 202322018645,202330276181 archives both in one run.
 
 .PARAMETER Store
-    Store domain. Defaults to Get-ShopifyStoreDomain from the consumer's scripts/repo-config.ps1 rather
-    than a literal -- the same seam the live-theme guard reads, so there is one answer to "which store
-    is this".
+    Store domain. Defaults to Get-ShopifyThemeEstateStore from the consumer's scripts/repo-config.ps1,
+    the seam backup-live-theme, sweep-preview-themes and live-preflight read, and falls back to
+    Get-ShopifyStoreDomain where only that one is answered. Not Get-ShopifyStoreDomain first (#2859):
+    a consumer may leave that one unanswered as a brake on sync-main's bare PR route -- see
+    backup-live-theme.ps1's header (#1965 point 4) -- and archiving a theme must not require lifting it.
 
 .PARAMETER ArchiveRoot
     Where the backups land. Default: <repo>/theme-archive, which belongs in .gitignore. A theme pull is
@@ -157,7 +159,9 @@ $seam = & {
         try { . $configPath } catch { }
     }
     if (Test-FunctionDefined 'Get-ShopifyLiveThemeId')     { $answers.LiveThemeId  = [string](Get-ShopifyLiveThemeId) }
-    if (Test-FunctionDefined 'Get-ShopifyStoreDomain')     { $answers.StoreDomain  = [string](Get-ShopifyStoreDomain) }
+    # The estate seam first, the store-domain seam only where the estate one is unanswered (#2859).
+    if (Test-FunctionDefined 'Get-ShopifyThemeEstateStore') { $answers.StoreDomain = ([string](Get-ShopifyThemeEstateStore)).Trim() }
+    if (-not $answers.StoreDomain -and (Test-FunctionDefined 'Get-ShopifyStoreDomain')) { $answers.StoreDomain = [string](Get-ShopifyStoreDomain) }
     if (Test-FunctionDefined 'Get-ShopifyThemeDeleteMarker') { $answers.DeleteMarker = [string](Get-ShopifyThemeDeleteMarker) }
     # OPTIONAL, AND UNANSWERED IS THE ORDINARY CASE. A store with no third-party themes has nothing to
     # declare here and sees exactly what it saw before the seam existed. See Get-ExternalThemeWarning.
@@ -174,7 +178,7 @@ if (-not $ArchiveRoot)  { $ArchiveRoot = Join-Path $repoRoot 'theme-archive' }
 if (-not $ManifestRoot) { $ManifestRoot = Join-Path $repoRoot 'theme-archive-manifests' }
 
 if (-not $Store) {
-    Write-Host 'REFUSED: no store domain. Answer Get-ShopifyStoreDomain in scripts/repo-config.ps1, or pass -Store.' -ForegroundColor Red
+    Write-Host 'REFUSED: no store domain. Answer Get-ShopifyThemeEstateStore in scripts/repo-config.ps1, or pass -Store.' -ForegroundColor Red
     exit 1
 }
 

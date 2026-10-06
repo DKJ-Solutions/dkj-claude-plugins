@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Issue #2859: `archive-theme.ps1` read its store from `Get-ShopifyStoreDomain`, the seam a consumer may
+leave unanswered as a brake on `sync-main` (#1965 point 4), while `backup-live-theme`,
+`sweep-preview-themes` and `live-preflight` read `Get-ShopifyThemeEstateStore`. Verified in the tree.
+Read the estate seam first and keep `Get-ShopifyStoreDomain` as a fallback, so a consumer answering only
+that one keeps working. `push-preview` has the same shape and is filed as #2862.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `archive-theme.ps1` (shopify plugin and root copy, byte-identical): estate seam first, fallback, refusal names the estate seam, `-Store` help updated
+- [x] `skills/archive-theme/SKILL.md`: the `-Store` row names the seam it overrides
 
 ### TEST
 
+- [x] `theme-archive-rules.tests.ps1`: three seam asserts through the script with `-RootOverride` (estate only, store domain only, neither) -- 156/156 green; two of them fail against the unfixed script
+
 ### DEPLOY: fix/2859-archive-theme-estate-store
 
-**Score:**
+`archive-theme` now finds its store through `Get-ShopifyThemeEstateStore`, the seam the other
+theme-lifecycle scripts read. It falls back to `Get-ShopifyStoreDomain` where only that one is answered.
+It used to read `Get-ShopifyStoreDomain` alone, so a store repo that leaves that seam unanswered on
+purpose, as a brake on `sync-main`, had to pass `-Store` on every run.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store repo that answers `Get-ShopifyThemeEstateStore`, `archive-theme -ThemeId <id>` runs without
+`-Store`. Do not answer `Get-ShopifyStoreDomain` to make it run: that also opens `sync-main`'s bare
+pull-request route.
+
+**Score:** 2
 
 #### Pull Request
 
