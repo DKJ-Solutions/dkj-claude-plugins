@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**27 / 29 minor entries** <!-- pending-tally -->
+**28 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2833-sweep-ends-at-visible-park · 20261006-081600Z
+
+The `sweep-issues` page now ends the sweep when it parks a result that has to be judged by eye. The
+checkout stays on that branch, as the constitution requires, and the close-out names the branch and
+the issues still `free`. Until now the page sent the sweep back to step 1, which meant leaving the
+branch the owner still had to judge, against the constitution.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+If you run sweeps on a repo with visible work, a sweep no longer switches away from a branch you still
+have to look at. It stops there and tells you which issues it left for the next run.
+
+**Score:** 3
+
+#### Pull Request
+
+sweep-issues ends the sweep at a visible park instead of going back to step 1
+
+Plugins: dkj-policy
+
+[PR #2847](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2847)
+
+---
 
 ### DEPLOY: docs/2843-sweep-parks-waiting-issues · 20261006-074110Z
 
