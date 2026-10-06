@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Issue #2853: `adopt-bwj-development` prescribed `d4c5f9` for `awaiting-more-info`, while the rest of the
+`awaiting-*` family is `5319E7`. Verified: the two `--color d4c5f9` lines in its SKILL.md are the only
+occurrences in the tree.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] both colour lines in `bwj-development/skills/adopt-bwj-development/SKILL.md` now read `5319E7`
+- [x] one paragraph after them gives the in-place recolour for a tracker adopted with the old colour
 
 ### TEST
 
+- [x] `git grep -i d4c5f9` returns nothing; the gates run in `ship-pr`
+
 ### DEPLOY: docs/2853-awaiting-more-info-colour
 
-**Score:**
+`adopt-bwj-development` now prescribes `5319E7` for the `awaiting-more-info` label, in both the rename and
+the create line, which is the colour of the rest of the `awaiting-*` family. It prescribed `d4c5f9`, so
+that one label stood out on every tracker that followed the page.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A store repo adopted before this release has `awaiting-more-info` in pale lavender. Recolour it with
+`gh label edit awaiting-more-info --color 5319E7 --repo <owner>/<repo>`; xoxowildhearts and
+smartwatchbanden were recoloured by hand on October 6, 2026.
+
+**Score:** 1
 
 #### Pull Request
 

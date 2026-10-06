@@ -414,12 +414,17 @@ the mirror retired it moves nothing in Asana. The label was named `needs-info` u
 ([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)): a tracker already carrying
 `needs-info` renames it in place, keeping every issue on it, and takes the colour below in the same command
 ([#2810](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2810)):
-`gh label edit needs-info --name awaiting-more-info --color d4c5f9 --repo <owner>/<repo>`.
+`gh label edit needs-info --name awaiting-more-info --color 5319E7 --repo <owner>/<repo>`.
 
 ```bash
-gh label create awaiting-more-info --repo <owner>/<repo> --color d4c5f9 \
+gh label create awaiting-more-info --repo <owner>/<repo> --color 5319E7 \
   --description "Blocked on the person who filed it"
 ```
+
+`5319E7` is the colour of the whole `awaiting-*` family. Until October 6, 2026 both lines above prescribed
+`d4c5f9`, so a tracker adopted before then recolours it in place
+([#2853](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2853)):
+`gh label edit awaiting-more-info --color 5319E7 --repo <owner>/<repo>`.
 
 **GitHub issue types are not used** ([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)):
 the kind is the `bug` or `feature` label created above, always one of the two (#2783). There is
