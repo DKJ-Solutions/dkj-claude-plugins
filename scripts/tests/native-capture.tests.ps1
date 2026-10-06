@@ -1980,7 +1980,11 @@ foreach ($af in $auditFiles) {
 # shared network bound. Named in Get-NativeExitLabel, and anything but a measured 0 -- an unmeasured code
 # included, since $null satisfies -ne 0 -- drops the probe and names the branch by refs alone, as before
 # the probe existed; the run says so in DarkGray. A miss costs a refusal at ship-pr, never a wrong merge.
-Assert-Equal 88 $boundedTotal 'the parser still counts 88 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 88 -> 89 (#2851): cut-release.ps1's Write-ParkedForRelease, $cap (`gh issue list --label awaiting-release`),
+# -Utf8 because the JSON is parsed, at the shared network bound. It asks Test-NativeExitMeasured and names the
+# code with Get-NativeExitLabel; a failed read prints the gh command to run by hand and never throws, because
+# the commit and the tag are already written when it runs.
+Assert-Equal 89 $boundedTotal 'the parser still counts 89 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

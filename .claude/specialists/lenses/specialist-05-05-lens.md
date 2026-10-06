@@ -1161,9 +1161,9 @@ instead of a new issue, `part of #<n>` instead of a keyword, close only on the r
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — all set at filing: `awaiting-decision` for a choice, `awaiting-pull` while another issue lands, `awaiting-event` until a date, `awaiting-owner-act` until Dave acts, `awaiting-first-recurrence` once only evidence is owed
+### The parking labels — all set at filing: `awaiting-decision` for a choice, `awaiting-pull` while another issue lands, `awaiting-event` until a date, `awaiting-owner-act` until Dave acts, `awaiting-release` until the next cut, `awaiting-first-recurrence` once only evidence is owed
 
-**All five `awaiting-*` labels, `awaiting-more-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision`
+**All seven `awaiting-*` labels, `awaiting-more-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision`
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796)); the rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from),
 and Chris's lens carries it beside the `prio-N` and `minor` filing rules, where a session reads it at filing time.
@@ -1195,6 +1195,13 @@ an act only Dave performs** — a live push, a release, a deletion the session m
 [#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828), October 5, 2026, from a consumer whose sweep re-read four such issues on every
 machine). Both pickup routes skip it, the issue names the act, and the label comes off once it is done.
 New, so no former name.
+
+**`awaiting-release` (`5319E7`) parks an issue whose remaining work may only run inside the next release**
+— a live write that belongs to the cut's live step (inbound
+[#2851](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2851), Dave, October 6, 2026, from a
+consumer whose issue borrowed `awaiting-owner-act` and read to its owner as "act now"). Both pickup routes
+skip it, and `cut-release.ps1` lists the open ones among its follow-up steps, so the release is where it
+surfaces. New, so no former name.
 
 **`awaiting-event` (`5319E7`) parks an issue that waits on an external event or date** — a launch, a third
 party's release (Dave, October 3, 2026, inbound

@@ -70,7 +70,7 @@ disagree you follow it and say so.
 ### 1. Choose -- and it writes nothing
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-recurrence,record,dossier
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-more-info,awaiting-decision,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-release,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-recurrence,record,dossier
 ```
 
 It prints every open issue as `free`, `mine`, `held`, `branch` or `skipped` with the reason, and names
@@ -100,8 +100,8 @@ light** -- report the number as unjudged and move on.
 
 **A `free` issue that turns out to be WAITING is parked on the tracker, not held out**
 ([#2843](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2843)). The wait might be a live
-push, a release, a deletion or a credential (`awaiting-owner-act`), another issue's pull request
-(`awaiting-pull`), an external event or date (`awaiting-event`), or the owner's choice
+push, a release, a deletion or a credential (`awaiting-owner-act`), work that may only run inside the
+next release (`awaiting-release`, which the cut lists), another issue's pull request (`awaiting-pull`), an external event or date (`awaiting-event`), or the owner's choice
 (`awaiting-decision`). Set the matching label and say in one comment what it waits on:
 
 ```powershell
