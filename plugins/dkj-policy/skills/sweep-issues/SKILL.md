@@ -97,6 +97,25 @@ onto a board, three belonged to a colleague's own running experiment, and they w
 reported as delivered before anybody asked. **If you cannot read the source ticket, that is not a green
 light** -- report the number as unjudged and move on.
 
+**A `free` issue that turns out to be WAITING is parked on the tracker, not held out**
+([#2843](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2843)). The wait might be a live
+push, a release, a deletion or a credential (`awaiting-owner-act`), another issue's pull request
+(`awaiting-pull`), an external event or date (`awaiting-event`), or the owner's choice
+(`awaiting-decision`). Set the matching label and say in one comment what it waits on:
+
+```powershell
+gh issue edit <n> --add-label <awaiting-label>
+gh issue comment <n> --body "Parked by a sweep: waiting on <what>."
+```
+
+`-SkipIssue` lasts one run and writes nothing, so a wait held out that way is judged again by every
+sweep after it. Measured October 6, 2026
+([xoxowildhearts](https://github.com/BWJ-Development/xoxowildhearts)): five of six `free` issues
+were held out for the same reasons the previous day's sweep had held them out for. With the label, the
+next sweep's step 1 reads them as `skipped`. **`-SkipIssue` stays for a hold-out that is not a wait**,
+such as a source ticket you could not read. Where the tracker does not carry the label yet,
+`adopt-triage-labels` prints the line that creates it.
+
 ### 2. Claim it
 
 ```powershell
@@ -224,7 +243,8 @@ Back to step 1, in the same turn.
 ### When the sweep ends, and the one close-out it owes
 
 **The loop stops when step 1 has nothing left for this session**: every issue `-Candidates` prints as
-`free` has been shipped, parked, given back, or judged and held out (with `-SkipIssue` and a reason).
+`free` has been shipped, parked, given back, parked on the tracker with its `awaiting-*` label because it
+waits, or judged and held out (with `-SkipIssue` and a reason) for something that is not a wait.
 Nothing earlier ends it, and one shipped issue in particular does not.
 
 **The close-out `ship-pr` prints is one issue's receipt, not the sweep's**
@@ -237,7 +257,8 @@ one issue, took that template as its own close-out, and left four `free` issues 
 them in one pass; a decided issue comes back here as `free`.
 
 **The sweep closes out once, after the loop**, in the ordinary receipt shape: the PR number of each issue
-it shipped, the branch of each it parked, and the number of each it held out, with a clause for why.
+it shipped, the branch of each it parked, the number and label of each it parked as waiting, and the
+number of each it held out, with a clause for why.
 
 ## Giving an issue back
 
