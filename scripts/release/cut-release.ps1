@@ -1647,7 +1647,7 @@ function Write-ParkedForRelease {
         Write-Host "  Each issue names its remaining step; take the label off once it has run."
     } catch {
         Write-Host ""
-        Write-Host "Could not list the issues parked for this release ($($_.Exception.Message)) -- check by hand:" -ForegroundColor Yellow
+        Write-Host "Could not list the issues parked for this release ($(Format-SafeProseToken -Value $_.Exception.Message)) -- check by hand:" -ForegroundColor Yellow
         Write-Host "  gh issue list --label awaiting-release --state open"
     }
 }
