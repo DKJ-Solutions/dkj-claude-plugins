@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**31 / 33 minor entries** <!-- pending-tally -->
+**32 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2853-awaiting-more-info-colour · 20261006-095421Z
+
+`adopt-bwj-development` now prescribes `5319E7` for the `awaiting-more-info` label, in both the rename and
+the create line, which is the colour of the rest of the `awaiting-*` family. It prescribed `d4c5f9`, so
+that one label stood out on every tracker that followed the page.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A store repo adopted before this release has `awaiting-more-info` in pale lavender. Recolour it with
+`gh label edit awaiting-more-info --color 5319E7 --repo <owner>/<repo>`; xoxowildhearts and
+smartwatchbanden were recoloured by hand on October 6, 2026.
+
+**Score:** 1
+
+#### Pull Request
+
+adopt-bwj-development prescribes 5319E7 for awaiting-more-info
+
+Plugins: bwj-development
+
+[PR #2858](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2858)
+
+---
 
 ### DEPLOY: fix/2849-statusline-block-json · 20261006-093952Z
 
