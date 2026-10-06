@@ -86,6 +86,13 @@ Assert-True ($res.Output -match 'would write') 'dry run: it says what it would p
 Assert-True ($res.Output -match 'statusLine') 'dry run: and prints the block itself, so it can be placed by hand'
 Assert-True ($res.Output -match '"refreshInterval": 2\r?\n') `
     'dry run: the printed block carries the interval in seconds, since a person places it by hand from that text'
+# The block is pasted as printed, so it has to BE JSON: its command once carried unescaped inner quotes (#2849).
+$printed = [regex]::Match($res.Output, '(?s)"statusLine": \{.*?\r?\n\s*\}')
+$printedParsed = $null
+if ($printed.Success) { try { $printedParsed = ('{' + $printed.Value + '}') | ConvertFrom-Json } catch { $printedParsed = $null } }
+Assert-True ($null -ne $printedParsed) 'dry run: the printed block parses as JSON when wrapped in {}'
+Assert-True ("$($printedParsed.statusLine.command)" -match '-File "\$\{CLAUDE_PROJECT_DIR\}/\.claude/statusline/dkj-progress\.ps1"$') `
+    'dry run: and the parsed command keeps its quoted -File path'
 
 # --- 2. -Apply places both halves ----------------------------------------------------------------
 $root = New-FixtureRepo 'apply'
