@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Dave's decision on #2850 (October 6, 2026): Git Bash becomes a stated requirement on Windows, documented
+where adoption is described; the `"${CLAUDE_PROJECT_DIR}/..."` form stays.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins/ADOPTION.md`, "Before you begin": the requirement, the measured mechanism and the inferred
+  failure without Git Bash.
+- [x] `adopt-dkj-policy` SKILL.md, the statusline section: points at that requirement.
 
 ### TEST
 
+- [x] Docs only; the gates run in `ship-pr`.
+
 ### DEPLOY: docs/2850-git-bash-requirement
 
-**Score:**
+The adoption page now states that Git Bash is a requirement of this workflow on Windows
+([`ADOPTION.md`](../plugins/ADOPTION.md#before-you-begin)). Hook and `statusLine` commands name their
+file as `"${CLAUDE_PROJECT_DIR}/..."`, and the shell expands that variable, not Claude Code. Without Git
+Bash, Claude Code falls back to PowerShell, which does not expand it, so the hooks and the status line
+would fail silently. The `adopt-dkj-policy` statusline section points at the same requirement.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A Windows adopter learns before adopting that Git Bash has to be installed. Without it the hooks and the
+status line would fail without a word. Nothing changes on a machine that already has it.
+
+**Score:** 2
 
 #### Pull Request
 

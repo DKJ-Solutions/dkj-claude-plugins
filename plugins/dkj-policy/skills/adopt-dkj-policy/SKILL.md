@@ -862,7 +862,10 @@ Two files:
 way your hook commands are (#2848). A relative path resolves against whatever directory the status line
 runs in, so below the root it misses the shim, or runs another file at the same relative path. Measured
 October 6, 2026: Claude Code exports `CLAUDE_PROJECT_DIR` to the status line's shell and does not
-substitute it in the command text, so the shell expands it -- Git Bash on Windows, as for the hooks.
+substitute it in the command text, so the shell expands it -- Git Bash on Windows, as for the hooks,
+which is why Git Bash is a stated requirement there
+([ADOPTION.md](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/ADOPTION.md#before-you-begin),
+#2850).
 
 **The shim is the whole design decision, so it is worth one paragraph.** The obvious thing is to write
 today's plugin-cache path straight into your settings. That fails in the worst available way: the cache
