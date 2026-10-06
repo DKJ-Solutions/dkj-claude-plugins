@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**24 / 26 minor entries** <!-- pending-tally -->
+**25 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2831-shopify-readme-skills · 20261006-070957Z
+
+The `dkj-subagents-shopify` README no longer states a skill count, which had gone stale at five, and
+its table now lists all seven skills the plugin ships, adding `theme-lifecycle` and `live-preflight`
+([#2831](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2831)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+For someone opening the Shopify team's README for the first time: it now names the backup-and-sweep
+skill and the live-push preflight, which it used to leave out.
+
+**Score:** 1
+
+#### Pull Request
+
+The shopify README lists all seven skills
+
+Plugins: dkj-subagents-shopify
+
+[PR #2839](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2839)
+
+---
 
 ### DEPLOY: fix/2836-claim-tag-checkout · 20261005-142837Z
 
