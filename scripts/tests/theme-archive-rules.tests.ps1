@@ -10,8 +10,10 @@
 
     WHY THESE FUNCTIONS HAVE A SUITE AND THE SCRIPT AROUND THEM DOES NOT. Every path in
     scripts/task/archive-theme.ps1 either invokes the Shopify CLI against a real store or reads a
-    consumer's own repo-config, and a suite must reach neither. What is left is pure, and it is exactly
-    where the measured defects were:
+    consumer's own repo-config, and a suite must reach neither. The one exception is the store seam
+    (#2859), read from a fixture repo-config and asserted on the refusal that stops the run before any
+    CLI call -- see the last section. What is left is pure, and it is exactly where the measured
+    defects were:
 
       * Expand-ThemeIdList not splitting commas made a six-theme run archive NOTHING and report
         "Skipped: 1" -- success-shaped output for work never attempted.
@@ -581,6 +583,31 @@ $r = Compare-ThemeArchiveWithManifest -Expected @($expected[0]) -Actual $caseOnl
 Assert-Equal 'damaged' $r.Verdict 'a path differing only in CASE is not the same file -- ordinal and case-sensitive, matching git'
 Assert-Equal 1 @($r.Missing).Count 'reported loudly as one missing'
 Assert-Equal 1 @($r.Extra).Count 'and one extra, rather than quietly treated as a match'
+
+# --- archive-theme.ps1: which seam answers "which store" (#2859) ------------------------------------
+# The one path through the SCRIPT a suite can reach: with no live theme id answered, it stops right after
+# the store check and before any CLI call, so the refusal it prints says which check it got past. A
+# consumer that leaves Get-ShopifyStoreDomain unanswered as a brake on sync-main (#1965 point 4) answers
+# Get-ShopifyThemeEstateStore, and archive-theme refused it until #2859.
+Write-Host ''
+Write-Host '== archive-theme: the store seam ==' -ForegroundColor Cyan
+$archiveScript = Join-Path $RepoRoot 'scripts\task\archive-theme.ps1'
+function Invoke-ArchiveSeam {
+    param([string]$Config)
+    $root = New-Tree -Label 'seam'
+    if ($Config) { $null = New-File -Root $root -Rel 'scripts\repo-config.ps1' -Content $Config }
+    $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $archiveScript -ThemeId 1 -RootOverride $root 2>&1 | ForEach-Object { "$_" })
+    return ($out -join "`n")
+}
+$out = Invoke-ArchiveSeam -Config 'function Get-ShopifyThemeEstateStore { ''estate.myshopify.com'' }'
+Assert-True (($out -notmatch 'no store domain') -and ($out -match 'Get-ShopifyLiveThemeId')) `
+    'archive-theme: Get-ShopifyThemeEstateStore alone answers the store, so the run reaches the live-id check'
+$out = Invoke-ArchiveSeam -Config 'function Get-ShopifyStoreDomain { ''domain.myshopify.com'' }'
+Assert-True (($out -notmatch 'no store domain') -and ($out -match 'Get-ShopifyLiveThemeId')) `
+    'archive-theme: Get-ShopifyStoreDomain alone still answers it, so a consumer answering only that one keeps working'
+$out = Invoke-ArchiveSeam -Config ''
+Assert-True ($out -match 'no store domain' -and $out -match 'Get-ShopifyThemeEstateStore') `
+    'archive-theme: with neither answered it refuses, naming Get-ShopifyThemeEstateStore'
 
 } finally {
     foreach ($d in $script:trees) {
