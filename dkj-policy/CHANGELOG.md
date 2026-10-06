@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**33 / 35 minor entries** <!-- pending-tally -->
+**34 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2859-archive-theme-estate-store · 20261006-102314Z
+
+`archive-theme` now finds its store through `Get-ShopifyThemeEstateStore`, the seam the other
+theme-lifecycle scripts read. It falls back to `Get-ShopifyStoreDomain` where only that one is answered.
+It used to read `Get-ShopifyStoreDomain` alone, so a store repo that leaves that seam unanswered on
+purpose, as a brake on `sync-main`, had to pass `-Store` on every run.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a store repo that answers `Get-ShopifyThemeEstateStore`, `archive-theme -ThemeId <id>` runs without
+`-Store`. Do not answer `Get-ShopifyStoreDomain` to make it run: that also opens `sync-main`'s bare
+pull-request route.
+
+**Score:** 2
+
+#### Pull Request
+
+archive-theme reads Get-ShopifyThemeEstateStore, like the rest of the theme lifecycle
+
+Plugins: dkj-subagents-shopify
+
+[PR #2863](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2863)
+
+---
 
 ### DEPLOY: docs/2856-reopen-only-to-build · 20261006-100755Z
 
