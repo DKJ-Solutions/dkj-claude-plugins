@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**25 / 27 minor entries** <!-- pending-tally -->
+**26 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2842-owner-act-label-length · 20261006-072755Z
+
+The `awaiting-owner-act` label's canonical description is now 86 characters:
+`Waiting on an act only the owner performs -- parks the issue so no session picks it up`. The old
+text was 123 characters, so the `gh label create` line that `adopt-triage-labels` prints failed on
+every tracker with HTTP 422. A test now holds every canonical label to GitHub's limits of 50 characters
+for a name and 100 for a description.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If you adopt the triage labels, the printed command for `awaiting-owner-act` now creates the label
+instead of failing. A tracker where you already created it with a text of your own is left alone.
+
+**Score:** 2
+
+#### Pull Request
+
+Shorten awaiting-owner-act description to GitHub's 100-character limit
+
+Plugins: dkj-policy
+
+[PR #2844](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2844)
+
+---
 
 ### DEPLOY: docs/2831-shopify-readme-skills · 20261006-070957Z
 
