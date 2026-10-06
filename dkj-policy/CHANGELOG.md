@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**32 / 34 minor entries** <!-- pending-tally -->
+**33 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2856-reopen-only-to-build · 20261006-100755Z
+
+The `bwj-development` workflow page now says when to reopen a closed issue: only once research shows
+something has to be built. A follow-up question or a rejection on the Asana task is researched with
+the issue still closed. Since #2854 a reopen posts "back in development" on the task. Reopened at the
+question, it told the requester something false whenever the answer turned out to be an explanation.
+The `claim-issue` page reads the same way.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a store repo, a colleague's follow-up question no longer reopens the issue by itself. They hear
+"back in development" only when work has actually restarted. An answer that is only an explanation
+goes to them without a reopen; how it reaches the task is still open (#2860).
+
+**Score:** 2
+
+#### Pull Request
+
+Reopen a closed issue only once research shows there is something to build
+
+Plugins: bwj-development, dkj-policy
+
+[PR #2861](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2861)
+
+---
 
 ### DEPLOY: docs/2853-awaiting-more-info-colour · 20261006-095421Z
 
