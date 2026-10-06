@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**28 / 30 minor entries** <!-- pending-tally -->
+**29 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2848-anchor-statusline-path · 20261006-085425Z
+
+`adopt-statusline` now writes the status line's shim path as
+`${CLAUDE_PROJECT_DIR}/.claude/statusline/dkj-progress.ps1`, anchored like the hook commands in the same settings file.
+The relative path it wrote before resolved against the status line's working directory, so from below
+the repo root it missed the shim, or ran a different file at the same relative path.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that already ran Part 5 keeps its relative line; `adopt-statusline` never replaces an existing
+`statusLine`. To anchor it, change the `command` in `.claude/settings.json` by hand to
+`powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PROJECT_DIR}/.claude/statusline/dkj-progress.ps1"`.
+
+**Score:** 2
+
+#### Pull Request
+
+adopt-statusline anchors the statusLine shim path on CLAUDE_PROJECT_DIR
+
+Plugins: dkj-policy
+
+[PR #2852](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2852)
+
+---
 
 ### DEPLOY: docs/2833-sweep-ends-at-visible-park · 20261006-081600Z
 
