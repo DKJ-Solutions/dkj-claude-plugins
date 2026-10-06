@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**35 / 37 minor entries** <!-- pending-tally -->
+**36 / 38 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2860-explain-only-answer-terminal · 20261006-114223Z
+
+The `bwj-development` workflow page now says what happens to a follow-up answer that turns out to be
+an explanation alone. It is given in the terminal, to the person in the session, and nothing more: no
+comment on the closed issue, no relay and no connector post on the Asana task. The issue stays closed,
+so nothing is done with it there. Until now the page left this open, pointing at #2860.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+In a store repo, a session answering a colleague's follow-up question with "this is already how it
+works" no longer has to guess where that answer goes. It stays in the terminal; the session posts
+nothing to GitHub or Asana.
+
+**Score:** 1
+
+#### Pull Request
+
+Explain-only answer to an Asana follow-up stays in the terminal
+
+Plugins: bwj-development
+
+[PR #2865](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2865)
+
+---
 
 ### DEPLOY: fix/2862-push-preview-estate-store · 20261006-103729Z
 
