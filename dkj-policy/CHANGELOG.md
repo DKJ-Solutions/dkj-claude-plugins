@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**30 / 32 minor entries** <!-- pending-tally -->
+**31 / 33 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2849-statusline-block-json · 20261006-093952Z
+
+The `statusLine` block that `adopt-statusline` prints for placing by hand is now valid JSON. The
+command's inner quotes around the `-File` path were printed unescaped, so the block broke the settings
+file it was pasted into. It is printed on a dry run, beside an existing `statusLine`, and wherever the
+command refuses to edit the file itself. The insert `-Apply` writes was always correct.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+If you placed the block by hand and your settings file then failed to parse, this was the cause: write
+the inner quotes as `\"`, or run `adopt-statusline` again and paste the block it prints now.
+
+**Score:** 2
+
+#### Pull Request
+
+adopt-statusline prints a statusLine block that is not valid JSON
+
+Plugins: dkj-policy
+
+[PR #2857](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2857)
+
+---
 
 ### DEPLOY: feat/2854-asana-reopened-message · 20261006-091501Z
 
