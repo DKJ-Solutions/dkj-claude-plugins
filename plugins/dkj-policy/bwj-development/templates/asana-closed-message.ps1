@@ -1,16 +1,21 @@
 <#
 .SYNOPSIS
-    Post the ONE closed message on the Asana task a GitHub issue belongs to, when that issue closes as
-    completed. Copied into a BWJ store repo as .github/scripts/asana-closed-message.ps1 and driven by
-    .github/workflows/asana-closed-message.yml.
+    Post the closed message on the Asana task a GitHub issue belongs to when that issue closes as
+    completed, and the reopened message when it is reopened. Copied into a BWJ store repo as
+    .github/scripts/asana-closed-message.ps1 and driven by .github/workflows/asana-closed-message.yml.
 
 .DESCRIPTION
-    THE ONE AUTOMATION THAT CAME BACK (Dave, October 5, 2026, issue #2818). The asana-mirror workflow
-    was retired that morning, whole (#2804): card moves, the daily sweeps, the prio-label sync, and the
-    created, reopened and closed comments. Asked which part to bring back, Dave chose only the closed
-    message, in the go-live block's current shape. Everything else stays retired, and nothing in this
-    file can move a card, complete a task or write a label: the one write it knows how to build is a
-    comment (New-AsanaCommentRequest).
+    THE TWO MESSAGES THAT CAME BACK. The asana-mirror workflow was retired on October 5, 2026, whole
+    (#2804): card moves, the daily sweeps, the prio-label sync, and the created, reopened and closed
+    comments. Asked which part to bring back, Dave chose the closed message, in the go-live block's
+    current shape (#2818); a day later he brought back the reopened message beside it (#2854), because
+    without it a requester can go on testing a result that is being reworked. Everything else stays
+    retired, and nothing in this file can move a card, complete a task or write a label: the one write it
+    knows how to build is a comment (New-AsanaCommentRequest).
+
+    THE FILE KEEPS ITS 'closed-message' NAME ON PURPOSE. A store holds it at a fixed path, and adopt
+    copies by path: a renamed template would land beside the old one rather than replace it, and both
+    would post on every close.
 
     WHAT IT POSTS, AND WHEN:
 
@@ -22,11 +27,14 @@
         requester still hears that the work is done. A proposal in #2818 rather than a decision.
       - A close as NOT PLANNED, or as a DUPLICATE: nothing. Nothing was built, so there is nothing to
         test (#2765).
+      - A REOPEN with a linked task, whatever the earlier close reason: one comment, the header and the
+        reopened line in the requester's fixed form (#2656) -- 'reopened: this Asana task is back in
+        development.' No block is read; a reopen carries nothing to test.
       - An issue with no linked task, or one linking several different tasks: nothing, and the log
         says which.
 
-    NO DE-DUPLICATION, as before: a close is a real state change, so a second close after a reopen is
-    news again and is said again.
+    NO DE-DUPLICATION, as before: a close or a reopen is a real state change, so a second close after a
+    reopen is news again and is said again.
 
     HOW THE TASK IS FOUND -- Resolve-AsanaTaskRef, the same three matchers, in this order: the
     '<!-- asana-task: <gid> -->' marker report-issue writes; the '| **Asana** | ... |' header row of an
@@ -46,7 +54,8 @@
     can edit the body can point that marker at any task the token reaches. That is the retired
     asana-mirror's trust model unchanged, and it is accepted rather than closed here: the write is one
     comment, and checking the task's project would need a project read this workflow deliberately does
-    without.
+    without. A reopen (#2854) is one more trigger on that same model, not a new one: an issue's author
+    can reopen it, but what a reopen posts is fixed text, with nothing from the issue in it.
 
     IT PRINTS NOTHING ANOTHER PERSON WROTE. The only foreign text this run could meet is a task name or
     an API error message, and neither is printed: a failed post reports its HTTP status and nothing else.
@@ -68,8 +77,11 @@ param(
     # 'owner/repo#<n>'.
     [string]$IssueRef = '',
     # github.event.issue.state_reason: 'completed', 'not_planned', 'duplicate', or empty on an event
-    # older than GitHub's close reasons, which GitHub treated as completed.
+    # older than GitHub's close reasons, which GitHub treated as completed. Not read on a reopen.
     [string]$StateReason = '',
+    # github.event.action: which of the two messages this run is for.
+    [ValidateSet('closed', 'reopened')]
+    [string]$Event = 'closed',
     [string]$AsanaPat = $env:ASANA_PAT
 )
 
@@ -248,6 +260,28 @@ function New-ClosedMessageHtml {
     return $html + '</body>'
 }
 
+function New-ReopenedMessage {
+    <#
+        Pure: the reopened comment as plain text -- the header, a blank line, and the reopened sentence
+        in the requester's fixed form (#2656), brought back by #2854.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef reopened: this Asana task is back in development.") -join "`n")
+}
+
+function New-ReopenedMessageHtml {
+    <#
+        Pure: the reopened message as Asana html_text -- the header, then the reopened sentence with the
+        issue name as a link and 'reopened:' in bold, the same form the closed line takes.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+
+    $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
+    $parts = $IssueRef -split '#'
+    $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
+    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> <strong>reopened:</strong> this Asana task is back in development.</body>"
+}
+
 function Get-AsanaPasteBlockMarker {
     <#
         Pure: the machine marker build-golive-block.ps1 puts on the comment carrying the block. A copy
@@ -276,17 +310,19 @@ function Select-SessionPasteBlockSections {
 
 function Get-ClosedMessageDecision {
     <#
-        Pure: whether this close gets a message, and why not where it does not. Post is $true only for a
-        close as completed (or one with no reason, which GitHub treated as completed) on an issue whose
-        body resolves to exactly one task.
+        Pure: whether this close or reopen gets a message, and why not where it does not. Post is $true
+        for a reopen, or a close as completed (or one with no reason, which GitHub treated as completed),
+        on an issue whose body resolves to exactly one task. A reopen ignores the close reason: whatever
+        the issue was closed as, it is in development now (#2854).
     #>
     param(
         [AllowEmptyString()][string]$StateReason = '',
-        [AllowEmptyString()][string]$IssueBody = ''
+        [AllowEmptyString()][string]$IssueBody = '',
+        [ValidateSet('closed', 'reopened')][string]$Event = 'closed'
     )
 
     $reason = ([string]$StateReason).Trim().ToLowerInvariant()
-    if ($reason -and $reason -ne 'completed') {
+    if ($Event -eq 'closed' -and $reason -and $reason -ne 'completed') {
         return [pscustomobject]@{ Post = $false; Gid = $null; Why = "closed as '$reason' -- nothing was built, so the task is told nothing (#2765)." }
     }
     $ref = Resolve-AsanaTaskRef -IssueBody $IssueBody
@@ -347,15 +383,20 @@ function Get-IssueCommentBodies {
 
 function Invoke-Main {
     if ($IssueRef -notmatch '\A[^\s#/]+/[^\s#/]+#[0-9]+\z') { throw "IssueRef '$IssueRef' is not 'owner/repo#<n>'." }
-    $decision = Get-ClosedMessageDecision -StateReason $StateReason -IssueBody $IssueBody
+    $decision = Get-ClosedMessageDecision -StateReason $StateReason -IssueBody $IssueBody -Event $Event
     if (-not $decision.Post) {
         Write-Host "$IssueRef -- $($decision.Why)"
         return
     }
     if (-not $AsanaPat) { throw 'ASANA_PAT is not set.' }
 
-    $sections = Select-SessionPasteBlockSections -Bodies (Get-IssueCommentBodies -IssueRef $IssueRef)
-    $request  = New-AsanaCommentRequest -Gid $decision.Gid -Html (New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections)
+    if ($Event -eq 'reopened') {
+        $html = New-ReopenedMessageHtml -IssueRef $IssueRef
+    } else {
+        $sections = Select-SessionPasteBlockSections -Bodies (Get-IssueCommentBodies -IssueRef $IssueRef)
+        $html     = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections
+    }
+    $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
     # UTF-8 BYTES, not the string: Windows PowerShell 5.1 encodes a string body as ISO-8859-1, which
     # would turn the header's em dash into '?'. pwsh sends UTF-8 either way.
     $headers = @{ Authorization = "Bearer $AsanaPat"; 'Content-Type' = 'application/json; charset=utf-8' }
@@ -365,7 +406,11 @@ function Invoke-Main {
     } catch {
         $status = $null
         if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-        throw "Asana refused the closed message for task $($decision.Gid) (HTTP $(if ($status) { $status } else { 'status unknown' }))."
+        throw "Asana refused the $Event message for task $($decision.Gid) (HTTP $(if ($status) { $status } else { 'status unknown' }))."
+    }
+    if ($Event -eq 'reopened') {
+        Write-Host "Asana task $($decision.Gid) told: $IssueRef is reopened and back in development ($($decision.Why)). The card was NOT moved."
+        return
     }
     $with = if ($sections) { "with the session's go-live block" } else { 'without a go-live block -- none was on the issue' }
     Write-Host "Asana task $($decision.Gid) told: $IssueRef is closed, $with ($($decision.Why)). The task was NOT completed -- that is the requester's call."

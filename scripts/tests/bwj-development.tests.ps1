@@ -819,6 +819,20 @@ Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody
 Assert-True ((Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Why -match 'refusing to guess') 'and says so'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[4]).Post) 'no linked task posts nothing'
 
+# THE REOPENED MESSAGE (#2854): a reopen posts whatever the earlier close reason, to the same task.
+Assert-True (Get-ClosedMessageDecision -Event 'reopened' -StateReason 'reopened' -IssueBody $cmSamples[0]).Post 'a reopen with a linked task posts'
+Assert-True (Get-ClosedMessageDecision -Event 'reopened' -StateReason 'not_planned' -IssueBody $cmSamples[0]).Post 'and the close reason does not hold it back -- the issue is in development now'
+Assert-True (-not (Get-ClosedMessageDecision -Event 'reopened' -IssueBody $cmSamples[4]).Post) 'a reopen with no linked task posts nothing'
+Assert-True (-not (Get-ClosedMessageDecision -Event 'reopened' -IssueBody $cmSamples[3]).Post) 'and neither does one linking several tasks'
+$cmReopen = New-ReopenedMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#393'
+# PreserveWhitespace: a bare [xml] cast drops the whitespace-only text node between </a> and <strong>.
+$cmReopenXml = New-Object System.Xml.XmlDocument
+$cmReopenXml.PreserveWhitespace = $true
+$cmReopenXml.LoadXml($cmReopen)
+Assert-True ($cmReopenXml.DocumentElement.InnerText -ceq (New-ReopenedMessage -IssueRef 'BWJ-Development/smartwatchbanden#393')) 'the reopened message is well-formed XML and reads as the plain reopened message'
+Assert-True ($cmReopen.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/393">BWJ-Development/smartwatchbanden#393</a> <strong>reopened:</strong> this Asana task is back in development.')) 'in the requester''s fixed form (#2656): the issue as a link, reopened: in bold'
+Assert-True ($cmReopen.StartsWith("<body>$(Get-ClosedMessageHeader)")) 'under the same header as the closed message'
+
 # WHAT IT POSTS: the header, the closed line, and the block's sections under it.
 $cmSections = Select-SessionPasteBlockSections -Bodies @('first', $goLiveBlock)
 Assert-True ($cmSections.StartsWith('TE BEKIJKEN OP')) 'the carried sections start at the first heading -- the header and closed line are the message''s own'
@@ -860,8 +874,9 @@ Assert-Equal "it's" (ConvertTo-AsanaXmlText -Text "it's") 'an apostrophe stays a
 Assert-Equal 'Zie <a href="https://x.nl/a">https://x.nl/a</a>.' (ConvertTo-AsanaStoryHtml -Markdown 'Zie https://x.nl/a.') 'a bare URL does not swallow the full stop after it'
 Assert-Throws { New-AsanaCommentRequest -Gid "123`n" -Html '<body/>' } 'a GID with a trailing newline is refused -- the guard is anchored with \z'
 $cmYml = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'templates\asana-closed-message.yml'))
-Assert-True ($cmYml -match 'types:\s*\[closed\]') 'the workflow runs on a close only'
-Assert-True ($cmYml -notmatch '(?m)^\s*(schedule|workflow_dispatch|pull_request|push):') 'with no schedule, manual or other trigger -- and the types line above names closed alone'
+Assert-True ($cmYml -match 'types:\s*\[closed,\s*reopened\]') 'the workflow runs on a close and a reopen only (#2854)'
+Assert-True ($cmYml -notmatch '(?m)^\s*(schedule|workflow_dispatch|pull_request|push):') 'with no schedule, manual or other trigger -- and the types line above names no label event'
+Assert-True ($cmYml -match 'github\.event\.action' -and $cmYml -match '-Event \$env:ISSUE_EVENT') 'it hands the event to the script, which picks the message'
 Assert-True ($cmYml -match 'secrets\.ASANA_PAT' -and $cmYml -notmatch 'GH_PROJECT_TOKEN|ASANA_PROJECT_GID') 'and needs ASANA_PAT alone'
 Assert-True ($cmYml -match 'issues:\s*read') 'and only reads issues on GitHub'
 Assert-True ($cmYml -match 'state_reason') 'it hands the close reason to the script, which decides'

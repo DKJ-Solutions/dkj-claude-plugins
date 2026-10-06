@@ -104,13 +104,13 @@ it, both set at creation so nobody has to classify a tracker by hand a second ti
 repo jargon, so any BWJ colleague can read it. The two are **cross-linked both ways**, and the task
 lands in the board's `Filed` section.
 
-**One thing connects the two afterwards: the closed message** (Dave, October 5, 2026, #2818). Closing
-the GitHub issue as completed makes the `asana-closed-message` workflow, which `adopt-bwj-development`
-copies into each store, post one comment on the task: the closed line and the go-live block the shipping
-session left on the issue. The rest of the asana-mirror CI automation is **retired**: the reopen
-comment, the moving of the card through the board's numbered sections, the daily reconciliation sweep,
-the `Prio-Score` to prio-label sync and the backstop comment. A card stays in `Filed` unless a person
-moves it. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
+**Two messages connect the two afterwards: the closed message and the reopened message** (Dave, October
+5 and 6, 2026, #2818 and #2854). Closing the GitHub issue as completed makes the `asana-closed-message`
+workflow, which `adopt-bwj-development` copies into each store, post one comment on the task: the closed
+line and the go-live block the shipping session left on the issue. Reopening it posts the reopened line,
+so the requester stops testing. The rest of the asana-mirror CI automation is **retired**: the moving of
+the card through the board's numbered sections, the daily reconciliation sweep, the `Prio-Score` to
+prio-label sync and the backstop comment. A card stays in `Filed` unless a person moves it. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
 was never part of that CI.
 **The task is still never ticked off by this plugin** (Dave, September 1, 2026): only the colleague who
 asked for it can say it is *good*.
@@ -183,7 +183,7 @@ all, and when the PR may open, both still the consumer's and `dkj-policy`'s.
 | [`PREVIEW-portable.md`](PREVIEW-portable.md) | chapter three in prose -- what a preview handover contains, why the control URL names the live theme id and what that still does not settle, when the handover owes a client-state reset, and why the whole pair travels as one link rather than a table |
 | [`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) | chapter four in prose -- the push-then-cut order and what it makes the backup MEAN, the three standing approvals for deleting a theme and their bounds, and why the delete set is a prefix this repo wrote |
 | [`scripts/`](scripts/) | the mechanism both stores share, to **dot-source** from the plugin cache rather than copy -- see [What this plugin owns](#what-this-plugin-owns) |
-| [`templates/`](templates/) | the one CI workflow a store **copies** rather than dot-sources, because GitHub runs a workflow only from the repo's own `.github/`: `asana-closed-message.yml` and its script, the closed message on the Asana task ([#2818](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2818)) |
+| [`templates/`](templates/) | the one CI workflow a store **copies** rather than dot-sources, because GitHub runs a workflow only from the repo's own `.github/`: `asana-closed-message.yml` and its script, the closed and reopened messages on the Asana task ([#2818](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2818), [#2854](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2854)) |
 | [`worker/`](worker/) | the one Cloudflare Worker both stores publish through, as source -- deployed once, never copied into a repo, and carrying no page content of its own |
 | [`skills/`](skills/) | the skills a specialist invokes |
 | [`hooks/`](hooks/) | one PreToolUse hook, `guard-asana-mirror.ps1`: it refuses an Asana create-task call for a task that cites a GitHub issue without the reach label, which is the one chapter-one rule a session was measured forgetting ([#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)) |
@@ -413,4 +413,4 @@ why scaffolding it unconditionally at adopt time is what removes the old ambigui
 reintroducing it.
 
 Disabling the plugin removes nothing it already wrote to your repo -- the config and
-the sync log stay, and so does the `asana-closed-message` workflow adopt copied into `.github/` (delete its two files to stop the closed message) and any `asana-mirror` workflow an earlier adopt copied (the plugin no longer ships it, and a repo that still has the two files can delete them); the skills and the pages that explain them stop.
+the sync log stay, and so does the `asana-closed-message` workflow adopt copied into `.github/` (delete its two files to stop the closed and reopened messages) and any `asana-mirror` workflow an earlier adopt copied (the plugin no longer ships it, and a repo that still has the two files can delete them); the skills and the pages that explain them stop.

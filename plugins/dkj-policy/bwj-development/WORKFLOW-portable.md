@@ -211,9 +211,10 @@ issue without the reach label. Where it cannot read the labels, it lets the call
 The mechanics are in step 2 of [`report-issue`](skills/report-issue/SKILL.md).
 
 Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
-`Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **After that, one
-thing updates the task: the closed message** (Dave, October 5, 2026, #2818). When the issue closes as
-completed, the `asana-closed-message` workflow posts it on the task (step 4). The rest of the CI
+`Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **After that, two
+things update the task: the closed message and the reopened message** (Dave, October 5 and 6, 2026,
+#2818 and #2854). When the issue closes as completed or is reopened, the `asana-closed-message`
+workflow posts the matching one on the task (step 4). The rest of the CI
 automation that used to follow the issue is retired (steps 5 and 6). The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
 
@@ -264,7 +265,8 @@ GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in developmen
 Only the issue name varies. It is posted as the link to the issue, with **created:** in bold. The CI
 mirror's CLOSED form came back as the `asana-closed-message` workflow (#2818,
 [step 4](#4-write-the-go-live-block-then-close-the-github-issue----the-closed-message-carries-it-into-asana));
-its CLOSED WHILE WAITING FOR INFORMATION and REOPENED forms stay retired (October 5, 2026).
+its REOPENED form came back beside it (#2854, October 6, 2026), and its CLOSED WHILE WAITING FOR
+INFORMATION form stays retired (October 5, 2026).
 It is English on every board, the one exception to the rule that what a
 session writes to a colleague follows their language: the requester fixed it word for word
 ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), replacing #2653's
@@ -381,14 +383,19 @@ October 5, 2026 a GitHub Actions workflow (`asana-mirror`, copied into each stor
 the issue: it commented on the linked task when the issue closed or reopened, moved the card through the
 board's numbered sections, ran a daily reconciliation sweep, synced the task's `Prio-Score` into `prio-N`
 labels and posted a placeholder backstop block on the issue. Dave retired all of it that morning, and the
-same day brought back **one part: the closed message** (#2818). It is the `asana-closed-message`
-workflow, copied into each store by `adopt-bwj-development`, and it needs `ASANA_PAT` only. In practice:
+same day brought back **the closed message** (#2818), and the next day **the reopened message** beside it
+(#2854). Both are the `asana-closed-message` workflow, copied into each store by
+`adopt-bwj-development`, and it needs `ASANA_PAT` only. In practice:
 
 - **Closing an issue as completed** posts one comment on the linked task: the automation's header, the
   closed line, and the go-live block's sections under it. Where the issue carries no block, it posts the
   header and the closed line alone, so the requester still hears.
 - **Closing as not planned or as a duplicate posts nothing** (#2765): nothing was built, so there is
-  nothing to test. Reopening posts nothing either.
+  nothing to test.
+- **Reopening an issue** posts one comment on the linked task, whatever it was closed as: the header
+  and the reopened line, *"GitHub issue <owner>/<repo>#<n> **reopened:** this Asana task is back in
+  development."* (#2854, in #2656's fixed form). It moves no card and un-completes nothing, so a
+  requester who already ticked the task off sees the comment and decides.
 - A card stays where `report-issue` put it (`Filed`) unless a person moves it.
 - A priority is set in Asana and, where wanted, typed onto the issue by a person.
 
@@ -919,9 +926,11 @@ matters, more than one market.
 - **A translation, not a copy**, because a mirrored task that is just the issue body helps nobody: a
   non-technical colleague cannot act on a stack trace, and a technical reader already has the issue.
 - **No CI mirror, and one closed message** (Dave, October 5, 2026). The card moves, the sweep, the prio
-  sync, the reopen and label comments and the backstop block were retired together, and keeping the
-  board in step with the tracker is a person's act. The closed message alone came back (#2818): it is the
-  one moment the requester has something to do, and the block it carries is already written by then.
+  sync, the label comments and the backstop block were retired together, and keeping the board in step
+  with the tracker is a person's act. The closed message came back (#2818): it is the one moment the
+  requester has something to do, and the block it carries is already written by then. The reopened
+  message came back beside it (#2854), because without it a requester goes on testing a result that is
+  being reworked.
 - **The block before the close, and not at it**, because the close is the only event a person in this
   chain actually performs, and hanging the composition on it put the paragraph underneath an item that
   had already left every open-issue view. Writing it first turns the close into a **receipt** -- the
