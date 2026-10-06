@@ -55,7 +55,11 @@
     Force a specific preview theme id instead of the remembered or looked-up one.
 
 .PARAMETER Store
-    Store domain, overriding Get-ShopifyStoreDomain for this run.
+    Store domain, overriding the seam for this run. The seam is Get-ShopifyThemeEstateStore, the one the
+    theme-lifecycle scripts read, with Get-ShopifyStoreDomain as the fallback where only that one is
+    answered. Not Get-ShopifyStoreDomain first (#2862): a consumer may leave that one unanswered as a brake
+    on sync-main's bare PR route -- see backup-live-theme.ps1's header (#1965 point 4) -- and pushing a
+    preview must not require lifting it.
 
 .PARAMETER Path
     The storefront path to print preview URLs for, e.g. '/products/some-handle'. Default the home page --
@@ -174,7 +178,9 @@ $seam = & {
         try { . $branchInfoPath } catch { }
     }
     if (Test-FunctionDefined 'Get-ShopifyLiveThemeId') { $answers.LiveThemeId = [string](Get-ShopifyLiveThemeId) }
-    if (Test-FunctionDefined 'Get-ShopifyStoreDomain') { $answers.StoreDomain = [string](Get-ShopifyStoreDomain) }
+    # The estate seam first, the store-domain seam only where the estate one is unanswered (#2862).
+    if (Test-FunctionDefined 'Get-ShopifyThemeEstateStore') { $answers.StoreDomain = ([string](Get-ShopifyThemeEstateStore)).Trim() }
+    if (-not $answers.StoreDomain -and (Test-FunctionDefined 'Get-ShopifyStoreDomain')) { $answers.StoreDomain = [string](Get-ShopifyStoreDomain) }
     if (Test-FunctionDefined 'Get-TrunkBranchName') { $answers.Trunk       = [string](Get-TrunkBranchName) }
     if (Test-FunctionDefined 'Get-BranchInfo') {
         try { $answers.ThemeName = [string]((Get-BranchInfo -Branch $branchName).SafeName) } catch { }
@@ -185,7 +191,7 @@ $seam = & {
 
 $store = if ($Store) { $Store } else { ([string]$seam.StoreDomain).Trim() }
 if (-not $store -or $store -match 'VUL-IN') {
-    Write-Host 'No store domain: Get-ShopifyStoreDomain is unanswered and -Store was not given.' -ForegroundColor Red
+    Write-Host 'No store domain: Get-ShopifyThemeEstateStore is unanswered and -Store was not given.' -ForegroundColor Red
     Write-Host '  Answering the seam is the durable fix; -Store gets you through this run.'
     exit 1
 }

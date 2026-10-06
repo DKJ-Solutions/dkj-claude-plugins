@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Issue #2862, the sibling of #2859: `push-preview.ps1` read its store from `Get-ShopifyStoreDomain` alone,
+the seam a consumer may leave unanswered as a brake on `sync-main` (#1965 point 4). Checked first whether
+that was deliberate: neither the script, its skill page nor #1965 gives a reason, and #1965 split the seam
+off for the backup only. Same repair as #2859: estate seam first, `Get-ShopifyStoreDomain` as a fallback.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `push-preview.ps1` (shopify plugin and root copy, byte-identical): estate seam first, fallback, refusal names the estate seam, `-Store` help updated
+- [x] `skills/push-preview/SKILL.md`: the `-Store` row and the seam table
 
 ### TEST
 
+- [x] `push-preview.tests.ps1`: three seam asserts through the script on a fixture repo on its trunk (estate only, store domain only, neither) -- 133/133 green; two of them fail against the unfixed script
+
 ### DEPLOY: fix/2862-push-preview-estate-store
 
-**Score:**
+`push-preview` now finds its store through `Get-ShopifyThemeEstateStore`, the seam `backup-live-theme`
+and `archive-theme` read. It falls back to `Get-ShopifyStoreDomain` where only that one is answered.
+Until now it read `Get-ShopifyStoreDomain` alone, so a store repo that leaves that seam unanswered on
+purpose, as a brake on `sync-main`, needed `-Store` for every preview push.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store repo that answers `Get-ShopifyThemeEstateStore`, `push-preview` runs without `-Store`. A repo
+that answers only `Get-ShopifyStoreDomain` sees no change.
+
+**Score:** 2
 
 #### Pull Request
 

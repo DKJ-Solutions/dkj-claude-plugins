@@ -83,7 +83,7 @@ which no preview can show, because the preview carries live's values for it.
 | parameter | what it does |
 |---|---|
 | `-ThemeId` | force a specific preview theme id instead of the remembered or looked-up one. Needed when two themes carry the same name -- the lookup refuses to guess between them rather than pushing to the wrong one, which is invisible until somebody opens the preview. |
-| `-Store` | store domain to push to, overriding `Get-ShopifyStoreDomain`. For a repo whose seam is not answered yet, or a one-off against a second store. |
+| `-Store` | store domain to push to, overriding the store seam. For a repo whose seam is not answered yet, or a one-off against a second store. |
 | `-Path` | the storefront path to print preview URLs for, e.g. `/products/some-handle`. Default is the home page -- **a home-page link alone is not enough when the change sits on a product page**, which is the one parameter worth reaching for by habit. |
 | `-PollSeconds` | how often a freshly duplicated preview is counted while it fills (default 30). Each count is a full `theme pull` into a scratch directory, since no CLI JSON output carries a file count. |
 | `-TimeoutMinutes` | how long to wait for that copy before giving up without pushing (default 20). |
@@ -95,7 +95,7 @@ running none at all gets identical behaviour.
 
 | function | required? | what its absence costs |
 |---|---|---|
-| `Get-ShopifyStoreDomain` | **required** | it refuses rather than guessing which store to push to. `-Store` gets you through one run; answering the seam is the durable fix. |
+| `Get-ShopifyThemeEstateStore` | **required**, or `Get-ShopifyStoreDomain` in its place | it refuses rather than guessing which store to push to. `-Store` gets you through one run; answering the seam is the durable fix. It is the estate seam `backup-live-theme` and `archive-theme` read, and the one to answer: `Get-ShopifyStoreDomain` is read only where it is unanswered, because answering that one also opens `sync-main`'s bare pull-request route ([#2862](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2862)). |
 | `Get-ShopifyLiveThemeId` | recommended | this script can then no longer recognise the live theme **by id**, so one of the two refusals is gone -- **and a new preview has no live theme to be copied from**, so it falls back to a plain `theme push --unpublished` and lacks every per-market settings file (#2348; the notice says so). It warns and continues rather than blocking, because a preview push is aimed at an unpublished theme and the guard hook still stands -- unlike `sync-main`, which reads *from* live and therefore cannot work at all without it. |
 | `Get-TrunkBranchName` | optional | the trunk check falls back to `main`. |
 | `Get-BranchInfo` | optional | the theme name falls back to the branch with its slashes replaced by dashes -- which is what `SafeName` answers anyway, so a repo without the seam loses nothing. |
