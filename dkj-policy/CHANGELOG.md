@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**26 / 28 minor entries** <!-- pending-tally -->
+**27 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2843-sweep-parks-waiting-issues · 20261006-074110Z
+
+The `sweep-issues` page now says what to do with a `free` issue that turns out to be waiting on a live
+push, a release, another issue's pull request, an external event or the owner's choice. Set the
+matching `awaiting-*` label and leave a one-line comment saying what it waits on. Until now the page
+held such an issue out with `-SkipIssue`, which lasts one run, so every sweep judged it again.
+`-SkipIssue` remains for a hold-out that is not a wait.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+If you run sweeps, an issue that waits on you is now labelled the first time a sweep meets it, and the
+next sweep skips it instead of judging it again and listing it in its close-out once more.
+
+**Score:** 3
+
+#### Pull Request
+
+sweep-issues parks a waiting issue with its awaiting-* label instead of holding it out with -SkipIssue
+
+Plugins: dkj-policy
+
+[PR #2846](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2846)
+
+---
 
 ### DEPLOY: fix/2842-owner-act-label-length · 20261006-072755Z
 
