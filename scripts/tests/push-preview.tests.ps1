@@ -387,6 +387,39 @@ Assert-True (($osc.Messages -join '') -notmatch '[\x00-\x08\x0B-\x1F\x7F]') 'a c
 $iCStore =$ppSrc.IndexOf('git config "branch.$branch.previewTheme" $id', $iCreate)
 Assert-True (($iCStore -gt $iCreate) -and ($iCStore -lt $iCCall)) 'the create path remembers the id BEFORE it can refuse, so the next run pushes into the same theme'
 
+# --- the store seam, through the script (#2862) ----------------------------------------------------
+# Reachable without a network: on the trunk the script stops right after the store check, so the refusal
+# it prints says whether it got past it. A consumer that leaves Get-ShopifyStoreDomain unanswered as a
+# brake on sync-main (#1965 point 4) answers Get-ShopifyThemeEstateStore instead.
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+$pushScript = Join-Path $PSScriptRoot '..\task\push-preview.ps1'
+$seamTrees = @()
+function Invoke-PushSeam {
+    param([string]$Config)
+    $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("pushseam-$PID-" + [guid]::NewGuid().ToString('N').Substring(0, 6))
+    New-Item -ItemType Directory -Path (Join-Path $dir 'scripts') -Force | Out-Null
+    $script:seamTrees += $dir
+    Invoke-FixtureGitIn $dir init -q -b main
+    Invoke-FixtureGitIn $dir -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m init
+    if ($Config) { [System.IO.File]::WriteAllText((Join-Path $dir 'scripts\repo-config.ps1'), $Config) }
+    $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $pushScript -RootOverride $dir 2>&1 | ForEach-Object { "$_" })
+    return ($out -join "`n")
+}
+try {
+    $out = Invoke-PushSeam -Config 'function Get-ShopifyThemeEstateStore { ''estate.myshopify.com'' }'
+    Assert-True (($out -notmatch 'No store domain') -and ($out -match 'You are on main')) `
+        'store seam: Get-ShopifyThemeEstateStore alone answers the store, so the run reaches the trunk check'
+    $out = Invoke-PushSeam -Config 'function Get-ShopifyStoreDomain { ''domain.myshopify.com'' }'
+    Assert-True (($out -notmatch 'No store domain') -and ($out -match 'You are on main')) `
+        'store seam: Get-ShopifyStoreDomain alone still answers it, so a consumer answering only that one keeps working'
+    $out = Invoke-PushSeam -Config ''
+    Assert-True (($out -match 'No store domain') -and ($out -match 'Get-ShopifyThemeEstateStore')) `
+        'store seam: with neither answered it refuses, naming Get-ShopifyThemeEstateStore'
+} finally {
+    foreach ($d in $seamTrees) { if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue } }
+}
+if ((Write-FixtureGitSummary -Subject 'push-preview.ps1')) { $script:fail++ }
+
 Write-Host ""
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
