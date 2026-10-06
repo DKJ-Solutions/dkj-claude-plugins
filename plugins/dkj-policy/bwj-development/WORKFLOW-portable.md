@@ -399,8 +399,10 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   that development has restarted, and it is made only once that is true** (Dave, October 6, 2026,
   #2856): a follow-up question or a rejection on the task is researched with the issue still closed,
   and the issue is reopened only when that research shows something has to be built. Where it ends in
-  an explanation alone, the answer goes to the requester without a reopen; how it reaches the task is
-  #2860. Measured on smartwatchbanden#393: reopened at the question, the answer was "this is already
+  an explanation alone, nothing is reopened and nothing is posted: the session gives the answer in
+  the terminal, to the person in the session, and that is the whole route (Dave, October 6, 2026,
+  #2860). No comment goes on the closed issue, no relay carries it and no connector posts it on the
+  task. The issue stays closed, so nothing is done with it there. Measured on smartwatchbanden#393: reopened at the question, the answer was "this is already
   how it works", and the task kept a reopened/closed pair for work that never restarted.
 - A card stays where `report-issue` put it (`Filed`) unless a person moves it.
 - A priority is set in Asana and, where wanted, typed onto the issue by a person.
