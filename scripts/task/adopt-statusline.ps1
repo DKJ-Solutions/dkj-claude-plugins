@@ -134,7 +134,15 @@ $settingsReparse = Get-WriteTargetReparsePoint -Path $settingsAbs -Root $repoRoo
 # FORWARD SLASHES IN THE COMMAND STRING, DELIBERATELY. The statusline documentation names this trap by
 # itself: Git Bash treats unquoted backslashes as escape characters, so a Windows-style path reaches
 # the script runner with its separators removed and the command fails with nothing visible to say so.
-$statusLineCommand = 'powershell -NoProfile -ExecutionPolicy Bypass -File "' + $shimRel + '"'
+#
+# ANCHORED ON CLAUDE_PROJECT_DIR, THE WAY EVERY HOOK COMMAND IS (#2848). A bare relative path resolves
+# against whatever cwd the status line runs in, so a cwd below the root misses the shim -- a silent
+# empty status line -- or runs a different file planted at the same relative path. Measured October 6,
+# 2026 with two probe statusLines: Claude Code EXPORTS the variable to the status line's shell but does
+# not substitute it in the command text itself (single-quoted, it arrived literally), so it is the shell
+# -- Git Bash, which Claude Code uses on Windows where installed -- that expands it, exactly as in the
+# hook commands beside it. (CLAUDE_PLUGIN_ROOT is not even exported -- see the header.)
+$statusLineCommand = 'powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PROJECT_DIR}/' + $shimRel + '"'
 
 # THE SHIM. Written once and never rewritten -- see the header for why that is the property the whole
 # design turns on. It carries its own provenance line, so a reader who finds it in a repo can tell

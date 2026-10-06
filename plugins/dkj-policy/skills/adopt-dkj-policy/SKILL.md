@@ -858,6 +858,12 @@ Two files:
 | `.claude/statusline/dkj-progress.ps1` | a small shim that resolves the **currently installed** payload and hands over to it |
 | `.claude/settings.json` | the `statusLine` key, pointing at that shim |
 
+**The key names the shim as `${CLAUDE_PROJECT_DIR}/.claude/statusline/dkj-progress.ps1`**, anchored the
+way your hook commands are (#2848). A relative path resolves against whatever directory the status line
+runs in, so below the root it misses the shim, or runs another file at the same relative path. Measured
+October 6, 2026: Claude Code exports `CLAUDE_PROJECT_DIR` to the status line's shell and does not
+substitute it in the command text, so the shell expands it -- Git Bash on Windows, as for the hooks.
+
 **The shim is the whole design decision, so it is worth one paragraph.** The obvious thing is to write
 today's plugin-cache path straight into your settings. That fails in the worst available way: the cache
 is keyed **by version**, so a machine holds `dkj-policy/5.0.0` through `5.5.0` side by side, and the next
