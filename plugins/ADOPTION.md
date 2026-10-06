@@ -52,6 +52,17 @@ Three things have to be true, and only the first one might not be:
 > installed, so the one repo they were written for is the one repo they cannot speak in. A quiet
 > session start is not an all-clear here.
 
+**On Windows, Git Bash is a requirement of this workflow** (Dave, October 6, 2026,
+[#2850](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2850)). Claude Code runs hook and
+`statusLine` commands through Git Bash when it is installed and through PowerShell otherwise, and every
+command this workflow writes into your settings names its file as `"${CLAUDE_PROJECT_DIR}/..."`. Claude
+Code does not substitute that variable in the command text; it exports it, and the shell expands it
+(measured October 6, 2026). Git Bash does. PowerShell reads `${CLAUDE_PROJECT_DIR}` as one of its own
+variables, which is unset, so without Git Bash the hooks and the status line point at a path that does
+not exist and fail without a word. That last half is inferred rather than measured on a machine without
+Git Bash. The form stays as it is: install [Git for Windows](https://git-scm.com/download/win), which
+ships Git Bash, before you adopt.
+
 ## Installing it yourself
 
 **Skip this section if the plugins arrived through your organisation.** Every command here names the
