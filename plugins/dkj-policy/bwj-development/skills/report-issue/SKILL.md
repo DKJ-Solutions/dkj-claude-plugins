@@ -10,7 +10,7 @@ description: >-
   because the board's sections are the cycle's stages. The GitHub issue always gets created
   even if Asana is unreachable, so the source-of-truth guarantee holds. Nothing here resolves a ticket
   and nothing downstream does either: closing the GitHub issue as completed posts one closed message on
-  the task (the asana-closed-message workflow), the card stays where this skill put it unless a person
+  the task, and reopening it one reopened message (the asana-closed-message workflow), the card stays where this skill put it unless a person
   moves it, and the colleague who filed it ticks it off.
 ---
 
@@ -235,8 +235,9 @@ task's `memberships.project.gid` before the move**, and where this board is not 
    Post it as `html_text`, with the issue name as the link and **created:** in bold:
    `<body>— GitHub automation 🤖` + two newlines + `GitHub issue <a href="<issue URL>"><owner>/<repo>#<n></a> is <strong>created:</strong> this Asana task is now in development.</body>`.
 
-   It is the one fixed form that remains: the CLOSED, CLOSED WHILE WAITING FOR INFORMATION (#2732) and
-   REOPENED forms the CI mirror used to post were retired with it on October 5, 2026
+   It is the one fixed form this skill posts. The CI mirror's CLOSED and REOPENED forms came back as the
+   `asana-closed-message` workflow (#2818, #2854), and its CLOSED WHILE WAITING FOR INFORMATION form
+   (#2732) stays retired since October 5, 2026
    ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656) fixed the wording, superseding
    #2653's). The form is fixed and English on every board, whatever language the card is
    written in. Its header line is what tells a colleague that the account holder did not type it.
@@ -277,8 +278,8 @@ that it is GitHub-only because it is tier 0, so the missing card reads as a deci
 failed mirror. **Do not resolve anything, and do not promise that anything else will.**
 Closing the GitHub issue as completed posts one comment on the task: the `asana-closed-message`
 workflow's closed message, carrying the go-live block (the `golive-block` skill) the shipping session
-left on the issue (#2818). That is all it does. The rest of the retired `asana-mirror` CI (moving the
-card, the reopen comment, the sweeps) did not come back, so the card stays in `Filed` unless a person
+left on the issue (#2818); reopening it posts the reopened message (#2854). That is all it does. The rest
+of the retired `asana-mirror` CI (moving the card, the sweeps) did not come back, so the card stays in `Filed` unless a person
 moves it, and the task stays open until the colleague who filed it ticks it off. Nothing in this chain
 completes a task, and nothing puts a card in `Completed` either.
 

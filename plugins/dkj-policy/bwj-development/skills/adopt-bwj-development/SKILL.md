@@ -21,8 +21,9 @@ description: >-
 An install writes nothing into your repo. This command places what `bwj-development` needs on your
 side, across both chapters: the config functions the skill reads, the labels, and chapter two's
 `SYNC-LOG.md` scaffold (step 7). **In the two store repos it copies one CI workflow into `.github/`**:
-`asana-closed-message`, the closed message on the Asana task (#2818). It is the one part of the retired
-asana-mirror mechanism that came back (Dave, October 5, 2026).
+`asana-closed-message`, the closed message on the Asana task (#2818) and, since #2854, the reopened
+message beside it. They are the two parts of the retired asana-mirror mechanism that came back (Dave,
+October 5 and 6, 2026).
 
 ## 0 -- establish that this repo is a permitted adoption target
 
@@ -80,7 +81,7 @@ the check rather than the verdict -- so the check still runs here. It now return
 and the difference between the two runs is not the guard but the decision behind it, which is on the
 record above.
 
-## 1 -- copy the closed message into `.github/` (the two store repos only)
+## 1 -- copy the closed and reopened messages into `.github/` (the two store repos only)
 
 GitHub only runs a workflow from a repo's own `.github/`, so these are copied, not imported:
 
@@ -96,7 +97,10 @@ message was asked for there.
 
 When an issue closes as completed, the workflow posts one comment on its Asana task: the automation's
 header, the closed line, and the go-live block the shipping session left on the issue. It posts nothing on
-a close as not planned or as a duplicate, never moves a card, and never completes a task. The behaviour is
+a close as not planned or as a duplicate. When an issue is reopened, it posts the header and the reopened
+line (#2854). It never moves a card and never completes a task. A store that already holds the two files
+from before #2854 gets the stop-and-diff above: the difference is the reopen trigger, and taking it is
+the maintainer's call. The behaviour is
 in [`WORKFLOW-portable.md`, step 4](../../WORKFLOW-portable.md#4-write-the-go-live-block-then-close-the-github-issue----the-closed-message-carries-it-into-asana).
 
 **A repo that adopted before October 5, 2026 still has `asana-mirror.yml` and `asana-mirror.ps1`**, which
