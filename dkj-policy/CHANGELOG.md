@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**37 / 39 minor entries** <!-- pending-tally -->
+**38 / 40 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2851-awaiting-release-label · 20261006-120042Z
+
+New parking label `awaiting-release`, purple like the rest of the awaiting-* family. It is for an issue
+whose remaining work may only run inside the next release, in its cut or its live step
+([#2851](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2851)). The claim and sweep routes
+skip it by default and the issue dashboard shows it as parked. `cut-release.ps1` now lists the open
+issues that carry it among its follow-up steps, so parked work comes up at the release it is waiting for.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer who parks "do this at the next release" work no longer has to borrow `awaiting-owner-act`,
+which told the owner to act now. At the cut, the parked issues are listed right after the tag, so nobody
+has to remember them. `adopt-triage-labels` offers one more `gh label create` line.
+
+**Score:** 2
+
+#### Pull Request
+
+A sixth parking label: awaiting-release, listed by the cut
+
+Plugins: dkj-policy
+
+[PR #2867](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2867)
+
+---
 
 ### DEPLOY: docs/2850-git-bash-requirement · 20261006-115154Z
 
