@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#2833: `sweep-issues` step 5 sent the sweep back to step 1 after a visible park, while the constitution
+keeps the checkout on that branch until the owner has looked. Dave chose option A (October 6, 2026,
+on the issue): the sweep ends at a visible park.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Step 5: a visible park ends the sweep on that branch, with the reason and the decision cited
+- [x] "When the sweep ends": a visible park is the second way the loop stops
+- [x] The close-out names the parked branch as checked out, and the numbers still `free`
 
 ### TEST
 
+- [x] No other text in the tree still says "go back to step 1" after a park (grep)
+
 ### DEPLOY: docs/2833-sweep-ends-at-visible-park
 
-**Score:**
+The `sweep-issues` page now ends the sweep when it parks a result that has to be judged by eye. The
+checkout stays on that branch, as the constitution requires, and the close-out names the branch and
+the issues still `free`. Until now the page sent the sweep back to step 1, which meant either leaving
+the branch the owner had to judge or contradicting the page's own end condition.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+If you run sweeps on a repo with visible work, a sweep no longer switches away from a branch you still
+have to look at. It stops there and tells you which issues it left for the next run.
+
+**Score:** 3
 
 #### Pull Request
+
+sweep-issues ends the sweep at a visible park instead of going back to step 1
 

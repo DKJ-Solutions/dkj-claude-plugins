@@ -193,11 +193,23 @@ ARGUE that it renders, which is itself the doubt -- then:
 
 - push whatever preview the repo has (in a Shopify consumer, `push-preview`), hand it over in the form
   that repo's own pages prescribe, and **open no pull request**;
-- park the branch on `origin`, report what you built in two lines, and **go back to step 1**.
+- park the branch on `origin`, and **the sweep ends here, on that branch** -- straight to the
+  close-out below, with no step 7.
 
 A pull request is the question *may this go to the trunk*, and that question is not open while nobody
-has looked. You do not wait for the answer: the branch survives on `origin` with its own document, and
-step 6 picks it up whenever the answer comes.
+has looked. The branch survives on `origin` with its own document, and step 6 picks it up whenever the
+answer comes.
+
+**The checkout stays where it is because the owner judges the working copy.** The constitution says so
+in as many words -- *"the checkout stays on that branch until the owner has looked"* -- and a preview
+served from this checkout is served from that branch. Step 7's `git checkout main` would take away the
+very thing waiting to be judged, and a second issue built in the same checkout would replace it. So a
+visible park ends the sweep in this checkout, even with `free` issues left: those are named in the
+close-out, and the next sweep -- here once the owner has looked, or in another checkout now -- takes
+them. Decided by Dave, October 6, 2026
+([#2833](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2833)), over two alternatives
+that kept the sweep going in a worktree lane: one needs `ship-pr` from a lane verified first, the other
+needs the owner told a lane's path to judge.
 
 **If the gates prove it** -- scripts, tests, docs, config -- the movement runs through without an
 intermediate question: open, merge, fold.
@@ -243,9 +255,10 @@ Back to step 1, in the same turn.
 ### When the sweep ends, and the one close-out it owes
 
 **The loop stops when step 1 has nothing left for this session**: every issue `-Candidates` prints as
-`free` has been shipped, parked, given back, parked on the tracker with its `awaiting-*` label because it
+`free` has been shipped, given back, parked on the tracker with its `awaiting-*` label because it
 waits, or judged and held out (with `-SkipIssue` and a reason) for something that is not a wait.
-Nothing earlier ends it, and one shipped issue in particular does not.
+**Or when step 5 parks a visible result**, which ends it at once, on that branch. Nothing else ends it
+earlier, and one shipped issue in particular does not.
 
 **The close-out `ship-pr` prints is one issue's receipt, not the sweep's**
 ([#2562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2562)). Its last lines read
@@ -257,8 +270,9 @@ one issue, took that template as its own close-out, and left four `free` issues 
 them in one pass; a decided issue comes back here as `free`.
 
 **The sweep closes out once, after the loop**, in the ordinary receipt shape: the PR number of each issue
-it shipped, the branch of each it parked, the number and label of each it parked as waiting, and the
-number of each it held out, with a clause for why.
+it shipped, the branch it parked for the owner's eye (checked out, where it stays), the number and
+label of each it parked as waiting, the number of each it held out, with a clause for why, and -- where
+a visible park ended it early -- the numbers still `free`.
 
 ## Giving an issue back
 
