@@ -57,8 +57,8 @@ on the issue): the sweep ends at a visible park.
 
 The `sweep-issues` page now ends the sweep when it parks a result that has to be judged by eye. The
 checkout stays on that branch, as the constitution requires, and the close-out names the branch and
-the issues still `free`. Until now the page sent the sweep back to step 1, which meant either leaving
-the branch the owner had to judge or contradicting the page's own end condition.
+the issues still `free`. Until now the page sent the sweep back to step 1, which meant leaving the
+branch the owner still had to judge, against the constitution.
 
 **Score:** 3
 

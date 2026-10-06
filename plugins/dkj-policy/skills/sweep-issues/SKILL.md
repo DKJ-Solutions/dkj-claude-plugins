@@ -25,7 +25,8 @@ resolves into the plugin cache, which holds the last released mirror.
 **One sweep per checkout, one issue at a time.** Claim, build, gates, hand over, next. The parallelism is
 the CHECKOUTS, not the issues: a second issue in the same checkout means two branches in one working copy,
 and nothing on the tracker can tell those apart. A second checkout -- another clone, or a
-[worktree-lane](../worktree-lane/SKILL.md) -- is a second tag, on the same machine or another.
+[worktree-lane](../worktree-lane/SKILL.md) -- is a second tag, on the same machine or another. And a
+visible park (step 5) ends the sweep in its checkout, because the owner judges that working copy.
 
 ## Why the assignee cannot be the claim
 
@@ -208,8 +209,8 @@ visible park ends the sweep in this checkout, even with `free` issues left: thos
 close-out, and the next sweep -- here once the owner has looked, or in another checkout now -- takes
 them. Decided by Dave, October 6, 2026
 ([#2833](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2833)), over two alternatives
-that kept the sweep going in a worktree lane: one needs `ship-pr` from a lane verified first, the other
-needs the owner told a lane's path to judge.
+that kept the sweep going in a worktree lane: one first needs `ship-pr` verified to work from a lane,
+the other needs the owner to be told a lane's path before they can judge.
 
 **If the gates prove it** -- scripts, tests, docs, config -- the movement runs through without an
 intermediate question: open, merge, fold.
@@ -257,8 +258,8 @@ Back to step 1, in the same turn.
 **The loop stops when step 1 has nothing left for this session**: every issue `-Candidates` prints as
 `free` has been shipped, given back, parked on the tracker with its `awaiting-*` label because it
 waits, or judged and held out (with `-SkipIssue` and a reason) for something that is not a wait.
-**Or when step 5 parks a visible result**, which ends it at once, on that branch. Nothing else ends it
-earlier, and one shipped issue in particular does not.
+**Or when step 5 parks a visible result**, which ends it at once, on that branch. Nothing else ends it,
+and one shipped issue in particular does not.
 
 **The close-out `ship-pr` prints is one issue's receipt, not the sweep's**
 ([#2562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2562)). Its last lines read
