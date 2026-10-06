@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**36 / 38 minor entries** <!-- pending-tally -->
+**37 / 39 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2850-git-bash-requirement · 20261006-115154Z
+
+The adoption page now states that Git Bash is a requirement of this workflow on Windows
+([`ADOPTION.md`](../plugins/ADOPTION.md#before-you-begin)). Hook and `statusLine` commands name their
+file as `"${CLAUDE_PROJECT_DIR}/..."`, and the shell expands that variable, not Claude Code. Without Git
+Bash, Claude Code falls back to PowerShell, which does not expand it, so the hooks and the status line
+would fail silently. The `adopt-dkj-policy` statusline section points at the same requirement.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A Windows adopter learns before adopting that Git Bash has to be installed. Without it the hooks and the
+status line would fail without a word. Nothing changes on a machine that already has it.
+
+**Score:** 2
+
+#### Pull Request
+
+Git Bash is a stated requirement on Windows
+
+Plugins: dkj-policy
+
+[PR #2866](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2866)
+
+---
 
 ### DEPLOY: docs/2860-explain-only-answer-terminal · 20261006-114223Z
 
