@@ -2,7 +2,61 @@
 
 ## [Unreleased]
 
-**22 / 24 minor entries** <!-- pending-tally -->
+**24 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2836-claim-tag-checkout · 20261005-142837Z
+
+A sweep's claim tag now names the checkout as well as the machine and the account:
+`machine:checkout/account`, where the checkout is the first 8 hex digits of a hash of its root path.
+Two sweeps on one machine under one account, in two checkouts or worktree lanes, now claim apart, and
+`-Candidates` no longer reads the other's claim as `mine`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+If you run more than one sweep on a machine, each one now claims under its own tag, so it can no longer
+pick up and rebuild an issue the other sweep is still working on. A claim written by an older version
+names no checkout and shows as `held`, with a note that it belongs to this machine and account. Read its
+branch, and run `claim-issue <n> -Tag -TakeOver` if the work is yours.
+
+**Score:** 3
+
+#### Pull Request
+
+A claim tag names the checkout, so two sweeps on one machine no longer read each other's claim as mine
+
+Plugins: dkj-policy
+
+[PR #2840](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2840)
+
+---
+
+### DEPLOY: fix/2829-sync-branch-name-pr-heads · 20261005-141821Z
+
+`sync-main.ps1` now treats a name as taken when it is already the head of a pull request in any state, as
+well as when a ref for it exists. A second sync on the same day therefore gets `-2` even after the first
+one's PR has merged and its branch is deleted. Where `gh` cannot answer, the name is chosen from refs
+alone, as before, and the run says so.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A Shopify repo that syncs twice in one day no longer gets a branch that `ship-pr` refuses with "PR #...
+is already merged", so the hand rename to `-2` is no longer needed.
+
+**Score:** 2
+
+#### Pull Request
+
+sync-main: skip a same-day name that is already a PR's head
+
+Plugins: dkj-subagents-shopify
+
+[PR #2835](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2835)
+
+---
 
 ### DEPLOY: feat/2830-golive-language-seam · 20261005-140547Z
 

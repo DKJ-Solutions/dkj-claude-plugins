@@ -982,6 +982,29 @@ sync-main.tests.ps1 goes from 20 to 32 asserts. One earns its place twice: the
     Assert-True $threw 'refs: a whitespace-only prefix is refused, because neither silent reading of it is safe'
 
     Write-Host ''
+    Write-Host 'Select-SyncBranchName -- the first free name for the day' -ForegroundColor Cyan
+
+    Assert-Equal 'sync/live-2026-10-05' (Select-SyncBranchName -Prefix 'sync/live-' -Stamp '2026-10-05' -IsTaken { $false }) `
+        'name: a free day gets the bare stamp'
+
+    # THE MEASURED SHAPE (inbound #2829): the day's first name has no ref left anywhere, but it is the head
+    # of a merged PR. The probe is what says so, so a probe that answers true for it must move the name on.
+    $mergedHeads = @('sync/live-2026-10-05')
+    Assert-Equal 'sync/live-2026-10-05-2' (Select-SyncBranchName -Prefix 'sync/live-' -Stamp '2026-10-05' -IsTaken { param($n) $mergedHeads -contains $n }) `
+        'name/pr-head: a name that is already a PR head gets -2, even with no ref standing'
+
+    $asked = New-Object System.Collections.ArrayList
+    $third = Select-SyncBranchName -Prefix 'sync/live-' -Stamp '2026-10-05' -IsTaken {
+        param($n) [void]$asked.Add($n); @('sync/live-2026-10-05', 'sync/live-2026-10-05-2') -contains $n }
+    Assert-Equal 'sync/live-2026-10-05-3' $third 'name: the suffix keeps counting past every taken name'
+    Assert-Equal 3 $asked.Count 'name: and the probe is asked once per name tried, no more -- each ask may be a network call'
+
+    Assert-True ($null -eq (Select-SyncBranchName -Prefix 'sync/live-' -Stamp '2026-10-05' -IsTaken { $true })) `
+        'name/limit: a day on which every name is taken returns nothing, so the caller refuses rather than guessing'
+    Assert-Equal 'sync/live-2026-10-05-20' (Select-SyncBranchName -Prefix 'sync/live-' -Stamp '2026-10-05' -IsTaken { param($n) $n -ne 'sync/live-2026-10-05-20' }) `
+        'name/limit: -20 is still tried, which is where sync-main has always stopped'
+
+    Write-Host ''
     Write-Host 'Get-SyncPredecessorReport -- does this run supersede the branch already standing?' -ForegroundColor Cyan
 
     $predA = [pscustomobject]@{ Branch = 'sync/live-2026-08-21'; Paths = @('sections/a.liquid', 'sections/b.liquid') }

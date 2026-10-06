@@ -1610,12 +1610,120 @@ function Format-PrerequisiteReport {
 # AND THE WORD 'LANE' IS DELIBERATELY NOT USED. It already means a git worktree in this workflow
 # (worktree-lane), and a sweep's tag is not a worktree: one machine sweeping serially has one checkout
 # and many tags over time. The prompt this replaces called it a lane, which is the collision.
+#
+# THE MACHINE HALF NAMES THE CHECKOUT TOO (#2836, #2838): 'hostname:checkout/account'. Measured
+# October 5, 2026, twice in one afternoon: two sweeps ran on one machine under one account, in two
+# checkouts, and wrote the identical tag 'DAVE/davekokbwj'. Each read the other's claim as 'mine', and
+# in one consumer both built the same issue -- one shipped it while the other was running its gates.
+# 'mine' is what the resume step turns on, so a tag two sessions share makes the race unlosable rather
+# than settled. The checkout is the identity that survives exactly as long as the work does: a resume
+# hours later runs in a NEW session in the SAME checkout, which is why it is not a per-session nonce.
+
+function Get-CheckoutClaimId {
+    <#
+        .SYNOPSIS
+            A short, stable id for one checkout -- the first 8 hex digits of the SHA-256 of its root
+            path, lower-cased with forward slashes.
+
+        .DESCRIPTION
+            A HASH AND NOT THE PATH, because the tag is written into an issue comment on a tracker that
+            may be public, and a checkout path carries the user's name. The id only has to tell apart
+            the handful of checkouts one person keeps on one machine; 32 bits does that.
+
+            NORMALISED BEFORE HASHING, so one checkout reached as 'C:\x\' and 'c:/x' is one id: case is
+            folded (Windows paths are case-insensitive) and a trailing separator dropped. A worktree is
+            its own checkout and gets its own id -- a lane is exactly where a parallel session runs.
+            Folding case means two checkouts differing only by case on a case-sensitive filesystem share
+            an id; that is accepted, and an alias of one checkout (a junction, an 8.3 name) reads as two.
+
+        .PARAMETER Path
+            The checkout's root. '' or $null gives ''.
+
+        .OUTPUTS
+            Eight lower-case hex digits, or '' when no path was given.
+    #>
+    param([AllowNull()][string]$Path)
+
+    if (-not $Path -or -not $Path.Trim()) { return '' }
+    $normal = $Path.Trim().Replace('\', '/').TrimEnd('/').ToLowerInvariant()
+    if (-not $normal) { return '' }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $bytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($normal)) } finally { $sha.Dispose() }
+    (($bytes[0..3] | ForEach-Object { $_.ToString('x2') }) -join '')
+}
+
+function Get-ClaimTagRelation {
+    <#
+        .SYNOPSIS
+            How another tag relates to this session's: the same, another checkout of this machine and
+            account, an older tag of this machine and account that names no checkout, or somebody else.
+
+        .DESCRIPTION
+            ONLY FOR THE WORDS PRINTED BESIDE A 'held' VERDICT, NEVER FOR THE VERDICT ITSELF. Equality of
+            the whole tag stays the one test of 'mine' everywhere in this lib; this tells the reader WHY
+            an issue is held, because "held by DAVE:1a2b3c4d/x" looks like your own claim to the person
+            whose machine DAVE is (#2836).
+
+            'legacy' IS THE TRANSITION. A marker written before the checkout half existed names this
+            machine and account and no checkout, so it may be this checkout's own claim or a parallel
+            one's -- it is not 'mine' (that ambiguity is the defect), and the reader is told that
+            -TakeOver resumes it when the branch is theirs.
+
+        .OUTPUTS
+            'same' | 'other-checkout' | 'legacy' | 'other'.
+    #>
+    param(
+        [string]$Tag = '',
+        [string]$Other = ''
+    )
+
+    $own = $Tag.Trim()
+    $them = $Other.Trim()
+    if ($own -and $own -ieq $them) { return 'same' }
+
+    $split = {
+        param([string]$Value)
+        $slash = $Value.LastIndexOf('/')
+        if ($slash -lt 0) { return $null }
+        $machinePart = $Value.Substring(0, $slash)
+        $colon = $machinePart.IndexOf(':')
+        [pscustomobject]@{
+            Machine  = $(if ($colon -ge 0) { $machinePart.Substring(0, $colon) } else { $machinePart })
+            Checkout = $(if ($colon -ge 0) { $machinePart.Substring($colon + 1) } else { '' })
+            Account  = $Value.Substring($slash + 1)
+        }
+    }
+    $a = & $split $own
+    $b = & $split $them
+    if ($null -eq $a -or $null -eq $b) { return 'other' }
+    if ($a.Machine -ine $b.Machine -or $a.Account -ine $b.Account) { return 'other' }
+    if (-not $b.Checkout) { return 'legacy' }
+    return 'other-checkout'
+}
+
+function Format-ClaimHolderNote {
+    <#
+        .SYNOPSIS
+            The clause printed after a holder's tag when that tag is this machine's and account's but
+            not this checkout's -- '' otherwise (Get-ClaimTagRelation).
+    #>
+    param(
+        [string]$Tag = '',
+        [string]$Holder = ''
+    )
+
+    switch (Get-ClaimTagRelation -Tag $Tag -Other $Holder) {
+        'other-checkout' { ' -- another checkout on this machine, under this account: a parallel session, not yours to resume' }
+        'legacy'         { ' -- an older tag of this machine and account that names no checkout: read its branch; if the work is yours, -TakeOver resumes it' }
+        default          { '' }
+    }
+}
 
 function Get-ClaimTag {
     <#
         .SYNOPSIS
-            The tag this session claims under -- 'hostname/account' -- or an incomplete record saying
-            which half is missing.
+            The tag this session claims under -- 'hostname:checkout/account' -- or an incomplete record
+            saying which half is missing.
 
         .DESCRIPTION
             BOTH HALVES OR NOTHING, and the refusal that follows from an incomplete tag is the point.
@@ -1634,41 +1742,58 @@ function Get-ClaimTag {
             the environment in whatever case that machine reports, and normalising it to one case would
             make a tag written by an older session unrecognisable to a newer one.
 
+            THE CHECKOUT RIDES IN THE MACHINE HALF, after a ':' (#2836). Two checkouts on one machine
+            under one account wrote one tag and each read the other's claim as its own; the id
+            (Get-CheckoutClaimId) is what tells them apart. It sits BEFORE the '/' so that every reader
+            of the account half -- the author check (#2399), -TakeOver, -ReleaseAll -- is untouched. It
+            is not a required half: without a checkout the tag is the older 'machine/account', which a
+            caller outside a repo still gets rather than a refusal.
+
         .PARAMETER MachineName
             The machine name -- $env:COMPUTERNAME on Windows, `hostname` elsewhere. '' when unknown.
 
         .PARAMETER Account
             The account gh acts as (Get-ActiveGhAccount). '' when gh is absent or logged out.
 
+        .PARAMETER Checkout
+            The checkout's root path (hashed by Get-CheckoutClaimId, never written as is). '' for none.
+
         .OUTPUTS
-            Tag         -- 'machine/account', or '' when either half is missing.
+            Tag         -- 'machine:checkout/account' ('machine/account' without a checkout), or ''
+                           when the machine or the account is missing.
             MachineName -- as read, trimmed.
+            CheckoutId  -- the checkout's id, or ''.
             Account     -- as read, trimmed.
             Complete    -- $true when both halves are present.
             Missing     -- 'none' | 'machine' | 'account' | 'both'.
     #>
     param(
         [string]$MachineName = '',
-        [string]$Account = ''
+        [string]$Account = '',
+        [string]$Checkout = ''
     )
 
     $machine = if ($MachineName) { $MachineName.Trim() } else { '' }
     $acct    = if ($Account) { $Account.Trim() } else { '' }
 
-    # A half carrying the separator would split into a tag that parses back as something else, so it is
+    # A half carrying a separator would split into a tag that parses back as something else, so it is
     # treated as unusable rather than silently rewritten -- the same argument as the missing halves
-    # above, one character further in.
-    if ($machine -match '/') { $machine = '' }
-    if ($acct -match '/')    { $acct = '' }
+    # above, one character further in. ':' joined '/' when the checkout id moved into the machine half.
+    if ($machine -match '[/:]') { $machine = '' }
+    if ($acct -match '/')       { $acct = '' }
 
     $missing = if (-not $machine -and -not $acct) { 'both' }
                elseif (-not $machine) { 'machine' }
                elseif (-not $acct) { 'account' }
                else { 'none' }
 
+    $checkoutId = Get-CheckoutClaimId -Path $Checkout
+    $machineHalf = if ($checkoutId) { "${machine}:$checkoutId" } else { $machine }
+
     [pscustomobject]@{
-        Tag         = if ($missing -eq 'none') { "$machine/$acct" } else { '' }
+        Tag         = if ($missing -eq 'none') { "$machineHalf/$acct" } else { '' }
         MachineName = $machine
+        CheckoutId  = $checkoutId
         Account     = $acct
         Complete    = ($missing -eq 'none')
         Missing     = $missing
@@ -2635,7 +2760,7 @@ function Get-SweepCandidates {
             $verdictRecord = Get-TagClaimVerdict -Tag $Tag -State 'OPEN' -Records $records
             switch ($verdictRecord.Code) {
                 'already-yours' { $verdict = 'mine';  $reason = 'this tag claimed it' }
-                'held'          { $verdict = 'held';  $holder = @($verdictRecord.Holders)[0]; $reason = "claimed by $holder" }
+                'held'          { $verdict = 'held';  $holder = @($verdictRecord.Holders)[0]; $reason = "claimed by $holder$(Format-ClaimHolderNote -Tag $Tag -Holder $holder)" }
                 'no-tag'        { $verdict = 'free';  $reason = '' }
                 default         { $verdict = 'free';  $reason = '' }
             }

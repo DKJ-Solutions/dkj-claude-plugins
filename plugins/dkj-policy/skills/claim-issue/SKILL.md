@@ -80,7 +80,8 @@ So there is a second mode, and **the default one is untouched by it** -- without
 behaves exactly as the rest of this page says, refusals and all. The procedure that uses these
 parameters is the [`sweep-issues`](../sweep-issues/SKILL.md) skill; what they do is:
 
-- **`-Tag`** -- claim by TAG instead: `machine/account`, written as a marker comment, with the assignee
+- **`-Tag`** -- claim by TAG instead: `machine:checkout/account` (the checkout a short hash of its root,
+  [#2836](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2836)), written as a marker comment, with the assignee
   beside it as the tracker's visible signal rather than as the claim. It reads the marker back and
   settles a two-machine race on the tracker's own timestamps -- **earliest marker wins**, and the
   losing session releases its own and stops. **A marker counts only where the comment's author is the

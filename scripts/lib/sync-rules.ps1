@@ -977,7 +977,9 @@ function Get-SyncBranchNamesFromRefs {
         WHY ls-remote AND NOT THE LOCAL refs/remotes/origin/* THE NAMING LOOP READS. A tracking ref is
         only as fresh as the last fetch, and a predecessor pushed from another machine has no local ref
         at all. The naming loop can afford that -- a name collision it misses is caught by git on the
-        push -- but a predecessor it misses is exactly the branch that stacks.
+        push, and a name whose PR already merged is caught by its own 'gh pr list --head' probe
+        (inbound #2829, see Select-SyncBranchName) -- but a predecessor it misses is exactly the branch
+        that stacks.
 
         WHAT IS DROPPED, and each of them appears in real output: blank lines, git's warning and progress
         lines (no tab, so no ref), and '^{}' peeled refs. A line is read as '<sha> TAB <ref>' because
@@ -1089,4 +1091,56 @@ function Get-SyncPredecessorReport {
     }
 
     return @($out)
+}
+
+function Select-SyncBranchName {
+    <#
+    .SYNOPSIS
+        The first free sync branch name for a day: '<prefix><stamp>', then '-2', '-3' ... up to '-<Limit>'.
+
+    .DESCRIPTION
+        WHAT "FREE" MEANS IS THE CALLER'S PROBE, and it has to be more than "no ref exists" (inbound #2829,
+        October 5, 2026). Measured in a consumer: the day's first sync merged as a PR, the repo's
+        delete_branch_on_merge removed the remote branch, 'git fetch --prune' dropped the tracking ref and
+        prune-merged the local one -- so a second same-day run found no ref at all, reused the name, and
+        ship-pr refused it as "PR #351 ... is already merged". That is the naming counterpart of #1190,
+        which taught the predecessor guard to read a reused name by its tip; the namer still decided by
+        whether a ref exists. sync-main's probe therefore also asks whether the name is the head of a PR in
+        any state.
+
+        A PROBE RATHER THAN A SET, so a run asks the network only for the names it actually tries -- one
+        'gh' call on an ordinary day, two on a second same-day run -- instead of listing every PR up front.
+
+        $null PAST THE LIMIT, and the caller refuses: twenty sync branches in one day is a loop, not a
+        workload, and a name it could not settle is never guessed.
+
+        PURE apart from the probe it is handed. The caller runs git and gh.
+
+    .PARAMETER Prefix
+        The sync branch prefix, as the seam answered it.
+
+    .PARAMETER Stamp
+        The day, 'yyyy-MM-dd'.
+
+    .PARAMETER IsTaken
+        Called with one candidate name; a true answer means "not free, try the next suffix".
+
+    .PARAMETER Limit
+        The highest suffix tried. 20 is the number sync-main has always stopped at.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$Prefix,
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$Stamp,
+        [Parameter(Mandatory = $true)][scriptblock]$IsTaken,
+        [int]$Limit = 20
+    )
+
+    $name = "$Prefix$Stamp"
+    $n = 1
+    while (& $IsTaken $name) {
+        $n++
+        if ($n -gt $Limit) { return $null }
+        $name = "$Prefix$Stamp-$n"
+    }
+    return $name
 }

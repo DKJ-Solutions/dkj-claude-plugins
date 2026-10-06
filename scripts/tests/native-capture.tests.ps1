@@ -1976,7 +1976,11 @@ foreach ($af in $auditFiles) {
 # record-suite-durations.ps1 (net zero), and Read-RunShardSeconds adds $call (`gh run view --json jobs`),
 # -Utf8 because the JSON is parsed. It asks Test-NativeExitMeasured, and an unread jobs list THROWS:
 # measure-suites prints nothing rather than a set with a shard missing, which would read as data.
-Assert-Equal 87 $boundedTotal 'the parser still counts 87 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 87 -> 88 (#2829): sync-main.ps1's namer probe, $prHead (`gh pr list --head <name> --state all`), at the
+# shared network bound. Named in Get-NativeExitLabel, and anything but a measured 0 -- an unmeasured code
+# included, since $null satisfies -ne 0 -- drops the probe and names the branch by refs alone, as before
+# the probe existed; the run says so in DarkGray. A miss costs a refusal at ship-pr, never a wrong merge.
+Assert-Equal 88 $boundedTotal 'the parser still counts 88 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
