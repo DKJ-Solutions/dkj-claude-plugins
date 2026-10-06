@@ -395,7 +395,13 @@ same day brought back **the closed message** (#2818), and the next day **the reo
 - **Reopening an issue** posts one comment on the linked task, whatever it was closed as: the header
   and the reopened line, *"GitHub issue <owner>/<repo>#<n> **reopened:** this Asana task is back in
   development."* (#2854, in #2656's fixed form). It moves no card and un-completes nothing, so a
-  requester who already ticked the task off sees the comment and decides.
+  requester who already ticked the task off sees the comment and decides. **So a reopen is a claim
+  that development has restarted, and it is made only once that is true** (Dave, October 6, 2026,
+  #2856): a follow-up question or a rejection on the task is researched with the issue still closed,
+  and the issue is reopened only when that research shows something has to be built. Where it ends in
+  an explanation alone, the answer goes to the requester without a reopen; how it reaches the task is
+  #2860. Measured on smartwatchbanden#393: reopened at the question, the answer was "this is already
+  how it works", and the task kept a reopened/closed pair for work that never restarted.
 - A card stays where `report-issue` put it (`Filed`) unless a person moves it.
 - A priority is set in Asana and, where wanted, typed onto the issue by a person.
 
@@ -554,8 +560,10 @@ the block's position and the issue.
    the same reason a visible result stops before its pull request. So the block asks for the look
    instead of assuming it.
 3. **A rejection asks for two things, and starts a new round.** *What* is not right yet **and** *what*
-   exactly should change -- the first alone hands the next round another guess. The issue is then
-   reopened and the cycle starts again with a new result to look at.
+   exactly should change -- the first alone hands the next round another guess. The rejection is
+   researched with the issue still closed, and the issue is reopened only once that shows something has
+   to be built (#2856, under *Reopening an issue* above); then the cycle starts again with a new result
+   to look at.
 4. **The issue and the task close at different moments.** The issue carries the development work, which
    is finished once the block is on the task; the task carries the colleague's question, which stays
    open until they have answered it. Holding the issue open until then ties the tracker to the calendar
