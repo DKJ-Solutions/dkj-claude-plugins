@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Record the owner's decision on #2860 (October 6, 2026) in `bwj-development/WORKFLOW-portable.md`:
+none of the three proposed routes. An explain-only answer to an Asana follow-up is given in the
+terminal, to the person in the session, and nothing is posted anywhere.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace "how it reaches the task is #2860" under *Reopening an issue* with the decision.
 
 ### TEST
 
+- [x] Docs-only; the ship gate covers links and integrity.
+
 ### DEPLOY: docs/2860-explain-only-answer-terminal
 
-**Score:**
+The `bwj-development` workflow page now says what happens to a follow-up answer that turns out to be
+an explanation alone. It is given in the terminal, to the person in the session, and nothing more: no
+comment on the closed issue, no relay and no connector post on the Asana task. The issue stays closed,
+so nothing is done with it there. Until now the page left this open, pointing at #2860.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store repo, a session answering a colleague's follow-up question with "this is already how it
+works" no longer has to guess where that answer goes. It stays in the terminal; the session posts
+nothing to GitHub or Asana.
+
+**Score:** 1
 
 #### Pull Request
 
