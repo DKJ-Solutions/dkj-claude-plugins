@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**34 / 36 minor entries** <!-- pending-tally -->
+**35 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2862-push-preview-estate-store · 20261006-103729Z
+
+`push-preview` now finds its store through `Get-ShopifyThemeEstateStore`, the seam `backup-live-theme`
+and `archive-theme` read. It falls back to `Get-ShopifyStoreDomain` where only that one is answered.
+Until now it read `Get-ShopifyStoreDomain` alone, so a store repo that leaves that seam unanswered on
+purpose, as a brake on `sync-main`, needed `-Store` for every preview push.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a store repo that answers `Get-ShopifyThemeEstateStore`, `push-preview` runs without `-Store`. A repo
+that answers only `Get-ShopifyStoreDomain` sees no change.
+
+**Score:** 2
+
+#### Pull Request
+
+push-preview reads Get-ShopifyThemeEstateStore first, like the theme lifecycle
+
+Plugins: dkj-subagents-shopify
+
+[PR #2864](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2864)
+
+---
 
 ### DEPLOY: fix/2859-archive-theme-estate-store · 20261006-102314Z
 
