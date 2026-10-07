@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**10 / 11 minor entries** <!-- pending-tally -->
+**10 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2795-refresh-suite-durations · 20261007-152947Z
+
+`scripts/tests/suite-durations.json` is regenerated from three CI runs made after #2794, so the test gate
+packs its shards on today's costs. Two suites dropped sharply in #2794: `fix-mojibake.tests.ps1` went from
+214.8 s to 22.6 s and `bootstrap-drift.tests.ps1` from 247.8 s to 75.1 s. The gate was still packing both
+as if they were among the heaviest. The file now lists 156 suites, two more than before, because two
+suites were added since the last refresh.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- shard packing for this repo's own CI; nothing a consumer runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Refresh suite-durations.json after the #2794 speedups
+
+[PR #2898](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2898)
+
+---
 
 ### DEPLOY: feat/2896-awaiting-action-labels · 20261007-143057Z
 
