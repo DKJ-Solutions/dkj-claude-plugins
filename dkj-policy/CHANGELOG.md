@@ -2,7 +2,44 @@
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2881-guard-store-execute · 20261007-132534Z
+
+`guard-live-theme` now holds Admin GraphQL theme writes made through `shopify store execute`
+([#2881](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2881)). Until now it matched only
+`shopify theme`, so `themePublish` or `themeFilesUpsert` through the API passed it. The new rule 4 reads
+the command and any `--query-file` or `--variable-file` it names, and applies the existing rules:
+- `themePublish`, or a `role: MAIN`, is always refused.
+- `themeDelete` follows the delete rule.
+- Any other theme write aimed at the live id is refused unless the live-push marker is on the command.
+  A repo that has not named its live id gets every theme write refused.
+
+The rule does not wait for `--allow-mutations`, because the CLI also takes that flag from the
+environment. A file the guard cannot read or place is refused, and so is a `$(...)`. Every rule also
+matches the CLI's colon form (`theme:publish`, `store:execute`), which none did before. Reads, and
+mutations that touch no theme, pass as before.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A Shopify store repo's live theme is now guarded against the Admin API route as well as the theme
+CLI. A session can no longer publish a theme, or overwrite live theme files, by putting the same
+change in a GraphQL mutation. A store repo with no live id configured sees its Admin API theme writes
+refused until it answers `Get-ShopifyLiveThemeId`.
+
+**Score:** 3
+
+#### Pull Request
+
+guard-live-theme refuses Admin GraphQL theme writes through 'shopify store execute'
+
+Plugins: dkj-subagents-shopify
+
+[PR #2891](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2891)
+
+---
 
 ### DEPLOY: feat/2880-shop-connector-store-check · 20261007-131540Z
 

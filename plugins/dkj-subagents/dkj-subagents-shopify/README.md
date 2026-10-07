@@ -43,6 +43,7 @@ insufficient here rather than merely weak:
 | 1 | a theme **publish** — always | no |
 | 2 | a theme **delete** — always, unless the repo opts into a delete marker; the live theme never | only to opt in |
 | 3 | a theme **push** aimed at live — unless authorised | the id half does |
+| 4 | the same three through the Admin API: `shopify store execute` (or `store:execute`) running `themePublish` or a `role: MAIN` (as 1), `themeDelete` (as 2), or another theme write aimed at live (as 3), read from the command and any `--query-file`/`--variable-file` it names, whether or not `--allow-mutations` is on the line. With no live id configured, every theme write counts as aimed at live; a file it cannot read or place, and a `$(...)`, are refused | the id half does |
 
 Rule 1 has **no escape hatch at all**, and rule 2 has none by default, and that is deliberate:
 publishing makes a theme the customer-facing one and a delete cannot be undone, so both stay the store
@@ -50,6 +51,8 @@ owner's own keystroke rather than something a marker in a command line can stand
 exception is opt-in: a repo that answers `Get-ShopifyThemeDeleteMarker` lets a session delete a
 preview theme carrying that exact marker, and the live theme stays refused even then
 ([below](#letting-a-session-clear-away-its-own-spent-preview-themes)).
+
+**Every rule matches the CLI's colon form too** (`theme:publish`, `theme:push`, `theme:delete`, `store:execute`): the CLI accepts both spellings, and until #2881 the guard knew only the spaced one.
 
 **Untouched:** every form of `theme pull`, including `--live` — reading is how a pre-task sync works —
 pushes to an unpublished preview theme, and every other command.
@@ -335,7 +338,7 @@ So the matching asks **where** the words sit rather than whether they occur:
   or inside a wrapper is still caught.
 
 **Every one of those exemptions has a counter-case in the suite** (`scripts/tests/guard-live-theme.tests.ps1`
-in the source repo, 102 asserts), because an exemption without one is a hole with a comment on it.
+in the source repo, 141 asserts), because an exemption without one is a hole with a comment on it.
 
 ### The two PowerShell halves arrived late, and the asymmetry was not a decision
 
