@@ -91,7 +91,7 @@ shopify auth logout
 shopify theme list --store <store>.myshopify.com   # triggers a fresh login
 ```
 
-**The Shopify connector (MCP)** provides Admin API access (theme `updatedAt`, metafields, metaobjects) that the `shopify` CLI does not offer. It can be unstable and its token can expire mid-session — reconnect via `/mcp`. This is separate from the `shopify` CLI auth. The MCP server configuration itself is the systems administrator's domain; its *use* for theme/Admin data belongs to the Configuration Manager (and the specialists who process that data).
+**The Shopify connector (MCP)** provides Admin API access (theme `updatedAt`, metafields, metaobjects) that the `shopify` CLI does not offer. It can be unstable and its token can expire mid-session — reconnect via `/mcp`. It is bound to **one store per account**, not per repo, so before relying on it run the `check-shop-connector` skill: it compares the connector's store with this repo's and names the remedy on a mismatch. This is separate from the `shopify` CLI auth. The MCP server configuration itself is the systems administrator's domain; its *use* for theme/Admin data belongs to the Configuration Manager (and the specialists who process that data).
 
 ## The Configuration Manager is lazy
 

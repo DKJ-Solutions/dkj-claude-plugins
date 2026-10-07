@@ -27,6 +27,11 @@
     and nothing else (the duplicate-guard finding stays independent), a falsy one is not a declaration
     and changes nothing, and absence -- every store repo -- is unaffected.
 
+    THE STORE FINDING (#2880). The check-shop-connector skill compares the claude.ai connector's store
+    with the one this repo expects, so a repo naming no store is reported. Pinned here: the estate seam
+    and its Get-ShopifyStoreDomain fallback both count, a VUL-IN placeholder does not, and a no-store
+    repo and a repo with no config stay silent.
+
     Every case runs against a scratch fixture tree via CLAUDE_PROJECT_DIR. Nothing here touches the repo
     it runs in.
 
@@ -53,8 +58,11 @@ function Assert-True {
 function New-FixtureRepo {
     <# A consuming repo. $LiveId $null AND no other config flag means no repo-config.ps1 at all; a string
        is the seam's answer. -NoStore appends Get-ShopifyRepoHasNoStore returning $true; -ConfigExtra
-       appends an arbitrary line (e.g. an explicit falsy no-store answer). #>
-    param([string]$Label, $LiveId, [switch]$WithOwnGuard, [switch]$NoStore, [string]$ConfigExtra)
+       appends an arbitrary line (e.g. an explicit falsy no-store answer). -Store answers
+       Get-ShopifyThemeEstateStore wherever a config is written at all; it has a default so the cases
+       about the id and the duplicate guard stay about those, and '' leaves the store unanswered (#2880). #>
+    param([string]$Label, $LiveId, [switch]$WithOwnGuard, [switch]$NoStore, [string]$ConfigExtra,
+          [string]$Store = 'example-store.myshopify.com')
     $root = Join-Path $Fixture "repo-$Label"
     if (Test-Path -LiteralPath $root) { Remove-Item -Recurse -Force -LiteralPath $root }
     New-Item -ItemType Directory -Force -Path (Join-Path $root '.claude') | Out-Null
@@ -62,6 +70,7 @@ function New-FixtureRepo {
     if ($null -ne $LiveId) { $configLines += "function Get-ShopifyLiveThemeId { '$LiveId' }" }
     if ($NoStore)          { $configLines += 'function Get-ShopifyRepoHasNoStore { $true }' }
     if ($ConfigExtra)      { $configLines += $ConfigExtra }
+    if ($configLines.Count -gt 0 -and $Store) { $configLines += "function Get-ShopifyThemeEstateStore { '$Store' }" }
     if ($configLines.Count -gt 0) {
         New-Item -ItemType Directory -Force -Path (Join-Path $root 'scripts') | Out-Null
         [IO.File]::WriteAllText((Join-Path $root 'scripts\repo-config.ps1'),
@@ -153,6 +162,29 @@ try {
     Assert-True ([string]::IsNullOrWhiteSpace($r.Out)) 'single, answered: silent in the ordinary case'
     $r = Invoke-Check -Root (New-FixtureRepo -Label 'single-unanswered' -LiveId 'VUL-IN')
     Assert-True ($r.Out -notmatch 'a second live-theme guard') 'single, unanswered: no convergence advice either'
+
+    # --- the store finding: nothing says which store this repo is (#2880) ---------------------------
+    # The connector check needs an expected store to compare against. A hook cannot ask the connector,
+    # so the one thing it can report is that the repo names no store at all.
+    Write-Host "no store named -- reported, in the resolution order push-preview uses" -ForegroundColor Cyan
+    $r = Invoke-Check -Root (New-FixtureRepo -Label 'store-none' -LiveId '190793613653' -Store '')
+    Assert-True ($r.Code -eq 0) 'store unanswered: exit 0 -- a session check never blocks'
+    Assert-True ($r.Out -match '\[ERROR\]') 'store unanswered: reported at the level the hook forwards'
+    Assert-True ($r.Out -match 'Get-ShopifyThemeEstateStore') 'store unanswered: naming the seam to answer'
+    Assert-True ($r.Out -match 'check-shop-connector') 'store unanswered: and the skill that reads it'
+    $r = Invoke-Check -Root (New-FixtureRepo -Label 'store-domain-only' -LiveId '190793613653' -Store '' -ConfigExtra "function Get-ShopifyStoreDomain { 'example-store.myshopify.com' }")
+    Assert-True ([string]::IsNullOrWhiteSpace($r.Out)) 'Get-ShopifyStoreDomain alone: an answer -- the fallback push-preview reads too'
+    $r = Invoke-Check -Root (New-FixtureRepo -Label 'store-estate-empty' -LiveId '190793613653' -Store '' -ConfigExtra "function Get-ShopifyThemeEstateStore { '' }`r`nfunction Get-ShopifyStoreDomain { 'example-store.myshopify.com' }")
+    Assert-True ($r.Out -notmatch 'which Shopify store') 'an empty estate answer falls through to Get-ShopifyStoreDomain'
+    $r = Invoke-Check -Root (New-FixtureRepo -Label 'store-throws' -LiveId '190793613653' -Store '' -ConfigExtra "function Get-ShopifyThemeEstateStore { throw 'boom' }")
+    Assert-True ($r.Code -eq 0) 'a store seam that throws: still exit 0 -- the check never blocks'
+    Assert-True ($r.Out -match 'which Shopify store') 'a store seam that throws: read as unnamed and reported'
+    $r = Invoke-Check -Root (New-FixtureRepo -Label 'store-placeholder' -LiveId '190793613653' -Store 'VUL-IN.myshopify.com')
+    Assert-True ($r.Out -match 'which Shopify store') 'a VUL-IN store is a placeholder, not an answer'
+    $r = Invoke-Check -Root (New-FixtureRepo -Label 'store-nostore' -LiveId $null -NoStore -Store '')
+    Assert-True ([string]::IsNullOrWhiteSpace($r.Out)) 'no-store repo: the store finding stays silent too'
+    $r = Invoke-Check -Root (New-FixtureRepo -Label 'store-nobootstrap' -LiveId $null -Store '')
+    Assert-True ($r.Out -notmatch 'which Shopify store') 'no config: silent -- the bootstrap owns that message'
 
     # --- no repo-config.ps1 at all: silent ----------------------------------------------------------
     # A repo that has never run the bootstrap is not a repo with a broken answer.
