@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**8 / 9 minor entries** <!-- pending-tally -->
+**9 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2890-split-awaiting-decision · 20261007-141343Z
+
+The parking label `awaiting-decision` is split in two, so the label says whose decision an issue waits
+on ([#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)).
+`awaiting-decision-dev` is the owner's choice: it is today's label under a new name, and
+`sweep-decisions` keeps putting it to the owner. `awaiting-decision-client` is new and means a choice
+from the client or requester outside the dev team. `sweep-issues`, `sweep-decisions` and the claim
+defaults all skip it until that person answers. The old names `awaiting-decision` and `needs-decision`
+stay matched everywhere, and `adopt-triage-labels` prints a `gh label edit` rename for a tracker
+that still carries one.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer who runs `adopt-triage-labels` is offered one rename and one new label. An issue that waits
+on a colleague's sign-off can now be parked where `sweep-decisions` no longer puts it to the owner.
+Nothing breaks if they skip the rename, because the old name still parks the issue.
+
+**Score:** 2
+
+#### Pull Request
+
+Split awaiting-decision into awaiting-decision-dev and awaiting-decision-client
+
+Plugins: dkj-policy
+
+[PR #2895](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2895)
+
+---
 
 ### DEPLOY: feat/2885-store-admin-prerequisites · 20261007-140442Z
 
