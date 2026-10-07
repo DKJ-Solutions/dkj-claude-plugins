@@ -188,18 +188,18 @@ $mlPaths = @(Get-MachineLocalPaths)
 Assert-True ($mlPaths -contains '.claude/settings.json') 'Get-MachineLocalPaths watches the shared harness settings file'
 Assert-Equal 0 (@($mlPaths | Where-Object { $_ -match '^[\\/]|^[A-Za-z]:' }).Count) 'Get-MachineLocalPaths entries are repo-root-relative, not absolute'
 
-# The shared triage labels (issue #1895; 'awaiting-more-recurrences' added by #2462 as 'dossier' and renamed by #2683 and #2723, 'awaiting-decision' by #2519 (named 'needs-decision' until #2741), 'awaiting-first-recurrence' by #2587 as 'awaiting-recurrence' and renamed by #2723), Adopt='copy' in the script contract -- this repo's
-# own live answer, and the same eleven values adopt-triage-labels.ps1 carries as its own built-in
+# The shared triage labels (issue #1895; 'awaiting-more-recurrences' added by #2462 as 'dossier' and renamed by #2683 and #2723, 'awaiting-decision-dev' by #2519 (named 'awaiting-decision' until #2890 and 'needs-decision' until #2741), 'awaiting-decision-client' by #2890, 'awaiting-first-recurrence' by #2587 as 'awaiting-recurrence' and renamed by #2723), Adopt='copy' in the script contract -- this repo's
+# own live answer, and the same twelve values adopt-triage-labels.ps1 carries as its own built-in
 # fallback (asserted there, against this repo's REAL gh labels, since that duality is the whole point
 # of the two copies never being allowed to disagree).
 $triageLabels = @(Get-TriageLabels)
-Assert-Equal 11 $triageLabels.Count 'Get-TriageLabels names exactly eleven labels -- four rungs, the record kind and the six parking labels'
+Assert-Equal 12 $triageLabels.Count 'Get-TriageLabels names exactly twelve labels -- four rungs, the record kind and the seven parking labels'
 # Joined into one string rather than compared as two arrays: PowerShell's -eq on two arrays compares
 # elementwise against the WHOLE right-hand array per element, never a deep sequence equality, so
 # Assert-Equal would silently pass or fail on the wrong thing. Same join-then-compare shape
 # script-contract.tests.ps1 already uses for its own Scripts-list assertions.
-Assert-Equal 'prio-1,prio-2,prio-3,prio-4,awaiting-more-recurrences,awaiting-decision,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-release,awaiting-first-recurrence' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
-    'Get-TriageLabels names prio-1 through prio-4, then awaiting-more-recurrences, then awaiting-decision, awaiting-pull, awaiting-event, awaiting-owner-act, awaiting-release and awaiting-first-recurrence, in that order'
+Assert-Equal 'prio-1,prio-2,prio-3,prio-4,awaiting-more-recurrences,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-release,awaiting-first-recurrence' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
+    'Get-TriageLabels names prio-1 through prio-4, then awaiting-more-recurrences, then awaiting-decision-dev, awaiting-decision-client, awaiting-pull, awaiting-event, awaiting-owner-act, awaiting-release and awaiting-first-recurrence, in that order'
 foreach ($l in $triageLabels) {
     Assert-Match $l.Color '^[0-9A-Fa-f]{6}$' "Get-TriageLabels: '$($l.Name)' has a 6-digit hex colour"
     Assert-True ([bool]$l.Description) "Get-TriageLabels: '$($l.Name)' has a non-empty description"
@@ -213,7 +213,8 @@ $expectedTriage = @{
     'prio-3' = @{ Color = 'E0321A'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     'prio-4' = @{ Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     'awaiting-more-recurrences' = @{ Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
-    'awaiting-decision' = @{ Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    'awaiting-decision-dev' = @{ Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    'awaiting-decision-client' = @{ Color = '5319E7'; Description = 'Waiting on the client''s choice -- parks the issue so no session picks it up' }
     'awaiting-pull' = @{ Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
     'awaiting-event' = @{ Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
     'awaiting-owner-act' = @{ Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }

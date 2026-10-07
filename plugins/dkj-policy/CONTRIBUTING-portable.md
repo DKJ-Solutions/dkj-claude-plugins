@@ -152,8 +152,8 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act`, `awaiting-release` and
-`awaiting-first-recurrence`), so adopting the convention costs one command instead of eleven typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act`, `awaiting-release` and
+`awaiting-first-recurrence`), so adopting the convention costs one command instead of twelve typed by hand.
 
 **A parking label goes on when the issue is filed, whichever one it is**
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The seven
@@ -195,14 +195,14 @@ things follow from being a record:
   to close it, even that PR ships with `-NoResolves`, and the record is closed by hand after the merge.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act`, `awaiting-release` and
+  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act`, `awaiting-release` and
   `awaiting-first-recurrence`. Working a
   record is a deliberate assignment, named by its number.
 
-**`awaiting-decision` parks an issue that ends in the owner's choice, and it is set when the issue is filed**
-(Dave, September 26, 2026, [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)); it was named `needs-decision` until October 3, 2026 ([#2741](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2741)), and the old name is still matched, so `task/adopt-triage-labels.ps1` prints the `gh label edit` that renames it in place.
+**`awaiting-decision-dev` parks an issue that ends in the owner's choice, and it is set when the issue is filed**
+(Dave, September 26, 2026, [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)); it was named `awaiting-decision` until October 7, 2026 ([#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)) and `needs-decision` until October 3, 2026 ([#2741](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2741)), and both old names are still matched, so `task/adopt-triage-labels.ps1` prints the `gh label edit` that renames either in place. **`dev` means the owner alone**: the owner is the only one who answers it.
 A finding whose next step is a decision rather than a repair (*reuse A or introduce B*) is filed like any
-other, with its `prio-N`, and carries `awaiting-decision` from the moment it is created. That is the label
+other, with its `prio-N`, and carries `awaiting-decision-dev` from the moment it is created. That is the label
 both pickup routes skip by default: `claim-issue <n>` warns that the issue is parked instead of saying the
 work starts, and `sweep-issues` leaves it alone. The owner removes the label when they answer, and the
 answer goes on the issue as a comment, so whoever picks it up next finds the decision in the thread
@@ -210,12 +210,13 @@ rather than in a conversation that has since been cleared. `sweep-decisions` run
 parked issue in one pass with the owner
 ([#2759](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2759)).
 
+- **A choice that is not the owner's is `awaiting-decision-client`** ([#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890), Dave, October 7, 2026): a colleague's QA sign-off, a business decision from the client or requester outside the dev team. Both pickup routes skip it, and **`sweep-decisions` skips it too**, because putting it to the owner would record an answer the owner has no standing to give; it comes off when that person answers, and the answer goes on the issue as a comment. It is a new label, so no former name is matched for it.
 - **It is not `awaiting-more-info`.** Where [`bwj-development`](bwj-development/WORKFLOW-portable.md) is installed,
   `awaiting-more-info` (named `needs-info` until October 2, 2026,
   [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723); the old name is still matched)
   means *blocked on the submitter*: it moves the mirrored Asana card to the blocked column and
   obliges a question comment addressed to the person who filed it. Neither is true of a decision that is
-  the owner's, so the two labels stay separate, and both are skipped.
+  the owner's, so the labels stay separate -- `awaiting-more-info` is not `awaiting-decision-client` either, which waits on a choice, not on information the submitter has not given -- and all are skipped.
 - **An issue that is only the question has one answer route.** Once the owner answers, the label comes off
   and the issue is ordinary work. Where the answer is *"neither"*, the issue closes as `not_planned` with
   that reason.
@@ -228,7 +229,7 @@ and `task/adopt-triage-labels.ps1` prints the `gh label edit` that renames it in
 An issue with one instance that could not be reproduced, and whose diagnostic has already shipped, has
 nothing left to build until it happens again. Without a label it reads as free work, so every sweep picks
 it up, finds nothing to do and releases it. Both pickup routes skip this label by default, exactly as they
-skip `awaiting-decision`.
+skip `awaiting-decision-dev`.
 
 - **It is not `awaiting-more-recurrences`.** A record collects instances of a problem that *demonstrably* recurs, so there
   is always a next instance to read and a root cause to hunt. Both are parked, but for different
@@ -242,7 +243,7 @@ skip `awaiting-decision`.
 
 **`awaiting-pull` parks an issue that waits on another issue landing through its pull request**
 ([#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757), Dave, October 3, 2026). Work that
-cannot start until a different issue has merged is not free work, and `awaiting-decision` (a person's
+cannot start until a different issue has merged is not free work, and `awaiting-decision-dev` (a person's
 answer) and `awaiting-first-recurrence` (evidence) say something else. Both pickup routes skip it by
 default, `claim-issue <n>` warns that the issue is parked, and the label comes off when the blocking pull
 request merges. It is a new label, so no former name is matched for it.
@@ -259,7 +260,7 @@ former name is matched for it.
 **`awaiting-owner-act` parks an issue whose decision is made and whose only remaining step is an act the
 owner performs** (a live push, a release, a deletion the session may not run;
 [#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828), October 5, 2026). None of
-the others fits: the choice is already made, so it is not `awaiting-decision`; no pull request is pending;
+the others fits: the choice is already made, so it is not `awaiting-decision-dev`; no pull request is pending;
 and nothing outside the owner's own hands has to happen first, so it is not `awaiting-event`. Without a
 label every sweep on every machine reads such an issue in full, finds nothing it may do, and holds it out
 by hand with `-SkipIssue`. Both pickup routes skip it by default, and `claim-issue <n>` warns that the

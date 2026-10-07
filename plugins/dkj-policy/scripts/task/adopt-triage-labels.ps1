@@ -2,8 +2,8 @@
 .SYNOPSIS
     Reports which of this workflow's canonical triage labels (the priority rungs 'prio-1' through
     'prio-4', plus the 'awaiting-more-recurrences' kind label, #2462 (named 'dossier' until #2683 and 'record'
-    until #2723), and the 'awaiting-decision', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-release' and 'awaiting-first-recurrence' parking labels, #2519, #2757, #2784, #2828, #2851 and #2587
-    ('awaiting-recurrence' until #2723, 'needs-decision' until #2741)) this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
+    until #2723), and the 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-release' and 'awaiting-first-recurrence' parking labels, #2519, #2890, #2757, #2784, #2828, #2851 and #2587
+    ('awaiting-recurrence' until #2723, 'awaiting-decision' and before it 'needs-decision' until #2890 and #2741)) this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
     -- never creates a label itself. Issue #1895, split from #1843.
 
 .DESCRIPTION
@@ -140,8 +140,10 @@ $builtInTriageLabels = @(
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     # Not a rung: the kind label for a collecting issue (#2462) -- see Get-TriageLabels' own comment.
     [pscustomobject]@{ Name = 'awaiting-more-recurrences'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
-    # Not a rung either: the parking label for an issue awaiting the owner's choice (#2519).
-    [pscustomobject]@{ Name = 'awaiting-decision'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    # Not a rung either: the parking label for an issue awaiting the owner's choice (#2519; 'awaiting-decision' until #2890).
+    [pscustomobject]@{ Name = 'awaiting-decision-dev'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    # And the parking label for an issue awaiting a choice from the client or requester outside the dev team (#2890).
+    [pscustomobject]@{ Name = 'awaiting-decision-client'; Color = '5319E7'; Description = 'Waiting on the client''s choice -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on another issue to land through a pull request (#2757).
     [pscustomobject]@{ Name = 'awaiting-pull'; Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on an external event or date (#2784).
@@ -214,7 +216,7 @@ function Format-SingleQuotedArg {
         composed `gh label create` line, and the rest of that line would spill out as separate,
         unintended shell tokens the moment a person pastes it -- which is the entire point of this
         script: it never runs the command itself, so the printed line IS the product, and it has to be
-        safe to paste unmodified. Since #2519 a built-in label carries one too ('awaiting-decision': the
+        safe to paste unmodified. Since #2519 a built-in label carries one too ('awaiting-decision-dev': the
         owner's choice), so the canonical set itself now exercises the escape, not only a consumer's answer.
 
         NOT NEEDED ON THE '[ok]'/'[missing]' DISPLAY LINES, deliberately: those are prose read by a
@@ -261,7 +263,7 @@ if ($existingNames.Count -eq 0) {
 
 # A RENAMED LABEL IS RENAMED, NOT CREATED BESIDE ITS OLD SELF (issue #2683). The record label was
 # 'dossier' until October 1, 2026 and 'record' until October 2 (#2723, which also renamed
-# 'awaiting-recurrence' to 'awaiting-first-recurrence', and #2741 'needs-decision' to 'awaiting-decision'), and a tracker adopted before then carries an old
+# 'awaiting-recurrence' to 'awaiting-first-recurrence', #2741 'needs-decision' to 'awaiting-decision', and #2890 'awaiting-decision' to 'awaiting-decision-dev'), and a tracker adopted before then carries an old
 # name on its issues. A create would leave those issues on the old label and split the kind across two
 # names; `gh label edit --name` moves every issue with it. Keyed by the CURRENT name, and read from
 # pr-issues-lib.ps1 (already dot-sourced above), so the legacy names live in one place.
@@ -293,7 +295,7 @@ foreach ($label in $triageLabels) {
         $qColor = Format-SingleQuotedArg -Value $label.Color
         $qDescription = Format-SingleQuotedArg -Value $label.Description
         # THE COLOUR TRAVELS WITH THE RENAME (inbound #2810). 'needs-decision' became 'awaiting-decision' to
-        # join the purple awaiting-* family, so a rename that kept the old colour left an orange parking
+        # join the purple awaiting-* family (and #2890 made that 'awaiting-decision-dev'), so a rename that kept the old colour left an orange parking
         # label beside the purple ones -- the state the rename was meant to end. A rename IS adopting the
         # canonical label, which is why it may set the colour where the NO DRIFT DETECTION rule above
         # leaves an existing label's colour alone.

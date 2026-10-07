@@ -25,12 +25,12 @@
 // input always gives the same page.
 
 export const STATUSES = ["In review", "In progress", "Waiting", "Blocked", "Claimed", "Filed"];
-// The last five are former names (#2683, #2723, #2741), still read because a tracker keeps a name until renamed:
-// "needs-info" is now "awaiting-more-info", "needs-decision" is "awaiting-decision", "awaiting-recurrence" is "awaiting-first-recurrence", and
+// The last six are former names (#2683, #2723, #2741, #2890), still read because a tracker keeps a name until renamed:
+// "needs-info" is now "awaiting-more-info", "needs-decision" and "awaiting-decision" are "awaiting-decision-dev", "awaiting-recurrence" is "awaiting-first-recurrence", and
 // "record" and "dossier" are "awaiting-more-recurrences".
 export const PARKING_LABELS = [
-  "awaiting-more-info", "awaiting-decision", "awaiting-pull", "awaiting-event", "awaiting-owner-act", "awaiting-release", "awaiting-first-recurrence", "awaiting-more-recurrences",
-  "needs-info", "needs-decision", "awaiting-recurrence", "record", "dossier",
+  "awaiting-more-info", "awaiting-decision-dev", "awaiting-decision-client", "awaiting-pull", "awaiting-event", "awaiting-owner-act", "awaiting-release", "awaiting-first-recurrence", "awaiting-more-recurrences",
+  "needs-info", "needs-decision", "awaiting-decision", "awaiting-recurrence", "record", "dossier",
 ];
 
 // The first parking label on an issue, as PARKING_LABELS spells it, or undefined. Compared
