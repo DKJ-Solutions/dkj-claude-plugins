@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Resolves #2884. Dave's decision, recorded on the issue: delete the retired `documentation` and `CRO`
+labels in the store repos so `gh` rejects them; closed issues lose the label too; no PreToolUse guard.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `adopt-bwj-development`: the `documentation` step gives open issues their kind and then deletes
+  the label; the `CRO` paragraph deletes it instead of leaving it alone.
+- [x] `WORKFLOW-portable.md`: the `documentation` paragraph and *The CRO label -- retired* say the label
+  is deleted, not kept as history.
 
 ### TEST
 
+- [x] Grep of `bwj-development` for "owner's call" and "leave it alone" about these labels: none left.
+
 ### DEPLOY: docs/2884-delete-retired-labels
 
-**Score:**
+`adopt-bwj-development` now deletes the retired `documentation` and `CRO` labels from a store repo,
+after giving each open issue on `documentation` its kind. Until now both pages left the delete to the
+owner, and the owner has now decided it. A label that exists can still be applied by a session that
+files with a bare `gh issue create` and never loads `report-issue`, which is how
+`smartwatchbanden#876` got `documentation` on October 7, 2026.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store repo's next `adopt-bwj-development` run removes `documentation` and `CRO`, so `gh` refuses
+them from then on. Closed issues that carried either label lose it.
+
+**Score:** 2
 
 #### Pull Request
 
