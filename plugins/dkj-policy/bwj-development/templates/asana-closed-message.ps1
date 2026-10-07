@@ -25,6 +25,9 @@
         ANDERS IS, WANNEER HET LIVE KOMT, WAT ER BEWUST NIET IN ZIT, WAT WE VAN JE VRAGEN.
       - A close as completed with NO block on the issue: the header and the closed line alone, so the
         requester still hears that the work is done. A proposal in #2818 rather than a decision.
+      - A close as completed whose comments COULD NOT BE READ: the same bare message, and the log says
+        the read failed, with gh's exit code and stderr -- never 'none was on the issue', which it
+        cannot know (#2875).
       - A close as NOT PLANNED, or as a DUPLICATE: nothing. Nothing was built, so there is nothing to
         test (#2765).
       - A REOPEN with a linked task, whatever the earlier close reason: one comment, the header and the
@@ -57,12 +60,16 @@
     without. A reopen (#2854) is one more trigger on that same model, not a new one: an issue's author
     can reopen it, but what a reopen posts is fixed text, with nothing from the issue in it.
 
-    IT PRINTS NOTHING ANOTHER PERSON WROTE. The only foreign text this run could meet is a task name or
-    an API error message, and neither is printed: a failed post reports its HTTP status and nothing else.
+    IT PRINTS NOTHING ANOTHER PERSON WROTE. The only foreign text this run could meet is a task name, a
+    comment body or an Asana API error message, and none of them is printed: a failed post reports its
+    HTTP status and nothing else. The one error text it does print is gh's own stderr on a failed
+    comment read (#2875) -- GitHub's API or auth message, never a comment -- because a read that failed
+    silently was once logged as an issue with no block on it, and the cause could not be recovered.
 
     Auth: ASANA_PAT (the repo secret). GH_TOKEN is the workflow's own token, used to read the issue's
-    comments for the block. There is no project, workspace or Projects token: a comment addresses its
-    task by GID alone.
+    comments for the block through REST ('gh api .../issues/<n>/comments', Get-IssueCommentsApiArgs),
+    which 'issues: read' covers; the GraphQL read it replaced answered nothing on the runner (#2875).
+    There is no project, workspace or Projects token: a comment addresses its task by GID alone.
 
     The script runs its main flow only when invoked directly; dot-sourcing it loads the pure helpers and
     does nothing else, which is how the suite exercises them.
@@ -361,24 +368,83 @@ function Test-TrustedCommentAuthor {
     return (@('OWNER', 'MEMBER', 'COLLABORATOR') -contains ([string]$Association).Trim().ToUpperInvariant())
 }
 
-function Get-IssueCommentBodies {
+function Get-IssueCommentsApiArgs {
     <#
-        The bodies of the issue's comments by a trusted author (Test-TrustedCommentAuthor), read through
-        gh. An unreadable issue answers none -- the closed message then goes out without a block, which
-        still tells the requester the work is done.
+        Pure: the gh arguments that read an issue's comments through REST (#2875) --
+        'gh api repos/<owner>/<repo>/issues/<n>/comments', which the workflow's 'issues: read' covers by
+        GitHub's own documentation. The GraphQL read this replaced ('gh issue view --json comments')
+        answered nothing on the runner for an issue carrying a trusted block. --paginate walks every
+        page, and --jq runs on each page and prints one compact JSON object per comment per line, so
+        the pages never arrive as several concatenated arrays and no newer-gh flag (--slurp) is needed.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
-    $parts = $IssueRef -split '#'
+    if ($IssueRef -notmatch '\A([^\s#/]+)/([^\s#/]+)#([0-9]+)\z') { throw "IssueRef '$IssueRef' is not 'owner/repo#<n>'." }
+    return @('api', "repos/$($Matches[1])/$($Matches[2])/issues/$($Matches[3])/comments", '--paginate',
+             '--jq', '.[] | {author_association, body}')
+}
+
+function ConvertFrom-IssueCommentLines {
+    <#
+        Pure: the bodies of the trusted comments (Test-TrustedCommentAuthor) out of the lines the REST
+        read prints -- one JSON object per comment, over every page, in the order GitHub returns them
+        (oldest first). Blank lines are skipped; a line that does not parse throws, so a garbled read is
+        reported as a failed read rather than as an issue with no block.
+    #>
+    param([AllowEmptyCollection()][AllowEmptyString()][string[]]$Lines = @())
+
+    $bodies = @()
+    foreach ($line in @($Lines)) {
+        $text = ([string]$line).Trim()
+        if (-not $text) { continue }
+        $comment = $text | ConvertFrom-Json
+        if (Test-TrustedCommentAuthor -Association ([string]$comment.author_association)) { $bodies += [string]$comment.body }
+    }
+    return $bodies
+}
+
+function Read-IssueComments {
+    <#
+        The trusted comment bodies of the issue, read through gh (Get-IssueCommentsApiArgs), and whether
+        the read worked at all: Ok, Bodies, ExitCode, Error. A FAILED READ IS NOT AN ISSUE WITHOUT A
+        BLOCK (#2875): the read this replaced discarded gh's stderr and answered an empty list, and the
+        log then said 'none was on the issue' about an issue that carried one. Error is gh's own stderr
+        -- an API or auth message, never a comment body -- so the caller can log it.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+
+    $ghArgs = Get-IssueCommentsApiArgs -IssueRef $IssueRef
     $prev = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
-        $raw = & gh issue view $parts[1] --repo $parts[0] --json comments 2>$null
+        $all  = @(& gh @ghArgs 2>&1)
         $code = $LASTEXITCODE
     } finally { $ErrorActionPreference = $prev }
-    if ($code -ne 0 -or -not $raw) { return @() }
-    try { $comments = (($raw | Out-String) | ConvertFrom-Json).comments } catch { return @() }
-    return @(@($comments) | Where-Object { Test-TrustedCommentAuthor -Association ([string]$_.authorAssociation) } | ForEach-Object { [string]$_.body })
+    $out = @($all | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ })
+    $err = (@($all | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() }) -join ' ').Trim()
+    if ($code -ne 0) {
+        return [pscustomobject]@{ Ok = $false; Bodies = @(); ExitCode = $code; Error = $(if ($err) { $err } else { '(gh wrote nothing to stderr)' }) }
+    }
+    try { $bodies = @(ConvertFrom-IssueCommentLines -Lines $out) } catch {
+        return [pscustomobject]@{ Ok = $false; Bodies = @(); ExitCode = $code; Error = 'gh exited 0, but its output did not parse as one comment per line.' }
+    }
+    return [pscustomobject]@{ Ok = $true; Bodies = $bodies; ExitCode = 0; Error = '' }
+}
+
+function Get-ClosedMessageBlockPhrase {
+    <#
+        Pure: the half of the final log line that says what happened to the block. Three cases, kept
+        apart on purpose (#2875): a block was carried; the comments were read and none carried one; the
+        comments could not be read, so nobody looked. The bare closed message goes out in both of the
+        last two, so the requester still hears the work is done.
+    #>
+    param(
+        [AllowEmptyString()][string]$Sections = '',
+        [bool]$ReadOk = $true
+    )
+    if ($Sections) { return "with the session's go-live block" }
+    if (-not $ReadOk) { return 'without a go-live block -- the comments could not be read (the gh error is above), so whether one was on the issue is unknown' }
+    return 'without a go-live block -- none was on the issue'
 }
 
 function Invoke-Main {
@@ -393,7 +459,13 @@ function Invoke-Main {
     if ($Event -eq 'reopened') {
         $html = New-ReopenedMessageHtml -IssueRef $IssueRef
     } else {
-        $sections = Select-SessionPasteBlockSections -Bodies (Get-IssueCommentBodies -IssueRef $IssueRef)
+        $read = Read-IssueComments -IssueRef $IssueRef
+        if (-not $read.Ok) {
+            # gh's own exit code and error text, never a comment body (#2875): a failed read used to be
+            # silent, and then logged as an issue with no block on it.
+            Write-Host "The comments of $IssueRef could not be read: gh exited $($read.ExitCode): $($read.Error)"
+        }
+        $sections = Select-SessionPasteBlockSections -Bodies $read.Bodies
         $html     = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections
     }
     $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
@@ -412,7 +484,7 @@ function Invoke-Main {
         Write-Host "Asana task $($decision.Gid) told: $IssueRef is reopened and back in development ($($decision.Why)). The card was NOT moved."
         return
     }
-    $with = if ($sections) { "with the session's go-live block" } else { 'without a go-live block -- none was on the issue' }
+    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok
     Write-Host "Asana task $($decision.Gid) told: $IssueRef is closed, $with ($($decision.Why)). The task was NOT completed -- that is the requester's call."
 }
 
