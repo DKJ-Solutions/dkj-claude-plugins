@@ -39,21 +39,58 @@
 
 ### PLAN
 
+Issue #2885, decided by Dave on October 7, 2026: a store-admin prerequisite is recorded as a checklist
+on the issue itself. `build-golive-block` refuses to post while a box is open (`-Force` past it), and
+the preview handover warns.
+
+- The marker is `<!-- store-admin-prerequisites -->`. Only the task-list lines after it count, in the
+  body or in any comment.
+- The check reads the issue only for `-OutFile` (the handover page's run, which warns) and `-Post`
+  (which refuses). A print-only run stays offline.
+- An unreadable issue refuses the post, for the same reason the duplicate check does.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `golive-block-rules.ps1`: `Get-StoreAdminPrerequisiteMarker` and `Get-StoreAdminPrerequisites`
+  (pure)
+- [x] `build-golive-block.ps1`: one `gh issue view --json body,comments` read for `-OutFile`/`-Post`;
+  `-OutFile` warns about each open item, and `-Post` refuses on an open or unreadable checklist before
+  the duplicate check, unless `-Force`
+- [x] Docs: `WORKFLOW-portable.md` gains the checklist's section and template, `PREVIEW-portable.md`
+  the warning above the cards, and the `golive-block` skill step 8 and the `-Force` row
+- [ ] Review: Victor #19, Sebastian #23, Edith #17
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the parser (only the boxes after the marker count, `x`/`X` and
+  `-`/`*` bullets, no marker or no text declares nothing), static asserts on the driver's read and
+  refusal order, and an end-to-end run through a stand-in `gh` on PATH: `-OutFile` exits 0 and names
+  only the open item, and `-Post` exits 1 with "Nothing posted" -- 343 passed
+- [x] Live run against this repo's #2885 with `-OutFile` (no marker, so no warning, exit 0), and against
+  a repo that does not exist (warns that the issue is unreadable, exit 0)
+
 ### DEPLOY: feat/2885-store-admin-prerequisites
 
-**Score:**
+`build-golive-block` now checks the store-admin prerequisites an issue records
+([#2885](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2885)). These are steps a change
+needs on the store rather than in the theme, such as a metafield definition, a menu or a setting. They
+go on the issue as a checklist under `<!-- store-admin-prerequisites -->`. `-Post` refuses while a box
+is open or the issue cannot be read, and `-Force` gets past it. `-OutFile`, which the preview handover
+page embeds, warns and names the open items. A print-only run reads nothing. `WORKFLOW-portable.md`
+carries the checklist's template, and `PREVIEW-portable.md` has the handover page name the open items
+above the cards.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store repo can no longer send a go-live block that asks a colleague to review a feature whose
+store setup is missing. In `xoxowildhearts` a block went out for a metafield whose definition nobody
+had created. A session that finds such a step writes it on the issue, and the block waits until it is
+ticked.
+
+**Score:** 3
 
 #### Pull Request
 
 golive-block checks store-admin prerequisites on the issue
-
