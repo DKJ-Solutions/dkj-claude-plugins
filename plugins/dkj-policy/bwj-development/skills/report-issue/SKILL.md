@@ -37,6 +37,8 @@ rather than by this page**: the reach-label gate in step 2 below. The full rule 
 - Read `Get-AsanaIssueFieldGid` and `Get-AsanaTypeFieldGid` from the same file. Both are optional and
   default to `$null` -- a board carrying neither the `Github Issue` nor the `Github Type` custom
   field leaves them unset, and step 2 skips whichever one is missing.
+- Read `Get-AsanaDefaultAssignee` from the same file too -- the user GID a task this procedure
+  creates is assigned to. Optional, `$null` by default, and then step 2 assigns nobody.
 - Read **`Get-ReachLabel`** from the same file -- **the name GitHub stores for the reach label**, which
   every command below writes rather than a literal. Optional, and `minor` is the default since
   [#1870](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1870) -- which is a CHANGE of
@@ -187,6 +189,15 @@ nothing and say which option was missing** -- that is a board somebody has rebui
 guessing puts a wrong type on a card a colleague reads as authoritative.
 
 Where it is `$null` -- the default -- skip it silently, exactly as for `Github Issue` above.
+
+**Where `Get-AsanaDefaultAssignee` returns a user GID, pass it as `assignee` on the same `create task`
+call.** An unassigned card reaches nobody's *My Tasks*, so it waits on the board until somebody
+happens to look there. Measured in `smartwatchbanden`, October 7, 2026
+([#2877](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2877)): a task created without an
+assignee had to be assigned by hand afterwards, and the owner asked for every new task to arrive on
+him. **It applies only to a task this procedure creates.** A colleague's own ticket moved into `Filed`
+below keeps the assignee it has, because reassigning it takes the ticket off the desk of the person
+who filed it. Where the seam is `$null` -- the default -- assign nobody and say nothing.
 
 **Put it straight into the `Filed` section** -- the board's sections are the cycle's stages, and
 `Filed` means *tracked on GitHub now*. Read `Get-AsanaStageMap` from `scripts/repo-config.ps1` for the
