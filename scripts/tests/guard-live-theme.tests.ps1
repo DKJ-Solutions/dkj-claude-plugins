@@ -42,6 +42,11 @@
          on a file write, because the marker is matched over the whole string. Group 7 closes both
          halves and asserts the refusal WORDING, because a sentence nothing asserts is a sentence the
          next edit removes.
+      9. THE SAME RULES THROUGH THE ADMIN API (#2881). 'shopify store execute --allow-mutations' runs
+         Admin GraphQL, so a themePublish or a themeFilesUpsert there does what rules 1 to 3 refuse
+         through 'shopify theme'. Each rule is asserted in that form, with the query inline, over
+         several lines, or in a --query-file / --variable-file, beside the reads and the non-theme
+         mutations that must stay possible.
 
     Groups 1 to 3 are ported from the reference implementation the reporting consumer offered
     (BWJ-ecommerce/xoxowildhearts, inbound #769), which is where the false-positive lesson was paid
@@ -522,6 +527,45 @@ function Get-ShopifyThemeDeleteMarker { return 'XOXO-THEME-DELETE-AUTHORIZED' }
     # exemptions, so writing the rule down is blocked too -- the pre-#769 behaviour. This case passes
     # (exit 0) in every normal install, and group 2 above is what proves it.
     Assert-Equal 2 (Invoke-DegradedGuard -Command "cat > notes.md <<'EOF'${LF}shopify theme publish --theme 1${LF}EOF").Code 'no lib: and the cost is real -- authoring the rule is blocked too, which is why this is a broken-install path and not a mode anybody runs in'
+
+    # --- group 9: the same rules through the Admin API -- 'shopify store execute' (#2881) ---------
+    # 'shopify store execute --allow-mutations' runs Admin GraphQL, so themePublish or themeFilesUpsert
+    # does through the API what rules 1 to 3 refuse through 'shopify theme'. Before #2881 nothing here
+    # matched it. Each rule is asserted in its API form, beside the reads and the non-theme mutations that
+    # must stay possible.
+    Write-Host "group 9 -- Admin GraphQL theme writes through 'shopify store execute'" -ForegroundColor Cyan
+    $gid = "gid://shopify/OnlineStoreTheme/$LIVE"
+    $exec = 'shopify store execute --store x.myshopify.com --allow-mutations'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query 'mutation { themePublish(id: \`"gid://shopify/OnlineStoreTheme/1\`") { theme { id } } }'" -Root $configured) 'store execute: themePublish is refused, like rule 1'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query 'mutation { themeFilesUpsert(themeId: \`"$gid\`", files: []) { job { id } } }'" -Root $configured) 'store execute: a theme write naming the live id is refused'
+    Assert-Equal 0 (Invoke-Guard -Command "$exec --query 'mutation { themeFilesUpsert(themeId: \`"gid://shopify/OnlineStoreTheme/987654321\`", files: []) { job { id } } }'" -Root $configured) 'store execute: the same write to a preview theme passes, like a preview push'
+    Assert-Equal 0 (Invoke-Guard -Command "$exec --query 'mutation { themeFilesUpsert(themeId: \`"$gid\`", files: []) { job { id } } }' # LIVE-PUSH-AUTHORIZED" -Root $configured) 'store execute: and the live write WITH the marker passes, like rule 3'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query 'mutation { themeFilesUpsert(themeId: \`"gid://shopify/OnlineStoreTheme/987654321\`", files: []) { job { id } } }'" -Root $bare) 'store execute: with no live id configured, any theme write is refused -- nothing can tell it from live'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query 'mutation { themeDelete(id: \`"gid://shopify/OnlineStoreTheme/987654321\`") { deletedThemeId } }'" -Root $configured) 'store execute: themeDelete is refused without the delete seam, like rule 2'
+    Assert-Equal 0 (Invoke-Guard -Command "$exec --query 'mutation { themeDelete(id: \`"gid://shopify/OnlineStoreTheme/987654321\`") { deletedThemeId } }' # XOXO-THEME-DELETE-AUTHORIZED" -Root $del) 'store execute: and allowed for a preview with the repo delete marker'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query 'mutation { themeDelete(id: \`"$gid\`") { deletedThemeId } }' # XOXO-THEME-DELETE-AUTHORIZED" -Root $del) 'store execute: but never for the live id, marker or not'
+    # A multi-line query: the mutation name is not in the segment that holds 'store execute'.
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query 'mutation {${LF}  themePublish(id: \`"gid://shopify/OnlineStoreTheme/1\`") { theme { id } }${LF}}'" -Root $configured) 'store execute: a query spread over lines is still read whole'
+    # The flag on a continuation line, away from the segment that holds 'store execute'.
+    Assert-Equal 2 (Invoke-Guard -Command "shopify store execute --store x.myshopify.com \${LF}  --allow-mutations --query 'mutation { themePublish(id: 1) { theme { id } } }'" -Root $configured) 'store execute: --allow-mutations on a continuation line is still seen'
+
+    # The query in a file: read relative to the repo, and refused when it cannot be read.
+    [System.IO.File]::WriteAllText((Join-Path $configured 'publish.graphql'), 'mutation { themePublish(id: "gid://shopify/OnlineStoreTheme/1") { theme { id } } }', $Utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $configured 'product.graphql'), 'mutation { productUpdate(input: {id: "gid://shopify/Product/1", title: "x"}) { product { id } } }', $Utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $configured 'vars.json'), "{ `"id`": `"$gid`" }", $Utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $configured 'upsert.graphql'), 'mutation($id: ID!) { themeFilesUpsert(themeId: $id, files: []) { job { id } } }', $Utf8NoBom)
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query-file publish.graphql" -Root $configured) 'store execute: a themePublish in a --query-file is refused'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query-file upsert.graphql --variable-file vars.json" -Root $configured) 'store execute: the live id in a --variable-file counts as aimed at live'
+    Assert-Equal 0 (Invoke-Guard -Command "$exec --query-file product.graphql" -Root $configured) 'store execute: a non-theme mutation in a file passes'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query-file does-not-exist.graphql" -Root $configured) 'store execute: a query file that cannot be read is refused -- a theme mutation cannot be ruled out'
+
+    # What must stay possible: reads, and mutations that are not about themes.
+    Assert-Equal 0 (Invoke-Guard -Command "shopify store execute --store x.myshopify.com --query 'query { themes(first: 5) { nodes { id role } } }'" -Root $configured) 'store execute: a theme READ without --allow-mutations passes'
+    Assert-Equal 0 (Invoke-Guard -Command "shopify store execute --store x.myshopify.com --query 'mutation { themePublish(id: 1) { theme { id } } }'" -Root $configured) 'store execute: without --allow-mutations the CLI runs no mutation, so there is nothing to refuse'
+    Assert-Equal 0 (Invoke-Guard -Command "$exec --query 'mutation { productUpdate(input: {id: \`"gid://shopify/Product/1\`"}) { product { id } } }'" -Root $configured) 'store execute: a non-theme mutation passes'
+    Assert-Equal 0 (Invoke-Guard -Command "grep -n 'shopify store execute --allow-mutations' notes.md # themePublish" -Root $configured) 'store execute: mentioning it in a text command is not running it'
+    $refusal = Get-GuardRefusal -Command "$exec --query 'mutation { themeFilesUpsert(themeId: \`"$gid\`", files: []) { job { id } } }'" -Root $configured
+    Assert-True ($refusal -match 'LIVE-PUSH-AUTHORIZED') 'store execute: the refusal names the marker for the deliberate live write'
 } finally {
     Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue
 }

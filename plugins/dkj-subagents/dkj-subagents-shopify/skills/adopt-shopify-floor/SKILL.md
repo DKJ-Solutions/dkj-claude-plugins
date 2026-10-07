@@ -6,7 +6,8 @@ description: Place dkj-subagents-shopify's operational floor in this repo, in on
 # adopt-shopify-floor -- the floor arrives with the plugin, the answers do not
 
 `dkj-subagents-shopify` ships a `PreToolUse` guard on the live theme, and it starts working the moment the plugin
-is enabled -- for **two of its three rules**. A theme publish and a theme delete are refused whatever
+is enabled -- for **two of its three `shopify theme` rules**, and for their Admin API form through
+`shopify store execute` (rule 4 in the plugin README). A theme publish and a theme delete are refused whatever
 this repo says. The third rule, a push aimed at the **live** theme, has two triggers, and only
 `--allow-live` is self-declaring: the id half can fire only where this repo has named the live theme's
 id. Nothing in an install path owned that answer, so a refreshed consumer met a standing `[ERROR]` at

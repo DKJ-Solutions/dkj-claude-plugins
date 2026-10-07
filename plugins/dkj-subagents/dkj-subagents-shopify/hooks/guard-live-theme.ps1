@@ -14,6 +14,11 @@
          than a cleanup step. A delete aimed at the LIVE theme id is refused even with the marker.
       3. a theme PUSH aimed at LIVE -- unless explicitly authorised. Aimed at live means the command
          carries '--allow-live' or this repo's own live theme id.
+      4. an Admin GraphQL theme write through 'shopify store execute --allow-mutations' (#2881) -- the
+         same three rules reached through the API instead of 'shopify theme': themePublish always,
+         themeDelete as rule 2, and the other theme writes as rule 3, where 'aimed at live' is the live
+         id in the command or a --query-file/--variable-file it names, or ANY theme write while the repo
+         has not said which theme is live. A file it names but this guard cannot read is refused.
 
     WHY hooks.json WRAPS THIS FILE IN A SHELL COMMAND (issue #2217). Everything above is what this script
     decides once it RUNS. When PowerShell cannot start at all -- out of memory, a failed type
@@ -145,7 +150,8 @@
     UNTOUCHED (exit 0): every form of 'theme pull' including --live, since reading is how a pre-task
     sync works; pushes to an unpublished preview theme; and every other command.
 
-    SCOPE. This covers the CLI vector reached through the Bash and PowerShell tools. A publish issued
+    SCOPE. This covers the CLI vector reached through the Bash and PowerShell tools, both 'shopify theme'
+    and, since #2881, 'shopify store execute'. A publish issued
     through a Shopify MCP connector is a different vector and is NOT covered here -- that one is held
     by the MCP server's own permission prompt.
 
@@ -350,6 +356,38 @@ function Deny([string]$msg) {
     exit 2
 }
 
+# --- Rule 4: an Admin GraphQL theme write through 'shopify store execute' (#2881) ------------------
+# The CLI reaches the Admin API directly: 'shopify store execute --allow-mutations' runs any mutation,
+# and themePublish or themeFilesUpsert does through GraphQL what rules 1 to 3 refuse through
+# 'shopify theme'. None of those three patterns matched it, so the guard let it through.
+#
+# WHAT IS READ: the whole command, not the one segment, plus every file it names with --query-file or
+# --variable-file. A query spans lines and the segment split is on newlines, so the mutation name is
+# often not in the segment that holds 'store execute'; reading wider can only refuse more, which is the
+# direction this guard fails in. A named file this cannot read is refused for the same reason: the
+# mutation it holds cannot be ruled out.
+#
+# THE MUTATIONS, MAPPED ONTO THE RULES ABOVE: themePublish is rule 1 (always refused), themeDelete is
+# rule 2 (the live id never, anything else only with the repo's delete marker), and the other theme
+# writes are rule 3 (refused when aimed at live, unless the live-push marker is on the command). 'Aimed
+# at live' is the live id appearing anywhere in what was read -- a theme GID carries the bare id -- and,
+# where the repo never named its live id, every theme write, because then nothing can tell.
+$THEME_WRITE = 'theme(filesupsert|filesdelete|filescopy|update|create|duplicate)\b'
+
+function Get-StoreExecuteText([string]$Command) {
+    $text = $Command
+    $unreadable = @()
+    $pattern = '--(?:query|variable)-file(?:\s+|=)(?:"([^"]+)"|''([^'']+)''|(\S+))'
+    foreach ($m in [regex]::Matches($Command, $pattern)) {
+        $path = @($m.Groups[1].Value, $m.Groups[2].Value, $m.Groups[3].Value) | Where-Object { $_ } | Select-Object -First 1
+        $candidates = if ([System.IO.Path]::IsPathRooted($path)) { @($path) } else { @((Join-Path (Get-Location).Path $path), (Join-Path $repoRoot $path)) }
+        $found = $candidates | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+        if (-not $found) { $unreadable += $path; continue }
+        try { $text += "`n" + [System.IO.File]::ReadAllText($found) } catch { $unreadable += $path }
+    }
+    return @{ Text = $text.ToLower(); Unreadable = $unreadable }
+}
+
 foreach ($segment in $segments) {
     if (-not $segment.Trim()) { continue }
 
@@ -377,6 +415,32 @@ foreach ($segment in $segments) {
         }
 
         Deny "a theme delete is never allowed from here. What is deleted cannot be un-deleted, and whether a preview theme is really spent is a judgement rather than a cleanup step -- run the command yourself once you have confirmed nothing on it is still needed. (A repo that wants sessions to clear away their own spent preview themes can answer Get-ShopifyThemeDeleteMarker in scripts/repo-config.ps1; unanswered, this rule stays absolute.)"
+    }
+
+    if ($lc -match 'shopify\s+store\s+execute' -and $cmd.ToLower() -match '--allow-mutations') {
+        $read = Get-StoreExecuteText $cmd
+        if ($read.Unreadable.Count -gt 0) {
+            Deny ("'shopify store execute --allow-mutations' names a file this guard cannot read (" + ($read.Unreadable -join ', ') + "), so a theme mutation in it cannot be ruled out. Run it from the directory the path is relative to, or pass the query inline.")
+        }
+        $t = $read.Text
+        if ($t -match 'themepublish\b') {
+            Deny "a themePublish through 'shopify store execute' is never allowed from here, for the reason 'shopify theme publish' is not: publishing makes a theme the live customer-facing theme, and that is the store owner's own act."
+        }
+        if ($t -match 'themedelete\b') {
+            if ($LIVE_ID -and $t.Contains($LIVE_ID.ToLower())) {
+                Deny "a themeDelete aimed at the LIVE theme ($LIVE_ID) is refused unconditionally -- no marker authorises this one."
+            }
+            if (-not ($DELETE_MARKER -and $deleteAuthorised)) {
+                Deny "a themeDelete through 'shopify store execute' follows the rule for 'shopify theme delete': refused unless this repo answers Get-ShopifyThemeDeleteMarker and the command carries that marker."
+            }
+        }
+        if ($t -match $THEME_WRITE) {
+            $aimed = (-not $LIVE_ID) -or $t.Contains($LIVE_ID.ToLower())
+            if ($aimed -and -not $authorised) {
+                $why = if ($LIVE_ID) { "it names the live theme ($LIVE_ID)" } else { "this repo has not said which theme is live (Get-ShopifyLiveThemeId), so a theme write cannot be told apart from a write to live" }
+                Deny "an Admin GraphQL theme write through 'shopify store execute --allow-mutations' is blocked: $why. If this IS the deliberate live push this repo's own rules describe, add the marker '# $MARKER' to this exact command."
+            }
+        }
     }
 
     $aimedAtLive = ($lc -match '--allow-live') -or ($LIVE_ID -and $lc.Contains($LIVE_ID.ToLower()))

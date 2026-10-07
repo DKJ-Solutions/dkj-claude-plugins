@@ -39,19 +39,53 @@
 
 ### PLAN
 
+#2881: `guard-live-theme.ps1` matched only `shopify theme publish|delete|push`, so an Admin GraphQL
+theme mutation through `shopify store execute --allow-mutations` passed it. Verified by reading the
+guard on main. The flags come from the Shopify CLI docs (`--query`/`-q`, `--query-file`,
+`--variables`/`-v`, `--variable-file`, `--allow-mutations`). The fix maps the mutations onto the existing
+marker model, so no new seam is needed.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] guard rule 4: on `shopify store execute` with `--allow-mutations` anywhere in the command, read
+  the whole command plus every `--query-file`/`--variable-file` (an unreadable one is refused).
+  `themePublish` is refused always, `themeDelete` follows rule 2, and the other theme writes follow
+  rule 3, where "aimed at live" is the live id in what was read, or any theme write while no live id
+  is configured
+- [x] the guard's header, the plugin README's rule table (row 4, the assert count), and
+  `adopt-shopify-floor`'s opening sentence
+- [x] filed #2889: the README's "no escape hatch" paragraph predates this branch and contradicts the
+  delete marker
 
 ### TEST
 
+- [x] `guard-live-theme.tests.ps1` group 9 -- 19 asserts: each rule in its API form, an inline,
+  multi-line and file-borne query, the live id in a variable file, an unreadable file, a flag on a
+  continuation line, and the reads, the non-theme mutations and a text-tool mention that must pass --
+  129 passed
+
 ### DEPLOY: fix/2881-guard-store-execute
 
-**Score:**
+`guard-live-theme` now holds Admin GraphQL theme writes made through
+`shopify store execute --allow-mutations`
+([#2881](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2881)). Until now it matched only
+`shopify theme`, so `themePublish` or `themeFilesUpsert` through the API passed it. The new rule 4
+reads the command and any `--query-file` or `--variable-file` it names, and applies the existing rules.
+`themePublish` is always refused. `themeDelete` follows the delete rule. Any other theme write aimed at
+the live id is refused unless the live-push marker is on the command. A repo that has not named its
+live id gets every theme write refused, because nothing can tell it from a write to live. A file the
+guard cannot read is refused. Reads, and mutations that touch no theme, pass as before.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify store repo's live theme is now guarded against the Admin API route as well as the theme
+CLI. A session can no longer publish a theme, or overwrite live theme files, by putting the same
+change in a GraphQL mutation. A store repo with no live id configured sees its Admin API theme writes
+refused until it answers `Get-ShopifyLiveThemeId`.
+
+**Score:** 3
 
 #### Pull Request
 
