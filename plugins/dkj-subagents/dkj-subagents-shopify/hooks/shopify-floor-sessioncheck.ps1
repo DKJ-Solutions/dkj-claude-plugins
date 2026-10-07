@@ -51,6 +51,12 @@
     The two findings are independent and either can fire alone, which is why the config-file check
     below gates only the first one.
 
+    THE STORE FINDING (#2880). The claude.ai Shopify connector is bound to one store per account, and
+    the check-shop-connector skill compares that binding with the store this repo expects. This hook
+    reports when the repo names no store at all (Get-ShopifyThemeEstateStore, else
+    Get-ShopifyStoreDomain), because then there is nothing to compare against. Same gates as the id
+    finding: it needs a config file, and a no-store repo is silent.
+
     Read-only: it dot-sources the repo's own config in a child scope, parses the repo's settings, and
     prints. It writes nothing.
 
@@ -72,19 +78,35 @@ $hasConfig = Test-Path -LiteralPath $configPath -PathType Leaf
 # disagrees with the guard about what the repo answered.
 $liveId  = ''
 $noStore = $false
+$store   = ''
 if ($hasConfig) {
     $answers = & {
         Set-StrictMode -Off
-        try { . $args[0] } catch { return @{ LiveId = ''; NoStore = $false } }
+        try { . $args[0] } catch { return @{ LiveId = ''; NoStore = $false; Store = '' } }
         $id = if (Get-Command Get-ShopifyLiveThemeId   -ErrorAction SilentlyContinue) { [string](Get-ShopifyLiveThemeId) } else { '' }
         # A no-store repo declares itself here (inbound #1570). Read defensively: any truthy answer means
         # "no store", so a repo that never defines the function -- every store repo -- is unaffected.
         $ns = if (Get-Command Get-ShopifyRepoHasNoStore -ErrorAction SilentlyContinue) { [bool](Get-ShopifyRepoHasNoStore) } else { $false }
-        return @{ LiveId = $id; NoStore = $ns }
+        # The store this repo expects, in the order archive-theme and push-preview resolve it (#2862):
+        # the estate seam first, Get-ShopifyStoreDomain only where that one is unanswered. Neither is
+        # REQUIRED here -- answering Get-ShopifyStoreDomain also opens sync-main's pull-request route, and
+        # some consumers leave it unanswered on purpose (#2880).
+        # Wrapped on its own: a seam that throws must not turn a never-blocking check into exit 1, and
+        # a store this cannot read is reported as unnamed, which is what it is to the skill as well.
+        $st = ''
+        try {
+            if (Get-Command Get-ShopifyThemeEstateStore -ErrorAction SilentlyContinue) { $st = ([string](Get-ShopifyThemeEstateStore)).Trim() }
+            if (-not $st -and (Get-Command Get-ShopifyStoreDomain -ErrorAction SilentlyContinue)) { $st = ([string](Get-ShopifyStoreDomain)).Trim() }
+        } catch { $st = '' }
+        return @{ LiveId = $id; NoStore = $ns; Store = $st }
     } $configPath
     $liveId  = [string]$answers.LiveId
     $noStore = [bool]$answers.NoStore
+    $store   = [string]$answers.Store
 }
+
+# A PLACEHOLDER STORE COUNTS AS NO ANSWER, the rule push-preview applies to the same value.
+if ($store -match 'VUL-IN') { $store = '' }
 
 $liveId = ([string]$liveId).Trim()
 
@@ -107,6 +129,20 @@ if ($hasConfig -and -not $liveId -and -not $noStore) {
         "returning the live theme's numeric id (shopify theme list names it) -- or run the " +
         "'adopt-shopify-floor' skill, which writes the block for you. The guard reads it on every " +
         "command; nothing needs restarting.")
+}
+
+# --- The store finding: nothing says which store this repo is (#2880) -----------------------------
+# The claude.ai Shopify connector is bound to ONE store per account, so a session in this repo answers
+# for whichever store the last session switched it to. A hook is a process, not a model turn, and cannot
+# ask the connector which store it is bound to -- the comparison is the check-shop-connector skill's
+# step. What this hook CAN say is that the skill has nothing to compare against. Silent once the repo
+# names its store, and silent in a no-store repo, exactly like the id finding above.
+if ($hasConfig -and -not $store -and -not $noStore) {
+    Write-Host ("[ERROR] dkj-subagents-shopify: this repo has not said which Shopify store it is, so " +
+        "nothing can tell whether the claude.ai Shopify connector is bound to this store or to another one. " +
+        "Add Get-ShopifyThemeEstateStore to scripts/repo-config.ps1, returning the store's " +
+        "<store>.myshopify.com domain -- the same seam push-preview and archive-theme read. The " +
+        "check-shop-connector skill compares the connector against it.")
 }
 
 # --- The second finding: a hand-written guard still registered beside the shipped one --------------

@@ -15,8 +15,9 @@ not advice.
 | `archive-theme` | the backup that makes removing a spent preview theme recoverable: a verified local copy plus a **committed receipt**. It never removes a theme — see below |
 | `theme-lifecycle` | keeps the theme estate from filling up: one verified backup of the live theme with the previous one rotated out, and a dry-run-by-default sweep of the spent preview themes this repo created. Both are keyed on a name prefix this repo wrote, so a theme somebody else created is never in the delete set |
 | `live-preflight` | the step between a merged trunk and a live push: it derives the push list from the range, runs the drift check over it, takes one verified backup as the rollback point, and prints the push command. It never runs the push and never writes the authorisation marker |
+| `check-shop-connector` | before the first claude.ai Shopify connector call, confirms the connector is bound to **this** repo's store rather than the one another session switched it to, and on a mismatch names the remedy (`/mcp`, then `switch-shop`). It never switches itself |
 | `hooks/guard-live-theme.ps1` | **the floor** — a `PreToolUse` guard on the live theme |
-| `hooks/shopify-floor-sessioncheck.ps1` | says when that guard is only half armed, and when a second one is registered beside it |
+| `hooks/shopify-floor-sessioncheck.ps1` | says when that guard is only half armed, when a second one is registered beside it, and when the repo names no store for `check-shop-connector` to compare against |
 
 Teams stack: this one adds to `dkj-subagents-alpha`, and a commercial store typically enables `dkj-subagents-ecomm` beside
 it. Which store a repo *is* belongs to that repo's lenses, never to this plugin.
@@ -226,7 +227,7 @@ give, and a placeholder reads as forgotten. It answers one function instead:
 function Get-ShopifyRepoHasNoStore { return $true }
 ```
 
-The floor session check then stays silent on the half-armed finding, exactly as it does once a store
+The floor session check then stays silent on the half-armed finding and on the store finding, exactly as it does once a store
 repo has answered the live id — because this is a deliberate, self-authored **declaration**, not
 something the check inferred from the tree (a theme directory, a `shopify.theme.toml`). Everything else
 is unchanged: the guard hook still runs, with the id half of rule 3 inert, which costs nothing when

@@ -156,6 +156,7 @@ try {
     # A repo that answered both seams: the ordinary, fully configured consumer.
     $configured = New-FixtureRepo -Label 'configured' -ConfigBody @"
 function Get-ShopifyLiveThemeId { return '$LIVE' }
+function Get-ShopifyThemeEstateStore { 'x.myshopify.com' }
 "@
 
     # --- group 1: the real thing, blocked ---------------------------------------------------------
@@ -314,7 +315,7 @@ function Get-ShopifyLivePushMarker { return 'ONLY-THIS-ONE' }
         [System.IO.File]::WriteAllText($p, $Json, $Utf8NoBom)
     }
 
-    $dupe = New-FixtureRepo -Label 'dupe' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }"
+    $dupe = New-FixtureRepo -Label 'dupe' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }`r`nfunction Get-ShopifyThemeEstateStore { 'x.myshopify.com' }"
     Set-FixtureSettings -Root $dupe -Json '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"powershell -File scripts/maintenance/guard-live-theme.ps1"}]}]}}'
     $c5 = Invoke-FloorCheck -Root $dupe
     Assert-Equal 0 $c5.Code 'duplicate guard: exit 0 -- this never blocks a session either'
@@ -323,27 +324,27 @@ function Get-ShopifyLivePushMarker { return 'ONLY-THIS-ONE' }
     Assert-True ($c5.Out -match 'LIVE-PUSH-AUTHORIZED') 'duplicate guard: the report confirms the marker keeps working -- what a converging repo has to know BEFORE deleting its own guard'
 
     # The shipped copy wired by hand is ONE guard, not two.
-    $viaPlugin = New-FixtureRepo -Label 'viaplugin' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }"
+    $viaPlugin = New-FixtureRepo -Label 'viaplugin' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }`r`nfunction Get-ShopifyThemeEstateStore { 'x.myshopify.com' }"
     Set-FixtureSettings -Root $viaPlugin -Json '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"powershell -File ${CLAUDE_PLUGIN_ROOT}/hooks/guard-live-theme.ps1"}]}]}}'
     $c6 = Invoke-FloorCheck -Root $viaPlugin
     Assert-True (-not ($c6.Out -match '\[ERROR\]')) 'duplicate guard: a command reaching the SHIPPED copy is not a second guard'
 
     # An unrelated PreToolUse hook is not a duplicate either -- the match is on this guard's name.
-    $otherHook = New-FixtureRepo -Label 'otherhook' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }"
+    $otherHook = New-FixtureRepo -Label 'otherhook' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }`r`nfunction Get-ShopifyThemeEstateStore { 'x.myshopify.com' }"
     Set-FixtureSettings -Root $otherHook -Json '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"powershell -File scripts/maintenance/guard-something-else.ps1"}]}]}}'
     $c7 = Invoke-FloorCheck -Root $otherHook
     Assert-True (-not ($c7.Out -match '\[ERROR\]')) 'duplicate guard: an unrelated PreToolUse hook is left alone'
 
     # Unparseable settings must be skipped, not reported: somebody else's broken JSON is somebody
     # else's message, and a session start must not turn into a complaint about a file we came to read.
-    $badJson = New-FixtureRepo -Label 'badjson' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }"
+    $badJson = New-FixtureRepo -Label 'badjson' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }`r`nfunction Get-ShopifyThemeEstateStore { 'x.myshopify.com' }"
     Set-FixtureSettings -Root $badJson -Json '{"hooks":{"PreToolUse":[ this is not json'
     $c8 = Invoke-FloorCheck -Root $badJson
     Assert-Equal 0 $c8.Code 'duplicate guard: unparseable settings do not break the session start'
     Assert-True (-not ($c8.Out -match '\[ERROR\]')) 'duplicate guard: and are skipped in silence rather than reported'
 
     # settings.local.json counts too: it is where a hand-registered hook most often actually lives.
-    $localOnly = New-FixtureRepo -Label 'localonly' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }"
+    $localOnly = New-FixtureRepo -Label 'localonly' -ConfigBody "function Get-ShopifyLiveThemeId { return '$LIVE' }`r`nfunction Get-ShopifyThemeEstateStore { 'x.myshopify.com' }"
     Set-FixtureSettings -Root $localOnly -Rel '.claude\settings.local.json' -Json '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"pwsh ./guard-live-theme.ps1"}]}]}}'
     $c9 = Invoke-FloorCheck -Root $localOnly
     Assert-True ($c9.Out -match '\[ERROR\]') 'duplicate guard: settings.local.json is read as well'
