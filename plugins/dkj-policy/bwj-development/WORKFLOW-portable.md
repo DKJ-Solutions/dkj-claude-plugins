@@ -520,7 +520,10 @@ closed line, which are fixed on every board. **`TE BEKIJKEN OP` leads** (Dave,
 live URLs and the ask are derived or fixed. *What changed*, *where exactly to look* and *what was
 deliberately left out* are judgements about the work, like the task body step 2 writes, so the
 session writes them and hands them over through `-ProseFile`. A section with nothing in it is left
-out, heading and all, and is never replaced by a placeholder.
+out, heading and all, and is never replaced by a placeholder. **A block that hands the requester a new
+task** rather than a result to look at has its prose written in a fixed order, and when the model
+changes the whole instruction is rewritten rather than only the delta. The order is in
+[`golive-block`](skills/golive-block/SKILL.md#when-the-change-hands-the-requester-a-task) (#2878).
 
 **The marker sits OUTSIDE the block, and the block is what travels.** Everything between the two
 `---` rules is what a person pastes into Asana; the marker and the framing sentence stay on GitHub. A
