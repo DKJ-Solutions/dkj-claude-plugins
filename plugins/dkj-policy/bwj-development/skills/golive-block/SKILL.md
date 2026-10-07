@@ -82,6 +82,30 @@ dropped its paragraph would ship a block without the part you wrote. It is a fil
 because `powershell -File` delivers a `string[]` as one string, and a paragraph's newlines do not
 survive the command line.
 
+### When the change hands the requester a task
+
+Most blocks say *look at this result*. Some say *do this from now on*, because the change gives a
+colleague something to maintain themselves, such as a metafield to fill or a setting to steer. That
+kind of block teaches a procedure, and the `[changed]` and `[where]` prose then follows this order:
+
+1. **The goal, and what happens when the reader does nothing.** The default comes first. A default
+   stated after the syntax, or not at all, makes a workaround read as the normal procedure.
+2. **The click route, walked once with a non-admin account before you post it.** Name each click,
+   such as *Edit metafields*, rather than the system behind it ("Metafields", a field key, an app name).
+   An admin sees fields and buttons that a colleague's account does not, so an unwalked route is a
+   guess.
+3. **One worked example, on a page of the reader's own.** It shows a filled-in field and the result
+   on the storefront.
+4. **Then the exceptions.**
+
+**When the model changes, rewrite the whole instruction rather than the delta.** A block that opens
+with what changed asks the reader to rebuild the procedure from a version they may never have got
+working. Measured in `BWJ-Development/smartwatchbanden` (Asana task 1215990009309345, #393): over
+three rounds, from September 23 to October 7, 2026, the anchor-button model changed three times, and
+the SEO colleague got stuck five times on blocks that broke these four rules
+([#2878](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2878)). The headings and their
+order stay as the script writes them. Only the prose inside them follows this order.
+
 **Use `-OutFile` for any copy that is not read by eye.** The block now carries accents and dashes. The
 console printout may lose them to its code page, and a pipe from Windows PowerShell 5.1 into a native
 command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 file.
