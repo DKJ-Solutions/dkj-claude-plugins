@@ -81,7 +81,10 @@ gh issue create --repo <owner>/<repo> --title "<precise technical title>" --body
 |---|---|
 | the kind (`--label bug` or `--label feature`) | **always exactly one of the two** (#2783): **`feature`** for something new being added, **`bug`** for something that exists and has to change. A doc finding is one of them too -- a missing page is a `feature`, a wrong one a `bug`. There is no third kind and no `documentation` label |
 | the reach label (`Get-ReachLabel`, default `minor`) | **only** where management or the commissioner would notice it. The test is whether that reader notices the **defect**, not whether the file renders to them: a customer-facing template with a developer-only defect is tier 0, and a build script whose breakage stops a release the business is waiting on is not. **In doubt, leave it off** |
-| `--label CRO` (Shopify store repos only) | on an issue filed by, or on behalf of, the CRO team (today: Johnno). Never in this plugin's own source repo `dkj-claude-plugins`, which has no store, nor in `phone-factory`, a Lightspeed store the CRO team does not measure (#2712). See `WORKFLOW-portable.md`'s classification section |
+
+**Never set `CRO`.** That label was retired on October 7, 2026
+([#2869](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2869)): an issue raised by the CRO
+team gets the kind and the reach label like any other.
 
 **Write it in English -- the title as much as the body.** Every consumer of `dkj-policy` runs this same
 cycle, so the issue takes the workflow's language no matter which language the session is being spoken

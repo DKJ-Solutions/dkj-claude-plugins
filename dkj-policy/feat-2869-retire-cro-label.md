@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Retire the `CRO` label across the BWJ procedure (#2869, Dave, October 7, 2026): a filing session
+classifies the kind as `bug` or `feature` and sets the reach label, nothing else. Verified on pickup:
+the three places the issue names are the only live carriers (`report-issue`, `WORKFLOW-portable.md`,
+`adopt-bwj-development`). The issue leaves one question to the source: delete the existing label or keep
+it. The answer here is to keep it as history. Nothing sets it again, and deleting it is a repo setting,
+so that is the owner's call.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `WORKFLOW-portable.md`: the table row is gone, the CRO section is replaced by a short retirement
+  note, and the phone-factory reach paragraph and the Asana-link gate's sentence are brought in line.
+- [x] `report-issue`: the CRO row of the classification table is replaced by "never set `CRO`".
+- [x] `adopt-bwj-development`: the step no longer creates the label; the link follows the new anchor.
 
 ### TEST
 
+- [x] A grep over the tree (outside the release archive) finds no live instruction to set or create
+  `CRO`, and no link to the retired anchor.
+
 ### DEPLOY: feat/2869-retire-cro-label
 
-**Score:**
+The `CRO` label is retired across the BWJ procedure
+([#2869](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2869)). `report-issue` classifies
+an issue by its kind (`bug` or `feature`) and the reach label only. `WORKFLOW-portable.md` replaces the
+section on the label with a short note on its retirement, and `adopt-bwj-development` no longer creates
+it. Where a store already has the label, it stays as history; nothing deletes it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+After the update, a session filing an issue in a BWJ store no longer adds `CRO` to an issue raised by
+the CRO team. That issue gets the kind and the reach label like any other. Nothing has to be done in a
+store. Deleting the existing label from `smartwatchbanden` or `xoxowildhearts` is a repo setting, which
+the owner changes by hand.
+
+**Score:** 2
 
 #### Pull Request
 

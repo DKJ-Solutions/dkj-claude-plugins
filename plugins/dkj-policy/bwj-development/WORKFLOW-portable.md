@@ -22,10 +22,11 @@ so on its own opening line.
 **The fourth is `phone-factory`, BWJ's Lightspeed store, admitted for this chapter alone by Dave on
 October 2, 2026 ([#2705](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2705)).** It follows
 the BWJ procedure for a discovered issue. It is a store, but not a Shopify one, and the other three
-chapters are written against the Shopify theme and CLI, so they do not reach it either. Two parts of this
-chapter state their reach by name, and Dave settled both for `phone-factory` on October 2, 2026
-([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)): the `CRO` label **never**
-reaches it, and the board-request step **does**.
+chapters are written against the Shopify theme and CLI, so they do not reach it either. One part of this
+chapter states its reach by name, and Dave settled it for `phone-factory` on October 2, 2026
+([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)): the board-request step
+**does** reach it. The other part settled then, the `CRO` label, has since been retired everywhere
+(below).
 
 **Keep the two axes apart -- they read as one question and are not.** The org is left off the *store
 pair's* name because an org can move out from under a repo while the repo itself does not; the *repo
@@ -111,7 +112,6 @@ So every label goes on the `gh issue create` itself.
 |---|---|---|
 | **`bug` or `feature`** | the kind | **always exactly one of the two.** `--label feature` for something new being added, `--label bug` for something that exists and has to change. A doc finding is one of them too: a missing page is a `feature`, a wrong one a `bug` |
 | **the reach label** | how far the issue reaches | one `--label`, and only where it reaches the audience tier. Absence is the answer for tier 0 and is not a missing field. Its **name** is `Get-ReachLabel`'s, default `minor` -- see below |
-| **`CRO` label** | who raised it, not what it is -- store repos only | `--label CRO` on an issue filed by, or on behalf of, the CRO team (today: Johnno), on top of the kind -- see below |
 
 **There is no third kind, and no `documentation` label** (Dave, October 3, 2026,
 [#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)). Until then an issue with
@@ -157,31 +157,18 @@ leaving it at neither is not. So **read `Get-ReachLabel` from your own `scripts/
 literal**: `gh issue create` fails outright on a label the repo does not have, so a typed default gets you
 an error instead of an issue.
 
-#### The CRO label -- who reported it, not what it is
+#### The CRO label -- retired
 
-**A third, independent axis: not what the issue is, but who raised it.** `--label CRO` marks an issue
-filed by, or on behalf of, the CRO team -- today that is Johnno. It is written from judgement at the
-moment of filing, exactly like the reach label above: there is no automatic
-detection from a GitHub account, and none is planned -- a session files every issue itself, so
-`created_by` would read identically whether a CRO finding or anybody else's went through it.
+**There is no `CRO` label any more, in any repo** (Dave, October 7, 2026,
+[#2869](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2869)). It marked an issue filed by,
+or on behalf of, the CRO team, as a third axis beside the kind and the reach. Now a filing session picks
+the kind -- `bug` or `feature` -- and the reach label, and nothing records who raised an issue. An Asana
+ticket from the CRO team is filed exactly like any other.
 
-**This label exists ONLY in a repo that is an actual Shopify store**, because a CRO team measures
-conversion on a live storefront and this plugin's own source repo, `dkj-claude-plugins`, has none --
-admitted as a [`report-issue`](skills/report-issue/SKILL.md) target for the ticket-handling chapter
-alone, not for this axis. Concretely:
-
-- `smartwatchbanden` and `xoxowildhearts` -- create it, and set it where it applies.
-- `dkj-claude-plugins` -- never create it, and never set it. A finding filed here has no CRO team
-  behind it to attribute, whatever else the ticket-handling chapter permits there.
-- `phone-factory` -- never create it, and never set it. It is a live store, but on Lightspeed, and
-  the CRO team does not measure it (Dave, October 2, 2026,
-  [#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)). So "an actual Shopify
-  store" above is meant literally: being a live store is not enough.
-
-**It carries no seam and needs none** -- the same shape `Get-ReachLabel`'s own paragraph reasons from:
-nobody has renamed this label, and which repos it applies to is a fixed list of two, stated here rather
-than read from a function nothing else needs. [`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md)'s
-labelling step creates it only where the repo is one of those two.
+**Where the label already exists, it stays as history** on the issues that carry it, and nothing sets it
+again. Deleting it from `smartwatchbanden` or `xoxowildhearts` is a repo setting, so that is the owner's
+call, and nothing in this plugin does it. [`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md)
+no longer creates it.
 
 **It triggers nothing on its own, and it used to.** Until inbound
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049) this label was what
@@ -589,7 +576,7 @@ point at is noise.
    that built the thing does know it**: its preview URL, or the live page after a push. Composing the
    block in that session removes the placeholder link instead of working around it.
 
-**It is gated on the Asana link, not on the `CRO` label.** A mirrored task is a mirrored task, so the
+**It is gated on the Asana link, not on the `CRO` label** (since retired, #2869). A mirrored task is a mirrored task, so the
 reach is the same three matchers this step already defines for *which* task an issue belongs to. The
 `CRO` gate was narrower than the need -- measured in `BWJ-Development/smartwatchbanden`,
 September 17, 2026: of 14 open issues, **13** carried an Asana link and **6** carried `CRO`.
