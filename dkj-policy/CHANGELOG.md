@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**7 / 8 minor entries** <!-- pending-tally -->
+**8 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2885-store-admin-prerequisites · 20261007-140442Z
+
+`build-golive-block` now checks the store-admin prerequisites an issue records
+([#2885](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2885)). These are steps a change
+needs on the store rather than in the theme, such as a metafield definition, a menu or a setting. They
+go on the issue as a checklist under `<!-- store-admin-prerequisites -->`. `-Post` refuses while a box
+is open or the issue cannot be read, and `-Force` gets past it. `-OutFile`, which the preview handover
+page embeds, warns and names the open items. A print-only run reads nothing. `WORKFLOW-portable.md`
+carries the checklist's template, and `PREVIEW-portable.md` has the handover page name the open items
+above the cards.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store repo can no longer send a go-live block that asks a colleague to review a feature whose
+store setup is missing. In `xoxowildhearts` a block went out for a metafield whose definition nobody
+had created. A session that finds such a step writes it on the issue, and the block waits until it is
+ticked.
+
+**Score:** 3
+
+#### Pull Request
+
+golive-block checks store-admin prerequisites on the issue
+
+Plugins: bwj-development
+
+[PR #2894](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2894)
+
+---
 
 ### DEPLOY: docs/2884-delete-retired-labels · 20261007-135228Z
 
