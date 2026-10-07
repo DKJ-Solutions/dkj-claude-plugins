@@ -351,19 +351,11 @@ the reach label is the one a consumer has actually renamed. So the pause is
 written here, where it has been paid for, rather than several times on speculation. If a second rename
 lands on one of the others, that is the moment for its own seam -- not a reason to widen this one now.
 
-**And the `CRO` label -- Shopify store repos only.** It marks an issue filed by, or on behalf of,
-the CRO team (today: Johnno), and it exists in exactly two repos: `smartwatchbanden` and
-`xoxowildhearts`. **Skip this label entirely when this skill runs against `dkj-claude-plugins` or
-`phone-factory`.** The first has no store at all. The second is a Lightspeed store the CRO team does not
-measure ([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)). Both are permitted
-adoption targets for the ticket-handling chapter alone, not for this label. See
-[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#the-cro-label----who-reported-it-not-what-it-is)
-for the reasoning.
-
-```bash
-gh label create CRO --repo <owner>/<repo> --color 5319e7 \
-  --description "Filed by, or on behalf of, the CRO team (currently Johnno) -- store repos only"
-```
+**No `CRO` label.** It was retired on October 7, 2026
+([#2869](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2869)), so this step no longer
+creates it. Where a store already has one, leave it alone: it is history on closed issues, and deleting
+it is the owner's call. See
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#the-cro-label----retired).
 
 **And the four prio labels.** They are typed onto an issue by a person now: the daily run that used to
 set one from the Asana task's `Prio-Score` was retired on October 5, 2026 (Dave). `gh issue edit` fails on
