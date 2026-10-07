@@ -62,8 +62,13 @@ while the two files and the secret are only readable from the store.
 
 ### TEST
 
-- [x] `scripts/tests/closed-message-sessioncheck.tests.ps1`: 12 asserts, covering the measured case,
-  a stale copy, a CRLF copy, an unreadable secret list and silence outside the stores.
+- [x] `scripts/tests/closed-message-sessioncheck.tests.ps1`: 13 asserts, covering the measured case,
+  a stale copy, a CRLF copy, an unreadable secret list, silence outside the stores, and a real ssh
+  origin read without the slug override. After Victor's review, the helper takes one secret name,
+  because `-File` does not split a comma list. The live `gh api` read is not exercised: it fails silent
+  by design, and only the sentinel stands for it.
+- [x] Reviews: Victor (no correctness bug; the test findings above applied) and Sebastian (no
+  findings; the slug's character classes keep the forwarded line and the `gh` path clean).
 - [x] `check-plugin-integrity.ps1`: 0 errors.
 
 ### DEPLOY: feat/2871-closed-message-sessioncheck

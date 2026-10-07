@@ -11,6 +11,18 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/closed-message-sessioncheck.ps1\"",
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }
