@@ -39,19 +39,44 @@
 
 ### PLAN
 
+The owner's correction after #2879: research findings do not get a folder in the repo. They go as
+one comment on the issue the research answers, so everything sits in one central place. The #2879
+finding had landed as `research/shopify-store-switch/finding.md` through PR #2882, following
+Rebecca's lens, which still named `research/<topic>/` as the destination.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rebecca's portable manual: research lands as one comment on the issue it answers. No research
+  folder, dossier file, branch or PR for a finding alone; an issue is filed first when none exists,
+  and the follow-up work is filed separately
+- [x] Rebecca's agent def and repo lens follow the manual (Derek posts the comment with `gh`)
+- [x] Marlowe's and Chris's lenses: "research dossier" becomes "research finding"
+- [x] The #2879 finding is posted as a comment on #2879, and `research/` is removed
+- [x] The pending #2882 changelog entry links the comment instead of the removed file
 
 ### TEST
 
+- [x] No `research/<topic>` destination is left in the live docs (git grep: only the manual's own
+  account of the correction and a released changelog remain); the lint gate runs at open-pr
+
 ### DEPLOY: docs/research-lands-on-the-issue
 
-**Score:**
+Rebecca's findings now land as one comment on the issue the research answers, not as a file under
+`research/<topic>/`. Her portable manual, her agent def and this repo's lenses say so. A finding
+alone takes no branch and no pull request; an issue is filed first when none exists, and whatever
+the research leads to is filed as a separate follow-up issue. The #2879 finding moved onto its
+issue, and the `research/` folder is gone.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo running the core team gets research findings on the issue that asked the question, in one
+place beside the follow-ups, instead of a research folder in its tree that nobody reads again.
+
+**Score:** 2
 
 #### Pull Request
+
+Research findings land as a comment on the issue, not as a file in the repo
 
