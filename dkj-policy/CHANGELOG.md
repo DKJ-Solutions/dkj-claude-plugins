@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**3 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2871-closed-message-sessioncheck · 20261007-083532Z
+
+`bwj-development` gains a SessionStart check, `closed-message-sessioncheck`
+([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)). In `smartwatchbanden` and
+`xoxowildhearts` it reports three things. The first is an `asana-closed-message` workflow or script that
+was never copied. The second is a copy that differs from the template the installed plugin ships. The
+third is an `ASANA_PAT` secret that is not visible to the repo. Before this, a store that skipped
+`adopt-bwj-development` step 1 lost every closed and reopened message on its Asana tasks without a
+word. It is silent in every other repo, and also when it cannot read the secret list.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+After the update, a session in a store whose closed-message workflow is missing or outdated, or has no
+`ASANA_PAT`, says so at start, and names the `adopt-bwj-development` step that repairs it. The same line
+appears after a later template change (such as #2870) until the store takes the new copy.
+
+**Score:** 3
+
+#### Pull Request
+
+bwj-development: a session check reports a store whose asana-closed-message copy is missing, stale, or has no ASANA_PAT
+
+Plugins: bwj-development
+
+[PR #2874](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2874)
+
+---
 
 ### DEPLOY: feat/2870-reopened-message-wording · 20261007-081402Z
 
