@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/research-lands-on-the-issue · 20261007-130703Z
+
+Rebecca's findings now land as one comment on the issue the research answers, not as a file under
+`research/<topic>/`. Her portable manual, her agent def and this repo's lenses say so. A finding
+alone takes no branch and no pull request; an issue is filed first when none exists, and whatever
+the research leads to is filed as a separate follow-up issue. The #2879 finding moved onto its
+issue, and the `research/` folder is gone.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo running the core team gets research findings on the issue that asked the question, in one
+place beside the follow-ups, instead of a research folder in its tree that nobody reads again.
+
+**Score:** 2
+
+#### Pull Request
+
+Research findings land as a comment on the issue, not as a file in the repo
+
+Plugins: dkj-subagents-alpha
+
+[PR #2887](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2887)
+
+---
 
 ### DEPLOY: feat/2877-asana-default-assignee · 20261007-125643Z
 
