@@ -60,8 +60,12 @@ $Unreadable = '<unreadable>'
 
 function Get-OriginSlug {
     param([string]$Root)
-    $url = (& git -C $Root remote get-url origin 2>$null | Select-Object -First 1)
-    if ($LASTEXITCODE -ne 0 -or -not $url) { return '' }
+    # Captured whole, never piped into Select-Object -First: that stops the pipeline, which can end git
+    # before it exits and leave a non-zero $LASTEXITCODE beside a good URL. Measured in this hook's own
+    # suite, where the store went unrecognised on one run in two.
+    $out = @(& git -C $Root remote get-url origin 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $out.Count -lt 1) { return '' }
+    $url = [string]$out[0]
     $m = [regex]::Match([string]$url, 'github\.com[:/]([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(\.git)?/?$')
     if (-not $m.Success) { return '' }
     return "$($m.Groups[1].Value)/$($m.Groups[2].Value)"

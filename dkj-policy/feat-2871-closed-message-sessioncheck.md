@@ -67,6 +67,10 @@ while the two files and the secret are only readable from the store.
   origin read without the slug override. After Victor's review, the helper takes one secret name,
   because `-File` does not split a comma list. The live `gh api` read is not exercised: it fails silent
   by design, and only the sentinel stands for it.
+- [x] The ssh case first went red intermittently. The origin read piped `git` into
+  `Select-Object -First 1`, the pipe-stop trap Sylvester's lens already names, and git ended early with a
+  non-zero exit code beside a good URL. The read is now captured whole and stays green over three
+  consecutive runs. The fixture git calls go through `fixture-git-lib`, as the integrity gate requires.
 - [x] Reviews: Victor (no correctness bug; the test findings above applied) and Sebastian (no
   findings; the slug's character classes keep the forwarded line and the `gh` path clean).
 - [x] `check-plugin-integrity.ps1`: 0 errors.

@@ -19,6 +19,8 @@ $Templates = Join-Path $RepoRoot 'plugins\dkj-policy\bwj-development\templates'
 # $PID and a guid in the fixture path: the test gate runs suites in parallel.
 $Fixture   = Join-Path ([System.IO.Path]::GetTempPath()) "closed-message-sessioncheck-$PID-$([guid]::NewGuid().ToString('n'))"
 
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+
 $script:pass = 0
 $script:fail = 0
 
@@ -86,8 +88,8 @@ try {
 
     # THE REAL ORIGIN READ, no slug override: an ssh origin naming a store is recognised as that store.
     $ssh = New-Store -Label 'ssh'
-    & git -C $ssh init -q 2>$null | Out-Null
-    & git -C $ssh remote add origin 'git@github.com:BWJ-Development/smartwatchbanden.git' 2>$null | Out-Null
+    Invoke-FixtureGitIn $ssh init -q
+    Invoke-FixtureGitIn $ssh remote add origin 'git@github.com:BWJ-Development/smartwatchbanden.git'
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Hook -RepoRootOverride $ssh `
         -TemplateRootOverride $Templates -SecretNamesOverride 'ASANA_PAT' 2>&1 | ForEach-Object { "$_" }
     Assert-True (($out -join "`n") -match 'BWJ-Development/smartwatchbanden has no \.github/workflows') 'an ssh origin is read as owner/name and checked as a store'
@@ -97,5 +99,7 @@ try {
 
 Write-Host ''
 Write-Host "closed-message-sessioncheck: $script:pass passed, $script:fail failed"
-if ($script:fail -gt 0) { exit 1 }
+# A BROKEN FIXTURE FAILS THE RUN (#1635): the ssh case reads a repo git init had to build.
+$fixtureBroken = Write-FixtureGitSummary -Subject 'closed-message-sessioncheck.ps1'
+if ($script:fail -gt 0 -or $fixtureBroken) { exit 1 }
 exit 0
