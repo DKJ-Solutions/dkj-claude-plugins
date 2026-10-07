@@ -348,6 +348,11 @@ skill needs to know which workspace and project a mirrored task lands in:
   `$null` -- the default -- is the common answer: most boards carry neither, and `report-issue`
   skips whichever is unset without saying anything. Where a board does carry one, leaving it unset is
   the state that costs something, because the field is then filled by hand or not at all.
+- `Get-AsanaDefaultAssignee` -- the Asana user GID that a task `report-issue` **creates** is assigned
+  to, so the card reaches that person's *My Tasks* rather than waiting unseen on the board
+  ([#2877](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2877)). **Optional**, `$null` by
+  default, which creates the task unassigned. A colleague's own task that the procedure moves keeps
+  its assignee.
 - `Get-ReachLabel` -- **the name GitHub stores for the reach label**, and the one function in this list
   that says nothing about Asana. The axis it carries is fixed and portable, defined for every repo running this workflow in
   [`RELEASES-portable.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/RELEASES-portable.md#the-same-scale-on-an-issue--the-reach-label)
