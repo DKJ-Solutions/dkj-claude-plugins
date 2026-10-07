@@ -186,11 +186,11 @@ all, and when the PR may open, both still the consumer's and `dkj-policy`'s.
 | [`templates/`](templates/) | the one CI workflow a store **copies** rather than dot-sources, because GitHub runs a workflow only from the repo's own `.github/`: `asana-closed-message.yml` and its script, the closed and reopened messages on the Asana task ([#2818](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2818), [#2854](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2854)) |
 | [`worker/`](worker/) | the one Cloudflare Worker both stores publish through, as source -- deployed once, never copied into a repo, and carrying no page content of its own |
 | [`skills/`](skills/) | the skills a specialist invokes |
-| [`hooks/`](hooks/) | one PreToolUse hook, `guard-asana-mirror.ps1`: it refuses an Asana create-task call for a task that cites a GitHub issue without the reach label, which is the one chapter-one rule a session was measured forgetting ([#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)) |
+| [`hooks/`](hooks/) | two hooks. The PreToolUse hook `guard-asana-mirror.ps1`: it refuses an Asana create-task call for a task that cites a GitHub issue without the reach label, which is the one chapter-one rule a session was measured forgetting ([#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)). The SessionStart check `closed-message-sessioncheck.ps1`: in the two stores it reports an `asana-closed-message` copy that is missing or differs from the template, and a missing `ASANA_PAT`, because a copy is the one delivery a plugin update cannot make ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)) |
 
 **No `subagents/`, no `manuals/`, no `blueprint/`.** Agents and manuals belong to a team. A workflow
 carries hooks and a blueprint "only where it needs them". This one needed a hook once a prose rule was
-measured failing, and it still needs no blueprint.
+measured failing, and a second once a copied workflow was measured missing. It still needs no blueprint.
 
 ## What this plugin owns
 

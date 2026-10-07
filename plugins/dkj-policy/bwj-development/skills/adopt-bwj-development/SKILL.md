@@ -93,7 +93,9 @@ GitHub only runs a workflow from a repo's own `.github/`, so these are copied, n
 Copy them verbatim. If a file already exists at the target, **stop and diff** rather than overwriting:
 report the difference and let the maintainer decide. **Only in `smartwatchbanden` and `xoxowildhearts`**
 (#2818). The source repo and `phone-factory` adopt this plugin for ticket handling alone, and no closed
-message was asked for there.
+message was asked for there. In the two stores, the plugin's `closed-message-sessioncheck` hook reports
+at every session start when either copy is missing or differs from the template, and when `ASANA_PAT`
+(step 3) is absent ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)).
 
 When an issue closes as completed, the workflow posts one comment on its Asana task: the automation's
 header, the closed line, and the go-live block the shipping session left on the issue. It posts nothing on
