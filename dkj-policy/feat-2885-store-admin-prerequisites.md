@@ -58,14 +58,18 @@ the preview handover warns.
   the duplicate check, unless `-Force`
 - [x] Docs: `WORKFLOW-portable.md` gains the checklist's section and template, `PREVIEW-portable.md`
   the warning above the cards, and the `golive-block` skill step 8 and the `-Force` row
-- [ ] Review: Victor #19, Sebastian #23, Edith #17
+- [x] Review: Victor #19, Sebastian #23, Edith #17. Fixed from it: the checklist ends at the next
+  heading or HTML comment, the marker is matched ordinally, a `gh` that throws reads as unreadable rather
+  than ending the `-OutFile` run, and the parser fails closed (a bare, numbered, quoted or unspaced box
+  counts, and so does a marker with no box under it). One `-Force` for both checks stays, as the
+  owner's decision names it
 
 ### TEST
 
 - [x] `bwj-development.tests.ps1`: the parser (only the boxes after the marker count, `x`/`X` and
   `-`/`*` bullets, no marker or no text declares nothing), static asserts on the driver's read and
-  refusal order, and an end-to-end run through a stand-in `gh` on PATH: `-OutFile` exits 0 and names
-  only the open item, and `-Post` exits 1 with "Nothing posted" -- 343 passed
+  refusal order, the checklist's end and the fail-closed variants, and an end-to-end run through a stand-in `gh` on PATH: `-OutFile` exits 0 and names
+  only the open item, and `-Post` exits 1 with "Nothing posted" -- 348 passed
 - [x] Live run against this repo's #2885 with `-OutFile` (no marker, so no warning, exit 0), and against
   a repo that does not exist (warns that the issue is unreadable, exit 0)
 

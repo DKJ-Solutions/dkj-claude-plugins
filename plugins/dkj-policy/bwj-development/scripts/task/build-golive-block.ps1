@@ -46,6 +46,11 @@
     a minor -- which is why it left the block. Where a fact cannot be derived it is left out rather than
     guessed -- see golive-block-rules.ps1's header.
 
+    AND IT HOLDS THE POST BACK WHILE THE STORE IS NOT READY (#2885). A change can need work on the store
+    rather than in the theme -- a metafield definition, a menu, a setting -- and the issue then carries a
+    checklist under Get-StoreAdminPrerequisiteMarker. -Post refuses while a box on it is open (-Force past
+    it); -OutFile, which the preview handover page embeds, warns. A print-only run reads nothing.
+
     WHY IT DOT-SOURCES scripts/lib/asana-task-lib.ps1. For Get-AsanaPasteBlockMarker and
     Test-AsanaPasteBlockPosted -- the marker the block's comment carries, and the read that answers
     whether a block is already there -- plus ConvertTo-ConsoleStrippedText through ref-print-lib.ps1.
@@ -113,8 +118,8 @@
     written anywhere.
 
 .PARAMETER Force
-    Post even though a paste-ready block already appears to be on the issue, or the check could not
-    read its comments.
+    Post even though a paste-ready block already appears to be on the issue, a store-admin prerequisite
+    on it is still unticked (#2885), or either check could not read the issue.
 
 .PARAMETER RootOverride
     The repo root, when this is not run from inside the checkout.
@@ -349,6 +354,33 @@ Write-Host ""
 Write-Host $block
 Write-Host ""
 
+# --- Store-admin prerequisites ------------------------------------------------------------------------
+# THE CHECKLIST IS READ FROM THE ISSUE, ITS BODY AND ITS COMMENTS (#2885, Dave, October 7, 2026): the one
+# record that still exists at the close, after the fold has removed the branch document. Read only where
+# the block is about to leave this console -- -OutFile, which the preview handover page embeds, and -Post
+# -- so a print-only run stays the local, offline thing it has always been. Each moment does what the
+# owner decided for it: the handover warns, the post refuses.
+#
+# The item text is the issue's, so it is printed through ConvertTo-ConsoleStrippedText; it is decoded with
+# the console code page here, which can cost an accent on screen and never the tick state, which is ASCII.
+$prereqOpen   = @()
+$prereqUnread = $false
+if ($PostArg -or $OutFileArg) {
+    # A gh that is missing or throws is an unreadable issue, not a dead run: -OutFile must still write.
+    $issueJson = $null
+    try { $issueRun = Invoke-Native { gh issue view $issueNumber --repo $StoreRepo --json body,comments } }
+    catch { $issueRun = [pscustomobject]@{ Output = @(); Code = 1 } }
+    if ($issueRun.Code -eq 0 -and $issueRun.Output.Count -gt 0) {
+        try { $issueJson = ($issueRun.Output -join "`n") | ConvertFrom-Json } catch { $issueJson = $null }
+    }
+    if ($issueJson) {
+        $issueTexts = @([string]$issueJson.body) + @(@($issueJson.comments) | ForEach-Object { [string]$_.body })
+        $prereqOpen = @(Get-StoreAdminPrerequisites -Text $issueTexts | Where-Object { -not $_.Done })
+    } else {
+        $prereqUnread = $true
+    }
+}
+
 # UTF-8 WITHOUT A BOM, for both files below: the block is the colleague's language, and a BOM would
 # arrive in a pasted comment as an invisible first character.
 $utf8 = New-Object System.Text.UTF8Encoding $false
@@ -360,6 +392,15 @@ if ($OutFileArg) {
         exit 1
     }
     Write-Host "  written  : $OutFileArg (UTF-8 -- the faithful copy; the console above may have lost characters)" -ForegroundColor DarkGray
+    # THE HANDOVER WARNS, AND DOES NOT REFUSE: a reviewer may well look before the store is set up, and
+    # the page then says so above the cards (PREVIEW-portable.md, the shape of the handover).
+    if ($prereqOpen.Count -gt 0) {
+        Write-Host "[WARNING] $($prereqOpen.Count) store-admin prerequisite(s) on $targetRef still open -- put them on the" -ForegroundColor Yellow
+        Write-Host "          handover page above the cards; -Post refuses until each is ticked on the issue:" -ForegroundColor Yellow
+        foreach ($p in $prereqOpen) { Write-Host "            - [ ] $(ConvertTo-ConsoleStrippedText -Text $p.Item)" -ForegroundColor Yellow }
+    } elseif ($prereqUnread) {
+        Write-Host "[WARNING] Could not read $targetRef, so its store-admin prerequisites are unchecked." -ForegroundColor Yellow
+    }
 }
 
 if (@($prose.Changed).Count -eq 0) {
@@ -384,6 +425,21 @@ $stateRun = Invoke-Native { gh issue view $issueNumber --repo $StoreRepo --json 
 if ($stateRun.Code -eq 0 -and $stateRun.Output.Count -gt 0 -and ([string]$stateRun.Output[0]).Trim() -eq 'CLOSED') {
     Write-Host "[WARNING] $targetRef is already closed. The block belongs on it while it is OPEN -- nobody" -ForegroundColor Yellow
     Write-Host "          returns to a closed issue, which is why the order is the rule. Posting anyway." -ForegroundColor Yellow
+}
+
+# AN OPEN STORE-ADMIN PREREQUISITE REFUSES THE POST (#2885): the block tells a colleague to go and look,
+# and what they would look at is not there yet. An unreadable issue refuses too, for the duplicate check's
+# reason -- a run that cannot check does not post blindly. -Force is the one valve, as it is below.
+if (-not $ForceArg -and ($prereqUnread -or $prereqOpen.Count -gt 0)) {
+    if ($prereqUnread) {
+        Write-Host "[ERROR] Could not read $targetRef, so its store-admin prerequisites are unchecked." -ForegroundColor Red
+    } else {
+        Write-Host "[ERROR] $targetRef has $($prereqOpen.Count) store-admin prerequisite(s) still open:" -ForegroundColor Red
+        foreach ($p in $prereqOpen) { Write-Host "          - [ ] $(ConvertTo-ConsoleStrippedText -Text $p.Item)" -ForegroundColor Red }
+        Write-Host "        Do them on the store and tick them on the issue first." -ForegroundColor Red
+    }
+    Write-Host "        Nothing posted. Re-run with -Force to post regardless." -ForegroundColor Red
+    exit 1
 }
 
 # Test-AsanaPasteBlockPosted answers TRUE where it cannot READ the comments, so a blind duplicate is
