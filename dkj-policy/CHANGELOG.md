@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**6 / 7 minor entries** <!-- pending-tally -->
+**7 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2884-delete-retired-labels · 20261007-135228Z
+
+`adopt-bwj-development` now deletes the retired `documentation` and `CRO` labels from a store repo,
+after giving each open issue on `documentation` its kind. Until now both pages left the delete to the
+owner, and the owner has now decided it. A label that exists can still be applied by a session that
+files with a bare `gh issue create` and never loads `report-issue`, which is how
+`smartwatchbanden#876` got `documentation` on October 7, 2026.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store repo's next `adopt-bwj-development` run removes `documentation` and `CRO`, so `gh` refuses
+them from then on. Closed issues that carried either label lose it.
+
+**Score:** 2
+
+#### Pull Request
+
+adopt-bwj-development deletes the retired documentation and CRO labels
+
+Plugins: bwj-development
+
+[PR #2893](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2893)
+
+---
 
 ### DEPLOY: docs/2889-shopify-readme-delete-rule · 20261007-133753Z
 
