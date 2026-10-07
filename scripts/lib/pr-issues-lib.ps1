@@ -1284,6 +1284,8 @@ function Get-FormerTriageLabelNames {
         (Get-DossierLabelName)      = @(Get-DossierLabelNames | Select-Object -Skip 1)
         'awaiting-first-recurrence' = @('awaiting-recurrence')
         'awaiting-decision-dev'     = @('awaiting-decision', 'needs-decision')
+        'awaiting-action-dev'       = @('awaiting-owner-act')
+        'awaiting-action-external'  = @('awaiting-event')
     }
 }
 

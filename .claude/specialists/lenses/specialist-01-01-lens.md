@@ -66,7 +66,7 @@ is small and focused on maintaining this product — agent defs, manuals, docs, 
   [Derek #05](specialist-05-05-lens.md#the-reach-label--minor-and-it-is-a-second-axis-not-a-fifth-rung).
 - **And it carries its parking label from the moment it is filed, when its next step waits on something
   other than work**: `awaiting-decision-dev` (Dave's choice), `awaiting-decision-client` (a choice from the client or requester outside the dev team, #2890), `awaiting-pull` (another issue's pull request),
-  `awaiting-event` (an external event or date), `awaiting-owner-act` (an act only Dave performs: a live
+  `awaiting-action-external` (an external event or date), `awaiting-action-dev` (an act only Dave performs: a live
   push, a release, a deletion), `awaiting-release` (work that runs only in the next release, which lists
   it), `awaiting-first-recurrence` (its first reproducible
   recurrence), or `awaiting-more-recurrences` (a record). It goes in the same `gh issue create` as the

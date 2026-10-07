@@ -1273,27 +1273,29 @@ function Get-ExpectedRepoSettings {
 # the rest of the awaiting-* family, and it comes off when the blocking pull request merges. Same 'copy'
 # reasoning: "waiting on another issue" asserts nothing about the adopting repo.
 #
-# AND A NINTH, A FOURTH PARKING LABEL: 'awaiting-event' (inbound issue #2784, Dave October 3, 2026). An
+# AND A NINTH, A FOURTH PARKING LABEL: 'awaiting-action-external' (inbound issue #2784, Dave October 3, 2026). An
 # issue that waits on an EXTERNAL event with a known date -- a launch, a third party's release -- has
 # nothing to build until that date, and none of the others says so: nobody owes a choice, no pull request
 # is pending, and no bug has to recur. Without it every sweep listed such an issue as free and held it out
 # by hand with -SkipIssue, which does not carry over to the next sweep. The issue states the event or date,
-# and the label comes off once it has happened. New, so no former name; same purple, same 'copy'
+# and the label comes off once it has happened. Named 'awaiting-event' until #2896 (Dave, October 7, 2026),
+# which open-pr's gate and the parking defaults still match; same purple, same 'copy'
 # reasoning: "waiting on a date" asserts nothing about the adopting repo.
 #
-# AND A TENTH, A FIFTH PARKING LABEL: 'awaiting-owner-act' (inbound issue #2828, October 5, 2026). An
+# AND A TENTH, A FIFTH PARKING LABEL: 'awaiting-action-dev' (inbound issue #2828, October 5, 2026). An
 # issue whose decision is MADE and whose only remaining step is an act the owner performs -- a live push,
 # a release, a deletion the session may not run -- is not free work, and none of the others says so: the
 # choice is made (not awaiting-decision-dev), no pull request is pending, and nothing outside the owner's own
-# hands has to happen first (not awaiting-event). A consumer's sweep read four such issues in full on every
+# hands has to happen first (not awaiting-action-external). A consumer's sweep read four such issues in full on every
 # machine and held them out by hand. The issue names the act, and the label comes off once it is done.
-# New, so no former name; same purple, same 'copy' reasoning: "waiting on the owner's hands" asserts
+# Named 'awaiting-owner-act' until #2896 (Dave, October 7, 2026), still matched as a former name; same
+# purple, same 'copy' reasoning: "waiting on the owner's hands" asserts
 # nothing about the adopting repo.
 #
 # AND AN ELEVENTH, A SIXTH PARKING LABEL: 'awaiting-release' (inbound issue #2851, Dave October 6, 2026).
 # An issue whose remaining work may only run inside the NEXT RELEASE -- its cut or its live step -- was
-# parked with 'awaiting-owner-act' for want of anything closer, and the owner read that label as "I can do
-# something NOW" when nothing is actionable until a release is cut. Nor is it 'awaiting-event': a release
+# parked with 'awaiting-owner-act' (now 'awaiting-action-dev') for want of anything closer, and the owner read that label as "I can do
+# something NOW" when nothing is actionable until a release is cut. Nor is it 'awaiting-action-external': a release
 # is this repo's own act and has no date. And the release itself reads the label: cut-release.ps1's
 # follow-up block lists the open issues carrying it, so the parked work surfaces at the moment it waits
 # for instead of relying on the cutter's memory. New, so no former name; same purple, same 'copy'
@@ -1315,8 +1317,8 @@ $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'awaiting-decision-dev'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-decision-client'; Color = '5319E7'; Description = 'Waiting on the client''s choice -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-pull'; Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
-    [pscustomobject]@{ Name = 'awaiting-event'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
-    [pscustomobject]@{ Name = 'awaiting-owner-act'; Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-action-external'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-action-dev'; Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-release'; Color = '5319E7'; Description = 'Waiting on the next release -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-first-recurrence'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )
@@ -1326,8 +1328,8 @@ function Get-TriageLabels {
        priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'awaiting-more-recurrences', the kind label for
        a collecting issue, and the seven parking labels 'awaiting-decision-dev' (an issue awaiting the owner's
        choice), 'awaiting-decision-client' (an issue awaiting a choice from the client or requester outside the
-       dev team), 'awaiting-pull' (an issue awaiting another issue's pull request), 'awaiting-event' (an issue
-       awaiting an external event or date), 'awaiting-owner-act' (an issue awaiting an act only the owner
+       dev team), 'awaiting-pull' (an issue awaiting another issue's pull request), 'awaiting-action-external' (an issue
+       awaiting an external event or date), 'awaiting-action-dev' (an issue awaiting an act only the owner
        performs), 'awaiting-release' (an issue awaiting the next release) and 'awaiting-first-recurrence' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
        a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the
        create command for whichever of them this repo's tracker is missing; it never creates a label

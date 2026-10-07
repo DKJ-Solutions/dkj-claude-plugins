@@ -140,9 +140,9 @@
     With -Candidates: labels that park an issue with somebody else, so a sweep leaves it alone.
     With an issue number: the labels that make the claim WARN that the issue is parked (#2518) --
     it still claims, and the closing line points at the warning instead of "the work starts here".
-    Default on that route: 'awaiting-more-info', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-release', 'awaiting-first-recurrence' and
-    'awaiting-more-recurrences', plus the former names 'needs-info', 'needs-decision', 'awaiting-decision', 'awaiting-recurrence', 'record' and
-    'dossier' (#2683, #2723, #2741, #2890), the labels sweep-issues skips on -- blocked on the submitter, waiting on the
+    Default on that route: 'awaiting-more-info', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-first-recurrence' and
+    'awaiting-more-recurrences', plus the former names 'needs-info', 'needs-decision', 'awaiting-decision', 'awaiting-recurrence', 'record',
+    'dossier', 'awaiting-owner-act' and 'awaiting-event' (#2683, #2723, #2741, #2890, #2896), the labels sweep-issues skips on -- blocked on the submitter, waiting on the
     owner's choice (#2519), waiting on another issue's pull request (#2757), waiting on an external event or date (#2784), waiting on an act only the owner performs (#2828), waiting on the next release (#2851),
     waiting on a first
     reproducible recurrence (#2587), and collecting instances
@@ -165,7 +165,7 @@
     ./scripts/task/claim-issue.ps1 '#1234' -DryRun
 
 .EXAMPLE
-    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel awaiting-more-info,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-release,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier
+    ./scripts/task/claim-issue.ps1 -Candidates -SkipLabel awaiting-more-info,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier,awaiting-owner-act,awaiting-event
 
 .EXAMPLE
     ./scripts/task/claim-issue.ps1 1234 -Tag
@@ -244,18 +244,19 @@ $SkipLabel = @(Split-CommaListArgument -Value $SkipLabel)
 # 'awaiting-decision' ('needs-decision' until then), which stays listed as a former name too.
 # #2757 (Dave, October 3, 2026) added 'awaiting-pull': an issue waiting on another issue to land through a
 # pull request is parked just as surely. It is new, so it has no former name.
-# #2784 (Dave, October 3, 2026) added 'awaiting-event': an issue waiting on an external event or date (a
-# launch, a third party's release) has nothing to build until then. New too, so no former name.
-# #2828 (October 5, 2026) added 'awaiting-owner-act': an issue whose decision is made and whose only
-# remaining step is an act the owner performs (a live push, a release, a deletion). New, no former name.
+# #2784 (Dave, October 3, 2026) added 'awaiting-action-external': an issue waiting on an external event or date (a
+# launch, a third party's release) has nothing to build until then. Named 'awaiting-event' until #2896.
+# #2828 (October 5, 2026) added 'awaiting-action-dev': an issue whose decision is made and whose only
+# remaining step is an act the owner performs (a live push, a release, a deletion). Named
+# 'awaiting-owner-act' until #2896 (Dave, October 7, 2026); both former names stay listed.
 # #2851 (Dave, October 6, 2026) added 'awaiting-release': an issue whose remaining work may only run in the
-# next release's cut or live step. Not the owner's act NOW, so not awaiting-owner-act. New, no former name.
+# next release's cut or live step. Not the owner's act NOW, so not awaiting-action-dev. New, no former name.
 # #2890 (Dave, October 7, 2026) split 'awaiting-decision' in two: 'awaiting-decision-dev' is the same label under
 # a new name (a choice only the owner makes) and keeps 'awaiting-decision' and 'needs-decision' as former names;
 # 'awaiting-decision-client' is new (a choice from the client or requester outside the dev team), no former name.
 if ($PSCmdlet.ParameterSetName -eq 'Issue' -and -not $PSBoundParameters.ContainsKey('SkipLabel')) {
-    $SkipLabel = @('awaiting-more-info', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-release', 'awaiting-first-recurrence', 'awaiting-more-recurrences',
-                   'needs-info', 'needs-decision', 'awaiting-decision', 'awaiting-recurrence', 'record', 'dossier')
+    $SkipLabel = @('awaiting-more-info', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-first-recurrence', 'awaiting-more-recurrences',
+                   'needs-info', 'needs-decision', 'awaiting-decision', 'awaiting-recurrence', 'record', 'dossier', 'awaiting-owner-act', 'awaiting-event')
 }
 $skipIssueNumbers = @()
 foreach ($s in @(Split-CommaListArgument -Value $SkipIssue)) {

@@ -198,8 +198,8 @@ Assert-Equal 12 $triageLabels.Count 'Get-TriageLabels names exactly twelve label
 # elementwise against the WHOLE right-hand array per element, never a deep sequence equality, so
 # Assert-Equal would silently pass or fail on the wrong thing. Same join-then-compare shape
 # script-contract.tests.ps1 already uses for its own Scripts-list assertions.
-Assert-Equal 'prio-1,prio-2,prio-3,prio-4,awaiting-more-recurrences,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-release,awaiting-first-recurrence' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
-    'Get-TriageLabels names prio-1 through prio-4, then awaiting-more-recurrences, then awaiting-decision-dev, awaiting-decision-client, awaiting-pull, awaiting-event, awaiting-owner-act, awaiting-release and awaiting-first-recurrence, in that order'
+Assert-Equal 'prio-1,prio-2,prio-3,prio-4,awaiting-more-recurrences,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-first-recurrence' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
+    'Get-TriageLabels names prio-1 through prio-4, then awaiting-more-recurrences, then awaiting-decision-dev, awaiting-decision-client, awaiting-pull, awaiting-action-external, awaiting-action-dev, awaiting-release and awaiting-first-recurrence, in that order'
 foreach ($l in $triageLabels) {
     Assert-Match $l.Color '^[0-9A-Fa-f]{6}$' "Get-TriageLabels: '$($l.Name)' has a 6-digit hex colour"
     Assert-True ([bool]$l.Description) "Get-TriageLabels: '$($l.Name)' has a non-empty description"
@@ -216,8 +216,8 @@ $expectedTriage = @{
     'awaiting-decision-dev' = @{ Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     'awaiting-decision-client' = @{ Color = '5319E7'; Description = 'Waiting on the client''s choice -- parks the issue so no session picks it up' }
     'awaiting-pull' = @{ Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
-    'awaiting-event' = @{ Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
-    'awaiting-owner-act' = @{ Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
+    'awaiting-action-external' = @{ Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
+    'awaiting-action-dev' = @{ Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
     'awaiting-release' = @{ Color = '5319E7'; Description = 'Waiting on the next release -- parks the issue so no session picks it up' }
     'awaiting-first-recurrence' = @{ Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 }
