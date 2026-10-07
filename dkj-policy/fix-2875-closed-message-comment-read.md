@@ -39,21 +39,41 @@
 
 ### PLAN
 
+- [x] Read #2875 and the template's comment read; confirm the REST read finds the block on xoxowildhearts#383 locally
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Read the comments through REST (`gh api .../issues/<n>/comments --paginate --jq`), filtering on `author_association`
+- [x] Keep gh's exit code and stderr, log them on a failed read, and say "could not be read" instead of "none was on the issue"
+- [x] Update the template header, the workflow comment and `WORKFLOW-portable.md`
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the REST arguments, paginated lines into trusted bodies, the failed-read log phrase -- 328 asserts green
+- [x] Smoke run of `Read-IssueComments` against xoxowildhearts#383 (2 bodies, block found) and a missing repo (exit 1, `gh: Not Found (HTTP 404)` reported)
+
 ### DEPLOY: fix/2875-closed-message-comment-read
 
-**Score:**
+The `asana-closed-message` template now reads an issue's comments through REST
+(`gh api repos/<owner>/<repo>/issues/<n>/comments --paginate`), which the workflow's `issues: read`
+covers, instead of `gh issue view --json comments`
+([#2875](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2875)). On the runner the old read
+returned nothing for an issue that carried a trusted go-live block, so the Asana task got the bare
+closed line. A failed read is no longer silent: the run log shows gh's exit code and error, and its
+last line says the comments could not be read rather than that no block was on the issue. The bare
+closed message still goes out in that case. The suite pins the REST call, the parsing of paginated
+output and the two log lines.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A requester whose store issue closes as completed gets the go-live block on the Asana task again,
+where the old read dropped it on the runner. A store picks the fix up by copying the template again
+(`adopt-bwj-development` step 1) after the update; until then it keeps the old read.
+
+**Score:** 3
 
 #### Pull Request
 
-asana-closed-message reads comments through REST and logs a failed read
-
+bwj-development: asana-closed-message reads comments through REST and logs a failed read

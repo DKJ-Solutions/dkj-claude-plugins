@@ -640,7 +640,10 @@ the machine marker tried first and unconditionally. The second matcher is a lead
 by hand -- `Fill in the link below and paste the block into the Asana task` -- quoted here so a block can
 be written by hand. The backstop that used to post a placeholder-only block on a close with no block on it is
 retired with the mirror (Dave, October 5, 2026) and did not come back: an issue closed without a block
-has none, and its closed message goes out with the header and the closed line only.
+has none, and its closed message goes out with the header and the closed line only. So does one whose
+comments the workflow could not read (it reads them through REST, `gh api .../issues/<n>/comments`), and
+its run log then says the read failed, with gh's exit code and error, rather than that no block was on
+the issue (#2875).
 
 ### 5. (Retired October 5, 2026) The Asana prio score no longer comes back as a label
 
