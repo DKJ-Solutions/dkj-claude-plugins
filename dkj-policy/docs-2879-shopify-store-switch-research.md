@@ -39,9 +39,18 @@
 
 ### PLAN
 
+Inbound #2879 asks for research, not for a build. The owner switches the claude.ai Shopify connector
+between the two BWJ store repos all the time, and every switch costs a manual `/mcp` re-auth. The
+deliverable is a short written finding with one recommendation, landed as a dossier under
+`research/<topic>/` (Rebecca's lens), plus a follow-up issue for the skill or check itself if the
+recommendation holds up.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Rebecca #07 researches the four questions in the issue (source-cited, measured vs inferred)
+- [ ] Marlowe #29 red-teams the recommendation before it is written down
+- [ ] Tessa #16 lands the finding as `research/shopify-store-switch/finding.md`
+- [ ] File the follow-up issue for the skill/check, if the recommendation holds up
 
 ### TEST
 
