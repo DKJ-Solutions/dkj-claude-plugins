@@ -1248,7 +1248,7 @@ function Get-ExpectedRepoSettings {
 # names are still matched by open-pr's gate and the parking defaults, and adopt-triage-labels prints a
 # rename rather than a create for a tracker that still carries one.
 #
-# AND A SIXTH, A PARKING LABEL: 'awaiting-decision' (issue #2519, Dave September 26, 2026; 'needs-decision' until #2741, October 3, 2026, when it joined the purple awaiting-* family and took that colour). An issue that
+# AND A SIXTH, A PARKING LABEL: 'awaiting-decision-dev' (issue #2519, Dave September 26, 2026; 'awaiting-decision' until #2890, October 7, 2026, when it was split in two and 'dev' came to mean the owner alone; 'needs-decision' until #2741, October 3, 2026, when it joined the purple awaiting-* family and took that colour). An issue that
 # ends in an open choice for the owner is not work anybody can pick up yet, and the claim and sweep
 # routes skip it by default. It is deliberately NOT 'awaiting-more-info' ('needs-info' until #2723): in
 # bwj-development that label means
@@ -1268,7 +1268,7 @@ function Get-ExpectedRepoSettings {
 #
 # AND AN EIGHTH, A THIRD PARKING LABEL: 'awaiting-pull' (issue #2757, Dave October 3, 2026). An issue
 # whose work cannot start until ANOTHER issue has landed through its pull request is not free work
-# either, and no existing label says so: 'awaiting-decision' waits on a person's answer and
+# either, and no existing label says so: 'awaiting-decision-dev' waits on a person's answer and
 # 'awaiting-first-recurrence' on evidence. It is a new label with no former name, in the same purple as
 # the rest of the awaiting-* family, and it comes off when the blocking pull request merges. Same 'copy'
 # reasoning: "waiting on another issue" asserts nothing about the adopting repo.
@@ -1284,7 +1284,7 @@ function Get-ExpectedRepoSettings {
 # AND A TENTH, A FIFTH PARKING LABEL: 'awaiting-owner-act' (inbound issue #2828, October 5, 2026). An
 # issue whose decision is MADE and whose only remaining step is an act the owner performs -- a live push,
 # a release, a deletion the session may not run -- is not free work, and none of the others says so: the
-# choice is made (not awaiting-decision), no pull request is pending, and nothing outside the owner's own
+# choice is made (not awaiting-decision-dev), no pull request is pending, and nothing outside the owner's own
 # hands has to happen first (not awaiting-event). A consumer's sweep read four such issues in full on every
 # machine and held them out by hand. The issue names the act, and the label comes off once it is done.
 # New, so no former name; same purple, same 'copy' reasoning: "waiting on the owner's hands" asserts
@@ -1298,13 +1298,22 @@ function Get-ExpectedRepoSettings {
 # follow-up block lists the open issues carrying it, so the parked work surfaces at the moment it waits
 # for instead of relying on the cutter's memory. New, so no former name; same purple, same 'copy'
 # reasoning: "waiting on the next release" asserts nothing about the adopting repo.
+#
+# AND A TWELFTH, A SEVENTH PARKING LABEL: 'awaiting-decision-client' (issue #2890, Dave October 7, 2026). A choice
+# that is NOT the owner's -- a colleague's QA sign-off, a business decision from the client or requester outside
+# the dev team -- is not free work either, and 'awaiting-decision-dev' says the opposite: that label is answered
+# by the owner alone, so 'sweep-decisions' puts it to the owner, while this one both 'sweep-issues' and
+# 'sweep-decisions' skip. It is deliberately NOT 'awaiting-more-info': that label means blocked on information
+# the SUBMITTER has not given and, in bwj-development, moves the mirrored Asana card. New, so no former name;
+# same purple, same 'copy' reasoning: "waiting on the client's choice" asserts nothing about the adopting repo.
 $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'prio-1'; Color = 'FFA726'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
     [pscustomobject]@{ Name = 'prio-2'; Color = 'F57C00'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
     [pscustomobject]@{ Name = 'prio-3'; Color = 'E0321A'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     [pscustomobject]@{ Name = 'awaiting-more-recurrences'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
-    [pscustomobject]@{ Name = 'awaiting-decision'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-decision-dev'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-decision-client'; Color = '5319E7'; Description = 'Waiting on the client''s choice -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-pull'; Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-event'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-owner-act'; Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
@@ -1315,8 +1324,9 @@ $script:TriageLabels = @(
 function Get-TriageLabels {
     <# The canonical triage labels this workflow's consumers are invited to share -- the four
        priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'awaiting-more-recurrences', the kind label for
-       a collecting issue, and the six parking labels 'awaiting-decision' (an issue awaiting the owner's
-       choice), 'awaiting-pull' (an issue awaiting another issue's pull request), 'awaiting-event' (an issue
+       a collecting issue, and the seven parking labels 'awaiting-decision-dev' (an issue awaiting the owner's
+       choice), 'awaiting-decision-client' (an issue awaiting a choice from the client or requester outside the
+       dev team), 'awaiting-pull' (an issue awaiting another issue's pull request), 'awaiting-event' (an issue
        awaiting an external event or date), 'awaiting-owner-act' (an issue awaiting an act only the owner
        performs), 'awaiting-release' (an issue awaiting the next release) and 'awaiting-first-recurrence' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
        a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the

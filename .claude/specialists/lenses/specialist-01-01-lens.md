@@ -65,7 +65,7 @@ is small and focused on maintaining this product — agent defs, manuals, docs, 
   September 11, 2026), and a **second axis** independent of priority. Detail in
   [Derek #05](specialist-05-05-lens.md#the-reach-label--minor-and-it-is-a-second-axis-not-a-fifth-rung).
 - **And it carries its parking label from the moment it is filed, when its next step waits on something
-  other than work**: `awaiting-decision` (Dave's choice), `awaiting-pull` (another issue's pull request),
+  other than work**: `awaiting-decision-dev` (Dave's choice), `awaiting-decision-client` (a choice from the client or requester outside the dev team, #2890), `awaiting-pull` (another issue's pull request),
   `awaiting-event` (an external event or date), `awaiting-owner-act` (an act only Dave performs: a live
   push, a release, a deletion), `awaiting-release` (work that runs only in the next release, which lists
   it), `awaiting-first-recurrence` (its first reproducible

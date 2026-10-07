@@ -39,19 +39,49 @@
 
 ### PLAN
 
+Resolves #2890. Dave's decision, recorded on the issue: two labels, "dev" means the owner alone, and
+`awaiting-decision-client` stays separate from `awaiting-more-info`. Shaped after the #2741 rename
+(b09bce37).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-TriageLabels` and `adopt-triage-labels`' fallback: `awaiting-decision` becomes
+  `awaiting-decision-dev` (a rename, with `awaiting-decision` and `needs-decision` as former names), and
+  `awaiting-decision-client` is new.
+- [x] The claim and sweep skip defaults, the issue dashboard and `pr-issues-lib`'s former-name map carry
+  both labels.
+- [x] `sweep-decisions` walks `-dev` plus its former names and skips `-client`; it removes whichever
+  label the issue actually carries.
+- [x] `CONTRIBUTING-portable.md` §1, the two lenses, the skill pages and the scripts README name both.
+- [x] Plugin mirrors and `config-blueprint.json` regenerated through their build scripts.
 
 ### TEST
 
+- [x] Suites: adopt-triage-labels, claim-issue, issue-dashboard, pr-issues, repo-config,
+  config-blueprint, script-contract all pass; a new scenario renames `awaiting-decision` to `-dev` and
+  creates `-client`.
+- [x] `check-plugin-integrity`, `check-script-contract` and `build-shared-scripts -Check` clean.
+
 ### DEPLOY: feat/2890-split-awaiting-decision
 
-**Score:**
+The parking label `awaiting-decision` is split in two, so the label says whose decision an issue waits
+on ([#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)).
+`awaiting-decision-dev` is the owner's choice: it is today's label under a new name, and
+`sweep-decisions` keeps putting it to the owner. `awaiting-decision-client` is new and means a choice
+from the client or requester outside the dev team. `sweep-issues`, `sweep-decisions` and the claim
+defaults all skip it until that person answers. The old names `awaiting-decision` and `needs-decision`
+stay matched everywhere, and `adopt-triage-labels` prints a `gh label edit` rename for a tracker
+that still carries one.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer who runs `adopt-triage-labels` is offered one rename and one new label. An issue that waits
+on a colleague's sign-off can now be parked where `sweep-decisions` no longer puts it to the owner.
+Nothing breaks if they skip the rename, because the old name still parks the issue.
+
+**Score:** 2
 
 #### Pull Request
 

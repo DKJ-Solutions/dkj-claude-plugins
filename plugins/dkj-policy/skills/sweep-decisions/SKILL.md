@@ -1,7 +1,7 @@
 ---
 name: sweep-decisions
 description: >-
-  Work through every open issue parked on awaiting-decision in ONE pass with the owner -- the backlog
+  Work through every open issue parked on awaiting-decision-dev in ONE pass with the owner -- the backlog
   sweep-issues skips by design. Each parked issue is put to the owner as a short menu, the answer goes
   on the issue as a comment and the label comes off, so the next sweep-issues finds it free and finds
   the decision in its thread. It decides nothing itself, builds nothing and claims nothing.
@@ -10,11 +10,17 @@ disable-model-invocation: true
 
 # sweep-decisions -- the other half of the backlog
 
-**`sweep-issues` skips every issue carrying `awaiting-decision`, and that is correct**: such an issue ends
+**`sweep-issues` skips every issue carrying `awaiting-decision-dev`, and that is correct**: such an issue ends
 in the owner's choice, so nothing in it can be built yet. But skipping it means the decisions pile up where
 no sweep looks, one per issue, each waiting for the owner to open it on their own initiative
 ([#2759](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2759)). This skill walks that pile with
 the owner in a single sitting.
+
+**It walks `awaiting-decision-dev` only, and skips `awaiting-decision-client`** (#2890, October 7, 2026). `dev` means the owner
+alone, so only that label is the owner's to answer. An issue parked `awaiting-decision-client` waits on a
+choice from the client or requester outside the dev team -- a colleague's QA sign-off, a business decision -- and
+putting it to the owner would record an answer the owner has no standing to give. Both sweeps skip it; it
+comes off when that person answers.
 
 **It runs the step the workflow already prescribes**, once per issue: *"The owner removes the label when
 they answer, and the answer goes on the issue as a comment"*
@@ -29,15 +35,16 @@ this session. A session that cannot reach the owner has nothing to do here.
 ### 0. Once, before anything
 
 Read the repo's own `CLAUDE.md`; it outranks this page. Then list the parked issues. `gh` joins several
-`--label` flags with AND, so the current name and its former one are two calls:
+`--label` flags with AND, so the current name and its former ones are three calls:
 
 ```sh
-gh issue list --state open --label awaiting-decision --json number,title --limit 500
-gh issue list --state open --label needs-decision   --json number,title --limit 500
+gh issue list --state open --label awaiting-decision-dev --json number,title --limit 500
+gh issue list --state open --label awaiting-decision     --json number,title --limit 500
+gh issue list --state open --label needs-decision        --json number,title --limit 500
 ```
 
-`needs-decision` was the label's name until #2741 (October 3, 2026), listed because a tracker keeps an
-old name until somebody renames it there. An empty result on both is a complete answer: say so and stop.
+`awaiting-decision` was the label's name until #2890 (October 7, 2026) and `needs-decision` until #2741 (October 3, 2026), listed because a tracker keeps an
+old name until somebody renames it there. An empty result on all is a complete answer: say so and stop.
 
 ### 1. Read each one -- and check that the decision is still open
 
@@ -75,17 +82,19 @@ that are not a design:
 
 ```sh
 gh issue comment <n> --body-file <file>   # "Decision (<owner>, <date>): <the answer>. Recorded by sweep-decisions; the issue is free for pickup."
-gh issue edit <n> --remove-label awaiting-decision
+gh issue edit <n> --remove-label awaiting-decision-dev   # or the former name the issue was listed under
 ```
 
-`<owner>` is the owner's account as the tracker shows it, `<date>` today's date.
+`<owner>` is the owner's account as the tracker shows it, `<date>` today's date. Remove the label the
+issue actually carries: one found under `awaiting-decision` or `needs-decision` keeps that label, and
+removing `-dev` from it would leave it parked.
 
 **The body goes through a file**, so a backtick or `$(...)` in the owner's words is text rather than
 shell. **And it is quoted as the owner gave it only where it is fit for the tracker**: on a public repo
 the comment is public, so leave out anything that reads as private and say in the reply what you left
 out.
 
-Remove `needs-decision` instead where that is the name the issue carries. For **Drop it**, comment the
+Remove `awaiting-decision` or `needs-decision` instead where that is the name the issue carries. For **Drop it**, comment the
 same way with *"closed as not planned"* in place of *"the issue is free for pickup"*, and close it with
 `gh issue close <n> --reason "not planned"`. For **Not now**, write nothing: the label stays, and so does the issue's place in the next pass.
 

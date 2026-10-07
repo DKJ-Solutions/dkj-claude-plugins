@@ -1161,33 +1161,35 @@ instead of a new issue, `part of #<n>` instead of a keyword, close only on the r
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — all set at filing: `awaiting-decision` for a choice, `awaiting-pull` while another issue lands, `awaiting-event` until a date, `awaiting-owner-act` until Dave acts, `awaiting-release` until the next cut, `awaiting-first-recurrence` once only evidence is owed
+### The parking labels — all set at filing: `awaiting-decision-dev` for Dave's choice, `awaiting-decision-client` for the client's, `awaiting-pull` while another issue lands, `awaiting-event` until a date, `awaiting-owner-act` until Dave acts, `awaiting-release` until the next cut, `awaiting-first-recurrence` once only evidence is owed
 
-**All seven `awaiting-*` labels, `awaiting-more-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision`
+**All eight `awaiting-*` labels, `awaiting-more-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision-dev`
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796)); the rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from),
 and Chris's lens carries it beside the `prio-N` and `minor` filing rules, where a session reads it at filing time.
 
-**`awaiting-decision` (`5319E7`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
+**`awaiting-decision-dev` (`5319E7`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
 nor a sweep treats it as work that is ready (Dave, September 26, 2026,
-[#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)). It was named `needs-decision` (`BFD4F2`) until #2741 (October 3, 2026), when it joined the purple `awaiting-*` family; the old name is still matched, and `adopt-triage-labels` prints the `gh label edit` rename. It is set in the same
+[#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)). It was named `awaiting-decision` until #2890 (October 7, 2026), when it was split in two and `dev` came to mean the owner alone, and `needs-decision` (`BFD4F2`) until #2741 (October 3, 2026), when it joined the purple `awaiting-*` family; both old names are still matched, and `adopt-triage-labels` prints the `gh label edit` rename. It is set in the same
 `gh issue create` as the `prio-N`, and it is not `awaiting-more-info` (`needs-info` until #2723), which `bwj-development` reserves for
 *blocked on the submitter*. It ships in `Get-TriageLabels`, and the filing rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
+
+**`awaiting-decision-client` (`5319E7`) parks an issue that ends in a choice that is not Dave's** (a colleague's QA sign-off, a business decision from the client or requester outside the dev team; Dave, October 7, 2026, [#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)). `sweep-issues` and `sweep-decisions` both skip it, where `sweep-decisions` puts `awaiting-decision-dev` to Dave. It is not `awaiting-more-info`, which means blocked on information the submitter has not given. New, so no former name is matched for it.
 
 **`awaiting-first-recurrence` (`5319E7`) parks an issue waiting on its first reproducible occurrence** (Dave,
 September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)), after
 #2572 was picked up four times in one day with nothing to build. It was named `awaiting-recurrence` until
 #2723 (October 2, 2026). Both pickup routes skip it as they skip
-`awaiting-decision`. It is not `awaiting-more-recurrences`, which collects a problem that demonstrably recurs, and it comes off
+`awaiting-decision-dev`. It is not `awaiting-more-recurrences`, which collects a problem that demonstrably recurs, and it comes off
 when a recurrence arrives.
 **It shares `awaiting-more-recurrences`'s colour on purpose**: both mark an issue that is meant to stay open for a while, so
 the tracker shows the long-lived ones at a glance (Dave, September 28, 2026,
-[#2604](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2604)). `awaiting-decision` kept its own colour (`BFD4F2`, as `needs-decision`) because it waits on an answer rather than on time, until #2741 (Dave, October 3, 2026) gave it the same purple, so every issue waiting on something reads as one family.
+[#2604](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2604)). `awaiting-decision-dev` kept its own colour (`BFD4F2`, as `needs-decision`) because it waits on an answer rather than on time, until #2741 (Dave, October 3, 2026) gave it the same purple, so every issue waiting on something reads as one family.
 
 **`awaiting-pull` (`5319E7`) parks an issue that waits on another issue landing through its pull request** (Dave,
 October 3, 2026, [#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757)). Both pickup routes
-skip it as they skip `awaiting-decision`, and it comes off when the blocking pull request merges. It is new,
+skip it as they skip `awaiting-decision-dev`, and it comes off when the blocking pull request merges. It is new,
 so no former name is matched for it.
 
 **`awaiting-owner-act` (`5319E7`) parks an issue whose decision is made and whose only remaining step is
