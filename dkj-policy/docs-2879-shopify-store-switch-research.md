@@ -47,20 +47,28 @@ recommendation holds up.
 
 ### CREATE
 
-- [ ] Rebecca #07 researches the four questions in the issue (source-cited, measured vs inferred)
-- [ ] Marlowe #29 red-teams the recommendation before it is written down
-- [ ] Tessa #16 lands the finding as `research/shopify-store-switch/finding.md`
-- [ ] File the follow-up issue for the skill/check, if the recommendation holds up
+- [x] Rebecca #07 researches the four questions in the issue (source-cited, measured vs inferred)
+- [x] Marlowe #29 red-teams the recommendation before it is written down -- holds with corrections; the connector mismatch check became the primary recommendation and the CLI route an optional read-only extra
+- [x] Tessa #16 lands the finding as `research/shopify-store-switch/finding.md`
+- [x] File the follow-up issues: #2880 (connector store-mismatch check), #2881 (guard gap Marlowe confirmed)
 
 ### TEST
 
+- [x] Every link in the finding points at a source fetched during the research, or at an issue filed in this branch; the lint gate runs at open-pr
+
 ### DEPLOY: docs/2879-shopify-store-switch-research
 
-**Score:**
+A research dossier, [`research/shopify-store-switch/finding.md`](../research/shopify-store-switch/finding.md), answers [#2879](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2879): why the claude.ai Shopify connector has to be switched by hand between the two store repos, and what can make that easier. A second connector or a per-project Admin MCP is not available. Shopify CLI `store auth`/`store execute` gives a per-store channel for scripted reads, but the token lifetime has to be measured before any skill depends on it. The recommendation is a store-mismatch check that catches the wrong store at the first call ([#2880](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2880)). The research also confirmed that `guard-live-theme` does not see `shopify store execute --allow-mutations` ([#2881](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2881)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a research document in the source repo; no plugin ships anything new from it.
+
+**Score:** N/A
 
 #### Pull Request
+
+Research: switching the claude.ai Shopify connector between store repos
 
