@@ -561,7 +561,25 @@ function Get-ShopifyThemeDeleteMarker { return 'XOXO-THEME-DELETE-AUTHORIZED' }
 
     # What must stay possible: reads, and mutations that are not about themes.
     Assert-Equal 0 (Invoke-Guard -Command "shopify store execute --store x.myshopify.com --query 'query { themes(first: 5) { nodes { id role } } }'" -Root $configured) 'store execute: a theme READ without --allow-mutations passes'
-    Assert-Equal 0 (Invoke-Guard -Command "shopify store execute --store x.myshopify.com --query 'mutation { themePublish(id: 1) { theme { id } } }'" -Root $configured) 'store execute: without --allow-mutations the CLI runs no mutation, so there is nothing to refuse'
+    # NOT A FLAG TEST: the CLI also reads SHOPIFY_FLAG_ALLOW_MUTATIONS, which an earlier command can have
+    # exported where this guard cannot see it -- so the theme write is refused with or without the flag.
+    Assert-Equal 2 (Invoke-Guard -Command "shopify store execute --store x.myshopify.com --query 'mutation { themePublish(id: 1) { theme { id } } }'" -Root $configured) 'store execute: a themePublish WITHOUT --allow-mutations is refused too -- the flag can come from the environment'
+    Assert-Equal 2 (Invoke-Guard -Command "SHOPIFY_FLAG_ALLOW_MUTATIONS=1 shopify store execute -s x.myshopify.com -q 'mutation { themePublish(id: 1) { theme { id } } }'" -Root $configured) 'store execute: the env-var spelling of the flag is refused'
+    Assert-Equal 2 (Invoke-Guard -Command "shopify store:execute --allow-mutations -q 'mutation { themePublish(id: 1) { theme { id } } }'" -Root $configured) 'store execute: the oclif colon form store:execute is matched'
+    Assert-Equal 2 (Invoke-Guard -Command 'shopify theme:publish --theme 1' -Root $configured) 'colon form: theme:publish is matched by rule 1 as well'
+    Assert-Equal 2 (Invoke-Guard -Command "shopify theme:push --theme $LIVE" -Root $configured) 'colon form: and theme:push aimed at live by rule 3'
+
+    # Every file read fails closed (review of #2881).
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query-file publish.graphql|jq ." -Root $configured) 'store execute: a query file piped onward is still read -- the path stops at the pipe, and nothing throws to exit 1'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query-file publish.graphql>out.json" -Root $configured) 'store execute: and a redirect right after the path the same way'
+    New-Item -ItemType Directory -Force -Path (Join-Path $configured 'sub') | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $configured 'sub\product.graphql'), 'mutation { themePublish(id: "gid://shopify/OnlineStoreTheme/1") { theme { id } } }', $Utf8NoBom)
+    Assert-Equal 2 (Invoke-Guard -Command "cd sub && $exec --query-file product.graphql" -Root $configured) 'store execute: a relative file after a cd is refused -- the CLI would read another file than this guard'
+    Assert-Equal 2 (Invoke-Guard -Command "echo 'mutation { productUpdate(input: {}) { product { id } } }' > product.graphql; $exec --query-file product.graphql" -Root $configured) 'store execute: a file the same command writes is refused -- this would read the old content'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query-file \\\\host\\share\\q.graphql" -Root $configured) 'store execute: a UNC path is refused without being opened'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query `"`$(cat publish.graphql)`"" -Root $configured) 'store execute: a command substitution is refused -- the query it builds cannot be read'
+    Assert-Equal 2 (Invoke-Guard -Command "$exec --query 'mutation { themeUpdate(id: \`"gid://shopify/OnlineStoreTheme/987654321\`", input: {role: MAIN}) { theme { id } } }'" -Root $configured) 'store execute: role MAIN is a publish, and refused like one'
+    Assert-Equal 0 (Invoke-Guard -Command "$exec --query 'mutation { themeFilesUpsert(themeId: \`"gid://shopify/OnlineStoreTheme/9$($LIVE)9\`", files: []) { job { id } } }'" -Root $configured) 'store execute: an id that merely CONTAINS the live id digits is not the live theme'
     Assert-Equal 0 (Invoke-Guard -Command "$exec --query 'mutation { productUpdate(input: {id: \`"gid://shopify/Product/1\`"}) { product { id } } }'" -Root $configured) 'store execute: a non-theme mutation passes'
     Assert-Equal 0 (Invoke-Guard -Command "grep -n 'shopify store execute --allow-mutations' notes.md # themePublish" -Root $configured) 'store execute: mentioning it in a text command is not running it'
     $refusal = Get-GuardRefusal -Command "$exec --query 'mutation { themeFilesUpsert(themeId: \`"$gid\`", files: []) { job { id } } }'" -Root $configured

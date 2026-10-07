@@ -56,25 +56,35 @@ marker model, so no new seam is needed.
   `adopt-shopify-floor`'s opening sentence
 - [x] filed #2889: the README's "no escape hatch" paragraph predates this branch and contradicts the
   delete marker
+- [x] review (Victor #19, Sebastian #23) found bypasses in the first cut, all fixed here: the
+  `SHOPIFY_FLAG_ALLOW_MUTATIONS` env var (so the rule no longer waits for the flag), the colon form
+  `store:execute` (and `theme:publish|push|delete` in rules 1 to 3, a pre-existing hole), an exception
+  in the file read that exited 1 and so failed open (a path running into `|` or `>`), a relative file
+  after a `cd` or written in the same command, UNC and `/dev/` paths, files over 1 MB, a `$(...)`, and
+  `role: MAIN`; the live id now matches on digit boundaries
 
 ### TEST
 
-- [x] `guard-live-theme.tests.ps1` group 9 -- 19 asserts: each rule in its API form, an inline,
+- [x] `guard-live-theme.tests.ps1` group 9 -- 31 asserts: each rule in its API form, an inline,
   multi-line and file-borne query, the live id in a variable file, an unreadable file, a flag on a
-  continuation line, and the reads, the non-theme mutations and a text-tool mention that must pass --
-  129 passed
+  continuation line, every review bypass above, and the reads, the non-theme mutations, an id that only
+  contains the live digits and a text-tool mention that must pass -- 141 passed
 
 ### DEPLOY: fix/2881-guard-store-execute
 
-`guard-live-theme` now holds Admin GraphQL theme writes made through
-`shopify store execute --allow-mutations`
+`guard-live-theme` now holds Admin GraphQL theme writes made through `shopify store execute`
 ([#2881](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2881)). Until now it matched only
-`shopify theme`, so `themePublish` or `themeFilesUpsert` through the API passed it. The new rule 4
-reads the command and any `--query-file` or `--variable-file` it names, and applies the existing rules.
-`themePublish` is always refused. `themeDelete` follows the delete rule. Any other theme write aimed at
-the live id is refused unless the live-push marker is on the command. A repo that has not named its
-live id gets every theme write refused, because nothing can tell it from a write to live. A file the
-guard cannot read is refused. Reads, and mutations that touch no theme, pass as before.
+`shopify theme`, so `themePublish` or `themeFilesUpsert` through the API passed it. The new rule 4 reads
+the command and any `--query-file` or `--variable-file` it names, and applies the existing rules:
+- `themePublish`, or a `role: MAIN`, is always refused.
+- `themeDelete` follows the delete rule.
+- Any other theme write aimed at the live id is refused unless the live-push marker is on the command.
+  A repo that has not named its live id gets every theme write refused.
+
+The rule does not wait for `--allow-mutations`, because the CLI also takes that flag from the
+environment. A file the guard cannot read or place is refused, and so is a `$(...)`. Every rule also
+matches the CLI's colon form (`theme:publish`, `store:execute`), which none did before. Reads, and
+mutations that touch no theme, pass as before.
 
 **Score:** 3
 
