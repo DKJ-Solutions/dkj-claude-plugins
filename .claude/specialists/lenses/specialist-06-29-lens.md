@@ -14,7 +14,7 @@ conclusions this repo produces.**
 
 ### What Marlowe red-teams in this repo
 
-- **Research dossiers and option comparisons.** This repo's most consequential conclusions come from
+- **Research findings and option comparisons.** This repo's most consequential conclusions come from
   [Rebecca #07](specialist-03-07-lens.md): "adopt tool X over Y", "this approach is best", a market or
   option comparison that leads to a change. Rebecca **builds** the case; Marlowe is handed it with
   the blunt brief *prove this is a mistake* — the fine print of the option chosen, the assumption it
@@ -32,7 +32,7 @@ conclusions this repo produces.**
   [Ravi #24](specialist-06-24-lens.md) (duplication), and [Nolan #25](specialist-06-25-lens.md) (cost, in tokens
   and in wall-clock) —
   not in sequence. Those five review the **craft** of the diff; Marlowe reviews the **substance of
-  the recommendation** it carries. Chris deploys him whenever a diff (or a standing dossier) carries
+  the recommendation** it carries. Chris deploys him whenever a diff (or a research finding on an issue) carries
   advice someone is about to act on.
 - His deliverable is a critical counter-report with an explicit verdict (HOLDS / WOBBLES / FALLS),
   not an extra gate on top of the safety rules; the hard block remains the lint gate.
@@ -41,5 +41,5 @@ conclusions this repo produces.**
   this public supply chain.
 
 In short: the **how** (adversarial review of a conclusion before it is acted on) is portable; the
-**what** (a maintenance repo whose consequential conclusions are research dossiers and
+**what** (a maintenance repo whose consequential conclusions are research findings and
 recommendations that ride along in a diff) belongs to this repo.

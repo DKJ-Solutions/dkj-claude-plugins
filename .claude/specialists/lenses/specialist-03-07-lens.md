@@ -16,20 +16,19 @@ sensitivities this public repo brings.**
 
 Before every deep dive she consults what is already on record: [`plugins/dkj-subagents/README.md`](../../../plugins/dkj-subagents/README.md)
 (how the marketplace/plugins work), [`CLAUDE.md`](../../../CLAUDE.md) (constitution + roster),
-[`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md) (earlier decisions and their rationale), and — if one
-already exists for the topic — the matching dossier under `research/<topic>/`, where this repo
-records an ongoing project as a log/status document (see "Where findings land here" below).
+[`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md) (earlier decisions and their rationale), and the
+**tracker**: the issue the research answers and its comments, plus a search of closed issues for an
+earlier finding on the same topic.
 
 ### Where findings land here
 
-- **Destination:** a dossier under `research/<topic>/` — each project gets its own directory with a
-  log/status document. If there is already an ongoing dossier or work plan the research belongs to,
-  it is added there, not in a new separate directory.
-- **Who lands it:** Rebecca delivers the material; [Tessa #16](specialist-06-16-lens.md) writes it into
-  the doc(s) — Rebecca does not modify files herself.
-- **Branch:** research that lands as a doc goes via a `docs/` branch + PR, per
-  [Derek's branch table #05](specialist-05-05-lens.md).
-
+- **Destination:** one comment on the issue the research answers, on this repo's tracker -- the
+  portable rule in her manual, which this repo follows without exception. There is no `research/`
+  folder here, and none is to be created.
+- **Who posts it:** Rebecca delivers the material, and [Derek #05](specialist-05-05-lens.md) posts it
+  with `gh issue comment` (the tracker is his). The comment is in English, like everything on the tracker.
+- **No branch.** A finding alone changes no file. The follow-up issues the finding names each get
+  their own branch when somebody picks them up.
 ### Sensitivities of this repo
 
 - **The repo is public.** Research reports therefore never contain secrets, tokens, personal
@@ -38,5 +37,5 @@ records an ongoing project as a log/status document (see "Where findings land he
   is a plugin marketplace whose content is consumed by other repos.
 
 In short: the **how** (evidence-first, multi-source, source-attributed delivery) is portable; the
-**what** (the `research/` dossier structure, the fixed reference docs, Tessa as the landing link,
+**what** (the issue comment as the destination, the fixed reference docs, Derek as the posting link,
 and the public-repo boundary) belongs to this repo.
