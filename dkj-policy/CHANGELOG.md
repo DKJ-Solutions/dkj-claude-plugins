@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**3 / 3 minor entries** <!-- pending-tally -->
+**4 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2875-closed-message-comment-read · 20261007-084535Z
+
+The `asana-closed-message` template now reads an issue's comments through REST
+(`gh api repos/<owner>/<repo>/issues/<n>/comments --paginate`), which the workflow's `issues: read`
+covers, instead of `gh issue view --json comments`
+([#2875](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2875)). On the runner the old read
+returned nothing for an issue that carried a trusted go-live block, so the Asana task got the bare
+closed line. A failed read is no longer silent: the run log shows gh's exit code and error, and its
+last line says the comments could not be read rather than that no block was on the issue. The bare
+closed message still goes out in that case. The suite pins the REST call, the parsing of paginated
+output and the two log lines.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A requester whose store issue closes as completed gets the go-live block on the Asana task again,
+where the old read dropped it on the runner. A store picks the fix up by copying the template again
+(`adopt-bwj-development` step 1) after the update; until then it keeps the old read.
+
+**Score:** 3
+
+#### Pull Request
+
+bwj-development: asana-closed-message reads comments through REST and logs a failed read
+
+Plugins: bwj-development
+
+[PR #2876](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2876)
+
+---
 
 ### DEPLOY: feat/2871-closed-message-sessioncheck · 20261007-083532Z
 
