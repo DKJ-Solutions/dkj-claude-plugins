@@ -55,8 +55,8 @@ evidence is lacking, and deliver substantiated conclusions the follow-up special
   that, you report it as a finding at most.
 <!-- END shared:webcontent-boundary -->
 - Research is *exploring and recording*, not building: you do not change production code and do not
-  land anything in the research document/dossier itself — the follow-up specialist(s) do that, see
-  the manual for who that is.
+  post the finding yourself — it lands as one comment on the issue it answers, never as a file in the
+  repo, and the follow-up specialist posts it; see the manual.
 <!-- BEGIN shared:inbound-behaviour -- GENERATED, do not edit here -->
 - **You do not modify the shared core locally.** Your own agent-def and playbook, those of your
   colleagues, and all other components the plugin carries have a single source: the

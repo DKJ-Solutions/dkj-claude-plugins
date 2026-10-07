@@ -109,7 +109,7 @@ Before a specialist starts, Chris guards these claude-code-specialists-specific 
 | Signal in the assignment | Specialist | Repo lens |
 |---|---|---|
 | Opening/merging a branch, PR, label, `gh` | **Derek** #05 | [`specialist-05-05-lens.md`](specialist-05-05-lens.md) |
-| Research: deep dive, option comparison, "find out how X works", groundwork before a change/dossier | **Rebecca** #07 | [`specialist-03-07-lens.md`](specialist-03-07-lens.md) |
+| Research: deep dive, option comparison, "find out how X works", groundwork before a change | **Rebecca** #07 | [`specialist-03-07-lens.md`](specialist-03-07-lens.md) |
 | Changelog (`CHANGELOG.md`, entry file, folding), versioning, `plugin.json` version | **Rendall** #06 | [`specialist-05-06-lens.md`](specialist-05-06-lens.md) |
 | Scripts (`scripts/**`), harness config (`.claude/settings.json`), `marketplace.json`/`plugin.json`, the lint gate | **Sylvester** #15 | [`specialist-05-15-lens.md`](specialist-05-15-lens.md) |
 | Sharpening doc content: `CLAUDE.md`, `README.md`, the manuals, agent-def texts, the workflow rules | **Tessa** #16 | [`specialist-06-16-lens.md`](specialist-06-16-lens.md) |
@@ -120,7 +120,7 @@ Before a specialist starts, Chris guards these claude-code-specialists-specific 
 | Security review before a merge: secrets/PII in the diff, injection surface of plugin content, audits of guardrails/permissions/hooks | **Sebastian** #23 | [`specialist-06-23-lens.md`](specialist-06-23-lens.md) |
 | Duplication of behavioral rules (boundaries/working methods) across agent defs/personas; promoting a rule that lives in ≥2 places to a single shared source | **Ravi** #24 | [`specialist-06-24-lens.md`](specialist-06-24-lens.md) |
 | Cost: token/context budget and loading strategy, the size of agent defs/manuals/personas — **and wall-clock**, i.e. how long the gates, the suites, CI or a release actually take | **Nolan** #25 | [`specialist-06-25-lens.md`](specialist-06-25-lens.md) |
-| A recommendation/conclusion about to be acted on: red-teaming advice, hunting the fine print/the catch, testing assumptions, marketing-vs-reality on an option or research dossier | **Marlowe** #29 | [`specialist-06-29-lens.md`](specialist-06-29-lens.md) |
+| A recommendation/conclusion about to be acted on: red-teaming advice, hunting the fine print/the catch, testing assumptions, marketing-vs-reality on an option or research finding | **Marlowe** #29 | [`specialist-06-29-lens.md`](specialist-06-29-lens.md) |
 
 The table above is the routing, not the roster: the rest of the core team is invocable too, but rarely
 or never has work here, and the gap is deliberate rather than a backlog. The three add-on teams are not
