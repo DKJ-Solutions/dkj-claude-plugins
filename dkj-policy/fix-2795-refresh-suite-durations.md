@@ -41,17 +41,29 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Regenerate `scripts/tests/suite-durations.json` with `record-suite-durations.ps1` over three PR runs
+  made after #2794 (37636213082, 37633914184, 37632792416)
 
 ### TEST
 
+- [x] The two suites #2795 names now read their post-#2794 cost: `fix-mojibake.tests.ps1` 214.8 s -> 22.6 s,
+  `bootstrap-drift.tests.ps1` 247.8 s -> 75.1 s
+
 ### DEPLOY: fix/2795-refresh-suite-durations
 
-**Score:**
+`scripts/tests/suite-durations.json` is regenerated from three CI runs made after #2794, so the test gate
+packs its shards on today's costs. Two suites dropped sharply in #2794: `fix-mojibake.tests.ps1` went from
+214.8 s to 22.6 s and `bootstrap-drift.tests.ps1` from 247.8 s to 75.1 s. The gate was still packing both
+as if they were among the heaviest. The file now lists 156 suites, two more than before, because two
+suites were added since the last refresh.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- shard packing for this repo's own CI; nothing a consumer runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
