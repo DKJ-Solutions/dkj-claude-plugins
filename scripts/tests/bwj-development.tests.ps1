@@ -830,7 +830,7 @@ $cmReopenXml = New-Object System.Xml.XmlDocument
 $cmReopenXml.PreserveWhitespace = $true
 $cmReopenXml.LoadXml($cmReopen)
 Assert-True ($cmReopenXml.DocumentElement.InnerText -ceq (New-ReopenedMessage -IssueRef 'BWJ-Development/smartwatchbanden#393')) 'the reopened message is well-formed XML and reads as the plain reopened message'
-Assert-True ($cmReopen.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/393">BWJ-Development/smartwatchbanden#393</a> <strong>reopened:</strong> this Asana task is back in development.')) 'in the requester''s fixed form (#2656): the issue as a link, reopened: in bold'
+Assert-True ($cmReopen.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/393">BWJ-Development/smartwatchbanden#393</a> <strong>is reopened:</strong> this Asana task is now back in development.')) 'in the requester''s fixed form (#2656): the issue as a link, is reopened: in bold'
 Assert-True ($cmReopen.StartsWith("<body>$(Get-ClosedMessageHeader)")) 'under the same header as the closed message'
 
 # WHAT IT POSTS: the header, the closed line, and the block's sections under it.

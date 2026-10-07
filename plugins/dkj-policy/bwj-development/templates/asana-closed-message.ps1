@@ -28,7 +28,7 @@
       - A close as NOT PLANNED, or as a DUPLICATE: nothing. Nothing was built, so there is nothing to
         test (#2765).
       - A REOPEN with a linked task, whatever the earlier close reason: one comment, the header and the
-        reopened line in the requester's fixed form (#2656) -- 'reopened: this Asana task is back in
+        reopened line in the requester's fixed form (#2656) -- 'is reopened: this Asana task is now back in
         development.' No block is read; a reopen carries nothing to test.
       - An issue with no linked task, or one linking several different tasks: nothing, and the log
         says which.
@@ -266,20 +266,20 @@ function New-ReopenedMessage {
         in the requester's fixed form (#2656), brought back by #2854.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
-    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef reopened: this Asana task is back in development.") -join "`n")
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is reopened: this Asana task is now back in development.") -join "`n")
 }
 
 function New-ReopenedMessageHtml {
     <#
         Pure: the reopened message as Asana html_text -- the header, then the reopened sentence with the
-        issue name as a link and 'reopened:' in bold, the same form the closed line takes.
+        issue name as a link and 'is reopened:' in bold, the same form the closed line takes.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
     $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
     $parts = $IssueRef -split '#'
     $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> <strong>reopened:</strong> this Asana task is back in development.</body>"
+    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> <strong>is reopened:</strong> this Asana task is now back in development.</body>"
 }
 
 function Get-AsanaPasteBlockMarker {
