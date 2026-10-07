@@ -41,12 +41,15 @@ insufficient here rather than merely weak:
 | | rule | needs configuration? |
 |---|---|---|
 | 1 | a theme **publish** — always | no |
-| 2 | a theme **delete** — always | no |
+| 2 | a theme **delete** — always, unless the repo opts into a delete marker; the live theme never | only to opt in |
 | 3 | a theme **push** aimed at live — unless authorised | the id half does |
 
-Rules 1 and 2 have **no escape hatch at all**, and that is deliberate: publishing makes a theme the
-customer-facing one and a delete cannot be undone, so both stay the store owner's own keystroke rather
-than something a marker in a command line can stand in for.
+Rule 1 has **no escape hatch at all**, and rule 2 has none by default, and that is deliberate:
+publishing makes a theme the customer-facing one and a delete cannot be undone, so both stay the store
+owner's own keystroke rather than something a marker in a command line can stand in for. The one
+exception is opt-in: a repo that answers `Get-ShopifyThemeDeleteMarker` lets a session delete a
+preview theme carrying that exact marker, and the live theme stays refused even then
+([below](#letting-a-session-clear-away-its-own-spent-preview-themes)).
 
 **Untouched:** every form of `theme pull`, including `--live` — reading is how a pre-task sync works —
 pushes to an unpublished preview theme, and every other command.

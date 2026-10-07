@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Resolves #2889: the README's *What it refuses* said rule 2 refuses a theme delete always, with no
+escape hatch, while the same README's seam table and `guard-live-theme.ps1` describe the opt-in
+delete marker.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rule 2's row and the paragraph under the table name the opt-in delete marker and the live theme
+  that stays refused even with it.
 
 ### TEST
 
+- [x] Read against `guard-live-theme.ps1`'s header and its `$deleteAuthorised` path: the README now
+  says what the guard does.
+
 ### DEPLOY: docs/2889-shopify-readme-delete-rule
 
-**Score:**
+The `dkj-subagents-shopify` README's *What it refuses* table no longer says a theme delete is refused
+always, with no escape hatch. Rule 2 now reads "always, unless the repo opts into a delete marker; the
+live theme never", matching the seam table further down and the guard itself.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A store repo reading the README no longer meets two answers to whether a session may delete a
+preview theme. The table now agrees with the delete-marker section further down.
+
+**Score:** 1
 
 #### Pull Request
 
