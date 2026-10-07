@@ -148,6 +148,11 @@ function Get-AsanaIssueFieldGid { $null }
 # resolves Bug/Feature/Task by name from the project itself.
 function Get-AsanaTypeFieldGid { $null }
 
+# The Asana user GID a task report-issue CREATES is assigned to, so the card lands in that person's
+# My Tasks instead of only on the board. Optional: $null (the default) means the task is created
+# unassigned. A colleague's existing task that report-issue moves keeps its own assignee.
+function Get-AsanaDefaultAssignee { $null }
+
 # The NAME GitHub stores for the reach label. The axis itself is fixed and portable -- defined in
 # RELEASES-portable.md -- and only the string is this repo's to choose. Optional: 'minor' is the
 # default, so a store whose label is already called that never writes this function at all. Answer it

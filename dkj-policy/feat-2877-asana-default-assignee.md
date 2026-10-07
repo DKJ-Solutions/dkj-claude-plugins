@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Inbound #2877 from smartwatchbanden: a task report-issue creates arrives unassigned and gets lost on
+the board. Verified against the tree: step 2's `create task` sets no assignee, and the optional Asana
+seams (`Get-AsanaIssueFieldGid`, `Get-AsanaTypeFieldGid`) are read only by the procedure, with no
+script and no contract entry, so a new optional seam is a three-page doc change.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] report-issue: read `Get-AsanaDefaultAssignee` in "Before you start"; step 2 passes it as
+  `assignee` on the create call, and only on a task it creates
+- [x] adopt-bwj-development step 2: propose `Get-AsanaDefaultAssignee { $null }` beside the field seams
+- [x] bwj-development README: list the seam with the other Asana answers
 
 ### TEST
 
+- [~] no automated test: the seam is read by a procedure page, not by a script, so no suite reaches it
+
 ### DEPLOY: feat/2877-asana-default-assignee
 
-**Score:**
+`report-issue` can now assign the Asana task it creates. A new optional seam,
+`Get-AsanaDefaultAssignee` in `scripts/repo-config.ps1`, names an Asana user GID, and step 2 passes
+it as `assignee` on the same `create task` call
+([#2877](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2877)). It applies only to a task
+the procedure creates. A colleague's own ticket that is moved into `Filed` keeps its assignee.
+`$null` is the default and creates the task unassigned, as before. `adopt-bwj-development` proposes the
+seam, and the bwj-development README lists it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store whose owner wants every new card on their own desk answers one function. The card then lands
+in that person's *My Tasks* instead of waiting unseen on the board. Nothing changes until the seam is
+answered.
+
+**Score:** 3
 
 #### Pull Request
 
