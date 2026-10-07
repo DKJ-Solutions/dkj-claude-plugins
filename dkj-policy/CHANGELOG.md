@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2889-shopify-readme-delete-rule · 20261007-133753Z
+
+The `dkj-subagents-shopify` README's *What it refuses* table no longer says a theme delete is refused
+always, with no escape hatch. Rule 2 now reads "always, unless the repo opts into a delete marker; the
+live theme never", matching the seam table further down and the guard itself.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A store repo reading the README no longer meets two answers to whether a session may delete a
+preview theme. The table now agrees with the delete-marker section further down.
+
+**Score:** 1
+
+#### Pull Request
+
+dkj-subagents-shopify README: rule 2 names the opt-in delete marker
+
+Plugins: dkj-subagents-shopify
+
+[PR #2892](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2892)
+
+---
 
 ### DEPLOY: fix/2881-guard-store-execute · 20261007-132534Z
 
