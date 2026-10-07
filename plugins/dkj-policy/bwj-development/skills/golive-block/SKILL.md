@@ -56,6 +56,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    ([#2507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2507)). The prose sections are
    **yours to write**, and they come in through `-ProseFile` (below). The script fills in the facts.
 7. Prints the block. With `-OutFile`, also writes it as UTF-8; with `-Post`, comments it on the issue.
+8. **The store-admin prerequisites** -- with `-OutFile` or `-Post` it reads the issue for the checklist
+   under `<!-- store-admin-prerequisites -->`: work the change needs on the store rather than in the
+   theme, such as a metafield definition, a menu or a setting. `-OutFile` **warns** about each open box,
+   so the handover page can name it, or that the issue could not be read. `-Post` **refuses** while one is open or the issue cannot be read,
+   and `-Force` gets past it
+   ([#2885](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2885)). The checklist's form is in
+   `WORKFLOW-portable.md`, under *Store-admin prerequisites*. A print-only run reads nothing.
 
 ## The prose file
 
@@ -125,7 +132,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
-| `-Force` | post although a block already appears to be there, or its comments could not be read |
+| `-Force` | post although a block already appears to be there, a store-admin prerequisite is still open, or the issue could not be read |
 | `-AllowPrivateLink` | accept a `claude.ai` Artifact as `-Link` once it has actually been shared with the requester. Kept apart from `-Force` so that posting a second block never also lets a private link through |
 
 ## What it deliberately does not do

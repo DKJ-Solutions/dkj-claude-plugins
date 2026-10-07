@@ -196,6 +196,14 @@ Four blocks on the page, and each is there because the other three cannot supply
 | **what is proven, and what is asked** | which gates ran and what they verified mechanically, then the one question the reviewer is being asked. This is the half that makes the link a self-contained handover rather than a bookmark needing the transcript beside it |
 | **the paste-ready block, as the requester will receive it** | where the issue has a linked Asana task: the block `build-golive-block.ps1` writes, **as it writes it** (its `-OutFile`) -- the text between its two `---` rules, in a `<pre>`, read-only -- and one line above it naming the Asana task it goes to, that a person pastes it there by hand, and why the page itself is not linked. The other three blocks are what the **reviewer** checks; this one shows the reviewer what the **requester** will read, in the Asana task, since they cannot open this page |
 
+**Where the issue carries an open store-admin prerequisite, the page says so above the cards.** A
+metafield definition, a menu or a store setting that is not there yet makes the change unreviewable
+however good the preview is. So the page opens with the open items, as `build-golive-block -OutFile`
+prints them, and states that the go-live block is held until each is ticked on the issue. The page
+warns and does not wait; the post is what refuses. The checklist and its marker are in
+[`WORKFLOW-portable.md`](WORKFLOW-portable.md#store-admin-prerequisites----a-checklist-on-the-issue-and-the-block-waits-for-it)
+([#2885](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2885)).
+
 Two things the cards inherit from the consumer's own preview rule rather than restating:
 
 - **Per market**, because these stores serve several and a change can land differently in each.

@@ -538,6 +538,40 @@ conversation with the requester, so they read the block on the issue, paste it i
 needed, and close the issue once it is right. It is not a fixed relayer: a page naming one person as the
 relayer for every ticket was corrected on exactly that point the day it was retired.
 
+#### Store-admin prerequisites -- a checklist on the issue, and the block waits for it
+
+**Some changes need work on the store, not in the theme**: a metafield definition, a menu, a page, an
+app embed, a store setting. The theme can read a metafield, but only its definition makes the field
+appear in admin. Measured in `BWJ-Development/xoxowildhearts` (#383, #391, #399): the PR named such a
+definition in its prose, nobody created it, the issue closed, and the go-live block told the reviewer
+to tick a checkbox that did not exist
+([#2885](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2885)).
+
+**The session that finds such a step writes it on the issue as a checklist, in a comment of its own:**
+
+```text
+<!-- store-admin-prerequisites -->
+**Store-admin prerequisites** -- work this change needs on the store itself, outside the theme. Tick each one once it is done on the live store.
+
+- [ ] <what, and where in admin: "Metafield definition `custom.show_menu_image` (collections, true/false) -- Settings > Custom data > Collections">
+```
+
+**The issue, because it is the one record both moments can read** (Dave, October 7, 2026). The branch
+document is gone by the close, and the go-live block looks up no pull request. Only the task-list lines
+after the marker count, up to the next heading or HTML comment, and a box is ticked when GitHub writes
+`[x]`. The read errs towards holding back: a box with no text, or a marker with no box under it, counts
+as open. Whoever does the step on the
+store ticks it.
+
+- **`build-golive-block -Post` refuses while a box is open**, and while it cannot read the issue.
+  `-Force` gets past it, as it does for the duplicate check. The block tells a colleague to go and
+  look, and what they would look at is not there yet.
+- **The preview handover warns** and does not refuse, because a reviewer may well look before the
+  store is set up. `-OutFile`, the run the page embeds, prints the open items, and the page names them
+  ([`PREVIEW-portable.md`](PREVIEW-portable.md#the-shape-of-the-handover)).
+- **No checklist means no prerequisites.** The check cannot see a step nobody wrote down, so the
+  question *does this change need anything on the store?* is asked while the work is built.
+
 #### What the block asks of the requester -- and the two closes it separates
 
 **Five rules, from BWJ's corrections to the first blocks that actually reached Asana** (Maikel,

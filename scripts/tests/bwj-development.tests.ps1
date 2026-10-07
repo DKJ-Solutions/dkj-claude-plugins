@@ -521,6 +521,28 @@ Assert-True (-not (Test-PrivateResultLink -Link 'https://store.example/products/
 Assert-True (-not (Test-PrivateResultLink -Link 'https://store.example/pages/claude.ai/artifact/x')) 'a path that merely contains the shape is not refused'
 Assert-True (-not (Test-PrivateResultLink -Link '')) 'no link is not a private link'
 
+# STORE-ADMIN PREREQUISITES ARE READ FROM THE ISSUE (#2885): only task-list lines after the marker count.
+$saMarker = Get-StoreAdminPrerequisiteMarker
+Assert-Equal '<!-- store-admin-prerequisites -->' $saMarker 'the prerequisite marker is an HTML comment, which renders as nothing'
+$saItems = @(Get-StoreAdminPrerequisites -Text @(
+    "Body.`n- [ ] an unrelated checklist above no marker",
+    "- [ ] before the marker`n$saMarker`n**Store-admin prerequisites**`n`n- [ ] Metafield definition ``custom.show_menu_image```n- [x] Menu 'footer'`n* [X] App embed on`nprose [ ] not a box",
+    $null))
+Assert-Equal 3 $saItems.Count 'three boxes after the marker; the box above it and the marker-less text add nothing'
+Assert-Equal 'Metafield definition `custom.show_menu_image`' $saItems[0].Item 'the item is the text after the box'
+Assert-True (-not $saItems[0].Done) 'an empty box is open'
+Assert-True ($saItems[1].Done -and $saItems[2].Done) 'x and X are ticked, under - and * bullets alike'
+Assert-Equal 0 @(Get-StoreAdminPrerequisites -Text @('no marker', '- [ ] anywhere')).Count 'an issue without the marker declares no prerequisites'
+Assert-Equal 0 @(Get-StoreAdminPrerequisites -Text @()).Count 'and an issue with no text at all declares none'
+$saBounded = @(Get-StoreAdminPrerequisites -Text @("$saMarker`n- [x] a`n- [ ]`n`n## Acceptance criteria`n- [ ] unrelated AC"))
+Assert-Equal 2 $saBounded.Count 'the checklist ends at the next heading'
+Assert-True (-not $saBounded[1].Done) 'and a bare box is an open item, not nothing'
+$saVariants = @(Get-StoreAdminPrerequisites -Text @("$saMarker`n1. [ ] numbered`n> - [ ] quoted`n- [ ]nospace"))
+Assert-Equal 3 @($saVariants | Where-Object { -not $_.Done }).Count 'numbered, quoted and unspaced boxes all count as open'
+$saEmpty = @(Get-StoreAdminPrerequisites -Text @("$saMarker`nWe will add the list later."))
+Assert-True ($saEmpty.Count -eq 1 -and -not $saEmpty[0].Done) 'a marker with no box under it holds the post back'
+Assert-Equal 1 @(Get-StoreAdminPrerequisites -Text @("$saMarker`n- [x] a`n<!-- other -->`n- [ ] b")).Count 'and at the next HTML comment'
+
 # AND THE DRIVER REFUSES IT BEFORE ANYTHING IS PRINTED OR POSTED -- a static read, because the driver needs gh.
 $goLiveDriver = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\build-golive-block.ps1'))
 Assert-True ($goLiveDriver -match 'Test-PrivateResultLink -Link \$LinkArg\) -and -not \$AllowPrivateLink') 'the driver refuses a private link unless -AllowPrivateLink says it was shared'
@@ -533,6 +555,11 @@ Assert-True ($goLiveDriver -match 'gh issue comment \$issueNumber --repo \$Store
 # assignment into the comment above it, which left -Post dying on an unset variable under StrictMode while
 # every assert here stayed green -- nothing in this suite runs -Post.
 Assert-True ($goLiveDriver -match '(?m)^\$bodyFile = Join-Path') 'the body file is assigned on its own line, not inside a comment'
+# THE PREREQUISITE CHECK (#2885): read only for -OutFile or -Post, so a print-only run stays offline; the
+# post refuses on an open or unreadable checklist unless -Force, and does so before anything is commented.
+Assert-True ($goLiveDriver -match 'if \(\$PostArg -or \$OutFileArg\) \{(\s+#[^\n]*)?\s+\$issueJson = \$null\s+try \{ \$issueRun = Invoke-Native') 'the issue is read for prerequisites only where the block leaves the console'
+Assert-True ($goLiveDriver -match 'if \(-not \$ForceArg -and \(\$prereqUnread -or \$prereqOpen\.Count -gt 0\)\)') 'an open or unreadable checklist refuses the post unless -Force'
+Assert-True ($goLiveDriver.IndexOf('$prereqUnread -or $prereqOpen.Count') -lt $goLiveDriver.IndexOf('gh issue comment $issueNumber')) 'and it refuses before the comment is posted'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
 # to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path
@@ -632,6 +659,33 @@ try {
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
         -RootOverride $glRoot -ProseFile $glProseFile 2>&1 | Out-Null
     Assert-Equal 1 $LASTEXITCODE 'a -ProseFile with an unknown section line is refused, not half-used'
+
+    # AN OPEN STORE-ADMIN PREREQUISITE, END TO END (#2885), through a stand-in gh on PATH that answers
+    # 'issue view' with a checklist and fails everything else -- so no network, and a -Post that got past
+    # the refusal would fail on the comment rather than post one.
+    $glGhDir = Join-Path $glRoot 'fakegh'
+    New-Item -ItemType Directory -Path $glGhDir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $glGhDir 'issue.json'),
+        ('{"body":"x","comments":[{"body":"' + (Get-StoreAdminPrerequisiteMarker) + '\n- [ ] Metafield definition custom.flag\n- [x] Menu footer"}]}'),
+        (New-Object System.Text.UTF8Encoding $false))
+    [System.IO.File]::WriteAllText((Join-Path $glGhDir 'gh.cmd'),
+        "@echo off`r`nif `"%1 %2`"==`"issue view`" (type `"%~dp0issue.json`" & exit /b 0)`r`nexit /b 1`r`n",
+        (New-Object System.Text.UTF8Encoding $false))
+    $glPath = $env:PATH
+    try {
+        $env:PATH = "$glGhDir;$glPath"
+        $glSaWarn = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -OutFile $glOutFile 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+        $glSaWarnCode = $LASTEXITCODE
+        $glSaPost = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -Post 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+        $glSaPostCode = $LASTEXITCODE
+    } finally { $env:PATH = $glPath }
+    Assert-Equal 0 $glSaWarnCode '-OutFile with an open prerequisite still writes the block -- the handover warns'
+    Assert-True ($glSaWarn -match '1 store-admin prerequisite\(s\) on o/r#7 still open' -and $glSaWarn.Contains('custom.flag')) 'and names the open item'
+    Assert-True (-not $glSaWarn.Contains('Menu footer')) 'but not the ticked one'
+    Assert-Equal 1 $glSaPostCode '-Post with an open prerequisite is refused'
+    Assert-True ($glSaPost.Contains('Nothing posted') -and $glSaPost.Contains('-Force')) 'and says nothing was posted, and how to post regardless'
 
     # THE SEAM IS NOT READ AT ALL, so one that throws costs the block nothing -- not even a warning.
     [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),

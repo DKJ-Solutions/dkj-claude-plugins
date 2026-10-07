@@ -168,6 +168,65 @@ function Test-PrivateResultLink {
     return [bool]($Link -match '^(https?://)?(www\.)?claude\.ai/(code/)?artifact/')
 }
 
+function Get-StoreAdminPrerequisiteMarker {
+    <#
+        Pure: the marker of the store-admin checklist on an issue (#2885).
+
+        A STORE-ADMIN PREREQUISITE IS WORK THE CHANGE NEEDS ON THE STORE, NOT IN THE THEME -- a metafield
+        definition, a menu, a page, an app embed, a store setting. Measured in
+        BWJ-Development/xoxowildhearts (#383, #391, #399): a theme feature read a collection metafield whose
+        definition nobody created, the PR named it in prose, and the go-live block told the reviewer to tick
+        a checkbox that did not exist in admin.
+
+        THE CHECKLIST LIVES ON THE ISSUE (Dave, October 7, 2026, deciding #2885), because the issue is the
+        one record both moments can read: the preview handover, while the branch is open, and the go-live
+        block, which is built at the close after the fold has removed the branch document and which looks
+        up no pull request. An HTML comment for the reason every marker here is one: it renders as nothing.
+    #>
+    return '<!-- store-admin-prerequisites -->'
+}
+
+function Get-StoreAdminPrerequisites {
+    <#
+        Pure: every store-admin prerequisite the given texts declare, as objects with Done ([bool]) and
+        Item (the text after the box). -Text is the issue body and its comment bodies, in any order.
+
+        A TEXT DECLARES PREREQUISITES ONLY WHERE IT CARRIES THE MARKER, and only the task-list lines AFTER
+        the marker count, up to the next Markdown heading or HTML comment -- so an unrelated checklist
+        above it, or an 'Acceptance criteria' list under a heading below it, adds nothing. A ticked box is
+        '[x]' or '[X]', which is what GitHub writes when somebody clicks it; '[ ]' is open. It errs towards
+        refusing: a numbered or quoted box counts, a box with no text is an open item, and a marker
+        with no box under it is one too.
+
+        A LOOSE MATCH, ACCEPTED FOR THE SAME REASON Test-AsanaPasteBlockPosted's is: a comment QUOTING the
+        template carries the marker and an open box, and holds the go-live block back. That errs towards
+        refusing, and build-golive-block.ps1 -Force is the way past it.
+    #>
+    param([AllowEmptyCollection()][string[]]$Text = @())
+
+    $marker = Get-StoreAdminPrerequisiteMarker
+    $items  = @()
+    foreach ($t in @($Text)) {
+        if (-not $t) { continue }
+        $at = $t.IndexOf($marker, [System.StringComparison]::OrdinalIgnoreCase)
+        if ($at -lt 0) { continue }
+        $found = 0
+        foreach ($line in ($t.Substring($at + $marker.Length) -split "`r?`n")) {
+            if ($line -match '^\s{0,3}(#{1,6}\s|<!--)') { break }
+            # Bullets, numbers and quotes alike, and no space required around the box: a variant the
+            # template did not write still counts, because a box missed here is a post let through.
+            if ($line -match '^[\s>]*(?:[-*+]|\d+[.)])\s*\[([ xX])\]\s*(.*?)\s*$') {
+                $item = if ($Matches[2]) { $Matches[2] } else { '(a box with no text)' }
+                $items += [pscustomobject]@{ Done = ($Matches[1] -ne ' '); Item = $item }
+                $found++
+            }
+        }
+        # A MARKER WITH NO BOX UNDER IT meant a checklist and did not parse, so it holds the post back.
+        if ($found -eq 0) { $items += [pscustomobject]@{ Done = $false; Item = '(the checklist marker, with no box under it)' } }
+    }
+    return $items
+}
+
 function Get-GoLiveBlockText {
     <#
         Pure: the fixed words of the pasted block, in the language it is written in (#2507).
