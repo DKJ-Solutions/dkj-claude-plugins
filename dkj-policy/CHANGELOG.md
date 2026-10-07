@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**9 / 10 minor entries** <!-- pending-tally -->
+**10 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2896-awaiting-action-labels · 20261007-143057Z
+
+Two parking labels are renamed so the pair reads as one family
+([#2896](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2896)): `awaiting-owner-act`
+becomes `awaiting-action-dev` (an act only the owner performs), and `awaiting-event` becomes
+`awaiting-action-external` (an external event or date). The meaning of each is unchanged. The old names
+stay matched by the claim and sweep defaults and the issue dashboard, and `adopt-triage-labels` prints
+a `gh label edit` rename for a tracker that still carries one.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer who runs `adopt-triage-labels` is offered two renames. Nothing breaks if they skip them,
+because the old names still park the issue.
+
+**Score:** 2
+
+#### Pull Request
+
+Rename awaiting-owner-act and awaiting-event to awaiting-action-dev and awaiting-action-external
+
+Plugins: dkj-policy
+
+[PR #2897](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2897)
+
+---
 
 ### DEPLOY: feat/2890-split-awaiting-decision · 20261007-141343Z
 
