@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Inbound #2878 from smartwatchbanden: go-live blocks that taught the SEO colleague a new task failed
+five times over three rounds. Verified against the tree: the golive-block page prescribes the headings
+but says nothing about how the `[changed]` and `[where]` prose is ordered. The report's claim that
+`WAT ER NU ANDERS IS` leads the block is out of date (`TE BEKIJKEN OP` leads since #2700), but the ask
+is about the order inside the prose, which the session writes, so no script change is needed.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] golive-block SKILL.md: new subsection "When the change hands the requester a task" -- goal and
+  default first, the click route walked as a non-admin, one worked example, then the exceptions; a
+  model change rewrites the whole instruction
+- [x] WORKFLOW-portable.md: one pointer to it under "The facts are the script's, and the prose is the
+  session's"
 
 ### TEST
 
+- [~] no automated test: the guidance governs prose the session writes, which no script checks
+
 ### DEPLOY: feat/2878-golive-task-block
 
-**Score:**
+`golive-block` now says how to write a block that hands the requester a new task rather than a
+result to look at ([#2878](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2878)). The
+prose follows a fixed order: first the goal and what happens when the reader does nothing, then the
+click route walked once with a non-admin account, then one worked example on the reader's own page,
+and the exceptions last. When the model changes, the whole instruction is rewritten rather than only
+the delta. `WORKFLOW-portable.md` points to it. The headings and the script are unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A colleague who is handed a new task in a go-live block gets the goal, a click route that works with
+their own account, and an example, in that order. Before, the block could give them the latest delta
+and a list of system names.
+
+**Score:** 3
 
 #### Pull Request
 
