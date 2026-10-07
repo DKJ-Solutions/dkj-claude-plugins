@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2880-shop-connector-store-check · 20261007-131540Z
+
+The Shopify team can now tell when the claude.ai Shopify connector is bound to a different store than
+this repo's ([#2880](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2880)). A new skill,
+`check-shop-connector`, reads the store the repo names, calls the connector's `get-shop-info`, and on a
+mismatch stops with the remedy: run `/mcp`, then `switch-shop <store>`. It never switches itself,
+because switching revokes the other store's token. `shopify-floor-sessioncheck` gains a third finding:
+an `[ERROR]` when the repo names no store in `Get-ShopifyThemeEstateStore` or
+`Get-ShopifyStoreDomain`. A `VUL-IN` answer counts as none. The finding stays silent in a repo with no
+config or with `Get-ShopifyRepoHasNoStore`, and the hook still exits 0.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store repo whose session reaches for the Shopify connector learns, on the first call, that the
+connector is bound to the other store. It also gets the exact two steps that fix it, instead of
+answers from the wrong store. A store repo that names no store in `scripts/repo-config.ps1` sees a new
+`[ERROR]` at session start until it answers `Get-ShopifyThemeEstateStore`.
+
+**Score:** 3
+
+#### Pull Request
+
+Shopify team: warn when the claude.ai connector is bound to a different store than this repo's
+
+Plugins: dkj-subagents-shopify
+
+[PR #2888](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2888)
+
+---
 
 ### DEPLOY: docs/research-lands-on-the-issue · 20261007-130703Z
 
