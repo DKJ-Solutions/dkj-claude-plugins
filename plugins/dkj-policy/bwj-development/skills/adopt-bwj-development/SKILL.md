@@ -336,8 +336,16 @@ gh issue list --repo <owner>/<repo> --label documentation --state open
 gh issue edit <n> --repo <owner>/<repo> --add-label <bug|feature> --remove-label documentation
 ```
 
-Deleting the label itself (`gh label delete documentation`) also strips it from every closed issue, so
-that one is the owner's call, not an adoption step.
+**Then delete the label**, so `gh` refuses it from then on (Dave, October 7, 2026,
+[#2884](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2884)). While it exists, a session
+that files with a bare `gh issue create` instead of `report-issue` never meets the rule and can apply it
+anyway: `smartwatchbanden#876` was filed that way on the day this step was written. Deleting it also
+strips it from every closed issue, and that loss was part of the decision. Do it after the open issues
+have their kind, because the delete takes the label off them too:
+
+```bash
+gh label delete documentation --repo <owner>/<repo> --yes
+```
 
 **A missing reach label is two different situations and this step must not assume the harmless one.**
 Every other label in this step is missing because the repo never had it; this one can be missing because the
@@ -360,8 +368,9 @@ lands on one of the others, that is the moment for its own seam -- not a reason 
 
 **No `CRO` label.** It was retired on October 7, 2026
 ([#2869](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2869)), so this step no longer
-creates it. Where a store already has one, leave it alone: it is history on closed issues, and deleting
-it is the owner's call. See
+creates it. Where a store already has one, **delete it**, for the same reason as `documentation` above
+(#2884): a label that exists is a label a bare `gh issue create` can still apply. Its history on closed
+issues goes with it, which the owner accepted: `gh label delete CRO --repo <owner>/<repo> --yes`. See
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#the-cro-label----retired).
 
 **And the four prio labels.** They are typed onto an issue by a person now: the daily run that used to

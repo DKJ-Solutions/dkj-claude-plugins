@@ -117,7 +117,8 @@ So every label goes on the `gh issue create` itself.
 [#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)). Until then an issue with
 neither kind label was a task, and a doc finding carried `documentation` on top of it; both are gone.
 **An issue filed before this change may carry `documentation`, or no kind at all.** Give it its kind
-when you touch it, and take `documentation` off.
+when you touch it. The label itself is deleted from each store by
+[`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md) (#2884), so `gh` refuses it from then on.
 
 **GitHub issue types are not used** (Dave, October 3, 2026,
 [#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)). Labels leave more room to
@@ -165,10 +166,11 @@ or on behalf of, the CRO team, as a third axis beside the kind and the reach. No
 the kind -- `bug` or `feature` -- and the reach label, and nothing records who raised an issue. An Asana
 ticket from the CRO team is filed exactly like any other.
 
-**Where the label already exists, it stays as history** on the issues that carry it, and nothing sets it
-again. Deleting it from `smartwatchbanden` or `xoxowildhearts` is a repo setting, so that is the owner's
-call, and nothing in this plugin does it. [`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md)
-no longer creates it.
+**Where the label already exists, it is deleted**, history on closed issues included (Dave, October 7,
+2026, [#2884](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2884)). A label that exists can
+still be applied by a session that files with a bare `gh issue create`, which never loads the rule above.
+[`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md) no longer creates it, and deletes it
+together with the retired `documentation` label.
 
 **It triggers nothing on its own, and it used to.** Until inbound
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049) this label was what
