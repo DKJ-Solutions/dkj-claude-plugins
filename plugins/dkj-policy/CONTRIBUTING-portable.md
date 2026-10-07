@@ -152,7 +152,7 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act`, `awaiting-release` and
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-more-recurrences`, `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
 `awaiting-first-recurrence`), so adopting the convention costs one command instead of twelve typed by hand.
 
 **A parking label goes on when the issue is filed, whichever one it is**
@@ -195,7 +195,7 @@ things follow from being a record:
   to close it, even that PR ships with `-NoResolves`, and the record is closed by hand after the merge.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-event`, `awaiting-owner-act`, `awaiting-release` and
+  skip `awaiting-more-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
   `awaiting-first-recurrence`. Working a
   record is a deliberate assignment, named by its number.
 
@@ -248,30 +248,30 @@ answer) and `awaiting-first-recurrence` (evidence) say something else. Both pick
 default, `claim-issue <n>` warns that the issue is parked, and the label comes off when the blocking pull
 request merges. It is a new label, so no former name is matched for it.
 
-**`awaiting-event` parks an issue that waits on an external event or date** (a launch, a third party's
+**`awaiting-action-external` parks an issue that waits on an external event or date** (a launch, a third party's
 release; [#2784](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2784), Dave, October 3, 2026).
 Until that date there is nothing to build, and none of the other three fits: nobody owes a choice, no pull
 request is pending, and no bug has to recur. Without a label such an issue reads as free work, so every
 sweep picks it up and has to hold it out by hand with `-SkipIssue`, which does not carry over to the next
 sweep. Both pickup routes skip it by default, and `claim-issue <n>` warns that the issue is parked. **The
-issue states the event or date**, and the label comes off once it has happened. It is a new label, so no
-former name is matched for it.
+issue states the event or date**, and the label comes off once it has happened. It was named `awaiting-event`
+until [#2896](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2896) (October 7, 2026), and that former name is still matched.
 
-**`awaiting-owner-act` parks an issue whose decision is made and whose only remaining step is an act the
+**`awaiting-action-dev` parks an issue whose decision is made and whose only remaining step is an act the
 owner performs** (a live push, a release, a deletion the session may not run;
 [#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828), October 5, 2026). None of
 the others fits: the choice is already made, so it is not `awaiting-decision-dev`; no pull request is pending;
-and nothing outside the owner's own hands has to happen first, so it is not `awaiting-event`. Without a
+and nothing outside the owner's own hands has to happen first, so it is not `awaiting-action-external`. Without a
 label every sweep on every machine reads such an issue in full, finds nothing it may do, and holds it out
 by hand with `-SkipIssue`. Both pickup routes skip it by default, and `claim-issue <n>` warns that the
 issue is parked. **The issue names the act**, and the label comes off once the owner has performed it.
-It is a new label, so no former name is matched for it.
+It was named `awaiting-owner-act` until #2896, and that former name is still matched.
 
 **`awaiting-release` parks an issue whose remaining work may only run inside the next release** — its
 cut or its live step
 ([#2851](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2851), October 6, 2026). It is not
-`awaiting-owner-act`, which tells the owner there is something to do *now*, when here nothing is
-actionable until a release is cut. Nor is it `awaiting-event`: a release is the repo's own act and has
+`awaiting-action-dev` (then `awaiting-owner-act`), which tells the owner there is something to do *now*, when here nothing is
+actionable until a release is cut. Nor is it `awaiting-action-external`: a release is the repo's own act and has
 no date. Both pickup routes skip it by default, so **the release is where it surfaces**: once the commit
 and tag are written, `release/cut-release.ps1` lists every open issue carrying it among its follow-up
 steps. The issue names the step that runs at the release, and the label comes off once that step has

@@ -1622,7 +1622,7 @@ function Write-ParkedForRelease {
 
         WHY THE CUT READS A LABEL AT ALL. An issue whose remaining work may only run inside the next
         release -- a live write in the consumer's live step, say -- had no parking label of its own and
-        borrowed 'awaiting-owner-act', which tells the owner to act NOW. The new label parks it honestly,
+        borrowed 'awaiting-owner-act' (now 'awaiting-action-dev'), which tells the owner to act NOW. The new label parks it honestly,
         but a parked issue is skipped by every pickup route, so without this list it would surface only
         if the person cutting happened to remember it. Printing it here makes the release the pickup.
 

@@ -283,9 +283,11 @@ out.status = {
   parkingOverBlocked:   statusOf(iss(1, { ...bl, labels: ["awaiting-decision-dev"] }), [], false),
   parkingDecisionClient: statusOf(iss(1, { ...bl, labels: ["awaiting-decision-client"] }), [], false),
   parkingFormerDecisionDev: statusOf(iss(1, { ...bl, labels: ["awaiting-decision"] }), [], false),
+  parkingFormerOwnerAct: statusOf(iss(1, { ...bl, labels: ["awaiting-owner-act"] }), [], false),
+  parkingFormerEvent:   statusOf(iss(1, { ...bl, labels: ["awaiting-event"] }), [], false),
   parkingPull:          statusOf(iss(1, { ...bl, labels: ["awaiting-pull"] }), [], false),
-  parkingEvent:         statusOf(iss(1, { ...bl, labels: ["awaiting-event"] }), [], false),
-  parkingOwnerAct:      statusOf(iss(1, { ...bl, labels: ["awaiting-owner-act"] }), [], false),
+  parkingEvent:         statusOf(iss(1, { ...bl, labels: ["awaiting-action-external"] }), [], false),
+  parkingOwnerAct:      statusOf(iss(1, { ...bl, labels: ["awaiting-action-dev"] }), [], false),
   parkingRelease:       statusOf(iss(1, { ...bl, labels: ["awaiting-release"] }), [], false),
   parkingOverAssignee:  statusOf(iss(1, { ...asg, labels: ["awaiting-recurrence"] }), [], false),
   parkingFormerDecision: statusOf(iss(1, { ...bl, labels: ["needs-decision"] }), [], false),
@@ -633,12 +635,14 @@ console.log(JSON.stringify(out));
         Assert-Equal 'Waiting'     $s.parkingOverBlocked   'a parking label beats an open blocker'
         Assert-Equal 'Waiting'     $s.parkingOverAssignee  '...and an assignee'
         Assert-Equal 'Waiting'     $s.parkingPull          'awaiting-pull parks (#2757)'
-        Assert-Equal 'Waiting'     $s.parkingEvent         'awaiting-event parks (#2784)'
-        Assert-Equal 'Waiting'     $s.parkingOwnerAct      'awaiting-owner-act parks (#2828)'
+        Assert-Equal 'Waiting'     $s.parkingEvent         'awaiting-action-external parks (#2784)'
+        Assert-Equal 'Waiting'     $s.parkingOwnerAct      'awaiting-action-dev parks (#2828)'
         Assert-Equal 'Waiting'     $s.parkingRelease       'awaiting-release parks (#2851)'
         Assert-Equal 'Waiting'     $s.parkingFormerDecision 'the former name needs-decision still parks (#2741)'
         Assert-Equal 'Waiting'     $s.parkingDecisionClient 'awaiting-decision-client parks (#2890)'
         Assert-Equal 'Waiting'     $s.parkingFormerDecisionDev 'the former name awaiting-decision still parks (#2890)'
+        Assert-Equal 'Waiting'     $s.parkingFormerOwnerAct 'the former name awaiting-owner-act still parks (#2896)'
+        Assert-Equal 'Waiting'     $s.parkingFormerEvent   'the former name awaiting-event still parks (#2896)'
         Assert-Equal 'Waiting'     $s.parkingOverAll       '...and both'
         Assert-Equal 'Blocked'     $s.blockedOverAssignee  'an open blocker beats an assignee'
         Assert-Equal 'Claimed'     $s.closedBlockerClaimed 'a CLOSED blocker does not block'

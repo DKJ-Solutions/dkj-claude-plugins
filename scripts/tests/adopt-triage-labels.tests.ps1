@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Tests for scripts/task/adopt-triage-labels.ps1 -- the print-only adopter for the canonical triage
-    labels -- the 'prio-1'..'prio-4' rungs (issue #1895, split from #1843) plus 'awaiting-more-recurrences' (#2462; 'dossier' until #2683, 'record' until #2723), 'awaiting-decision-dev' (#2519; 'awaiting-decision' until #2890, 'needs-decision' until #2741), 'awaiting-decision-client' (#2890), 'awaiting-pull' (#2757), 'awaiting-event' (#2784), 'awaiting-owner-act' (#2828), 'awaiting-release' (#2851) and 'awaiting-first-recurrence' (#2587; 'awaiting-recurrence' until #2723).
+    labels -- the 'prio-1'..'prio-4' rungs (issue #1895, split from #1843) plus 'awaiting-more-recurrences' (#2462; 'dossier' until #2683, 'record' until #2723), 'awaiting-decision-dev' (#2519; 'awaiting-decision' until #2890, 'needs-decision' until #2741), 'awaiting-decision-client' (#2890), 'awaiting-pull' (#2757), 'awaiting-action-external' (#2784), 'awaiting-action-dev' (#2828), 'awaiting-release' (#2851) and 'awaiting-first-recurrence' (#2587; 'awaiting-recurrence' until #2723).
 
 .DESCRIPTION
     WHAT IS COVERED, AND WHY THESE PROPERTIES:
@@ -77,7 +77,7 @@ function Assert-Equal {
 # two of THOSE (and none of the four canonical ones) is the realistic shape of "this repo has not
 # adopted the convention yet", and it is what lets this scenario reach the [missing] branch at all.
 $LabelsNone    = '[{"name":"bug","color":"d73a4a","description":"unrelated default label"},{"name":"enhancement","color":"a2eeef","description":"unrelated default label"}]'
-$LabelsAll     = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"prio-2","color":"F9A825","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Awaiting-More-Recurrences","color":"5319E7","description":"old text"},{"name":"awaiting-decision-dev","color":"5319E7","description":"old text"},{"name":"awaiting-decision-client","color":"5319E7","description":"old text"},{"name":"awaiting-pull","color":"5319E7","description":"old text"},{"name":"awaiting-event","color":"5319E7","description":"old text"},{"name":"awaiting-owner-act","color":"5319E7","description":"old text"},{"name":"awaiting-release","color":"5319E7","description":"old text"},{"name":"awaiting-first-recurrence","color":"5319E7","description":"old text"}]'
+$LabelsAll     = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"prio-2","color":"F9A825","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Awaiting-More-Recurrences","color":"5319E7","description":"old text"},{"name":"awaiting-decision-dev","color":"5319E7","description":"old text"},{"name":"awaiting-decision-client","color":"5319E7","description":"old text"},{"name":"awaiting-pull","color":"5319E7","description":"old text"},{"name":"awaiting-action-external","color":"5319E7","description":"old text"},{"name":"awaiting-action-dev","color":"5319E7","description":"old text"},{"name":"awaiting-release","color":"5319E7","description":"old text"},{"name":"awaiting-first-recurrence","color":"5319E7","description":"old text"}]'
 $LabelsPartial = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"}]'
 $LabelsBad     = 'not json'
 
@@ -154,7 +154,7 @@ try {
     $dir = New-FixtureConsumer -Label 'allmissing'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fNone
     Assert-Equal 0 $r.Code 'all missing: exit-code 0 -- this is a report, never a gate'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-more-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-release', 'awaiting-first-recurrence')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-more-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-first-recurrence')) {
         Assert-True ($r.Out -like "*[missing]*'$name'*") "all missing: '$name' reported [missing]"
     }
     Assert-True ($r.Flat -like "*READ-ONLY*never runs gh label create*") 'all missing: the header states the print-only contract on every run'
@@ -170,7 +170,7 @@ try {
     $dir = New-FixtureConsumer -Label 'allpresent'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fAll
     Assert-Equal 0 $r.Code 'all present: exit-code 0'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-more-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-release', 'awaiting-first-recurrence')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-more-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-first-recurrence')) {
         Assert-True ($r.Out -like "*[ok]*'$name' already exists*") "all present: '$name' reported [ok]"
     }
     Assert-Equal 0 (@([regex]::Matches($r.Out, '\[missing\]')).Count) 'all present: zero [missing] lines'
@@ -188,7 +188,7 @@ try {
     foreach ($name in @('prio-1', 'prio-3')) {
         Assert-True ($r.Out -like "*[ok]*'$name' already exists*") "partial: '$name' reported [ok]"
     }
-    foreach ($name in @('prio-2', 'prio-4', 'awaiting-more-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-release', 'awaiting-first-recurrence')) {
+    foreach ($name in @('prio-2', 'prio-4', 'awaiting-more-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-first-recurrence')) {
         Assert-True ($r.Out -like "*[missing]*'$name'*") "partial: '$name' reported [missing]"
     }
     Assert-True ($r.Flat -like '*10 of 12 canonical triage label(s) missing*2 already exist*') 'partial: the summary line counts both halves'
@@ -246,6 +246,19 @@ try {
         'awaiting-decision: awaiting-decision-client is a plain create, with no rename printed for it'
     Assert-True ($r.Flat -notlike "*gh label edit '*' --name 'awaiting-decision-client'*") 'awaiting-decision: and awaiting-decision-client has no former name'
 
+    # --- 4f. The #2896 former names: 'awaiting-owner-act' and 'awaiting-event', each renamed in place --
+    Write-Host '-- 4f. the former names awaiting-owner-act and awaiting-event are renamed, not duplicated (#2896) --' -ForegroundColor Cyan
+    $fLegacy5 = New-LabelsFile -Label 'legacy5' -Json '[{"name":"awaiting-owner-act","color":"5319E7","description":"old text"},{"name":"awaiting-event","color":"5319E7","description":"old text"}]'
+    $dir = New-FixtureConsumer -Label 'legacy5'
+    $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fLegacy5
+    Assert-Equal 0 $r.Code 'awaiting-action: exit-code 0'
+    Assert-True ($r.Out -like "*[rename]*'awaiting-owner-act' -> 'awaiting-action-dev'*") "awaiting-action: 'awaiting-action-dev' is reported as a rename of 'awaiting-owner-act'"
+    Assert-True ($r.Out -like "*[rename]*'awaiting-event' -> 'awaiting-action-external'*") "awaiting-action: 'awaiting-action-external' is reported as a rename of 'awaiting-event'"
+    Assert-True ($r.Flat -like "*gh label edit 'awaiting-owner-act' --name 'awaiting-action-dev' --color '5319E7' --description 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' --repo fixture-org/fixture-repo*") `
+        'awaiting-action: the composed rename is paste-ready'
+    Assert-True ($r.Flat -notlike "*gh label create 'awaiting-action-dev'*") 'awaiting-action: and no create is printed beside the dev rename'
+    Assert-True ($r.Flat -notlike "*gh label create 'awaiting-action-external'*") 'awaiting-action: and none beside the external rename'
+
     # --- 5. An unreadable payload: [skip], never a false [missing] or [ok] -------------------------
     Write-Host '-- 5. an unreadable label payload --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'unreadable'
@@ -268,7 +281,7 @@ try {
     Assert-True ($r.Out -like "*[missing]*'foo-team-label'*") 'custom seam: the CONSUMER''s own label is what gets reported'
     Assert-True ($r.Flat -like "*gh label create 'foo-team-label' --color 'abcdef' --description 'a made-up team convention' --repo fixture-org/fixture-repo*") `
         'custom seam: and the exact command composes from the seam''s own values'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-more-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-event', 'awaiting-owner-act', 'awaiting-release', 'awaiting-first-recurrence')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-more-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-first-recurrence')) {
         Assert-True ($r.Out -notlike "*'$name'*") "custom seam: the built-in canonical '$name' is NOT reported -- the seam fully replaced it"
     }
 
@@ -369,7 +382,7 @@ try {
 
     # --- 8b. Every canonical label fits GitHub's own limits (name 50, description 100), #2842 -------
     #         A label over either limit makes the printed `gh label create` fail with HTTP 422, on every
-    #         tracker: awaiting-owner-act shipped with a 123-character description and could not be
+    #         tracker: awaiting-action-dev shipped with a 123-character description and could not be
     #         created from its own printed line. Read through the seam, so the real values are measured.
     . $RepoConfigSrc
     foreach ($label in @(Get-TriageLabels)) {

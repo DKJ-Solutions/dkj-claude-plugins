@@ -70,14 +70,15 @@ disagree you follow it and say so.
 ### 1. Choose -- and it writes nothing
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-more-info,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-event,awaiting-owner-act,awaiting-release,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-more-info,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier,awaiting-owner-act,awaiting-event
 ```
 
 It prints every open issue as `free`, `mine`, `held`, `branch` or `skipped` with the reason, and names
 the lowest free number. `-SkipLabel` is the labels that park an issue with somebody else; `-SkipIssue`
-holds numbers out by hand. The last six are former names -- `needs-info` became `awaiting-more-info`, `needs-decision` and then `awaiting-decision` became `awaiting-decision-dev`,
-`awaiting-recurrence` became `awaiting-first-recurrence`, and `dossier` then `record` became
-`awaiting-more-recurrences` (#2683, #2723, October 2, 2026; #2741, October 3, 2026; #2890, October 7, 2026) -- listed because a tracker keeps an old name until
+holds numbers out by hand. The last eight are former names -- `needs-info` became `awaiting-more-info`, `needs-decision` and then `awaiting-decision` became `awaiting-decision-dev`,
+`awaiting-recurrence` became `awaiting-first-recurrence`, `dossier` then `record` became
+`awaiting-more-recurrences`, `awaiting-owner-act` became `awaiting-action-dev`, and `awaiting-event` became
+`awaiting-action-external` (#2683, #2723, October 2, 2026; #2741, October 3, 2026; #2890 and #2896, October 7, 2026) -- listed because a tracker keeps an old name until
 somebody renames it there.
 
 **`branch` means somebody pushed work for it without a claim marker** -- a `<prefix>/<n>-<name>` branch
@@ -100,8 +101,8 @@ light** -- report the number as unjudged and move on.
 
 **A `free` issue that turns out to be WAITING is parked on the tracker, not held out**
 ([#2843](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2843)). The wait might be a live
-push, a release, a deletion or a credential (`awaiting-owner-act`), work that may only run inside the
-next release (`awaiting-release`, which the cut lists), another issue's pull request (`awaiting-pull`), an external event or date (`awaiting-event`), the owner's choice
+push, a release, a deletion or a credential (`awaiting-action-dev`), work that may only run inside the
+next release (`awaiting-release`, which the cut lists), another issue's pull request (`awaiting-pull`), an external event or date (`awaiting-action-external`), the owner's choice
 (`awaiting-decision-dev`), or a choice that belongs to the client or requester outside the dev team (`awaiting-decision-client`, #2890). Set the matching label and say in one comment what it waits on:
 
 ```powershell

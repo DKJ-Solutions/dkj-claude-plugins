@@ -39,19 +39,45 @@
 
 ### PLAN
 
+Resolves #2896. Two renames, no new meaning: `awaiting-owner-act` becomes `awaiting-action-dev` and
+`awaiting-event` becomes `awaiting-action-external`. Shaped after the #2890 rename (136e44d5): the old
+names stay matched as former names, and `adopt-triage-labels` prints a `gh label edit` rename for them.
+Release history under `dkj-policy/releases/` is left as written.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-TriageLabels` and `adopt-triage-labels`' fallback carry the new names; `pr-issues-lib`'s
+  former-name map maps each new name to its old one.
+- [x] The claim and sweep skip defaults and the issue dashboard (`PARKING_LABELS`, `PARKED_BECAUSE`)
+  carry the new names plus both former names.
+- [x] `CONTRIBUTING-portable.md` §1, the two lenses, the skill pages, the scripts README and
+  `cut-release.ps1`'s comment name the new labels and record the former names.
+- [x] Plugin mirrors checked with `build-shared-scripts -Check`; `config-blueprint.json` regenerated.
 
 ### TEST
 
+- [x] Suites: adopt-triage-labels (new scenario 4f renames both), pr-issues, issue-dashboard (both
+  former names still park), claim-issue, repo-config all pass.
+
 ### DEPLOY: feat/2896-awaiting-action-labels
 
-**Score:**
+Two parking labels are renamed so the pair reads as one family
+([#2896](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2896)): `awaiting-owner-act`
+becomes `awaiting-action-dev` (an act only the owner performs), and `awaiting-event` becomes
+`awaiting-action-external` (an external event or date). The meaning of each is unchanged. The old names
+stay matched by the claim and sweep defaults and the issue dashboard, and `adopt-triage-labels` prints
+a `gh label edit` rename for a tracker that still carries one.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer who runs `adopt-triage-labels` is offered two renames. Nothing breaks if they skip them,
+because the old names still park the issue.
+
+**Score:** 2
 
 #### Pull Request
+
+Rename awaiting-owner-act and awaiting-event to awaiting-action-dev and awaiting-action-external
 
