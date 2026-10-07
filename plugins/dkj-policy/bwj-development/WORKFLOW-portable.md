@@ -380,7 +380,7 @@ same day brought back **the closed message** (#2818), and the next day **the reo
 - **Closing as not planned or as a duplicate posts nothing** (#2765): nothing was built, so there is
   nothing to test.
 - **Reopening an issue** posts one comment on the linked task, whatever it was closed as: the header
-  and the reopened line, *"GitHub issue <owner>/<repo>#<n> **reopened:** this Asana task is back in
+  and the reopened line, *"GitHub issue <owner>/<repo>#<n> **is reopened:** this Asana task is now back in
   development."* (#2854, in #2656's fixed form). It moves no card and un-completes nothing, so a
   requester who already ticked the task off sees the comment and decides. **So a reopen is a claim
   that development has restarted, and it is made only once that is true** (Dave, October 6, 2026,

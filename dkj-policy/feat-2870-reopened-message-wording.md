@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Reword the reopened line that `asana-closed-message` posts on the Asana task, at the requester's
+request (#2870): *"is reopened: this Asana task is now back in development."* That is the same form
+the created and closed lines take. Verified on pickup: the old wording sits in the plain-text and
+html_text builders, the template's header comment, one test assert and one quote in
+`WORKFLOW-portable.md`, and nowhere else.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `templates/asana-closed-message.ps1`: both builders and the two comments that quote the line.
+- [x] `WORKFLOW-portable.md`: the quoted reopened line.
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`'s assert on the html_text line now pins the new wording; the gate
+  runs it in `ship-pr`.
+
 ### DEPLOY: feat/2870-reopened-message-wording
 
-**Score:**
+The reopened message that `asana-closed-message` posts on the Asana task now reads *"GitHub issue
+<ref> **is reopened:** this Asana task is now back in development."* It used to read "reopened: this
+Asana task is back in development."
+([#2870](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2870)). It now has the same form as
+the created and closed lines. Both the plain-text and the html_text builder changed, and the test pins
+the new line.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A requester whose store issue is reopened reads the new line on their Asana task. A store picks it up by
+copying the template again (`adopt-bwj-development` step 1) after the update; until then it posts the
+old wording.
+
+**Score:** 2
 
 #### Pull Request
 
