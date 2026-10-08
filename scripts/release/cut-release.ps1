@@ -630,9 +630,9 @@ function Assert-TrunkMatchesOrigin([string]$Moment) {
     # An explicit refspec: a bare `fetch origin main` updates origin/main only through the configured
     # remote.origin.fetch, and a repo with a custom one would be compared against a stale ref.
     $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main') -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-    if ($fetch.ExitCode -ne 0) {
+    if (-not (Test-NativeExitMeasured -Capture $fetch) -or $fetch.ExitCode -ne 0) {
         $fetch.Output | ForEach-Object { Write-Host $_ }
-        Write-Error "origin check ($Moment): 'git fetch origin main' failed (exit $($fetch.ExitCode)), so whether main is current is unknown -- release aborted, nothing written. Retry, or run with -SkipOriginCheck once you have verified main yourself."
+        Write-Error "origin check ($Moment): 'git fetch origin main' failed ($(Get-NativeExitLabel -Capture $fetch)), so whether main is current is unknown -- release aborted, nothing written. Retry, or run with -SkipOriginCheck once you have verified main yourself."
         exit 1
     }
     $behindLog = Invoke-NativeCapture -FilePath 'git' -Arguments @('log', '--oneline', '--no-decorate', 'HEAD..origin/main') -DiscardStderr
