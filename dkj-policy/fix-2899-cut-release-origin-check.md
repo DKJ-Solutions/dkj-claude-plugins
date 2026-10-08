@@ -86,5 +86,3 @@ the tag on its own.
 #### Pull Request
 
 cut-release refuses a main that is not origin/main
-
-Plugins: dkj-policy
