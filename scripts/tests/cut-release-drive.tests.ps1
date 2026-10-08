@@ -711,6 +711,67 @@ $cutSectH11 Pull Request
     Assert-Equal '' (Get-GitOut -Root $root12 -GitArgs @('tag','--list')).Trim() 'malformed record: and no tag was created'
     Assert-Equal '' (Get-GitOut -Root $root12 -GitArgs @('status','--porcelain')).Trim() 'malformed record: and the tree stays exactly as committed'
 
+    # --- 12. The origin check (#2899): main must BE origin/main, or nothing is written ---------------
+    # The remote is a local bare repo under the fixture dir, so nothing here reaches a real remote, and
+    # every run still passes -NoPush. The v5.17.0 cut is the measurement: a merge landed on origin while
+    # the gates ran, and the cut committed and tagged on a stale main before its push rejected.
+    Write-Host ""
+    Write-Host "cut-release.ps1 -- the origin check refuses a main that is not origin/main" -ForegroundColor Cyan
+    function New-OriginFixture([string]$Name) {
+        $r = New-CutFixture -Name $Name
+        $bare = Join-Path $FixtureDir "$Name-origin.git"
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('init', '--quiet', '--bare', '--initial-branch=main', $bare) | Out-Null
+        Push-Location $r
+        try {
+            Invoke-NativeCapture -FilePath 'git' -Arguments @('remote', 'add', 'origin', $bare) | Out-Null
+            Invoke-NativeCapture -FilePath 'git' -Arguments @('push', '--quiet', '-u', 'origin', 'main') | Out-Null
+        } finally { Pop-Location }
+        return [pscustomobject]@{ Root = $r; Bare = $bare }
+    }
+
+    # In sync: the check passes and says so, and the cut goes through.
+    $o13 = New-OriginFixture -Name 'origin-insync'
+    $r13 = Invoke-Cut -Root $o13.Root -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-Equal 0 $r13.Code 'origin in sync: the cut goes through'
+    Assert-Says 'main is origin/main' $r13.Out 'origin in sync: the check says what it found'
+    Assert-Says 'git push --atomic origin main v1.4.1' $r13.Out 'origin in sync: -NoPush prints ONE atomic push, so a rejected main cannot publish the tag'
+
+    # Behind: a commit lands on origin through a second clone -- the merge during the gates.
+    $o14 = New-OriginFixture -Name 'origin-behind'
+    $other14 = Join-Path $FixtureDir 'origin-behind-other'
+    Invoke-NativeCapture -FilePath 'git' -Arguments @('clone', '--quiet', $o14.Bare, $other14) | Out-Null
+    Push-Location $other14
+    try {
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('config', 'user.email', 'fixture@example.invalid') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('config', 'user.name', 'Fixture') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('config', 'commit.gpgsign', 'false') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('commit', '--quiet', '--allow-empty', '-m', 'fold: merged-while-the-gates-ran') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('push', '--quiet', 'origin', 'main') | Out-Null
+    } finally { Pop-Location }
+    $r14 = Invoke-Cut -Root $o14.Root -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-True ($r14.Code -ne 0) 'origin behind: refused with a non-zero exit'
+    Assert-Says 'BEHIND origin/main' $r14.Out 'origin behind: the refusal says which way main differs'
+    Assert-Says 'merged-while-the-gates-ran' $r14.Out 'origin behind: and names the commit it is missing'
+    $v14 = (Get-Content -LiteralPath (Join-Path $o14.Root 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
+    Assert-Equal '1.4.0' $v14 'origin behind: nothing was written'
+    Assert-Equal '' (Get-GitOut -Root $o14.Root -GitArgs @('tag','--list')).Trim() 'origin behind: and no tag was created'
+
+    # Ahead: a local trunk commit no PR shipped would ride along with the release push.
+    $o15 = New-OriginFixture -Name 'origin-ahead'
+    Push-Location $o15.Root
+    try { Invoke-NativeCapture -FilePath 'git' -Arguments @('commit', '--quiet', '--allow-empty', '-m', 'local: never-pushed') | Out-Null }
+    finally { Pop-Location }
+    $r15 = Invoke-Cut -Root $o15.Root -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-True ($r15.Code -ne 0) 'origin ahead: refused with a non-zero exit'
+    Assert-Says 'AHEAD of origin/main' $r15.Out 'origin ahead: the refusal says which way main differs'
+    Assert-Says 'never-pushed' $r15.Out 'origin ahead: and names the unshipped commit'
+    Assert-Equal '' (Get-GitOut -Root $o15.Root -GitArgs @('tag','--list')).Trim() 'origin ahead: no tag was created'
+
+    # -SkipOriginCheck is the stated escape valve: the same behind state cuts, and the run says it skipped.
+    $r16 = Invoke-Cut -Root $o14.Root -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests', '-SkipOriginCheck')
+    Assert-Equal 0 $r16.Code '-SkipOriginCheck: the behind state cuts when the check is skipped deliberately'
+    Assert-Says 'skipped (-SkipOriginCheck)' $r16.Out '-SkipOriginCheck: and the run says it skipped'
+
 } finally {
     if (Test-Path -LiteralPath $FixtureDir) {
         Remove-Item -LiteralPath $FixtureDir -Recurse -Force -ErrorAction SilentlyContinue
