@@ -223,16 +223,25 @@ a release for a missing timestamp would be ceremony rather than a guard.
    Cutting a release through it would run the previous release's cut.
 
    Give it **either** `-Bump` **or** `-Version <X.Y.Z>` when you want to name the number yourself.
-   `-SummaryFile` turns it into a milestone (see below). Seven flags, most of them escape valves:
+   `-SummaryFile` turns it into a milestone (see below). Eight flags, most of them escape valves:
 
    - **`-NoPush` — inspect before publishing, and use it when anything is unusual.** The script otherwise
      commits, tags **and pushes** in one motion. With `-NoPush` it stops after the commit and tag and
-     prints the two push commands for you, which is the moment to read the generated notes. That is not
+     prints the push command for you, which is the moment to read the generated notes. That is not
      optional caution: an entry body's stray `##` is read as a change of its own, and this is the only step
      where a human sees the assembled artifact before it is public. **Its closing line names the baseline
      too** (`1.4.0 -> 1.4.1, Patch`) — it did not until August 21, 2026, so the flag whose whole purpose is
      reading a release before it is public was the one path that hid the number every label hangs on
      (inbound [#802](https://github.com/DaveKJohn/claude-code-specialists/issues/802)).
+   - **`-SkipOriginCheck`** skips the origin check, and is for a cut that cannot reach `origin` at all.
+     The check fetches `origin/main` and refuses unless local `main` is exactly that, naming the commits
+     it is behind or ahead
+     ([#2899](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2899)). It looks **twice**: once
+     before the gates, and again after them, before the first write, because the minutes the gates take
+     are when merges land. Measured at the v5.17.0 cut: a PR merged and folded during the 160s of suites,
+     and the cut committed and tagged before its push was rejected, which left a local commit and tag that
+     only an owner-gated `reset --hard` could unpick. A repo with no `origin` remote skips the check on its
+     own and says so.
    - **`-Type <major|minor|patch>` — state the bump type instead of letting it be inferred.** Belongs with
      `-Version`; refused alongside `-Bump`, which says the same thing already. **You need it in exactly one
      situation**: a repo whose git tag line and whose recorded release numbering have deliberately
@@ -315,10 +324,12 @@ a release for a missing timestamp would be ceremony rather than a guard.
    unpick on main.
 
    **So there is normally no tag command to type.** If you did use `-NoPush`, finish with what the script
-   printed:
+   printed. It is **one atomic push**, so a rejected `main` cannot still publish the tag (#2899). In a
+   consumer, two separate pushes did exactly that, and a public tag briefly named a commit `origin/main`
+   did not carry:
 
    ```powershell
-   git push origin main; git push origin vX.Y.Z
+   git push --atomic origin main vX.Y.Z
    ```
 
 2. **ONE hand-written document, with a named section per reader** (Dave, August 10, 2026). Where the repo

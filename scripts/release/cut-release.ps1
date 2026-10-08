@@ -74,7 +74,8 @@
     repo as not adopting and switch the gate off in silence, with nothing erroring.
 
     Steps (all on main):
-      1. Guardrails: clean main, no unfolded entry files in the root, THE BASELINE AGREEING WITH THE
+      1. Guardrails: clean main, MAIN IS EXACTLY ORIGIN/MAIN (fetched and checked before the gates and
+         again after them, #2899; -SkipOriginCheck overrules), no unfolded entry files in the root, THE BASELINE AGREEING WITH THE
          RELEASE OVERVIEW'S NEWEST ROW (-Type overrules by stating the type outright), THE BUMP EARNED BY
          THE PENDING TIERS (the bump follows the highest tier pending -- tier 0 only is a patch, tier 1 or
          higher earns a minor, a major needs enough minors behind it -- Test-ReleaseBumpEarned;
@@ -161,6 +162,12 @@
 
 .PARAMETER NoPush
     Everything locally (commit + tag) but do not push main/tag -- for inspection beforehand.
+
+.PARAMETER SkipOriginCheck
+    Deliberately skip the origin check (escape valve, issue #2899): the cut fetches origin/main and refuses
+    unless local main is exactly origin/main, once before the gates and again after them, before the first
+    write. Use it only where origin cannot be reached and you have verified the trunk by other means. A repo
+    with no 'origin' remote skips the check on its own and says so.
 
 .PARAMETER SkipLint
     Deliberately skip the lint gate (escape valve).
@@ -265,6 +272,7 @@ param(
     [string]$Title = '',
     [string]$SummaryFile = '',
     [switch]$NoPush,
+    [switch]$SkipOriginCheck,
     [switch]$SkipLint,
     [switch]$SkipTests,
     [switch]$SkipTierGate,
@@ -593,6 +601,60 @@ function Get-PluginManifests {
 $branch = (git rev-parse --abbrev-ref HEAD).Trim()
 if ($branch -ne 'main') { Write-Error "A release is cut directly on main; you are on '$branch'."; exit 1 }
 if ((git status --porcelain)) { Write-Error "Working tree not clean -- commit/stash first."; exit 1 }
+
+# THE ORIGIN CHECK (issue #2899). Measured at the v5.17.0 cut, October 7, 2026: the gates ran for 160s, the
+# notes were written, every plugin.json bumped, `release: v5.17.0` committed and tagged -- and only then did
+# `git push origin main` reject, because #2898 had merged and folded on origin while the gates ran. Nothing in
+# this script fetched or compared HEAD with origin/main. Recovery needs a `git tag -d` and a `git reset --hard`
+# on main, both owner-gated, then a full re-cut; rebasing the release commit instead ships notes that leave the
+# new entry out. A consumer measured the second shape the same day: local main stale BEFORE the cut (six PRs
+# merged overnight), and with -NoPush the printed `git push origin main; git push origin <tag>` rejected main
+# but published the tag, so a public tag pointed at a commit that was not on origin.
+#
+# So: fetch, and refuse unless HEAD IS origin/main -- behind means the notes would miss merged entries, ahead
+# means the push would carry trunk commits no PR shipped. It runs TWICE, because the gate window is when merges
+# land: here, before the minutes of gates, and again after them, before the first write. A refusal at either
+# point leaves the tree untouched. No 'origin' remote means there is nothing to compare against, which is said
+# rather than refused (the driven suite's fixture is exactly that); a fetch that fails is a refusal, because
+# "could not look" is not "nothing there".
+function Assert-TrunkMatchesOrigin([string]$Moment) {
+    if ($SkipOriginCheck) {
+        Write-Host "origin check ($Moment): skipped (-SkipOriginCheck)." -ForegroundColor Yellow
+        return
+    }
+    $remotes = Invoke-NativeCapture -FilePath 'git' -Arguments @('remote')
+    if (@($remotes.Output | ForEach-Object { "$_".Trim() }) -notcontains 'origin') {
+        Write-Host "origin check ($Moment): no 'origin' remote -- nothing to compare main against." -ForegroundColor Yellow
+        return
+    }
+    $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', '--quiet', 'origin', 'main') -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if ($fetch.ExitCode -ne 0) {
+        $fetch.Output | ForEach-Object { Write-Host $_ }
+        Write-Error "origin check ($Moment): 'git fetch origin main' failed (exit $($fetch.ExitCode)), so whether main is current is unknown -- release aborted, nothing written. Retry, or run with -SkipOriginCheck once you have verified main yourself."
+        exit 1
+    }
+    $behind = @((Invoke-NativeCapture -FilePath 'git' -Arguments @('log', '--oneline', '--no-decorate', 'HEAD..origin/main')).Output | Where-Object { "$_".Trim() })
+    $ahead  = @((Invoke-NativeCapture -FilePath 'git' -Arguments @('log', '--oneline', '--no-decorate', 'origin/main..HEAD')).Output | Where-Object { "$_".Trim() })
+    if ($behind.Count -eq 0 -and $ahead.Count -eq 0) {
+        Write-Host "origin check ($Moment): main is origin/main." -ForegroundColor Green
+        return
+    }
+    $lines = @()
+    if ($behind.Count -gt 0) {
+        $lines += "main is $($behind.Count) commit(s) BEHIND origin/main -- a cut here would leave their entries out of the notes:"
+        $lines += @($behind | Select-Object -First 10 | ForEach-Object { "  $_" })
+        if ($behind.Count -gt 10) { $lines += "  ... and $($behind.Count - 10) more" }
+    }
+    if ($ahead.Count -gt 0) {
+        $lines += "main is $($ahead.Count) commit(s) AHEAD of origin/main -- the release push would carry them unshipped:"
+        $lines += @($ahead | Select-Object -First 10 | ForEach-Object { "  $_" })
+        if ($ahead.Count -gt 10) { $lines += "  ... and $($ahead.Count - 10) more" }
+    }
+    $remedy = if ($ahead.Count -eq 0) { "Run 'git merge --ff-only origin/main' and cut again." } else { "Reconcile main with origin/main first (push or drop the local commits), then cut again." }
+    Write-Error ("origin check ($Moment): local main is not origin/main -- release aborted, nothing written.`n" + ($lines -join "`n") + "`n" + $remedy)
+    exit 1
+}
+Assert-TrunkMatchesOrigin -Moment 'before the gates'
 
 # ISSUE #885, GROUP D: inverted from a name blocklist to a CONTENT test. The old form treated every
 # root *.md not on $reservedRootMd as an unfolded entry -- catch-all by name, so any permanent doc a
@@ -1080,6 +1142,10 @@ if (-not $SkipTests) {
         exit 1
     }
 }
+
+# The second origin check (#2899): the gates above are the minutes in which a merge lands, so look again
+# before the first write rather than trusting the look taken before them.
+Assert-TrunkMatchesOrigin -Moment 'after the gates'
 
 # --- Build content (before the write actions, so a parse error leaves nothing behind) --------
 # The notes folder: '<X>.x' per major (this workshop) or '<X.Y>' per minor, from the seam (#417).
@@ -1776,7 +1842,9 @@ if ($NoPush) {
     # the one path that concealed the baseline -- and a wrong baseline is visible in nothing else.
     Write-Host "Release v$new recorded locally on main ($current -> $new, $typeLabel; commit + tag $tagName), not pushed." -ForegroundColor Green
     Write-Host "Push it yourself when ready:" -ForegroundColor Cyan
-    Write-Host "  git push origin main; git push origin $tagName"
+    # ONE ATOMIC PUSH (#2899): the two independent pushes this printed let a rejected main still publish
+    # the tag, so a public tag pointed at a commit origin/main did not carry. --atomic lands both or neither.
+    Write-Host "  git push --atomic origin main $tagName"
     Write-FollowUpSteps
     exit 0
 }

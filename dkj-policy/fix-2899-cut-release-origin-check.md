@@ -39,19 +39,52 @@
 
 ### PLAN
 
+#### Issue
+
+#2899: `cut-release.ps1` never fetched or compared `HEAD` with `origin/main`, so a merge landing during
+the gates stranded a local release commit and tag (v5.17.0 cut). A consumer comment adds the second
+shape: a stale main before the cut, and a `-NoPush` push line whose two independent pushes published
+the tag while main was rejected.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Assert-TrunkMatchesOrigin` in `scripts/release/cut-release.ps1`: fetch `origin main`, refuse when
+      main is behind or ahead of `origin/main` (naming the commits), run before the gates and again after
+      them, before the first write. No `origin` remote skips with a line; a failed fetch refuses;
+      `-SkipOriginCheck` is the escape valve.
+- [x] The `-NoPush` push line is now one `git push --atomic origin main vX.Y.Z`.
+- [x] Mirror `plugins/dkj-policy/scripts/release/cut-release.ps1` kept byte-identical.
+- [x] `cut-release` skill page: the new flag, the atomic push line.
 
 ### TEST
 
+- [x] `cut-release-drive.tests.ps1` case 12 against a local bare origin: in sync passes and prints the
+      atomic line; behind and ahead each refuse, name the commit, write nothing and tag nothing;
+      `-SkipOriginCheck` cuts the behind state. 85/85 asserts.
+- [x] `cut-release-guardrail.tests.ps1` 128/128; lint gate 0 errors.
+
 ### DEPLOY: fix/2899-cut-release-origin-check
 
-**Score:**
+`cut-release.ps1` now fetches `origin/main` and refuses unless local `main` is exactly that, naming
+the commits it is behind or ahead. It checks twice: before the gates, and again after them, before the
+first write, because the gate minutes are when merges land. A refusal there leaves the tree untouched,
+where before a merge during the gates left a local release commit and tag that only an owner-gated
+`reset --hard` could unpick. `-SkipOriginCheck` is the escape valve, and a repo with no `origin` remote
+skips the check on its own and says so.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+If you cut releases with `cut-release`, a release can no longer be built on a `main` that is behind
+GitHub: the cut stops before it writes anything and tells you to `git merge --ff-only origin/main`. With
+`-NoPush` the command it prints is now a single atomic push, so a rejected `main` can no longer publish
+the tag on its own.
+
+**Score:** 2
 
 #### Pull Request
 
+cut-release refuses a main that is not origin/main
+
+Plugins: dkj-policy
