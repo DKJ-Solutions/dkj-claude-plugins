@@ -627,14 +627,23 @@ function Assert-TrunkMatchesOrigin([string]$Moment) {
         Write-Host "origin check ($Moment): no 'origin' remote -- nothing to compare main against." -ForegroundColor Yellow
         return
     }
-    $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', '--quiet', 'origin', 'main') -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    # An explicit refspec: a bare `fetch origin main` updates origin/main only through the configured
+    # remote.origin.fetch, and a repo with a custom one would be compared against a stale ref.
+    $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', '--quiet', 'origin', '+refs/heads/main:refs/remotes/origin/main') -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     if ($fetch.ExitCode -ne 0) {
         $fetch.Output | ForEach-Object { Write-Host $_ }
         Write-Error "origin check ($Moment): 'git fetch origin main' failed (exit $($fetch.ExitCode)), so whether main is current is unknown -- release aborted, nothing written. Retry, or run with -SkipOriginCheck once you have verified main yourself."
         exit 1
     }
-    $behind = @((Invoke-NativeCapture -FilePath 'git' -Arguments @('log', '--oneline', '--no-decorate', 'HEAD..origin/main')).Output | Where-Object { "$_".Trim() })
-    $ahead  = @((Invoke-NativeCapture -FilePath 'git' -Arguments @('log', '--oneline', '--no-decorate', 'origin/main..HEAD')).Output | Where-Object { "$_".Trim() })
+    $behindLog = Invoke-NativeCapture -FilePath 'git' -Arguments @('log', '--oneline', '--no-decorate', 'HEAD..origin/main') -DiscardStderr
+    $aheadLog  = Invoke-NativeCapture -FilePath 'git' -Arguments @('log', '--oneline', '--no-decorate', 'origin/main..HEAD') -DiscardStderr
+    # A log that failed is not an empty log: "could not compare" must not read as "in sync".
+    if ($behindLog.ExitCode -ne 0 -or $aheadLog.ExitCode -ne 0) {
+        Write-Error "origin check ($Moment): comparing main with origin/main failed (git log exit $($behindLog.ExitCode)/$($aheadLog.ExitCode)) -- release aborted, nothing written."
+        exit 1
+    }
+    $behind = @($behindLog.Output | Where-Object { "$_".Trim() })
+    $ahead  = @($aheadLog.Output | Where-Object { "$_".Trim() })
     if ($behind.Count -eq 0 -and $ahead.Count -eq 0) {
         Write-Host "origin check ($Moment): main is origin/main." -ForegroundColor Green
         return
