@@ -69,7 +69,9 @@ rather than by this page**: the reach-label gate in step 2 below. The full rule 
 ## Step 1 -- the GitHub issue (always)
 
 Apply the `dkj-subagents-alpha` filing bar in full: verify the finding still stands by reading the code, doc
-or output behind it; search the tracker for a duplicate; one subject per issue; state what you
+or output behind it; search the tracker for a duplicate, closed issues included (`gh issue list --state all
+--label awaiting-recurrences-first` and `--label awaiting-recurrences`: a parked recurrence may be closed as
+not planned, and a match is reopened rather than filed beside); one subject per issue; state what you
 measured versus inferred. Then file it **classified** -- every label on the create itself, never left
 for a later pass:
 

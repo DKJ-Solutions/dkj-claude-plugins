@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#2904 (Maikel, October 9, 2026): the two recurrence labels are renamed and may be closed as not planned
+with the label kept, and a search before filing reads closed issues too. Same shape as the #2723 rename:
+every former name stays matched, and `adopt-triage-labels` prints the in-place rename.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rename `awaiting-first-recurrence` -> `awaiting-recurrences-first` and `awaiting-more-recurrences` -> `awaiting-recurrences` across scripts, mirrors, skills, worker, lenses and the blueprint
+- [x] Keep both old names matched: the record gate (`Get-DossierLabelNames`), the rename table (`Get-FormerTriageLabelNames`), claim-issue's default skip list, the sweep command line, the dashboard
+- [x] CONTRIBUTING-portable.md: both labels may be closed as `not_planned` with the label kept; a record whose root cause is repaired is still closed as completed; the recurrence reopens; the search before filing reads `--state all` for both labels
+- [x] The shared filing bar (`findings-become-issues.md`, regenerated into 30 defs), `report-issue` and the BWJ workflow page search closed issues too
 
 ### TEST
 
+- [x] pr-issues, adopt-triage-labels (new #2904 rename case), claim-issue, repo-config, config-blueprint, issue-dashboard and shared-scripts suites green
+- [x] check-plugin-integrity: 0 errors
+
 ### DEPLOY: feat/2904-awaiting-recurrences-labels
 
-**Score:**
+The two recurrence labels are renamed so they read as one pair: `awaiting-first-recurrence` is now
+`awaiting-recurrences-first` and `awaiting-more-recurrences` is now `awaiting-recurrences`. Every old name
+is still matched by `open-pr`'s record gate, both pickup routes and the issue dashboard, and
+`adopt-triage-labels` prints the `gh label edit` that renames each label in place. Either label may now be
+closed as `not_planned` with the label kept while it waits, and a recurrence reopens it; a record whose root
+cause is repaired is still closed as completed. The search before filing reads closed issues too
+(`gh issue list --state all --label ...`), in the shared filing bar, `report-issue` and
+[`CONTRIBUTING-portable.md`](../plugins/dkj-policy/CONTRIBUTING-portable.md).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer should run `adopt-triage-labels` after updating and paste the two `gh label edit` lines it
+prints, so its tracker carries the new names: a session filing with the new label name otherwise fails on
+a label the tracker does not have yet. Long-parked recurrence issues can now be closed as not planned
+without losing them.
+
+**Score:** 4
 
 #### Pull Request
 

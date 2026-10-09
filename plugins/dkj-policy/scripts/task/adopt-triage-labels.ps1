@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
     Reports which of this workflow's canonical triage labels (the priority rungs 'prio-1' through
-    'prio-4', plus the 'awaiting-more-recurrences' kind label, #2462 (named 'dossier' until #2683 and 'record'
-    until #2723), and the 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release' and 'awaiting-first-recurrence' parking labels, #2519, #2890, #2757, #2784, #2828, #2851 and #2587
-    ('awaiting-recurrence' until #2723, 'awaiting-decision' and before it 'needs-decision' until #2890 and #2741)) this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
+    'prio-4', plus the 'awaiting-recurrences' kind label, #2462 (named 'dossier' until #2683, 'record'
+    until #2723 and 'awaiting-more-recurrences' until #2904), and the 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release' and 'awaiting-recurrences-first' parking labels, #2519, #2890, #2757, #2784, #2828, #2851 and #2587
+    ('awaiting-recurrence' until #2723 and 'awaiting-first-recurrence' until #2904, 'awaiting-decision' and before it 'needs-decision' until #2890 and #2741)) this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
     -- never creates a label itself. Issue #1895, split from #1843.
 
 .DESCRIPTION
@@ -139,7 +139,7 @@ $builtInTriageLabels = @(
     [pscustomobject]@{ Name = 'prio-3'; Color = 'E0321A'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
     # Not a rung: the kind label for a collecting issue (#2462) -- see Get-TriageLabels' own comment.
-    [pscustomobject]@{ Name = 'awaiting-more-recurrences'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
+    [pscustomobject]@{ Name = 'awaiting-recurrences'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
     # Not a rung either: the parking label for an issue awaiting the owner's choice (#2519; 'awaiting-decision' until #2890).
     [pscustomobject]@{ Name = 'awaiting-decision-dev'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     # And the parking label for an issue awaiting a choice from the client or requester outside the dev team (#2890).
@@ -153,7 +153,7 @@ $builtInTriageLabels = @(
     # And the parking label for an issue waiting on the next release, whose cut lists it (#2851).
     [pscustomobject]@{ Name = 'awaiting-release'; Color = '5319E7'; Description = 'Waiting on the next release -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on its first reproducible recurrence (#2587).
-    [pscustomobject]@{ Name = 'awaiting-first-recurrence'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-recurrences-first'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )
 
 # @(...) WRAPS THE WHOLE if/else, NOT JUST EACH BRANCH -- the trap this repo's own manual catalogues
@@ -263,7 +263,7 @@ if ($existingNames.Count -eq 0) {
 
 # A RENAMED LABEL IS RENAMED, NOT CREATED BESIDE ITS OLD SELF (issue #2683). The record label was
 # 'dossier' until October 1, 2026 and 'record' until October 2 (#2723, which also renamed
-# 'awaiting-recurrence' to 'awaiting-first-recurrence', #2741 'needs-decision' to 'awaiting-decision', and #2890 'awaiting-decision' to 'awaiting-decision-dev'), and a tracker adopted before then carries an old
+# 'awaiting-recurrence' to 'awaiting-first-recurrence', #2741 'needs-decision' to 'awaiting-decision', #2890 'awaiting-decision' to 'awaiting-decision-dev', and #2904 the recurrence pair to 'awaiting-recurrences-first' and 'awaiting-recurrences'), and a tracker adopted before then carries an old
 # name on its issues. A create would leave those issues on the old label and split the kind across two
 # names; `gh label edit --name` moves every issue with it. Keyed by the CURRENT name, and read from
 # pr-issues-lib.ps1 (already dot-sourced above), so the legacy names live in one place.

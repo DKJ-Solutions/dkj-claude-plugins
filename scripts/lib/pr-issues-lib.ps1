@@ -1273,8 +1273,13 @@ function Get-ResolvesExemptFindings {
 # 'awaiting-first-recurrence' (was 'awaiting-recurrence') and this one. The two awaiting-*-recurrence
 # names say the difference outright -- one instance and none reproduced yet, against a problem that has
 # demonstrably recurred and is still being collected. Both former names stay matched, for the reason above.
-$script:DossierLabelName = 'awaiting-more-recurrences'
-$script:DossierLegacyLabelNames = @('record', 'dossier')
+#
+# AND A THIRD TIME, TO 'awaiting-recurrences' (issue #2904, October 9, 2026), with
+# 'awaiting-first-recurrence' becoming 'awaiting-recurrences-first', so the pair reads and sorts as one.
+# The same change lets either be CLOSED as not planned with the label kept, so this label no longer
+# implies an open issue; what this gate holds -- a merge does not close a record -- is unchanged.
+$script:DossierLabelName = 'awaiting-recurrences'
+$script:DossierLegacyLabelNames = @('awaiting-more-recurrences', 'record', 'dossier')
 
 # EVERY RENAMED TRIAGE LABEL, current name -> its former names, newest first. Read by
 # adopt-triage-labels.ps1, which prints a `gh label edit` rather than a `gh label create` for a tracker
@@ -1282,7 +1287,7 @@ $script:DossierLegacyLabelNames = @('record', 'dossier')
 function Get-FormerTriageLabelNames {
     return @{
         (Get-DossierLabelName)      = @(Get-DossierLabelNames | Select-Object -Skip 1)
-        'awaiting-first-recurrence' = @('awaiting-recurrence')
+        'awaiting-recurrences-first' = @('awaiting-first-recurrence', 'awaiting-recurrence')
         'awaiting-decision-dev'     = @('awaiting-decision', 'needs-decision')
         'awaiting-action-dev'       = @('awaiting-owner-act')
         'awaiting-action-external'  = @('awaiting-event')
@@ -1303,8 +1308,8 @@ function Get-DossierLabelNames {
 function Get-DossierClosingFindings {
     <#
     .SYNOPSIS
-        Which of the issues this PR would close carry the record label ('awaiting-more-recurrences'), or
-        one of its legacy names 'record' and 'dossier'.
+        Which of the issues this PR would close carry the record label ('awaiting-recurrences'), or
+        one of its legacy names 'awaiting-more-recurrences', 'record' and 'dossier'.
         Returns an int[], possibly empty.
 
     .DESCRIPTION
@@ -1338,7 +1343,7 @@ function Get-DossierClosingFindings {
         elseif ($Labels.ContainsKey("$n"))    { $names = $Labels["$n"] }
         else                                  { continue }
         # Case-insensitive, as GitHub itself treats label names -- and against every name in $Label, so
-        # the legacy 'record' and 'dossier' are caught as well as the current name.
+        # the legacy 'awaiting-more-recurrences', 'record' and 'dossier' are caught as well as the current name.
         if (@(@($names) | Where-Object { $Label -icontains ([string]$_).Trim() }).Count -gt 0) { $hits += [int]$n }
     }
     return [int[]]@($hits)

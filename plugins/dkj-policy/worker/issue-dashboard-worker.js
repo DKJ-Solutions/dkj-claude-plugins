@@ -313,15 +313,17 @@ const PARKED_BECAUSE = {
   "awaiting-action-external": "waiting on an external event or date",
   "awaiting-action-dev": "waiting on an act only the owner performs",
   "awaiting-release": "waiting on the next release",
-  "awaiting-first-recurrence": "waiting on a first recurrence",
-  "awaiting-more-recurrences": "record: waiting on the next instance or the root cause",
-  // Former names (#2683, #2723, #2741, #2890, #2896), still read because a tracker keeps a name until renamed.
+  "awaiting-recurrences-first": "waiting on a first recurrence",
+  "awaiting-recurrences": "record: waiting on the next instance or the root cause",
+  // Former names (#2683, #2723, #2741, #2890, #2896, #2904), still read because a tracker keeps a name until renamed.
   "needs-info": "waiting on the submitter",
   "needs-decision": "waiting on the owner's decision",
   "awaiting-decision": "waiting on the owner's decision",
   "awaiting-owner-act": "waiting on an act only the owner performs",
   "awaiting-event": "waiting on an external event or date",
   "awaiting-recurrence": "waiting on a first recurrence",
+  "awaiting-first-recurrence": "waiting on a first recurrence",
+  "awaiting-more-recurrences": "record: waiting on the next instance or the root cause",
   record: "record: waiting on the next instance or the root cause",
   dossier: "record: waiting on the next instance or the root cause",
 };

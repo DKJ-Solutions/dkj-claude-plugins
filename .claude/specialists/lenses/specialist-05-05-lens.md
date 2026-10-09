@@ -1142,9 +1142,9 @@ is the half of #1685 that had a deadline: a taxonomy applied only to new issues 
 two, and the older half is where the backlog actually is. Two came out at `prio-4` (#1678, #1679), three
 at `prio-3` (#1685 itself among them), four at `prio-2` and one at `prio-1`.
 
-### The kind label — `awaiting-more-recurrences`, and a repair does not close it
+### The kind label — `awaiting-recurrences`, and a repair does not close it
 
-**`awaiting-more-recurrences` (`5319E7`) marks a collecting issue** — a *record*: every instance of one recurring problem is added to it
+**`awaiting-recurrences` (`5319E7`) marks a collecting issue** — a *record*: every instance of one recurring problem is added to it
 as a comment until the root cause is found, so a repair of one instance never closes it. #2454 is the
 first one here. It is a shared way of working, not this repo's own label (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)), so it ships in
@@ -1153,17 +1153,21 @@ first one here. It is a shared way of working, not this repo's own label (Dave, 
 gates still match that name; this tracker renamed it in place. It was then named `record` until
 [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723) (Dave, October 2, 2026), which
 made the three purple labels, each marking an issue *waiting* on something, one family: `needs-info` became
-`awaiting-more-info`, `awaiting-recurrence` became `awaiting-first-recurrence`, and `record` became this
-label. Every former name is still matched and never prescribed, and `adopt-triage-labels.ps1` prints the
+`awaiting-more-info`, `awaiting-recurrence` became `awaiting-first-recurrence`, and `record` became
+`awaiting-more-recurrences`. [#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904) (October 9, 2026)
+then renamed the recurrence pair to read as one, this label and `awaiting-recurrences-first`, and let
+either be closed as `not_planned` with the label kept while it waits. Every former name is still matched
+and never prescribed, and `adopt-triage-labels.ps1` prints the
 `gh label edit` rename for a tracker that still carries one. The noun *record* and the `[RECORD]` title
 prefix did not change. The handling rule — comment
-instead of a new issue, `part of #<n>` instead of a keyword, close only on the root-cause repair — is in
+instead of a new issue, `part of #<n>` instead of a keyword, close as completed only on the root-cause
+repair, close as not planned while it waits — is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — all set at filing: `awaiting-decision-dev` for Dave's choice, `awaiting-decision-client` for the client's, `awaiting-pull` while another issue lands, `awaiting-action-external` until a date, `awaiting-action-dev` until Dave acts, `awaiting-release` until the next cut, `awaiting-first-recurrence` once only evidence is owed
+### The parking labels — all set at filing: `awaiting-decision-dev` for Dave's choice, `awaiting-decision-client` for the client's, `awaiting-pull` while another issue lands, `awaiting-action-external` until a date, `awaiting-action-dev` until Dave acts, `awaiting-release` until the next cut, `awaiting-recurrences-first` once only evidence is owed
 
-**All eight `awaiting-*` labels, `awaiting-more-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision-dev`
+**All eight `awaiting-*` labels, `awaiting-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision-dev`
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796)); the rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from),
 and Chris's lens carries it beside the `prio-N` and `minor` filing rules, where a session reads it at filing time.
@@ -1177,13 +1181,13 @@ nor a sweep treats it as work that is ready (Dave, September 26, 2026,
 
 **`awaiting-decision-client` (`5319E7`) parks an issue that ends in a choice that is not Dave's** (a colleague's QA sign-off, a business decision from the client or requester outside the dev team; Dave, October 7, 2026, [#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)). `sweep-issues` and `sweep-decisions` both skip it, where `sweep-decisions` puts `awaiting-decision-dev` to Dave. It is not `awaiting-more-info`, which means blocked on information the submitter has not given. New, so no former name is matched for it.
 
-**`awaiting-first-recurrence` (`5319E7`) parks an issue waiting on its first reproducible occurrence** (Dave,
+**`awaiting-recurrences-first` (`5319E7`) parks an issue waiting on its first reproducible occurrence** (Dave,
 September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)), after
 #2572 was picked up four times in one day with nothing to build. It was named `awaiting-recurrence` until
-#2723 (October 2, 2026). Both pickup routes skip it as they skip
-`awaiting-decision-dev`. It is not `awaiting-more-recurrences`, which collects a problem that demonstrably recurs, and it comes off
+#2723 (October 2, 2026) and `awaiting-first-recurrence` until #2904 (October 9, 2026). Both pickup routes skip it as they skip
+`awaiting-decision-dev`. It is not `awaiting-recurrences`, which collects a problem that demonstrably recurs, and it comes off
 when a recurrence arrives.
-**It shares `awaiting-more-recurrences`'s colour on purpose**: both mark an issue that is meant to stay open for a while, so
+**It shares `awaiting-recurrences`'s colour on purpose**: both mark an issue that is meant to stay open for a while, so
 the tracker shows the long-lived ones at a glance (Dave, September 28, 2026,
 [#2604](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2604)). `awaiting-decision-dev` kept its own colour (`BFD4F2`, as `needs-decision`) because it waits on an answer rather than on time, until #2741 (Dave, October 3, 2026) gave it the same purple, so every issue waiting on something reads as one family.
 

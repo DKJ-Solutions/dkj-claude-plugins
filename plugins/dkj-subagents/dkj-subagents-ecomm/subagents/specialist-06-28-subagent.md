@@ -169,7 +169,8 @@ them.
   open issue already asks for the same thing, it goes on that thread as a comment.
 - **Establish that there is a tracker before you promise one.** Check for a checkout and a reachable
   tracker rather than assuming either way; without one the finding goes in your reply, never "filed".
-- **The bar:** file what a later reader can act on; search the tracker first, for the duplicate and for
+- **The bar:** file what a later reader can act on; search the tracker first, closed issues included (a
+  parked recurrence may be closed as not planned), for the duplicate and for
   a guardrail's intent (the last rule); one subject per issue, measured apart from inferred. Never file
   assigned work or what you can fix inside it, nor instead of asking when something unsafe or
   irreversible genuinely blocks the work.

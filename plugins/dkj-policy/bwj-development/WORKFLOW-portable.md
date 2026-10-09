@@ -98,7 +98,9 @@ is mirrored*, it does not loosen *when or whether it is filed*:
 - The question to answer first is *does it still stand?*, not *may I file it?* -- read the code, the
   script or the output that would have to be true for the finding to hold, and if it collapses, say
   so instead of filing a weakened version.
-- Search the tracker first, so you add to an existing thread rather than open its duplicate.
+- Search the tracker first, closed issues included, so you add to an existing thread rather than open its
+  duplicate: a parked recurrence may be closed as not planned (`gh issue list --state all --label
+  awaiting-recurrences-first`, and `--label awaiting-recurrences`).
 - One subject per issue.
 - Say what you **measured** and what you only **inferred**.
 - Filing needs no permission, and asking for it is the same failure as not filing.
