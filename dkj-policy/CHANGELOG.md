@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**3 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2904-awaiting-recurrences-labels · 20261009-081837Z
+
+The two recurrence labels are renamed so they read as one pair: `awaiting-first-recurrence` is now
+`awaiting-recurrences-first` and `awaiting-more-recurrences` is now `awaiting-recurrences`. Every old name
+is still matched by `open-pr`'s record gate, both pickup routes and the issue dashboard, and
+`adopt-triage-labels` prints the `gh label edit` that renames each label in place. Either label may now be
+closed as `not_planned` with the label kept while it waits, and a recurrence reopens it; a record whose root
+cause is repaired is still closed as completed. The search before filing reads closed issues too
+(`gh issue list --state all --label ...`), in the shared filing bar, `report-issue` and
+[`CONTRIBUTING-portable.md`](../plugins/dkj-policy/CONTRIBUTING-portable.md).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer should run `adopt-triage-labels` after updating and paste the two `gh label edit` lines it
+prints, so its tracker carries the new names: a session filing with the new label name otherwise fails on
+a label the tracker does not have yet. Long-parked recurrence issues can now be closed as not planned
+without losing them.
+
+**Score:** 4
+
+#### Pull Request
+
+Rename the recurrence labels to awaiting-recurrences(-first) and let them close as not planned
+
+Plugins: bwj-development, dkj-policy, dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #2906](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2906)
+
+---
 
 ### DEPLOY: feat/2902-not-planned-on-hold-message · 20261009-073052Z
 
