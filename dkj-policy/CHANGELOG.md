@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**4 / 4 minor entries** <!-- pending-tally -->
+**5 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2909-closed-message-bold-state-word · 20261009-105047Z
+
+In a BWJ store repo's Asana comments, only the state word is bold now: the reopened line reads "is
+**reopened:**" where it read "**is reopened:**". A not-planned close that keeps `awaiting-more-info` on
+now posts "is **closed:** there is not enough information to start development yet. Once the questions
+above are answered, the issue will be reopened and the work picks up again." -- the wording the
+requester fixed in #2902's thread -- instead of "**is on hold:** it is closed as not planned until more
+information comes in, and is reopened when it does."
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store repo picks this up only by copying the new `asana-closed-message.ps1` template into
+`.github/scripts/`, since the copy there does not update itself.
+
+**Score:** 2
+
+#### Pull Request
+
+asana-closed-message: bold only the state word, and post the on-hold wording fixed in #2902
+
+Plugins: bwj-development
+
+[PR #2910](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2910)
+
+---
 
 ### DEPLOY: fix/2907-closed-message-trust-by-permission · 20261009-101038Z
 
