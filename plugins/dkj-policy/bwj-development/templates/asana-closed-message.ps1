@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
     Post the closed message on the Asana task a GitHub issue belongs to when that issue closes as
-    completed, and the reopened message when it is reopened. Copied into a BWJ store repo as
+    completed, the on-hold message when it is parked as not planned while waiting for more information,
+    and the reopened message when it is reopened. Copied into a BWJ store repo as
     .github/scripts/asana-closed-message.ps1 and driven by .github/workflows/asana-closed-message.yml.
 
 .DESCRIPTION
@@ -28,8 +29,14 @@
       - A close as completed whose comments COULD NOT BE READ: the same bare message, and the log says
         the read failed, with gh's exit code and stderr -- never 'none was on the issue', which it
         cannot know (#2875).
-      - A close as NOT PLANNED, or as a DUPLICATE: nothing. Nothing was built, so there is nothing to
-        test (#2765).
+      - A close as NOT PLANNED that keeps the awaiting-more-info label on, with a linked task: one
+        comment, the header and the on-hold line -- 'is on hold: it is closed as not planned until more
+        information comes in, and is reopened when it does.' (#2902). That pair is the BWJ procedure's
+        sanctioned way to park a ticket waiting on its requester (#2732), and without this line the
+        requester heard nothing, or -- where a session closed it as completed to get a message out --
+        read 'is now closed' as finished. No block is read: nothing was built.
+      - A close as NOT PLANNED without that label, or as a DUPLICATE: nothing. Nothing was built, so
+        there is nothing to test, and a rejection is said by a person rather than by this line (#2765).
       - A REOPEN with a linked task, whatever the earlier close reason: one comment, the header and the
         reopened line in the requester's fixed form (#2656) -- 'is reopened: this Asana task is now back in
         development.' No block is read; a reopen carries nothing to test.
@@ -86,9 +93,13 @@ param(
     # github.event.issue.state_reason: 'completed', 'not_planned', 'duplicate', or empty on an event
     # older than GitHub's close reasons, which GitHub treated as completed. Not read on a reopen.
     [string]$StateReason = '',
-    # github.event.action: which of the two messages this run is for.
+    # github.event.action: a close or a reopen.
     [ValidateSet('closed', 'reopened')]
     [string]$Event = 'closed',
+    # The issue's label names, comma-joined (#2902): read only on a close as not planned, where
+    # awaiting-more-info makes it the on-hold message. Empty from a workflow copied before #2902, which
+    # leaves a not-planned close silent as it was.
+    [string]$IssueLabels = $env:ISSUE_LABELS,
     [string]$AsanaPat = $env:ASANA_PAT
 )
 
@@ -289,6 +300,31 @@ function New-ReopenedMessageHtml {
     return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> <strong>is reopened:</strong> this Asana task is now back in development.</body>"
 }
 
+function New-OnHoldMessage {
+    <#
+        Pure: the on-hold comment as plain text (#2902) -- the header, a blank line, and the on-hold
+        sentence. Posted on a close as not planned with awaiting-more-info kept on, so the requester reads
+        a parked ticket as waiting for them, never as finished: the closed line says 'is now closed', which
+        a colleague with an open question in front of them reads as done.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is on hold: it is closed as not planned until more information comes in, and is reopened when it does.") -join "`n")
+}
+
+function New-OnHoldMessageHtml {
+    <#
+        Pure: the on-hold message as Asana html_text -- the header, then the on-hold sentence with the
+        issue name as a link and 'is on hold:' in bold, the same form the reopened line takes. No block is
+        read: nothing was built, so there is nothing to test.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+
+    $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
+    $parts = $IssueRef -split '#'
+    $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
+    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> <strong>is on hold:</strong> it is closed as not planned until more information comes in, and is reopened when it does.</body>"
+}
+
 function Get-AsanaPasteBlockMarker {
     <#
         Pure: the machine marker build-golive-block.ps1 puts on the comment carrying the block. A copy
@@ -315,31 +351,59 @@ function Select-SessionPasteBlockSections {
     return ''
 }
 
+function Get-OnHoldLabelName {
+    <#
+        Pure: the label that turns a close as not planned into a close while WAITING (#2732, #2902). It is
+        the pair the BWJ procedure sanctions for parking a ticket blocked on its requester: not planned,
+        with this label kept on through the close.
+    #>
+    return 'awaiting-more-info'
+}
+
 function Get-ClosedMessageDecision {
     <#
-        Pure: whether this close or reopen gets a message, and why not where it does not. Post is $true
-        for a reopen, or a close as completed (or one with no reason, which GitHub treated as completed),
-        on an issue whose body resolves to exactly one task. A reopen ignores the close reason: whatever
-        the issue was closed as, it is in development now (#2854).
+        Pure: whether this close or reopen gets a message, which one (Kind: 'closed' | 'on-hold' |
+        'reopened'), and why not where it does not. Post is $true for a reopen; for a close as completed
+        (or one with no reason, which GitHub treated as completed); and for a close as NOT PLANNED that
+        still carries the awaiting-more-info label (#2902) -- the parked-while-waiting pair, which gets the
+        on-hold message. All three need an issue whose body resolves to exactly one task. A reopen ignores
+        the close reason: whatever the issue was closed as, it is in development now (#2854). A close as
+        not planned WITHOUT the label is a rejection, and a duplicate is somebody else's ticket: both stay
+        silent, because nothing was built (#2765).
     #>
     param(
         [AllowEmptyString()][string]$StateReason = '',
         [AllowEmptyString()][string]$IssueBody = '',
-        [ValidateSet('closed', 'reopened')][string]$Event = 'closed'
+        [ValidateSet('closed', 'reopened')][string]$Event = 'closed',
+        [AllowEmptyCollection()][string[]]$Labels = @()
     )
 
     $reason = ([string]$StateReason).Trim().ToLowerInvariant()
+    $kind   = if ($Event -eq 'reopened') { 'reopened' } else { 'closed' }
     if ($Event -eq 'closed' -and $reason -and $reason -ne 'completed') {
-        return [pscustomobject]@{ Post = $false; Gid = $null; Why = "closed as '$reason' -- nothing was built, so the task is told nothing (#2765)." }
+        $onHold = $reason -eq 'not_planned' -and (@($Labels | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() }) -contains (Get-OnHoldLabelName))
+        if (-not $onHold) {
+            return [pscustomobject]@{ Post = $false; Gid = $null; Kind = $null; Why = "closed as '$reason' -- nothing was built, so the task is told nothing (#2765)." }
+        }
+        $kind = 'on-hold'
     }
     $ref = Resolve-AsanaTaskRef -IssueBody $IssueBody
     if ($ref.Source -eq 'ambiguous') {
-        return [pscustomobject]@{ Post = $false; Gid = $null; Why = "the body links several different Asana tasks ($($ref.Candidates -join ', ')) -- refusing to guess. Add an explicit <!-- asana-task: GID --> marker to settle it." }
+        return [pscustomobject]@{ Post = $false; Gid = $null; Kind = $null; Why = "the body links several different Asana tasks ($($ref.Candidates -join ', ')) -- refusing to guess. Add an explicit <!-- asana-task: GID --> marker to settle it." }
     }
     if (-not $ref.Gid) {
-        return [pscustomobject]@{ Post = $false; Gid = $null; Why = 'no Asana task is linked from the issue -- nothing to tell.' }
+        return [pscustomobject]@{ Post = $false; Gid = $null; Kind = $null; Why = 'no Asana task is linked from the issue -- nothing to tell.' }
     }
-    return [pscustomobject]@{ Post = $true; Gid = $ref.Gid; Why = "matched by $($ref.Source)" }
+    return [pscustomobject]@{ Post = $true; Gid = $ref.Gid; Kind = $kind; Why = "matched by $($ref.Source)" }
+}
+
+function ConvertFrom-IssueLabelList {
+    <#
+        Pure: the ISSUE_LABELS the workflow passes -- the label names joined with commas, by GitHub's own
+        join() -- as a list. A label name cannot contain a comma, so splitting on one is exact.
+    #>
+    param([AllowEmptyString()][string]$Text = '')
+    return @(([string]$Text) -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 }
 
 function New-AsanaCommentRequest {
@@ -449,15 +513,18 @@ function Get-ClosedMessageBlockPhrase {
 
 function Invoke-Main {
     if ($IssueRef -notmatch '\A[^\s#/]+/[^\s#/]+#[0-9]+\z') { throw "IssueRef '$IssueRef' is not 'owner/repo#<n>'." }
-    $decision = Get-ClosedMessageDecision -StateReason $StateReason -IssueBody $IssueBody -Event $Event
+    $decision = Get-ClosedMessageDecision -StateReason $StateReason -IssueBody $IssueBody -Event $Event `
+        -Labels (ConvertFrom-IssueLabelList -Text $IssueLabels)
     if (-not $decision.Post) {
         Write-Host "$IssueRef -- $($decision.Why)"
         return
     }
     if (-not $AsanaPat) { throw 'ASANA_PAT is not set.' }
 
-    if ($Event -eq 'reopened') {
+    if ($decision.Kind -eq 'reopened') {
         $html = New-ReopenedMessageHtml -IssueRef $IssueRef
+    } elseif ($decision.Kind -eq 'on-hold') {
+        $html = New-OnHoldMessageHtml -IssueRef $IssueRef
     } else {
         $read = Read-IssueComments -IssueRef $IssueRef
         if (-not $read.Ok) {
@@ -480,8 +547,12 @@ function Invoke-Main {
         if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
         throw "Asana refused the $Event message for task $($decision.Gid) (HTTP $(if ($status) { $status } else { 'status unknown' }))."
     }
-    if ($Event -eq 'reopened') {
+    if ($decision.Kind -eq 'reopened') {
         Write-Host "Asana task $($decision.Gid) told: $IssueRef is reopened and back in development ($($decision.Why)). The card was NOT moved."
+        return
+    }
+    if ($decision.Kind -eq 'on-hold') {
+        Write-Host "Asana task $($decision.Gid) told: $IssueRef is on hold, closed as not planned while waiting for more information ($($decision.Why)). The card was NOT moved."
         return
     }
     $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok

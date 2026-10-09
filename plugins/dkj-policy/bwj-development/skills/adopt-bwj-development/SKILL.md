@@ -98,11 +98,14 @@ at every session start when either copy is missing or differs from the template,
 (step 3) is absent ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)).
 
 When an issue closes as completed, the workflow posts one comment on its Asana task: the automation's
-header, the closed line, and the go-live block the shipping session left on the issue. It posts nothing on
-a close as not planned or as a duplicate. When an issue is reopened, it posts the header and the reopened
-line (#2854). It never moves a card and never completes a task. A store that already holds the two files
-from before #2854 gets the stop-and-diff above: the difference is the reopen trigger, and taking it is
-the maintainer's call. The behaviour is
+header, the closed line, and the go-live block the shipping session left on the issue. On a close as not
+planned that keeps the `awaiting-more-info` label on, it posts the header and the on-hold line (#2902); on
+any other not-planned close, or a duplicate, it posts nothing. When an issue is reopened, it posts the
+header and the reopened line (#2854). It never moves a card and never completes a task. A store that
+already holds the two files from an earlier version gets the stop-and-diff above: the difference is the
+reopen trigger (#2854) or the on-hold message and its labels hand-off (#2902), and taking it is the
+maintainer's call. The two files go together: a new script under an old workflow receives no labels and
+stays silent on a not-planned close, as before. The behaviour is
 in [`WORKFLOW-portable.md`, step 4](../../WORKFLOW-portable.md#4-write-the-go-live-block-then-close-the-github-issue----the-closed-message-carries-it-into-asana).
 
 **A repo that adopted before October 5, 2026 still has `asana-mirror.yml` and `asana-mirror.ps1`**, which

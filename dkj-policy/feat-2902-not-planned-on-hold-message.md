@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Inbound #2902: a ticket parked while waiting on its requester is closed as not planned with
+`awaiting-more-info` kept on (the sanctioned pair, #2732), and `asana-closed-message` told the task
+nothing. Not planned alone also means a rejection, so the label is what selects the new message.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ClosedMessageDecision` returns a `Kind`; not planned + `awaiting-more-info` is `on-hold`
+- [x] `New-OnHoldMessage` / `New-OnHoldMessageHtml`, posted with no go-live block
+- [x] The workflow template passes `ISSUE_LABELS` (comma-joined label names)
+- [x] Docs: the template header, WORKFLOW-portable.md (steps 4 and 6), golive-block, report-issue, adopt-bwj-development
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the decision, the label split, the on-hold HTML and the yml hand-off (364 asserts green)
+
 ### DEPLOY: feat/2902-not-planned-on-hold-message
 
-**Score:**
+`bwj-development`'s `asana-closed-message` template gains a third message. `Get-ClosedMessageDecision`
+now returns which message a run posts, and a close as not planned that still carries `awaiting-more-info`
+is the on-hold message. The workflow template passes the issue's labels to the script for that. The
+docs that said a not-planned close always posts nothing now say when it does not.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store's `asana-closed-message` workflow now tells the Asana task that an issue is **on hold** when
+it is closed as not planned with the `awaiting-more-info` label kept on. Until now that close posted
+nothing, so a session that wanted the requester to hear about it had to close the issue as completed,
+and the task then read *"is now closed"* while a question was still open. A close as not planned without
+the label, or as a duplicate, still posts nothing. The workflow and its script are taken together at the
+re-adopt; a new script under an old workflow gets no labels and stays silent as before.
+Requested in [#2902](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2902).
+
+**Score:** 2
 
 #### Pull Request
 
+asana-closed-message posts an on-hold message on a not-planned close while waiting for info

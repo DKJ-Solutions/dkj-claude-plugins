@@ -868,7 +868,29 @@ Assert-True (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSa
 Assert-Equal '1234' (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[0]).Gid 'to the task the marker names'
 Assert-True (Get-ClosedMessageDecision -StateReason '' -IssueBody $cmSamples[0]).Post 'a close with no reason is a close as completed'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0]).Post) 'a close as not planned posts nothing (#2765)'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('bug', 'prio-2')).Post) 'nor with labels that do not park it'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'duplicate' -IssueBody $cmSamples[0]).Post) 'and neither does a close as a duplicate'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'duplicate' -IssueBody $cmSamples[0] -Labels @('awaiting-more-info')).Post) 'not even one still carrying awaiting-more-info'
+Assert-Equal 'closed' (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[0]).Kind 'a close as completed is the closed message'
+
+# THE ON-HOLD MESSAGE (#2902): not planned with awaiting-more-info kept on is the parked-while-waiting pair.
+$cmHold = Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('bug', 'awaiting-more-info')
+Assert-True $cmHold.Post 'a close as not planned with awaiting-more-info kept on posts'
+Assert-Equal 'on-hold' $cmHold.Kind 'and it is the on-hold message, not the closed one'
+Assert-Equal '1234' $cmHold.Gid 'to the task the marker names'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[4] -Labels @('awaiting-more-info')).Post) 'with no linked task it posts nothing'
+Assert-Equal 'closed' (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[0] -Labels @('awaiting-more-info')).Kind 'a close as completed stays the closed message, whatever the labels'
+Assert-Equal 'reopened' (Get-ClosedMessageDecision -Event 'reopened' -IssueBody $cmSamples[0] -Labels @('awaiting-more-info')).Kind 'and a reopen stays the reopened message'
+Assert-Equal 'bug|awaiting-more-info' ((ConvertFrom-IssueLabelList -Text ' bug, awaiting-more-info ,') -join '|') 'the workflow''s comma-joined labels split into names, blanks dropped'
+Assert-Equal 0 @(ConvertFrom-IssueLabelList -Text '').Count 'and an empty ISSUE_LABELS -- a workflow copied before #2902 -- is no labels'
+$cmHoldHtml = New-OnHoldMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#882'
+$cmHoldXml = New-Object System.Xml.XmlDocument
+$cmHoldXml.PreserveWhitespace = $true
+$cmHoldXml.LoadXml($cmHoldHtml)
+Assert-True ($cmHoldXml.DocumentElement.InnerText -ceq (New-OnHoldMessage -IssueRef 'BWJ-Development/smartwatchbanden#882')) 'the on-hold message is well-formed XML and reads as the plain on-hold message'
+Assert-True ($cmHoldHtml.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/882">BWJ-Development/smartwatchbanden#882</a> <strong>is on hold:</strong> it is closed as not planned')) 'the issue as a link, is on hold: in bold, the reopened line''s form'
+Assert-True ($cmHoldHtml.StartsWith("<body>$(Get-ClosedMessageHeader)")) 'under the same header as the closed message'
+Assert-True (-not $cmHoldHtml.Contains('is now <strong>closed</strong>')) 'and never the closed line, which a waiting requester reads as finished'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Post) 'several different tasks is ambiguous and posts nothing'
 Assert-True ((Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Why -match 'refusing to guess') 'and says so'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[4]).Post) 'no linked task posts nothing'
@@ -960,6 +982,7 @@ Assert-True ($cmYml -match 'github\.event\.action' -and $cmYml -match '-Event \$
 Assert-True ($cmYml -match 'secrets\.ASANA_PAT' -and $cmYml -notmatch 'GH_PROJECT_TOKEN|ASANA_PROJECT_GID') 'and needs ASANA_PAT alone'
 Assert-True ($cmYml -match 'issues:\s*read') 'and only reads issues on GitHub'
 Assert-True ($cmYml -match 'state_reason') 'it hands the close reason to the script, which decides'
+Assert-True ($cmYml -match "ISSUE_LABELS:\s*\$\{\{\s*join\(github\.event\.issue\.labels\.\*\.name,\s*','\)\s*\}\}") 'and the labels, comma-joined, which make a not-planned close the on-hold message (#2902)'
 Assert-True ($cmYml -match 'persist-credentials:\s*false') 'the checkout leaves no token behind'
 Assert-True ($cmYml -notmatch '-IssueBody') 'and the body reaches the script through the environment, not the command line'
 
