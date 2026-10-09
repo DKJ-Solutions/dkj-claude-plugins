@@ -1187,7 +1187,7 @@ September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/
 #2723 (October 2, 2026) and `awaiting-first-recurrence` until #2904 (October 9, 2026). Both pickup routes skip it as they skip
 `awaiting-decision-dev`. It is not `awaiting-recurrences`, which collects a problem that demonstrably recurs, and it comes off
 when a recurrence arrives.
-**It shares `awaiting-recurrences`'s colour on purpose**: both mark an issue that is meant to stay open for a while, so
+**It shares `awaiting-recurrences`'s colour on purpose**: both mark an issue that is meant to outlive an ordinary finding, so
 the tracker shows the long-lived ones at a glance (Dave, September 28, 2026,
 [#2604](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2604)). `awaiting-decision-dev` kept its own colour (`BFD4F2`, as `needs-decision`) because it waits on an answer rather than on time, until #2741 (Dave, October 3, 2026) gave it the same purple, so every issue waiting on something reads as one family.
 

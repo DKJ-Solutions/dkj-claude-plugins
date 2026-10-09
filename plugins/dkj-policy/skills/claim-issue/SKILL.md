@@ -584,7 +584,8 @@ and each pickup ended with nothing to build. A record, `awaiting-recurrences`, i
 2026): it waits on its next instance or its root cause, so no sweep can finish one. It was named `dossier`
 until [#2683](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2683), `record` until
 [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723) (October 2, 2026), which also
-renamed `awaiting-recurrence` to `awaiting-first-recurrence` and `needs-info` to `awaiting-more-info`; [#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904) (October 9, 2026) then renamed the pair to `awaiting-recurrences-first` and `awaiting-recurrences`. The
+renamed `awaiting-recurrence` to `awaiting-first-recurrence` and `needs-info` to `awaiting-more-info`, and #2904 (October 9, 2026) then renamed the pair to
+`awaiting-recurrences-first` and `awaiting-recurrences`. The
 default still skips every old name, because a tracker keeps it until somebody renames it there. The rules are in the same
 [`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from) section.
 

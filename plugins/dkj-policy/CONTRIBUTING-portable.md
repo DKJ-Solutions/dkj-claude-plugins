@@ -156,7 +156,7 @@ is missing (the four `prio-1`..`prio-4` rungs, `awaiting-recurrences`, `awaiting
 `awaiting-recurrences-first`), so adopting the convention costs one command instead of twelve typed by hand.
 
 **A parking label goes on when the issue is filed, whichever one it is**
-([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The seven
+([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The eight
 `awaiting-*` labels below each park an issue whose next step waits on something other than work: the
 owner's choice, another issue's pull request, an external event or date, an act only the owner performs,
 the next release, a first recurrence, or a record's next instance. Such an issue carries the matching label in the same `gh issue create` that
@@ -164,7 +164,7 @@ files it, beside its `prio-N`. Filed without it, it reads as free work to both p
 somebody notices. Measured in this plugin's source repo: an issue whose own body said it waited on
 later CI runs was filed with only its `prio-N`, and was parked by hand six minutes later. Each
 paragraph below says what its label parks and when it comes off. When it goes on is this rule, for all
-seven alike.
+eight alike.
 
 **`awaiting-recurrences` marks a collecting issue -- a *record* -- and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A record gathers every
@@ -172,15 +172,15 @@ instance of one recurring problem until its root cause is found. It is a *kind* 
 it carries a `prio-N` of its own like any other issue. The label was named `dossier` until October 1, 2026
 ([#2683](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2683)), then `record` until October 2,
 2026 ([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)), when the three purple
-labels that each mark an issue *waiting* on something became one family, then `awaiting-more-recurrences`
-until October 9, 2026 ([#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904)), when the
+labels that each mark an issue *waiting* on something became one family and it became `awaiting-more-recurrences`;
+that name stood until October 9, 2026 ([#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904)), when the
 recurrence pair was renamed to read as one: `awaiting-recurrences` and `awaiting-recurrences-first`.
 `open-pr`'s refusal and both pickup routes still match every old name, so a tracker that has not renamed it
 stays protected, and `task/adopt-triage-labels.ps1` prints the `gh label edit` that renames it in place,
 keeping every issue on it. The noun *record* and the `[RECORD]` title prefix are unchanged; only the
 label's name moved. Six things follow from being a record:
 
-- **Its title starts with `[RECORD]`** (Dave, October 1, 2026). A record stays open for weeks, and in an
+- **Its title starts with `[RECORD]`** (Dave, October 1, 2026). A record stays open, or parked, for weeks, and in an
   issue list it otherwise reads like any small finding. The prefix makes the difference visible without
   opening the labels: `[RECORD] processes killed for low memory keep recurring`. Set it when the issue is
   filed, or when an existing issue becomes a record, and take it off together with the label.
@@ -247,7 +247,7 @@ skip `awaiting-decision-dev`.
   reasons, and only a record changes how the issue is closed. An issue carrying
   `awaiting-recurrences-first` has a single unreproduced instance and waits for its first reproducible one.
 - **Its title starts with `[RECORD]` too** (Dave, October 1, 2026), for the reason a record's does: it
-  stays open far longer than an ordinary finding, and the prefix shows that in any issue list.
+  outlives an ordinary finding by far, and the prefix shows that in any issue list.
 - **While it waits, it may be closed as `not_planned`, with its label and `[RECORD]` prefix kept**
   ([#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904), October 9, 2026), so an
   issue that may never recur does not stay in the open list.
@@ -265,7 +265,7 @@ gh issue list --state all --label awaiting-recurrences-first
 gh issue list --state all --label awaiting-recurrences
 ```
 
-A tracker that has not renamed its labels yet answers to the former names
+A tracker that has not renamed its labels yet answers to the former names (or an older one)
 (`awaiting-first-recurrence`, `awaiting-more-recurrences`) instead. A match is reopened and commented on,
 never filed beside.
 
