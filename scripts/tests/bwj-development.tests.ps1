@@ -881,8 +881,12 @@ Assert-Equal '1234' $cmHold.Gid 'to the task the marker names'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[4] -Labels @('awaiting-more-info')).Post) 'with no linked task it posts nothing'
 Assert-Equal 'closed' (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[0] -Labels @('awaiting-more-info')).Kind 'a close as completed stays the closed message, whatever the labels'
 Assert-Equal 'reopened' (Get-ClosedMessageDecision -Event 'reopened' -IssueBody $cmSamples[0] -Labels @('awaiting-more-info')).Kind 'and a reopen stays the reopened message'
-Assert-Equal 'bug|awaiting-more-info' ((ConvertFrom-IssueLabelList -Text ' bug, awaiting-more-info ,') -join '|') 'the workflow''s comma-joined labels split into names, blanks dropped'
-Assert-Equal 0 @(ConvertFrom-IssueLabelList -Text '').Count 'and an empty ISSUE_LABELS -- a workflow copied before #2902 -- is no labels'
+Assert-True (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('Awaiting-More-Info')).Post 'the label is matched whatever its case'
+Assert-Equal 'bug, with comma|awaiting-more-info' ((ConvertFrom-IssueLabelList -Text "[`n  `"bug, with comma`",`n  `"awaiting-more-info`"`n]") -join '|') 'the workflow''s toJSON labels parse into names, a comma inside a name kept'
+Assert-Equal 'awaiting-more-info' ((ConvertFrom-IssueLabelList -Text '["awaiting-more-info"]') -join '|') 'and a single label is a list of one'
+Assert-Equal 0 @(ConvertFrom-IssueLabelList -Text '').Count 'an empty ISSUE_LABELS -- a workflow copied before #2902 -- is no labels'
+Assert-Equal 0 @(ConvertFrom-IssueLabelList -Text '[]').Count 'and so is an issue without labels'
+Assert-Equal 0 @(ConvertFrom-IssueLabelList -Text 'bug,awaiting-more-info').Count 'and a value that is not JSON is no labels, so the close stays silent'
 $cmHoldHtml = New-OnHoldMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#882'
 $cmHoldXml = New-Object System.Xml.XmlDocument
 $cmHoldXml.PreserveWhitespace = $true
@@ -982,7 +986,7 @@ Assert-True ($cmYml -match 'github\.event\.action' -and $cmYml -match '-Event \$
 Assert-True ($cmYml -match 'secrets\.ASANA_PAT' -and $cmYml -notmatch 'GH_PROJECT_TOKEN|ASANA_PROJECT_GID') 'and needs ASANA_PAT alone'
 Assert-True ($cmYml -match 'issues:\s*read') 'and only reads issues on GitHub'
 Assert-True ($cmYml -match 'state_reason') 'it hands the close reason to the script, which decides'
-Assert-True ($cmYml -match "ISSUE_LABELS:\s*\$\{\{\s*join\(github\.event\.issue\.labels\.\*\.name,\s*','\)\s*\}\}") 'and the labels, comma-joined, which make a not-planned close the on-hold message (#2902)'
+Assert-True ($cmYml -match 'ISSUE_LABELS:\s*\$\{\{\s*toJSON\(github\.event\.issue\.labels\.\*\.name\)\s*\}\}') 'and the labels as JSON, which make a not-planned close the on-hold message (#2902)'
 Assert-True ($cmYml -match 'persist-credentials:\s*false') 'the checkout leaves no token behind'
 Assert-True ($cmYml -notmatch '-IssueBody') 'and the body reaches the script through the environment, not the command line'
 

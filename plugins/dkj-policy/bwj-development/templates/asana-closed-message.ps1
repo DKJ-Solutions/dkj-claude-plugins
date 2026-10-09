@@ -96,7 +96,7 @@ param(
     # github.event.action: a close or a reopen.
     [ValidateSet('closed', 'reopened')]
     [string]$Event = 'closed',
-    # The issue's label names, comma-joined (#2902): read only on a close as not planned, where
+    # The issue's label names as a JSON array (#2902): read only on a close as not planned, where
     # awaiting-more-info makes it the on-hold message. Empty from a workflow copied before #2902, which
     # leaves a not-planned close silent as it was.
     [string]$IssueLabels = $env:ISSUE_LABELS,
@@ -399,11 +399,18 @@ function Get-ClosedMessageDecision {
 
 function ConvertFrom-IssueLabelList {
     <#
-        Pure: the ISSUE_LABELS the workflow passes -- the label names joined with commas, by GitHub's own
-        join() -- as a list. A label name cannot contain a comma, so splitting on one is exact.
+        Pure: the ISSUE_LABELS the workflow passes -- the label names as a JSON array, by GitHub's own
+        toJSON() -- as a list. JSON rather than a joined string because a label name may hold a comma.
+        Empty (a workflow copied before #2902) or unparseable is no labels, which leaves a not-planned
+        close silent, as it was.
     #>
     param([AllowEmptyString()][string]$Text = '')
-    return @(([string]$Text) -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    if (-not ([string]$Text).Trim()) { return @() }
+    # -InputObject and foreach, not a pipe: Windows PowerShell 5.1 sends a parsed array down the pipeline
+    # as ONE object, which would read every label as a single joined name.
+    try { $parsed = ConvertFrom-Json -InputObject ([string]$Text) } catch { return @() }
+    $names = @(foreach ($n in $parsed) { ([string]$n).Trim() })
+    return @($names | Where-Object { $_ })
 }
 
 function New-AsanaCommentRequest {

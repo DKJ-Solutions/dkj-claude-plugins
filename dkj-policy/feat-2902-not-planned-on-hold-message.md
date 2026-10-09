@@ -47,12 +47,12 @@ nothing. Not planned alone also means a rejection, so the label is what selects 
 
 - [x] `Get-ClosedMessageDecision` returns a `Kind`; not planned + `awaiting-more-info` is `on-hold`
 - [x] `New-OnHoldMessage` / `New-OnHoldMessageHtml`, posted with no go-live block
-- [x] The workflow template passes `ISSUE_LABELS` (comma-joined label names)
-- [x] Docs: the template header, WORKFLOW-portable.md (steps 4 and 6), golive-block, report-issue, adopt-bwj-development
+- [x] The workflow template passes `ISSUE_LABELS` as `toJSON` of the label names (a name may hold a comma -- code review)
+- [x] Docs: the template header, WORKFLOW-portable.md, README, golive-block, report-issue, adopt-bwj-development, and the sessioncheck hook's wording (copy edit: the "two messages" count)
 
 ### TEST
 
-- [x] `bwj-development.tests.ps1`: the decision, the label split, the on-hold HTML and the yml hand-off (364 asserts green)
+- [x] `bwj-development.tests.ps1`: the decision, the label split, the on-hold HTML and the yml hand-off (368 asserts green); closed-message-sessioncheck green
 
 ### DEPLOY: feat/2902-not-planned-on-hold-message
 

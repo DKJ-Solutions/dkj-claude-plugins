@@ -200,9 +200,10 @@ issue without the reach label. Where it cannot read the labels, it lets the call
 The mechanics are in step 2 of [`report-issue`](skills/report-issue/SKILL.md).
 
 Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
-`Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **After that, two
-things update the task: the closed message and the reopened message** (Dave, October 5 and 6, 2026,
-#2818 and #2854). When the issue closes as completed or is reopened, the `asana-closed-message`
+`Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **After that, the
+workflow's messages update the task: the closed message and the reopened message** (Dave, October 5 and 6, 2026,
+#2818 and #2854), and the on-hold message beside them (#2902). When the issue closes as completed, closes as
+not planned while waiting for information, or is reopened, the `asana-closed-message`
 workflow posts the matching one on the task (step 4). The rest of the CI
 automation that used to follow the issue is retired (steps 5 and 6). The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
@@ -373,7 +374,7 @@ the issue: it commented on the linked task when the issue closed or reopened, mo
 board's numbered sections, ran a daily reconciliation sweep, synced the task's `Prio-Score` into `prio-N`
 labels and posted a placeholder backstop block on the issue. Dave retired all of it that morning, and the
 same day brought back **the closed message** (#2818), and the next day **the reopened message** beside it
-(#2854). Both are the `asana-closed-message` workflow, copied into each store by
+(#2854); the on-hold message followed (#2902). All three are the `asana-closed-message` workflow, copied into each store by
 `adopt-bwj-development`, and it needs `ASANA_PAT` only. In practice:
 
 - **Closing an issue as completed** posts one comment on the linked task: the automation's header, the

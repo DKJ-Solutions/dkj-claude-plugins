@@ -51,8 +51,9 @@ jobs:
           ISSUE_REF: ${{ github.repository }}#${{ github.event.issue.number }}
           ISSUE_EVENT: ${{ github.event.action }}
           STATE_REASON: ${{ github.event.issue.state_reason }}
-          # The label names, comma-joined; the script reads them from the environment (#2902).
-          ISSUE_LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+          # The label names as a JSON array (a name may hold a comma); the script reads them from the
+          # environment (#2902).
+          ISSUE_LABELS: ${{ toJSON(github.event.issue.labels.*.name) }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # The body is read from ISSUE_BODY by the script itself, not passed as an argument.

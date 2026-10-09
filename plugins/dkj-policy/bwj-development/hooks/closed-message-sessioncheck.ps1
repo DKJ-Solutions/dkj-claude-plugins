@@ -125,7 +125,7 @@ try {
     }
     if ($stale.Count -gt 0) {
         Write-Host ("[ERROR] bwj-development: $($stale -join ' and ') in $slug differs from the template " +
-            "this plugin version ships, so the Asana task gets an outdated closed or reopened message. " +
+            "this plugin version ships, so the Asana task gets an outdated closed, on-hold or reopened message. " +
             "$remedy (step 1 diffs an existing copy against the template, and taking the difference is " +
             "the maintainer's call).")
     }

@@ -81,7 +81,7 @@ the check rather than the verdict -- so the check still runs here. It now return
 and the difference between the two runs is not the guard but the decision behind it, which is on the
 record above.
 
-## 1 -- copy the closed and reopened messages into `.github/` (the two store repos only)
+## 1 -- copy the closed, on-hold and reopened messages into `.github/` (the two store repos only)
 
 GitHub only runs a workflow from a repo's own `.github/`, so these are copied, not imported:
 
