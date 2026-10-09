@@ -67,8 +67,10 @@
     the block's marker is asked about once, by repo permission ('gh api .../collaborators/<login>/
     permission'), and the block is carried when that answers admin or write (Test-TrustedRepoPermission).
     A comment without the marker is never asked about, and a drop is logged with the association and
-    the permission, never as 'none was on the issue'. THE TASK IT WRITES TO is the one the issue body's marker names, and whoever
-    can edit the body can point that marker at any task the token reaches. That is the retired
+    the permission, never as 'none was on the issue'.
+
+    THE TASK IT WRITES TO is the one the issue body's marker names, and whoever can edit the body can
+    point that marker at any task the token reaches. That is the retired
     asana-mirror's trust model unchanged, and it is accepted rather than closed here: the write is one
     comment, and checking the task's project would need a project read this workflow deliberately does
     without. A reopen (#2854) is one more trigger on that same model, not a new one: an issue's author
@@ -496,6 +498,25 @@ function Get-CollaboratorPermissionApiArgs {
     return @('api', "repos/$($Matches[1])/$($Matches[2])/collaborators/$Login/permission", '--jq', '.permission')
 }
 
+function Invoke-GhCapture {
+    <#
+        Run gh with these arguments and keep both streams apart: Out (the stdout lines), ExitCode, and
+        Error (gh's own stderr, or a placeholder when it wrote none). Shared by both reads, so a failed
+        read is reported the same way in each (#2875).
+    #>
+    param([Parameter(Mandatory = $true)][string[]]$GhArgs)
+
+    $prev = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $all  = @(& gh @ghArgs 2>&1)
+        $code = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $prev }
+    $out = @($all | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ })
+    $err = (@($all | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() }) -join ' ').Trim()
+    return [pscustomobject]@{ Out = $out; ExitCode = $code; Error = $(if ($err) { $err } else { '(gh wrote nothing to stderr)' }) }
+}
+
 function Read-CollaboratorPermission {
     <#
         One user's repo permission, read through gh: Ok, Permission, ExitCode, Error. A failed read is
@@ -506,19 +527,11 @@ function Read-CollaboratorPermission {
         [Parameter(Mandatory = $true)][string]$Login
     )
 
-    $ghArgs = Get-CollaboratorPermissionApiArgs -IssueRef $IssueRef -Login $Login
-    $prev = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = 'Continue'
-        $all  = @(& gh @ghArgs 2>&1)
-        $code = $LASTEXITCODE
-    } finally { $ErrorActionPreference = $prev }
-    $out = (@($all | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ }) -join '').Trim()
-    $err = (@($all | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() }) -join ' ').Trim()
-    if ($code -ne 0) {
-        return [pscustomobject]@{ Ok = $false; Permission = ''; ExitCode = $code; Error = $(if ($err) { $err } else { '(gh wrote nothing to stderr)' }) }
+    $run = Invoke-GhCapture -GhArgs (Get-CollaboratorPermissionApiArgs -IssueRef $IssueRef -Login $Login)
+    if ($run.ExitCode -ne 0) {
+        return [pscustomobject]@{ Ok = $false; Permission = ''; ExitCode = $run.ExitCode; Error = $run.Error }
     }
-    return [pscustomobject]@{ Ok = $true; Permission = $out; ExitCode = 0; Error = '' }
+    return [pscustomobject]@{ Ok = $true; Permission = (@($run.Out) -join '').Trim(); ExitCode = 0; Error = '' }
 }
 
 function Select-TrustedCommentBodies {
@@ -618,20 +631,12 @@ function Read-IssueComments {
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
-    $ghArgs = Get-IssueCommentsApiArgs -IssueRef $IssueRef
-    $prev = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = 'Continue'
-        $all  = @(& gh @ghArgs 2>&1)
-        $code = $LASTEXITCODE
-    } finally { $ErrorActionPreference = $prev }
-    $out = @($all | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ })
-    $err = (@($all | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() }) -join ' ').Trim()
-    if ($code -ne 0) {
-        return [pscustomobject]@{ Ok = $false; Comments = @(); ExitCode = $code; Error = $(if ($err) { $err } else { '(gh wrote nothing to stderr)' }) }
+    $run = Invoke-GhCapture -GhArgs (Get-IssueCommentsApiArgs -IssueRef $IssueRef)
+    if ($run.ExitCode -ne 0) {
+        return [pscustomobject]@{ Ok = $false; Comments = @(); ExitCode = $run.ExitCode; Error = $run.Error }
     }
-    try { $comments = @(ConvertFrom-IssueCommentLines -Lines $out) } catch {
-        return [pscustomobject]@{ Ok = $false; Comments = @(); ExitCode = $code; Error = 'gh exited 0, but its output did not parse as one comment per line.' }
+    try { $comments = @(ConvertFrom-IssueCommentLines -Lines $run.Out) } catch {
+        return [pscustomobject]@{ Ok = $false; Comments = @(); ExitCode = 0; Error = 'gh exited 0, but its output did not parse as one comment per line.' }
     }
     return [pscustomobject]@{ Ok = $true; Comments = $comments; ExitCode = 0; Error = '' }
 }

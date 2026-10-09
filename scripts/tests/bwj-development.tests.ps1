@@ -1005,6 +1005,15 @@ $cmPermArgs = Get-CollaboratorPermissionApiArgs -IssueRef 'BWJ-Development/smart
 Assert-Equal 'api|repos/BWJ-Development/smartwatchbanden/collaborators/maikel-bwj/permission|--jq|.permission' ($cmPermArgs -join '|') 'the permission is read through REST, the legacy base role alone'
 Assert-Throws { Get-CollaboratorPermissionApiArgs -IssueRef 'o/r#1' -Login '../x' } 'and a login that is not a user login never reaches the request path'
 Assert-True ($cmSrc -match 'Get-ClosedMessageBlockPhrase -Sections \$sections -ReadOk \$read\.Ok -Dropped \$dropped') 'the final log line knows about a drop'
+# The permission read itself, against a stubbed gh: a function shadows the executable for '& gh'.
+function gh { if ($script:cmGhFail) { Write-Error 'HTTP 403: Resource not accessible by integration'; $global:LASTEXITCODE = 1 } else { 'write'; $global:LASTEXITCODE = 0 } }
+$script:cmGhFail = $false
+$cmPermOk = Read-CollaboratorPermission -IssueRef 'o/r#1' -Login 'maikel-bwj'
+Assert-True ($cmPermOk.Ok -and $cmPermOk.Permission -eq 'write') 'a permission read that works answers the permission'
+$script:cmGhFail = $true
+$cmPermNo = Read-CollaboratorPermission -IssueRef 'o/r#1' -Login 'maikel-bwj'
+Assert-True (-not $cmPermNo.Ok -and $cmPermNo.ExitCode -eq 1 -and $cmPermNo.Error -match '403') 'and a refused one is reported with gh''s exit code and stderr, never as a permission'
+Remove-Item Function:\gh
 Assert-Throws { ConvertFrom-IssueCommentLines -Lines @('[{"author_association":"MEMBER"') } 'a garbled line throws, so it is reported as a failed read rather than as no block'
 Assert-Equal "with the session's go-live block" (Get-ClosedMessageBlockPhrase -Sections 'X' -ReadOk $true) 'the log says a block was carried when one was'
 Assert-Equal 'without a go-live block -- none was on the issue' (Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $true) 'it says none was on the issue only after a read that worked'

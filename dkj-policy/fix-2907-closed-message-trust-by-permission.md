@@ -53,7 +53,9 @@ repo permission (admin or write is trusted), and every drop is logged with its a
 
 ### TEST
 
-- [x] bwj-development suite green (388 asserts), with new cases for the permission path, the drop log line and the login guard
+- [x] bwj-development suite green (390 asserts), with new cases for the permission path, the drop log line, the login guard and the permission read against a stubbed `gh`
+- [x] Victor (no correctness findings; the shared `Invoke-GhCapture` helper and the stub test came from his review) and Sebastian (no blocking findings; the workflow comment no longer asserts an unmeasured scope)
+- [x] check-plugin-integrity: 0 errors
 
 ### DEPLOY: fix/2907-closed-message-trust-by-permission
 
