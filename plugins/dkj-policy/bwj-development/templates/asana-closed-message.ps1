@@ -30,8 +30,9 @@
         the read failed, with gh's exit code and stderr -- never 'none was on the issue', which it
         cannot know (#2875).
       - A close as NOT PLANNED that keeps the awaiting-more-info label on, with a linked task: one
-        comment, the header and the on-hold line -- 'is on hold: it is closed as not planned until more
-        information comes in, and is reopened when it does.' (#2902). That pair is the BWJ procedure's
+        comment, the header and the on-hold line in the requester's fixed form -- 'is closed: there is not
+        enough information to start development yet. Once the questions above are answered, the issue will
+        be reopened and the work picks up again.' (#2902, #2909). That pair is the BWJ procedure's
         sanctioned way to park a ticket waiting on its requester (#2732), and without this line the
         requester heard nothing, or -- where a session closed it as completed to get a message out --
         read 'is now closed' as finished. No block is read: nothing was built.
@@ -299,39 +300,41 @@ function New-ReopenedMessage {
 function New-ReopenedMessageHtml {
     <#
         Pure: the reopened message as Asana html_text -- the header, then the reopened sentence with the
-        issue name as a link and 'is reopened:' in bold, the same form the closed line takes.
+        issue name as a link and only the state word, 'reopened:', in bold (#2909) -- the same form the
+        closed line takes.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
     $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
     $parts = $IssueRef -split '#'
     $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> <strong>is reopened:</strong> this Asana task is now back in development.</body>"
+    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is <strong>reopened:</strong> this Asana task is now back in development.</body>"
 }
 
 function New-OnHoldMessage {
     <#
         Pure: the on-hold comment as plain text (#2902) -- the header, a blank line, and the on-hold
-        sentence. Posted on a close as not planned with awaiting-more-info kept on, so the requester reads
-        a parked ticket as waiting for them, never as finished: the closed line says 'is now closed', which
-        a colleague with an open question in front of them reads as done.
+        sentence in the requester's fixed form (#2909). Posted on a close as not planned with
+        awaiting-more-info kept on, so the requester reads a parked ticket as waiting for them, never as
+        finished: the completed line says 'is now closed. It can be reopened anytime', which a colleague
+        with an open question in front of them reads as done.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
-    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is on hold: it is closed as not planned until more information comes in, and is reopened when it does.") -join "`n")
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is closed: there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again.") -join "`n")
 }
 
 function New-OnHoldMessageHtml {
     <#
         Pure: the on-hold message as Asana html_text -- the header, then the on-hold sentence with the
-        issue name as a link and 'is on hold:' in bold, the same form the reopened line takes. No block is
-        read: nothing was built, so there is nothing to test.
+        issue name as a link and only the state word, 'closed:', in bold (#2909) -- the same form the
+        reopened line takes. No block is read: nothing was built, so there is nothing to test.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
     $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
     $parts = $IssueRef -split '#'
     $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> <strong>is on hold:</strong> it is closed as not planned until more information comes in, and is reopened when it does.</body>"
+    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is <strong>closed:</strong> there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again.</body>"
 }
 
 function Get-AsanaPasteBlockMarker {
