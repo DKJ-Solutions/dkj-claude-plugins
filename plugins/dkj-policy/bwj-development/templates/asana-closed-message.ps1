@@ -60,7 +60,14 @@
     WHOSE TEXT IT FORWARDS (security review, #2818). The block is taken only from a comment whose author
     is the repo's OWNER, a MEMBER or a COLLABORATOR (Test-TrustedCommentAuthor): anyone else who can
     comment could otherwise put a link of their choosing on the task, under the token owner's name and
-    the automation's header. THE TASK IT WRITES TO is the one the issue body's marker names, and whoever
+    the automation's header. AND FROM ONE WHOSE AUTHOR CAN WRITE TO THE REPO (#2907): author_association
+    is computed for the viewer, and the workflow's token cannot see a PRIVATE org membership, so an org
+    member who ships the work reads as CONTRIBUTOR to it and their block was dropped -- every run in
+    smartwatchbanden logged 'none was on the issue'. So the author of an untrusted comment that carries
+    the block's marker is asked about once, by repo permission ('gh api .../collaborators/<login>/
+    permission'), and the block is carried when that answers admin or write (Test-TrustedRepoPermission).
+    A comment without the marker is never asked about, and a drop is logged with the association and
+    the permission, never as 'none was on the issue'. THE TASK IT WRITES TO is the one the issue body's marker names, and whoever
     can edit the body can point that marker at any task the token reaches. That is the retired
     asana-mirror's trust model unchanged, and it is accepted rather than closed here: the write is one
     comment, and checking the task's project would need a project read this workflow deliberately does
@@ -439,6 +446,127 @@ function Test-TrustedCommentAuthor {
     return (@('OWNER', 'MEMBER', 'COLLABORATOR') -contains ([string]$Association).Trim().ToUpperInvariant())
 }
 
+function Test-TrustedRepoPermission {
+    <#
+        Pure: may an author with this repo permission supply the block (#2907)? admin or write only --
+        GitHub's legacy base role, where maintain reads as write and triage as read. The people who can
+        ship the work, whatever their org membership's visibility.
+    #>
+    param([AllowEmptyString()][string]$Permission)
+    return (@('admin', 'write') -contains ([string]$Permission).Trim().ToLowerInvariant())
+}
+
+function Test-GitHubUserLogin {
+    <#
+        Pure: is this a GitHub user login -- letters, digits and single hyphens, 39 at most? Only such a
+        login is asked about or printed: a bot's 'name[bot]' is no user and holds no repo permission.
+    #>
+    param([AllowEmptyString()][string]$Login)
+    return ([string]$Login -cmatch '\A[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}\z')
+}
+
+function Get-PermissionCheckLogins {
+    <#
+        Pure: the distinct logins whose repo permission must be asked (#2907) -- the authors of comments
+        that carry the block's marker but whose association is not trusted. Nothing else is asked about,
+        so an issue whose block came from a visible member costs no extra call.
+    #>
+    param([AllowEmptyCollection()][object[]]$Comments = @())
+
+    $marker = Get-AsanaPasteBlockMarker
+    $logins = foreach ($c in @($Comments)) {
+        if (Test-TrustedCommentAuthor -Association ([string]$c.Association)) { continue }
+        if (-not ([string]$c.Body).Contains($marker)) { continue }
+        if (Test-GitHubUserLogin -Login ([string]$c.Login)) { [string]$c.Login }
+    }
+    return @($logins | Select-Object -Unique)
+}
+
+function Get-CollaboratorPermissionApiArgs {
+    <#
+        Pure: the gh arguments that read one user's permission on the repo (#2907). A login that is not
+        a user login is refused before it can reach the request path.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [Parameter(Mandatory = $true)][string]$Login
+    )
+    if ($IssueRef -notmatch '\A([^\s#/]+)/([^\s#/]+)#([0-9]+)\z') { throw "IssueRef '$IssueRef' is not 'owner/repo#<n>'." }
+    if (-not (Test-GitHubUserLogin -Login $Login)) { throw 'Refusing to ask the permission of a login that is not a GitHub user login.' }
+    return @('api', "repos/$($Matches[1])/$($Matches[2])/collaborators/$Login/permission", '--jq', '.permission')
+}
+
+function Read-CollaboratorPermission {
+    <#
+        One user's repo permission, read through gh: Ok, Permission, ExitCode, Error. A failed read is
+        reported, never taken as a permission (#2875's lesson): Error is gh's own stderr.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [Parameter(Mandatory = $true)][string]$Login
+    )
+
+    $ghArgs = Get-CollaboratorPermissionApiArgs -IssueRef $IssueRef -Login $Login
+    $prev = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $all  = @(& gh @ghArgs 2>&1)
+        $code = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $prev }
+    $out = (@($all | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ }) -join '').Trim()
+    $err = (@($all | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() }) -join ' ').Trim()
+    if ($code -ne 0) {
+        return [pscustomobject]@{ Ok = $false; Permission = ''; ExitCode = $code; Error = $(if ($err) { $err } else { '(gh wrote nothing to stderr)' }) }
+    }
+    return [pscustomobject]@{ Ok = $true; Permission = $out; ExitCode = 0; Error = '' }
+}
+
+function Select-TrustedCommentBodies {
+    <#
+        Pure: the bodies that may supply the block, in the order GitHub returned them, and a note for every
+        marker comment that was NOT carried (#2907). A comment is carried when its association is trusted,
+        or -- for a marker comment -- when -Permissions answers admin or write for its author. -Permissions
+        maps a login to its permission string, or to $null where the read failed. A note names the
+        association and the permission, and the login only when it is a user login; never the body.
+    #>
+    param(
+        [AllowEmptyCollection()][object[]]$Comments = @(),
+        [hashtable]$Permissions = @{}
+    )
+
+    $marker = Get-AsanaPasteBlockMarker
+    $bodies = @()
+    $notes  = @()
+    $dropped = 0
+    foreach ($c in @($Comments)) {
+        $assoc = ([string]$c.Association).Trim().ToUpperInvariant()
+        $body  = [string]$c.Body
+        if (Test-TrustedCommentAuthor -Association $assoc) { $bodies += $body; continue }
+        if (-not $body.Contains($marker)) { continue }
+        $login = [string]$c.Login
+        $shown = if ($assoc) { $assoc } else { 'unknown' }
+        if (-not (Test-GitHubUserLogin -Login $login)) {
+            $dropped++
+            $notes += "a go-live block comment was not carried: its author (association $shown) is not a GitHub user login."
+            continue
+        }
+        if (-not $Permissions.ContainsKey($login) -or $null -eq $Permissions[$login]) {
+            $dropped++
+            $notes += "a go-live block comment by '$login' was not carried: association $shown, and their repo permission could not be read."
+            continue
+        }
+        $perm = ([string]$Permissions[$login]).Trim().ToLowerInvariant()
+        if (Test-TrustedRepoPermission -Permission $perm) {
+            $bodies += $body
+            $notes  += "a go-live block comment by '$login' was carried on repo permission '$perm' (association $shown)."
+            continue
+        }
+        $dropped++
+        $notes += "a go-live block comment by '$login' was not carried: association $shown, repo permission '$(if ($perm -cmatch '\A[a-z_]{1,20}\z') { $perm } else { 'unrecognized' })'."
+    }
+    return [pscustomobject]@{ Bodies = $bodies; Notes = $notes; Dropped = $dropped }
+}
+
 function Get-IssueCommentsApiArgs {
     <#
         Pure: the gh arguments that read an issue's comments through REST (#2875) --
@@ -447,37 +575,43 @@ function Get-IssueCommentsApiArgs {
         answered nothing on the runner for an issue carrying a trusted block. --paginate walks every
         page, and --jq runs on each page and prints one compact JSON object per comment per line, so
         the pages never arrive as several concatenated arrays and no newer-gh flag (--slurp) is needed.
+        The author's login comes along for the permission check (#2907).
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
     if ($IssueRef -notmatch '\A([^\s#/]+)/([^\s#/]+)#([0-9]+)\z') { throw "IssueRef '$IssueRef' is not 'owner/repo#<n>'." }
     return @('api', "repos/$($Matches[1])/$($Matches[2])/issues/$($Matches[3])/comments", '--paginate',
-             '--jq', '.[] | {author_association, body}')
+             '--jq', '.[] | {author_association, login: .user.login, body}')
 }
 
 function ConvertFrom-IssueCommentLines {
     <#
-        Pure: the bodies of the trusted comments (Test-TrustedCommentAuthor) out of the lines the REST
-        read prints -- one JSON object per comment, over every page, in the order GitHub returns them
-        (oldest first). Blank lines are skipped; a line that does not parse throws, so a garbled read is
-        reported as a failed read rather than as an issue with no block.
+        Pure: every comment -- Association, Login, Body -- out of the lines the REST read prints, one JSON
+        object per comment, over every page, in the order GitHub returns them (oldest first). Which of
+        them may supply the block is Select-TrustedCommentBodies' question, not this one's (#2907).
+        Blank lines are skipped; a line that does not parse throws, so a garbled read is reported as a
+        failed read rather than as an issue with no block.
     #>
     param([AllowEmptyCollection()][AllowEmptyString()][string[]]$Lines = @())
 
-    $bodies = @()
+    $comments = @()
     foreach ($line in @($Lines)) {
         $text = ([string]$line).Trim()
         if (-not $text) { continue }
         $comment = $text | ConvertFrom-Json
-        if (Test-TrustedCommentAuthor -Association ([string]$comment.author_association)) { $bodies += [string]$comment.body }
+        $comments += [pscustomobject]@{
+            Association = [string]$comment.author_association
+            Login       = [string]$comment.login
+            Body        = [string]$comment.body
+        }
     }
-    return $bodies
+    return $comments
 }
 
 function Read-IssueComments {
     <#
-        The trusted comment bodies of the issue, read through gh (Get-IssueCommentsApiArgs), and whether
-        the read worked at all: Ok, Bodies, ExitCode, Error. A FAILED READ IS NOT AN ISSUE WITHOUT A
+        Every comment of the issue, read through gh (Get-IssueCommentsApiArgs), and whether the read
+        worked at all: Ok, Comments, ExitCode, Error. A FAILED READ IS NOT AN ISSUE WITHOUT A
         BLOCK (#2875): the read this replaced discarded gh's stderr and answered an empty list, and the
         log then said 'none was on the issue' about an issue that carried one. Error is gh's own stderr
         -- an API or auth message, never a comment body -- so the caller can log it.
@@ -494,12 +628,12 @@ function Read-IssueComments {
     $out = @($all | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { [string]$_ })
     $err = (@($all | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { $_.ToString() }) -join ' ').Trim()
     if ($code -ne 0) {
-        return [pscustomobject]@{ Ok = $false; Bodies = @(); ExitCode = $code; Error = $(if ($err) { $err } else { '(gh wrote nothing to stderr)' }) }
+        return [pscustomobject]@{ Ok = $false; Comments = @(); ExitCode = $code; Error = $(if ($err) { $err } else { '(gh wrote nothing to stderr)' }) }
     }
-    try { $bodies = @(ConvertFrom-IssueCommentLines -Lines $out) } catch {
-        return [pscustomobject]@{ Ok = $false; Bodies = @(); ExitCode = $code; Error = 'gh exited 0, but its output did not parse as one comment per line.' }
+    try { $comments = @(ConvertFrom-IssueCommentLines -Lines $out) } catch {
+        return [pscustomobject]@{ Ok = $false; Comments = @(); ExitCode = $code; Error = 'gh exited 0, but its output did not parse as one comment per line.' }
     }
-    return [pscustomobject]@{ Ok = $true; Bodies = $bodies; ExitCode = 0; Error = '' }
+    return [pscustomobject]@{ Ok = $true; Comments = $comments; ExitCode = 0; Error = '' }
 }
 
 function Get-ClosedMessageBlockPhrase {
@@ -511,10 +645,14 @@ function Get-ClosedMessageBlockPhrase {
     #>
     param(
         [AllowEmptyString()][string]$Sections = '',
-        [bool]$ReadOk = $true
+        [bool]$ReadOk = $true,
+        # How many go-live block comments the trust check did not carry (#2907): a dropped block and an
+        # absent one are different facts, and they used to share 'none was on the issue'.
+        [int]$Dropped = 0
     )
     if ($Sections) { return "with the session's go-live block" }
     if (-not $ReadOk) { return 'without a go-live block -- the comments could not be read (the gh error is above), so whether one was on the issue is unknown' }
+    if ($Dropped -gt 0) { return 'without a go-live block -- one was on the issue but its author was not trusted (the reason is above)' }
     return 'without a go-live block -- none was on the issue'
 }
 
@@ -539,7 +677,20 @@ function Invoke-Main {
             # silent, and then logged as an issue with no block on it.
             Write-Host "The comments of $IssueRef could not be read: gh exited $($read.ExitCode): $($read.Error)"
         }
-        $sections = Select-SessionPasteBlockSections -Bodies $read.Bodies
+        # The author of a block comment whose association is not trusted is asked about by repo permission
+        # (#2907): a private org member reads as CONTRIBUTOR to this token.
+        $permissions = @{}
+        foreach ($login in (Get-PermissionCheckLogins -Comments $read.Comments)) {
+            $perm = Read-CollaboratorPermission -IssueRef $IssueRef -Login $login
+            if ($perm.Ok) { $permissions[$login] = $perm.Permission } else {
+                $permissions[$login] = $null
+                Write-Host "The repo permission of '$login' could not be read: gh exited $($perm.ExitCode): $($perm.Error)"
+            }
+        }
+        $trusted = Select-TrustedCommentBodies -Comments $read.Comments -Permissions $permissions
+        foreach ($note in $trusted.Notes) { Write-Host "Trust check: $note" }
+        $dropped  = $trusted.Dropped
+        $sections = Select-SessionPasteBlockSections -Bodies $trusted.Bodies
         $html     = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections
     }
     $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
@@ -562,7 +713,7 @@ function Invoke-Main {
         Write-Host "Asana task $($decision.Gid) told: $IssueRef is on hold, closed as not planned while waiting for more information ($($decision.Why)). The card was NOT moved."
         return
     }
-    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok
+    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped
     Write-Host "Asana task $($decision.Gid) told: $IssueRef is closed, $with ($($decision.Why)). The task was NOT completed -- that is the requester's call."
 }
 

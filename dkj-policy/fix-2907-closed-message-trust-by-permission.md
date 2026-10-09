@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#2907 (inbound from smartwatchbanden, October 9, 2026): `asana-closed-message` never carried a go-live
+block in CI, because `author_association` is computed for the viewer and the workflow token cannot see a
+private org membership, so the shipping member's comment was dropped as untrusted and logged as "none was
+on the issue". Maikel chose the trust model: the author of an untrusted marker comment is asked about by
+repo permission (admin or write is trusted), and every drop is logged with its association.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-closed-message.ps1`: the comment read keeps every comment with its login; `Select-TrustedCommentBodies` decides trust by association, then by repo permission for a marker comment (`Get-PermissionCheckLogins`, `Read-CollaboratorPermission`, `Test-TrustedRepoPermission`)
+- [x] Each marker comment carried on permission or dropped is logged with its association and permission, never its body, and a drop is no longer reported as "none was on the issue" (`Get-ClosedMessageBlockPhrase -Dropped`)
+- [x] `asana-closed-message.yml`: the permission comment names the extra read and the scope it relies on
 
 ### TEST
 
+- [x] bwj-development suite green (388 asserts), with new cases for the permission path, the drop log line and the login guard
+
 ### DEPLOY: fix/2907-closed-message-trust-by-permission
 
-**Score:**
+`asana-closed-message` now carries the go-live block when its author is an org member whose membership is
+private. The workflow token reads such a member as `CONTRIBUTOR`, so until now the block was dropped and
+the Asana task got the bare closed line, logged as "none was on the issue". The author of a block comment
+with an untrusted association is now asked about by repo permission, and the block is carried when that
+answers admin or write. Every block comment that is carried this way or dropped is logged with its
+association and permission, and a dropped block is logged as dropped.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store repo picks this up only by copying the new `asana-closed-message.ps1` template into
+`.github/scripts/`, since the copy there does not update itself. Whether the workflow token may read the
+permission endpoint is not yet measured on a runner. The first close after the copy says which: the log
+shows either `carried on repo permission` or `permission could not be read`.
+
+**Score:** 3
 
 #### Pull Request
+
+asana-closed-message: trust a go-live block by its author's repo permission, so private org members' blocks are carried
 

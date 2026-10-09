@@ -21,7 +21,10 @@ permissions:
   contents: read
   # READ: the script reads the issue's comments for the go-live block, and writes nothing on GitHub. It
   # reads them through REST (gh api .../issues/<n>/comments), which this scope covers; the GraphQL read
-  # it replaced answered nothing on the runner (#2875).
+  # it replaced answered nothing on the runner (#2875). Where a block comment's author reads as an
+  # untrusted association -- a PRIVATE org member does, to this token -- it also reads that author's repo
+  # permission (gh api .../collaborators/<login>/permission, #2907), under the metadata read every
+  # workflow token holds; a refused read is logged, and the bare closed message goes out.
   issues: read
 
 # One group per issue, closes and reopens together, so their messages post in order and a running post
