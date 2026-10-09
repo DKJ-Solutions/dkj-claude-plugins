@@ -3,7 +3,8 @@
 #
 # Posts ONE comment on the Asana task a GitHub issue belongs to, when that issue closes as completed
 # (the automation's header, the closed line, and the go-live block the shipping session left on the
-# issue) or is reopened (the header and the reopened line). It never moves a card, completes a task or
+# issue), closes as not planned with awaiting-more-info kept on (the header and the on-hold line,
+# #2902), or is reopened (the header and the reopened line). It never moves a card, completes a task or
 # writes a label -- the closed message (Dave, October 5, 2026, #2818) and the reopened message (October
 # 6, #2854) are the two parts of the retired asana-mirror workflow that came back. The file keeps its
 # closed-message name so a re-adopt replaces it rather than landing a second copy beside it. See
@@ -12,7 +13,8 @@ name: asana-closed-message
 
 on:
   issues:
-    # closed and reopened ONLY: no labeled, no schedule. The script decides on the close reason.
+    # closed and reopened ONLY: no labeled, no schedule. The script decides on the close reason, and on
+    # a close as not planned on the labels the issue carries at that moment too.
     types: [closed, reopened]
 
 permissions:
@@ -49,6 +51,9 @@ jobs:
           ISSUE_REF: ${{ github.repository }}#${{ github.event.issue.number }}
           ISSUE_EVENT: ${{ github.event.action }}
           STATE_REASON: ${{ github.event.issue.state_reason }}
+          # The label names as a JSON array (a name may hold a comma); the script reads them from the
+          # environment (#2902).
+          ISSUE_LABELS: ${{ toJSON(github.event.issue.labels.*.name) }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # The body is read from ISSUE_BODY by the script itself, not passed as an argument.

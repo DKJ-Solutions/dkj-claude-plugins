@@ -305,7 +305,8 @@ GitHub issue only now: it moves no card. **Setting it and writing the question a
 comment asking the requester what you need goes on in the same movement, in the form
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#setting-awaiting-more-info-is-still-writing-the-question----one-act-and-the-issue-stays-open)
 step 6 prescribes, and the issue stays open -- unless the owner wants it off the open list, in which case
-it is closed as **not planned with the label kept on**, the one sanctioned alternative. Take the label
+it is closed as **not planned with the label kept on**, the one sanctioned alternative, and the task is
+then told the issue is on hold (#2902). Never close it as completed to get a message out. Take the label
 off when the answer arrives.
 
 **Name the kind and the tier you chose, and why.** You infer both rather than asking for them -- the

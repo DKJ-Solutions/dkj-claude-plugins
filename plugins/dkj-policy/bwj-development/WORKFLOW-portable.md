@@ -200,9 +200,10 @@ issue without the reach label. Where it cannot read the labels, it lets the call
 The mechanics are in step 2 of [`report-issue`](skills/report-issue/SKILL.md).
 
 Once the GitHub issue exists and carries the reach label, mirror it to Asana in the project
-`Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **After that, two
-things update the task: the closed message and the reopened message** (Dave, October 5 and 6, 2026,
-#2818 and #2854). When the issue closes as completed or is reopened, the `asana-closed-message`
+`Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **After that, the
+workflow's messages update the task: the closed message and the reopened message** (Dave, October 5 and 6, 2026,
+#2818 and #2854), and the on-hold message beside them (#2902). When the issue closes as completed, closes as
+not planned while waiting for information, or is reopened, the `asana-closed-message`
 workflow posts the matching one on the task (step 4). The rest of the CI
 automation that used to follow the issue is retired (steps 5 and 6). The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
@@ -373,14 +374,18 @@ the issue: it commented on the linked task when the issue closed or reopened, mo
 board's numbered sections, ran a daily reconciliation sweep, synced the task's `Prio-Score` into `prio-N`
 labels and posted a placeholder backstop block on the issue. Dave retired all of it that morning, and the
 same day brought back **the closed message** (#2818), and the next day **the reopened message** beside it
-(#2854). Both are the `asana-closed-message` workflow, copied into each store by
+(#2854); the on-hold message followed (#2902). All three are the `asana-closed-message` workflow, copied into each store by
 `adopt-bwj-development`, and it needs `ASANA_PAT` only. In practice:
 
 - **Closing an issue as completed** posts one comment on the linked task: the automation's header, the
   closed line, and the go-live block's sections under it. Where the issue carries no block, it posts the
   header and the closed line alone, so the requester still hears.
-- **Closing as not planned or as a duplicate posts nothing** (#2765): nothing was built, so there is
-  nothing to test.
+- **Closing as not planned with the `awaiting-more-info` label kept on** (the parked-while-waiting pair,
+  step 6) posts one comment: the header and the on-hold line, *"GitHub issue <owner>/<repo>#<n> **is on
+  hold:** it is closed as not planned until more information comes in, and is reopened when it does."*
+  (#2902). It reads no go-live block, because nothing was built.
+- **Closing as not planned without that label, or as a duplicate, posts nothing** (#2765): nothing was
+  built, so there is nothing to test, and a rejection is said by a person.
 - **Reopening an issue** posts one comment on the linked task, whatever it was closed as: the header
   and the reopened line, *"GitHub issue <owner>/<repo>#<n> **is reopened:** this Asana task is now back in
   development."* (#2854, in #2656's fixed form). It moves no card and un-completes nothing, so a
@@ -760,7 +765,11 @@ remove the label**: whoever brings the answer does.
 [#2732](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2732)), for an owner who wants the
 waiting ticket off the open list. Close it as **not planned** and **keep the `awaiting-more-info` label
 on through the close**, so the pair still reads as *waiting for information* and not as a rejection. The
-question is written first, exactly as above. (The CI comment that used to say so on the task is retired.)
+question is written first, exactly as above. The `asana-closed-message` workflow then tells the task the
+issue **is on hold** (#2902) -- the label must still be on at the moment of the close, because that is
+what the workflow reads. **Never close a waiting ticket as completed to get a message out**: the closed
+line says the issue *is now closed*, which a colleague with an open question in front of them reads as
+finished.
 
 ### 7. What still needs a person
 
