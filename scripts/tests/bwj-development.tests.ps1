@@ -948,14 +948,14 @@ Assert-True (Test-TrustedCommentAuthor -Association 'MEMBER') 'a member''s comme
 Assert-True (Test-TrustedCommentAuthor -Association 'collaborator') 'and so may a collaborator''s, in any case'
 Assert-True (-not (Test-TrustedCommentAuthor -Association 'CONTRIBUTOR')) 'a contributor''s may not -- anyone else could put a link on the task under the automation''s header'
 Assert-True (-not (Test-TrustedCommentAuthor -Association '')) 'nor a comment whose association is unknown'
-Assert-True ($cmSrc -match 'if \(Test-TrustedCommentAuthor -Association \(\[string\]\$comment\.author_association\)\)') 'and the comment read filters on it, by the REST field author_association'
+Assert-True ($cmSrc -match 'Association = \[string\]\$comment\.author_association') 'and the comment read keeps the REST field author_association for that filter'
 
 # THE COMMENT READ IS REST, AND A FAILED READ IS NOT AN ISSUE WITHOUT A BLOCK (#2875). The GraphQL read
 # ('gh issue view --json comments 2>$null') answered nothing on the runner for an issue carrying a
 # trusted block, and the log then said 'none was on the issue'.
 $cmArgs = Get-IssueCommentsApiArgs -IssueRef 'BWJ-Development/xoxowildhearts#383'
-Assert-Equal 'api|repos/BWJ-Development/xoxowildhearts/issues/383/comments|--paginate|--jq|.[] | {author_association, body}' ($cmArgs -join '|') `
-    'the comments are read through REST, every page, one JSON object per comment per line'
+Assert-Equal 'api|repos/BWJ-Development/xoxowildhearts/issues/383/comments|--paginate|--jq|.[] | {author_association, login: .user.login, body}' ($cmArgs -join '|') `
+    'the comments are read through REST, every page, one JSON object per comment per line, with the author''s login'
 Assert-Throws { Get-IssueCommentsApiArgs -IssueRef 'o/r#1;x' } 'and an IssueRef that is not owner/repo#<n> never reaches the gh call'
 Assert-True ($cmSrc -notmatch '& gh issue view') 'the template no longer reads comments through gh issue view (GraphQL)'
 Assert-True ($cmSrc -match '& gh @ghArgs 2>&1' -and $cmSrc -notmatch '2>\$null') 'and gh''s stderr is captured, never discarded'
@@ -964,17 +964,62 @@ Assert-True ($cmSrc -match '& gh @ghArgs 2>&1' -and $cmSrc -notmatch '2>\$null')
 $cmJsonMarker = $cmLibMarker.Replace('<', ([string][char]92 + 'u003c')).Replace('>', ([string][char]92 + 'u003e'))
 $cmPage1 = @('{"author_association":"MEMBER","body":"first\nline two"}', ('{"author_association":"CONTRIBUTOR","body":"' + $cmJsonMarker + ' forged"}'))
 $cmPage2 = @('', ('{"author_association":"OWNER","body":"' + $cmJsonMarker + ' real"}'))
-$cmBodies = ConvertFrom-IssueCommentLines -Lines ($cmPage1 + $cmPage2)
-Assert-Equal 2 @($cmBodies).Count 'paginated output parses into the trusted bodies of every page, blank lines skipped'
-Assert-Equal "first`nline two" $cmBodies[0] 'a body''s escaped newline comes back as a newline'
+$cmComments = @(ConvertFrom-IssueCommentLines -Lines ($cmPage1 + $cmPage2))
+Assert-Equal 3 $cmComments.Count 'paginated output parses into every comment of every page, blank lines skipped'
+Assert-Equal "first`nline two" $cmComments[0].Body 'a body''s escaped newline comes back as a newline'
+$cmBodies = @((Select-TrustedCommentBodies -Comments $cmComments).Bodies)
+Assert-Equal 2 $cmBodies.Count 'the trust filter keeps the trusted bodies'
 Assert-Equal "$cmLibMarker real" $cmBodies[1] 'and an untrusted comment between them is dropped, whatever it carries'
 Assert-Equal 0 @(ConvertFrom-IssueCommentLines -Lines @()).Count 'an issue with no comments parses into none'
+
+# A PRIVATE ORG MEMBER READS AS CONTRIBUTOR TO THE WORKFLOW TOKEN (#2907): smartwatchbanden#884 carried a
+# block by an org member, and the run logged 'none was on the issue'. The author of an untrusted marker
+# comment is asked about by repo permission, and a drop is logged as a drop.
+Assert-True (Test-TrustedRepoPermission -Permission 'write') 'a writer may supply the block'
+Assert-True (Test-TrustedRepoPermission -Permission 'ADMIN') 'and so may an admin, in any case'
+Assert-True (-not (Test-TrustedRepoPermission -Permission 'read')) 'a reader may not'
+Assert-True (-not (Test-TrustedRepoPermission -Permission 'none') -and -not (Test-TrustedRepoPermission -Permission '')) 'nor no permission, nor an unknown one'
+$cmPriv = @(
+    [pscustomobject]@{ Association = 'CONTRIBUTOR'; Login = 'maikel-bwj'; Body = "$cmLibMarker`n---`nTE BEKIJKEN OP`nx`n---" },
+    [pscustomobject]@{ Association = 'NONE'; Login = 'stranger'; Body = 'no marker here' },
+    [pscustomobject]@{ Association = 'CONTRIBUTOR'; Login = 'maikel-bwj'; Body = "$cmLibMarker again" },
+    [pscustomobject]@{ Association = 'NONE'; Login = 'evil[bot]'; Body = "$cmLibMarker forged" },
+    [pscustomobject]@{ Association = 'MEMBER'; Login = 'visible'; Body = "$cmLibMarker member" }
+)
+Assert-Equal 'maikel-bwj' ((Get-PermissionCheckLogins -Comments $cmPriv) -join ',') 'only an untrusted marker comment''s user login is asked about, once -- no marker, a bot and a visible member cost no call'
+$cmTrustW = Select-TrustedCommentBodies -Comments $cmPriv -Permissions @{ 'maikel-bwj' = 'write' }
+Assert-Equal 3 @($cmTrustW.Bodies).Count 'a writer''s marker comments are carried beside the member''s'
+Assert-Equal 1 $cmTrustW.Dropped 'and the bot''s is the one dropped'
+Assert-True ($cmTrustW.Bodies[0].StartsWith($cmLibMarker)) 'in the order GitHub returned them, so the newest block still wins'
+Assert-True (@($cmTrustW.Notes) -join '|' -match "carried on repo permission 'write' \(association CONTRIBUTOR\)") 'a block carried on permission is logged with the association it overrode -- the measurement #2907 lacked'
+Assert-True (-not ((@($cmTrustW.Notes) -join '|').Contains('evil[bot]'))) 'a login that is not a user login is never printed'
+Assert-True (-not ((@($cmTrustW.Notes) -join '|').Contains('forged'))) 'and no note carries a comment body'
+$cmTrustR = Select-TrustedCommentBodies -Comments $cmPriv -Permissions @{ 'maikel-bwj' = 'read' }
+Assert-Equal 1 @($cmTrustR.Bodies).Count 'a reader''s marker comments are not carried'
+Assert-True (@($cmTrustR.Notes) -join '|' -match "by 'maikel-bwj' was not carried: association CONTRIBUTOR, repo permission 'read'") 'and the drop names the association and the permission'
+$cmTrustF = Select-TrustedCommentBodies -Comments $cmPriv -Permissions @{ 'maikel-bwj' = $null }
+Assert-True (@($cmTrustF.Notes) -join '|' -match 'permission could not be read') 'a failed permission read is a drop that says so, never a permission'
+Assert-Equal 3 $cmTrustF.Dropped 'and it counts as a drop'
+Assert-Equal 'without a go-live block -- one was on the issue but its author was not trusted (the reason is above)' (Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $true -Dropped 1) 'a dropped block is never logged as none on the issue'
+$cmPermArgs = Get-CollaboratorPermissionApiArgs -IssueRef 'BWJ-Development/smartwatchbanden#884' -Login 'maikel-bwj'
+Assert-Equal 'api|repos/BWJ-Development/smartwatchbanden/collaborators/maikel-bwj/permission|--jq|.permission' ($cmPermArgs -join '|') 'the permission is read through REST, the legacy base role alone'
+Assert-Throws { Get-CollaboratorPermissionApiArgs -IssueRef 'o/r#1' -Login '../x' } 'and a login that is not a user login never reaches the request path'
+Assert-True ($cmSrc -match 'Get-ClosedMessageBlockPhrase -Sections \$sections -ReadOk \$read\.Ok -Dropped \$dropped') 'the final log line knows about a drop'
+# The permission read itself, against a stubbed gh: a function shadows the executable for '& gh'.
+function gh { if ($script:cmGhFail) { Write-Error 'HTTP 403: Resource not accessible by integration'; $global:LASTEXITCODE = 1 } else { 'write'; $global:LASTEXITCODE = 0 } }
+$script:cmGhFail = $false
+$cmPermOk = Read-CollaboratorPermission -IssueRef 'o/r#1' -Login 'maikel-bwj'
+Assert-True ($cmPermOk.Ok -and $cmPermOk.Permission -eq 'write') 'a permission read that works answers the permission'
+$script:cmGhFail = $true
+$cmPermNo = Read-CollaboratorPermission -IssueRef 'o/r#1' -Login 'maikel-bwj'
+Assert-True (-not $cmPermNo.Ok -and $cmPermNo.ExitCode -eq 1 -and $cmPermNo.Error -match '403') 'and a refused one is reported with gh''s exit code and stderr, never as a permission'
+Remove-Item Function:\gh
 Assert-Throws { ConvertFrom-IssueCommentLines -Lines @('[{"author_association":"MEMBER"') } 'a garbled line throws, so it is reported as a failed read rather than as no block'
 Assert-Equal "with the session's go-live block" (Get-ClosedMessageBlockPhrase -Sections 'X' -ReadOk $true) 'the log says a block was carried when one was'
 Assert-Equal 'without a go-live block -- none was on the issue' (Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $true) 'it says none was on the issue only after a read that worked'
 Assert-True ((Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $false) -match 'could not be read' -and (Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $false) -notmatch 'none was on the issue') 'and a failed read says the comments could not be read, never that none was on the issue'
 Assert-True ($cmSrc -match 'could not be read: gh exited \$\(\$read\.ExitCode\): \$\(\$read\.Error\)') 'a failed read logs gh''s exit code and stderr'
-Assert-True ($cmSrc -match 'Get-ClosedMessageBlockPhrase -Sections \$sections -ReadOk \$read\.Ok') 'and the final log line is built from the read''s own outcome'
+Assert-True ($cmSrc -match 'Get-ClosedMessageBlockPhrase -Sections \$sections -ReadOk \$read\.Ok\b') 'and the final log line is built from the read''s own outcome'
 Assert-Equal 'a b' (ConvertTo-AsanaXmlText -Text ("a" + [char]0x0B + " b")) 'an XML-invalid control character is dropped, so Asana never answers 400 on it'
 Assert-Equal "it's" (ConvertTo-AsanaXmlText -Text "it's") 'an apostrophe stays as typed -- no &apos; Asana was never measured accepting'
 Assert-Equal 'Zie <a href="https://x.nl/a">https://x.nl/a</a>.' (ConvertTo-AsanaStoryHtml -Markdown 'Zie https://x.nl/a.') 'a bare URL does not swallow the full stop after it'
