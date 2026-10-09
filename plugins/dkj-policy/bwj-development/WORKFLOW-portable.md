@@ -383,14 +383,16 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   closed line, and the go-live block's sections under it. Where the issue carries no block, it posts the
   header and the closed line alone, so the requester still hears.
 - **Closing as not planned with the `awaiting-more-info` label kept on** (the parked-while-waiting pair,
-  step 6) posts one comment: the header and the on-hold line, *"GitHub issue <owner>/<repo>#<n> **is on
-  hold:** it is closed as not planned until more information comes in, and is reopened when it does."*
-  (#2902). It reads no go-live block, because nothing was built.
+  step 6) posts one comment: the header and the on-hold line, *"GitHub issue <owner>/<repo>#<n> is
+  **closed:** there is not enough information to start development yet. Once the questions above are
+  answered, the issue will be reopened and the work picks up again."* (#2902, in the requester's fixed
+  form from #2909). It reads no go-live block, because nothing was built.
 - **Closing as not planned without that label, or as a duplicate, posts nothing** (#2765): nothing was
   built, so there is nothing to test, and a rejection is said by a person.
 - **Reopening an issue** posts one comment on the linked task, whatever it was closed as: the header
-  and the reopened line, *"GitHub issue <owner>/<repo>#<n> **is reopened:** this Asana task is now back in
-  development."* (#2854, in #2656's fixed form). It moves no card and un-completes nothing, so a
+  and the reopened line, *"GitHub issue <owner>/<repo>#<n> is **reopened:** this Asana task is now back in
+  development."* (#2854, in #2656's fixed form). **Only the state word is bold**, in every one of these
+  lines (#2909). It moves no card and un-completes nothing, so a
   requester who already ticked the task off sees the comment and decides. **So a reopen is a claim
   that development has restarted, and it is made only once that is true** (Dave, October 6, 2026,
   #2856): a follow-up question or a rejection on the task is researched with the issue still closed,
@@ -768,7 +770,8 @@ remove the label**: whoever brings the answer does.
 waiting ticket off the open list. Close it as **not planned** and **keep the `awaiting-more-info` label
 on through the close**, so the pair still reads as *waiting for information* and not as a rejection. The
 question is written first, exactly as above. The `asana-closed-message` workflow then tells the task the
-issue **is on hold** (#2902) -- the label must still be on at the moment of the close, because that is
+issue is closed until there is enough information to start development, and will be reopened once the
+questions are answered (#2902) -- the label must still be on at the moment of the close, because that is
 what the workflow reads. **Never close a waiting ticket as completed to get a message out**: the closed
 line says the issue *is now closed*, which a colleague with an open question in front of them reads as
 finished.

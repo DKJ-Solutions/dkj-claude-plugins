@@ -892,7 +892,7 @@ $cmHoldXml = New-Object System.Xml.XmlDocument
 $cmHoldXml.PreserveWhitespace = $true
 $cmHoldXml.LoadXml($cmHoldHtml)
 Assert-True ($cmHoldXml.DocumentElement.InnerText -ceq (New-OnHoldMessage -IssueRef 'BWJ-Development/smartwatchbanden#882')) 'the on-hold message is well-formed XML and reads as the plain on-hold message'
-Assert-True ($cmHoldHtml.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/882">BWJ-Development/smartwatchbanden#882</a> <strong>is on hold:</strong> it is closed as not planned')) 'the issue as a link, is on hold: in bold, the reopened line''s form'
+Assert-True ($cmHoldHtml.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/882">BWJ-Development/smartwatchbanden#882</a> is <strong>closed:</strong> there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again.</body>')) 'in the requester''s fixed form (#2909): the issue as a link, only the state word in bold'
 Assert-True ($cmHoldHtml.StartsWith("<body>$(Get-ClosedMessageHeader)")) 'under the same header as the closed message'
 Assert-True (-not $cmHoldHtml.Contains('is now <strong>closed</strong>')) 'and never the closed line, which a waiting requester reads as finished'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Post) 'several different tasks is ambiguous and posts nothing'
@@ -910,7 +910,7 @@ $cmReopenXml = New-Object System.Xml.XmlDocument
 $cmReopenXml.PreserveWhitespace = $true
 $cmReopenXml.LoadXml($cmReopen)
 Assert-True ($cmReopenXml.DocumentElement.InnerText -ceq (New-ReopenedMessage -IssueRef 'BWJ-Development/smartwatchbanden#393')) 'the reopened message is well-formed XML and reads as the plain reopened message'
-Assert-True ($cmReopen.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/393">BWJ-Development/smartwatchbanden#393</a> <strong>is reopened:</strong> this Asana task is now back in development.')) 'in the requester''s fixed form (#2656): the issue as a link, is reopened: in bold'
+Assert-True ($cmReopen.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/393">BWJ-Development/smartwatchbanden#393</a> is <strong>reopened:</strong> this Asana task is now back in development.')) 'in the requester''s fixed form (#2656): the issue as a link, only the state word in bold (#2909)'
 Assert-True ($cmReopen.StartsWith("<body>$(Get-ClosedMessageHeader)")) 'under the same header as the closed message'
 
 # WHAT IT POSTS: the header, the closed line, and the block's sections under it.
