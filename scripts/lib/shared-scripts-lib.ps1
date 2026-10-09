@@ -1586,7 +1586,7 @@ function Get-SharedScriptPairs {
         @{
             # The triage-priority label adopter (issue #1895, split from #1843). Print-only, the same
             # shape Get-MissingLabelNote already established for a PR label: composes a paste-ready
-            # `gh label create` for whichever of the canonical triage labels ('prio-*', 'awaiting-more-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-first-recurrence') this repo's tracker
+            # `gh label create` for whichever of the canonical triage labels ('prio-*', 'awaiting-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first') this repo's tracker
             # is missing, and never runs it. Shared for the same reason every entry here is -- the
             # alternative is each consumer retyping four names and four colours out of a page instead
             # of a seam.

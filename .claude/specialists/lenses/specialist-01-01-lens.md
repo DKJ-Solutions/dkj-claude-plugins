@@ -68,8 +68,8 @@ is small and focused on maintaining this product — agent defs, manuals, docs, 
   other than work**: `awaiting-decision-dev` (Dave's choice), `awaiting-decision-client` (a choice from the client or requester outside the dev team, #2890), `awaiting-pull` (another issue's pull request),
   `awaiting-action-external` (an external event or date), `awaiting-action-dev` (an act only Dave performs: a live
   push, a release, a deletion), `awaiting-release` (work that runs only in the next release, which lists
-  it), `awaiting-first-recurrence` (its first reproducible
-  recurrence), or `awaiting-more-recurrences` (a record). It goes in the same `gh issue create` as the
+  it), `awaiting-recurrences-first` (its first reproducible
+  recurrence), or `awaiting-recurrences` (a record). It goes in the same `gh issue create` as the
   `prio-N`, because an unparked waiting issue reads as free work to every pickup route
   ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796): #2795 was filed waiting on
   CI runs and had to be parked by hand). What each label means is in

@@ -1234,7 +1234,7 @@ function Get-ExpectedRepoSettings {
 # composed into a paste-ready `gh label create` line by adopt-triage-labels.ps1 rather than typed by
 # hand into four separate terminals with four separate chances to mistype a hex colour.
 #
-# AND A FIFTH ENTRY THAT IS NOT A RUNG: 'awaiting-more-recurrences' (issue #2462, Dave September 24,
+# AND A FIFTH ENTRY THAT IS NOT A RUNG: 'awaiting-recurrences' (issue #2462, Dave September 24,
 # 2026), the label of a RECORD. A record is
 # a collecting issue -- every instance of one recurring problem is added to it as a comment until the
 # root cause is found, and no single repair closes it (#2454 was the first). It is a KIND of issue, not
@@ -1244,8 +1244,10 @@ function Get-ExpectedRepoSettings {
 # asserts nothing about the adopting repo. The handling rule lives in CONTRIBUTING-portable.md.
 # It was named 'dossier' until issue #2683 (Dave October 1, 2026 -- clearer, and plainer English) and
 # 'record' until issue #2723 (Dave October 2, 2026), which made the three purple labels one family of
-# issues WAITING on something: 'awaiting-more-info', 'awaiting-first-recurrence' and this one. Both old
-# names are still matched by open-pr's gate and the parking defaults, and adopt-triage-labels prints a
+# issues WAITING on something: 'awaiting-more-info', 'awaiting-first-recurrence' and this one -- and
+# 'awaiting-more-recurrences' until issue #2904 (October 9, 2026), which renamed the recurrence pair to
+# read as one: this label and 'awaiting-recurrences-first'. Every old
+# name is still matched by open-pr's gate and the parking defaults, and adopt-triage-labels prints a
 # rename rather than a create for a tracker that still carries one.
 #
 # AND A SIXTH, A PARKING LABEL: 'awaiting-decision-dev' (issue #2519, Dave September 26, 2026; 'awaiting-decision' until #2890, October 7, 2026, when it was split in two and 'dev' came to mean the owner alone; 'needs-decision' until #2741, October 3, 2026, when it joined the purple awaiting-* family and took that colour). An issue that
@@ -1256,8 +1258,8 @@ function Get-ExpectedRepoSettings {
 # question comment to the person who filed it -- and neither is true of a decision that is the owner's.
 # Same 'copy' reasoning: "waiting on the owner" asserts nothing about the adopting repo.
 #
-# AND A SEVENTH, A SECOND PARKING LABEL: 'awaiting-first-recurrence' (issue #2587, Dave September 28,
-# 2026; named 'awaiting-recurrence' until #2723).
+# AND A SEVENTH, A SECOND PARKING LABEL: 'awaiting-recurrences-first' (issue #2587, Dave September 28,
+# 2026; named 'awaiting-recurrence' until #2723 and 'awaiting-first-recurrence' until #2904).
 # An issue with one unreproduced instance whose only remaining step is its FIRST reproducible occurrence
 # was picked up four times in one day (#2572), each pickup finding nothing to build. It is deliberately
 # NOT a record: a record collects a problem that demonstrably recurs. (A record is parked TOO since
@@ -1269,7 +1271,7 @@ function Get-ExpectedRepoSettings {
 # AND AN EIGHTH, A THIRD PARKING LABEL: 'awaiting-pull' (issue #2757, Dave October 3, 2026). An issue
 # whose work cannot start until ANOTHER issue has landed through its pull request is not free work
 # either, and no existing label says so: 'awaiting-decision-dev' waits on a person's answer and
-# 'awaiting-first-recurrence' on evidence. It is a new label with no former name, in the same purple as
+# 'awaiting-recurrences-first' on evidence. It is a new label with no former name, in the same purple as
 # the rest of the awaiting-* family, and it comes off when the blocking pull request merges. Same 'copy'
 # reasoning: "waiting on another issue" asserts nothing about the adopting repo.
 #
@@ -1313,24 +1315,24 @@ $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'prio-2'; Color = 'F57C00'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
     [pscustomobject]@{ Name = 'prio-3'; Color = 'E0321A'; Description = 'Priority 3 of 4 -- do this before the ordinary backlog' }
     [pscustomobject]@{ Name = 'prio-4'; Color = 'B60205'; Description = 'Priority 4 of 4 (highest) -- takes precedence over other work' }
-    [pscustomobject]@{ Name = 'awaiting-more-recurrences'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
+    [pscustomobject]@{ Name = 'awaiting-recurrences'; Color = '5319E7'; Description = 'Collects every instance of one recurring problem until its root cause is fixed' }
     [pscustomobject]@{ Name = 'awaiting-decision-dev'; Color = '5319E7'; Description = 'Waiting on the owner''s choice -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-decision-client'; Color = '5319E7'; Description = 'Waiting on the client''s choice -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-pull'; Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-action-external'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-action-dev'; Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-release'; Color = '5319E7'; Description = 'Waiting on the next release -- parks the issue so no session picks it up' }
-    [pscustomobject]@{ Name = 'awaiting-first-recurrence'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-recurrences-first'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )
 
 function Get-TriageLabels {
     <# The canonical triage labels this workflow's consumers are invited to share -- the four
-       priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'awaiting-more-recurrences', the kind label for
+       priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'awaiting-recurrences', the kind label for
        a collecting issue, and the seven parking labels 'awaiting-decision-dev' (an issue awaiting the owner's
        choice), 'awaiting-decision-client' (an issue awaiting a choice from the client or requester outside the
        dev team), 'awaiting-pull' (an issue awaiting another issue's pull request), 'awaiting-action-external' (an issue
        awaiting an external event or date), 'awaiting-action-dev' (an issue awaiting an act only the owner
-       performs), 'awaiting-release' (an issue awaiting the next release) and 'awaiting-first-recurrence' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
+       performs), 'awaiting-release' (an issue awaiting the next release) and 'awaiting-recurrences-first' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
        a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the
        create command for whichever of them this repo's tracker is missing; it never creates a label
        itself. Optional in the script contract -- a consumer that has not answered this seam gets the

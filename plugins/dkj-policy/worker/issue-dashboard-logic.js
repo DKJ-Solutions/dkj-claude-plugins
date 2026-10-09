@@ -25,11 +25,12 @@
 // input always gives the same page.
 
 export const STATUSES = ["In review", "In progress", "Waiting", "Blocked", "Claimed", "Filed"];
-// The last eight are former names (#2683, #2723, #2741, #2890, #2896), still read because a tracker keeps a name until renamed:
-// "needs-info" is now "awaiting-more-info", "needs-decision" and "awaiting-decision" are "awaiting-decision-dev", "awaiting-recurrence" is "awaiting-first-recurrence",
-// "record" and "dossier" are "awaiting-more-recurrences", "awaiting-owner-act" is "awaiting-action-dev", and "awaiting-event" is "awaiting-action-external".
+// The last ten are former names (#2683, #2723, #2741, #2890, #2896, #2904), still read because a tracker keeps a name until renamed:
+// "needs-info" is now "awaiting-more-info", "needs-decision" and "awaiting-decision" are "awaiting-decision-dev", "awaiting-recurrence" and "awaiting-first-recurrence" are "awaiting-recurrences-first",
+// "record", "dossier" and "awaiting-more-recurrences" are "awaiting-recurrences", "awaiting-owner-act" is "awaiting-action-dev", and "awaiting-event" is "awaiting-action-external".
 export const PARKING_LABELS = [
-  "awaiting-more-info", "awaiting-decision-dev", "awaiting-decision-client", "awaiting-pull", "awaiting-action-external", "awaiting-action-dev", "awaiting-release", "awaiting-first-recurrence", "awaiting-more-recurrences",
+  "awaiting-more-info", "awaiting-decision-dev", "awaiting-decision-client", "awaiting-pull", "awaiting-action-external", "awaiting-action-dev", "awaiting-release", "awaiting-recurrences-first", "awaiting-recurrences",
+  "awaiting-first-recurrence", "awaiting-more-recurrences",
   "needs-info", "needs-decision", "awaiting-decision", "awaiting-recurrence", "record", "dossier", "awaiting-owner-act", "awaiting-event",
 ];
 

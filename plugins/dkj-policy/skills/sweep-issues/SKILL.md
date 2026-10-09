@@ -70,15 +70,15 @@ disagree you follow it and say so.
 ### 1. Choose -- and it writes nothing
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-more-info,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier,awaiting-owner-act,awaiting-event
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-more-info,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-recurrences-first,awaiting-recurrences,awaiting-first-recurrence,awaiting-more-recurrences,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier,awaiting-owner-act,awaiting-event
 ```
 
 It prints every open issue as `free`, `mine`, `held`, `branch` or `skipped` with the reason, and names
 the lowest free number. `-SkipLabel` is the labels that park an issue with somebody else; `-SkipIssue`
-holds numbers out by hand. The last eight are former names -- `needs-info` became `awaiting-more-info`, `needs-decision` and then `awaiting-decision` became `awaiting-decision-dev`,
-`awaiting-recurrence` became `awaiting-first-recurrence`, `dossier` then `record` became
-`awaiting-more-recurrences`, `awaiting-owner-act` became `awaiting-action-dev`, and `awaiting-event` became
-`awaiting-action-external` (#2683, #2723, October 2, 2026; #2741, October 3, 2026; #2890 and #2896, October 7, 2026) -- listed because a tracker keeps an old name until
+holds numbers out by hand. The last ten are former names -- `needs-info` became `awaiting-more-info`, `needs-decision` and then `awaiting-decision` became `awaiting-decision-dev`,
+`awaiting-recurrence` then `awaiting-first-recurrence` became `awaiting-recurrences-first`, `dossier` then `record` then `awaiting-more-recurrences` became
+`awaiting-recurrences`, `awaiting-owner-act` became `awaiting-action-dev`, and `awaiting-event` became
+`awaiting-action-external` (#2683, #2723, October 2, 2026; #2741, October 3, 2026; #2890 and #2896, October 7, 2026; #2904, October 9, 2026) -- listed because a tracker keeps an old name until
 somebody renames it there.
 
 **`branch` means somebody pushed work for it without a claim marker** -- a `<prefix>/<n>-<name>` branch

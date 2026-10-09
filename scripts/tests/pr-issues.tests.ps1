@@ -3318,15 +3318,16 @@ Assert-Equal 1 (@((Get-ResolvesExemptFindings -Issues @(731) -Bodies @{ '731' = 
 # --- Get-DossierClosingFindings (#2463) -- a repair of one instance does not close a dossier -------
 Write-Host ""
 Write-Host "Get-DossierClosingFindings -- the dossier label refuses a closing keyword (#2463)" -ForegroundColor Cyan
-Assert-Equal 'awaiting-more-recurrences' (Get-DossierLabelName) 'the label is the one #2462 made shared, renamed record by #2683 and awaiting-more-recurrences by #2723'
-Assert-Equal 'awaiting-more-recurrences,record,dossier' ((Get-DossierLabelNames) -join ',') 'the legacy names are still matched, newest first, after the current one'
-$dLabels = @{ 801 = @('bug', 'awaiting-more-recurrences', 'prio-3'); 802 = @('enhancement'); 803 = @('Awaiting-More-Recurrences'); '804' = @('awaiting-more-recurrences'); 805 = @(); 806 = @('dossier'); 807 = @('record') }
+Assert-Equal 'awaiting-recurrences' (Get-DossierLabelName) 'the label is the one #2462 made shared, renamed record by #2683, awaiting-more-recurrences by #2723 and awaiting-recurrences by #2904'
+Assert-Equal 'awaiting-recurrences,awaiting-more-recurrences,record,dossier' ((Get-DossierLabelNames) -join ',') 'the legacy names are still matched, newest first, after the current one'
+$dLabels = @{ 801 = @('bug', 'awaiting-recurrences', 'prio-3'); 802 = @('enhancement'); 803 = @('Awaiting-Recurrences'); '804' = @('awaiting-recurrences'); 805 = @(); 806 = @('dossier'); 807 = @('record'); 808 = @('awaiting-more-recurrences') }
 Assert-Equal '806' ((Get-DossierClosingFindings -Issues @(806) -Labels $dLabels) -join ',') 'an issue still carrying the legacy dossier label is caught too (#2683)'
 Assert-Equal '807' ((Get-DossierClosingFindings -Issues @(807) -Labels $dLabels) -join ',') 'and so is one still carrying the legacy record label (#2723)'
-Assert-Equal 0 (@(Get-DossierClosingFindings -Issues @(806) -Labels $dLabels -Label @('awaiting-more-recurrences')).Count) 'and an explicit -Label narrows the match to the names it is given'
+Assert-Equal '808' ((Get-DossierClosingFindings -Issues @(808) -Labels $dLabels) -join ',') 'and so is one still carrying the former awaiting-more-recurrences label (#2904)'
+Assert-Equal 0 (@(Get-DossierClosingFindings -Issues @(806) -Labels $dLabels -Label @('awaiting-recurrences')).Count) 'and an explicit -Label narrows the match to the names it is given'
 $former = Get-FormerTriageLabelNames
-Assert-Equal 'record,dossier' (@($former['awaiting-more-recurrences']) -join ',') 'the rename table hands adopt-triage-labels both former names of the record label (#2723)'
-Assert-Equal 'awaiting-recurrence' (@($former['awaiting-first-recurrence']) -join ',') 'and the former name of the first-recurrence parking label'
+Assert-Equal 'awaiting-more-recurrences,record,dossier' (@($former['awaiting-recurrences']) -join ',') 'the rename table hands adopt-triage-labels every former name of the record label, newest first (#2723, #2904)'
+Assert-Equal 'awaiting-first-recurrence,awaiting-recurrence' (@($former['awaiting-recurrences-first']) -join ',') 'and both former names of the first-recurrence parking label, newest first (#2723, #2904)'
 Assert-Equal 'awaiting-decision,needs-decision' (@($former['awaiting-decision-dev']) -join ',') 'and both former names of the owner-decision parking label, newest first (#2741, #2890)'
 Assert-True (-not $former.ContainsKey('awaiting-decision-client')) 'while the client-decision parking label is new and has no former name (#2890)'
 Assert-Equal 'awaiting-owner-act' (@($former['awaiting-action-dev']) -join ',') 'and the former name of the owner-act parking label (#2896)'
