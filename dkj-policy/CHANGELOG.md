@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**3 / 3 minor entries** <!-- pending-tally -->
+**4 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2907-closed-message-trust-by-permission · 20261009-101038Z
+
+`asana-closed-message` now carries the go-live block when its author is an org member whose membership is
+private. The workflow token reads such a member as `CONTRIBUTOR`, so until now the block was dropped and
+the Asana task got the bare closed line, logged as "none was on the issue". The author of a block comment
+with an untrusted association is now asked about by repo permission, and the block is carried when that
+answers admin or write. Every block comment that is carried this way or dropped is logged with its
+association and permission, and a dropped block is logged as dropped.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store repo picks this up only by copying the new `asana-closed-message.ps1` template into
+`.github/scripts/`, since the copy there does not update itself. Whether the workflow token may read the
+permission endpoint is not yet measured on a runner. The first close after the copy says which: the log
+shows either `carried on repo permission` or `permission could not be read`.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-closed-message: trust a go-live block by its author's repo permission, so private org members' blocks are carried
+
+Plugins: bwj-development
+
+[PR #2908](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2908)
+
+---
 
 ### DEPLOY: feat/2904-awaiting-recurrences-labels · 20261009-081837Z
 
