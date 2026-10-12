@@ -39,19 +39,31 @@
 
 ### PLAN
 
+Inbound #2940, verified on pickup: `guard-asana-mirror` holds issue -> card only; `asana-pickup-rules.ps1`
+checks the link and never the reach label; section 8 and report-issue's "came the other way" never name it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ProjectReachLabel` in `asana-mirror-gate.ps1`: the guard's inline `Get-ReachLabel` read, now one definition for both hooks
+- [x] `Format-AsanaReachLabelWarning` in `asana-pickup-rules.ps1`, and `asana-link-pickupcheck` reads the labels in the same `gh` call and names a linked issue without the label
+- [x] WORKFLOW-portable sections 2 and 8 and `report-issue` state that an issue made from an Asana ticket carries the reach label
 
 ### TEST
 
+- [x] `asana-link-pickupcheck.tests.ps1`: the warning, a failed label read, the project's own label name, and `Get-ProjectReachLabel`'s three paths (48 pass)
+- [x] `guard-asana-mirror.tests.ps1` still green on the shared reader (49 pass)
+
 ### DEPLOY: feat/2940-asana-origin-reach-label
 
-**Score:**
+In `bwj-development`, an issue made from an Asana ticket now carries the reach label by construction. WORKFLOW-portable sections 2 and 8 and `report-issue` say so. When `claim-issue` or `new-branch` picks up an issue that links an Asana task but lacks the label, `asana-link-pickupcheck` prints a `REACH LABEL MISSING` line with the `gh issue edit` that adds it. Until now only the issue -> card direction was enforced, by `guard-asana-mirror`. Both hooks now read the label's name through one function, `Get-ProjectReachLabel` ([#2940](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2940)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a BWJ store repo, a ticket a colleague filed in Asana no longer drops out of the minor backlog because whoever copied it into GitHub forgot the reach label. The pickup names the missing label and gives the command that adds it.
+
+**Score:** 2
 
 #### Pull Request
 
