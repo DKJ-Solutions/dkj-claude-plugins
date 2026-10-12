@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
-    SessionStart hook of bwj-development: in a store repo, says when the asana-closed-message workflow
-    is missing, differs from the template this plugin ships, or has no ASANA_PAT secret to run with.
+    SessionStart hook of bwj-development: in a store repo, says when the asana-closed-message or the
+    asana-prio-label workflow (#2945) is missing, differs from the template this plugin ships, or has no
+    ASANA_PAT secret to run with.
 
 .DESCRIPTION
     WHY THIS EXISTS (inbound #2871, October 7, 2026). The closed and reopened messages on the Asana task
@@ -15,7 +16,9 @@
     WHAT IT CHECKS, in the two Shopify store repos only (smartwatchbanden, xoxowildhearts -- the list
     adopt-bwj-development copies the workflow into; matched on the origin's repo NAME for the reason
     report-issue gives, the two stores are not in one organisation):
-      1. .github/workflows/asana-closed-message.yml and .github/scripts/asana-closed-message.ps1 exist;
+      1. .github/workflows/asana-closed-message.yml and .github/scripts/asana-closed-message.ps1 exist,
+         and so do the asana-prio-label.yml / asana-prio-label.ps1 pair beside them (#2945), each pair
+         reported on its own line with what its absence costs;
       2. each is identical to its template, line endings aside -- git may check a file out with CRLF;
       3. an ASANA_PAT secret is visible to the repo, as a repo secret or an organisation secret.
     Anywhere else it is silent: dkj-claude-plugins and phone-factory run the ticket chapter without
@@ -103,38 +106,50 @@ try {
     if ($StoreRepos -notcontains $name) { exit 0 }
 
     $remedy = "Run the 'adopt-bwj-development' skill"
-    $pairs = @(
-        @{ Repo = '.github/workflows/asana-closed-message.yml'; Template = 'asana-closed-message.yml' },
-        @{ Repo = '.github/scripts/asana-closed-message.ps1';   Template = 'asana-closed-message.ps1' }
+    # One group per workflow, so a finding names the files of ONE workflow and says what that workflow's
+    # absence costs (#2945 added the second).
+    $groups = @(
+        @{ Effect = 'closing or reopening an issue posts nothing on its Asana task'
+           StaleEffect = 'the Asana task gets an outdated closed, on-hold or reopened message'
+           Pairs = @(
+               @{ Repo = '.github/workflows/asana-closed-message.yml'; Template = 'asana-closed-message.yml' },
+               @{ Repo = '.github/scripts/asana-closed-message.ps1';   Template = 'asana-closed-message.ps1' }) },
+        @{ Effect = "an issue's prio label is never set from its Asana task's Prio-Score"
+           StaleEffect = "an issue's prio label may be set from its Asana task's Prio-Score by outdated rules"
+           Pairs = @(
+               @{ Repo = '.github/workflows/asana-prio-label.yml'; Template = 'asana-prio-label.yml' },
+               @{ Repo = '.github/scripts/asana-prio-label.ps1';   Template = 'asana-prio-label.ps1' }) }
     )
-    $missing = @()
-    $stale = @()
-    foreach ($p in $pairs) {
-        $repoFile = Join-Path $root $p.Repo
-        $templateFile = Join-Path $templates $p.Template
-        if (-not (Test-Path -LiteralPath $repoFile -PathType Leaf)) { $missing += $p.Repo; continue }
-        # A template missing from the plugin install is that install's problem, not this repo's: no
-        # comparison, and no line blaming the store for it.
-        if (-not (Test-Path -LiteralPath $templateFile -PathType Leaf)) { continue }
-        if ((Get-NormalizedText $repoFile) -cne (Get-NormalizedText $templateFile)) { $stale += $p.Repo }
-    }
+    foreach ($g in $groups) {
+        $missing = @()
+        $stale = @()
+        foreach ($p in $g.Pairs) {
+            $repoFile = Join-Path $root $p.Repo
+            $templateFile = Join-Path $templates $p.Template
+            if (-not (Test-Path -LiteralPath $repoFile -PathType Leaf)) { $missing += $p.Repo; continue }
+            # A template missing from the plugin install is that install's problem, not this repo's: no
+            # comparison, and no line blaming the store for it.
+            if (-not (Test-Path -LiteralPath $templateFile -PathType Leaf)) { continue }
+            if ((Get-NormalizedText $repoFile) -cne (Get-NormalizedText $templateFile)) { $stale += $p.Repo }
+        }
 
-    if ($missing.Count -gt 0) {
-        Write-Host ("[ERROR] bwj-development: $slug has no $($missing -join ' and '), so closing or " +
-            "reopening an issue posts nothing on its Asana task. $remedy (step 1 copies the files).")
-    }
-    if ($stale.Count -gt 0) {
-        Write-Host ("[ERROR] bwj-development: $($stale -join ' and ') in $slug differs from the template " +
-            "this plugin version ships, so the Asana task gets an outdated closed, on-hold or reopened message. " +
-            "$remedy (step 1 diffs an existing copy against the template, and taking the difference is " +
-            "the maintainer's call).")
+        if ($missing.Count -gt 0) {
+            Write-Host ("[ERROR] bwj-development: $slug has no $($missing -join ' and '), so $($g.Effect). " +
+                "$remedy (step 1 copies the files).")
+        }
+        if ($stale.Count -gt 0) {
+            Write-Host ("[ERROR] bwj-development: $($stale -join ' and ') in $slug differs from the template " +
+                "this plugin version ships, so $($g.StaleEffect). " +
+                "$remedy (step 1 diffs an existing copy against the template, and taking the difference is " +
+                "the maintainer's call).")
+        }
     }
 
     $secrets = if ($null -ne $SecretNamesOverride) { , @($SecretNamesOverride) } else { Get-VisibleSecretNames -Slug $slug }
     $readable = ($null -ne $secrets) -and -not (@($secrets) -contains $Unreadable)
     if ($readable -and -not (@($secrets) -contains 'ASANA_PAT')) {
         Write-Host ("[ERROR] bwj-development: $slug has no ASANA_PAT secret, so the asana-closed-message " +
-            "workflow cannot post on the Asana task. The repo's maintainer sets it -- see step 3 of the " +
+            "workflow cannot post on the Asana task and asana-prio-label cannot read its score. The repo's maintainer sets it -- see step 3 of the " +
             "'adopt-bwj-development' skill.")
     }
 } catch {

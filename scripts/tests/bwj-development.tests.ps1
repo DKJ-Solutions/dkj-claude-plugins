@@ -1131,6 +1131,148 @@ Assert-True ($cmYml -match 'ISSUE_LABELS:\s*\$\{\{\s*toJSON\(github\.event\.issu
 Assert-True ($cmYml -match 'persist-credentials:\s*false') 'the checkout leaves no token behind'
 Assert-True ($cmYml -notmatch '-IssueBody') 'and the body reaches the script through the environment, not the command line'
 
+# --- the prio label sync (templates/asana-prio-label.ps1, #2945) ----------------------------------
+# AFTER the closed-message section on purpose: both templates carry copies of the same helpers, and the
+# copy-equality pins below compare the two files' source text, not what is loaded.
+Write-Host "`n-- the prio label template (#2945) --" -ForegroundColor Cyan
+$plTemplate = Join-Path $PluginRoot 'templates\asana-prio-label.ps1'
+$plYmlPath  = Join-Path $PluginRoot 'templates\asana-prio-label.yml'
+foreach ($rel in @('templates\asana-prio-label.yml', 'templates\asana-prio-label.ps1')) {
+    Assert-True (Test-Path -LiteralPath (Join-Path $PluginRoot $rel)) "ships $rel"
+}
+. $plTemplate
+
+# THE MAPPING: closed at the bottom, open at the top, and nothing outside 1.00-5.00.
+$plBands = @(
+    @(1, 'prio-1'), @(1.99, 'prio-1'), @(2, 'prio-2'), @(2.99, 'prio-2'),
+    @(3, 'prio-3'), @(3.99, 'prio-3'), @(4, 'prio-4'), @(5, 'prio-4'))
+foreach ($b in $plBands) {
+    Assert-Equal $b[1] (Get-PrioLabelForScore -Score $b[0]) "score $($b[0]) is $($b[1])"
+}
+foreach ($bad in @(0.99, 5.01, 0, -1)) {
+    Assert-True ($null -eq (Get-PrioLabelForScore -Score $bad)) "score $bad names no label"
+}
+Assert-True ($null -eq (Get-PrioLabelForScore -Score $null)) 'a null score names no label'
+Assert-Equal 'prio-2' (Get-PrioLabelForScore -Score '2.5') 'a score handed over as text is read as a number'
+
+# THE SCORE IS FOUND BY NAME.
+$plTask = [pscustomobject]@{ custom_fields = @(
+    [pscustomobject]@{ name = 'Effort'; number_value = 9 },
+    [pscustomobject]@{ name = 'Prio-Score'; number_value = 3.5 }) }
+Assert-Equal 3.5 (Get-PrioScoreFromTask -Task $plTask -FieldName 'Prio-Score') 'the field is matched by name, not by position'
+Assert-Equal 9 (Get-PrioScoreFromTask -Task $plTask -FieldName 'Effort') 'and any other name finds its own field'
+Assert-True ($null -eq (Get-PrioScoreFromTask -Task $plTask -FieldName 'Missing')) 'a task without that field reads as unscored'
+Assert-True ($null -eq (Get-PrioScoreFromTask -Task ([pscustomobject]@{ gid = '1' }) -FieldName 'Prio-Score')) 'a task with no custom_fields reads as unscored'
+Assert-True ($null -eq (Get-PrioScoreFromTask -Task ([pscustomobject]@{ custom_fields = @() }) -FieldName 'Prio-Score')) 'and so does one with an empty field list'
+Assert-True ($null -eq (Get-PrioScoreFromTask -Task $null -FieldName 'Prio-Score')) 'a null task reads as unscored'
+$plEmpty = [pscustomobject]@{ custom_fields = @([pscustomobject]@{ name = 'Prio-Score'; number_value = $null }) }
+Assert-True ($null -eq (Get-PrioScoreFromTask -Task $plEmpty -FieldName 'Prio-Score')) 'a field present with no value reads as unscored'
+
+# WHAT CHANGES ON THE ISSUE: exactly one prio label, nothing else touched.
+$c = Get-PrioLabelChange -Label 'prio-3' -Current @('bug')
+Assert-Equal 'prio-3' $c.Add 'a missing label is added'
+Assert-Equal 0 @($c.Remove).Count 'and nothing is removed when no other prio label is there'
+$c = Get-PrioLabelChange -Label 'prio-3' -Current @('bug', 'prio-1', 'prio-4')
+Assert-Equal 'prio-3' $c.Add 'a rescored issue gets the new label'
+Assert-Equal 'prio-1,prio-4' (@($c.Remove) -join ',') 'and loses every OTHER prio-N'
+$c = Get-PrioLabelChange -Label 'prio-3' -Current @('prio-3', 'bug')
+Assert-True ($null -eq $c.Add) 'an issue already carrying the label adds nothing'
+Assert-Equal 0 @($c.Remove).Count 'and removes nothing: a re-run is quiet'
+$c = Get-PrioLabelChange -Label $null -Current @('prio-1', 'prio-2')
+Assert-True ($null -eq $c.Add -and @($c.Remove).Count -eq 0) 'no label (no score) changes nothing -- a hand-set label survives'
+$c = Get-PrioLabelChange -Label 'prio-2' -Current @('bug', 'priority-high', 'Prio-1', 'awaiting-info-client')
+Assert-Equal 0 @($c.Remove).Count 'labels outside the four-name set are never removed (nor are other-case lookalikes)'
+$c = Get-PrioLabelChange -Label 'bug' -Current @('prio-1')
+Assert-True ($null -eq $c.Add -and @($c.Remove).Count -eq 0) 'a label outside the four-name set is refused, so gh is never handed another label'
+$c = Get-PrioLabelChange -Label 'prio-2' -Current @()
+Assert-Equal 'prio-2' $c.Add 'an issue with no labels at all gets the label'
+
+# THE COPIED HELPERS EQUAL THEIR SOURCE. The function text is taken by AST from each file, minus its
+# leading help comment, because the copies carry their own 'a copy of ...' sentence there.
+function Get-FunctionSourceText {
+    param([string]$Path, [string]$Name)
+    $tokens = $null; $errs = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$errs)
+    $fn = $ast.Find({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $Name }, $true)
+    if (-not $fn) { return $null }
+    $text = $fn.Extent.Text -replace "`r`n", "`n"
+    return ([regex]::Replace($text, '(?s)<#.*?#>', '', 1) -replace '\s+', ' ').Trim()
+}
+$plLib = Join-Path $PluginRoot 'scripts\lib\asana-task-lib.ps1'
+foreach ($fn in @('Get-AsanaGidsFromText', 'Get-AsanaHeaderRowText', 'Resolve-AsanaTaskRef')) {
+    $mine = Get-FunctionSourceText -Path $plTemplate -Name $fn
+    Assert-True ($null -ne $mine) "the prio template defines $fn"
+    Assert-Equal (Get-FunctionSourceText -Path $plLib -Name $fn) $mine "$fn equals asana-task-lib.ps1's, apart from its help comment"
+    Assert-Equal (Get-FunctionSourceText -Path $cmTemplate -Name $fn) $mine "and equals asana-closed-message.ps1's"
+}
+$plGh = Get-FunctionSourceText -Path $plTemplate -Name 'Invoke-GhCapture'
+Assert-True ($null -ne $plGh) 'the prio template defines Invoke-GhCapture'
+Assert-Equal (Get-FunctionSourceText -Path $cmTemplate -Name 'Invoke-GhCapture') $plGh 'Invoke-GhCapture equals asana-closed-message.ps1''s'
+# And the loaded matchers answer as the lib's did (the lib's answers were taken before either template loaded).
+Assert-Equal ($cmLibRefs -join ';') (@($cmSamples | ForEach-Object { $r = Resolve-AsanaTaskRef -IssueBody $_; "$($r.Gid)|$($r.Source)" }) -join ';') 'the prio template''s matchers answer as the lib''s on every matcher shape'
+
+# THE SCRIPT'S SHAPE: one GitHub write, no Asana write, and a non-numeric GID never reaches a URL.
+$plSrc = [System.IO.File]::ReadAllText($plTemplate)
+Assert-True ($plSrc -notmatch '-Method\s+(POST|PUT|PATCH|DELETE)') 'the template never writes to Asana'
+Assert-Equal 1 ([regex]::Matches($plSrc, '(?m)^\s*\$resp = Invoke-RestMethod\b')).Count 'and makes exactly one HTTP call (a GET)'
+Assert-True ($plSrc -match "'issue', 'edit'" -and $plSrc -notmatch "'issue', 'comment'|'issue', 'close'|gh label") 'its one GitHub write is gh issue edit'
+Assert-Throws { Get-AsanaTaskScoreUri -Gid '123; rm -rf /' } 'a non-numeric GID never reaches a request URL'
+Assert-Throws { Get-AsanaTaskScoreUri -Gid "123`n" } 'a GID with a trailing newline is refused'
+Assert-True ((Get-AsanaTaskScoreUri -Gid '123') -match '^https://app\.asana\.com/api/1\.0/tasks/123\?') 'a numeric GID builds the task read'
+
+# HOW A FAILED TASK READ IS TREATED: only a 404 is a quiet skip; everything else fails the run.
+Assert-Equal 'skip' (Get-AsanaReadOutcome -Status 404) 'a 404 (task gone) is a skip'
+foreach ($st in @(401, 403, 429, 500, 502, 503, 599, 0, $null)) {
+    Assert-Equal 'failed' (Get-AsanaReadOutcome -Status $st) "status '$st' fails the run"
+}
+
+# THE ISSUE LISTING PARSE, including the PS 5.1 nested-array case (a parsed '[]' arriving as ONE object).
+Assert-Equal 0 @(ConvertFrom-IssueListJson -Text '').Count 'an empty listing text is no issues'
+Assert-Equal 0 @(ConvertFrom-IssueListJson -Text '   ').Count 'so is whitespace'
+Assert-Equal 0 @(ConvertFrom-IssueListJson -Text '[]').Count 'and so is [] -- not one phantom element, on 5.1 or 7'
+$plList = @(ConvertFrom-IssueListJson -Text '[{"number":1,"body":"a","labels":[]},{"number":2,"body":"b","labels":[{"name":"bug"}]}]')
+Assert-Equal 2 $plList.Count 'two issues parse into two elements'
+Assert-Equal 2 $plList[1].number 'each element is an issue object'
+Assert-Equal 'bug' $plList[1].labels[0].name 'with its labels'
+Assert-Equal 1 @(ConvertFrom-IssueListJson -Text '[{"number":7,"body":null,"labels":[]}]').Count 'a single-issue listing is a list of one'
+Assert-Equal 7 (@(ConvertFrom-IssueListJson -Text '[{"number":7,"body":null,"labels":[]}]'))[0].number 'whose element is the issue, not the array'
+
+# THE SWEEP'S SHAPE: lists up to 1000 and raises a warning annotation at the cap.
+Assert-True ($plSrc -match '\$limit\s*=\s*1000\b') 'the sweep''s limit is 1000'
+Assert-True ($plSrc -match "'issue', 'list'[^\r\n]*'--limit', `"\`$limit`"") 'and gh issue list is given that limit'
+Assert-True ($plSrc -match '\$issues\.Count -ge \$limit' -and $plSrc -match 'Write-Host "::warning::') 'reaching the cap emits a ::warning:: annotation'
+
+# NO ASANA_PAT: said, and not a failure. Run in a child so nothing here reads the real environment.
+$plSavedPat = $env:ASANA_PAT; $plSavedBody = $env:ISSUE_BODY
+try {
+    $env:ASANA_PAT = ''; $env:ISSUE_BODY = ''
+    $plOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $plTemplate -Mode sweep 2>&1 | ForEach-Object { "$_" }
+    Assert-Equal 0 $LASTEXITCODE 'with no ASANA_PAT the sweep exits 0'
+    Assert-True (($plOut -join "`n") -match 'ASANA_PAT is not set') 'and says why'
+    $plOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $plTemplate -Mode event -IssueRef 'o/r#1' 2>&1 | ForEach-Object { "$_" }
+    Assert-Equal 0 $LASTEXITCODE 'and so does an event run'
+} finally { $env:ASANA_PAT = $plSavedPat; $env:ISSUE_BODY = $plSavedBody }
+
+# THE WORKFLOW.
+$plYml = [System.IO.File]::ReadAllText($plYmlPath)
+Assert-True ($plYml -match 'types:\s*\[opened,\s*edited\]') 'the workflow runs on an issue opened or edited'
+Assert-True ($plYml -notmatch '(?m)^\s*types:.*\b(labeled|unlabeled)\b') 'and never on labeled or unlabeled, so a label change never wakes it'
+Assert-True ($plYml -match '(?m)^\s*schedule:' -and $plYml -match 'cron:\s*"[^"]+"') 'it has a daily sweep schedule'
+Assert-True ($plYml -match '(?m)^\s*workflow_dispatch:') 'and a manual dispatch'
+Assert-True ($plYml -notmatch '(?m)^\s*(pull_request|pull_request_target|push|issue_comment):') 'with no other trigger'
+$plPermBlock = [regex]::Match($plYml, '(?ms)^permissions:\s*\r?\n((?:[ \t]+[^\r\n]*\r?\n|[ \t]*\r?\n)+)').Groups[1].Value
+$plPerms = @([regex]::Matches($plPermBlock, '(?m)^\s+([a-z-]+):\s*(\S+)') | ForEach-Object { "$($_.Groups[1].Value)=$($_.Groups[2].Value)" } | Sort-Object)
+Assert-Equal 'contents=read,issues=write' ($plPerms -join ',') 'the token holds issues: write and contents: read, and nothing else'
+Assert-True ($plYml -match '(?m)^\s*timeout-minutes:\s*\d+') 'the job has a timeout (#2296)'
+Assert-True ($plYml -match 'persist-credentials:\s*false') 'the checkout leaves no token behind'
+$plSecrets = @([regex]::Matches($plYml, 'secrets\.([A-Za-z0-9_]+)') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
+Assert-Equal 'ASANA_PAT' ($plSecrets -join ',') 'ASANA_PAT is the only secret'
+Assert-True ($plYml -match 'ISSUE_BODY:\s*\$\{\{\s*github\.event\.issue\.body\s*\}\}') 'the issue body reaches the script through the environment'
+$plRun = [regex]::Match($plYml, '(?ms)^\s*run:\s*\|\s*\r?\n(.*)\z').Groups[1].Value
+Assert-True ($plRun -ne '') 'the run block was found'
+Assert-True ($plRun -notmatch '\$\{\{') 'and no expression is interpolated inside run:'
+Assert-True ($plYml -notmatch '-IssueBody') 'the body is never on the command line'
+
 # --- done ---------------------------------------------------------------------------------------
 Write-Host ""
 if (Write-FixtureGitSummary -Subject 'build-golive-block.ps1') { $script:fail++ }

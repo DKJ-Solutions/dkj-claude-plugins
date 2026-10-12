@@ -1,0 +1,63 @@
+# Copied from bwj-development/templates/asana-prio-label.yml into
+# .github/workflows/asana-prio-label.yml, beside .github/scripts/asana-prio-label.ps1.
+#
+# Carries the Asana task's Prio-Score onto the GitHub issue as ONE prio-N label (prio-1 lowest, prio-4
+# highest) -- the one part of the retired asana-mirror workflow (#2804) that writes to GitHub, brought
+# back on Dave's call (October 12, 2026, #2945) with two triggers: an issue opened or edited, plus a daily
+# sweep. It writes nothing on Asana, and nothing on GitHub but the four prio labels. It is a file of its
+# own so asana-closed-message can stay read-only. See bwj-development/WORKFLOW-portable.md.
+name: asana-prio-label
+
+on:
+  issues:
+    # opened and edited ONLY. Adding a label is a 'labeled' event, which is not listed, so this workflow
+    # never wakes itself.
+    types: [opened, edited]
+  schedule:
+    # Once a day: catches a score changed in Asana after the issue was last edited, and issues that
+    # predate this workflow.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # WRITE, for one thing: adding and removing the four prio-N labels ('gh issue edit').
+  issues: write
+
+# One group per issue for the events, and ONE group for the sweep (a schedule or a manual dispatch has no
+# issue number). A group holds one running and one pending run, and a newer arrival drops the pending one.
+# That is harmless here: the Asana score is read afresh and the issue's labels are read live on every
+# run, so a dropped pending run is redone by the one that stays. What the payload still fixes is the
+# issue body (and so the linked task): a run working from an older body can briefly write a stale label
+# until the newer run, which is always the one left pending, corrects it.
+concurrency:
+  group: asana-prio-label-${{ github.event.issue.number || 'sweep' }}
+  cancel-in-progress: false
+
+jobs:
+  prio-label:
+    runs-on: ubuntu-latest
+    # A job with no timeout-minutes runs to GitHub's six-hour default (#2296), holding ASANA_PAT.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # The job needs the script file and nothing else from git, so the token is not left in .git/config.
+          persist-credentials: false
+
+      - name: Give the issue the prio label its Asana task's Prio-Score names
+        shell: pwsh
+        env:
+          ASANA_PAT: ${{ secrets.ASANA_PAT }}
+          # The body is untrusted text: it reaches the script through the environment, never through
+          # an interpolation into the command below.
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_REF: ${{ github.repository }}#${{ github.event.issue.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # GITHUB_EVENT_NAME is set by the runner. An issue event labels that one issue; a schedule or a manual dispatch sweeps every open one.
+          if ($env:GITHUB_EVENT_NAME -eq 'issues') {
+            ./.github/scripts/asana-prio-label.ps1 -Mode event -IssueRef $env:ISSUE_REF
+          } else {
+            ./.github/scripts/asana-prio-label.ps1 -Mode sweep
+          }

@@ -208,8 +208,9 @@ Once the GitHub issue exists and carries the reach label, mirror it to Asana in 
 workflow's messages update the task: the closed message and the reopened message** (Dave, October 5 and 6, 2026,
 #2818 and #2854), and the on-hold message beside them (#2902). When the issue closes as completed, closes as
 not planned while waiting for information, or is reopened, the `asana-closed-message`
-workflow posts the matching one on the task (step 4). The rest of the CI
-automation that used to follow the issue is retired (steps 5 and 6). The Asana task is **not** a paste of the issue body. It is written for
+workflow posts the matching one on the task (step 4). The prio sync came
+back as its own workflow (step 5); the rest of the CI automation that used to follow the issue is
+retired (step 6). The Asana task is **not** a paste of the issue body. It is written for
 a BWJ colleague who does not read code and does not know the repo:
 
 - **Plain language, outcome-framed.** What a customer or colleague actually experiences, not what the
@@ -379,7 +380,8 @@ board's numbered sections, ran a daily reconciliation sweep, synced the task's `
 labels and posted a placeholder backstop block on the issue. Dave retired all of it that morning, and the
 same day brought back **the closed message** (#2818), and the next day **the reopened message** beside it
 (#2854); the on-hold message followed (#2902). All three are the `asana-closed-message` workflow, copied into each store by
-`adopt-bwj-development`, and it needs `ASANA_PAT` only. In practice:
+`adopt-bwj-development`, and it needs `ASANA_PAT` only. **The prio sync came back on October 12, 2026
+(#2945) as a second, separate copied workflow, `asana-prio-label`** (step 5). In practice:
 
 - **Closing an issue as completed** posts one comment on the linked task: the automation's header, the
   closed line, and the go-live block's sections under it. Where the issue carries no block, it posts the
@@ -405,7 +407,7 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   task. The issue stays closed, so nothing is done with it there. Measured on smartwatchbanden#393: reopened at the question, the answer was "this is already
   how it works", and the task kept a reopened/closed pair for work that never restarted.
 - A card stays where `report-issue` put it (`Filed`) unless a person moves it.
-- A priority is set in Asana and, where wanted, typed onto the issue by a person.
+- A priority is set in Asana and the `asana-prio-label` workflow puts it on the issue as `prio-N` (step 5).
 
 **The task is never completed by this plugin, and no code path can do it** (Dave, September 1, 2026).
 Closing a GitHub issue is a statement by whoever built the thing; resolving the ticket is a statement by
@@ -702,13 +704,20 @@ comments the workflow could not read (it reads them through REST, `gh api .../is
 its run log then says the read failed, with gh's exit code and error, rather than that no block was on
 the issue (#2875).
 
-### 5. (Retired October 5, 2026) The Asana prio score no longer comes back as a label
+### 5. (Retired October 5, 2026, back October 12, 2026) The Asana prio score comes back as a label
 
-The daily run that read the board's **`Prio-Score`** field and set one of `prio-4` / `prio-3` / `prio-2` /
-`prio-1` on the GitHub issue is retired with the rest of the mirror (Dave, October 5, 2026), and nothing
-replaces it. **The four labels themselves stay**: the source repo's own tracker ranks its issues on them,
-typed by whoever files, and a BWJ repo's priority label is now typed by a person too, from the score
-they read in Asana. The step keeps its number so the references to step 8 stay valid.
+The run that reads the board's **`Prio-Score`** field and sets one of `prio-4` / `prio-3` / `prio-2` /
+`prio-1` on the GitHub issue was retired with the rest of the mirror (Dave, October 5, 2026) and came
+back on Dave's call of October 12, 2026 ([#2945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2945)),
+as its own workflow, `asana-prio-label`, copied into each store by `adopt-bwj-development` beside
+`asana-closed-message`. It runs when an issue is opened or edited, and daily over every open issue. It
+reads the linked task's score and puts exactly one label on the issue (1.00-1.99 `prio-1`, 2.00-2.99
+`prio-2`, 3.00-3.99 `prio-3`, 4.00-5.00 `prio-4`), removing any other `prio-N`. **An unscored issue, an
+unlinked one, one whose link is ambiguous or cannot be read, and a score outside 1.00-5.00 all leave the
+labels alone**, so a label typed by a person for an unscored ticket stays. Anyone who can open or edit an
+issue chooses which task is read, which is acceptable because the store repos are private. It needs
+`ASANA_PAT` only. It mirrors the team's call, made in Asana, and makes none. The source repo's own
+tracker still ranks its issues on the same four labels, typed by whoever files.
 
 ### 6. (Retired October 5, 2026) The board's sections are no longer moved automatically
 
@@ -790,15 +799,16 @@ finished.
 - **Setup, once per repo:** the classification labels (`bug`, `feature`, the reach label, the four prio
   labels and `awaiting-info-client`) and the Asana config seam. The
   [`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md) skill walks this. **No CI secret and no
-  `.github/` file is needed for the mirror any more.**
+  `.github/` file is needed for the mirror any more**; the two copied workflows, `asana-closed-message` and
+  `asana-prio-label`, need only `ASANA_PAT`.
 - **Everything that happens to a card after it is filed.** `report-issue` puts it in `Filed`; moving it
   through the board's sections, pasting the go-live block into it and ticking it off are people's acts.
 - **Deciding a ticket is blocked on the submitter.** The `awaiting-info-client` label is a flag on the
   GitHub issue, and no automation sets, clears or reads it into Asana. Putting it on is a judgement about
   whether the request can proceed -- and it is one act with writing the question, in the form step 6
   prescribes; taking it off says the answer arrived.
-- **Scoring the ticket.** A priority is the team's call, made in Asana; typing the matching `prio-N` label
-  onto the issue is a person's act now (step 5).
+- **Scoring the ticket.** A priority is the team's call, made in Asana; `asana-prio-label` carries it onto
+  the issue (step 5), and a person types the matching `prio-N` only for a ticket not scored there.
 - **A token that can reach the tickets, locally.** `ASANA_PAT` is a *user* token: it can only see the
   workspaces that user is a member of. It is still what [`build-backlog-page`](skills/build-backlog-page/SKILL.md)
   reads the tasks with, from the session's environment, and an imported ticket often lives in the
@@ -1002,9 +1012,11 @@ matters, more than one market.
   Asana is the window the rest of BWJ looks through, not the workbench.
 - **A translation, not a copy**, because a mirrored task that is just the issue body helps nobody: a
   non-technical colleague cannot act on a stack trace, and a technical reader already has the issue.
-- **No CI mirror, and one closed message** (Dave, October 5, 2026). The card moves, the sweep, the prio
-  sync, the label comments and the backstop block were retired together, and keeping the board in step
-  with the tracker is a person's act. The closed message came back (#2818): it is the one moment the
+- **No CI mirror; two small workflows instead** (Dave, October 5 and 12, 2026). The card moves, the
+  sweep, the prio sync, the label comments and the backstop block were retired together, and keeping the
+  board in step with the tracker is a person's act. The prio sync came back on October 12 as
+  `asana-prio-label` (#2945), because it only mirrors a call the team already made in Asana. The closed
+  message came back (#2818): it is the one moment the
   requester has something to do, and the block it carries is already written by then. The reopened
   message came back beside it (#2854), because without it a requester goes on testing a result that is
   being reworked.

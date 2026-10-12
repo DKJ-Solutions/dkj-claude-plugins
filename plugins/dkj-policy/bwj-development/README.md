@@ -109,9 +109,10 @@ lands in the board's `Filed` section.
 workflow, which `adopt-bwj-development` copies into each store, post one comment on the task: the closed
 line and the go-live block the shipping session left on the issue. Reopening it posts the reopened line,
 so the requester stops testing. Closing it as not planned with `awaiting-info-client` kept on posts the
-on-hold line (#2902), so a parked ticket never reads as finished. The rest of the asana-mirror CI automation is **retired**: the moving of
-the card through the board's numbered sections, the daily reconciliation sweep, the `Prio-Score` to
-prio-label sync and the backstop comment. A card stays in `Filed` unless a person moves it. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
+on-hold line (#2902), so a parked ticket never reads as finished. The `Prio-Score` to prio-label sync came back too (Dave, October 12, 2026,
+[#2945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2945)), as the separate `asana-prio-label`
+workflow adopt copies beside it. The rest of the asana-mirror CI automation is **retired**: the moving of
+the card through the board's numbered sections, the daily reconciliation sweep and the backstop comment. A card stays in `Filed` unless a person moves it. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
 was never part of that CI. Its pickup-side counterpart, `hooks/asana-link-pickupcheck.ps1`, warns the
 session after `claim-issue` or `new-branch` picks up an issue that names Asana but links no task (#2919),
 asks about one that neither links nor mentions Asana, and names a task linked from two open issues (#2928).
@@ -186,10 +187,10 @@ all, and when the PR may open, both still the consumer's and `dkj-policy`'s.
 | [`PREVIEW-portable.md`](PREVIEW-portable.md) | chapter three in prose -- what a preview handover contains, why the control URL names the live theme id and what that still does not settle, when the handover owes a client-state reset, and why the whole pair travels as one link rather than a table |
 | [`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) | chapter four in prose -- the push-then-cut order and what it makes the backup MEAN, the three standing approvals for deleting a theme and their bounds, and why the delete set is a prefix this repo wrote |
 | [`scripts/`](scripts/) | the mechanism both stores share, to **dot-source** from the plugin cache rather than copy -- see [What this plugin owns](#what-this-plugin-owns) |
-| [`templates/`](templates/) | the one CI workflow a store **copies** rather than dot-sources, because GitHub runs a workflow only from the repo's own `.github/`: `asana-closed-message.yml` and its script, the closed, on-hold and reopened messages on the Asana task ([#2818](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2818), [#2854](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2854)) |
+| [`templates/`](templates/) | the two CI workflows a store **copies** rather than dot-sources, because GitHub runs a workflow only from the repo's own `.github/`: `asana-closed-message.yml` and its script, the closed, on-hold and reopened messages on the Asana task ([#2818](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2818), [#2854](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2854)), and `asana-prio-label.yml` and its script, the task's `Prio-Score` as a `prio-N` label ([#2945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2945)) |
 | [`worker/`](worker/) | the one Cloudflare Worker both stores publish through, as source -- deployed once, never copied into a repo, and carrying no page content of its own |
 | [`skills/`](skills/) | the skills a specialist invokes |
-| [`hooks/`](hooks/) | two hooks. The PreToolUse hook `guard-asana-mirror.ps1`: it refuses an Asana create-task call for a task that cites a GitHub issue without the reach label, which is the one chapter-one rule a session was measured forgetting ([#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)). The SessionStart check `closed-message-sessioncheck.ps1`: in the two stores it reports an `asana-closed-message` copy that is missing or differs from the template, and a missing `ASANA_PAT`, because a copy is the one delivery a plugin update cannot make ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)) |
+| [`hooks/`](hooks/) | two hooks. The PreToolUse hook `guard-asana-mirror.ps1`: it refuses an Asana create-task call for a task that cites a GitHub issue without the reach label, which is the one chapter-one rule a session was measured forgetting ([#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)). The SessionStart check `closed-message-sessioncheck.ps1`: in the two stores it reports, one finding per workflow, an `asana-closed-message` or `asana-prio-label` copy that is missing or differs from the template, and a missing `ASANA_PAT` (the line names both workflows), because a copy is the one delivery a plugin update cannot make ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871), [#2945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2945)) |
 
 **No `subagents/`, no `manuals/`, no `blueprint/`.** Agents and manuals belong to a team. A workflow
 carries hooks and a blueprint "only where it needs them". This one needed a hook once a prose rule was
@@ -421,4 +422,4 @@ why scaffolding it unconditionally at adopt time is what removes the old ambigui
 reintroducing it.
 
 Disabling the plugin removes nothing it already wrote to your repo -- the config and
-the sync log stay, and so does the `asana-closed-message` workflow adopt copied into `.github/` (delete its two files to stop the closed, on-hold and reopened messages) and any `asana-mirror` workflow an earlier adopt copied (the plugin no longer ships it, and a repo that still has the two files can delete them); the skills and the pages that explain them stop.
+the sync log stay, and so do the workflows adopt copied into `.github/`. Delete the two `asana-closed-message` files to stop the closed, on-hold and reopened messages, and the two `asana-prio-label` files to stop the prio sync. Any `asana-mirror` workflow an earlier adopt copied stays as well (the plugin no longer ships it, and a repo that still has the two files can delete them); the skills and the pages that explain them stop.
