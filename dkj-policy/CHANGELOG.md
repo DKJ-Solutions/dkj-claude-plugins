@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**7 / 7 minor entries** <!-- pending-tally -->
+**8 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2913-notes-page-url-in-closeout · 20261012-083008Z
+
+`publish-page -Kind notes` now ends with a `Close-out:` line that carries the release-notes page URL,
+once the read-back has proven what the URL serves. A BWJ store cut's receipt ends with that link, so
+the page that goes to management is in the close-out rather than in a lens or the scroll-back
+([#2913](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2913)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The person running a store cut gets the management link handed to them in the receipt, in both store
+repos.
+
+**Score:** 2
+
+#### Pull Request
+
+publish-page prints the release-notes URL as the cut's close-out line
+
+Plugins: bwj-development
+
+[PR #2916](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2916)
+
+---
 
 ### DEPLOY: fix/2912-sync-heads-first-parent · 20261012-081645Z
 
