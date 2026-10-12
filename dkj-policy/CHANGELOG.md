@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**14 / 14 minor entries** <!-- pending-tally -->
+**15 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2929-ruleset-allowed-merge-methods · 20261012-100110Z
+
+`check-repo-settings` can now watch a ruleset's `allowed_merge_methods`
+([#2929](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2929)). Declare
+`ruleset.allowed_merge_methods` in the repo-settings seam and the check reads it from the trunk's
+`pull_request` rule as a sorted set. A ruleset that lets squash back in then turns the check red, where
+before only the repo's own merge switches could be watched. Where no `pull_request` rule applies, the
+field reads as unreadable, not as an empty set. Measured at smartwatchbanden#900: a ruleset allowed
+`merge,squash,rebase` while the tooling merges with `merge`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that depends on merge commits, a store's reconciliation-base sync among them, can now have the
+scheduled settings check guard the ruleset as well as the repo switches.
+
+**Score:** 2
+
+#### Pull Request
+
+check-repo-settings reads a ruleset's allowed_merge_methods
+
+Plugins: dkj-policy
+
+[PR #2932](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2932)
+
+---
 
 ### DEPLOY: fix/2928-pickup-asks-and-one-task-one-issue · 20261012-095336Z
 
