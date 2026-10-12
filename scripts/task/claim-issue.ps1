@@ -1419,6 +1419,9 @@ if (($verdict.Action -eq 'claim' -or $verdict.Action -eq 'skip') -and $parkingLa
     foreach ($line in @(Format-ParkingLabelNote -Issue ([int]$number) -Labels $parkingLabels)) {
         Write-Host "  $line" -ForegroundColor Yellow
     }
+    # AND AT MOST ONE OF THEM (issue #2938): the rule #2936 wrote down, read from the matches in hand.
+    $labelConflict = Format-ParkingLabelConflict -Labels $parkingLabels
+    if ($labelConflict) { Write-Host "  $labelConflict" -ForegroundColor Yellow }
 }
 
 switch ($verdict.Code) {

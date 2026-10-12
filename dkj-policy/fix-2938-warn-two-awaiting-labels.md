@@ -43,17 +43,31 @@ Print one advisory line when an issue's labels match two or more of the -SkipLab
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-ParkingLabelConflict` in `claim-issue-lib.ps1`: one advisory line when two or more distinct parking labels matched, empty otherwise
+- [x] Single-issue route prints it under the `PARKED:` verdict; `-Candidates` appends it to the skip reason
+- [x] Plugin mirrors synced; the `claim-issue` skill page documents it
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: 590 passed, 0 failed -- the pair is named, one label and a case-only repeat stay silent, tracker text is stripped, the sweep still skips and names the pair, and the single-issue arm calls it without refusing
+
 ### DEPLOY: fix/2938-warn-two-awaiting-labels
 
-**Score:**
+`claim-issue` now reads the rule [#2936](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2936)
+wrote down, that an issue carries at most one `awaiting-*` label. Where an issue carries two or more
+parking labels, the single-issue claim prints a `TWO PARKING LABELS:` line under its `PARKED:` verdict,
+and `-Candidates` adds the same sentence to the skip reason. It is advisory only, refuses nothing, and
+makes no extra `gh` call ([#2938](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2938)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A session claiming or sweeping an issue with two parking labels now gets told which ones they are,
+instead of having to spot the second label itself. The failure this prevents is the lapsed label that
+nobody takes off.
+
+**Score:** 1
 
 #### Pull Request
 

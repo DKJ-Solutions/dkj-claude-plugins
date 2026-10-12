@@ -1604,6 +1604,27 @@ Assert-True ($parkArm -ne '') 'the parking arm is findable as a block'
 Assert-True (($parkArm -replace '(?m)#.*$', '') -notmatch '\bexit\b') 'and it never refuses -- a claim that blocks costs the whole assignment (#1485)'
 
 Write-Host ''
+Write-Host 'Two parking labels on one issue (#2938)' -ForegroundColor Cyan
+
+# AT MOST ONE awaiting-* LABEL (#2936): both routes name the pair, neither refuses on it.
+$conflict = Format-ParkingLabelConflict -Labels @('awaiting-pull', 'awaiting-action-external')
+Assert-True ($conflict -match "^TWO PARKING LABELS: 'awaiting-pull', 'awaiting-action-external'") 'two parking labels are named together -- the measured consumer pair'
+Assert-True ($conflict -match 'at most one awaiting-\* label \(#2936\)') 'and the line points at the rule'
+Assert-True ((Format-ParkingLabelConflict -Labels @('awaiting-pull')) -eq '') 'one label is the rule kept -- silent'
+Assert-True ((Format-ParkingLabelConflict -Labels @()) -eq '') 'no label -- silent'
+Assert-True ((Format-ParkingLabelConflict -Labels @('Awaiting-Pull', 'awaiting-pull')) -eq '') 'a name repeated in another case is one label, not two'
+Assert-True (-not (Format-ParkingLabelConflict -Labels @("x${esc}[31m", 'awaiting-pull')).Contains($esc)) 'a label name is tracker text and is stripped before printing'
+
+$twoParked = '[{"number":6,"title":"t","labels":[{"name":"awaiting-pull"},{"name":"awaiting-action-external"}],"comments":[]}]'
+$c2 = @(Get-SweepCandidates -Json $twoParked -SkipLabel @('awaiting-pull', 'awaiting-action-external'))
+Assert-True ($c2[0].Verdict -eq 'skipped') 'the sweep still skips an issue with two parking labels'
+Assert-True ($c2[0].Reason -match "^label 'awaiting-pull'; TWO PARKING LABELS") 'and its reason names the pair after the label it skipped on'
+$c1 = @(Get-SweepCandidates -Json '[{"number":6,"title":"t","labels":[{"name":"awaiting-pull"}],"comments":[]}]' -SkipLabel @('awaiting-pull'))
+Assert-True ($c1[0].Reason -eq "label 'awaiting-pull'") 'one parking label keeps the reason exactly as it was'
+
+Assert-True ($parkArm -match 'Format-ParkingLabelConflict -Labels \$parkingLabels') 'the single-issue route reads the pair inside the parking arm, from the matches already in hand'
+
+Write-Host ''
 Write-Host 'Get-OwnTagClaims -- what -ReleaseAll may release, and the bound on it (#2395)' -ForegroundColor Cyan
 
 $ownBacklog = @'
