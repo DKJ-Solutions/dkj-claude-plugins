@@ -44,6 +44,7 @@
 ### CREATE
 
 - [x] The family intro states that an issue carries at most one `awaiting-*` label, that setting one replaces the other in the same `gh issue edit`, and that a transitive wait takes the root wait's label
+- [x] Edith's pass applied: the rule covers `awaiting-info-client`, a record keeps `awaiting-recurrences` as the one exception, and the `awaiting-pull` paragraph points at the transitive case
 - [x] The intro's list of what the eight labels park now names a client's choice, which `awaiting-decision-client` added and the list had missed
 
 ### TEST
@@ -52,7 +53,7 @@
 
 ### DEPLOY: docs/2936-one-awaiting-label
 
-`CONTRIBUTING-portable.md` now states that an issue carries at most one `awaiting-*` parking label. Setting one replaces any other, in the same `gh issue edit`. Where the wait is transitive, meaning the issue waits on a pull request whose own issue is parked on something else, the issue takes the label for that root wait instead of `awaiting-pull`, and its body names the blocking issue. Closes #2936.
+`CONTRIBUTING-portable.md` now states that an issue carries at most one `awaiting-*` parking label. Setting one replaces any other, in the same `gh issue edit`. Where the wait is transitive, meaning the issue waits on a pull request whose own issue is parked on something else, the issue takes the label for that root wait instead of `awaiting-pull`, and its body names the blocking issue. A record is the one exception: it keeps `awaiting-recurrences`, because that label governs how it is closed. Closes #2936.
 
 **Score:** 2
 

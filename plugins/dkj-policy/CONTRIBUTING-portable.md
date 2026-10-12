@@ -171,10 +171,13 @@ eight alike.
 The label says why nothing can move *now*, and that is a single reason. Two labels side by side leave the
 next reader to work out which one still holds, and the one that has lapsed never gets taken off. So you
 remove the old label in the same `gh issue edit` that adds the new one
-(`--add-label <new> --remove-label <old>`). **When the wait is transitive, take the label for the root
-wait.** An issue that waits on another issue's pull request, where that issue is itself parked on
-something else, takes the blocking issue's label rather than `awaiting-pull`, because that label names
-the wait that has to clear first. Measured in a consumer: an issue waiting on a pull request whose own
+(`--add-label <new> --remove-label <old>`). The rule covers the eight below and also `awaiting-info-client`
+where `bwj-development` is installed. **A record is the one exception: it keeps `awaiting-recurrences`
+and takes no second label**, because that label also governs how the issue is closed (below), and
+removing it would undo that. **When the wait is transitive, take the label for the root wait.** An issue
+that waits on another issue's pull request, where that other issue is itself parked, takes the blocking
+issue's `awaiting-*` label rather than `awaiting-pull`, because that label names the wait that has to
+clear first. Where the blocking issue is not parked, `awaiting-pull` stands. Measured in a consumer: an issue waiting on a pull request whose own
 issue was parked on `awaiting-action-external` was given `awaiting-action-external` *beside*
 `awaiting-pull`, because no text forbade two, and the requester corrected it to the single root label.
 State the blocking issue's number in the body, so the chain can still be read once the root wait clears
@@ -288,7 +291,8 @@ never filed beside.
 cannot start until a different issue has merged is not free work, and `awaiting-decision-dev` (a person's
 answer) and `awaiting-recurrences-first` (evidence) say something else. Both pickup routes skip it by
 default, `claim-issue <n>` warns that the issue is parked, and the label comes off when the blocking pull
-request merges. It is a new label, so no former name is matched for it.
+request merges. Where the blocking issue is itself parked, the issue takes that issue's label instead,
+by the one-label rule above, and moves to `awaiting-pull` once that root wait clears. It is a new label, so no former name is matched for it.
 
 **`awaiting-action-external` parks an issue that waits on an external event or date** (a launch, a third party's
 release; [#2784](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2784), Dave, October 3, 2026).
