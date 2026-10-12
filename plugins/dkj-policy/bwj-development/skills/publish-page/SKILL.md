@@ -40,7 +40,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 
 It reads the built page out of the page directory, checks it against Cloudflare's KV value ceiling,
 uploads it under this repo's own path token, **reads the value back and compares SHA-256**, and
-prints the link.
+prints the link. For `-Kind notes` it then prints a `Close-out:` line carrying that link, and **the cut's
+receipt ends with it**: it is the page that goes to management, so nobody has to look the URL up
+afterwards ([#2913](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2913)).
 
 **It does not build the page.** Building stays somebody else's step:
 

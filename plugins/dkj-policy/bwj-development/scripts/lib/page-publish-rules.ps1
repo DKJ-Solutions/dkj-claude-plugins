@@ -187,6 +187,22 @@ function Get-BwjPageUrl {
     return ($BaseUrl.TrimEnd('/') + "/$Kind/$Token")
 }
 
+function Format-BwjPageCloseOut {
+    <#
+        The close-out line a verified publish prints, so the cut's receipt carries the link without
+        anybody looking it up (#2913, asked at smartwatchbanden v2.47.0, October 12, 2026). The receipt
+        prints itself from the script that ends the chain (#1884), and this is the one script that holds
+        the URL at the moment it has been proven to serve the page. '' for a kind that is no cut's
+        receipt: the backlog page is published on its own schedule.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Kind,
+        [Parameter(Mandatory)][string]$Url
+    )
+    if ($Kind -ne 'notes') { return '' }
+    return "Close-out: the cut's receipt ends with this link -- the release-notes page that goes to management: $Url"
+}
+
 function Get-BwjPageKvApiUrl {
     <#
         Cloudflare's KV value endpoint for one key. The key is escaped even though every key this
