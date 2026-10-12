@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**21 / 22 minor entries** <!-- pending-tally -->
+**22 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2945-asana-prio-label-sync · 20261012-125435Z
+
+In `bwj-development`, the Asana `Prio-Score` -> `prio-N` label sync is back, as a second copied workflow, `asana-prio-label`. It was retired with the `asana-mirror` workflow on October 5. It runs when an issue is opened or edited and once a day over every open issue. It puts exactly one of `prio-1` to `prio-4` on the issue and leaves the labels alone when there is no readable score. A failed Asana read fails the run instead of passing green. `adopt-bwj-development` copies it into the two stores, and `closed-message-sessioncheck` reports a missing or stale copy ([#2945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2945)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In a BWJ store repo, an issue linked to a scored Asana ticket gets its priority label without anybody typing it, so the backlog page ranks it again. A store takes it by re-running `adopt-bwj-development`. The session check names the two missing files until it has.
+
+**Score:** 3
+
+#### Pull Request
+
+The Asana Prio-Score -> prio-N label sync is back, as its own workflow
+
+Plugins: bwj-development
+
+[PR #2948](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2948)
+
+---
 
 ### DEPLOY: feat/2943-golive-live-since · 20261012-123133Z
 
