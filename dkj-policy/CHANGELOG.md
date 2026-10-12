@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**5 / 5 minor entries** <!-- pending-tally -->
+**6 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2911-obligations-read-reach-section · 20261012-080317Z
+
+`prepare-release` now finds go-live obligations written in an entry's reach section
+(`#### What makes this deploy extra special`), not only in the text above it. In a tier-1 store that
+section is where an author writes what somebody must do after the live push. At smartwatchbanden
+v2.47.0 the run reported 0 obligations across 37 entries while one sat there: *"Once this is live,
+test 0212-26 can be switched off in Convert."* Only the Pull Request section, a title and a link, is
+still left out
+([#2911](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2911)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store team preparing a release on Friday sees, in step 6, the experiments and settings they must
+switch after Monday's push, where it printed an empty list before.
+
+**Score:** 3
+
+#### Pull Request
+
+prepare-release reads go-live obligations in an entry's reach section too
+
+Plugins: bwj-development
+
+[PR #2914](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2914)
+
+---
 
 ### DEPLOY: fix/2909-closed-message-bold-state-word · 20261009-105047Z
 
