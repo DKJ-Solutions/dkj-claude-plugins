@@ -569,6 +569,15 @@ issue for its open question rather than to open the branch.
 the answer is already on the thread, remove the label and carry on; where it is not, the answer is owed
 first, and it is not the claimant's to give.
 
+**And it says so when an issue carries two**
+([#2938](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2938)). An issue carries at most one
+`awaiting-*` label ([#2936](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2936)), and
+measured in a consumer, `awaiting-pull` sat beside `awaiting-action-external` until the requester removed
+one by hand. So where two or more of the matched labels are distinct, the `PARKED:` verdict is followed
+by a `TWO PARKING LABELS:` line naming them all, and `-Candidates` adds the same sentence to the
+issue's skip reason. It reads the matches already in hand, so it costs no `gh` call. It also warns and
+never refuses, because which label still holds is for the thread to say.
+
 **It sees only a label.** An issue whose open choice lives in prose alone reads as unparked here, which
 was the case in the measurement too. So an owner's choice carries `awaiting-decision-dev` from the moment it
 is filed ([#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)), and the filing

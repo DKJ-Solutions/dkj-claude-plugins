@@ -2621,6 +2621,42 @@ function Format-ParkingLabelNote {
     )
 }
 
+function Format-ParkingLabelConflict {
+    <#
+        .SYNOPSIS
+            One advisory sentence when an issue carries TWO OR MORE parking labels (issue #2938); EMPTY
+            otherwise.
+
+        .DESCRIPTION
+            AN ISSUE CARRIES AT MOST ONE `awaiting-*` LABEL (#2936, CONTRIBUTING-portable.md): the label
+            names the one reason nothing can move now, and two side by side leave the next reader to work
+            out which still holds -- measured in a consumer, `awaiting-pull` beside
+            `awaiting-action-external` until the requester corrected it by hand. Both pickup routes already
+            hold the labels against the skip list, so this costs no call: it reads the matches they made.
+
+            WARNS, NEVER REFUSES (#1485). Which label still holds is the thread's to say, not this check's,
+            so it names them all and points at the rule. Duplicates differing only in case count once.
+
+        .PARAMETER Labels
+            The matched parking labels (Select-ParkingLabels).
+
+        .OUTPUTS
+            A string; EMPTY when fewer than two distinct labels matched.
+    #>
+    param(
+        [AllowNull()][string[]]$Labels = @()
+    )
+
+    $distinct = New-Object System.Collections.Generic.List[string]
+    foreach ($label in @(@($Labels) | Where-Object { $_ -and ([string]$_).Trim() })) {
+        $name = ([string]$label).Trim()
+        if (@($distinct | Where-Object { $_ -ieq $name }).Count -eq 0) { $distinct.Add($name) | Out-Null }
+    }
+    if ($distinct.Count -lt 2) { return '' }
+    $named = (@($distinct | ForEach-Object { "'$(Format-ForConsole -Text ([string]$_))'" }) -join ', ')
+    return "TWO PARKING LABELS: $named -- an issue carries at most one awaiting-* label (#2936), so read the thread for the wait that still holds and remove the other."
+}
+
 function Format-ClaimOpening {
     <#
         .SYNOPSIS
@@ -2745,6 +2781,8 @@ function Get-SweepCandidates {
             if ($hit.Count -gt 0) {
                 $verdict = 'skipped'
                 $reason = "label '$($hit[0])'"
+                $conflict = Format-ParkingLabelConflict -Labels $hit
+                if ($conflict) { $reason = "$reason; $conflict" }
             }
         }
 
