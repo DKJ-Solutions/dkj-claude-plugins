@@ -394,7 +394,22 @@ function Get-GoLiveBlockLead {
         THE CLOSED MESSAGE CARRIES IT (#2818, Dave, October 5, 2026). The asana-mirror workflow did so
         from #2700/#2703 until it was retired that morning; the closed message was the one part brought
         back, as the asana-closed-message workflow, so the sentence says again that nobody pastes it.
+
+        BUT ONLY WHERE THE ISSUE LINKS ITS TASK (#2918). The closed message finds the task through
+        Resolve-AsanaTaskRef on the issue body, and posts nothing where that answers 'none' or
+        'ambiguous'. Measured on BWJ-Development/xoxowildhearts#404: an Asana-originated issue with no
+        link got the 'no paste needed' sentence, so everybody who read it was told the requester would
+        hear, and the requester would have heard nothing. -AsanaLink names what the driver resolved;
+        'linked' is the default, which keeps a caller that never resolved anything on today's sentence.
+        'unchecked' is an issue the driver could not read, posted past that with -Force: the promise is
+        made conditional rather than asserted without evidence.
     #>
+    param([ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked')
+    switch ($AsanaLink) {
+        'unchecked' { return 'If this issue links its Asana task, the closed message carries the block below into it when the issue closes as completed -- the link could not be checked:' }
+        'none'      { return 'This issue links no Asana task, so nothing carries the block below into Asana when it closes -- link the task, or paste it there by hand:' }
+        'ambiguous' { return 'This issue links more than one Asana task, so the closed message will not guess which one gets the block below -- mark the right one, or paste it there by hand:' }
+    }
     return 'The closed message carries the block below into the Asana task when this issue closes as completed -- no paste needed:'
 }
 
@@ -473,7 +488,9 @@ function Format-GoLiveBlock {
         [ValidateSet('nl', 'en')][string]$Language = 'nl',
         [string[]]$Changed = @(),
         [string[]]$WhereToLook = @(),
-        [string[]]$NotIncluded = @()
+        [string[]]$NotIncluded = @(),
+        # What the driver resolved the issue's Asana link to (#2918); the lead follows it.
+        [ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked'
     )
 
     $t    = Get-GoLiveBlockText -Language $Language
@@ -482,7 +499,7 @@ function Format-GoLiveBlock {
     $lines = @(
         $Marker,
         '',
-        (Get-GoLiveBlockLead),
+        (Get-GoLiveBlockLead -AsanaLink $AsanaLink),
         '',
         '---',
         $t.Header,
