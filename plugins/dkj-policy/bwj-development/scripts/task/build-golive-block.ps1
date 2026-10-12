@@ -494,6 +494,38 @@ if (-not $ForceArg -and $asanaLink -ne 'linked') {
     exit 1
 }
 
+# THE WORK MUST BE IN A PULL REQUEST BEFORE THE BLOCK IS POSTED (#2930). The block says 'is now closed' and
+# names a release day, so it is true only once the work is on its way to the trunk; at the preview it is a
+# closed message on an unfinished issue. -OutFile is not held back -- the handover page embeds the block --
+# only the post is. Read through GraphQL, because 'gh issue view' gives the closing PRs without their state.
+# An unreadable answer refuses too, for the reason the checks above do; -Force is the deliberate early post.
+if (-not $ForceArg) {
+    $landingState = 'unread'
+    $repoParts = $StoreRepo -split '/', 2
+    if ($repoParts.Count -eq 2) {
+        $landingQuery = 'query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){closedByPullRequestsReferences(first:20,includeClosedPrs:true){nodes{number state}}}}}'
+        $landingRun = Invoke-Native { gh api graphql -f "query=$landingQuery" -f "owner=$($repoParts[0])" -f "name=$($repoParts[1])" -F "num=$issueNumber" }
+        if ($landingRun.Code -eq 0 -and $landingRun.Output.Count -gt 0) {
+            try {
+                $landingJson = ($landingRun.Output -join "`n") | ConvertFrom-Json
+                $landingState = Get-GoLivePostReadiness -Nodes @($landingJson.data.repository.issue.closedByPullRequestsReferences.nodes)
+            } catch { $landingState = 'unread' }
+        }
+    }
+    if ($landingState -eq 'none' -or $landingState -eq 'unread') {
+        if ($landingState -eq 'unread') {
+            Write-Host "[ERROR] Could not read which pull requests close $targetRef, so whether its work has landed is unchecked." -ForegroundColor Red
+        } else {
+            Write-Host "[ERROR] No open or merged pull request closes $targetRef, so the block's 'is now closed' and its release day" -ForegroundColor Red
+            Write-Host "        would not be true yet. Post it at the PR step: after the owner's look on a visible result, once the" -ForegroundColor Red
+            Write-Host "        PR carrying 'Closes #$issueNumber' is open. At the preview, -OutFile gives the handover page its copy." -ForegroundColor Red
+        }
+        Write-Host "        Nothing posted. Re-run with -Force for a deliberate early post." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "  landing  : a pull request closing $targetRef is $landingState" -ForegroundColor DarkGray
+}
+
 # Test-AsanaPasteBlockPosted answers TRUE where it cannot READ the comments, so a blind duplicate is
 # never posted; an unreadable issue is reported as exactly that and -Force is the way past it.
 if ((Test-AsanaPasteBlockPosted -IssueRef $targetRef) -and -not $ForceArg) {

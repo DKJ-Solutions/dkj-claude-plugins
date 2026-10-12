@@ -3,7 +3,7 @@ name: golive-block
 description: >-
   Write the paste-ready block for a GitHub issue, including its go-live half: where the result can be
   seen, when it is planned to go live (the next release day), and the live storefront URL per market.
-  Use it as the closing act of the chain that shipped the work, while the issue is still OPEN, then close the issue as completed:
+  Use it at the PR step of the chain that ships the work, never at the preview, while the issue is still OPEN, then close the issue as completed:
   the asana-closed-message workflow then carries the block into the Asana task as its closed message, so nobody pastes it.
   It prints by default and posts only with -Post; it never touches Asana itself, and it never
   writes a placeholder link.
@@ -139,7 +139,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
-| `-Force` | post although a block already appears to be there, a store-admin prerequisite is still open, the issue links no single Asana task, or the issue could not be read |
+| `-Force` | post although a block already appears to be there, a store-admin prerequisite is still open, the issue links no single Asana task, no open or merged pull request closes it yet, or the issue could not be read |
 | `-AllowPrivateLink` | accept a `claude.ai` Artifact as `-Link` once it has actually been shared with the requester. Kept apart from `-Force` so that posting a second block never also lets a private link through |
 
 ## What it deliberately does not do
@@ -168,8 +168,16 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 ## The order is the rule, and this script is the second-to-last step
 
 ```text
-work shipped -> build-golive-block -Post -> close the GitHub issue (the block stays on the issue)
+owner's look (a visible result) -> PR open -> build-golive-block -Post -> merge, close the issue (the block stays on it)
 ```
+
+**Not before the PR** ([#2930](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2930)). The block says
+*"is now closed"* and names a release day, and neither is true while nobody has looked. `-Post` reads
+the issue's closing pull requests and refuses until one is open or merged, or when it cannot read them.
+An open PR is the right evidence, because a visible result opens none before the owner's look.
+Measured on `xoxowildhearts#402`: the block went on nine seconds after the preview handover, and the owner
+asked why an unfinished issue carried a closed message. At the preview, `-OutFile` alone gives the handover
+page its copy. `-Force` is for a deliberate early post.
 
 **While the issue is still OPEN.** Nobody returns to a closed one, which is the whole finding behind
 [#2049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2049): a comment posted at the close

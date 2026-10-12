@@ -684,7 +684,10 @@ the `asana-closed-message` workflow posts the block on the task when the issue c
 That carry needs the issue body to link its task, so the script checks the link with the workflow's own
 matcher before it promises anything. On an issue that links no task, or several, `-Post` refuses
 until the marker is added, and `-Force` is for a GitHub-only issue
-([#2918](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2918)).
+([#2918](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2918)). **`-Post` also waits for a
+pull request.** It refuses until a PR that closes the issue is open or merged, so a block saying *"is now
+closed"* never sits on work nobody has looked at. At the preview, `-OutFile` gives the handover page its
+copy ([#2930](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2930)).
 
 **It carries the marker, and only the marker.** The duplicate check (`Test-AsanaPasteBlockPosted`, which
 makes the script refuse a second block unless told otherwise) rides on `<!-- asana-paste-block -->`,

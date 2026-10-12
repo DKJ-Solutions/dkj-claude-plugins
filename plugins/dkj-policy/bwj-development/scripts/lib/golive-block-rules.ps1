@@ -413,6 +413,27 @@ function Get-GoLiveBlockLead {
     return 'The closed message carries the block below into the Asana task when this issue closes as completed -- no paste needed:'
 }
 
+function Get-GoLivePostReadiness {
+    <#
+        Pure: whether the issue's work has reached a pull request, read from the issue's closing-PR
+        references (GraphQL closedByPullRequestsReferences nodes, each with a 'state'). Returns 'merged'
+        when any is merged, 'open' when one is open, and 'none' otherwise -- no reference, or only PRs
+        closed without merging.
+
+        WHY A PR AND NOT A LOOK (#2930). The block opens with 'is now closed' and names a release day, so
+        posting it is only true once the work is on its way to the trunk. Measured on
+        BWJ-Development/xoxowildhearts#402: -Post ran nine seconds after the preview handover, with no
+        PR and the owner's look still open, and the owner asked why an unfinished issue had a closed
+        message. A PR is the right evidence because a visible result opens none before the owner has
+        looked (the constitution's merge rule), so an open PR already means the look is done.
+    #>
+    param([object[]]$Nodes = @())
+    $states = @(@($Nodes) | Where-Object { $_ } | ForEach-Object { ([string]$_.state).ToUpperInvariant() })
+    if ($states -contains 'MERGED') { return 'merged' }
+    if ($states -contains 'OPEN')   { return 'open' }
+    return 'none'
+}
+
 function Format-GoLiveClosedLine {
     <#
         Pure: the closed line, in Markdown -- the issue name as a link, the verb bold (#2700).

@@ -450,6 +450,12 @@ Assert-Equal (Get-GoLiveBlockLead) (Get-GoLiveBlockLead -AsanaLink linked) 'the 
 Assert-True ((Get-GoLiveBlockLead -AsanaLink none) -notmatch 'no paste needed' -and (Get-GoLiveBlockLead -AsanaLink none) -match 'links no Asana task') 'an unlinked issue''s lead says nothing reaches Asana'
 Assert-True ((Get-GoLiveBlockLead -AsanaLink ambiguous) -notmatch 'no paste needed' -and (Get-GoLiveBlockLead -AsanaLink ambiguous) -match 'more than one Asana task') 'and an ambiguous one says the close will not guess'
 Assert-True ((Get-GoLiveBlockLead -AsanaLink unchecked) -notmatch 'no paste needed' -and (Get-GoLiveBlockLead -AsanaLink unchecked) -match '^If this issue links') 'an issue that could not be read gets a conditional lead, never the promise'
+# THE POST WAITS FOR A PULL REQUEST (#2930): a merged or open closing PR is landing work; none, or only one
+# closed without merging, is not.
+Assert-Equal 'merged' (Get-GoLivePostReadiness -Nodes @([pscustomobject]@{ number = 1; state = 'CLOSED' }, [pscustomobject]@{ number = 2; state = 'MERGED' })) 'a merged closing PR is landed work'
+Assert-Equal 'open' (Get-GoLivePostReadiness -Nodes @([pscustomobject]@{ number = 3; state = 'OPEN' })) 'an open one is on its way'
+Assert-Equal 'none' (Get-GoLivePostReadiness -Nodes @([pscustomobject]@{ number = 4; state = 'CLOSED' })) 'a PR closed without merging is not'
+Assert-Equal 'none' (Get-GoLivePostReadiness -Nodes @()) 'and no PR at all is the measured #402'
 $glUnlinked = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'maandag 21 september 2026' -AsanaLink none
 Assert-True ($glUnlinked.Contains((Get-GoLiveBlockLead -AsanaLink none)) -and $glUnlinked -notmatch 'no paste needed') 'Format-GoLiveBlock passes the link state through to its lead'
 
@@ -568,6 +574,9 @@ Assert-True ($goLiveDriver -match '(?m)^\$bodyFile = Join-Path') 'the body file 
 Assert-True ($goLiveDriver -match 'if \(\$PostArg -or \$OutFileArg\) \{(\s+#[^\n]*)?\s+\$issueJson = \$null\s+try \{ \$issueRun = Invoke-Native') 'the issue is read for prerequisites only where the block leaves the console'
 Assert-True ($goLiveDriver -match 'if \(-not \$ForceArg -and \(\$prereqUnread -or \$prereqOpen\.Count -gt 0\)\)') 'an open or unreadable checklist refuses the post unless -Force'
 Assert-True ($goLiveDriver.IndexOf('$prereqUnread -or $prereqOpen.Count') -lt $goLiveDriver.IndexOf('gh issue comment $issueNumber')) 'and it refuses before the comment is posted'
+$glLandingCall = $goLiveDriver.IndexOf('Get-GoLivePostReadiness -Nodes')
+Assert-True ($glLandingCall -gt 0 -and $glLandingCall -lt $goLiveDriver.IndexOf('gh issue comment $issueNumber')) 'the pull-request check (#2930) runs before the comment is posted'
+Assert-True ($glLandingCall -gt $goLiveDriver.IndexOf('if (-not $PostArg) {')) 'and only on the post path, so -OutFile at the preview never asks it'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
 # to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path
@@ -715,7 +724,31 @@ try {
         $glLinked = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
             -RootOverride $glRoot -OutFile $glOutFile 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
         $glLinkedFile = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
+        # A LINKED ISSUE STILL NEEDS ITS PR (#2930). First the stand-in answers no 'api graphql', so the
+        # landing read fails, and an unreadable answer refuses like the checks before it.
+        $glUnread = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -Post 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+        $glUnreadCode = $LASTEXITCODE
+        # Then it answers the real response shape, so the JSON path the driver reads is exercised too: no PR,
+        # then an open one -- which gets past the check to the comment, where the stand-in fails.
+        [System.IO.File]::WriteAllText((Join-Path $glGhDir 'gh.cmd'),
+            ("@echo off`r`nif `"%1 %2`"==`"issue view`" (type `"%~dp0issue.json`" & exit /b 0)`r`n" +
+             "if `"%1 %2`"==`"api graphql`" (type `"%~dp0graphql.json`" & exit /b 0)`r`nexit /b 1`r`n"),
+            (New-Object System.Text.UTF8Encoding $false))
+        $glGraphql = Join-Path $glGhDir 'graphql.json'
+        [System.IO.File]::WriteAllText($glGraphql, '{"data":{"repository":{"issue":{"closedByPullRequestsReferences":{"nodes":[]}}}}}', (New-Object System.Text.UTF8Encoding $false))
+        $glNoPr = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -Post 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+        $glNoPrCode = $LASTEXITCODE
+        [System.IO.File]::WriteAllText($glGraphql, '{"data":{"repository":{"issue":{"closedByPullRequestsReferences":{"nodes":[{"number":12,"state":"OPEN"}]}}}}}', (New-Object System.Text.UTF8Encoding $false))
+        $glOpenPr = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -Post 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
     } finally { $env:PATH = $glPath }
+    Assert-Equal 1 $glUnreadCode '-Post refuses where it cannot read which pull requests close the issue'
+    Assert-True ($glUnread.Contains('which pull requests close o/r#7') -and $glUnread.Contains('deliberate early post')) 'and says what it could not check, and the -Force valve'
+    Assert-Equal 1 $glNoPrCode '-Post refuses while no pull request closes the issue -- the measured #402'
+    Assert-True ($glNoPr.Contains('No open or merged pull request closes o/r#7') -and $glNoPr.Contains('Closes #7')) 'and says to post at the PR step, naming the closing keyword'
+    Assert-True ($glOpenPr.Contains('landing  : a pull request closing o/r#7 is open') -and $glOpenPr -notmatch 'No open or merged') 'an open closing PR passes the check, read from the real response shape'
     Assert-Equal 1 $glNoLinkCode '-Post on an issue that links no Asana task is refused'
     Assert-True ($glNoLink.Contains('Nothing posted') -and $glNoLink.Contains('GitHub-only')) 'and names the -Force valve for a GitHub-only issue'
     Assert-True ($glNoLink.Contains('asana-task: <gid>')) 'and names the marker that fixes it'
