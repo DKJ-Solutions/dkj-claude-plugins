@@ -681,6 +681,10 @@ applying one paragraph further down.
 
 **The script does not touch Asana.** It writes the GitHub half only, and the close carries it across:
 the `asana-closed-message` workflow posts the block on the task when the issue closes as completed.
+That carry needs the issue body to link its task, so the script checks the link with the workflow's own
+matcher before it promises anything. On an issue that links no task, or several, `-Post` refuses
+until the marker is added, and `-Force` is for a GitHub-only issue
+([#2918](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2918)).
 
 **It carries the marker, and only the marker.** The duplicate check (`Test-AsanaPasteBlockPosted`, which
 makes the script refuse a second block unless told otherwise) rides on `<!-- asana-paste-block -->`,

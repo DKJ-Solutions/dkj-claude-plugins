@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**9 / 9 minor entries** <!-- pending-tally -->
+**10 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2918-golive-block-checks-asana-link · 20261012-090906Z
+
+`build-golive-block` now checks the issue's Asana link before it promises anything. It uses
+`Resolve-AsanaTaskRef`, the matcher `asana-closed-message` uses. The issue body may link no task, or
+more than one. Then the lead no longer says *"no paste needed"* and `-OutFile` warns. `-Post` refuses
+until the `<!-- asana-task: <gid> -->` marker is added, and `-Force` covers an issue that is
+GitHub-only. A print-only run still reads nothing
+([#2918](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2918)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store team no longer tells a requester "no paste needed" on an issue whose close reaches nobody.
+Measured on xoxowildhearts#404: an Asana-filed bug, unlinked, got that promise, and its reporter would
+have heard nothing when it shipped.
+
+**Score:** 3
+
+#### Pull Request
+
+build-golive-block checks the issue links an Asana task before promising the closed message carries the block
+
+Plugins: bwj-development
+
+[PR #2921](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2921)
+
+---
 
 ### DEPLOY: feat/2917-awaiting-info-client · 20261012-084728Z
 

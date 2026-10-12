@@ -63,6 +63,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    and `-Force` gets past it
    ([#2885](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2885)). The checklist's form is in
    `WORKFLOW-portable.md`, under *Store-admin prerequisites*. A print-only run reads nothing.
+9. **The Asana link** -- the same read resolves the issue body's link with `Resolve-AsanaTaskRef`, the
+   matcher the `asana-closed-message` workflow uses. The checked forms are the `<!-- asana-task: <gid> -->`
+   marker, the `| **Asana** |` row, or one sole task URL. Where the body links **no** task, or more than
+   one, the close carries nothing into Asana. The lead then says so instead of *"no paste needed"*,
+   `-OutFile` **warns**, and `-Post` **refuses**. Add the marker (`report-issue` step 3) and run it again,
+   or pass `-Force` for an issue that is GitHub-only
+   ([#2918](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2918)).
 
 ## The prose file
 
@@ -132,7 +139,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
-| `-Force` | post although a block already appears to be there, a store-admin prerequisite is still open, or the issue could not be read |
+| `-Force` | post although a block already appears to be there, a store-admin prerequisite is still open, the issue links no single Asana task, or the issue could not be read |
 | `-AllowPrivateLink` | accept a `claude.ai` Artifact as `-Link` once it has actually been shared with the requester. Kept apart from `-Force` so that posting a second block never also lets a private link through |
 
 ## What it deliberately does not do
@@ -148,7 +155,8 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
   `asana-closed-message` workflow posts the block on the task as its closed message (#2818), the job the
   retired `asana-mirror` did from #2700. So the framing sentence above the rules reads *"The closed
   message carries the block below into the Asana task when this issue closes as completed -- no paste
-  needed:"*. A close as not planned sends no block: it sends nothing, or -- with `awaiting-info-client` kept
+  needed:"* -- on an issue whose body links its task (step 9); on one that does not, the sentence says
+  that nothing will reach Asana. A close as not planned sends no block: it sends nothing, or -- with `awaiting-info-client` kept
   on -- the on-hold line alone (#2902).
 - **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026"* is a
   cadence, and a release can slip. This block is the one surface a colleague quotes back, so it must
