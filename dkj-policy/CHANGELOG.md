@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**6 / 6 minor entries** <!-- pending-tally -->
+**7 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2912-sync-heads-first-parent · 20261012-081645Z
+
+`live-preflight` and `prepare-release` no longer drop our own merged files from the live push list
+after a trunk-into-sync merge. A merge of the trunk *into* a `sync/` branch names that branch in its
+subject, so it was read as a sync and the trunk's commits it brought over were counted as the sync's.
+Their paths were classified `sync-owned` and held back, and the live-push record would have written
+them `live`. The sync heads are now read on the trunk's first-parent line only, where just the merge
+that brought the sync in appears
+([#2912](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2912)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store team's push list stops silently losing merged work. Measured in xoxowildhearts, the halved
+`theme.css` from #358 would have stayed off live while the changelog said it shipped.
+
+**Score:** 4
+
+#### Pull Request
+
+Sync provenance reads sync heads on the trunk's first-parent line only
+
+Plugins: bwj-development, dkj-subagents-shopify
+
+[PR #2915](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2915)
+
+---
 
 ### DEPLOY: fix/2911-obligations-read-reach-section · 20261012-080317Z
 
