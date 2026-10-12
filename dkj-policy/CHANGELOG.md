@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**15 / 15 minor entries** <!-- pending-tally -->
+**16 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2930-golive-post-waits-for-a-pr · 20261012-100943Z
+
+`build-golive-block -Post` now waits until the issue's work is in a pull request. It refuses while no open or merged PR closes the issue, or while it cannot read that. `-Force` makes a deliberate early post. `-OutFile` still works at the preview, so the handover page keeps its copy. The skill page and PREVIEW-portable now place the post at the PR step, after the owner's look
+([#2930](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2930)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store owner no longer finds a closed message with a release date on work they have not looked at yet. Measured on xoxowildhearts#402, where the block went on nine seconds after the preview handover.
+
+**Score:** 3
+
+#### Pull Request
+
+build-golive-block -Post waits until the issue's work is in a pull request
+
+Plugins: bwj-development
+
+[PR #2934](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2934)
+
+---
 
 ### DEPLOY: feat/2929-ruleset-allowed-merge-methods · 20261012-100110Z
 
