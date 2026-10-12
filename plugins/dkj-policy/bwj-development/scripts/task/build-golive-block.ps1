@@ -19,7 +19,8 @@
     THE THREE GO-LIVE FACTS AND WHERE EACH COMES FROM:
 
       the date     the next release day, strictly after today. BWJ cuts on a Monday, which is the
-                   default; -ReleaseDay is there for a repo on another cadence.
+                   default; -ReleaseDay is there for a repo on another cadence. Where the change is
+                   ALREADY live, -LiveSince names that day instead and the block says so (#2943).
       the version  ONLY WHAT -Version SAYS (#2620). The newest vX.Y.Z tag stepped by the bump the
                    changelog's pending tally names today is printed on the console as a projection,
                    and never written into the block: every entry that lands before release day can
@@ -104,6 +105,12 @@
 .PARAMETER From
     The day the next release day is counted from. Today, unless a test or a caller says otherwise.
 
+.PARAMETER LiveSince
+    The day the change WENT live, for an issue that closes after its release -- the normal case for one
+    parked awaiting-release, or work pushed live on its own (#2943). The block then says 'live since'
+    that day instead of naming the next release day, and drops the sentences that only hold before a
+    release. A day after today is refused, and so is passing -From or -ReleaseDay beside it.
+
 .PARAMETER Language
     The language of the Asana task, which is the language of the block between the rules: 'nl' (the
     default) or 'en'. The framing sentence above the rules stays English -- it is read on GitHub.
@@ -153,6 +160,7 @@ param(
     [string]$Version,
     [System.DayOfWeek]$ReleaseDay = [System.DayOfWeek]::Monday,
     [datetime]$From = (Get-Date),
+    [Nullable[datetime]]$LiveSince,
     [ValidateSet('nl', 'en')][string]$Language = 'nl',
     [string]$ProseFile,
     [string]$OutFile,
@@ -173,6 +181,8 @@ $PathArg     = $Path
 $VersionArg  = $Version
 $ReleaseDayArg = $ReleaseDay
 $FromArg     = $From
+$LiveSinceArg = $LiveSince
+$LiveSinceConflict = $PSBoundParameters.ContainsKey('LiveSince') -and ($PSBoundParameters.ContainsKey('From') -or $PSBoundParameters.ContainsKey('ReleaseDay'))
 $LanguageArg = $Language
 $ProseArg    = $ProseFile
 $OutFileArg  = $OutFile
@@ -283,9 +293,22 @@ Write-Host ""
 Write-Host "== build-golive-block $targetRef ==" -ForegroundColor Cyan
 
 # --- The date ---------------------------------------------------------------------------------------
-$goLive     = Get-NextReleaseDate -From $FromArg -ReleaseDay $ReleaseDayArg
+# ALREADY LIVE IS A FACT THE SESSION STATES, NOT ONE THIS SCRIPT DERIVES (#2943). The next release day is
+# computed strictly after today, so an issue closing after its release -- or after a separate live push --
+# was told it goes live next Monday. -LiveSince names the day; a future one is a planned date, which is
+# what the default already says, and -From/-ReleaseDay beside it would be a second answer to one question.
+if ($LiveSinceConflict) {
+    Write-Host "[ERROR] -LiveSince names the day it went live; -From and -ReleaseDay plan a release day. Pass one or the other. Nothing written." -ForegroundColor Red
+    exit 1
+}
+if ($null -ne $LiveSinceArg -and ([datetime]$LiveSinceArg).Date -gt (Get-Date).Date) {
+    Write-Host "[ERROR] -LiveSince $(([datetime]$LiveSinceArg).ToString('yyyy-MM-dd')) is after today -- a day it has not gone live yet. Leave it off for a planned date. Nothing written." -ForegroundColor Red
+    exit 1
+}
+$isLive     = $null -ne $LiveSinceArg
+$goLive     = if ($isLive) { ([datetime]$LiveSinceArg).Date } else { Get-NextReleaseDate -From $FromArg -ReleaseDay $ReleaseDayArg }
 $goLiveText = Format-GoLiveDate -Date $goLive -Language $LanguageArg
-Write-Host "  go live  : $goLiveText" -ForegroundColor DarkGray
+Write-Host "  go live  : $goLiveText$(if ($isLive) { ' (already live -- -LiveSince)' })" -ForegroundColor DarkGray
 
 # --- The version ------------------------------------------------------------------------------------
 # THE TAG IS THE RECORD OF THE LAST CUT IN EVERY REPO RUNNING THIS WORKFLOW, whether or not it
@@ -407,7 +430,7 @@ if ($asanaRef -and $asanaLink -eq 'linked') {
 $block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
     -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls `
     -Language $LanguageArg -Changed $prose.Changed -WhereToLook $prose.WhereToLook -NotIncluded $prose.NotIncluded `
-    -AsanaLink $asanaLink
+    -AsanaLink $asanaLink -Live:$isLive
 
 Write-Host ""
 Write-Host $block

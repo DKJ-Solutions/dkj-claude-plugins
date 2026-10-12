@@ -503,6 +503,17 @@ Assert-True ($goLiveBare -notmatch 'als versie') 'and no version clause at all'
 Assert-True ($goLiveBare -notmatch 'Zodra het live is') 'with no markets, there is no live-URL list'
 Assert-True ($goLiveBare -notmatch 'WAT WE VAN JE VRAGEN') 'with no link, there is nothing to look at, so no ask'
 
+# ALREADY LIVE (#2943): xoxowildhearts#190 went live in a separate push before its close, and the block
+# would have named the next Monday. -Live says 'live since', and drops what only holds before a release.
+$glLive = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#190' -GoLiveDate 'maandag 12 oktober 2026' -Live `
+    -ResultLink 'https://example.invalid/live' -LiveUrl @([pscustomobject]@{ Market = 'NL'; Url = 'https://example.invalid/p' })
+Assert-True ($glLive.Contains('Het staat live sinds maandag 12 oktober 2026.')) '-Live names the day it went live'
+Assert-True ($glLive -notmatch 'gepland|Zodra het live is|laatste moment') 'and no planned release, no before-the-release caveat, no last-moment sentence'
+Assert-True ($glLive.Contains("Je ziet het hier live:`n`nNL $glDash https://example.invalid/p")) 'the live list carries a plain label'
+Assert-True ($glLive.Contains("`nWANNEER HET LIVE KOMT`n") -and $glLive.Contains('Het staat al live')) 'the fixed headings stay; the ask says it is already live'
+$glLiveEn = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#190' -GoLiveDate 'Monday 12 October 2026' -Live -Version '3.1.0' -Language en
+Assert-True ($glLiveEn.Contains('It has been live since Monday 12 October 2026, as version v3.1.0.')) 'in English, with a version'
+
 # THE CLOSING RULE FOLLOWS A BLANK LINE, whichever section ends the block (#2701): a text line directly
 # above '---' is a setext H2, which rendered the block's last paragraph as a heading on GitHub.
 foreach ($glClosed in @(@{ Name = 'the ask section'; Block = $goLiveBlock }, @{ Name = 'the when section'; Block = $goLiveBare }, @{ Name = 'an English block'; Block = $goLiveEn })) {
@@ -597,6 +608,18 @@ try {
     Assert-True ($glText -notmatch 'has not declared its markets') 'and does not claim the store declared none'
     Assert-True ($glText.Contains('https://seam.example/pages/p')) 'the live URL comes from the repo-config the driver read itself'
     Assert-True ($glText -notmatch 'preview_theme_id') 'with no live theme id anywhere, the live URL stays bare -- never a guessed id'
+
+    # -LiveSince THROUGH -File (#2943): the string date binds, the block says so, and the two
+    # contradictions -- a future day, or a planned day beside it -- are refused before anything is built.
+    $glLiveOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -LiveSince '2026-10-12' -Language en -RootOverride $glRoot 2>&1
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with -LiveSince exits 0'
+    Assert-True ((@($glLiveOut | ForEach-Object { "$_" }) -join "`n").Contains('It has been live since Monday 12 October 2026, as version v1.0.0.')) 'and the block says live since that day'
+    $glFuture = (Get-Date).AddDays(3).ToString('yyyy-MM-dd')
+    $glFutOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -LiveSince $glFuture -RootOverride $glRoot 2>&1
+    Assert-True ($LASTEXITCODE -eq 1 -and ((@($glFutOut | ForEach-Object { "$_" }) -join "`n") -match 'after today')) 'a -LiveSince after today is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -LiveSince '2026-10-12' -From '2026-10-01' -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-LiveSince beside -From is refused'
 
     # BARE EVEN WHERE THE SEAM NAMES A LIVE ID (#2619). A URL pinned to it reads as a preview link to the
     # colleague the block is for, so the seam the control half of a preview pair reads is not read here.

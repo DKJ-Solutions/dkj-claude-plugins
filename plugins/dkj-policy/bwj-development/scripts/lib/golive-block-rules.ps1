@@ -272,6 +272,10 @@ function Get-GoLiveBlockText {
             LiveNoLink   = 'Once it is live you can see it here:'
             LiveBare     = 'Once it is live you can see it here. Before then, open these in a private window: a browser that has opened the result link keeps showing the result on these pages, not what is live.'
             AskLook      = 'Look at the result yourself, at the link above. It goes live with that release either way, so this is the last moment something can still change before a customer sees it.'
+            LiveSince    = 'It has been live since {0}.'
+            LiveSinceVer = 'It has been live since {0}, as version v{1}.'
+            LiveNow      = 'You can see it live here:'
+            AskLookLive  = 'Look at the result yourself, at the link above. It is already live, so what you see is what a customer sees.'
             AskYes       = 'Is it right? Say so, and tick off this task.'
             AskNo        = 'Is it not? Then we would like to hear two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.'
         }
@@ -290,6 +294,10 @@ function Get-GoLiveBlockText {
         LiveNoLink   = 'Zodra het live is, zie je het hier:'
         LiveBare     = "Zodra het live is, zie je het hier. Open ze tot die tijd in een priv${e}venster: een browser die de link hierboven al heeft geopend, blijft op deze pagina's het resultaat tonen en niet wat er live staat."
         AskLook      = 'Bekijk het resultaat zelf, via de link hierboven. Het gaat hoe dan ook mee met die release, dus dit is het laatste moment waarop er nog iets aan te passen valt voordat een klant het ziet.'
+        LiveSince    = 'Het staat live sinds {0}.'
+        LiveSinceVer = 'Het staat live sinds {0}, als versie v{1}.'
+        LiveNow      = 'Je ziet het hier live:'
+        AskLookLive  = 'Bekijk het resultaat zelf, via de link hierboven. Het staat al live, dus wat je ziet is wat een klant ziet.'
         AskYes       = 'Klopt het: laat het weten en vink deze taak af.'
         AskNo        = "Klopt het niet, dan horen we graag twee dingen: wat er niet goed is, ${e}n wat er precies anders moet. Dan pakken we het opnieuw op in een volgende ronde."
     }
@@ -376,15 +384,20 @@ function Get-GoLiveBlockAsk {
 
         ONLY WITH A LINK. Without one there is nothing to look at before the release, and an ask to
         judge a result the block cannot point at is noise -- the same rule as the omitted sentence.
+
+        -Live: THE CHANGE IS ALREADY LIVE (#2943), so 'the last moment before a customer sees it' is
+        false. The look still closes the task; only the sentence about the release goes.
     #>
     param(
         [string]$ResultLink,
         [ValidateSet('nl', 'en')][string]$Language = 'nl',
-        [hashtable]$Text
+        [hashtable]$Text,
+        [switch]$Live
     )
     if (-not $ResultLink) { return @() }
     $t = if ($Text) { $Text } else { Get-GoLiveBlockText -Language $Language }
-    return @('', $t.Ask, '', $t.AskLook, '', $t.AskYes, '', $t.AskNo)
+    $look = if ($Live) { $t.AskLookLive } else { $t.AskLook }
+    return @('', $t.Ask, '', $look, '', $t.AskYes, '', $t.AskNo)
 }
 
 function Get-GoLiveBlockLead {
@@ -484,6 +497,11 @@ function Format-GoLiveBlock {
 
         The 'when it goes live' section is always written: the date is always derivable.
 
+        -Live: -GoLiveDate is the day it WENT live, not a planned one (#2943). The section then says
+        'live since', the live-URL list loses its before-the-release caveat, and the ask loses its
+        last-moment sentence. Measured on BWJ-Development/xoxowildhearts#190: its work went live in a
+        separate per-file push before the close, and the block would have named the next Monday.
+
         THE LIVE LIST IS READ BEFORE THE RELEASE, AND A BARE URL LIES THEN (#2477). The result link is
         normally a storefront PREVIEW, which sets a per-domain cookie, and a bare storefront URL keeps
         rendering that preview once it has been opened -- the trap PREVIEW-portable.md measured. So a
@@ -511,7 +529,8 @@ function Format-GoLiveBlock {
         [string[]]$WhereToLook = @(),
         [string[]]$NotIncluded = @(),
         # What the driver resolved the issue's Asana link to (#2918); the lead follows it.
-        [ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked'
+        [ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked',
+        [switch]$Live
     )
 
     $t    = Get-GoLiveBlockText -Language $Language
@@ -545,10 +564,13 @@ function Format-GoLiveBlock {
     $changedParas = @($Changed | Where-Object { $_ -and $_.Trim() })
     if ($changedParas.Count -gt 0) { $lines += & $addSection $t.Changed $changedParas }
 
-    $whenParas = @(if ($Version) { $t.ReleaseVer -f $GoLiveDate, $Version } else { $t.ReleaseDay -f $GoLiveDate })
+    $whenParas = @(
+        if ($Live) { if ($Version) { $t.LiveSinceVer -f $GoLiveDate, $Version } else { $t.LiveSince -f $GoLiveDate } }
+        elseif ($Version) { $t.ReleaseVer -f $GoLiveDate, $Version } else { $t.ReleaseDay -f $GoLiveDate }
+    )
     $rows = @($LiveUrl | Where-Object { $_ })
     if ($rows.Count -gt 0) {
-        $label = if ($ResultLink) { $t.LiveBare } else { $t.LiveNoLink }
+        $label = if ($Live) { $t.LiveNow } elseif ($ResultLink) { $t.LiveBare } else { $t.LiveNoLink }
         $list = @(foreach ($row in $rows) {
             $market = if ($row.PSObject.Properties['Market'] -and $row.Market) { [string]$row.Market } else { 'live' }
             "$market $dash $($row.Url)"
@@ -561,7 +583,7 @@ function Format-GoLiveBlock {
     $notParas = @($NotIncluded | Where-Object { $_ -and $_.Trim() })
     if ($notParas.Count -gt 0) { $lines += & $addSection $t.NotIncluded $notParas }
 
-    $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink -Text $t
+    $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink -Text $t -Live:$Live
     # THE BLANK LINE BEFORE THE CLOSING RULE IS LOAD-BEARING (#2701): a text line directly above '---'
     # is a setext H2 in Markdown, so without it GitHub rendered the block's last paragraph as a heading.
     $lines += ''
