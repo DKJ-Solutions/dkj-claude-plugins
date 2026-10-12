@@ -141,7 +141,7 @@ function Format-AsanaCoClaimWarning {
     $list = (@($Others) | ForEach-Object { "#$_" }) -join ', '
     return (@(
         "ONE TASK, TWO ISSUES (asana-link-pickupcheck, #2928): Asana task $Gid is linked from issue #$Number and also from $list.",
-        "WORKFLOW-portable section 8 is one GitHub issue per Asana ticket: keep the link on the issue that answers the",
-        "task's request, and remove it from the other, which needs a task of its own or none."
+        "WORKFLOW-portable section 8 is one GitHub issue per Asana ticket. Verify against the task which issue answers its",
+        "request before changing either: that one keeps the link, and the other needs a task of its own or none."
     ) -join "`n")
 }
