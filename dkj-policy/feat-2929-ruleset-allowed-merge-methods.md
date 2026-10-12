@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Inbound #2929. Verified: `Get-LiveValue` had no arm for the field, so a declaration of it read as
+UNKNOWN. The payload shape was measured live: smartwatchbanden's branch rules carry
+`pull_request.parameters.allowed_merge_methods = ["merge"]`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `check-repo-settings.ps1` reads `ruleset.allowed_merge_methods` from the `pull_request` rule as a
+  sorted set, and reports it unreadable when no such rule applies (the strict arm's reasoning); mirror
+  resynced
 
 ### TEST
 
+- [x] `repo-settings-gate.tests.ps1`: as declared, squash let back in, and no `pull_request` rule; 71 green
+
 ### DEPLOY: feat/2929-ruleset-allowed-merge-methods
 
-**Score:**
+`check-repo-settings` can now watch a ruleset's `allowed_merge_methods`
+([#2929](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2929)). Declare
+`ruleset.allowed_merge_methods` in the repo-settings seam and the check reads it from the trunk's
+`pull_request` rule as a sorted set. A ruleset that lets squash back in then turns the check red, where
+before only the repo's own merge switches could be watched. Where no `pull_request` rule applies, the
+field reads as unreadable, not as an empty set. Measured at smartwatchbanden#900: a ruleset allowed
+`merge,squash,rebase` while the tooling merges with `merge`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that depends on merge commits, a store's reconciliation-base sync among them, can now have the
+scheduled settings check guard the ruleset as well as the repo switches.
+
+**Score:** 2
 
 #### Pull Request
 

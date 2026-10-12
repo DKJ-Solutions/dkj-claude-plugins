@@ -454,6 +454,24 @@ function Get-LiveValue {
             # drift as two and hide the larger one behind the smaller.
             return (& $unreadable "no required_status_checks rule applies to '$Trunk' -- see ruleset.rules")
         }
+        'ruleset.allowed_merge_methods' {
+            # THE SECOND PLACE GITHUB ENFORCES THE MERGE METHOD (inbound #2929). The repo switches
+            # (repo.allow_squash_merge and its siblings) are one; a ruleset's pull_request rule is the
+            # other, and it is the one that applies to the trunk -- measured at smartwatchbanden#900,
+            # where a ruleset allowed merge,squash,rebase while the tooling merged with 'merge' and the
+            # switch alone could be watched. A sorted SET, like ruleset.rules.
+            if (-not $branchRules.Ok) { return (& $unreadable $branchRules.Note) }
+            foreach ($r in $ruleRecords) {
+                if (([string]$r.type) -ne 'pull_request') { continue }
+                if ($r.PSObject.Properties['parameters'] -and $r.parameters -and
+                    $r.parameters.PSObject.Properties['allowed_merge_methods']) {
+                    return (& $readable @(@($r.parameters.allowed_merge_methods | ForEach-Object { [string]$_ }) | Sort-Object -Unique))
+                }
+            }
+            # NO pull_request RULE IS NOT "NO METHOD ALLOWED", for the strict arm's reason above: the rule
+            # is missing, which ruleset.rules reports on its own.
+            return (& $unreadable "no pull_request rule with allowed_merge_methods applies to '$Trunk' -- see ruleset.rules")
+        }
         'ruleset.bypass_actor_types' {
             $v = Get-BypassActorTypes
             if (-not $v.Readable) { return (& $unreadable $v.Why) }
