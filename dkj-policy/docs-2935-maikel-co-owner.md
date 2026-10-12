@@ -48,7 +48,7 @@
 
 ### TEST
 
-- [x] Lint + test gate via open-pr
+- [x] Grep over `.claude/` for the standing-gate phrasings ("Dave's word", "for Dave", "Dave's act", "Dave's choice") leaves only dated history
 
 ### DEPLOY: docs/2935-maikel-co-owner
 
