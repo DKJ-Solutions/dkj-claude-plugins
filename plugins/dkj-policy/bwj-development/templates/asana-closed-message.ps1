@@ -10,9 +10,10 @@
     (#2804): card moves, the daily sweeps, the prio-label sync, and the created, reopened and closed
     comments. Asked which part to bring back, Dave chose the closed message, in the go-live block's
     current shape (#2818); a day later he brought back the reopened message beside it (#2854), because
-    without it a requester can go on testing a result that is being reworked. Everything else stays
-    retired, and nothing in this file can move a card, complete a task or write a label: the one write it
-    knows how to build is a comment (New-AsanaCommentRequest).
+    without it a requester can go on testing a result that is being reworked. The prio-label sync came
+    back separately, as its own workflow, asana-prio-label (#2945). Everything else stays retired, and
+    nothing in this file can move a card, complete a task or write a label: the one write it knows how
+    to build is a comment (New-AsanaCommentRequest).
 
     THE FILE KEEPS ITS 'closed-message' NAME ON PURPOSE. A store holds it at a fixed path, and adopt
     copies by path: a renamed template would land beside the old one rather than replace it, and both

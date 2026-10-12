@@ -36,7 +36,8 @@ function New-Store {
     $root = Join-Path $Fixture $Label
     New-Item -ItemType Directory -Force -Path (Join-Path $root '.github\workflows'), (Join-Path $root '.github\scripts') | Out-Null
     if ($Copy) {
-        foreach ($p in @(@('asana-closed-message.yml', '.github\workflows'), @('asana-closed-message.ps1', '.github\scripts'))) {
+        foreach ($p in @(@('asana-closed-message.yml', '.github\workflows'), @('asana-closed-message.ps1', '.github\scripts'),
+                         @('asana-prio-label.yml', '.github\workflows'), @('asana-prio-label.ps1', '.github\scripts'))) {
             $text = [System.IO.File]::ReadAllText((Join-Path $Templates $p[0])) -replace "`r`n", "`n"
             if ($Crlf) { $text = $text -replace "`n", "`r`n" }
             if ($Stale -and $p[0] -like '*.ps1') { $text += "`n# an older copy`n" }
@@ -76,6 +77,20 @@ try {
     $r = Invoke-Hook -Root $stale -Slug 'BWJ-Development/xoxowildhearts' -Secret 'ASANA_PAT'
     Assert-True ($r.Text -match '\.github/scripts/asana-closed-message\.ps1 in BWJ-Development/xoxowildhearts differs from the template') 'a copy that differs from the template is reported'
     Assert-True ($r.Text -notmatch 'workflows/asana-closed-message\.yml in') 'and only the file that differs is named'
+
+    # THE PRIO PAIR (#2945): reported on its own line, and the closed-message pair is not blamed for it.
+    $noPrio = New-Store -Label 'no-prio' -Copy
+    Remove-Item -LiteralPath (Join-Path $noPrio '.github\workflows\asana-prio-label.yml'), (Join-Path $noPrio '.github\scripts\asana-prio-label.ps1')
+    $r = Invoke-Hook -Root $noPrio -Slug 'BWJ-Development/smartwatchbanden' -Secret 'ASANA_PAT'
+    Assert-True ($r.Text -match '\[ERROR\] bwj-development: BWJ-Development/smartwatchbanden has no \.github/workflows/asana-prio-label\.yml and \.github/scripts/asana-prio-label\.ps1') 'a store missing only the prio pair is reported, naming that pair'
+    Assert-True ($r.Text -notmatch 'asana-closed-message') 'and the closed-message pair, which is in place, is not named'
+    Assert-True ($r.Code -eq 0) 'a finding still exits 0'
+
+    $stalePrio = New-Store -Label 'stale-prio' -Copy
+    [System.IO.File]::AppendAllText((Join-Path $stalePrio '.github\scripts\asana-prio-label.ps1'), "`n# an older copy`n")
+    $r = Invoke-Hook -Root $stalePrio -Slug 'BWJ-Development/xoxowildhearts' -Secret 'ASANA_PAT'
+    Assert-True ($r.Text -match '\.github/scripts/asana-prio-label\.ps1 in BWJ-Development/xoxowildhearts differs from the template') 'a prio script that differs from the template is reported'
+    Assert-True ($r.Text -notmatch 'asana-closed-message' -and $r.Text -notmatch 'workflows/asana-prio-label\.yml in') 'and only that file is named'
 
     $r = Invoke-Hook -Root $none -Slug 'BWJ-Development/smartwatchbanden' -Secret '<unreadable>'
     Assert-True ($r.Text -notmatch 'ASANA_PAT') 'a secret list it could not read is not reported as a missing secret'

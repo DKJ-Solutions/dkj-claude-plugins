@@ -8,8 +8,8 @@ description: >-
   exist, report the board's numbered sections so the Filed section report-issue writes to can be
   found, write the BWJ extension import into CLAUDE.md, and scaffold chapter two's
   bwj-development/SYNC-LOG.md with its masthead, ready for the first sync branch. In the two store
-  repos it also copies the asana-closed-message workflow into .github/ and names the one repo secret it
-  needs, ASANA_PAT.
+  repos it also copies the asana-closed-message and asana-prio-label workflows into .github/ and names the
+  one repo secret they need, ASANA_PAT.
   Strictly additive and dry-run by default; it never overwrites an existing file, only adds the one
   import line to CLAUDE.md, and it renames nothing on the board.
   Run this right after enabling the plugin, or when report-issue reports the Asana config seam
@@ -20,10 +20,10 @@ description: >-
 
 An install writes nothing into your repo. This command places what `bwj-development` needs on your
 side, across both chapters: the config functions the skill reads, the labels, and chapter two's
-`SYNC-LOG.md` scaffold (step 7). **In the two store repos it copies one CI workflow into `.github/`**:
+`SYNC-LOG.md` scaffold (step 7). **In the two store repos it copies two CI workflows into `.github/`**:
 `asana-closed-message`, the closed message on the Asana task (#2818) and, since #2854, the reopened
-message beside it. They are the two parts of the retired asana-mirror mechanism that came back (Dave,
-October 5 and 6, 2026).
+message beside it, and `asana-prio-label`, the Prio-Score -> `prio-N` label sync (#2945). They are the
+parts of the retired asana-mirror mechanism that came back (Dave, October 5, 6 and 12, 2026).
 
 ## 0 -- establish that this repo is a permitted adoption target
 
@@ -81,7 +81,7 @@ the check rather than the verdict -- so the check still runs here. It now return
 and the difference between the two runs is not the guard but the decision behind it, which is on the
 record above.
 
-## 1 -- copy the closed, on-hold and reopened messages into `.github/` (the two store repos only)
+## 1 -- copy the closed, on-hold and reopened messages and the prio-label sync into `.github/` (the two store repos only)
 
 GitHub only runs a workflow from a repo's own `.github/`, so these are copied, not imported:
 
@@ -89,24 +89,30 @@ GitHub only runs a workflow from a repo's own `.github/`, so these are copied, n
 |---|---|
 | `templates/asana-closed-message.yml` | `.github/workflows/asana-closed-message.yml` |
 | `templates/asana-closed-message.ps1` | `.github/scripts/asana-closed-message.ps1` |
+| `templates/asana-prio-label.yml` | `.github/workflows/asana-prio-label.yml` |
+| `templates/asana-prio-label.ps1` | `.github/scripts/asana-prio-label.ps1` |
 
 Copy them verbatim. If a file already exists at the target, **stop and diff** rather than overwriting:
 report the difference and let the maintainer decide. **Only in `smartwatchbanden` and `xoxowildhearts`**
-(#2818). The source repo and `phone-factory` adopt this plugin for ticket handling alone, and no closed
-message was asked for there. In the two stores, the plugin's `closed-message-sessioncheck` hook reports
-at every session start when either copy is missing or differs from the template, and when `ASANA_PAT`
-(step 3) is absent ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)).
+(#2818, #2945). The source repo and `phone-factory` adopt this plugin for ticket handling alone, and
+neither workflow was asked for there. In the two stores, the plugin's `closed-message-sessioncheck` hook
+reports at every session start when any of the four files (either workflow's pair) is missing or differs
+from the template, and when `ASANA_PAT` (step 3) is absent ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)).
 
 When an issue closes as completed, the workflow posts one comment on its Asana task: the automation's
 header, the closed line, and the go-live block the shipping session left on the issue. On a close as not
 planned that keeps the `awaiting-info-client` label on, it posts the header and the on-hold line (#2902); on
 any other not-planned close, or a duplicate, it posts nothing. When an issue is reopened, it posts the
 header and the reopened line (#2854). It never moves a card and never completes a task. A store that
-already holds the two files from an earlier version gets the stop-and-diff above: the difference is the
-reopen trigger (#2854) or the on-hold message and its labels hand-off (#2902), and taking it is the
-maintainer's call. The two files go together: a new script under an old workflow receives no labels and
-stays silent on a not-planned close, as before. The behaviour is
+already holds the two `asana-closed-message` files from an earlier version gets the stop-and-diff above:
+the difference is the reopen trigger (#2854) or the on-hold message and its labels hand-off (#2902), and
+taking it is the maintainer's call. Each pair goes together (workflow and script of the same name): a new
+script under an old workflow receives no labels and stays silent on a not-planned close, as before. The
+behaviour is
 in [`WORKFLOW-portable.md`, step 4](../../WORKFLOW-portable.md#4-write-the-go-live-block-then-close-the-github-issue----the-closed-message-carries-it-into-asana).
+The `asana-prio-label` pair reads the linked task's `Prio-Score` and sets one `prio-N` label on the issue
+when it is opened or edited and in a daily sweep; its behaviour is in
+[`WORKFLOW-portable.md`, step 5](../../WORKFLOW-portable.md#5-retired-october-5-2026-back-october-12-2026-the-asana-prio-score-comes-back-as-a-label).
 
 **A repo that adopted before October 5, 2026 still has `asana-mirror.yml` and `asana-mirror.ps1`**, which
 the plugin no longer maintains: report them to the maintainer, who can delete
@@ -280,8 +286,8 @@ reads as authoritative is worse than a blank.
 
 ## 3 -- the one repo secret: `ASANA_PAT` (the two store repos only)
 
-The closed message from step 1 needs **one** Actions secret, `ASANA_PAT`: a token that may comment on the
-board's tasks. Print it for the maintainer to set (`gh secret set ASANA_PAT --repo <owner>/<repo>`);
+The two workflows from step 1 need **one** Actions secret, `ASANA_PAT`: a token that may comment on the
+board's tasks and read their custom fields. Print it for the maintainer to set (`gh secret set ASANA_PAT --repo <owner>/<repo>`);
 this skill never sets a secret. Nothing else is needed: no `GH_PROJECT_TOKEN` and no `ASANA_PROJECT_GID`,
 which the retired asana-mirror read, because a comment addresses its task by GID alone. What is also
 true, and is not a repo setting:
@@ -293,7 +299,7 @@ true, and is not a repo setting:
   task and the API does want a workspace.
 
 A repo that adopted earlier may still carry `GH_PROJECT_TOKEN` and `ASANA_PROJECT_GID`. Both are dead now
-and the maintainer can delete them. **`ASANA_PAT` stays**, because the closed message reads it.
+and the maintainer can delete them. **`ASANA_PAT` stays**, because both workflows read it.
 
 ## 4 -- make sure the classification labels exist
 
@@ -376,9 +382,12 @@ creates it. Where a store already has one, **delete it**, for the same reason as
 issues goes with it, which the owner accepted: `gh label delete CRO --repo <owner>/<repo> --yes`. See
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#the-cro-label----retired).
 
-**And the four prio labels.** They are typed onto an issue by a person now: the daily run that used to
-set one from the Asana task's `Prio-Score` was retired on October 5, 2026 (Dave). `gh issue edit` fails on
-a label the repo does not have exactly as `gh issue create` does, so they still need to exist.
+**And the four prio labels.** In a store, the `asana-prio-label` workflow from step 1 sets one from the
+Asana task's `Prio-Score` when an issue is opened or edited and in a daily sweep (the sync retired with the
+mirror on October 5, 2026 came back on October 12, #2945); a person can still type one on an issue with no
+scored task, and the sync never removes a label because a score is absent. `gh issue edit` fails on a
+label the repo does not have exactly as `gh issue create` does, so they must exist, and a run that
+meets a missing one (the event run as much as the sweep) fails visibly.
 
 ```bash
 gh label create prio-4 --repo <owner>/<repo> --color b60205 \
