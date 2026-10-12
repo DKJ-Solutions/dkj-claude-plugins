@@ -1394,11 +1394,19 @@ $zeroNaDeploy = "### DEPLOY: docs/2699-off-board-asana-ticket`n`nN/A inside this
 $zeroNaSection = "$sectH Significance`n`n$tierH Tier 0`n`nnothing here`n`n**Score:** $naLabel`n`n$tierH Tier 1`n`nb`n`n**Score:** $naLabel`n`n$tierH Tier 2`n`nc`n`n**Score:** $naLabel`n"
 foreach ($zeroCase in @(@{ Name = 'the DEPLOY shape'; Entry = $zeroNaDeploy }, @{ Name = 'the section shape'; Entry = $zeroNaSection })) {
     $zeroErrors = @(@((Resolve-EntryImpact -EntryText $zeroCase.Entry).Errors) | Where-Object { $_ })
-    Assert-Equal 1 @($zeroErrors -match 'under tier 0').Count "tier 0 N/A is a parse error in $($zeroCase.Name)"
+    Assert-Equal 1 @($zeroErrors -match 'that Score line is tier 0').Count "tier 0 N/A is a parse error in $($zeroCase.Name)"
     Assert-True (@($zeroErrors -match 'always takes a score').Count -gt 0) "and in $($zeroCase.Name) the error names the rule"
     $zeroFindings = @(Get-EntryImpactFindings -EntryText $zeroCase.Entry)
-    Assert-True (@($zeroFindings -match 'under tier 0').Count -gt 0) "and in $($zeroCase.Name) it reaches the cut's findings too"
+    Assert-True (@($zeroFindings -match 'that Score line is tier 0').Count -gt 0) "and in $($zeroCase.Name) it reaches the cut's findings too"
 }
+# THE REFUSAL NAMES THE HEADING IT MEANS (#2923): the document shows no tier numbers, so 'tier 0' alone
+# left a session guessing which Score line was meant. And a tier-0 N/A beside a scored audience tier is
+# named as the swap it nearly always is; with nothing scored above it, no swap is claimed.
+$zeroNaDeployErr = @(@((Resolve-EntryImpact -EntryText $zeroNaDeploy).Errors) | Where-Object { $_ })[0]
+Assert-True ($zeroNaDeployErr.Contains("under '### DEPLOY: docs/2699-off-board-asana-ticket'")) 'the tier-0 refusal names the DEPLOY heading its Score line sits under'
+Assert-True ($zeroNaDeployErr -match 'look swapped' -and $zeroNaDeployErr.Contains("'#### What makes this deploy extra special' scores 2")) 'and with the audience tier scored, it names the swap and where the score sits'
+$zeroNaSectionErr = @(@((Resolve-EntryImpact -EntryText $zeroNaSection).Errors) | Where-Object { $_ })[0]
+Assert-True ($zeroNaSectionErr -notmatch 'look swapped') 'with no tier above scored, no swap is claimed'
 $zeroScoredAudienceNa = "### DEPLOY: x`n`nSmall here.`n`n**Score:** 1`n`n#### What makes this deploy extra special`n`nNobody outside notices.`n`n**Score:** $naLabel`n`n#### Pull Request`n`nt`n"
 Assert-Equal 0 @(@((Resolve-EntryImpact -EntryText $zeroScoredAudienceNa).Errors) | Where-Object { $_ }).Count 'tier 0 scored and the audience tier N/A parses clean'
 Assert-Equal 0 @(Get-EntryImpactFindings -EntryText $zeroScoredAudienceNa).Count 'and is a complete answer'
