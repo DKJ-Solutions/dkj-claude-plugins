@@ -43,17 +43,33 @@ Tokenize spacing only; every value stays exactly as tuned (no visual change). St
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: the Figma library's 40 spacing variables (`--spacing-0-5` … `--spacing-96`, read from the file's "Collection") in `:root`, names and values exact; every gap, margin and padding rewritten to the matching token, so each computed value is unchanged
+- [x] Optical nudges (the sort arrow's 3px, the info button's 5px, hit-area insets, outline offsets) left literal and named as such in the scale's comment
+- [x] `SKILL.md`: a Spacing row in the token table, naming the Figma library as the scale's source
+- [x] Gwen's lens filled in: her domain here is the house style (first work for her in this repo)
 
 ### TEST
 
+- [x] Grep for a px value left in any `padding`/`margin`/`gap`: only the two optical nudges remain
+- [~] No automated visual comparison: no suite renders the stylesheet, and the arithmetic is exact by construction (each multiple is the source px divided by 4). The owner's look before the merge is the check
+
 ### DEPLOY: feat/house-style-spacing
 
-**Score:**
+The house stylesheet carries the Figma library's spacing scale in `:root`, the 40 tokens
+`--spacing-0-5` (2px) to `--spacing-96` (384px) with Figma's own names and values, and every gap,
+margin and padding in it now uses one of them. Nothing renders differently: each token equals the
+hand-tuned pixel value it replaced. Gwen's repo lens is
+filled in now that she has her first work here.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app can space its own repo-layer components with `var(--spacing-N)`, the same names a
+designer sees in Figma, and land on the same rhythm as the house components, without copying pixel values. Existing pages look exactly
+the same.
+
+**Score:** 2
 
 #### Pull Request
 

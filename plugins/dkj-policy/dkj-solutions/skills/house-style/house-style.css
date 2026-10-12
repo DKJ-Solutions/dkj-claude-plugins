@@ -51,6 +51,22 @@
 
   --warn-bg: #fff4e0;     /* notice background */
   --shadow-pop: 0 4px 16px rgba(0,0,0,0.15);  /* tooltips; same in both modes */
+
+  /* spacing scale: the Figma library's spacing variables (Shopify Theme - LIBRARY, collection
+     "Collection"), names and values exactly as defined there. --spacing-N is N x 4px; a half
+     step (-0-5, -1-5, ...) is +2px. Same in both modes. Every gap, margin and padding below uses
+     one of these. Optical nudges (a 1-5px offset, a hit-area inset, an outline offset) are not
+     spacing and stay literal. */
+  --spacing-0-5: 2px; --spacing-1: 4px; --spacing-1-5: 6px; --spacing-2: 8px;
+  --spacing-2-5: 10px; --spacing-3: 12px; --spacing-3-5: 14px; --spacing-4: 16px;
+  --spacing-4-5: 18px; --spacing-5: 20px; --spacing-5-5: 22px; --spacing-6: 24px;
+  --spacing-6-5: 26px; --spacing-7: 28px; --spacing-7-5: 30px; --spacing-8: 32px;
+  --spacing-8-5: 34px; --spacing-9: 36px; --spacing-9-5: 38px; --spacing-10: 40px;
+  --spacing-11: 44px; --spacing-12: 48px; --spacing-14: 56px; --spacing-16: 64px;
+  --spacing-18: 72px; --spacing-20: 80px; --spacing-24: 96px; --spacing-28: 112px;
+  --spacing-32: 128px; --spacing-36: 144px; --spacing-40: 160px; --spacing-44: 176px;
+  --spacing-48: 192px; --spacing-52: 208px; --spacing-56: 224px; --spacing-60: 240px;
+  --spacing-64: 256px; --spacing-72: 288px; --spacing-80: 320px; --spacing-96: 384px;
 }
 
 /* ---- Tokens: dark, following the OS unless the page forces light --------- */
@@ -79,16 +95,16 @@ body { margin: 0; background: var(--page); color: var(--ink);
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
 
 /* ---- Layout -------------------------------------------------------------- */
-main, .container { max-width: 1080px; margin: 0 auto; padding: 24px 16px 48px; }
-body > header, main > header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+main, .container { max-width: 1080px; margin: 0 auto; padding: var(--spacing-6) var(--spacing-4) var(--spacing-12); }
+body > header, main > header { display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-3); flex-wrap: wrap; }
 /* The control row in the page header: a segmented switch and buttons share one line and one height. */
-.controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.controls { display: flex; align-items: center; gap: var(--spacing-2); flex-wrap: wrap; }
 .controls .seg, .controls .btn { height: 30px; box-sizing: border-box; }
-.controls .btn { display: inline-flex; align-items: center; padding: 0 10px; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 16px; }
-.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: 16px; }
-.mini-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; margin-top: 12px; }
+.controls .btn { display: inline-flex; align-items: center; padding: 0 var(--spacing-2-5); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--spacing-3); margin-top: var(--spacing-4); }
+.item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: var(--spacing-4); }
+.mini-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--spacing-2-5); margin-top: var(--spacing-3); }
 @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } .hero .value { font-size: 40px; } }
 
 /* ---- Typography ----------------------------------------------------------- */
@@ -99,42 +115,42 @@ body > header, main > header { display: flex; justify-content: space-between; al
 h1, h2 { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
   font-weight: 600; letter-spacing: -0.01em; }
 h1 { font-size: 40px; margin: 0; }
-h2 { font-size: 29px; margin: 0 0 4px; }
+h2 { font-size: 29px; margin: 0 0 var(--spacing-1); }
 /* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
    capitals sit almost exactly mid-line, so 1px corrects the rest. */
 h2 { display: flex; align-items: center; }
 h2 .info-button { top: 1px; }
-h3 { font-size: 18px; margin: 0 0 8px; font-weight: 600; }
-.sub { color: var(--ink-2); font-size: 13px; margin: 0 0 16px; }   /* line under a heading */
+h3 { font-size: 18px; margin: 0 0 var(--spacing-2); font-weight: 600; }
+.sub { color: var(--ink-2); font-size: 13px; margin: 0 0 var(--spacing-4); }   /* line under a heading */
 .muted { color: var(--muted); font-size: 13px; }
 .meta { font-size: 12px; color: var(--ink-2); white-space: nowrap; }
-.note { font-size: 12px; color: var(--muted); margin-top: 4px; }
-.footer-note { color: var(--muted); font-size: 12px; margin-top: 24px; }
+.note { font-size: 12px; color: var(--muted); margin-top: var(--spacing-1); }
+.footer-note { color: var(--muted); font-size: 12px; margin-top: var(--spacing-6); }
 .num { font-variant-numeric: tabular-nums; }                        /* aligned digits */
 .delta { font-weight: 600; }
 .delta--up, .pos { color: var(--up); }
 .delta--down, .neg { color: var(--down); }
 
 /* ---- Surfaces ------------------------------------------------------------- */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-top: 16px; }
-.hero { display: flex; flex-wrap: wrap; gap: 24px 48px; align-items: flex-end; }   /* use with .card */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
+.hero { display: flex; flex-wrap: wrap; gap: var(--spacing-6) var(--spacing-12); align-items: flex-end; }   /* use with .card */
 .hero .value { font-size: 48px; font-weight: 600; line-height: 1.1; }
-.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
 .tile .label { color: var(--ink-2); font-size: 13px; }
-.tile .v { font-size: 22px; font-weight: 600; margin-top: 2px; }
-.mini-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.tile .v { font-size: 22px; font-weight: 600; margin-top: var(--spacing-0-5); }
+.mini-card { border: 1px solid var(--border); border-radius: 10px; padding: var(--spacing-3) var(--spacing-3-5); }
 .mini-card--highlight { border-color: var(--warn); }
 .mini-card__label { font-size: 13px; color: var(--ink-2); }
-.mini-card__value { font-size: 20px; font-weight: 600; margin: 2px 0 8px; font-variant-numeric: tabular-nums; }
-.notice { background: var(--warn-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-top: 16px; }
-.item { border-top: 1px solid var(--grid); padding: 10px 0; }
-.item b { display: block; font-size: 13px; margin-bottom: 2px; }
+.mini-card__value { font-size: 20px; font-weight: 600; margin: var(--spacing-0-5) 0 var(--spacing-2); font-variant-numeric: tabular-nums; }
+.notice { background: var(--warn-bg); border: 1px solid var(--border); border-radius: 12px; padding: var(--spacing-3) var(--spacing-4); margin-top: var(--spacing-4); }
+.item { border-top: 1px solid var(--grid); padding: var(--spacing-2-5) 0; }
+.item b { display: block; font-size: 13px; margin-bottom: var(--spacing-0-5); }
 .item p { margin: 0; font-size: 13px; color: var(--ink-2); }
 
 /* ---- Tables --------------------------------------------------------------- */
 .table-wrap { overflow-x: auto; }
 .table { border-collapse: collapse; width: 100%; font-size: 13px; }
-.table th, .table td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+.table th, .table td { padding: var(--spacing-2) var(--spacing-2-5); text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
 .table th { color: var(--ink-2); font-weight: 600; }
 .table th:first-child, .table td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 .table td { font-variant-numeric: tabular-nums; }
@@ -163,11 +179,11 @@ h3 { font-size: 18px; margin: 0 0 8px; font-weight: 600; }
 
 /* ---- Legend and swatches -------------------------------------------------- */
 /* Set the colour per item with style="--c: var(--cat-1)". */
-.legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin: 4px 0 12px; }
+.legend { display: flex; gap: var(--spacing-4); flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin: var(--spacing-1) 0 var(--spacing-3); }
 .legend__item::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px;
-  background: var(--c); margin-right: 6px; vertical-align: -1px; }
+  background: var(--c); margin-right: var(--spacing-1-5); vertical-align: -1px; }
 .legend__item--line::before { height: 2px; border-radius: 1px; vertical-align: 3px; width: 14px; }
-.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: var(--c); }
+.swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: var(--spacing-1-5); background: var(--c); }
 
 /* ---- Charts (inline SVG inside .chart) ------------------------------------ */
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
@@ -192,14 +208,14 @@ h3 { font-size: 18px; margin: 0 0 8px; font-weight: 600; }
 .badge--info    { --b: var(--cat-1); color: #fff; }
 .badge--neutral { --b: var(--axis); color: var(--ink); }
 .badge--sm { width: 18px; height: 18px; font-size: 11px; }
-.badge-row { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-top: 8px; }
+.badge-row { display: flex; align-items: center; gap: var(--spacing-1-5); font-size: 13px; margin-top: var(--spacing-2); }
 
 /* ---- Buttons -------------------------------------------------------------- */
 .btn { background: none; border: 1px solid var(--border); color: var(--ink-2); border-radius: 8px;
-  padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+  padding: var(--spacing-1) var(--spacing-2-5); font: inherit; font-size: 13px; cursor: pointer; }
 /* Segmented switch: <span class="seg" role="group"><button aria-pressed="true">A</button><button aria-pressed="false">B</button></span>. */
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; vertical-align: middle; }
-.seg button { background: none; border: 0; color: var(--ink-2); padding: 0 10px; height: 100%; font: inherit; font-size: 13px; cursor: pointer; }
+.seg button { background: none; border: 0; color: var(--ink-2); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: 13px; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--border); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
 /* The round "?" button that opens an explanation tooltip. */
@@ -211,22 +227,22 @@ h3 { font-size: 18px; margin: 0 0 8px; font-weight: 600; }
 
 /* ---- Tooltip -------------------------------------------------------------- */
 .tooltip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink);
-  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px;
+  border: 1px solid var(--border); border-radius: 8px; padding: var(--spacing-2) var(--spacing-2-5); font-size: 13px;
   box-shadow: var(--shadow-pop); display: none; max-width: 280px; z-index: 10; }
-.tooltip b { display: block; margin-bottom: 2px; }
+.tooltip b { display: block; margin-bottom: var(--spacing-0-5); }
 .tooltip--explain { max-width: 320px; line-height: 1.45; }
-.tooltip--explain p { margin: 6px 0 0; }
+.tooltip--explain p { margin: var(--spacing-1-5) 0 0; }
 
 /* ---- Disclosure (details/summary) ------------------------------------------ */
-.more { margin-top: 8px; }
+.more { margin-top: var(--spacing-2); }
 .more summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-2); list-style: none; }
 .more summary::-webkit-details-marker { display: none; }
 .more summary::after { content: " \25BE"; }
 .more[open] summary::after { content: " \25B4"; }
-.more[open] summary { margin-bottom: 4px; }
+.more[open] summary { margin-bottom: var(--spacing-1); }
 /* A full-width "read more" button under a block; the extra detail opens ABOVE it, so the toggle
    moves down with the text it reveals. Set aria-expanded from the script. */
-.moretoggle { display: flex; justify-content: center; align-items: center; gap: 4px; width: 100%; cursor: pointer; text-align: center; padding: 8px 16px; background: none; border: 0;
+.moretoggle { display: flex; justify-content: center; align-items: center; gap: var(--spacing-1); width: 100%; cursor: pointer; text-align: center; padding: var(--spacing-2) var(--spacing-4); background: none; border: 0;
   border-top: 1px solid var(--border); font: 600 13px/1.4 system-ui, sans-serif; color: var(--ink-2); }
 .moretoggle::after { content: " \25BE"; }
 .moretoggle[aria-expanded="true"]::after { content: " \25B4"; }
