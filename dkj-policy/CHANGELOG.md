@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**12 / 12 minor entries** <!-- pending-tally -->
+**13 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2925-reconcile-base-prints-merge · 20261012-094001Z
+
+`sync-main -ReconcileBase` now prints the whole finish of the reconciliation base, not only how to
+open its PR: `gh pr create`, then `gh pr checks <branch> --watch`, then `gh pr merge <branch> --merge`.
+It also says that whoever runs the sync merges it, with no review to wait for, because the branch
+changes no file ([#2925](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2925)). At
+smartwatchbanden#892 the PR was opened with the printed line and then left open behind a comment
+asking somebody else to merge it, blocking the follow-up.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store colleague running a conflicted sync gets a finish they can paste to the end, so the follow-up
+work is no longer blocked on a PR nobody knew was theirs to merge.
+
+**Score:** 2
+
+#### Pull Request
+
+sync-main -ReconcileBase prints the whole finish, merge included
+
+Plugins: dkj-subagents-shopify
+
+[PR #2927](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2927)
+
+---
 
 ### DEPLOY: fix/2923-tier0-na-names-the-score-line · 20261012-093037Z
 
