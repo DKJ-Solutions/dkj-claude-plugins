@@ -710,8 +710,17 @@ function Write-SyncReconciliationBase {
 
     Write-Host ''
     Write-Host "$BranchShown holds two commits and changes no file: live verbatim, then the trunk content back on top." -ForegroundColor Green
-    Write-Host '  Open it, and merge it with a MERGE COMMIT:' -ForegroundColor Green
+    # THE WHOLE FINISH, NOT ITS FIRST LINE (inbound #2925). This is the one sync path whose merge is
+    # always done by hand, and the one a squash defeats -- and it printed only the create. Measured at
+    # smartwatchbanden#892 (October 12, 2026): a colleague opened the PR with the line below, waited
+    # for green, and left "Merge with a merge commit" as a comment for somebody else; it stayed open and
+    # blocked the follow-up. So the merge is printed too, and who does it: whoever runs this sync, with
+    # no review to wait for, because the branch changes no file and there is nothing to judge by eye.
+    Write-Host '  Open it, wait for its checks, and merge it with a MERGE COMMIT -- you, now. It needs no' -ForegroundColor Green
+    Write-Host '  review: the branch changes no file, so there is nothing to judge.' -ForegroundColor Green
     Write-Host "  gh pr create --base $($TrunkPaste.Token) --head $($BranchPaste.Token) --title `"sync: reconciliation base for $($Conflict.Count) conflicted path(s)`"" -ForegroundColor Cyan
+    Write-Host "  gh pr checks $($BranchPaste.Token) --watch" -ForegroundColor Cyan
+    Write-Host "  gh pr merge $($BranchPaste.Token) --merge" -ForegroundColor Cyan
     if ($TrunkPaste.Note)  { Write-Host $TrunkPaste.Note -ForegroundColor DarkYellow }
     if ($BranchPaste.Note) { Write-Host $BranchPaste.Note -ForegroundColor DarkYellow }
     if ($MergeMethod -eq 'squash') {

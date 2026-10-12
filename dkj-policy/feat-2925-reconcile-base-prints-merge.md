@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound #2925. Verified: `Write-SyncReconciliationBase` printed only `gh pr create`. The optional flag
+that opens and merges by itself is left out: the issue offers it as optional, and the printed finish
+repairs the measured failure.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `sync-main.ps1` prints `gh pr checks <branch> --watch` and `gh pr merge <branch> --merge` after the
+  create, and says the operator merges it with no review to wait for; Shopify mirror resynced
+- [x] The `sync-main` skill page says the same
 
 ### TEST
 
+- [x] `sync-main.tests.ps1` asserts the three lines on a real `-ReconcileBase` run, 164 green
+
 ### DEPLOY: feat/2925-reconcile-base-prints-merge
 
-**Score:**
+`sync-main -ReconcileBase` now prints the whole finish of the reconciliation base, not only how to
+open its PR: `gh pr create`, then `gh pr checks <branch> --watch`, then `gh pr merge <branch> --merge`.
+It also says that whoever runs the sync merges it, with no review to wait for, because the branch
+changes no file ([#2925](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2925)). At
+smartwatchbanden#892 the PR was opened with the printed line and then left open behind a comment
+asking somebody else to merge it, blocking the follow-up.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store colleague running a conflicted sync gets a finish they can paste to the end, so the follow-up
+work is no longer blocked on a PR nobody knew was theirs to merge.
+
+**Score:** 2
 
 #### Pull Request
 

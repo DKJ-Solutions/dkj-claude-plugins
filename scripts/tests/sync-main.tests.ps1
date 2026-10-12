@@ -597,6 +597,10 @@ try {
     # NO FILE CHANGES AT ALL, which is what makes merging it safe at every point.
     Assert-True ([System.IO.File]::ReadAllText((Join-Path $rec 'sections\both.liquid')) -eq 'trunk-b2') 'recbase: the trunk''s content is what sits on disk afterwards'
     Assert-True (@(& git -C $rec diff --name-only 'main..HEAD').Where({ $_ }).Count -eq 0) 'recbase: so the branch changes no file against the trunk'
+    # THE WHOLE FINISH IS PRINTED (#2925): the create, the wait and the merge, and who does it.
+    Assert-True ($r.Out -match "gh pr checks $([regex]::Escape($recBranch)) --watch") 'recbase: it prints the wait for the checks'
+    Assert-True ($r.Out -match "gh pr merge $([regex]::Escape($recBranch)) --merge") 'recbase: and the merge, as a merge commit'
+    Assert-True ($r.Out -match 'you, now\. It needs no' -and $r.Out -match 'review: the branch changes no file') 'recbase: and that the operator merges it, with no review to wait for'
 
     # AND THE POINT OF ALL OF IT. Merge the pair and re-run the very run that refused: the path is settled
     # by provenance, so it reads as held back rather than as the same conflict or as drift to take.

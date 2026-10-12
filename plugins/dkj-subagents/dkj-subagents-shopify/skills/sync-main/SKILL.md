@@ -375,6 +375,12 @@ added, which is true wherever you started it from.)
 1. **live verbatim** -- the only thing that puts live's content into the path's history;
 2. **the trunk's content straight back on top** -- so the branch changes no file at all.
 
+**The run pushes that branch and stops with exit 1, and the merge is yours, now.** It prints the whole
+finish -- `gh pr create`, `gh pr checks <branch> --watch`, `gh pr merge <branch> --merge` -- and the PR
+needs no review, because the branch changes no file and there is nothing to judge by eye. Left as a
+comment for somebody else, it stays open and blocks whatever waits on it (#2925, measured at
+smartwatchbanden#892).
+
 Merge that branch and the path reads `keep-trunk` from then on: *"live holds a version this repo has had
 before; the trunk has moved on since"* -- the same state every ordinary held-back file is in. **Your own
 reconciliation is then ordinary work in an ordinary commit**, in any spelling, because the path's verdict
