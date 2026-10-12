@@ -2337,6 +2337,8 @@ function Read-EntryTierSections {
     $rows = New-Object System.Collections.Generic.List[pscustomobject]
     $errs = @()
     $seen = @{}
+    $zeroNaAt  = -1
+    $zeroNaRaw = ''
 
     $i = 0
     while ($i -lt $Lines.Count) {
@@ -2441,7 +2443,12 @@ function Read-EntryTierSections {
                 # change matters to the repo's own maintainers. A value the model has no meaning for, so it is
                 # refused where an off-rubric score is -- open-pr and check-branch-entry, before the merge.
                 # Measured: PR #2706 shipped one through both gates, and it was caught by hand afterwards.
-                $errs += "'$($script:EntryScoreLabel) $scoreCell' under tier 0 -- tier 0 always takes a score, because every change matters to this repo's own maintainers, if only a little. Write $($range.Min) to $($range.Max); '$($script:EntryScoreNotApplicable)' is an answer for the audience tier only."
+                # NAMED BY ITS HEADING, NOT ONLY ITS NUMBER (#2923): the branch document shows no tier numbers,
+                # so 'tier 0' alone left a session guessing which of two Score lines was meant, and it retried
+                # for most of an hour. The swap check after the loop adds to this same message.
+                $zeroNaAt  = $errs.Count
+                $zeroNaRaw = $raw.Trim()
+                $errs += "'$($script:EntryScoreLabel) $scoreCell' in the section under '$zeroNaRaw' -- that Score line is tier 0, this repo's own maintainers, and tier 0 always takes a score, because every change matters to them, if only a little. Write $($range.Min) to $($range.Max) there; '$($script:EntryScoreNotApplicable)' is an answer only for the audience tier, the Score line under its own sub-heading."
             } elseif ($scoreCell -eq $script:EntryScoreNotApplicable) {
                 $notApplicable = $true
             } elseif ($scoreCell -notmatch '^\d+$') {
@@ -2474,6 +2481,17 @@ function Read-EntryTierSections {
             Raw           = $raw
             Error         = $null
         })
+    }
+
+    # THE FULL INVERSION, SAID AS ONE (#2923): tier 0 answered N/A while an audience tier carries a number is
+    # almost always the two answers in each other's slot -- the internal value written under the audience
+    # heading, which invites the headline. Measured in BWJ-Development/smartwatchbanden (fix/894): the fix
+    # was to swap the two blocks, found only after repeated refusals that never said so.
+    if ($zeroNaAt -ge 0) {
+        $scoredAbove = @($rows | Where-Object { $_.Tier -gt 0 -and $_.Score -gt 0 }) | Select-Object -First 1
+        if ($scoredAbove) {
+            $errs[$zeroNaAt] += " These two answers look swapped: the audience tier under '$($scoredAbove.Raw.Trim())' scores $($scoredAbove.Score) while '$zeroNaRaw' says $($script:EntryScoreNotApplicable). If the value is this repo's own, move that reason and its score up under '$zeroNaRaw', and the N/A with its reason down -- each reason together with its score."
+        }
     }
 
     return [pscustomobject]@{ Rows = @($rows.ToArray()); Errors = @($errs) }
