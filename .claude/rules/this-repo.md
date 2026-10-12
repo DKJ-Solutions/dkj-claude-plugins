@@ -1,6 +1,9 @@
 # This repo — dkj-claude-plugins
 
-**The owner is Dave (DaveKJohn); wherever the constitution says "the owner", that is him here.**
+**The owners are Dave (DaveKJohn) and Maikel (maikel-bwj), with the same approval rights; wherever
+the constitution or a lens says "the owner", either of them can give that word here**
+([#2935](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2935), Dave, October 12, 2026).
+A decision attributed to Dave by name and date is history and stays his.
 
 **The root [`CLAUDE.md`](../../CLAUDE.md) imports the constitution by relative path**, where a consumer
 uses the absolute marketplace path: this repo *is* the source, so it loads the branch's own copy.

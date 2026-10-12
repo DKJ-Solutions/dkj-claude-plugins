@@ -118,6 +118,6 @@ never to have been a decision is in
 
 The full routing (which assignment goes to whom) and the chains are in
 [Chris's lens #01](lenses/specialist-01-01-lens.md). The team and its organization change only in
-consultation with Dave, and new specialists are **never** invented on anyone's own initiative (see
+consultation with the owner, and new specialists are **never** invented on anyone's own initiative (see
 [Chris #01](lenses/specialist-01-01-lens.md#new-specialists--only-by-agreement)); when the organization
 changes, Tessa updates this file.

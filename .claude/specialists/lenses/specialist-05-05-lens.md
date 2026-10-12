@@ -93,11 +93,11 @@ two exceptions in [Opening a pull request](#opening-a-pull-request) below.
 **By default Derek opens it himself, without asking** — the work is finished, committed, and the gates
 are green, so the PR is the next step rather than a decision. The test is the one in
 [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#never-directly-on-the-trunk--via-branch--pr): *does
-Dave's own look add something the gates cannot?* Almost never in this repo, whose diffs are tooling,
+the owner's own look add something the gates cannot?* Almost never in this repo, whose diffs are tooling,
 config, docs, and agent defs. He **stops and reports instead** for a **visible result** (a frontend,
 styling, rendered output, an artifact — no gate proves that something looks right) or for
 **irreversible/outward-facing** work (a release, version bump, tag, repo settings/rulesets, publishing
-beyond the PR flow), and whenever Dave pulled that specific job under the exception when assigning it.
+beyond the PR flow), and whenever the owner pulled that specific job under the exception when assigning it.
 An explicit "open the PR" still counts as approval for the whole movement, so a waiting branch resumes
 in one motion. The lint gate in `open-pr.ps1` is the guard that makes the default safe. Use the script:
 
@@ -185,7 +185,7 @@ question the other way, and nothing had asked.
 deliberately and `verify-resolved-issues.ps1` checks it afterwards.
 
 **And once the commit is pushed, this is not repairable on the branch.** Rewording needs a
-force-push, which is on the never-without-Dave list for any branch whatsoever, so the honest remedy is
+force-push, which is on the never-without-the-owner list for any branch whatsoever, so the honest remedy is
 to let the merge close the issue and **reopen it**, with a comment saying why it closed. Measured
 September 11, 2026, on `feat/1843-portable-pr-template`: the commit said `Resolves #1843 (in part)`
 while the branch deliberately built one step of four.
@@ -259,7 +259,7 @@ bring the *branch* forward, which is what this step is.
 
 ### Merging to main
 
-No separate merge approval is needed — the default covers it, as does Dave's "open the PR" when the
+No separate merge approval is needed — the default covers it, as does the owner's "open the PR" when the
 work was waiting under an exception.
 
 **`ship-pr` is the whole chain, and running it is the whole job:**
@@ -343,9 +343,9 @@ The portable half deliberately leaves this question to each repo, because whethe
 governance decision rather than a configuration value; what follows is this repo's answer and the
 measurements behind it.
 
-**A finished branch opens, merges and folds in one motion without waiting for Dave.** The lint gate, the
+**A finished branch opens, merges and folds in one motion without waiting for the owner.** The lint gate, the
 test gate and CI prove this class of change is sound, and anything that does turn out wrong is one
-revert PR away. The two kinds of change that stop and wait for his word — work with a **visible result**
+revert PR away. The two kinds of change that stop and wait for the owner's word — work with a **visible result**
 that has to be judged by eye, and work that is **irreversible or outward-facing** (a release, a version
 bump, a tag, repo settings, or publishing beyond the normal PR flow) — are stated in
 [Opening a pull request](#opening-a-pull-request) above and in
@@ -407,7 +407,7 @@ there.
 **And "nothing at all" is the default rather than a judgement call** (Dave,
 [#1060](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1060), August 29, 2026). A lane is for
 a session that has *already been given* the next piece of work; where there is none, the session closes
-out and stops, and Dave merges the moment he sees the check go green. **Hovering is the failure this
+out and stops, and the owner merges the moment they see the check go green. **Hovering is the failure this
 closes**: backgrounding the ship and then polling its log, or re-reading `gh pr view` until the check
 flips, is the same wait wearing a different hat and costs the same 8m 01s. The portable statement of the
 rule — *ask whose clock it is; a gate you must run yourself is run however long it takes, and somebody
@@ -418,7 +418,7 @@ workflow receives it.
 ([#900](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/900)) has already pushed the branch's
 document to `origin`, the PR carries the reasoning, and a backgrounded `ship-pr` merges and folds without
 anybody watching. Where no ship was started at all, the branch simply stays parked: the PR is left green
-for Dave, and the fold is a
+for the owner, and the fold is a
 [`fold-changelog-entry.ps1`](../../../scripts/release/fold-changelog-entry.ps1) run on `main` in the next
 session.
 
@@ -542,7 +542,7 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   opening → merging → folding runs through in one motion, guarded by the lint gate and transparently
   reported by Chris. Only the two exceptions in
   [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#never-directly-on-the-trunk--via-branch--pr) — a
-  visible result, or irreversible/outward-facing work — stop and wait for Dave's word first. In this
+  visible result, or irreversible/outward-facing work — stop and wait for the owner's word first. In this
   repo that is rare: the work here is tooling, config, docs, and agent defs, which the gates prove.
 - **A `-v<N>` suffix is optional and typed by hand**, never completed by `new-branch` (it did, until
   September 3, 2026). A second cycle on the same subject is a hand-typed `-v2`.
@@ -567,7 +567,7 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   evidence at all that the remote is clean. Verifying means `git ls-remote --heads origin`. See the
   portable rule (and what each command is for) in the `fold-changelog` skill (#163) and the
   `prune-merged` skill.
-- **Deleting a *remote* branch stays a manual action for Dave — deliberately, don't propose
+- **Deleting a *remote* branch stays a manual action for the owner — deliberately, don't propose
   otherwise.** The auto-mode classifier blocks `git push origin --delete`, and that block is not
   worked around. Dave weighed adding a permission for it on July 27, 2026 and declined, for a reason
   worth keeping: with `deleteBranchOnMerge` on, merged branches disappear by themselves, so the
@@ -575,7 +575,7 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   (`park-branch.ps1`), unfinished work, or a branch pushed from the other machine. Those are exactly
   the ones whose loss is unrecoverable, so the permission would carry all of the risk and almost
   none of the benefit. Backlog cleanup (as with the seven branches that had piled up before the
-  setting was switched on) is therefore handed to Dave as a paste-ready command, not attempted.
+  setting was switched on) is therefore handed to the owner as a paste-ready command, not attempted.
   **`prune-merged.ps1` does not weaken this and was built not to** (August 21, 2026): it touches no
   remote branch at all, and its test suite asserts that structurally — no git call in it carries a
   `--delete` argument. Its local deletions are the mirror image of the declined permission: every one
@@ -598,7 +598,7 @@ the trap is the shell's, not this repo's. What stays here is the local evidence:
   Local instance (August 4, 2026): `docs/split-quickstart-and-adoption`, parked August 3 at 16:49, was
   overtaken by `d151b6e` at 18:32 the same day. Repo-specific half: `git ls-remote` is now named in
   Chris's stand-verification list in [`specialist-01-01-lens.md`](specialist-01-01-lens.md#the-dave-rules), and the
-  remote delete stays Dave's manual act per the bullet above.
+  remote delete stays the owner's manual act per the bullet above.
 - **And a parked branch's ticks are not evidence that the work exists** — read its park commit before
   rebuilding a line of it. The mechanism is portable and lives in
   [`DEVELOPMENT-portable.md`](../../../plugins/dkj-policy/DEVELOPMENT-portable.md):
@@ -829,12 +829,12 @@ route with a hole in it.
 
 **A finding becomes an issue, not a question at the end of the turn.** Something real that is outside the
 assignment — a bug, a doc that has gone stale, a measurement that contradicts what a page claims, a
-decision that is not yours to make — is filed and the assignment is finished. Dave has to be able to
+decision that is not yours to make — is filed and the assignment is finished. The owner has to be able to
 close a session and clear its context without first answering everything that was found along the way,
-and the close-out names the numbers so he can see what was parked rather than lost.
+and the close-out names the numbers so they can see what was parked rather than lost.
 
 **Filing needs no permission, and asking for it is the same failure as not filing.** *"Shall I open an
-issue for this?"* leaves the finding in the reply for Dave to answer, which is precisely what filing
+issue for this?"* leaves the finding in the reply for the owner to answer, which is precisely what filing
 prevents.
 
 **The question to answer first is not *may I* but *does it still stand*.** Read the code, the script or
@@ -881,7 +881,7 @@ citation. The measurement behind each is in the
 **Claim an issue before working it** — and read the claim as well as write it: an issue that already
 carries an assignee is somebody's. The tracker is the only thing two sessions share, so an unassigned
 issue is indistinguishable from an untouched one, which is how the same repair gets built twice and
-discovered at the merge. A claim with no branch and no recent activity is a question for Dave rather than
+discovered at the merge. A claim with no branch and no recent activity is a question for the owner rather than
 a locked door.
 
 **The step that performs it is
@@ -1090,7 +1090,7 @@ not a rung. That argument is untouched and is also no longer the whole story. `p
 in a BWJ repo too, where `tier-1` has been `FBCA04` since it was created, so both can sit on **one row
 of one issue** as two identical yellow badges on two different axes. The misread still cannot make a
 *rung* wrong, only a *kind*, and nothing refuses it — so this is named here and filed rather than
-repaired on this branch: changing either hex is an edit to live labels, which is Dave's to take, and
+repaired on this branch: changing either hex is an edit to live labels, which is the owner's to take, and
 the mapping in [#1842](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1842) names `FBCA04`
 explicitly. Filed as
 [#1844](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1844). This repo's own ramp was
@@ -1165,21 +1165,21 @@ repair, close as not planned while it waits — is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — all set at filing: `awaiting-decision-dev` for Dave's choice, `awaiting-decision-client` for the client's, `awaiting-pull` while another issue lands, `awaiting-action-external` until a date, `awaiting-action-dev` until Dave acts, `awaiting-release` until the next cut, `awaiting-recurrences-first` once only evidence is owed
+### The parking labels — all set at filing: `awaiting-decision-dev` for the owner's choice, `awaiting-decision-client` for the client's, `awaiting-pull` while another issue lands, `awaiting-action-external` until a date, `awaiting-action-dev` until the owner acts, `awaiting-release` until the next cut, `awaiting-recurrences-first` once only evidence is owed
 
 **All eight `awaiting-*` labels, `awaiting-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision-dev`
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796)); the rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from),
 and Chris's lens carries it beside the `prio-N` and `minor` filing rules, where a session reads it at filing time.
 
-**`awaiting-decision-dev` (`5319E7`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
+**`awaiting-decision-dev` (`5319E7`) parks an issue that ends in the owner's choice**, so neither `claim-issue <n>`
 nor a sweep treats it as work that is ready (Dave, September 26, 2026,
 [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)). It was named `awaiting-decision` until #2890 (October 7, 2026), when it was split in two and `dev` came to mean the owner alone, and `needs-decision` (`BFD4F2`) until #2741 (October 3, 2026), when it joined the purple `awaiting-*` family; both old names are still matched, and `adopt-triage-labels` prints the `gh label edit` rename. It is set in the same
 `gh issue create` as the `prio-N`, and it is not `awaiting-info-client` (`awaiting-more-info` until #2917, `needs-info` until #2723), which `bwj-development` reserves for
 *blocked on the submitter*. It ships in `Get-TriageLabels`, and the filing rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
 
-**`awaiting-decision-client` (`5319E7`) parks an issue that ends in a choice that is not Dave's** (a colleague's QA sign-off, a business decision from the client or requester outside the dev team; Dave, October 7, 2026, [#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)). `sweep-issues` and `sweep-decisions` both skip it, where `sweep-decisions` puts `awaiting-decision-dev` to Dave. It is not `awaiting-info-client`, which means blocked on information the submitter has not given. New, so no former name is matched for it.
+**`awaiting-decision-client` (`5319E7`) parks an issue that ends in a choice that is not the owner's** (a colleague's QA sign-off, a business decision from the client or requester outside the dev team; Dave, October 7, 2026, [#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)). `sweep-issues` and `sweep-decisions` both skip it, where `sweep-decisions` puts `awaiting-decision-dev` to the owner. It is not `awaiting-info-client`, which means blocked on information the submitter has not given. New, so no former name is matched for it.
 
 **`awaiting-recurrences-first` (`5319E7`) parks an issue waiting on its first reproducible occurrence** (Dave,
 September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)), after
@@ -1197,7 +1197,7 @@ skip it as they skip `awaiting-decision-dev`, and it comes off when the blocking
 so no former name is matched for it.
 
 **`awaiting-action-dev` (`5319E7`) parks an issue whose decision is made and whose only remaining step is
-an act only Dave performs** — a live push, a release, a deletion the session may not run (inbound
+an act only the owner performs** — a live push, a release, a deletion the session may not run (inbound
 [#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828), October 5, 2026, from a consumer whose sweep re-read four such issues on every
 machine). Both pickup routes skip it, the issue names the act, and the label comes off once it is done.
 Named `awaiting-owner-act` until #2896 (Dave, October 7, 2026), still matched as a former name.
