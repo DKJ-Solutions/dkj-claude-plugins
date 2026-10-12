@@ -39,21 +39,33 @@
 
 ### PLAN
 
+Inbound #2930, verified: `build-golive-block -Post` checked the store-admin boxes and, since #2918, the Asana link, but nothing about whether the work had reached a PR. `PREVIEW-portable.md` told the handover to run `-Post` beside `-OutFile`, which is the steer #402 followed.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-GoLivePostReadiness` in `golive-block-rules.ps1`: a closing PR that is merged or open counts as landing work; no PR, or only PRs closed without merging, does not
+- [x] `build-golive-block.ps1`: on the post path only, reads the closing PRs with their state through GraphQL. `-Post` refuses on `none` or an unreadable answer, `-Force` is the early post, and `-OutFile` is untouched
+- [x] Skill page (the order, the `-Force` row, the description), WORKFLOW-portable and PREVIEW-portable say the post belongs at the PR step
+- [~] recording a forced early post inside the comment: dropped. The comment is what a colleague reads, and a `-Force` note there is noise for that reader. The console run is the session's record
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the four readiness answers, the check placed on the post path before the comment, and an unreadable landing read refusing `-Post` end to end; 414/414
+- [x] The GraphQL query run live: #2928 answers MERGED, #2930 answers none
+
 ### DEPLOY: fix/2930-golive-post-waits-for-a-pr
 
-**Score:**
+`build-golive-block -Post` now waits until the issue's work is in a pull request. It refuses while no open or merged PR closes the issue, or while it cannot read that. `-Force` makes a deliberate early post. `-OutFile` still works at the preview, so the handover page keeps its copy. The skill page and PREVIEW-portable now place the post at the PR step, after the owner's look
+([#2930](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2930)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store owner no longer finds a closed message with a release date on work they have not looked at yet. Measured on xoxowildhearts#402, where the block went on nine seconds after the preview handover.
+
+**Score:** 3
 
 #### Pull Request
 
 build-golive-block -Post waits until the issue's work is in a pull request
-

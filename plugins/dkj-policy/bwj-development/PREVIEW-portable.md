@@ -232,8 +232,10 @@ read it before the close, and a wrong date or link is cheapest to catch there
 [`WORKFLOW-portable.md`](WORKFLOW-portable.md#the-go-live-block----written-before-the-close-by-the-session-that-shipped-the-work)
 -- where to look, when it is planned to go live, what is asked of the requester -- and
 `build-golive-block.ps1` writes it. **Embed its output; do not compose a block of your own beside
-it.** Run it with `-OutFile` for the page and with `-Post` for the issue, on the same inputs and the
-same `-ProseFile`, so the block on the issue and the block on the page cannot drift apart. The file is
+it.** Run it with `-OutFile` for the page now. Run `-Post` for the issue **later, at the PR step**,
+after the owner has looked. `-Post` refuses until a pull request closing the issue is open
+([#2930](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2930)). Keep the same inputs and
+the same `-ProseFile` for both, so the block on the issue and the block on the page cannot drift apart. The file is
 the faithful copy: the block carries accents and dashes that a console printout can lose. A
 hand-written block with its own headings is the second copy of one rule that this workflow keeps
 removing.
