@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**18 / 19 minor entries** <!-- pending-tally -->
+**19 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2940-asana-origin-reach-label · 20261012-121358Z
+
+In `bwj-development`, an issue made from an Asana ticket now carries the reach label by construction. WORKFLOW-portable sections 2 and 8 and `report-issue` say so. When `claim-issue` or `new-branch` picks up an issue that links an Asana task but lacks the label, `asana-link-pickupcheck` prints a `REACH LABEL MISSING` line with the `gh issue edit` that adds it. Until now only the issue -> card direction was enforced, by `guard-asana-mirror`. Both hooks now read the label's name through one function, `Get-ProjectReachLabel` ([#2940](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2940)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a BWJ store repo, a ticket a colleague filed in Asana no longer drops out of the minor backlog because whoever copied it into GitHub forgot the reach label. The pickup names the missing label and gives the command that adds it.
+
+**Score:** 2
+
+#### Pull Request
+
+An issue made from an Asana ticket carries the reach label, and pickup flags one that does not
+
+Plugins: bwj-development
+
+[PR #2944](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2944)
+
+---
 
 ### DEPLOY: fix/2938-warn-two-awaiting-labels · 20261012-115749Z
 
