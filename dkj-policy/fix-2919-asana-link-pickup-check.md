@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Inbound #2919, the issue's option 1 (warn at pickup). Verified: nothing on the chain calls
+`Resolve-AsanaTaskRef` before the close. dkj-policy's `claim-issue` and `new-branch` are repo-agnostic
+and offer no companion seam, so the check is `bwj-development`'s own: a PostToolUse hook on the shell
+tools. A warning rather than a refusal, because a mention of Asana is evidence, not proof. The close side
+is #2918, built in another checkout.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/asana-pickup-rules.ps1`: the pickup number, the verdict (via `Resolve-AsanaTaskRef`)
+  and the warning text, which echoes nothing of the issue's own words
+- [x] `hooks/asana-link-pickupcheck.ps1`, registered PostToolUse on `Bash|PowerShell` behind a shell
+  pre-gate, so PowerShell starts only when `claim-issue.ps1` or `new-branch.ps1` is named
+- [x] README and report-issue name the hook
 
 ### TEST
 
+- [x] `asana-link-pickupcheck.tests.ps1`, 34 asserts green
+- [x] Live: the hook warns on #2919 (Asana named, no link) and stays silent on #2912
+
 ### DEPLOY: fix/2919-asana-link-pickup-check
 
-**Score:**
+`bwj-development` now warns at pickup when an issue names Asana but links no Asana task
+([#2919](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2919)). After `claim-issue` or
+`new-branch` picks up an issue, a new PostToolUse hook, `asana-link-pickupcheck`, reads it. Where the
+title or body mentions Asana and neither a marker, a header row nor a task URL links one, it tells the
+session to write both halves of the link before any work. A colleague's bug copied with a plain
+`gh issue create` (xoxowildhearts#404) had run the whole chain that way, and the requester would have
+heard nothing when it shipped. The hook starts PowerShell only when one of those two scripts runs.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A colleague who reports a bug in Asana hears back when it ships, because the session is now told at
+pickup when the issue it works on has lost the link to their task.
+
+**Score:** 3
 
 #### Pull Request
 

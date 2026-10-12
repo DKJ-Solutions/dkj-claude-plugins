@@ -112,7 +112,8 @@ so the requester stops testing. Closing it as not planned with `awaiting-info-cl
 on-hold line (#2902), so a parked ticket never reads as finished. The rest of the asana-mirror CI automation is **retired**: the moving of
 the card through the board's numbered sections, the daily reconciliation sweep, the `Prio-Score` to
 prio-label sync and the backstop comment. A card stays in `Filed` unless a person moves it. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
-was never part of that CI.
+was never part of that CI. Its pickup-side counterpart, `hooks/asana-link-pickupcheck.ps1`, warns the
+session after `claim-issue` or `new-branch` picks up an issue that names Asana but links no task (#2919).
 **The task is still never ticked off by this plugin** (Dave, September 1, 2026): only the colleague who
 asked for it can say it is *good*.
 
