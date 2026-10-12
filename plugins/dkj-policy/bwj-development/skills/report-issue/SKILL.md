@@ -237,7 +237,10 @@ task's `memberships.project.gid` before the move**, and where this board is not 
 colleague's task with a plain `gh issue create` carried neither half of the link and ran the whole chain
 unnoticed (xoxowildhearts#404), so the requester would have heard nothing at the close. The hook
 warns after `claim-issue` or `new-branch` picks up an issue that names Asana but links no task. It
-warns and does not refuse, because a mention of Asana is evidence, not proof.
+warns and does not refuse, because a mention of Asana is evidence, not proof. Since #2928 it also asks
+about an issue that neither links nor mentions Asana (xoxowildhearts #401 and #402 came from one task
+and never said so). It also names a task that is already linked from another open issue, because the
+rule is one issue per ticket. Step 3's marker is the link it reads.
 
 **That existing task then gets two more writes, both in this step** (#2653):
 
