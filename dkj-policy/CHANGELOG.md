@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**22 / 23 minor entries** <!-- pending-tally -->
+**23 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/house-style-spacing · 20261012-144630Z
+
+The house stylesheet carries the Figma library's spacing and type scales in `:root`, with Figma's own
+names and values: 40 spacing tokens, `--spacing-0-5` (2px) to `--spacing-96` (384px), and 11 text
+tokens, `--text-h0` (48px) to `--text-xs` (11px). Every gap, margin, padding and font size in it now
+uses one of them. Spacing renders exactly as before. Type does not: body text 15 → 14px, `h2` 29 → 32,
+`h3` 18 → 24, the 13px small text → 12, a mini-card value 20 → 18. Gwen's repo lens is filled in now
+that she has her first work here.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app picks up the Figma type scale at its next plugin update. Body and small text
+get a little smaller, and the `h2` and `h3` headings bigger. An app's own components can space and
+size themselves with `var(--spacing-N)` and `var(--text-*)`, the same names a designer sees in Figma.
+
+**Score:** 3
+
+#### Pull Request
+
+House style: the Figma library's spacing and type scales in :root
+
+Plugins: dkj-solutions
+
+[PR #2949](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2949)
+
+---
 
 ### DEPLOY: feat/2945-asana-prio-label-sync · 20261012-125435Z
 
