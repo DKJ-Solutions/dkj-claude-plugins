@@ -192,10 +192,15 @@ function Get-GoLiveObligations {
         and cannot be complete. What it buys is that 21 entries of prose become a short list somebody
         reads on Friday instead of rediscovering on Monday. The driver prints it under that caveat.
 
-        ONLY THE ENTRY'S OWN TEXT IS READ -- the part above its first '####'. The reach section argues a
-        score and the Pull Request section is a title; neither is where somebody writes "turn X off".
-        Markdown is stripped to the words, and a sentence is matched at most once, however many phrases
-        hit it.
+        EVERY SECTION IS READ BUT THE PULL REQUEST ONE, which is a title and a link. The reach section
+        was skipped once, on the assumption that it only argues a score, and that was measured wrong
+        (#2911, smartwatchbanden v2.47.0, October 12, 2026): in a tier-1 store that section is where an
+        author writes what management must do, and "Once this is live, test 0212-26 can be switched off
+        in Convert." sat there while the run reported 0 obligations across 37 entries. The Pull Request
+        section is recognised by its title, the same rule Get-PendingChangelogEntries reads the reach
+        score by. Section titles and '**Score:**' lines are dropped, each section is split into sentences
+        on its own so none runs into the next, markdown is stripped to the words, and a sentence is
+        matched at most once, however many phrases hit it.
     #>
     param(
         [AllowNull()][AllowEmptyCollection()]$Entries,
@@ -207,17 +212,24 @@ function Get-GoLiveObligations {
     $rows = @()
     foreach ($e in @($Entries)) {
         if ($null -eq $e) { continue }
-        $own = @([regex]::Split([string]$e.Body, '(?m)^####\s+'))[0]
-        $text = ($own -split "`r?`n" | Where-Object { $_ -notmatch '^\*\*Score:\*\*' }) -join ' '
-        $text = $text -replace '\[([^\]]*)\]\([^)]*\)', '$1'
-        $text = $text -replace '[`*]', ''
-        $text = ($text -replace '\s+', ' ').Trim()
-        if (-not $text) { continue }
-        foreach ($sentence in ([regex]::Split($text, '(?<=[.!?])\s+(?=[A-Z(])'))) {
-            $s = $sentence.Trim()
-            if (-not $s) { continue }
-            foreach ($p in $pats) {
-                if ($s -match $p) { $rows += [pscustomobject]@{ Branch = $e.Branch; Sentence = $s }; break }
+        $sections = @([regex]::Split([string]$e.Body, '(?m)^####\s+'))
+        for ($i = 0; $i -lt $sections.Count; $i++) {
+            $lines = @($sections[$i] -split "`r?`n")
+            if ($i -gt 0) {
+                if ($lines[0].Trim() -match '^(?i)pull request\b') { continue }
+                $lines = @($lines | Select-Object -Skip 1)
+            }
+            $text = ($lines | Where-Object { $_ -notmatch '^\*\*Score:\*\*' }) -join ' '
+            $text = $text -replace '\[([^\]]*)\]\([^)]*\)', '$1'
+            $text = $text -replace '[`*]', ''
+            $text = ($text -replace '\s+', ' ').Trim()
+            if (-not $text) { continue }
+            foreach ($sentence in ([regex]::Split($text, '(?<=[.!?])\s+(?=[A-Z(])'))) {
+                $s = $sentence.Trim()
+                if (-not $s) { continue }
+                foreach ($p in $pats) {
+                    if ($s -match $p) { $rows += [pscustomobject]@{ Branch = $e.Branch; Sentence = $s }; break }
+                }
             }
         }
     }
