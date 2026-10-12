@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Inbound #2945, parked on `awaiting-decision-dev`. Dave decided October 12, 2026: the sync comes back,
+triggered by an issue being opened or edited plus a daily sweep. It ships as its own copied workflow, so
+`asana-closed-message` stays `issues: read` and keeps its claim that it writes no label.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `templates/asana-prio-label.yml` + `.ps1`: event mode (opened/edited) and sweep mode (schedule, dispatch), `issues: write`, `ASANA_PAT` only, self-contained, logic from the retired `asana-mirror.ps1`
+- [x] Victor's review: a 401/403/429/5xx Asana read fails the run (404 stays a skip), sweep limit 1000 with a `::warning::` at the cap, an empty list counts 0 on PS 5.1
+- [x] `closed-message-sessioncheck.ps1` checks both copied pairs; `adopt-bwj-development` copies four files
+- [x] WORKFLOW-portable steps 4, 5 and 7, README and `asana-closed-message.ps1`'s header say the sync is back
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: bands, score lookup, label change, the copy pins, the yml shape, the no-PAT exit, the read-outcome classifier and the list parser
+- [x] `closed-message-sessioncheck.tests.ps1`: a store missing only the prio pair, and a stale prio script
+- [x] `template-selfcontained.tests.ps1` picks up the new template
+
 ### DEPLOY: feat/2945-asana-prio-label-sync
 
-**Score:**
+In `bwj-development`, the Asana `Prio-Score` -> `prio-N` label sync is back, as a second copied workflow, `asana-prio-label`. It was retired with the `asana-mirror` workflow on October 5. It runs when an issue is opened or edited and once a day over every open issue. It puts exactly one of `prio-1` to `prio-4` on the issue and leaves the labels alone when there is no readable score. A failed Asana read fails the run instead of passing green. `adopt-bwj-development` copies it into the two stores, and `closed-message-sessioncheck` reports a missing or stale copy ([#2945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2945)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+In a BWJ store repo, an issue linked to a scored Asana ticket gets its priority label without anybody typing it, so the backlog page ranks it again. A store takes it by re-running `adopt-bwj-development`. The session check names the two missing files until it has.
+
+**Score:** 3
 
 #### Pull Request
+
+The Asana Prio-Score -> prio-N label sync is back, as its own workflow
 
