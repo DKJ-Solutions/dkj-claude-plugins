@@ -57,7 +57,7 @@ function Get-AsanaPickupVerdict {
         What an issue says about its Asana task: 'linked' (Resolve-AsanaTaskRef finds one), 'ambiguous'
         (several task URLs and no marker or header row to choose between them), 'unlinked' (none, while
         the title or body names Asana) or 'github-only' (none, and no mention of Asana -- the ordinary
-        issue, which stays silent).
+        issue, which gets one question rather than a warning, #2928).
     #>
     param(
         [AllowEmptyString()][AllowNull()][string]$Title,
@@ -82,6 +82,17 @@ function Format-AsanaPickupWarning {
         [Parameter(Mandatory = $true)][string]$Verdict
     )
 
+    # A GITHUB-ONLY VERDICT IS ASKED ABOUT, NOT PASSED IN SILENCE (#2928). Measured in xoxowildhearts: #401
+    # and #402 came from one Asana task and never said so -- the only trace was a comment on the TASK -- so
+    # the word test above read them as ordinary issues. The evidence can sit where this hook cannot look,
+    # so the one thing it can do is put the question to the session, which can: two lines, no remedy text
+    # until the answer is yes.
+    if ($Verdict -eq 'github-only') {
+        return (@(
+            "ASANA ORIGIN? (asana-link-pickupcheck, #2928): issue #$Number links no Asana task and does not mention",
+            "Asana. If it started from an Asana task, link the two now -- report-issue's 'On a ticket that came the other way'."
+        ) -join "`n")
+    }
     $why = switch ($Verdict) {
         'unlinked'  { "names Asana but links no Asana task" }
         'ambiguous' { "carries several Asana task URLs and no marker or '| **Asana** |' row saying which is its own" }
@@ -94,5 +105,43 @@ function Format-AsanaPickupWarning {
         "<issue URL>' on top of the task's description. Without that the requester hears nothing when it",
         "ships: asana-closed-message, the backlog page and the release note all read this issue as unlinked.",
         "If it did not come from Asana, nothing is needed."
+    ) -join "`n")
+}
+
+function Get-AsanaTaskCoClaimants {
+    <#
+        Pure: the numbers of the OTHER issues in -Issues whose body resolves to the same task -Gid, through
+        Resolve-AsanaTaskRef -- the reader every consumer of the link uses, so 'linked from' means here what
+        it means at the close. -Issues are objects with number and body, as 'gh issue list --json' gives them.
+
+        ONE TASK, ONE ISSUE (#2928). WORKFLOW-portable section 8 says so and nothing enforced it: one task
+        was named for two issues on two different subjects, and only one close could ever answer it.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Gid,
+        [Parameter(Mandatory = $true)][int]$Number,
+        [object[]]$Issues = @()
+    )
+    $others = @()
+    foreach ($i in @($Issues)) {
+        if ($null -eq $i -or [int]$i.number -eq $Number) { continue }
+        if ((Resolve-AsanaTaskRef -IssueBody ([string]$i.body)).Gid -eq $Gid) { $others += [int]$i.number }
+    }
+    return @($others | Sort-Object -Unique)
+}
+
+function Format-AsanaCoClaimWarning {
+    <# The warning for a task linked from more than one open issue, or '' when it is not. Fixed text and numbers only. #>
+    param(
+        [Parameter(Mandatory = $true)][int]$Number,
+        [Parameter(Mandatory = $true)][string]$Gid,
+        [int[]]$Others = @()
+    )
+    if (@($Others).Count -eq 0) { return '' }
+    $list = (@($Others) | ForEach-Object { "#$_" }) -join ', '
+    return (@(
+        "ONE TASK, TWO ISSUES (asana-link-pickupcheck, #2928): Asana task $Gid is linked from issue #$Number and also from $list.",
+        "WORKFLOW-portable section 8 is one GitHub issue per Asana ticket: keep the link on the issue that answers the",
+        "task's request, and remove it from the other, which needs a task of its own or none."
     ) -join "`n")
 }

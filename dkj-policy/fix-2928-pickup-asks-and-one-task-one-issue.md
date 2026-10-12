@@ -39,21 +39,32 @@
 
 ### PLAN
 
+Inbound #2928, verified on main after #2922: `Get-AsanaPickupVerdict` answers `github-only` for an issue that never mentions Asana, and `Format-AsanaPickupWarning` prints nothing for it. Nothing compares one issue's task GID with the other open issues. The board search the issue offers first was not built: scanning a project's task comments inside a 30s hook is too heavy, and the cheaper option it lists reaches the same session.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-pickup-rules.ps1`: a two-line origin question for `github-only`; `Get-AsanaTaskCoClaimants` and `Format-AsanaCoClaimWarning` for one task linked from two open issues
+- [x] `asana-link-pickupcheck.ps1`: on a linked issue, one bounded `gh issue list --search "<gid> in:body"` (8s) feeds the co-claim check, and a failed search says so on stderr
+- [x] WORKFLOW-portable section 8: start from an Asana task through `report-issue` with its GID; README and report-issue describe the two new outputs
 
 ### TEST
 
+- [x] `asana-link-pickupcheck.tests.ps1`: the origin question, co-claimants (marker and header row found, the issue itself and a bare number not), the warning text; 39/39
+- [x] Smoke-run on this tracker: #2923 gets the origin question, #2928 the missing-link warning, and the search command returns exit 0
+
 ### DEPLOY: fix/2928-pickup-asks-and-one-task-one-issue
 
-**Score:**
+The Asana pickup check no longer stays silent on an issue that neither links nor mentions Asana. It asks the session whether the issue started from an Asana task, because that evidence can sit on the task alone. It also names an Asana task that is already linked from another open issue, since section 8 says one GitHub issue per ticket. Section 8 now tells a developer starting from a task to file through `report-issue`
+([#2928](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2928)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store team picking up an issue that was filed by hand from an Asana task is asked about it before any work starts, rather than finding out when the requester never hears back. Measured in xoxowildhearts: #401 and #402 came from one task, never said so, and ran the chain unnoticed.
+
+**Score:** 3
 
 #### Pull Request
 
 The Asana pickup check asks about an unmentioned issue and warns when one task is linked from two issues
-

@@ -21,7 +21,12 @@
     same test is repeated below for a run that reaches this file another way. Where gh cannot answer, a one-line note on stderr
     says the link was not checked, and the call's own result stands.
 
-    WHAT IT PRINTS is fixed text plus the issue number -- never the issue's title or body.
+    AND SINCE #2928 IT SAYS TWO MORE THINGS. An issue that neither links nor mentions Asana gets one
+    question -- did it start from an Asana task? -- because the evidence can sit on the task, where this
+    hook cannot look. And a linked issue whose task is also linked from another OPEN issue is named, with
+    that issue's number: section 8 is one GitHub issue per Asana ticket.
+
+    WHAT IT PRINTS is fixed text plus issue numbers and the task GID -- never an issue's title or body.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/asana-link-pickupcheck.tests.ps1 in
     the source repo -- change one, run the other.
@@ -53,35 +58,58 @@ $number = Get-PickupIssueNumber -Command $command
 if ($null -eq $number) { exit 0 }
 
 # --- Ask the tracker, bounded under hooks.json's 30s ceiling ----------------------------------------
+# TWO CALLS AT MOST, 18s + 8s: the issue itself, and -- only when it is linked -- the open issues that name
+# the same task (#2928). The second is the cheaper question and the one that may be dropped: a timeout
+# there skips the duplicate check and says so, and the issue's own verdict still stands.
 $projectDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
-$issue = $null
-try {
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = 'gh'
-    $psi.Arguments = "issue view $number --json title,body"
-    $psi.WorkingDirectory = $projectDir
-    $psi.UseShellExecute = $false
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.CreateNoWindow = $true
-    $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
-    $p = [System.Diagnostics.Process]::Start($psi)
-    $outTask = $p.StandardOutput.ReadToEndAsync()
-    $null = $p.StandardError.ReadToEndAsync()
-    if (-not $p.WaitForExit(20000)) {
-        try { $p.Kill() } catch { }
-    } elseif ($p.ExitCode -eq 0) {
-        $issue = $outTask.Result | ConvertFrom-Json
-    }
-} catch {
-    $issue = $null
+function Invoke-GhJson {
+    param([string]$Arguments, [int]$TimeoutMs)
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = 'gh'
+        $psi.Arguments = $Arguments
+        $psi.WorkingDirectory = $projectDir
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.CreateNoWindow = $true
+        $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+        $p = [System.Diagnostics.Process]::Start($psi)
+        $outTask = $p.StandardOutput.ReadToEndAsync()
+        $null = $p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit($TimeoutMs)) {
+            try { $p.Kill() } catch { }
+        } elseif ($p.ExitCode -eq 0) {
+            # WRAPPED, because a bare return unrolls an empty JSON array into $null -- and "no other issue
+            # names this task" must not read as "the search failed".
+            return [pscustomobject]@{ Ok = $true; Data = ($outTask.Result | ConvertFrom-Json) }
+        }
+    } catch { }
+    return [pscustomobject]@{ Ok = $false; Data = $null }
 }
-if ($null -eq $issue) {
+
+$issueRead = Invoke-GhJson -Arguments "issue view $number --json title,body" -TimeoutMs 18000
+$issue = $issueRead.Data
+if (-not $issueRead.Ok -or $null -eq $issue) {
     [Console]::Error.WriteLine("asana-link-pickupcheck: could not read issue #$number -- its Asana link was not checked.")
     exit 0
 }
 
-$text = Format-AsanaPickupWarning -Number $number -Verdict (Get-AsanaPickupVerdict -Title ([string]$issue.title) -IssueBody ([string]$issue.body))
+$verdict = Get-AsanaPickupVerdict -Title ([string]$issue.title) -IssueBody ([string]$issue.body)
+$parts = @(Format-AsanaPickupWarning -Number $number -Verdict $verdict)
+
+if ($verdict -eq 'linked') {
+    $gid = (Resolve-AsanaTaskRef -IssueBody ([string]$issue.body)).Gid
+    # The GID is digits only (Resolve-AsanaTaskRef matches nothing else), so it is safe on a command line.
+    $peers = Invoke-GhJson -Arguments "issue list --state open --search `"$gid in:body`" --json number,body --limit 20" -TimeoutMs 8000
+    if (-not $peers.Ok) {
+        [Console]::Error.WriteLine("asana-link-pickupcheck: could not search the open issues -- whether task $gid is linked from another issue was not checked.")
+    } else {
+        $parts += Format-AsanaCoClaimWarning -Number $number -Gid $gid -Others (Get-AsanaTaskCoClaimants -Gid $gid -Number $number -Issues @($peers.Data))
+    }
+}
+
+$text = (@($parts | Where-Object { $_ }) -join "`n`n")
 if (-not $text) { exit 0 }
 
 @{ hookSpecificOutput = @{ hookEventName = 'PostToolUse'; additionalContext = $text } } | ConvertTo-Json -Compress
