@@ -7,11 +7,15 @@
    Self-contained: no external requests, no web fonts (system font stack only).
    Use it inline in a <style> block (local HTML, Artifacts) or as a stylesheet.
 
-   Light/dark mechanism (keep exactly as is):
-     - Default is light.
-     - prefers-color-scheme: dark applies dark UNLESS the page forces light via
-       <html data-theme="light">.
-     - <html data-theme="dark"> forces dark.
+   Theme mechanism (keep exactly as is):
+     - Twelve themes, each a mode plus a primary colour, set as
+       <html data-theme="<id>">: light magenta, purple, blue, teal, ochre, rust;
+       dark pink, lilac, sky, cyan, yellow, orange. house-theme.js picks one
+       (the user's choice, else the app's own default for the OS mode) and
+       draws the picker.
+     - No data-theme follows the OS: light gives Blauw, dark gives Cyaan.
+     - <html data-theme="light"> forces light, <html data-theme="dark"> forces
+       dark, both with those house defaults.
      The dark token block therefore appears twice; keep both in sync.
 
    Categorical colours: --cat-1 .. --cat-3 are series slots. Pick a slot per
@@ -42,13 +46,20 @@
   /* direction and result semantics */
   --gain: #2a78d6;        /* positive result in charts */
   --loss: #e34948;        /* negative result in charts */
-  --up: #006300;          /* positive number in text */
-  --down: #d03b3b;        /* negative number in text */
+  --up: #006300;          /* positive number in text: a step darker than --good, so it reads as text */
+  --down: #a32424;        /* negative number in text: a step darker than --bad */
 
-  /* status colours (badges, meters); hardcoded in the source, same values */
+  /* status colours (badges, meters): fills */
   --good: #0ca30c;
-  --warn: #fab219;
+  --warn: #e0761a;        /* the warning icon; amber-yellow on the dark themes */
   --bad: #d03b3b;
+  --status-mark: #ffffff; /* the mark inside a status icon (check, cross, "!"): white on light, near-black on dark */
+
+  /* the theme's primary colour: switches, primary buttons, info badges and meters.
+     Light default Blauw; each [data-theme] below sets its own. */
+  --primary: #2563d0;
+  --on-primary: #ffffff;  /* text and icons on the primary */
+  --primary-soft: color-mix(in srgb, var(--primary) 14%, var(--surface));  /* a tint for backgrounds */
 
   --warn-bg: #fff4e0;     /* notice background */
   --shadow-pop: 0 4px 16px rgba(0,0,0,0.15);  /* tooltips; same in both modes */
@@ -77,25 +88,54 @@
   --text-lg: 18px; --text-base: 14px; --text-sm: 12px; --text-xs: 11px;
 }
 
-/* ---- Tokens: dark, following the OS unless the page forces light --------- */
+/* ---- Tokens: dark, following the OS unless the page forces a theme -------- */
+/* An app that sets no data-theme follows the OS: light gives the default
+   light theme above (Blauw), dark gives the default dark theme (Cyaan). */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme]) {
     color-scheme: dark;
     --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
     --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
-    --gain: #3987e5; --loss: #e66767; --up: #0ca30c; --down: #e66767; --warn-bg: #3a2a10;
+    --gain: #3987e5; --loss: #e66767;
+    --up: #3fc23f; --down: #ff7a7a; --good: #0ca30c; --bad: #e66767; --warn: #ffc61a; --warn-bg: #3a2a10;
+    --status-mark: #0b0b0b;
+    --primary: #2fc8d8; --on-primary: #0b0b0b;
   }
 }
 
-/* ---- Tokens: dark, forced by the page ------------------------------------ */
-:root[data-theme="dark"] {
+/* ---- Tokens: dark, forced by the page (data-theme="dark" or a dark theme) - */
+:root[data-theme="dark"],
+:root[data-theme="pink"], :root[data-theme="lilac"], :root[data-theme="sky"],
+:root[data-theme="cyan"], :root[data-theme="yellow"], :root[data-theme="orange"] {
   color-scheme: dark;
   --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
   --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
-  --gain: #3987e5; --loss: #e66767; --up: #0ca30c; --down: #e66767; --warn-bg: #3a2a10;
+  --gain: #3987e5; --loss: #e66767;
+  --up: #3fc23f; --down: #ff7a7a; --good: #0ca30c; --bad: #e66767; --warn: #ffc61a; --warn-bg: #3a2a10;
+  --status-mark: #0b0b0b;
+  --primary: #2fc8d8; --on-primary: #0b0b0b;
 }
+
+/* ---- Themes: the primary colour ------------------------------------------ */
+/* Twelve themes the user picks from (house-theme.js draws the picker). A light theme takes the
+   light tokens of :root, a dark theme the dark block above; each sets only its primary, and the
+   two whose primary sits next to the warning colour move the warning away from it. No red and
+   no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
+   pink, lilac, sky, cyan, yellow, orange (dark). */
+:root[data-theme="magenta"] { --primary: #c0258f; }
+:root[data-theme="purple"]  { --primary: #7a3fd6; }
+:root[data-theme="blue"]    { --primary: #2563d0; }
+:root[data-theme="teal"]    { --primary: #0f7c86; }
+:root[data-theme="ochre"]   { --primary: #7a6b00; }
+:root[data-theme="rust"]    { --primary: #ad5a0a; --warn: #b88a00; }
+:root[data-theme="pink"]    { --primary: #ff7ac8; }
+:root[data-theme="lilac"]   { --primary: #b69cff; }
+:root[data-theme="sky"]     { --primary: #5cb3ff; }
+:root[data-theme="cyan"]    { --primary: #2fc8d8; }
+:root[data-theme="yellow"]  { --primary: #f2c230; --warn: #f08a24; }
+:root[data-theme="orange"]  { --primary: #f5873a; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }
@@ -205,15 +245,15 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 .meter { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
 .meter span { display: block; height: 100%; border-radius: 3px; background: var(--m); }
 .meter--good { --m: var(--good); } .meter--warn { --m: var(--warn); }
-.meter--bad { --m: var(--bad); }   .meter--info { --m: var(--cat-1); }
+.meter--bad { --m: var(--bad); }   .meter--info { --m: var(--primary); }
 
 /* ---- Badge ---------------------------------------------------------------- */
 .badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%;
-  font: 700 var(--text-sm)/1 system-ui, sans-serif; color: #0b0b0b; background: var(--b); flex: none; }
-.badge--good    { --b: var(--good); color: #fff; }
+  font: 700 var(--text-sm)/1 system-ui, sans-serif; color: var(--status-mark); background: var(--b); flex: none; }
+.badge--good    { --b: var(--good); }
 .badge--warn    { --b: var(--warn); }
-.badge--bad     { --b: var(--bad);  color: #fff; }
-.badge--info    { --b: var(--cat-1); color: #fff; }
+.badge--bad     { --b: var(--bad); }
+.badge--info    { --b: var(--primary); color: var(--on-primary); }
 .badge--neutral { --b: var(--axis); color: var(--ink); }
 .badge--sm { width: 18px; height: 18px; font-size: var(--text-xs); }
 .badge-row { display: flex; align-items: center; gap: var(--spacing-1-5); font-size: var(--text-sm); margin-top: var(--spacing-2); }
@@ -225,7 +265,7 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; vertical-align: middle; }
 .seg button { background: none; border: 0; color: var(--ink-2); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: var(--text-sm); cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--border); }
-.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); }
+.seg button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
 /* The round "?" button that opens an explanation tooltip. */
 .info-button { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
   margin-left: 5px; padding: 0; border-radius: 50%; border: 1px solid var(--axis); background: none;
@@ -255,3 +295,21 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 .moretoggle::after { content: " \25BE"; }
 .moretoggle[aria-expanded="true"]::after { content: " \25B4"; }
 .moretoggle:focus-visible { outline: 2px solid var(--ink-2); outline-offset: -2px; }
+
+/* ---- Primary button -------------------------------------------------------- */
+.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 600; }
+.btn--primary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* ---- Theme picker (drawn by house-theme.js: DKJTheme.picker(el)) ------------ */
+/* Two rows of round swatches, light and dark; each swatch is the theme's page colour with its
+   primary as a dot, so the choice shows both halves of the theme. */
+.theme-picker { display: grid; gap: var(--spacing-3); }
+.theme-picker__row { display: grid; grid-template-columns: 64px 1fr; gap: var(--spacing-4); align-items: center; }
+.theme-picker__label { font-size: var(--text-sm); font-weight: 600; color: var(--ink-2); }
+.theme-picker__swatches { display: flex; gap: var(--spacing-2); flex-wrap: wrap; }
+.theme-swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--border); cursor: pointer; display: grid; place-items: center; }
+.theme-swatch--light { background: #f9f9f7; }
+.theme-swatch--dark { background: #0d0d0d; }
+.theme-swatch i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--swatch); }
+.theme-swatch[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 2px; }   /* the chosen theme */
+.theme-swatch:focus-visible { outline: 2px dashed var(--primary); outline-offset: 4px; }       /* keyboard focus: a different ring */

@@ -43,17 +43,39 @@ Implement the themes the owner approved in the preview artifact (V482ox5FtMLgQ36
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: twelve themes as `data-theme` values (light magenta, purple, blue, teal, ochre, rust; dark pink, lilac, sky, cyan, yellow, orange), each setting `--primary`; Rust and Yellow also move `--warn` off the primary
+- [x] `house-style.css`: new tokens `--primary`, `--on-primary`, `--primary-soft`, `--status-mark`; `--up`/`--down` a step more contrast than `--good`/`--bad` in both modes; dark gains its own `--bad`; light warning dark orange, dark warning yellow
+- [x] `house-style.css`: no `data-theme` follows the OS (Blauw / Cyaan); `light` and `dark` still force a mode; the dark block covers `dark` and the six dark themes
+- [x] Components follow the theme: the pressed `.seg` button, `.badge--info`, `.meter--info`, every badge mark; new `.btn--primary`, `.theme-picker`, `.theme-swatch`
+- [x] `house-theme.js`: the user's choice, else the app's `data-theme-light`/`data-theme-dark` default for the OS mode, else the house default; `DKJTheme.picker(el)` draws the two rows of swatches
+- [x] `SKILL.md`, the plugin README and `plugin.json`: the themes, the script, the new tokens and classes, and what changed for an app taking the update; the broken token table repaired
 
 ### TEST
 
+- [x] Test page loading the real `house-style.css` and `house-theme.js` unchanged, published for the owner's look: https://claude.ai/artifact/XnJiGKF81AMeXDdQ6CV8Si
+- [x] Copy edit (Edith): two comments that contradicted the code, fixed; hex values, ids and names agree across CSS, JS and SKILL.md
+- [x] Code review (Victor): cascade correct, no blocking bug; fixed in this branch: a shipped `data-theme="light"`/`"dark"` is honoured, `picker()` binds once per element, no reliance on `Element.closest`, swatch colours set through the CSSOM (strict CSP), chosen and focused swatches drawn differently. Left as the owner chose: the white mark on the light warning icon
+- [x] `node --check` on `house-theme.js`; the file is ASCII
+
 ### DEPLOY: feat/house-style-themes
 
-**Score:**
+The DKJ-Solutions house style has twelve themes the user picks from: six light, six dark, each a
+primary colour on the shared form. `<html data-theme="purple">` sets one; `house-theme.js` applies
+the user's choice, else the app's own light/dark default for the OS mode, and draws the picker. No red
+and no green theme, because those colours mean bad and good; the status colours are the same in every
+theme. The status tokens were reworked with them: `--up`/`--down` are now a step more contrast than
+`--good`/`--bad` in both modes, and dark gets its own `--bad`.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions app can let its users pick a colour, and two apps no longer look identical: each
+declares its own default pair. An app that takes the update without changing anything gets the house
+defaults, Blauw and Cyaan: its switches and info badges turn blue or cyan instead of ink, the warning
+icon on light turns dark orange, and the negative number on light a darker red.
+
+**Score:** 4
 
 #### Pull Request
 
