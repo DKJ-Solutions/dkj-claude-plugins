@@ -39,19 +39,30 @@
 
 ### PLAN
 
+- [x] Inbound #2936 verified: the family intro in `CONTRIBUTING-portable.md` says when a parking label goes on, never that the family is mutually exclusive. Items 1 and 2 land here; item 3 (a script warning) is split out as #2938
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The family intro states that an issue carries at most one `awaiting-*` label, that setting one replaces the other in the same `gh issue edit`, and that a transitive wait takes the root wait's label
+- [x] The intro's list of what the eight labels park now names a client's choice, which `awaiting-decision-client` added and the list had missed
 
 ### TEST
 
+- [x] Lint + test gate via open-pr
+
 ### DEPLOY: docs/2936-one-awaiting-label
 
-**Score:**
+`CONTRIBUTING-portable.md` now states that an issue carries at most one `awaiting-*` parking label. Setting one replaces any other, in the same `gh issue edit`. Where the wait is transitive, meaning the issue waits on a pull request whose own issue is parked on something else, the issue takes the label for that root wait instead of `awaiting-pull`, and its body names the blocking issue. Closes #2936.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's sessions stop stacking two parking labels on one issue, because the rule they label by now says which single label wins.
+
+**Score:** 2
 
 #### Pull Request
+
+An issue carries at most one awaiting-* label
 
