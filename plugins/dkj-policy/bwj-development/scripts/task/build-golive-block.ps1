@@ -51,9 +51,15 @@
     checklist under Get-StoreAdminPrerequisiteMarker. -Post refuses while a box on it is open (-Force past
     it); -OutFile, which the preview handover page embeds, warns. A print-only run reads nothing.
 
+    AND IT CHECKS THAT THE CLOSE HAS A TASK TO CARRY THE BLOCK TO (#2918). The same issue read resolves
+    the body's Asana link with Resolve-AsanaTaskRef, the matcher asana-closed-message uses. On 'none' or
+    'ambiguous' the lead stops promising 'no paste needed', -OutFile warns, and -Post refuses (-Force for
+    an issue that is deliberately GitHub-only).
+
     WHY IT DOT-SOURCES scripts/lib/asana-task-lib.ps1. For Get-AsanaPasteBlockMarker and
     Test-AsanaPasteBlockPosted -- the marker the block's comment carries, and the read that answers
-    whether a block is already there -- plus ConvertTo-ConsoleStrippedText through ref-print-lib.ps1.
+    whether a block is already there -- and Resolve-AsanaTaskRef for the link check above, plus
+    ConvertTo-ConsoleStrippedText through ref-print-lib.ps1.
     Until October 5, 2026 these came from templates/asana-mirror.ps1, retired with the workflow.
 
     Pure ASCII (repo convention for .ps1).
@@ -119,7 +125,8 @@
 
 .PARAMETER Force
     Post even though a paste-ready block already appears to be on the issue, a store-admin prerequisite
-    on it is still unticked (#2885), or either check could not read the issue.
+    on it is still unticked (#2885), its body links no single Asana task (#2918), or a check could not
+    read the issue.
 
 .PARAMETER RootOverride
     The repo root, when this is not run from inside the checkout.
@@ -345,26 +352,24 @@ if ($PathArg -and @($PathArg).Count -gt 0) {
     Write-Host "  live urls: none -- no -Path given" -ForegroundColor DarkGray
 }
 
-# --- The block ----------------------------------------------------------------------------------------
-$block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
-    -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls `
-    -Language $LanguageArg -Changed $prose.Changed -WhereToLook $prose.WhereToLook -NotIncluded $prose.NotIncluded
-
-Write-Host ""
-Write-Host $block
-Write-Host ""
-
-# --- Store-admin prerequisites ------------------------------------------------------------------------
+# --- The issue: store-admin prerequisites and the Asana link ------------------------------------------
 # THE CHECKLIST IS READ FROM THE ISSUE, ITS BODY AND ITS COMMENTS (#2885, Dave, October 7, 2026): the one
 # record that still exists at the close, after the fold has removed the branch document. Read only where
 # the block is about to leave this console -- -OutFile, which the preview handover page embeds, and -Post
 # -- so a print-only run stays the local, offline thing it has always been. Each moment does what the
 # owner decided for it: the handover warns, the post refuses.
 #
+# THE SAME READ ANSWERS WHETHER THE CLOSE WILL CARRY THE BLOCK AT ALL (#2918), so it comes before the block
+# is built: the lead sentence depends on it. asana-closed-message finds the task with Resolve-AsanaTaskRef
+# on the issue BODY and posts nothing on 'none' or 'ambiguous', so the same matcher on the same field is
+# asked here. Measured on BWJ-Development/xoxowildhearts#404, an Asana-originated issue whose body named
+# the task only in prose: the block promised 'no paste needed', and the requester would have heard nothing.
+#
 # The item text is the issue's, so it is printed through ConvertTo-ConsoleStrippedText; it is decoded with
 # the console code page here, which can cost an accent on screen and never the tick state, which is ASCII.
 $prereqOpen   = @()
 $prereqUnread = $false
+$asanaRef     = $null
 if ($PostArg -or $OutFileArg) {
     # A gh that is missing or throws is an unreadable issue, not a dead run: -OutFile must still write.
     $issueJson = $null
@@ -376,9 +381,41 @@ if ($PostArg -or $OutFileArg) {
     if ($issueJson) {
         $issueTexts = @([string]$issueJson.body) + @(@($issueJson.comments) | ForEach-Object { [string]$_.body })
         $prereqOpen = @(Get-StoreAdminPrerequisites -Text $issueTexts | Where-Object { -not $_.Done })
+        $asanaRef   = Resolve-AsanaTaskRef -IssueBody ([string]$issueJson.body)
     } else {
         $prereqUnread = $true
     }
+}
+
+# 'linked' wherever nothing was resolved -- a print-only run, or an issue that could not be read -- because
+# neither has evidence the link is missing; the console line says which of the two it was.
+$asanaLink = 'linked'
+if ($asanaRef -and @('none', 'ambiguous') -contains $asanaRef.Source) { $asanaLink = $asanaRef.Source }
+if ($asanaRef -and $asanaLink -eq 'linked') {
+    Write-Host "  asana    : task $($asanaRef.Gid) (found by $($asanaRef.Source)) -- the closed message will carry the block" -ForegroundColor DarkGray
+} elseif ($asanaRef) {
+    Write-Host "  asana    : $($asanaRef.Source.ToUpper()) -- the closed message will carry nothing into Asana" -ForegroundColor Yellow
+} elseif ($prereqUnread) {
+    Write-Host "  asana    : not checked -- the issue could not be read" -ForegroundColor DarkGray
+} else {
+    Write-Host "  asana    : not checked -- a print-only run reads nothing; -OutFile and -Post check the link" -ForegroundColor DarkGray
+}
+
+# --- The block ----------------------------------------------------------------------------------------
+$block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
+    -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls `
+    -Language $LanguageArg -Changed $prose.Changed -WhereToLook $prose.WhereToLook -NotIncluded $prose.NotIncluded `
+    -AsanaLink $asanaLink
+
+Write-Host ""
+Write-Host $block
+Write-Host ""
+
+# What an unlinked issue is told, in both the warning and the refusal: the two remedies, by name.
+$asanaRemedy = if ($asanaLink -eq 'ambiguous') {
+    "it links $(@($asanaRef.Candidates).Count) Asana tasks ($(@($asanaRef.Candidates) -join ', ')) and the closed message will not guess. Put '<!-- asana-task: <gid> -->' for the right one in the issue body"
+} else {
+    "its body carries no '<!-- asana-task: <gid> -->' marker, '| **Asana** |' row or Asana task URL. Add the marker (report-issue step 3)"
 }
 
 # UTF-8 WITHOUT A BOM, for both files below: the block is the colleague's language, and a BOM would
@@ -400,6 +437,10 @@ if ($OutFileArg) {
         foreach ($p in $prereqOpen) { Write-Host "            - [ ] $(ConvertTo-ConsoleStrippedText -Text $p.Item)" -ForegroundColor Yellow }
     } elseif ($prereqUnread) {
         Write-Host "[WARNING] Could not read $targetRef, so its store-admin prerequisites are unchecked." -ForegroundColor Yellow
+    }
+    if ($asanaLink -ne 'linked') {
+        Write-Host "[WARNING] $targetRef will carry nothing into Asana when it closes: $asanaRemedy," -ForegroundColor Yellow
+        Write-Host "          or decide the issue is GitHub-only. -Post refuses until then." -ForegroundColor Yellow
     }
 }
 
@@ -442,6 +483,15 @@ if (-not $ForceArg -and ($prereqUnread -or $prereqOpen.Count -gt 0)) {
     exit 1
 }
 
+# AN ISSUE THAT LINKS NO TASK REFUSES THE POST (#2918): this is the last tool to touch the issue before it
+# closes, so it is the cheapest point to catch a link that would otherwise turn into a silent drop on the
+# Asana side. -Force is for an issue that is deliberately GitHub-only; the lead already says so truthfully.
+if (-not $ForceArg -and $asanaLink -ne 'linked') {
+    Write-Host "[ERROR] $targetRef will carry nothing into Asana when it closes: $asanaRemedy," -ForegroundColor Red
+    Write-Host "        then run this again. Nothing posted. Re-run with -Force for an issue that is GitHub-only." -ForegroundColor Red
+    exit 1
+}
+
 # Test-AsanaPasteBlockPosted answers TRUE where it cannot READ the comments, so a blind duplicate is
 # never posted; an unreadable issue is reported as exactly that and -Force is the way past it.
 if ((Test-AsanaPasteBlockPosted -IssueRef $targetRef) -and -not $ForceArg) {
@@ -470,4 +520,8 @@ if ($postCode -ne 0) {
     exit 1
 }
 Write-Host "[OK] Block posted on $targetRef." -ForegroundColor Green
-Write-Host "     Now close the issue as completed. The closed message carries the block into the Asana task -- no paste needed." -ForegroundColor DarkGray
+if ($asanaLink -eq 'linked') {
+    Write-Host "     Now close the issue as completed. The closed message carries the block into the Asana task -- no paste needed." -ForegroundColor DarkGray
+} else {
+    Write-Host "     Now close the issue as completed. It links no single Asana task, so nothing reaches Asana -- paste it there by hand if anyone waits on it." -ForegroundColor DarkGray
+}

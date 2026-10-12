@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Inbound #2918, verified against the tree first: `build-golive-block.ps1` never calls
+`Resolve-AsanaTaskRef`, and both `Get-GoLiveBlockLead` and the closing hint promise the closed message
+unconditionally.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-GoLiveBlockLead -AsanaLink linked|none|ambiguous` and `Format-GoLiveBlock -AsanaLink`: the lead promises "no paste needed" only on a linked issue
+- [x] `build-golive-block.ps1`: the issue read (for `-OutFile`/`-Post`) moves before the block is built and resolves the body's link; `-OutFile` warns, `-Post` refuses (`-Force` for GitHub-only), and the closing hint follows the link state
+- [x] Skill page, WORKFLOW-portable and the script header describe the check
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: unit asserts on the three leads, plus end to end through the stand-in `gh` (unlinked `-Post` refused, `-Force` past it, unlinked and linked `-OutFile` leads), 404/404 green
+
 ### DEPLOY: fix/2918-golive-block-checks-asana-link
 
-**Score:**
+`build-golive-block` now checks the issue's Asana link before it promises anything. It uses
+`Resolve-AsanaTaskRef`, the matcher `asana-closed-message` uses. The issue body may link no task, or
+more than one. Then the lead no longer says *"no paste needed"* and `-OutFile` warns. `-Post` refuses
+until the `<!-- asana-task: <gid> -->` marker is added, and `-Force` covers an issue that is
+GitHub-only. A print-only run still reads nothing
+([#2918](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2918)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store team no longer tells a requester "no paste needed" on an issue whose close reaches nobody.
+Measured on xoxowildhearts#404: an Asana-filed bug, unlinked, got that promise, and its reporter would
+have heard nothing when it shipped.
+
+**Score:** 3
 
 #### Pull Request
 

@@ -444,6 +444,13 @@ Assert-True ($goLiveBlock.Contains((Get-GoLiveBlockLead))) 'while the framing se
 Assert-True ((Get-GoLiveBlockLead) -match 'The closed message carries the block below into the Asana task') 'and says the closed message carries the block into the task (#2818)'
 Assert-True ((Get-GoLiveBlockLead) -match 'closes as completed') 'and only on a close as completed -- the one close that posts'
 Assert-True ((Get-GoLiveBlockLead) -match 'no paste needed') 'so nobody pastes it a second time (#2703)'
+# BUT ONLY ON AN ISSUE THAT LINKS ITS TASK (#2918): the closed message posts nothing on 'none' or
+# 'ambiguous', so the lead must not promise it there.
+Assert-Equal (Get-GoLiveBlockLead) (Get-GoLiveBlockLead -AsanaLink linked) 'the default lead is the linked one'
+Assert-True ((Get-GoLiveBlockLead -AsanaLink none) -notmatch 'no paste needed' -and (Get-GoLiveBlockLead -AsanaLink none) -match 'links no Asana task') 'an unlinked issue''s lead says nothing reaches Asana'
+Assert-True ((Get-GoLiveBlockLead -AsanaLink ambiguous) -notmatch 'no paste needed' -and (Get-GoLiveBlockLead -AsanaLink ambiguous) -match 'more than one Asana task') 'and an ambiguous one says the close will not guess'
+$glUnlinked = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'maandag 21 september 2026' -AsanaLink none
+Assert-True ($glUnlinked.Contains((Get-GoLiveBlockLead -AsanaLink none)) -and $glUnlinked -notmatch 'no paste needed') 'Format-GoLiveBlock passes the link state through to its lead'
 
 # A BARE LIST BESIDE A RESULT LINK SAYS HOW TO READ IT BEFORE THE RELEASE (#2477): a bare URL renders
 # the preview in any browser that opened the result link first, so both tabs would agree. The caveat is
@@ -686,6 +693,35 @@ try {
     Assert-True (-not $glSaWarn.Contains('Menu footer')) 'but not the ticked one'
     Assert-Equal 1 $glSaPostCode '-Post with an open prerequisite is refused'
     Assert-True ($glSaPost.Contains('Nothing posted') -and $glSaPost.Contains('-Force')) 'and says nothing was posted, and how to post regardless'
+    Assert-True ($glSaWarn -match 'will carry nothing into Asana') 'an issue body with no Asana link warns at -OutFile (#2918)'
+
+    # THE ASANA LINK, END TO END (#2918): the same stand-in gh, an issue with no prerequisites. Unlinked,
+    # -Post refuses before anything is commented; -Force gets past it to the comment, which the stand-in
+    # fails; linked, the lead keeps its promise and the link check stays silent.
+    $glIssueJson = Join-Path $glGhDir 'issue.json'
+    try {
+        $env:PATH = "$glGhDir;$glPath"
+        [System.IO.File]::WriteAllText($glIssueJson, '{"body":"Reported by a colleague via Asana (Dev - Bug)","comments":[]}', (New-Object System.Text.UTF8Encoding $false))
+        $glNoLink = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -Post 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+        $glNoLinkCode = $LASTEXITCODE
+        $glNoLinkForce = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -Post -Force 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+        & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -OutFile $glOutFile 2>&1 | Out-Null
+        $glNoLinkFile = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
+        [System.IO.File]::WriteAllText($glIssueJson, '{"body":"<!-- asana-task: 1219216227959314 -->\nbody","comments":[]}', (New-Object System.Text.UTF8Encoding $false))
+        $glLinked = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -OutFile $glOutFile 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+        $glLinkedFile = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
+    } finally { $env:PATH = $glPath }
+    Assert-Equal 1 $glNoLinkCode '-Post on an issue that links no Asana task is refused'
+    Assert-True ($glNoLink.Contains('Nothing posted') -and $glNoLink.Contains('GitHub-only')) 'and names the -Force valve for a GitHub-only issue'
+    Assert-True ($glNoLink.Contains('asana-task: <gid>')) 'and names the marker that fixes it'
+    Assert-True ($glNoLinkForce -notmatch 'GitHub-only' -and $glNoLinkForce -match 'already appears|Posting the comment') '-Force gets past the link refusal'
+    Assert-True ($glNoLinkFile -notmatch 'no paste needed' -and $glNoLinkFile.Contains('links no Asana task')) 'the unlinked block''s lead promises nothing'
+    Assert-True ($glLinkedFile.Contains('no paste needed')) 'a linked issue keeps the closed-message lead'
+    Assert-True ($glLinked -match 'task 1219216227959314 \(found by marker\)' -and $glLinked -notmatch 'will carry nothing') 'and the console names the task it found, with no warning'
 
     # THE SEAM IS NOT READ AT ALL, so one that throws costs the block nothing -- not even a warning.
     [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
