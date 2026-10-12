@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**16 / 17 minor entries** <!-- pending-tally -->
+**17 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2936-one-awaiting-label · 20261012-110037Z
+
+`CONTRIBUTING-portable.md` now states that an issue carries at most one `awaiting-*` parking label. Setting one replaces any other, in the same `gh issue edit`. Where the wait is transitive, meaning the issue waits on a pull request whose own issue is parked on something else, the issue takes the label for that root wait instead of `awaiting-pull`, and its body names the blocking issue. A record is the one exception: it keeps `awaiting-recurrences`, because that label governs how it is closed. Closes #2936.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's sessions stop stacking two parking labels on one issue, because the rule they label by now says which single label wins.
+
+**Score:** 2
+
+#### Pull Request
+
+An issue carries at most one awaiting-* label
+
+Plugins: dkj-policy
+
+[PR #2939](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2939)
+
+---
 
 ### DEPLOY: docs/2935-maikel-co-owner · 20261012-103950Z
 
