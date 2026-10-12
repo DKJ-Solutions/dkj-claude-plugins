@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**16 / 16 minor entries** <!-- pending-tally -->
+**16 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2935-maikel-co-owner · 20261012-103950Z
+
+Maikel (`maikel-bwj`) is now an owner of this repo with the same approval rights as Dave: `.claude/rules/this-repo.md` names both, so every owner gate in the constitution (visible results, releases, repo settings, publishing) accepts either one's word. The lens gates that said "wait for Dave's word" now say "the owner"; decisions attributed to Dave by name and date stay his. Closes #2935.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- governance of this repo only; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Maikel is a co-owner with the same approval rights as Dave
+
+[PR #2937](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2937)
+
+---
 
 ### DEPLOY: fix/2930-golive-post-waits-for-a-pr · 20261012-100943Z
 
