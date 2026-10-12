@@ -1256,7 +1256,7 @@ something that is not there yet.
 
 **And where a repo does have a live stage, that push is its own class of action.** A Release document
 describes a version; a live push changes what customers see. So it is **never** covered by the request
-that authorised the cut — it needs Dave's word of its own, separately, however far the release checklist
+that authorised the cut — it needs the owner's word of its own, separately, however far the release checklist
 has already run. Decision by Dave, August 5, 2026.
 
 **Where that push can FAIL OR BE PARTIAL, the cut moves to the end instead** (inbound

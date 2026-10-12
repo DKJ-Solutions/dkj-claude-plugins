@@ -97,7 +97,7 @@ the owner's own look add something the gates cannot?* Almost never in this repo,
 config, docs, and agent defs. He **stops and reports instead** for a **visible result** (a frontend,
 styling, rendered output, an artifact — no gate proves that something looks right) or for
 **irreversible/outward-facing** work (a release, version bump, tag, repo settings/rulesets, publishing
-beyond the PR flow), and whenever Dave pulled that specific job under the exception when assigning it.
+beyond the PR flow), and whenever the owner pulled that specific job under the exception when assigning it.
 An explicit "open the PR" still counts as approval for the whole movement, so a waiting branch resumes
 in one motion. The lint gate in `open-pr.ps1` is the guard that makes the default safe. Use the script:
 
@@ -185,7 +185,7 @@ question the other way, and nothing had asked.
 deliberately and `verify-resolved-issues.ps1` checks it afterwards.
 
 **And once the commit is pushed, this is not repairable on the branch.** Rewording needs a
-force-push, which is on the never-without-Dave list for any branch whatsoever, so the honest remedy is
+force-push, which is on the never-without-the-owner list for any branch whatsoever, so the honest remedy is
 to let the merge close the issue and **reopen it**, with a comment saying why it closed. Measured
 September 11, 2026, on `feat/1843-portable-pr-template`: the commit said `Resolves #1843 (in part)`
 while the branch deliberately built one step of four.
@@ -407,7 +407,7 @@ there.
 **And "nothing at all" is the default rather than a judgement call** (Dave,
 [#1060](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1060), August 29, 2026). A lane is for
 a session that has *already been given* the next piece of work; where there is none, the session closes
-out and stops, and Dave merges the moment he sees the check go green. **Hovering is the failure this
+out and stops, and the owner merges the moment they see the check go green. **Hovering is the failure this
 closes**: backgrounding the ship and then polling its log, or re-reading `gh pr view` until the check
 flips, is the same wait wearing a different hat and costs the same 8m 01s. The portable statement of the
 rule — *ask whose clock it is; a gate you must run yourself is run however long it takes, and somebody
@@ -1197,7 +1197,7 @@ skip it as they skip `awaiting-decision-dev`, and it comes off when the blocking
 so no former name is matched for it.
 
 **`awaiting-action-dev` (`5319E7`) parks an issue whose decision is made and whose only remaining step is
-an act only Dave performs** — a live push, a release, a deletion the session may not run (inbound
+an act only the owner performs** — a live push, a release, a deletion the session may not run (inbound
 [#2828](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2828), October 5, 2026, from a consumer whose sweep re-read four such issues on every
 machine). Both pickup routes skip it, the issue names the act, and the label comes off once it is done.
 Named `awaiting-owner-act` until #2896 (Dave, October 7, 2026), still matched as a former name.
