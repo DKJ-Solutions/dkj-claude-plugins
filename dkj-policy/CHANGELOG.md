@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**13 / 13 minor entries** <!-- pending-tally -->
+**14 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2928-pickup-asks-and-one-task-one-issue · 20261012-095336Z
+
+The Asana pickup check no longer stays silent on an issue that neither links nor mentions Asana. It asks the session whether the issue started from an Asana task, because that evidence can sit on the task alone. It also names an Asana task that is already linked from another open issue, since section 8 says one GitHub issue per ticket. Section 8 now tells a developer starting from a task to file through `report-issue`
+([#2928](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2928)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store team picking up an issue that was filed by hand from an Asana task is asked about it before any work starts, rather than finding out when the requester never hears back. Measured in xoxowildhearts: #401 and #402 came from one task, never said so, and ran the chain unnoticed.
+
+**Score:** 3
+
+#### Pull Request
+
+The Asana pickup check asks about an unmentioned issue and warns when one task is linked from two issues
+
+Plugins: bwj-development
+
+[PR #2931](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2931)
+
+---
 
 ### DEPLOY: feat/2925-reconcile-base-prints-merge · 20261012-094001Z
 

@@ -865,7 +865,12 @@ traffic split, in comments on the tasks nobody read.
 
 **One GitHub issue per Asana ticket**, in the store's repo, with the Asana link in its header. The issue
 is the analysis; Asana keeps the request. `report-issue` files it and puts the card in `Filed` in one
-call. Nothing moves the card after that (step 6 is retired), so a person moves it through the board's
+call. **Starting from an Asana task, file through `report-issue` with the task's GID, never with a
+plain `gh issue create`**: only that route writes the link on both sides. Measured in `xoxowildhearts`,
+where one task became #401 and #402 by hand and neither issue could reach its requester at the close.
+`asana-link-pickupcheck` asks at pickup when an issue neither links nor mentions Asana, and names a task
+linked from two open issues
+([#2928](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2928)). Nothing moves the card after that (step 6 is retired), so a person moves it through the board's
 sections as the ticket progresses.
 
 **Everything that comes out of Asana stays in that issue** -- the request, what was worked out, what

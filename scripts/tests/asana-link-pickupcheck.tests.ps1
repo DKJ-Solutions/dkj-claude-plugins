@@ -14,8 +14,9 @@
          two script names, so PowerShell does not start on every shell call.
 
     THE TEST GAP, NAMED. The path that reads a real issue needs `gh` and a tracker, so it is not run here
-    -- this suite runs in CI without tracker credentials. The decision that path takes is group 1's
-    Get-AsanaPickupVerdict and Format-AsanaPickupWarning.
+    -- this suite runs in CI without tracker credentials. The decisions that path takes are group 1's
+    Get-AsanaPickupVerdict, Format-AsanaPickupWarning, Get-AsanaTaskCoClaimants and
+    Format-AsanaCoClaimWarning.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -98,7 +99,28 @@ Assert-True ($w -like 'ASANA LINK MISSING*#404 names Asana but links no Asana ta
 Assert-True ($w.Contains('<!-- asana-task: <gid> -->') -and $w.Contains('Tracked on GitHub:')) 'and the warning names both writes report-issue prescribes'
 Assert-True ((Format-AsanaPickupWarning -Number 404 -Verdict 'ambiguous') -like '*several Asana task URLs*') 'an ambiguous issue gets its own reason'
 Assert-Equal '' (Format-AsanaPickupWarning -Number 404 -Verdict 'linked') 'a linked issue gets nothing'
-Assert-Equal '' (Format-AsanaPickupWarning -Number 404 -Verdict 'github-only') 'and neither does a GitHub-only one'
+# A GITHUB-ONLY ISSUE IS ASKED ABOUT (#2928): xoxowildhearts #401/#402 came from one Asana task and never
+# said so, so the word test reads them as ordinary -- the question is the one thing the hook can add.
+$q = Format-AsanaPickupWarning -Number 402 -Verdict 'github-only'
+Assert-True ($q -like 'ASANA ORIGIN?*#402 links no Asana task and does not mention*') 'a GitHub-only issue gets the origin question, by number'
+Assert-True (@($q -split "`n").Count -eq 2 -and $q -notmatch 'LINK MISSING') 'in two lines, and not dressed as the missing-link warning'
+
+Write-Host ''
+Write-Host 'The lib -- one task, one issue (#2928)' -ForegroundColor Cyan
+
+$gid = '1217711673556434'
+$peers = @(
+    [pscustomobject]@{ number = 402; body = "<!-- asana-task: $gid -->" },
+    [pscustomobject]@{ number = 401; body = "| **Asana** | https://app.asana.com/1/1/project/2/task/$gid |" },
+    [pscustomobject]@{ number = 399; body = "mentions $gid only as a number" },
+    [pscustomobject]@{ number = 398; body = '<!-- asana-task: 999 -->' }
+)
+$co = @(Get-AsanaTaskCoClaimants -Gid $gid -Number 402 -Issues $peers)
+Assert-Equal '401' ($co -join ',') 'the other issue resolving to the same task is found, the issue itself and a bare number are not'
+Assert-Equal 0 @(Get-AsanaTaskCoClaimants -Gid $gid -Number 402 -Issues @()).Count 'an empty search names nobody'
+$cw = Format-AsanaCoClaimWarning -Number 402 -Gid $gid -Others @(401)
+Assert-True ($cw -like "ONE TASK, TWO ISSUES*task $gid is linked from issue #402 and also from #401.*") 'the warning names the task and both issues'
+Assert-Equal '' (Format-AsanaCoClaimWarning -Number 402 -Gid $gid -Others @()) 'and with no other issue there is nothing to say'
 
 Write-Host ''
 Write-Host 'The hook -- every path that needs no tracker' -ForegroundColor Cyan
