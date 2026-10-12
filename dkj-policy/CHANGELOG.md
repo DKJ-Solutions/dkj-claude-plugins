@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**10 / 10 minor entries** <!-- pending-tally -->
+**11 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2919-asana-link-pickup-check · 20261012-091710Z
+
+`bwj-development` now warns at pickup when an issue names Asana but links no Asana task
+([#2919](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2919)). After `claim-issue` or
+`new-branch` picks up an issue, a new PostToolUse hook, `asana-link-pickupcheck`, reads it. Where the
+title or body mentions Asana and neither a marker, a header row nor a task URL links one, it tells the
+session to write both halves of the link before any work. A colleague's bug copied with a plain
+`gh issue create` (xoxowildhearts#404) had run the whole chain that way, and the requester would have
+heard nothing when it shipped. The hook starts PowerShell only when one of those two scripts runs.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A colleague who reports a bug in Asana hears back when it ships, because the session is now told at
+pickup when the issue it works on has lost the link to their task.
+
+**Score:** 3
+
+#### Pull Request
+
+bwj-development warns at pickup when an issue from Asana links no task
+
+Plugins: bwj-development
+
+[PR #2922](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2922)
+
+---
 
 ### DEPLOY: fix/2918-golive-block-checks-asana-link · 20261012-090906Z
 
