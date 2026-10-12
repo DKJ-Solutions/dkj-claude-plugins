@@ -306,7 +306,7 @@ function labelTag(name, color) {
 // comment is not read here, so an issue a sweep has just tagged still shows as sweepable until it is
 // assigned or gets a branch.
 const PARKED_BECAUSE = {
-  "awaiting-more-info": "waiting on the submitter",
+  "awaiting-info-client": "waiting on the submitter",
   "awaiting-decision-dev": "waiting on the owner's decision",
   "awaiting-decision-client": "waiting on the client's decision",
   "awaiting-pull": "waiting on another issue's pull request",
@@ -315,7 +315,8 @@ const PARKED_BECAUSE = {
   "awaiting-release": "waiting on the next release",
   "awaiting-recurrences-first": "waiting on a first recurrence",
   "awaiting-recurrences": "record: waiting on the next instance or the root cause",
-  // Former names (#2683, #2723, #2741, #2890, #2896, #2904), still read because a tracker keeps a name until renamed.
+  // Former names (#2683, #2723, #2741, #2890, #2896, #2904, #2917), still read because a tracker keeps a name until renamed.
+  "awaiting-more-info": "waiting on the submitter",
   "needs-info": "waiting on the submitter",
   "needs-decision": "waiting on the owner's decision",
   "awaiting-decision": "waiting on the owner's decision",

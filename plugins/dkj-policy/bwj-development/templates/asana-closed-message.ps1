@@ -29,7 +29,7 @@
       - A close as completed whose comments COULD NOT BE READ: the same bare message, and the log says
         the read failed, with gh's exit code and stderr -- never 'none was on the issue', which it
         cannot know (#2875).
-      - A close as NOT PLANNED that keeps the awaiting-more-info label on, with a linked task: one
+      - A close as NOT PLANNED that keeps the awaiting-info-client label on, with a linked task: one
         comment, the header and the on-hold line in the requester's fixed form -- 'is closed: there is not
         enough information to start development yet. Once the questions above are answered, the issue will
         be reopened and the work picks up again.' (#2902, #2909). That pair is the BWJ procedure's
@@ -107,7 +107,7 @@ param(
     [ValidateSet('closed', 'reopened')]
     [string]$Event = 'closed',
     # The issue's label names as a JSON array (#2902): read only on a close as not planned, where
-    # awaiting-more-info makes it the on-hold message. Empty from a workflow copied before #2902, which
+    # awaiting-info-client makes it the on-hold message. Empty from a workflow copied before #2902, which
     # leaves a not-planned close silent as it was.
     [string]$IssueLabels = $env:ISSUE_LABELS,
     [string]$AsanaPat = $env:ASANA_PAT
@@ -315,7 +315,7 @@ function New-OnHoldMessage {
     <#
         Pure: the on-hold comment as plain text (#2902) -- the header, a blank line, and the on-hold
         sentence in the requester's fixed form (#2909). Posted on a close as not planned with
-        awaiting-more-info kept on, so the requester reads a parked ticket as waiting for them, never as
+        awaiting-info-client kept on, so the requester reads a parked ticket as waiting for them, never as
         finished: the completed line says 'is now closed. It can be reopened anytime', which a colleague
         with an open question in front of them reads as done.
     #>
@@ -363,13 +363,15 @@ function Select-SessionPasteBlockSections {
     return ''
 }
 
-function Get-OnHoldLabelName {
+function Get-OnHoldLabelNames {
     <#
-        Pure: the label that turns a close as not planned into a close while WAITING (#2732, #2902). It is
+        Pure: the labels that turn a close as not planned into a close while WAITING (#2732, #2902). It is
         the pair the BWJ procedure sanctions for parking a ticket blocked on its requester: not planned,
-        with this label kept on through the close.
+        with this label kept on through the close. The current name first, then the former one
+        (awaiting-more-info until #2917): a tracker keeps the old name until somebody renames it there,
+        and a not-planned close under it must still post the on-hold message.
     #>
-    return 'awaiting-more-info'
+    return @('awaiting-info-client', 'awaiting-more-info')
 }
 
 function Get-ClosedMessageDecision {
@@ -377,7 +379,7 @@ function Get-ClosedMessageDecision {
         Pure: whether this close or reopen gets a message, which one (Kind: 'closed' | 'on-hold' |
         'reopened'), and why not where it does not. Post is $true for a reopen; for a close as completed
         (or one with no reason, which GitHub treated as completed); and for a close as NOT PLANNED that
-        still carries the awaiting-more-info label (#2902) -- the parked-while-waiting pair, which gets the
+        still carries the awaiting-info-client label (#2902) -- the parked-while-waiting pair, which gets the
         on-hold message. All three need an issue whose body resolves to exactly one task. A reopen ignores
         the close reason: whatever the issue was closed as, it is in development now (#2854). A close as
         not planned WITHOUT the label is a rejection, and a duplicate is somebody else's ticket: both stay
@@ -393,7 +395,7 @@ function Get-ClosedMessageDecision {
     $reason = ([string]$StateReason).Trim().ToLowerInvariant()
     $kind   = if ($Event -eq 'reopened') { 'reopened' } else { 'closed' }
     if ($Event -eq 'closed' -and $reason -and $reason -ne 'completed') {
-        $onHold = $reason -eq 'not_planned' -and (@($Labels | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() }) -contains (Get-OnHoldLabelName))
+        $onHold = $reason -eq 'not_planned' -and (@($Labels | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { (Get-OnHoldLabelNames) -contains $_ }).Count -gt 0)
         if (-not $onHold) {
             return [pscustomobject]@{ Post = $false; Gid = $null; Kind = $null; Why = "closed as '$reason' -- nothing was built, so the task is told nothing (#2765)." }
         }

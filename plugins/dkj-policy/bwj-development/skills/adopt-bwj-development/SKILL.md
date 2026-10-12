@@ -99,7 +99,7 @@ at every session start when either copy is missing or differs from the template,
 
 When an issue closes as completed, the workflow posts one comment on its Asana task: the automation's
 header, the closed line, and the go-live block the shipping session left on the issue. On a close as not
-planned that keeps the `awaiting-more-info` label on, it posts the header and the on-hold line (#2902); on
+planned that keeps the `awaiting-info-client` label on, it posts the header and the on-hold line (#2902); on
 any other not-planned close, or a duplicate, it posts nothing. When an issue is reopened, it posts the
 header and the reopened line (#2854). It never moves a card and never completes a task. A store that
 already holds the two files from an earlier version gets the stop-and-diff above: the difference is the
@@ -135,7 +135,7 @@ function Get-AsanaStageMap {
         InReview       = 5   # closed on GitHub
         ReadyToTest    = 6   # the submitter's turn
         Completed      = 7   # the submitter says it is good
-        NeedsInfoLabel = 'awaiting-more-info'
+        NeedsInfoLabel = 'awaiting-info-client'
     }
 }
 
@@ -419,23 +419,27 @@ collision this step used to warn about -- `prio-2` shared `fbca04` with `tier-1`
 that day keeps its old colours**, because `gh label create` never touches a label that exists;
 re-colour in place with `gh label edit prio-<n> --repo <owner>/<repo> --color <hex>`, the hexes above.
 
-**And the `awaiting-more-info` label**, a flag on the issue for a ticket that is blocked on the person who
+**And the `awaiting-info-client` label**, a flag on the issue for a ticket that is blocked on the person who
 filed it. It is a GitHub-side flag only now: it used to park the Asana card in the blocked column, and with
-the mirror retired it moves nothing in Asana. The label was named `needs-info` until October 2, 2026
-([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)): a tracker already carrying
-`needs-info` renames it in place, keeping every issue on it, and takes the colour below in the same command
-([#2810](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2810)):
-`gh label edit needs-info --name awaiting-more-info --color 5319E7 --repo <owner>/<repo>`.
+the mirror retired it moves nothing in Asana. The label was named `awaiting-more-info` until October 12,
+2026 ([#2917](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2917)), in the `-client` shape
+of `awaiting-decision-client` because it waits on the requester, and `needs-info` before October 2, 2026
+([#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723)). A tracker already carrying
+either former name renames it in place, keeping every issue on it, and takes the colour below in the same
+command ([#2810](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2810)):
+`gh label edit awaiting-more-info --name awaiting-info-client --color 5319E7 --repo <owner>/<repo>`, or
+`needs-info` in the first argument where that is the name it still has. Both pickup routes and the
+closed message still answer to the former names until then.
 
 ```bash
-gh label create awaiting-more-info --repo <owner>/<repo> --color 5319E7 \
+gh label create awaiting-info-client --repo <owner>/<repo> --color 5319E7 \
   --description "Blocked on the person who filed it"
 ```
 
 `5319E7` is the colour of the whole `awaiting-*` family. Until October 6, 2026 both lines above prescribed
 `d4c5f9`, so a tracker adopted before then recolours it in place
 ([#2853](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2853)):
-`gh label edit awaiting-more-info --color 5319E7 --repo <owner>/<repo>`.
+`gh label edit awaiting-info-client --color 5319E7 --repo <owner>/<repo>`.
 
 **GitHub issue types are not used** ([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)):
 the kind is the `bug` or `feature` label created above, always one of the two (#2783). There is

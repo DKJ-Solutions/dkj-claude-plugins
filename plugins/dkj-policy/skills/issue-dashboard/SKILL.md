@@ -123,8 +123,8 @@ private repository created later. Where only some repositories belong on the pag
 ## Status and order, in short
 
 Status is the first match of: **In review** (an open non-draft PR closes it), **In progress** (a draft PR,
-or a `<prefix>/<n>-` branch under `feat/`, `fix/`, `docs/`), **Waiting** (label `awaiting-more-info`,
-`awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release`, `awaiting-recurrences-first` or `awaiting-recurrences`, or any former name: `needs-info`, `needs-decision`, `awaiting-decision`,
+or a `<prefix>/<n>-` branch under `feat/`, `fix/`, `docs/`), **Waiting** (label `awaiting-info-client`,
+`awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release`, `awaiting-recurrences-first` or `awaiting-recurrences`, or any former name: `awaiting-more-info`, `needs-info`, `needs-decision`, `awaiting-decision`,
 `awaiting-recurrence`, `awaiting-first-recurrence`, `record`, `dossier`, `awaiting-more-recurrences`, `awaiting-owner-act`, `awaiting-event`), **Blocked** (an open `blockedBy`), **Claimed** (an assignee),
 **Filed**. Order is topological over open in-repo blockers, ties by issue number; priority labels and age
 do not order. An open blocker outside the repo sinks an issue, and any issue behind a sunk one, below every issue without one; a cycle is

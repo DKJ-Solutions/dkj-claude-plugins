@@ -220,12 +220,12 @@ parked issue in one pass with the owner
 ([#2759](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2759)).
 
 - **A choice that is not the owner's is `awaiting-decision-client`** ([#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890), Dave, October 7, 2026): a colleague's QA sign-off, a business decision from the client or requester outside the dev team. Both pickup routes skip it, and **`sweep-decisions` skips it too**, because putting it to the owner would record an answer the owner has no standing to give; it comes off when that person answers, and the answer goes on the issue as a comment. It is a new label, so no former name is matched for it.
-- **It is not `awaiting-more-info`.** Where [`bwj-development`](bwj-development/WORKFLOW-portable.md) is installed,
-  `awaiting-more-info` (named `needs-info` until October 2, 2026,
-  [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723); the old name is still matched)
+- **It is not `awaiting-info-client`.** Where [`bwj-development`](bwj-development/WORKFLOW-portable.md) is installed,
+  `awaiting-info-client` (named `awaiting-more-info` until October 12, 2026, #2917, and `needs-info` until October 2, 2026,
+  [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723); both old names are still matched)
   means *blocked on the submitter*: it moves the mirrored Asana card to the blocked column and
   obliges a question comment addressed to the person who filed it. Neither is true of a decision that is
-  the owner's, so the labels stay separate -- `awaiting-more-info` is not `awaiting-decision-client` either, which waits on a choice, not on information the submitter has not given -- and all are skipped.
+  the owner's, so the labels stay separate -- `awaiting-info-client` is not `awaiting-decision-client` either, which waits on a choice, not on information the submitter has not given -- and all are skipped.
 - **An issue that is only the question has one answer route.** Once the owner answers, the label comes off
   and the issue is ordinary work. Where the answer is *"neither"*, the issue closes as `not_planned` with
   that reason.
