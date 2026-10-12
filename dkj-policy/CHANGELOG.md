@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**20 / 21 minor entries** <!-- pending-tally -->
+**21 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2943-golive-live-since · 20261012-123133Z
+
+`build-golive-block` takes `-LiveSince <date>` for an issue that closes after its change went live, which is the normal case for one parked `awaiting-release`, or work pushed live on its own. The block then reads *Het staat live sinds ...* / *It has been live since ...* instead of naming the next release day. It also drops the private-window caveat on the live URLs and the "last moment before a customer sees it" line in the ask. A date after today is refused, and so is `-LiveSince` beside `-From` or `-ReleaseDay` ([#2943](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2943)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a BWJ store repo, the closed message on a ticket that is already live now tells the requester it is live, and since when. Before, it told them it would go live next Monday, and #190 had to be closed with a hand-written comment instead.
+
+**Score:** 2
+
+#### Pull Request
+
+golive-block -LiveSince: a block for a change that is already live
+
+Plugins: bwj-development
+
+[PR #2947](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2947)
+
+---
 
 ### DEPLOY: fix/2942-triage-label-color-drift · 20261012-122347Z
 
