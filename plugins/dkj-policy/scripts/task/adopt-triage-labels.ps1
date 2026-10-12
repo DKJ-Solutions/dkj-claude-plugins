@@ -60,13 +60,19 @@
     test suite does). If that ever changes, the argument to add it is a write this script gained, not
     one it always had.
 
-    NO DRIFT DETECTION. A label that already exists is reported '[ok]' without comparing its colour or
-    description against the canonical values -- that is a different, harder problem (a repo may have
-    deliberately retextured its own label) and #1895 scoped it out. A label found under a FORMER name is
-    the exception: the printed rename sets the canonical colour and description too, because the rename
-    is the adoption (#2810). This script only answers "does a
-    label with this name exist at all", the same question `Get-MissingLabelNote` already asks and the
-    same case-insensitive comparison, because GitHub itself is case-insensitive on label names.
+    COLOUR DRIFT IS REPORTED, DESCRIPTION DRIFT IS NOT (#2942). A label that already exists under its
+    canonical name is '[ok]' when its colour matches and '[drift]' when it does not, with a paste-ready
+    `gh label edit --color` beside it -- printed, never run. #1895 first scoped drift out, because a repo
+    may have retextured its own label on purpose; but a repo that wants its own colours says so in its
+    own Get-TriageLabels, and this script compares against THAT answer, so a colour that differs from it
+    is drift by the repo's own statement. Measured on life-hub, October 12, 2026: 'awaiting-action-external'
+    sat yellow among the purple awaiting-* labels, created by hand without --color, and this script
+    called it '[ok]'. The comparison is case-insensitive and ignores a leading '#', because gh returns the
+    hex in lower case. The DESCRIPTION is not compared: it is prose a repo rewords freely, and a drift
+    line for every reworded sentence would bury the colour one. A label found under a FORMER name sets
+    the canonical colour and description both, because the rename is the adoption (#2810). Names are
+    matched the way `Get-MissingLabelNote` matches them -- case-insensitively, because GitHub itself is
+    case-insensitive on label names.
 
     STRICTLY READ-ONLY, NEVER A GATE. Nothing in this workflow refuses a PR or a merge over a missing
     triage label -- unlike the reach label, which `open-pr`/`ship-pr` never read either but which a
@@ -237,8 +243,8 @@ function Format-SingleQuotedArg {
     return ($Value -replace "($quoteClass)", '$1$1')
 }
 
-# Get-LabelNames only reads the 'name' field of each record and ignores the rest -- exactly what this
-# script needs, since colour/description drift on an EXISTING label is out of scope (see the header).
+# Get-LabelNames only reads the 'name' field of each record; the colour is read separately below, once
+# the list is known to be readable (see the header's COLOUR DRIFT paragraph).
 #
 # EMPTY IS "UNKNOWABLE" AND NOT "ABSENT" -- the exact contract Get-LabelNames already documents for its
 # other caller, Get-MissingLabelNote, and deliberately not distinguished here from "could not even ask"
@@ -269,8 +275,22 @@ if ($existingNames.Count -eq 0) {
 # pr-issues-lib.ps1 (already dot-sourced above), so the legacy names live in one place.
 $formerNames = Get-FormerTriageLabelNames
 
+# THE COLOUR OF EACH EXISTING LABEL, for the drift check (#2942). A PowerShell hashtable is already
+# case-insensitive on its keys, which is the comparison GitHub makes on a label name. Assign first and
+# wrap second -- the 5.1 parse trap Get-LabelNames documents. A record without a colour (a payload from
+# a caller that never asked for one) is simply not judged.
+$existingColors = @{}
+try { $parsedLabels = $labelJson | ConvertFrom-Json } catch { $parsedLabels = $null }
+foreach ($record in @(@($parsedLabels) | Where-Object { $_ })) {
+    if (-not $record.PSObject.Properties['name'] -or -not $record.PSObject.Properties['color']) { continue }
+    $recordName = ([string]$record.name).Trim()
+    if ($recordName -and -not $existingColors.ContainsKey($recordName)) { $existingColors[$recordName] = ([string]$record.color).Trim().TrimStart('#') }
+}
+
 $missing = 0
 $ok = 0
+$drift = 0
+$repoArg = if ($repoSlug) { " --repo $repoSlug" } else { '' }
 foreach ($label in $triageLabels) {
     # Case-INSENSITIVE, because that is how GitHub treats a label name: it refuses to create 'Prio-2'
     # beside 'prio-2', and attaching 'prio-2' would resolve to the existing 'Prio-2'. Same comparison
@@ -278,11 +298,22 @@ foreach ($label in $triageLabels) {
     $exists = @($existingNames | Where-Object { $_ -eq $label.Name }).Count -gt 0
     if ($exists) {
         $ok++
+        $have = if ($existingColors.ContainsKey($label.Name)) { [string]$existingColors[$label.Name] } else { '' }
+        $want = ([string]$label.Color).Trim().TrimStart('#')
+        # -ne is case-insensitive in PowerShell, which is what a hex colour needs: gh answers '5319e7'.
+        if ($have -and $want -and $have -ne $want) {
+            $drift++
+            Write-Host "  [drift]   '$($label.Name)' exists with colour '$have', not the canonical '$want'" -ForegroundColor Yellow
+            # Escaped as on the create and rename lines below: the seam's values are a consumer's free text.
+            $qName = Format-SingleQuotedArg -Value $label.Name
+            $qColor = Format-SingleQuotedArg -Value $want
+            Write-Host "            gh label edit '$qName' --color '$qColor'$repoArg" -ForegroundColor Yellow
+            continue
+        }
         Write-Host "  [ok]      '$($label.Name)' already exists" -ForegroundColor Green
         continue
     }
     $missing++
-    $repoArg = if ($repoSlug) { " --repo $repoSlug" } else { '' }
     # The first former name this tracker still carries, if any -- see the block above the loop.
     $former = ''
     if ($formerNames.ContainsKey($label.Name)) {
@@ -314,10 +345,14 @@ foreach ($label in $triageLabels) {
 }
 
 Write-Host ''
-if ($missing -eq 0) {
-    Write-Host "Done: all $ok canonical triage label(s) already exist$(if ($repoSlug) { " in $repoSlug" } else { '' })." -ForegroundColor Green
+$inRepo = if ($repoSlug) { " in $repoSlug" } else { '' }
+$driftNote = if ($drift -gt 0) { ", $drift of them in a colour other than the canonical one" } else { '' }
+if ($missing -eq 0 -and $drift -eq 0) {
+    Write-Host "Done: all $ok canonical triage label(s) already exist$inRepo." -ForegroundColor Green
+} elseif ($missing -eq 0) {
+    Write-Host "All $ok canonical triage label(s) exist$inRepo$driftNote. Paste the command(s) above -- nothing was changed." -ForegroundColor Yellow
 } else {
-    Write-Host "$missing of $($triageLabels.Count) canonical triage label(s) missing$(if ($repoSlug) { " in $repoSlug" } else { '' }); $ok already exist. Paste the command(s) above -- nothing was created." -ForegroundColor Yellow
+    Write-Host "$missing of $($triageLabels.Count) canonical triage label(s) missing$inRepo; $ok already exist$driftNote. Paste the command(s) above -- nothing was created." -ForegroundColor Yellow
 }
 
 # ALWAYS 0. This is a report, never a gate: nothing in this workflow refuses a PR or a merge over a

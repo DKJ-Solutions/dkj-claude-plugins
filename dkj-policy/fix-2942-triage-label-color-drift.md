@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Inbound #2942: `adopt-triage-labels.ps1` compared labels by name only, so a canonical label in the
+wrong colour read `[ok]`. Verified against the tree: line 281 printed `[ok]` on the name alone, and the
+header's "NO DRIFT DETECTION" paragraph was an implementer's scope cut on #1895's PR, not an owner
+decision -- #1895 asked apply-or-print, shared-set and home, and nothing about drift. Its reason (a repo
+may retexture on purpose) is answered by the `Get-TriageLabels` seam, which is what the comparison reads.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Report a colour mismatch on an existing canonical label as `[drift]` with a paste-ready `gh label edit --color`, case-insensitive and `#`-tolerant; description deliberately not compared. Header and summary line updated; plugin mirror synced.
+- [x] Suite: canonical colours in the all-present fixtures (one lower-case), and a new 3b scenario reproducing the measured `FBCA04` case.
 
 ### TEST
 
+- [x] `adopt-triage-labels.tests.ps1`: 168 asserts pass, mirror LF-identical.
+
 ### DEPLOY: fix/2942-triage-label-color-drift
 
-**Score:**
+`adopt-triage-labels` now compares the colour of every canonical label that already exists, not just its name. A label in another colour is reported `[drift]` with a paste-ready `gh label edit --color` line beside it, still printed and never run, and the summary counts it. The comparison reads the repo's own `Get-TriageLabels` answer, so a repo that wants its own colours declares them there. Descriptions are not compared. Closes #2942.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer whose tracker has a parking or priority label in the wrong colour now sees it named, with the one command that fixes it, where the report used to call it fine.
+
+**Score:** 2
 
 #### Pull Request
 

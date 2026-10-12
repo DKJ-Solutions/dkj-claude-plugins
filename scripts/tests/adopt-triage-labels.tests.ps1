@@ -13,8 +13,9 @@
          itself), and no Invoke-NativeCapture call in the script's own source ever passes 'create' as a
          `gh label` argument -- so even a future accidental rewiring could not quietly start applying.
       2. EVERY MISSING LABEL PRINTS A PASTE-READY COMMAND with the exact name, colour and description,
-         and an EXISTING one (case-insensitive) is reported '[ok]' and left alone -- no drift check on
-         colour/description, which #1895 scoped out.
+         and an EXISTING one (case-insensitive) is reported '[ok]' when its colour matches and '[drift]'
+         with a paste-ready `gh label edit --color` when it does not (#2942); the description is not
+         compared.
       3. AN UNREADABLE LABEL LIST is '[skip]', never a false '[missing]' -- the same "unknowable is not
          absent" contract Get-MissingLabelNote already documents for its own caller.
       4. THE SEAM IS ACTUALLY READ, NOT MERELY DEFINED: a consumer's own Get-TriageLabels overrides the
@@ -77,8 +78,10 @@ function Assert-Equal {
 # two of THOSE (and none of the four canonical ones) is the realistic shape of "this repo has not
 # adopted the convention yet", and it is what lets this scenario reach the [missing] branch at all.
 $LabelsNone    = '[{"name":"bug","color":"d73a4a","description":"unrelated default label"},{"name":"enhancement","color":"a2eeef","description":"unrelated default label"}]'
-$LabelsAll     = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"prio-2","color":"F9A825","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Awaiting-Recurrences","color":"5319E7","description":"old text"},{"name":"awaiting-decision-dev","color":"5319E7","description":"old text"},{"name":"awaiting-decision-client","color":"5319E7","description":"old text"},{"name":"awaiting-pull","color":"5319E7","description":"old text"},{"name":"awaiting-action-external","color":"5319E7","description":"old text"},{"name":"awaiting-action-dev","color":"5319E7","description":"old text"},{"name":"awaiting-release","color":"5319E7","description":"old text"},{"name":"awaiting-recurrences-first","color":"5319E7","description":"old text"}]'
-$LabelsPartial = '[{"name":"prio-1","color":"FFE033","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"}]'
+# Every colour in $LabelsAll is the canonical one -- 'prio-1' in lower case, the way gh returns it -- so
+# the scenario reaches '[ok]' and not the '[drift]' arm (#2942), which 3b exercises on its own.
+$LabelsAll     = '[{"name":"prio-1","color":"ffa726","description":"old text"},{"name":"prio-2","color":"F57C00","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Awaiting-Recurrences","color":"5319E7","description":"old text"},{"name":"awaiting-decision-dev","color":"5319E7","description":"old text"},{"name":"awaiting-decision-client","color":"5319E7","description":"old text"},{"name":"awaiting-pull","color":"5319E7","description":"old text"},{"name":"awaiting-action-external","color":"5319E7","description":"old text"},{"name":"awaiting-action-dev","color":"5319E7","description":"old text"},{"name":"awaiting-release","color":"5319E7","description":"old text"},{"name":"awaiting-recurrences-first","color":"5319E7","description":"old text"}]'
+$LabelsPartial = '[{"name":"prio-1","color":"FFA726","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"}]'
 $LabelsBad     = 'not json'
 
 function New-LabelsFile {
@@ -179,6 +182,22 @@ try {
     # canonical set -- GitHub itself treats the two as the same label, and a case-sensitive compare
     # here would print a create command gh would refuse as a duplicate.
     Assert-True ($r.Out -like "*[ok]*'prio-3' already exists*") "case-insensitive: the payload's 'PRIO-3' satisfies the canonical 'prio-3'"
+    Assert-Equal 0 (@([regex]::Matches($r.Out, '\[drift\]')).Count) "all present: zero [drift] lines -- 'ffa726' is the canonical 'FFA726' in gh's lower case"
+
+    # --- 3b. A canonical label in the WRONG colour: [drift] and a paste-ready edit (#2942) ----------
+    #         The measured case: 'awaiting-action-external' created yellow (FBCA04) among the purple
+    #         awaiting-* family, reported '[ok]' because only the name was compared.
+    Write-Host '-- 3b. an existing label in a colour other than the canonical one --' -ForegroundColor Cyan
+    $fDrift = New-LabelsFile -Label 'drift' -Json ($LabelsAll -replace '"awaiting-action-external","color":"5319E7"', '"awaiting-action-external","color":"fbca04"')
+    $dir = New-FixtureConsumer -Label 'drift'
+    $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fDrift
+    Assert-Equal 0 $r.Code 'drift: exit-code 0 -- still a report, never a gate'
+    Assert-True ($r.Out -match "\[drift\]\s+'awaiting-action-external' exists with colour 'fbca04', not the canonical '5319E7'") "drift: 'awaiting-action-external' is reported [drift] with both colours named"
+    Assert-True ($r.Flat -like "*gh label edit 'awaiting-action-external' --color '5319E7' --repo fixture-org/fixture-repo*") 'drift: the composed edit is exact and paste-ready'
+    Assert-Equal 1 (@([regex]::Matches($r.Out, '\[drift\]')).Count) 'drift: exactly one [drift] line -- the eleven matching labels stay [ok]'
+    Assert-True ($r.Out -notmatch "\[ok\]\s+'awaiting-action-external'") 'drift: and the drifted label is no longer reported [ok]'
+    Assert-True ($r.Flat -notlike '*Done:*') 'drift: the summary does not say done'
+    Assert-True ($r.Flat -like '*All 12 canonical triage label(s) exist*1 of them in a colour other than the canonical one*nothing was changed*') 'drift: the summary counts the drifted label'
 
     # --- 4. Two of twelve present: a mixed report, correct counts ------------------------------------
     Write-Host '-- 4. two of twelve already exist --' -ForegroundColor Cyan
