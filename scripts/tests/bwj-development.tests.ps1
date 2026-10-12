@@ -449,6 +449,7 @@ Assert-True ((Get-GoLiveBlockLead) -match 'no paste needed') 'so nobody pastes i
 Assert-Equal (Get-GoLiveBlockLead) (Get-GoLiveBlockLead -AsanaLink linked) 'the default lead is the linked one'
 Assert-True ((Get-GoLiveBlockLead -AsanaLink none) -notmatch 'no paste needed' -and (Get-GoLiveBlockLead -AsanaLink none) -match 'links no Asana task') 'an unlinked issue''s lead says nothing reaches Asana'
 Assert-True ((Get-GoLiveBlockLead -AsanaLink ambiguous) -notmatch 'no paste needed' -and (Get-GoLiveBlockLead -AsanaLink ambiguous) -match 'more than one Asana task') 'and an ambiguous one says the close will not guess'
+Assert-True ((Get-GoLiveBlockLead -AsanaLink unchecked) -notmatch 'no paste needed' -and (Get-GoLiveBlockLead -AsanaLink unchecked) -match '^If this issue links') 'an issue that could not be read gets a conditional lead, never the promise'
 $glUnlinked = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'maandag 21 september 2026' -AsanaLink none
 Assert-True ($glUnlinked.Contains((Get-GoLiveBlockLead -AsanaLink none)) -and $glUnlinked -notmatch 'no paste needed') 'Format-GoLiveBlock passes the link state through to its lead'
 

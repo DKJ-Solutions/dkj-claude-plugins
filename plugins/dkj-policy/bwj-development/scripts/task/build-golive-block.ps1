@@ -387,9 +387,11 @@ if ($PostArg -or $OutFileArg) {
     }
 }
 
-# 'linked' wherever nothing was resolved -- a print-only run, or an issue that could not be read -- because
-# neither has evidence the link is missing; the console line says which of the two it was.
+# 'linked' on a print-only run, which reads nothing and leaves the console as its only reader; 'unchecked'
+# on an issue that could not be read, whose post only -Force reaches, so the lead it posts promises nothing
+# it has no evidence for.
 $asanaLink = 'linked'
+if ($prereqUnread) { $asanaLink = 'unchecked' }
 if ($asanaRef -and @('none', 'ambiguous') -contains $asanaRef.Source) { $asanaLink = $asanaRef.Source }
 if ($asanaRef -and $asanaLink -eq 'linked') {
     Write-Host "  asana    : task $($asanaRef.Gid) (found by $($asanaRef.Source)) -- the closed message will carry the block" -ForegroundColor DarkGray
@@ -522,6 +524,8 @@ if ($postCode -ne 0) {
 Write-Host "[OK] Block posted on $targetRef." -ForegroundColor Green
 if ($asanaLink -eq 'linked') {
     Write-Host "     Now close the issue as completed. The closed message carries the block into the Asana task -- no paste needed." -ForegroundColor DarkGray
+} elseif ($asanaLink -eq 'unchecked') {
+    Write-Host "     Now close the issue as completed. Its Asana link could not be checked -- confirm the body carries the asana-task marker first." -ForegroundColor DarkGray
 } else {
     Write-Host "     Now close the issue as completed. It links no single Asana task, so nothing reaches Asana -- paste it there by hand if anyone waits on it." -ForegroundColor DarkGray
 }
