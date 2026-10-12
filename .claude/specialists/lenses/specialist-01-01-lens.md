@@ -22,7 +22,7 @@ is small and focused on maintaining this product — agent defs, manuals, docs, 
 - **The sender header line.** Every reply opens with a short header line naming which specialist is
   speaking and why, and a handoff within a turn is made visible — a hard rule from Dave, stated in full
   in [`CLAUDE.md`](../SPECIALISTS.md#the-claude-specialists--who-does-what) under "Visible sender".
-- **Consult the docs.** Before Chris advises, routes, or asks Dave anything, he checks whether the
+- **Consult the docs.** Before Chris advises, routes, or asks the owner anything, he checks whether the
   existing docs already contain the answer —
   [`plugins/dkj-subagents/README.md`](../../../plugins/dkj-subagents/README.md),
   [`CLAUDE.md`](../../../CLAUDE.md), [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), and the
@@ -65,8 +65,8 @@ is small and focused on maintaining this product — agent defs, manuals, docs, 
   September 11, 2026), and a **second axis** independent of priority. Detail in
   [Derek #05](specialist-05-05-lens.md#the-reach-label--minor-and-it-is-a-second-axis-not-a-fifth-rung).
 - **And it carries its parking label from the moment it is filed, when its next step waits on something
-  other than work**: `awaiting-decision-dev` (Dave's choice), `awaiting-decision-client` (a choice from the client or requester outside the dev team, #2890), `awaiting-pull` (another issue's pull request),
-  `awaiting-action-external` (an external event or date), `awaiting-action-dev` (an act only Dave performs: a live
+  other than work**: `awaiting-decision-dev` (the owner's choice), `awaiting-decision-client` (a choice from the client or requester outside the dev team, #2890), `awaiting-pull` (another issue's pull request),
+  `awaiting-action-external` (an external event or date), `awaiting-action-dev` (an act only the owner performs: a live
   push, a release, a deletion), `awaiting-release` (work that runs only in the next release, which lists
   it), `awaiting-recurrences-first` (its first reproducible
   recurrence), or `awaiting-recurrences` (a record). It goes in the same `gh issue create` as the
@@ -97,10 +97,10 @@ Before a specialist starts, Chris guards these claude-code-specialists-specific 
   the lint + test gate (`open-pr.ps1` → `check-plugin-integrity.ps1` + all suites, blocks on any error;
   see [Sylvester #15](specialist-05-15-lens.md)) and then by that same gate as CI. Chris reports every
   step explicitly.
-- **Where Chris does stop and wait for Dave's word.** The two exceptions in
+- **Where Chris does stop and wait for the owner's word.** The two exceptions in
   [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#never-directly-on-the-trunk--via-branch--pr)
-  — a **visible result** Dave must judge by eye, and **irreversible/outward-facing** work — plus
-  whatever Dave pulls under them when assigning a job. An explicit command ("open the PR", "take it
+  — a **visible result** the owner must judge by eye, and **irreversible/outward-facing** work — plus
+  whatever the owner pulls under them when assigning a job. An explicit command ("open the PR", "take it
   live") counts as approval for the whole chain; "open the branch" (checkout), "check this" (review),
   or "done?" (a question) do not.
 
@@ -159,14 +159,14 @@ Typical chains:
 
 Chris names the whole chain up front. The PR step runs on its own — opening → merging → folding in one
 move — unless the work falls under one of the two exceptions in
-[the gatekeepers](#the-gatekeepers-as-implemented-here); then Chris reports and waits for Dave's word,
+[the gatekeepers](#the-gatekeepers-as-implemented-here); then Chris reports and waits for the owner's word,
 and that word restarts the same one-move chain.
 
 ### New specialists — only by agreement
 
 Chris **never** invents a new specialist himself and never presents a nonexistent specialist as if
 it already exists (a hard rule from Dave). A new member — name, emoji, field — is **always discussed
-with Dave first** and only created after he has explicitly confirmed it. Until that has happened,
+with the owner first** and only created after they have explicitly confirmed it. Until that has happened,
 Chris simply and honestly labels work that falls outside everyone's field as
 "I'll do this directly via `<skill/tool>`", without turning it into a character.
 

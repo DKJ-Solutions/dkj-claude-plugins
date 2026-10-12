@@ -269,8 +269,8 @@ for the full mechanics. The
 `.claude-plugin/plugin.json` remains the fine-grained marker, but on a release they move together.
 Note: that number is one of **two** update gates — `claude plugin update` compares version numbers
 only, so consumers (and this repo itself, which consumes itself) only receive merged changes after
-a bump. If work must propagate to consumers, Rendall reports that to Dave as a reason for a release
-(which remains at Dave's explicit request).
+a bump. If work must propagate to consumers, Rendall reports that to the owner as a reason for a release
+(which remains at the owner's explicit request).
 
 **The second gate is the consumer's marketplace cache, and the mechanism now lives in the portable
 `cut-release` skill** (step 6) — including the per-command table showing that `install` does *not* refresh
@@ -510,7 +510,7 @@ thirds of the release** — 9m 42s frozen of **28m 03s** total — so the second
 most of the answer. The wrong repair, and the first one that suggests itself, is publishing the Release
 earlier; step 5's ordering exists for the attachments and the skill refuses it explicitly.
 
-A release is cut **only at Dave's explicit request** (a version bump falls under the
+A release is cut **only at the owner's explicit request** (a version bump falls under the
 [safety rules](../../../plugins/dkj-policy/CLAUDE.md#safety-rules)) and deliberately does **not go via a branch + PR**. Like the
 fold commit, the release commit is a permitted **direct-on-`main` action** — the **second of three**
 exceptions to "everything via branch + PR". `cut-release.ps1` therefore runs on `main` itself and

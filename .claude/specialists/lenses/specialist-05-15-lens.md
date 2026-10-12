@@ -1003,8 +1003,8 @@ infrastructure.
   **NOT in `main-ci-gate`**, like `unfolded-entry.yml` and `branch-entry.yml` — the two that state that
   reasoning for themselves — and for a sharper version of it: a
   check whose subject *is* the ruleset, required *by* that ruleset, would be self-referential — and it
-  would stop the trunk over a switch only Dave can flip, so a drift would block every merge instead of
-  reporting one. **And it writes nothing to GitHub**, ever: repo settings are Dave's surface, the same
+  would stop the trunk over a switch only the owner can flip, so a drift would block every merge instead of
+  reporting one. **And it writes nothing to GitHub**, ever: repo settings are the owner's surface, the same
   rule `adopt-ci-floor.ps1` follows when it composes its required-check ruleset command and refuses to
   run it ([#1972](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1972)) — its merge-queue
   instruction stays a UI pointer instead, since that switch is scheduling policy nobody here has
@@ -1129,7 +1129,7 @@ infrastructure.
     path, so the loser is sometimes the **session** — and the two losses were never equally cheap: a red
     CI job is read once and closed, while `ship-pr`'s `-ne 0` ended a *correct* ship by reporting a
     failure and leaving the session's local `main` diverged 1/1, which `CLAUDE.md` reserves every obvious
-    way out of (`reset --hard`, a rebase on a shared branch) to Dave. The fold's redundant-commit verdict
+    way out of (`reset --hard`, a rebase on a shared branch) to the owner. The fold's redundant-commit verdict
     now exits **3** — its second and last code of its own — and `ship-pr` reads it as a stood-down
     success, carries on through steps 5b/6, and prints in a step 5c the two commands that realign this
     checkout: a `backup/fold-<branch>` ref, then `reset --keep origin/main` (trunk checked out here) or
@@ -1172,12 +1172,12 @@ infrastructure.
 
   **THE ARMING LABEL IS THE AUTHORISATION, AND `ship-pr` IS ITS ONLY WRITER.** The constitution
   `CLAUDE.md` imports holds two
-  kinds of PR back for Dave's own word — a visible result, and anything irreversible or outward-facing —
+  kinds of PR back for the owner's own word — a visible result, and anything irreversible or outward-facing —
   and a runner merging every green PR would merge those too. `merge-when-green` is set once the PR is
   open and before `ship-pr` starts waiting on CI (#2393; until then only when its CI verdict
   refused, which left a ship that died mid-watch or refused at step 3b unarmed), so it is a record
   that a session had *already begun shipping*, which is precisely what those two exceptions
-  withhold. A PR kept back for Dave never had `ship-pr` run on it. The label creates itself on first use
+  withhold. A PR kept back for the owner never had `ship-pr` run on it. The label creates itself on first use
   rather than needing an adoption step, because
   `gh pr edit --add-label` fails outright on a label the repo does not have and this script travels to
   every consumer.
@@ -1187,7 +1187,7 @@ infrastructure.
   records from the other side. So a `GITHUB_TOKEN` merge would land the PR and silence `ci.yml` on the
   trunk, `fold-on-merge.yml` and `verify-resolved.yml` all three: the unobserved-merge state those two
   runners exist to close, reintroduced by the mechanism meant to help. The cost is that the secret needs
-  `Pull requests: write` added to it, which is Dave's act and not a branch's; until it is made this job
+  `Pull requests: write` added to it, which is the owner's act and not a branch's; until it is made this job
   fails loudly with a 403 on the merge and can never merge without folding.
 
   **IT IS THE PRINCIPLED ANSWER TO THE TEMPTATION #2265 MEASURED**, and it does not reverse that
@@ -4307,7 +4307,7 @@ rule holds **everywhere**, because it reads the shape and not the text: the guid
 whatever language it was translated into.
 
 **Two things this deliberately did not do.** `branch-entry` was **not** made a required check — that is a
-ruleset change and Dave's own act, and it would put a check that *reports* significance in front of every
+ruleset change and the owner's own act, and it would put a check that *reports* significance in front of every
 merge. And the CI half still reports rather than refuses, which is the design stated immediately below.
 
 #### the CI gate, because the gates above are local
@@ -4353,7 +4353,7 @@ heading test.
 to `main`, where there is no branch document at all. A job there would be red on the trunk after every merge.
 The script answers the trunk case gracefully as well, but a gate should not need that grace to be pointed
 correctly. **It is not in the `main` ruleset** — making a check required is a repo-settings change and
-therefore Dave's, so today it reports on every PR and blocks nothing.
+therefore the owner's, so today it reports on every PR and blocks nothing.
 
 #### the always-on budget gate, on what every session pays before any of this
 
@@ -4402,7 +4402,7 @@ arithmetic is in **LF bytes** rather than on-disk bytes — a CRLF checkout is o
 repository stores, which is ~1.4% on a 1,346-line file: plausible, wrong, and enough to refuse a branch that
 changed nothing.
 
-**Like `branch-entry`, it is not in the `main` ruleset** — a required check is Dave's act, not a script's.
+**Like `branch-entry`, it is not in the `main` ruleset** — a required check is the owner's act, not a script's.
 
 ### The `dkj-policy/` folder, and this repo's answers to the portable seams
 

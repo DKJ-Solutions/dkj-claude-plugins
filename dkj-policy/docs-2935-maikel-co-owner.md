@@ -39,19 +39,28 @@
 
 ### PLAN
 
+- [x] Decision recorded on #2935 (Dave, October 12, 2026): Maikel is a co-owner; lens gate wording becomes "the owner", dated attributions keep Dave's name
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `this-repo.md` names both owners with the same approval rights
+- [x] Gate wording in `SPECIALISTS.md` and the lenses of Chris, Derek, Rendall and Sylvester reads `the owner`; historical attributions untouched
 
 ### TEST
 
+- [x] Lint + test gate via open-pr
+
 ### DEPLOY: docs/2935-maikel-co-owner
 
-**Score:**
+Maikel (`maikel-bwj`) is now an owner of this repo with the same approval rights as Dave: `.claude/rules/this-repo.md` names both, so every owner gate in the constitution (visible results, releases, repo settings, publishing) accepts either one's word. The lens gates that said "wait for Dave's word" now say "the owner"; decisions attributed to Dave by name and date stay his. Closes #2935.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- governance of this repo only; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
