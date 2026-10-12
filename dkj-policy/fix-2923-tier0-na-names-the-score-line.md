@@ -39,21 +39,31 @@
 
 ### PLAN
 
+Inbound #2923, verified: `Read-EntryTierSections` said "under tier 0" with no heading, and `open-pr` ended every impact refusal with "Correct the table", including on the section shape, which has no table.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `entry-scaffold-lib.ps1` (+ mirror): the tier-0 N/A error names the heading its Score line sits under, and adds a swap diagnosis when an audience tier carries a number
+- [x] `open-pr.ps1` (+ mirror): "Correct the Score line(s) named above" on the section shape; the table wording stays for the table shape
+- [~] the optional scaffold cue: dropped, because the refusal now names the heading, which is the cheap half the issue asked for first
 
 ### TEST
 
+- [x] `entry-scaffold.tests.ps1`: the refusal names the DEPLOY heading, a scored audience tier is diagnosed as a swap, and an all-N/A entry is not; 901/901, and `branch-entry-gate.tests.ps1` 82/82
+
 ### DEPLOY: fix/2923-tier0-na-names-the-score-line
 
-**Score:**
+The refusal for a tier-0 `N/A` now names the heading its Score line sits under, so the reader no longer has to work out which line "tier 0" means. When the audience tier carries a number at the same time, the refusal says the two answers look swapped and how to move them. `open-pr` no longer says "Correct the table" for an entry that has no table
+([#2923](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2923)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A session that put its two scores in each other's slot gets one refusal that names the fix, not a retry loop. Measured in smartwatchbanden, where the loop ran across most of an hour.
+
+**Score:** 2
 
 #### Pull Request
 
 The tier-0 N/A refusal names the Score line it means and spots a swapped pair
-

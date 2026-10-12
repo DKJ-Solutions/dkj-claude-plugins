@@ -1810,7 +1810,7 @@ The tiers are how far a change reaches, and the release cut reads them:
 The significance is how much it weighs for that reader, and decides where in the document it sits:
 $((Format-EntrySignificanceRubricLines) -join "`n")
 
-Correct the table and run again.
+$(if ($entryTier.Shape -eq 'sections') { 'Correct the Score line(s) named above and run again.' } else { 'Correct the table and run again.' })
 "@
         exit 1
     }
