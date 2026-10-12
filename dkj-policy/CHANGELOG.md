@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**19 / 20 minor entries** <!-- pending-tally -->
+**20 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2942-triage-label-color-drift · 20261012-122347Z
+
+`adopt-triage-labels` now compares the colour of every canonical label that already exists, not just its name. A label in another colour is reported `[drift]` with a paste-ready `gh label edit --color` line beside it, still printed and never run, and the summary counts it. The comparison reads the repo's own `Get-TriageLabels` answer, so a repo that wants its own colours declares them there. Descriptions are not compared. Closes #2942.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer whose tracker has a parking or priority label in the wrong colour now sees it named, with the one command that fixes it, where the report used to call it fine.
+
+**Score:** 2
+
+#### Pull Request
+
+adopt-triage-labels reports a wrong-colored canonical label as [ok]
+
+Plugins: dkj-policy
+
+[PR #2946](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2946)
+
+---
 
 ### DEPLOY: feat/2940-asana-origin-reach-label · 20261012-121358Z
 
