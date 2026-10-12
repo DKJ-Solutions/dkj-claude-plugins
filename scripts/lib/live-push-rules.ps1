@@ -220,8 +220,15 @@ function Get-SyncMergeCommits {
         two copies of "which commits came in through a sync" are free to disagree about which files the
         push leaves out.
 
-        -LogLines IS `git log --format=%H%x09%P%x09%s` OUTPUT, one commit per line. The caller runs git;
-        this only reads what came back.
+        -LogLines IS `git log --first-parent --format=%H%x09%P%x09%s` OUTPUT, one commit per line. The
+        caller runs git; this only reads what came back.
+
+        --first-parent IS NOT OPTIONAL (#2912, BWJ-Development/xoxowildhearts, October 12, 2026). A
+        trunk-into-sync merge ("Merge branch 'main' into sync/live-2026-10-05") names the sync branch in
+        its subject too, and without the flag it was read as a head: its FirstParent..Sha is the TRUNK's
+        work it brought over, so our own feature commits were counted as a sync's and their paths --
+        theme.css halved in #358 among them -- dropped out of the push list as sync-owned. On the
+        trunk's own line only the merge that brought the sync IN appears, and that is the one a head is.
 
         TWO MERGE SHAPES, BECAUSE TWO WORKFLOWS EXIST. A merge commit carries the branch name in its
         subject ('merge: sync/2026-09-20 (#123)'), and a squash merge has no merge commit at all -- there
