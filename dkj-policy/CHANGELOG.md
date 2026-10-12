@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**8 / 8 minor entries** <!-- pending-tally -->
+**9 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2917-awaiting-info-client · 20261012-084728Z
+
+The `awaiting-more-info` parking label is now `awaiting-info-client`, so it says who owes the answer, in
+the same shape as `awaiting-decision-client`
+([#2917](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2917)). `claim-issue`, the sweeps,
+the issue dashboard and the BWJ closed message still answer to the old name, because a tracker keeps it
+until somebody renames it there. `adopt-bwj-development` prints the in-place rename:
+`gh label edit awaiting-more-info --name awaiting-info-client --color 5319E7`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store team that parks a ticket on its requester uses a new label name, and renames the label on its
+tracker once, with the command above. Nothing stops working before they do.
+
+**Score:** 3
+
+#### Pull Request
+
+Rename the awaiting-more-info label to awaiting-info-client
+
+Plugins: bwj-development, dkj-policy
+
+[PR #2920](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2920)
+
+---
 
 ### DEPLOY: feat/2913-notes-page-url-in-closeout · 20261012-083008Z
 

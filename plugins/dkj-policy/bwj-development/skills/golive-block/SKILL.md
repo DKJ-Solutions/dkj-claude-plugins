@@ -156,7 +156,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
   retired `asana-mirror` did from #2700. So the framing sentence above the rules reads *"The closed
   message carries the block below into the Asana task when this issue closes as completed -- no paste
   needed:"* -- on an issue whose body links its task (step 9); on one that does not, the sentence says
-  that nothing will reach Asana. A close as not planned sends no block: it sends nothing, or -- with `awaiting-more-info` kept
+  that nothing will reach Asana. A close as not planned sends no block: it sends nothing, or -- with `awaiting-info-client` kept
   on -- the on-hold line alone (#2902).
 - **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026"* is a
   cadence, and a release can slip. This block is the one surface a colleague quotes back, so it must

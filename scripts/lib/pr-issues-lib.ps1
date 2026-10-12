@@ -1269,7 +1269,7 @@ function Get-ResolvesExemptFindings {
 # renames it there, and a rule about what a merge may close must not lapse the day the plugin updates.
 #
 # RENAMED AGAIN, TO 'awaiting-more-recurrences' (issue #2723, Dave October 2, 2026), as one of the three
-# purple labels that each mark an issue WAITING on something: 'awaiting-more-info' (was 'needs-info'),
+# purple labels that each mark an issue WAITING on something: 'awaiting-more-info' (was 'needs-info'; 'awaiting-info-client' since #2917),
 # 'awaiting-first-recurrence' (was 'awaiting-recurrence') and this one. The two awaiting-*-recurrence
 # names say the difference outright -- one instance and none reproduced yet, against a problem that has
 # demonstrably recurred and is still being collected. Both former names stay matched, for the reason above.

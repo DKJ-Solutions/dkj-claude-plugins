@@ -1244,7 +1244,7 @@ function Get-ExpectedRepoSettings {
 # asserts nothing about the adopting repo. The handling rule lives in CONTRIBUTING-portable.md.
 # It was named 'dossier' until issue #2683 (Dave October 1, 2026 -- clearer, and plainer English) and
 # 'record' until issue #2723 (Dave October 2, 2026), which made the three purple labels one family of
-# issues WAITING on something: 'awaiting-more-info', 'awaiting-first-recurrence' and this one -- and
+# issues WAITING on something: 'awaiting-more-info' ('awaiting-info-client' since #2917), 'awaiting-first-recurrence' and this one -- and
 # 'awaiting-more-recurrences' until issue #2904 (October 9, 2026), which renamed the recurrence pair to
 # read as one: this label and 'awaiting-recurrences-first'. Every old
 # name is still matched by open-pr's gate and the parking defaults, and adopt-triage-labels prints a
@@ -1252,7 +1252,7 @@ function Get-ExpectedRepoSettings {
 #
 # AND A SIXTH, A PARKING LABEL: 'awaiting-decision-dev' (issue #2519, Dave September 26, 2026; 'awaiting-decision' until #2890, October 7, 2026, when it was split in two and 'dev' came to mean the owner alone; 'needs-decision' until #2741, October 3, 2026, when it joined the purple awaiting-* family and took that colour). An issue that
 # ends in an open choice for the owner is not work anybody can pick up yet, and the claim and sweep
-# routes skip it by default. It is deliberately NOT 'awaiting-more-info' ('needs-info' until #2723): in
+# routes skip it by default. It is deliberately NOT 'awaiting-info-client' ('awaiting-more-info' until #2917, 'needs-info' until #2723): in
 # bwj-development that label means
 # blocked on the SUBMITTER -- it moves the mirrored Asana card to the blocked column and obliges a
 # question comment to the person who filed it -- and neither is true of a decision that is the owner's.
@@ -1307,7 +1307,7 @@ function Get-ExpectedRepoSettings {
 # that is NOT the owner's -- a colleague's QA sign-off, a business decision from the client or requester outside
 # the dev team -- is not free work either, and 'awaiting-decision-dev' says the opposite: that label is answered
 # by the owner alone, so 'sweep-decisions' puts it to the owner, while this one both 'sweep-issues' and
-# 'sweep-decisions' skip. It is deliberately NOT 'awaiting-more-info': that label means blocked on information
+# 'sweep-decisions' skip. It is deliberately NOT 'awaiting-info-client': that label means blocked on information
 # the SUBMITTER has not given and, in bwj-development, moves the mirrored Asana card. New, so no former name;
 # same purple, same 'copy' reasoning: "waiting on the client's choice" asserts nothing about the adopting repo.
 $script:TriageLabels = @(

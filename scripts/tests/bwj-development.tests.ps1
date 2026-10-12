@@ -909,23 +909,24 @@ Assert-True (Get-ClosedMessageDecision -StateReason '' -IssueBody $cmSamples[0])
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0]).Post) 'a close as not planned posts nothing (#2765)'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('bug', 'prio-2')).Post) 'nor with labels that do not park it'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'duplicate' -IssueBody $cmSamples[0]).Post) 'and neither does a close as a duplicate'
-Assert-True (-not (Get-ClosedMessageDecision -StateReason 'duplicate' -IssueBody $cmSamples[0] -Labels @('awaiting-more-info')).Post) 'not even one still carrying awaiting-more-info'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'duplicate' -IssueBody $cmSamples[0] -Labels @('awaiting-info-client')).Post) 'not even one still carrying awaiting-info-client'
 Assert-Equal 'closed' (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[0]).Kind 'a close as completed is the closed message'
 
-# THE ON-HOLD MESSAGE (#2902): not planned with awaiting-more-info kept on is the parked-while-waiting pair.
-$cmHold = Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('bug', 'awaiting-more-info')
-Assert-True $cmHold.Post 'a close as not planned with awaiting-more-info kept on posts'
+# THE ON-HOLD MESSAGE (#2902): not planned with awaiting-info-client kept on is the parked-while-waiting pair.
+$cmHold = Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('bug', 'awaiting-info-client')
+Assert-True $cmHold.Post 'a close as not planned with awaiting-info-client kept on posts'
+Assert-True (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('awaiting-more-info')).Post 'and so does the former name awaiting-more-info, which a tracker keeps until it is renamed (#2917)'
 Assert-Equal 'on-hold' $cmHold.Kind 'and it is the on-hold message, not the closed one'
 Assert-Equal '1234' $cmHold.Gid 'to the task the marker names'
-Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[4] -Labels @('awaiting-more-info')).Post) 'with no linked task it posts nothing'
-Assert-Equal 'closed' (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[0] -Labels @('awaiting-more-info')).Kind 'a close as completed stays the closed message, whatever the labels'
-Assert-Equal 'reopened' (Get-ClosedMessageDecision -Event 'reopened' -IssueBody $cmSamples[0] -Labels @('awaiting-more-info')).Kind 'and a reopen stays the reopened message'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[4] -Labels @('awaiting-info-client')).Post) 'with no linked task it posts nothing'
+Assert-Equal 'closed' (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[0] -Labels @('awaiting-info-client')).Kind 'a close as completed stays the closed message, whatever the labels'
+Assert-Equal 'reopened' (Get-ClosedMessageDecision -Event 'reopened' -IssueBody $cmSamples[0] -Labels @('awaiting-info-client')).Kind 'and a reopen stays the reopened message'
 Assert-True (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('Awaiting-More-Info')).Post 'the label is matched whatever its case'
-Assert-Equal 'bug, with comma|awaiting-more-info' ((ConvertFrom-IssueLabelList -Text "[`n  `"bug, with comma`",`n  `"awaiting-more-info`"`n]") -join '|') 'the workflow''s toJSON labels parse into names, a comma inside a name kept'
-Assert-Equal 'awaiting-more-info' ((ConvertFrom-IssueLabelList -Text '["awaiting-more-info"]') -join '|') 'and a single label is a list of one'
+Assert-Equal 'bug, with comma|awaiting-info-client' ((ConvertFrom-IssueLabelList -Text "[`n  `"bug, with comma`",`n  `"awaiting-info-client`"`n]") -join '|') 'the workflow''s toJSON labels parse into names, a comma inside a name kept'
+Assert-Equal 'awaiting-info-client' ((ConvertFrom-IssueLabelList -Text '["awaiting-info-client"]') -join '|') 'and a single label is a list of one'
 Assert-Equal 0 @(ConvertFrom-IssueLabelList -Text '').Count 'an empty ISSUE_LABELS -- a workflow copied before #2902 -- is no labels'
 Assert-Equal 0 @(ConvertFrom-IssueLabelList -Text '[]').Count 'and so is an issue without labels'
-Assert-Equal 0 @(ConvertFrom-IssueLabelList -Text 'bug,awaiting-more-info').Count 'and a value that is not JSON is no labels, so the close stays silent'
+Assert-Equal 0 @(ConvertFrom-IssueLabelList -Text 'bug,awaiting-info-client').Count 'and a value that is not JSON is no labels, so the close stays silent'
 $cmHoldHtml = New-OnHoldMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#882'
 $cmHoldXml = New-Object System.Xml.XmlDocument
 $cmHoldXml.PreserveWhitespace = $true
@@ -958,7 +959,7 @@ Assert-True ($cmSections.StartsWith('TE BEKIJKEN OP')) 'the carried sections sta
 Assert-True ($cmSections -notmatch 'GitHub automation|is now \*\*closed') 'so neither arrives twice'
 Assert-Equal '' (Select-SessionPasteBlockSections -Bodies @('first', 'no block here')) 'an issue with no block carries no sections'
 $cmQuestion = "Wat we van je vragen: 1. Een tijdstip.`n`n$cmLibMarker"
-Assert-Equal $cmSections (Select-SessionPasteBlockSections -Bodies @($goLiveBlock, $cmQuestion)) 'an awaiting-more-info question carries the marker but no rules, so the block before it is still the one carried'
+Assert-Equal $cmSections (Select-SessionPasteBlockSections -Bodies @($goLiveBlock, $cmQuestion)) 'an awaiting-info-client question carries the marker but no rules, so the block before it is still the one carried'
 $cmHtml = New-ClosedMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#500' -BlockSections $cmSections
 $cmXml  = [xml]$cmHtml
 Assert-True ($cmXml.body.InnerText.StartsWith((New-ClosedMessage -IssueRef 'BWJ-Development/smartwatchbanden#500'))) 'the message is well-formed XML and opens with the plain closed message'

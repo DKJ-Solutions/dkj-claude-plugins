@@ -284,6 +284,8 @@ out.status = {
   parkingDecisionClient: statusOf(iss(1, { ...bl, labels: ["awaiting-decision-client"] }), [], false),
   parkingFormerDecisionDev: statusOf(iss(1, { ...bl, labels: ["awaiting-decision"] }), [], false),
   parkingFormerOwnerAct: statusOf(iss(1, { ...bl, labels: ["awaiting-owner-act"] }), [], false),
+  parkingInfoClient: statusOf(iss(1, { ...bl, labels: ["awaiting-info-client"] }), [], false),
+  parkingFormerMoreInfo: statusOf(iss(1, { ...bl, labels: ["awaiting-more-info"] }), [], false),
   parkingFormerEvent:   statusOf(iss(1, { ...bl, labels: ["awaiting-event"] }), [], false),
   parkingPull:          statusOf(iss(1, { ...bl, labels: ["awaiting-pull"] }), [], false),
   parkingEvent:         statusOf(iss(1, { ...bl, labels: ["awaiting-action-external"] }), [], false),
@@ -642,6 +644,8 @@ console.log(JSON.stringify(out));
         Assert-Equal 'Waiting'     $s.parkingDecisionClient 'awaiting-decision-client parks (#2890)'
         Assert-Equal 'Waiting'     $s.parkingFormerDecisionDev 'the former name awaiting-decision still parks (#2890)'
         Assert-Equal 'Waiting'     $s.parkingFormerOwnerAct 'the former name awaiting-owner-act still parks (#2896)'
+        Assert-Equal 'Waiting'     $s.parkingInfoClient 'awaiting-info-client parks (#2917)'
+        Assert-Equal 'Waiting'     $s.parkingFormerMoreInfo 'the former name awaiting-more-info still parks (#2917)'
         Assert-Equal 'Waiting'     $s.parkingFormerEvent   'the former name awaiting-event still parks (#2896)'
         Assert-Equal 'Waiting'     $s.parkingOverAll       '...and both'
         Assert-Equal 'Blocked'     $s.blockedOverAssignee  'an open blocker beats an assignee'

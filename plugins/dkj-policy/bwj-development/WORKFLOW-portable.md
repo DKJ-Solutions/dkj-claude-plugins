@@ -319,7 +319,7 @@ closed message opens with the same header (#2818).
 **Write the line BEFORE you post, because you cannot add it afterwards.** The Asana MCP exposes adding
 a comment but no tool to edit or delete one, although the API itself supports both. So a comment a
 session posts without the line stays that way. **A block a person pastes by hand** (step 4's
-paste-ready block, the `awaiting-more-info` question) is that person's own message once they post it, and it
+paste-ready block, the `awaiting-info-client` question) is that person's own message once they post it, and it
 takes no header: the rule covers what an agent writes, not what a person chooses to send.
 
 #### A task is read before it is offered for deletion, and a task a person has worked is never deleted
@@ -382,7 +382,7 @@ same day brought back **the closed message** (#2818), and the next day **the reo
 - **Closing an issue as completed** posts one comment on the linked task: the automation's header, the
   closed line, and the go-live block's sections under it. Where the issue carries no block, it posts the
   header and the closed line alone, so the requester still hears.
-- **Closing as not planned with the `awaiting-more-info` label kept on** (the parked-while-waiting pair,
+- **Closing as not planned with the `awaiting-info-client` label kept on** (the parked-while-waiting pair,
   step 6) posts one comment: the header and the on-hold line, *"GitHub issue <owner>/<repo>#<n> is
   **closed:** there is not enough information to start development yet. Once the questions above are
   answered, the issue will be reopened and the work picks up again."* (#2902, in the requester's fixed
@@ -719,13 +719,13 @@ somebody moves it.
 The two ends were always the submitter's -- their untriaged inbox at one end and `Completed` at the other
 -- and that is unchanged: **this plugin never ticks a task off** (step 4).
 
-#### Setting `awaiting-more-info` is still writing the question -- one act, and the issue stays open
+#### Setting `awaiting-info-client` is still writing the question -- one act, and the issue stays open
 
 **The label is a GitHub-side flag now, not a card mover** (inbound
 [#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352), carrying a rule that lived only
 in a consumer page until September 23, 2026). It used to park the card in the blocked column; with the
 mirror retired it moves nothing in Asana, so the question has to reach the requester some other way. The
-go-live block of step 4 is one exit that ends with the requester; `awaiting-more-info` is the second.
+go-live block of step 4 is one exit that ends with the requester; `awaiting-info-client` is the second.
 Measured in `BWJ-Development/smartwatchbanden`,
 [#702](https://github.com/BWJ-Development/smartwatchbanden/issues/702) and
 [#721](https://github.com/BWJ-Development/smartwatchbanden/issues/721): a card sat a day in the
@@ -771,7 +771,7 @@ remove the label**: whoever brings the answer does.
 
 **Closing while waiting is the one sanctioned alternative** (Dave, October 3, 2026,
 [#2732](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2732)), for an owner who wants the
-waiting ticket off the open list. Close it as **not planned** and **keep the `awaiting-more-info` label
+waiting ticket off the open list. Close it as **not planned** and **keep the `awaiting-info-client` label
 on through the close**, so the pair still reads as *waiting for information* and not as a rejection. The
 question is written first, exactly as above. The `asana-closed-message` workflow then tells the task the
 issue is closed until there is enough information to start development, and will be reopened once the
@@ -783,12 +783,12 @@ finished.
 ### 7. What still needs a person
 
 - **Setup, once per repo:** the classification labels (`bug`, `feature`, the reach label, the four prio
-  labels and `awaiting-more-info`) and the Asana config seam. The
+  labels and `awaiting-info-client`) and the Asana config seam. The
   [`adopt-bwj-development`](skills/adopt-bwj-development/SKILL.md) skill walks this. **No CI secret and no
   `.github/` file is needed for the mirror any more.**
 - **Everything that happens to a card after it is filed.** `report-issue` puts it in `Filed`; moving it
   through the board's sections, pasting the go-live block into it and ticking it off are people's acts.
-- **Deciding a ticket is blocked on the submitter.** The `awaiting-more-info` label is a flag on the
+- **Deciding a ticket is blocked on the submitter.** The `awaiting-info-client` label is a flag on the
   GitHub issue, and no automation sets, clears or reads it into Asana. Putting it on is a judgement about
   whether the request can proceed -- and it is one act with writing the question, in the form step 6
   prescribes; taking it off says the answer arrived.
@@ -839,7 +839,7 @@ before anybody claims that issue -- read the **assignee of the Asana task**, and
 
 - **Is it assigned to somebody outside the dev team?** Then it is not an assignment. Either leave it
   unmirrored, or mirror it and open it as **blocked on that person** rather than as work -- which is
-  what the `awaiting-more-info` label of step 6 says.
+  what the `awaiting-info-client` label of step 6 says.
 - **`Ball with` is read, not assumed.** The header row below is a judgement about *who is up now*, and
   the task's assignee is the evidence for it. `us` is an answer, not a default: if the task is on
   somebody else's name, the answer is that name.
