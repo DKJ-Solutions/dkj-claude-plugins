@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Inbound #2943, verified on pickup: `Get-NextReleaseDate` is strictly after `-From`, and `Format-GoLiveBlock`
+had no form for a change that is already live, so a block written after the release named the next one.
+The five fixed headings stay, because `asana-closed-message` and the tests name them.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-GoLiveBlockText`: `LiveSince`, `LiveSinceVer`, `LiveNow`, `AskLookLive` in Dutch and English
+- [x] `Format-GoLiveBlock -Live` / `Get-GoLiveBlockAsk -Live`: the live-since sentence, a plain live-URL label, no last-moment sentence
+- [x] `build-golive-block.ps1 -LiveSince <date>`, refusing a future day and `-From`/`-ReleaseDay` beside it
+- [x] The `golive-block` skill page names the parameter
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the lib's live block in both languages, and the driver through `-File` -- the date binds, a future day and `-From` beside it are refused (suite green)
+
 ### DEPLOY: feat/2943-golive-live-since
 
-**Score:**
+`build-golive-block` takes `-LiveSince <date>` for an issue that closes after its change went live, which is the normal case for one parked `awaiting-release`, or work pushed live on its own. The block then reads *Het staat live sinds ...* / *It has been live since ...* instead of naming the next release day. It also drops the private-window caveat on the live URLs and the "last moment before a customer sees it" line in the ask. A date after today is refused, and so is `-LiveSince` beside `-From` or `-ReleaseDay` ([#2943](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2943)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a BWJ store repo, the closed message on a ticket that is already live now tells the requester it is live, and since when. Before, it told them it would go live next Monday, and #190 had to be closed with a hand-written comment instead.
+
+**Score:** 2
 
 #### Pull Request
 

@@ -27,7 +27,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 
 1. Resolves the issue (a bare number, `#412`, or its URL) and the repo.
 2. **The date** -- the next release day, strictly after today. BWJ cuts on a Monday, which is the
-   default; `-ReleaseDay` is there for a repo on another cadence.
+   default; `-ReleaseDay` is there for a repo on another cadence. **Where the change is already live**
+   -- an issue closing after its release, the normal case for one parked `awaiting-release`, or work
+   pushed live on its own -- pass `-LiveSince <date>`: the block then says *live since* that day and
+   drops the sentences that only hold before a release
+   ([#2943](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2943)).
 3. **The version** -- **only when you pass `-Version`.** The newest `vX.Y.Z` tag stepped by the bump
    the changelog's pending tally names today is printed on the console as a projection for you, and
    left out of the block: every entry still to land before release day can raise it, and the requester
@@ -135,6 +139,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-Version <X.Y.Z>` | the version to name in the block. Omitted, the block names the release day alone; pass it once the number can no longer change (the cut is prepared, or a major is decided) |
 | `-ReleaseDay <day>` | the weekday releases are cut on. `Monday` |
 | `-From <date>` | the day the next release day is counted from. Today |
+| `-LiveSince <date>` | the day the change went live, for a block written after it did (#2943). Refused when it is after today, or beside `-From` / `-ReleaseDay` |
 | `-Language nl\|en` | the language of the Asana task, and so of the block between the rules. Omitted, the repo's own `Get-GoLiveBlockLanguage` in `scripts/repo-config.ps1` (returning `nl` or `en`) answers it, so a store that writes GitHub in English states that once ([#2830](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2830)); without that seam, `nl` |
 | `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
