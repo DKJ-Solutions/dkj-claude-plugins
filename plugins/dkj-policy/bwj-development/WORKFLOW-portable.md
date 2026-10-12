@@ -192,7 +192,9 @@ written, in `smartwatchbanden`: four open issues carried a card and no reach lab
 comment-only fix whose own body said *developer-only; no customer impact*. Its card sat in `Filed`, and
 the card then forced the pull request that fixed it to ship with `-NoResolves`. **Two cases are not new cards and the rule leaves them alone:** a
 ticket that arrived from Asana already has one (section 8), and an issue that gains the label later is
-mirrored at that moment.
+mirrored at that moment. **The first still takes the label**, because the decision is one in both
+directions: a card already standing means a colleague follows it, so its issue carries the reach label
+by construction ([#2940](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2940)).
 
 **A hook holds this, because the sentence alone did not** (inbound
 [#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)). Two days after #2360,
@@ -873,7 +875,17 @@ plain `gh issue create`**: only that route writes the link on both sides. Measur
 where one task became #401 and #402 by hand and neither issue could reach its requester at the close.
 `asana-link-pickupcheck` asks at pickup when an issue neither links nor mentions Asana, and names a task
 linked from two open issues
-([#2928](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2928)). Nothing moves the card after that (step 6 is retired), so a person moves it through the board's
+([#2928](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2928)).
+
+**That issue carries the reach label, by construction** -- a colleague asked for it and follows the
+card, which is the whole of what the label answers (section 2). Measured in `xoxowildhearts`: #402,
+linked to a colleague's task in `2. In Progress`, carried no reach label for four days, so
+`build-backlog-page` left it out of the very backlog that colleague reads. `guard-asana-mirror` holds
+the other direction -- no card without the label -- and since
+[#2940](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2940) `asana-link-pickupcheck` names
+a linked issue that lacks it, with the line that adds it.
+
+Nothing moves the card after filing (step 6 is retired), so a person moves it through the board's
 sections as the ticket progresses.
 
 **Everything that comes out of Asana stays in that issue** -- the request, what was worked out, what

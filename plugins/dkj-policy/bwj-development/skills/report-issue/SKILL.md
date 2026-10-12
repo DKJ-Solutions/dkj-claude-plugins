@@ -121,7 +121,8 @@ rule and the measurement behind it are in
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#2-then-asana----a-translation-not-a-copy). Two
 cases are not new tasks and are not gated by it: a ticket that **came from Asana** already has its card
 (see below), and an issue that **gains** the reach label later is mirrored then, by running steps 2-3
-at that moment.
+at that moment. **The first case still takes the label**: an issue made from an Asana ticket carries it
+by construction, because a colleague asked for it and follows the card (#2940).
 
 **The gate is enforced, not only stated** (inbound
 [#2482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2482)). This plugin's
@@ -217,6 +218,11 @@ creating a second task. Leaving it in `Requests` is the failure inbound
 [#1217](https://github.com/DaveKJohn/claude-code-specialists/issues/1217) measured: the issue existed
 and the board still read `New`, so to the colleague waiting on it the request looked untouched, and
 they chased it in the one place that had no answer.
+
+**And that issue is filed with the reach label**, whatever step 1's test would say of the defect on
+its own: the requester is the reader the label exists for, and they are already watching the card.
+`asana-link-pickupcheck` names a linked issue without it at pickup (#2940) -- the card -> issue half
+of what `guard-asana-mirror` holds the other way.
 
 **But the colleague's task need not be on this board at all** (#2699). A ticket filed in another
 project -- `SEO`, a workload overview -- is not a member of the project `Get-AsanaProjectGid` names, so

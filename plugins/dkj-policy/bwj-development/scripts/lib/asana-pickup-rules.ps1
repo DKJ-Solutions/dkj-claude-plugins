@@ -28,6 +28,7 @@
 #>
 
 . (Join-Path $PSScriptRoot 'asana-task-lib.ps1')
+. (Join-Path $PSScriptRoot 'asana-mirror-gate.ps1')
 
 function Get-PickupIssueNumber {
     <#
@@ -105,6 +106,31 @@ function Format-AsanaPickupWarning {
         "<issue URL>' on top of the task's description. Without that the requester hears nothing when it",
         "ships: asana-closed-message, the backlog page and the release note all read this issue as unlinked.",
         "If it did not come from Asana, nothing is needed."
+    ) -join "`n")
+}
+
+function Format-AsanaReachLabelWarning {
+    <#
+        The warning for a LINKED issue that does not carry the reach label, or '' when it does or its
+        labels could not be read. -Labels is $null for a failed read, which Get-AsanaMirrorVerdict reads
+        as 'unknown' -- never as missing. Fixed text, the number and the label name only.
+
+        CARD -> ISSUE (#2940). Section 2 makes card and reach label one decision, and guard-asana-mirror
+        holds the issue -> card half: no card without the label. The other half had nothing: an issue made
+        from an Asana ticket already has its card, so it carried the label only when its filer remembered
+        it. Measured in xoxowildhearts: #402, linked to a colleague's in-progress task, carried no reach
+        label for four days, and build-backlog-page left it out of the colleague-facing backlog.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][int]$Number,
+        [Parameter(Mandatory = $true)][string]$ReachLabel,
+        [AllowNull()][string[]]$Labels
+    )
+    if ((Get-AsanaMirrorVerdict -Labels $Labels -ReachLabel $ReachLabel) -ne 'refuse') { return '' }
+    return (@(
+        "REACH LABEL MISSING (asana-link-pickupcheck, #2940): issue #$Number links an Asana task but does not carry '$ReachLabel'.",
+        "An issue made from an Asana ticket carries the reach label by construction: a colleague asked for it and follows the",
+        "card (WORKFLOW-portable section 8). Add it now: gh issue edit $Number --add-label `"$ReachLabel`""
     ) -join "`n")
 }
 

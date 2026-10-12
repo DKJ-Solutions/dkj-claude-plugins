@@ -68,22 +68,11 @@ $refs = @(Get-MirroredIssueRefs -Text (Get-AsanaMirrorToolInputText -Raw $raw))
 if ($refs.Count -eq 0) { exit 0 }
 
 # --- The reach label's name: the project's own answer, else the prescribed default -----------------
-# Read in a child scope with StrictMode off, the way build-backlog-page.ps1 reads the same seam: the
-# file is the consumer's own and is written on the assumption that StrictMode is off.
-$reachLabel = 'minor'
 $projectDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
-$configPath = Join-Path $projectDir 'scripts\repo-config.ps1'
-if (Test-Path -LiteralPath $configPath -PathType Leaf) {
-    try {
-        $answer = & {
-            Set-StrictMode -Off
-            . $args[0]
-            if (@($ExecutionContext.InvokeCommand.GetCommands('Get-ReachLabel', 'Function', $false)).Count) { Get-ReachLabel }
-        } $configPath
-        if ($answer -and ([string]$answer).Trim()) { $reachLabel = ([string]@($answer)[-1]).Trim() }
-    } catch {
-        [Console]::Error.WriteLine("guard-asana-mirror: scripts\repo-config.ps1 could not be read -- judging against the default reach label '$reachLabel'.")
-    }
+$reach = Get-ProjectReachLabel -ProjectDir $projectDir
+$reachLabel = $reach.Label
+if ($reach.ReadFailed) {
+    [Console]::Error.WriteLine("guard-asana-mirror: scripts\repo-config.ps1 could not be read -- judging against the default reach label '$reachLabel'.")
 }
 
 # --- Ask the tracker, bounded -----------------------------------------------------------------------

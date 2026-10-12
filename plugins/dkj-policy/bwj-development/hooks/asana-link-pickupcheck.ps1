@@ -26,6 +26,10 @@
     hook cannot look. And a linked issue whose task is also linked from another OPEN issue is named, with
     that issue's number: section 8 is one GitHub issue per Asana ticket.
 
+    AND SINCE #2940 A LINKED ISSUE WITHOUT THE REACH LABEL IS NAMED. guard-asana-mirror refuses a card
+    for an issue without it; an issue made from a card was held to nothing, so the label rode on whoever
+    filed it remembering. The name is the project's Get-ReachLabel, read the way the guard reads it.
+
     WHAT IT PRINTS is fixed text plus issue numbers and the task GID -- never an issue's title or body.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/asana-link-pickupcheck.tests.ps1 in
@@ -88,7 +92,7 @@ function Invoke-GhJson {
     return [pscustomobject]@{ Ok = $false; Data = $null }
 }
 
-$issueRead = Invoke-GhJson -Arguments "issue view $number --json title,body" -TimeoutMs 18000
+$issueRead = Invoke-GhJson -Arguments "issue view $number --json title,body,labels" -TimeoutMs 18000
 $issue = $issueRead.Data
 if (-not $issueRead.Ok -or $null -eq $issue) {
     [Console]::Error.WriteLine("asana-link-pickupcheck: could not read issue #$number -- its Asana link was not checked.")
@@ -99,6 +103,18 @@ $verdict = Get-AsanaPickupVerdict -Title ([string]$issue.title) -IssueBody ([str
 $parts = @(Format-AsanaPickupWarning -Number $number -Verdict $verdict)
 
 if ($verdict -eq 'linked') {
+    # A LINKED ISSUE CARRIES THE REACH LABEL (#2940) -- the card -> issue half of the invariant
+    # guard-asana-mirror holds the other way. The labels came with the same read; a JSON null is no answer.
+    $reach = Get-ProjectReachLabel -ProjectDir $projectDir
+    if ($reach.ReadFailed) {
+        [Console]::Error.WriteLine("asana-link-pickupcheck: scripts\repo-config.ps1 could not be read -- judging against the default reach label '$($reach.Label)'.")
+    }
+    $labels = $null
+    if ($issue.PSObject.Properties.Name -contains 'labels' -and $null -ne $issue.labels) {
+        $labels = [string[]]@($issue.labels | ForEach-Object { [string]$_.name })
+    }
+    $parts += Format-AsanaReachLabelWarning -Number $number -ReachLabel $reach.Label -Labels $labels
+
     $gid = (Resolve-AsanaTaskRef -IssueBody ([string]$issue.body)).Gid
     # The GID is digits only (Resolve-AsanaTaskRef matches nothing else), so it is safe on a command line.
     $peers = Invoke-GhJson -Arguments "issue list --state open --search `"$gid in:body`" --json number,body --limit 20" -TimeoutMs 8000

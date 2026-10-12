@@ -83,6 +83,34 @@ function Get-AsanaMirrorVerdict {
     return 'refuse'
 }
 
+function Get-ProjectReachLabel {
+    <#
+        The reach label's name for the project at -ProjectDir: its scripts\repo-config.ps1's
+        Get-ReachLabel, else the prescribed default 'minor'. Returns @{ Label; ReadFailed }, and each
+        caller words its own note for ReadFailed -- the file was there and could not be read.
+
+        Read in a child scope with StrictMode off, the way build-backlog-page.ps1 reads the same seam: the
+        file is the consumer's own and is written on the assumption that StrictMode is off. One definition
+        for both hooks that judge the reach label -- guard-asana-mirror (issue -> card) and
+        asana-link-pickupcheck (card -> issue, #2940) -- so the two directions cannot read two names.
+    #>
+    param([Parameter(Mandatory = $true)][string]$ProjectDir)
+    $result = @{ Label = 'minor'; ReadFailed = $false }
+    $configPath = Join-Path $ProjectDir 'scripts\repo-config.ps1'
+    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) { return $result }
+    try {
+        $answer = & {
+            Set-StrictMode -Off
+            . $args[0]
+            if (@($ExecutionContext.InvokeCommand.GetCommands('Get-ReachLabel', 'Function', $false)).Count) { Get-ReachLabel }
+        } $configPath
+        if ($answer -and ([string]$answer).Trim()) { $result.Label = ([string]@($answer)[-1]).Trim() }
+    } catch {
+        $result.ReadFailed = $true
+    }
+    return $result
+}
+
 function ConvertFrom-GhIssueLabels {
     <#
         The label names out of `gh issue view --json labels` output, or $null when it is not that

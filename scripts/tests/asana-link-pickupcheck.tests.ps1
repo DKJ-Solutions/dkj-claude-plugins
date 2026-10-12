@@ -15,8 +15,8 @@
 
     THE TEST GAP, NAMED. The path that reads a real issue needs `gh` and a tracker, so it is not run here
     -- this suite runs in CI without tracker credentials. The decisions that path takes are group 1's
-    Get-AsanaPickupVerdict, Format-AsanaPickupWarning, Get-AsanaTaskCoClaimants and
-    Format-AsanaCoClaimWarning.
+    Get-AsanaPickupVerdict, Format-AsanaPickupWarning, Format-AsanaReachLabelWarning,
+    Get-AsanaTaskCoClaimants and Format-AsanaCoClaimWarning.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -104,6 +104,31 @@ Assert-Equal '' (Format-AsanaPickupWarning -Number 404 -Verdict 'linked') 'a lin
 $q = Format-AsanaPickupWarning -Number 402 -Verdict 'github-only'
 Assert-True ($q -like 'ASANA ORIGIN?*#402 links no Asana task and does not mention*') 'a GitHub-only issue gets the origin question, by number'
 Assert-True (@($q -split "`n").Count -eq 2 -and $q -notmatch 'LINK MISSING') 'in two lines, and not dressed as the missing-link warning'
+
+Write-Host ''
+Write-Host 'The lib -- a linked issue carries the reach label (#2940)' -ForegroundColor Cyan
+
+$rw = Format-AsanaReachLabelWarning -Number 402 -ReachLabel 'minor' -Labels @('feature')
+Assert-True ($rw -like "REACH LABEL MISSING*#402 links an Asana task but does not carry 'minor'.*") 'the measured #402: linked, labelled, and no reach label'
+Assert-True ($rw.Contains('gh issue edit 402 --add-label "minor"')) 'and the warning carries the line that repairs it'
+Assert-True ((Format-AsanaReachLabelWarning -Number 402 -ReachLabel 'minor' -Labels @()) -like 'REACH LABEL MISSING*') 'an issue with no labels at all is missing it too'
+Assert-Equal '' (Format-AsanaReachLabelWarning -Number 402 -ReachLabel 'minor' -Labels @('feature', 'Minor')) 'carrying it, in any case, says nothing'
+Assert-Equal '' (Format-AsanaReachLabelWarning -Number 402 -ReachLabel 'minor' -Labels $null) 'labels that could not be read are no evidence, so nothing'
+Assert-True ((Format-AsanaReachLabelWarning -Number 7 -ReachLabel 'tier-1' -Labels @('minor')) -like "*does not carry 'tier-1'*") 'the name judged is the project''s own answer'
+
+$cfgRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("reach-label-" + [guid]::NewGuid().ToString('N'))
+try {
+    New-Item -ItemType Directory -Path (Join-Path $cfgRoot 'scripts') -Force | Out-Null
+    $rl = Get-ProjectReachLabel -ProjectDir $cfgRoot
+    Assert-True ($rl.Label -eq 'minor' -and -not $rl.ReadFailed) 'no repo-config: the prescribed default, and no read failure'
+    Set-Content -LiteralPath (Join-Path $cfgRoot 'scripts\repo-config.ps1') -Value "function Get-ReachLabel { 'tier-1' }" -Encoding ASCII
+    Assert-Equal 'tier-1' (Get-ProjectReachLabel -ProjectDir $cfgRoot).Label 'repo-config answering Get-ReachLabel names the label'
+    Set-Content -LiteralPath (Join-Path $cfgRoot 'scripts\repo-config.ps1') -Value "throw 'broken'" -Encoding ASCII
+    $rl = Get-ProjectReachLabel -ProjectDir $cfgRoot
+    Assert-True ($rl.Label -eq 'minor' -and $rl.ReadFailed) 'a repo-config that throws: the default, and the failure reported'
+} finally {
+    Remove-Item -LiteralPath $cfgRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host ''
 Write-Host 'The lib -- one task, one issue (#2928)' -ForegroundColor Cyan
