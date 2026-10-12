@@ -9,7 +9,7 @@ no specialists.
 
 | Chapter | Where | What it holds |
 |---|---|---|
-| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The design tokens (light and dark), the light/dark mechanism and the base stylesheet, as one self-contained CSS file |
+| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The design tokens, the twelve themes a user picks from and the base stylesheet, as a self-contained CSS file plus a small theme script |
 
 ## Who enables it
 
