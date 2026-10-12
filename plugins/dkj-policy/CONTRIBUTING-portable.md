@@ -158,13 +158,30 @@ is missing (the four `prio-1`..`prio-4` rungs, `awaiting-recurrences`, `awaiting
 **A parking label goes on when the issue is filed, whichever one it is**
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The eight
 `awaiting-*` labels below each park an issue whose next step waits on something other than work: the
-owner's choice, another issue's pull request, an external event or date, an act only the owner performs,
-the next release, a first recurrence, or a record's next instance. Such an issue carries the matching label in the same `gh issue create` that
+owner's choice, a client's choice, another issue's pull request, an external event or date, an act only
+the owner performs, the next release, a first recurrence, or a record's next instance. Such an issue carries the matching label in the same `gh issue create` that
 files it, beside its `prio-N`. Filed without it, it reads as free work to both pickup routes until
 somebody notices. Measured in this plugin's source repo: an issue whose own body said it waited on
 later CI runs was filed with only its `prio-N`, and was parked by hand six minutes later. Each
 paragraph below says what its label parks and when it comes off. When it goes on is this rule, for all
 eight alike.
+
+**An issue carries at most one `awaiting-*` label, so setting one replaces any other**
+([#2936](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2936), Maikel, October 12, 2026).
+The label says why nothing can move *now*, and that is a single reason. Two labels side by side leave the
+next reader to work out which one still holds, and the one that has lapsed never gets taken off. So you
+remove the old label in the same `gh issue edit` that adds the new one
+(`--add-label <new> --remove-label <old>`). The rule covers the eight below and also `awaiting-info-client`
+where `bwj-development` is installed. **A record is the one exception: it keeps `awaiting-recurrences`
+and takes no second label**, because that label also governs how the issue is closed (below), and
+removing it would undo that. **When the wait is transitive, take the label for the root wait.** An issue
+that waits on another issue's pull request, where that other issue is itself parked, takes the blocking
+issue's `awaiting-*` label rather than `awaiting-pull`, because that label names the wait that has to
+clear first. Where the blocking issue is not parked, `awaiting-pull` stands. Measured in a consumer: an issue waiting on a pull request whose own
+issue was parked on `awaiting-action-external` was given `awaiting-action-external` *beside*
+`awaiting-pull`, because no text forbade two, and the requester corrected it to the single root label.
+State the blocking issue's number in the body, so the chain can still be read once the root wait clears
+and the label moves on.
 
 **`awaiting-recurrences` marks a collecting issue -- a *record* -- and it changes how the issue is closed** (Dave, September 24, 2026,
 [#2462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2462)). A record gathers every
@@ -274,7 +291,8 @@ never filed beside.
 cannot start until a different issue has merged is not free work, and `awaiting-decision-dev` (a person's
 answer) and `awaiting-recurrences-first` (evidence) say something else. Both pickup routes skip it by
 default, `claim-issue <n>` warns that the issue is parked, and the label comes off when the blocking pull
-request merges. It is a new label, so no former name is matched for it.
+request merges. Where the blocking issue is itself parked, the issue takes that issue's label instead,
+by the one-label rule above, and moves to `awaiting-pull` once that root wait clears. It is a new label, so no former name is matched for it.
 
 **`awaiting-action-external` parks an issue that waits on an external event or date** (a launch, a third party's
 release; [#2784](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2784), Dave, October 3, 2026).
