@@ -12,6 +12,18 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "p=$(cat); printf '%s' \"$p\" | grep -Eq '(claim-issue|new-branch)\\.ps1' || exit 0; command -v powershell >/dev/null 2>&1 || exit 0; printf '%s' \"$p\" | powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/asana-link-pickupcheck.ps1\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup|resume|clear|compact",

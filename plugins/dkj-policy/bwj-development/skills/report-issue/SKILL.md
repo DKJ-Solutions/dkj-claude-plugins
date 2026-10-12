@@ -233,6 +233,12 @@ task's `memberships.project.gid` before the move**, and where this board is not 
   project*, into the `Filed` section). The session cannot do it: the Asana MCP exposes no
   add-to-project call. Until a person does, the task is on no board of this repo's.
 
+**Missing this is what `hooks/asana-link-pickupcheck.ps1` catches** (#2919). An issue copied from a
+colleague's task with a plain `gh issue create` carried neither half of the link and ran the whole chain
+unnoticed (xoxowildhearts#404), so the requester would have heard nothing at the close. The hook
+warns after `claim-issue` or `new-branch` picks up an issue that names Asana but links no task. It
+warns and does not refuse, because a mention of Asana is evidence, not proof.
+
 **That existing task then gets two more writes, both in this step** (#2653):
 
 1. **The issue link goes on top of its description.** Prepend `Tracked on GitHub: <issue URL>`, the
