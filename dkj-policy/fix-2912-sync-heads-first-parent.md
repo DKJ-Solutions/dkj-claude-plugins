@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Inbound #2912. The reporter inferred a reachability rule. The measured cause is narrower:
+`Get-SyncMergeCommits` matches the subject, and a trunk-into-sync merge (`Merge branch 'main' into
+sync/...`) names the sync branch too. Read as a head, its `FirstParent..Sha` is the trunk's work it
+brought over, so the feature commits were counted as the sync's. Reproduced in a scratch repo: without
+`--first-parent` both merges are heads and the feature path is sync-owned; with it only the real sync
+merge is a head and the feature path stays ours.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `live-preflight` and `prepare-release` read the sync heads with `git log --first-parent`
+- [x] `Get-SyncMergeCommits`' docstring makes the flag part of its input contract, with the measurement
+- [x] Mirrors resynced (the lib in both plugins, `live-preflight` in the Shopify team)
 
 ### TEST
 
+- [x] `live-push-rules.tests.ps1` pins the flag on both drivers, green on its own
+
 ### DEPLOY: fix/2912-sync-heads-first-parent
 
-**Score:**
+`live-preflight` and `prepare-release` no longer drop our own merged files from the live push list
+after a trunk-into-sync merge. A merge of the trunk *into* a `sync/` branch names that branch in its
+subject, so it was read as a sync and the trunk's commits it brought over were counted as the sync's.
+Their paths were classified `sync-owned` and held back, and the live-push record would have written
+them `live`. The sync heads are now read on the trunk's first-parent line only, where just the merge
+that brought the sync in appears
+([#2912](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2912)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store team's push list stops silently losing merged work. Measured in xoxowildhearts, the halved
+`theme.css` from #358 would have stayed off live while the changelog said it shipped.
+
+**Score:** 4
 
 #### Pull Request
 

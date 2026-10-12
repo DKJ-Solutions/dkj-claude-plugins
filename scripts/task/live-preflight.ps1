@@ -413,8 +413,9 @@ if (-not $sinceTag) {
         # again since, it silently reverts their work. Which commits came in through a sync, and which
         # paths only they touched, are Get-SyncMergeCommits and Get-SyncOwnedPaths in the lib (#2509):
         # bwj-development's prepare-release derives the same list days earlier, from the same two rules.
+        # The heads are read on the trunk's FIRST-PARENT line only (#2912): see Get-SyncMergeCommits.
         $syncCommits = @()
-        $heads = @(Get-SyncMergeCommits -SyncPrefix $syncPrefix -LogLines (Get-GitLines (Invoke-Git -Arguments @('log', '--no-renames', '--format=%H%x09%P%x09%s', "$sinceTag..HEAD"))))
+        $heads = @(Get-SyncMergeCommits -SyncPrefix $syncPrefix -LogLines (Get-GitLines (Invoke-Git -Arguments @('log', '--first-parent', '--no-renames', '--format=%H%x09%P%x09%s', "$sinceTag..HEAD"))))
         foreach ($h in $heads) {
             # A merge: the commits it brought in are its second-parent side, up to the merge base.
             if ($h.IsMerge) { $syncCommits += @(Get-GitLines (Invoke-Git -Arguments @('rev-list', "$($h.FirstParent)..$($h.Sha)"))) }

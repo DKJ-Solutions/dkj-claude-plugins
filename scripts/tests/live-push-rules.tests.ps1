@@ -200,6 +200,12 @@ Assert-True ($heads[0].IsMerge -and $heads[0].FirstParent -eq 'p1') 'a merge nam
 Assert-True (-not $heads[1].IsMerge) 'a squash is the whole of its own sync'
 Assert-Equal 0 @(Get-SyncMergeCommits -SyncPrefix '' -LogLines @("m1`tp1 p2`tmerge: sync/x")).Count 'no prefix, no sync commits -- the direction that excludes nothing'
 
+# THE HEADS ARE READ ON THE TRUNK'S FIRST-PARENT LINE (#2912). A trunk-into-sync merge names the sync branch
+# in its subject too, and read as a head it counted our own feature commits as the sync's.
+foreach ($drv in @(@{ Name = 'live-preflight'; Src = $pfSrc }, @{ Name = 'prepare-release'; Src = $prSrc })) {
+    Assert-True ($drv.Src -match "Get-SyncMergeCommits[^\r\n]*'log', '--first-parent',") "$($drv.Name) reads the sync heads with --first-parent"
+}
+
 # WHICH PATHS ONLY THOSE COMMITS TOUCHED. EVERY touching commit, not any: a file the sync mirrored and this
 # repo then changed itself is this repo's to push.
 $walk = @("COMMIT`tours", 'sections/header.liquid', "COMMIT`tsyncA", 'sections/header.liquid', 'sections/b.liquid', 'sections\c.liquid')

@@ -326,9 +326,9 @@ if (-not $sinceTag) {
         foreach ($p in (Invoke-Git @('diff', '--no-renames', '--name-only', '--diff-filter=A', "$sinceTag..HEAD")).Lines) { [void]$added.Add(((Convert-GitQuotedPath -Path $p) -replace '\\', '/')) }
 
         # SYNC PROVENANCE, by the two lib rules live-preflight calls -- so a file held back on Friday is
-        # the file held back on Monday.
+        # the file held back on Monday. Heads on the trunk's first-parent line only (#2912).
         $syncCommits = @()
-        foreach ($h in @(Get-SyncMergeCommits -SyncPrefix $syncPrefix -LogLines (Invoke-Git @('log', '--no-renames', '--format=%H%x09%P%x09%s', "$sinceTag..HEAD")).Lines)) {
+        foreach ($h in @(Get-SyncMergeCommits -SyncPrefix $syncPrefix -LogLines (Invoke-Git @('log', '--first-parent', '--no-renames', '--format=%H%x09%P%x09%s', "$sinceTag..HEAD")).Lines)) {
             if ($h.IsMerge) { $syncCommits += @((Invoke-Git @('rev-list', "$($h.FirstParent)..$($h.Sha)")).Lines) }
             else            { $syncCommits += $h.Sha }
         }
