@@ -399,6 +399,8 @@ if ([string]::IsNullOrWhiteSpace($apiToken)) {
     Write-Host "  KV is eventually consistent: an edge that already held the previous page can keep serving" -ForegroundColor DarkGray
     Write-Host "  it for up to a minute, so fetch again before concluding anything from one request." -ForegroundColor DarkGray
     Write-Host "  The path is the ONLY lock on this page: no login, anyone with the link can read." -ForegroundColor DarkGray
+    $closeOut = Format-BwjPageCloseOut -Kind $Kind -Url $url
+    if ($closeOut) { Write-Host ""; Write-Host $closeOut -ForegroundColor Cyan }
     exit 0
 }
 $headers  = @{ Authorization = "Bearer $apiToken" }
@@ -458,4 +460,6 @@ Write-Host "  KV is eventually consistent: an edge that already held the previou
 Write-Host "  it for up to a minute. A stale first read is not a failed publish -- the read-back above" -ForegroundColor DarkGray
 Write-Host "  already settled that -- so fetch again before concluding anything from one request." -ForegroundColor DarkGray
 Write-Host "  The path is the ONLY lock on this page: no login, anyone with the link can read." -ForegroundColor DarkGray
+$closeOut = Format-BwjPageCloseOut -Kind $Kind -Url $url
+if ($closeOut) { Write-Host ""; Write-Host $closeOut -ForegroundColor Cyan }
 exit 0

@@ -148,6 +148,13 @@ Assert-Throws { Get-BwjPageKvKey -Kind 'notes' -Token 'nope' }   'a token of the
 Assert-Equal "https://p.workers.dev/notes/$HexA" (Get-BwjPageUrl -BaseUrl 'https://p.workers.dev' -Kind 'notes' -Token $HexA) 'the URL is the origin plus the route'
 Assert-Equal "https://p.workers.dev/notes/$HexA" (Get-BwjPageUrl -BaseUrl 'https://p.workers.dev/' -Kind 'notes' -Token $HexA) '...and a trailing slash on the origin costs nothing'
 
+# THE CUT'S CLOSE-OUT CARRIES THE NOTES LINK (#2913), printed on both verified exit paths, never on -DryRun.
+$coUrl = "https://p.workers.dev/notes/$HexA"
+Assert-True ((Format-BwjPageCloseOut -Kind 'notes' -Url $coUrl) -like "Close-out:*$coUrl") 'a verified notes publish prints the close-out line ending in the URL'
+Assert-Equal '' (Format-BwjPageCloseOut -Kind 'backlog' -Url $coUrl) 'the backlog page is no cut''s receipt, so it prints none'
+$ppSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\bwj-development\scripts\task\publish-page.ps1') -Raw
+Assert-Equal 2 ([regex]::Matches($ppSrc, 'Format-BwjPageCloseOut -Kind \$Kind -Url \$url')).Count 'both verified exit paths -- wrangler and the KV API -- print it'
+
 $apiUrl = Get-BwjPageKvApiUrl -AccountId $HexA -NamespaceId $HexB -Key "notes:$HexA"
 Assert-True ($apiUrl -like "https://api.cloudflare.com/client/v4/accounts/$HexA/storage/kv/namespaces/$HexB/values/*") 'the API URL addresses the account and the namespace by id'
 Assert-True ($apiUrl -like '*notes%3A*') '...and the key is escaped in the path rather than pasted into it'

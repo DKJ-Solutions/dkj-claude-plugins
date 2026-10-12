@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Inbound #2913. `publish-page.ps1 -Kind notes` is the one script holding the URL at the moment it is
+proven to serve the page, so the receipt prints itself there (#1884), not through a lens rule.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-BwjPageCloseOut` in `page-publish-rules.ps1`: a `Close-out:` line with the URL for `notes`,
+  nothing for `backlog`
+- [x] `publish-page.ps1` prints it on both verified exit paths (wrangler and the KV API), never on `-DryRun`
+- [x] The `publish-page` skill page says the cut's receipt ends with that link
 
 ### TEST
 
+- [x] `bwj-page-publish.tests.ps1` covers both kinds and both exit paths, green on its own
+
 ### DEPLOY: feat/2913-notes-page-url-in-closeout
 
-**Score:**
+`publish-page -Kind notes` now ends with a `Close-out:` line that carries the release-notes page URL,
+once the read-back has proven what the URL serves. A BWJ store cut's receipt ends with that link, so
+the page that goes to management is in the close-out rather than in a lens or the scroll-back
+([#2913](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2913)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The person running a store cut gets the management link handed to them in the receipt, in both store
+repos.
+
+**Score:** 2
 
 #### Pull Request
 
