@@ -22,7 +22,7 @@ renders, so she has no other work here.
   [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#never-without-the-owners-explicit-permission):
   it reaches every DKJ-Solutions app at its next plugin update, so the branch stops for the owner's look
   and stays checked out instead of merging.
-- **The spacing scale is Figma's, not hers.** It is copied from the *Shopify Theme - LIBRARY* file's
+- **The spacing and type scales are Figma's, not hers.** They are copied from the *Shopify Theme - LIBRARY* file's
   variable collection; she reads it there (Figma MCP, read-only) rather than inventing steps.
 - **The skill page names every token and every reserved class.** A token or class added to the
   stylesheet goes into `SKILL.md`'s tables in the same branch, or a repo layer cannot know not to

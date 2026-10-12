@@ -9,7 +9,8 @@ description: The DKJ-Solutions house style -- the design tokens (light and dark)
 (Dave, issue [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1,
 2026). The style was tuned by hand on the ETF dashboard in `dkj-etf-tracker`. Rebuilding it per repo
 means re-tuning it per repo, and two hand-tuned copies drift. So the general half was lifted out once,
-with **every value kept exactly as chosen**, and the copy beside this page is the only one:
+with **every value kept exactly as chosen** (spacing and font sizes have since moved to the Figma
+library's scales, below), and the copy beside this page is the only one:
 [`house-style.css`](house-style.css).
 
 **It reaches DKJ-Solutions and nothing else.** The plugin is enabled only in DKJ-Solutions repos.
@@ -41,9 +42,14 @@ BWJ-Development has its own styling, and this skill says nothing about it.
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
 
-**The spacing scale has a source: the Figma library** *Shopify Theme - LIBRARY*, variable collection
-"Collection", group `spacing/`. Its names and values are copied exactly, so a design in Figma and a page
-built from this file share one set of numbers. A step added there is added here, in a branch of its own.
+| Type | `--text-h0` … `--text-h6`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs` | the type scale, same in both modes: 48/40/32/24/22/18/16 for the headings, 18/14/12/11 for running text. `h1`–`h3` take the token of their own level, body text is `--text-base` |
+
+**The spacing and type scales have a source: the Figma library** *Shopify Theme - LIBRARY*, variable
+collection "Collection", groups `spacing/` and `text/`. Their names and values are copied exactly, so a
+design in Figma and a page built from this file share one set of numbers. A step added there is added
+here, in a branch of its own. The spacing values happened to match the dashboard already. The type
+scale did not, so taking it over changed sizes: body 15 → 14, `h2` 29 → 32, `h3` 18 → 24, the 13px
+small text → 12, a mini-card value 20 → 18, the info button's mark 10 → 11 (Maikel, October 12, 2026).
 
 **The light/dark mechanism**: light by default; `prefers-color-scheme: dark` switches to dark unless
 the page sets `<html data-theme="light">`; `<html data-theme="dark">` forces dark. That is why the dark

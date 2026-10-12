@@ -39,39 +39,41 @@
 
 ### PLAN
 
-Tokenize spacing only; every value stays exactly as tuned (no visual change). Stops for the owner's look before merge (visible result).
+Take the Figma library's spacing and type scales (Shopify Theme - LIBRARY, collection "Collection") into the house style, names and values exact. Stops for the owner's look before merge (visible result).
 
 ### CREATE
 
-- [x] `house-style.css`: the Figma library's 40 spacing variables (`--spacing-0-5` … `--spacing-96`, read from the file's "Collection") in `:root`, names and values exact; every gap, margin and padding rewritten to the matching token, so each computed value is unchanged
+- [x] `house-style.css`: the Figma library's 40 spacing variables (`--spacing-0-5` … `--spacing-96`) in `:root`, names and values exact; every gap, margin and padding rewritten to the matching token, so each computed spacing is unchanged
 - [x] Optical nudges (the sort arrow's 3px, the info button's 5px, hit-area insets, outline offsets) left literal and named as such in the scale's comment
-- [x] `SKILL.md`: a Spacing row in the token table, naming the Figma library as the scale's source
+- [x] `house-style.css`: the Figma library's 11 text variables (`--text-h0` … `--text-h6`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`) in `:root`; every font size mapped onto them, `h1`–`h3` by level, 13px small text to `--text-sm` (both choices Maikel's)
+- [x] `SKILL.md`: Spacing and Type rows in the token table, the Figma library named as the source, and each size that changed listed
 - [x] Gwen's lens filled in: her domain here is the house style (first work for her in this repo)
 
 ### TEST
 
 - [x] Grep for a px value left in any `padding`/`margin`/`gap`: only the two optical nudges remain
-- [~] No automated visual comparison: no suite renders the stylesheet, and the arithmetic is exact by construction (each multiple is the source px divided by 4). The owner's look before the merge is the check
+- [x] Grep for a px value left in any `font-size` or `font` shorthand: none; every `var(--text-*)` used is defined
+- [~] No automated visual comparison: no suite renders the stylesheet. The owner's look before the merge is the check
 
 ### DEPLOY: feat/house-style-spacing
 
-The house stylesheet carries the Figma library's spacing scale in `:root`, the 40 tokens
-`--spacing-0-5` (2px) to `--spacing-96` (384px) with Figma's own names and values, and every gap,
-margin and padding in it now uses one of them. Nothing renders differently: each token equals the
-hand-tuned pixel value it replaced. Gwen's repo lens is
-filled in now that she has her first work here.
+The house stylesheet carries the Figma library's spacing and type scales in `:root`, with Figma's own
+names and values: 40 spacing tokens, `--spacing-0-5` (2px) to `--spacing-96` (384px), and 11 text
+tokens, `--text-h0` (48px) to `--text-xs` (11px). Every gap, margin, padding and font size in it now
+uses one of them. Spacing renders exactly as before. Type does not: body text 15 → 14px, `h2` 29 → 32,
+`h3` 18 → 24, the 13px small text → 12, a mini-card value 20 → 18. Gwen's repo lens is filled in now
+that she has her first work here.
 
-**Score:** 2
+**Score:** 3
 
 #### What makes this deploy extra special
 
-A DKJ-Solutions app can space its own repo-layer components with `var(--spacing-N)`, the same names a
-designer sees in Figma, and land on the same rhythm as the house components, without copying pixel values. Existing pages look exactly
-the same.
+Every DKJ-Solutions app picks up the Figma type scale at its next plugin update. Body and small text
+get a little smaller, and the `h2` and `h3` headings bigger. An app's own components can space and
+size themselves with `var(--spacing-N)` and `var(--text-*)`, the same names a designer sees in Figma.
 
-**Score:** 2
+**Score:** 3
 
 #### Pull Request
 
-House style: a --spacing base unit in :root, every gap, margin and padding a multiple of it
-
+House style: the Figma library's spacing and type scales in :root
