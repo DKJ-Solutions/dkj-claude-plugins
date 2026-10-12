@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**11 / 11 minor entries** <!-- pending-tally -->
+**12 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2923-tier0-na-names-the-score-line · 20261012-093037Z
+
+The refusal for a tier-0 `N/A` now names the heading its Score line sits under, so the reader no longer has to work out which line "tier 0" means. When the audience tier carries a number at the same time, the refusal says the two answers look swapped and how to move them. `open-pr` no longer says "Correct the table" for an entry that has no table
+([#2923](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2923)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session that put its two scores in each other's slot gets one refusal that names the fix, not a retry loop. Measured in smartwatchbanden, where the loop ran across most of an hour.
+
+**Score:** 2
+
+#### Pull Request
+
+The tier-0 N/A refusal names the Score line it means and spots a swapped pair
+
+Plugins: dkj-policy
+
+[PR #2926](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2926)
+
+---
 
 ### DEPLOY: fix/2919-asana-link-pickup-check · 20261012-091710Z
 
