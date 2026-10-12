@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**23 / 24 minor entries** <!-- pending-tally -->
+**24 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/house-style-themes · 20261012-150343Z
+
+The DKJ-Solutions house style has twelve themes the user picks from: six light, six dark, each a
+primary colour on the shared form. `<html data-theme="purple">` sets one; `house-theme.js` applies
+the user's choice, else the app's own light/dark default for the OS mode, and draws the picker. No red
+and no green theme, because those colours mean bad and good; the status colours are the same in every
+theme. The status tokens were reworked with them: `--up`/`--down` are now a step more contrast than
+`--good`/`--bad` in both modes, and dark gets its own `--bad`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app can let its users pick a colour, and two apps no longer look identical: each
+declares its own default pair. An app that takes the update without changing anything gets the house
+defaults, Blauw and Cyaan: its switches and info badges turn blue or cyan instead of ink, the warning
+icon on light turns dark orange, and the negative number on light a darker red.
+
+**Score:** 4
+
+#### Pull Request
+
+House style: twelve themes the user picks, a primary colour per theme, and the status colours per mode
+
+Plugins: dkj-solutions
+
+[PR #2950](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2950)
+
+---
 
 ### DEPLOY: feat/house-style-spacing · 20261012-144630Z
 
