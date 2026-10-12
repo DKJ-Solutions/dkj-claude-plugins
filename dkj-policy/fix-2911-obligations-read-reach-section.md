@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Inbound #2911: `Get-GoLiveObligations` read only the text above an entry's first `####`, so an
+obligation written in the reach section was never matched. Verified in the source: line 210 fed
+section 0 alone to the patterns.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-GoLiveObligations` reads every section but the Pull Request one, recognised by title as
+  `Get-PendingChangelogEntries` already does; each section is split into sentences on its own
+- [x] The `prepare-release` skill page states the new reach of the scan
+- [x] The suite's fixture carries the measured sentence in a reach section, and an obligation phrase
+  in a Pull Request section that must stay unmatched
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1` green on its own
+
 ### DEPLOY: fix/2911-obligations-read-reach-section
 
-**Score:**
+`prepare-release` now finds go-live obligations written in an entry's reach section
+(`#### What makes this deploy extra special`), not only in the text above it. In a tier-1 store that
+section is where an author writes what somebody must do after the live push. At smartwatchbanden
+v2.47.0 the run reported 0 obligations across 37 entries while one sat there: *"Once this is live,
+test 0212-26 can be switched off in Convert."* Only the Pull Request section, a title and a link, is
+still left out
+([#2911](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2911)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store team preparing a release on Friday sees, in step 6, the experiments and settings they must
+switch after Monday's push, where it printed an empty list before.
+
+**Score:** 3
 
 #### Pull Request
 

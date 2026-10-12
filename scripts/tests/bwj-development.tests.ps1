@@ -735,8 +735,8 @@ $prChangelog = (@(
     "### DEPLOY: feat/12-strap-filter $prDot 20260925-100000Z", '',
     'A filter on the strap page. Once this is live, stop Convert experience 1004205630.', '',
     '**Score:** 3', '', '#### What makes this deploy extra special', '',
-    'Management sees it. After the release nobody has to do anything here.', '', '**Score:** 2', '',
-    '#### Pull Request', '', 'x', '', '---', '',
+    'Management sees it. Once this is live, test 0212-26 can be switched off in Convert.', '', '**Score:** 2', '',
+    '#### Pull Request', '', 'Turn off the old flag after the release', '', '---', '',
     "### DEPLOY: ``fix/13-cart-bug`` $prDot 20260925-110000Z", '',
     'Fixes the cart. After the release, turn off the app setting for bundles.', '',
     '**Score:** 2 -- a reason', '', '#### What makes this deploy extra special', '', '**Score:** 1', '',
@@ -762,11 +762,13 @@ Assert-Equal 'fix/13-cart-bug' $prNotes[0].Branch '...and it is the one that sco
 Assert-Equal 0 @(Get-EntryScoreNotes -Entries $prEntries -AudienceTier 2).Count 'a tier-2 repo gets no note at all'
 Assert-Equal 0 @(Get-EntryScoreNotes -Entries $prEntries).Count 'an unstated audience gets no note either'
 
-# THE OBLIGATIONS: the entry's own text only, one row per sentence, and never a skill NAME.
+# THE OBLIGATIONS: every section but the Pull Request one, one row per sentence, and never a skill NAME.
 $prObl = @(Get-GoLiveObligations -Entries $prEntries)
-Assert-Equal 2 $prObl.Count 'two obligations -- the reach section''s "after the release" and the golive-block name are not'
+Assert-Equal 3 $prObl.Count 'three obligations -- the Pull Request section''s "after the release" and the golive-block name are not'
 Assert-True ($prObl[0].Sentence -eq 'Once this is live, stop Convert experience 1004205630.') 'the sentence is returned whole, markdown stripped'
-Assert-Equal 'fix/13-cart-bug' $prObl[1].Branch '...each under the entry it came from'
+Assert-True ($prObl[1].Sentence -eq 'Once this is live, test 0212-26 can be switched off in Convert.') 'the reach section is read too (#2911), its title and score line dropped'
+Assert-Equal 'feat/12-strap-filter' $prObl[1].Branch '...under the entry whose reach section carries it'
+Assert-Equal 'fix/13-cart-bug' $prObl[2].Branch '...each under the entry it came from'
 Assert-Equal 1 @(Get-GoLiveObligations -Entries $prEntries -Patterns @('(?i)\bbundles\b')).Count '-Patterns replaces the defaults rather than extending them'
 
 # THE RUNBOOK: every command composed, none carrying a marker, and an empty push list composing none.

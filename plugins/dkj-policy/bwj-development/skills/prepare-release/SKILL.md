@@ -39,8 +39,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 5. **Early drift** -- the repo's own drift check over that list, passed as an array, so a third-party
    edit is found days ahead and can get a `sync/` branch. **It runs again, for real, on the day**:
    `live-preflight` does that, and this read does not replace it.
-6. **Go-live obligations** -- the *"once this is live"* sentences in the entries' own text, as one
-   checklist. Matched by phrase, so it is a candidate list and says so.
+6. **Go-live obligations** -- the *"once this is live"* sentences in the entries, their reach
+   section included and only the Pull Request section left out, as one checklist. Matched by phrase, so it is a candidate list and says so.
 7. **Open work** -- open pull requests against the trunk, so what rides along is decided before the
    weekend.
 8. **The runbook** -- the day in order: preflight, push, verification pull, obligations, preview sweep,
