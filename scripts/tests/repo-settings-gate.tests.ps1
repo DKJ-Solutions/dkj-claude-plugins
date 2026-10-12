@@ -310,6 +310,19 @@ try {
         'no such rule -- unreadable, not a false flag, and it points at ruleset.rules instead'
 
     Write-Host ''
+    Write-Host 'the ruleset merge methods -- the second place GitHub enforces the method (#2929)'
+    $declareMethods = "@(@{ Field = 'ruleset.allowed_merge_methods'; Expected = @('merge'); Recorded = '2026-10-12'; Where = 'Get-PrMergeMethod'; Why = 'a squash collapses the reconciliation base' })"
+    $dir = New-Fixture -Label 'methods' -Declared $declareMethods
+    $prRule = '[{"type":"deletion"},{"type":"pull_request","parameters":{"allowed_merge_methods":["merge"],"required_approving_review_count":0}}]'
+    $r = Invoke-Check -Root $dir -BranchRules (New-Payload -Dir $dir -Name 'rules-merge' -Json $prRule)
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'allowed_merge_methods = merge') 'merge only, as declared -- exit 0'
+    $r = Invoke-Check -Root $dir -BranchRules (New-Payload -Dir $dir -Name 'rules-squash' -Json $prRule.Replace('["merge"]', '["squash","merge","rebase"]'))
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'merge, rebase, squash|merge,rebase,squash') 'a ruleset that lets squash back in -- exit 1, read as a sorted set (smartwatchbanden#900)'
+    $r = Invoke-Check -Root $dir -BranchRules (New-Payload -Dir $dir -Name 'rules-nopr' -Json '[{"type":"deletion"}]')
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'no pull_request rule with allowed_merge_methods applies') `
+        'no pull_request rule -- unreadable, not an empty set, and it points at ruleset.rules instead'
+
+    Write-Host ''
     Write-Host 'the required-check name -- what ship-pr dates its certificate from'
     $declareChecks = "@(@{ Field = 'ruleset.required_checks'; Expected = @('lint-en-tests'); Recorded = '2026-09-09'; Where = 'Get-CiTestCheckName'; Why = 'no required check means the staleness guard is simply off' })"
     $dir = New-Fixture -Label 'checks' -Declared $declareChecks
