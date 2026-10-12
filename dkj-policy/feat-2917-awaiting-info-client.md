@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Inbound #2917, the owner's request: `awaiting-more-info` becomes `awaiting-info-client`, in the
+`-client` shape of `awaiting-decision-client`. The same pattern as #2723, #2890 and #2904: the new name
+everywhere it is prescribed, the old one kept wherever a tracker's label is read.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The name replaced across the scripts, skills, portable pages, worker and lens; history prose names
+  both
+- [x] The former name kept in `claim-issue`'s default skip list, every printed `-SkipLabel` line, the
+  dashboard's `PARKING_LABELS` and `PARKED_BECAUSE`
+- [x] `asana-closed-message.ps1` reads either name as the on-hold label (`Get-OnHoldLabelNames`)
+- [x] `adopt-bwj-development` prints the in-place `gh label edit` from either former name
+- [x] The config blueprint regenerated
+- [x] This tracker's own label: noted on #2905, which waits on the release for the same reason
 
 ### TEST
 
+- [x] `bwj-development`, `claim-issue` and `issue-dashboard` suites green on their own, with asserts for
+  the former name in the closed message, the skip list and the dashboard
+
 ### DEPLOY: feat/2917-awaiting-info-client
 
-**Score:**
+The `awaiting-more-info` parking label is now `awaiting-info-client`, so it says who owes the answer, in
+the same shape as `awaiting-decision-client`
+([#2917](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2917)). `claim-issue`, the sweeps,
+the issue dashboard and the BWJ closed message still answer to the old name, because a tracker keeps it
+until somebody renames it there. `adopt-bwj-development` prints the in-place rename:
+`gh label edit awaiting-more-info --name awaiting-info-client --color 5319E7`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store team that parks a ticket on its requester uses a new label name, and renames the label on its
+tracker once, with the command above. Nothing stops working before they do.
+
+**Score:** 3
 
 #### Pull Request
 

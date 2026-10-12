@@ -1175,11 +1175,11 @@ and Chris's lens carries it beside the `prio-N` and `minor` filing rules, where 
 **`awaiting-decision-dev` (`5319E7`) parks an issue that ends in Dave's choice**, so neither `claim-issue <n>`
 nor a sweep treats it as work that is ready (Dave, September 26, 2026,
 [#2519](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2519)). It was named `awaiting-decision` until #2890 (October 7, 2026), when it was split in two and `dev` came to mean the owner alone, and `needs-decision` (`BFD4F2`) until #2741 (October 3, 2026), when it joined the purple `awaiting-*` family; both old names are still matched, and `adopt-triage-labels` prints the `gh label edit` rename. It is set in the same
-`gh issue create` as the `prio-N`, and it is not `awaiting-more-info` (`needs-info` until #2723), which `bwj-development` reserves for
+`gh issue create` as the `prio-N`, and it is not `awaiting-info-client` (`awaiting-more-info` until #2917, `needs-info` until #2723), which `bwj-development` reserves for
 *blocked on the submitter*. It ships in `Get-TriageLabels`, and the filing rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
 
-**`awaiting-decision-client` (`5319E7`) parks an issue that ends in a choice that is not Dave's** (a colleague's QA sign-off, a business decision from the client or requester outside the dev team; Dave, October 7, 2026, [#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)). `sweep-issues` and `sweep-decisions` both skip it, where `sweep-decisions` puts `awaiting-decision-dev` to Dave. It is not `awaiting-more-info`, which means blocked on information the submitter has not given. New, so no former name is matched for it.
+**`awaiting-decision-client` (`5319E7`) parks an issue that ends in a choice that is not Dave's** (a colleague's QA sign-off, a business decision from the client or requester outside the dev team; Dave, October 7, 2026, [#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)). `sweep-issues` and `sweep-decisions` both skip it, where `sweep-decisions` puts `awaiting-decision-dev` to Dave. It is not `awaiting-info-client`, which means blocked on information the submitter has not given. New, so no former name is matched for it.
 
 **`awaiting-recurrences-first` (`5319E7`) parks an issue waiting on its first reproducible occurrence** (Dave,
 September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)), after

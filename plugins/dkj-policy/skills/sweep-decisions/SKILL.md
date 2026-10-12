@@ -111,7 +111,7 @@ clause each for why. Decided issues are now `free` in `sweep-issues`, which is t
 - **Decide on the owner's behalf.** A recommendation is an option in the menu, never an answer.
 - **Build, branch or claim.** A decided issue goes back to the backlog, and `sweep-issues` takes it from
   there.
-- **Touch an issue parked on anything else** -- `awaiting-more-info` waits on the submitter, and the
+- **Touch an issue parked on anything else** -- `awaiting-info-client` waits on the submitter, and the
   recurrence labels wait on evidence. Neither is the owner's choice.
 
 ## Requirements
