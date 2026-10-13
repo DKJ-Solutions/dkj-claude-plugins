@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2967-dev-preview-hook · 20261013-121650Z
+
+`dkj-solutions` now ships a dev-preview SessionStart hook
+([#2967](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2967)). A repo that states
+`Get-DevPreview` in its `scripts/repo-config.ps1` (the command with `{port}`, the port or port range,
+and optionally the URL path, a prerequisite and a VS Code hand-off) gets its local dev server started,
+or reused, at `startup`, `resume` and `clear`. It also gets a clickable localhost link, which reaches
+the session too. A server counts as this checkout's only when its command line, or its nearest
+ancestors', names this checkout's root, so a foreign app, another clone or a worktree is never taken
+for it. A repo that states nothing pays nothing. This replaces the per-repo copies in `dkj-brandbook`,
+`dkj-etf-tracker` and `life-hub`, each of which can drop its own script and define the seam instead
+([README](../plugins/dkj-policy/dkj-solutions/README.md#the-dev-preview-hook)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo with a dev server gets its preview link at every session start by stating one
+function, instead of copying and maintaining a hook of its own.
+
+**Score:** 3
+
+#### Pull Request
+
+dkj-solutions ships the dev-preview SessionStart hook: a repo states Get-DevPreview and gets its localhost link at session start
+
+Plugins: dkj-solutions
+
+[PR #2969](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2969)
+
+---
 
 ### DEPLOY: docs/2963-lens-docs-no-label · 20261013-114546Z
 
