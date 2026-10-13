@@ -39,11 +39,21 @@
 
 ### PLAN
 
+Inbound #2954 (from DKJ-Solutions/dkj-brandbook#3): the `house-style` skill fetched the brand book's files
+from `main`, a moving ref with an admin bypass, so an unreviewed push would reach every app's next copy.
+The owner decided on October 13, 2026 to pin the fetch to a release tag. Verified before building: tag
+`house-style-v1` resolves to `5fc23f57`, and both files served there hash to the values in the issue.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `skills/house-style/SKILL.md`: the raw URLs, the folder link and the README link now point at
+  `house-style-v1`; a table carries each file's sha256, with a stop-and-report rule on a mismatch
+- [x] the same page says how a new `house-style-v<N>` is followed (a pointer and checksum update shipped
+  with a plugin release)
 
 ### TEST
+
+- [ ] copy edit (Edith) and security review (Sebastian) on the diff
 
 ### DEPLOY: feat/2954-pin-house-style-tag
 
