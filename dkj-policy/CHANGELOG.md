@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**9 / 10 minor entries** <!-- pending-tally -->
+**9 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2973-djcylow-connector-owner · 20261013-144755Z
+
+The connector record for `djcylow-react` names its new owner, `DaveKJohn/djcylow-react`, after the repo
+left the DKJ-Solutions organisation because DJ Cylow has its own brand
+([#2973](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2973)). The `dkj-solutions`
+extension needs no exception: its scope line already excludes a repo outside the organisation. Without the new owner, `check-connectors` would refuse
+the whole block on a machine holding the checkout, because its `origin` no longer matches the record.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing a consumer runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The djcylow-react connector names its new owner, DaveKJohn
+
+[PR #2975](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2975)
+
+---
 
 ### DEPLOY: feat/2971-control-char-gate · 20261013-143401Z
 
