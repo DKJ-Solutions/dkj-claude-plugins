@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**10 / 15 minor entries** <!-- pending-tally -->
+**10 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2978-figma-off-again · 20261013-200257Z
+
+The figma plugin is switched off in this repo again
+([#2978](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2978)). Removing its `false` key
+on October 2 let the machine's own settings turn it back on, at about 2,150 tokens per session.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: this repo's own harness config, and no consumer takes it.
+
+**Score:** N/A
+
+#### Pull Request
+
+settings: figma is off here again, the false key restored
+
+[PR #2985](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2985)
+
+---
 
 ### DEPLOY: fix/2982-lifehub-register-catchup · 20261013-164522Z
 
