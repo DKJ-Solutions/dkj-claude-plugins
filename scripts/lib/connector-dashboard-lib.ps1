@@ -195,6 +195,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<p class="sub">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine' + $commit + '.</p></div>')
     [void]$sb.AppendLine('<div class="controls"><a class="btn btn--primary" href="/refresh">Re-run the check</a></div>')
     [void]$sb.AppendLine('</header>')
+    [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
 
     if ($Meta.CheckFailed) {
         [void]$sb.AppendLine('<div class="notice">check-connectors.ps1 could not be run: ' + (& $e $Meta.CheckFailed) + '. The register is shown without its signals.</div>')
@@ -269,11 +270,10 @@ function Format-ConnectorDashboardHtml {
         [void]$sb.AppendLine('</section>')
     }
 
-    [void]$sb.AppendLine('<div class="card"><h2>Theme</h2><div id="theme"></div></div>')
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     [void]$sb.AppendLine('<p class="footer-note">Checked ' + (& $e $Meta.GeneratedAt) + $secs + '. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
-    [void]$sb.AppendLine('<script>DKJTheme.picker(document.getElementById("theme"), { light: "Light", dark: "Dark" });</script>')
+    [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark" });</script>')
     [void]$sb.AppendLine('</body>')
     [void]$sb.AppendLine('</html>')
     return $sb.ToString()
