@@ -95,6 +95,32 @@ function Test-DashboardHost {
     return ($h -eq "localhost:$Port" -or $h -eq "127.0.0.1:$Port")
 }
 
+function Test-DashboardCrossSite {
+    <#
+        True when the browser says the request comes from another site (Sec-Fetch-Site 'cross-site' or
+        'same-site'). The Host check cannot catch this: a page elsewhere that links or fetches here sends
+        localhost as the Host. It cannot read the answer, but every page load runs check-connectors, so
+        it could keep the single-threaded loop busy. A missing header (curl, an old browser) is allowed.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$SecFetchSite)
+    if (-not $SecFetchSite) { return $false }
+    $v = $SecFetchSite.Trim().ToLowerInvariant()
+    return ($v -eq 'cross-site' -or $v -eq 'same-site')
+}
+
+function Test-DashboardCheckoutInScope {
+    <#
+        True when the resolved checkout -Full lies under -ScopeRoot at a path boundary -- the same bound
+        check-connectors.ps1 sets (two levels above this repo). A manifest is data from a public repo, and
+        the server runs git in the folder it names, so a relative '..\..\..' must not leave that root.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Full, [Parameter(Mandatory = $true)][string]$ScopeRoot)
+    $f = $Full.Replace('/', '\').TrimEnd('\')
+    $r = $ScopeRoot.Replace('/', '\').TrimEnd('\')
+    if (-not $r) { return $false }
+    return $f.StartsWith($r + '\', [StringComparison]::OrdinalIgnoreCase)
+}
+
 function Get-DashboardStatusBadge {
     <# The house-style badge and the word for a status. #>
     param([string]$Status)

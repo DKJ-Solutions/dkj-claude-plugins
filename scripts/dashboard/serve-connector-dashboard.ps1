@@ -22,9 +22,11 @@
     git for each checkout's branch, uncommitted count and ahead/behind against its upstream -- local refs
     only, no fetch. /refresh drops the cache and redirects to the page.
 
-    One request at a time, each answered with Connection: close; a connection that sends nothing within
-    -ReadTimeoutMs is dropped, so a browser's speculative connection cannot stall the loop. It runs until
-    the process is stopped.
+    One request at a time, each answered with Connection: close. A connection whose request head is not
+    complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped, so a browser's speculative
+    connection or a dripping client cannot stall the loop. A request the browser marks as coming from
+    another site (Sec-Fetch-Site) is refused, and /refresh re-runs the check at most once per
+    -MinRefreshSeconds. It runs until the process is stopped.
 
     Pure ASCII (repo convention for .ps1). The page's rules are in scripts/lib/connector-dashboard-lib.ps1,
     tested by scripts/tests/connector-dashboard.tests.ps1.
@@ -36,7 +38,10 @@
     How long one read of the register is served before the next request reads it again.
 
 .PARAMETER ReadTimeoutMs
-    How long a connection may take to send its request line.
+    How long a connection may take to send its whole request head (one deadline, not one per read).
+
+.PARAMETER MinRefreshSeconds
+    The shortest interval between two re-runs that /refresh can cause.
 
 .PARAMETER RepoRootOverride
     (For tests) The repo root instead of the one this script sits in.
@@ -45,7 +50,8 @@
 param(
     [Parameter(Mandatory = $true)][ValidateRange(1024, 65535)][int]$Port,
     [ValidateRange(0, 86400)][int]$CacheSeconds = 60,
-    [ValidateRange(100, 60000)][int]$ReadTimeoutMs = 3000,
+    [ValidateRange(100, 60000)][int]$ReadTimeoutMs = 1000,
+    [ValidateRange(0, 3600)][int]$MinRefreshSeconds = 10,
     [string]$RepoRootOverride
 )
 
@@ -55,6 +61,7 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
 . (Join-Path $root 'scripts\lib\connector-dashboard-lib.ps1')
 
+$scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 $styleDir = Join-Path $root 'scripts\dashboard\house-style'
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
@@ -63,7 +70,11 @@ $static = @{
 
 function Invoke-DashboardGit {
     param([string]$Path, [string[]]$GitArgs)
-    $out = & git -C $Path @GitArgs 2>$null
+    # 'Continue' here, and the catch: under the script's 'Stop', Windows PowerShell 5.1 turns a native
+    # command's stderr into a terminating error even with 2>$null -- so one branch without an upstream
+    # ('fatal: no upstream configured') blanked the whole page (Victor's review, #2976).
+    $ErrorActionPreference = 'Continue'
+    try { $out = & git -C $Path @GitArgs 2>$null } catch { return $null }
     if ($LASTEXITCODE -ne 0) { return $null }
     # The comma keeps a one-line answer an array: unrolled, '[0]' would index the string's first letter.
     return , @($out)
@@ -90,6 +101,7 @@ function Get-DashboardModel {
     if ($sha) { $meta.SourceCommit = [string]$sha[0] }
 
     $parsed = @{}
+    $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
     try {
         $check = Join-Path $root 'scripts\sync\check-connectors.ps1'
         $lines = & powershell -NoProfile -ExecutionPolicy Bypass -File $check -SkipDrift 2>&1 | ForEach-Object { [string]$_ }
@@ -107,9 +119,11 @@ function Get-DashboardModel {
         $candidates = @(Get-ConnectorCheckoutCandidates $m.localCheckout)
         $resolved = $null
         foreach ($cand in $candidates) {
-            # The manifest is data from a public repo: only a relative path stays inside the scope root.
+            # The manifest is data from a public repo and git runs in the folder it names, so the path is
+            # held to check-connectors' own bound: relative, and resolving under the scope root.
             if ([System.IO.Path]::IsPathRooted($cand)) { continue }
             $full = [System.IO.Path]::GetFullPath((Join-Path $root $cand))
+            if (-not (Test-DashboardCheckoutInScope -Full $full -ScopeRoot $scopeRoot)) { continue }
             if (Test-Path -LiteralPath $full -PathType Container) { $resolved = $full; break }
         }
         $signals = if ($parsed.Contains($repo)) { @($parsed[$repo].Signals) } else { @() }
@@ -131,6 +145,38 @@ function Get-DashboardModel {
     return @{ Connectors = $connectors; Meta = $meta; At = Get-Date }
 }
 
+function Read-DashboardRequest {
+    <#
+        The request line and the two headers the server reads, or $null. ONE deadline for the whole head
+        (-ReadTimeoutMs), not one per read, and at most $MaxHeadBytes: a client that sends nothing, drips a
+        byte at a time or never ends its line is dropped, so it cannot hold the single-threaded loop.
+    #>
+    param($Client)
+    $stream = $Client.GetStream()
+    $buffer = New-Object byte[] 1024
+    $head = New-Object System.IO.MemoryStream
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($ReadTimeoutMs)
+    while ($true) {
+        $left = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+        if ($left -le 0) { return $null }
+        $Client.ReceiveTimeout = $left
+        $n = $stream.Read($buffer, 0, $buffer.Length)
+        if ($n -le 0) { return $null }
+        $head.Write($buffer, 0, $n)
+        if ($head.Length -gt $MaxHeadBytes) { return $null }
+        $text = [System.Text.Encoding]::ASCII.GetString($head.ToArray())
+        $end = $text.IndexOf("`r`n`r`n")
+        if ($end -ge 0) { break }
+    }
+    $lines = $text.Substring(0, $end) -split "`r`n"
+    $result = @{ RequestLine = $lines[0]; Host = ''; SecFetchSite = '' }
+    foreach ($h in @($lines | Select-Object -Skip 1)) {
+        if ($h -match '^Host:\s*(.*)$') { $result.Host = $Matches[1] }
+        elseif ($h -match '^Sec-Fetch-Site:\s*(.*)$') { $result.SecFetchSite = $Matches[1] }
+    }
+    return $result
+}
+
 function Send-DashboardResponse {
     param($Stream, [int]$Status, [string]$Reason, [string]$Type, [byte[]]$Body, [hashtable]$Headers = @{})
     $head = "HTTP/1.1 $Status $Reason`r`nContent-Type: $Type`r`nContent-Length: $($Body.Length)`r`n" +
@@ -142,6 +188,7 @@ function Send-DashboardResponse {
     $Stream.Flush()
 }
 
+$MaxHeadBytes = 8192
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
 $listener.Start()
@@ -152,22 +199,20 @@ try {
     while ($true) {
         $client = $listener.AcceptTcpClient()
         try {
-            $client.ReceiveTimeout = $ReadTimeoutMs
+            $request = Read-DashboardRequest -Client $client
+            if ($null -eq $request) { continue }
             $stream = $client.GetStream()
-            $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::ASCII, $false, 4096, $true)
-            $requestLine = $reader.ReadLine()
-            if (-not $requestLine) { continue }
-            $hostHeader = ''
-            for ($i = 0; $i -lt 100; $i++) {
-                $h = $reader.ReadLine()
-                if (-not $h) { break }
-                if ($h -match '^Host:\s*(.*)$') { $hostHeader = $Matches[1] }
-            }
+            $requestLine = $request.RequestLine
+            $hostHeader = $request.Host
             $method, $target = ($requestLine -split ' ')[0, 1]
             $path = ([string]$target -split '\?')[0]
 
             if (-not (Test-DashboardHost -HostHeader $hostHeader -Port $Port)) {
                 Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
+                continue
+            }
+            if (Test-DashboardCrossSite $request.SecFetchSite) {
+                Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
                 continue
             }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
@@ -176,11 +221,13 @@ try {
             }
             if ($static.ContainsKey($path)) {
                 $s = $static[$path]
-                Send-DashboardResponse $stream 200 'OK' $s.Type ([System.IO.File]::ReadAllBytes($s.File))
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
+                Send-DashboardResponse $stream 200 'OK' $s.Type $body
                 continue
             }
             if ($path -eq '/refresh') {
-                $cache = $null
+                # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for.
+                if ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
                 Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/' }
                 continue
             }

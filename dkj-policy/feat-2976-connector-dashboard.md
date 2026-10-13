@@ -63,7 +63,8 @@ with an overview of every connected repo. Issue #2976.
 
 ### TEST
 
-- [x] `scripts/tests/connector-dashboard.tests.ps1`: 39 asserts, including a real server on a free port
+- [x] `scripts/tests/connector-dashboard.tests.ps1`: 57 asserts -- the rules, a real server on a free port, and the page from a fixture tree (a checkout with no upstream, one outside the scope root, no check)
+- [x] Reviews: Victor (code) and Sebastian (security); every finding repaired -- git stderr under `Stop` blanked the page, one deadline and an 8 KB cap per request, HEAD without a body, checkouts held to the scope root, cross-site requests refused and `/refresh` throttled
 - [x] The tree's hook run twice against this checkout: `started` on 4870, then `already running`
 - [x] The live page: 200 with six repos; a foreign Host 403, POST 405, `/refresh` 303
 - [ ] The owner's look at the page (visible result)
