@@ -1442,3 +1442,17 @@ function Get-DeclinedAdoptions {
        workflow, so the answer is inert here -- stated anyway, because an unstated one reads as unasked. #>
     return @()
 }
+
+# --- The dev-preview seam (dkj-solutions, #2967; this repo's answer since #2976) -----------------------
+
+function Get-DevPreview {
+    <# The connector dashboard: the dkj-solutions dev-preview hook starts it (or reuses it) at session
+       start and hands out its localhost link. The server binds to 127.0.0.1 itself, so the Command needs
+       no bind flag. It runs under cmd.exe, hence the backslashes. #>
+    @{
+        Command     = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port {port}'
+        Ports       = 4870..4879
+        Name        = 'Connector dashboard'
+        WaitSeconds = 15
+    }
+}

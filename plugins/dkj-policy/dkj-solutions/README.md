@@ -108,7 +108,12 @@ session start ([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
 
 ## In this source repo
 
-The plugin is listed as `false` in this repo's `.claude/settings.json`: there is no app here that
-renders anything.
+The plugin is enabled here since October 13, 2026
+([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)), for the dev-preview hook:
+this repo's `Get-DevPreview` starts the **connector dashboard**, a page with every repo registered under
+`connectors/` and what `check-connectors.ps1` reports for it, served on `127.0.0.1` by
+`scripts/dashboard/serve-connector-dashboard.ps1` with a vendored copy of the house style. That server
+uses a `TcpListener` rather than an `HttpListener`: under the latter the socket belongs to `http.sys`
+(PID 4), and the hook could never recognise the server as this checkout's.
 
 The house style itself is maintained in `dkj-brandbook`. Only the skill's pointer is maintained here.

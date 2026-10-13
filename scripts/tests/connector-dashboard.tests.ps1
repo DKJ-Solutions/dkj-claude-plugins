@@ -1,0 +1,236 @@
+<#
+.SYNOPSIS
+    Tests for scripts/lib/connector-dashboard-lib.ps1 and the server beside it,
+    scripts/dashboard/serve-connector-dashboard.ps1 -- the connector dashboard (#2976).
+
+.DESCRIPTION
+    Group 1 pins the rules without a server: how check-connectors.ps1's report splits into repos and
+    plugins, which status a repo gets, which Host is served, and that every value the page shows is
+    escaped. Group 2 starts the real server on a free loopback port against this tree and asks it for
+    the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
+    an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
+    outside the scope root, and no check-connectors.ps1 at all.
+
+    Pure ASCII (repo convention for .ps1).
+#>
+$ErrorActionPreference = 'Continue'
+
+$RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
+$Server   = Join-Path $RepoRoot 'scripts\dashboard\serve-connector-dashboard.ps1'
+. (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1')
+
+$script:pass = 0
+$script:fail = 0
+$group2Ran = $false   # group 3 reuses group 2's request helper
+
+function Assert-True {
+    param([bool]$Condition, [string]$Name)
+    if ($Condition) { $script:pass++; Write-Host "  [PASS] $Name" -ForegroundColor Green }
+    else            { $script:fail++; Write-Host "  [FAIL] $Name" -ForegroundColor Red }
+}
+function Assert-Equal {
+    param($Expected, $Actual, [string]$Name)
+    Assert-True ("$Expected" -eq "$Actual") ($Name + $(if ("$Expected" -ne "$Actual") { " (expected '$Expected', got '$Actual')" } else { '' }))
+}
+
+Write-Host '-- group 1a: the report splits into repos and plugins' -ForegroundColor Cyan
+
+$report = @(
+    '== check-connectors -- 3 manifest(s) -- source read at abc1234 ==',
+    '',
+    '== connector: Org/alpha',
+    '  [ERROR] Org/alpha: origin names someone else',
+    '',
+    '== connector: Org/beta',
+    '  -- plugin: p1@m',
+    '  [OK]    plugin is enabled in .claude/settings.json',
+    '  [ERROR] Org/beta / p1@m: machine record is on v1, source on v2',
+    '  [INFO]  Org/beta: plugin q@m is enabled but not listed',
+    '',
+    '== connector: Org/gamma',
+    '  [SKIP]  checkout ''../gamma'' not present on this machine -- not checked.',
+    '',
+    '-- drift-check: Org/beta',
+    '  [ERROR] not a connector signal',
+    'Summary: 2 error(s), 1 info signal(s).'
+)
+$parsed = ConvertFrom-ConnectorCheckOutput -Lines $report
+Assert-Equal 'Org/alpha Org/beta Org/gamma' (@($parsed.Keys) -join ' ') 'every connector block becomes a repo, in report order; the opening line is not one'
+Assert-Equal 1 @($parsed['Org/alpha'].Signals).Count 'a repo-level signal belongs to its repo'
+Assert-Equal 'origin names someone else' $parsed['Org/alpha'].Signals[0].Text 'the "<repo>: " prefix is stripped'
+$beta = @($parsed['Org/beta'].Signals)
+Assert-Equal 3 $beta.Count 'the drift section after the last connector adds nothing to it'
+Assert-Equal 'p1@m' $beta[1].Plugin 'a signal under "-- plugin:" carries that plugin'
+Assert-Equal 'machine record is on v1, source on v2' $beta[1].Text 'the "<repo> / <plugin>: " prefix is stripped'
+Assert-Equal 'plugin q@m is enabled but not listed' $beta[2].Text 'a repo-level prefix is stripped inside a plugin block too'
+Assert-Equal 0 @((ConvertFrom-ConnectorCheckOutput -Lines @()).Keys).Count 'an empty report is no repos, not an error'
+Assert-Equal 0 @((ConvertFrom-ConnectorCheckOutput -Lines $null).Keys).Count 'no report at all is no repos either'
+
+Write-Host '-- group 1b: status, worst first' -ForegroundColor Cyan
+
+Assert-Equal 'bad'  (Get-ConnectorStatus $beta) 'an [ERROR] makes a repo bad, whatever else it has'
+Assert-Equal 'warn' (Get-ConnectorStatus @(@{ Level = 'OK' }, @{ Level = 'INFO' })) 'an [INFO] without an error is warn'
+Assert-Equal 'skip' (Get-ConnectorStatus @($parsed['Org/gamma'].Signals)) 'a skipped checkout is skip -- nothing was read, so it is not called healthy'
+Assert-Equal 'good' (Get-ConnectorStatus @(@{ Level = 'OK' })) 'only [OK] is good'
+Assert-Equal 'good' (Get-ConnectorStatus @()) 'no signals is good'
+
+Write-Host '-- group 1c: the checkout list and the Host guard' -ForegroundColor Cyan
+
+Assert-Equal '../a' ((Get-ConnectorCheckoutCandidates '../a') -join ',') 'one path is a list of one'
+Assert-Equal '../a,../b' ((Get-ConnectorCheckoutCandidates @('../a', ' ', '../b')) -join ',') 'a list drops its blanks'
+Assert-True  (Test-DashboardHost 'localhost:4870' 4870) 'localhost on our port is served'
+Assert-True  (Test-DashboardHost '127.0.0.1:4870' 4870) '127.0.0.1 on our port is served'
+Assert-True  (Test-DashboardHost 'LocalHost:4870 ' 4870) 'the Host is compared case-insensitively and trimmed'
+Assert-True  (-not (Test-DashboardHost 'evil.example:4870' 4870)) 'a rebound foreign name is refused'
+Assert-True  (-not (Test-DashboardHost 'localhost:4871' 4870)) 'another port is refused'
+Assert-True  (-not (Test-DashboardHost '' 4870)) 'no Host is refused'
+
+Assert-True  (Test-DashboardCheckoutInScope 'C:\g\org\repo' 'C:\g') 'a sibling checkout under the scope root is in scope'
+Assert-True  (-not (Test-DashboardCheckoutInScope 'C:\other\repo' 'C:\g')) 'a path that climbs out of the scope root is not'
+Assert-True  (-not (Test-DashboardCheckoutInScope 'C:\g2\repo' 'C:\g')) 'a sibling of the scope root that shares its prefix is not'
+Assert-True  (-not (Test-DashboardCheckoutInScope 'C:\g' 'C:\g')) 'the scope root itself is not a checkout'
+Assert-True  (Test-DashboardCrossSite 'cross-site') 'a cross-site request is refused'
+Assert-True  (Test-DashboardCrossSite 'Same-Site') 'a same-site (other port or subdomain) request is refused'
+Assert-True  (-not (Test-DashboardCrossSite 'same-origin')) 'the page itself is served'
+Assert-True  (-not (Test-DashboardCrossSite 'none')) 'a typed or bookmarked URL is served'
+Assert-True  (-not (Test-DashboardCrossSite '')) 'no header (curl) is served'
+
+Write-Host '-- group 1d: the page escapes what it shows' -ForegroundColor Cyan
+
+$hostile = '<script>alert(1)</script>'
+$connectors = @(
+    @{ Repo = 'Org/beta'; Visibility = 'private'; File = 'beta.json'; Checkout = @('../beta'); Present = $true
+       Plugins = @(@{ Id = 'p1@m'; Extensions = @('01-01', '05-05') }); Signals = $beta; Status = 'bad'
+       Git = @{ Branch = 'main'; Dirty = 2; Ahead = 1; Behind = 0; Subject = $hostile; When = '2 days ago' }; Notes = "a`"note" },
+    @{ Repo = 'Org/gamma'; Visibility = 'public'; File = 'gamma.json'; Checkout = @('../gamma'); Present = $false
+       Plugins = @(); Signals = @($parsed['Org/gamma'].Signals); Status = 'skip'; Git = $null; Notes = '' }
+)
+$html = Format-ConnectorDashboardHtml -Connectors $connectors -Meta @{ GeneratedAt = 'now'; SourceCommit = 'abc1234'; Seconds = 1.25; CheckFailed = $null }
+Assert-True ($html -notmatch '<script>alert') 'a git subject is shown as text, never as markup'
+Assert-True ($html -match '&lt;script&gt;alert') 'and it is still shown'
+Assert-True ($html -match 'a&quot;note') 'the register notes are escaped too'
+Assert-True ($html -match 'main &#183; 2 uncommitted &#183; 1 ahead') 'the git state names branch, uncommitted and ahead'
+Assert-True ($html -match 'not on this machine') 'an absent checkout says so'
+Assert-True ($html.IndexOf('id="repo-org-beta"') -lt $html.IndexOf('id="repo-org-gamma"')) 'a repo that needs action comes before a skipped one'
+Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'the page loads the house style from its own server'
+Assert-True ($html -match '1\.3s|1\.2s') 'the run time is printed with an invariant decimal point'
+$failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
+Assert-True ($failed -match 'class="notice"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is a notice, escaped'
+
+Write-Host '-- group 2: the server answers on loopback only to itself' -ForegroundColor Cyan
+
+if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
+    Write-Host '  [SKIP] group 2 needs Windows PowerShell' -ForegroundColor Yellow
+} else {
+    $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+    $probe.Start(); $port = $probe.LocalEndpoint.Port; $probe.Stop()
+    $proc = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port)
+    try {
+        $up = $false
+        for ($i = 0; $i -lt 40 -and -not $up; $i++) {
+            Start-Sleep -Milliseconds 250
+            $t = New-Object System.Net.Sockets.TcpClient
+            try { $t.Connect('127.0.0.1', $port); $up = $true } catch { } finally { $t.Close() }
+        }
+        Assert-True $up 'the server listens on the port it was given'
+
+        $group2Ran = $true
+        function Get-Raw([string]$Method, [string]$Path, [string]$HostHeader, [string]$Extra = '', [int]$OnPort = $port) {
+            $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $OnPort)
+            $c.ReceiveTimeout = 3000
+            try {
+                $s = $c.GetStream()
+                $req = [System.Text.Encoding]::ASCII.GetBytes("$Method $Path HTTP/1.1`r`nHost: $HostHeader`r`n$Extra`r`n")
+                $s.Write($req, 0, $req.Length)
+                return (New-Object System.IO.StreamReader($s)).ReadToEnd()
+            } catch { return '' } finally { $c.Close() }
+        }
+        function Get-Status([string]$Method, [string]$Path, [string]$HostHeader, [string]$Extra = '') {
+            $raw = Get-Raw $Method $Path $HostHeader $Extra
+            return [int]((($raw -split "`r`n")[0] -split ' ')[1])
+        }
+        if ($up) {
+            Assert-Equal 200 (Get-Status 'GET' '/house-style.css' "localhost:$port") 'the stylesheet is served'
+            Assert-Equal 200 (Get-Status 'GET' '/house-theme.js' "127.0.0.1:$port") 'the theme script is served'
+            Assert-Equal 403 (Get-Status 'GET' '/house-style.css' "evil.example:$port") 'a foreign Host is refused'
+            Assert-Equal 405 (Get-Status 'POST' '/' "localhost:$port") 'a POST is refused'
+            Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
+            Assert-Equal 303 (Get-Status 'GET' '/refresh' "localhost:$port") '/refresh redirects to the page'
+            Assert-Equal 403 (Get-Status 'GET' '/refresh' "localhost:$port" "Sec-Fetch-Site: cross-site`r`n") 'a request another site makes is refused'
+            $headRaw = Get-Raw 'HEAD' '/house-style.css' "localhost:$port"
+            Assert-True ($headRaw -match 'Content-Length: 0' -and $headRaw.TrimEnd().EndsWith('close')) 'HEAD on a static file sends no body'
+            $silent = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $port)
+            Assert-Equal 200 (Get-Status 'GET' '/house-theme.js' "localhost:$port") 'a connection that sends nothing does not stall the next one'
+            $silent.Close()
+            # A client that drips one byte at a time stays under any per-read timeout; one deadline drops it.
+            $drip = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $port)
+            $dripStream = $drip.GetStream()
+            # Drip past the server's 1s deadline and keep the connection OPEN: without the deadline the loop
+            # would still be reading it, and the next request would get no answer (Get-Raw gives up at 3s).
+            try { for ($i = 0; $i -lt 20; $i++) { $dripStream.WriteByte(71); $dripStream.Flush(); Start-Sleep -Milliseconds 100 } } catch { }
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            Assert-Equal 200 (Get-Status 'GET' '/house-theme.js' "localhost:$port") 'a dripping client is cut off by one deadline, and the next one is answered'
+            Assert-True ($sw.ElapsedMilliseconds -lt 2000) 'without waiting for the dripping client'
+            $drip.Close()
+            $big = Get-Raw 'GET' '/house-theme.js' "localhost:$port" ("X-Pad: " + ('a' * 9000) + "`r`n")
+            Assert-True ($big -notmatch 'HTTP/1.1 200') 'a request head over 8 KB gets no answer'
+        }
+    } finally {
+        if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
+    }
+}
+
+Write-Host '-- group 3: the page survives a checkout with no upstream and a check that cannot run' -ForegroundColor Cyan
+
+if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -and (Get-Command git -ErrorAction SilentlyContinue) -and $group2Ran) {
+    # Layout: <fixture>\org\src is the repo root, so the scope root is <fixture>. <fixture>\org\noup holds
+    # a commit and no upstream, which made 'rev-list HEAD...@{u}' throw under 'Stop' and blanked the page
+    # (#2976 review). <outside> is a git repo beyond the scope root that one manifest points at. The fixture
+    # carries no check-connectors.ps1, so the check's failure path is exercised too.
+    $fixture = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-$PID-$([guid]::NewGuid().ToString('n'))"
+    $src = Join-Path $fixture 'org\src'
+    $noup = Join-Path $fixture 'org\noup'
+    $outside = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-outside-$PID-$([guid]::NewGuid().ToString('n'))"
+    try {
+        New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
+        Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
+        Copy-Item $Server (Join-Path $src 'scripts\dashboard\')
+        Set-Content -LiteralPath (Join-Path $src 'connectors\noup.json') -Encoding ASCII -Value '{ "repo": "Org/noup", "visibility": "private", "localCheckout": "../noup", "plugins": [] }'
+        Set-Content -LiteralPath (Join-Path $src 'connectors\far.json') -Encoding ASCII -Value ('{ "repo": "Org/far", "visibility": "public", "localCheckout": "../../../' + (Split-Path -Leaf $outside) + '", "plugins": [] }')
+        & git -C $noup init -q 2>$null
+        & git -C $noup -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'local only' 2>$null
+        & git -C $outside init -q 2>$null
+
+        $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+        $probe.Start(); $port3 = $probe.LocalEndpoint.Port; $probe.Stop()
+        $proc3 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $src 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port3)
+        try {
+            $up = $false
+            for ($i = 0; $i -lt 40 -and -not $up; $i++) {
+                Start-Sleep -Milliseconds 250
+                $t = New-Object System.Net.Sockets.TcpClient
+                try { $t.Connect('127.0.0.1', $port3); $up = $true } catch { } finally { $t.Close() }
+            }
+            $page = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($page -match 'HTTP/1.1 200') 'the page is served with a checkout that has no upstream'
+            Assert-True ($page -match '(master|main) &#183; clean') 'and that checkout shows its branch and state'
+            Assert-True ($page -match 'class="notice"') 'a check that could not run is reported, not fatal'
+            $at = $page.IndexOf('id="repo-org-far"')
+            $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }
+            Assert-True ($far -and $far -notmatch 'class="meta"') 'a checkout outside the scope root is not read'
+        } finally {
+            if (-not $proc3.HasExited) { Stop-Process -Id $proc3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
+        }
+    } finally {
+        Remove-Item -LiteralPath $fixture, $outside -Recurse -Force -ErrorAction SilentlyContinue
+    }
+} else {
+    Write-Host '  [SKIP] group 3 needs Windows PowerShell, git and group 2' -ForegroundColor Yellow
+}
+
+Write-Host ''
+Write-Host "connector-dashboard: $script:pass passed, $script:fail failed"
+if ($script:fail -gt 0) { exit 1 }
+exit 0

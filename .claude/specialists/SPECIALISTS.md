@@ -62,7 +62,7 @@ checkout's plugins current, in
 
 ### The team: roster & routing
 
-Small and maintenance-focused — **only the core team and `dkj-policy` are enabled here**. The three
+Small and maintenance-focused — **only the core team, `dkj-policy` and `dkj-solutions` are enabled here**. The three
 add-on teams and `bwj-development` are switched off, because none of them has work here (Dave, September
 30 and October 1, 2026).
 [`.claude/rules/this-repo.md`](../rules/this-repo.md) states the fact, and why.
@@ -93,7 +93,7 @@ Editor) · `06-19` Victor (Code Reviewer) · `06-23` Sebastian (Security Enginee
 (Refactoring) · `06-25` Nolan (Performance) · `06-29` Marlowe (Investigative Journalist) ·
 `06-30` Auden (Long-form Writer)
 
-`dkj-policy` is the other enabled plugin and ships **no** agents at all — it carries skills, hooks and
+`dkj-policy` and `dkj-solutions` are the other enabled plugins and ship **no** agents at all — it carries skills, hooks and
 scripts — so the roster check skips it by design rather than for want of a row.
 For a full description of any specialist, run `claude plugin details <plugin>@dkj-claude-plugins` or
 read their manual.
