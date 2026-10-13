@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**3 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2959-sessioncheck-resolves-exempt-seam · 20261013-110048Z
+
+The bwj-development session check now reports a store whose `scripts/repo-config.ps1` states no
+`Get-ResolvesExemptMatchers`. Without that seam dkj-policy's resolves gate lets a pull request close an
+Asana-linked issue, so the merge closes it before its go-live block is on it and the Asana task gets a
+bare closed message, as measured in xoxowildhearts (#2959).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store that never stated `Get-ResolvesExemptMatchers` is told so at session start, so a merge can no
+longer close an Asana-linked issue before its go-live block is posted without anyone having been warned
+(#2959).
+
+**Score:** 3
+
+#### Pull Request
+
+closed-message-sessioncheck reports a store without Get-ResolvesExemptMatchers
+
+Plugins: bwj-development
+
+[PR #2962](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2962)
+
+---
 
 ### DEPLOY: fix/2957-golive-post-accepts-referencing-pr · 20261013-095525Z
 
