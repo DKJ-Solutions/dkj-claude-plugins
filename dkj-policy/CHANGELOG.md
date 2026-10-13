@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**11 / 17 minor entries** <!-- pending-tally -->
+**11 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/dashboard-house-style-v2 · 20261013-214843Z
+
+The connector dashboard now runs on `house-style-v2`: its vendored stylesheet and theme script were
+still the v1 copies after #2986 repointed the skill. The theme choice moved from a card at the bottom of
+the page to the house settings button, fixed in the top right corner.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the dashboard is served only on this repo's own checkout; no consumer receives it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Connector dashboard on house-style-v2, with the settings button
+
+[PR #2990](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2990)
+
+---
 
 ### DEPLOY: feat/2986-house-style-v2 · 20261013-212508Z
 
