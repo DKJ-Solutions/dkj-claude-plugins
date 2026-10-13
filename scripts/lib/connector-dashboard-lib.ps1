@@ -193,8 +193,9 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<div><h1>Connected repos</h1>')
     $commit = if ($Meta.SourceCommit) { ' &#183; source at <code>' + (& $e $Meta.SourceCommit) + '</code>' } else { '' }
     [void]$sb.AppendLine('<p class="sub">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine' + $commit + '.</p></div>')
-    [void]$sb.AppendLine('<div class="controls"><a class="btn btn--primary" href="/refresh">Re-run the check</a><div id="settings"></div></div>')
+    [void]$sb.AppendLine('<div class="controls"><a class="btn btn--primary" href="/refresh">Re-run the check</a></div>')
     [void]$sb.AppendLine('</header>')
+    [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
 
     if ($Meta.CheckFailed) {
         [void]$sb.AppendLine('<div class="notice">check-connectors.ps1 could not be run: ' + (& $e $Meta.CheckFailed) + '. The register is shown without its signals.</div>')

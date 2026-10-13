@@ -48,17 +48,19 @@ row), with a hand-built Theme card around `DKJTheme.picker`. So the new settings
 - [x] Vendor `house-style.css` and `house-theme.js` from tag `house-style-v2`, sha256 checked against the skill's table and the pre-inline rules scanned
 - [x] `connector-dashboard-lib.ps1`: the Theme card goes, `DKJTheme.settings` sits in the header controls beside "Re-run the check", English labels
 - [x] `connector-dashboard.tests.ps1`: assert the page uses `DKJTheme.settings` and no longer `DKJTheme.picker`
+- [x] The settings button leaves the header and floats fixed top right, via the house modifier `theme-settings--floating` (owner's request after the first look); a test asserts it
 
 ### TEST
 
 - [x] `connector-dashboard.tests.ps1` green (58 passed); the dashboard on :4870 restarted and serves `DKJTheme.settings`
-- [x] The owner has looked at the dashboard (visible result) -- the settings button works (Dave, October 13, 2026)
+- [x] The owner has looked at the dashboard (visible result) -- the settings button works, but should have a fixed position (Dave, October 13, 2026)
+- [ ] The owner has looked at the floating settings button (visible result)
 
 ### DEPLOY: fix/dashboard-house-style-v2
 
 The connector dashboard now runs on `house-style-v2`: its vendored stylesheet and theme script were
 still the v1 copies after #2986 repointed the skill. The theme choice moved from a card at the bottom of
-the page to the house settings button in the header.
+the page to the house settings button, fixed in the top right corner.
 
 **Score:** 2
 
