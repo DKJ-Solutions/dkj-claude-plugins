@@ -76,5 +76,3 @@ in the move.
 
 The house style moves to dkj-brandbook; the skill points there
 
-Plugins: dkj-solutions
-
