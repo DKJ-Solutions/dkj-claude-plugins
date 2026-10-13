@@ -97,7 +97,8 @@ report the difference and let the maintainer decide. **Only in `smartwatchbanden
 (#2818, #2945). The source repo and `phone-factory` adopt this plugin for ticket handling alone, and
 neither workflow was asked for there. In the two stores, the plugin's `closed-message-sessioncheck` hook
 reports at every session start when any of the four files (either workflow's pair) is missing or differs
-from the template, and when `ASANA_PAT` (step 3) is absent ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)).
+from the template, and when `ASANA_PAT` (step 3) is absent ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)),
+or step 2's `Get-ResolvesExemptMatchers` is not stated ([#2959](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2959)).
 
 When an issue closes as completed, the workflow posts one comment on its Asana task: the automation's
 header, the closed line, and the go-live block the shipping session left on the issue. On a close as not

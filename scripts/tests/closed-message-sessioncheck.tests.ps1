@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
     Tests for plugins/dkj-policy/bwj-development/hooks/closed-message-sessioncheck.ps1 -- the session check
-    that reports a store whose asana-closed-message copy is missing, stale, or has no ASANA_PAT (#2871).
+    that reports a store whose asana-closed-message copy is missing, stale, or has no ASANA_PAT (#2871),
+    and a store config that states no Get-ResolvesExemptMatchers (#2959).
 
 .DESCRIPTION
     What is pinned is WHEN it speaks: only in the two store repos, once per kind of gap, never on a secret
@@ -91,6 +92,28 @@ try {
     $r = Invoke-Hook -Root $stalePrio -Slug 'BWJ-Development/xoxowildhearts' -Secret 'ASANA_PAT'
     Assert-True ($r.Text -match '\.github/scripts/asana-prio-label\.ps1 in BWJ-Development/xoxowildhearts differs from the template') 'a prio script that differs from the template is reported'
     Assert-True ($r.Text -notmatch 'asana-closed-message' -and $r.Text -notmatch 'workflows/asana-prio-label\.yml in') 'and only that file is named'
+
+    # THE RESOLVES-EXEMPT SEAM (#2959): a store config without Get-ResolvesExemptMatchers is reported; one
+    # that defines it, or a store with no repo-config at all (every case above), is not.
+    $noSeam = New-Store -Label 'no-seam' -Copy
+    New-Item -ItemType Directory -Force -Path (Join-Path $noSeam 'scripts') | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $noSeam 'scripts\repo-config.ps1'),
+        "function Get-RepoName { 'BWJ-Development/xoxowildhearts' }`n# function Get-ResolvesExemptMatchers { @() }`n")
+    $r = Invoke-Hook -Root $noSeam -Slug 'BWJ-Development/xoxowildhearts' -Secret 'ASANA_PAT'
+    Assert-True ($r.Text -match '\[ERROR\] bwj-development: BWJ-Development/xoxowildhearts states no Get-ResolvesExemptMatchers') 'the measured case (#2959): a store config without the seam is reported'
+    Assert-True ($r.Text -match 'step 2 proposes the two matchers') 'and the finding names the adopt step that proposes it'
+    Assert-True (@($r.Text -split "`n" | Where-Object { $_ -match '\[ERROR\]' }).Count -eq 1) 'a commented-out definition does not count, and nothing else is blamed'
+    Assert-True ($r.Code -eq 0) 'a finding still exits 0'
+
+    $seam = New-Store -Label 'seam' -Copy
+    New-Item -ItemType Directory -Force -Path (Join-Path $seam 'scripts') | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $seam 'scripts\repo-config.ps1'),
+        "function Get-RepoName { 'BWJ-Development/smartwatchbanden' }`r`n    function Get-ResolvesExemptMatchers {`r`n    return @()`r`n}`r`n")
+    $r = Invoke-Hook -Root $seam -Slug 'BWJ-Development/smartwatchbanden' -Secret 'ASANA_PAT'
+    Assert-True ($r.Text.Trim() -eq '') 'a store config that defines the seam (indented, CRLF) is silent'
+
+    $r = Invoke-Hook -Root $noSeam -Slug 'DKJ-Solutions/dkj-claude-plugins' -Secret 'ASANA_PAT'
+    Assert-True ($r.Text.Trim() -eq '') 'and the seam is not asked of a repo outside the two stores'
 
     $r = Invoke-Hook -Root $none -Slug 'BWJ-Development/smartwatchbanden' -Secret '<unreadable>'
     Assert-True ($r.Text -notmatch 'ASANA_PAT') 'a secret list it could not read is not reported as a missing secret'

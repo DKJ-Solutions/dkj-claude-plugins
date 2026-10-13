@@ -39,19 +39,52 @@
 
 ### PLAN
 
+#### The inbound report, verified against the tree (#2959)
+
+The symptom stands: xoxowildhearts PR #422 carried `Closes #417`, the merge closed the issue before
+its go-live block was posted, and `asana-closed-message` posted a bare closed message. The reasoning
+does not: "nothing enforces the last arrow" overlooks that this plugin's rule is that an Asana-linked
+issue is never closed by a merge at all (`-NoResolves`, WORKFLOW-portable.md step 4), and that
+dkj-policy's resolves gate has refused `Closes #<n>` on such an issue since #2120 -- in a repo that
+states `Get-ResolvesExemptMatchers`. smartwatchbanden states it; xoxowildhearts never did, because
+adopt-bwj-development proposes that seam rather than placing it, and nothing reported its absence.
+
+So the proposed repair (a go-live-block check inside ship-pr) is not built: with the seam stated the
+merge closes nothing, and the issue's close is a person's act after the block. The gap is the silent
+absence, and it is closed where the other store prerequisites are already reported.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `closed-message-sessioncheck.ps1` gains finding 4: in the two stores, a `scripts/repo-config.ps1`
+      that defines no `Get-ResolvesExemptMatchers` is an `[ERROR]` line naming adopt step 2. Read as
+      text, never dot-sourced; a commented-out definition does not count; no config at all is silent.
+- [x] The README hooks row, WORKFLOW-portable.md's resolves-gate paragraph and adopt-bwj-development
+      step 1's list of what the check reports say so.
+- [x] Filed #2960: the README hooks row counts two hooks where hooks.json registers three.
 
 ### TEST
 
+- [x] `closed-message-sessioncheck.tests.ps1`: 24 passed, 0 failed (6 new asserts: the measured case,
+      the remedy, a commented-out definition, exit 0, an indented CRLF definition is silent, silent
+      outside the stores).
+- [x] Probed against xoxowildhearts' real `scripts/repo-config.ps1` (read through the API): the hook
+      prints the new `[ERROR]` line.
+
 ### DEPLOY: fix/2959-sessioncheck-resolves-exempt-seam
 
-**Score:**
+The bwj-development session check now reports a store whose `scripts/repo-config.ps1` states no
+`Get-ResolvesExemptMatchers`. Without that seam dkj-policy's resolves gate lets a pull request close an
+Asana-linked issue, so the merge closes it before its go-live block is on it and the Asana task gets a
+bare closed message, as measured in xoxowildhearts (#2959).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store that never stated `Get-ResolvesExemptMatchers` is told so at session start, so a merge can no
+longer close an Asana-linked issue before its go-live block is posted without anyone having been warned
+(#2959).
+
+**Score:** 3
 
 #### Pull Request
-
