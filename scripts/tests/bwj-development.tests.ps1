@@ -1067,8 +1067,8 @@ Assert-True ($cmSrc -match 'Association = \[string\]\$comment\.author_associatio
 # ('gh issue view --json comments 2>$null') answered nothing on the runner for an issue carrying a
 # trusted block, and the log then said 'none was on the issue'.
 $cmArgs = Get-IssueCommentsApiArgs -IssueRef 'BWJ-Development/xoxowildhearts#383'
-Assert-Equal 'api|repos/BWJ-Development/xoxowildhearts/issues/383/comments|--paginate|--jq|.[] | {author_association, login: .user.login, body}' ($cmArgs -join '|') `
-    'the comments are read through REST, every page, one JSON object per comment per line, with the author''s login'
+Assert-Equal 'api|repos/BWJ-Development/xoxowildhearts/issues/383/comments|--paginate|--jq|.[] | {author_association, login: .user.login, body, created_at}' ($cmArgs -join '|') `
+    'the comments are read through REST, every page, one JSON object per comment per line, with the author''s login and the time (#2968)'
 Assert-Throws { Get-IssueCommentsApiArgs -IssueRef 'o/r#1;x' } 'and an IssueRef that is not owner/repo#<n> never reaches the gh call'
 Assert-True ($cmSrc -notmatch '& gh issue view') 'the template no longer reads comments through gh issue view (GraphQL)'
 Assert-True ($cmSrc -match '& gh @ghArgs 2>&1' -and $cmSrc -notmatch '2>\$null') 'and gh''s stderr is captured, never discarded'
@@ -1148,6 +1148,132 @@ Assert-True ($cmYml -match 'ISSUE_LABELS:\s*\$\{\{\s*toJSON\(github\.event\.issu
 Assert-True ($cmYml -match 'persist-credentials:\s*false') 'the checkout leaves no token behind'
 Assert-True ($cmYml -notmatch '-IssueBody') 'and the body reaches the script through the environment, not the command line'
 
+# A BLOCK FROM BEFORE THE LAST REOPEN IS NOT CARRIED (#2968), and neither is one whose reopen could not be
+# read. xoxowildhearts#414 closed after round 1, was reopened, and was closed again by round 2's PR: the
+# second closed message carried round 1's block. The pure verdict is asserted first, then Invoke-Main
+# end to end against a stubbed gh and a stubbed Asana call.
+Write-Host "`n-- the stale block check (#2968) --" -ForegroundColor Cyan
+$stBlock = "$cmLibMarker`nFraming sentence.`n---`n$hdr`n`nGitHub issue o/r#7 is now closed.`n`nTE BEKIJKEN OP`nhttps://x.invalid/round-1`n---"
+$stBlock2 = $stBlock.Replace('round-1', 'round-2')
+$stT1 = '2026-10-01T10:00:00Z'
+$stT2 = '2026-10-02T10:00:00Z'
+$stT3 = '2026-10-03T10:00:00Z'
+function New-StComment { param([string]$Body, [string]$At) [pscustomobject]@{ Body = $Body; CreatedAt = $At } }
+
+Assert-Equal 'none' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment 'plain' $stT1)) -LastReopenedAt $stT2) 'an issue with no block is none, reopened or not'
+Assert-Equal 'none' (Get-AsanaPasteBlockVerdict -Comments @() -LastReopenedAt $null) 'and so is one with no comments'
+Assert-Equal 'not-reopened' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock $stT1)) -LastReopenedAt $null) 'a block on an issue never reopened is not-reopened'
+Assert-Equal 'stale' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock $stT1)) -LastReopenedAt $stT2) 'a block posted before the last reopen is stale'
+Assert-Equal 'fresh' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock $stT1), (New-StComment $stBlock2 $stT3)) -LastReopenedAt $stT2) 'a block posted after it is fresh, whatever an older one says'
+Assert-Equal 'stale' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock $stT2)) -LastReopenedAt $stT2) 'a block stamped the very second of the reopen is stale: the repairable answer to a tie'
+Assert-Equal 'stale' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock2 $stT3), (New-StComment $stBlock $stT1)) -LastReopenedAt $stT3) 'the NEWEST block is judged, not the first in the list'
+Assert-Equal 'stale' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock $stT1), (New-StComment "question`n$cmLibMarker" $stT3)) -LastReopenedAt $stT2) 'a marker comment that is no block (a question) does not make the older block fresh'
+Assert-Equal 'stale' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock $stT1), (New-StComment ($stBlock2 -replace 'TE BEKIJKEN OP', '[ADD LINK]') $stT3)) -LastReopenedAt $stT2) 'nor does a placeholder copy'
+Assert-Equal 'unknown' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock 'not a time')) -LastReopenedAt $stT2) 'a block time that does not parse is unknown, never fresh'
+Assert-Equal 'unknown' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock $stT1)) -LastReopenedAt 'garbage') 'and so is a reopen time that does not parse'
+Assert-Equal 'stale' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock ([datetime]::Parse('2026-10-01T10:00:00Z').ToUniversalTime()))) -LastReopenedAt ([datetime]'2026-10-02T12:00:00+02:00')) 'datetimes in any kind are compared as UTC instants'
+# ONE PREDICATE FOR "A BLOCK" (#2968, code review): the freshness check judges by what the selection would
+# carry. A degenerate marker comment that the selection skips must not make an older block look fresh.
+$stDegenerate = @(
+    "$cmLibMarker`n---`n---",
+    "$cmLibMarker`n---`n$hdr`n`nGitHub issue o/r#7 is now closed.`n---",
+    "$cmLibMarker`nno rules at all",
+    "$cmLibMarker`n---`nonly one rule")
+foreach ($d in $stDegenerate) {
+    Assert-True (-not (Test-AsanaPasteBlockBody -Body $d)) "a degenerate marker comment is no block: $(($d -split "`n")[1..2] -join ' / ')"
+    Assert-Equal '' (Select-SessionPasteBlockSections -Bodies @($d)) 'and the selection carries nothing from it either'
+    Assert-Equal 'stale' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock $stT1), (New-StComment $d $stT3)) -LastReopenedAt $stT2) 'so a newer one after the reopen leaves the older block stale, as the selection falls back to it'
+}
+$stFrameAdd = "$cmLibMarker`n[ADD LINK] in the framing line`n---`n$hdr`n`nGitHub issue o/r#7 is now closed.`n`nTE BEKIJKEN OP`nhttps://x.invalid/r2`n---"
+Assert-True (Test-AsanaPasteBlockBody -Body $stFrameAdd) '[ADD LINK] OUTSIDE the sections is not a placeholder copy'
+Assert-True ((Select-SessionPasteBlockSections -Bodies @($stFrameAdd)).Contains('r2')) 'the selection carries it'
+Assert-Equal 'fresh' (Get-AsanaPasteBlockVerdict -Comments @((New-StComment $stBlock $stT1), (New-StComment $stFrameAdd $stT3)) -LastReopenedAt $stT2) 'so the freshness check agrees'
+Assert-True ($null -eq (ConvertTo-AsanaInstant -Value '')) 'an empty timestamp is no instant'
+Assert-Equal '2026-10-02 10:00:00' ((ConvertTo-AsanaInstant -Value $stT2).ToString('yyyy-MM-dd HH:mm:ss')) 'an ISO timestamp reads as UTC'
+
+# The duplicate check of build-golive-block -Post counts only blocks of the CURRENT round.
+Assert-True (Test-AsanaPasteBlockSinceReopen -Comments @((New-StComment $stBlock $stT1)) -LastReopenedAt $null) 'a block on an issue never reopened is a duplicate, as before'
+Assert-True (-not (Test-AsanaPasteBlockSinceReopen -Comments @((New-StComment $stBlock $stT1)) -LastReopenedAt $stT2)) 'a block from before the reopen is not one: the corrected block posts without -Force'
+Assert-True (Test-AsanaPasteBlockSinceReopen -Comments @((New-StComment $stBlock $stT1), (New-StComment $stBlock2 $stT3)) -LastReopenedAt $stT2) 'a block after the reopen is a duplicate'
+Assert-True (Test-AsanaPasteBlockSinceReopen -Comments @((New-StComment (Get-AsanaPasteBlockLead) $stT3)) -LastReopenedAt $stT2) 'a hand-typed block, found by its lead sentence, counts the same way'
+Assert-True (Test-AsanaPasteBlockSinceReopen -Comments @((New-StComment $stBlock 'garbage')) -LastReopenedAt $stT2) 'a block whose time cannot be read counts, the cautious answer'
+
+# The one GraphQL read's reply.
+$stJson = '{"data":{"repository":{"issue":{"reopened":{"nodes":[{"createdAt":"2026-10-02T10:00:00Z"}]},"comments":{"totalCount":2,"nodes":[{"body":"a","createdAt":"2026-10-01T10:00:00Z"},{"body":"b","createdAt":"2026-10-03T10:00:00Z"}]}}}}}'
+$stState = ConvertFrom-AsanaIssueBlockStateJson -Json $stJson
+Assert-True ($stState.Ok -and @($stState.Comments).Count -eq 2 -and -not $stState.Truncated) 'the reply parses into its comments'
+Assert-Equal '2026-10-02' ((ConvertTo-AsanaInstant -Value $stState.LastReopenedAt).ToString('yyyy-MM-dd')) 'and the last reopen'
+Assert-True ($null -eq (ConvertFrom-AsanaIssueBlockStateJson -Json $stJson.Replace('[{"createdAt":"2026-10-02T10:00:00Z"}]', '[]')).LastReopenedAt) 'an issue never reopened has no reopen time'
+Assert-True ((ConvertFrom-AsanaIssueBlockStateJson -Json $stJson.Replace('"totalCount":2', '"totalCount":150')).Truncated) 'an issue with more comments than were read says so'
+Assert-True (-not (ConvertFrom-AsanaIssueBlockStateJson -Json 'not json').Ok -and -not (ConvertFrom-AsanaIssueBlockStateJson -Json '{"data":{"repository":{"issue":null}}}').Ok -and -not (ConvertFrom-AsanaIssueBlockStateJson -Json '').Ok) 'a reply that is not JSON, or names no issue, is not Ok'
+
+# The template's own reads and its message.
+$stArgs = Get-IssueReopenApiArgs -IssueRef 'BWJ-Development/xoxowildhearts#414'
+Assert-Equal 'api|repos/BWJ-Development/xoxowildhearts/issues/414/events|--paginate|--jq|.[] | select(.event == "reopened") | .created_at' ($stArgs -join '|') 'the last reopen is read through REST too, every page, only the reopened events'
+Assert-Throws { Get-IssueReopenApiArgs -IssueRef 'o/r#1;x' } 'and an IssueRef that is not owner/repo#<n> never reaches the gh call'
+Assert-Equal $stT3 (ConvertFrom-ReopenEventLines -Lines @($stT1, '', $stT3, $stT2)) 'the LATEST of several reopens is the one returned, blank lines skipped'
+Assert-True ($null -eq (ConvertFrom-ReopenEventLines -Lines @())) 'no lines is an issue never reopened'
+Assert-Throws { ConvertFrom-ReopenEventLines -Lines @('<html>rate limited</html>') } 'a line that is not a timestamp throws, so a garbled read is a failed read and never "never reopened"'
+$stPending = New-ClosedMessageHtml -IssueRef 'o/r#7' -ResultPending
+[void][xml]$stPending
+Assert-True ($stPending.Contains("is now <strong>closed</strong>. It can be reopened anytime when something is still not working as expected.`n`nThe result message for this round follows.</body>")) 'the pending close is the closed line and one sentence under it'
+Assert-True (-not ($stPending -cmatch '<strong>[A-Z ]+</strong>')) 'with no block'
+Assert-True (-not (New-ClosedMessageHtml -IssueRef 'o/r#7' -BlockSections 'TE BEKIJKEN OP' -ResultPending).Contains('follows')) 'and never beside a block, which it would contradict'
+Assert-True (-not (New-ClosedMessageHtml -IssueRef 'o/r#7').Contains('follows')) 'an ordinary close carries no such sentence'
+Assert-True ((Get-ClosedMessageBlockPhrase -Sections '' -Held 'stale') -match 'predates its last reopen' -and (Get-ClosedMessageBlockPhrase -Sections '' -Held 'unread') -match 'could not be read') 'the log names why a block was held back'
+Assert-Equal 1 @((Select-TrustedCommentBodies -Comments @([pscustomobject]@{ Association = 'OWNER'; Login = 'a'; Body = 'x'; CreatedAt = $stT1 }, [pscustomobject]@{ Association = 'NONE'; Login = 'b'; Body = 'no marker'; CreatedAt = $stT1 })).Comments).Count 'the trust filter hands back the trusted comments themselves, so a block keeps its time'
+
+# END TO END: Invoke-Main on a close, against a stubbed gh (the comment and event reads) and a stubbed Asana call.
+function gh {
+    $a = @($args)
+    $script:stGhCalls += ,($a -join ' ')
+    $global:LASTEXITCODE = 0
+    if ($a[1] -like '*/comments') { $script:stComments; return }
+    if ($a[1] -like '*/events') {
+        if ($script:stEventsFail) { Write-Error 'HTTP 403: Resource not accessible by integration'; $global:LASTEXITCODE = 1; return }
+        $script:stEvents
+        return
+    }
+    $global:LASTEXITCODE = 1
+}
+function Invoke-RestMethod { param($Method, $Uri, $Headers, $Body) $script:stPosted = [System.Text.Encoding]::UTF8.GetString($Body) }
+function New-StLine { param([string]$Body, [string]$At) (ConvertTo-Json -Compress @{ author_association = 'OWNER'; login = 'dev'; body = $Body; created_at = $At }) }
+function Invoke-StMain {
+    param([string[]]$Comments, [string[]]$Events, [bool]$EventsFail = $false)
+    $script:stComments = $Comments; $script:stEvents = $Events; $script:stEventsFail = $EventsFail
+    $script:stGhCalls = @(); $script:stPosted = ''
+    $script:IssueRef = 'o/r#7'; $script:StateReason = 'completed'; $script:Event = 'closed'; $script:AsanaPat = 'x'
+    $script:IssueBody = '<!-- asana-task: 1234 -->'; $script:IssueLabels = ''
+    $log = (& { Invoke-Main } 6>&1 | Out-String)
+    $posted = if ($script:stPosted) { [string](ConvertFrom-Json -InputObject $script:stPosted).data.html_text } else { '' }
+    return [pscustomobject]@{ Body = $posted; Log = $log; Calls = @($script:stGhCalls) }
+}
+$stOld = New-StLine $stBlock $stT1
+$stNew = New-StLine $stBlock2 $stT3
+
+$stRun = Invoke-StMain -Comments @($stOld) -Events @()
+Assert-True ($stRun.Body.Contains('round-1') -and $stRun.Body.Contains('TE BEKIJKEN OP')) 'never reopened: the block is carried, as before'
+Assert-True (-not $stRun.Body.Contains('follows')) 'with no pending sentence'
+$stRun = Invoke-StMain -Comments @($stOld) -Events @($stT2)
+Assert-True (-not $stRun.Body.Contains('round-1') -and -not $stRun.Body.Contains('TE BEKIJKEN OP')) 'reopened after the block: the stale block is NOT carried (#2968)'
+Assert-True ($stRun.Body.Contains('The result message for this round follows.') -and $stRun.Body.Contains('is now <strong>closed</strong>')) 'the closed line goes out, with the sentence that this round''s result follows'
+Assert-True ($stRun.Log -match 'predates its last reopen') 'and the log says why'
+$stRun = Invoke-StMain -Comments @($stOld, $stNew) -Events @($stT1, $stT2)
+Assert-True ($stRun.Body.Contains('round-2') -and -not $stRun.Body.Contains('round-1') -and -not $stRun.Body.Contains('follows')) 'a block posted after the last reopen is carried: round 2''s, and not round 1''s'
+$stRun = Invoke-StMain -Comments @($stOld) -Events @() -EventsFail $true
+Assert-True (-not $stRun.Body.Contains('TE BEKIJKEN OP') -and -not $stRun.Body.Contains('follows')) 'a reopen read that failed carries no block that might be stale, and promises nothing'
+Assert-True ($stRun.Log -match 'could not be read: gh exited 1: .*403' -and $stRun.Log -match 'whether it is stale is unknown') 'and the log carries gh''s own error and says the staleness is unknown'
+$stRun = Invoke-StMain -Comments @((New-StLine 'just talk' $stT1)) -Events @($stT2)
+Assert-True (-not @($stRun.Calls | Where-Object { $_ -like '*/events' }).Count) 'an issue with no block costs no events read'
+Assert-True (-not $stRun.Body.Contains('follows')) 'and gets the plain closed message, as before'
+$stRun = Invoke-StMain -Comments @((New-StLine $stBlock $stT1)) -Events @($stT1)
+Assert-True ($stRun.Body.Contains('follows')) 'a block stamped the second of the reopen is held back too'
+$stRun = Invoke-StMain -Comments @($stOld, (New-StLine "$cmLibMarker`n---`n---" $stT3)) -Events @($stT2)
+Assert-True (-not $stRun.Body.Contains('round-1') -and $stRun.Body.Contains('follows')) 'a newer degenerate marker comment after the reopen does not bring round 1''s block back (#2968)'
+foreach ($v in 'IssueRef', 'StateReason', 'IssueBody', 'AsanaPat', 'IssueLabels') { Set-Variable -Name $v -Value '' -Scope Script }
+$Event = 'closed'
+Remove-Item Function:\gh, Function:\Invoke-RestMethod, Function:\New-StLine, Function:\Invoke-StMain, Function:\New-StComment
+
 # --- the prio label sync (templates/asana-prio-label.ps1, #2945) ----------------------------------
 # AFTER the closed-message section on purpose: both templates carry copies of the same helpers, and the
 # copy-equality pins below compare the two files' source text, not what is loaded.
@@ -1225,6 +1351,12 @@ foreach ($fn in @('Get-AsanaGidsFromText', 'Get-AsanaHeaderRowText', 'Resolve-As
 $plGh = Get-FunctionSourceText -Path $plTemplate -Name 'Invoke-GhCapture'
 Assert-True ($null -ne $plGh) 'the prio template defines Invoke-GhCapture'
 Assert-Equal (Get-FunctionSourceText -Path $cmTemplate -Name 'Invoke-GhCapture') $plGh 'Invoke-GhCapture equals asana-closed-message.ps1''s'
+# #2968: the freshness judgement is copied into the template as well, and held equal to the lib's.
+foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections')) {
+    $mine = Get-FunctionSourceText -Path $cmTemplate -Name $fn
+    Assert-True ($null -ne $mine) "the closed-message template defines $fn"
+    Assert-Equal (Get-FunctionSourceText -Path $plLib -Name $fn) $mine "$fn equals asana-task-lib.ps1's, apart from its help comment"
+}
 # And the loaded matchers answer as the lib's did (the lib's answers were taken before either template loaded).
 Assert-Equal ($cmLibRefs -join ';') (@($cmSamples | ForEach-Object { $r = Resolve-AsanaTaskRef -IssueBody $_; "$($r.Gid)|$($r.Source)" }) -join ';') 'the prio template''s matchers answer as the lib''s on every matcher shape'
 

@@ -101,7 +101,8 @@ from the template, and when `ASANA_PAT` (step 3) is absent ([#2871](https://gith
 or step 2's `Get-ResolvesExemptMatchers` is not stated ([#2959](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2959)).
 
 When an issue closes as completed, the workflow posts one comment on its Asana task: the automation's
-header, the closed line, and the go-live block the shipping session left on the issue. On a close as not
+header, the closed line, and the go-live block the shipping session left on the issue (not a block from
+before the issue's last reopen: that close says the result message follows, #2968). On a close as not
 planned that keeps the `awaiting-info-client` label on, it posts the header and the on-hold line (#2902); on
 any other not-planned close, or a duplicate, it posts nothing. When an issue is reopened, it posts the
 header and the reopened line (#2854). It never moves a card and never completes a task. A store that

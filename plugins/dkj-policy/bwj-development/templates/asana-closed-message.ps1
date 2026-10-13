@@ -25,6 +25,15 @@
         the closed line, and under it the sections of the go-live block the shipping session left on
         the issue (build-golive-block.ps1). That block is the "new form": TE BEKIJKEN OP, WAT ER NU
         ANDERS IS, WANNEER HET LIVE KOMT, WAT ER BEWUST NIET IN ZIT, WAT WE VAN JE VRAGEN.
+      - A close as completed whose newest block was posted BEFORE the issue's last reopen (#2968): the
+        header and the closed line, and one sentence under them -- 'The result message for this round
+        follows.' -- instead of the block. That block describes an earlier round; xoxowildhearts#414 sent
+        round 1's block into the task as round 2's result. The same bare message, without the sentence,
+        goes where the last reopen could not be read: a block that might be stale is not carried. The
+        requester is delayed, never misinformed. A block newer than the reopen, and an issue never
+        reopened, are carried as before. This is the BACKSTOP for a merge the
+        pre-merge hook (hooks/guard-stale-paste-block.ps1) never saw -- the GitHub merge button, a merge
+        queue.
       - A close as completed with NO block on the issue: the header and the closed line alone, so the
         requester still hears that the work is done. A proposal in #2818 rather than a decision.
       - A close as completed whose comments COULD NOT BE READ: the same bare message, and the log says
@@ -87,6 +96,8 @@
     Auth: ASANA_PAT (the repo secret). GH_TOKEN is the workflow's own token, used to read the issue's
     comments for the block through REST ('gh api .../issues/<n>/comments', Get-IssueCommentsApiArgs),
     which 'issues: read' covers; the GraphQL read it replaced answered nothing on the runner (#2875).
+    The issue's last reopen is read the same way ('gh api .../issues/<n>/events', Get-IssueReopenApiArgs),
+    and only when a block is there to judge (#2968).
     There is no project, workspace or Projects token: a comment addresses its task by GID alone.
 
     The script runs its main flow only when invoked directly; dot-sourcing it loads the pure helpers and
@@ -275,10 +286,15 @@ function New-ClosedMessageHtml {
         name as a link and 'closed' in bold (the requester's form, #2656), and the block's sections
         under it where -BlockSections carries any. Only <body>, <a> and <strong>, all on Asana's
         allow-list for a story.
+
+        -ResultPending (#2968) is the close whose only block describes an EARLIER round: the block is
+        left out and one sentence says this round's result message follows, in the closed line's own
+        style. Never both -- a pending sentence under a block would contradict it.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
-        [AllowEmptyString()][string]$BlockSections = ''
+        [AllowEmptyString()][string]$BlockSections = '',
+        [switch]$ResultPending
     )
 
     $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
@@ -286,6 +302,7 @@ function New-ClosedMessageHtml {
     $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
     $html  = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>. It can be reopened anytime when something is still not working as expected."
     if ($BlockSections) { $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) }
+    elseif ($ResultPending) { $html += "`n`n" + (& $esc 'The result message for this round follows.') }
     return $html + '</body>'
 }
 
@@ -346,6 +363,81 @@ function Get-AsanaPasteBlockMarker {
     return '<!-- asana-paste-block -->'
 }
 
+function ConvertTo-AsanaInstant {
+    <#
+        Pure: a GitHub timestamp as a UTC [datetime], or $null when it is empty or does not parse. Takes
+        the ISO string ('2026-10-13T08:15:00Z') or a [datetime] -- Windows PowerShell 5.1's
+        ConvertFrom-Json already turns such a string into a LOCAL-kind datetime, so both shapes are
+        normalised to UTC before anything is compared (#2968). A copy of
+        asana-task-lib.ps1's function of this name.
+    #>
+    param($Value)
+
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [datetime]) { return $Value.ToUniversalTime() }
+    $text = ([string]$Value).Trim()
+    if (-not $text) { return $null }
+    $parsed = [datetime]::MinValue
+    $styles = [System.Globalization.DateTimeStyles]::AdjustToUniversal -bor [System.Globalization.DateTimeStyles]::AssumeUniversal
+    if ([datetime]::TryParse($text, [System.Globalization.CultureInfo]::InvariantCulture, $styles, [ref]$parsed)) { return $parsed }
+    return $null
+}
+
+function Test-AsanaPasteBlockBody {
+    <#
+        Pure: is this comment body a go-live block the closed message would CARRY? The marker, and
+        sections Get-PasteBlockSections finds that are not empty and hold no '[ADD LINK]' placeholder --
+        exactly the predicate Select-SessionPasteBlockSections picks a block by (#2968). It is ONE
+        predicate on purpose: a freshness check that accepted a comment the selection then skipped (a
+        marker with two adjacent rules, a header-only block) would call the issue fresh while the
+        message carried the older round's block, which is the failure #2968 measured.
+        A copy of asana-task-lib.ps1's function of this name.
+    #>
+    param([AllowEmptyString()][string]$Body)
+
+    if (-not ([string]$Body).Contains((Get-AsanaPasteBlockMarker))) { return $false }
+    $sections = Get-PasteBlockSections -Body $Body
+    return [bool]($sections -and -not $sections.Contains('[ADD LINK]'))
+}
+
+function Get-AsanaPasteBlockVerdict {
+    <#
+        Pure: is the block the closed message would carry still the right one, judged against the
+        issue's most recent reopen (#2968)? -Comments are objects with Body and CreatedAt in the order
+        GitHub returns them (oldest first); -LastReopenedAt is the timestamp of the latest 'reopened'
+        event, or $null where the issue was never reopened. THE COMMENT JUDGED IS THE ONE THE SELECTION
+        PICKS: the last comment, in that order, that Test-AsanaPasteBlockBody accepts.
+
+          'none'         no comment carries a block -- nothing to be stale.
+          'not-reopened' a block exists and the issue was never reopened.
+          'fresh'        that block was posted AFTER the last reopen: it belongs to this round.
+          'stale'        it is at or before the last reopen: it describes an earlier round, which is what
+                         #2968 measured carried into the Asana task as this round's result.
+          'unknown'      a time that cannot be parsed, so no judgement is made; the caller decides.
+
+        STRICTLY NEWER IS FRESH, AND AN EQUAL SECOND IS STALE: GitHub stamps to the second, and the wrong
+        answer to a tie must be the one the caller can repair (a refusal with its fix on one line, a
+        delayed message), never the one that sends old information on as new.
+        A copy of asana-task-lib.ps1's function of this name.
+    #>
+    param(
+        [AllowEmptyCollection()][object[]]$Comments = @(),
+        $LastReopenedAt = $null
+    )
+
+    $chosen = $null
+    foreach ($c in @($Comments)) {
+        if (Test-AsanaPasteBlockBody -Body ([string]$c.Body)) { $chosen = $c }
+    }
+    if ($null -eq $chosen) { return 'none' }
+    if ($null -eq $LastReopenedAt) { return 'not-reopened' }
+    $reopen = ConvertTo-AsanaInstant -Value $LastReopenedAt
+    $at     = ConvertTo-AsanaInstant -Value $chosen.CreatedAt
+    if ($null -eq $reopen -or $null -eq $at) { return 'unknown' }
+    if ($at -gt $reopen) { return 'fresh' }
+    return 'stale'
+}
+
 function Select-SessionPasteBlockSections {
     <#
         Pure: out of an issue's comment bodies, the sections of the NEWEST block carrying the marker
@@ -353,13 +445,12 @@ function Select-SessionPasteBlockSections {
     #>
     param([string[]]$Bodies = @())
 
-    $marker = Get-AsanaPasteBlockMarker
+    # THE PREDICATE IS Test-AsanaPasteBlockBody, THE ONE THE FRESHNESS CHECK JUDGES BY (#2968): a block it
+    # skipped here and accepted there would let a newer degenerate comment make an old block look fresh.
     $list = @($Bodies)
     for ($i = $list.Count - 1; $i -ge 0; $i--) {
         $body = [string]$list[$i]
-        if (-not $body.Contains($marker)) { continue }
-        $sections = Get-PasteBlockSections -Body $body
-        if ($sections -and -not $sections.Contains('[ADD LINK]')) { return $sections }
+        if (Test-AsanaPasteBlockBody -Body $body) { return (Get-PasteBlockSections -Body $body) }
     }
     return ''
 }
@@ -547,6 +638,8 @@ function Select-TrustedCommentBodies {
         or -- for a marker comment -- when -Permissions answers admin or write for its author. -Permissions
         maps a login to its permission string, or to $null where the read failed. A note names the
         association and the permission, and the login only when it is a user login; never the body.
+        Comments is the same set as the objects themselves, so the block's TIME stays with its body
+        (#2968).
     #>
     param(
         [AllowEmptyCollection()][object[]]$Comments = @(),
@@ -555,12 +648,13 @@ function Select-TrustedCommentBodies {
 
     $marker = Get-AsanaPasteBlockMarker
     $bodies = @()
+    $kept   = @()
     $notes  = @()
     $dropped = 0
     foreach ($c in @($Comments)) {
         $assoc = ([string]$c.Association).Trim().ToUpperInvariant()
         $body  = [string]$c.Body
-        if (Test-TrustedCommentAuthor -Association $assoc) { $bodies += $body; continue }
+        if (Test-TrustedCommentAuthor -Association $assoc) { $bodies += $body; $kept += $c; continue }
         if (-not $body.Contains($marker)) { continue }
         $login = [string]$c.Login
         $shown = if ($assoc) { $assoc } else { 'unknown' }
@@ -577,13 +671,14 @@ function Select-TrustedCommentBodies {
         $perm = ([string]$Permissions[$login]).Trim().ToLowerInvariant()
         if (Test-TrustedRepoPermission -Permission $perm) {
             $bodies += $body
+            $kept   += $c
             $notes  += "a go-live block comment by '$login' was carried on repo permission '$perm' (association $shown)."
             continue
         }
         $dropped++
         $notes += "a go-live block comment by '$login' was not carried: association $shown, repo permission '$(if ($perm -cmatch '\A[a-z_]{1,20}\z') { $perm } else { 'unrecognized' })'."
     }
-    return [pscustomobject]@{ Bodies = $bodies; Notes = $notes; Dropped = $dropped }
+    return [pscustomobject]@{ Bodies = $bodies; Comments = $kept; Notes = $notes; Dropped = $dropped }
 }
 
 function Get-IssueCommentsApiArgs {
@@ -594,18 +689,19 @@ function Get-IssueCommentsApiArgs {
         answered nothing on the runner for an issue carrying a trusted block. --paginate walks every
         page, and --jq runs on each page and prints one compact JSON object per comment per line, so
         the pages never arrive as several concatenated arrays and no newer-gh flag (--slurp) is needed.
-        The author's login comes along for the permission check (#2907).
+        The author's login comes along for the permission check (#2907), and created_at for the
+        freshness check against the last reopen (#2968).
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
     if ($IssueRef -notmatch '\A([^\s#/]+)/([^\s#/]+)#([0-9]+)\z') { throw "IssueRef '$IssueRef' is not 'owner/repo#<n>'." }
     return @('api', "repos/$($Matches[1])/$($Matches[2])/issues/$($Matches[3])/comments", '--paginate',
-             '--jq', '.[] | {author_association, login: .user.login, body}')
+             '--jq', '.[] | {author_association, login: .user.login, body, created_at}')
 }
 
 function ConvertFrom-IssueCommentLines {
     <#
-        Pure: every comment -- Association, Login, Body -- out of the lines the REST read prints, one JSON
+        Pure: every comment -- Association, Login, Body, CreatedAt -- out of the lines the REST read prints, one JSON
         object per comment, over every page, in the order GitHub returns them (oldest first). Which of
         them may supply the block is Select-TrustedCommentBodies' question, not this one's (#2907).
         Blank lines are skipped; a line that does not parse throws, so a garbled read is reported as a
@@ -622,6 +718,7 @@ function ConvertFrom-IssueCommentLines {
             Association = [string]$comment.author_association
             Login       = [string]$comment.login
             Body        = [string]$comment.body
+            CreatedAt   = [string]$comment.created_at
         }
     }
     return $comments
@@ -647,6 +744,58 @@ function Read-IssueComments {
     return [pscustomobject]@{ Ok = $true; Comments = $comments; ExitCode = 0; Error = '' }
 }
 
+function Get-IssueReopenApiArgs {
+    <#
+        Pure: the gh arguments that read when an issue was reopened (#2968) -- REST again, like the
+        comment read (#2875): 'gh api repos/<owner>/<repo>/issues/<n>/events', which 'issues: read' covers,
+        paginated, with --jq keeping only the reopened events' created_at, one timestamp per line.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+
+    if ($IssueRef -notmatch '\A([^\s#/]+)/([^\s#/]+)#([0-9]+)\z') { throw "IssueRef '$IssueRef' is not 'owner/repo#<n>'." }
+    return @('api', "repos/$($Matches[1])/$($Matches[2])/issues/$($Matches[3])/events", '--paginate',
+             '--jq', '.[] | select(.event == "reopened") | .created_at')
+}
+
+function ConvertFrom-ReopenEventLines {
+    <#
+        Pure: the LATEST reopen out of the lines the events read prints, as the timestamp text, or $null
+        where there were none -- the issue was never reopened. A line that is not a timestamp throws, so
+        a garbled read is reported as a failed read and never as an issue that was not reopened (#2968).
+    #>
+    param([AllowEmptyCollection()][AllowEmptyString()][string[]]$Lines = @())
+
+    $latest = $null
+    $latestText = $null
+    foreach ($line in @($Lines)) {
+        $text = ([string]$line).Trim()
+        if (-not $text) { continue }
+        $at = ConvertTo-AsanaInstant -Value $text
+        if ($null -eq $at) { throw 'a reopen event line is not a timestamp.' }
+        if ($null -eq $latest -or $at -gt $latest) { $latest = $at; $latestText = $text }
+    }
+    return $latestText
+}
+
+function Read-LastReopen {
+    <#
+        When the issue was last reopened, read through gh (Get-IssueReopenApiArgs): Ok, LastReopenedAt
+        ($null where it never was), ExitCode, Error -- the shape of the comment read, and a failed read
+        is reported the same way (#2875). A FAILED READ IS NOT AN ISSUE THAT WAS NEVER REOPENED: the
+        caller must not take it for one (Invoke-Main holds the block back, and says why).
+    #>
+    param([Parameter(Mandatory = $true)][string]$IssueRef)
+
+    $run = Invoke-GhCapture -GhArgs (Get-IssueReopenApiArgs -IssueRef $IssueRef)
+    if ($run.ExitCode -ne 0) {
+        return [pscustomobject]@{ Ok = $false; LastReopenedAt = $null; ExitCode = $run.ExitCode; Error = $run.Error }
+    }
+    try { $last = ConvertFrom-ReopenEventLines -Lines $run.Out } catch {
+        return [pscustomobject]@{ Ok = $false; LastReopenedAt = $null; ExitCode = 0; Error = 'gh exited 0, but its output did not parse as one timestamp per line.' }
+    }
+    return [pscustomobject]@{ Ok = $true; LastReopenedAt = $last; ExitCode = 0; Error = '' }
+}
+
 function Get-ClosedMessageBlockPhrase {
     <#
         Pure: the half of the final log line that says what happened to the block. Three cases, kept
@@ -659,9 +808,14 @@ function Get-ClosedMessageBlockPhrase {
         [bool]$ReadOk = $true,
         # How many go-live block comments the trust check did not carry (#2907): a dropped block and an
         # absent one are different facts, and they used to share 'none was on the issue'.
-        [int]$Dropped = 0
+        [int]$Dropped = 0,
+        # Why a block that WAS on the issue is not being carried (#2968): 'stale' (it predates the last
+        # reopen) or 'unread' (the reopen could not be read, so whether it does is unknown).
+        [string]$Held = ''
     )
     if ($Sections) { return "with the session's go-live block" }
+    if ($Held -eq 'stale') { return "without a go-live block -- the only one on the issue predates its last reopen, so it describes an earlier round; the message says this round's result follows" }
+    if ($Held -eq 'unread') { return 'without a go-live block -- one was on the issue, but when the issue was last reopened could not be read (the gh error is above), so whether it is stale is unknown' }
     if (-not $ReadOk) { return 'without a go-live block -- the comments could not be read (the gh error is above), so whether one was on the issue is unknown' }
     if ($Dropped -gt 0) { return 'without a go-live block -- one was on the issue but its author was not trusted (the reason is above)' }
     return 'without a go-live block -- none was on the issue'
@@ -702,7 +856,33 @@ function Invoke-Main {
         foreach ($note in $trusted.Notes) { Write-Host "Trust check: $note" }
         $dropped  = $trusted.Dropped
         $sections = Select-SessionPasteBlockSections -Bodies $trusted.Bodies
-        $html     = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections
+
+        # A BLOCK FROM BEFORE THE LAST REOPEN IS NOT CARRIED (#2968). xoxowildhearts#414 closed after
+        # round 1 with its block, was reopened, and closed again by the PR of round 2 -- whose block the
+        # session posted only afterwards -- so the second closed message carried round 1's block as the
+        # result of round 2. THE MISTAKE THAT COSTS LESS IS CHOSEN: a requester told a result is still
+        # coming waits, and a requester sent round 1's link as round 2's result acts on the wrong thing.
+        # The same holds where the reopen could not be read: that costs the bare closed message, the same
+        # as an unreadable comment read, and never a block that might be stale. The read is made only when
+        # a block is there to judge, so an issue without one costs no extra call.
+        $held    = ''
+        $pending = $false
+        if ($sections) {
+            $state = Get-AsanaPasteBlockVerdict -Comments $trusted.Comments -LastReopenedAt $null
+            if ($state -ne 'none') {
+                $reopen = Read-LastReopen -IssueRef $IssueRef
+                if (-not $reopen.Ok) {
+                    Write-Host "When $IssueRef was last reopened could not be read: gh exited $($reopen.ExitCode): $($reopen.Error)"
+                    $held = 'unread'
+                } else {
+                    $verdict = Get-AsanaPasteBlockVerdict -Comments $trusted.Comments -LastReopenedAt $reopen.LastReopenedAt
+                    if ($verdict -eq 'stale') { $held = 'stale'; $pending = $true }
+                    elseif ($verdict -eq 'unknown') { $held = 'unread' }
+                }
+                if ($held) { $sections = '' }
+            }
+        }
+        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -ResultPending:$pending
     }
     $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
     # UTF-8 BYTES, not the string: Windows PowerShell 5.1 encodes a string body as ISO-8859-1, which
@@ -724,7 +904,7 @@ function Invoke-Main {
         Write-Host "Asana task $($decision.Gid) told: $IssueRef is on hold, closed as not planned while waiting for more information ($($decision.Why)). The card was NOT moved."
         return
     }
-    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped
+    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped -Held $held
     Write-Host "Asana task $($decision.Gid) told: $IssueRef is closed, $with ($($decision.Why)). The task was NOT completed -- that is the requester's call."
 }
 

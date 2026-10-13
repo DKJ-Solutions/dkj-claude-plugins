@@ -57,6 +57,14 @@
     'ambiguous' the lead stops promising 'no paste needed', -OutFile warns, and -Post refuses (-Force for
     an issue that is deliberately GitHub-only).
 
+    AND ONLY A BLOCK FROM THE CURRENT ROUND COUNTS AS A DUPLICATE (#2968). An issue reopened after its
+    first close carries the first round's block, and refusing a second one made the corrected block the
+    awkward route while the stale one went on to the requester: xoxowildhearts#414's second closed
+    message carried round 1's block. The duplicate check now counts only blocks posted after the issue's
+    last reopen, so the corrected block posts without -Force; every other check below is unchanged. The
+    PreToolUse hook hooks/guard-stale-paste-block.ps1 refuses a ship while the newest block is older than
+    the reopen, and names this command as the fix.
+
     WHY IT DOT-SOURCES scripts/lib/asana-task-lib.ps1. For Get-AsanaPasteBlockMarker and
     Test-AsanaPasteBlockPosted -- the marker the block's comment carries, and the read that answers
     whether a block is already there -- and Resolve-AsanaTaskRef for the link check above, plus
@@ -131,7 +139,8 @@
     written anywhere.
 
 .PARAMETER Force
-    Post even though a paste-ready block already appears to be on the issue, a store-admin prerequisite
+    Post even though a paste-ready block already appears to be on the issue FOR THIS ROUND (one from
+    before the issue's last reopen does not count, #2968), a store-admin prerequisite
     on it is still unticked (#2885), its body links no single Asana task (#2918), or a check could not
     read the issue.
 
@@ -555,10 +564,12 @@ if (-not $ForceArg) {
 }
 
 # Test-AsanaPasteBlockPosted answers TRUE where it cannot READ the comments, so a blind duplicate is
-# never posted; an unreadable issue is reported as exactly that and -Force is the way past it.
+# never posted; an unreadable issue is reported as exactly that and -Force is the way past it. It counts
+# only blocks posted after the issue's last reopen (#2968): the one the previous round left is not a
+# duplicate of this round's block, it is the stale block this post replaces.
 if ((Test-AsanaPasteBlockPosted -IssueRef $targetRef) -and -not $ForceArg) {
-    Write-Host "[ERROR] A paste-ready block already appears to be on $targetRef -- or its comments could" -ForegroundColor Red
-    Write-Host "        not be read, which answers the same way. Nothing posted. Re-run with -Force." -ForegroundColor Red
+    Write-Host "[ERROR] A paste-ready block already appears to be on $targetRef for the current round -- or its" -ForegroundColor Red
+    Write-Host "        comments could not be read, which answers the same way. Nothing posted. Re-run with -Force." -ForegroundColor Red
     exit 1
 }
 
