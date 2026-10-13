@@ -3,7 +3,8 @@
     check-plugin-integrity.ps1, the script-layer checks: a shared script's parameters against the
     skill that documents it (18), a depth-sensitive $PSScriptRoot resolution declaring the suite
     that runs it (39), a plugin script loading only a lib its OWN plugin ships (40), the script
-    layer's pure-ASCII rule (27), and a test fixture's own git command (35).
+    layer's pure-ASCII rule (27), a test fixture's own git command (35), and tracked text content
+    carrying no C0 control character (46).
 
     The fixture, the assert helpers and Invoke-Integrity live in check-plugin-integrity-fixture.ps1,
     which also records why this suite family is more than one file.
@@ -13,6 +14,7 @@
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'check-plugin-integrity-fixture.ps1')
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
 
 # CHECK-REPORT-LIB INTO THE RUNNER TOO, for check 3d's scenarios: they compose the lens file names from
 # Get-SpecialistFileName and Get-SpecialistFileNameCandidates rather than typing them. Same reason the
@@ -502,6 +504,111 @@ try {
     Assert-True ($c5b.Code -ne 0) `
         'case-colliding marketplace: and still FAILS -- check 1 could not read the manifest it validates'
     [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude-plugin\marketplace.json'), $goodMarketplace, $Utf8NoBom)
+
+    # --- check 46: tracked text content carries no C0 control character (#2971) ----------------------
+    #     The measured defect: a PowerShell double-quoted string turned the backtick before a label into
+    #     BEL (U+0007) inside a tracked .md, and the gate ran 0 errors. THE CONTROL BYTE IS COMPOSED AT
+    #     RUNTIME ([char]7) and never typed into this file, which is the point of the check: a literal one
+    #     here would be the very finding, and an exemption list is what this repo declines to carry.
+    #     THE SUBJECT IS WHAT GIT TRACKS, so this block git-inits the fixture, and removes the '.git' again
+    #     before it ends -- the rest of the suite runs over a plain directory, as it always has.
+    Write-Host '  check 46: tracked text content carries no C0 control character' -ForegroundColor DarkCyan
+    $ccDoc = Join-Path $Fixture 'docs-probe.md'
+    # SINGLE-QUOTED PARTS AND A COMPOSED NEWLINE, because the label below opens with a backtick and a double-quoted
+    # string would read the backtick-a as BEL -- the defect this block exists for, committed by its own fixture.
+    $ccCleanBody = '# Probe' + "`n`n" + 'Write the label `awaiting-info-client` here.' + "`n"
+    [System.IO.File]::WriteAllText($ccDoc, $ccCleanBody, $Utf8NoBom)
+    Invoke-FixtureGitIn $Fixture init -q
+    Invoke-FixtureGitIn $Fixture add -A
+
+    # A. the clean case first: TAB, LF and CR are text, so a document using all three is silent, and the
+    #    pass is not an empty scan.
+    [System.IO.File]::WriteAllText($ccDoc, ($ccCleanBody + "a`ttab`r`nand a CRLF line`n"), $Utf8NoBom)
+    $cc0 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($cc0.Out -match '\[control-char\] \S+:\d+ carries')) `
+        'control-char: TAB, LF and CR are text and are not findings'
+    Assert-True ($cc0.Out -match '\[control-char\] checked [1-9]') `
+        'control-char: and the pass is not an empty scan -- the fixture is a git checkout and its files were read'
+
+    # B. the measured shape: a BEL in a Markdown line, on line 3 of the file.
+    [System.IO.File]::WriteAllText($ccDoc, ("# Probe`n`nwith the " + [char]7 + "waiting-info-client label kept on`n"), $Utf8NoBom)
+    $cc1 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($cc1.Out -match '\[control-char\].*docs-probe\.md:3 carries a C0 control character') `
+        'control-char: a BEL in a tracked .md is reported, with the file and the line'
+    Assert-True ($cc1.Out -match 'U\+0007') `
+        'control-char: and the finding names the code point, which is the one thing an editor will not show'
+    Assert-True ($cc1.Out -match 'double-quoted') `
+        'control-char: and it names the PowerShell double-quoted-string trap that produced it'
+    Assert-True ($cc1.Code -ne 0) `
+        'control-char: and it fails the gate'
+
+    # C. the other escapes, and the second class of file: NUL and ESC in a .json, counted per file.
+    [System.IO.File]::WriteAllText($ccDoc, $ccCleanBody, $Utf8NoBom)
+    $ccJson = Join-Path $Fixture 'probe-data.json'
+    [System.IO.File]::WriteAllText($ccJson, ("{`"a`": `"x" + [char]0 + "y" + [char]27 + "z`"}`n"), $Utf8NoBom)
+    Invoke-FixtureGitIn $Fixture add -A
+    $cc2 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($cc2.Out -match '\[control-char\].*probe-data\.json:1 carries a C0 control character \(U\+0000\), 2 in the file') `
+        'control-char: a .json is read too, the first code point is named and the count in the file is given'
+    Assert-True (-not ($cc2.Out -match '\[control-char\].*docs-probe\.md')) `
+        'control-char: and the clean .md beside it is not accused'
+
+    # D. UNTRACKED IS NOT A SUBJECT: the same byte in a file git was never told about is a scratchpad's
+    #    business, so removing it from the index silences the finding (check 43's reasoning).
+    Invoke-FixtureGitIn $Fixture rm -q --cached probe-data.json
+    $cc3 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True (-not ($cc3.Out -match '\[control-char\].*probe-data\.json')) `
+        'control-char: an UNTRACKED file holding a control byte is not a finding'
+    Remove-Item -LiteralPath $ccJson -Force
+
+    # D2. an EXTENSIONLESS tracked file is read as text, and a file with a non-text extension is not read
+    #     at all -- the coverage line counts it instead of passing over it in silence.
+    $ccBare = Join-Path $Fixture 'NOEXT'
+    [System.IO.File]::WriteAllText($ccBare, ('bare' + [char]7 + "`n"), $Utf8NoBom)
+    $ccPng = Join-Path $Fixture 'probe-image.png'
+    [System.IO.File]::WriteAllText($ccPng, ('png' + [char]7 + "`n"), $Utf8NoBom)
+    Invoke-FixtureGitIn $Fixture add -A
+    $cc5 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($cc5.Out -match '\[control-char\].*NOEXT:1 carries a C0 control character \(U\+0007\)') `
+        'control-char: a control byte in an extensionless tracked file is found'
+    Assert-True (-not ($cc5.Out -match '\[control-char\].*probe-image\.png')) `
+        'control-char: a .png-extension file is not read, so its bytes are not a finding'
+    Assert-True ($cc5.Out -match '\[control-char\] checked [1-9].*; 1 tracked file\(s\) with a non-text extension were NOT read') `
+        'control-char: and the coverage line counts the one file it did not read'
+    Remove-Item -LiteralPath $ccBare, $ccPng -Force
+    Invoke-FixtureGitIn $Fixture add -A
+
+    # D3. A TRACKED FILE THAT CANNOT BE READ is a finding and is counted, and it does not abort the scan of
+    #     the files after it. Provoked with FileShare.None held open on the .md. The precondition proves the
+    #     lock bites on this platform; where it does not (advisory locking), the asserts are skipped and
+    #     say so rather than passing on nothing.
+    #     A .txt, because every other check that reads a .md would die on the lock before this one ran.
+    $ccLocked = Join-Path $Fixture 'locked-probe.txt'
+    [System.IO.File]::WriteAllText($ccLocked, "plain`n", $Utf8NoBom)
+    Invoke-FixtureGitIn $Fixture add -A
+    $ccLock = [System.IO.File]::Open($ccLocked, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::None)
+    try {
+        $ccLockBites = $false
+        try { [void][System.IO.File]::ReadAllBytes($ccLocked) } catch { $ccLockBites = $true }
+        if ($ccLockBites) {
+            $cc6 = Invoke-Integrity -FixtureRoot $Fixture
+            Assert-True ($cc6.Out -match '\[control-char\].*locked-probe\.txt is tracked but could not be read') `
+                'control-char: an unreadable tracked file is a finding that names the file'
+            Assert-True ($cc6.Out -match '\[control-char\] checked [1-9].*1 of them a tracked file that could not be read') `
+                'control-char: and the coverage line counts it, with the rest of the tree still read'
+            Assert-True ($cc6.Code -ne 0) 'control-char: and it fails the gate'
+        } else {
+            Write-Host '  [SKIP] control-char: FileShare.None does not block a read on this platform; the unreadable-file path was not provoked' -ForegroundColor Yellow
+        }
+    } finally { $ccLock.Dispose() }
+    Remove-Item -LiteralPath $ccLocked -Force
+
+    # E. no git checkout at all: the check says it read nothing instead of passing in silence.
+    Remove-Item -Recurse -Force -LiteralPath (Join-Path $Fixture '.git')
+    $cc4 = Invoke-Integrity -FixtureRoot $Fixture
+    Assert-True ($cc4.Out -match '\[control-char\] checked 0.*NO tracked file was read') `
+        'control-char: outside a git checkout it reports that nothing was read, not a clean pass'
+    Remove-Item -LiteralPath $ccDoc -Force
 
 } finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

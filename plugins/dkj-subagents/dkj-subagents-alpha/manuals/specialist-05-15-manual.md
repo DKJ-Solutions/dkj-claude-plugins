@@ -230,17 +230,17 @@ and safe hook construction.
   which arrivals are expendable, because some will be. And verify it the only way that works: read the
   conclusions of the runs the group has actually produced, not the YAML.
 
-## Thirteen PowerShell traps that produce well-formed wrong output
+## Fourteen PowerShell traps that produce well-formed wrong output
 
-All thirteen were measured in this system, not read about, and twelve share the property that makes
+All fourteen were measured in this system, not read about, and thirteen share the property that makes
 them expensive: **nothing errors.** The script runs, the output parses, the markdown renders — and it
 says something other than what the author meant. None is caught by a linter, so each is worth an
-assert. Twelve are PowerShell's own; the last is the same class one layer out, in the tooling you
-reach for to repair a PowerShell file. **One of the thirteen throws**, and is here on that deviation
+assert. Thirteen are PowerShell's own; the last is the same class one layer out, in the tooling you
+reach for to repair a PowerShell file. **One of the fourteen throws**, and is here on that deviation
 rather than despite it: what is well-formed and wrong there is the *exception's own report*, which
 blames the wrong line and names neither the operator nor the type. It says so in its first line, and
 the title is not widened for a single member — the closing sentence below is the shape that already
-holds all thirteen.
+holds all fourteen.
 
 - **`[ordered]@{ 2 = '...' }`'s indexer takes a positional index as well as a key.** For an integer the
   positional overload wins, so `$map[2]` returns the **third value**, not the value for key `2`. In a
@@ -397,6 +397,17 @@ holds all thirteen.
   success stream empty, where a child's console output never belonged. `$LASTEXITCODE` survives the pipe;
   do **not** reach for `2>&1`, which merges the child's stderr into the pipeline and buys the
   `NativeCommandError` trap above.
+- **A backtick before a letter in a double-quoted string is an escape, not a character.** In `"..."`,
+  `` `a `` is BEL (U+0007), `` `b `` is backspace, `` `f `` form feed, `` `v `` vertical tab, `` `0 `` NUL, and
+  `` `e `` ESC (PowerShell 7 only; 5.1 drops the backtick and keeps the letter). Markdown is full of
+  backticks before letters, so a document written through such a string loses its code spans and gains
+  an invisible control byte. Measured October 13, 2026
+  ([#2971](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2971)): `` `awaiting-info-client ``
+  arrived as BEL plus `waiting-info-client` inside a tracked `.md`, and the integrity gate ran 0 errors.
+  Check 46 (`[control-char]`) now refuses those bytes in tracked text, so the damage is caught at the
+  gate, but the cause is upstream. **Write Markdown with the `Edit` tool or a single-quoted here-string
+  (`@'...'@`), never a double-quoted string**, and where a double-quoted string must hold a backtick,
+  double it.
 - **A `sed` substitution meant to write a code-point escape can silently write the wrong literal instead.**
   GNU `sed`'s replacement syntax treats `\u` as "uppercase the next character," not as a code-point escape —
   so `sed -i 's/\[-–—,\]/[-\u2013\u2014,]/'` consumed the backslash before each escape and wrote the literal
@@ -425,7 +436,7 @@ holds all thirteen.
   not depend on it: **compose any escape whose literal form a tool may decode** (`('\' + 'u003c')`), and
   read the written line back by code point.
 
-The general shape behind all thirteen, worth carrying to the next one: when a mistake cannot announce
+The general shape behind all fourteen, worth carrying to the next one: when a mistake cannot announce
 itself, the assert is the announcement. Prefer a test over a comment for anything in this class.
 
 ## Sylvester is lazy

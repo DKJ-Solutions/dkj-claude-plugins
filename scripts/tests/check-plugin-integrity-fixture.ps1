@@ -370,6 +370,16 @@ function New-IntegrityFixture {
     # document-newline-lib.ps1 likewise (#1832): entry-scaffold-lib.ps1 and pr-body-lib.ps1 dot-source it
     # for Get-DocumentNewline, unconditionally and for the same reason -- so the fixture owes it too.
     Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\document-newline-lib.ps1') -Destination (Join-Path $Fixture 'scripts\lib\document-newline-lib.ps1') -Force
+    # native-capture-lib.ps1 and git-porcelain-lib.ps1 (#2971): check 46 reads the tracked files through
+    # `git ls-files` and decodes the wire with Convert-GitQuotedPath, exactly as check 43 does. Those two
+    # inherit a missing lib as a SILENT skip (a try/catch around the load), so without these copies a
+    # fixture that git-inits itself would never exercise the check -- which is what this fixture did for
+    # check 43 until now, and only the live tree ever ran it. Inert in every fixture with no '.git'.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1') -Destination (Join-Path $Fixture 'scripts\lib\native-capture-lib.ps1') -Force
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\git-porcelain-lib.ps1') -Destination (Join-Path $Fixture 'scripts\lib\git-porcelain-lib.ps1') -Force
+    # run-progress-lib.ps1 is the one native-capture-lib dot-sources, the same convention every sibling
+    # fixture here follows, and what fixture-lib-deps.tests.ps1 (#1693) holds the copy list to.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\run-progress-lib.ps1') -Destination (Join-Path $Fixture 'scripts\lib\run-progress-lib.ps1') -Force
     # fetch-attempt-lib.ps1 likewise (#1860): entry-scaffold-lib.ps1 dot-sources it for
     # Invoke-RecordedRemoteFetch, which Get-TrunkGap's fetch runs through -- so the fixture owes it too.
     # THE #1650 FAILURE ABOVE, REPRODUCED EXACTLY when this line was missing: 4 of this suite's siblings
