@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**8 / 9 minor entries** <!-- pending-tally -->
+**9 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2971-control-char-gate · 20261013-143401Z
+
+The integrity gate now refuses a C0 control character in a tracked text file, naming the file, the line
+and the code point ([#2971](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2971)). A BEL
+byte from a PowerShell backtick escape reached a `.md` while #2968 was built, and no check read file
+content for control bytes. The tree measured clean, so the check is born with no exemptions. The
+system-administration manual lists the backtick-escape trap beside the other PowerShell traps.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer reads the new trap in the system-administration manual; the gate itself runs in this repo
+only.
+
+**Score:** 1
+
+#### Pull Request
+
+The integrity gate refuses a C0 control character in tracked text content
+
+Plugins: dkj-subagents-alpha
+
+[PR #2974](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2974)
+
+---
 
 ### DEPLOY: feat/2968-stale-paste-block · 20261013-135218Z
 
