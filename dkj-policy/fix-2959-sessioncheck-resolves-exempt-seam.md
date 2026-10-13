@@ -88,3 +88,5 @@ longer close an Asana-linked issue before its go-live block is posted without an
 **Score:** 3
 
 #### Pull Request
+
+closed-message-sessioncheck reports a store without Get-ResolvesExemptMatchers
