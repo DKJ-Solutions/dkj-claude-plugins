@@ -37,7 +37,7 @@ table lives in [`scripts/lib/branch-info.ps1`](../../../scripts/lib/branch-info.
 |---|---|---|---|
 | New or extended capability (new plugin/specialist, migrated manual, new script) | `feat/<description>` | `feature` | Feat |
 | Correction of an error in an existing agent def/manual/script/manifest | `fix/<description>` | `bug` | Fix |
-| Documentation: `README.md`, `CLAUDE.md`, workflow explanation, manual content | `docs/<description>` | `documentation` | Docs |
+| Documentation: `README.md`, `CLAUDE.md`, workflow explanation, manual content | `docs/<description>` | none | Docs |
 
 **There is no `chore/` row, and that is the point** (Dave, August 7, 2026). Chore is the name for work
 that lands **directly on the trunk** under one of the named exceptions — the fold commit, the release
@@ -850,8 +850,10 @@ tree that cannot both be true. Where your own branch created it, file it anyway 
 because that is the reader's first question. Scoping a contradiction out of the work is a reason not to
 edit the file; it is never a reason not to file it.
 
-**The labels are the branch prefixes, which is what makes an issue readable as work.** `feature`,
-`bug` and `documentation` map onto `feat/`, `fix/` and `docs/` and onto the changelog types they produce
+**The labels are the branch prefixes, which is what makes an issue readable as work.** `feature` and
+`bug` map onto `feat/` and `fix/` and onto the changelog types they produce; a `docs/` branch carries no
+label, because an issue is always a feature or a bug and `documentation` is retired (Dave, October 3,
+2026, [#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783))
 — the table is in [Classifying, naming, and creating a branch](#classifying-naming-and-creating-a-branch)
 above — so an issue already names the prefix its branch will get. `feature` was GitHub's default
 `enhancement` until Dave renamed it (October 3, 2026,
@@ -1109,10 +1111,10 @@ every sighted reader brings to a badge is one rung off in this repo. **Read the 
 remains the standing rule for anything but the two rows marked deliberate.
 
 **It is a separate axis from the prefix→label mapping in
-[step 2](#classifying-naming-and-creating-a-branch), which is about a PULL REQUEST.** `feature`,
-`bug` and `documentation` say what *kind* of change a branch carries and are written by `open-pr.ps1`
-from the branch prefix; a `prio-N` says how much an *issue* weighs and is written by whoever files it.
-An issue therefore normally carries both, and neither can be derived from the other: a `documentation`
+[step 2](#classifying-naming-and-creating-a-branch), which is about a PULL REQUEST.** `feature` and
+`bug` say what *kind* of change a branch carries and are written by `open-pr.ps1` from the branch prefix
+(a `docs/` branch gets none); a `prio-N` says how much an *issue* weighs and is written by whoever files it.
+An issue therefore normally carries both, and neither can be derived from the other: a `feature`
 issue can be the one that has to be repaired first, and a `bug` can be the one nobody is waiting for.
 
 **The one route that lands without a rung is the inbound templates**, and that is correct rather than a

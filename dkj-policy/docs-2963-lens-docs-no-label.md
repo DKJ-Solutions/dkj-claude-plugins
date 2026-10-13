@@ -39,19 +39,33 @@
 
 ### PLAN
 
+Issue #2963: Derek's lens mapped `docs/` to the `documentation` label in three passages, while
+`scripts/lib/branch-info.ps1` sends no label for `docs/` since #2783. Whether the `documentation`
+label itself is deleted from this tracker is the owner's call and stays on #2963 (`-NoResolves`).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The branch table, the "labels are the branch prefixes" paragraph and the separate-axis paragraph
+  in `specialist-05-05-lens.md` now say a `docs/` branch carries no label (#2783).
 
 ### TEST
 
+- [x] Every remaining `documentation` in the lens is prose about docs, not the label; checked against
+  `branch-info.ps1` and `branch-info.tests.ps1` (`docs -> no label`).
+
 ### DEPLOY: docs/2963-lens-docs-no-label
 
-**Score:**
+Derek's lens no longer maps `docs/` to the retired `documentation` label: its branch table and two
+paragraphs now say a `docs/` branch carries no label, as `branch-info.ps1` has since #2783
+([#2963](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2963)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+The lens is this repo's own; no consumer reads it.
+
+**Score:** N/A
 
 #### Pull Request
 
