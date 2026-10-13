@@ -39,19 +39,39 @@
 
 ### PLAN
 
+The second half of #2961, after the owner's decision (October 13, 2026): `feature` is the `feat/` label
+for every DKJ-Solutions consumer, not a per-repo choice. The scaffold half shipped in #2965.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dkj-solutions` README: a tracker-labels chapter, with the two-step move for a repo on `enhancement`
+- [x] `dkj-solutions` CLAUDE.md: the rule in one sentence, pointing at the README
+- [x] Derek's lens: replace "a consumer's own tracker keeps whatever its own seam names"
+- [x] The pending #2961 scaffold entry no longer says a consumer keeps its own label
 
 ### TEST
 
+- [x] The gates, through `ship-pr`
+
 ### DEPLOY: docs/2961-feature-label-every-consumer
 
-**Score:**
+`feature` is now the `feat/` label in every DKJ-Solutions repo, where it used to be left to each repo's
+own branch table ([#2961](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2961)). The
+`dkj-solutions` extension states it in a new tracker-labels chapter and in its `CLAUDE.md`, and Derek's
+lens no longer says a consumer keeps whatever its own table names.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo whose `scripts/lib/branch-info.ps1` still maps `feat` to `enhancement` moves over:
+rename the tracker label first (`gh label edit enhancement --name feature`, which keeps it on every
+issue and PR), then point the table at `feature`. The
+[`dkj-solutions` README](../plugins/dkj-policy/dkj-solutions/README.md#the-tracker-labels--feature-and-bug-in-every-repo)
+gives both steps. Five repos needed it on October 13, 2026: `dkj-brandbook`, `dkj-etf-tracker`,
+`djcylow-react`, `dkj-music-library` and `dkj-recipes`.
+
+**Score:** 4
 
 #### Pull Request
 

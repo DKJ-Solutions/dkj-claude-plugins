@@ -6,7 +6,11 @@ DKJ-Solutions, and it never overrides it** (Dave, issue
 with `dkj-solutions` installed imports it on the line directly below the `dkj-policy` import. Where
 the two ever speak to the same question, `dkj-policy` wins.
 
-It adds one chapter, the house style, with two rules:
+It adds two chapters. The first is the tracker labels: **a `feat/` pull request and a new feature issue
+carry `feature`, a fix carries `bug`, and never `enhancement`**, in every DKJ-Solutions repo (#2961).
+How a repo still on `enhancement` moves over is in this plugin's README.
+
+The second is the house style, with two rules:
 
 - **Start from it** — the [`house-style`](skills/house-style/SKILL.md) skill, which points at the
   stylesheet, the theme script and the rules in [`dkj-brandbook`](https://github.com/DKJ-Solutions/dkj-brandbook).
