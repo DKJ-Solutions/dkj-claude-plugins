@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**9 / 12 minor entries** <!-- pending-tally -->
+**10 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2977-awaiting-review-label · 20261013-161810Z
+
+Two new parking labels say that an issue waits on somebody's look at a result, not on a choice
+([#2977](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2977)). `awaiting-review-dev` is
+the owner's look, and `awaiting-review-client` is the look of the client or requester outside the dev
+team. `sweep-issues`, the claim defaults and the issue dashboard skip both, so they are treated like
+the other `awaiting-*` labels. `sweep-issues` now sets `awaiting-review-dev` when it parks a visible
+result and removes it again when that result is approved. `sweep-decisions` walks neither label.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer who runs `adopt-triage-labels` is offered two new labels to create. Once a preview is
+waiting for someone to look at it, the issue drops out of every sweep until the label comes off.
+
+**Score:** 2
+
+#### Pull Request
+
+Add awaiting-review-dev and awaiting-review-client parking labels
+
+Plugins: dkj-policy
+
+[PR #2981](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2981)
+
+---
 
 ### DEPLOY: feat/2976-connector-dashboard · 20261013-154611Z
 
