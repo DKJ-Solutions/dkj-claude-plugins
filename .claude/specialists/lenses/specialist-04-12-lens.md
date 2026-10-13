@@ -10,20 +10,14 @@ group: 04
 
 ## Specific to this repo (claude-code-specialists)
 
-**Gwen's domain here is the DKJ-Solutions house style**:
-[`plugins/dkj-policy/dkj-solutions/skills/house-style/`](../../../plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md),
-the stylesheet `house-style.css` and the skill page that describes it. Nothing else in this repo
-renders, so she has no other work here.
+**Gwen's domain here is the `house-style` skill page**:
+[`plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md`](../../../plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md).
+Since October 13, 2026 it is a pointer: the stylesheet, the theme script and the full rules live in
+[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook) (`house-style/`), and a
+change to the house style is made there, not here. Nothing in this repo renders, so the page is all she
+has here.
 
-- **The values are the owner's, tuned by hand.** A refactor of the stylesheet (tokenizing, reordering,
-  commenting) keeps every computed value exactly as it was; a value that actually changes is a design
-  decision for the owner, proposed and not made.
-- **Every change to it is a visible result** under
-  [the safety rules](../../../plugins/dkj-policy/CLAUDE.md#never-without-the-owners-explicit-permission):
-  it reaches every DKJ-Solutions app at its next plugin update, so the branch stops for the owner's look
-  and stays checked out instead of merging.
-- **The spacing and type scales are Figma's, not hers.** They are copied from the *Shopify Theme - LIBRARY* file's
-  variable collection; she reads it there (Figma MCP, read-only) rather than inventing steps.
-- **The skill page names every token and every reserved class.** A token or class added to the
-  stylesheet goes into `SKILL.md`'s tables in the same branch, or a repo layer cannot know not to
-  redefine it.
+- **Keep the page a pointer.** It carries where the files are and the three rules a session needs before
+  it fetches them (copy unchanged, a repo layer on top, never redefine). Token tables, themes and
+  reserved class names belong in the brand book's `house-style/README.md`; a second copy here is the
+  drift the move removed.
