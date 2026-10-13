@@ -521,32 +521,37 @@ if (-not $ForceArg -and $asanaLink -ne 'linked') {
 # names a release day, so it is true only once the work is on its way to the trunk; at the preview it is a
 # closed message on an unfinished issue. -OutFile is not held back -- the handover page embeds the block --
 # only the post is. Read through GraphQL, because 'gh issue view' gives the closing PRs without their state.
+# A PR that only REFERENCES the issue counts as well (#2957): an Asana-linked issue ships with -NoResolves by
+# this plugin's own rule, so its PR never closes it. Get-GoLiveLandingNodes reads both, same repo only.
 # An unreadable answer refuses too, for the reason the checks above do; -Force is the deliberate early post.
 if (-not $ForceArg) {
     $landingState = 'unread'
     $repoParts = $StoreRepo -split '/', 2
     if ($repoParts.Count -eq 2) {
-        $landingQuery = 'query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){closedByPullRequestsReferences(first:20,includeClosedPrs:true){nodes{number state}}}}}'
+        $landingQuery = 'query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){' +
+            'closedByPullRequestsReferences(first:20,includeClosedPrs:true){nodes{number state}} ' +
+            'timelineItems(itemTypes:[CROSS_REFERENCED_EVENT],last:50){nodes{... on CrossReferencedEvent{source{... on PullRequest{number state repository{nameWithOwner}}}}}}}}}'
         $landingRun = Invoke-Native { gh api graphql -f "query=$landingQuery" -f "owner=$($repoParts[0])" -f "name=$($repoParts[1])" -F "num=$issueNumber" }
         if ($landingRun.Code -eq 0 -and $landingRun.Output.Count -gt 0) {
             try {
                 $landingJson = ($landingRun.Output -join "`n") | ConvertFrom-Json
-                $landingState = Get-GoLivePostReadiness -Nodes @($landingJson.data.repository.issue.closedByPullRequestsReferences.nodes)
+                $landingState = Get-GoLivePostReadiness -Nodes @(Get-GoLiveLandingNodes -IssueData $landingJson.data.repository.issue -Repo $StoreRepo)
             } catch { $landingState = 'unread' }
         }
     }
     if ($landingState -eq 'none' -or $landingState -eq 'unread') {
         if ($landingState -eq 'unread') {
-            Write-Host "[ERROR] Could not read which pull requests close $targetRef, so whether its work has landed is unchecked." -ForegroundColor Red
+            Write-Host "[ERROR] Could not read which pull requests close or reference $targetRef, so whether its work has landed is unchecked." -ForegroundColor Red
         } else {
-            Write-Host "[ERROR] No open or merged pull request closes $targetRef, so the block's 'is now closed' and its release day" -ForegroundColor Red
-            Write-Host "        would not be true yet. Post it at the PR step: after the owner's look on a visible result, once the" -ForegroundColor Red
-            Write-Host "        PR carrying 'Closes #$issueNumber' is open. At the preview, -OutFile gives the handover page its copy." -ForegroundColor Red
+            Write-Host "[ERROR] No open or merged pull request closes or references $targetRef, so the block's 'is now closed' and its" -ForegroundColor Red
+            Write-Host "        release day would not be true yet. Post it at the PR step: after the owner's look on a visible result, once" -ForegroundColor Red
+            Write-Host "        the PR naming #$issueNumber is open -- 'Closes #$issueNumber', or the issue cited under -NoResolves for an" -ForegroundColor Red
+            Write-Host "        Asana-linked one. At the preview, -OutFile gives the handover page its copy." -ForegroundColor Red
         }
         Write-Host "        Nothing posted. Re-run with -Force for a deliberate early post." -ForegroundColor Red
         exit 1
     }
-    Write-Host "  landing  : a pull request closing $targetRef is $landingState" -ForegroundColor DarkGray
+    Write-Host "  landing  : a pull request closing or referencing $targetRef is $landingState" -ForegroundColor DarkGray
 }
 
 # Test-AsanaPasteBlockPosted answers TRUE where it cannot READ the comments, so a blind duplicate is

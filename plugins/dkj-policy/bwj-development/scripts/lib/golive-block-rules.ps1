@@ -447,6 +447,45 @@ function Get-GoLivePostReadiness {
     return 'none'
 }
 
+function Get-GoLiveLandingNodes {
+    <#
+        Pure: the pull requests that count as the issue's landing work, read from the landing query's
+        'issue' object -- every closing reference, plus every pull request IN THE SAME REPO that
+        cross-references the issue (timelineItems CROSS_REFERENCED_EVENT, source a PullRequest).
+
+        WHY A REFERENCE COUNTS TOO (#2957). An Asana-linked issue ships with -NoResolves by this plugin's
+        own rule (WORKFLOW-portable.md, the resolves gate; Get-ResolvesExemptMatchers refuses the closing
+        keyword on one), so its pull request cites the issue and never closes it. Reading closing
+        references alone refused -Post on exactly the issues the block exists for, and -Force became the
+        ordinary path -- measured twice in BWJ-Development/smartwatchbanden on October 13, 2026. A PR
+        that names the issue and is open or merged satisfies #2930's intent just as well.
+
+        THE SAME REPO ONLY: a pull request elsewhere that mentions this issue is not this issue's work.
+        A cross-reference from an issue carries no 'number' under the PullRequest fragment, and is dropped.
+    #>
+    param(
+        [object]$IssueData,
+        [Parameter(Mandatory = $true)][string]$Repo
+    )
+    if (-not $IssueData) { return @() }
+    $nodes = @()
+    $closing = $IssueData.PSObject.Properties['closedByPullRequestsReferences']
+    if ($closing -and $closing.Value) { $nodes += @(@($closing.Value.nodes) | Where-Object { $_ }) }
+    $timeline = $IssueData.PSObject.Properties['timelineItems']
+    if ($timeline -and $timeline.Value) {
+        foreach ($item in @(@($timeline.Value.nodes) | Where-Object { $_ })) {
+            $source = $item.PSObject.Properties['source']
+            if (-not $source -or -not $source.Value) { continue }
+            $pr = $source.Value
+            if (-not $pr.PSObject.Properties['number'] -or -not $pr.PSObject.Properties['state']) { continue }
+            $prRepo = if ($pr.PSObject.Properties['repository'] -and $pr.repository) { [string]$pr.repository.nameWithOwner } else { '' }
+            if ($prRepo -and $prRepo -ne $Repo) { continue }
+            $nodes += [pscustomobject]@{ number = $pr.number; state = $pr.state }
+        }
+    }
+    return $nodes
+}
+
 function Format-GoLiveClosedLine {
     <#
         Pure: the closed line, in Markdown -- the issue name as a link, the verb bold (#2700).

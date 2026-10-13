@@ -456,6 +456,18 @@ Assert-Equal 'merged' (Get-GoLivePostReadiness -Nodes @([pscustomobject]@{ numbe
 Assert-Equal 'open' (Get-GoLivePostReadiness -Nodes @([pscustomobject]@{ number = 3; state = 'OPEN' })) 'an open one is on its way'
 Assert-Equal 'none' (Get-GoLivePostReadiness -Nodes @([pscustomobject]@{ number = 4; state = 'CLOSED' })) 'a PR closed without merging is not'
 Assert-Equal 'none' (Get-GoLivePostReadiness -Nodes @()) 'and no PR at all is the measured #402'
+# A PR THAT ONLY REFERENCES THE ISSUE COUNTS TOO (#2957): an Asana-linked issue ships with -NoResolves, so its
+# PR never closes it. Same repo only; a cross-reference from an issue carries no PR number and is dropped.
+$glRefIssue = '{"closedByPullRequestsReferences":{"nodes":[]},"timelineItems":{"nodes":[' +
+    '{"source":{"number":917,"state":"MERGED","repository":{"nameWithOwner":"O/R"}}},' +
+    '{"source":{"number":5,"state":"OPEN","repository":{"nameWithOwner":"other/repo"}}},' +
+    '{"source":{}},{}]}}' | ConvertFrom-Json
+$glRefNodes = @(Get-GoLiveLandingNodes -IssueData $glRefIssue -Repo 'o/r')
+Assert-Equal 1 $glRefNodes.Count 'a referencing PR in the same repo is a landing node; one elsewhere and an issue reference are not'
+Assert-Equal 'merged' (Get-GoLivePostReadiness -Nodes $glRefNodes) 'and a merged referencing PR is landed work -- the measured smartwatchbanden#914'
+$glBothIssue = '{"closedByPullRequestsReferences":{"nodes":[{"number":12,"state":"OPEN"}]},"timelineItems":{"nodes":[]}}' | ConvertFrom-Json
+Assert-Equal 'open' (Get-GoLivePostReadiness -Nodes @(Get-GoLiveLandingNodes -IssueData $glBothIssue -Repo 'o/r')) 'the closing references still count on their own'
+Assert-Equal 0 @(Get-GoLiveLandingNodes -IssueData $null -Repo 'o/r').Count 'and an issue the query did not return yields no nodes'
 $glUnlinked = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'maandag 21 september 2026' -AsanaLink none
 Assert-True ($glUnlinked.Contains((Get-GoLiveBlockLead -AsanaLink none)) -and $glUnlinked -notmatch 'no paste needed') 'Format-GoLiveBlock passes the link state through to its lead'
 
@@ -766,12 +778,17 @@ try {
         [System.IO.File]::WriteAllText($glGraphql, '{"data":{"repository":{"issue":{"closedByPullRequestsReferences":{"nodes":[{"number":12,"state":"OPEN"}]}}}}}', (New-Object System.Text.UTF8Encoding $false))
         $glOpenPr = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
             -RootOverride $glRoot -Post 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+        # And a merged PR that only REFERENCES the issue -- the -NoResolves ship (#2957).
+        [System.IO.File]::WriteAllText($glGraphql, '{"data":{"repository":{"issue":{"closedByPullRequestsReferences":{"nodes":[]},"timelineItems":{"nodes":[{"source":{"number":13,"state":"MERGED","repository":{"nameWithOwner":"o/r"}}}]}}}}}', (New-Object System.Text.UTF8Encoding $false))
+        $glRefPr = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+            -RootOverride $glRoot -Post 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
     } finally { $env:PATH = $glPath }
     Assert-Equal 1 $glUnreadCode '-Post refuses where it cannot read which pull requests close the issue'
-    Assert-True ($glUnread.Contains('which pull requests close o/r#7') -and $glUnread.Contains('deliberate early post')) 'and says what it could not check, and the -Force valve'
-    Assert-Equal 1 $glNoPrCode '-Post refuses while no pull request closes the issue -- the measured #402'
-    Assert-True ($glNoPr.Contains('No open or merged pull request closes o/r#7') -and $glNoPr.Contains('Closes #7')) 'and says to post at the PR step, naming the closing keyword'
-    Assert-True ($glOpenPr.Contains('landing  : a pull request closing o/r#7 is open') -and $glOpenPr -notmatch 'No open or merged') 'an open closing PR passes the check, read from the real response shape'
+    Assert-True ($glUnread.Contains('which pull requests close or reference o/r#7') -and $glUnread.Contains('deliberate early post')) 'and says what it could not check, and the -Force valve'
+    Assert-Equal 1 $glNoPrCode '-Post refuses while no pull request closes or references the issue -- the measured #402'
+    Assert-True ($glNoPr.Contains('No open or merged pull request closes or references o/r#7') -and $glNoPr.Contains('Closes #7') -and $glNoPr.Contains('-NoResolves')) 'and says to post at the PR step, naming both shapes of PR'
+    Assert-True ($glOpenPr.Contains('landing  : a pull request closing or referencing o/r#7 is open') -and $glOpenPr -notmatch 'No open or merged') 'an open closing PR passes the check, read from the real response shape'
+    Assert-True ($glRefPr.Contains('landing  : a pull request closing or referencing o/r#7 is merged') -and $glRefPr -notmatch 'No open or merged') 'a merged PR that only references the issue passes too (#2957)'
     Assert-Equal 1 $glNoLinkCode '-Post on an issue that links no Asana task is refused'
     Assert-True ($glNoLink.Contains('Nothing posted') -and $glNoLink.Contains('GitHub-only')) 'and names the -Force valve for a GitHub-only issue'
     Assert-True ($glNoLink.Contains('asana-task: <gid>')) 'and names the marker that fixes it'

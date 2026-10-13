@@ -178,8 +178,12 @@ owner's look (a visible result) -> PR open -> build-golive-block -Post -> merge,
 
 **Not before the PR** ([#2930](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2930)). The block says
 *"is now closed"* and names a release day, and neither is true while nobody has looked. `-Post` reads
-the issue's closing pull requests and refuses until one is open or merged, or when it cannot read them.
-An open PR is the right evidence, because a visible result opens none before the owner's look.
+the pull requests in this repo that close **or reference** the issue, and refuses until one is open or
+merged, or when it cannot read them. An open PR is the right evidence, because a visible result opens none
+before the owner's look. **A reference counts** because an Asana-linked issue ships with `-NoResolves`
+under this plugin's own rule, so its PR cites the issue and never closes it
+([#2957](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2957): reading closing PRs alone made
+`-Force` the only way through on exactly the issues the block exists for).
 Measured on `xoxowildhearts#402`: the block went on nine seconds after the preview handover, and the owner
 asked why an unfinished issue carried a closed message. At the preview, `-OutFile` alone gives the handover
 page its copy. `-Force` is for a deliberate early post.
