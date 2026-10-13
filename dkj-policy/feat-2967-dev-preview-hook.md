@@ -39,19 +39,62 @@
 
 ### PLAN
 
+Inbound #2967 (the owner, October 13, 2026): three DKJ-Solutions repos each carry their own dev-preview
+SessionStart hook (dkj-brandbook, dkj-etf-tracker, life-hub, all three read on that date). Ship one in
+the `dkj-solutions` extension, with what differs per repo behind a seam.
+
+#### The design points the issue named, settled
+
+- **Seam:** `Get-DevPreview` in `scripts/repo-config.ps1`, read in a child scope like the
+  bwj-development hooks read theirs; absent means a silent no-op.
+- **Ownership:** brandbook's command-line rule, generalised to the listener's four nearest ancestors,
+  because the hook starts every server under a `cmd.exe` that changes into the root first. That also
+  recognises a server whose own command line names no path (etf-tracker's `http.server`). Path-boundary
+  matching keeps `repo-lanes`, `repo2` and `.claude/worktrees/` out.
+- **Matcher:** `startup|resume|clear`. `compact` stays out, for etf-tracker's reason. `resume` is in,
+  because a resumed session may well find its server gone.
+- **VS Code:** `OpenInVsCode` keeps etf-tracker's `code --open-url` route, off by default. life-hub's note
+  is about a `vscode://` handler, a different route, so the two do not contradict each other. Whether the
+  Simple Browser opens is that repo's own `externalUriOpeners` setting, and this session had no VS Code to
+  try it in.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/dev-preview-rules.ps1` in the plugin: the seam's validation, the ownership rule, and
+  the port choice, with no I/O.
+- [x] `hooks/dev-preview-sessionstart.ps1` + `hooks/hooks.json`: read the seam, snapshot the sockets
+  and processes, reuse or start, wait until it listens, and emit `systemMessage` + `additionalContext`.
+- [x] README section, plus the plugin and marketplace descriptions. `CLAUDE.md` is untouched, because a
+  hook needs no always-on rule.
 
 ### TEST
 
+- [x] `scripts/tests/dev-preview-sessionstart.tests.ps1`: 51 asserts, 8.5s. The rules are tested from
+  hand-built tables, and the hook end to end: silent without the seam, one line on a bad seam, on a
+  config that throws and on a missing prerequisite. A real loopback listener is started, then REUSED by
+  a second run with exactly one listener left, and a second checkout refuses to take it as its own.
+
 ### DEPLOY: feat/2967-dev-preview-hook
 
-**Score:**
+`dkj-solutions` now ships a dev-preview SessionStart hook
+([#2967](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2967)). A repo that states
+`Get-DevPreview` in its `scripts/repo-config.ps1` (the command with `{port}`, the port or port range,
+and optionally the URL path, a prerequisite and a VS Code hand-off) gets its local dev server started,
+or reused, at `startup`, `resume` and `clear`. It also gets a clickable localhost link, which reaches
+the session too. A server counts as this checkout's only when its command line, or its nearest
+ancestors', names this checkout's root, so a foreign app, another clone or a worktree is never taken
+for it. A repo that states nothing pays nothing. This replaces the per-repo copies in `dkj-brandbook`,
+`dkj-etf-tracker` and `life-hub`, each of which can drop its own script and define the seam instead
+([README](../plugins/dkj-policy/dkj-solutions/README.md#the-dev-preview-hook)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo with a dev server gets its preview link at every session start by stating one
+function, instead of copying and maintaining a hook of its own.
+
+**Score:** 3
 
 #### Pull Request
 

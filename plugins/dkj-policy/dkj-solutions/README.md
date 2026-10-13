@@ -11,6 +11,49 @@ no specialists.
 |---|---|---|
 | The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | A pointer to [DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook), which holds the design tokens, the twelve themes and the base stylesheet, plus the rules a session needs before it fetches them |
 
+## The dev-preview hook
+
+[`hooks/dev-preview-sessionstart.ps1`](hooks/dev-preview-sessionstart.ps1) runs at session start
+(`startup`, `resume`, `clear`; not `compact`, which is mid-work) and does one thing for a repo that has
+a local dev server: it starts that server, or reuses the one already running, and hands the owner a
+clickable `http://localhost:<port>/...` link, with the same line in the session's context. It replaced a
+copy per repo in `dkj-brandbook`, `dkj-etf-tracker` and `life-hub`
+([#2967](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2967)).
+
+**A repo opts in by stating `Get-DevPreview` in its `scripts/repo-config.ps1`.** Without it the hook
+prints nothing at all.
+
+```powershell
+function Get-DevPreview {
+    @{
+        Command      = 'npm run dev -- --port {port} --strictPort'   # required; {port} is filled in
+        Ports        = 5173..5180       # required: one port, or a list tried in order (at most 32)
+        Path         = '/'              # optional: the URL path (default '/')
+        Requires     = 'node_modules'   # optional: path(s) under the root that must exist before a start
+        Name         = 'Showcase'       # optional: the word the line opens with (default 'dev-preview')
+        WaitSeconds  = 20               # optional: how long to wait until it listens (1-45, default 20)
+        OpenInVsCode = $false           # optional: also hand the URL to VS Code (see below)
+    }
+}
+```
+
+- **Bind to `127.0.0.1` in the `Command`** wherever the server shows something private, e.g.
+  `python -m http.server {port} --bind 127.0.0.1` or `next dev -H 127.0.0.1 -p {port}`. The hook cannot
+  know what a server exposes.
+- **A running server is reused, never doubled.** A listener counts as this checkout's when its own
+  command line, or one of its four nearest ancestors' command lines, names this checkout's root at a path
+  boundary. The hook starts every server under a `cmd.exe` that changes into the root first, which is how
+  a server whose own command line names no path is still recognised. A foreign app, another clone, a
+  `worktree-lane` sibling or a Claude Code worktree under `.claude/worktrees/` is never mistaken for it:
+  its port is skipped and the next one tried.
+- **The server outlives the session.** It runs hidden and detached, logging to
+  `%TEMP%\dev-preview-<repo>-<hash>.log`, and is stopped like any process.
+- **`OpenInVsCode`** runs `code --open-url <url>`, only when the session runs in VS Code's terminal. To
+  land in VS Code's Simple Browser rather than the system browser, the repo also routes the URL with
+  `workbench.externalUriOpeners` in its `.vscode/settings.json`.
+- **It never fails the session.** Every path exits 0 with at most one line. It runs on Windows only, like
+  the copies it replaced; elsewhere it prints nothing.
+
 ## Who enables it
 
 **DKJ-Solutions repos only.** BWJ-Development has its own styling, so this plugin is never enabled in
