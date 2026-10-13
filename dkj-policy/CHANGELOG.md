@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**2 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2957-golive-post-accepts-referencing-pr · 20261013-095525Z
+
+`build-golive-block -Post` now accepts an open or merged pull request that **references** the issue, as
+well as one that closes it
+([#2957](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2957)). `bwj-development`'s own rule
+ships an Asana-linked issue with `-NoResolves`, so its PR never closes it. The landing check from #2930
+read closing references only, so on exactly the issues the block exists for `-Force` was the only way
+through. Measured twice in `BWJ-Development/smartwatchbanden` on October 13, 2026. Only pull requests
+in the same repo count.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store session posting the go-live block after a `-NoResolves` ship no longer gets a refusal telling it
+to use `-Force`, and the refusal it can still get names both PR shapes.
+
+**Score:** 3
+
+#### Pull Request
+
+golive-block -Post accepts a pull request that references the issue
+
+Plugins: bwj-development
+
+[PR #2958](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2958)
+
+---
 
 ### DEPLOY: feat/2954-pin-house-style-tag · 20261013-091726Z
 
