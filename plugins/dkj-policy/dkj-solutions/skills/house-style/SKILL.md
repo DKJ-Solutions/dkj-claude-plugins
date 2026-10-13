@@ -8,7 +8,7 @@ description: The DKJ-Solutions house style -- the design tokens, the twelve them
 **Every DKJ-Solutions app looks like one family** (Dave, issue
 [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1, 2026), and that
 family is written down in **[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook)**,
-folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/house-style-v1/house-style). The
+folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/house-style-v2/house-style). The
 stylesheet and the theme script lived beside this page until October 13, 2026; they moved there so the
 brand book is the single copy, and this skill carries the pointer instead of a second one.
 
@@ -17,19 +17,19 @@ BWJ-Development has its own styling, and this skill says nothing about it.
 
 ## Where the files are
 
-The repo is public, so these read without auth. **They are pinned to the release tag `house-style-v1`,
+The repo is public, so these read without auth. **They are pinned to the release tag `house-style-v2`,
 never to `main`**: `main` moves, and `house-theme.js` is executable wherever it is inlined, so a fetch from
 `main` would carry an unreleased push into every app's next copy
 ([#2954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2954)).
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v1/house-style/house-style.css` | `24cb1935936ee82a177d23ea9e3822f1ca4241c1019051ad63b4a1ab5c7edc59` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v1/house-style/house-theme.js` | `891bcaa51a5013fb182c9d8c9677ce4d56a4d996dfde094dc42199a7fc5d57eb` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v2/house-style/house-style.css` | `192e1ad27e720c762c17aa9ffe2056ab85f3085f05aacd6946d6fd13c66872d2` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v2/house-style/house-theme.js` | `4de3fcb877ace986df4ebd784542cff3b3e602df49300cab6e0d6a854b9a7ab3` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
-[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/house-style-v1/house-style/README.md)
-at the same tag, which points at commit `5fc23f57602421e8971b281c8b70071e888a80d3`.
+[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/house-style-v2/house-style/README.md)
+at the same tag, which points at commit `f681386200df4419285f70260ee29b4ed6c47c2a`.
 
 **Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
 and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
@@ -53,7 +53,9 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
 1. **Fetch `house-style.css` and copy it into the output unchanged**, and `house-theme.js` with it where
    the app lets the user pick a theme. Where the output must make no external requests (a local report,
    an Artifact), inline it in a `<style>` block. Where the app has a build, vendor it as a file. Either
-   way it is a copy of the brand book's file, never a retyped version.
+   way it is a copy of the brand book's file, never a retyped version. An app that offers a theme choice
+   uses `DKJTheme.settings(el)` from that script, the round settings button with the picker inside,
+   instead of building its own toggle around `DKJTheme.picker`; the README has its options.
 2. **Add the repo's own layer after it, in a separate block or file.** Domain colours and components go
    there. They **use** house tokens and may add tokens of their own, under a name the house file does
    not define.
@@ -76,5 +78,5 @@ instead of merging.
 **A merged change reaches the apps only once it is released and this page follows it.** The brand book
 releases the house style as a new `house-style-v<N>` tag, set only on the owner's request and never moved.
 Then an inbound issue on this plugin's source repo asks for a repoint to the new tag, and the change
-repoints every `house-style-v1` link on this page and replaces the commit and both checksums, measured
+repoints every link to the previous tag on this page and replaces the commit and both checksums, measured
 from the bytes served at that tag. The apps get it with the next plugin release.

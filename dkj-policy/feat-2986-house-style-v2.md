@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Repoint the `house-style` skill to the brand book's `house-style-v2` tag, as inbound #2986 asks: the
+links, the commit and both checksums, each re-measured here rather than copied from the issue.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Every `house-style-v1` link on `SKILL.md` now reads `house-style-v2`, and the procedure text no
+  longer names v1 by tag.
+- [x] Commit `f681386200df4419285f70260ee29b4ed6c47c2a`, read from the annotated tag's object.
+- [x] Both sha256 values measured from the bytes served at the tag; both match the issue.
+- [x] One line under "How to use it" names `DKJTheme.settings(el)`.
 
 ### TEST
 
+- [x] Pre-inline rules checked on the fetched files: `house-theme.js` adds only DOM listeners and keeps
+  `localStorage` to the theme choice; `house-style.css` carries no `@import` and no `url(`.
+
 ### DEPLOY: feat/2986-house-style-v2
 
-**Score:**
+The `house-style` skill now points at the brand book's `house-style-v2` tag
+([#2986](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2986)), with its commit and both
+checksums re-measured here.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app that takes its next copy of the house style gets the settings button,
+`DKJTheme.settings(el)`: a round toggle that opens the theme picker, a reset and a slot for the app's
+own controls, instead of a toggle each app builds itself.
+
+**Score:** 2
 
 #### Pull Request
 
+house-style: repoint to house-style-v2, the settings button
