@@ -112,6 +112,14 @@ try {
     $r = Invoke-Hook -Root $seam -Slug 'BWJ-Development/smartwatchbanden' -Secret 'ASANA_PAT'
     Assert-True ($r.Text.Trim() -eq '') 'a store config that defines the seam (indented, CRLF) is silent'
 
+    [System.IO.File]::WriteAllText((Join-Path $seam 'scripts\repo-config.ps1'), "function global:Get-ResolvesExemptMatchers { @() }`n")
+    $r = Invoke-Hook -Root $seam -Slug 'BWJ-Development/smartwatchbanden' -Secret 'ASANA_PAT'
+    Assert-True ($r.Text.Trim() -eq '') 'a scope-prefixed definition counts as stated'
+
+    [System.IO.File]::WriteAllText((Join-Path $seam 'scripts\repo-config.ps1'), "function Get-ResolvesExemptMatchers-Old { @() }`n")
+    $r = Invoke-Hook -Root $seam -Slug 'BWJ-Development/smartwatchbanden' -Secret 'ASANA_PAT'
+    Assert-True ($r.Text -match 'states no Get-ResolvesExemptMatchers') 'a longer name that merely starts with the seam''s does not'
+
     $r = Invoke-Hook -Root $noSeam -Slug 'DKJ-Solutions/dkj-claude-plugins' -Secret 'ASANA_PAT'
     Assert-True ($r.Text.Trim() -eq '') 'and the seam is not asked of a repo outside the two stores'
 

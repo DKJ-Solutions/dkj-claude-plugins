@@ -64,9 +64,9 @@ absence, and it is closed where the other store prerequisites are already report
 
 ### TEST
 
-- [x] `closed-message-sessioncheck.tests.ps1`: 24 passed, 0 failed (6 new asserts: the measured case,
-      the remedy, a commented-out definition, exit 0, an indented CRLF definition is silent, silent
-      outside the stores).
+- [x] `closed-message-sessioncheck.tests.ps1`: 26 passed, 0 failed (8 new asserts: the measured case,
+      the remedy, a commented-out definition, exit 0, an indented CRLF definition and a global:-scoped one
+      are silent, a longer name is not the seam, silent outside the stores).
 - [x] Probed against xoxowildhearts' real `scripts/repo-config.ps1` (read through the API): the hook
       prints the new `[ERROR]` line.
 

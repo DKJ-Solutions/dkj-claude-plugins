@@ -162,11 +162,13 @@ try {
             "'adopt-bwj-development' skill.")
     }
 
-    # FINDING 4 (#2959): read as text and matched on a definition at the start of a line, so a commented-
-    # out function does not count as stated and nothing in the store's config is executed by this hook.
+    # FINDING 4 (#2959): read as text and matched on a definition at the start of a line, so a '#'-commented
+    # function does not count as stated and nothing in the store's config is executed by this hook. A scope
+    # prefix (global:) counts; a longer name (Get-ResolvesExemptMatchers-Old) does not. A definition inside a
+    # <# #> block still reads as stated -- a missed reminder, never a false alarm, and the gate is open-pr's.
     $configFile = Join-Path $root 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $configFile -PathType Leaf) {
-        if ((Get-NormalizedText $configFile) -notmatch '(?m)^[ \t]*function[ \t]+Get-ResolvesExemptMatchers\b') {
+        if ((Get-NormalizedText $configFile) -notmatch '(?m)^[ \t]*function[ \t]+(?:[a-z]+:)?Get-ResolvesExemptMatchers(?![\w-])') {
             Write-Host ("[ERROR] bwj-development: $slug states no Get-ResolvesExemptMatchers in " +
                 "scripts/repo-config.ps1, so open-pr lets a pull request close an Asana-linked issue: the merge " +
                 "closes it before its go-live block is on it, and the closed message reaches the task without " +
