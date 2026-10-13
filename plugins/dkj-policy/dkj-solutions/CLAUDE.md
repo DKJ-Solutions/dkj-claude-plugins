@@ -20,7 +20,7 @@ It adds one chapter, the house style, with two rules:
   domain layer never redefines a house token or class. When a turn needs the house style itself to change
   (a token value, a theme, a shared component's look), file an issue on `DKJ-Solutions/dkj-brandbook`
   naming what and why, keep working on the repo's own domain layer, and take the new copy once it has
-  landed there. That repo is the owner's own, so filing there is not outward publishing and needs no
+  been released there and the `house-style` skill points at it. That repo is the owner's own, so filing there is not outward publishing and needs no
   permission; the issue meets the bar any finding meets (verify it still stands, search that tracker
   first, one subject per issue) and carries a `prio-N` label. Only the repo's own domain layer (its own
   tokens, components and theme pair) is edited locally. **In `dkj-brandbook` itself this rule does not

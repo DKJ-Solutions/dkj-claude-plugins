@@ -53,15 +53,29 @@ The owner decided on October 13, 2026 to pin the fetch to a release tag. Verifie
 
 ### TEST
 
-- [ ] copy edit (Edith) and security review (Sebastian) on the diff
+- [x] copy edit (Edith): "take the new copy once it has landed" contradicted the new release step, on
+  the skill page and in the extension's `CLAUDE.md`; both now say "once released and the skill points at
+  it", and the paragraph is rewrapped
+- [x] security review (Sebastian): no blocking finding, both hashes re-measured at the tag; the commit sha
+  is now on the page as a cross-check, and the tag's mutability is filed upstream as
+  DKJ-Solutions/dkj-brandbook#13
 
 ### DEPLOY: feat/2954-pin-house-style-tag
 
-**Score:**
+The `house-style` skill no longer fetches the brand book's stylesheet and theme script from `main`, which
+moves and can be pushed past review. It now pins them to the release tag `house-style-v1`, and it carries
+each file's sha256, so a session that gets different bytes stops and reports them instead of inlining them.
+A change to the house style now reaches the apps only after the brand book tags it and the skill is repointed
+in a plugin release. That rule is on the skill page and in the extension's `CLAUDE.md`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app copies only a house style the owner has released. An unreviewed push to the brand book
+can no longer slip into its next copy of an executable theme script.
+
+**Score:** 2
 
 #### Pull Request
 
