@@ -39,19 +39,36 @@
 
 ### PLAN
 
+#2971: a BEL byte reached a tracked `.md` during #2968 and no integrity check had an opinion about it.
+Measure the tree first, then gate it with no exemption list.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Measure every tracked file for C0 control bytes: 930 files, 0 findings
+- [x] Check 46 `[control-char]` in `check-plugin-integrity.ps1`, with its `checks:list` entry
+- [x] Tests in `check-plugin-integrity-scripts.tests.ps1`; the integrity fixture copies the libs checks 43 and 46 need
+- [x] The backtick-escape trap in the system-administration manual's trap list, and the one anchor that links to it
 
 ### TEST
 
+- [x] The check-plugin-integrity suites, `fixture-lib-deps` and `shared-scripts` green locally; the full gate runs in `ship-pr`
+
 ### DEPLOY: feat/2971-control-char-gate
 
-**Score:**
+The integrity gate now refuses a C0 control character in a tracked text file, naming the file, the line
+and the code point ([#2971](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2971)). A BEL
+byte from a PowerShell backtick escape reached a `.md` while #2968 was built, and no check read file
+content for control bytes. The tree measured clean, so the check is born with no exemptions. The
+system-administration manual lists the backtick-escape trap beside the other PowerShell traps.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer reads the new trap in the system-administration manual; the gate itself runs in this repo
+only.
+
+**Score:** 1
 
 #### Pull Request
 
