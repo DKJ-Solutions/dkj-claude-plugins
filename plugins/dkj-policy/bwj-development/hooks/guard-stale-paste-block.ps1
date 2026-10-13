@@ -87,8 +87,21 @@ trap {
     exit 0
 }
 
+# A BYTE-ORDER MARK IS NOT PART OF THE PAYLOAD. A writer whose console input code page is UTF-8 prefixes
+# one, and ConvertFrom-Json then fails -- which used to end the run silently, as an unparseable payload
+# does: measured under the test gate, where a sibling suite held the shared console on UTF-8 and every
+# hook-as-process case passed with no verdict at all. It is stripped, and a payload that still does not
+# parse says so on stderr, since this pre-gate already saw one of the two scripts named in it.
 $command = ''
-try { $command = [string](($raw | ConvertFrom-Json).tool_input.command) } catch { exit 0 }
+# Whatever precedes the first '{' is that mark -- U+FEFF where stdin is read as UTF-8, three stray
+# characters where it is read as a legacy code page -- and is dropped either way.
+$jsonText = [string]$raw
+$brace = $jsonText.IndexOf('{')
+if ($brace -gt 0) { $jsonText = $jsonText.Substring($brace) }
+try { $command = [string](($jsonText | ConvertFrom-Json).tool_input.command) } catch {
+    [Console]::Error.WriteLine('guard-stale-paste-block: the hook payload did not parse as JSON -- the go-live blocks of the issues this PR closes were NOT checked.')
+    exit 0
+}
 $ship = Get-ShipPrInvocation -Command $command
 if ($null -eq $ship) { exit 0 }
 

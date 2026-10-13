@@ -149,7 +149,7 @@ function Set-Fake { param([string]$Name, [string]$Text) [System.IO.File]::WriteA
 
 function Invoke-Hook {
     <# Runs the hook with a shell command as the payload, the fake gh first on PATH; returns Code, Err, Calls. #>
-    param([string]$Command, [string]$Payload)
+    param([string]$Command, [string]$Payload, [switch]$Bom)
     if (-not $PSBoundParameters.ContainsKey('Payload')) { $Payload = ConvertTo-Json -Compress @{ tool_name = 'Bash'; tool_input = @{ command = $Command } } }
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = 'powershell'
@@ -163,7 +163,13 @@ function Invoke-Hook {
     $psi.EnvironmentVariables['FAKE_GH_DIR'] = $work
     $psi.EnvironmentVariables['CLAUDE_PROJECT_DIR'] = $RepoRoot
     $p = [System.Diagnostics.Process]::Start($psi)
-    $p.StandardInput.Write($Payload)
+    # BYTES, AND NO BOM: StandardInput.Write encodes with the PARENT's console input code page, and where a
+    # sibling suite has put the shared console on UTF-8 that prefixes a byte-order mark -- which broke the
+    # hook's JSON parse, so every case under the test gate got exit 0 and no verdict. -Bom sends one on
+    # purpose, to hold the hook to ignoring it.
+    $bytes = (New-Object System.Text.UTF8Encoding $Bom).GetBytes($Payload)
+    if ($Bom) { $bytes = [byte[]](0xEF, 0xBB, 0xBF) + (New-Object System.Text.UTF8Encoding $false).GetBytes($Payload) }
+    $p.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
     $p.StandardInput.Close()
     $errTask = $p.StandardError.ReadToEndAsync()
     $null = $p.StandardOutput.ReadToEnd()
@@ -292,6 +298,10 @@ if ($built) {
     Assert-Equal 0 @($r.Calls).Count 'without asking gh anything'
     $r = Invoke-Hook 'git status'
     Assert-Equal 0 $r.Code 'an unrelated command passes at the pre-gate'
+    Reset-Fake
+    Set-Fake 'issue-7.out' (New-State -Reopen '2026-10-02T10:00:00Z' -Comments @(, @($stBlock, '2026-10-01T10:00:00Z')))
+    $r = Invoke-Hook $ship -Bom
+    Assert-Equal 2 $r.Code 'a payload with a byte-order mark is judged like any other (the gate''s shared UTF-8 console, #2968)'
     $r = Invoke-Hook '' -Payload ''
     Assert-Equal 0 $r.Code 'an empty payload passes'
     $r = Invoke-Hook '' -Payload 'ship-pr.ps1 but not json'
