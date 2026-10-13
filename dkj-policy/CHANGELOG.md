@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**25 / 26 minor entries** <!-- pending-tally -->
+**26 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/house-style-upstream-rule · 20261013-082938Z
+
+A DKJ-Solutions repo that needs the house style itself to change no longer edits its own copy: it files an
+issue on `DKJ-Solutions/dkj-brandbook`, keeps working on its own domain layer, and takes the new copy once it has
+landed there. The rule is in the `dkj-solutions` extension's always-on `CLAUDE.md`, so every session in a
+repo with the plugin enabled reads it; the brand book itself is exempt, because that is where the change is
+made.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app keeps one look: a styling fix lands once, in the brand book, and every app takes it
+from there instead of drifting into its own variant.
+
+**Score:** 3
+
+#### Pull Request
+
+DKJ-Solutions repos change the house style upstream, in dkj-brandbook
+
+Plugins: dkj-solutions
+
+[PR #2953](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2953)
+
+---
 
 ### DEPLOY: feat/house-style-to-brandbook · 20261013-080840Z
 
