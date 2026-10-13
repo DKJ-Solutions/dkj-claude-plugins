@@ -39,19 +39,33 @@
 
 ### PLAN
 
+Inbound #2980: the consumer `DKJ-Solutions/life-hub` was renamed to `DKJ-Solutions/dkj-lifehub`. Follow
+the #2420 pattern: only the `repo` field changes, plus a dated note. The file name and `localCheckout`
+stay `life-hub`, because the local checkout folder still carries that name.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/life-hub.json`: `repo` is now `DKJ-Solutions/dkj-lifehub`, and a RENAMED note is appended.
 
 ### TEST
 
+- [x] `gh repo view DKJ-Solutions/life-hub` resolves to `DKJ-Solutions/dkj-lifehub`. `check-connectors.ps1`
+      no longer reports the origin mismatch. The block it now reads shows two lags in the register,
+      filed as #2982.
+
 ### DEPLOY: fix/2980-lifehub-connector-repo
 
-**Score:**
+The connector register names life-hub's renamed repo, `DKJ-Solutions/dkj-lifehub`
+([#2980](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2980)). Until now the session
+check reported an `[ERROR]` against that checkout's origin and skipped its whole block.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the register is bookkeeping inside this repo, and no consumer takes it.
+
+**Score:** N/A
 
 #### Pull Request
 
