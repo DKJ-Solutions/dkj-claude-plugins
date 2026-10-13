@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**4 / 4 minor entries** <!-- pending-tally -->
+**5 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2961-scaffold-feature-label · 20261013-113132Z
+
+The `specialists-init` scaffold's prefix-table example now suggests `Label = 'feature'` for `feat/`, the
+name the source tracker uses since #2764, where it still suggested GitHub's old `enhancement`
+([#2961](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2961)). Existing branch tables are
+untouched: a consumer keeps whatever label its own table names.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that runs `specialists-init` from this release on is offered `feature` for its `feat/` pull
+requests, the same label the source tracker uses, instead of a name the source already retired.
+
+**Score:** 1
+
+#### Pull Request
+
+specialists-init scaffold suggests the 'feature' label for feat/
+
+Plugins: dkj-subagents-alpha
+
+[PR #2965](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2965)
+
+---
 
 ### DEPLOY: docs/2960-bwj-readme-hooks-row · 20261013-111718Z
 
