@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**6 / 7 minor entries** <!-- pending-tally -->
+**7 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2961-feature-label-every-consumer · 20261013-124731Z
+
+`feature` is now the `feat/` label in every DKJ-Solutions repo, where it used to be left to each repo's
+own branch table ([#2961](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2961)). The
+`dkj-solutions` extension states it in a new tracker-labels chapter and in its `CLAUDE.md`, and Derek's
+lens no longer says a consumer keeps whatever its own table names.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo whose `scripts/lib/branch-info.ps1` still maps `feat` to `enhancement` moves over:
+rename the tracker label first (`gh label edit enhancement --name feature`, which keeps it on every
+issue and PR), then point the table at `feature`. The
+[`dkj-solutions` README](../plugins/dkj-policy/dkj-solutions/README.md#the-tracker-labels--feature-and-bug-in-every-repo)
+gives both steps. Five repos needed it on October 13, 2026: `dkj-brandbook`, `dkj-etf-tracker`,
+`djcylow-react`, `dkj-music-library` and `dkj-recipes`.
+
+**Score:** 4
+
+#### Pull Request
+
+feature is the feat/ label for every DKJ-Solutions consumer
+
+Plugins: dkj-solutions
+
+[PR #2970](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2970)
+
+---
 
 ### DEPLOY: feat/2967-dev-preview-hook · 20261013-121650Z
 
