@@ -9,7 +9,7 @@ no specialists.
 
 | Chapter | Where | What it holds |
 |---|---|---|
-| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The design tokens, the twelve themes a user picks from and the base stylesheet, as a self-contained CSS file plus a small theme script |
+| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | A pointer to [DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook), which holds the design tokens, the twelve themes and the base stylesheet, plus the rules a session needs before it fetches them |
 
 ## Who enables it
 
@@ -33,4 +33,4 @@ session start ([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
 ## In this source repo
 
 The plugin is listed as `false` in this repo's `.claude/settings.json`: there is no app here that
-renders anything. The house style is maintained here, and only tried out in a consumer.
+renders anything. The house style itself is maintained in `dkj-brandbook`; only the skill's pointer is maintained here.

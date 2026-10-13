@@ -43,19 +43,38 @@ The house-style skill keeps the rules a session needs and points at dkj-brandboo
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css` and `house-theme.js` moved to DKJ-Solutions/dkj-brandbook (its PR #1, byte-identical) and removed here
+- [x] `skills/house-style/SKILL.md` rewritten as a pointer: the raw URLs, the README, and the three rules a session needs first
+- [x] the plugin's `README.md`, `CLAUDE.md` and `plugin.json` description name the brand book as the home
+- [x] Gwen's lens here keeps only the pointer; her house-style rules moved to her brandbook lens (its PR #2)
 
 ### TEST
 
+- [x] the raw URL `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/main/house-style/house-style.css` answers 200
+- [x] no file in this tree still references `house-style.css` or `house-theme.js` beside the skill page
+
 ### DEPLOY: feat/house-style-to-brandbook
 
-**Score:**
+The DKJ-Solutions house style moved to its own repo,
+[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook) (`house-style/`). The
+stylesheet, the theme script and the full rules (tokens, themes, reserved classes) live there now and
+nowhere else. The `house-style` skill in `dkj-solutions` stays and still loads in every DKJ-Solutions
+session, but it is a pointer: the two raw URLs, the README, and the three rules a session needs before
+it fetches anything. A change to the house style is made in the brand book from now on.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The house style and the overview of every DKJ-Solutions component now sit in one repo, so the brand is
+checked in one place. An app that takes the update gets the same values as before: nothing was changed
+in the move.
+
+**Score:** 3
 
 #### Pull Request
 
 The house style moves to dkj-brandbook; the skill points there
+
+Plugins: dkj-solutions
 
