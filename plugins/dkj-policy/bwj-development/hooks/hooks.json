@@ -10,6 +10,16 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "p=$(cat); printf '%s' \"$p\" | grep -Eq '(ship-pr|open-pr)\\.ps1' || exit 0; command -v powershell >/dev/null 2>&1 || exit 0; printf '%s' \"$p\" | powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/guard-stale-paste-block.ps1\"",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "PostToolUse": [

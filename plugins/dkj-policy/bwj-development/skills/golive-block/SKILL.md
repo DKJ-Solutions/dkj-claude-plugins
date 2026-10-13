@@ -144,7 +144,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
-| `-Force` | post although a block already appears to be there, a store-admin prerequisite is still open, the issue links no single Asana task, no open or merged pull request closes it yet, or the issue could not be read |
+| `-Force` | post although a block already appears to be there FOR THIS ROUND (one from before the issue's last reopen does not count, so a reopened issue's corrected block needs no `-Force` for that), a store-admin prerequisite is still open, the issue links no single Asana task, no open or merged pull request closes it yet, or the issue could not be read |
 | `-AllowPrivateLink` | accept a `claude.ai` Artifact as `-Link` once it has actually been shared with the requester. Kept apart from `-Force` so that posting a second block never also lets a private link through |
 
 ## What it deliberately does not do
@@ -161,7 +161,8 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
   retired `asana-mirror` did from #2700. So the framing sentence above the rules reads *"The closed
   message carries the block below into the Asana task when this issue closes as completed -- no paste
   needed:"* -- on an issue whose body links its task (step 9); on one that does not, the sentence says
-  that nothing will reach Asana. A close as not planned sends no block: it sends nothing, or -- with `awaiting-info-client` kept
+  that nothing will reach Asana. A close whose newest block predates the issue's last reopen carries
+  none and says the result message follows (#2968, the second-block paragraph below). A close as not planned sends no block: it sends nothing, or -- with `awaiting-info-client` kept
   on -- the on-hold line alone (#2902).
 - **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026"* is a
   cadence, and a release can slip. This block is the one surface a colleague quotes back, so it must
@@ -193,10 +194,18 @@ page its copy. `-Force` is for a deliberate early post.
 appears underneath an item that has just left every open-issue view. The script warns where the issue
 is already closed and posts anyway -- a late block beats none.
 
-**And it refuses a second block by default.** `Test-AsanaPasteBlockPosted` (in
+**And it refuses a second block by default, within one round.** `Test-AsanaPasteBlockPosted` (in
 `scripts/lib/asana-task-lib.ps1`) answers *true* where it cannot read the comments, which is the safe
 default for a duplicate check, so an unreadable issue is reported as exactly that and `-Force` is the way
-past it.
+past it. **Only a block posted after the issue's last reopen counts** ([#2968](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2968)): an issue closed
+after round 1, reopened and built again still carries round 1's block, and that block is the one to
+replace, not a duplicate of round 2's. Post round 2's block **before** the PR merges: the closed message
+carries the newest block at the close, and the `guard-stale-paste-block` hook refuses a ship while the
+newest one is older than the reopen (it names this command; `-GatesOnly` is skipped). The hook is an
+accident guard that fails open with a stderr warning where it cannot read an issue, and it judges every
+comment's block, trusted author or not, so its pass is not proof. Where a merge bypasses it, the
+workflow -- the authority at the close, carrying a trusted author's block only -- holds the stale block
+back and says the result message follows: a delay, never a wrong result.
 
 ## Where the rule lives
 

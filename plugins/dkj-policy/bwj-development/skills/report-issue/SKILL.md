@@ -309,7 +309,7 @@ that it is GitHub-only because it is tier 0, so the missing card reads as a deci
 failed mirror. **Do not resolve anything, and do not promise that anything else will.**
 Closing the GitHub issue as completed posts one comment on the task: the `asana-closed-message`
 workflow's closed message, carrying the go-live block (the `golive-block` skill) the shipping session
-left on the issue (#2818); reopening it posts the reopened message (#2854). That is all it does. The rest
+left on the issue (#2818; a block from before the issue's last reopen is withheld, #2968); reopening it posts the reopened message (#2854). That is all it does. The rest
 of the retired `asana-mirror` CI (moving the card, the sweeps) did not come back, so the card stays in `Filed` unless a person
 moves it, and the task stays open until the colleague who filed it ticks it off. Nothing in this chain
 completes a task, and nothing puts a card in `Completed` either.

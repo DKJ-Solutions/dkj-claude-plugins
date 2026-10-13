@@ -21,7 +21,9 @@ permissions:
   contents: read
   # READ: the script reads the issue's comments for the go-live block, and writes nothing on GitHub. It
   # reads them through REST (gh api .../issues/<n>/comments), which this scope covers; the GraphQL read
-  # it replaced answered nothing on the runner (#2875). Where a block comment's author reads as an
+  # it replaced answered nothing on the runner (#2875). It reads the issue's events the same way, to
+  # tell a block from before the last reopen from one for this round (#2968); the issue events endpoint
+  # is covered by this scope, like the comments. Where a block comment's author reads as an
   # untrusted association -- a PRIVATE org member does, to this token -- it also reads that author's repo
   # permission (gh api .../collaborators/<login>/permission, #2907). GitHub's docs name no scope for that
   # endpoint, so whether this token may read it is measured on the first such run, not assumed: a refused
