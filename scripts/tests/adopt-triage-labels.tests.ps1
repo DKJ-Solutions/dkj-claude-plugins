@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Tests for scripts/task/adopt-triage-labels.ps1 -- the print-only adopter for the canonical triage
-    labels -- the 'prio-1'..'prio-4' rungs (issue #1895, split from #1843) plus 'awaiting-recurrences' (#2462; 'dossier' until #2683, 'record' until #2723), 'awaiting-decision-dev' (#2519; 'awaiting-decision' until #2890, 'needs-decision' until #2741), 'awaiting-decision-client' (#2890), 'awaiting-pull' (#2757), 'awaiting-action-external' (#2784), 'awaiting-action-dev' (#2828), 'awaiting-release' (#2851) and 'awaiting-recurrences-first' (#2587; 'awaiting-recurrence' until #2723).
+    labels -- the 'prio-1'..'prio-4' rungs (issue #1895, split from #1843) plus 'awaiting-recurrences' (#2462; 'dossier' until #2683, 'record' until #2723), 'awaiting-decision-dev' (#2519; 'awaiting-decision' until #2890, 'needs-decision' until #2741), 'awaiting-decision-client' (#2890), 'awaiting-review-dev' and 'awaiting-review-client' (#2977), 'awaiting-pull' (#2757), 'awaiting-action-external' (#2784), 'awaiting-action-dev' (#2828), 'awaiting-release' (#2851) and 'awaiting-recurrences-first' (#2587; 'awaiting-recurrence' until #2723).
 
 .DESCRIPTION
     WHAT IS COVERED, AND WHY THESE PROPERTIES:
@@ -80,7 +80,7 @@ function Assert-Equal {
 $LabelsNone    = '[{"name":"bug","color":"d73a4a","description":"unrelated default label"},{"name":"enhancement","color":"a2eeef","description":"unrelated default label"}]'
 # Every colour in $LabelsAll is the canonical one -- 'prio-1' in lower case, the way gh returns it -- so
 # the scenario reaches '[ok]' and not the '[drift]' arm (#2942), which 3b exercises on its own.
-$LabelsAll     = '[{"name":"prio-1","color":"ffa726","description":"old text"},{"name":"prio-2","color":"F57C00","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Awaiting-Recurrences","color":"5319E7","description":"old text"},{"name":"awaiting-decision-dev","color":"5319E7","description":"old text"},{"name":"awaiting-decision-client","color":"5319E7","description":"old text"},{"name":"awaiting-pull","color":"5319E7","description":"old text"},{"name":"awaiting-action-external","color":"5319E7","description":"old text"},{"name":"awaiting-action-dev","color":"5319E7","description":"old text"},{"name":"awaiting-release","color":"5319E7","description":"old text"},{"name":"awaiting-recurrences-first","color":"5319E7","description":"old text"}]'
+$LabelsAll     = '[{"name":"prio-1","color":"ffa726","description":"old text"},{"name":"prio-2","color":"F57C00","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"},{"name":"prio-4","color":"B60205","description":"old text"},{"name":"Awaiting-Recurrences","color":"5319E7","description":"old text"},{"name":"awaiting-decision-dev","color":"5319E7","description":"old text"},{"name":"awaiting-decision-client","color":"5319E7","description":"old text"},{"name":"awaiting-review-dev","color":"5319E7","description":"old text"},{"name":"awaiting-review-client","color":"5319E7","description":"old text"},{"name":"awaiting-pull","color":"5319E7","description":"old text"},{"name":"awaiting-action-external","color":"5319E7","description":"old text"},{"name":"awaiting-action-dev","color":"5319E7","description":"old text"},{"name":"awaiting-release","color":"5319E7","description":"old text"},{"name":"awaiting-recurrences-first","color":"5319E7","description":"old text"}]'
 $LabelsPartial = '[{"name":"prio-1","color":"FFA726","description":"old text"},{"name":"PRIO-3","color":"E0321A","description":"old text"}]'
 $LabelsBad     = 'not json'
 
@@ -152,12 +152,12 @@ try {
     Assert-True ($scriptSrc -match "Write-Host\s+`"\s*gh label create") `
         'and it is printed via Write-Host, not passed to a native call'
 
-    # --- 2. All twelve missing: the built-in fallback, twelve paste-ready commands, exit 0 ------------
-    Write-Host '-- 2. all twelve missing (built-in fallback, no seam defined) --' -ForegroundColor Cyan
+    # --- 2. All fourteen missing: the built-in fallback, fourteen paste-ready commands, exit 0 ------------
+    Write-Host '-- 2. all fourteen missing (built-in fallback, no seam defined) --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'allmissing'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fNone
     Assert-Equal 0 $r.Code 'all missing: exit-code 0 -- this is a report, never a gate'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-review-dev', 'awaiting-review-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first')) {
         Assert-True ($r.Out -like "*[missing]*'$name'*") "all missing: '$name' reported [missing]"
     }
     Assert-True ($r.Flat -like "*READ-ONLY*never runs gh label create*") 'all missing: the header states the print-only contract on every run'
@@ -166,18 +166,18 @@ try {
     Assert-True ($r.Flat -like "*gh label create 'prio-2' --color 'F57C00' --description 'Priority 2 of 4 -- worth doing, no pressure' --repo fixture-org/fixture-repo*") `
         "all missing: the composed command for 'prio-2' is exact and paste-ready, including --repo"
     Assert-Equal 0 (@([regex]::Matches($r.Out, '\[ok\]')).Count) 'all missing: zero [ok] lines'
-    Assert-True ($r.Flat -like '*12 of 12 canonical triage label(s) missing*') 'all missing: the summary line counts 12 of 12'
+    Assert-True ($r.Flat -like '*14 of 14 canonical triage label(s) missing*') 'all missing: the summary line counts 14 of 14'
 
-    # --- 3. All twelve present (two in a different case): all [ok], nothing printed to create --------
-    Write-Host '-- 3. all twelve already exist (two case-differently) --' -ForegroundColor Cyan
+    # --- 3. All fourteen present (two in a different case): all [ok], nothing printed to create --------
+    Write-Host '-- 3. all fourteen already exist (two case-differently) --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'allpresent'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fAll
     Assert-Equal 0 $r.Code 'all present: exit-code 0'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-review-dev', 'awaiting-review-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first')) {
         Assert-True ($r.Out -like "*[ok]*'$name' already exists*") "all present: '$name' reported [ok]"
     }
     Assert-Equal 0 (@([regex]::Matches($r.Out, '\[missing\]')).Count) 'all present: zero [missing] lines'
-    Assert-True ($r.Flat -like '*Done: all 12 canonical triage label(s) already exist*') 'all present: the summary line says done'
+    Assert-True ($r.Flat -like '*Done: all 14 canonical triage label(s) already exist*') 'all present: the summary line says done'
     # THE CASE-INSENSITIVE MATCH, explicitly: 'PRIO-3' in the payload must satisfy 'prio-3' in the
     # canonical set -- GitHub itself treats the two as the same label, and a case-sensitive compare
     # here would print a create command gh would refuse as a duplicate.
@@ -197,20 +197,20 @@ try {
     Assert-Equal 1 (@([regex]::Matches($r.Out, '\[drift\]')).Count) 'drift: exactly one [drift] line -- the eleven matching labels stay [ok]'
     Assert-True ($r.Out -notmatch "\[ok\]\s+'awaiting-action-external'") 'drift: and the drifted label is no longer reported [ok]'
     Assert-True ($r.Flat -notlike '*Done:*') 'drift: the summary does not say done'
-    Assert-True ($r.Flat -like '*All 12 canonical triage label(s) exist*1 of them in a colour other than the canonical one*nothing was changed*') 'drift: the summary counts the drifted label'
+    Assert-True ($r.Flat -like '*All 14 canonical triage label(s) exist*1 of them in a colour other than the canonical one*nothing was changed*') 'drift: the summary counts the drifted label'
 
-    # --- 4. Two of twelve present: a mixed report, correct counts ------------------------------------
-    Write-Host '-- 4. two of twelve already exist --' -ForegroundColor Cyan
+    # --- 4. Two of fourteen present: a mixed report, correct counts ------------------------------------
+    Write-Host '-- 4. two of fourteen already exist --' -ForegroundColor Cyan
     $dir = New-FixtureConsumer -Label 'partial'
     $r = Invoke-Adopt -Dir $dir -LabelJsonPath $fPartial
     Assert-Equal 0 $r.Code 'partial: exit-code 0'
     foreach ($name in @('prio-1', 'prio-3')) {
         Assert-True ($r.Out -like "*[ok]*'$name' already exists*") "partial: '$name' reported [ok]"
     }
-    foreach ($name in @('prio-2', 'prio-4', 'awaiting-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first')) {
+    foreach ($name in @('prio-2', 'prio-4', 'awaiting-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-review-dev', 'awaiting-review-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first')) {
         Assert-True ($r.Out -like "*[missing]*'$name'*") "partial: '$name' reported [missing]"
     }
-    Assert-True ($r.Flat -like '*10 of 12 canonical triage label(s) missing*2 already exist*') 'partial: the summary line counts both halves'
+    Assert-True ($r.Flat -like '*12 of 14 canonical triage label(s) missing*2 already exist*') 'partial: the summary line counts both halves'
 
     # --- 4b. A tracker still carrying the FORMER name: a rename, never a create beside it (#2683) ----
     Write-Host '-- 4b. the former name dossier is renamed to awaiting-recurrences, not duplicated --' -ForegroundColor Cyan
@@ -222,7 +222,7 @@ try {
     Assert-True ($r.Flat -like "*gh label edit 'dossier' --name 'awaiting-recurrences' --color '5319E7' --description 'Collects every instance of one recurring problem until its root cause is fixed' --repo fixture-org/fixture-repo*") `
         'legacy name: the composed command is a paste-ready gh label edit, which keeps every issue on the label'
     Assert-True ($r.Flat -notlike "*gh label create 'awaiting-recurrences'*") 'legacy name: and no create is printed beside it'
-    Assert-True ($r.Flat -like '*11 of 12 canonical triage label(s) missing*1 already exist*') 'legacy name: the rename still counts as a to-do in the summary'
+    Assert-True ($r.Flat -like '*13 of 14 canonical triage label(s) missing*1 already exist*') 'legacy name: the rename still counts as a to-do in the summary'
 
     # --- 4c. The #2723 former names: 'record' and 'awaiting-recurrence', each renamed in place ------
     Write-Host '-- 4c. the former names record and awaiting-recurrence are renamed, not duplicated (#2723) --' -ForegroundColor Cyan
@@ -311,7 +311,7 @@ try {
     Assert-True ($r.Out -like "*[missing]*'foo-team-label'*") 'custom seam: the CONSUMER''s own label is what gets reported'
     Assert-True ($r.Flat -like "*gh label create 'foo-team-label' --color 'abcdef' --description 'a made-up team convention' --repo fixture-org/fixture-repo*") `
         'custom seam: and the exact command composes from the seam''s own values'
-    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first')) {
+    foreach ($name in @('prio-1', 'prio-2', 'prio-3', 'prio-4', 'awaiting-recurrences', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-review-dev', 'awaiting-review-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first')) {
         Assert-True ($r.Out -notlike "*'$name'*") "custom seam: the built-in canonical '$name' is NOT reported -- the seam fully replaced it"
     }
 
@@ -388,7 +388,7 @@ try {
     }
 
     # --- 8. The two canonical copies never disagree: this script's built-in fallback and ------------
-    #        scripts/repo-config.ps1's Get-TriageLabels must be the SAME twelve literal records, because
+    #        scripts/repo-config.ps1's Get-TriageLabels must be the SAME fourteen literal records, because
     #        an unanswered consumer and an answered one must be told the same set (see both files'
     #        headers for why).
     Write-Host '-- 8. the built-in fallback and Get-TriageLabels agree, byte for byte --' -ForegroundColor Cyan
@@ -405,10 +405,10 @@ try {
     $repoConfigText = [System.IO.File]::ReadAllText($RepoConfigSrc)
     $scriptLiterals      = @(Get-TriageLiteralLines -Text $scriptSrc)
     $repoConfigLiterals  = @(Get-TriageLiteralLines -Text $repoConfigText)
-    Assert-Equal 12 $scriptLiterals.Count 'the script''s own built-in fallback declares exactly twelve label literals'
-    Assert-Equal 12 $repoConfigLiterals.Count 'scripts/repo-config.ps1''s Get-TriageLabels declares exactly twelve label literals'
+    Assert-Equal 14 $scriptLiterals.Count 'the script''s own built-in fallback declares exactly fourteen label literals'
+    Assert-Equal 14 $repoConfigLiterals.Count 'scripts/repo-config.ps1''s Get-TriageLabels declares exactly fourteen label literals'
     Assert-Equal ($repoConfigLiterals -join "`n") ($scriptLiterals -join "`n") `
-        'the built-in fallback and Get-TriageLabels are the exact same twelve literal records -- an unanswered consumer and an answered one are told the same set'
+        'the built-in fallback and Get-TriageLabels are the exact same fourteen literal records -- an unanswered consumer and an answered one are told the same set'
 
     # --- 8b. Every canonical label fits GitHub's own limits (name 50, description 100), #2842 -------
     #         A label over either limit makes the printed `gh label create` fail with HTTP 422, on every

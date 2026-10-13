@@ -152,19 +152,19 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `awaiting-recurrences`, `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
-`awaiting-recurrences-first`), so adopting the convention costs one command instead of twelve typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-recurrences`, `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
+`awaiting-recurrences-first`), so adopting the convention costs one command instead of fourteen typed by hand.
 
 **A parking label goes on when the issue is filed, whichever one it is**
-([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The eight
+([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The ten
 `awaiting-*` labels below each park an issue whose next step waits on something other than work: the
-owner's choice, a client's choice, another issue's pull request, an external event or date, an act only
+owner's choice, a client's choice, the owner's or a client's look at a result, another issue's pull request, an external event or date, an act only
 the owner performs, the next release, a first recurrence, or a record's next instance. Such an issue carries the matching label in the same `gh issue create` that
 files it, beside its `prio-N`. Filed without it, it reads as free work to both pickup routes until
 somebody notices. Measured in this plugin's source repo: an issue whose own body said it waited on
 later CI runs was filed with only its `prio-N`, and was parked by hand six minutes later. Each
 paragraph below says what its label parks and when it comes off. When it goes on is this rule, for all
-eight alike.
+ten alike.
 
 **An issue carries at most one `awaiting-*` label, so setting one replaces any other**
 ([#2936](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2936), Maikel, October 12, 2026).
@@ -221,7 +221,7 @@ label's name moved. Six things follow from being a record:
   record drops out of the default issue list, the search before filing reads closed issues too (below).
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `awaiting-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
+  skip `awaiting-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
   `awaiting-recurrences-first`. Working a
   record is a deliberate assignment, named by its number.
 
@@ -237,6 +237,7 @@ parked issue in one pass with the owner
 ([#2759](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2759)).
 
 - **A choice that is not the owner's is `awaiting-decision-client`** ([#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890), Dave, October 7, 2026): a colleague's QA sign-off, a business decision from the client or requester outside the dev team. Both pickup routes skip it, and **`sweep-decisions` skips it too**, because putting it to the owner would record an answer the owner has no standing to give; it comes off when that person answers, and the answer goes on the issue as a comment. It is a new label, so no former name is matched for it.
+- **A result somebody has to look at is `awaiting-review-dev` or `awaiting-review-client`** ([#2977](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2977), Dave, October 13, 2026): a visible result (a preview, rendered output, an artifact) parked to be judged by eye. `awaiting-review-dev` waits on the owner's look; `awaiting-review-client` waits on the client's or requester's look, such as a preview sent to them. **Review is not decision**: review means someone has to *look* at a result, decision means someone has to *choose*. Both pickup routes skip them, `claim-issue` warns on them, the issue dashboard shows them as waiting, and `sweep-decisions` walks neither. The label comes off when the look has happened, and what was seen goes on the issue as a comment. Both are new, so no former name is matched.
 - **It is not `awaiting-info-client`.** Where [`bwj-development`](bwj-development/WORKFLOW-portable.md) is installed,
   `awaiting-info-client` (named `awaiting-more-info` until October 12, 2026, #2917, and `needs-info` until October 2, 2026,
   [#2723](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2723); both old names are still matched)

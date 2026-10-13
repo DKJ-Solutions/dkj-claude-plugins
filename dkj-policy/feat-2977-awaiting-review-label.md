@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Issue #2977 asks for an awaiting label for issues that wait on somebody's eyes. It lands as a pair,
+mirroring the decision pair of #2890: `awaiting-review-dev` (the owner's look) and
+`awaiting-review-client` (the client's or requester's look). Review means somebody has to LOOK at a
+result; decision means somebody has to CHOOSE. Neither has a former name.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Scripts, config, blueprint, dashboard worker and tests list the pair wherever the other parking
+      labels are, in both mirrors (Sylvester #15); the shared parking purple `5319E7`.
+- [x] Docs and skill pages list the pair; `sweep-issues` step 5 sets the label on a visible park and
+      step 6 removes it on approval (Tessa #16).
 
 ### TEST
 
+- [x] The affected suites green on the branch: claim-issue (590/0), issue-dashboard (448/0), pr-issues
+      (1150 asserts), config-blueprint (227/0), repo-config and adopt-triage-labels; plugin-integrity
+      and script-contract 0 errors. The full gate runs inside ship-pr.
+
 ### DEPLOY: feat/2977-awaiting-review-label
 
-**Score:**
+Two new parking labels say that an issue waits on somebody's look at a result, not on a choice
+([#2977](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2977)). `awaiting-review-dev` is
+the owner's look, and `awaiting-review-client` is the look of the client or requester outside the dev
+team. `sweep-issues`, the claim defaults and the issue dashboard skip both, so they are treated like
+the other `awaiting-*` labels. `sweep-issues` now sets `awaiting-review-dev` when it parks a visible
+result and removes it again when that result is approved. `sweep-decisions` walks neither label.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer who runs `adopt-triage-labels` is offered two new labels to create. Once a preview is
+waiting for someone to look at it, the issue drops out of every sweep until the label comes off.
+
+**Score:** 2
 
 #### Pull Request
 

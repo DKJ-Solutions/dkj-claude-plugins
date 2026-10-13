@@ -309,6 +309,8 @@ const PARKED_BECAUSE = {
   "awaiting-info-client": "waiting on the submitter",
   "awaiting-decision-dev": "waiting on the owner's decision",
   "awaiting-decision-client": "waiting on the client's decision",
+  "awaiting-review-dev": "waiting on the dev's review",
+  "awaiting-review-client": "waiting on the client's review",
   "awaiting-pull": "waiting on another issue's pull request",
   "awaiting-action-external": "waiting on an external event or date",
   "awaiting-action-dev": "waiting on an act only the owner performs",

@@ -70,7 +70,7 @@ disagree you follow it and say so.
 ### 1. Choose -- and it writes nothing
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-info-client,awaiting-decision-dev,awaiting-decision-client,awaiting-pull,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-recurrences-first,awaiting-recurrences,awaiting-first-recurrence,awaiting-more-recurrences,awaiting-more-info,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier,awaiting-owner-act,awaiting-event
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-info-client,awaiting-decision-dev,awaiting-decision-client,awaiting-review-dev,awaiting-review-client,awaiting-pull,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-recurrences-first,awaiting-recurrences,awaiting-first-recurrence,awaiting-more-recurrences,awaiting-more-info,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier,awaiting-owner-act,awaiting-event
 ```
 
 It prints every open issue as `free`, `mine`, `held`, `branch` or `skipped` with the reason, and names
@@ -103,7 +103,7 @@ light** -- report the number as unjudged and move on.
 ([#2843](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2843)). The wait might be a live
 push, a release, a deletion or a credential (`awaiting-action-dev`), work that may only run inside the
 next release (`awaiting-release`, which the cut lists), another issue's pull request (`awaiting-pull`), an external event or date (`awaiting-action-external`), the owner's choice
-(`awaiting-decision-dev`), or a choice that belongs to the client or requester outside the dev team (`awaiting-decision-client`, #2890). Set the matching label and say in one comment what it waits on:
+(`awaiting-decision-dev`), or a choice that belongs to the client or requester outside the dev team (`awaiting-decision-client`, #2890), or somebody's look at a result (`awaiting-review-dev` for the owner's, `awaiting-review-client` for the client's or requester's, #2977). Set the matching label and say in one comment what it waits on:
 
 ```powershell
 gh issue edit <n> --add-label <awaiting-label>
@@ -195,7 +195,9 @@ ARGUE that it renders, which is itself the doubt -- then:
 
 - push whatever preview the repo has (in a Shopify consumer, `push-preview`), hand it over in the form
   that repo's own pages prescribe, and **open no pull request**;
-- park the branch on `origin`, and **the sweep ends here, on that branch** -- straight to the
+- park the branch on `origin`, and set `awaiting-review-dev` on the issue (`awaiting-review-client` when
+  the client must look) together with a one-line comment on what to look at (#2977), so the next
+  sweep reads it as `skipped`; **the sweep ends here, on that branch** -- straight to the
   close-out below, with no step 7.
 
 A pull request is the question *may this go to the trunk*, and that question is not open while nobody
@@ -240,7 +242,7 @@ indistinguishable from your own. **This is the sharpest place a vague claim cost
 everything that carries a marker and is therefore safe whoever wrote it, while this step deliberately
 resumes on the tag's own work.
 
-Then ship it -- the same `ship-pr.ps1 -Resolves <n>` as step 5 -- and close the issue the way this repo
+Then take the review label off (`gh issue edit <n> --remove-label awaiting-review-dev`, or `awaiting-review-client`), ship it -- the same `ship-pr.ps1 -Resolves <n>` as step 5 -- and close the issue the way this repo
 closes issues. **Where the issue mirrors a ticket
 somewhere else, the message to the person who asked comes BEFORE the close** -- the plugin that owns
 that mirror carries the form; without such a plugin the ordinary `Closes #<n>` applies.
@@ -269,7 +271,7 @@ it as the cue for step 7, not as the end of the assignment. Measured September 2
 one issue, took that template as its own close-out, and left four `free` issues untouched.
 
 **What it skipped as `awaiting-decision-dev` is the owner's half**, and `sweep-decisions` walks it with
-them in one pass; a decided issue comes back here as `free`. What it skipped as `awaiting-decision-client` is nobody's half here: it waits on the client or requester, and neither skill walks it.
+them in one pass; a decided issue comes back here as `free`. What it skipped as `awaiting-decision-client` is nobody's half here: it waits on the client or requester, and neither skill walks it. **Nor does either walk `awaiting-review-dev` or `awaiting-review-client`** (#2977): those wait on a look at a result, not on a choice, and the look is the owner's or the client's to give.
 
 **The sweep closes out once, after the loop**, in the ordinary receipt shape: the PR number of each issue
 it shipped, the branch it parked for the owner's eye (checked out, where it stays), the number and
