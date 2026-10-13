@@ -2423,7 +2423,11 @@ Moved here from `.claude/rules/this-repo.md` under
 [#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the rule keeps the one-line
 fact of which plugins are enabled, and this is the harness consequence behind it.
 
-**Two of the six are enabled: the core team and `dkj-policy`.** The three add-on teams are set to
+**Three of the seven are enabled: the core team, `dkj-policy` and `dkj-solutions`.** The last since
+October 13, 2026 (Maikel, [#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)),
+for its dev-preview hook: this repo's `Get-DevPreview` starts the connector dashboard
+(`scripts/dashboard/serve-connector-dashboard.ps1`) at session start, and the root `CLAUDE.md` imports the
+extension, as the constitution requires of an installed one. The three add-on teams are set to
 `false` since September 30, 2026, and the BWJ extension (then `dkj-policy-bwj`) since October 1 (both Dave). From September 8 to
 September 30 all six were on, for validation (see below). **`false`, not absent, and that is
 load-bearing**: the harness and every check here read the settings chain user file →
@@ -2442,8 +2446,8 @@ session here: 14 skill descriptions, 2,150 tokens measured by `measure-session-s
 for them to work on. This needs the same `false`-not-absent rule as the six. It is not registered in the
 connector manifest, so no block had to go.
 
-**Only two of the six describe this repo outright.** The core team and `dkj-policy` are the two with real
-work here; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a
+**Only three of the seven describe this repo outright.** The core team and `dkj-policy` have real
+work here, and `dkj-solutions` its hook; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a
 personal-life repo. Three of `bwj-development`'s four chapters are about a Shopify store too. **Its
 ticket-handling chapter admits this repo as a third permitted target** at `report-issue`'s and
 `adopt-bwj-development`'s own gate (then `adopt-dkj-policy-bwj`; Dave, September 14, 2026, commit `b9b2a65a`; the per-chapter reach

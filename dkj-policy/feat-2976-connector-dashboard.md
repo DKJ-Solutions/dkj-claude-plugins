@@ -39,19 +39,53 @@
 
 ### PLAN
 
+#### The request
+
+Maikel, October 13, 2026: run the dev-preview SessionStart hook in this repo too, and serve a dashboard
+with an overview of every connected repo. Issue #2976.
+
+#### Shape
+
+- Enable `dkj-solutions` here, import its extension in the root `CLAUDE.md`, and register it in this
+  repo's own connector record.
+- State `Get-DevPreview` in `scripts/repo-config.ps1`, ports 4870-4879.
+- A dependency-free PowerShell server on `127.0.0.1` (`TcpListener`, so the hook can recognise it as
+  this checkout's), which parses `check-connectors.ps1 -SkipDrift` rather than re-implementing it.
+- The page uses a vendored copy of the house style at `house-style-v1`, checksums verified.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/connector-dashboard-lib.ps1`: parse, status, Host guard, escaping, the page
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1` and the vendored house style beside it
+- [x] `Get-DevPreview` in `scripts/repo-config.ps1`
+- [x] `dkj-solutions` enabled and installed at project scope; `CLAUDE.md` import; connector record
+- [x] Docs that named the enabled set: `this-repo.md`, `SPECIALISTS.md`, Sylvester's lens, the plugin README
 
 ### TEST
 
+- [x] `scripts/tests/connector-dashboard.tests.ps1`: 39 asserts, including a real server on a free port
+- [x] The tree's hook run twice against this checkout: `started` on 4870, then `already running`
+- [x] The live page: 200 with six repos; a foreign Host 403, POST 405, `/refresh` 303
+- [ ] The owner's look at the page (visible result)
+
 ### DEPLOY: feat/2976-connector-dashboard
 
-**Score:**
+This repo now runs the `dkj-solutions` dev-preview hook, and what it starts is a **connector dashboard**
+([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)): one page on
+`http://localhost:4870/` with every repo registered under `connectors/`, its status, its plugins, its
+local checkout's branch and state, and every error and note `check-connectors.ps1` reports for it, worst
+first. It reads the check's own report rather than a second copy of its rules, binds to `127.0.0.1` only
+and refuses a foreign `Host`. The hook itself is still unreleased, so it starts the dashboard from the
+first session after the next release; until then it starts by hand
+(`scripts/dashboard/serve-connector-dashboard.ps1 -Port 4870`).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing a consumer runs changes: the dashboard and its seam are this repo's own.
+
+**Score:** N/A
 
 #### Pull Request
 
