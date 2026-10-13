@@ -9,7 +9,7 @@ the two ever speak to the same question, `dkj-policy` wins.
 It adds one chapter:
 
 - **The house style** — the [`house-style`](skills/house-style/SKILL.md) skill, which points at the
-  stylesheet in [`dkj-brandbook`](https://github.com/DKJ-Solutions/dkj-brandbook). Every page, report,
+  stylesheet, the theme script and the rules in [`dkj-brandbook`](https://github.com/DKJ-Solutions/dkj-brandbook). Every page, report,
   dashboard or Artifact a DKJ-Solutions app renders starts from that stylesheet, and a repo
   adds its own domain layer on top without redefining a house token. Load the skill before any visual
   work. Where a repo's own lens names a style guide, that guide extends the house style and does not

@@ -33,4 +33,6 @@ session start ([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
 ## In this source repo
 
 The plugin is listed as `false` in this repo's `.claude/settings.json`: there is no app here that
-renders anything. The house style itself is maintained in `dkj-brandbook`; only the skill's pointer is maintained here.
+renders anything.
+
+The house style itself is maintained in `dkj-brandbook`. Only the skill's pointer is maintained here.
