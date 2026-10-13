@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**5 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2963-lens-docs-no-label · 20261013-114546Z
+
+Derek's lens no longer maps `docs/` to the retired `documentation` label: its branch table and two
+paragraphs now say a `docs/` branch carries no label, as `branch-info.ps1` has since #2783
+([#2963](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2963)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+The lens is this repo's own; no consumer reads it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Derek's lens: a docs/ branch carries no label, as branch-info.ps1 says
+
+[PR #2966](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2966)
+
+---
 
 ### DEPLOY: fix/2961-scaffold-feature-label · 20261013-113132Z
 
