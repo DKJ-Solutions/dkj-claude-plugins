@@ -39,19 +39,34 @@
 
 ### PLAN
 
+#2986 repointed the `house-style` skill to `house-style-v2`, but the connector dashboard vendors its own
+copy under `scripts/dashboard/house-style/` and that copy stayed on v1 (both sha256 values matched the v1
+row), with a hand-built Theme card around `DKJTheme.picker`. So the new settings button never appeared.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Vendor `house-style.css` and `house-theme.js` from tag `house-style-v2`, sha256 checked against the skill's table and the pre-inline rules scanned
+- [x] `connector-dashboard-lib.ps1`: the Theme card goes, `DKJTheme.settings` sits in the header controls beside "Re-run the check", English labels
+- [x] `connector-dashboard.tests.ps1`: assert the page uses `DKJTheme.settings` and no longer `DKJTheme.picker`
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` green (58 passed); the dashboard on :4870 restarted and serves `DKJTheme.settings`
+- [ ] The owner has looked at the dashboard (visible result)
+
 ### DEPLOY: fix/dashboard-house-style-v2
 
-**Score:**
+The connector dashboard now runs on `house-style-v2`: its vendored stylesheet and theme script were
+still the v1 copies after #2986 repointed the skill. The theme choice moved from a card at the bottom of
+the page to the house settings button in the header.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the dashboard is served only on this repo's own checkout; no consumer receives it.
+
+**Score:** N/A
 
 #### Pull Request
 

@@ -193,7 +193,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<div><h1>Connected repos</h1>')
     $commit = if ($Meta.SourceCommit) { ' &#183; source at <code>' + (& $e $Meta.SourceCommit) + '</code>' } else { '' }
     [void]$sb.AppendLine('<p class="sub">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine' + $commit + '.</p></div>')
-    [void]$sb.AppendLine('<div class="controls"><a class="btn btn--primary" href="/refresh">Re-run the check</a></div>')
+    [void]$sb.AppendLine('<div class="controls"><a class="btn btn--primary" href="/refresh">Re-run the check</a><div id="settings"></div></div>')
     [void]$sb.AppendLine('</header>')
 
     if ($Meta.CheckFailed) {
@@ -269,11 +269,10 @@ function Format-ConnectorDashboardHtml {
         [void]$sb.AppendLine('</section>')
     }
 
-    [void]$sb.AppendLine('<div class="card"><h2>Theme</h2><div id="theme"></div></div>')
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     [void]$sb.AppendLine('<p class="footer-note">Checked ' + (& $e $Meta.GeneratedAt) + $secs + '. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
-    [void]$sb.AppendLine('<script>DKJTheme.picker(document.getElementById("theme"), { light: "Light", dark: "Dark" });</script>')
+    [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark" });</script>')
     [void]$sb.AppendLine('</body>')
     [void]$sb.AppendLine('</html>')
     return $sb.ToString()
