@@ -48,10 +48,12 @@ The dkj-solutions extension states, always-on, that a house-style change is made
 
 ### TEST
 
+- [x] copy edit (Edith): the carve-out wording, the filing bar, the brand-book exemption in the skill and the layer term resolved
+
 ### DEPLOY: feat/house-style-upstream-rule
 
 A DKJ-Solutions repo that needs the house style itself to change no longer edits its own copy: it files an
-issue on `DKJ-Solutions/dkj-brandbook`, keeps working on its own layer, and takes the new copy once it has
+issue on `DKJ-Solutions/dkj-brandbook`, keeps working on its own domain layer, and takes the new copy once it has
 landed there. The rule is in the `dkj-solutions` extension's always-on `CLAUDE.md`, so every session in a
 repo with the plugin enabled reads it; the brand book itself is exempt, because that is where the change is
 made.
