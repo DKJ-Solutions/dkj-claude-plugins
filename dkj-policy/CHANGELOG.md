@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**3 / 3 minor entries** <!-- pending-tally -->
+**4 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/2960-bwj-readme-hooks-row · 20261013-111718Z
+
+The `bwj-development` README's `hooks/` row now says **three** hooks and describes the PostToolUse
+`asana-link-pickupcheck.ps1` beside the two it already named
+([#2960](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2960)). The failure it prevents: a
+reader of the layout table who never learns that a hook comments on every issue pickup.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+No behavior changes; a store's maintainer reading the plugin's layout table sees the hook that was
+already running in their sessions.
+
+**Score:** 1
+
+#### Pull Request
+
+bwj-development README: the hooks/ row names all three hooks
+
+Plugins: bwj-development
+
+[PR #2964](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2964)
+
+---
 
 ### DEPLOY: fix/2959-sessioncheck-resolves-exempt-seam · 20261013-110048Z
 
