@@ -21,6 +21,7 @@ $Server   = Join-Path $RepoRoot 'scripts\dashboard\serve-connector-dashboard.ps1
 
 $script:pass = 0
 $script:fail = 0
+$group2Ran = $false   # group 3 reuses group 2's request helper
 
 function Assert-True {
     param([bool]$Condition, [string]$Name)
@@ -134,6 +135,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
         }
         Assert-True $up 'the server listens on the port it was given'
 
+        $group2Ran = $true
         function Get-Raw([string]$Method, [string]$Path, [string]$HostHeader, [string]$Extra = '', [int]$OnPort = $port) {
             $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $OnPort)
             $c.ReceiveTimeout = 3000
@@ -181,7 +183,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
 
 Write-Host '-- group 3: the page survives a checkout with no upstream and a check that cannot run' -ForegroundColor Cyan
 
-if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -and (Get-Command git -ErrorAction SilentlyContinue) -and (Get-Command Get-Raw -ErrorAction SilentlyContinue)) {
+if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -and (Get-Command git -ErrorAction SilentlyContinue) -and $group2Ran) {
     # Layout: <fixture>\org\src is the repo root, so the scope root is <fixture>. <fixture>\org\noup holds
     # a commit and no upstream, which made 'rev-list HEAD...@{u}' throw under 'Stop' and blanked the page
     # (#2976 review). <outside> is a git repo beyond the scope root that one manifest points at. The fixture
@@ -189,7 +191,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     $fixture = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-$PID-$([guid]::NewGuid().ToString('n'))"
     $src = Join-Path $fixture 'org\src'
     $noup = Join-Path $fixture 'org\noup'
-    $outside = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-outside-$PID"
+    $outside = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-outside-$PID-$([guid]::NewGuid().ToString('n'))"
     try {
         New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
