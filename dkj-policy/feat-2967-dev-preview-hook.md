@@ -69,10 +69,17 @@ the `dkj-solutions` extension, with what differs per repo behind a seam.
 
 ### TEST
 
-- [x] `scripts/tests/dev-preview-sessionstart.tests.ps1`: 51 asserts, 8.5s. The rules are tested from
+- [x] Review (Victor, Sebastian, Edith) worked in. The lines that reach the session are held to plain
+  text (Name capped at 40 characters, Path a plain URL path, every printed line stripped of control
+  characters and cut at 300). The process table is read only when a port has a listener (each read is
+  about 0.4s). A server that dies at start ends the wait. A `Write-Host` in the config no longer breaks
+  the JSON. A root holding `%` or `^` is refused. The README states the trust model.
+- [x] `scripts/tests/dev-preview-sessionstart.tests.ps1`: 63 asserts, 11s. The rules are tested from
   hand-built tables, and the hook end to end: silent without the seam, one line on a bad seam, on a
   config that throws and on a missing prerequisite. A real loopback listener is started, then REUSED by
-  a second run with exactly one listener left, and a second checkout refuses to take it as its own.
+  a second run with exactly one listener left, and a second checkout refuses to take it as its own. The
+  suite caught a PowerShell 5.1 trap in the reworked poll: a lone listener unrolled to a PSCustomObject
+  whose `.Count` is `$null`, so the hook's own server read as not listening.
 
 ### DEPLOY: feat/2967-dev-preview-hook
 

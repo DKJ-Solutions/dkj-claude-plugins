@@ -47,6 +47,8 @@ param([string]$RepoRootOverride)
 $ErrorActionPreference = 'Stop'
 
 function Write-DevPreviewLine([string]$Text) {
+    if (Get-Command ConvertTo-DevPreviewLine -ErrorAction SilentlyContinue) { $Text = ConvertTo-DevPreviewLine $Text }
+    else { $Text = ($Text -replace '[\p{C}]', ' ') }
     $o = @{
         systemMessage      = $Text
         hookSpecificOutput = @{ hookEventName = 'SessionStart'; additionalContext = $Text }
@@ -81,8 +83,10 @@ $raw = $null
 try {
     $raw = & {
         Set-StrictMode -Off
-        $null = . $args[0]
-        if (@($ExecutionContext.InvokeCommand.GetCommands('Get-DevPreview', 'Function', $false)).Count) { Get-DevPreview }
+        # 6>$null: a Write-Host in the repo's config would otherwise land on stdout under -File and break
+        # the JSON this hook prints.
+        $null = . $args[0] 6>$null
+        if (@($ExecutionContext.InvokeCommand.GetCommands('Get-DevPreview', 'Function', $false)).Count) { Get-DevPreview 6>$null }
     } $configPath
 } catch {
     Write-DevPreviewLine 'dev-preview: scripts/repo-config.ps1 could not be read, so Get-DevPreview was not asked -- no server started.'
@@ -96,15 +100,21 @@ if (-not $parsed.Ok) {
 }
 $cfg = $parsed.Config
 
-# --- One snapshot of who listens, and who started them -----------------------------------------------
-function Get-DevPreviewSnapshot {
-    $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-        Select-Object LocalPort, OwningProcess)
+# --- Who listens, and who started them ---------------------------------------------------------------
+# THE CALLERS WRAP IN @(): a function returning a one-element array unrolls it, and .Count on a lone
+# PSCustomObject is $null in Windows PowerShell 5.1 -- so one listener read as none (measured, #2967).
+# Each read costs about 0.4s (measured in #2967's review), so the process table is read only when one of
+# the ports has a listener at all: with none, every port is free and there is nobody to recognise.
+function Get-DevPreviewListeners([int[]]$Ports) {
+    return @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+        Where-Object { $Ports -contains [int]$_.LocalPort } | Select-Object LocalPort, OwningProcess)
+}
+function Get-DevPreviewProcesses {
     $processes = @{}
     foreach ($p in @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CommandLine -ErrorAction SilentlyContinue)) {
         $processes[[int]$p.ProcessId] = @{ CommandLine = [string]$p.CommandLine; ParentId = [int]$p.ParentProcessId }
     }
-    return @{ Listeners = $listeners; Processes = $processes }
+    return $processes
 }
 
 function Open-DevPreviewInVsCode([string]$Url) {
@@ -115,9 +125,10 @@ function Open-DevPreviewInVsCode([string]$Url) {
     return ', opened in VS Code'
 }
 
-$snap = Get-DevPreviewSnapshot
-$pick = Select-DevPreviewPort -Ports $cfg.Ports -Listeners $snap.Listeners -Processes $snap.Processes -Root $root
-$range = if ($cfg.Ports.Count -eq 1) { "port $($cfg.Ports[0])" } else { "ports $($cfg.Ports[0])-$($cfg.Ports[-1])" }
+$listeners = @(Get-DevPreviewListeners $cfg.Ports)
+$processes = if ($listeners.Count) { Get-DevPreviewProcesses } else { @{} }
+$pick = Select-DevPreviewPort -Ports $cfg.Ports -Listeners $listeners -Processes $processes -Root $root
+$range = Format-DevPreviewPorts -Ports $cfg.Ports
 
 if ($pick.Action -eq 'reuse') {
     $url = Get-DevPreviewUrl -Port $pick.Port -Path $cfg.Path
@@ -135,21 +146,31 @@ foreach ($rel in $cfg.Requires) {
 }
 
 # --- Start it, and wait until it listens -------------------------------------------------------------
+# A '%' or '^' in the root is expanded or eaten by cmd.exe even inside quotes, so the server would start
+# in the wrong directory and never be recognised as ours: refused rather than started wrong.
+if ($root -match '[%^]') {
+    Write-DevPreviewLine "$($cfg.Name): not started -- the repo path holds a '%' or '^', which cmd.exe would rewrite."
+}
 $leaf = Split-Path -Leaf $root
 $sha = [System.Security.Cryptography.SHA1]::Create()
 $hash = -join ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($root.ToLowerInvariant()))[0..3] | ForEach-Object { $_.ToString('x2') })
 $log = Join-Path ([System.IO.Path]::GetTempPath()) "dev-preview-$leaf-$hash.log"
 $port = [int]$pick.Port
 
-Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle Hidden `
-    -ArgumentList (Get-DevPreviewStartLine -Root $root -Command $cfg.Command -Port $port -LogPath $log) | Out-Null
+$shell = Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle Hidden -PassThru `
+    -ArgumentList (Get-DevPreviewStartLine -Root $root -Command $cfg.Command -Port $port -LogPath $log)
 
 $url = Get-DevPreviewUrl -Port $port -Path $cfg.Path
 $deadline = (Get-Date).AddSeconds($cfg.WaitSeconds)
 while ((Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 500
-    $snap = Get-DevPreviewSnapshot
-    if ((Get-DevPreviewPortState -Port $port -Listeners $snap.Listeners -Processes $snap.Processes -Root $root) -eq 'ours') {
+    $listeners = @(Get-DevPreviewListeners @($port))
+    if (-not $listeners.Count) {
+        # The shell that runs the Command ends with it, so a server that died at start ends the wait too.
+        if ($shell.HasExited) { Write-DevPreviewLine "$($cfg.Name): the server on port $port exited at start -- see $log" }
+        continue
+    }
+    if ((Get-DevPreviewPortState -Port $port -Listeners $listeners -Processes (Get-DevPreviewProcesses) -Root $root) -eq 'ours') {
         $opened = Open-DevPreviewInVsCode $url
         Write-DevPreviewLine "$($cfg.Name): $url (started$opened)"
     }

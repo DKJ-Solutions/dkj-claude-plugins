@@ -79,11 +79,19 @@ function ConvertTo-DevPreviewConfig {
     $path = [string]$Raw['Path']
     if (-not $path) { $path = '/' }
     if (-not $path.StartsWith('/')) { $path = '/' + $path }
+    if ($path -notmatch '^/[A-Za-z0-9._~/%?=&#+-]*$' -or $path.Length -gt 200) {
+        $result.Problem = 'the Path is not a plain URL path (letters, digits and ._~/%?=&#+- only, at most 200)'
+        return $result
+    }
 
     $requires = @()
     foreach ($r in @($Raw['Requires'])) {
         if ($null -eq $r -or -not ([string]$r).Trim()) { continue }
         $rel = ([string]$r).Trim()
+        if ($rel -match '[\p{C}"<>|*?]' -or $rel.Length -gt 200) {
+            $result.Problem = 'a Requires entry carries a character no path may hold'
+            return $result
+        }
         if ([System.IO.Path]::IsPathRooted($rel) -or $rel -match '(^|[\\/])\.\.([\\/]|$)') {
             $result.Problem = "Requires names '$rel', which is not a path inside the repo"
             return $result
@@ -101,7 +109,10 @@ function ConvertTo-DevPreviewConfig {
         $wait = $w
     }
 
-    $name = [string]$Raw['Name']
+    # THE NAME OPENS A LINE THAT REACHES THE SESSION'S CONTEXT, so it is held to a short plain label: no
+    # control characters (a newline would start a line of the repo's choosing) and at most 40 characters.
+    $name = ([string]$Raw['Name']) -replace '[\p{C}]', ' '
+    if ($name.Length -gt 40) { $name = $name.Substring(0, 40) }
     if (-not $name.Trim()) { $name = 'dev-preview' }
 
     $result.Ok = $true
@@ -219,6 +230,28 @@ function Get-DevPreviewStartLine {
     )
     $cmd = $Command.Replace('{port}', [string]$Port)
     return ('/d /s /c "cd /d "{0}" && {1} > "{2}" 2>&1"' -f $Root, $cmd, $LogPath)
+}
+
+function Format-DevPreviewPorts {
+    <# 'port 3000', 'ports 5173-5180' for a contiguous run, else 'ports 3000, 8080'. #>
+    param([Parameter(Mandatory = $true)][int[]]$Ports)
+    if ($Ports.Count -eq 1) { return "port $($Ports[0])" }
+    $contiguous = $true
+    for ($i = 1; $i -lt $Ports.Count; $i++) { if ($Ports[$i] -ne $Ports[$i - 1] + 1) { $contiguous = $false; break } }
+    if ($contiguous) { return "ports $($Ports[0])-$($Ports[-1])" }
+    return 'ports ' + ($Ports -join ', ')
+}
+
+function ConvertTo-DevPreviewLine {
+    <#
+        The one line the hook prints, made safe for the session's context: control characters become
+        spaces and it is cut at 300 characters. Every value in it is the hook's own text or a validated
+        seam field, so this is the second fence, not the first.
+    #>
+    param([AllowEmptyString()][string]$Text)
+    $t = ($Text -replace '[\p{C}]', ' ').Trim()
+    if ($t.Length -gt 300) { $t = $t.Substring(0, 297) + '...' }
+    return $t
 }
 
 function Get-DevPreviewUrl {

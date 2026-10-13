@@ -11,6 +11,9 @@ no specialists.
 |---|---|---|
 | The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | A pointer to [DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook), which holds the design tokens, the twelve themes and the base stylesheet, plus the rules a session needs before it fetches them |
 
+Beside its chapters, the plugin ships one hook (below). A hook is tooling the harness runs, not a rule a
+session has to follow, so it is no chapter and `CLAUDE.md` does not name it.
+
 ## The dev-preview hook
 
 [`hooks/dev-preview-sessionstart.ps1`](hooks/dev-preview-sessionstart.ps1) runs at session start
@@ -27,9 +30,9 @@ prints nothing at all.
 function Get-DevPreview {
     @{
         Command      = 'npm run dev -- --port {port} --strictPort'   # required; {port} is filled in
-        Ports        = 5173..5180       # required: one port, or a list tried in order (at most 32)
+        Ports        = 5173..5180       # required: one port (1024-65535), or a list tried in order (at most 32)
         Path         = '/'              # optional: the URL path (default '/')
-        Requires     = 'node_modules'   # optional: path(s) under the root that must exist before a start
+        Requires     = 'node_modules'   # optional: relative path(s) inside the repo that must exist first
         Name         = 'Showcase'       # optional: the word the line opens with (default 'dev-preview')
         WaitSeconds  = 20               # optional: how long to wait until it listens (1-45, default 20)
         OpenInVsCode = $false           # optional: also hand the URL to VS Code (see below)
@@ -37,6 +40,11 @@ function Get-DevPreview {
 }
 ```
 
+- **Trusted repos only.** The hook runs the repo's own `Command` at every session start, the same trust
+  the repo's `scripts/repo-config.ps1` already gets from every hook that reads it. Enable this plugin only
+  in repos you own.
+- **The `Command` runs under `cmd.exe`:** it expands `%VAR%`, and where it chains commands with `&&` the
+  log captures the last one's output only. A `Write-Host` in the config is harmless.
 - **Bind to `127.0.0.1` in the `Command`** wherever the server shows something private, e.g.
   `python -m http.server {port} --bind 127.0.0.1` or `next dev -H 127.0.0.1 -p {port}`. The hook cannot
   know what a server exposes.
@@ -44,10 +52,12 @@ function Get-DevPreview {
   command line, or one of its four nearest ancestors' command lines, names this checkout's root at a path
   boundary. The hook starts every server under a `cmd.exe` that changes into the root first, which is how
   a server whose own command line names no path is still recognised. A foreign app, another clone, a
-  `worktree-lane` sibling or a Claude Code worktree under `.claude/worktrees/` is never mistaken for it:
+  `worktree-lane` lane (a sibling `<repo>-lanes/` folder) or a Claude Code worktree under `.claude/worktrees/` is never mistaken for it:
   its port is skipped and the next one tried.
 - **The server outlives the session.** It runs hidden and detached, logging to
-  `%TEMP%\dev-preview-<repo>-<hash>.log`, and is stopped like any process.
+  `%TEMP%\dev-preview-<repo>-<hash>.log` (overwritten at each start, and holding whatever the server
+  prints), and is stopped like any process. A server that exits at start is reported at once, with that
+  log's path.
 - **`OpenInVsCode`** runs `code --open-url <url>`, only when the session runs in VS Code's terminal. To
   land in VS Code's Simple Browser rather than the system browser, the repo also routes the URL with
   `workbench.externalUriOpeners` in its `.vscode/settings.json`.
