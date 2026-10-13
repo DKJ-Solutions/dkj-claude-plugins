@@ -650,6 +650,10 @@ task-link shapes this page already defines above, so a repo that has run that st
 reminded. **A repo that has NOT stated the seam is exactly where this paragraph left it before #2120**: the
 rule stands, nothing reads it, and the difference between a correct ship and a wrong one is whether the
 session remembered. The measurement behind that sentence is one of each, days apart, in the same repo.
+**In the two stores that absence is no longer silent** ([#2959](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2959)):
+`closed-message-sessioncheck` names it at every session start. Measured in `xoxowildhearts`, the store that
+had never stated the seam: a `Closes #417` merged, the issue closed before its block was posted, and the
+closed message reached the Asana task bare.
 
 ##### The go-live half -- the facts the requester asks for next
 

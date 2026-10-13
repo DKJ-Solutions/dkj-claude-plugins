@@ -2,7 +2,8 @@
 .SYNOPSIS
     SessionStart hook of bwj-development: in a store repo, says when the asana-closed-message or the
     asana-prio-label workflow (#2945) is missing, differs from the template this plugin ships, or has no
-    ASANA_PAT secret to run with.
+    ASANA_PAT secret to run with -- and when scripts/repo-config.ps1 states no Get-ResolvesExemptMatchers,
+    so a merge can close an Asana-linked issue before its go-live block is on it (#2959).
 
 .DESCRIPTION
     WHY THIS EXISTS (inbound #2871, October 7, 2026). The closed and reopened messages on the Asana task
@@ -20,7 +21,14 @@
          and so do the asana-prio-label.yml / asana-prio-label.ps1 pair beside them (#2945), each pair
          reported on its own line with what its absence costs;
       2. each is identical to its template, line endings aside -- git may check a file out with CRLF;
-      3. an ASANA_PAT secret is visible to the repo, as a repo secret or an organisation secret.
+      3. an ASANA_PAT secret is visible to the repo, as a repo secret or an organisation secret;
+      4. scripts/repo-config.ps1 defines Get-ResolvesExemptMatchers (#2959) -- the seam dkj-policy's
+         resolves gate reads to refuse `Closes #<n>` on an Asana-linked issue (#2120). Without it a merge
+         closes such an issue before its go-live block is on it, and the closed message reaches the task
+         without one: measured in xoxowildhearts (#417 / PR #422, October 13, 2026), the one store that
+         had never stated it. The seam is proposed rather than placed by adopt-bwj-development, so its
+         absence was silent. A repo with no scripts/repo-config.ps1 at all is left out: there is nothing
+         to read, and the other session checks already report that.
     Anywhere else it is silent: dkj-claude-plugins and phone-factory run the ticket chapter without
     this workflow.
 
@@ -31,7 +39,8 @@
     IT NEVER BLOCKS. Always exit 0, and silent when everything is in place, like every session check in
     this family. A finding is an [ERROR] line because that is what the family forwards to the transcript.
 
-    Read-only: it reads two files, two templates, the origin URL and (through gh) two secret NAME lists.
+    Read-only: it reads four files, four templates, scripts/repo-config.ps1 as TEXT (never dot-sourced),
+    the origin URL and (through gh) two secret NAME lists.
 
 .PARAMETER RepoRootOverride
     (For tests) The repo root to check instead of CLAUDE_PROJECT_DIR or the working directory.
@@ -151,6 +160,20 @@ try {
         Write-Host ("[ERROR] bwj-development: $slug has no ASANA_PAT secret, so the asana-closed-message " +
             "workflow cannot post on the Asana task and asana-prio-label cannot read its score. The repo's maintainer sets it -- see step 3 of the " +
             "'adopt-bwj-development' skill.")
+    }
+
+    # FINDING 4 (#2959): read as text and matched on a definition at the start of a line, so a '#'-commented
+    # function does not count as stated and nothing in the store's config is executed by this hook. A scope
+    # prefix (global:) counts; a longer name (Get-ResolvesExemptMatchers-Old) does not. A definition inside a
+    # <# #> block still reads as stated -- a missed reminder, never a false alarm, and the gate is open-pr's.
+    $configFile = Join-Path $root 'scripts\repo-config.ps1'
+    if (Test-Path -LiteralPath $configFile -PathType Leaf) {
+        if ((Get-NormalizedText $configFile) -notmatch '(?m)^[ \t]*function[ \t]+(?:[a-z]+:)?Get-ResolvesExemptMatchers(?![\w-])') {
+            Write-Host ("[ERROR] bwj-development: $slug states no Get-ResolvesExemptMatchers in " +
+                "scripts/repo-config.ps1, so open-pr lets a pull request close an Asana-linked issue: the merge " +
+                "closes it before its go-live block is on it, and the closed message reaches the task without " +
+                "one. $remedy (step 2 proposes the two matchers).")
+        }
     }
 } catch {
     $safe = (((($_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
