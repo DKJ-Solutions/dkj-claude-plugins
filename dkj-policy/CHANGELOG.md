@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**10 / 14 minor entries** <!-- pending-tally -->
+**10 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2982-lifehub-register-catchup · 20261013-164522Z
+
+The life-hub connector record registers what the consumer actually carries: the five
+`dkj-subagents-lifehub` lenses and the `dkj-solutions` plugin
+([#2982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2982)). Both now fall under the
+extension and version checks.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: the register is bookkeeping inside this repo, and no consumer takes it.
+
+**Score:** N/A
+
+#### Pull Request
+
+connectors: life-hub registers dkj-solutions and the five lifehub lenses
+
+[PR #2984](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2984)
+
+---
 
 ### DEPLOY: fix/2980-lifehub-connector-repo · 20261013-163144Z
 
