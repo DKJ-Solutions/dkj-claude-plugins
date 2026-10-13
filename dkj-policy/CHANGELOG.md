@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**7 / 8 minor entries** <!-- pending-tally -->
+**8 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2968-stale-paste-block · 20261013-135218Z
+
+A go-live block posted before an issue's last reopen no longer reaches the Asana task as the result of the
+next round ([#2968](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2968)). A new
+`bwj-development` PreToolUse hook refuses a `ship-pr.ps1` or `open-pr.ps1` run while an issue it closes
+carries such a stale block, and names the command that posts the fresh one; it is an accident guard that
+fails open, with a warning, when it cannot read the issue. `build-golive-block.ps1 -Post` accepts that
+fresh block without `-Force`, and the `asana-closed-message` workflow withholds a stale block and says
+the result message for this round follows. Hook, script and workflow judge the block by one predicate.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A requester whose ticket was reopened and reworked is no longer sent the previous round's preview link and
+description as the new result: the closed message either carries this round's block or says it follows.
+A store repo takes the workflow change by re-adopting the `asana-closed-message` template.
+
+**Score:** 3
+
+#### Pull Request
+
+Refuse a merge, and carry no block, when the go-live block predates the issue's last reopen
+
+Plugins: bwj-development
+
+[PR #2972](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2972)
+
+---
 
 ### DEPLOY: docs/2961-feature-label-every-consumer · 20261013-124731Z
 
