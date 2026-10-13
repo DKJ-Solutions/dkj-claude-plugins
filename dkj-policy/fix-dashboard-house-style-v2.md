@@ -52,7 +52,7 @@ row), with a hand-built Theme card around `DKJTheme.picker`. So the new settings
 ### TEST
 
 - [x] `connector-dashboard.tests.ps1` green (58 passed); the dashboard on :4870 restarted and serves `DKJTheme.settings`
-- [ ] The owner has looked at the dashboard (visible result)
+- [x] The owner has looked at the dashboard (visible result) -- the settings button works (Dave, October 13, 2026)
 
 ### DEPLOY: fix/dashboard-house-style-v2
 
