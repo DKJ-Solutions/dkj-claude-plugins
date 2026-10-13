@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#2968, both layers of the design comment, as the owner decided (October 13, 2026). Layer 1 lives in
+`bwj-development` as a PreToolUse hook rather than in core `open-pr`/`ship-pr`, because the go-live block
+is that extension's concept and core knows nothing about Asana.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Shared judgement in `asana-task-lib.ps1`: one block predicate (the sections the closed message carries) and a verdict against the last reopen
+- [x] Layer 1: `guard-stale-paste-block` PreToolUse hook on `ship-pr.ps1`/`open-pr.ps1`, with a quote-aware command parser
+- [x] `build-golive-block.ps1 -Post`: the duplicate check counts only blocks posted since the last reopen
+- [x] Layer 2: `asana-closed-message` withholds a stale block and says the result message follows
+- [x] Docs: README, WORKFLOW-portable, golive-block, adopt-bwj-development and report-issue pages
+- [x] Review round (code, security, copy) applied: one predicate for selection and freshness, parser hardening, shared bounded gh runner
 
 ### TEST
 
+- [x] `guard-stale-paste-block.tests.ps1` (new), `bwj-development.tests.ps1`, `template-selfcontained`, `check-plugin-integrity.ps1` green locally; the full gate runs in `ship-pr`
+
 ### DEPLOY: feat/2968-stale-paste-block
 
-**Score:**
+A go-live block posted before an issue's last reopen no longer reaches the Asana task as the result of the
+next round ([#2968](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2968)). A new
+`bwj-development` PreToolUse hook refuses a `ship-pr.ps1` or `open-pr.ps1` run while an issue it closes
+carries such a stale block, and names the command that posts the fresh one; it is an accident guard that
+fails open, with a warning, when it cannot read the issue. `build-golive-block.ps1 -Post` accepts that
+fresh block without `-Force`, and the `asana-closed-message` workflow withholds a stale block and says
+the result message for this round follows. Hook, script and workflow judge the block by one predicate.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A requester whose ticket was reopened and reworked is no longer sent the previous round's preview link and
+description as the new result: the closed message either carries this round's block or says it follows.
+A store repo takes the workflow change by re-adopting the `asana-closed-message` template.
+
+**Score:** 3
 
 #### Pull Request
 
