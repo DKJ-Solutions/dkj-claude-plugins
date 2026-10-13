@@ -2444,7 +2444,10 @@ bwj extension, because the constitution has a repo import that extension only wh
 none of the six. It is enabled in the machine's own `~/.claude/settings.json`, so it loaded into every
 session here: 14 skill descriptions, 2,150 tokens measured by `measure-session-start`, and no frontend
 for them to work on. This needs the same `false`-not-absent rule as the six. It is not registered in the
-connector manifest, so no block had to go.
+connector manifest, so no block had to go. **The key is not redundant, even though nothing in this repo
+enables figma**: it was once removed as redundant (commit `c747cb88`, October 2), and the user layer
+switched figma back on in every session until it was restored (Maikel, October 13, 2026,
+[#2978](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2978)).
 
 **Only three of the seven describe this repo outright.** The core team and `dkj-policy` have real
 work here, and `dkj-solutions` its hook; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a

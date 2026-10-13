@@ -39,19 +39,33 @@
 
 ### PLAN
 
+Owner's decision on #2978 (Maikel, October 13, 2026): figma stays off here, so the `false` key comes
+back and the lens's reasoning stands.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Restore `"figma@claude-plugins-official": false` in `.claude/settings.json`
+- [x] Sylvester's lens: say why the key is not redundant, citing c747cb88 and #2978
 
 ### TEST
 
+- [x] `check-roster-sync.ps1`: figma no longer reported as enabled; 0 errors
+
 ### DEPLOY: fix/2978-figma-off-again
 
-**Score:**
+The figma plugin is switched off in this repo again
+([#2978](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2978)). Removing its `false` key
+on October 2 let the machine's own settings turn it back on, at about 2,150 tokens per session.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: this repo's own harness config, and no consumer takes it.
+
+**Score:** N/A
 
 #### Pull Request
+
+settings: figma is off here again, the false key restored
 
