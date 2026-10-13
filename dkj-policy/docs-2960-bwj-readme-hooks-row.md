@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Issue #2960: the `hooks/` row of the bwj-development README said "two hooks" and never named the
+PostToolUse `asana-link-pickupcheck.ps1` that `hooks/hooks.json` registers.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Name the third hook in the README's `hooks/` row and correct the count, verified against
+  `hooks/hooks.json` and the hook's own header (#2919, #2928, #2940).
 
 ### TEST
 
+- [x] The row now names all three hooks `hooks/hooks.json` registers, and each claim about the pickup
+  hook is read from its `.DESCRIPTION`.
+
 ### DEPLOY: docs/2960-bwj-readme-hooks-row
 
-**Score:**
+The `bwj-development` README's `hooks/` row now says **three** hooks and describes the PostToolUse
+`asana-link-pickupcheck.ps1` beside the two it already named
+([#2960](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2960)). The failure it prevents: a
+reader of the layout table who never learns that a hook comments on every issue pickup.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+No behavior changes; a store's maintainer reading the plugin's layout table sees the hook that was
+already running in their sessions.
+
+**Score:** 1
 
 #### Pull Request
 
