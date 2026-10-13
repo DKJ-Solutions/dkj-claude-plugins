@@ -43,17 +43,37 @@ Let build-golive-block's landing check accept an open or merged PR that cross-re
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-GoLiveLandingNodes` in `golive-block-rules.ps1`: the closing references plus every same-repo pull
+  request that cross-references the issue (timeline `CROSS_REFERENCED_EVENT`); an issue reference and a PR
+  in another repo are dropped
+- [x] `build-golive-block.ps1`: one GraphQL query reads both lists; refusal, unread and landing lines say
+  "closes or references", and the refusal names the `-NoResolves` shape
+- [x] Docs: `golive-block` SKILL.md, `WORKFLOW-portable.md` and `PREVIEW-portable.md` say a reference counts, and why
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: unit asserts for `Get-GoLiveLandingNodes` (same repo kept, other repo and
+  issue reference dropped, closing references alone still count, null issue) and a driver run where a
+  merged PR only references the issue -- 519 asserts green
+
 ### DEPLOY: fix/2957-golive-post-accepts-referencing-pr
 
-**Score:**
+`build-golive-block -Post` now accepts an open or merged pull request that **references** the issue, as
+well as one that closes it
+([#2957](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2957)). `bwj-development`'s own rule
+ships an Asana-linked issue with `-NoResolves`, so its PR never closes it. The landing check from #2930
+read closing references only, so on exactly the issues the block exists for `-Force` was the only way
+through. Measured twice in `BWJ-Development/smartwatchbanden` on October 13, 2026. Only pull requests
+in the same repo count.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store session posting the go-live block after a `-NoResolves` ship no longer gets a refusal telling it
+to use `-Force`, and the refusal it can still get names both PR shapes.
+
+**Score:** 3
 
 #### Pull Request
 
