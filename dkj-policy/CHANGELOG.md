@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**10 / 13 minor entries** <!-- pending-tally -->
+**10 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2980-lifehub-connector-repo · 20261013-163144Z
+
+The connector register names life-hub's renamed repo, `DKJ-Solutions/dkj-lifehub`
+([#2980](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2980)). Until now the session
+check reported an `[ERROR]` against that checkout's origin and skipped its whole block.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: the register is bookkeeping inside this repo, and no consumer takes it.
+
+**Score:** N/A
+
+#### Pull Request
+
+connectors: life-hub names its renamed repo, DKJ-Solutions/dkj-lifehub
+
+[PR #2983](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2983)
+
+---
 
 ### DEPLOY: feat/2977-awaiting-review-label · 20261013-161810Z
 
