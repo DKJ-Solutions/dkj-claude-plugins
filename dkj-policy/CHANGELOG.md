@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**24 / 25 minor entries** <!-- pending-tally -->
+**25 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/house-style-to-brandbook · 20261013-080840Z
+
+The DKJ-Solutions house style moved to its own repo,
+[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook) (`house-style/`). The
+stylesheet, the theme script and the full rules (tokens, themes, reserved classes) live there now and
+nowhere else. The `house-style` skill in `dkj-solutions` stays and still loads in every DKJ-Solutions
+session, but it is a pointer: the two raw URLs, the README, and the three rules a session needs before
+it fetches anything. A change to the house style is made in the brand book from now on.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The house style and the overview of every DKJ-Solutions component now sit in one repo, so the brand is
+checked in one place. An app that takes the update gets the same values as before: nothing was changed
+in the move.
+
+**Score:** 3
+
+#### Pull Request
+
+The house style moves to dkj-brandbook; the skill points there
+
+Plugins: dkj-solutions
+
+[PR #2952](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2952)
+
+---
 
 ### DEPLOY: feat/house-style-themes · 20261012-150343Z
 
