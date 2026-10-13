@@ -22,6 +22,10 @@ choice from the client or requester outside the dev team -- a colleague's QA sig
 putting it to the owner would record an answer the owner has no standing to give. Both sweeps skip it; it
 comes off when that person answers.
 
+**It walks neither `awaiting-review-dev` nor `awaiting-review-client`** (#2977, October 13, 2026). Review
+is not decision: those issues wait on somebody's *look* at a result, not on a choice, so there is no
+answer here for the owner to give.
+
 **It runs the step the workflow already prescribes**, once per issue: *"The owner removes the label when
 they answer, and the answer goes on the issue as a comment"*
 ([`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from)).

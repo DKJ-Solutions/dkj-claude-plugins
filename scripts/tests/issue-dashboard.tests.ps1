@@ -282,6 +282,8 @@ out.status = {
   draftVsBranch:        statusOf(iss(1), draft, true),
   parkingOverBlocked:   statusOf(iss(1, { ...bl, labels: ["awaiting-decision-dev"] }), [], false),
   parkingDecisionClient: statusOf(iss(1, { ...bl, labels: ["awaiting-decision-client"] }), [], false),
+  parkingReviewDev: statusOf(iss(1, { ...bl, labels: ["awaiting-review-dev"] }), [], false),
+  parkingReviewClient: statusOf(iss(1, { ...bl, labels: ["awaiting-review-client"] }), [], false),
   parkingFormerDecisionDev: statusOf(iss(1, { ...bl, labels: ["awaiting-decision"] }), [], false),
   parkingFormerOwnerAct: statusOf(iss(1, { ...bl, labels: ["awaiting-owner-act"] }), [], false),
   parkingInfoClient: statusOf(iss(1, { ...bl, labels: ["awaiting-info-client"] }), [], false),
@@ -642,6 +644,8 @@ console.log(JSON.stringify(out));
         Assert-Equal 'Waiting'     $s.parkingRelease       'awaiting-release parks (#2851)'
         Assert-Equal 'Waiting'     $s.parkingFormerDecision 'the former name needs-decision still parks (#2741)'
         Assert-Equal 'Waiting'     $s.parkingDecisionClient 'awaiting-decision-client parks (#2890)'
+        Assert-Equal 'Waiting'     $s.parkingReviewDev 'awaiting-review-dev parks (#2977)'
+        Assert-Equal 'Waiting'     $s.parkingReviewClient 'awaiting-review-client parks (#2977)'
         Assert-Equal 'Waiting'     $s.parkingFormerDecisionDev 'the former name awaiting-decision still parks (#2890)'
         Assert-Equal 'Waiting'     $s.parkingFormerOwnerAct 'the former name awaiting-owner-act still parks (#2896)'
         Assert-Equal 'Waiting'     $s.parkingInfoClient 'awaiting-info-client parks (#2917)'

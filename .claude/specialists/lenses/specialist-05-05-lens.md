@@ -1170,9 +1170,9 @@ repair, close as not planned while it waits — is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — all set at filing: `awaiting-decision-dev` for the owner's choice, `awaiting-decision-client` for the client's, `awaiting-pull` while another issue lands, `awaiting-action-external` until a date, `awaiting-action-dev` until the owner acts, `awaiting-release` until the next cut, `awaiting-recurrences-first` once only evidence is owed
+### The parking labels — all set at filing: `awaiting-decision-dev` for the owner's choice, `awaiting-decision-client` for the client's, `awaiting-review-dev` / `awaiting-review-client` for a look at a result, `awaiting-pull` while another issue lands, `awaiting-action-external` until a date, `awaiting-action-dev` until the owner acts, `awaiting-release` until the next cut, `awaiting-recurrences-first` once only evidence is owed
 
-**All eight `awaiting-*` labels, `awaiting-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision-dev`
+**All ten `awaiting-*` labels, `awaiting-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision-dev`
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796)); the rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from),
 and Chris's lens carries it beside the `prio-N` and `minor` filing rules, where a session reads it at filing time.
@@ -1185,6 +1185,8 @@ nor a sweep treats it as work that is ready (Dave, September 26, 2026,
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from).
 
 **`awaiting-decision-client` (`5319E7`) parks an issue that ends in a choice that is not the owner's** (a colleague's QA sign-off, a business decision from the client or requester outside the dev team; Dave, October 7, 2026, [#2890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2890)). `sweep-issues` and `sweep-decisions` both skip it, where `sweep-decisions` puts `awaiting-decision-dev` to the owner. It is not `awaiting-info-client`, which means blocked on information the submitter has not given. New, so no former name is matched for it.
+
+**`awaiting-review-dev` and `awaiting-review-client` (`5319E7`) park an issue waiting on somebody's look at a visible result** (a preview, rendered output, an artifact; Dave, October 13, 2026, [#2977](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2977)): `dev` is the owner's look, `client` the client's or requester's. Review is not decision: someone has to *look*, not *choose*. Both pickup routes skip them, `sweep-decisions` walks neither, and `sweep-issues` sets one when it parks a branch for the owner's eye. New, so no former name is matched.
 
 **`awaiting-recurrences-first` (`5319E7`) parks an issue waiting on its first reproducible occurrence** (Dave,
 September 28, 2026, [#2587](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2587)), after
