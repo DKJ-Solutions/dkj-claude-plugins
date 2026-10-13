@@ -233,8 +233,9 @@ read it before the close, and a wrong date or link is cheapest to catch there
 -- where to look, when it is planned to go live, what is asked of the requester -- and
 `build-golive-block.ps1` writes it. **Embed its output; do not compose a block of your own beside
 it.** Run it with `-OutFile` for the page now. Run `-Post` for the issue **later, at the PR step**,
-after the owner has looked. `-Post` refuses until a pull request closing the issue is open
-([#2930](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2930)). Keep the same inputs and
+after the owner has looked. `-Post` refuses until a pull request closing or referencing the issue is open
+([#2930](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2930),
+[#2957](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2957)). Keep the same inputs and
 the same `-ProseFile` for both, so the block on the issue and the block on the page cannot drift apart. The file is
 the faithful copy: the block carries accents and dashes that a console printout can lose. A
 hand-written block with its own headings is the second copy of one rule that this workflow keeps
