@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**10 / 16 minor entries** <!-- pending-tally -->
+**11 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2986-house-style-v2 · 20261013-212508Z
+
+The `house-style` skill now points at the brand book's `house-style-v2` tag
+([#2986](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2986)), with its commit and both
+checksums re-measured here.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app that takes its next copy of the house style gets the settings button,
+`DKJTheme.settings(el)`: a round toggle that opens the theme picker, a reset and a slot for the app's
+own controls, instead of a toggle each app builds itself.
+
+**Score:** 2
+
+#### Pull Request
+
+house-style: repoint to house-style-v2, the settings button
+
+Plugins: dkj-solutions
+
+[PR #2988](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2988)
+
+---
 
 ### DEPLOY: fix/2978-figma-off-again · 20261013-200257Z
 
