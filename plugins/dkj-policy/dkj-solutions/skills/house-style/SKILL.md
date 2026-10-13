@@ -52,5 +52,10 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
 
 ## Changing the house style
 
-A change reaches every DKJ-Solutions app the next time it takes a copy, so it is a **visible result**:
-the branch stops for the owner's look instead of merging. It is made in `dkj-brandbook`, not here.
+**Upstream, in `dkj-brandbook`, never in the repo you are working in** (the extension's `CLAUDE.md`
+states the rule in full). File an issue on `DKJ-Solutions/dkj-brandbook` with what should change and
+why, keep working on the repo's own domain layer, and take the new copy once it has landed.
+
+**In `dkj-brandbook` itself the change is made directly**, and there it is a **visible result**: it
+reaches every DKJ-Solutions app the next time it takes a copy, so the branch stops for the owner's look
+instead of merging.
