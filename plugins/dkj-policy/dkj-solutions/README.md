@@ -10,6 +10,29 @@ no specialists.
 | Chapter | Where | What it holds |
 |---|---|---|
 | The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | A pointer to [DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook), which holds the design tokens, the twelve themes and the base stylesheet, plus the rules a session needs before it fetches them |
+| The tracker labels | [below](#the-tracker-labels--feature-and-bug-in-every-repo) | `feat/` is labelled `feature` and `fix/` `bug`, in every DKJ-Solutions repo, and how a repo still on `enhancement` moves over |
+
+## The tracker labels — `feature` and `bug`, in every repo
+
+**Every DKJ-Solutions repo labels a `feat/` pull request `feature` and a `fix/` one `bug`, and files its
+issues under the same two names**, as the source tracker does (decided October 13, 2026,
+[#2961](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2961)). An issue is always a
+feature or a bug ([#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)), and
+`feature` is GitHub's default `enhancement` renamed
+([#2764](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2764)). A `docs/` branch carries no
+label. The name used to be left to each repo's own branch table, and the `specialists-init` scaffold
+suggested `enhancement`, so the repos that copied it diverged from the source.
+
+**A repo whose `scripts/lib/branch-info.ps1` still maps `feat` to `enhancement` moves over in two steps,
+in this order.** `open-pr` refuses a label the tracker does not carry, so the tracker goes first:
+
+1. Rename the label on the tracker. A rename keeps it on every issue and PR that already carries it:
+   `gh label edit enhancement --name feature --color a2eeef --repo DKJ-Solutions/<repo>`
+2. Then point the table at it, `feat = @{ Label = 'feature'; Type = 'Feat' }`, in the repo's own
+   `scripts/lib/branch-info.ps1`, on an ordinary branch.
+
+Measured on October 13, 2026, five repos needed it: `dkj-brandbook`, `dkj-etf-tracker`,
+`djcylow-react`, `dkj-music-library` and `dkj-recipes`.
 
 Beside its chapters, the plugin ships one hook (below). A hook is tooling the harness runs, not a rule a
 session has to follow, so it is no chapter and `CLAUDE.md` does not name it.

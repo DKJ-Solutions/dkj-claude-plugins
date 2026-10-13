@@ -63,7 +63,8 @@ Derek's lens: a docs/ branch carries no label, as branch-info.ps1 says
 The `specialists-init` scaffold's prefix-table example now suggests `Label = 'feature'` for `feat/`, the
 name the source tracker uses since #2764, where it still suggested GitHub's old `enhancement`
 ([#2961](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2961)). Existing branch tables are
-untouched: a consumer keeps whatever label its own table names.
+untouched by the scaffold; how a DKJ-Solutions repo moves its table to `feature` is the
+`dkj-solutions` README's, from the next entry for #2961.
 
 **Score:** 2
 

@@ -857,8 +857,11 @@ label, because an issue is always a feature or a bug and `documentation` is reti
 — the table is in [Classifying, naming, and creating a branch](#classifying-naming-and-creating-a-branch)
 above — so an issue already names the prefix its branch will get. `feature` was GitHub's default
 `enhancement` until Dave renamed it (October 3, 2026,
-[#2764](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2764)); a consumer's own tracker keeps
-whatever its own seam names. The rung it also carries is a separate
+[#2764](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2764)), and it is the name in every
+DKJ-Solutions consumer too (October 13, 2026,
+[#2961](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2961)): the `dkj-solutions`
+extension's README states it, with the move for a tracker still on `enhancement`. Another
+organisation's tracker keeps whatever its own seam names. The rung it also carries is a separate
 axis: see [Issue labels](#issue-labels--every-issue-carries-a-priority) below.
 
 **`bug-inbound` and `feature-inbound` are the inbound labels, and they mean something more.** Each marks
