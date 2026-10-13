@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#2982: the life-hub record lags the consumer's committed main. `dkj-solutions` is enabled but not
+registered, and the five `dkj-subagents-lifehub` lenses are back. Catch the record up, with a dated note.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/life-hub.json`: the five lifehub extensions are registered, a `dkj-solutions` block
+      with an empty extension list is added (it ships no agents/), and a CAUGHT UP note is appended.
 
 ### TEST
 
+- [x] `check-connectors.ps1` no longer reports the unregistered `dkj-solutions` block or the five
+      unregistered extensions. The remaining `[ERROR]`/`[INFO]` lines are machine state: the
+      consumer's `settings.local.json` disables lifehub and the user layer enables shopify, which the
+      record's notes already describe.
+
 ### DEPLOY: fix/2982-lifehub-register-catchup
 
-**Score:**
+The life-hub connector record registers what the consumer actually carries: the five
+`dkj-subagents-lifehub` lenses and the `dkj-solutions` plugin
+([#2982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2982)). Both now fall under the
+extension and version checks.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the register is bookkeeping inside this repo, and no consumer takes it.
+
+**Score:** N/A
 
 #### Pull Request
 
