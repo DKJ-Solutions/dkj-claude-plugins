@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**9 / 11 minor entries** <!-- pending-tally -->
+**9 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2976-connector-dashboard · 20261013-154611Z
+
+This repo now runs the `dkj-solutions` dev-preview hook, and what it starts is a **connector dashboard**
+([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)): one page on
+`http://localhost:4870/` with every repo registered under `connectors/`, its status, its plugins, its
+local checkout's branch and state, and every error and note `check-connectors.ps1` reports for it, worst
+first. It reads the check's own report rather than a second copy of its rules, binds to `127.0.0.1` only
+and refuses a foreign `Host`. The hook itself is still unreleased, so it starts the dashboard from the
+first session after the next release; until then it starts by hand
+(`scripts/dashboard/serve-connector-dashboard.ps1 -Port 4870`).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing a consumer runs changes: the dashboard and its seam are this repo's own.
+
+**Score:** N/A
+
+#### Pull Request
+
+Connector dashboard served through the dev-preview hook
+
+Plugins: dkj-solutions
+
+[PR #2979](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2979)
+
+---
 
 ### DEPLOY: fix/2973-djcylow-connector-owner · 20261013-144755Z
 
