@@ -439,6 +439,21 @@
          string literal -- a '+' concatenation, a -f format string and an argument array are walked,
          and whatever cannot be known statically becomes one non-whitespace placeholder. Born green:
          69 emissions across 15 check scripts, 0 findings, 0 exemptions.
+     46. tracked text CONTENT carries no C0 control character (0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F;
+         TAB, LF and CR are text). THE MEASURED DEFECT (#2971, October 13, 2026): a PowerShell
+         double-quoted string turned the backtick before `awaiting-info-client` into the escape
+         "`a" -- BEL, U+0007 -- inside a tracked .md, and this gate ran 0 errors, because check 43
+         reads path NAMES, check 27 holds a .ps1 to ASCII and a control byte IS ASCII, and the
+         mojibake check reads for mis-decoded UTF-8. The same trap writes "`b", "`f", "`v", "`0"
+         and "`e". The finding names file, first line and code point, plus the way out. THE SET IS
+         MEASURED: .md .json .yml .yaml .ps1 .js .html .txt and the other plain-text kinds, plus
+         every extensionless file; a file with another extension (the .png images) is counted in
+         the coverage line as not read. A test that needs a control byte composes it at runtime
+         instead of tracking it -- no exemption list. Born green: 930 tracked files read byte by
+         byte, 0 control bytes. WHAT IT DOES NOT REACH: history, an unlisted extension, and
+         0x7F-0x9F. Skipped, with a coverage line saying so, where the tree is not a git checkout.
+         A tracked file that cannot be READ is a finding, not a warning (a gate that cannot read it
+         cannot vouch for it), counted in the coverage line; the line number counts LF only.
     <!-- /checks:list -->
 
     Exit code: 0 = no errors. 1 = at least one error (usable as a gate in open-pr.ps1).
@@ -6210,6 +6225,119 @@ Write-Coverage -Category 'marker-column' -Checked $mcChecked `
         "no hook here selects on a verdict marker, so no check script could have been read -- which is not the same as every check writing its marker at the start of the line. $($mcHookFiles.Count) hook file(s) were parsed for a Select-CheckMarkerLine call"
     } else {
         "verdict-marker emission(s) across $($mcSubjects.Count) check script(s), derived from $mcSelectingHooks of $($mcHookFiles.Count) hook file(s) -- $mcFindings finding(s). THE SUBJECT SET IS DERIVED, NOT LISTED: a subject is a script whose output a hook reads through the anchored selector, and both the markers and the path come off the hook itself, so a new hook brings its check into scope on the day it is written. THE MARKERS ARE PER SUBJECT rather than one union: a marker a hook does not select from a given script cannot be dropped by any anchor, so a union would be a finding about nothing. Five of these scripts emit markers their own hook does not select ('[SKIP]', '[OK]'), all of them at the start of their line today -- so that narrowing is currently silent rather than load-bearing. THE UNIT IS THE EMITTED LINE, not the string literal: a '+' concatenation, a -f format string and an argument array are all walked, and what cannot be known statically becomes one non-whitespace placeholder. TWO NARROWINGS, MEASURED: only strings inside a writer command are read, and across these subjects 0 marker-bearing literals sit anywhere else; of those inside one, 0 are unreached by the reconstruction. WHAT IT DOES NOT SEE: a marker assembled into a variable and written by a later Write-Host -- absent today, and named here rather than left to be found. Born green, 0 exemptions"
+    })
+
+# --- 46. tracked text content carries no C0 control character ---------------------------------------------
+# THE MEASURED DEFECT (#2971, October 13, 2026). A subagent edited plugins/dkj-policy/bwj-development/
+# WORKFLOW-portable.md through a PowerShell DOUBLE-QUOTED string, in which the backtick before
+# `awaiting-info-client` is read as the escape "`a" -- U+0007, BEL. The line came out as 'with the <BEL>waiting-
+# info-client label kept on': the backticks gone, the label misnamed, and one invisible control byte in a
+# Markdown file. This gate ran 0 errors on it. Nothing here read tracked CONTENT for a control character:
+# check 43 reads path NAMES, check 27 holds a .ps1 to ASCII and a control byte IS ASCII, and the mojibake
+# check reads *.md for mis-decoded UTF-8, which a BEL is not. The copy editor caught it in the diff, which is
+# luck and not a gate.
+#
+# THE CLASS IS THE PowerShell BACKTICK ESCAPES. In a double-quoted string "`a" is 0x07, "`b" 0x08, "`f" 0x0C,
+# "`v" 0x0B, "`0" 0x00 and "`e" 0x1B (ESC, PowerShell 7 only; Windows PowerShell 5.1 drops the backtick and
+# keeps the letter, which is the OTHER way the same typing goes wrong and is not this check's to see). They
+# fire exactly where a Markdown writer reaches for a backtick before a letter -- an inline code span -- so
+# the damage is a document that renders almost right.
+#
+# WHAT IS REFUSED: 0x00-0x08, 0x0B, 0x0C and 0x0E-0x1F. WHAT IS NOT: TAB (0x09), LF (0x0A) and CR (0x0D),
+# which are text. DEL (0x7F) is outside the set, unmeasured. The finding names file, first line and code
+# point, because a BEL is the one thing an editor will not show.
+#
+# THE SUBJECT IS WHAT GIT TRACKS (check 43's reasoning: an untracked scratch file is what a scratchpad is
+# for) AND THE EXTENSION SET IS MEASURED, NOT GUESSED. Over all 930 tracked non-image files the tree holds
+# .ps1, .md, .json, .yml, .js, .html and four files with no extension (.gitignore, .gitattributes, LICENSE,
+# .claude/specialists/UPDATE) -- all text. The set below is those plus .yaml, .txt and the other plain-text
+# kinds a plugin may add; an EXTENSIONLESS file is read as text, and a file with any other extension (the
+# three .png) is counted in the coverage line as not read rather than passed over in silence. A denylist of
+# binaries was declined: the first unlisted binary format would be an invented false finding, and a gate
+# that cries wolf is trained away. The cost of the allowlist is the reverse, a text kind nobody listed, and
+# the coverage line names how many files it skipped so the gap is visible.
+#
+# THE READ IS BYTE-FOR-BYTE: decoded as Latin-1, which maps each byte to the code point of the same value,
+# so one regex pass finds a control byte whatever the file's encoding, and a UTF-16 file (NUL between every
+# character) is refused loudly rather than half-read. No tracked file here is UTF-16.
+#
+# BORN GREEN, MEASURED BEFORE IT WAS WRITTEN: 930 tracked files read byte by byte, 0 control bytes anywhere,
+# archived release notes and test fixtures included, 0 exemptions. A test fixture that needs one composes it
+# at runtime ([char]7) instead of tracking it, which is what the suite for this check does.
+#
+# WHAT IT DOES NOT REACH: history (a byte already committed stays in the object store); a file with an
+# unlisted extension; and the 0x7F, 0x80-0x9F range, which is valid UTF-8 text rather than a typing accident.
+# SKIPPED, with a coverage line saying so, where the tree is not a git checkout (a fixture, a plugin payload).
+$ccTextExt = @('.md', '.json', '.yml', '.yaml', '.ps1', '.psm1', '.psd1', '.js', '.html', '.css', '.txt', '.sh', '.liquid')
+$ccRx      = [regex]'[\x00-\x08\x0B\x0C\x0E-\x1F]'
+$ccChecked = 0
+$ccSkipped = 0
+$ccUnreadable = 0
+$ccFindings = 0
+$ccGit = $false
+if (Test-Path -LiteralPath (Join-Path $RepoRoot '.git')) {
+    try {
+        . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
+        . (Join-Path $PSScriptRoot '..\lib\git-porcelain-lib.ps1')
+        # The wire is held to ASCII and decoded here, for check 43's reason (#2109).
+        $ccList = Invoke-NativeCapture -FilePath 'git' -Arguments @('-c', 'core.quotePath=true', '-C', $RepoRoot, 'ls-files')
+        if ($ccList.ExitCode -eq 0) {
+            $ccGit = $true
+            $ccPaths = @($ccList.Output | Where-Object { $_ -ne $null } |
+                ForEach-Object { Convert-GitQuotedPath -Path ([string]$_) } | Where-Object { $_ -ne '' })
+            $ccLatin1 = [System.Text.Encoding]::GetEncoding(28591)
+            foreach ($ccPath in $ccPaths) {
+                # .NET reads the whole leaf of '.gitignore' as its EXTENSION, so a dotfile with no further dot
+                # is extensionless here -- found when the first run counted .gitignore and .gitattributes as
+                # non-text and the coverage line said five files were skipped where three images are.
+                $ccLeaf = [System.IO.Path]::GetFileName($ccPath)
+                $ccExt  = if ($ccLeaf.TrimStart('.') -notmatch '\.') { '' } else { [System.IO.Path]::GetExtension($ccLeaf).ToLowerInvariant() }
+                if ($ccExt -ne '' -and $ccTextExt -notcontains $ccExt) { $ccSkipped++; continue }
+                $ccFull = Join-Path $RepoRoot $ccPath
+                if (-not (Test-Path -LiteralPath $ccFull -PathType Leaf)) { continue }
+                # THE READ IS GUARDED PER FILE. One tracked file that cannot be opened (locked, permission)
+                # must not abort the scan of the rest, nor leave a coverage line saying "checked N -- 0
+                # finding(s)" with a smaller N and no reason. AN UNREADABLE TRACKED FILE IS A FINDING, NOT A
+                # WARNING: this gate exists to vouch that no control byte is tracked, and a file it could not
+                # read is one it cannot vouch for -- a warning would be trained away exactly where the gate
+                # went blind. It is counted separately and named in the coverage line.
+                try {
+                    $ccText = $ccLatin1.GetString([System.IO.File]::ReadAllBytes($ccFull))
+                } catch {
+                    $ccUnreadable++
+                    $ccFindings++
+                    Add-Error ("[control-char] $(Format-SafePathToken -Value $ccPath -MaxLength 200) is tracked but could not be read" +
+                        " ($(Format-SafePathToken -Value $_.Exception.Message -MaxLength 120)), so it was NOT checked for a control character." +
+                        ' Release whatever holds it (an editor, a sync client, a permission) and run the gate again.')
+                    continue
+                }
+                $ccChecked++
+                $ccFirst = $ccRx.Match($ccText)
+                if (-not $ccFirst.Success) { continue }
+                $ccFindings++
+                # The line number counts LF only, so a file with CR-only line endings reports line 1.
+                $ccLine  = ([regex]::Matches($ccText.Substring(0, $ccFirst.Index), "`n")).Count + 1
+                $ccTotal = $ccRx.Matches($ccText).Count
+                $ccCp    = 'U+{0:X4}' -f [int][char]$ccFirst.Value
+                Add-Error ("[control-char] $(Format-SafePathToken -Value $ccPath -MaxLength 200):$ccLine carries a C0 control character ($ccCp)" +
+                    "$(if ($ccTotal -gt 1) { ", $ccTotal in the file" }). Tab, LF and CR are text; every other byte below" +
+                    ' 0x20 is an invisible accident, and the usual author is a PowerShell DOUBLE-QUOTED string, where a backtick before a letter is an escape and not a character:' +
+                    ' "`a" is BEL (U+0007), "`b" BS (U+0008), "`f" FF (U+000C), "`v" VT (U+000B), "`0" NUL (U+0000) and "`e" ESC (U+001B, PowerShell 7).' +
+                    ' So a Markdown line written that way loses its backtick and gains a control byte that no editor shows (#2971).' +
+                    ' Remove the byte and write the text again without going through a double-quoted string -- the Edit tool, a here-string with single quotes (@''...''@),' +
+                    ' or a doubled backtick in the double-quoted form -- then read the line back by code point.')
+            }
+        }
+    } catch {
+        # A git that will not answer is not a finding about the tree's content -- check 43's posture. The
+        # coverage line below says nothing was read, so the gap is not silent.
+    }
+}
+Write-Coverage -Category 'control-char' -Checked $ccChecked `
+    -Note $(if (-not $ccGit) {
+        'no git checkout answered here (a fixture, a plugin payload, or a git that failed), so NO tracked file was read for a control character. Read this as not measured rather than clean'
+    } else {
+        "tracked text file(s) read byte-for-byte for a C0 control character other than TAB, LF and CR -- $ccFindings finding(s), $ccUnreadable of them a tracked file that could not be read (a finding rather than a warning: a gate that cannot read a file cannot vouch for it); $ccSkipped tracked file(s) with a non-text extension were NOT read (the .png images today). The measured defect is #2971 (October 13, 2026): a PowerShell double-quoted string turned a backtick before a label into BEL (U+0007) inside a tracked .md, and every check here reported 0 errors, because check 43 reads names, check 27 allows a control byte as ASCII and the mojibake check reads for mis-decoded UTF-8. Born green: 930 tracked files, 0 control bytes, 0 exemptions. WHAT IT DOES NOT REACH: history, a file with an unlisted extension, and 0x7F-0x9F"
     })
 
 # --- Report ---------------------------------------------------------------------------------------------
