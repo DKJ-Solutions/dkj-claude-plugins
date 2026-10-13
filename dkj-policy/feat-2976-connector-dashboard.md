@@ -67,7 +67,7 @@ with an overview of every connected repo. Issue #2976.
 - [x] Reviews: Victor (code) and Sebastian (security); every finding repaired -- git stderr under `Stop` blanked the page, one deadline and an 8 KB cap per request, HEAD without a body, checkouts held to the scope root, cross-site requests refused and `/refresh` throttled
 - [x] The tree's hook run twice against this checkout: `started` on 4870, then `already running`
 - [x] The live page: 200 with six repos; a foreign Host 403, POST 405, `/refresh` 303
-- [ ] The owner's look at the page (visible result)
+- [x] The owner's look at the page (visible result): approved by Maikel, October 13, 2026
 
 ### DEPLOY: feat/2976-connector-dashboard
 
