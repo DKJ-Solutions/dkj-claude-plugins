@@ -42,6 +42,7 @@
 .PARAMETER RepoRootOverride
     (For tests) The repo root instead of CLAUDE_PROJECT_DIR or the working directory.
 #>
+[CmdletBinding()]
 param([string]$RepoRootOverride)
 
 $ErrorActionPreference = 'Stop'
@@ -58,7 +59,7 @@ function Write-DevPreviewLine([string]$Text) {
 }
 
 trap {
-    $reason = ([string]$_.Exception.Message) -replace '[\p{C}]', ' '
+    $reason = (((([string]$_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
     Write-DevPreviewLine "dev-preview: skipped -- $reason"
 }
 
