@@ -43,17 +43,27 @@ The dkj-solutions extension states, always-on, that a house-style change is made
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] the extension's `CLAUDE.md` carries the upstream rule as its second chapter rule, with the brand book itself exempt
+- [x] the `house-style` skill's "Changing the house style" section names the same route
 
 ### TEST
 
 ### DEPLOY: feat/house-style-upstream-rule
 
-**Score:**
+A DKJ-Solutions repo that needs the house style itself to change no longer edits its own copy: it files an
+issue on `DKJ-Solutions/dkj-brandbook`, keeps working on its own layer, and takes the new copy once it has
+landed there. The rule is in the `dkj-solutions` extension's always-on `CLAUDE.md`, so every session in a
+repo with the plugin enabled reads it; the brand book itself is exempt, because that is where the change is
+made.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions app keeps one look: a styling fix lands once, in the brand book, and every app takes it
+from there instead of drifting into its own variant.
+
+**Score:** 3
 
 #### Pull Request
 
