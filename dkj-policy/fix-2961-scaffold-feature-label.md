@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound #2961: the `specialists-init` scaffold's prefix-table example still suggests
+`Label = 'enhancement'` for `feat/`, while the source tracker renamed that label `feature` (#2764) and
+`scripts/lib/branch-info.ps1` maps `feat` to `feature`. Five DKJ-Solutions consumers copied the old
+example. This branch repairs the example only; whether `feature` becomes binding for every consumer is
+the owner's decision and stays on #2961 (`-NoResolves`).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `bootstrap.ps1`: the example row reads `Label = 'feature'`, with a note citing #2764 beside the
+  existing #2783 note.
 
 ### TEST
 
+- [x] No suite pins the example text (`grep` over `scripts/tests`); the change is inside a comment, so
+  the scaffold's behavior is unchanged.
+
 ### DEPLOY: fix/2961-scaffold-feature-label
 
-**Score:**
+The `specialists-init` scaffold's prefix-table example now suggests `Label = 'feature'` for `feat/`, the
+name the source tracker uses since #2764, where it still suggested GitHub's old `enhancement`
+([#2961](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2961)). Existing branch tables are
+untouched: a consumer keeps whatever label its own table names.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that runs `specialists-init` from this release on is offered `feature` for its `feat/` pull
+requests, the same label the source tracker uses, instead of a name the source already retired.
+
+**Score:** 1
 
 #### Pull Request
 

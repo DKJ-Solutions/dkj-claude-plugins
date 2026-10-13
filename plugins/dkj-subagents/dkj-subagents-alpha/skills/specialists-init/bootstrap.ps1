@@ -743,11 +743,12 @@ $branchInfoScaffold = @'
 $script:BranchTypeOrder = @()
 
 # VUL-IN: prefix -> GitHub label (PR) + branch type (changelog entry). Example:
-#   feat  = @{ Label = 'enhancement';   Type = 'Feat' }
+#   feat  = @{ Label = 'feature';       Type = 'Feat' }
 #   fix   = @{ Label = 'bug';           Type = 'Fix' }
 #   docs  = @{ Label = $null;           Type = 'Docs' }
 #   chore = @{ Label = $null;           Type = 'Chore' }
-#   ($null = no PR label; an issue is a feature or a bug, never 'documentation' -- #2783)
+#   ($null = no PR label; an issue is a feature or a bug, never 'documentation' -- #2783; 'feature'
+#   is GitHub's 'enhancement' renamed, as on the source tracker -- #2764)
 $script:BranchPrefixTable = @{
 }
 
