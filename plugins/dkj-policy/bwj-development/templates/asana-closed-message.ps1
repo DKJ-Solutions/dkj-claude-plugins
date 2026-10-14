@@ -25,20 +25,30 @@
         the closed line, and under it the sections of the go-live block the shipping session left on
         the issue (build-golive-block.ps1). That block is the "new form": TE BEKIJKEN OP, WAT ER NU
         ANDERS IS, WANNEER HET LIVE KOMT, WAT ER BEWUST NIET IN ZIT, WAT WE VAN JE VRAGEN.
-      - A close as completed whose newest block was posted BEFORE the issue's last reopen (#2968): the
-        header and the closed line, and one sentence under them -- 'The result message for this round
-        follows.' -- instead of the block. That block describes an earlier round; xoxowildhearts#414 sent
-        round 1's block into the task as round 2's result. The same bare message, without the sentence,
-        goes where the last reopen could not be read: a block that might be stale is not carried. The
-        requester is delayed, never misinformed. A block newer than the reopen, and an issue never
-        reopened, are carried as before. This is the BACKSTOP for a merge the
-        pre-merge hook (hooks/guard-stale-paste-block.ps1) never saw -- the GitHub merge button, a merge
-        queue.
-      - A close as completed with NO block on the issue: the header and the closed line alone, so the
-        requester still hears that the work is done. A proposal in #2818 rather than a decision.
-      - A close as completed whose comments COULD NOT BE READ: the same bare message, and the log says
-        the read failed, with gh's exit code and stderr -- never 'none was on the issue', which it
-        cannot know (#2875).
+      - A close as completed whose newest block is a RESEARCH block (build-golive-block.ps1 -Research,
+        #3004): the header, the research closed line -- 'is now closed. Nothing has changed. This issue
+        was for research purposes only.' -- and the block's WHAT WE FOUND section under it. A research,
+        test or decision ticket changed nothing on the store, so the reopen line ('when something is
+        still not working as expected') would describe a result that does not exist. The block carries a
+        second marker (Get-AsanaResearchBlockMarker) beside its own, and that is how it is recognised.
+      - A close as completed that CARRIES NO BLOCK, for any reason: the header, the closed line, and one
+        sentence under them -- 'The result message for this round follows.' NEVER THE CLOSED LINE ALONE
+        (Maikel, October 14, 2026, #3004): 'with this automation there must always be an explanation of
+        how to view the result', and a bare 'is now closed' told the requester of
+        smartwatchbanden#943 that the work was done and nothing about where its result was. The
+        sentence tells them a result message is still coming; the task's assignee writes it. No link
+        to the GitHub issue stands in for it: not every requester can open the repo. The cases:
+          * the newest block was posted BEFORE the issue's last reopen (#2968). That block describes an
+            earlier round; xoxowildhearts#414 sent round 1's block into the task as round 2's result.
+            A block newer than the reopen, and an issue never reopened, are carried as before;
+          * the last reopen could not be read, so a block that might be stale is not carried;
+          * there is NO block on the issue. A close by hand is refused by the close guard before it gets
+            here (hooks/guard-stale-paste-block.ps1, #3004), so this is the GitHub close button, a merge,
+            or a session the hook does not run in;
+          * the comments COULD NOT BE READ; the log says the read failed, with gh's exit code and stderr
+            -- never 'none was on the issue', which it cannot know (#2875).
+        The requester is delayed, never misinformed. This is the BACKSTOP for a merge or a close the
+        hook never saw -- the GitHub merge button, a merge queue, the close button.
       - A close as NOT PLANNED that keeps the awaiting-info-client label on, with a linked task: one
         comment, the header and the on-hold line in the requester's fixed form -- 'is closed: there is not
         enough information to start development yet. Once the questions above are answered, the issue will
@@ -196,13 +206,28 @@ function Get-ClosedMessageHeader {
     return "$([char]0x2014) GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
 }
 
+function Get-ClosedMessageTail {
+    <#
+        Pure: what follows 'is now closed.' in the closed sentence. The result form invites a reopen
+        (#2700); the research form (#3004) says nothing changed, because a research, test or decision
+        ticket has no result that can be 'not working as expected'. Maikel's wording, October 14, 2026.
+    #>
+    param([switch]$Research)
+    if ($Research) { return 'Nothing has changed. This issue was for research purposes only.' }
+    return 'It can be reopened anytime when something is still not working as expected.'
+}
+
 function New-ClosedMessage {
     <#
         Pure: the closed comment as plain text -- the header, a blank line, and the closed sentence
-        (#2700). It is the go-live block's own opening, so the two read the same.
+        (#2700). It is the go-live block's own opening, so the two read the same. -Research is the
+        research form (#3004).
     #>
-    param([Parameter(Mandatory = $true)][string]$IssueRef)
-    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed. It can be reopened anytime when something is still not working as expected.") -join "`n")
+    param(
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [switch]$Research
+    )
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed. $(Get-ClosedMessageTail -Research:$Research)") -join "`n")
 }
 
 function Get-PasteBlockSections {
@@ -287,22 +312,28 @@ function New-ClosedMessageHtml {
         under it where -BlockSections carries any. Only <body>, <a> and <strong>, all on Asana's
         allow-list for a story.
 
-        -ResultPending (#2968) is the close whose only block describes an EARLIER round: the block is
-        left out and one sentence says this round's result message follows, in the closed line's own
-        style. Never both -- a pending sentence under a block would contradict it.
+        WITHOUT SECTIONS, ONE SENTENCE SAYS THE RESULT MESSAGE FOLLOWS (#3004), in the closed line's own
+        style -- never the closed line alone, which tells the requester the work is done and nothing about
+        how to see it. It began as the close whose only block describes an EARLIER round (#2968); it is
+        now every close that carries no block. Never beside a block, which it would contradict.
+
+        -Research (#3004): the block is a research block, so the closed sentence says nothing changed
+        instead of inviting a reopen. It is meaningful only beside sections: a research close that
+        carries no block gets the result form, because nothing it could say about a finding is known.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [AllowEmptyString()][string]$BlockSections = '',
-        [switch]$ResultPending
+        [switch]$Research
     )
 
     $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
     $parts = $IssueRef -split '#'
     $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    $html  = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>. It can be reopened anytime when something is still not working as expected."
+    $tail  = Get-ClosedMessageTail -Research:($Research -and [bool]$BlockSections)
+    $html  = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>. $(& $esc $tail)"
     if ($BlockSections) { $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) }
-    elseif ($ResultPending) { $html += "`n`n" + (& $esc 'The result message for this round follows.') }
+    else { $html += "`n`n" + (& $esc 'The result message for this round follows.') }
     return $html + '</body>'
 }
 
@@ -361,6 +392,14 @@ function Get-AsanaPasteBlockMarker {
         of asana-task-lib.ps1's function of this name.
     #>
     return '<!-- asana-paste-block -->'
+}
+
+function Get-AsanaResearchBlockMarker {
+    <#
+        Pure: the second marker build-golive-block.ps1 -Research puts on a research block (#3004). A copy
+        of asana-task-lib.ps1's function of this name.
+    #>
+    return '<!-- asana-paste-block-kind: research -->'
 }
 
 function ConvertTo-AsanaInstant {
@@ -438,10 +477,12 @@ function Get-AsanaPasteBlockVerdict {
     return 'stale'
 }
 
-function Select-SessionPasteBlockSections {
+function Select-SessionPasteBlockBody {
     <#
-        Pure: out of an issue's comment bodies, the sections of the NEWEST block carrying the marker
-        that is not a placeholder copy ('[ADD LINK]'). '' when there is none.
+        Pure: out of an issue's comment bodies, the NEWEST one that is a block the message would carry
+        -- the marker, and sections that are not a placeholder copy ('[ADD LINK]'). '' when there is
+        none. The whole body, because whether it is a research block (#3004) is read from its marker,
+        which sits outside the sections.
     #>
     param([string[]]$Bodies = @())
 
@@ -450,9 +491,19 @@ function Select-SessionPasteBlockSections {
     $list = @($Bodies)
     for ($i = $list.Count - 1; $i -ge 0; $i--) {
         $body = [string]$list[$i]
-        if (Test-AsanaPasteBlockBody -Body $body) { return (Get-PasteBlockSections -Body $body) }
+        if (Test-AsanaPasteBlockBody -Body $body) { return $body }
     }
     return ''
+}
+
+function Select-SessionPasteBlockSections {
+    <#
+        Pure: the sections of the block Select-SessionPasteBlockBody picks. '' when there is none.
+    #>
+    param([string[]]$Bodies = @())
+    $body = Select-SessionPasteBlockBody -Bodies $Bodies
+    if (-not $body) { return '' }
+    return (Get-PasteBlockSections -Body $body)
 }
 
 function Get-OnHoldLabelNames {
@@ -798,14 +849,17 @@ function Read-LastReopen {
 
 function Get-ClosedMessageBlockPhrase {
     <#
-        Pure: the half of the final log line that says what happened to the block. Three cases, kept
+        Pure: the half of the final log line that says what happened to the block. The cases are kept
         apart on purpose (#2875): a block was carried; the comments were read and none carried one; the
-        comments could not be read, so nobody looked. The bare closed message goes out in both of the
-        last two, so the requester still hears the work is done.
+        comments could not be read, so nobody looked. Wherever no block went out, the message said the
+        result message follows (#3004), and the phrase says so, so the log tells whoever reads the run
+        that the assignee still owes the requester that message.
     #>
     param(
         [AllowEmptyString()][string]$Sections = '',
         [bool]$ReadOk = $true,
+        # The carried block is a research block (#3004).
+        [bool]$Research = $false,
         # How many go-live block comments the trust check did not carry (#2907): a dropped block and an
         # absent one are different facts, and they used to share 'none was on the issue'.
         [int]$Dropped = 0,
@@ -813,12 +867,13 @@ function Get-ClosedMessageBlockPhrase {
         # reopen) or 'unread' (the reopen could not be read, so whether it does is unknown).
         [string]$Held = ''
     )
-    if ($Sections) { return "with the session's go-live block" }
-    if ($Held -eq 'stale') { return "without a go-live block -- the only one on the issue predates its last reopen, so it describes an earlier round; the message says this round's result follows" }
-    if ($Held -eq 'unread') { return 'without a go-live block -- one was on the issue, but when the issue was last reopened could not be read (the gh error is above), so whether it is stale is unknown' }
-    if (-not $ReadOk) { return 'without a go-live block -- the comments could not be read (the gh error is above), so whether one was on the issue is unknown' }
-    if ($Dropped -gt 0) { return 'without a go-live block -- one was on the issue but its author was not trusted (the reason is above)' }
-    return 'without a go-live block -- none was on the issue'
+    if ($Sections) { if ($Research) { return "with the session's research block" } return "with the session's go-live block" }
+    $owed = "; the message says the result message follows, which the task's assignee still owes the requester"
+    if ($Held -eq 'stale') { return "without a go-live block -- the only one on the issue predates its last reopen, so it describes an earlier round$owed" }
+    if ($Held -eq 'unread') { return "without a go-live block -- one was on the issue, but when the issue was last reopened could not be read (the gh error is above), so whether it is stale is unknown$owed" }
+    if (-not $ReadOk) { return "without a go-live block -- the comments could not be read (the gh error is above), so whether one was on the issue is unknown$owed" }
+    if ($Dropped -gt 0) { return "without a go-live block -- one was on the issue but its author was not trusted (the reason is above)$owed" }
+    return "without a go-live block -- none was on the issue$owed"
 }
 
 function Invoke-Main {
@@ -855,7 +910,9 @@ function Invoke-Main {
         $trusted = Select-TrustedCommentBodies -Comments $read.Comments -Permissions $permissions
         foreach ($note in $trusted.Notes) { Write-Host "Trust check: $note" }
         $dropped  = $trusted.Dropped
-        $sections = Select-SessionPasteBlockSections -Bodies $trusted.Bodies
+        $chosen   = Select-SessionPasteBlockBody -Bodies $trusted.Bodies
+        $sections = if ($chosen) { Get-PasteBlockSections -Body $chosen } else { '' }
+        $research = [bool]$chosen -and $chosen.Contains((Get-AsanaResearchBlockMarker))
 
         # A BLOCK FROM BEFORE THE LAST REOPEN IS NOT CARRIED (#2968). xoxowildhearts#414 closed after
         # round 1 with its block, was reopened, and closed again by the PR of round 2 -- whose block the
@@ -865,8 +922,7 @@ function Invoke-Main {
         # The same holds where the reopen could not be read: that costs the bare closed message, the same
         # as an unreadable comment read, and never a block that might be stale. The read is made only when
         # a block is there to judge, so an issue without one costs no extra call.
-        $held    = ''
-        $pending = $false
+        $held = ''
         if ($sections) {
             $state = Get-AsanaPasteBlockVerdict -Comments $trusted.Comments -LastReopenedAt $null
             if ($state -ne 'none') {
@@ -876,13 +932,15 @@ function Invoke-Main {
                     $held = 'unread'
                 } else {
                     $verdict = Get-AsanaPasteBlockVerdict -Comments $trusted.Comments -LastReopenedAt $reopen.LastReopenedAt
-                    if ($verdict -eq 'stale') { $held = 'stale'; $pending = $true }
+                    if ($verdict -eq 'stale') { $held = 'stale' }
                     elseif ($verdict -eq 'unknown') { $held = 'unread' }
                 }
-                if ($held) { $sections = '' }
+                if ($held) { $sections = ''; $research = $false }
             }
         }
-        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -ResultPending:$pending
+        # NO SECTIONS IS NEVER THE CLOSED LINE ALONE (#3004): New-ClosedMessageHtml adds that the result
+        # message follows, whichever of the reasons above left the block out.
+        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research
     }
     $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
     # UTF-8 BYTES, not the string: Windows PowerShell 5.1 encodes a string body as ISO-8859-1, which
@@ -904,7 +962,7 @@ function Invoke-Main {
         Write-Host "Asana task $($decision.Gid) told: $IssueRef is on hold, closed as not planned while waiting for more information ($($decision.Why)). The card was NOT moved."
         return
     }
-    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped -Held $held
+    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped -Held $held -Research $research
     Write-Host "Asana task $($decision.Gid) told: $IssueRef is closed, $with ($($decision.Why)). The task was NOT completed -- that is the requester's call."
 }
 

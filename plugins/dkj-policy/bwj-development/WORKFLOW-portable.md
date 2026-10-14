@@ -394,15 +394,32 @@ same day brought back **the closed message** (#2818), and the next day **the reo
 (#2945) as a second, separate copied workflow, `asana-prio-label`** (step 5). In practice:
 
 - **Closing an issue as completed** posts one comment on the linked task: the automation's header, the
-  closed line, and the go-live block's sections under it. Where the issue carries no block, it posts the
-  header and the closed line alone, so the requester still hears.
+  closed line, and the go-live block's sections under it.
+- **The closed line is never sent alone** (Maikel, October 14, 2026,
+  [#3004](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3004)): *"there must always be an
+  explanation of how to view the result"*. Measured on smartwatchbanden#943: a research ticket was closed
+  by hand with no block, and the requester heard that the issue was closed and nothing about where its
+  result was. So wherever a completed close carries no block -- none on the issue, one too old (below), a
+  reopen or comment read that failed -- the message adds one sentence, *"The result message for this round
+  follows."*, and the run log says the task's assignee still owes it. A link to the GitHub issue does not
+  stand in for it: not every requester can open the repo.
+- **A ticket without a storefront result gets a research block.** Research, a test or a decision changes
+  nothing on the store, so `build-golive-block.ps1 -Research` writes the findings themselves, for the
+  requester, under one heading, *WAT WE GEVONDEN HEBBEN* (*WHAT WE FOUND*). The closed message then
+  opens with the research form of the closed line: *"GitHub issue <owner>/<repo>#<n> is now **closed**.
+  Nothing has changed. This issue was for research purposes only."* The form is in
+  [`golive-block`](skills/golive-block/SKILL.md).
+- **A close by hand is guarded too** (#3004). The `guard-stale-paste-block` PreToolUse hook also reads
+  `gh issue close`. It refuses a completed close of an issue whose body links one Asana task while that
+  issue carries no block posted since its last reopen, and the refusal names both blocks' commands and
+  the not-planned close for a ticket where nothing was done. An issue linking no task, or several, closes
+  freely, because the closed message posts nothing for it.
 - **A close as completed whose newest block predates the issue's last reopen carries no block**
   ([#2968](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2968)). Measured on xoxowildhearts#414: closed after round 1 with its block, reopened, and closed
   again by round 2's PR, whose block the session posted only afterwards -- the second closed message sent
-  round 1's block into the task as round 2's result. The message is then the header, the closed line and one
-  sentence, *"The result message for this round follows."*; where the reopen cannot be read it is the bare
-  closed message, because a delayed message costs less than a wrong one. **So post a reopened issue's new
-  block before its PR merges**: the `guard-stale-paste-block` PreToolUse hook refuses `ship-pr.ps1` and
+  round 1's block into the task as round 2's result. The message then says the result message follows, as
+  it does where the reopen cannot be read, because a delayed message costs less than a wrong one. **So
+  post a reopened issue's new block before its PR merges**: the same hook refuses `ship-pr.ps1` and
   `open-pr.ps1` while a closing issue's newest block is older than its last reopen (`-GatesOnly` is not
   a ship and is skipped), and the workflow is the backstop for a merge it never saw (the GitHub merge
   button, a merge queue). **The hook is an accident guard, not an adversarial one**: it reads the command
@@ -732,9 +749,9 @@ the machine marker tried first and unconditionally. The second matcher is a lead
 by hand -- `Fill in the link below and paste the block into the Asana task` -- quoted here so a block can
 be written by hand. The backstop that used to post a placeholder-only block on a close with no block on it is
 retired with the mirror (Dave, October 5, 2026) and did not come back: an issue closed without a block
-has none, and its closed message goes out with the header and the closed line only. So does one whose
-newest block predates the issue's last reopen (plus one sentence saying this round's result follows),
-and one whose reopen could not be read (#2968, the bullet under *Closing an issue as completed*). So does one whose
+has none, and its closed message goes out with the header, the closed line and the sentence that the
+result message follows (#3004). So does one whose newest block predates the issue's last reopen, and one
+whose reopen could not be read (#2968, the bullets under *Closing an issue as completed*). So does one whose
 comments the workflow could not read (it reads them through REST, `gh api .../issues/<n>/comments`), and
 its run log then says the read failed, with gh's exit code and error, rather than that no block was on
 the issue (#2875).
