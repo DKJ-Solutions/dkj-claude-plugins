@@ -945,6 +945,9 @@ if ($connected) {
         Write-Host "Could not diff origin/$trunk against origin/$deployBranch (git exited $LASTEXITCODE)." -ForegroundColor Red
         exit 1
     }
+    # The paste token for the two printed look-first lines (#1594's rule): validated above, but a printed
+    # command reads its refs through the one helper, which the source guard in ref-print-lib.tests holds.
+    $deployPaste = Get-PasteableRef -Ref $deployBranch -Placeholder '<deploy>'
     $flowReason = "saved on the live theme (theme editor, code editor or an app) and committed to $deployBranch"
     $flowRows = @($flowOut | ForEach-Object { ConvertFrom-BackflowNameStatus -Line ([string]$_) } | Where-Object { $_ } | ForEach-Object {
         [pscustomobject]@{ Status = $_.Status; Path = (Convert-GitQuotedPath -Path $_.RawPath); Reason = $flowReason }
@@ -994,7 +997,7 @@ if ($connected) {
     }
     if (-not $openKnown) {
         Write-Host "Could not ask GitHub whether a back-flow PR is already open ($(Get-NativeExitLabel -Capture $openCap)), so none is opened: it might be a second one." -ForegroundColor Red
-        Write-Host "  Look first: gh pr list --head $deployBranch --base $trunk --state open" -ForegroundColor Red
+        Write-Host "  Look first: gh pr list --head $($deployPaste.Token) --base $($trunkPaste.Token) --state open" -ForegroundColor Red
         exit 1
     }
     $flowCreate = Invoke-NativeCapture -FilePath 'gh' `
@@ -1004,7 +1007,7 @@ if ($connected) {
     $flowCreate.Output | ForEach-Object { Write-Host "  $_" }
     if (-not (Test-NativeExitMeasured -Capture $flowCreate)) {
         Write-Host 'gh pr create ran with an exit code that could not be measured, so THIS RUN DOES NOT KNOW whether the PR was opened. Look before opening another:' -ForegroundColor Red
-        Write-Host "    gh pr list --head $deployBranch --base $trunk --state open" -ForegroundColor Red
+        Write-Host "    gh pr list --head $($deployPaste.Token) --base $($trunkPaste.Token) --state open" -ForegroundColor Red
         exit 1
     }
     if ($flowCreate.ExitCode -ne 0) {

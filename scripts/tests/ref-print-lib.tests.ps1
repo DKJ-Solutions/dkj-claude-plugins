@@ -764,7 +764,7 @@ Write-Host 'The path call sites in sync-main.ps1' -ForegroundColor Cyan
 
 # THE THREE PADDED LISTINGS (#1638). Asserted as a count rather than one by one: they are the same line
 # three times, and what must hold is that none of the three was left behind.
-Assert-Equal 3 ([regex]::Matches($syncText, [regex]::Escape('(Get-DisplayPath -Path $r.Path)')).Count) 'all three of the take / hold-back / conflict listings go through the path strip'
+Assert-Equal 4 ([regex]::Matches($syncText, [regex]::Escape('(Get-DisplayPath -Path $r.Path)')).Count) 'all four of the take / hold-back / conflict / back-flow (#3010) listings go through the path strip'
 Assert-True (-not $syncText.Contains('-f $r.Status, $r.Path,')) 'and none of them still formats the raw path into the padded column'
 
 # THE CONFLICT REMEDY (#1637). One judgement per row, both operands answered from it.
