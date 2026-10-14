@@ -39,21 +39,42 @@
 
 ### PLAN
 
+Verified the reported reason before repairing it: `ConvertFrom-ConnectorCheckOutput` matched only
+`[ERROR|INFO|OK|SKIP]`, while `check-connectors.ps1` prints four more tags inside a connector block --
+the three the issue names plus `[UNREGISTERED]`. The page's counts and signal list also read only
+`ERROR`/`INFO`/`SKIP`, so widening the regex alone would still have hidden them. Hence: accept any
+tag, and read every tag other than ERROR, OK and SKIP as INFO, which carries status, counts and list
+with no rendering change.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/connector-dashboard-lib.ps1`: the parser takes any bracketed tag and reads an
+  unknown one as INFO; the header docstring says why
+- [x] `scripts/tests/connector-dashboard.tests.ps1`: a connector block carrying all four markers
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` standalone: 69 passed, 0 failed
+
 ### DEPLOY: fix/2995-dashboard-unknown-tags
 
-**Score:**
+The connector dashboard no longer shows a repo as `In sync` while `check-connectors.ps1` reports a
+marker for it. The parser kept only the `[ERROR]`, `[INFO]`, `[OK]` and `[SKIP]` tags, so
+`[INVENTORY]`, `[UNLISTED]`, `[UNREGISTERED]` and `[NOT-INSTALLED-HERE]` were dropped. It now keeps
+every bracketed tag and reads a tag other than those three as a note. The repo then shows as
+`Has notes` and the marker appears in its card
+([#2995](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2995)). No marker fires today,
+so this prevents a failure that has not happened yet: a repo reading as in sync while its register
+entry is behind.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the dashboard is a local maintenance view of this repo, and no consumer receives it.
+
+**Score:** N/A
 
 #### Pull Request
 
 Connector dashboard keeps every signal tag the check prints
-

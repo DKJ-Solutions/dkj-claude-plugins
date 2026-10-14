@@ -66,6 +66,24 @@ Assert-Equal 'plugin q@m is enabled but not listed' $beta[2].Text 'a repo-level 
 Assert-Equal 0 @((ConvertFrom-ConnectorCheckOutput -Lines @()).Keys).Count 'an empty report is no repos, not an error'
 Assert-Equal 0 @((ConvertFrom-ConnectorCheckOutput -Lines $null).Keys).Count 'no report at all is no repos either'
 
+# #2995: the check prints non-counting markers inside a connector block, and a parser naming four
+# tags dropped them -- so such a repo read as 'In sync'.
+$markers = ConvertFrom-ConnectorCheckOutput -Lines @(
+    '== connector: Org/delta',
+    '  [OK]    plugin is enabled in .claude/settings.json',
+    '  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (x)',
+    '  -- plugin: p1@m',
+    '  [NOT-INSTALLED-HERE] ''p1@m'' is enabled in .claude/settings.json but has no install record',
+    '  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry does not list (q@m)',
+    '  [UNREGISTERED] Org/delta: not in the register'
+)
+$delta = @($markers['Org/delta'].Signals)
+Assert-Equal 5 $delta.Count 'every bracketed tag inside a connector block is a signal, not just four named ones'
+Assert-Equal 'OK INFO INFO INFO INFO' (($delta | ForEach-Object { $_.Level }) -join ' ') 'a tag other than ERROR, OK or SKIP is read as INFO -- a note, never an error'
+Assert-Equal 'p1@m' $delta[2].Plugin 'a marker under "-- plugin:" carries that plugin'
+Assert-Equal 'not in the register' $delta[4].Text 'a marker''s "<repo>: " prefix is stripped like any signal''s'
+Assert-Equal 'warn' (Get-ConnectorStatus $delta) 'a repo with only a marker beside [OK] is warn, not In sync'
+
 Write-Host '-- group 1b: status, worst first' -ForegroundColor Cyan
 
 Assert-Equal 'bad'  (Get-ConnectorStatus $beta) 'an [ERROR] makes a repo bad, whatever else it has'
