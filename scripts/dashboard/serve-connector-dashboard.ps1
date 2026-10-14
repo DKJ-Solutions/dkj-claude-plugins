@@ -18,7 +18,7 @@
     not localhost:<Port> or 127.0.0.1:<Port> is refused (DNS rebinding).
 
     THE DATA IS READ ON DEMAND AND KEPT FOR -CacheSeconds. The first request after that runs
-    check-connectors.ps1 -SkipDrift again (about three seconds), reads every connectors/*.json, and asks
+    check-connectors.ps1 again, drift check included (#2997, about 1.4 s more), reads every connectors/*.json, and asks
     git for each checkout's branch, uncommitted count and ahead/behind against its upstream -- local refs
     only, no fetch. /refresh drops the cache and redirects to the page.
 
@@ -104,7 +104,7 @@ function Get-DashboardModel {
     $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
     try {
         $check = Join-Path $root 'scripts\sync\check-connectors.ps1'
-        $lines = & powershell -NoProfile -ExecutionPolicy Bypass -File $check -SkipDrift 2>&1 | ForEach-Object { [string]$_ }
+        $lines = & powershell -NoProfile -ExecutionPolicy Bypass -File $check 2>&1 | ForEach-Object { [string]$_ }
         $parsed = ConvertFrom-ConnectorCheckOutput -Lines $lines
         if (-not $parsed.Count) { $meta.CheckFailed = 'it printed no connector block' }
     } catch {
@@ -136,6 +136,7 @@ function Get-DashboardModel {
             Present    = [bool]$resolved
             Plugins    = $plugins
             Signals    = $signals
+            Drift      = if ($parsed.Contains($repo)) { $parsed[$repo].Drift } else { $null }
             Status     = Get-ConnectorStatus $signals
             Git        = if ($resolved) { Get-DashboardGitInfo $resolved } else { $null }
             Notes      = [string]$m.notes

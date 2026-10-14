@@ -39,19 +39,49 @@
 
 ### PLAN
 
+Each `-- drift-check: <repo>` header names its repo, so the block reopens that repo's record. Its two
+summary lines become a Drift record. Only its `[ERROR]` (the check's own verdict on agent-def drift,
+which the parser used to drop with the rest of the section) joins the signals. The per-file
+`[DRIFTED]`/`[IDENTICAL]` lines carry local paths and are already counted in the summary, so they
+stay out. Persona drift stays informational. A visible result: parked for the owner's look.
+
+#### Parked for the owner's eye
+
+On the connector dashboard (http://localhost:4872/, served from this branch), each consumer card
+present on this machine has a new `Drift:` line under its plugin list.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/connector-dashboard-lib.ps1`: drift blocks parsed into a per-repo Drift record,
+  `Format-DashboardDrift`, and the card line
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1`: the check runs without `-SkipDrift`, and the
+  record reaches the model
+- [x] `scripts/tests/connector-dashboard.tests.ps1`: group 1b1, and the group 1a assert that pinned the
+  old "drift adds nothing" behaviour rewritten for the summary line
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` standalone: 90 passed, 0 failed
+- [x] The page served from this branch on this machine: three consumers present show `Drift: 0 dead
+  copies, 0 drifted agent defs, 0 of 4 personas drifted`
+- [x] `open-pr.ps1 -GatesOnly` before the park
+
 ### DEPLOY: feat/2997-dashboard-drift
 
-**Score:**
+The connector dashboard now shows each consumer's agent-def and persona drift. Before, the server ran
+`check-connectors.ps1 -SkipDrift`, so this was seen only by running the check by hand. Each card on this
+machine has a line counting dead copies, drifted agent defs and drifted personas. Agent-def drift marks
+the repo `Needs action`, as the check itself counts it. Persona drift stays informational and never
+changes a status on its own. A page build takes about 1.4 s longer
+([#2997](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2997)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the dashboard is a local maintenance view of this repo, and no consumer receives it.
+
+**Score:** N/A
 
 #### Pull Request
 
