@@ -92,6 +92,35 @@ Assert-Equal 'skip' (Get-ConnectorStatus @($parsed['Org/gamma'].Signals)) 'a ski
 Assert-Equal 'good' (Get-ConnectorStatus @(@{ Level = 'OK' })) 'only [OK] is good'
 Assert-Equal 'good' (Get-ConnectorStatus @()) 'no signals is good'
 
+Write-Host '-- group 1b2: the installed plugin version (#2996)' -ForegroundColor Cyan
+
+$verReport = ConvertFrom-ConnectorCheckOutput -Lines @(
+    '== connector: Org/same',
+    '  -- plugin: a@m',
+    '  [OK]    machine record is on the source version (v5.18.0)',
+    '  -- plugin: b@m',
+    '  [OK]    machine record is on the source version (v5.18.0)',
+    '== connector: Org/lags',
+    '  -- plugin: a@m',
+    '  [OK]    machine record is on the source version (v5.18.0)',
+    '  -- plugin: b@m',
+    '  [ERROR] Org/lags / b@m: machine record is on v5.9.2, source on v5.18.0 -- update the plugin',
+    '== connector: Org/norecord',
+    '  -- plugin: a@m',
+    '  [INFO]  no machine record for this consumer (the install may run via a different machine).'
+)
+$same = Get-ConnectorInstalledVersion $verReport['Org/same'].Signals
+Assert-Equal '5.18.0' $same.Version 'the version comes from the check''s own machine-record line'
+Assert-True (-not $same.Mixed) 'plugins on one version are not mixed'
+$lags = Get-ConnectorInstalledVersion $verReport['Org/lags'].Signals
+Assert-Equal '5.9.2 b@m' "$($lags.Version) $($lags.Plugin)" 'the lowest version wins, compared as a version (5.9.2 below 5.18.0), with its plugin'
+Assert-True $lags.Mixed 'plugins on different versions are mixed'
+Assert-True ($null -eq (Get-ConnectorInstalledVersion $verReport['Org/norecord'].Signals)) 'no machine-record line is no version'
+Assert-Equal 'v5.18.0' (Format-DashboardInstalledVersion @{ Present = $true; Signals = $verReport['Org/same'].Signals }) 'one version: the cell is the version alone'
+Assert-Equal 'v5.9.2 <code>b@m</code>' (Format-DashboardInstalledVersion @{ Present = $true; Signals = $verReport['Org/lags'].Signals }) 'differing versions: the cell names the lowest and its plugin'
+Assert-Equal 'no record' (Format-DashboardInstalledVersion @{ Present = $true; Signals = $verReport['Org/norecord'].Signals }) 'a checkout here with no record says so'
+Assert-Equal '-' (Format-DashboardInstalledVersion @{ Present = $false; Signals = @() }) 'a repo not on this machine is -'
+
 Write-Host '-- group 1c: the checkout list and the Host guard' -ForegroundColor Cyan
 
 Assert-Equal '../a' ((Get-ConnectorCheckoutCandidates '../a') -join ',') 'one path is a list of one'

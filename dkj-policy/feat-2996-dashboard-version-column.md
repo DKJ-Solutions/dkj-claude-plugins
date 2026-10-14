@@ -39,19 +39,44 @@
 
 ### PLAN
 
+The version comes from the check's own per-plugin machine-record line, read by its text whatever its
+tag, so the dashboard still reads no install records itself and no tag list is hard-coded again (the
+issue's note on #2995). A visible result: parked for the owner's look, no PR until then.
+
+#### Parked for the owner's eye
+
+Look at the Overview table on the connector dashboard (http://localhost:4872/, served from this
+branch): the new `Installed` column between `Plugins` and `Errors`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/connector-dashboard-lib.ps1`: `Get-ConnectorInstalledVersion` and
+  `Format-DashboardInstalledVersion`, and the `Installed` column in the Overview table
+- [x] `scripts/tests/connector-dashboard.tests.ps1`: group 1b2, the version cases
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` standalone: 78 passed, 0 failed
+- [x] The page served from this branch on this machine: four checkouts here read `v5.18.0`, the two
+  not on this machine read `-`
+- [x] `open-pr.ps1 -GatesOnly` before the park
+
 ### DEPLOY: feat/2996-dashboard-version-column
 
-**Score:**
+The connector dashboard's Overview table now has an `Installed` column: the plugin version each
+repo's checkout runs on this machine, read from the check's machine-record line. Where a repo's
+plugins differ, the cell shows the lowest version and the plugin it belongs to. A repo not on this
+machine shows `-`, and a checkout with no install record says `no record`. A lagging repo is now
+visible across all registered repos at a glance, without opening each card
+([#2996](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2996)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the dashboard is a local maintenance view of this repo, and no consumer receives it.
+
+**Score:** N/A
 
 #### Pull Request
 
