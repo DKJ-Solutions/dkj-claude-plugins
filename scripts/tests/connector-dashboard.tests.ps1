@@ -6,7 +6,7 @@
 .DESCRIPTION
     Group 1 pins the rules without a server: how check-connectors.ps1's report splits into repos and
     plugins, which status a repo gets, which Host is served, and that every value the page shows is
-    escaped. Group 2 starts the real server on a free loopback port against this tree and asks it for
+    escaped, and that the vendored house style is the copy the house-style skill pins. Group 2 starts the real server on a free loopback port against this tree and asks it for
     the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
     an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
     outside the scope root, and no check-connectors.ps1 at all.
@@ -119,6 +119,19 @@ Assert-True (([regex]::Matches($html, 'var\(--primary')).Count -ge 6 -and $html 
 Assert-True ($html -match '1\.3s|1\.2s') 'the run time is printed with an invariant decimal point'
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="notice"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is a notice, escaped'
+
+Write-Host '-- group 1e: the vendored house style is the copy the skill pins' -ForegroundColor Cyan
+
+# A repoint of the house-style skill to a new tag left both vendored files on the old one, and nothing
+# noticed (#2989). The skill's table is the one place the checksums live, so the copy is held to it.
+$skillPage = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md') -Raw
+foreach ($file in 'house-style.css', 'house-theme.js') {
+    $row = [regex]::Match($skillPage, '(?m)^\| `' + [regex]::Escape($file) + '` \|.*\| `([0-9a-f]{64})` \|\s*$')
+    Assert-True $row.Success "the skill's table pins a sha256 for $file"
+    if (-not $row.Success) { continue }
+    $actual = (Get-FileHash -LiteralPath (Join-Path $RepoRoot "scripts\dashboard\house-style\$file") -Algorithm SHA256).Hash.ToLowerInvariant()
+    Assert-Equal $row.Groups[1].Value $actual "the vendored $file hashes to the skill's pinned sha256 -- a repoint moves this copy too"
+}
 
 Write-Host '-- group 2: the server answers on loopback only to itself' -ForegroundColor Cyan
 

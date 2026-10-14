@@ -39,21 +39,39 @@
 
 ### PLAN
 
+After #2986 repointed the `house-style` skill to `house-style-v2`, the two files this repo vendors for
+the connector dashboard (`scripts/dashboard/house-style/`) stayed on v1. Nothing noticed until the owner
+missed the new settings button (#2989). Verified on `main`: the copy now matches v2, but the skill's
+repoint procedure still names only the links, the commit and the checksums, and no check ties the
+vendored copy to them. The fix is a check that does this, plus one clause in the procedure.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connector-dashboard.tests.ps1`, group 1e: each vendored file's sha256 must equal the row the
+      skill's table pins for it, read from `SKILL.md` itself so the table stays the single copy.
+- [x] `house-style/SKILL.md`, "Changing the house style": a repoint also replaces the source repo's
+      vendored copy, and that suite holds it there.
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` green standalone, group 1e 4/4.
+
 ### DEPLOY: fix/2989-vendored-house-style-check
 
-**Score:**
+The connector dashboard's test suite now checks that its vendored copy of the house style hashes to
+the checksums the `house-style` skill pins. The skill's repoint procedure now names that copy. The
+next repoint to a new `house-style-v<N>` tag therefore turns the suite red until the dashboard's two
+files move as well. Before, they stayed on the old tag without anyone noticing (#2989).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the check and the vendored copy exist only in this repo. The sentence added to the skill page
+addresses whoever performs a repoint here, and a consumer's use of the skill is unchanged.
+
+**Score:** N/A
 
 #### Pull Request
 
 Hold the dashboard's vendored house style to the skill's checksums
-

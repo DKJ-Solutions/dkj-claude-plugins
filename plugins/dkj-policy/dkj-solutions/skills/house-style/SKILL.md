@@ -79,4 +79,8 @@ instead of merging.
 releases the house style as a new `house-style-v<N>` tag, set only on the owner's request and never moved.
 Then an inbound issue on this plugin's source repo asks for a repoint to the new tag, and the change
 repoints every link to the previous tag on this page and replaces the commit and both checksums, measured
-from the bytes served at that tag. The apps get it with the next plugin release.
+from the bytes served at that tag. **The same change replaces the source repo's own vendored copy**, the
+two files under `scripts/dashboard/house-style/` that its connector dashboard serves: its test suite holds
+them to this page's checksums and goes red until they move
+([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989)). The apps get it with the next
+plugin release.
