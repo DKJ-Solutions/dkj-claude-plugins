@@ -56,7 +56,7 @@ The issue also proposed an anchored subject pattern for `Get-SyncMergeCommits`, 
 ### TEST
 
 - [x] `live-push-rules.tests.ps1` 151/0 and `live-record-lib.tests.ps1` 96/0, standalone.
-- [x] Review (Victor, Sebastian): both validators now anchor with `A...z` and `-cmatch`, because `$` matched before a trailing newline and a case-insensitive `[A-Za-z]` admitted the Kelvin sign; the version check takes ASCII digits only. A test holds the two validators to the same answers. The same newline gap in `ref-print-lib.ps1` is filed as #3015.
+- [x] Review (Victor, Sebastian): both validators now anchor with `\A...\z` and `-cmatch`, because `$` matched before a trailing newline and a case-insensitive `[A-Za-z]` admitted the Kelvin sign; the version check takes ASCII digits only. A test holds the two validators to the same answers. The same newline gap in `ref-print-lib.ps1` is filed as #3015.
 
 ### DEPLOY: feat/3008-live-promotion-verdict
 
