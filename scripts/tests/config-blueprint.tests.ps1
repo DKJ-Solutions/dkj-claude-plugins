@@ -323,8 +323,11 @@ Assert-Equal 0 $shared.Count "no `$script: variable is assigned by more than one
 # therefore STATES each one, returning the fallback; their reasons above still explain the VALUE. Being
 # 'decide', the stated text ships as guidance and is never written into a consumer's file. The six left
 # are all 'copy' seams, where an unstated answer IS the shared way of working.
+#
+# SEVEN SINCE OCTOBER 14, 2026 (#3011): Get-EntryGateExemptBranches is a 'copy' seam too, and the source
+# deploys no theme from a branch, so no exact name exempt IS its answer.
 $undeclared = @($bp.records | Where-Object { -not $_.declared })
-Assert-Equal 6 $undeclared.Count 'the six functions the source itself leaves at the fallback are recorded, not dropped'
+Assert-Equal 7 $undeclared.Count 'the seven functions the source itself leaves at the fallback are recorded, not dropped'
 Assert-Equal 0 @($undeclared | Where-Object { $_.adopt -eq 'decide' }).Count "the source leaves no 'decide' record unstated -- an unstated one reads as unanswered (#2555)"
 foreach ($rec in $undeclared) {
     Assert-Equal '' $rec.text "$($rec.function): an undeclared record carries no text to copy"

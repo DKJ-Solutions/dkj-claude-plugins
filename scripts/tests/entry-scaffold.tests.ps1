@@ -138,6 +138,17 @@ Assert-Equal 'vendor' (Get-BranchEntryExemptPrefix -Branch 'vendor/bump-deps')  
 Assert-Equal ''       (Get-BranchEntryExemptPrefix -Branch 'sync/live-2026-09-13') 'and it REPLACES the default -- sync is no longer exempt here'
 Remove-Item Function:\Get-EntryGateExemptPrefixes
 
+# The exact-name seam is ADDITIVE (#3011): the deploy branch of a Git-connected live theme is the
+# back-flow PR's head ref, and as a prefix 'live' would exempt every live-* branch too.
+Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch 'live')                    'without the seam no exact name is exempt -- the default is none'
+function Get-EntryGateExemptBranches { return @('live') }
+Assert-Equal 'live' (Get-BranchEntryExemptPrefix -Branch 'live')                    'an exact name from the seam is exempt, and the branch itself comes back'
+Assert-True ((Get-BranchEntryExemptPrefix -Branch 'Live') -ceq 'Live')              'case-insensitive like the prefixes, quoting the branch''s own spelling'
+Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch 'live-fix-banner')         'a name matches the WHOLE branch -- live-* is not exempt, which is why this is not a prefix'
+Assert-Equal ''     (Get-BranchEntryExemptPrefix -Branch 'live/x')                  'nor is live/x'
+Assert-Equal 'sync' (Get-BranchEntryExemptPrefix -Branch 'sync/live-2026-09-13')    'and the prefix default still stands beside it -- additive, not a replacement'
+Remove-Item Function:\Get-EntryGateExemptBranches
+
 # --- 2. Get-EntryScaffoldFindings: the pure matcher -----------------------------------------------
 Write-Host "Get-EntryScaffoldFindings (the matcher)" -ForegroundColor Cyan
 $midDot = [char]0x00B7

@@ -143,7 +143,9 @@ function Get-EntryScaffoldWording {
 
 function Get-BranchEntryExemptPrefix {
     <#
-        The branch prefix that exempts this branch from owing a changelog entry, or '' when it owes one.
+        The branch prefix that exempts this branch from owing a changelog entry -- or the branch's own
+        name, when that whole name is listed in Get-EntryGateExemptBranches (#3011) -- or '' when it
+        owes one.
 
         ONE DEFINITION, READ BY TWO SCRIPTS, AND IT USED TO BE ONE (issue #1962, September 13, 2026).
         check-branch-entry.ps1 owned the whole rule -- the seam, the default, and the prefix split -- and
@@ -163,15 +165,31 @@ function Get-BranchEntryExemptPrefix {
         else's work rather than this repo's, so there is nothing for it to declare.
 
         AN UNKNOWN PREFIX IS NOT EXEMPT, deliberately, and that is why this returns the MATCHED prefix
-        rather than a boolean: the caller that reports the exemption names the prefix it matched, so a
-        typo cannot read as a rule. A branch with no prefix at all yields '' and owes an entry.
+        rather than a boolean: the caller that reports the exemption names the prefix it matched (or, for
+        an exact name, says so), so a typo cannot read as a rule. A branch with no prefix at all yields '' and owes an entry.
 
         Comparison is case-insensitive, which is what PowerShell's -contains already does; 'Sync/x' is the
         same mistake as 'sync/x' spelled with the shift key held.
+
+        AN EXACT BRANCH NAME IS EXEMPT TOO, through a second seam beside the first (#3011):
+        Get-EntryGateExemptBranches, default none. It exists for the back-flow PR of a Git-connected live
+        theme, whose head ref is the deploy branch ITSELF ('live'), not a sync/ branch. The prefix seam
+        cannot carry that answer: it REPLACES its 'sync' default, so a repo would have to restate 'sync'
+        beside it, and a slash-less branch's prefix is the part before the first '-', so listing 'live'
+        there would exempt every live-* branch as well. A name in this list matches the whole branch and
+        nothing else, and it is ADDITIVE -- the prefix list and its default are untouched. What comes back
+        for it is the branch's own name, so a caller can tell the two kinds apart with -eq $Branch.
     #>
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Branch)
 
     if ([string]::IsNullOrWhiteSpace($Branch)) { return '' }
+
+    $exemptBranches = if (Test-FunctionDefined 'Get-EntryGateExemptBranches') {
+        @(Get-EntryGateExemptBranches)
+    } else {
+        @()
+    }
+    if ($exemptBranches -contains $Branch) { return $Branch }
 
     $prefix = if (Test-FunctionDefined 'Get-BranchPrefix') {
         Get-BranchPrefix -Branch $Branch

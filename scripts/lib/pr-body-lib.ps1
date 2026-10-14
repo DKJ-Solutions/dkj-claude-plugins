@@ -385,7 +385,8 @@ function Get-ExemptBranchTitleWords {
     .DESCRIPTION
         WHY AN EXEMPT BRANCH NEEDS ITS OWN SOURCE (issue #1962, September 13, 2026). Since #506 the PR
         title is composed from the entry and nothing else, which is right for every branch that HAS one.
-        A branch whose prefix is entry-exempt has none by design -- Get-BranchEntryExemptPrefix says so,
+        A branch whose prefix (or, since #3011, whole name) is entry-exempt has none by design --
+        Get-BranchEntryExemptPrefix says so,
         and the CI gate passes it for exactly that reason -- so composing from the entry leaves open-pr
         with an empty title and no way to be given one. Measured in a consumer: a sync/ branch got through
         the lint gate, all 27 suites and the push, and could not open its PR.

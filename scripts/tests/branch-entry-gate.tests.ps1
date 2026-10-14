@@ -108,6 +108,16 @@ try {
     $r = Invoke-Gate -Dir $c2 -Branch 'sync/live-2026-08-20'
     Assert-True ($r.Code -eq 1) 'exempt/seam: and REPLACES it -- a repo that names its own list does not silently keep sync'
 
+    # The exact-name seam (#3011): the deploy branch itself, beside the prefix default rather than over it.
+    $c3 = New-Consumer -Label 'names' -RepoConfig "function Get-EntryGateExemptBranches { return @('live') }"
+    Set-Entry -Dir $c3 -Lines (Format-Development -Branch '')
+    $r = Invoke-Gate -Dir $c3 -Branch 'live'
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'exempt branch name') 'exempt/names: the listed deploy branch owes no entry, and the gate says it matched a name'
+    $r = Invoke-Gate -Dir $c3 -Branch 'live-banner'
+    Assert-True ($r.Code -eq 1) 'exempt/names: a name is not a prefix -- live-banner still owes its entry'
+    $r = Invoke-Gate -Dir $c3 -Branch 'sync/live-2026-08-20'
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'exempt prefix') 'exempt/names: additive -- the sync default still stands beside it'
+
     # --- The refusals -------------------------------------------------------------------------------
     Write-Host ''
     Write-Host 'the refusals'
