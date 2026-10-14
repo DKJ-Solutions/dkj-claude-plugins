@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**11 / 20 minor entries** <!-- pending-tally -->
+**11 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2991-fake-gh-smart-app-control · 20261014-080824Z
+
+`guard-stale-paste-block.tests.ps1` no longer fails at random on a Windows machine running Smart App
+Control. The suite compiles a fake `gh.exe`, and Smart App Control refused about one build in four, so the
+hook's fail-open path turned every case red with "could not resolve which repo". The suite now starts
+the fake once and rebuilds it when it is refused
+([#2991](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2991)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. The suite is not shipped, and no consumer's behaviour changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Recompile the fake gh.exe when Smart App Control blocks it
+
+[PR #2994](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2994)
+
+---
 
 ### DEPLOY: fix/2989-vendored-house-style-check · 20261014-075848Z
 
