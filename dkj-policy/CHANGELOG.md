@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**17 / 31 minor entries** <!-- pending-tally -->
+**18 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3010-sync-main-backflow-pr · 20261014-174226Z
+
+`sync-main` gains a Git-connected mode. Where `Get-ShopifyLiveDeployBranch` names the branch a live theme deploys from, it no longer pulls live into a mirror. It measures what that branch changed since it last met the trunk, and opens the deploy-branch->trunk back-flow PR with every path and its kind in the body. Where such a PR is already open it reports it rather than opening a second, and it never merges: the back-flow has to be a merge commit, and the run says so. Store and theme id are not needed in this mode. With the seam unanswered, nothing changes ([#3010](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3010), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store whose live theme is connected to a branch can run its pre-task sync at all. Until now `sync-main` pulled live through the CLI, which such a store does not use. A store that has not set the seam sees no difference.
+
+**Score:** 3
+
+#### Pull Request
+
+sync-main: open the back-flow PR when the live theme deploys from a branch
+
+Plugins: dkj-subagents-shopify
+
+[PR #3022](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3022)
+
+---
 
 ### DEPLOY: feat/3011-entry-gate-exempt-branches · 20261014-145535Z
 
