@@ -59,6 +59,27 @@
     backup-live-theme.ps1, whose writes are a duplicate theme and the rotation of the PREVIOUS backup
     out of this repo's own namespace, both guarded there.
 
+    ------------------------------------------------------------------------------------------------
+    THE GIT-CONNECTED MODE (#2998, #3009). Where Get-ShopifyLiveDeployBranch names a branch, the live
+    theme is connected to it through Shopify's GitHub integration: going live is a PULL REQUEST of the
+    trunk into that branch, and Shopify's bot commits editor and app saves straight onto it. There is
+    no push to print, so three steps change and the rest stay:
+
+      STEP 3 still derives the range's rows, because they are what the live-push record says went live;
+      but no path is printed in a command, so the paste-safety refusal does not apply, and a range with
+      no theme file is a note -- whether there is anything to promote is step 6's question.
+
+      STEP 6 replaces the drift check with two reads of the deploy branch. The PROMOTION
+      (Get-LivePromotionStep) refuses while the branch holds live edits the trunk lacks -- the back-flow
+      PR, sync-main's job, comes first -- and when there is nothing to promote. The WRITE-BACK
+      (Get-LiveWriteBackStep) reads GitHub's rule-suite log, because a write-back the ruleset rejected
+      leaves an edit on live that only that log records (BWJ-Development/smartwatchbanden#943).
+
+      STEP 8 prints the promotion PR (Format-LivePromotionCommand) instead of the push, and the record
+      names the promoted commit on its '# promoted <sha> to <branch>' line. Merging that PR is the act
+      that goes live, so boundary 2 holds the same way: this prints, a person merges.
+    ------------------------------------------------------------------------------------------------
+
 .PARAMETER Store
     Store domain, overriding Get-ShopifyThemeEstateStore for this run. The same seam backup-live-theme
     reads, and deliberately NOT Get-ShopifyStoreDomain -- see that script's header for why answering
@@ -81,6 +102,10 @@
     Do not take the live-theme backup. Only correct when a VERIFIED backup of this same live stand
     already exists -- which is a fact about the store, not about this run, so the run says so out loud
     and carries the skip into its summary rather than quietly passing.
+
+.PARAMETER AcceptRejectedWriteBacks
+    Git-connected mode only. Turn a rejected push in the deploy branch's rule-suite log from a refusal into
+    a note, after a person has reconciled what it left on live. Never a default.
 
 .PARAMETER RootOverride
     Fixture root, so a suite can drive this against a scratch tree instead of a real store.
@@ -113,6 +138,7 @@ param(
     [string]$DriftCheckPath = '',
     [switch]$SkipGates,
     [switch]$SkipBackup,
+    [switch]$AcceptRejectedWriteBacks,
     [string]$RootOverride = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -172,6 +198,7 @@ $seam = & {
     $answers = @{
         LiveThemeId = ''; StoreDomain = ''; TrunkIsLive = $true; Trunk = ''; SyncPrefix = ''
         LintScript = ''; TestCommands = @(); ChangelogPath = ''; DriftCheck = ''; DeleteMarker = ''
+        DeployBranch = ''
     }
     $cfg = Join-Path $args[0] 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $cfg -PathType Leaf) {
@@ -196,6 +223,8 @@ $seam = & {
     # the same issue calls live-snapshot.ps1 "a strong candidate to move in the same release", and the
     # day it moves this seam stops having a job.
     if (Test-FunctionDefined 'Get-ShopifyDriftCheckPath')   { $answers.DriftCheck    = [string](Get-ShopifyDriftCheckPath) }
+    # THE DEPLOY MODE (#3009): '' is the CLI push, a branch name is a Git-connected live theme.
+    if (Test-FunctionDefined 'Get-ShopifyLiveDeployBranch') { $answers.DeployBranch  = [string](Get-ShopifyLiveDeployBranch) }
     [pscustomobject]$answers
 } $repoRoot
 
@@ -224,9 +253,18 @@ $trunk = ([string]$seam.Trunk).Trim()
 if (-not $trunk) { $trunk = 'main' }
 $syncPrefix = ([string]$seam.SyncPrefix).Trim()
 if (-not $syncPrefix) { $syncPrefix = 'sync/' }
+# A 'VUL-IN' left in the seam block is no answer, as for every other seam here.
+$deployBranch = ([string]$seam.DeployBranch).Trim()
+if ($deployBranch -match 'VUL-IN') { $deployBranch = '' }
+$connected = [bool]$deployBranch
 
 Write-Host "== live-preflight -- $store ==" -ForegroundColor Cyan
-Write-Host '   it verifies and reports. It never pushes, and it never writes the authorisation marker.'
+if ($connected) {
+    Write-Host "   Git-connected: the live theme deploys from '$(Format-SafeProseToken -Value $deployBranch)', so it verifies a promotion instead of a push."
+    Write-Host '   it verifies and reports. It never merges, and it never opens the promotion PR itself.'
+} else {
+    Write-Host '   it verifies and reports. It never pushes, and it never writes the authorisation marker.'
+}
 Write-Host ''
 
 # The step record the verdict is folded from. Every step appends exactly one row, including the ones
@@ -464,15 +502,27 @@ if (-not $sinceTag) {
         # refused, so a push that can never be printed does not first cost eight minutes and a theme
         # slot. Each refused path is NAMED through Format-SafePathToken, which strips the control
         # characters a newline attack needs; the name is a display, never part of a command.
-        $unsafePush = @(Get-LivePushUnsafePaths -Paths (@($pushFiles) + @($deleteFiles)))
+        # CONNECTED MODE PRINTS NO PATH IN A COMMAND, so there is nothing for this check to protect there.
+        $unsafePush = if ($connected) { @() } else { @(Get-LivePushUnsafePaths -Paths (@($pushFiles) + @($deleteFiles))) }
 
         # A DELETION IS ITS OWN STEP, and a note rather than a refusal: it is named so that the second
         # command at step 8 is read as what it is -- the removal of files from the live theme.
         if ($deleteFiles.Count -gt 0) {
-            Add-Step -Name 'deletions' -State 'warn' -Detail "$($deleteFiles.Count) theme file(s) are deleted on the trunk and are still on live. An --only push of a path missing from the checkout REMOVES it from live, so they get their own deletion command, printed apart from the push -- listed above under 'delete'."
+            if ($connected) {
+                Add-Step -Name 'deletions' -State 'warn' -Detail "$($deleteFiles.Count) theme file(s) are deleted on the trunk and are still on live. The promotion merge deletes them from '$(Format-SafeProseToken -Value $deployBranch)', and so from the live theme -- listed above under 'delete'."
+            } else {
+                Add-Step -Name 'deletions' -State 'warn' -Detail "$($deleteFiles.Count) theme file(s) are deleted on the trunk and are still on live. An --only push of a path missing from the checkout REMOVES it from live, so they get their own deletion command, printed apart from the push -- listed above under 'delete'."
+            }
         }
 
-        if ($pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
+        if ($connected -and $pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
+            # A NOTE, NOT A REFUSAL: what the promotion carries is measured against the deploy branch at
+            # step 6, and a range with no theme file can still follow a release that was never promoted.
+            Add-Step -Name 'push list' -State 'warn' -Detail "nothing in $sinceTag..HEAD is a theme file, so this release changes nothing on live by itself. Step 6 measures what the promotion carries."
+        } elseif ($connected) {
+            $delText = if ($deleteFiles.Count -gt 0) { " and $($deleteFiles.Count) deleted" } else { '' }
+            Add-Step -Name 'push list' -State 'pass' -Detail "$($pushFiles.Count) theme file(s) changed$delText in the range, out of $($changed.Count) -- they go live with the promotion."
+        } elseif ($pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
             Add-Step -Name 'push list' -State 'refuse' -Detail "nothing in $sinceTag..HEAD is a theme file to push, so there is nothing to push. This release is code and docs only."
         } elseif ($unsafePush.Count -gt 0) {
             $named = (@($unsafePush | Select-Object -First 5) | ForEach-Object { "'$(Format-SafePathToken -Value $_)'" }) -join ', '
@@ -489,6 +539,8 @@ if (-not $sinceTag) {
 Write-Host ''
 Write-Host '[4/9] version -- what the pending entries owe, and the target' -ForegroundColor Cyan
 
+# The target version, named by the promotion PR's title in connected mode (#3009). '' when unknown.
+$target = ''
 $changelogPath = ([string]$seam.ChangelogPath).Trim()
 if (-not $changelogPath) { $changelogPath = 'CHANGELOG.md' }
 $changelogFull = Join-Path $repoRoot $changelogPath
@@ -584,7 +636,11 @@ if ($null -eq $themes) {
 
 # === 6/9 -- the drift check, with the list AS AN ARRAY =============================================
 Write-Host ''
-Write-Host '[6/9] drift -- third-party edits on the files about to be overwritten' -ForegroundColor Cyan
+if ($connected) {
+    Write-Host "[6/9] promotion -- what the deploy branch holds, and what its ruleset rejected" -ForegroundColor Cyan
+} else {
+    Write-Host '[6/9] drift -- third-party edits on the files about to be overwritten' -ForegroundColor Cyan
+}
 
 $driftRel = ([string]$DriftCheckPath).Trim()
 if (-not $driftRel) { $driftRel = ([string]$seam.DriftCheck).Trim() }
@@ -616,7 +672,65 @@ function Invoke-DriftCheck {
 
 # Set when the drift check refuses the deletion paths: step 8 then composes no deletion command.
 $deleteWithheld = $false
-if ($pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
+if ($connected) {
+    # THE NAME IS CHECKED BEFORE GIT SEES IT: a branch name the ref pattern refuses could start with '-'
+    # and be read as an option. Get-LivePromotionStep owns that refusal, so it is asked with no paths.
+    if (-not (Test-LivePromotionRef $deployBranch) -or -not (Test-LivePromotionRef $trunk)) {
+        $s = Get-LivePromotionStep -Trunk $trunk -DeployBranch $deployBranch
+        Add-Step -Name $s.Name -State $s.State -Detail $s.Detail
+    } else {
+        $remoteDeploy = "origin/$deployBranch"
+        $fetchDeploy = Invoke-Git -Arguments @('fetch', 'origin', $deployBranch) -TimeoutSeconds 120
+        if (-not (Test-NativeExitMeasured -Capture $fetchDeploy) -or $fetchDeploy.ExitCode -ne 0) {
+            Add-Step -Name 'promotion' -State 'refuse' -Detail "could not fetch $remoteDeploy ($(Get-NativeExitLabel -Capture $fetchDeploy)). What the promotion carries, and what live holds that the trunk lacks, are both measured against it."
+        } else {
+            # THREE DOTS FOR THE BACK-FLOW, TWO FOR THE PROMOTION -- see Get-LivePromotionStep for why
+            # neither is a commit count. HEAD is the trunk: step 1 refuses anywhere else.
+            $backCap = Invoke-Git -Arguments @('diff', '--no-renames', '--name-only', "HEAD...$remoteDeploy")
+            $promCap = Invoke-Git -Arguments @('diff', '--no-renames', '--name-only', $remoteDeploy, 'HEAD')
+            if (-not (Test-NativeExitMeasured -Capture $backCap) -or $backCap.ExitCode -ne 0 -or
+                -not (Test-NativeExitMeasured -Capture $promCap) -or $promCap.ExitCode -ne 0) {
+                Add-Step -Name 'promotion' -State 'refuse' -Detail "could not diff the trunk against $remoteDeploy, so neither the owed back-flow nor what the promotion carries is known."
+            } else {
+                $s = Get-LivePromotionStep -Trunk $trunk -DeployBranch $deployBranch -PromotionPaths @(Get-GitPaths $promCap) -BackflowPaths @(Get-GitPaths $backCap)
+                Add-Step -Name $s.Name -State $s.State -Detail $s.Detail
+            }
+        }
+
+        # THE RULE-SUITE LOG (#943): the one place a rejected Shopify write-back shows. A failed read is a
+        # skip the verdict names, never a pass -- the log needs admin access, and many tokens lack it.
+        #
+        # A MONTH, CUT AT THE LAST PROMOTION (#3009's review). A fixed week missed a rejection from day 1
+        # on a day-9 release and kept refusing on one the previous preflight had already stopped. The last
+        # promotion is the newest merge on the deploy branch's first-parent line: the bot's saves are plain
+        # commits, and back-flow merges land on the trunk. A squash-merged promotion leaves none, and then
+        # the whole month counts. '{owner}/{repo}' resolves from the cwd, which is $repoRoot (set above).
+        $since = $null
+        $lastCap = Invoke-Git -Arguments @('log', '-1', '--first-parent', '--merges', '--format=%cI', $remoteDeploy)
+        if ((Test-NativeExitMeasured -Capture $lastCap) -and $lastCap.ExitCode -eq 0) {
+            $stamp = [string](@(Get-GitLines $lastCap) | Select-Object -First 1)
+            $parsedStamp = [datetime]::MinValue
+            if ($stamp -and [datetime]::TryParse($stamp, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal, [ref]$parsedStamp)) { $since = $parsedStamp }
+        }
+        $suites = @()
+        $unreadable = $false
+        try {
+            $api = Invoke-NativeCapture -FilePath 'gh' -Arguments @('api', "repos/{owner}/{repo}/rulesets/rule-suites?ref=refs/heads/$deployBranch&rule_suite_result=fail&time_period=month&per_page=100") -TimeoutSeconds 60 -DiscardStderr
+            if ((Test-NativeExitMeasured -Capture $api) -and $api.ExitCode -eq 0) {
+                # THROUGH A PIPELINE: Windows PowerShell 5.1's ConvertFrom-Json emits a JSON array as ONE
+                # object, so @() around it would hold one element that is the whole array.
+                $parsed = ($api.Output | Out-String) | ConvertFrom-Json
+                $suites = @($parsed | ForEach-Object { $_ })
+            } else {
+                $unreadable = $true
+            }
+        } catch {
+            $unreadable = $true
+        }
+        $w = Get-LiveWriteBackStep -DeployBranch $deployBranch -RuleSuites $suites -Unreadable:$unreadable -Accepted:$AcceptRejectedWriteBacks -Since $since
+        Add-Step -Name $w.Name -State $w.State -Detail $w.Detail
+    }
+} elseif ($pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
     Add-Step -Name 'drift' -State 'skip' -Detail 'there is no push list to check.'
 } elseif (-not (Test-Path -LiteralPath $driftFull -PathType Leaf)) {
     Add-Step -Name 'drift' -State 'skip' -Detail "no drift check at '$driftRel'. The push list is derived and UNCHECKED against what a third party may have written on live since; pass -DriftCheckPath, or answer Get-ShopifyDriftCheckPath."
@@ -706,21 +820,37 @@ if ($alreadyRefused.Count -gt 0 -and -not $SkipBackup) {
 
 # === 8/9 -- the command ============================================================================
 Write-Host ''
-Write-Host '[8/9] the push command -- without the authorisation marker' -ForegroundColor Cyan
+if ($connected) {
+    Write-Host '[8/9] the promotion PR -- printed, never opened from here' -ForegroundColor Cyan
+} else {
+    Write-Host '[8/9] the push command -- without the authorisation marker' -ForegroundColor Cyan
+}
 
 # NOT COMPOSED WHEN STEP 3 FOUND A PATH UNSAFE TO PASTE (#2514). Format-LivePushCommand throws on one,
 # as the backstop for any caller that skipped the check; this caller did not skip it, so it reports the
 # step instead of letting the throw end the run before the verdict.
 $pushCommand = ''
 $deleteCommand = ''
+$promotionCommand = ''
 $unsafeAtCommand = @(Get-LivePushUnsafePaths -Paths (@($pushFiles) + @($deleteFiles)))
-if ($unsafeAtCommand.Count -eq 0) {
+if ($connected) {
+    # THE PROMOTION PR CARRIES THE WHOLE TREE, deletions included, so it is the one command. Format-
+    # LivePromotionCommand throws on an unsafe name; step 6 has already refused one, so it is not asked.
+    if ((Test-LivePromotionRef $trunk) -and (Test-LivePromotionRef $deployBranch)) {
+        $promotionCommand = Format-LivePromotionCommand -Trunk $trunk -DeployBranch $deployBranch -Version ([string]$target)
+        Add-Step -Name 'command' -State 'pass' -Detail "composed the promotion PR, $trunk into $deployBranch."
+    } else {
+        Add-Step -Name 'command' -State 'skip' -Detail 'not composed: a branch name is not safe to print, and the promotion step names it.'
+    }
+} elseif ($unsafeAtCommand.Count -eq 0) {
     $pushCommand = Format-LivePushCommand -Store $store -ThemeId $liveId -Only $pushFiles
     # THE SAME BUILDER, HANDED THE DELETED PATHS (#2641). Run from this checkout, where they are absent,
     # the --only push removes them from live. Its own command so that authorising it is its own act.
     if (-not $deleteWithheld) { $deleteCommand = Format-LivePushCommand -Store $store -ThemeId $liveId -Only $deleteFiles }
 }
-if ($unsafeAtCommand.Count -gt 0) {
+if ($connected) {
+    # Reported above.
+} elseif ($unsafeAtCommand.Count -gt 0) {
     Add-Step -Name 'command' -State 'skip' -Detail "not composed: $($unsafeAtCommand.Count) path(s) in the push list are not safe to paste, and the push-list step names them."
 } elseif (-not $pushCommand -and -not $deleteCommand) {
     Add-Step -Name 'command' -State 'skip' -Detail 'no push list, so no command was composed. A theme push without --only pushes the WHOLE theme, which is never printed from here.'
@@ -762,12 +892,21 @@ Write-Host ''
 
 if (-not $verdict.Allowed) {
     Write-Host $verdict.Summary -ForegroundColor Red
-    Write-Host 'Nothing was pushed and nothing was authorised. Fix what refused and run this again.'
+    Write-Host 'Nothing was pushed, nothing was promoted and nothing was authorised. Fix what refused and run this again.'
     exit 1
 }
 
 Write-Host $verdict.Summary -ForegroundColor Green
-if ($pushCommand -or $deleteCommand) {
+if ($promotionCommand) {
+    Write-Host ''
+    Write-Host 'The promotion PR, for a person to open:' -ForegroundColor Cyan
+    Write-Host "  $promotionCommand"
+    Write-Host ''
+    # MERGING IT IS THE ACT THAT GOES LIVE, and it stays a person's -- the line boundary 2 draws for a
+    # push. A green run does not authorise opening it either; this prints and stops.
+    Write-Host "Merging that PR is what takes the release live: Shopify deploys '$deployBranch' to the live theme." -ForegroundColor Yellow
+    Write-Host 'Run the cut after the merge, from the trunk, with the record below.' -ForegroundColor Yellow
+} elseif ($pushCommand -or $deleteCommand) {
     if ($pushCommand) {
         Write-Host ''
         Write-Host 'The push, for a person to make:' -ForegroundColor Cyan
@@ -787,27 +926,46 @@ if ($pushCommand -or $deleteCommand) {
     Write-Host 'Each command is REFUSED as it stands, and that is deliberate: this plugin''s live guard' -ForegroundColor Yellow
     Write-Host 'requires the authorisation marker your repo states in its own safety rules, appended to' -ForegroundColor Yellow
     Write-Host 'that exact command as a shell comment. Adding it is a human act and no script does it.' -ForegroundColor Yellow
+}
 
+if ($pushCommand -or $deleteCommand -or $promotionCommand) {
     # THE LIVE-PUSH RECORD (#2570/#2586), written only once the push is allowed, because it describes a
     # push somebody is about to make. It goes to the temp directory rather than the tree: the cut refuses
     # a dirty trunk, and a record committed into the release would describe a push that happened after it.
     # A failed write warns rather than refuses. The push itself is still right; only the cut's two
     # documents lose their input, and the cut says so when it is run without one.
+    #
+    # A PROMOTION NAMES ITS COMMIT (#3008, #3009): the full sha on the record's '# promoted' line, and
+    # every deletion counts as carried, because the merge deletes on the deploy branch what the trunk did.
     $headCap = Invoke-Git -Arguments @('rev-parse', '--short', 'HEAD')
     $head = if ((Test-NativeExitMeasured -Capture $headCap) -and $headCap.ExitCode -eq 0) { (@(Get-GitLines $headCap) | Select-Object -First 1) } else { 'HEAD' }
+    # The full sha only for a promotion; the CLI record keeps the short one it always had.
+    $headFull = ''
+    if ($promotionCommand) {
+        $fullCap = Invoke-Git -Arguments @('rev-parse', 'HEAD')
+        if ((Test-NativeExitMeasured -Capture $fullCap) -and $fullCap.ExitCode -eq 0) { $headFull = [string](@(Get-GitLines $fullCap) | Select-Object -First 1) }
+    }
     # A GUID in the name, as every temp path a shipping script composes carries one: two checkouts with the
     # same folder name at the same commit would otherwise write one record over the other's edits.
     $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) ("live-push-record-{0}-{1}-{2}.txt" -f (Split-Path -Leaf $repoRoot), $head, [guid]::NewGuid().ToString('N').Substring(0, 8))
     try {
-        [System.IO.File]::WriteAllText($recordPath, (Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head" -DeletionsCarried:([bool]$deleteCommand)), (New-Object System.Text.UTF8Encoding($false)))
+        if ($promotionCommand) {
+            if (-not $headFull) { throw 'the trunk commit could not be read, so the promotion has no sha to name' }
+            $recordText = Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head" -DeletionsCarried -PromotedSha $headFull -DeployBranch $deployBranch
+        } else {
+            $recordText = Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head" -DeletionsCarried:([bool]$deleteCommand)
+        }
+        [System.IO.File]::WriteAllText($recordPath, $recordText, (New-Object System.Text.UTF8Encoding($false)))
         Write-Host ''
         Write-Host 'The live-push record, for the cut:' -ForegroundColor Cyan
         Write-Host "  $recordPath"
-        Write-Host '  If you hold a file back from a command above, change its "live" to "hold" in that file.' -ForegroundColor Yellow
+        if (-not $promotionCommand) {
+            Write-Host '  If you hold a file back from a command above, change its "live" to "hold" in that file.' -ForegroundColor Yellow
+        }
         Write-Host '  Then pass it to the cut, so the GitHub body and the audience note list only what is live:'
         Write-Host "    cut-release.ps1 ... -LivePushRecord `"$recordPath`""
     } catch {
-        Write-Warning "the live-push record could not be written to $recordPath ($($_.Exception.GetType().Name)). The cut can still run, but without it every merged entry reads as live."
+        Write-Warning "the live-push record could not be written to $recordPath ($(Format-SafeProseToken -Value $_.Exception.Message)). The cut can still run, but without it every merged entry reads as live."
     }
 }
 exit 0

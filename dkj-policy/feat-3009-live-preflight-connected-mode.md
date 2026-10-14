@@ -45,7 +45,7 @@ Part 2 of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/299
 
 #### Design choices
 
-- The rule-suite read counts **every** failed suite on the deploy branch in the last week, not only the Shopify bot's, because the bot's actor name has not been measured. `-AcceptRejectedWriteBacks` downgrades it to a note once a person has reconciled. An unreadable log (no admin access) is a skip, never a pass.
+- The rule-suite read counts **every** failed suite on the deploy branch since its last promotion merge (at most a month), not only the Shopify bot's, because the bot's actor name has not been measured. `-AcceptRejectedWriteBacks` downgrades it to a note once a person has reconciled. An unreadable log (no admin access) is a skip, never a pass.
 - Step 3 still derives the range's rows, because the record has to list every theme file of the range for the cut. What the promotion carries is measured separately at step 6, against the deploy branch.
 
 ### CREATE
@@ -57,16 +57,21 @@ Part 2 of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/299
 
 ### TEST
 
-- [x] `live-push-rules.tests.ps1` 166/0, standalone.
+- [x] `live-push-rules.tests.ps1` 172/0, standalone.
+- [x] Review (Victor, Sebastian). Victor: the fixed week window became "since the last promotion", capped at a month, because a week missed a day-1 rejection on a day-9 release. `gh api` now discards stderr. CLI mode keeps `rev-parse --short`. Sebastian: the write-back step validates the branch name itself, actor names are capped at 40 characters, and step 3 prints the seam's branch through `Format-SafeProseToken`. Victor's `{owner}/{repo}` point does not apply, because the script `Set-Location`s to the repo root first.
 - [x] Smoke-run against a scratch repo with a local bare origin and a stubbed `shopify` that fails at once: connected mode measured 3 promotion paths and composed the promotion PR. A bot commit on `live` refused it with the back-flow message. With the seam removed, CLI mode printed its old steps unchanged. The rule-suite read was a skip there, since a local remote has no API.
 
 ### DEPLOY: feat/3009-live-preflight-connected-mode
 
-**Score:**
+`live-preflight` gains a Git-connected mode for a live theme that deploys from a branch through Shopify's GitHub integration. Answer the new optional seam `Get-ShopifyLiveDeployBranch` with that branch, and the preflight verifies a promotion instead of printing a push. It refuses while the branch holds live edits the trunk lacks, and when there is nothing to promote. It refuses on a push the branch's ruleset rejected since the last promotion, read from GitHub's rule-suite log, because a rejected Shopify write-back shows nowhere else; `-AcceptRejectedWriteBacks` passes it once reconciled. It prints the `gh pr create` that opens the promotion PR, and the live-push record names the promoted commit. With the seam unanswered, nothing changes ([#3009](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3009), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store whose live theme is connected to a branch can run the preflight for its release at all. Until now the preflight printed a theme push that such a store must never run. A store that has not set the seam sees no difference.
+
+**Score:** 3
 
 #### Pull Request
 

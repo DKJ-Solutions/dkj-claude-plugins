@@ -645,3 +645,76 @@ function Format-LivePromotionCommand {
     $title = "promote: $Trunk to $DeployBranch" + $(if ($v) { " for v$v" } else { '' })
     return "gh pr create --base $DeployBranch --head $Trunk --title `"$title`" --body `"Promotes $Trunk to the live theme's deploy branch.`""
 }
+
+function Get-LiveWriteBackStep {
+    <#
+    .SYNOPSIS
+        The write-back step of a Git-connected live preflight (#3009), as a step Get-LivePreflightVerdict
+        folds: { Name = 'write-back'; State = 'pass' | 'refuse' | 'warn' | 'skip'; Detail }.
+
+    .DESCRIPTION
+        A REJECTED WRITE-BACK IS INVISIBLE ON THE SHOPIFY SIDE (measured in
+        BWJ-Development/smartwatchbanden#943): when the deploy branch's ruleset refuses the Shopify bot's
+        commit, the edit stays on the live theme and never reaches the branch, and only GitHub's rule-suite
+        log records it. A promotion merged on top would then overwrite that edit with nobody told. So the
+        caller reads the log (`rulesets/rule-suites?ref=refs/heads/<deploy>&rule_suite_result=fail`) and
+        hands the suites in, with -Since set to the last promotion; this decides.
+
+        EVERY FAILED SUITE COUNTS, NOT ONLY THE BOT'S. The bot's actor name is not something this repo has
+        measured, and a filter on a guessed name is the one way to read a real rejection as none. A
+        person's rejected push is cheap to recognise in the detail and wave through with -Accepted, which
+        is the switch a person sets after reconciling, never a default.
+
+        UNREADABLE IS A SKIP, NOT A PASS: the log needs admin access to the repo, which plenty of tokens
+        lack, and a skip is named in the verdict's summary where a pass would vanish.
+
+        THE ACTOR AND TIME ARE TEXT FROM THE API, printed for a person to read, so each is cut down to a
+        plain character set first. This file is dependency-free, so it does not borrow check-report-lib.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$DeployBranch,
+        [AllowNull()][AllowEmptyCollection()][object[]]$RuleSuites = @(),
+        [switch]$Unreadable,
+        [switch]$Accepted,
+        [string]$Window = 'month',
+        [AllowNull()][Nullable[datetime]]$Since = $null
+    )
+    $name = 'write-back'
+    # The name is printed in every detail below, so it is held to the ref pattern here, not only by the caller.
+    if (-not (Test-LivePromotionRef $DeployBranch)) {
+        return [pscustomobject]@{ Name = $name; State = 'refuse'; Detail = 'the deploy branch has a name that is not safe to print, so its rule-suite log was not judged' }
+    }
+    if ($Unreadable) {
+        return [pscustomobject]@{ Name = $name; State = 'skip'; Detail = "the rule-suite log of $DeployBranch could not be read (it needs admin access to the repo), so a rejected Shopify write-back -- visible only there -- is unverified" }
+    }
+    $failed = @(@($RuleSuites) | Where-Object { $_ -and ([string]$_.result).Trim() -ieq 'fail' })
+    # -Since IS THE LAST PROMOTION (#3009's review): a rejection before it was there for the previous
+    # preflight to refuse on, and counting it again would keep refusing until the window let go. A
+    # pushed_at that does not parse is KEPT -- dropping it would read an unknown time as an old one.
+    $scope = "the last $Window"
+    if ($null -ne $Since) {
+        # A CAST, NOT .Value: PowerShell unwraps a Nullable parameter to the plain [datetime].
+        $cut = ([datetime]$Since).ToUniversalTime()
+        $failed = @($failed | Where-Object {
+            $t = [datetime]::MinValue
+            $ok = [datetime]::TryParse([string]$_.pushed_at, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal, [ref]$t)
+            (-not $ok) -or ($t -gt $cut)
+        })
+        $scope = 'the time since the last promotion'
+    }
+    if ($failed.Count -eq 0) {
+        return [pscustomobject]@{ Name = $name; State = 'pass'; Detail = "the rule-suite log holds no rejected push to $DeployBranch in $scope" }
+    }
+    $named = @($failed | Select-Object -First 3 | ForEach-Object {
+        $actor = ([string]$_.actor_name) -replace '[^A-Za-z0-9\[\]_.-]', '?'
+        if ($actor.Length -gt 40) { $actor = $actor.Substring(0, 40) + '...' }
+        $at    = ([string]$_.pushed_at) -replace '[^0-9A-Za-z:.+-]', '?'
+        "$actor at $at"
+    }) -join ', '
+    $more = if ($failed.Count -gt 3) { ", and $($failed.Count - 3) more" } else { '' }
+    $what = "$($failed.Count) push(es) to $DeployBranch were rejected by a ruleset in ${scope}: $named$more"
+    if ($Accepted) {
+        return [pscustomobject]@{ Name = $name; State = 'warn'; Detail = "$what -- accepted for this run (-AcceptRejectedWriteBacks)" }
+    }
+    return [pscustomobject]@{ Name = $name; State = 'refuse'; Detail = "$what. A rejected Shopify write-back leaves an edit on live that $DeployBranch does not hold, and the promotion would overwrite it. Reconcile it, then run again with -AcceptRejectedWriteBacks" }
+}
