@@ -50,16 +50,15 @@ $report = @(
     '== connector: Org/gamma',
     '  [SKIP]  checkout ''../gamma'' not present on this machine -- not checked.',
     '',
-    '-- drift-check: Org/beta',
-    '  [ERROR] not a connector signal',
-    'Summary: 2 error(s), 1 info signal(s).'
+    'Summary: 2 error(s), 1 info signal(s).',
+    '  [ERROR] Org/beta: after the summary, not a signal'
 )
 $parsed = ConvertFrom-ConnectorCheckOutput -Lines $report
 Assert-Equal 'Org/alpha Org/beta Org/gamma' (@($parsed.Keys) -join ' ') 'every connector block becomes a repo, in report order; the opening line is not one'
 Assert-Equal 1 @($parsed['Org/alpha'].Signals).Count 'a repo-level signal belongs to its repo'
 Assert-Equal 'origin names someone else' $parsed['Org/alpha'].Signals[0].Text 'the "<repo>: " prefix is stripped'
 $beta = @($parsed['Org/beta'].Signals)
-Assert-Equal 3 $beta.Count 'the drift section after the last connector adds nothing to it'
+Assert-Equal 3 $beta.Count 'the summary after the last block adds nothing to it'
 Assert-Equal 'p1@m' $beta[1].Plugin 'a signal under "-- plugin:" carries that plugin'
 Assert-Equal 'machine record is on v1, source on v2' $beta[1].Text 'the "<repo> / <plugin>: " prefix is stripped'
 Assert-Equal 'plugin q@m is enabled but not listed' $beta[2].Text 'a repo-level prefix is stripped inside a plugin block too'
@@ -91,6 +90,52 @@ Assert-Equal 'warn' (Get-ConnectorStatus @(@{ Level = 'OK' }, @{ Level = 'INFO' 
 Assert-Equal 'skip' (Get-ConnectorStatus @($parsed['Org/gamma'].Signals)) 'a skipped checkout is skip -- nothing was read, so it is not called healthy'
 Assert-Equal 'good' (Get-ConnectorStatus @(@{ Level = 'OK' })) 'only [OK] is good'
 Assert-Equal 'good' (Get-ConnectorStatus @()) 'no signals is good'
+
+Write-Host '-- group 1b1: a drift block belongs to the repo it names (#2997)' -ForegroundColor Cyan
+
+$driftReport = ConvertFrom-ConnectorCheckOutput -Lines @(
+    '== connector: Org/clean',
+    '  [OK]    plugin is enabled in .claude/settings.json',
+    '== connector: Org/drifty',
+    '  -- plugin: p1@m',
+    '  [OK]    machine record is on the source version (v5.18.0)',
+    '== connector: Org/far',
+    '  [SKIP]  checkout ''../far'' not present on this machine -- not checked.',
+    '',
+    '-- drift-check: Org/clean',
+    '  == check-consumer-drift -- C:\somewhere\clean ==',
+    '  Agent-def summary: 26 missing, 0 identical (dead copies), 0 drifted.',
+    '    Persona drift is INFORMATIONAL (does not affect the exit code): 0 drifted of 4 compared.',
+    '',
+    '-- drift-check: Org/drifty',
+    '  == check-consumer-drift -- C:\somewhere\drifty ==',
+    '    [IDENTICAL] id 05-15 (x) -- dead copy at C:\somewhere\drifty\x.md, safe to remove.',
+    '    [DRIFTED]   id 06-16 (y) -- differs from the canonical version: C:\somewhere\drifty\y.md',
+    '    [DRIFTED]   persona z -- body differs from the canonical source: C:\somewhere\drifty\z.md',
+    '  Agent-def summary: 24 missing, 1 identical (dead copies), 1 drifted.',
+    '    Persona drift is INFORMATIONAL (does not affect the exit code): 1 drifted of 4 compared.',
+    '  [ERROR] Org/drifty: agent-def drift found -- see check-consumer-drift.',
+    '',
+    'Summary: 1 error(s), 0 info signal(s).'
+)
+$dc = $driftReport['Org/clean']
+Assert-Equal '0 0 0 4' "$($dc.Drift.Dead) $($dc.Drift.Drifted) $($dc.Drift.PersonaDrifted) $($dc.Drift.PersonaCompared)" 'the two summary lines become the repo''s Drift record'
+Assert-Equal 'good' (Get-ConnectorStatus $dc.Signals) 'a clean drift block leaves the status alone'
+$dd = $driftReport['Org/drifty']
+Assert-Equal '1 1 1 4' "$($dd.Drift.Dead) $($dd.Drift.Drifted) $($dd.Drift.PersonaDrifted) $($dd.Drift.PersonaCompared)" 'non-zero counts are read'
+Assert-Equal 2 @($dd.Signals).Count 'only the [ERROR] joins the signals -- the per-file lines with local paths do not'
+Assert-Equal 'agent-def drift found -- see check-consumer-drift.' @($dd.Signals)[1].Text 'the drift [ERROR] belongs to the repo its block names, prefix stripped, no plugin carried over'
+Assert-Equal '' @($dd.Signals)[1].Plugin 'a drift block opens with no plugin'
+Assert-Equal 'bad' (Get-ConnectorStatus $dd.Signals) 'agent-def drift makes the repo bad, as the check counts it'
+Assert-True ($null -eq $driftReport['Org/far'].Drift) 'a repo with no drift block has no Drift record'
+$personaOnly = ConvertFrom-ConnectorCheckOutput -Lines @(
+    '== connector: Org/p', '  [OK]    fine', '-- drift-check: Org/p',
+    '  Agent-def summary: 26 missing, 0 identical (dead copies), 0 drifted.',
+    '    Persona drift is INFORMATIONAL (does not affect the exit code): 2 drifted of 4 compared.')
+Assert-Equal 'good' (Get-ConnectorStatus $personaOnly['Org/p'].Signals) 'persona drift alone never changes the status'
+Assert-Equal 'Drift: 1 dead copies &#183; 1 drifted agent defs &#183; 1 of 4 personas drifted (informational)' (Format-DashboardDrift $dd.Drift) 'the card line names all three counts'
+Assert-Equal '' (Format-DashboardDrift $null) 'no Drift record, no line'
+Assert-True ((Format-DashboardDrift @{ Dead = 0; Drifted = $null; PersonaDrifted = $null; PersonaCompared = $null }) -match 'Drift: 0 dead copies &#183; \? drifted') 'a count the check did not print reads ?'
 
 Write-Host '-- group 1b2: the installed plugin version (#2996)' -ForegroundColor Cyan
 

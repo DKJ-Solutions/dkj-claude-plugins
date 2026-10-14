@@ -10,8 +10,15 @@
     connector's health means, and a second reading of the manifests would drift from it the day a check
     is added. So the dashboard runs it and splits its output on the block headers it already prints:
     '== connector: <repo>' opens a repo, '-- plugin: <id>' opens a plugin inside it, and a line opening
-    with a bracketed tag is a signal. The drift section and the summary that follow the last connector
-    are not per-repo, so the parse stops at them.
+    with a bracketed tag is a signal. The summary after the last block is not per-repo, so the parse
+    stops at it.
+
+    A DRIFT BLOCK BELONGS TO THE REPO ITS HEADER NAMES (#2997). '-- drift-check: <repo>' reopens that
+    repo, and its two summary lines become the repo's Drift record: dead copies and drifted agent defs,
+    and persona drift with how many were compared. Only an [ERROR] in it -- the check's own verdict on
+    agent-def drift -- becomes a signal; the per-file [DRIFTED]/[IDENTICAL] lines carry local paths and
+    are already counted in the summary. Persona drift stays informational, as in the check, so it never
+    changes a status on its own.
 
     ANY TAG IS A SIGNAL, NOT A FIXED LIST (#2995). Besides [ERROR], [INFO], [OK] and [SKIP] the check
     prints non-counting markers inside a connector block -- [INVENTORY], [UNLISTED], [UNREGISTERED],
@@ -31,25 +38,40 @@
 
 function ConvertFrom-ConnectorCheckOutput {
     <#
-        Splits check-connectors.ps1's text report into @{ <repo> = @{ Signals = list } }. Each signal is
-        @{ Level; Plugin; Text }, with Plugin '' for a repo-level signal and Text stripped of the
-        '<repo>: ' or '<repo> / <plugin>: ' prefix the check repeats on every line.
+        Splits check-connectors.ps1's text report into @{ <repo> = @{ Signals = list; Drift } }. Each
+        signal is @{ Level; Plugin; Text }, with Plugin '' for a repo-level signal and Text stripped of the
+        '<repo>: ' or '<repo> / <plugin>: ' prefix the check repeats on every line. Drift is $null, or
+        @{ Dead; Drifted; PersonaDrifted; PersonaCompared } from the repo's drift block.
     #>
     param([AllowEmptyCollection()][AllowNull()][string[]]$Lines)
     $result = [ordered]@{}
     $repo = $null
     $plugin = ''
+    $inDrift = $false
     foreach ($raw in @($Lines)) {
         if ($null -eq $raw) { continue }
         $line = [string]$raw
-        if ($line -match '^== connector: (\S+)\s*$') {
+        $opens = if ($line -match '^== connector: (\S+)\s*$') { 'connector' } elseif ($line -match '^-- drift-check: (\S+)\s*$') { 'drift' } else { '' }
+        if ($opens) {
             $repo = $Matches[1]
             $plugin = ''
-            if (-not $result.Contains($repo)) { $result[$repo] = @{ Signals = New-Object System.Collections.ArrayList } }
+            $inDrift = ($opens -eq 'drift')
+            if (-not $result.Contains($repo)) { $result[$repo] = @{ Signals = New-Object System.Collections.ArrayList; Drift = $null } }
+            if ($inDrift) { $result[$repo].Drift = @{ Dead = $null; Drifted = $null; PersonaDrifted = $null; PersonaCompared = $null } }
             continue
         }
-        if ($line -match '^-- drift-check:' -or $line -match '^Summary:') { $repo = $null; continue }
+        if ($line -match '^Summary:') { $repo = $null; continue }
         if ($null -eq $repo) { continue }
+        if ($inDrift) {
+            $d = $result[$repo].Drift
+            if ($line -match 'Agent-def summary: \d+ missing, (\d+) identical \(dead copies\), (\d+) drifted') {
+                $d.Dead = [int]$Matches[1]; $d.Drifted = [int]$Matches[2]; continue
+            }
+            if ($line -match 'Persona drift is INFORMATIONAL.*: (\d+) drifted of (\d+) compared') {
+                $d.PersonaDrifted = [int]$Matches[1]; $d.PersonaCompared = [int]$Matches[2]; continue
+            }
+            if ($line -notmatch '^\s+\[ERROR\]\s') { continue }
+        }
         if ($line -match '^\s+-- plugin: (\S+)\s*$') { $plugin = $Matches[1]; continue }
         if ($line -match '^\s+\[([A-Z][A-Z-]*)\]\s+(.*)$') {
             $level = $Matches[1]
@@ -106,6 +128,18 @@ function Format-DashboardInstalledVersion {
     $cell = 'v' + (ConvertTo-DashboardText $v.Version)
     if ($v.Mixed) { $cell += ' <code>' + (ConvertTo-DashboardText $v.Plugin) + '</code>' }
     return $cell
+}
+
+function Format-DashboardDrift {
+    <#
+        One short line for a repo's Drift record (#2997), or '' when it has none: dead copies, drifted
+        agent defs, and drifted personas of those compared. A count the check did not print reads '?'.
+    #>
+    param([AllowNull()]$Drift)
+    if ($null -eq $Drift) { return '' }
+    $n = { param($v) if ($null -eq $v) { '?' } else { [string][int]$v } }
+    return 'Drift: ' + (& $n $Drift.Dead) + ' dead copies &#183; ' + (& $n $Drift.Drifted) + ' drifted agent defs &#183; ' +
+        (& $n $Drift.PersonaDrifted) + ' of ' + (& $n $Drift.PersonaCompared) + ' personas drifted (informational)'
 }
 
 function Get-ConnectorCheckoutCandidates {
@@ -185,7 +219,7 @@ function Format-DashboardGitState {
 function Format-ConnectorDashboardHtml {
     <#
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
-        (list of @{ Id; Extensions }); Signals; Status; Git (@{ Branch; Dirty; Ahead; Behind; Subject;
+        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Dirty; Ahead; Behind; Subject;
         When } or $null); Notes }. -Meta is @{ GeneratedAt; SourceCommit; Seconds; CheckFailed }.
     #>
     param(
@@ -297,7 +331,9 @@ function Format-ConnectorDashboardHtml {
             [void]$sb.AppendLine('<span><code>' + (& $e $p.Id) + '</code> &#183; ' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + '</span>')
         }
         [void]$sb.AppendLine('</div>')
-        $shown = @($c.Signals | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
+        $drift = Format-DashboardDrift $c.Drift
+        if ($drift) { [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + $drift + '</p>') }
+        $shown =@($c.Signals | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
         if ($shown.Count) {
             [void]$sb.AppendLine('<ul class="cd-signals">')
             foreach ($s in $shown) {
