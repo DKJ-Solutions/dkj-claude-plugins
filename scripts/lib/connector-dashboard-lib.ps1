@@ -10,8 +10,14 @@
     connector's health means, and a second reading of the manifests would drift from it the day a check
     is added. So the dashboard runs it and splits its output on the block headers it already prints:
     '== connector: <repo>' opens a repo, '-- plugin: <id>' opens a plugin inside it, and a line opening
-    with a bracketed tag ([ERROR], [INFO], [OK], [SKIP]) is a signal. The drift section and the summary
-    that follow the last connector are not per-repo, so the parse stops at them.
+    with a bracketed tag is a signal. The drift section and the summary that follow the last connector
+    are not per-repo, so the parse stops at them.
+
+    ANY TAG IS A SIGNAL, NOT A FIXED LIST (#2995). Besides [ERROR], [INFO], [OK] and [SKIP] the check
+    prints non-counting markers inside a connector block -- [INVENTORY], [UNLISTED], [UNREGISTERED],
+    [NOT-INSTALLED-HERE] -- and a parser that named four tags dropped them, so such a repo read as in
+    sync. Every tag other than ERROR, OK and SKIP is read as INFO: a note, never an error, which is how
+    the check itself counts them.
 
     STATUS, worst first: 'bad' (an [ERROR]), 'warn' (an [INFO]), 'skip' (the checkout is not on this
     machine, so nothing was checked) and 'good'. A skipped repo is not called healthy: nothing was read.
@@ -45,8 +51,9 @@ function ConvertFrom-ConnectorCheckOutput {
         if ($line -match '^-- drift-check:' -or $line -match '^Summary:') { $repo = $null; continue }
         if ($null -eq $repo) { continue }
         if ($line -match '^\s+-- plugin: (\S+)\s*$') { $plugin = $Matches[1]; continue }
-        if ($line -match '^\s+\[(ERROR|INFO|OK|SKIP)\]\s+(.*)$') {
+        if ($line -match '^\s+\[([A-Z][A-Z-]*)\]\s+(.*)$') {
             $level = $Matches[1]
+            if ($level -notin @('ERROR', 'OK', 'SKIP')) { $level = 'INFO' }
             $text = $Matches[2].Trim()
             $prefixes = @()
             if ($plugin) { $prefixes += "$repo / $plugin`: " }
