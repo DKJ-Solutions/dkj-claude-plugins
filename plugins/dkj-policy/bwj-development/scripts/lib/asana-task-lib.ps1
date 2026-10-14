@@ -137,7 +137,7 @@ function Get-AsanaPasteBlockMarker {
 
 function Get-AsanaResearchBlockMarker {
     <#
-        The second marker build-golive-block.ps1 -Research puts on a block that reports a FINDING rather
+        The second marker build-golive-block.ps1 -Research puts on a block that reports an OUTCOME rather
         than a result to look at (#3004): a research, test or decision ticket, where nothing changed on
         the store. Pure. The closed message reads it to write the research form (#3017: 'is now closed:
         the Asana task is ready for review. Read the outcome below.', the outcome as a list, and the

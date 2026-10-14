@@ -382,7 +382,7 @@ function New-ClosedMessageHtml {
         the task is ready for review instead of inviting a reopen, the outcome's bullets become a list,
         and the closing ask follows them, naming -DoneSection where one was found (Get-ClosedMessageAsk).
         It is meaningful only beside sections: a research close that carries no block gets the result
-        form, because nothing it could say about a finding is known.
+        form, because nothing it could say about the outcome is known.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
@@ -964,8 +964,12 @@ function Get-RepoStageCode {
     $body = $ConfigText.Substring($start.Index + $start.Length)
     $next = [regex]::Match($body, '(?im)^\s*function\s+')
     if ($next.Success) { $body = $body.Substring(0, $next.Index) }
-    # The key opens a line or follows '{' or ';' (a one-line hashtable), and the value ends the entry.
-    $m = [regex]::Match($body, "(?im)(?:^|[{;])\s*$([regex]::Escape($Stage))\s*=\s*['`"]?([0-9]+[A-Za-z]?)['`"]?(?=\s*(?:[;}#]|$))")
+    # A <# ... #> block is a comment however many lines it spans (code review, #3017).
+    $body = [regex]::Replace($body, '(?s)<#.*?#>', '')
+    # The key, bare or quoted, opens a line or follows '{' or ';' (a one-line hashtable), and the value
+    # ends the entry.
+    $key = [regex]::Escape($Stage)
+    $m = [regex]::Match($body, "(?im)(?:^|[{;])\s*(?:$key|'$key'|`"$key`")\s*=\s*['`"]?([0-9]+[A-Za-z]?)['`"]?(?=\s*(?:[;}#]|$))")
     if ($m.Success) { return $m.Groups[1].Value }
     return ''
 }

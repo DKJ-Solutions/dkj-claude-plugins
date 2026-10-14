@@ -323,7 +323,7 @@ if ($ProseArg) {
     }
 }
 
-# --- Which form: a result to look at, or a finding (#3004) -------------------------------------------
+# --- Which form: a result to look at, or an outcome (#3004, #3017) -------------------------------------------
 # EACH FORM REFUSES THE OTHER'S PROSE, so a section the session wrote is never silently left out of the
 # block: [outcome] has no place in a result block, and a research block carries nothing but [outcome].
 if ($ResearchArg) {

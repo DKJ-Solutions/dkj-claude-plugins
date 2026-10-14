@@ -1111,6 +1111,8 @@ $cmCfg = "function Get-AsanaStageMap {`n    <# Completed = 9 in a comment #>`n  
 Assert-Equal '4' (Get-RepoStageCode -ConfigText $cmCfg) 'the Completed code is read from the map''s body, past a commented-out line'
 Assert-Equal '3A' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { @{`nCompleted = `"3A`"`n} }") 'a lettered code, double-quoted'
 Assert-Equal '7' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { return @{ Filed = 3; Completed = 7 } }") 'a one-line map'
+Assert-Equal '4' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap {`n    <#`n    Completed = 9`n    #>`n    @{`n        Completed = '4'`n    }`n}") 'a line inside a multi-line <# #> block is a comment'
+Assert-Equal '7' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { @{`n'Completed' = '7'`n} }") 'a quoted key is read too'
 Assert-Equal '' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { @{ CompletedLater = 7 } }") 'a longer key is not the stage'
 Assert-Equal '' (Get-RepoStageCode -ConfigText "function Get-Other { @{`nCompleted = 4`n} }") 'a Completed key outside the stage map is not the map'
 Assert-Equal '' (Get-RepoStageCode -ConfigText '') 'no file, no code -- and so no section is named'

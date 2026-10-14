@@ -61,10 +61,11 @@ boards -- the reference story's own section.
 
 ### TEST
 
-- [x] `bwj-development.tests.ps1`: 649 asserts pass, the research block, the HTML message, the stage-code
+- [x] `bwj-development.tests.ps1`: 651 asserts pass, the research block, the HTML message, the stage-code
   parse, the section match and the end-to-end run with two board reads among them
 - [x] `guard-stale-paste-block.tests.ps1`: 116 asserts pass
 - [x] `Get-RepoStageCode` against the real smartwatchbanden and xoxowildhearts configs: both `4`
+- [x] Review: Sebastian (no findings), Edith (three wording drifts, fixed), Victor (a multi-line `<# #>` block and a quoted key in the stage map, both fixed and pinned)
 
 ### DEPLOY: feat/3017-research-closed-outcome-form
 
