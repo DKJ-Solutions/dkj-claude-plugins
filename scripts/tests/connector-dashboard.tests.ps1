@@ -5,9 +5,9 @@
 
 .DESCRIPTION
     Group 1 pins the rules without a server: how check-connectors.ps1's report splits into repos and
-    plugins, which status a repo gets, which Host is served, and that every value the page shows is
-    escaped, and that the vendored house style is the copy the house-style skill pins. Group 2 starts the real server on a free loopback port against this tree and asks it for
-    the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
+    plugins, which status a repo gets, which Host is served, that every value the page shows is
+    escaped, and that the vendored house style is the copy the house-style skill pins. Group 2 starts
+    the real server on a free loopback port against this tree and asks it for the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
     an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
     outside the scope root, and no check-connectors.ps1 at all.
 
