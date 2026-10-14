@@ -57,7 +57,7 @@ Part 2 of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/299
 
 ### TEST
 
-- [x] `live-push-rules.tests.ps1` 172/0, standalone.
+- [x] `live-push-rules.tests.ps1` 172/0, standalone. `native-capture.tests.ps1`'s audited call-site count moved 90 -> 91 for the new `gh api` read, with its audit note.
 - [x] Review (Victor, Sebastian). Victor: the fixed week window became "since the last promotion", capped at a month, because a week missed a day-1 rejection on a day-9 release. `gh api` now discards stderr. CLI mode keeps `rev-parse --short`. Sebastian: the write-back step validates the branch name itself, actor names are capped at 40 characters, and step 3 prints the seam's branch through `Format-SafeProseToken`. Victor's `{owner}/{repo}` point does not apply, because the script `Set-Location`s to the repo root first.
 - [x] Smoke-run against a scratch repo with a local bare origin and a stubbed `shopify` that fails at once: connected mode measured 3 promotion paths and composed the promotion PR. A bot commit on `live` refused it with the back-flow message. With the seam removed, CLI mode printed its old steps unchanged. The rule-suite read was a skip there, since a local remote has no API.
 

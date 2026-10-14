@@ -1987,7 +1987,11 @@ foreach ($af in $auditFiles) {
 # 89 -> 90 (#2899): cut-release.ps1's Assert-TrunkMatchesOrigin, $fetch (`git fetch origin main`), at the
 # shared network bound. It asks Test-NativeExitMeasured and names the code with Get-NativeExitLabel; anything
 # but a measured 0 refuses the cut before the first write, because "could not look" is not "main is current".
-Assert-Equal 90 $boundedTotal 'the parser still counts 90 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 90 -> 91 (#3009): live-preflight.ps1's connected-mode write-back read, $api (`gh api .../rulesets/
+# rule-suites`), -DiscardStderr because the JSON is parsed. It asks Test-NativeExitMeasured, and anything
+# but a measured 0 -- or JSON that will not parse -- reads as unreadable: a SKIPPED step the verdict names,
+# never a pass.
+Assert-Equal 91 $boundedTotal 'the parser still counts 91 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
