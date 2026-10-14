@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**11 / 23 minor entries** <!-- pending-tally -->
+**12 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2999-asana-body-html-notes · 20261014-101405Z
+
+An Asana task that `report-issue` creates now reads as four separate sections instead of one dense
+block. The body is sent as `html_notes`, with each label in bold on its own line and a blank line
+between sections. The issue link is a real link, and it stays the first line. A colleague's own
+ticket gets the same styled link on top, always written through `html_notes` so their formatting
+survives
+([#2999](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2999)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store maintainer sees the difference on the first card filed after the update. Colleagues who
+read the board get labelled, spaced sections where they used to get four run-together lines.
+
+**Score:** 3
+
+#### Pull Request
+
+report-issue: send the Asana task body as html_notes with bold labels and spacing
+
+Plugins: bwj-development
+
+[PR #3002](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3002)
+
+---
 
 ### DEPLOY: feat/2996-dashboard-version-column · 20261014-100509Z
 
