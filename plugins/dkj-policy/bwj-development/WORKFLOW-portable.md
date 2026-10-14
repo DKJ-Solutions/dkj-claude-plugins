@@ -412,11 +412,12 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   follows."*, and the run log says the task's assignee still owes it. A link to the GitHub issue does not
   stand in for it: not every requester can open the repo.
 - **A ticket without a storefront result gets a research block.** Research, a test or a decision changes
-  nothing on the store, so `build-golive-block.ps1 -Research` writes the findings themselves, for the
-  requester, under one heading, *WAT WE GEVONDEN HEBBEN* (*WHAT WE FOUND*). The closed message then
-  opens with the research form of the closed line: *"GitHub issue <owner>/<repo>#<n> is now **closed**.
-  Nothing has changed. This issue was for research purposes only."* The form is in
-  [`golive-block`](skills/golive-block/SKILL.md).
+  nothing on the store, so `build-golive-block.ps1 -Research` writes the outcome itself, for the
+  requester, as bullets under one heading, *OUTCOME*. The closed message then opens with the research
+  form of the closed line, *"GitHub issue <owner>/<repo>#<n> is now **closed**: the Asana task is ready
+  for review. Read the outcome below."*, and ends with the closing ask, which names the board's own done
+  section (#3017). Every fixed line of it is general and English on every board, so only the bullets
+  carry the task. The form is in [`golive-block`](skills/golive-block/SKILL.md).
 - **A close by hand is guarded too** (#3004). The `guard-stale-paste-block` PreToolUse hook also reads
   `gh issue close`. It refuses a completed close of an issue whose body links one Asana task while that
   issue carries no block posted since its last reopen, and the refusal names both blocks' commands and

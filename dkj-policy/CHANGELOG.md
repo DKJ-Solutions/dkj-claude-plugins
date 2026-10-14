@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**14 / 28 minor entries** <!-- pending-tally -->
+**15 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3017-research-closed-outcome-form · 20261014-142141Z
+
+The research closed message now takes the general form Maikel set on a reference story. It opens with
+*"is now **closed**: the Asana task is ready for review. Read the outcome below."*, lists the outcome
+as bullets under *OUTCOME*, and ends with *"Is anything still unclear? Leave a comment on this task. No
+more questions? Move the task to '4. Done' and mark it as complete."* The done section is the board's
+own name: the code `Get-AsanaStageMap` gives the `Completed` stage, matched against the sections of the
+task's board. Where that does not resolve, the ask names no section. Every fixed line is English on
+every board. The prose section is now `[outcome]`; `[found]` is still read
+([#3017](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3017)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A requester of a research, test or decision ticket reads a message that fits any ticket and tells
+them how to finish it. The store's copy of `asana-closed-message.ps1` has to be taken again;
+`closed-message-sessioncheck` reports the difference at session start.
+
+**Score:** 2
+
+#### Pull Request
+
+asana-closed-message: the research close takes Maikel's general form (OUTCOME, the closing ask)
+
+Plugins: bwj-development
+
+[PR #3018](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3018)
+
+---
 
 ### DEPLOY: feat/3008-live-promotion-verdict · 20261014-132737Z
 

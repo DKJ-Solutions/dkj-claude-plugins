@@ -548,21 +548,25 @@ $glBrackets = ConvertFrom-GoLiveProse -Text "[changed]`nZie noot.`n[1]`n[ ]`n[TB
 Assert-Equal "Zie noot.`n[1]`n[ ]`n[TBD]" @($glBrackets.Changed)[0] 'a bracketed line that is not section-shaped stays prose'
 Assert-Throws { ConvertFrom-GoLiveProse -Text "[changed]`nEen.`n---`nTwee." } 'a bare --- line is refused -- it would be a third rule inside the pasted block'
 Assert-Throws { ConvertFrom-GoLiveProse -Text "[changed]`n<!-- asana-paste-block -->" } 'and so is an HTML comment, the marker included'
-Assert-Equal 'Niets mis.' @((ConvertFrom-GoLiveProse -Text "[found]`nNiets mis.").Found)[0] '[found] fills the research block''s one section (#3004)'
+Assert-Equal 'Niets mis.' @((ConvertFrom-GoLiveProse -Text "[outcome]`nNiets mis.").Outcome)[0] '[outcome] fills the research block''s one section (#3017)'
+Assert-Equal 'Niets mis.' @((ConvertFrom-GoLiveProse -Text "[found]`nNiets mis.").Outcome)[0] 'and [found], its name before #3017, still fills the same section'
 
-# THE RESEARCH BLOCK (#3004): a ticket that changed nothing on the store, in the shape Maikel set on
-# smartwatchbanden#943's task -- the research closed line, then what we found, and nothing that goes live.
+# THE RESEARCH BLOCK (#3004, in #3017's general form): a ticket that changed nothing on the store, in the
+# shape Maikel set on smartwatchbanden#944's task -- the research closed line, then OUTCOME as bullets.
 $rbBlock = Format-GoLiveResearchBlock -Marker (Get-AsanaPasteBlockMarker) -ResearchMarker (Get-AsanaResearchBlockMarker) `
-    -IssueRef 'BWJ-Development/smartwatchbanden#943' -Found @("Een.`n- punt", 'Twee.')
+    -IssueRef 'BWJ-Development/smartwatchbanden#943' -Outcome @("Een.`n- punt", "Twee`nregels.")
 Assert-True ($rbBlock.StartsWith("$(Get-AsanaPasteBlockMarker)`n$(Get-AsanaResearchBlockMarker)`n")) 'the research block carries both markers, outside the rules'
-Assert-True ($rbBlock.Contains('GitHub issue [BWJ-Development/smartwatchbanden#943](https://github.com/BWJ-Development/smartwatchbanden/issues/943) is now **closed**. Nothing has changed. This issue was for research purposes only.')) 'its closed line is the research form, with only the state word bold'
-Assert-True ($rbBlock.Contains("`nWAT WE GEVONDEN HEBBEN`n`nEen.`n- punt`n`nTwee.`n`n---")) 'the findings sit under their heading, paragraphs and lists as written, a blank line before the closing rule'
-Assert-True ($rbBlock -notmatch 'WANNEER HET LIVE KOMT|WAT WE VAN JE VRAGEN|TE BEKIJKEN OP|reopened anytime') 'and nothing that goes live, nothing to look at, no reopen invitation'
+Assert-True ($rbBlock.Contains('GitHub issue [BWJ-Development/smartwatchbanden#943](https://github.com/BWJ-Development/smartwatchbanden/issues/943) is now **closed**: the Asana task is ready for review. Read the outcome below.')) 'its closed line is the general research form, with only the state word bold (#3017)'
+Assert-True ($rbBlock.Contains("`nOUTCOME`n- Een.`n- punt`n- Twee regels.`n`n---")) 'the outcome sits under OUTCOME as one list: a paragraph per bullet, a hand-made list keeping its items, a blank line before the closing rule'
+Assert-True ($rbBlock -notmatch 'WANNEER HET LIVE KOMT|WAT WE VAN JE VRAGEN|TE BEKIJKEN OP|reopened anytime|research purposes|GEVONDEN') 'and nothing that goes live, nothing to look at, no reopen invitation, nothing of the #3004 wording'
 Assert-True ($rbBlock.Contains('no paste needed')) 'with the same lead as a result block'
-Assert-True ((Format-GoLiveResearchBlock -Marker 'm' -ResearchMarker 'r' -IssueRef 'o/r#1' -Found @('x') -Language en).Contains("`nWHAT WE FOUND`n")) 'in English for a task written in English'
-Assert-Throws { Format-GoLiveResearchBlock -Marker 'm' -ResearchMarker 'r' -IssueRef 'o/r#1' -Found @('', ' ') } 'a research block without findings is refused'
+Assert-True ((Format-GoLiveResearchBlock -Marker 'm' -ResearchMarker 'r' -IssueRef 'o/r#1' -Outcome @('x') -Language en).Contains("`nOUTCOME`n- x`n")) 'the heading is fixed English in either language (#3017)'
+Assert-True ((Format-GoLiveResearchBlock -Marker 'm' -ResearchMarker 'r' -IssueRef 'o/r#1' -Found @('x')).Contains("`n- x`n")) '-Found still binds, as the alias of -Outcome'
+Assert-Throws { Format-GoLiveResearchBlock -Marker 'm' -ResearchMarker 'r' -IssueRef 'o/r#1' -Outcome @('', ' ', '-') } 'a research block without an outcome is refused'
+Assert-Equal 3 @(ConvertTo-GoLiveOutcomeBullets -Paragraphs @("* a`n-  b", 'c')).Count 'a * marker counts as a bullet too, and a paragraph is one'
+Assert-Equal '**vet** blijft' @(ConvertTo-GoLiveOutcomeBullets -Paragraphs @('**vet** blijft'))[0] 'a line opening with bold is not read as a bullet'
 Assert-True (Test-AsanaPasteBlockBody -Body $rbBlock) 'it is a block the closed message carries'
-Assert-True ((Get-PasteBlockSections -Body $rbBlock).StartsWith('WAT WE GEVONDEN HEBBEN')) 'and its carried sections start at the heading: the closed line is the message''s own'
+Assert-True ((Get-PasteBlockSections -Body $rbBlock).StartsWith('OUTCOME')) 'and its carried sections start at the heading: the closed line is the message''s own'
 
 # A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
 # the handover page is the reviewer's surface. Both published shapes, and nothing that merely resembles one.
@@ -730,11 +734,11 @@ try {
     # -Research THROUGH -File (#3004): the findings come in through [found], and each form refuses the
     # other's prose and the go-live parameters, before anything is built.
     $glFoundFile = Join-Path $glRoot 'found.txt'
-    [System.IO.File]::WriteAllText($glFoundFile, "[found]`r`nHet bandje past op $([char]0x00E9)lk model.`r`n", (New-Object System.Text.UTF8Encoding $false))
+    [System.IO.File]::WriteAllText($glFoundFile, "[outcome]`r`nHet bandje past op $([char]0x00E9)lk model.`r`n", (New-Object System.Text.UTF8Encoding $false))
     $glResOut = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -Research `
         -RootOverride $glRoot -ProseFile $glFoundFile 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
-    Assert-Equal 0 $LASTEXITCODE 'the driver run with -Research and a [found] section exits 0'
-    Assert-True ($glResOut.Contains('Nothing has changed. This issue was for research purposes only.') -and $glResOut.Contains('WAT WE GEVONDEN HEBBEN')) 'and prints the research block'
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with -Research and an [outcome] section exits 0'
+    Assert-True ($glResOut.Contains('the Asana task is ready for review. Read the outcome below.') -and $glResOut.Contains("OUTCOME`n- Het bandje")) 'and prints the research block, the outcome as a bullet (#3017)'
     Assert-True ($glResOut.Contains('nothing goes live') -and $glResOut -notmatch 'go live  :|version  :|No -Link given|No \[changed\]') 'with no go-live half and no result warnings'
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -Research -Link 'https://x.example/' `
         -RootOverride $glRoot -ProseFile $glFoundFile 2>&1 | Out-Null
@@ -1093,8 +1097,36 @@ $cmResXml = New-Object System.Xml.XmlDocument
 $cmResXml.PreserveWhitespace = $true
 $cmResXml.LoadXml($cmRes)
 Assert-True ($cmResXml.DocumentElement.InnerText.StartsWith((New-ClosedMessage -IssueRef 'BWJ-Development/smartwatchbanden#943' -Research))) 'the research message is well-formed XML and opens with the plain research closed message'
-Assert-True ($cmRes.Contains('</a> is now <strong>closed</strong>. Nothing has changed. This issue was for research purposes only.') -and $cmRes.Contains('<strong>WAT WE GEVONDEN HEBBEN</strong>')) 'in Maikel''s form: only the state word bold, then the findings under their heading'
-Assert-True ($cmRes -notmatch 'reopened anytime|follows') 'with no reopen invitation and no pending sentence'
+Assert-True ($cmRes.EndsWith("</a> is now <strong>closed</strong>: the Asana task is ready for review. Read the outcome below.`n`n<strong>OUTCOME</strong>`n<ul><li>Een.</li><li>punt</li><li>Twee regels.</li></ul>`nIs anything still unclear? Leave a comment on this task. No more questions? Mark the task as complete.</body>")) 'in Maikel''s general form (#3017): only the state word bold, OUTCOME, the bullets as one list, and the closing ask -- naming no section where none was found'
+Assert-True ($cmRes -notmatch 'reopened anytime|follows|research purposes') 'with no reopen invitation, no pending sentence, nothing of the #3004 wording'
+$cmResDone = New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections $cmResSections -Research -DoneSection '4. Done & dusted'
+Assert-True ($cmResDone.EndsWith("No more questions? Move the task to '4. Done &amp; dusted' and mark it as complete.</body>")) 'a found done section is named in the ask, escaped like any text'
+[void][xml]$cmResDone
+Assert-Equal "<ul><li><a href=`"https://x.nl/a`">https://x.nl/a</a></li></ul>`nnext" (ConvertTo-AsanaStoryHtml -Markdown "- https://x.nl/a`nnext" -Lists) 'a list item converts its links like a line does, and the list closes before the next line'
+Assert-Equal "- a" (ConvertTo-AsanaStoryHtml -Markdown '- a') 'without -Lists a result block''s hyphen lines are posted as they always were'
+
+# THE DONE SECTION IS THE BOARD'S OWN (#3017): the Completed code from the repo's stage map, read as text,
+# matched against the sections of the task's board. Never a fixed '4. Done'.
+$cmCfg = "function Get-AsanaStageMap {`n    <# Completed = 9 in a comment #>`n    return @{`n        # Completed = 8`n        Filed     = '1'`n        Completed = '4'    # done`n    }`n}`nfunction Get-Other { @{ Completed = 5 } }"
+Assert-Equal '4' (Get-RepoStageCode -ConfigText $cmCfg) 'the Completed code is read from the map''s body, past a commented-out line'
+Assert-Equal '3A' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { @{`nCompleted = `"3A`"`n} }") 'a lettered code, double-quoted'
+Assert-Equal '7' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { return @{ Filed = 3; Completed = 7 } }") 'a one-line map'
+Assert-Equal '4' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap {`n    <#`n    Completed = 9`n    #>`n    @{`n        Completed = '4'`n    }`n}") 'a line inside a multi-line <# #> block is a comment'
+Assert-Equal '7' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { @{`n'Completed' = '7'`n} }") 'a quoted key is read too'
+Assert-Equal '' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { @{ CompletedLater = 7 } }") 'a longer key is not the stage'
+Assert-Equal '' (Get-RepoStageCode -ConfigText "function Get-Other { @{`nCompleted = 4`n} }") 'a Completed key outside the stage map is not the map'
+Assert-Equal '' (Get-RepoStageCode -ConfigText '') 'no file, no code -- and so no section is named'
+Assert-Equal '4. Done' (Select-DoneSectionName -Names @('1. Todo', '2. In Progress', '3. Waiting for review', '4. Done') -Code '4') 'the section whose code is the Completed code'
+Assert-Equal '3A. Done' (Select-DoneSectionName -Names @('3. Other', '3A. Done', '3B. Wait') -Code '3a') 'a lettered code matches exactly, without regard to case'
+Assert-Equal '' (Select-DoneSectionName -Names @('4. Done', '4. Klaar') -Code '4') 'two different names for one code is a guess, so none is named'
+Assert-Equal '' (Select-DoneSectionName -Names @('Done', '40. Later') -Code '4') 'an unnumbered section and a longer number do not match'
+$cmGetOk = { param($Uri) if ($Uri -like '*/tasks/*') { @{ data = @{ memberships = @(@{ project = @{ gid = '77' } }) } } } else { @{ data = @(@{ name = '3. Review' }, @{ name = '4. Done' }) } } }
+Assert-Equal '4. Done' (Resolve-DoneSectionName -Gid '123' -Code '4' -Get $cmGetOk).Name 'resolved through the task''s board'
+$cmGetFail = { param($Uri) throw 'HTTP 403' }
+$cmR = Resolve-DoneSectionName -Gid '123' -Code '4' -Get $cmGetFail
+Assert-True ($cmR.Name -eq '' -and $cmR.Why -eq 'the task could not be read') 'a failed read names no section and never throws'
+Assert-Equal 'the repo states no Completed stage in Get-AsanaStageMap' (Resolve-DoneSectionName -Gid '123' -Code '' -Get $cmGetOk).Why 'no code, no read'
+Assert-Equal "Is anything still unclear? Leave a comment on this task. No more questions? Move the task to '4. Done' and mark it as complete." (Get-ClosedMessageAsk -DoneSection '4. Done') 'the closing ask, word for word from Maikel''s reference story'
 Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -Research).Contains('reopened anytime') -and (New-ClosedMessageHtml -IssueRef 'o/r#1' -Research).Contains('follows')) 'a research close that carries no block falls back to the result form, saying the message follows'
 Assert-Equal $rbBlock (Select-SessionPasteBlockBody -Bodies @('talk', $rbBlock, 'more talk')) 'the selection hands back the whole newest block, so its research marker can be read'
 Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r&x#1') -match '&amp;') 'a character XML reserves is escaped, so Asana is never sent a malformed body'
@@ -1294,17 +1326,29 @@ function gh {
     }
     $global:LASTEXITCODE = 1
 }
-function Invoke-RestMethod { param($Method, $Uri, $Headers, $Body) $script:stPosted = [System.Text.Encoding]::UTF8.GetString($Body) }
+function Invoke-RestMethod {
+    param($Method, $Uri, $Headers, $Body)
+    # The two board reads a research close makes for its done section (#3017).
+    if ($Method -eq 'GET') {
+        $script:stAsanaReads += ,$Uri
+        if ($Uri -like '*/tasks/*') { return @{ data = @{ memberships = @(@{ project = @{ gid = '55' } }) } } }
+        return @{ data = @(@{ name = '1. Todo' }, @{ name = '4. Done' }) }
+    }
+    $script:stPosted = [System.Text.Encoding]::UTF8.GetString($Body)
+}
+$stConfig = Join-Path ([System.IO.Path]::GetTempPath()) "st-repo-config-$([Guid]::NewGuid().ToString('N')).ps1"
+[System.IO.File]::WriteAllText($stConfig, "function Get-AsanaStageMap {`n    return @{ Completed = '4' }`n}`n")
+$script:RepoConfigPath = $stConfig
 function New-StLine { param([string]$Body, [string]$At) (ConvertTo-Json -Compress @{ author_association = 'OWNER'; login = 'dev'; body = $Body; created_at = $At }) }
 function Invoke-StMain {
     param([string[]]$Comments, [string[]]$Events, [bool]$EventsFail = $false)
     $script:stComments = $Comments; $script:stEvents = $Events; $script:stEventsFail = $EventsFail
-    $script:stGhCalls = @(); $script:stPosted = ''
+    $script:stGhCalls = @(); $script:stPosted = ''; $script:stAsanaReads = @()
     $script:IssueRef = 'o/r#7'; $script:StateReason = 'completed'; $script:Event = 'closed'; $script:AsanaPat = 'x'
     $script:IssueBody = '<!-- asana-task: 1234 -->'; $script:IssueLabels = ''
     $log = (& { Invoke-Main } 6>&1 | Out-String)
     $posted = if ($script:stPosted) { [string](ConvertFrom-Json -InputObject $script:stPosted).data.html_text } else { '' }
-    return [pscustomobject]@{ Body = $posted; Log = $log; Calls = @($script:stGhCalls) }
+    return [pscustomobject]@{ Body = $posted; Log = $log; Calls = @($script:stGhCalls); AsanaReads = @($script:stAsanaReads) }
 }
 $stOld = New-StLine $stBlock $stT1
 $stNew = New-StLine $stBlock2 $stT3
@@ -1325,16 +1369,22 @@ $stRun = Invoke-StMain -Comments @((New-StLine 'just talk' $stT1)) -Events @($st
 Assert-True (-not @($stRun.Calls | Where-Object { $_ -like '*/events' }).Count) 'an issue with no block costs no events read'
 Assert-True ($stRun.Body.Contains('follows')) 'and the closed line is never sent alone: the result message follows (#3004, smartwatchbanden#943)'
 $stRun = Invoke-StMain -Comments @((New-StLine $rbBlock $stT1)) -Events @()
-Assert-True ($stRun.Body.Contains('Nothing has changed. This issue was for research purposes only.') -and $stRun.Body.Contains('WAT WE GEVONDEN HEBBEN')) 'a research block is carried under the research closed line (#3004)'
+Assert-True ($stRun.Body.Contains('the Asana task is ready for review. Read the outcome below.') -and $stRun.Body.Contains('<strong>OUTCOME</strong>')) 'a research block is carried under the research closed line (#3004, #3017)'
+Assert-True ($stRun.Body.Contains("Move the task to '4. Done' and mark it as complete.")) 'and the ask names the done section the repo''s stage map and the task''s board agree on (#3017)'
+Assert-True ($stRun.Log -match 'Done section for the closing ask: named -- found by code 4' -and $stRun.Log -notmatch '4\. Done') 'the log says it was found, and does not print the board''s text'
+Assert-Equal 2 $stRun.AsanaReads.Count 'two Asana reads: the task''s boards, then that board''s sections'
 Assert-True ($stRun.Body -notmatch 'reopened anytime|follows') 'without the reopen invitation'
 Assert-True ($stRun.Log -match "with the session's research block") 'and the log says it was one'
+$stRun = Invoke-StMain -Comments @($stOld) -Events @()
+Assert-Equal 0 $stRun.AsanaReads.Count 'a result close makes no board read'
 $stRun = Invoke-StMain -Comments @((New-StLine $rbBlock $stT1)) -Events @($stT2)
-Assert-True ($stRun.Body -notmatch 'research purposes|GEVONDEN' -and $stRun.Body.Contains('follows')) 'a research block from before the last reopen is held back like any other'
+Assert-True ($stRun.Body -notmatch 'ready for review|OUTCOME' -and $stRun.Body.Contains('follows')) 'a research block from before the last reopen is held back like any other'
 $stRun = Invoke-StMain -Comments @((New-StLine $stBlock $stT1)) -Events @($stT1)
 Assert-True ($stRun.Body.Contains('follows')) 'a block stamped the second of the reopen is held back too'
 $stRun = Invoke-StMain -Comments @($stOld, (New-StLine "$cmLibMarker`n---`n---" $stT3)) -Events @($stT2)
 Assert-True (-not $stRun.Body.Contains('round-1') -and $stRun.Body.Contains('follows')) 'a newer degenerate marker comment after the reopen does not bring round 1''s block back (#2968)'
-foreach ($v in 'IssueRef', 'StateReason', 'IssueBody', 'AsanaPat', 'IssueLabels') { Set-Variable -Name $v -Value '' -Scope Script }
+foreach ($v in 'IssueRef', 'StateReason', 'IssueBody', 'AsanaPat', 'IssueLabels', 'RepoConfigPath') { Set-Variable -Name $v -Value '' -Scope Script }
+Remove-Item -LiteralPath $stConfig -ErrorAction SilentlyContinue
 $Event = 'closed'
 Remove-Item Function:\gh, Function:\Invoke-RestMethod, Function:\New-StLine, Function:\Invoke-StMain, Function:\New-StComment
 

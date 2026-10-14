@@ -256,16 +256,21 @@ function Get-GoLiveBlockText {
     # {0} is 'owner/repo#<n>', {1} the issue URL.
     $header = "$dash GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
     $closed = 'GitHub issue [{0}]({1}) is now **closed**. It can be reopened anytime when something is still not working as expected.'
-    # THE RESEARCH FORM OF THE CLOSED LINE (#3004, Maikel, October 14, 2026): English and fixed like the
-    # other, and the same words the closed message composes for a research block (Get-ClosedMessageTail).
-    $closedResearch = 'GitHub issue [{0}]({1}) is now **closed**. Nothing has changed. This issue was for research purposes only.'
+    # THE RESEARCH FORM OF THE CLOSED LINE (#3004, reworded by #3017, Maikel, October 14, 2026): English
+    # and fixed like the other, and the same words the closed message composes for a research block
+    # (Get-ClosedMessageTail). Fixed means GENERAL: 'the Asana task is ready for review' is true of every
+    # ticket, where the #3004 wording ('This issue was for research purposes only') fit one kind.
+    $closedResearch = 'GitHub issue [{0}]({1}) is now **closed**: the Asana task is ready for review. Read the outcome below.'
+    # THE RESEARCH BLOCK'S HEADING IS FIXED AND ENGLISH ON EVERY BOARD (#3017), like the closed line above
+    # it, so it is the same in both languages; only the bullets under it carry the task's own words.
+    $outcome = 'OUTCOME'
 
     if ($Language -eq 'en') {
         return @{
             Header       = $header
             Closed       = $closed
             ClosedResearch = $closedResearch
-            Found        = 'WHAT WE FOUND'
+            Outcome      = $outcome
             Changed     = 'WHAT IS DIFFERENT NOW'
             Where        = 'WHERE TO LOOK'
             When         = 'WHEN IT GOES LIVE'
@@ -289,7 +294,7 @@ function Get-GoLiveBlockText {
         Header       = $header
         Closed       = $closed
         ClosedResearch = $closedResearch
-        Found        = 'WAT WE GEVONDEN HEBBEN'
+        Outcome      = $outcome
         Changed     = 'WAT ER NU ANDERS IS'
         Where        = 'TE BEKIJKEN OP'
         When         = 'WANNEER HET LIVE KOMT'
@@ -323,17 +328,19 @@ function ConvertFrom-GoLiveProse {
         arrives as one string and a paragraph's newlines do not survive the command line at all. The
         file is read as UTF-8, which the colleague's language needs.
 
-        THE FORMAT: a line '[changed]', '[where]', '[not-included]' or '[found]' opens a section; the
+        THE FORMAT: a line '[changed]', '[where]', '[not-included]' or '[outcome]' opens a section; the
         lines under it, up to the next such line, are its text. Paragraphs are separated by a blank line
         and kept as written. Text above the first section line, and a section line this function does
         not know, are refused -- a misspelled heading that silently dropped a paragraph would ship a
-        block missing the part the session wrote. '[found]' is the research block's one section
-        (#3004); which sections a block may carry is the driver's question, not this parser's.
+        block missing the part the session wrote. '[outcome]' is the research block's one section
+        (#3017). It was '[found]' until then (#3004), and that name is still read into the same
+        section, so a prose file written for the old form is not refused. Which sections a block may
+        carry is the driver's question, not this parser's.
     #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
 
-    $known   = @{ 'changed' = 'Changed'; 'where' = 'WhereToLook'; 'not-included' = 'NotIncluded'; 'found' = 'Found' }
-    $buckets = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Found = @() }
+    $known   = @{ 'changed' = 'Changed'; 'where' = 'WhereToLook'; 'not-included' = 'NotIncluded'; 'outcome' = 'Outcome'; 'found' = 'Outcome' }
+    $buckets = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @() }
     $current = $null
     $lineNo  = 0
     foreach ($line in ($Text -split "`r?`n")) {
@@ -344,7 +351,7 @@ function ConvertFrom-GoLiveProse {
         if ($line -cmatch '^\s*\[([a-z][a-z-]*)\]\s*$') {
             $name = $Matches[1]
             if (-not $known.ContainsKey($name)) {
-                throw "Prose line ${lineNo}: unknown section '[$name]'. Known: [changed], [where], [not-included], [found]."
+                throw "Prose line ${lineNo}: unknown section '[$name]'. Known: [changed], [where], [not-included], [outcome]."
             }
             $current = $known[$name]
             continue
@@ -355,7 +362,7 @@ function ConvertFrom-GoLiveProse {
         if ($line -match '^\s*---\s*$') { throw "Prose line ${lineNo}: a bare '---' line is the block's own rule and would cut the pasted block short." }
         if ($line.Contains('<!--')) { throw "Prose line ${lineNo}: an HTML comment would arrive in the Asana task as visible text." }
         if (-not $current) {
-            if ($line.Trim()) { throw "Prose line ${lineNo}: text before the first section line ([changed], [where], [not-included] or [found])." }
+            if ($line.Trim()) { throw "Prose line ${lineNo}: text before the first section line ([changed], [where], [not-included] or [outcome])." }
             continue
         }
         $buckets[$current] += $line
@@ -642,16 +649,22 @@ function Format-GoLiveBlock {
 function Format-GoLiveResearchBlock {
     <#
         Pure: the whole GitHub comment for a ticket WITHOUT a storefront result -- research, a test, a
-        decision (#3004) -- in the shape Maikel set on smartwatchbanden#943's task, October 14, 2026:
-        the header, the research closed line ('is now closed. Nothing has changed. This issue was for
-        research purposes only.'), then one section, what we found, in the requester's own words.
+        decision (#3004) -- in the general form Maikel set on smartwatchbanden#944's task, October 14,
+        2026 (#3017): the header, the research closed line ('is now closed: the Asana task is ready for
+        review. Read the outcome below.'), then the heading OUTCOME and the outcome as bullets.
 
-        THE FINDINGS ARE THE MESSAGE, NOT A LINK TO THEM. Not every requester can open the GitHub repo,
-        so a pointer to the issue's conclusion explains nothing (Maikel's correction on #3004); -Found
+        THE OUTCOME IS THE MESSAGE, NOT A LINK TO IT. Not every requester can open the GitHub repo, so
+        a pointer to the issue's conclusion explains nothing (Maikel's correction on #3004); -Outcome
         is the session's prose and is required, because a research block without it says nothing.
 
-        NO RELEASE DAY, NO LIVE URLS, NO ASK: nothing changed on the store, so there is no day it goes
-        live and nothing to look at. The marker and the lead stay as Format-GoLiveBlock writes them, and
+        EVERY FIXED LINE FITS EVERY TICKET (#3017): 'as general as possible', so only the bullets carry
+        what belongs to this task. Each paragraph is one bullet, and a hand-made list inside one keeps
+        its items (ConvertTo-GoLiveOutcomeBullets).
+
+        NO RELEASE DAY, NO LIVE URLS: nothing changed on the store, so there is no day it goes live and
+        nothing to look at. The closing ask ('Is anything still unclear? ...') is not in the block: it
+        names the board's own done section, which only the closed message can read, so that message
+        composes it. The marker and the lead stay as Format-GoLiveBlock writes them, and
         -ResearchMarker sits beside the marker so the closed message can tell this block from a result
         block and write the research closed line. Both are passed IN, for the reason Format-GoLiveBlock
         gives: one spelling, held by asana-task-lib.ps1.
@@ -660,13 +673,13 @@ function Format-GoLiveResearchBlock {
         [Parameter(Mandatory = $true)][string]$Marker,
         [Parameter(Mandatory = $true)][string]$ResearchMarker,
         [Parameter(Mandatory = $true)][string]$IssueRef,
-        [Parameter(Mandatory = $true)][string[]]$Found,
+        [Parameter(Mandatory = $true)][Alias('Found')][string[]]$Outcome,
         [ValidateSet('nl', 'en')][string]$Language = 'nl',
         [ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked'
     )
 
-    $paras = @($Found | Where-Object { $_ -and $_.Trim() })
-    if ($paras.Count -eq 0) { throw 'A research block needs its findings: -Found is empty.' }
+    $bullets = @(ConvertTo-GoLiveOutcomeBullets -Paragraphs $Outcome)
+    if ($bullets.Count -eq 0) { throw 'A research block needs its outcome: -Outcome is empty.' }
     if ($IssueRef -notmatch '^([^\s#/]+/[^\s#/]+)#(\d+)$') {
         throw "IssueRef '$IssueRef' is not 'owner/repo#<n>', so the closed line has no issue to link."
     }
@@ -684,11 +697,40 @@ function Format-GoLiveResearchBlock {
         '',
         ($t.ClosedResearch -f $IssueRef, $url),
         '',
-        $t.Found
+        $t.Outcome
     )
-    foreach ($p in $paras) { $lines += ''; $lines += $p }
+    # The bullets follow the heading with no blank line, one per line, so GitHub renders one list and the
+    # closed message turns the run into one <ul> (#3017).
+    foreach ($b in $bullets) { $lines += "- $b" }
     # The blank line before the closing rule is load-bearing, as in Format-GoLiveBlock (#2701).
     $lines += ''
     $lines += '---'
     return ($lines -join "`n")
+}
+
+function ConvertTo-GoLiveOutcomeBullets {
+    <#
+        Pure: the research block's outcome prose as bullet texts, without their markers (#3017). Each
+        paragraph is one bullet, its lines joined by a space. A line that already opens with '- ' or '* '
+        is a bullet of its own, so a list the session wrote by hand keeps its items rather than being
+        folded into one. Blank and marker-only lines are dropped.
+    #>
+    param([AllowEmptyCollection()][string[]]$Paragraphs = @())
+
+    $out = New-Object System.Collections.Generic.List[string]
+    foreach ($p in @($Paragraphs)) {
+        $run = @()
+        foreach ($line in (([string]$p) -split "`r?`n")) {
+            $text = $line.Trim()
+            if (-not $text) { continue }
+            if ($text -match '^[-*](\s+(.*))?$') {
+                if ($run.Count -gt 0) { $out.Add(($run -join ' ')); $run = @() }
+                if ($Matches[2]) { $out.Add($Matches[2].Trim()) }
+                continue
+            }
+            $run += $text
+        }
+        if ($run.Count -gt 0) { $out.Add(($run -join ' ')) }
+    }
+    return @($out)
 }
