@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**16 / 30 minor entries** <!-- pending-tally -->
+**17 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3011-entry-gate-exempt-branches · 20261014-145535Z
+
+The branch-entry gate and `open-pr` gain a second, additive exemption: `Get-EntryGateExemptBranches` in `scripts/repo-config.ps1` lists exact branch names that owe no changelog entry, beside `Get-EntryGateExemptPrefixes` rather than in place of it. It is built for the back-flow PR of a Git-connected live theme, which comes from the deploy branch itself (`live`). Listed as a prefix, that name would have exempted every `live-*` branch too, and would have dropped the `sync` default. A name matches the whole branch and nothing else, case-insensitively, and open-pr names such a PR from its own commit subject exactly as it names a `sync/` branch's. Unanswered, nothing changes ([#3011](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3011), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo whose live theme deploys from a branch can let that branch's back-flow PR through the entry gate without exempting anything else. A repo that does not answer the seam sees no difference.
+
+**Score:** 2
+
+#### Pull Request
+
+The entry gate exempts exact branch names, beside its prefixes
+
+Plugins: dkj-policy
+
+[PR #3021](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3021)
+
+---
 
 ### DEPLOY: feat/3009-live-preflight-connected-mode · 20261014-143200Z
 
