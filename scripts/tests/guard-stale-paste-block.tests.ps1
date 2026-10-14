@@ -14,7 +14,8 @@
       3. THE HOOK, as a process, against a FAKE gh.exe compiled into a temp directory and put first on
          the PATH. The fake answers 'repo view', 'pr view' and 'api graphql' (per issue number) from files,
          so every verdict path runs without a tracker: stale refused, fresh / never reopened / no block
-         silent, and each way a read can fail passing with its warning.
+         silent, and each way a read can fail passing with its warning. The fake is started once before
+         the cases, and rebuilt where Smart App Control refuses that build (#2991).
       4. THE REGISTRATION: hooks.json matches the shell tools, greps the payload for the two scripts
          before it starts PowerShell, and names the file.
 
@@ -122,9 +123,35 @@ public static class FakeGh {
 '@
 $fakeBin = Join-Path $work 'bin'
 New-Item -ItemType Directory -Path $fakeBin | Out-Null
-$built = $true
-try { Add-Type -TypeDefinition $fakeSrc -OutputAssembly (Join-Path $fakeBin 'gh.exe') -OutputType ConsoleApplication -ErrorAction Stop } catch { $built = $false }
-Assert-True ($built -and (Test-Path -LiteralPath (Join-Path $fakeBin 'gh.exe'))) 'the fake gh.exe compiles'
+# A COMPILED FAKE MAY NOT BE ALLOWED TO RUN (#2991). Smart App Control in enforce mode judges an unsigned
+# exe by its hash, and every compile has a new one: measured October 14, 2026, about one build in four was
+# refused ("blocked by an application control policy"), and a refused build stays refused. The hook then
+# took its fail-open path on every case and the run read as 19 failures with "could not resolve which
+# repo". So the fake is started once here, and a refused build is compiled again -- new hash, new verdict.
+# A .cmd fake is no way out: the hook starts 'gh' with UseShellExecute off, which finds an .exe only.
+$fakeExe = Join-Path $fakeBin 'gh.exe'
+$built = $false
+$blocked = 0
+foreach ($attempt in 1..6) {
+    Remove-Item -LiteralPath $fakeExe -Force -ErrorAction SilentlyContinue
+    try { Add-Type -TypeDefinition $fakeSrc -OutputAssembly $fakeExe -OutputType ConsoleApplication -ErrorAction Stop } catch { break }
+    try {
+        $probe = New-Object System.Diagnostics.ProcessStartInfo
+        $probe.FileName = $fakeExe
+        $probe.UseShellExecute = $false
+        $probe.RedirectStandardOutput = $true
+        $probe.RedirectStandardError = $true
+        $probe.CreateNoWindow = $true
+        $probe.EnvironmentVariables['FAKE_GH_DIR'] = $work
+        $pp = [System.Diagnostics.Process]::Start($probe)
+        $null = $pp.StandardError.ReadToEndAsync()
+        $null = $pp.StandardOutput.ReadToEnd()
+        $pp.WaitForExit()
+        $built = $true
+        break
+    } catch { $blocked++ }
+}
+Assert-True $built "the fake gh.exe compiles and is allowed to start ($blocked build(s) refused by application control first)"
 
 $stBlock = "<!-- asana-paste-block -->`nFraming.`n---`nGitHub issue o/r#7 is now closed.`n`nTE BEKIJKEN OP`nhttps://x.invalid/r`n---"
 

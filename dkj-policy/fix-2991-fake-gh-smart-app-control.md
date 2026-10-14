@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#2991: `guard-stale-paste-block.tests.ps1` fails intermittently with 19 failures. Verify the reason
+before repairing: the issue names a timeout or a fixture race as possible causes, and neither one is verified.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Reproduce: 2 of 5 standalone runs failed, each with exactly the 19 asserts that depend on the
+  repo resolving, so a failing run fails every case and is not a race between cases.
+- [x] Find the cause: `Invoke-AsanaGhBounded`'s `Process.Start` throws "blocked by an application
+  control policy" (Smart App Control, `VerifiedAndReputablePolicyState = 1`). This affects about one fresh
+  compile in four, and a refused build stays refused, measured over six builds of three starts each.
+- [x] Repair the fixture: start the compiled fake once, and rebuild it when it is refused (up to six
+  builds). The hook is unchanged, because failing open on a `gh` that will not start is its documented behaviour.
 
 ### TEST
 
+- [x] 8 of 8 standalone runs green after the repair. Run 6 needed a rebuild, which shows the retry at work.
+
 ### DEPLOY: fix/2991-fake-gh-smart-app-control
 
-**Score:**
+`guard-stale-paste-block.tests.ps1` no longer fails at random on a Windows machine running Smart App
+Control. The suite compiles a fake `gh.exe`, and Smart App Control refused about one build in four, so the
+hook's fail-open path turned every case red with "could not resolve which repo". The suite now starts
+the fake once and rebuilds it when it is refused
+([#2991](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2991)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. The suite is not shipped, and no consumer's behaviour changes.
+
+**Score:** N/A
 
 #### Pull Request
 
