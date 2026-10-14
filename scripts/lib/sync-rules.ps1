@@ -773,6 +773,30 @@ function Get-SyncFileKind {
     }
 }
 
+function ConvertFrom-BackflowNameStatus {
+    <#
+    .SYNOPSIS
+        One `git diff --no-renames --name-status` line as { Status = 'M'|'A'|'D'; RawPath }, or $null.
+
+    .DESCRIPTION
+        THE BACK-FLOW ROWS OF A GIT-CONNECTED LIVE THEME (#3010). The caller diffs the trunk against the
+        deploy branch with three dots -- what the deploy branch changed since the two last met -- and each
+        line becomes one row. The path is returned RAW: under core.quotePath=true it may be C-quoted, and
+        decoding it is git-porcelain-lib's job, which this dependency-free file does not load.
+
+        ANY OTHER LETTER READS AS A CHANGE. With --no-renames git reports only A, D, M and T (a type change,
+        e.g. a file becoming a symlink), and 'changed on live' is the true sentence for T. A line with no
+        tab or no path is not a row, and $null says so rather than inventing one.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Line)
+    $l = ([string]$Line).TrimEnd("`r", "`n")
+    $tab = $l.IndexOf("`t")
+    if ($tab -lt 1 -or $tab -ge $l.Length - 1) { return $null }
+    $letter = $l.Substring(0, 1).ToUpper()
+    $status = if ($letter -eq 'A' -or $letter -eq 'D') { $letter } else { 'M' }
+    return [pscustomobject]@{ Status = $status; RawPath = $l.Substring($tab + 1) }
+}
+
 function New-SyncPrBody {
     <#
     .SYNOPSIS
@@ -796,8 +820,19 @@ function New-SyncPrBody {
     param(
         [object[]]$Take = @(),
         [object[]]$Keep = @(),
-        [string]$Intro = 'Third-party drift from the live theme.'
+        [string]$Intro = 'Third-party drift from the live theme.',
+        # THE BACK-FLOW SHAPE (#3010): a Git-connected live theme's edits arrive as commits on its deploy
+        # branch, so there is no content rule and nothing is held back -- one half, under its own heading,
+        # and the merge-commit warning a squash would make true.
+        [switch]$Backflow
     )
+
+    if ($Backflow) {
+        $lines = @($Intro)
+        $lines += Get-SyncPrBodySection -Rows $Take -Heading 'Flowing back from live' -EmptyText 'Nothing to flow back.'
+        $lines += @('', 'Merge this with a MERGE COMMIT, never a squash or a rebase: the next back-flow is measured from the merge base, and a squash leaves it where it was, so every edit above would read as owed again.')
+        return (($lines -join "`n") + "`n")
+    }
 
     $lines = @($Intro)
 

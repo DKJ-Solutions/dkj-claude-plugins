@@ -305,6 +305,50 @@ try {
     $r = Invoke-Sync -Dir $noStore -Extra @('-Store', 'given.myshopify.com')
     Assert-True ($r.Out -notmatch 'Get-ShopifyStoreDomain is unanswered') 'seam/no-store: -Store gets past it for one run'
 
+    # --- A Git-connected live theme: the back-flow PR (#3010) ----------------------------------------
+    # The fixture's origin is a local bare repo, so 'gh pr list' cannot reach GitHub: a dry run says it
+    # could not look, and a real run REFUSES there rather than open what may be a second PR -- which is the
+    # one write path these cases can reach, and the right one to pin.
+    Write-Host ''
+    Write-Host 'the Git-connected mode (#3010)'
+
+    # No store and no theme id: neither is needed when nothing is pulled from the store.
+    $conn = New-Consumer -Label 'conn' -ExtraSeams "function Get-ShopifyLiveDeployBranch { return 'live' }"
+    Invoke-Git -C $conn push -q origin main:live
+    $r = Invoke-Sync -Dir $conn -Extra @('-DryRun')
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'nothing to flow back') 'connected/level: a deploy branch holding nothing new ends cleanly, without store or theme id'
+    Assert-True ($r.Out -notmatch 'Get-ShopifyLiveThemeId|Get-ShopifyStoreDomain') 'connected/level: ...and neither store seam is asked for'
+
+    # The bot's save: a commit on 'live' that 'main' does not have.
+    Invoke-Git -C $conn checkout -q -b live origin/live
+    Set-FixtureFile -Root $conn -Rel 'sections/theme.liquid' -Value 'edited in the theme editor'
+    Set-FixtureFile -Root $conn -Rel 'templates/new.json' -Value '{}'
+    Invoke-Git -C $conn add -A
+    Invoke-Git -C $conn commit -q -m 'Update from Shopify for theme live'
+    Invoke-Git -C $conn push -q origin live
+    Invoke-Git -C $conn checkout -q main
+    Invoke-Git -C $conn branch -q -D live
+
+    $r = Invoke-Sync -Dir $conn -Extra @('-DryRun')
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'changed 2 path') 'connected/dry: the live edits are counted'
+    Assert-True ($r.Out -match 'changed on live -- sections/theme\.liquid' -and $r.Out -match 'new on live -- templates/new\.json') 'connected/dry: each path is named with its kind'
+    Assert-True ($r.Out -match 'would open: sync: live into main') 'connected/dry: it names the PR it would open'
+    Assert-True ($r.Out -notmatch '\[2/6\]|mirror') 'connected/dry: the CLI steps -- reference point, mirror -- are never reached'
+    $syncRefs = @(& git -C $conn branch --list 'sync/*')
+    Assert-True ($syncRefs.Count -eq 0) 'connected/dry: no sync branch is created'
+
+    # THE REAL RUN CANNOT ASK GITHUB HERE, and that is the case worth pinning: unknown is not "none open".
+    $r = Invoke-Sync -Dir $conn
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'Could not ask GitHub whether a back-flow PR is already open') 'connected/real: an unreadable PR list refuses rather than risk a second PR'
+
+    # A name the ref pattern refuses never reaches git.
+    $connBad = New-Consumer -Label 'connbad' -ExtraSeams "function Get-ShopifyLiveDeployBranch { return '--upload-pack=x' }"
+    $r = Invoke-Sync -Dir $connBad -Extra @('-DryRun')
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'not a plain branch name') 'connected/unsafe: an option-shaped deploy branch is refused before git sees it'
+    $connTrunk = New-Consumer -Label 'conntrunk' -ExtraSeams "function Get-ShopifyLiveDeployBranch { return 'main' }"
+    $r = Invoke-Sync -Dir $connTrunk -Extra @('-DryRun')
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'names the trunk itself') 'connected/trunk: the deploy branch may not be the trunk'
+
     # --- The retired switch ------------------------------------------------------------------------
     # -SkipPull meant "run the rule over the working tree", which cannot mean anything now that the pull
     # goes to a mirror. It is accepted purely so the refusal can name what replaced it, instead of leaving
@@ -912,12 +956,13 @@ try {
     # '-FilePath' IS PART OF THE PATTERN rather than the bare function name, because the banner at the
     # top of the script names the function in prose -- and a bare-name count read 6 against 5 real calls.
     # WAS FIVE UNTIL #1184 added the four gh calls, NINE UNTIL #1187 routed the poll, TEN UNTIL #1945
-    # added -ReconcileBase's push, and ELEVEN UNTIL #2829 gave the namer its PR-head probe; the git half
-    # is otherwise unchanged throughout.
+    # added -ReconcileBase's push, ELEVEN UNTIL #2829 gave the namer its PR-head probe, and TWELVE UNTIL
+    # #3010's connected mode added its fetch, its open-PR read and its create; the git half is otherwise
+    # unchanged throughout.
     $calls  = @([regex]::Matches($src, 'Invoke-NativeCapture\s+-FilePath\b')).Count
     $bounds = @([regex]::Matches($src, [regex]::Escape('-TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds'))).Count
-    Assert-True ($calls -eq 12) "net: twelve network calls go through the lib (found $calls)"
-    Assert-True ($bounds -eq 12) "net: and all twelve pass the shared bound (found $bounds)"
+    Assert-True ($calls -eq 15) "net: fifteen network calls go through the lib (found $calls)"
+    Assert-True ($bounds -eq 15) "net: and all fifteen pass the shared bound (found $bounds)"
 
     # THE NAMER ASKS FOR A PR IN ANY STATE (inbound #2829). '--state all' is the whole repair: the default
     # state is 'open', and the PR that made the reused name collide was MERGED, so the default would read

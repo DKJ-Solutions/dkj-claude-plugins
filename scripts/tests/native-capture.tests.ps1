@@ -1991,7 +1991,12 @@ foreach ($af in $auditFiles) {
 # rule-suites`), -DiscardStderr because the JSON is parsed. It asks Test-NativeExitMeasured, and anything
 # but a measured 0 -- or JSON that will not parse -- reads as unreadable: a SKIPPED step the verdict names,
 # never a pass.
-Assert-Equal 91 $boundedTotal 'the parser still counts 91 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 91 -> 94 (#3010): sync-main.ps1's connected-mode back-flow -- $fetchFlow (`git fetch origin <trunk>
+# <deploy>`), $openCap (`gh pr list --head <deploy> --json number`, -DiscardStderr because the JSON is parsed)
+# and $flowCreate (`gh pr create`), all at the shared network bound. Each asks Test-NativeExitMeasured: an
+# unmeasured fetch refuses; an unreadable PR list refuses a real run (it might hide an open PR, and a second
+# one is the pile #1021 measured); an unmeasured create says the run does not know and names the read.
+Assert-Equal 94 $boundedTotal 'the parser still counts 94 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

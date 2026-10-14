@@ -162,6 +162,10 @@
                                       and was the only behaviour before inbound #1023.
       Get-TrunkBranchName             the trunk. Default: 'main'.
       Get-PrMergeMethod               only read when Get-ShopifySyncMerges is true. Default: 'merge'.
+      Get-ShopifyLiveDeployBranch     the branch a Git-connected live theme deploys from (#3010). Named,
+                                      the run opens the deploy-branch->trunk back-flow PR instead of
+                                      pulling, and the two REQUIRED seams above are not needed -- see
+                                      step 2b. Default: '' (the CLI model this page describes).
 
     Pure ASCII, per this repo's script-layer convention.
 
@@ -410,7 +414,7 @@ $seam = & {
     Set-StrictMode -Off
     $answers = @{
         LiveThemeId = ''; StoreDomain = ''; Pattern = ''; BranchPrefix = ''
-        Merges = $false; Trunk = ''; MergeMethod = ''; Labels = @(); SyncLogPath = ''
+        Merges = $false; Trunk = ''; MergeMethod = ''; Labels = @(); SyncLogPath = ''; DeployBranch = ''
     }
     $configPath = Join-Path $args[0] 'scripts\repo-config.ps1'
     if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) { return $answers }
@@ -427,6 +431,8 @@ $seam = & {
     # generic and reaches every Shopify consumer through a plugin update. A repo that never asked for the
     # record must not find a new file in its tree because it updated a plugin, so the default is silence.
     if (Test-FunctionDefined 'Get-ShopifySyncLogPath') { $answers.SyncLogPath  = [string](Get-ShopifySyncLogPath) }
+    # THE DEPLOY MODE (#3010): '' is the CLI push, a branch name is a Git-connected live theme.
+    if (Test-FunctionDefined 'Get-ShopifyLiveDeployBranch') { $answers.DeployBranch = [string](Get-ShopifyLiveDeployBranch) }
     # THE ONE ANSWER IN THIS BLOCK WHOSE FAULT IS REPORTED, and it is the body seam's reason below applied
     # to the PR route (inbound #1023). Every other default here is a CORRECT answer, so falling back to one
     # is silent by design. No label is different: in a repo whose guardrail requires one, the fallback
@@ -448,17 +454,23 @@ $seam = & {
     return $answers
 } $repoRoot
 
+# A GIT-CONNECTED LIVE THEME (#3010) is read before the two refusals below, because it makes both moot:
+# nothing is pulled from the store, so neither the store nor the theme id is needed. 'VUL-IN' is no answer.
+$deployBranch = ([string]$seam.DeployBranch).Trim()
+if ($deployBranch -match 'VUL-IN') { $deployBranch = '' }
+$connected = [bool]$deployBranch
+
 $liveId = ([string]$seam.LiveThemeId).Trim()
 # A NON-NUMERIC ANSWER COUNTS AS NO ANSWER -- the same rule the guard applies, and for the same reason: a
 # 'VUL-IN' left behind in the seam block reads as answered to anything testing for emptiness.
-if ($liveId -notmatch '^\d+$') {
+if (-not $connected -and $liveId -notmatch '^\d+$') {
     Write-Host 'Get-ShopifyLiveThemeId does not answer with a theme id -- refusing to guess which theme is live.' -ForegroundColor Red
     Write-Host "  Run 'shopify theme list' and answer it in scripts/repo-config.ps1 (see the adopt-shopify-floor skill)."
     exit 1
 }
 
 $store = if ($Store) { $Store } else { ([string]$seam.StoreDomain).Trim() }
-if (-not $store -or $store -match 'VUL-IN') {
+if (-not $connected -and (-not $store -or $store -match 'VUL-IN')) {
     Write-Host 'No store domain: Get-ShopifyStoreDomain is unanswered and -Store was not given.' -ForegroundColor Red
     Write-Host '  Answering the seam is the durable fix; -Store gets you through this run.'
     exit 1
@@ -835,7 +847,11 @@ $merges       = ([bool]$seam.Merges) -and (-not $StopBeforeMerge) -and (-not $Dr
 $prLabels     = @($seam.Labels)
 
 Write-Host ''
-Write-Host "=== pre-task sync  |  store: $store  theme: $liveId ===" -ForegroundColor Cyan
+if ($connected) {
+    Write-Host "=== pre-task sync  |  Git-connected: live deploys from '$(Get-DisplayRef -Ref $deployBranch)' ===" -ForegroundColor Cyan
+} else {
+    Write-Host "=== pre-task sync  |  store: $store  theme: $liveId ===" -ForegroundColor Cyan
+}
 if ($DryRun) { Write-Host 'DRY RUN -- nothing will be written.' -ForegroundColor Magenta }
 
 # --- 1. clean tree ---------------------------------------------------------------------------------
@@ -881,6 +897,127 @@ if ($DryRun) {
         }
         exit 1
     }
+}
+
+# --- 2b. A GIT-CONNECTED LIVE THEME: the back-flow PR, and nothing below it (#3010) ---------------
+# WHERE Get-ShopifyLiveDeployBranch NAMES A BRANCH, the live theme is connected to it through Shopify's
+# GitHub integration, and live's drift already arrives as commits there: Shopify's bot commits every
+# theme-editor, code-editor and app save straight onto the deploy branch. So there is no pull, no mirror
+# and no per-path content rule -- git merges three-way -- and the whole job is one pull request, deploy
+# branch into trunk. Steps 3 to 6 below are the CLI model's and are never reached in this mode.
+#
+# MEASURED AS CONTENT, NOT AS COMMITS: `git diff --name-status <trunk>...<deploy>` (three dots) is what the
+# deploy branch changed since the two last met. A commit count would never read zero again after the first
+# promotion, because the promotion's merge commit lives on the deploy branch alone -- the reasoning of
+# Get-LivePromotionStep in live-push-rules.ps1, which live-preflight refuses on with this same diff.
+#
+# THE STANDING-PREDECESSOR GUARD BECOMES "AN OPEN PR WITH THAT HEAD": the PR follows the branch, so a new
+# bot commit is already in it, and opening a second one is the pile #1021 measured. It is reported, and
+# the run ends.
+#
+# IT NEVER MERGES, whatever Get-ShopifySyncMerges says. The merge must be a merge commit -- a squash leaves
+# the merge base where it was and every edit reads as owed again -- and the PR is the moment somebody looks.
+if ($connected) {
+    Write-Host ''
+    # STEPS 1 AND 2 ABOVE STILL RAN, deliberately: the PR lands on the trunk, and a local trunk that cannot
+    # fast-forward is worth stopping on before anything is opened against it.
+    Write-Host "[back-flow 1/2] the deploy branch, against $trunkShown ..." -ForegroundColor Yellow
+    # Checked before git sees it: a name the ref pattern refuses could start with '-' and read as an option.
+    if (-not (Test-LivePromotionRef $deployBranch) -or -not (Test-LivePromotionRef $trunk)) {
+        Write-Host 'Get-ShopifyLiveDeployBranch or the trunk is not a plain branch name (letters, digits, . _ / -), so it is not handed to git.' -ForegroundColor Red
+        exit 1
+    }
+    if ($deployBranch -ieq $trunk) {
+        Write-Host "Get-ShopifyLiveDeployBranch names the trunk itself ($trunkShown). It should name the branch the live theme is connected to." -ForegroundColor Red
+        exit 1
+    }
+    $fetchFlow = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', $trunk, $deployBranch) `
+                                      -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if (-not (Test-NativeExitMeasured -Capture $fetchFlow) -or $fetchFlow.ExitCode -ne 0) {
+        $fetchFlow.Output | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
+        Write-Host "Could not fetch $trunkShown and $deployBranch from origin ($(Get-NativeExitLabel -Capture $fetchFlow)). The back-flow is measured against both." -ForegroundColor Red
+        exit 1
+    }
+    # A LOCAL QUERY, so Invoke-SyncGitQuiet and not the bounded lib, whose calls in this script are its
+    # network calls and are counted as such by the suite. core.quotePath forced, Convert-GitQuotedPath below.
+    $flowOut = @(Invoke-SyncGitQuiet @('-c', 'core.quotePath=true', 'diff', '--no-renames', '--name-status', "origin/$trunk...origin/$deployBranch"))
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Could not diff origin/$trunk against origin/$deployBranch (git exited $LASTEXITCODE)." -ForegroundColor Red
+        exit 1
+    }
+    # The paste token for the two printed look-first lines (#1594's rule): validated above, but a printed
+    # command reads its refs through the one helper, which the source guard in ref-print-lib.tests holds.
+    $deployPaste = Get-PasteableRef -Ref $deployBranch -Placeholder '<deploy>'
+    $flowReason = "saved on the live theme (theme editor, code editor or an app) and committed to $deployBranch"
+    $flowRows = @($flowOut | ForEach-Object { ConvertFrom-BackflowNameStatus -Line ([string]$_) } | Where-Object { $_ } | ForEach-Object {
+        [pscustomobject]@{ Status = $_.Status; Path = (Convert-GitQuotedPath -Path $_.RawPath); Reason = $flowReason }
+    })
+    if ($flowRows.Count -eq 0) {
+        Write-Host "  $deployBranch holds nothing $trunkShown lacks -- there is nothing to flow back." -ForegroundColor Green
+        exit 0
+    }
+    Write-Host "  $deployBranch changed $($flowRows.Count) path(s) since it last met ${trunkShown}:"
+    foreach ($r in $flowRows) { Write-Host "    $(Get-SyncFileKind -Status $r.Status) -- $(Get-DisplayPath -Path $r.Path)" }
+
+    Write-Host ''
+    Write-Host '[back-flow 2/2] the back-flow PR ...' -ForegroundColor Yellow
+    # -DiscardStderr because the output is DATA. A failed read is unknown, not "none open": a real run then
+    # refuses rather than open what may be a second PR, and a dry run says it could not look.
+    $openCap = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--head', $deployBranch, '--base', $trunk, '--state', 'open', '--json', 'number') `
+                                    -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds -DiscardStderr
+    $openKnown = (Test-NativeExitMeasured -Capture $openCap) -and $openCap.ExitCode -eq 0
+    $openNumbers = @()
+    if ($openKnown) {
+        # Through a pipeline: Windows PowerShell 5.1's ConvertFrom-Json emits a JSON array as ONE object.
+        try { $openNumbers = @((($openCap.Output | Out-String) | ConvertFrom-Json) | ForEach-Object { [int]$_.number }) } catch { $openKnown = $false }
+    }
+    if ($openNumbers.Count -gt 0) {
+        Write-Host "  A back-flow PR is already open ($(($openNumbers | ForEach-Object { "#$_" }) -join ', ')), and it follows $deployBranch, so it carries these too." -ForegroundColor Green
+        Write-Host '  Merge it with a merge commit, never a squash. Nothing was opened.' -ForegroundColor DarkGray
+        exit 0
+    }
+    if ([bool]$seam.Merges) {
+        Write-Host '  Get-ShopifySyncMerges is answered, and this mode never merges: the back-flow must be a merge commit, and the PR is the moment somebody looks.' -ForegroundColor DarkGray
+    }
+    if ($mergeMethod -ne 'merge') {
+        Write-Host "  Get-PrMergeMethod answers '$(Format-SafeProseToken -Value $mergeMethod)'. Merge THIS PR with a merge commit anyway: a squash leaves the merge base where it was, and every edit above reads as owed again." -ForegroundColor Yellow
+    }
+
+    $flowIntro = "Live edits flowing back from ``$deployBranch``, the branch the live theme is connected to."
+    $flowDefault = New-SyncPrBody -Take $flowRows -Intro $flowIntro -Backflow
+    $flowSeam = Get-SyncPrBodySeamAnswer -RepoRoot $repoRoot -Take $flowRows -Keep @() -Default $flowDefault
+    $flowBody = if ($flowSeam) { $flowSeam } else { $flowDefault }
+    $flowTitle = "sync: $deployBranch into $trunk ($(Get-Date -Format 'yyyy-MM-dd'))"
+    $flowLabelArgs = @(); foreach ($l in $prLabels) { $flowLabelArgs += @('--label', $l) }
+
+    if ($DryRun) {
+        if (-not $openKnown) { Write-Host '  Could not ask GitHub whether a back-flow PR is open; a real run refuses until it can.' -ForegroundColor Yellow }
+        Write-Host "  DRY RUN -- would open: $flowTitle ($deployBranch into $trunkShown, $($flowRows.Count) path(s))." -ForegroundColor Magenta
+        exit 0
+    }
+    if (-not $openKnown) {
+        Write-Host "Could not ask GitHub whether a back-flow PR is already open ($(Get-NativeExitLabel -Capture $openCap)), so none is opened: it might be a second one." -ForegroundColor Red
+        Write-Host "  Look first: gh pr list --head $($deployPaste.Token) --base $($trunkPaste.Token) --state open" -ForegroundColor Red
+        exit 1
+    }
+    $flowCreate = Invoke-NativeCapture -FilePath 'gh' `
+                                       -Arguments (@('pr', 'create', '--base', $trunk, '--head', $deployBranch,
+                                                     '--title', $flowTitle, '--body', $flowBody) + $flowLabelArgs) `
+                                       -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    $flowCreate.Output | ForEach-Object { Write-Host "  $_" }
+    if (-not (Test-NativeExitMeasured -Capture $flowCreate)) {
+        Write-Host 'gh pr create ran with an exit code that could not be measured, so THIS RUN DOES NOT KNOW whether the PR was opened. Look before opening another:' -ForegroundColor Red
+        Write-Host "    gh pr list --head $($deployPaste.Token) --base $($trunkPaste.Token) --state open" -ForegroundColor Red
+        exit 1
+    }
+    if ($flowCreate.ExitCode -ne 0) {
+        Write-Host 'Could not open the back-flow PR.' -ForegroundColor Red
+        if ($prLabels.Count -gt 0) { Write-Host "  If it named a label: gh refuses a label this repo does not have. Answered: $($prLabels -join ', ')" -ForegroundColor Red }
+        exit 1
+    }
+    Write-Host ''
+    Write-Host 'Done -- the back-flow PR is open and deliberately NOT merged. Read what live changed, then merge it with a merge commit.' -ForegroundColor Green
+    exit 0
 }
 
 # --- 3. the reference point, read before the pull --------------------------------------------------

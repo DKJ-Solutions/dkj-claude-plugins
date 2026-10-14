@@ -194,7 +194,7 @@ store, the live theme id, the trunk and the sync prefix from the tables above:
 | function | default | what it decides |
 |---|---|---|
 | `Get-ShopifyDriftCheckPath` | `scripts/theme/live-snapshot.ps1` | your own drift check — the script that pulls the files about to be overwritten and refuses on content a third party wrote. Unanswered **and** absent at the default path, the preflight says the push list is unchecked rather than pretending it verified one. |
-| `Get-ShopifyLiveDeployBranch` | `''` (the CLI push) | the branch a **Git-connected** live theme deploys from (#2998). Named, the preflight verifies a promotion of the trunk into it instead of printing a push -- see the [`live-preflight`](skills/live-preflight/SKILL.md#the-git-connected-mode-2998-3009) page. |
+| `Get-ShopifyLiveDeployBranch` | `''` (the CLI push) | the branch a **Git-connected** live theme deploys from (#2998). Named, the preflight verifies a promotion of the trunk into it instead of printing a push -- see the [`live-preflight`](skills/live-preflight/SKILL.md#the-git-connected-mode-2998-3009) page -- and `sync-main` opens the back-flow PR instead of pulling -- see [`sync-main`](skills/sync-main/SKILL.md#a-git-connected-live-theme-the-back-flow-pr-3010). |
 
 **It is a bridge rather than a permanent seam**, and that is worth knowing before you answer it.
 [#2228](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2228) argued that the preflight needed
