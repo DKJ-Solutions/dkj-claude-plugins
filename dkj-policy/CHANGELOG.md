@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**12 / 25 minor entries** <!-- pending-tally -->
+**13 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3004-closed-message-viewing-instructions · 20261014-121943Z
+
+An Asana task now always hears how to view the result when its issue closes as completed. Where the
+close carries no go-live block, the closed message adds that the result message follows, instead of
+the closed line alone. A ticket that changed nothing on the store (research, a test, a decision) gets
+a research block: `build-golive-block -Research` writes the findings for the requester, and the closed
+message opens with *"Nothing has changed. This issue was for research purposes only."* The
+`guard-stale-paste-block` hook now also refuses `gh issue close` as completed on an Asana-linked issue
+with no block for this round, naming both commands
+([#3004](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3004)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store maintainer meets the change the first time a session closes an Asana-linked issue by hand.
+The close is refused until a block is on the issue. Requesters stop receiving a bare "is now closed".
+The store's copy of `asana-closed-message.ps1` has to be taken again; `closed-message-sessioncheck`
+reports the difference at session start.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-closed-message: a completed close always says how to view the result
+
+Plugins: bwj-development
+
+[PR #3005](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3005)
+
+---
 
 ### DEPLOY: feat/2997-dashboard-drift · 20261014-102217Z
 
