@@ -919,8 +919,8 @@ function Invoke-Main {
         # session posted only afterwards -- so the second closed message carried round 1's block as the
         # result of round 2. THE MISTAKE THAT COSTS LESS IS CHOSEN: a requester told a result is still
         # coming waits, and a requester sent round 1's link as round 2's result acts on the wrong thing.
-        # The same holds where the reopen could not be read: that costs the bare closed message, the same
-        # as an unreadable comment read, and never a block that might be stale. The read is made only when
+        # The same holds where the reopen could not be read: that costs the block, and the message says the
+        # result follows (#3004), the same as an unreadable comment read -- never a block that might be stale. The read is made only when
         # a block is there to judge, so an issue without one costs no extra call.
         $held = ''
         if ($sections) {

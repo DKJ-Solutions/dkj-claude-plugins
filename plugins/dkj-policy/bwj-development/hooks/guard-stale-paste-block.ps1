@@ -170,16 +170,21 @@ if ($close) {
         [Console]::Error.WriteLine("guard-stale-paste-block: could not judge the go-live block of $($unread -join ', ') -- the close was NOT checked. Confirm by hand that each Asana-linked issue carries a block for this round.")
     }
     if ($missing.Count -gt 0 -or $old.Count -gt 0) {
-        $first = @($missing + $old)[0] -replace '^.*#', ''
+        # THE FIX NAMES THE REPO where the close named one (-R or a URL), so the hint never points at the
+        # checkout's own issue of that number.
+        $firstRef = @($missing + $old)[0]
+        $first    = $firstRef -replace '^.*#', ''
+        $repoHint = if ($firstRef -ne "$currentRepo#$first") { " -Repo $($firstRef -replace '#\d+$', '')" } else { '' }
+        $closeHint = if ($repoHint) { "$first -R $($firstRef -replace '#\d+$', '')" } else { $first }
         $why = @()
-        if ($missing.Count -gt 0) { $why += "$($missing -join ', ') carr$(if ($missing.Count -eq 1) { 'ies' } else { 'y' }) no go-live block" }
-        if ($old.Count -gt 0) { $why += "$($old -join ', ') carr$(if ($old.Count -eq 1) { 'ies' } else { 'y' }) only a block from before the last reopen" }
+        if ($missing.Count -gt 0) { $why += "no go-live block on $($missing -join ', ')" }
+        if ($old.Count -gt 0) { $why += "only a block from before the last reopen on $($old -join ', ')" }
         [Console]::Error.WriteLine("BLOCKED (guard-stale-paste-block): $($why -join '; and ') -- closed as completed, the Asana task would hear that the issue is closed and that a result message follows, and nothing about how to view the result (#3004).")
         [Console]::Error.WriteLine(@(
             '  Post the block on the issue first, then close it:',
-            "    a result to look at:         build-golive-block.ps1 -Issue $first -Link <result url> -ProseFile <prose> -Post  (add -Force while no PR names the issue)",
-            "    research, a test, a decision: build-golive-block.ps1 -Issue $first -Research -ProseFile <findings under [found]> -Post",
-            "  Nothing was done and nothing found? Close it as not planned instead: gh issue close $first --reason `"not planned`"."
+            "    a result to look at:         build-golive-block.ps1 -Issue $first$repoHint -Link <result url> -ProseFile <prose> -Post  (add -Force while no PR names the issue)",
+            "    research, a test, a decision: build-golive-block.ps1 -Issue $first$repoHint -Research -ProseFile <findings under [found]> -Post",
+            "  Nothing was done and nothing found? Close it as not planned instead: gh issue close $closeHint --reason `"not planned`"."
         ) -join "`n")
         exit 2
     }

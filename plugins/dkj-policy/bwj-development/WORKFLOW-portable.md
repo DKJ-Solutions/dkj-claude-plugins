@@ -696,7 +696,7 @@ session remembered. The measurement behind that sentence is one of each, days ap
 **In the two stores that absence is no longer silent** ([#2959](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2959)):
 `closed-message-sessioncheck` names it at every session start. Measured in `xoxowildhearts`, the store that
 had never stated the seam: a `Closes #417` merged, the issue closed before its block was posted, and the
-closed message reached the Asana task bare.
+closed message reached the Asana task bare (the closed line alone, as it was before #3004).
 
 ##### The go-live half -- the facts the requester asks for next
 

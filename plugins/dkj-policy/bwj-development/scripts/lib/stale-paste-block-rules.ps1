@@ -187,7 +187,8 @@ function Get-IssueCloseInvocation {
     foreach ($segment in @(ConvertTo-ShellSegments -Command $Command)) {
         $tok = @($segment)
         $at = 0
-        while ($at -lt $tok.Count -and -not $tok[$at].Quoted -and ($tok[$at].Text -eq '&' -or $tok[$at].Text -eq '.')) { $at++ }
+        # A leading '&', '.' or 'VAR=value' environment prefix ('GH_TOKEN=x gh issue close 5') is skipped.
+        while ($at -lt $tok.Count -and -not $tok[$at].Quoted -and ($tok[$at].Text -eq '&' -or $tok[$at].Text -eq '.' -or $tok[$at].Text -match '\A[A-Za-z_][A-Za-z0-9_]*=')) { $at++ }
         if ($at + 2 -ge $tok.Count) { continue }
         if (($tok[$at].Text -split '[\\/]')[-1] -notmatch '(?i)\Agh(?:\.exe)?\z') { continue }
         if ($tok[$at + 1].Quoted -or $tok[$at + 1].Text -ne 'issue' -or $tok[$at + 2].Quoted -or $tok[$at + 2].Text -ne 'close') { continue }
@@ -197,10 +198,17 @@ function Get-IssueCloseInvocation {
         $targets = @()
         for ($k = $at + 3; $k -lt $tok.Count; $k++) {
             $t = $tok[$k].Text
-            # CASE-SENSITIVE THROUGHOUT: gh's -r is the reason and its -R the repo.
+            # CASE-SENSITIVE THROUGHOUT: gh's -r is the reason and its -R the repo. A short flag may carry its
+            # value attached ('-rnot_planned', '-Ro/r'), as gh's flag parser accepts.
+            $flag = $null
             if (-not $tok[$k].Quoted -and $t -cmatch '\A(--reason|-r|--repo|-R|--comment|-c|--duplicate-of)(?:=(.*))?\z') {
                 $flag  = $Matches[1]
                 $value = $Matches[2]
+            } elseif (-not $tok[$k].Quoted -and $t -cmatch '\A(-r|-R|-c)(.+)\z') {
+                $flag  = $Matches[1]
+                $value = $Matches[2]
+            }
+            if ($flag) {
                 if ($null -eq $value) { if ($k + 1 -lt $tok.Count) { $k++; $value = $tok[$k].Text } else { $value = '' } }
                 if ($flag -ceq '--reason' -or $flag -ceq '-r') { $reason = ([string]$value).Trim().ToLowerInvariant() }
                 elseif ($flag -ceq '--repo' -or $flag -ceq '-R') { $repo = ([string]$value).Trim() }

@@ -112,6 +112,9 @@ Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue view 943')) 
 Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'git commit -m "gh issue close 943"')) 'a mention in a commit message is not a close'
 Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'echo gh issue close 943')) 'and neither is an echo'
 Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue close')) 'a close that names no issue names nothing to judge'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue close 5 -rnot_planned')) 'an attached short flag value is read, as gh reads it (-rnot_planned)'
+Assert-Equal 'o/r#5' (Format-Closes (Get-IssueCloseInvocation -Command 'gh issue close 5 -Ro/r')) 'and so is -Ro/r'
+Assert-Equal '#5' (Format-Closes (Get-IssueCloseInvocation -Command 'GH_TOKEN=x gh issue close 5')) 'an environment prefix does not hide the close'
 Assert-Equal 20 @((Get-IssueCloseInvocation -Command ('gh issue close ' + ((1..40) -join ' '))).Closes).Count 'the list is bounded at 20'
 
 # --- 3. The hook, against a fake gh -----------------------------------------------------------------
@@ -357,7 +360,7 @@ if ($built) {
     Assert-Equal 0 $r.Code 'an unparseable payload passes rather than blocking every shell call'
 
     # THE CLOSE GUARD (#3004): a completed close by hand of an Asana-linked issue needs a block for this round.
-    $linked   = "Body`n<!-- asana-task: 1219490842512200 -->"
+    $linked   = "Body`n<!-- asana-task: 1234567890 -->"
     $research = "<!-- asana-paste-block -->`n<!-- asana-paste-block-kind: research -->`nFraming.`n---`nGitHub issue o/r#943 is now closed. Nothing has changed.`n`nWAT WE GEVONDEN HEBBEN`n`nNiets mis.`n---"
     $close    = 'gh issue close 943'
 
@@ -365,7 +368,8 @@ if ($built) {
     Set-Fake 'issue-943.out' (New-State -Body $linked -Comments @(, @('the conclusion, in a comment', '2026-10-14T10:00:00Z')))
     $r = Invoke-Hook $close
     Assert-Equal 2 $r.Code 'an Asana-linked issue with no block refuses the close -- smartwatchbanden#943''s route'
-    Assert-True ($r.Err -match 'BLOCKED \(guard-stale-paste-block\): DKJ-Solutions/xoxo#943 carries no go-live block') 'and names the issue'
+    Assert-True ($r.Err -match 'BLOCKED \(guard-stale-paste-block\): no go-live block on DKJ-Solutions/xoxo#943') 'and names the issue'
+    Assert-True ($r.Err -notmatch '-Repo |-R ') 'and, for the checkout''s own issue, names no repo in the fix'
     Assert-True ($r.Err -match 'build-golive-block\.ps1 -Issue 943 -Research -ProseFile' -and $r.Err -match 'build-golive-block\.ps1 -Issue 943 -Link') 'with both fixes, the research block and the result block'
     Assert-True ($r.Err -match 'gh issue close 943 --reason "not planned"') 'and the close for a ticket where nothing was done'
     Assert-True ($r.Err -notmatch 'conclusion') 'no comment text reaches stderr'
@@ -380,7 +384,7 @@ if ($built) {
     Set-Fake 'issue-943.out' (New-State -Body $linked -Reopen '2026-10-02T10:00:00Z' -Comments @(, @($stBlock, '2026-10-01T10:00:00Z')))
     $r = Invoke-Hook $close
     Assert-Equal 2 $r.Code 'a block from before the last reopen refuses the close too'
-    Assert-True ($r.Err -match 'only a block from before the last reopen') 'and says which of the two it is'
+    Assert-True ($r.Err -match 'only a block from before the last reopen on DKJ-Solutions/xoxo#943') 'and says which of the two it is'
 
     Reset-Fake
     Set-Fake 'issue-943.out' (New-State -Body $linked -Reopen '2026-10-02T10:00:00Z' -Comments @(, @($stBlock, '2026-10-03T10:00:00Z')))
@@ -416,6 +420,7 @@ if ($built) {
     $r = Invoke-Hook 'gh issue close 943 -R BWJ-Development/smartwatchbanden'
     Assert-Equal 2 $r.Code 'a close in another repo, named with -R, is judged there'
     Assert-True ($r.Err -match 'BWJ-Development/smartwatchbanden#943') 'and named by that repo'
+    Assert-True ($r.Err -match '-Issue 943 -Repo BWJ-Development/smartwatchbanden -Research' -and $r.Err -match 'gh issue close 943 -R BWJ-Development/smartwatchbanden --reason') 'and the fix points at that repo''s issue, not the checkout''s'
     Assert-True (-not ($r.Calls -contains 'repo')) 'without asking which repo the checkout is'
 }
 
