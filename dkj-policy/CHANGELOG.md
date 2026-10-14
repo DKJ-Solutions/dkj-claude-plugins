@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**11 / 18 minor entries** <!-- pending-tally -->
+**11 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/dashboard-theme-accents · 20261014-071949Z
+
+The connector dashboard now carries the chosen theme across the whole page. Before, the theme showed
+only on its two buttons. The theme colour now also appears in a band along the top, a rule under the
+header, a top border on every card, the tile figures, the links and the overview table head. All of it
+is done in the page's own layer, on the house `--primary` tokens.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the dashboard is a local maintenance view of this repo, and no consumer receives it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Dashboard carries the chosen theme beyond its buttons
+
+[PR #2992](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2992)
+
+---
 
 ### DEPLOY: fix/dashboard-house-style-v2 · 20261013-214843Z
 
