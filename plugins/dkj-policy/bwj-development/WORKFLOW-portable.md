@@ -216,17 +216,27 @@ a BWJ colleague who does not read code and does not know the repo:
 - **Plain language, outcome-framed.** What a customer or colleague actually experiences, not what the
   code does.
 - **No jargon** -- no file paths, no function names, no branch names, no GitHub label vocabulary.
-- **A fixed skeleton**, so every mirrored task reads the same way:
+- **A fixed skeleton**, so every mirrored task reads the same way: four labels in this order, each
+  in bold on its own line, with a blank line between the sections:
 
   ```text
   Tracked on GitHub: <issue URL>
-  What is wrong:   <one or two plain sentences -- what a visitor or colleague sees>
-  Where:           <which store, and which page or flow>
-  How urgent:      <blocking a sale / visible but not blocking / cosmetic / not customer-facing>
+
+  What is wrong
+  <one or two plain sentences -- what a visitor or colleague sees>
+
+  Where
+  <which store, and which page or flow>
+
+  How urgent
+  <blocking a sale / visible but not blocking / cosmetic / not customer-facing>
   ```
 
   The issue link is the **first** line, so the card says where it is tracked before anything else
-  ([#2653](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2653)).
+  ([#2653](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2653)). The body is sent as
+  `html_notes`, because plain `notes` renders all four as one dense block
+  ([#2999](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2999)). The exact markup is in
+  the `report-issue` skill.
 
 - The task's assignee, section and due date are for the BWJ team to set in Asana. This page does not
   prescribe them.

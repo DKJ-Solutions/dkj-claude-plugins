@@ -144,14 +144,32 @@ title. The rule and the case behind it are in
 [`WORKFLOW-portable.md`](../../WORKFLOW-portable.md#a-task-is-read-before-it-is-offered-for-deletion-and-a-task-a-person-has-worked-is-never-deleted).
 
 Compose the task body from the fixed skeleton -- plain language, outcome-framed, no code or repo
-jargon:
+jargon -- and **send it as `html_notes`, never `notes`**:
 
-```text
-Tracked on GitHub: <issue URL>
-What is wrong:   <one or two plain sentences -- what a visitor or colleague sees>
-Where:           <which store, and which page or flow>
-How urgent:      <blocking a sale / visible but not blocking / cosmetic / not customer-facing>
+```html
+<body><strong>Tracked on GitHub:</strong> <a href="<issue URL>"><issue URL></a>
+
+<strong>What is wrong</strong>
+<one or two plain sentences -- what a visitor or colleague sees>
+
+<strong>Where</strong>
+<which store, and which page or flow>
+
+<strong>How urgent</strong>
+<blocking a sale / visible but not blocking / cosmetic / not customer-facing></body>
 ```
+
+**Each label is bold on its own line, and a blank line separates the sections.** Sent as plain
+`notes`, the same four headings rendered in Asana as one dense block: no emphasis, no spacing, and the
+padding meant to align the values lost in a proportional font
+([#2999](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2999)). Escape `&`, `<` and `>` in
+the text you put under a label, because `html_notes` is parsed as markup and Asana refuses a body that
+does not parse.
+
+**The link's text is the full issue URL, not `<owner>/<repo>#<n>`.** Asana derives the plain `notes`
+field from `html_notes` and keeps the link's text, not its target, so the full URL is what keeps
+`Tracked on GitHub: <issue URL>` the first line of `notes`. That plain field is the one
+`build-backlog-page` reads.
 
 **The issue link is the FIRST line of the task's description**, above everything else, so the card
 answers *where is this tracked* before a colleague has read a word of it
@@ -250,10 +268,12 @@ rule is one issue per ticket. Step 3's marker is the link it reads.
 
 **That existing task then gets two more writes, both in this step** (#2653):
 
-1. **The issue link goes on top of its description.** Prepend `Tracked on GitHub: <issue URL>`, the
-   skeleton's own label, and a blank line to the task's notes. Everything the colleague wrote stays below it, unchanged. Write through
-   `html_notes` rather than `notes` when the task has formatting, or the rewrite flattens it. If the
-   first line already carries this issue's URL, a re-run leaves it alone and never adds a second one.
+1. **The issue link goes on top of its description.** Read the task's `html_notes` and insert the
+   skeleton's own first line, styled the same way, plus a blank line, directly after `<body>`:
+   `<strong>Tracked on GitHub:</strong> <a href="<issue URL>"><issue URL></a>` + two newlines.
+   Everything the colleague wrote stays below it, unchanged. Always write through `html_notes`: a
+   rewrite through `notes` flattens whatever formatting the colleague used. If the first line already
+   carries this issue's URL, a re-run leaves it alone and never adds a second one.
 2. **One comment on the task, in exactly this form**, with only `<owner>/<repo>#<n>` and the issue
    URL filled in:
 
