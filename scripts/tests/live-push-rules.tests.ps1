@@ -377,6 +377,64 @@ foreach ($name in @('live', 'main', 'release/v2', 'a.b_c-d', '-live', 'a..b', "l
     Assert-Equal (Test-LivePromotionRef $name) (Test-LiveRecordPromotionValue -Sha 'abcdef1' -Branch $name) "the push rules and the record agree on '$($name -replace "`n", '\n')'"
 }
 
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The Git-connected live theme -- the write-back step (#3009)' -ForegroundColor Cyan
+
+$clean = Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites @()
+Assert-Equal 'pass' $clean.State 'an empty rule-suite log passes'
+Assert-Equal 'write-back' $clean.Name '...under the step name the verdict fold reports'
+
+$passOnly = @([pscustomobject]@{ result = 'pass'; actor_name = 'shopify[bot]'; pushed_at = '2026-10-14T10:00:00Z' })
+Assert-Equal 'pass' (Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $passOnly).State 'a suite that passed is not a rejection'
+
+# A REJECTION REFUSES, whoever the actor -- the bot's name is not measured, so no name is filtered out.
+$rejected = @(
+    [pscustomobject]@{ result = 'fail'; actor_name = 'shopify[bot]'; pushed_at = '2026-10-14T10:00:00Z' },
+    [pscustomobject]@{ result = 'pass'; actor_name = 'someone'; pushed_at = '2026-10-14T11:00:00Z' }
+)
+$refused = Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $rejected
+Assert-Equal 'refuse' $refused.State 'a rejected push to the deploy branch refuses'
+Assert-True ($refused.Detail -match '^1 push') '...counting only the failed suites'
+Assert-True ($refused.Detail -match 'shopify\[bot\] at 2026-10-14T10:00:00Z') '...and naming the actor and the time'
+Assert-True ($refused.Detail -match '-AcceptRejectedWriteBacks') '...and the switch a person sets after reconciling'
+Assert-True (-not (Get-LivePreflightVerdict -Steps @($clean, $refused)).Allowed) 'a refused write-back step makes the preflight refuse'
+
+$accepted = Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $rejected -Accepted
+Assert-Equal 'warn' $accepted.State 'an accepted rejection is a note, not a pass'
+Assert-True (Get-LivePreflightVerdict -Steps @($accepted)).Allowed '...and it lets the preflight through'
+
+# UNREADABLE IS A SKIP, never a pass: a skip is named in the summary.
+$blind = Get-LiveWriteBackStep -DeployBranch 'live' -Unreadable
+Assert-Equal 'skip' $blind.State 'an unreadable log is a skip'
+Assert-True ((Get-LivePreflightVerdict -Steps @($blind)).Skipped.Count -eq 1) '...which the verdict names'
+
+# API TEXT IS CUT TO A PLAIN SET before it is printed.
+$hostile = @([pscustomobject]@{ result = 'FAIL'; actor_name = ("x" + [char]27 + "[2J;rm"); pushed_at = "2026`n10" })
+$hd = (Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $hostile).Detail
+Assert-True ($hd -notmatch "[\x00-\x1f;]") 'control characters and ; from the API never reach the detail'
+Assert-True ($hd -match '^1 push') 'the result is compared case-insensitively'
+
+Assert-Equal 'refuse' (Get-LiveWriteBackStep -DeployBranch "live`n" -RuleSuites @()).State 'an unprintable deploy branch refuses in the step itself'
+$long = @([pscustomobject]@{ result = 'fail'; actor_name = ('a' * 200); pushed_at = 't' })
+Assert-True ((Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $long).Detail -notmatch 'a{41}') 'an actor name is capped at 40 characters'
+
+# -Since IS THE LAST PROMOTION: a rejection before it was the previous preflight's to refuse on.
+$timed = @(
+    [pscustomobject]@{ result = 'fail'; actor_name = 'old'; pushed_at = '2026-10-01T10:00:00Z' },
+    [pscustomobject]@{ result = 'fail'; actor_name = 'new'; pushed_at = '2026-10-10T10:00:00Z' }
+)
+$cutAt = [datetime]::Parse('2026-10-05T00:00:00Z', [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal)
+$sinceStep = Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $timed -Since $cutAt
+Assert-True (($sinceStep.Detail -match '^1 push') -and ($sinceStep.Detail -match 'new at') -and ($sinceStep.Detail -notmatch 'old at')) 'only rejections after the last promotion count'
+Assert-Equal 'pass' (Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites @($timed[0]) -Since $cutAt).State 'a rejection before the last promotion alone passes'
+$noTime = @([pscustomobject]@{ result = 'fail'; actor_name = 'x'; pushed_at = 'not a time' })
+Assert-Equal 'refuse' (Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $noTime -Since $cutAt).State 'an unparseable time is kept, never read as old'
+Assert-Equal 'refuse' (Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $timed[1]).State 'a single suite, not wrapped in an array, still counts'
+
+$many = @(1..5 | ForEach-Object { [pscustomobject]@{ result = 'fail'; actor_name = "a$_"; pushed_at = 't' } })
+Assert-True ((Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $many).Detail -match 'and 2 more') 'more than three rejections are counted, not all listed'
+
 if ($script:fail -eq 0) {
     Write-Host ''
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green

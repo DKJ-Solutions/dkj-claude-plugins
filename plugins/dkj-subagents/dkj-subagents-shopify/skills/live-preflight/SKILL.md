@@ -24,6 +24,10 @@ spell the plugin cache path out.
 | `-DriftCheckPath` | the repo's drift check, relative to the root. Default `scripts/theme/live-snapshot.ps1`. |
 | `-SkipGates` | do not re-run the repo's own lint and tests. For a second run where nothing has been committed since. |
 | `-SkipBackup` | do not take the backup. Only correct when a **verified** backup of this same live stand already exists. |
+| `-AcceptRejectedWriteBacks` | Git-connected mode only: turn a rejected push in the deploy branch's rule-suite log from a refusal into a note, **after** you have reconciled what it left on live. |
+
+**Where `Get-ShopifyLiveDeployBranch` names a branch, the live theme deploys from it** and steps 3, 6
+and 8 change -- see [the Git-connected mode](#the-git-connected-mode-2998-3009) below.
 
 ## The two boundaries, and neither is negotiable
 
@@ -93,7 +97,11 @@ saw it is a file whose push destroys their work.
 
 **The deletions are checked too, in a call of their own.** Removing a file destroys what live holds
 there exactly as an overwrite does. A refusal on the deletion paths withholds **only the deletion
-command**: the ordinary push is still right, and the files stay on live until somebody decides. So does a repo\nwith **no** drift check: an unchecked upload is still printed, an unchecked deletion is not. The check is\nhanded paths that are absent from the checkout, and it is expected to compare live against what this repo\nlast held there. A check that cannot read such a path fails, which is the safe direction. Where the range's\nonly theme changes are deletions, either refusal refuses the run.
+command**: the ordinary push is still right, and the files stay on live until somebody decides. So does a repo
+with **no** drift check: an unchecked upload is still printed, an unchecked deletion is not. The check is
+handed paths that are absent from the checkout, and it is expected to compare live against what this repo
+last held there. A check that cannot read such a path fails, which is the safe direction. Where the range's
+only theme changes are deletions, either refusal refuses the run.
 
 ### 3. A path in the printed command is text a shell will parse
 
@@ -141,6 +149,37 @@ reason, and the run carries on so you still get the whole picture.
 **Step 5 asks the same question twice on purpose.** The configured id and the role the store reports
 are the same theme today, and the day they differ one of them is the only guard left -- the same
 pairing the preview sweep refuses on.
+
+## The Git-connected mode (#2998, #3009)
+
+**Where the live theme is connected to a branch through Shopify's GitHub integration**, going live is
+not a push. It is a **pull request of the trunk into that deploy branch**, and Shopify's bot commits
+theme-editor, code-editor and app saves straight onto the branch. Answer `Get-ShopifyLiveDeployBranch`
+with the branch name (e.g. `live`) and three steps change. The rest, the backup included, stay as they
+are:
+
+| # | step | in connected mode |
+|---|---|---|
+| 3 | **push list** | still derived from the range, because the record says which of its files went live. No path is printed in a command, so the paste-safety refusal does not apply, and a range with no theme file is a note: step 6 decides whether there is anything to promote. |
+| 6 | **promotion** and **write-back**, instead of drift | the promotion refuses while the deploy branch holds live edits the trunk lacks (`git diff trunk...deploy`, three dots), because the cut would then describe a theme that is not the live one, so land the back-flow PR first. It also refuses when the two trees are the same, since there is nothing to promote. The write-back reads GitHub's rule-suite log for the deploy branch and refuses on a rejected push. |
+| 8 | **the promotion PR** | the `gh pr create --base <deploy> --head <trunk>` that opens it, never run from here. **Merging it is what goes live**, and that stays a person's act. |
+
+**Why the rule-suite log.** When the deploy branch's ruleset rejects the Shopify bot's write-back, the
+edit stays on the live theme and never reaches the branch, and nothing on the Shopify side says so
+(measured in `BWJ-Development/smartwatchbanden#943`). A promotion merged on top overwrites it. So the
+step reads the failed rule suites on that branch since its last promotion merge (at most a month,
+the log's longest window). Anything older was there for the previous preflight to refuse on. **Every failure counts, not only the
+bot's**, because the bot's actor name has not been measured, and a filter on a guessed name would read
+a real rejection as none. A person's rejected push is easy to recognise in the detail. Once you have
+reconciled it, `-AcceptRejectedWriteBacks` turns it into a note. **The log needs admin access to the
+repo**, so a token without it reads `SKIPPED`, named in the verdict, never a pass.
+
+**The record names the promoted commit.** It gets a `# promoted <sha> to <branch>` line, and every
+deleted theme file is `live`, because the merge deletes it on the deploy branch. There is nothing to
+hold back from a merge, so the record is not edited by hand in this mode.
+
+**Theme-check stays with the repo's own gates** (step 2). A file Shopify rejects during the sync is
+dropped silently (#943), so the gate has to pass before anything lands on the deploy branch.
 
 ## What a `SKIPPED` line means, and why it is not a pass
 
@@ -230,6 +269,7 @@ person to run, which is a **completed step** rather than a failure -- see
 | `Get-LintScript` / `Get-TestCommands` | optional | the repo's own gates. Neither answered, step 2 says so and runs nothing. |
 | `Get-ChangelogPath` | optional | where the pending entries are, default `CHANGELOG.md`. |
 | `Get-ShopifyDriftCheckPath` | optional | the drift check, default `scripts/theme/live-snapshot.ps1`. |
+| `Get-ShopifyLiveDeployBranch` | optional | the branch a Git-connected live theme deploys from. Default `''`, the CLI push. A name switches on [the Git-connected mode](#the-git-connected-mode-2998-3009). |
 
 ### `Get-ShopifyLivePushMarker` is deliberately absent from that table
 
