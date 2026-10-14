@@ -306,11 +306,12 @@ and the maintainer can delete them. **`ASANA_PAT` stays**, because both workflow
 
 ## 4 -- make sure the classification labels exist
 
-[`report-issue`](../report-issue/SKILL.md) files every issue with `bug` or `feature` -- always one of
-the two ([#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)) -- and with the reach
+[`report-issue`](../report-issue/SKILL.md) files every issue with `bug`, `feature` or `research` -- always
+one of the three ([#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783),
+[#3006](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3006)) -- and with the reach
 label where it applies. It sets no GitHub issue type
 ([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)). **`gh issue create` fails
-outright on a label the repo does not have**, so check for all three and create whichever is missing. **Read `Get-ReachLabel` from
+outright on a label the repo does not have**, so check for all four and create whichever is missing. **Read `Get-ReachLabel` from
 `scripts/repo-config.ps1` first** and check for *that* name -- `minor` where the repo has never
 answered it, which since [#1870](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1870) is
 the workflow's own default. **A store still carrying `tier-1` and answering nothing is the one state
@@ -319,16 +320,18 @@ it -- no issue at all, not even one without the label. Repair it here rather tha
 rename the label, or state `tier-1` in the seam.
 
 ```bash
-gh label list --repo <owner>/<repo> | grep -E '^(bug|feature|<reach label>)\b'
+gh label list --repo <owner>/<repo> | grep -E '^(bug|feature|research|<reach label>)\b'
 gh label create bug --repo <owner>/<repo> --color FF00FF \
   --description "A defect in behaviour that already exists"
 gh label create feature --repo <owner>/<repo> --color a2eeef \
   --description "A capability the store does not have yet"
+gh label create research --repo <owner>/<repo> --color d4c5f9 \
+  --description "Research, a test or a decision: nothing on the store changes"
 gh label create "<reach label>" --repo <owner>/<repo> --color fbca04 \
   --description "Reaches the business: management and the commissioner notice it"
 ```
 
-**`bug` is magenta and `feature` cyan**, the same family colours as this workflow's source tracker. An
+**`bug` is magenta, `feature` cyan and `research` lavender**, the same family colours as this workflow's source tracker. An
 existing `bug` label in a different colour still works, and so does an existing `feature` label with
 another description: `gh label create` never touches a label that exists.
 
@@ -454,10 +457,11 @@ gh label create awaiting-info-client --repo <owner>/<repo> --color 5319E7 \
 `gh label edit awaiting-info-client --color 5319E7 --repo <owner>/<repo>`.
 
 **GitHub issue types are not used** ([#2750](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2750)):
-the kind is the `bug` or `feature` label created above, always one of the two (#2783). There is
+the kind is the `bug`, `feature` or `research` label created above, always one of the three (#2783,
+#3006). There is
 nothing to configure for types, and no `enhancement` label is created.
 
-**The same two labels classify the pull request, so answer the prefix table with them** (Dave, October
+**`bug` and `feature` also classify the pull request, so answer the prefix table with them** (Dave, October
 3, 2026, [#2769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2769)). `open-pr` labels a
 PR from the row of `scripts/lib/branch-info.ps1` its branch prefix matches. That file is the repo's own
 and this skill does not write it, so check it by hand:
