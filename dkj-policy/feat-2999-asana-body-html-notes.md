@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Inbound #2999: the colleague-facing Asana skeleton is sent as plain `notes` and renders as one dense
+block. Send it as `html_notes` with bold labels and blank lines, keep the four headings and their
+order, and keep the issue URL the first line for every reader of it.
+
+Readers of that first line, checked: `guard-asana-mirror` scans the whole tool input for an issue URL
+(the `href` carries it); `build-backlog-page` reads the plain `notes` Asana derives from `html_notes`,
+so the link text stays the full URL rather than the issue's example `<owner>/<repo>#<n>`;
+`asana-link-pickupcheck` reads the issue body, not the task.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `report-issue` step 2: the skeleton as `html_notes`, bold labels, blank lines, escaping rule
+- [x] `report-issue` step 2, the prepend path: same styled first line, always through `html_notes`
+- [x] `WORKFLOW-portable.md`: the skeleton's shape and a pointer to the skill for the markup
 
 ### TEST
 
+- [x] No other copy of the old `What is wrong:` / `How urgent:` skeleton in the tree (grep)
+
 ### DEPLOY: feat/2999-asana-body-html-notes
 
-**Score:**
+An Asana task that `report-issue` creates now reads as four separate sections instead of one dense
+block. The body is sent as `html_notes`, with each label in bold on its own line and a blank line
+between sections. The issue link is a real link, and it stays the first line. A colleague's own
+ticket gets the same styled link on top, always written through `html_notes` so their formatting
+survives
+([#2999](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2999)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store maintainer sees the difference on the first card filed after the update. Colleagues who
+read the board get labelled, spaced sections where they used to get four run-together lines.
+
+**Score:** 3
 
 #### Pull Request
 
