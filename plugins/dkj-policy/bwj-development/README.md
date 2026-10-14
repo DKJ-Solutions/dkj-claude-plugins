@@ -347,7 +347,7 @@ skill needs to know which workspace and project a mirrored task lands in:
   `SubmitterPattern`) was read only by the mirror's stage sweep. Nothing reads it any more; a repo that
   still answers it can delete the answer.
 - `Get-AsanaIssueFieldGid` and `Get-AsanaTypeFieldGid` -- the GIDs of the board's `Github Issue` and
-  `Github Type` custom fields, so a mirrored task carries the issue URL and its kind (from the `bug` or `feature` label) from the
+  `Github Type` custom fields, so a mirrored task carries the issue URL and its kind (from the `bug`, `feature` or `research` label) from the
   moment it is created rather than waiting for somebody to type them in. **Both optional**, and
   `$null` -- the default -- is the common answer: most boards carry neither, and `report-issue`
   skips whichever is unset without saying anything. Where a board does carry one, leaving it unset is

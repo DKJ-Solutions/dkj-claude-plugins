@@ -112,10 +112,17 @@ So every label goes on the `gh issue create` itself.
 
 | label | what it carries | how |
 |---|---|---|
-| **`bug` or `feature`** | the kind | **always exactly one of the two.** `--label feature` for something new being added, `--label bug` for something that exists and has to change. A doc finding is one of them too: a missing page is a `feature`, a wrong one a `bug` |
+| **`bug`, `feature` or `research`** | the kind | **always exactly one of the three.** `--label feature` for something new being added, `--label bug` for something that exists and has to change, `--label research` for a research, test or decision ticket that changes nothing on the store. A doc finding is a `bug` or a `feature`: a missing page is a `feature`, a wrong one a `bug` |
 | **the reach label** | how far the issue reaches | one `--label`, and only where it reaches the audience tier. Absence is the answer for tier 0 and is not a missing field. Its **name** is `Get-ReachLabel`'s, default `minor` -- see below |
 
-**There is no third kind, and no `documentation` label** (Dave, October 3, 2026,
+**`research` is the third kind, and there is no fourth** (Dave, October 14, 2026,
+[#3006](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3006)). A ticket that only measures,
+tests or gathers what a decision needs builds nothing, so `feature` misnamed it: measured on
+smartwatchbanden#943, a test of whether the Shopify GitHub app can write past a ruleset, filed as a
+`feature`. Its close gets the research closed line (#3004). **Pick it only where nothing on the store
+will change**: a ticket that researches first and then builds is a `feature` or a `bug` from the start.
+
+**There is no `documentation` label** (Dave, October 3, 2026,
 [#2783](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2783)). Until then an issue with
 neither kind label was a task, and a doc finding carried `documentation` on top of it; both are gone.
 **An issue filed before this change may carry `documentation`, or no kind at all.** Give it its kind
@@ -165,7 +172,7 @@ an error instead of an issue.
 **There is no `CRO` label any more, in any repo** (Dave, October 7, 2026,
 [#2869](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2869)). It marked an issue filed by,
 or on behalf of, the CRO team, as a third axis beside the kind and the reach. Now a filing session picks
-the kind -- `bug` or `feature` -- and the reach label, and nothing records who raised an issue. An Asana
+the kind -- `bug`, `feature` or `research` -- and the reach label, and nothing records who raised an issue. An Asana
 ticket from the CRO team is filed exactly like any other.
 
 **Where the label already exists, it is deleted**, history on closed issues included (Dave, October 7,
@@ -264,10 +271,11 @@ colleague's own text left untouched below it. And one comment goes on the task, 
 ```text
 — GitHub automation 🤖
 
-GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in development.
+GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in progress.
 ```
 
-Only the issue name varies. It is posted as the link to the issue, with **created:** in bold. The CI
+Only the issue name varies. **It says *in progress*, not *in development*** (Dave, October 14, 2026,
+#3006): the same form goes on a `research` ticket, where nothing is being developed. It is posted as the link to the issue, with **created:** in bold. The CI
 mirror's CLOSED form came back as the `asana-closed-message` workflow (#2818,
 [step 4](#4-write-the-go-live-block-then-close-the-github-issue----the-closed-message-carries-it-into-asana));
 its REOPENED form came back beside it (#2854, October 6, 2026), and its CLOSED WHILE WAITING FOR
@@ -291,9 +299,9 @@ first.
 
 **And a board may carry a `Github Type` select field beside it** -- again the field's literal,
 as-configured name -- **whose options are `Bug`, `Feature` and `Task`**, filled from the kind label
-[step 1](#classify-it-as-you-file-it----labels-only-all-set-at-creation) chose (`bug`, `feature`, or
-neither for `Task`). Step 1 now always chooses one of the two (#2783), so `Task` is only ever reached
-by an issue filed before that, still carrying no kind. The field
+[step 1](#classify-it-as-you-file-it----labels-only-all-set-at-creation) chose: `bug` is `Bug`,
+`feature` is `Feature`, and `research` is `Task` (#3006). An issue filed before #2783 that still
+carries no kind is `Task` too. The field
 outlived the issue types it was built for on purpose (#2750). Where it exists it is set on the same
 creation call, **from the label step 1 already chose**, never re-derived from the card. That is what makes it worth writing rather than
 leaving to a colleague: the answer is not being composed here the way the issue URL is, it is being

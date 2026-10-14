@@ -2,7 +2,7 @@
 name: report-issue
 description: >-
   File a discovered issue the BWJ way -- GitHub first (the source of truth, classified at creation with
-  its labels: bug or feature, and the reach label), then -- only where the issue carries the reach label -- a
+  its labels: bug, feature or research, and the reach label), then -- only where the issue carries the reach label -- a
   colleague-facing Asana task, cross-linked both ways. Use this in a repo that runs the BWJ procedure -- smartwatchbanden or xoxowildhearts
   (whichever org), the plugin's own source repo dkj-claude-plugins, or phone-factory -- whenever a real finding
   needs tracking: a bug, a broken customer-facing behaviour, a stale doc, a decision that is
@@ -77,13 +77,13 @@ for a later pass:
 
 ```bash
 gh issue create --repo <owner>/<repo> --title "<precise technical title>" --body "<full detail>" \
-  --label <bug | feature> [--label "<reach label>"]
+  --label <bug | feature | research> [--label "<reach label>"]
 # gh prints the new issue's URL; its last segment is <n>
 ```
 
 | what to set | how to decide it |
 |---|---|
-| the kind (`--label bug` or `--label feature`) | **always exactly one of the two** (#2783): **`feature`** for something new being added, **`bug`** for something that exists and has to change. A doc finding is one of them too -- a missing page is a `feature`, a wrong one a `bug`. There is no third kind and no `documentation` label |
+| the kind (`--label bug`, `--label feature` or `--label research`) | **always exactly one of the three** (#2783, #3006): **`feature`** for something new being added, **`bug`** for something that exists and has to change, **`research`** for a research, test or decision ticket that changes nothing on the store. A doc finding is a `bug` or a `feature` -- a missing page is a `feature`, a wrong one a `bug`. A ticket that researches first and then builds is not `research`. There is no fourth kind and no `documentation` label |
 | the reach label (`Get-ReachLabel`, default `minor`) | **only** where management or the commissioner would notice it. The test is whether that reader notices the **defect**, not whether the file renders to them: a customer-facing template with a developer-only defect is tier 0, and a build script whose breakage stops a release the business is waiting on is not. **In doubt, leave it off** |
 
 **Never set `CRO`.** That label was retired on October 7, 2026
@@ -191,7 +191,7 @@ field silently; the board carries none and there is nothing to set.
 
 **Where `Get-AsanaTypeFieldGid` returns a GID, set that one on the same call too -- from the kind
 label step 1 chose, never from a fresh reading of the finding:** `bug` is `Bug`, `feature` is
-`Feature`, and neither is `Task`. The board's field offers exactly those three options, so there is
+`Feature`, and `research` is `Task` (#3006). The board's field offers exactly those three options, so there is
 nothing to decide here: the answer is one step old and carrying it forward is the whole point. It is a **select** field, though, so the value is an option GID rather
 than the word. Resolve it from **the project read the preflight already made** -- ask for the options
 there, in the same call that proved the board reachable, and carry both forward:
@@ -280,11 +280,13 @@ rule is one issue per ticket. Step 3's marker is the link it reads.
    ```text
    — GitHub automation 🤖
 
-   GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in development.
+   GitHub issue <owner>/<repo>#<n> is created: this Asana task is now in progress.
    ```
 
    Post it as `html_text`, with the issue name as the link and **created:** in bold:
-   `<body>— GitHub automation 🤖` + two newlines + `GitHub issue <a href="<issue URL>"><owner>/<repo>#<n></a> is <strong>created:</strong> this Asana task is now in development.</body>`.
+   `<body>— GitHub automation 🤖` + two newlines + `GitHub issue <a href="<issue URL>"><owner>/<repo>#<n></a> is <strong>created:</strong> this Asana task is now in progress.</body>`.
+   *In progress*, not *in development* (#3006): the same form goes on a `research` ticket, where
+   nothing is being developed.
 
    It is the one fixed form this skill posts. The CI mirror's CLOSED and REOPENED forms came back as the
    `asana-closed-message` workflow (#2818, #2854), and its CLOSED WHILE WAITING FOR INFORMATION form

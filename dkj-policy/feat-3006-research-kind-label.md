@@ -39,23 +39,31 @@
 
 ### PLAN
 
-bwj-development gets a research kind label beside bug and feature, for a research, test or decision ticket that changes nothing on the store, and report-issue posts a research created form instead of 'now in development' on such an issue
+A third kind label, `research`, beside `bug` and `feature` in bwj-development, for a research, test or decision ticket that changes nothing on the store. The created form in Asana says *now in progress* instead of *now in development*, so it reads true on such a ticket (Dave, mid-session: one form with new wording, not a second form). The reopened form in asana-closed-message is left as it is.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] WORKFLOW-portable.md: the kind table, the third-kind paragraph, the CRO line, the created form, the Github Type mapping
+- [x] report-issue: description, the create command, the kind table, the Github Type mapping, the created form
+- [x] adopt-bwj-development step 4: check and create `research`; README seam line
 
 ### TEST
 
+- [x] Doc-only change: no script reads the kind labels (grep for the labels and `Github Type` in *.ps1 finds none); the gates run in open-pr
+
 ### DEPLOY: feat/3006-research-kind-label
 
-**Score:**
+In `bwj-development`, an issue now has three kinds: `bug`, `feature` and `research`. `research` is for a research, test or decision ticket that changes nothing on the store, which used to be filed as a `feature`. It fills the Asana `Github Type` field as `Task`, and `adopt-bwj-development` creates the label beside the other two. The created message on the Asana task now reads *"this Asana task is now in progress"* instead of *"now in development"*, so it is true on a research ticket too ([#3006](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3006)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store needs the `research` label before a session can file with it: `gh issue create` refuses a label the repo does not have. Re-running step 4 of `adopt-bwj-development` creates it. Requesters see *in progress* on new Asana tasks.
+
+**Score:** 2
 
 #### Pull Request
 
-A third kind label, research, and its created form
+bwj-development: a research kind label, and the created form says in progress
 
