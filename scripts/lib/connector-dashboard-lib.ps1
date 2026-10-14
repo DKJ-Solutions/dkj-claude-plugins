@@ -77,6 +77,37 @@ function Get-ConnectorStatus {
     return 'good'
 }
 
+function Get-ConnectorInstalledVersion {
+    <#
+        The installed plugin version for one repo, read from the check's own per-plugin line ('machine
+        record is on the source version (vX)' or 'machine record is on vA, source on vB') -- by its text,
+        whatever its tag, so no tag list is hard-coded here (#2996). Returns @{ Version; Plugin; Mixed }
+        for the LOWEST version, Mixed when the plugins disagree, or $null when no plugin reported one.
+    #>
+    param([AllowEmptyCollection()][AllowNull()][object[]]$Signals)
+    $found = @()
+    foreach ($s in @($Signals | Where-Object { $_ -and $_.Plugin })) {
+        if ([string]$s.Text -match 'machine record is on (?:the source version \()?v(\d+(?:\.\d+){1,3})\b') {
+            $found += @{ Version = [version]$Matches[1]; Plugin = [string]$s.Plugin }
+        }
+    }
+    if (-not $found.Count) { return $null }
+    $lowest = @($found | Sort-Object { $_.Version }, { $_.Plugin })[0]
+    $mixed = @($found | ForEach-Object { [string]$_.Version } | Select-Object -Unique).Count -gt 1
+    return @{ Version = [string]$lowest.Version; Plugin = $lowest.Plugin; Mixed = $mixed }
+}
+
+function Format-DashboardInstalledVersion {
+    <# The Overview cell: '-' when the checkout is not here, the version, and the plugin when they differ. #>
+    param([AllowNull()]$Connector)
+    if (-not $Connector.Present) { return '-' }
+    $v = Get-ConnectorInstalledVersion $Connector.Signals
+    if ($null -eq $v) { return 'no record' }
+    $cell = 'v' + (ConvertTo-DashboardText $v.Version)
+    if ($v.Mixed) { $cell += ' <code>' + (ConvertTo-DashboardText $v.Plugin) + '</code>' }
+    return $cell
+}
+
 function Get-ConnectorCheckoutCandidates {
     <# The manifest's localCheckout as a list: one relative path, or several (#1524). #>
     param([AllowNull()]$LocalCheckout)
@@ -230,7 +261,7 @@ function Format-ConnectorDashboardHtml {
     $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
     $sorted = @($all | Sort-Object @{ Expression = { $rank[[string]$_.Status] } }, @{ Expression = { [string]$_.Repo } })
     [void]$sb.AppendLine('<div class="card cd-accent"><h2>Overview</h2>')
-    [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="cd-thead"><tr><th>Repo</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th>Errors</th><th>Notes</th><th class="cd-left">Checkout</th></tr></thead><tbody>')
+    [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="cd-thead"><tr><th>Repo</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th><th class="cd-left">Checkout</th></tr></thead><tbody>')
     foreach ($c in $sorted) {
         $b = Get-DashboardStatusBadge ([string]$c.Status)
         $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
@@ -240,6 +271,7 @@ function Format-ConnectorDashboardHtml {
             '<td class="cd-left"><span class="cd-status"><span class="badge badge--sm ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span>' + $b.Word + '</span></td>' +
             '<td>' + (& $e $c.Visibility) + '</td>' +
             '<td>' + @($c.Plugins).Count + '</td>' +
+            '<td class="cd-left">' + (Format-DashboardInstalledVersion $c) + '</td>' +
             '<td>' + $nErr + '</td><td>' + $nInf + '</td>' +
             '<td class="cd-left">' + (Format-DashboardGitState $c.Git) + '</td></tr>')
     }
