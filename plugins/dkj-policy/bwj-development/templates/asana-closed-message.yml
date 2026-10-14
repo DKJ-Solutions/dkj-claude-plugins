@@ -27,7 +27,7 @@ permissions:
   # untrusted association -- a PRIVATE org member does, to this token -- it also reads that author's repo
   # permission (gh api .../collaborators/<login>/permission, #2907). GitHub's docs name no scope for that
   # endpoint, so whether this token may read it is measured on the first such run, not assumed: a refused
-  # read is logged with gh's error, and the bare closed message goes out.
+  # read is logged with gh's error, and the closed message goes out saying the result message follows (#3004).
   issues: read
 
 # One group per issue, closes and reopens together, so their messages post in order and a running post

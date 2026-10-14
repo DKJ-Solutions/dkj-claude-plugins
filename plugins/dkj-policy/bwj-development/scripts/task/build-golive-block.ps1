@@ -65,6 +65,17 @@
     PreToolUse hook hooks/guard-stale-paste-block.ps1 refuses a ship while the newest block is older than
     the reopen, and names this command as the fix.
 
+    AND A TICKET WITHOUT A STOREFRONT RESULT GETS A BLOCK TOO: -Research (#3004, Maikel, October 14,
+    2026). A research, test or decision ticket changes nothing on the store, so it has no link, no
+    release day, no live URLs and no pull request -- and it was closed by hand with no block at all,
+    which sent the requester of smartwatchbanden#943 a bare 'is now closed'. -Research writes the
+    research form instead (Format-GoLiveResearchBlock): the research closed line and one section, what we
+    found, from the prose file's [found] section, which it then requires. It refuses the go-live
+    parameters, which have nothing to describe, and skips the pull-request check, since there is none.
+    The block carries Get-AsanaResearchBlockMarker beside its marker, so the closed message writes the
+    research closed line. The close guard (hooks/guard-stale-paste-block.ps1) refuses a hand close of an
+    Asana-linked issue until a block like this one is on it.
+
     WHY IT DOT-SOURCES scripts/lib/asana-task-lib.ps1. For Get-AsanaPasteBlockMarker and
     Test-AsanaPasteBlockPosted -- the marker the block's comment carries, and the read that answers
     whether a block is already there -- and Resolve-AsanaTaskRef for the link check above, plus
@@ -130,6 +141,12 @@
     '[where]' and '[not-included]' (ConvertFrom-GoLiveProse). Omitted, those sections are not written,
     and the run warns that the block does not say what changed.
 
+.PARAMETER Research
+    Write the research form (#3004) for a ticket without a storefront result: research, a test, a
+    decision. Requires a -ProseFile with a [found] section, and refuses its other sections and -Link,
+    -Path, -Version, -LiveSince, -From and -ReleaseDay. -Post skips the pull-request check, since such a
+    ticket has none; every other check stays.
+
 .PARAMETER OutFile
     Also write the whole comment to this path as UTF-8 -- the faithful copy for a page that embeds the
     block, where the console printout may have lost characters to its code page.
@@ -172,6 +189,7 @@ param(
     [Nullable[datetime]]$LiveSince,
     [ValidateSet('nl', 'en')][string]$Language = 'nl',
     [string]$ProseFile,
+    [switch]$Research,
     [string]$OutFile,
     [switch]$Post,
     [switch]$Force,
@@ -194,6 +212,11 @@ $LiveSinceArg = $LiveSince
 $LiveSinceConflict = $PSBoundParameters.ContainsKey('LiveSince') -and ($PSBoundParameters.ContainsKey('From') -or $PSBoundParameters.ContainsKey('ReleaseDay'))
 $LanguageArg = $Language
 $ProseArg    = $ProseFile
+$ResearchArg = [bool]$Research
+# THE GO-LIVE PARAMETERS A RESEARCH BLOCK REFUSES (#3004): each describes a result on the store, and a
+# research ticket has none, so a value passed for one is a sign the wrong form was asked for.
+# A foreach statement, not Where-Object: a scriptblock has a $PSBoundParameters of its own.
+$ResearchConflicts = @(foreach ($name in @('Link', 'Path', 'Version', 'LiveSince', 'From', 'ReleaseDay')) { if ($PSBoundParameters.ContainsKey($name)) { $name } })
 $OutFileArg  = $OutFile
 $PostArg     = [bool]$Post
 $ForceArg    = [bool]$Force
@@ -284,7 +307,7 @@ if ((Test-PrivateResultLink -Link $LinkArg) -and -not $AllowPrivateLink) {
 # --- The session's prose ----------------------------------------------------------------------------
 # READ AS UTF-8 AND REFUSED WHOLE ON A FORMAT ERROR: a section line the parser does not know would
 # otherwise drop the paragraph under it, and the block would ship without the part the session wrote.
-$prose = @{ Changed = @(); WhereToLook = @(); NotIncluded = @() }
+$prose = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Found = @() }
 if ($ProseArg) {
     if (-not (Test-Path -LiteralPath $ProseArg -PathType Leaf)) {
         Write-Host "[ERROR] -ProseFile '$ProseArg' does not exist. Nothing written." -ForegroundColor Red
@@ -298,90 +321,118 @@ if ($ProseArg) {
     }
 }
 
+# --- Which form: a result to look at, or a finding (#3004) -------------------------------------------
+# EACH FORM REFUSES THE OTHER'S PROSE, so a section the session wrote is never silently left out of the
+# block: [found] has no place in a result block, and a research block carries nothing but [found].
+if ($ResearchArg) {
+    if ($ResearchConflicts.Count -gt 0) {
+        Write-Host "[ERROR] -Research writes a block for a ticket that changed nothing on the store, so -$($ResearchConflicts -join ', -') has nothing to describe. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    $resultProse = @(@('Changed', 'WhereToLook', 'NotIncluded') | Where-Object { @($prose[$_]).Count -gt 0 })
+    if ($resultProse.Count -gt 0) {
+        Write-Host "[ERROR] -Research carries the [found] section only; -ProseFile also has a result section ([changed], [where] or [not-included]). Move it under [found]. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    if (@($prose.Found).Count -eq 0) {
+        Write-Host "[ERROR] -Research needs the findings: a -ProseFile with a [found] section, written for the requester. A link to the issue is no substitute -- not every requester can open it. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+} elseif (@($prose.Found).Count -gt 0) {
+    Write-Host "[ERROR] -ProseFile has a [found] section, which only a research block carries. Pass -Research for a ticket that changed nothing on the store. Nothing written." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host ""
 Write-Host "== build-golive-block $targetRef ==" -ForegroundColor Cyan
 
-# --- The date ---------------------------------------------------------------------------------------
-# ALREADY LIVE IS A FACT THE SESSION STATES, NOT ONE THIS SCRIPT DERIVES (#2943). The next release day is
-# computed strictly after today, so an issue closing after its release -- or after a separate live push --
-# was told it goes live next Monday. -LiveSince names the day; a future one is a planned date, which is
-# what the default already says, and -From/-ReleaseDay beside it would be a second answer to one question.
-if ($LiveSinceConflict) {
-    Write-Host "[ERROR] -LiveSince names the day it went live; -From and -ReleaseDay plan a release day. Pass one or the other. Nothing written." -ForegroundColor Red
-    exit 1
-}
-if ($null -ne $LiveSinceArg -and ([datetime]$LiveSinceArg).Date -gt (Get-Date).Date) {
-    Write-Host "[ERROR] -LiveSince $(([datetime]$LiveSinceArg).ToString('yyyy-MM-dd')) is after today -- a day it has not gone live yet. Leave it off for a planned date. Nothing written." -ForegroundColor Red
-    exit 1
-}
-$isLive     = $null -ne $LiveSinceArg
-$goLive     = if ($isLive) { ([datetime]$LiveSinceArg).Date } else { Get-NextReleaseDate -From $FromArg -ReleaseDay $ReleaseDayArg }
-$goLiveText = Format-GoLiveDate -Date $goLive -Language $LanguageArg
-Write-Host "  go live  : $goLiveText$(if ($isLive) { ' (already live -- -LiveSince)' })" -ForegroundColor DarkGray
-
-# --- The version ------------------------------------------------------------------------------------
-# THE TAG IS THE RECORD OF THE LAST CUT IN EVERY REPO RUNNING THIS WORKFLOW, whether or not it
-# publishes plugins -- cut-release always tags. The lockstep read that script also makes exists to PROVE
-# the manifests agree, which is a release gate's question and not a message generator's.
-#
-# THE PROJECTION IS THE SESSION'S, AND ONLY -Version REACHES THE BLOCK (#2620). The tally is the entries
-# folded so far, and every entry that lands before release day can still raise it, so the stepped number
-# is a guess -- one a colleague quotes back as a fact. It is still worked out and printed here, where the
-# session can weigh it; the block names a version only when somebody passes one on purpose.
-$resolvedVersion = $VersionArg
-$projected       = ''
-$versionWhy      = 'given with -Version'
-if (-not $resolvedVersion) {
-    $tagRun = Invoke-Native { git -C $repoRoot tag --list 'v*' --sort=-v:refname }
-    $latestTag = if ($tagRun.Code -eq 0 -and $tagRun.Output.Count -gt 0) { ([string]$tagRun.Output[0]).Trim() } else { '' }
-
-    # The config itself was read at script scope above (#2339). NOT Get-Command: a bare name is parsed as
-    # a wildcard and a MISS -- the normal case for an optional seam -- pays a full PATH scan. The same
-    # inline probe publish-page.ps1 writes out.
-    $changelogRel = 'CHANGELOG.md'
-    if ([bool](@($ExecutionContext.InvokeCommand.GetCommands('Get-ChangelogPath', 'Function', $false)).Count)) {
-        $changelogRel = Get-ChangelogPath
+# A RESEARCH BLOCK HAS NO GO-LIVE HALF (#3004): nothing changed on the store, so there is no day it goes
+# live, no version and no page to list, and none of the three is worked out or printed.
+if (-not $ResearchArg) {
+    # --- The date ---------------------------------------------------------------------------------------
+    # ALREADY LIVE IS A FACT THE SESSION STATES, NOT ONE THIS SCRIPT DERIVES (#2943). The next release day is
+    # computed strictly after today, so an issue closing after its release -- or after a separate live push --
+    # was told it goes live next Monday. -LiveSince names the day; a future one is a planned date, which is
+    # what the default already says, and -From/-ReleaseDay beside it would be a second answer to one question.
+    if ($LiveSinceConflict) {
+        Write-Host "[ERROR] -LiveSince names the day it went live; -From and -ReleaseDay plan a release day. Pass one or the other. Nothing written." -ForegroundColor Red
+        exit 1
     }
-
-    $changelogPath = Join-Path $repoRoot ($changelogRel -replace '/', '\')
-    $bump = $null
-    if (Test-Path -LiteralPath $changelogPath -PathType Leaf) {
-        $bump = Get-PendingBumpFromTally -Changelog ([System.IO.File]::ReadAllText($changelogPath))
+    if ($null -ne $LiveSinceArg -and ([datetime]$LiveSinceArg).Date -gt (Get-Date).Date) {
+        Write-Host "[ERROR] -LiveSince $(([datetime]$LiveSinceArg).ToString('yyyy-MM-dd')) is after today -- a day it has not gone live yet. Leave it off for a planned date. Nothing written." -ForegroundColor Red
+        exit 1
     }
+    $isLive     = $null -ne $LiveSinceArg
+    $goLive     = if ($isLive) { ([datetime]$LiveSinceArg).Date } else { Get-NextReleaseDate -From $FromArg -ReleaseDay $ReleaseDayArg }
+    $goLiveText = Format-GoLiveDate -Date $goLive -Language $LanguageArg
+    Write-Host "  go live  : $goLiveText$(if ($isLive) { ' (already live -- -LiveSince)' })" -ForegroundColor DarkGray
 
-    if ($latestTag -and $bump) {
-        $projected  = Step-SemVer -Current ($latestTag -replace '^v', '') -Bump $bump
-        $versionWhy = "$latestTag stepped by the '$bump' the pending tally names today -- NOT in the block; pass -Version to put a number there"
+    # --- The version ------------------------------------------------------------------------------------
+    # THE TAG IS THE RECORD OF THE LAST CUT IN EVERY REPO RUNNING THIS WORKFLOW, whether or not it
+    # publishes plugins -- cut-release always tags. The lockstep read that script also makes exists to PROVE
+    # the manifests agree, which is a release gate's question and not a message generator's.
+    #
+    # THE PROJECTION IS THE SESSION'S, AND ONLY -Version REACHES THE BLOCK (#2620). The tally is the entries
+    # folded so far, and every entry that lands before release day can still raise it, so the stepped number
+    # is a guess -- one a colleague quotes back as a fact. It is still worked out and printed here, where the
+    # session can weigh it; the block names a version only when somebody passes one on purpose.
+    $resolvedVersion = $VersionArg
+    $projected       = ''
+    $versionWhy      = 'given with -Version'
+    if (-not $resolvedVersion) {
+        $tagRun = Invoke-Native { git -C $repoRoot tag --list 'v*' --sort=-v:refname }
+        $latestTag = if ($tagRun.Code -eq 0 -and $tagRun.Output.Count -gt 0) { ([string]$tagRun.Output[0]).Trim() } else { '' }
+
+        # The config itself was read at script scope above (#2339). NOT Get-Command: a bare name is parsed as
+        # a wildcard and a MISS -- the normal case for an optional seam -- pays a full PATH scan. The same
+        # inline probe publish-page.ps1 writes out.
+        $changelogRel = 'CHANGELOG.md'
+        if ([bool](@($ExecutionContext.InvokeCommand.GetCommands('Get-ChangelogPath', 'Function', $false)).Count)) {
+            $changelogRel = Get-ChangelogPath
+        }
+
+        $changelogPath = Join-Path $repoRoot ($changelogRel -replace '/', '\')
+        $bump = $null
+        if (Test-Path -LiteralPath $changelogPath -PathType Leaf) {
+            $bump = Get-PendingBumpFromTally -Changelog ([System.IO.File]::ReadAllText($changelogPath))
+        }
+
+        if ($latestTag -and $bump) {
+            $projected  = Step-SemVer -Current ($latestTag -replace '^v', '') -Bump $bump
+            $versionWhy = "$latestTag stepped by the '$bump' the pending tally names today -- NOT in the block; pass -Version to put a number there"
+        } else {
+            # NAMED RATHER THAN SUMMARISED, because the two causes have two different remedies: cut a tag,
+            # or answer -Version because the tally cannot be read.
+            $missing = @()
+            if (-not $latestTag) { $missing += 'no v* tag' }
+            if (-not $bump)      { $missing += 'no readable pending tally' }
+            $versionWhy = 'not derived -- ' + ($missing -join ', ')
+        }
+    }
+    $versionShown = if ($resolvedVersion) { "v$resolvedVersion" } elseif ($projected) { "(none; projected v$projected)" } else { '(none)' }
+    Write-Host "  version  : $versionShown  [$versionWhy]" -ForegroundColor DarkGray
+
+    # --- The live URLs ----------------------------------------------------------------------------------
+    # ONLY WHERE -Path SAYS SO. A block with no pages named carries no list, which is the correct answer in
+    # a repo that serves no storefront -- and Get-MarketUrls is left unloaded there rather than being called
+    # and caught, so a repo with no markets is never asked a question it has no answer to.
+    #
+    # BARE, NEVER PINNED TO THE LIVE THEME ID (#2619). The cookie trap is real (#2477): the result link is
+    # normally a storefront preview, and a bare URL keeps rendering it on any domain where it was opened
+    # first. But the first repair, ?preview_theme_id=<live id> on every row, put a preview-shaped URL under
+    # a label saying 'live', and the block's reader is a colleague who checks the URL's shape and not its
+    # id. So the URL stays one they recognise, and the label beside a result link carries the caveat in
+    # words: before the release, open these in a private window.
+    $liveUrls = @()
+    if ($PathArg -and @($PathArg).Count -gt 0) {
+        . (Join-Path $PSScriptRoot '..\lib\market-urls.ps1')
+        $liveUrls = @(Get-MarketUrls -Path $PathArg)
+        Write-Host "  live urls: $($liveUrls.Count) ($(@($PathArg).Count) page(s) x markets), bare" -ForegroundColor DarkGray
     } else {
-        # NAMED RATHER THAN SUMMARISED, because the two causes have two different remedies: cut a tag,
-        # or answer -Version because the tally cannot be read.
-        $missing = @()
-        if (-not $latestTag) { $missing += 'no v* tag' }
-        if (-not $bump)      { $missing += 'no readable pending tally' }
-        $versionWhy = 'not derived -- ' + ($missing -join ', ')
+        Write-Host "  live urls: none -- no -Path given" -ForegroundColor DarkGray
     }
-}
-$versionShown = if ($resolvedVersion) { "v$resolvedVersion" } elseif ($projected) { "(none; projected v$projected)" } else { '(none)' }
-Write-Host "  version  : $versionShown  [$versionWhy]" -ForegroundColor DarkGray
-
-# --- The live URLs ----------------------------------------------------------------------------------
-# ONLY WHERE -Path SAYS SO. A block with no pages named carries no list, which is the correct answer in
-# a repo that serves no storefront -- and Get-MarketUrls is left unloaded there rather than being called
-# and caught, so a repo with no markets is never asked a question it has no answer to.
-#
-# BARE, NEVER PINNED TO THE LIVE THEME ID (#2619). The cookie trap is real (#2477): the result link is
-# normally a storefront preview, and a bare URL keeps rendering it on any domain where it was opened
-# first. But the first repair, ?preview_theme_id=<live id> on every row, put a preview-shaped URL under
-# a label saying 'live', and the block's reader is a colleague who checks the URL's shape and not its
-# id. So the URL stays one they recognise, and the label beside a result link carries the caveat in
-# words: before the release, open these in a private window.
-$liveUrls = @()
-if ($PathArg -and @($PathArg).Count -gt 0) {
-    . (Join-Path $PSScriptRoot '..\lib\market-urls.ps1')
-    $liveUrls = @(Get-MarketUrls -Path $PathArg)
-    Write-Host "  live urls: $($liveUrls.Count) ($(@($PathArg).Count) page(s) x markets), bare" -ForegroundColor DarkGray
 } else {
-    Write-Host "  live urls: none -- no -Path given" -ForegroundColor DarkGray
+    Write-Host "  research : nothing goes live -- no release day, version or live URLs (-Research)" -ForegroundColor DarkGray
 }
 
 # --- The issue: store-admin prerequisites and the Asana link ------------------------------------------
@@ -436,10 +487,15 @@ if ($asanaRef -and $asanaLink -eq 'linked') {
 }
 
 # --- The block ----------------------------------------------------------------------------------------
-$block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
-    -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls `
-    -Language $LanguageArg -Changed $prose.Changed -WhereToLook $prose.WhereToLook -NotIncluded $prose.NotIncluded `
-    -AsanaLink $asanaLink -Live:$isLive
+if ($ResearchArg) {
+    $block = Format-GoLiveResearchBlock -Marker (Get-AsanaPasteBlockMarker) -ResearchMarker (Get-AsanaResearchBlockMarker) `
+        -IssueRef $targetRef -Found $prose.Found -Language $LanguageArg -AsanaLink $asanaLink
+} else {
+    $block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
+        -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls `
+        -Language $LanguageArg -Changed $prose.Changed -WhereToLook $prose.WhereToLook -NotIncluded $prose.NotIncluded `
+        -AsanaLink $asanaLink -Live:$isLive
+}
 
 Write-Host ""
 Write-Host $block
@@ -478,11 +534,11 @@ if ($OutFileArg) {
     }
 }
 
-if (@($prose.Changed).Count -eq 0) {
+if (-not $ResearchArg -and @($prose.Changed).Count -eq 0) {
     Write-Host "[WARNING] No [changed] section in -ProseFile, so the block does not say what changed -- the" -ForegroundColor Yellow
     Write-Host "          first thing its reader looks for. That prose is the session's to write, not the script's." -ForegroundColor Yellow
 }
-if (-not $LinkArg) {
+if (-not $ResearchArg -and -not $LinkArg) {
     Write-Host "[WARNING] No -Link given, so the block names no result to look at. It writes no" -ForegroundColor Yellow
     Write-Host "          placeholder on purpose -- pass -Link once you know where the result can be seen." -ForegroundColor Yellow
 }
@@ -533,7 +589,9 @@ if (-not $ForceArg -and $asanaLink -ne 'linked') {
 # A PR that only REFERENCES the issue counts as well (#2957): an Asana-linked issue ships with -NoResolves by
 # this plugin's own rule, so its PR never closes it. Get-GoLiveLandingNodes reads both, same repo only.
 # An unreadable answer refuses too, for the reason the checks above do; -Force is the deliberate early post.
-if (-not $ForceArg) {
+# A RESEARCH BLOCK SKIPS IT (#3004): a ticket that changed nothing has no pull request to wait for, and its
+# block says 'nothing has changed' rather than naming a release day.
+if (-not $ForceArg -and -not $ResearchArg) {
     $landingState = 'unread'
     $repoParts = $StoreRepo -split '/', 2
     if ($repoParts.Count -eq 2) {

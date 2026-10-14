@@ -548,6 +548,21 @@ $glBrackets = ConvertFrom-GoLiveProse -Text "[changed]`nZie noot.`n[1]`n[ ]`n[TB
 Assert-Equal "Zie noot.`n[1]`n[ ]`n[TBD]" @($glBrackets.Changed)[0] 'a bracketed line that is not section-shaped stays prose'
 Assert-Throws { ConvertFrom-GoLiveProse -Text "[changed]`nEen.`n---`nTwee." } 'a bare --- line is refused -- it would be a third rule inside the pasted block'
 Assert-Throws { ConvertFrom-GoLiveProse -Text "[changed]`n<!-- asana-paste-block -->" } 'and so is an HTML comment, the marker included'
+Assert-Equal 'Niets mis.' @((ConvertFrom-GoLiveProse -Text "[found]`nNiets mis.").Found)[0] '[found] fills the research block''s one section (#3004)'
+
+# THE RESEARCH BLOCK (#3004): a ticket that changed nothing on the store, in the shape Maikel set on
+# smartwatchbanden#943's task -- the research closed line, then what we found, and nothing that goes live.
+$rbBlock = Format-GoLiveResearchBlock -Marker (Get-AsanaPasteBlockMarker) -ResearchMarker (Get-AsanaResearchBlockMarker) `
+    -IssueRef 'BWJ-Development/smartwatchbanden#943' -Found @("Een.`n- punt", 'Twee.')
+Assert-True ($rbBlock.StartsWith("$(Get-AsanaPasteBlockMarker)`n$(Get-AsanaResearchBlockMarker)`n")) 'the research block carries both markers, outside the rules'
+Assert-True ($rbBlock.Contains('GitHub issue [BWJ-Development/smartwatchbanden#943](https://github.com/BWJ-Development/smartwatchbanden/issues/943) is now **closed**. Nothing has changed. This issue was for research purposes only.')) 'its closed line is the research form, with only the state word bold'
+Assert-True ($rbBlock.Contains("`nWAT WE GEVONDEN HEBBEN`n`nEen.`n- punt`n`nTwee.`n`n---")) 'the findings sit under their heading, paragraphs and lists as written, a blank line before the closing rule'
+Assert-True ($rbBlock -notmatch 'WANNEER HET LIVE KOMT|WAT WE VAN JE VRAGEN|TE BEKIJKEN OP|reopened anytime') 'and nothing that goes live, nothing to look at, no reopen invitation'
+Assert-True ($rbBlock.Contains('no paste needed')) 'with the same lead as a result block'
+Assert-True ((Format-GoLiveResearchBlock -Marker 'm' -ResearchMarker 'r' -IssueRef 'o/r#1' -Found @('x') -Language en).Contains("`nWHAT WE FOUND`n")) 'in English for a task written in English'
+Assert-Throws { Format-GoLiveResearchBlock -Marker 'm' -ResearchMarker 'r' -IssueRef 'o/r#1' -Found @('', ' ') } 'a research block without findings is refused'
+Assert-True (Test-AsanaPasteBlockBody -Body $rbBlock) 'it is a block the closed message carries'
+Assert-True ((Get-PasteBlockSections -Body $rbBlock).StartsWith('WAT WE GEVONDEN HEBBEN')) 'and its carried sections start at the heading: the closed line is the message''s own'
 
 # A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
 # the handover page is the reviewer's surface. Both published shapes, and nothing that merely resembles one.
@@ -712,6 +727,26 @@ try {
         -RootOverride $glRoot -ProseFile $glProseFile 2>&1 | Out-Null
     Assert-Equal 1 $LASTEXITCODE 'a -ProseFile with an unknown section line is refused, not half-used'
 
+    # -Research THROUGH -File (#3004): the findings come in through [found], and each form refuses the
+    # other's prose and the go-live parameters, before anything is built.
+    $glFoundFile = Join-Path $glRoot 'found.txt'
+    [System.IO.File]::WriteAllText($glFoundFile, "[found]`r`nHet bandje past op $([char]0x00E9)lk model.`r`n", (New-Object System.Text.UTF8Encoding $false))
+    $glResOut = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -Research `
+        -RootOverride $glRoot -ProseFile $glFoundFile 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with -Research and a [found] section exits 0'
+    Assert-True ($glResOut.Contains('Nothing has changed. This issue was for research purposes only.') -and $glResOut.Contains('WAT WE GEVONDEN HEBBEN')) 'and prints the research block'
+    Assert-True ($glResOut.Contains('nothing goes live') -and $glResOut -notmatch 'go live  :|version  :|No -Link given|No \[changed\]') 'with no go-live half and no result warnings'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -Research -Link 'https://x.example/' `
+        -RootOverride $glRoot -ProseFile $glFoundFile 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-Research beside -Link is refused: nothing changed, so there is nothing to look at'
+    [System.IO.File]::WriteAllText($glProseFile, "[changed]`r`nx`r`n[found]`r`ny`r`n", (New-Object System.Text.UTF8Encoding $false))
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -Research -RootOverride $glRoot -ProseFile $glProseFile 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-Research with a result section beside [found] is refused, so no paragraph is dropped'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -RootOverride $glRoot -ProseFile $glFoundFile 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE 'a [found] section without -Research is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -Research -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-Research with no findings is refused -- a link to the issue is no substitute'
+
     # AN OPEN STORE-ADMIN PREREQUISITE, END TO END (#2885), through a stand-in gh on PATH that answers
     # 'issue view' with a checklist and fails everything else -- so no network, and a -Post that got past
     # the refusal would fail on the comment rather than post one.
@@ -782,7 +817,13 @@ try {
         [System.IO.File]::WriteAllText($glGraphql, '{"data":{"repository":{"issue":{"closedByPullRequestsReferences":{"nodes":[]},"timelineItems":{"nodes":[{"source":{"number":13,"state":"MERGED","repository":{"nameWithOwner":"o/r"}}}]}}}}}', (New-Object System.Text.UTF8Encoding $false))
         $glRefPr = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
             -RootOverride $glRoot -Post 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+        # A RESEARCH BLOCK HAS NO PULL REQUEST TO WAIT FOR (#3004): with no PR at all, -Post gets past the
+        # landing check to the duplicate check, which the stand-in cannot answer.
+        [System.IO.File]::WriteAllText($glGraphql, '{"data":{"repository":{"issue":{"closedByPullRequestsReferences":{"nodes":[]}}}}}', (New-Object System.Text.UTF8Encoding $false))
+        $glResPost = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Research `
+            -RootOverride $glRoot -ProseFile $glFoundFile -Post 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
     } finally { $env:PATH = $glPath }
+    Assert-True ($glResPost -notmatch 'No open or merged pull request|which pull requests close' -and $glResPost -match 'already appears') '-Research -Post skips the pull-request check, and the other checks still run'
     Assert-Equal 1 $glUnreadCode '-Post refuses where it cannot read which pull requests close the issue'
     Assert-True ($glUnread.Contains('which pull requests close or reference o/r#7') -and $glUnread.Contains('deliberate early post')) 'and says what it could not check, and the -Force valve'
     Assert-Equal 1 $glNoPrCode '-Post refuses while no pull request closes or references the issue -- the measured #402'
@@ -1041,8 +1082,21 @@ Assert-True ($cmHtml.Contains('<strong>TE BEKIJKEN OP</strong>')) 'the headings 
 Assert-True ($cmHtml.Contains("`n`n<strong>WAT ER NU ANDERS IS</strong>`n`n")) 'and the line breaks arrive as written'
 Assert-Equal '<a href="https://x.invalid/?a=1&amp;b=2">t</a> en <strong>vet</strong> &amp; meer' (ConvertTo-AsanaStoryHtml -Markdown '[t](https://x.invalid/?a=1&b=2) en **vet** & meer') 'Markdown links and bold convert, and everything else is escaped'
 $cmBare = New-ClosedMessageHtml -IssueRef 'o/r#1'
-Assert-True ($cmBare -cnotmatch '<strong>[A-Z ]+</strong>') 'with no block the header and the closed line go out alone (#2818, item 3)'
+Assert-True ($cmBare -cnotmatch '<strong>[A-Z ]+</strong>') 'with no block no section goes out'
+Assert-True ($cmBare.EndsWith("It can be reopened anytime when something is still not working as expected.`n`nThe result message for this round follows.</body>")) 'and never the closed line alone: it says the result message follows (#3004)'
 [void][xml]$cmBare
+
+# THE RESEARCH FORM (#3004): a research block's sections under the research closed line.
+$cmResSections = Get-PasteBlockSections -Body $rbBlock
+$cmRes = New-ClosedMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#943' -BlockSections $cmResSections -Research
+$cmResXml = New-Object System.Xml.XmlDocument
+$cmResXml.PreserveWhitespace = $true
+$cmResXml.LoadXml($cmRes)
+Assert-True ($cmResXml.DocumentElement.InnerText.StartsWith((New-ClosedMessage -IssueRef 'BWJ-Development/smartwatchbanden#943' -Research))) 'the research message is well-formed XML and opens with the plain research closed message'
+Assert-True ($cmRes.Contains('</a> is now <strong>closed</strong>. Nothing has changed. This issue was for research purposes only.') -and $cmRes.Contains('<strong>WAT WE GEVONDEN HEBBEN</strong>')) 'in Maikel''s form: only the state word bold, then the findings under their heading'
+Assert-True ($cmRes -notmatch 'reopened anytime|follows') 'with no reopen invitation and no pending sentence'
+Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -Research).Contains('reopened anytime') -and (New-ClosedMessageHtml -IssueRef 'o/r#1' -Research).Contains('follows')) 'a research close that carries no block falls back to the result form, saying the message follows'
+Assert-Equal $rbBlock (Select-SessionPasteBlockBody -Bodies @('talk', $rbBlock, 'more talk')) 'the selection hands back the whole newest block, so its research marker can be read'
 Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r&x#1') -match '&amp;') 'a character XML reserves is escaped, so Asana is never sent a malformed body'
 Assert-Throws { New-AsanaCommentRequest -Gid '123; rm -rf /' -Html '<body/>' } 'a non-numeric GID never reaches a request URL'
 $cmReq = New-AsanaCommentRequest -Gid '123' -Html '<body>x</body>'
@@ -1113,7 +1167,7 @@ Assert-True (@($cmTrustR.Notes) -join '|' -match "by 'maikel-bwj' was not carrie
 $cmTrustF = Select-TrustedCommentBodies -Comments $cmPriv -Permissions @{ 'maikel-bwj' = $null }
 Assert-True (@($cmTrustF.Notes) -join '|' -match 'permission could not be read') 'a failed permission read is a drop that says so, never a permission'
 Assert-Equal 3 $cmTrustF.Dropped 'and it counts as a drop'
-Assert-Equal 'without a go-live block -- one was on the issue but its author was not trusted (the reason is above)' (Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $true -Dropped 1) 'a dropped block is never logged as none on the issue'
+Assert-True ((Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $true -Dropped 1).StartsWith('without a go-live block -- one was on the issue but its author was not trusted (the reason is above)')) 'a dropped block is never logged as none on the issue'
 $cmPermArgs = Get-CollaboratorPermissionApiArgs -IssueRef 'BWJ-Development/smartwatchbanden#884' -Login 'maikel-bwj'
 Assert-Equal 'api|repos/BWJ-Development/smartwatchbanden/collaborators/maikel-bwj/permission|--jq|.permission' ($cmPermArgs -join '|') 'the permission is read through REST, the legacy base role alone'
 Assert-Throws { Get-CollaboratorPermissionApiArgs -IssueRef 'o/r#1' -Login '../x' } 'and a login that is not a user login never reaches the request path'
@@ -1129,7 +1183,9 @@ Assert-True (-not $cmPermNo.Ok -and $cmPermNo.ExitCode -eq 1 -and $cmPermNo.Erro
 Remove-Item Function:\gh
 Assert-Throws { ConvertFrom-IssueCommentLines -Lines @('[{"author_association":"MEMBER"') } 'a garbled line throws, so it is reported as a failed read rather than as no block'
 Assert-Equal "with the session's go-live block" (Get-ClosedMessageBlockPhrase -Sections 'X' -ReadOk $true) 'the log says a block was carried when one was'
-Assert-Equal 'without a go-live block -- none was on the issue' (Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $true) 'it says none was on the issue only after a read that worked'
+Assert-True ((Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $true).StartsWith('without a go-live block -- none was on the issue')) 'it says none was on the issue only after a read that worked'
+Assert-True ((Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $true) -match 'result message follows, which the task''s assignee still owes the requester') 'and that the assignee still owes the requester the result message (#3004)'
+Assert-Equal "with the session's research block" (Get-ClosedMessageBlockPhrase -Sections 'X' -ReadOk $true -Research $true) 'a carried research block is logged as one'
 Assert-True ((Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $false) -match 'could not be read' -and (Get-ClosedMessageBlockPhrase -Sections '' -ReadOk $false) -notmatch 'none was on the issue') 'and a failed read says the comments could not be read, never that none was on the issue'
 Assert-True ($cmSrc -match 'could not be read: gh exited \$\(\$read\.ExitCode\): \$\(\$read\.Error\)') 'a failed read logs gh''s exit code and stderr'
 Assert-True ($cmSrc -match 'Get-ClosedMessageBlockPhrase -Sections \$sections -ReadOk \$read\.Ok\b') 'and the final log line is built from the read''s own outcome'
@@ -1205,6 +1261,8 @@ Assert-True ($stState.Ok -and @($stState.Comments).Count -eq 2 -and -not $stStat
 Assert-Equal '2026-10-02' ((ConvertTo-AsanaInstant -Value $stState.LastReopenedAt).ToString('yyyy-MM-dd')) 'and the last reopen'
 Assert-True ($null -eq (ConvertFrom-AsanaIssueBlockStateJson -Json $stJson.Replace('[{"createdAt":"2026-10-02T10:00:00Z"}]', '[]')).LastReopenedAt) 'an issue never reopened has no reopen time'
 Assert-True ((ConvertFrom-AsanaIssueBlockStateJson -Json $stJson.Replace('"totalCount":2', '"totalCount":150')).Truncated) 'an issue with more comments than were read says so'
+Assert-Equal '' $stState.Body 'a reply without the body field reads as an empty body'
+Assert-Equal "<!-- asana-task: 1 -->`nx" (ConvertFrom-AsanaIssueBlockStateJson -Json $stJson.Replace('"issue":{', '"issue":{"body":"<!-- asana-task: 1 -->\nx",')).Body 'and one with it carries the issue body, which the close guard resolves the task from (#3004)'
 Assert-True (-not (ConvertFrom-AsanaIssueBlockStateJson -Json 'not json').Ok -and -not (ConvertFrom-AsanaIssueBlockStateJson -Json '{"data":{"repository":{"issue":null}}}').Ok -and -not (ConvertFrom-AsanaIssueBlockStateJson -Json '').Ok) 'a reply that is not JSON, or names no issue, is not Ok'
 
 # The template's own reads and its message.
@@ -1214,12 +1272,12 @@ Assert-Throws { Get-IssueReopenApiArgs -IssueRef 'o/r#1;x' } 'and an IssueRef th
 Assert-Equal $stT3 (ConvertFrom-ReopenEventLines -Lines @($stT1, '', $stT3, $stT2)) 'the LATEST of several reopens is the one returned, blank lines skipped'
 Assert-True ($null -eq (ConvertFrom-ReopenEventLines -Lines @())) 'no lines is an issue never reopened'
 Assert-Throws { ConvertFrom-ReopenEventLines -Lines @('<html>rate limited</html>') } 'a line that is not a timestamp throws, so a garbled read is a failed read and never "never reopened"'
-$stPending = New-ClosedMessageHtml -IssueRef 'o/r#7' -ResultPending
+$stPending = New-ClosedMessageHtml -IssueRef 'o/r#7'
 [void][xml]$stPending
 Assert-True ($stPending.Contains("is now <strong>closed</strong>. It can be reopened anytime when something is still not working as expected.`n`nThe result message for this round follows.</body>")) 'the pending close is the closed line and one sentence under it'
 Assert-True (-not ($stPending -cmatch '<strong>[A-Z ]+</strong>')) 'with no block'
-Assert-True (-not (New-ClosedMessageHtml -IssueRef 'o/r#7' -BlockSections 'TE BEKIJKEN OP' -ResultPending).Contains('follows')) 'and never beside a block, which it would contradict'
-Assert-True (-not (New-ClosedMessageHtml -IssueRef 'o/r#7').Contains('follows')) 'an ordinary close carries no such sentence'
+Assert-True (-not (New-ClosedMessageHtml -IssueRef 'o/r#7' -BlockSections 'TE BEKIJKEN OP').Contains('follows')) 'and never beside a block, which it would contradict'
+Assert-True ([System.IO.File]::ReadAllText($cmTemplate) -notmatch 'ResultPending') 'the switch is gone: every close without a block says the result follows (#3004)'
 Assert-True ((Get-ClosedMessageBlockPhrase -Sections '' -Held 'stale') -match 'predates its last reopen' -and (Get-ClosedMessageBlockPhrase -Sections '' -Held 'unread') -match 'could not be read') 'the log names why a block was held back'
 Assert-Equal 1 @((Select-TrustedCommentBodies -Comments @([pscustomobject]@{ Association = 'OWNER'; Login = 'a'; Body = 'x'; CreatedAt = $stT1 }, [pscustomobject]@{ Association = 'NONE'; Login = 'b'; Body = 'no marker'; CreatedAt = $stT1 })).Comments).Count 'the trust filter hands back the trusted comments themselves, so a block keeps its time'
 
@@ -1261,11 +1319,17 @@ Assert-True ($stRun.Log -match 'predates its last reopen') 'and the log says why
 $stRun = Invoke-StMain -Comments @($stOld, $stNew) -Events @($stT1, $stT2)
 Assert-True ($stRun.Body.Contains('round-2') -and -not $stRun.Body.Contains('round-1') -and -not $stRun.Body.Contains('follows')) 'a block posted after the last reopen is carried: round 2''s, and not round 1''s'
 $stRun = Invoke-StMain -Comments @($stOld) -Events @() -EventsFail $true
-Assert-True (-not $stRun.Body.Contains('TE BEKIJKEN OP') -and -not $stRun.Body.Contains('follows')) 'a reopen read that failed carries no block that might be stale, and promises nothing'
+Assert-True (-not $stRun.Body.Contains('TE BEKIJKEN OP') -and $stRun.Body.Contains('follows')) 'a reopen read that failed carries no block that might be stale, and says the result message follows (#3004)'
 Assert-True ($stRun.Log -match 'could not be read: gh exited 1: .*403' -and $stRun.Log -match 'whether it is stale is unknown') 'and the log carries gh''s own error and says the staleness is unknown'
 $stRun = Invoke-StMain -Comments @((New-StLine 'just talk' $stT1)) -Events @($stT2)
 Assert-True (-not @($stRun.Calls | Where-Object { $_ -like '*/events' }).Count) 'an issue with no block costs no events read'
-Assert-True (-not $stRun.Body.Contains('follows')) 'and gets the plain closed message, as before'
+Assert-True ($stRun.Body.Contains('follows')) 'and the closed line is never sent alone: the result message follows (#3004, smartwatchbanden#943)'
+$stRun = Invoke-StMain -Comments @((New-StLine $rbBlock $stT1)) -Events @()
+Assert-True ($stRun.Body.Contains('Nothing has changed. This issue was for research purposes only.') -and $stRun.Body.Contains('WAT WE GEVONDEN HEBBEN')) 'a research block is carried under the research closed line (#3004)'
+Assert-True ($stRun.Body -notmatch 'reopened anytime|follows') 'without the reopen invitation'
+Assert-True ($stRun.Log -match "with the session's research block") 'and the log says it was one'
+$stRun = Invoke-StMain -Comments @((New-StLine $rbBlock $stT1)) -Events @($stT2)
+Assert-True ($stRun.Body -notmatch 'research purposes|GEVONDEN' -and $stRun.Body.Contains('follows')) 'a research block from before the last reopen is held back like any other'
 $stRun = Invoke-StMain -Comments @((New-StLine $stBlock $stT1)) -Events @($stT1)
 Assert-True ($stRun.Body.Contains('follows')) 'a block stamped the second of the reopen is held back too'
 $stRun = Invoke-StMain -Comments @($stOld, (New-StLine "$cmLibMarker`n---`n---" $stT3)) -Events @($stT2)
@@ -1352,7 +1416,7 @@ $plGh = Get-FunctionSourceText -Path $plTemplate -Name 'Invoke-GhCapture'
 Assert-True ($null -ne $plGh) 'the prio template defines Invoke-GhCapture'
 Assert-Equal (Get-FunctionSourceText -Path $cmTemplate -Name 'Invoke-GhCapture') $plGh 'Invoke-GhCapture equals asana-closed-message.ps1''s'
 # #2968: the freshness judgement is copied into the template as well, and held equal to the lib's.
-foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections')) {
+foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections', 'Get-AsanaResearchBlockMarker')) {
     $mine = Get-FunctionSourceText -Path $cmTemplate -Name $fn
     Assert-True ($null -ne $mine) "the closed-message template defines $fn"
     Assert-Equal (Get-FunctionSourceText -Path $plLib -Name $fn) $mine "$fn equals asana-task-lib.ps1's, apart from its help comment"

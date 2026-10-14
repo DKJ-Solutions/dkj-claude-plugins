@@ -75,6 +75,35 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    or pass `-Force` for an issue that is GitHub-only
    ([#2918](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2918)).
 
+## A ticket without a storefront result -- `-Research`
+
+**Research, a test or a decision changes nothing on the store**, so it has no result link, no release
+day, no live URLs and no pull request -- and it still closes, so its requester still gets a message
+([#3004](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3004), Maikel, October 14, 2026).
+Measured on smartwatchbanden#943: such a ticket was closed by hand with no block, and the Asana task
+heard only that the issue was closed. `-Research` writes the block for it:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-golive-block.ps1" -Issue 943 -Research -ProseFile findings.txt -Post
+```
+
+- **The findings are the message.** The prose file carries one section, `[found]`, written for the
+  requester in the task's language. It is required, and the run refuses a result section beside it. A
+  link to the issue's conclusion is no substitute: not every requester can open the GitHub repo.
+- **The shape**, between the rules: the header, the research closed line -- *"GitHub issue
+  owner/repo#n is now **closed**. Nothing has changed. This issue was for research purposes only."*,
+  the issue name linked -- then *WAT WE GEVONDEN HEBBEN* (*WHAT WE FOUND* under `-Language en`) and the findings.
+- **It refuses the go-live parameters** (`-Link`, `-Path`, `-Version`, `-LiveSince`, `-From`,
+  `-ReleaseDay`), which have nothing to describe, and **`-Post` skips the pull-request check**, since
+  there is none. The duplicate, store-admin and Asana-link checks run as for any block.
+- **The block carries a second marker**, `<!-- asana-paste-block-kind: research -->`, beside its own.
+  That is how the closed message recognizes it and writes the research closed line instead of the
+  invitation to reopen.
+
+**And close it only once the block is on it.** The `guard-stale-paste-block` hook refuses `gh issue
+close` as completed on an issue that links an Asana task while it carries no block for this round, and
+names this command. Nothing done and nothing found? Close it as not planned instead.
+
 ## The prose file
 
 What changed, where exactly to look, and what was deliberately left out are judgements about the work,
@@ -141,7 +170,8 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-From <date>` | the day the next release day is counted from. Today |
 | `-LiveSince <date>` | the day the change went live, for a block written after it did (#2943). Refused when it is after today, or beside `-From` / `-ReleaseDay` |
 | `-Language nl\|en` | the language of the Asana task, and so of the block between the rules. Omitted, the repo's own `Get-GoLiveBlockLanguage` in `scripts/repo-config.ps1` (returning `nl` or `en`) answers it, so a store that writes GitHub in English states that once ([#2830](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2830)); without that seam, `nl` |
-| `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below |
+| `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below -- or, with `-Research`, the `[found]` section |
+| `-Research` | the research form, for a ticket that changed nothing on the store (#3004) -- see above |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
 | `-Force` | post although a block already appears to be there FOR THIS ROUND (one from before the issue's last reopen does not count, so a reopened issue's corrected block needs no `-Force` for that), a store-admin prerequisite is still open, the issue links no single Asana task, no open or merged pull request closes it yet, or the issue could not be read |
@@ -162,8 +192,10 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
   message carries the block below into the Asana task when this issue closes as completed -- no paste
   needed:"* -- on an issue whose body links its task (step 9); on one that does not, the sentence says
   that nothing will reach Asana. A close whose newest block predates the issue's last reopen carries
-  none and says the result message follows (#2968, the second-block paragraph below). A close as not planned sends no block: it sends nothing, or -- with `awaiting-info-client` kept
-  on -- the on-hold line alone (#2902).
+  none and says the result message follows (#2968, the second-block paragraph below), and so does any
+  completed close with no block on it: the closed line never goes out alone (#3004).
+  A close as not planned sends no block: it sends nothing, or -- with `awaiting-info-client` kept on --
+  the on-hold line alone (#2902).
 - **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026"* is a
   cadence, and a release can slip. This block is the one surface a colleague quotes back, so it must
   not read as a commitment nobody made.

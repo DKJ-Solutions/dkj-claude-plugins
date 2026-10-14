@@ -256,11 +256,16 @@ function Get-GoLiveBlockText {
     # {0} is 'owner/repo#<n>', {1} the issue URL.
     $header = "$dash GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
     $closed = 'GitHub issue [{0}]({1}) is now **closed**. It can be reopened anytime when something is still not working as expected.'
+    # THE RESEARCH FORM OF THE CLOSED LINE (#3004, Maikel, October 14, 2026): English and fixed like the
+    # other, and the same words the closed message composes for a research block (Get-ClosedMessageTail).
+    $closedResearch = 'GitHub issue [{0}]({1}) is now **closed**. Nothing has changed. This issue was for research purposes only.'
 
     if ($Language -eq 'en') {
         return @{
             Header       = $header
             Closed       = $closed
+            ClosedResearch = $closedResearch
+            Found        = 'WHAT WE FOUND'
             Changed     = 'WHAT IS DIFFERENT NOW'
             Where        = 'WHERE TO LOOK'
             When         = 'WHEN IT GOES LIVE'
@@ -283,6 +288,8 @@ function Get-GoLiveBlockText {
     return @{
         Header       = $header
         Closed       = $closed
+        ClosedResearch = $closedResearch
+        Found        = 'WAT WE GEVONDEN HEBBEN'
         Changed     = 'WAT ER NU ANDERS IS'
         Where        = 'TE BEKIJKEN OP'
         When         = 'WANNEER HET LIVE KOMT'
@@ -316,16 +323,17 @@ function ConvertFrom-GoLiveProse {
         arrives as one string and a paragraph's newlines do not survive the command line at all. The
         file is read as UTF-8, which the colleague's language needs.
 
-        THE FORMAT: a line '[changed]', '[where]' or '[not-included]' opens a section; the lines under
-        it, up to the next such line, are its text. Paragraphs are separated by a blank line and kept
-        as written. Text above the first section line, and a section line this function does not know,
-        are refused -- a misspelled heading that silently dropped a paragraph would ship a block
-        missing the part the session wrote.
+        THE FORMAT: a line '[changed]', '[where]', '[not-included]' or '[found]' opens a section; the
+        lines under it, up to the next such line, are its text. Paragraphs are separated by a blank line
+        and kept as written. Text above the first section line, and a section line this function does
+        not know, are refused -- a misspelled heading that silently dropped a paragraph would ship a
+        block missing the part the session wrote. '[found]' is the research block's one section
+        (#3004); which sections a block may carry is the driver's question, not this parser's.
     #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
 
-    $known   = @{ 'changed' = 'Changed'; 'where' = 'WhereToLook'; 'not-included' = 'NotIncluded' }
-    $buckets = @{ Changed = @(); WhereToLook = @(); NotIncluded = @() }
+    $known   = @{ 'changed' = 'Changed'; 'where' = 'WhereToLook'; 'not-included' = 'NotIncluded'; 'found' = 'Found' }
+    $buckets = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Found = @() }
     $current = $null
     $lineNo  = 0
     foreach ($line in ($Text -split "`r?`n")) {
@@ -336,7 +344,7 @@ function ConvertFrom-GoLiveProse {
         if ($line -cmatch '^\s*\[([a-z][a-z-]*)\]\s*$') {
             $name = $Matches[1]
             if (-not $known.ContainsKey($name)) {
-                throw "Prose line ${lineNo}: unknown section '[$name]'. Known: [changed], [where], [not-included]."
+                throw "Prose line ${lineNo}: unknown section '[$name]'. Known: [changed], [where], [not-included], [found]."
             }
             $current = $known[$name]
             continue
@@ -347,7 +355,7 @@ function ConvertFrom-GoLiveProse {
         if ($line -match '^\s*---\s*$') { throw "Prose line ${lineNo}: a bare '---' line is the block's own rule and would cut the pasted block short." }
         if ($line.Contains('<!--')) { throw "Prose line ${lineNo}: an HTML comment would arrive in the Asana task as visible text." }
         if (-not $current) {
-            if ($line.Trim()) { throw "Prose line ${lineNo}: text before the first section line ([changed], [where] or [not-included])." }
+            if ($line.Trim()) { throw "Prose line ${lineNo}: text before the first section line ([changed], [where], [not-included] or [found])." }
             continue
         }
         $buckets[$current] += $line
@@ -628,5 +636,59 @@ function Format-GoLiveBlock {
     $lines += ''
     $lines += '---'
 
+    return ($lines -join "`n")
+}
+
+function Format-GoLiveResearchBlock {
+    <#
+        Pure: the whole GitHub comment for a ticket WITHOUT a storefront result -- research, a test, a
+        decision (#3004) -- in the shape Maikel set on smartwatchbanden#943's task, October 14, 2026:
+        the header, the research closed line ('is now closed. Nothing has changed. This issue was for
+        research purposes only.'), then one section, what we found, in the requester's own words.
+
+        THE FINDINGS ARE THE MESSAGE, NOT A LINK TO THEM. Not every requester can open the GitHub repo,
+        so a pointer to the issue's conclusion explains nothing (Maikel's correction on #3004); -Found
+        is the session's prose and is required, because a research block without it says nothing.
+
+        NO RELEASE DAY, NO LIVE URLS, NO ASK: nothing changed on the store, so there is no day it goes
+        live and nothing to look at. The marker and the lead stay as Format-GoLiveBlock writes them, and
+        -ResearchMarker sits beside the marker so the closed message can tell this block from a result
+        block and write the research closed line. Both are passed IN, for the reason Format-GoLiveBlock
+        gives: one spelling, held by asana-task-lib.ps1.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Marker,
+        [Parameter(Mandatory = $true)][string]$ResearchMarker,
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [Parameter(Mandatory = $true)][string[]]$Found,
+        [ValidateSet('nl', 'en')][string]$Language = 'nl',
+        [ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked'
+    )
+
+    $paras = @($Found | Where-Object { $_ -and $_.Trim() })
+    if ($paras.Count -eq 0) { throw 'A research block needs its findings: -Found is empty.' }
+    if ($IssueRef -notmatch '^([^\s#/]+/[^\s#/]+)#(\d+)$') {
+        throw "IssueRef '$IssueRef' is not 'owner/repo#<n>', so the closed line has no issue to link."
+    }
+    $url = "https://github.com/$($Matches[1])/issues/$($Matches[2])"
+    $t   = Get-GoLiveBlockText -Language $Language
+
+    $lines = @(
+        $Marker,
+        $ResearchMarker,
+        '',
+        (Get-GoLiveBlockLead -AsanaLink $AsanaLink),
+        '',
+        '---',
+        $t.Header,
+        '',
+        ($t.ClosedResearch -f $IssueRef, $url),
+        '',
+        $t.Found
+    )
+    foreach ($p in $paras) { $lines += ''; $lines += $p }
+    # The blank line before the closing rule is load-bearing, as in Format-GoLiveBlock (#2701).
+    $lines += ''
+    $lines += '---'
     return ($lines -join "`n")
 }

@@ -2,7 +2,8 @@
 .SYNOPSIS
     Tests for plugins/dkj-policy/bwj-development/hooks/guard-stale-paste-block.ps1 and its lib,
     scripts/lib/stale-paste-block-rules.ps1 -- the PreToolUse hook that refuses to ship a pull request
-    closing an issue whose go-live block predates the issue's last reopen (inbound #2968).
+    closing an issue whose go-live block predates the issue's last reopen (inbound #2968), and to close an
+    Asana-linked issue as completed by hand while it carries no block for this round (inbound #3004).
 
 .DESCRIPTION
     FOUR GROUPS.
@@ -93,6 +94,29 @@ Assert-True ($null -eq (Get-ShipPrInvocation -Command 'pwsh -Command "./scripts/
 Assert-True ($null -eq (Get-ShipPrInvocation -Command 'echo "ship-pr.ps1 -Resolves 5"')) 'a quoted mention is not an invocation'
 Assert-True ($null -eq (Get-ShipPrInvocation -Command '# ./scripts/release/ship-pr.ps1 -Resolves 5')) 'and neither is a comment'
 
+# THE CLOSE PARSER (#3004): a completed close by hand, the route smartwatchbanden#943 took past the ship guard.
+Write-Host 'the close parser (#3004)' -ForegroundColor Cyan
+function Format-Closes { param($c) if ($null -eq $c) { return '' } (@($c.Closes) | ForEach-Object { "$($_.Repo)#$($_.Number)" }) -join ',' }
+Assert-Equal '#943' (Format-Closes (Get-IssueCloseInvocation -Command 'gh issue close 943')) 'a bare close is a close as completed'
+Assert-Equal '#943' (Format-Closes (Get-IssueCloseInvocation -Command 'gh issue close 943 --reason completed --comment "done; see above"')) 'and so is --reason completed, a quoted comment with a separator in it read as one value'
+Assert-Equal '#7,#8' (Format-Closes (Get-IssueCloseInvocation -Command 'gh issue close "#7" 8 -c x')) 'several issues, with #, are each named'
+Assert-Equal 'BWJ-Development/smartwatchbanden#943' (Format-Closes (Get-IssueCloseInvocation -Command 'gh issue close 943 -R BWJ-Development/smartwatchbanden')) '-R names the repo'
+Assert-Equal 'o/r#5' (Format-Closes (Get-IssueCloseInvocation -Command 'gh issue close --repo=o/r 5')) 'and so does --repo=, before the number'
+Assert-Equal 'BWJ-Development/xoxowildhearts#414' (Format-Closes (Get-IssueCloseInvocation -Command 'gh issue close https://github.com/BWJ-Development/xoxowildhearts/issues/414')) 'an issue URL carries its own repo'
+Assert-Equal '#9' (Format-Closes (Get-IssueCloseInvocation -Command 'git push; & "C:\Program Files\GitHub CLI\gh.exe" issue close 9')) 'gh.exe by a quoted path, after another command, is a close'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue close 943 --reason "not planned"')) 'a close as not planned is not guarded: the closed message posts no block for it'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue close 943 -r not_planned')) 'nor in its other spelling, under -r'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue close 943 --reason=duplicate')) 'nor a duplicate'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue close 943 --duplicate-of 12')) 'nor one closed with --duplicate-of'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue view 943')) 'another gh issue command is not a close'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'git commit -m "gh issue close 943"')) 'a mention in a commit message is not a close'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'echo gh issue close 943')) 'and neither is an echo'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue close')) 'a close that names no issue names nothing to judge'
+Assert-True ($null -eq (Get-IssueCloseInvocation -Command 'gh issue close 5 -rnot_planned')) 'an attached short flag value is read, as gh reads it (-rnot_planned)'
+Assert-Equal 'o/r#5' (Format-Closes (Get-IssueCloseInvocation -Command 'gh issue close 5 -Ro/r')) 'and so is -Ro/r'
+Assert-Equal '#5' (Format-Closes (Get-IssueCloseInvocation -Command 'GH_TOKEN=x gh issue close 5')) 'an environment prefix does not hide the close'
+Assert-Equal 20 @((Get-IssueCloseInvocation -Command ('gh issue close ' + ((1..40) -join ' '))).Closes).Count 'the list is bounded at 20'
+
 # --- 3. The hook, against a fake gh -----------------------------------------------------------------
 Write-Host 'the hook, against a fake gh' -ForegroundColor Cyan
 
@@ -157,11 +181,12 @@ $stBlock = "<!-- asana-paste-block -->`nFraming.`n---`nGitHub issue o/r#7 is now
 
 function New-State {
     <# The GraphQL reply the hook reads: a reopen time (or none) and comments of (body, time). #>
-    param([string]$Reopen = '', [object[]]$Comments = @(), [int]$Total = -1)
+    param([string]$Reopen = '', [object[]]$Comments = @(), [int]$Total = -1, [string]$Body = '')
     $nodes = @(foreach ($c in $Comments) { @{ body = $c[0]; createdAt = $c[1] } })
     $reopened = @(if ($Reopen) { @{ createdAt = $Reopen } })
     if ($Total -lt 0) { $Total = $nodes.Count }
     return (ConvertTo-Json -Compress -Depth 8 @{ data = @{ repository = @{ issue = @{
+        body     = $Body
         reopened = @{ nodes = $reopened }
         comments = @{ totalCount = $Total; nodes = $nodes } } } } })
 }
@@ -333,6 +358,70 @@ if ($built) {
     Assert-Equal 0 $r.Code 'an empty payload passes'
     $r = Invoke-Hook '' -Payload 'ship-pr.ps1 but not json'
     Assert-Equal 0 $r.Code 'an unparseable payload passes rather than blocking every shell call'
+
+    # THE CLOSE GUARD (#3004): a completed close by hand of an Asana-linked issue needs a block for this round.
+    $linked   = "Body`n<!-- asana-task: 1234567890 -->"
+    $research = "<!-- asana-paste-block -->`n<!-- asana-paste-block-kind: research -->`nFraming.`n---`nGitHub issue o/r#943 is now closed. Nothing has changed.`n`nWAT WE GEVONDEN HEBBEN`n`nNiets mis.`n---"
+    $close    = 'gh issue close 943'
+
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body $linked -Comments @(, @('the conclusion, in a comment', '2026-10-14T10:00:00Z')))
+    $r = Invoke-Hook $close
+    Assert-Equal 2 $r.Code 'an Asana-linked issue with no block refuses the close -- smartwatchbanden#943''s route'
+    Assert-True ($r.Err -match 'BLOCKED \(guard-stale-paste-block\): no go-live block on DKJ-Solutions/xoxo#943') 'and names the issue'
+    Assert-True ($r.Err -notmatch '-Repo |-R ') 'and, for the checkout''s own issue, names no repo in the fix'
+    Assert-True ($r.Err -match 'build-golive-block\.ps1 -Issue 943 -Research -ProseFile' -and $r.Err -match 'build-golive-block\.ps1 -Issue 943 -Link') 'with both fixes, the research block and the result block'
+    Assert-True ($r.Err -match 'gh issue close 943 --reason "not planned"') 'and the close for a ticket where nothing was done'
+    Assert-True ($r.Err -notmatch 'conclusion') 'no comment text reaches stderr'
+
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body $linked -Comments @(, @($research, '2026-10-14T10:00:00Z')))
+    $r = Invoke-Hook $close
+    Assert-Equal 0 $r.Code 'a research block on the issue lets the close through'
+    Assert-Equal '' $r.Err.Trim() 'silently'
+
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body $linked -Reopen '2026-10-02T10:00:00Z' -Comments @(, @($stBlock, '2026-10-01T10:00:00Z')))
+    $r = Invoke-Hook $close
+    Assert-Equal 2 $r.Code 'a block from before the last reopen refuses the close too'
+    Assert-True ($r.Err -match 'only a block from before the last reopen on DKJ-Solutions/xoxo#943') 'and says which of the two it is'
+
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body $linked -Reopen '2026-10-02T10:00:00Z' -Comments @(, @($stBlock, '2026-10-03T10:00:00Z')))
+    $r = Invoke-Hook $close
+    Assert-Equal 0 $r.Code 'a block of this round lets the close through'
+
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body 'no task linked here' -Comments @())
+    $r = Invoke-Hook $close
+    Assert-Equal 0 $r.Code 'an issue linking no Asana task closes freely: the closed message posts nothing for it'
+    Assert-Equal '' $r.Err.Trim() 'silently'
+
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body $linked -Comments @())
+    $r = Invoke-Hook 'gh issue close 943 --reason "not planned"'
+    Assert-Equal 0 $r.Code 'a close as not planned is not judged'
+    Assert-Equal 0 @($r.Calls).Count 'and costs no gh call'
+
+    Reset-Fake
+    Set-Fake 'issue-943.code' '1'
+    $r = Invoke-Hook $close
+    Assert-Equal 0 $r.Code 'an issue gh cannot read lets the close through'
+    Assert-True ($r.Err -match 'could not judge the go-live block of DKJ-Solutions/xoxo#943 -- the close was NOT checked') 'with a warning that names it'
+
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body $linked -Comments @(, @('talk', '2026-10-01T10:00:00Z')) -Total 150)
+    $r = Invoke-Hook $close
+    Assert-Equal 0 $r.Code 'more comments than one read returns, and no block among them: the close passes'
+    Assert-True ($r.Err -match 'could not judge') 'with a warning, because an older comment was not read'
+
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body $linked -Comments @())
+    $r = Invoke-Hook 'gh issue close 943 -R BWJ-Development/smartwatchbanden'
+    Assert-Equal 2 $r.Code 'a close in another repo, named with -R, is judged there'
+    Assert-True ($r.Err -match 'BWJ-Development/smartwatchbanden#943') 'and named by that repo'
+    Assert-True ($r.Err -match '-Issue 943 -Repo BWJ-Development/smartwatchbanden -Research' -and $r.Err -match 'gh issue close 943 -R BWJ-Development/smartwatchbanden --reason') 'and the fix points at that repo''s issue, not the checkout''s'
+    Assert-True (-not ($r.Calls -contains 'repo')) 'without asking which repo the checkout is'
 }
 
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
@@ -344,7 +433,7 @@ $entry = @($hooks.hooks.PreToolUse | Where-Object { $_.matcher -eq 'Bash|PowerSh
 Assert-Equal 1 $entry.Count 'hooks.json has one PreToolUse entry on the shell tools'
 $cmd = [string]$entry[0].hooks[0].command
 Assert-True ($cmd.Contains('guard-stale-paste-block.ps1')) 'it runs this hook'
-Assert-True ($cmd -match "grep -Eq '\(ship-pr\|open-pr\)\\\.ps1' \|\| exit 0") 'behind a shell pre-gate on the two scripts, so no other command pays a PowerShell start'
+Assert-True ($cmd -match "grep -Eq '\(ship-pr\|open-pr\)\\\.ps1\|gh\(\\\.exe\)\?\[\[:space:\]\]\+issue\[\[:space:\]\]\+close' \|\| exit 0") 'behind a shell pre-gate on the two scripts and gh issue close (#3004), so no other command pays a PowerShell start'
 Assert-True ($cmd.IndexOf('grep -Eq') -lt $cmd.IndexOf('powershell -NoProfile')) 'the pre-gate comes before PowerShell starts'
 Assert-True ($cmd -notmatch 'fail-closed|exit 2') 'and carries no fail-closed wrapper: the hook fails open on purpose (its header says why)'
 Assert-True ([int]$entry[0].hooks[0].timeout -ge 30) 'with the timeout the hook''s 25-second budget is sized for'

@@ -1,7 +1,9 @@
 <#
 .SYNOPSIS
     PreToolUse hook on the shell tools: refuses to ship a pull request that will close an issue whose
-    newest go-live block was posted before the issue's last reopen.
+    newest go-live block was posted before the issue's last reopen -- and refuses to close an
+    Asana-linked issue as completed by hand ('gh issue close') while it carries no block for this
+    round (#3004).
 
 .DESCRIPTION
     INBOUND #2968, MEASURED IN BWJ-Development/xoxowildhearts#414. The issue closed after round 1 and the
@@ -11,6 +13,19 @@
     merge. The block is read at the close, so by then the mistake had already reached the requester.
     This hook is the layer before the merge; the workflow's own check (templates/asana-closed-message.ps1)
     is the backstop for a merge this hook never sees -- the GitHub merge button, a merge queue.
+
+    THE CLOSE GUARD, INBOUND #3004, MEASURED IN BWJ-Development/smartwatchbanden#943. A research ticket
+    was closed as completed with 'gh issue close', with no pull request and no block, and the closed
+    message told the requester only that the issue was closed. A close by hand never passes through a
+    ship, so the guard above never saw it. So a command running 'gh issue close' as completed
+    (Get-IssueCloseInvocation; 'not planned' and 'duplicate' post no block and are skipped) is judged
+    too: an issue whose body links one Asana task (Resolve-AsanaTaskRef, the workflow's own matcher)
+    must carry a block posted after its last reopen -- a result block, or the research block
+    build-golive-block.ps1 -Research writes for a ticket that changed nothing on the store. 'none' and
+    'stale' are refused, with both commands on the refusal; an issue linking no task, or several, is let
+    through, because the closed message posts nothing for it. The same read serves both guards: the one
+    GraphQL call also returns the issue body. The same fail-open applies, and the workflow is the
+    backstop again -- a close it receives without a block says the result message follows.
 
     WHERE IT LIVES, AND WHY NOT IN THE SHIP SCRIPTS. ship-pr.ps1 and open-pr.ps1 belong to the core
     workflow and know nothing about Asana; the paste block is an extension concept of this plugin. So the
@@ -67,9 +82,9 @@ $ErrorActionPreference = 'Stop'
 $raw = ''
 if ([Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
 
-# THE CHEAP PRE-GATE. Neither script named, nothing to judge: no lib load and no gh call is spent. The
-# same test hooks.json makes in shell first, repeated for a run that reaches this file another way.
-if ($raw -notmatch '(ship-pr|open-pr)\.ps1') { exit 0 }
+# THE CHEAP PRE-GATE. Neither script nor a close named, nothing to judge: no lib load and no gh call is
+# spent. The same test hooks.json makes in shell first, repeated for a run that reaches this file another way.
+if ($raw -notmatch '(ship-pr|open-pr)\.ps1|gh(\.exe)?\s+issue\s+close') { exit 0 }
 
 $libs = @('asana-task-lib.ps1', 'stale-paste-block-rules.ps1')
 foreach ($lib in $libs) {
@@ -102,8 +117,9 @@ try { $command = [string](($jsonText | ConvertFrom-Json).tool_input.command) } c
     [Console]::Error.WriteLine('guard-stale-paste-block: the hook payload did not parse as JSON -- the go-live blocks of the issues this PR closes were NOT checked.')
     exit 0
 }
-$ship = Get-ShipPrInvocation -Command $command
-if ($null -eq $ship) { exit 0 }
+$ship  = Get-ShipPrInvocation -Command $command
+$close = Get-IssueCloseInvocation -Command $command
+if ($null -eq $ship -and $null -eq $close) { exit 0 }
 
 $projectDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
 $deadline = [DateTime]::UtcNow.AddSeconds(25)
@@ -117,6 +133,64 @@ function Invoke-GhBounded {
     $run = Invoke-AsanaGhBounded -Arguments $Arguments -TimeoutMs ([Math]::Min($MaxMs, $leftMs)) -WorkingDirectory $projectDir
     return [pscustomobject]@{ Ok = ($run.Started -and -not $run.TimedOut -and $run.ExitCode -eq 0); Out = $run.Out; Err = $run.Err }
 }
+
+# --- The close guard (#3004) ----------------------------------------------------------------------------
+# A completed close by hand of an Asana-linked issue needs a block for this round, result or research.
+if ($close) {
+    $currentRepo = $null
+    $missing = @()
+    $old     = @()
+    $unread  = @()
+    foreach ($c in $close.Closes) {
+        $nwo = [string]$c.Repo
+        if (-not $nwo) {
+            if ($null -eq $currentRepo) {
+                $repoRun = Invoke-GhBounded -Arguments 'repo view --json nameWithOwner -q .nameWithOwner'
+                $currentRepo = if ($repoRun.Ok) { ([string]$repoRun.Out).Trim() } else { '' }
+            }
+            $nwo = $currentRepo
+        }
+        if ($nwo -notmatch '\A([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9._-]+)\z') { $unread += "#$($c.Number)"; continue }
+        $cOwner = $Matches[1]
+        $cRepo  = $Matches[2]
+        $ref    = "$nwo#$($c.Number)"
+        $leftMs = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+        if ($leftMs -le 1000) { $unread += $ref; continue }
+        $state = Read-AsanaIssueBlockState -Owner $cOwner -Repo $cRepo -Number $c.Number -TimeoutMs ([Math]::Min(20000, $leftMs)) -WorkingDirectory $projectDir
+        if (-not $state.Ok) { $unread += $ref; continue }
+        # NO SINGLE LINKED TASK, NOTHING TO GUARD: the closed message posts nothing for such an issue.
+        if (-not (Resolve-AsanaTaskRef -IssueBody ([string]$state.Body)).Gid) { continue }
+        switch (Get-AsanaPasteBlockVerdict -Comments $state.Comments -LastReopenedAt $state.LastReopenedAt) {
+            'none'    { if ($state.Truncated) { $unread += $ref } else { $missing += $ref } }
+            'stale'   { $old += $ref }
+            'unknown' { $unread += $ref }
+        }
+    }
+    if ($unread.Count -gt 0) {
+        [Console]::Error.WriteLine("guard-stale-paste-block: could not judge the go-live block of $($unread -join ', ') -- the close was NOT checked. Confirm by hand that each Asana-linked issue carries a block for this round.")
+    }
+    if ($missing.Count -gt 0 -or $old.Count -gt 0) {
+        # THE FIX NAMES THE REPO where the close named one (-R or a URL), so the hint never points at the
+        # checkout's own issue of that number.
+        $firstRef = @($missing + $old)[0]
+        $first    = $firstRef -replace '^.*#', ''
+        $repoHint = if ($firstRef -ne "$currentRepo#$first") { " -Repo $($firstRef -replace '#\d+$', '')" } else { '' }
+        $closeHint = if ($repoHint) { "$first -R $($firstRef -replace '#\d+$', '')" } else { $first }
+        $why = @()
+        if ($missing.Count -gt 0) { $why += "no go-live block on $($missing -join ', ')" }
+        if ($old.Count -gt 0) { $why += "only a block from before the last reopen on $($old -join ', ')" }
+        [Console]::Error.WriteLine("BLOCKED (guard-stale-paste-block): $($why -join '; and ') -- closed as completed, the Asana task would hear that the issue is closed and that a result message follows, and nothing about how to view the result (#3004).")
+        [Console]::Error.WriteLine(@(
+            '  Post the block on the issue first, then close it:',
+            "    a result to look at:         build-golive-block.ps1 -Issue $first$repoHint -Link <result url> -ProseFile <prose> -Post  (add -Force while no PR names the issue)",
+            "    research, a test, a decision: build-golive-block.ps1 -Issue $first$repoHint -Research -ProseFile <findings under [found]> -Post",
+            "  Nothing was done and nothing found? Close it as not planned instead: gh issue close $closeHint --reason `"not planned`"."
+        ) -join "`n")
+        exit 2
+    }
+}
+if ($null -eq $ship) { exit 0 }
+
 # --- Which repo, and which issues ---------------------------------------------------------------------
 # A ship that names no issue and may not consult the open PR needs no read at all.
 $numbers = New-Object System.Collections.Generic.List[int]

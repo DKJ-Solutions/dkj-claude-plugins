@@ -135,6 +135,18 @@ function Get-AsanaPasteBlockMarker {
     return '<!-- asana-paste-block -->'
 }
 
+function Get-AsanaResearchBlockMarker {
+    <#
+        The second marker build-golive-block.ps1 -Research puts on a block that reports a FINDING rather
+        than a result to look at (#3004): a research, test or decision ticket, where nothing changed on
+        the store. Pure. The closed message reads it to write the research closed line ('Nothing has
+        changed. This issue was for research purposes only.') instead of the reopen line, which promises a
+        result that can be 'not working as expected'. It sits beside the block's own marker, outside the
+        rules, for the same reason that one does. A copy of it lives in templates/asana-closed-message.ps1.
+    #>
+    return '<!-- asana-paste-block-kind: research -->'
+}
+
 function Get-AsanaPasteBlockLead {
     <#
         The block's own opening sentence -- the prose half of the de-duplication below, and the
@@ -276,13 +288,15 @@ function Test-AsanaPasteBlockSinceReopen {
 
 function ConvertFrom-AsanaIssueBlockStateJson {
     <#
-        Pure: the reply of the one GraphQL read below as Ok, Comments (Body, CreatedAt), LastReopenedAt
-        (the latest reopened event's createdAt, or $null) and Truncated ($true where the issue has more
-        comments than the read returned). A reply that is not JSON, or names no issue, is Ok = $false.
+        Pure: the reply of the one GraphQL read below as Ok, Body (the issue's own body, '' where the reply
+        carries none), Comments (Body, CreatedAt), LastReopenedAt (the latest reopened event's createdAt,
+        or $null) and Truncated ($true where the issue has more comments than the read returned). A reply
+        that is not JSON, or names no issue, is Ok = $false. Body serves the close guard (#3004), which
+        asks Resolve-AsanaTaskRef whether the issue links a task before it judges the block.
     #>
     param([AllowEmptyString()][string]$Json)
 
-    $bad = [pscustomobject]@{ Ok = $false; Comments = @(); LastReopenedAt = $null; Truncated = $false }
+    $bad = [pscustomobject]@{ Ok = $false; Body = ''; Comments = @(); LastReopenedAt = $null; Truncated = $false }
     if (-not ([string]$Json).Trim()) { return $bad }
     try { $issue = (ConvertFrom-Json -InputObject $Json).data.repository.issue } catch { return $bad }
     if ($null -eq $issue -or $null -eq $issue.comments -or $null -eq $issue.reopened) { return $bad }
@@ -290,8 +304,10 @@ function ConvertFrom-AsanaIssueBlockStateJson {
     $comments = @(foreach ($n in @($issue.comments.nodes)) { [pscustomobject]@{ Body = [string]$n.body; CreatedAt = $n.createdAt } })
     $reopen   = $null
     foreach ($n in @($issue.reopened.nodes)) { if ($n -and $n.createdAt) { $reopen = $n.createdAt } }
+    $body = if ($issue.PSObject.Properties['body']) { [string]$issue.body } else { '' }
     return [pscustomobject]@{
         Ok             = $true
+        Body           = $body
         Comments       = $comments
         LastReopenedAt = $reopen
         Truncated      = ([int]$issue.comments.totalCount -gt $comments.Count)
@@ -356,11 +372,11 @@ function Read-AsanaIssueBlockState {
         [string]$WorkingDirectory = ''
     )
 
-    $fail = { param($why) [pscustomobject]@{ Ok = $false; Comments = @(); LastReopenedAt = $null; Truncated = $false; Error = $why } }
+    $fail = { param($why) [pscustomobject]@{ Ok = $false; Body = ''; Comments = @(); LastReopenedAt = $null; Truncated = $false; Error = $why } }
     # The owner and name go onto a command line, so only GitHub's own character classes pass.
     if ($Owner -notmatch '\A[A-Za-z0-9][A-Za-z0-9-]*\z' -or $Repo -notmatch '\A[A-Za-z0-9._-]+\z') { return (& $fail 'the repo is not an owner/name pair') }
 
-    $query = 'query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){' +
+    $query = 'query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){body ' +
         'reopened:timelineItems(itemTypes:[REOPENED_EVENT],last:1){nodes{... on ReopenedEvent{createdAt}}} ' +
         'comments(last:100){totalCount nodes{body createdAt}}}}}'
     $run = Invoke-AsanaGhBounded -Arguments "api graphql -f query=`"$query`" -f owner=$Owner -f name=$Repo -F num=$Number" -TimeoutMs $TimeoutMs -WorkingDirectory $WorkingDirectory
