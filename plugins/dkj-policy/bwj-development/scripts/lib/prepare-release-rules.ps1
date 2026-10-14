@@ -272,6 +272,14 @@ function Format-ReleaseRunbook {
         what that tool does: preflight -> push -> verification pull -> go-live obligations -> preview
         sweep -> cut -> backup -> release-notes page. The preflight re-derives the push list and runs the
         drift check for real on the day; what this run printed on the Friday is the plan, not the proof.
+
+        THE GIT-CONNECTED MODE (#2998, #3012). With -DeployBranch, the live theme deploys from that branch
+        through Shopify's GitHub integration, so going live is the PROMOTION PR (trunk into the deploy
+        branch) and there is no push to print. Step 2 prints that PR, composed by Format-LivePromotionCommand
+        -- the same function live-preflight prints it with -- and merging it is the act that goes live,
+        which the runbook says belongs to a person. No theme PATH is printed in a command in this mode, so
+        the paste-safety refusal of the push list does not apply; the verification pull still names the
+        files and keeps that refusal. The order stays promote-then-cut, as #2998 decided.
     #>
     param(
         [string]$Store = '',
@@ -280,9 +288,12 @@ function Format-ReleaseRunbook {
         [string]$Bump = '',
         [string]$TargetVersion = '',
         [string]$ReleaseDate = '',
-        [AllowNull()][AllowEmptyCollection()]$Obligations = @()
+        [AllowNull()][AllowEmptyCollection()]$Obligations = @(),
+        [string]$DeployBranch = '',
+        [string]$Trunk = 'main'
     )
 
+    $connected = [bool]([string]$DeployBranch).Trim()
     $files = @(@($PushFiles) | Where-Object { $_ })
     # NO COMMAND IS COMPOSED AROUND A PATH THAT IS NOT PASTE-SAFE (this branch's security review). The
     # paths come out of git diff, and a theme file can reach the repo through a sync from the theme
@@ -299,32 +310,56 @@ function Format-ReleaseRunbook {
     $out += 'Prepared ahead of the day. Every step below re-checks on the day; nothing here is authorised.'
     $out += ''
 
-    $out += '1. Preflight, on the trunk -- the dkj-subagents-shopify `live-preflight` skill. It re-derives the push'
-    $out += '   list, runs the drift check for real, takes the rollback backup, and prints the push command.'
-    $out += ''
-
-    $out += "2. The push -- $($files.Count) theme file(s), one --only each:"
-    $push = ''
-    if ($haveTarget) { $push = Format-LivePushCommand -Store $Store -ThemeId $LiveThemeId -Only $files }
-    if ($push) {
-        $out += "   $push"
-        $out += '   Refused as it stands: the authorisation marker your repo states is added by a person, to this'
-        $out += '   exact command, and no script writes it. Use the command live-preflight prints on the day.'
-    } elseif ($unsafe.Count -gt 0) {
-        $out += "   (not composed -- $($unsafe.Count) path(s) cannot be pasted safely into a command line:"
-        foreach ($u in $unsafe) { $out += "    $(ConvertTo-ConsoleStrippedText -Text $u)" }
-        $out += '    read them before the day; a name like that on a theme is itself worth a question)'
-    } elseif (-not $haveTarget) {
-        $out += '   (not composed -- no store domain or no live theme id is known to this run)'
+    if ($connected) {
+        $out += '1. Preflight, on the trunk -- the dkj-subagents-shopify `live-preflight` skill. It re-derives what'
+        $out += '   goes live, refuses while the deploy branch holds live edits the trunk lacks, reads the rule-suite'
+        $out += '   log for rejected write-backs, takes the rollback backup, and prints the promotion PR.'
     } else {
-        $out += '   (nothing to push -- no theme file in the range; this release is code and docs only)'
+        $out += '1. Preflight, on the trunk -- the dkj-subagents-shopify `live-preflight` skill. It re-derives the push'
+        $out += '   list, runs the drift check for real, takes the rollback backup, and prints the push command.'
     }
     $out += ''
 
-    $out += '3. Verification pull -- read the pushed files back off live, into a folder nothing else wrote:'
+    if ($connected) {
+        $out += "2. The promotion -- the trunk into the deploy branch, as a pull request; $($files.Count) theme file(s) changed in the range:"
+        $promotion = ''
+        if ((Test-LivePromotionRef $Trunk) -and (Test-LivePromotionRef $DeployBranch) -and $Trunk -ine $DeployBranch) {
+            try { $promotion = Format-LivePromotionCommand -Trunk $Trunk -DeployBranch $DeployBranch -Version $TargetVersion } catch { $promotion = '' }
+        }
+        if ($promotion) {
+            $out += "   $promotion"
+            $out += '   Merging that PR is what goes live: Shopify deploys the branch to the live theme. A person opens'
+            $out += '   and merges it; use the one live-preflight prints on the day.'
+        } else {
+            $out += '   (not composed -- the trunk or the deploy branch has a name that is not safe to print, or they are'
+            $out += '    the same branch; live-preflight names which)'
+        }
+        $out += ''
+    } else {
+        $out += "2. The push -- $($files.Count) theme file(s), one --only each:"
+        $push = ''
+        if ($haveTarget) { $push = Format-LivePushCommand -Store $Store -ThemeId $LiveThemeId -Only $files }
+        if ($push) {
+            $out += "   $push"
+            $out += '   Refused as it stands: the authorisation marker your repo states is added by a person, to this'
+            $out += '   exact command, and no script writes it. Use the command live-preflight prints on the day.'
+        } elseif ($unsafe.Count -gt 0) {
+            $out += "   (not composed -- $($unsafe.Count) path(s) cannot be pasted safely into a command line:"
+            foreach ($u in $unsafe) { $out += "    $(ConvertTo-ConsoleStrippedText -Text $u)" }
+            $out += '    read them before the day; a name like that on a theme is itself worth a question)'
+        } elseif (-not $haveTarget) {
+            $out += '   (not composed -- no store domain or no live theme id is known to this run)'
+        } else {
+            $out += '   (nothing to push -- no theme file in the range; this release is code and docs only)'
+        }
+        $out += ''
+    }
+
+    $out += "3. Verification pull -- read the $(if ($connected) { 'promoted' } else { 'pushed' }) files back off live, into a folder nothing else wrote:"
     $pull = ''
     if ($haveTarget) { $pull = Format-VerificationPullCommand -Store $Store -ThemeId $LiveThemeId -Path "`$env:TEMP\live-verify-$($ver -replace '\s', '-')" -Only $files }
-    $out += $(if ($pull) { "   $pull" } else { '   (not composed -- see step 2)' })
+    $pullWhy = if ($unsafe.Count -gt 0) { "$($unsafe.Count) path(s) cannot be pasted safely" } elseif (-not $haveTarget) { 'no store domain or no live theme id is known to this run' } else { 'no theme file in the range' }
+    $out += $(if ($pull) { "   $pull" } elseif ($connected) { "   (not composed -- $pullWhy)" } else { '   (not composed -- see step 2)' })
     $out += ''
 
     $obl = @($Obligations | Where-Object { $_ })

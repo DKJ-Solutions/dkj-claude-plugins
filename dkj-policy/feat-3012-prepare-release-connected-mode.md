@@ -39,11 +39,25 @@
 
 ### PLAN
 
+Issue #3012, part of #2998. Parked mid-branch on October 14, 2026 (session ended); resume with
+`claim-issue.ps1 3012 -Tag -Verify` (or `-TakeOver` from another checkout).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] prepare-release reads `Get-ShopifyLiveDeployBranch`; step 4 lists what goes live with the promotion,
+      step 5 runs the back-flow check (Get-LivePromotionStep) instead of the CLI drift check
+- [x] Format-ReleaseRunbook prints the promotion PR (Format-LivePromotionCommand) instead of the push
+- [x] SYNC-LOG-portable.md: connected-mode section (back-flow PR, bot as committer, bypass, rule-suite log)
+- [ ] THEME-LIFECYCLE-portable.md: connected-mode section -- promote-then-cut, theme-check before anything
+      lands on the deploy branch (leave the detached-duplicate point to #3013)
+- [ ] WORKFLOW-portable.md: connected-mode section -- going live is merging the promotion PR; the
+      live-push record's `# promoted` line; pointers to the other two pages
+- [ ] prepare-release SKILL.md: name the connected mode
 
 ### TEST
+
+- [x] bwj-development.tests.ps1: runbook connected cases + the seam read in the fixture run (661 green)
+- [ ] copy edit of the three pages, then write DEPLOY and ship with `ship-pr.ps1 -Resolves 3012`
 
 ### DEPLOY: feat/3012-prepare-release-connected-mode
 
