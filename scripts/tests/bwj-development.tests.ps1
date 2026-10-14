@@ -1336,7 +1336,7 @@ function Invoke-RestMethod {
     }
     $script:stPosted = [System.Text.Encoding]::UTF8.GetString($Body)
 }
-$stConfig = Join-Path ([System.IO.Path]::GetTempPath()) "st-repo-config-$PID.ps1"
+$stConfig = Join-Path ([System.IO.Path]::GetTempPath()) "st-repo-config-$([Guid]::NewGuid().ToString('N')).ps1"
 [System.IO.File]::WriteAllText($stConfig, "function Get-AsanaStageMap {`n    return @{ Completed = '4' }`n}`n")
 $script:RepoConfigPath = $stConfig
 function New-StLine { param([string]$Body, [string]$At) (ConvertTo-Json -Compress @{ author_association = 'OWNER'; login = 'dev'; body = $Body; created_at = $At }) }
