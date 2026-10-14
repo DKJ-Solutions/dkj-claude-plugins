@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**12 / 24 minor entries** <!-- pending-tally -->
+**12 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2997-dashboard-drift · 20261014-102217Z
+
+The connector dashboard now shows each consumer's agent-def and persona drift. Before, the server ran
+`check-connectors.ps1 -SkipDrift`, so this was seen only by running the check by hand. Each card on this
+machine has a line counting dead copies, drifted agent defs and drifted personas. Agent-def drift marks
+the repo `Needs action`, as the check itself counts it. Persona drift stays informational and never
+changes a status on its own. A page build takes about 1.4 s longer
+([#2997](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2997)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the dashboard is a local maintenance view of this repo, and no consumer receives it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Connector dashboard shows agent-def and persona drift per repo
+
+[PR #3003](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3003)
+
+---
 
 ### DEPLOY: feat/2999-asana-body-html-notes · 20261014-101405Z
 
