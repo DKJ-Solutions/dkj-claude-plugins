@@ -39,11 +39,26 @@
 
 ### PLAN
 
+#### Scope
+
+Part 2 of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998): `live-preflight` gets a Git-connected mode, selected by a new optional Shopify seam `Get-ShopifyLiveDeployBranch`. It uses #3008's `Get-LivePromotionStep`, `Format-LivePromotionCommand` and the record's promoted-sha line. With the seam unanswered, the CLI push behaves exactly as before.
+
+#### Design choices
+
+- The rule-suite read counts **every** failed suite on the deploy branch in the last week, not only the Shopify bot's, because the bot's actor name has not been measured. `-AcceptRejectedWriteBacks` downgrades it to a note once a person has reconciled. An unreadable log (no admin access) is a skip, never a pass.
+- Step 3 still derives the range's rows, because the record has to list every theme file of the range for the cut. What the promotion carries is measured separately at step 6, against the deploy branch.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-LiveWriteBackStep` in `scripts/lib/live-push-rules.ps1`, pure, with its asserts in `live-push-rules.tests.ps1`.
+- [x] `live-preflight.ps1`: the seam, and connected-mode steps 3, 6 and 8 and the record. CLI mode is untouched.
+- [x] Skill page: parameter row, the connected-mode section, seam row. Shopify README: seam row. Also fixed four literal `\n` sequences in the skill page's drift paragraph.
+- [x] Mirrors regenerated (`build-shared-scripts`).
 
 ### TEST
+
+- [x] `live-push-rules.tests.ps1` 166/0, standalone.
+- [x] Smoke-run against a scratch repo with a local bare origin and a stubbed `shopify` that fails at once: connected mode measured 3 promotion paths and composed the promotion PR. A bot commit on `live` refused it with the back-flow message. With the seam removed, CLI mode printed its old steps unchanged. The rule-suite read was a skip there, since a local remote has no API.
 
 ### DEPLOY: feat/3009-live-preflight-connected-mode
 
