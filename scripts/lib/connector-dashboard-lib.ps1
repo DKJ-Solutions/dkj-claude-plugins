@@ -174,6 +174,13 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: only names the house file does not define (.cd-*), spaced from the house scale.
     [void]$sb.AppendLine('<style>')
+    # The theme reaches the page through --primary only (the house themes set nothing else), so the repo layer carries it on its own accents.
+    [void]$sb.AppendLine('.cd-band { position: fixed; top: 0; left: 0; right: 0; height: var(--spacing-1); background: var(--primary); }')
+    [void]$sb.AppendLine('.cd-head { padding-bottom: var(--spacing-3); border-bottom: 2px solid var(--primary); }')
+    [void]$sb.AppendLine('.cd-accent { border-top: 3px solid var(--primary); }')
+    [void]$sb.AppendLine('.cd-figure { color: var(--primary); }')
+    [void]$sb.AppendLine('.cd-link { color: var(--primary); text-underline-offset: 2px; }')
+    [void]$sb.AppendLine('.cd-thead th { background: var(--primary-soft); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-repo h3 { margin: 0; }')
     [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
@@ -188,8 +195,9 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
+    [void]$sb.AppendLine('<div class="cd-band" aria-hidden="true"></div>')
     [void]$sb.AppendLine('<main>')
-    [void]$sb.AppendLine('<header>')
+    [void]$sb.AppendLine('<header class="cd-head">')
     [void]$sb.AppendLine('<div><h1>Connected repos</h1>')
     $commit = if ($Meta.SourceCommit) { ' &#183; source at <code>' + (& $e $Meta.SourceCommit) + '</code>' } else { '' }
     [void]$sb.AppendLine('<p class="sub">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine' + $commit + '.</p></div>')
@@ -207,21 +215,21 @@ function Format-ConnectorDashboardHtml {
             @{ L = 'Checked out here'; V = $present },
             @{ L = 'Errors'; V = $errors },
             @{ L = 'Notes'; V = $infos })) {
-        [void]$sb.AppendLine('<div class="tile"><div class="label">' + $t.L + '</div><div class="v num">' + $t.V + '</div></div>')
+        [void]$sb.AppendLine('<div class="tile"><div class="label">' + $t.L + '</div><div class="v num cd-figure">' + $t.V + '</div></div>')
     }
     [void]$sb.AppendLine('</div>')
 
     # The overview table: one row per repo, worst first, then by name.
     $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
     $sorted = @($all | Sort-Object @{ Expression = { $rank[[string]$_.Status] } }, @{ Expression = { [string]$_.Repo } })
-    [void]$sb.AppendLine('<div class="card"><h2>Overview</h2>')
-    [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead><tr><th>Repo</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th>Errors</th><th>Notes</th><th class="cd-left">Checkout</th></tr></thead><tbody>')
+    [void]$sb.AppendLine('<div class="card cd-accent"><h2>Overview</h2>')
+    [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="cd-thead"><tr><th>Repo</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th>Errors</th><th>Notes</th><th class="cd-left">Checkout</th></tr></thead><tbody>')
     foreach ($c in $sorted) {
         $b = Get-DashboardStatusBadge ([string]$c.Status)
         $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
         $nErr = @($c.Signals | Where-Object { $_.Level -eq 'ERROR' }).Count
         $nInf = @($c.Signals | Where-Object { $_.Level -eq 'INFO' }).Count
-        [void]$sb.AppendLine('<tr><td><a href="#' + $anchor + '">' + (& $e $c.Repo) + '</a></td>' +
+        [void]$sb.AppendLine('<tr><td><a class="cd-link" href="#' + $anchor + '">' + (& $e $c.Repo) + '</a></td>' +
             '<td class="cd-left"><span class="cd-status"><span class="badge badge--sm ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span>' + $b.Word + '</span></td>' +
             '<td>' + (& $e $c.Visibility) + '</td>' +
             '<td>' + @($c.Plugins).Count + '</td>' +
@@ -234,12 +242,12 @@ function Format-ConnectorDashboardHtml {
     foreach ($c in $sorted) {
         $b = Get-DashboardStatusBadge ([string]$c.Status)
         $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-        [void]$sb.AppendLine('<section class="card" id="' + $anchor + '">')
+        [void]$sb.AppendLine('<section class="card cd-accent" id="' + $anchor + '">')
         [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h3>' + (& $e $c.Repo) + '</h3></div>')
         $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
         $ghUrl = 'https://github.com/' + (& $e $c.Repo)
         [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
-            ' &#183; <a href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
+            ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
         if ($c.Git -and $c.Git.Branch) {
             $last = if ($c.Git.Subject) { ' &#183; last commit ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) } else { '' }
             [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + (Format-DashboardGitState $c.Git) + $last + '</p>')

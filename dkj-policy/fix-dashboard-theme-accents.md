@@ -39,19 +39,39 @@
 
 ### PLAN
 
+The owner reported that picking a theme on the connector dashboard recoloured only the "Re-run the
+check" button and the settings button. The cause sits in the house style: a theme sets `--primary` and
+nothing else, and the page used `--primary` only on those two buttons. The house-level gap (links are
+not themed, and a theme reaches no shared surface) is filed upstream as
+[DKJ-Solutions/dkj-brandbook#72](https://github.com/DKJ-Solutions/dkj-brandbook/issues/72). This branch
+fixes the page in its own domain layer and leaves every house token and class alone.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connector-dashboard-lib.ps1`: `.cd-*` accents on `--primary` and `--primary-soft`. They cover a
+      band along the top edge, a rule under the header, a top border on every card, the tile figures,
+      the links, and a tinted overview table head.
+- [x] `connector-dashboard.tests.ps1`: assert that the accents reach the page.
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` green (61 passed); dashboard server restarted on the branch's lib.
+- [ ] The owner has looked at the dashboard under several themes (a visible result: waits for their eye).
+
 ### DEPLOY: fix/dashboard-theme-accents
 
-**Score:**
+The connector dashboard now carries the chosen theme across the whole page. Before, the theme showed
+only on its two buttons. The theme colour now also appears in a band along the top, a rule under the
+header, a top border on every card, the tile figures, the links and the overview table head. All of it
+is done in the page's own layer, on the house `--primary` tokens.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the dashboard is a local maintenance view of this repo, and no consumer receives it.
+
+**Score:** N/A
 
 #### Pull Request
 
