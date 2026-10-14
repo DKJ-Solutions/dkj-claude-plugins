@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**13 / 26 minor entries** <!-- pending-tally -->
+**14 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3006-research-kind-label · 20261014-130323Z
+
+In `bwj-development`, an issue now has three kinds: `bug`, `feature` and `research`. `research` is for a research, test or decision ticket that changes nothing on the store, which used to be filed as a `feature`. It fills the Asana `Github Type` field as `Task`, and `adopt-bwj-development` creates the label beside the other two. The created message on the Asana task now reads *"this Asana task is now in progress"* instead of *"now in development"*, so it is true on a research ticket too ([#3006](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3006)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store needs the `research` label before a session can file with it: `gh issue create` refuses a label the repo does not have. Re-running step 4 of `adopt-bwj-development` creates it. Requesters see *in progress* on new Asana tasks.
+
+**Score:** 2
+
+#### Pull Request
+
+bwj-development: a research kind label, and the created form says in progress
+
+Plugins: bwj-development
+
+[PR #3007](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3007)
+
+---
 
 ### DEPLOY: fix/3004-closed-message-viewing-instructions · 20261014-121943Z
 
