@@ -58,6 +58,7 @@ declined: an override is a second source of the title, which is the thing this c
 **One branch shape has no entry to derive from, and since
 [#1962](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1962) it is named from its own commit
 subject instead.** A branch whose prefix is listed in `Get-EntryGateExemptPrefixes` — `sync` by default —
+or whose whole name is listed in `Get-EntryGateExemptBranches` (#3011, named the same way)
 **owes no changelog entry**, and [`check-branch-entry`](../check-branch-entry/SKILL.md) passes it for
 exactly that reason. Deriving the title from the entry therefore left this script unable to name the one
 branch shape the CI gate deliberately waves through: measured in a consumer on `sync/live-2026-09-13`, the

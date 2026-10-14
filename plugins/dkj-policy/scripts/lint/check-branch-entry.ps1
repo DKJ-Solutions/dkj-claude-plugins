@@ -65,6 +65,10 @@
                                     carries somebody else's work rather than this repo's, so there is
                                     nothing for it to declare -- both consumers reached that answer
                                     independently, with nothing recording that it was the expected one.
+      Get-EntryGateExemptBranches   exact branch names that owe no entry, beside the prefixes rather than
+                                    instead of them. Default: none. A Git-connected live theme's back-flow
+                                    PR comes from the deploy branch itself ('live'), and listing 'live' as
+                                    a PREFIX would exempt every live-* branch too (#3011).
 
     Pure ASCII, per this repo's script-layer convention.
 
@@ -221,6 +225,11 @@ if ($Branch -eq $trunk) {
 # seam, the default and the prefix split, inline -- and open-pr.ps1 knew nothing about it, so this gate
 # passed a sync/ branch that open-pr then could not name a PR for. One definition, two readers.
 $exemptPrefix = Get-BranchEntryExemptPrefix -Branch $Branch
+if ($exemptPrefix -and $exemptPrefix -eq $Branch) {
+    # An exact name from Get-EntryGateExemptBranches (#3011) -- the lib hands the branch's own name back.
+    Write-Host "[OK] '$Branch' is an exempt branch name, which owes no entry."
+    exit 0
+}
 if ($exemptPrefix) {
     Write-Host "[OK] '$Branch' carries the exempt prefix '$exemptPrefix', which owes no entry."
     exit 0

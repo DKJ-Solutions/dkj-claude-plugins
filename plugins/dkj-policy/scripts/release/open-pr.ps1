@@ -25,7 +25,8 @@
     composes it; -Title is still accepted and ignored, see that parameter.
 
     ONE BRANCH SHAPE HAS NO ENTRY TO DERIVE FROM, and since #1962 it is named from its own commit subject
-    instead. A prefix listed in Get-EntryGateExemptPrefixes ('sync' by default) owes no changelog entry --
+    instead. A prefix listed in Get-EntryGateExemptPrefixes ('sync' by default), or an exact branch name
+    listed in Get-EntryGateExemptBranches (none by default, #3011), owes no changelog entry --
     check-branch-entry.ps1 passes it for exactly that reason -- so deriving from the entry left this script
     unable to name the one branch shape the CI gate deliberately waves through. On such a branch -Title is
     honoured too, which is not a second source of truth because there is no first one.
@@ -2802,7 +2803,9 @@ if ($existingPr) {
 if (-not $prTitle) {
     $exemptPrefix = Get-BranchEntryExemptPrefix -Branch $branch
     if ($exemptPrefix) {
-        Write-Error ("open-pr cannot name this PR -- '$branch' carries the exempt prefix '$exemptPrefix', so it owes no changelog entry, and it has no commit of its own off the trunk to be named after (#1962).`n`nCommit this branch's work and run again, or pass -Title, which IS honoured on an entry-exempt branch. Do not write an entry to satisfy the title: the prefix is exempt precisely so that work this repo is mirroring rather than authoring stays out of CHANGELOG.md.")
+        # An exact name from Get-EntryGateExemptBranches comes back as the branch itself (#3011).
+        $exemptWhat = if ($exemptPrefix -eq $branch) { 'is an exempt branch name' } else { "carries the exempt prefix '$exemptPrefix'" }
+        Write-Error ("open-pr cannot name this PR -- '$branch' $exemptWhat, so it owes no changelog entry, and it has no commit of its own off the trunk to be named after (#1962).`n`nCommit this branch's work and run again, or pass -Title, which IS honoured on an entry-exempt branch. Do not write an entry to satisfy the title: the branch is exempt precisely so that work this repo is mirroring rather than authoring stays out of CHANGELOG.md.")
     } else {
         Write-Error ("open-pr cannot name this PR -- the entry's title section is empty ($entryPath).`n`nThe PR title is composed from the branch prefix and that section (#506), so fill it in and run again. It is what CHANGELOG.md and the release documents will call this change too.")
     }

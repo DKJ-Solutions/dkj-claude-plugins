@@ -246,6 +246,13 @@ $script:ContractRecords = @(
        ViaLib = 'entry-scaffold-lib';
        Optional = $true; Default = 'sync';
        Returns = "the branch prefixes that owe no changelog entry, as a list of prefixes without their slash. A mirror or sync branch carries somebody else's work rather than this repo's, so there is nothing for it to declare -- which is why the CI gate exempts it instead of refusing it. open-pr reads the same answer to NAME such a branch's PR: with no entry to compose a title from it falls back to the branch's own oldest commit subject, and honours -Title there and nowhere else (#1962). Everything else owes an entry: an unknown prefix is NOT exempt, deliberately, because a typo in a prefix would then skip the gate silently" },
+    # ADDITIVE TO THE ROW ABOVE, NOT A REPLACEMENT FOR IT (#3011). Same two readers through the same
+    # function, so the same ViaLib.
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-EntryGateExemptBranches'; Scripts = @('check-branch-entry', 'open-pr');
+       Adopt = 'copy'; AdoptWhy = "no exemption is the shared answer: the list exists for a repo whose live theme deploys from a branch, and that repo names its own deploy branch. The source deploys no theme, so it does not declare the function at all and the blueprint carries no text for it -- which is itself the honest report";
+       ViaLib = 'entry-scaffold-lib';
+       Optional = $true; Default = 'none';
+       Returns = "exact branch names that owe no changelog entry, BESIDE Get-EntryGateExemptPrefixes rather than instead of it -- the prefix list and its 'sync' default are untouched. Built for the back-flow PR of a Git-connected live theme, whose head ref is the deploy branch itself (e.g. 'live'): listed as a prefix instead, 'live' would exempt every live-* branch too, because a slash-less branch's prefix is the part before its first '-'. A name matches the whole branch and nothing else, case-insensitively; open-pr names such a branch's PR exactly as it names a sync/ branch's (#3011)" },
     @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-EntryFallbackType'; Scripts = @('new-branch');
        Adopt = 'copy'; AdoptWhy = "'Chore' has to be a type this repo's own branch table produces, and that table travels under the same marker -- so the pair stays consistent, which it would not if one half were copied and the other decided";
        Optional = $true; Default = 'Chore';

@@ -237,7 +237,9 @@ caller can drop it.
 defaulting to `sync`. A mirror branch carries somebody else's work rather than your repo's, so it has
 nothing to declare -- both consumers reached that answer independently, with nothing recording that it was
 the expected one. An **unknown** prefix is deliberately *not* exempt: a typo would otherwise skip the gate
-in silence.
+in silence. An exact branch name goes in a second seam, `Get-EntryGateExemptBranches` (none by default),
+which adds to the prefixes rather than replacing them -- the deploy branch of a Git-connected live theme is
+the case it was built for (#3011).
 
 **The caller pins `@main` (and the reusable workflow `ref: main`) rather than a tag, and that is the one choice worth arguing** -- for this
 read-only gate; the write runners of Part 3 are pinned to a release instead, for the reason

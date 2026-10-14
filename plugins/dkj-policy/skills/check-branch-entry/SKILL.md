@@ -63,7 +63,7 @@ no evidence.
 | **no `-Pr` given** | the lock is skipped and the run says so. Every other check above still runs. |
 | a tier or score is **malformed** -- off the rubric, an unknown tier, or `N/A` under tier 0 | **exit 1**, naming the value, as `open-pr` refuses it. A value the model has no meaning for is a typo, not an unsettled judgement ([#2709](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2709)). |
 | the **significance** is not settled | **exit 0**, with the finding printed and the release cut named as where the refusal lives. |
-| the branch prefix is **exempt** | **exit 0** -- see the seam below. |
+| the branch prefix is **exempt**, or its whole name is listed | **exit 0** -- see the seams below. |
 | the branch is the **trunk** | **exit 0**, said out loud: the trunk is where having no document at all is the *designed* state. |
 
 **The significance is reported, never refused, and that is the one thing to know before you compare this
@@ -82,14 +82,15 @@ score, always.
 | `-Branch` | the branch to judge. Defaults to the current one. **CI has to pass this**: a `pull_request` checkout is a detached merge commit, so `git rev-parse --abbrev-ref HEAD` answers `HEAD` there, and the script refuses rather than guessing. |
 | `-Pr` | the PR number to hold the DEPLOY section against, which turns the **lock** on. Omitted, the lock is skipped and the run says so -- every other check here needs no PR, no token and no network, and that stays true. Pass it on a finished branch to answer *"does my PR still say what my document says?"* before `ship-pr` refuses the merge over it. |
 
-## The seam it reads
+## The seams it reads
 
 | seam | default | what it decides |
 |---|---|---|
 | `Get-EntryGateExemptPrefixes` | `sync` | branch prefixes that owe no entry, without their slash. A mirror or sync branch carries somebody else's work rather than your repo's, so it has nothing to declare -- both existing consumers reached that answer independently. |
+| `Get-EntryGateExemptBranches` | none | exact branch names that owe no entry, **beside** the prefixes rather than instead of them ([#3011](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3011)). Built for a Git-connected live theme, whose back-flow PR comes from the deploy branch itself (`live`). As a prefix, `live` would exempt every `live-*` branch too, because a branch without a slash has the part before its first `-` as its prefix. |
 
 **An unknown prefix is not exempt**, deliberately: a typo in a prefix would otherwise skip the gate in
-silence. And the seam **replaces** the default rather than adding to it, so a repo that names its own list
+silence. And the prefix seam **replaces** its default rather than adding to it, so a repo that names its own list
 keeps `sync` only by including it.
 
 **`open-pr` reads the same answer, and since
