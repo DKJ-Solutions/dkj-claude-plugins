@@ -92,5 +92,4 @@ them how to finish it. The store's copy of `asana-closed-message.ps1` has to be 
 
 asana-closed-message: the research close takes Maikel's general form (OUTCOME, the closing ask)
 
-Plugins: bwj-development
 
