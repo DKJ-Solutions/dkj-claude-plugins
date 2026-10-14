@@ -39,19 +39,36 @@
 
 ### PLAN
 
+#### Scope
+
+The first of six PRs splitting [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998) (a Git-connected live theme as a second deploy mode). Lib-only: the pure rules a later live-preflight connected mode needs, and the record line that names a promotion. No script calls them yet, so no behaviour changes.
+
+#### Dropped from the issue, with the reason
+
+The issue also proposed an anchored subject pattern for `Get-SyncMergeCommits`, so a deploy branch named `live` would not match every subject containing "live". No caller will need it: in connected mode, what a promotion carries is the exact tree diff `<deploy> <trunk>`, so the sync-provenance heuristic is never fed the deploy branch.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-LivePromotionStep` and `Format-LivePromotionCommand` in `scripts/lib/live-push-rules.ps1`. Back-flow is measured as the three-dot path diff, not a commit count, because a promotion merge commit stays on the deploy branch alone.
+- [x] `Format-LivePushRecord -PromotedSha -DeployBranch` and `Get-LivePushRecordPromotion` in `scripts/lib/live-record-lib.ps1`.
+- [x] Mirrors regenerated (shopify, bwj-development, dkj-policy).
 
 ### TEST
 
+- [x] `live-push-rules.tests.ps1` 135/0 and `live-record-lib.tests.ps1` 96/0, standalone.
+
 ### DEPLOY: feat/3008-live-promotion-verdict
 
-**Score:**
+The live-push libs gain the rules of a Git-connected live theme, where going live is a merge of the trunk into a deploy branch. `Get-LivePromotionStep` refuses while the deploy branch holds live edits the trunk lacks, and when there is nothing to promote. `Format-LivePromotionCommand` prints the `gh pr create` that opens the promotion PR. The live-push record can name the promoted commit on a `# promoted <sha> to <branch>` line, which `Get-LivePushRecordPromotion` reads back. Nothing calls them yet: this is the groundwork for [#3009](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3009) ([#3008](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3008)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
+live-push libs: the promotion rules of a Git-connected live theme

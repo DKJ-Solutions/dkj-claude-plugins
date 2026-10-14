@@ -328,6 +328,40 @@ Assert-Equal '(unnamed step)' $bare.Refusals[0].Name '...and is still nameable i
 
 Assert-True (Get-LivePreflightVerdict -Steps @()).Allowed 'an empty run has nothing that says do not push'
 
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The Git-connected live theme -- the promotion step and its command (#3008)' -ForegroundColor Cyan
+
+$ok = Get-LivePromotionStep -Trunk 'main' -DeployBranch 'live' -PromotionPaths @('sections/a.liquid', 'assets/b.css')
+Assert-Equal 'pass' $ok.State 'paths to promote and no owed back-flow pass'
+Assert-Equal 'promotion' $ok.Name '...under the step name the verdict fold reports'
+Assert-True ($ok.Detail -match '2 path') '...and the detail counts what the promotion carries'
+
+# OWED BACK-FLOW REFUSES, even with work to promote -- the cut after it would describe a theme that is not live.
+$owed = Get-LivePromotionStep -Trunk 'main' -DeployBranch 'live' -PromotionPaths @('sections/a.liquid') -BackflowPaths @('templates/index.json')
+Assert-Equal 'refuse' $owed.State 'a live edit not yet on the trunk refuses the promotion'
+Assert-True ($owed.Detail -match 'back-flow') '...and points at the back-flow PR'
+
+# NOTHING TO PROMOTE REFUSES -- and the owed back-flow is reported first when both hold.
+Assert-Equal 'refuse' (Get-LivePromotionStep -Trunk 'main' -DeployBranch 'live').State 'identical trees refuse: nothing to promote'
+Assert-True ((Get-LivePromotionStep -Trunk 'main' -DeployBranch 'live' -BackflowPaths @('x.json')).Detail -match 'back-flow') 'owed back-flow is the refusal reported when both hold'
+Assert-Equal 'refuse' (Get-LivePromotionStep -Trunk 'main' -DeployBranch 'live' -PromotionPaths @('', ' ')).State 'blank paths are not paths to promote'
+
+Assert-Equal 'refuse' (Get-LivePromotionStep -Trunk 'main' -DeployBranch 'MAIN' -PromotionPaths @('a')).State 'the deploy branch may not be the trunk'
+Assert-Equal 'refuse' (Get-LivePromotionStep -Trunk 'main' -DeployBranch 'live"; x' -PromotionPaths @('a')).State 'an unprintable deploy branch refuses'
+Assert-Equal 'refuse' (Get-LivePromotionStep -Trunk 'main' -DeployBranch 'a..b' -PromotionPaths @('a')).State 'a deploy branch holding .. refuses'
+
+# THE STEP FOLDS LIKE ANY OTHER -- a refusal blocks the whole preflight.
+Assert-True (-not (Get-LivePreflightVerdict -Steps @($ok, $owed)).Allowed) 'a refused promotion step makes the preflight refuse'
+
+# THE COMMAND IS A PULL REQUEST INTO THE DEPLOY BRANCH, never a push.
+$cmd = Format-LivePromotionCommand -Trunk 'main' -DeployBranch 'live' -Version 'v2.48.0'
+Assert-Equal 'gh pr create --base live --head main --title "promote: main to live for v2.48.0" --body "Promotes main to the live theme''s deploy branch."' $cmd 'the promotion command, exactly'
+Assert-True ($cmd -notmatch 'git push') '...and it is not a push'
+Assert-True ((Format-LivePromotionCommand -Trunk 'main' -DeployBranch 'live') -match '--title "promote: main to live"') 'without a version the title names no version'
+Assert-True $(try { Format-LivePromotionCommand -Trunk 'main' -DeployBranch 'li$(x)ve' | Out-Null; $false } catch { $true }) 'an unprintable branch name is a throw, not a command'
+Assert-True $(try { Format-LivePromotionCommand -Trunk 'main' -DeployBranch 'live' -Version '2.48"' | Out-Null; $false } catch { $true }) 'a version that is not X.Y.Z is a throw'
+
 if ($script:fail -eq 0) {
     Write-Host ''
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green

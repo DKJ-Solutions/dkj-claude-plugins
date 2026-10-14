@@ -294,6 +294,37 @@ $labelled = Format-ReleaseTaskItems -Items @([pscustomobject]@{ Title = 'Labelle
 Assert-Equal "### Labelled`n`n[Asana](https://x.test)" $labelled 'the -Label parameter is what the link text reads'
 
 Write-Host ''
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'A promotion names its commit -- the Git-connected live theme (#3008)' -ForegroundColor Cyan
+
+$promoRows = @([pscustomobject]@{ Path = 'sections/header.liquid'; Kind = 'theme-file' })
+$promoted = Format-LivePushRecord -Rows $promoRows -Range 'v2.47.0..HEAD' -DeletionsCarried -PromotedSha 'ABCDEF1234567' -DeployBranch 'live'
+Assert-True ($promoted -match "(?m)^# promoted abcdef1234567 to live$") 'the promotion line is written, the sha lower-cased'
+$back = Get-LivePushRecordPromotion -Text $promoted
+Assert-Equal 'abcdef1234567' $back.Sha '...and read back: the sha'
+Assert-Equal 'live' $back.Branch '...and the branch'
+# A COMMENT, SO THE PARSER EVERY EARLIER READER USES SEES THE SAME RECORD.
+$parsed = ConvertFrom-LivePushRecord -Text $promoted
+Assert-Equal 1 @($parsed.Live).Count 'the promotion line does not change what the record says is live'
+Assert-Equal 0 @($parsed.Hold).Count '...nor what it holds'
+
+# A CLI-PUSH RECORD HAS NO PROMOTION, and says so as $null rather than an empty object.
+Assert-True ($null -eq (Get-LivePushRecordPromotion -Text (Format-LivePushRecord -Rows $promoRows))) 'a record without a promotion reads back as $null'
+Assert-True (-not ((Format-LivePushRecord -Rows $promoRows) -match 'promoted')) '...and a CLI-push record carries no promotion line at all'
+
+# BOTH OR NEITHER, and nothing unprintable reaches a file a person edits.
+Assert-Throws -Action { Format-LivePushRecord -Rows $promoRows -PromotedSha 'abcdef1' } -Label 'a sha without its deploy branch is refused' -Contains 'both or neither'
+Assert-Throws -Action { Format-LivePushRecord -Rows $promoRows -DeployBranch 'live' } -Label 'a deploy branch without its sha is refused' -Contains 'both or neither'
+Assert-Throws -Action { Format-LivePushRecord -Rows $promoRows -PromotedSha 'not-a-sha' -DeployBranch 'live' } -Label 'a sha that is not hex is refused'
+Assert-Throws -Action { Format-LivePushRecord -Rows $promoRows -PromotedSha 'abcdef1' -DeployBranch 'live; rm -rf .' } -Label 'a deploy branch that is not a printable name is refused'
+Assert-Throws -Action { Format-LivePushRecord -Rows $promoRows -PromotedSha 'abcdef1' -DeployBranch 'a..b' } -Label 'a deploy branch holding .. is refused'
+
+# A HAND-EDITED PROMOTION LINE THAT NO LONGER PARSES IS A THROW, never "no promotion" -- that would read a
+# typo as the CLI-push reading of the same release.
+Assert-Throws -Action { Get-LivePushRecordPromotion -Text "# promoted xyz to live`nlive a.liquid`n" } -Label 'a broken promotion line is refused, not read as no promotion' -Contains 'promoted'
+Assert-Throws -Action { Get-LivePushRecordPromotion -Text "# promoted abcdef1`n" } -Label 'a promotion line with no branch is refused'
+
 if ($script:fail -eq 0) {
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green
     exit 0
