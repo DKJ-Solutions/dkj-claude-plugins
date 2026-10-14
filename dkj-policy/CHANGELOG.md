@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**11 / 22 minor entries** <!-- pending-tally -->
+**11 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/2996-dashboard-version-column · 20261014-100509Z
+
+The connector dashboard's Overview table now has an `Installed` column: the plugin version each
+repo's checkout runs on this machine, read from the check's machine-record line. Where a repo's
+plugins differ, the cell shows the lowest version and the plugin it belongs to. A repo not on this
+machine shows `-`, and a checkout with no install record says `no record`. A lagging repo is now
+visible across all registered repos at a glance, without opening each card
+([#2996](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2996)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the dashboard is a local maintenance view of this repo, and no consumer receives it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Connector dashboard shows each repo's installed plugin version
+
+[PR #3001](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3001)
+
+---
 
 ### DEPLOY: fix/2995-dashboard-unknown-tags · 20261014-094755Z
 
