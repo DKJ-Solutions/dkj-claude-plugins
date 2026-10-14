@@ -57,6 +57,39 @@ function ConvertTo-LiveRecordKey {
     return (([string]$Path).Trim() -replace '\\', '/')
 }
 
+function Test-LiveRecordPromotionValue {
+    <# Whether a promoted sha (7-40 hex) and a deploy branch (the ref pattern, no '..') may go in a record. #>
+    param([AllowNull()][string]$Sha, [AllowNull()][string]$Branch)
+    $b = [string]$Branch
+    # \A...\z and -cmatch: '$' matches before a final newline, and a case-insensitive [A-Za-z] admits the
+    # Kelvin sign (#3008's review). live-push-rules' Test-LivePromotionRef holds the same branch pattern.
+    return ([bool]([string]$Sha -cmatch '\A[0-9A-Fa-f]{7,40}\z') -and [bool]($b -cmatch '\A[A-Za-z0-9][A-Za-z0-9._/-]*\z') -and ($b -notmatch '\.\.'))
+}
+
+function Get-LivePushRecordPromotion {
+    <#
+    .SYNOPSIS
+        The promotion a record names: { Sha; Branch }, or $null for a record without one (a CLI push).
+
+    .DESCRIPTION
+        Reads the '# promoted <sha> to <branch>' line Format-LivePushRecord writes (#3008). The record is
+        edited by hand, so a line that STARTS that way and does not hold a valid sha and branch is a throw
+        rather than a $null: reading it as "no promotion" would turn a typo into the CLI-push reading of
+        the same release.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Text)
+    foreach ($raw in @(([string]$Text -replace "`r`n", "`n") -split "`n")) {
+        $line = $raw.Trim()
+        if ($line -notmatch '^#\s*promoted\s') { continue }
+        $m = [regex]::Match($line, '^#\s*promoted\s+(\S+)\s+to\s+(\S+)$')
+        if (-not $m.Success -or -not (Test-LiveRecordPromotionValue -Sha $m.Groups[1].Value -Branch $m.Groups[2].Value)) {
+            throw "live-push record: the 'promoted' line is not '# promoted <sha> to <branch>'."
+        }
+        return [pscustomobject]@{ Sha = $m.Groups[1].Value.ToLower(); Branch = $m.Groups[2].Value }
+    }
+    return $null
+}
+
 function Format-LivePushRecord {
     <#
     .SYNOPSIS
@@ -76,15 +109,34 @@ function Format-LivePushRecord {
         THE HEADER SAYS WHAT TO DO WITH THE FILE, because the person who reads it is holding a push
         command and is about to decide what goes into it. It names the range, so a record left over
         from an earlier release is recognisable as one.
+
+        A PROMOTION NAMES ITS COMMIT (#3008). Where the live theme is Git-connected and goes live by a
+        merge of the trunk into a deploy branch (#2998), -PromotedSha and -DeployBranch add one more
+        comment line, '# promoted <sha> to <branch>', which Get-LivePushRecordPromotion reads back. A
+        comment, so ConvertFrom-LivePushRecord and every reader that predates it see the same record. Both
+        or neither: a sha without the branch it went to says nothing a reader can check, and a value that
+        is not a hex sha or not a printable branch name is a throw, since it would be written into a file
+        a person edits and a later run trusts.
     #>
     param(
         [AllowNull()][AllowEmptyCollection()][object[]]$Rows = @(),
         [string]$Range = '',
-        [switch]$DeletionsCarried
+        [switch]$DeletionsCarried,
+        [string]$PromotedSha = '',
+        [string]$DeployBranch = ''
     )
+    $sha = ([string]$PromotedSha).Trim()
+    $branch = ([string]$DeployBranch).Trim()
+    if ([bool]$sha -ne [bool]$branch) {
+        throw 'Format-LivePushRecord: -PromotedSha and -DeployBranch go together -- pass both or neither.'
+    }
+    if ($sha -and (-not (Test-LiveRecordPromotionValue -Sha $sha -Branch $branch))) {
+        throw 'Format-LivePushRecord: the promoted sha is not 7-40 hex characters, or the deploy branch is not a printable branch name.'
+    }
     $deletedVerb = if ($DeletionsCarried) { 'live' } else { 'hold' }
     $out = New-Object System.Collections.Generic.List[string]
     $out.Add('# live-push record -- written by live-preflight' + $(if ($Range) { " for $Range" } else { '' }))
+    if ($sha) { $out.Add("# promoted $($sha.ToLower()) to $branch") }
     $out.Add('# One line per theme file in the range: "live <path>" means its change is on the live theme after this push,')
     $out.Add('# "hold <path>" means it is not. If you hold a file back from the push, change its "live" to "hold".')
     if ($DeletionsCarried) {

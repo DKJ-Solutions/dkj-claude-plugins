@@ -536,3 +536,112 @@ function Get-LivePreflightVerdict {
         Summary  = $summary
     }
 }
+
+# ---------------------------------------------------------------------------------------------------
+# THE GIT-CONNECTED LIVE THEME (#2998, #3008). A second deploy mode beside the CLI push: the live theme is
+# connected through Shopify's GitHub integration to a protected DEPLOY BRANCH, going live is a merge of
+# the trunk into it, and Shopify's own bot commits editor and app saves straight onto it. The two
+# functions below are the rules of that mode that can be judged without git; the caller measures, these
+# decide. Measured in BWJ-Development/smartwatchbanden#943 (October 14, 2026), the consumer that asked:
+# the deploy branch's ruleset carries a pull_request rule, so the promotion is a PULL REQUEST, never a
+# push -- and the Shopify GitHub app needs an Always-allow bypass on that ruleset for its write-back.
+
+# A branch name this file prints inside a command a person pastes. The same character set as
+# ref-print-lib.ps1's ref pattern, restated because this file is dependency-free by registration.
+# \A...\z AND -cmatch, BOTH MEASURED IN REVIEW (#3008): .NET's '$' also matches before a final newline,
+# so 'live<LF>' passed and printed a two-line command; and a case-insensitive match lets the Kelvin sign
+# (U+212A) satisfy [A-Za-z]. Live-record-lib's Test-LiveRecordPromotionValue holds the same pattern, and
+# a test holds the two to the same answers.
+$script:LivePromotionRefPattern = '\A[A-Za-z0-9][A-Za-z0-9._/-]*\z'
+
+function Test-LivePromotionRef {
+    <# Whether a branch name is safe to print in a pasted command: the ref pattern, and no '..'. #>
+    param([AllowNull()][string]$Name)
+    $n = [string]$Name
+    return ([bool]($n -cmatch $script:LivePromotionRefPattern) -and ($n -notmatch '\.\.'))
+}
+
+function Get-LivePromotionStep {
+    <#
+    .SYNOPSIS
+        The promotion step of a Git-connected live preflight, as a step Get-LivePreflightVerdict folds:
+        { Name = 'promotion'; State = 'pass' | 'refuse'; Detail }.
+
+    .DESCRIPTION
+        TWO PATH LISTS, BECAUSE TWO DIFFERENT QUESTIONS ARE ASKED AND COMMIT COUNTS ANSWER NEITHER.
+
+          -BackflowPaths   `git diff --name-only <trunk>...<deploy>` (THREE dots): what the deploy branch
+                           changed since it last met the trunk. These are the Shopify bot's saves, which
+                           are live and not yet on the trunk. Non-empty means a back-flow PR (deploy into
+                           trunk) is owed before anything is promoted: the cut that follows a promotion
+                           describes the trunk, and while the trunk lacks what live holds, the tag would
+                           describe a theme that is not the live one.
+          -PromotionPaths  `git diff --name-only <deploy> <trunk>` (TWO dots, tree against tree): exactly
+                           the paths the promotion merge carries. Empty means there is nothing to promote.
+
+        WHY NOT `git rev-list --count`. A promotion PR merges with a merge commit, and that commit sits
+        on the deploy branch and nowhere else, so `trunk..deploy` is never empty again after the first
+        promotion. Counting it as owed back-flow would refuse every release after the first. The
+        three-dot diff measures content, and a merge commit that changed nothing has no paths.
+        Symmetrically, a back-flow merge leaves a commit on the trunk alone, so `deploy..trunk` can
+        hold commits while the trees are identical; the two-dot tree diff does not count them.
+
+        THE ORDER OF THE REFUSALS. An unsafe branch name first, since every later sentence would print
+        it. The owed back-flow before the empty promotion, because it is the one with something to do.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Trunk,
+        [Parameter(Mandatory)][string]$DeployBranch,
+        [AllowNull()][AllowEmptyCollection()][string[]]$PromotionPaths = @(),
+        [AllowNull()][AllowEmptyCollection()][string[]]$BackflowPaths = @()
+    )
+    $name = 'promotion'
+    if (-not (Test-LivePromotionRef $Trunk) -or -not (Test-LivePromotionRef $DeployBranch)) {
+        return [pscustomobject]@{ Name = $name; State = 'refuse'; Detail = 'the trunk or the deploy branch has a name that is not safe to print in a command, so no promotion is composed' }
+    }
+    if ($Trunk -ieq $DeployBranch) {
+        return [pscustomobject]@{ Name = $name; State = 'refuse'; Detail = "the deploy branch is the trunk itself ('$Trunk'), so there is nothing to promote between them -- the deploy-branch seam should name the branch the live theme is connected to" }
+    }
+    $back = @(@($BackflowPaths) | Where-Object { $_ -and ([string]$_).Trim() })
+    $prom = @(@($PromotionPaths) | Where-Object { $_ -and ([string]$_).Trim() })
+    if ($back.Count -gt 0) {
+        return [pscustomobject]@{ Name = $name; State = 'refuse'; Detail = "$DeployBranch holds $($back.Count) changed path(s) that are not on $Trunk yet (live edits) -- land the back-flow PR ($DeployBranch into $Trunk, sync-main) first" }
+    }
+    if ($prom.Count -eq 0) {
+        return [pscustomobject]@{ Name = $name; State = 'refuse'; Detail = "$DeployBranch and $Trunk hold the same tree -- there is nothing to promote" }
+    }
+    return [pscustomobject]@{ Name = $name; State = 'pass'; Detail = "the promotion carries $($prom.Count) path(s) from $Trunk to $DeployBranch" }
+}
+
+function Format-LivePromotionCommand {
+    <#
+    .SYNOPSIS
+        The `gh pr create` command that opens the promotion PR (trunk into the deploy branch). Never run.
+
+    .DESCRIPTION
+        A PULL REQUEST AND NOT `git push origin <trunk>:<deploy>`, because the consumer's deploy ruleset
+        requires one (#943), and a direct push is rejected there. It is printed for the same reason
+        Format-LivePushCommand prints rather than runs: a green preflight says the checklist is complete,
+        never that going live is authorised, and the merge of this PR is that act.
+
+        THE TITLE IS BUILT HERE FROM VALIDATED PARTS ONLY -- the two branch names under the ref pattern and
+        a version of ASCII digits X.Y.Z -- so the double quotes around it hold in PowerShell, bash and cmd
+        alike: nothing inside them can be a quote, a '$' or a backtick. An unsafe name is a throw, the
+        backstop Format-LivePushCommand keeps; a caller should refuse through Get-LivePromotionStep first.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Trunk,
+        [Parameter(Mandatory)][string]$DeployBranch,
+        [string]$Version = ''
+    )
+    if (-not (Test-LivePromotionRef $Trunk) -or -not (Test-LivePromotionRef $DeployBranch)) {
+        throw 'Format-LivePromotionCommand: a branch name is not safe to paste into a command; refuse through Get-LivePromotionStep first.'
+    }
+    $v = ([string]$Version).Trim().TrimStart('v')
+    # [0-9] and not \d: .NET's \d is every Unicode decimal digit, so U+0663 passed in review.
+    if ($v -and $v -cnotmatch '\A[0-9]+\.[0-9]+\.[0-9]+\z') {
+        throw 'Format-LivePromotionCommand: the version is not X.Y.Z, so it is not printed.'
+    }
+    $title = "promote: $Trunk to $DeployBranch" + $(if ($v) { " for v$v" } else { '' })
+    return "gh pr create --base $DeployBranch --head $Trunk --title `"$title`" --body `"Promotes $Trunk to the live theme's deploy branch.`""
+}
