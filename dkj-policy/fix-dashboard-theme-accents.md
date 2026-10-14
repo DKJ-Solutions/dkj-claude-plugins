@@ -56,7 +56,7 @@ fixes the page in its own domain layer and leaves every house token and class al
 ### TEST
 
 - [x] `connector-dashboard.tests.ps1` green (60 passed, the new assert among them); dashboard server restarted on the branch's lib.
-- [ ] The owner has looked at the dashboard under several themes (a visible result: waits for their eye).
+- [x] The owner has looked at the dashboard under several themes and approved it ("open de PR").
 
 ### DEPLOY: fix/dashboard-theme-accents
 
