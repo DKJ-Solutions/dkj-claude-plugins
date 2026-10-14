@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**14 / 27 minor entries** <!-- pending-tally -->
+**14 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3008-live-promotion-verdict · 20261014-132737Z
+
+The live-push libs gain the rules of a Git-connected live theme, where going live is a merge of the trunk into a deploy branch. `Get-LivePromotionStep` refuses while the deploy branch holds live edits the trunk lacks, and when there is nothing to promote. `Format-LivePromotionCommand` prints the `gh pr create` that opens the promotion PR. The live-push record can name the promoted commit on a `# promoted <sha> to <branch>` line, which `Get-LivePushRecordPromotion` reads back. Nothing calls them yet: this is the groundwork for [#3009](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3009) ([#3008](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3008)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+live-push libs: the promotion rules of a Git-connected live theme
+
+Plugins: bwj-development, dkj-policy, dkj-subagents-shopify
+
+[PR #3016](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3016)
+
+---
 
 ### DEPLOY: feat/3006-research-kind-label · 20261014-130323Z
 
