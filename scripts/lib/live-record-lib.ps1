@@ -61,7 +61,9 @@ function Test-LiveRecordPromotionValue {
     <# Whether a promoted sha (7-40 hex) and a deploy branch (the ref pattern, no '..') may go in a record. #>
     param([AllowNull()][string]$Sha, [AllowNull()][string]$Branch)
     $b = [string]$Branch
-    return ([bool]([string]$Sha -match '^[0-9A-Fa-f]{7,40}$') -and [bool]($b -match '^[A-Za-z0-9][A-Za-z0-9._/-]*$') -and ($b -notmatch '\.\.'))
+    # \A...\z and -cmatch: '$' matches before a final newline, and a case-insensitive [A-Za-z] admits the
+    # Kelvin sign (#3008's review). live-push-rules' Test-LivePromotionRef holds the same branch pattern.
+    return ([bool]([string]$Sha -cmatch '\A[0-9A-Fa-f]{7,40}\z') -and [bool]($b -cmatch '\A[A-Za-z0-9][A-Za-z0-9._/-]*\z') -and ($b -notmatch '\.\.'))
 }
 
 function Get-LivePushRecordPromotion {

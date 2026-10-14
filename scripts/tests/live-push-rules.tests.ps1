@@ -362,6 +362,21 @@ Assert-True ((Format-LivePromotionCommand -Trunk 'main' -DeployBranch 'live') -m
 Assert-True $(try { Format-LivePromotionCommand -Trunk 'main' -DeployBranch 'li$(x)ve' | Out-Null; $false } catch { $true }) 'an unprintable branch name is a throw, not a command'
 Assert-True $(try { Format-LivePromotionCommand -Trunk 'main' -DeployBranch 'live' -Version '2.48"' | Out-Null; $false } catch { $true }) 'a version that is not X.Y.Z is a throw'
 
+# THREE INPUTS THE REVIEW MEASURED PASSING A '^...$' -match (#3008): a trailing newline ('$' matches
+# before it), the Kelvin sign (case-insensitive [A-Za-z]) and an Arabic-Indic digit (\d is Unicode).
+$kelvin = 'live' + [char]0x212A
+Assert-True (-not (Test-LivePromotionRef "live`n")) 'a branch name with a trailing newline is not printable'
+Assert-True (-not (Test-LivePromotionRef "live`r`n")) '...nor with a trailing CRLF'
+Assert-True (-not (Test-LivePromotionRef $kelvin)) 'the Kelvin sign is not an ASCII letter'
+Assert-True $(try { Format-LivePromotionCommand -Trunk 'main' -DeployBranch "live`n" | Out-Null; $false } catch { $true }) 'a trailing newline never reaches a printed command'
+Assert-True $(try { Format-LivePromotionCommand -Trunk 'main' -DeployBranch 'live' -Version ('2.4' + [char]0x0663 + '.0') | Out-Null; $false } catch { $true }) 'a Unicode digit is not a version digit'
+
+# THE TWO VALIDATORS HOLD ONE PATTERN IN TWO DEPENDENCY-FREE FILES, so they are held to the same answers.
+. (Join-Path $RepoRoot 'scripts\lib\live-record-lib.ps1')
+foreach ($name in @('live', 'main', 'release/v2', 'a.b_c-d', '-live', 'a..b', "live`n", 'li ve', 'li"ve', $kelvin, '')) {
+    Assert-Equal (Test-LivePromotionRef $name) (Test-LiveRecordPromotionValue -Sha 'abcdef1' -Branch $name) "the push rules and the record agree on '$($name -replace "`n", '\n')'"
+}
+
 if ($script:fail -eq 0) {
     Write-Host ''
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green

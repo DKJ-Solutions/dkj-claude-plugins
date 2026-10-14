@@ -548,13 +548,17 @@ function Get-LivePreflightVerdict {
 
 # A branch name this file prints inside a command a person pastes. The same character set as
 # ref-print-lib.ps1's ref pattern, restated because this file is dependency-free by registration.
-$script:LivePromotionRefPattern = '^[A-Za-z0-9][A-Za-z0-9._/-]*$'
+# \A...\z AND -cmatch, BOTH MEASURED IN REVIEW (#3008): .NET's '$' also matches before a final newline,
+# so 'live<LF>' passed and printed a two-line command; and a case-insensitive match lets the Kelvin sign
+# (U+212A) satisfy [A-Za-z]. Live-record-lib's Test-LiveRecordPromotionValue holds the same pattern, and
+# a test holds the two to the same answers.
+$script:LivePromotionRefPattern = '\A[A-Za-z0-9][A-Za-z0-9._/-]*\z'
 
 function Test-LivePromotionRef {
     <# Whether a branch name is safe to print in a pasted command: the ref pattern, and no '..'. #>
     param([AllowNull()][string]$Name)
     $n = [string]$Name
-    return ([bool]($n -match $script:LivePromotionRefPattern) -and ($n -notmatch '\.\.'))
+    return ([bool]($n -cmatch $script:LivePromotionRefPattern) -and ($n -notmatch '\.\.'))
 }
 
 function Get-LivePromotionStep {
@@ -621,7 +625,7 @@ function Format-LivePromotionCommand {
         never that going live is authorised, and the merge of this PR is that act.
 
         THE TITLE IS BUILT HERE FROM VALIDATED PARTS ONLY -- the two branch names under the ref pattern and
-        a version under ^\d+\.\d+\.\d+$ -- so the double quotes around it hold in PowerShell, bash and cmd
+        a version of ASCII digits X.Y.Z -- so the double quotes around it hold in PowerShell, bash and cmd
         alike: nothing inside them can be a quote, a '$' or a backtick. An unsafe name is a throw, the
         backstop Format-LivePushCommand keeps; a caller should refuse through Get-LivePromotionStep first.
     #>
@@ -634,7 +638,8 @@ function Format-LivePromotionCommand {
         throw 'Format-LivePromotionCommand: a branch name is not safe to paste into a command; refuse through Get-LivePromotionStep first.'
     }
     $v = ([string]$Version).Trim().TrimStart('v')
-    if ($v -and $v -notmatch '^\d+\.\d+\.\d+$') {
+    # [0-9] and not \d: .NET's \d is every Unicode decimal digit, so U+0663 passed in review.
+    if ($v -and $v -cnotmatch '\A[0-9]+\.[0-9]+\.[0-9]+\z') {
         throw 'Format-LivePromotionCommand: the version is not X.Y.Z, so it is not printed.'
     }
     $title = "promote: $Trunk to $DeployBranch" + $(if ($v) { " for v$v" } else { '' })
