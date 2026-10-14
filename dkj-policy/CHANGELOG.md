@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**15 / 29 minor entries** <!-- pending-tally -->
+**16 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3009-live-preflight-connected-mode · 20261014-143200Z
+
+`live-preflight` gains a Git-connected mode for a live theme that deploys from a branch through Shopify's GitHub integration. Answer the new optional seam `Get-ShopifyLiveDeployBranch` with that branch, and the preflight verifies a promotion instead of printing a push. It refuses while the branch holds live edits the trunk lacks, and when there is nothing to promote. It refuses on a push the branch's ruleset rejected since the last promotion, read from GitHub's rule-suite log, because a rejected Shopify write-back shows nowhere else; `-AcceptRejectedWriteBacks` passes it once reconciled. It prints the `gh pr create` that opens the promotion PR, and the live-push record names the promoted commit. With the seam unanswered, nothing changes ([#3009](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3009), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store whose live theme is connected to a branch can run the preflight for its release at all. Until now the preflight printed a theme push that such a store must never run. A store that has not set the seam sees no difference.
+
+**Score:** 3
+
+#### Pull Request
+
+live-preflight: verify a promotion when the live theme deploys from a branch
+
+Plugins: bwj-development, dkj-subagents-shopify
+
+[PR #3019](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3019)
+
+---
 
 ### DEPLOY: feat/3017-research-closed-outcome-form · 20261014-142141Z
 
