@@ -39,11 +39,27 @@
 
 ### PLAN
 
+#### Scope
+
+Part 3 of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998): when `Get-ShopifyLiveDeployBranch` names a branch, `sync-main` opens the deploy-branch->trunk back-flow PR instead of pulling live into a mirror. The CLI model is untouched.
+
+#### Design choices
+
+- Back-flow is measured as content, `git diff --name-status <trunk>...<deploy>` (three dots), not as a commit count. This is the reasoning #3008 gave `Get-LivePromotionStep`: a promotion's merge commit stays on the deploy branch.
+- The standing-predecessor guard becomes "an open PR with that head". It is reported, not duplicated, and an unreadable PR list refuses a real run.
+- It never merges, whatever `Get-ShopifySyncMerges` says, because the back-flow must be a merge commit and the PR is the moment somebody looks. It warns when `Get-PrMergeMethod` is not `merge`.
+- The two required seams (store, theme id) are not required in this mode, because nothing is pulled from the store. No sync log entry is written, because there is no sync branch to carry it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ConvertFrom-BackflowNameStatus` and `New-SyncPrBody -Backflow` in `scripts/lib/sync-rules.ps1`.
+- [x] `sync-main.ps1`: the seam, the relaxed refusals, step 2b, and the docstring's seam list.
+- [x] `sync-main` skill page: the seam row and the connected-mode section. Shopify README: the seam row names `sync-main` too.
+- [x] Mirrors regenerated.
 
 ### TEST
+
+- [x] `sync-rules.tests.ps1` 191/0, and `sync-main.tests.ps1` 174/0 with ten fixture cases for connected mode: level branches end cleanly without store seams; a bot commit is counted and named; no CLI step runs; no branch is created; a real run refuses when it cannot read the PR list; an option-shaped or trunk-named deploy branch is refused. The network-call count moves 12 -> 15 and `native-capture`'s audited count 91 -> 94, each with its audit note.
 
 ### DEPLOY: feat/3010-sync-main-backflow-pr
 
