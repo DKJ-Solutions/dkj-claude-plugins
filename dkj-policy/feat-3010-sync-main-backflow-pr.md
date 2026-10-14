@@ -61,13 +61,19 @@ Part 3 of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/299
 
 - [x] `sync-rules.tests.ps1` 191/0, and `sync-main.tests.ps1` 174/0 with ten fixture cases for connected mode: level branches end cleanly without store seams; a bot commit is counted and named; no CLI step runs; no branch is created; a real run refuses when it cannot read the PR list; an option-shaped or trunk-named deploy branch is refused. The network-call count moves 12 -> 15 and `native-capture`'s audited count 91 -> 94, each with its audit note.
 
+- [x] Review (Victor, Sebastian): no bugs. Connected mode now numbers its own two steps. Sebastian's markdown-in-the-PR-body finding predates this branch (`Get-SyncPrBodySection` serves the CLI body too) and is filed as #3020. His `"`-in-an-argument point does not apply to a bounded call, which runs through the lib's own quoter.
+
 ### DEPLOY: feat/3010-sync-main-backflow-pr
 
-**Score:**
+`sync-main` gains a Git-connected mode. Where `Get-ShopifyLiveDeployBranch` names the branch a live theme deploys from, it no longer pulls live into a mirror. It measures what that branch changed since it last met the trunk, and opens the deploy-branch->trunk back-flow PR with every path and its kind in the body. Where such a PR is already open it reports it rather than opening a second, and it never merges: the back-flow has to be a merge commit, and the run says so. Store and theme id are not needed in this mode. With the seam unanswered, nothing changes ([#3010](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3010), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store whose live theme is connected to a branch can run its pre-task sync at all. Until now `sync-main` pulled live through the CLI, which such a store does not use. A store that has not set the seam sees no difference.
+
+**Score:** 3
 
 #### Pull Request
 

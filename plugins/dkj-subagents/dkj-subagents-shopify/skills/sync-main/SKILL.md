@@ -297,6 +297,35 @@ default beside it. `adopt-shopify-floor` writes the block; the two required ones
 | `Get-ShopifySyncPrLabels` | *(none)* | the label(s) the sync PR carries. Returns a string or an array of them; empty and absent both mean no label. Answer it where a guardrail workflow fails an unlabelled PR. |
 | `Get-TrunkBranchName` | `main` | the trunk. |
 | `Get-PrMergeMethod` | `merge` | read only when `Get-ShopifySyncMerges` is true. |
+| `Get-ShopifyLiveDeployBranch` | `''` (the CLI model) | the branch a **Git-connected** live theme deploys from. Named, the run opens the back-flow PR instead -- see [A Git-connected live theme](#a-git-connected-live-theme-the-back-flow-pr-3010). The two required seams above are then not needed. |
+
+## A Git-connected live theme: the back-flow PR (#3010)
+
+**Where `Get-ShopifyLiveDeployBranch` names a branch, the live theme is connected to it** through
+Shopify's GitHub integration (#2998). Live's drift already arrives as commits on that branch, because
+Shopify's bot commits every theme-editor, code-editor and app save straight onto it. So there is no pull,
+no mirror and no content rule (git merges three-way). The whole job is one pull request, deploy branch
+into trunk:
+
+1. Clean tree and trunk fast-forward, as in the CLI model.
+2. Fetch both branches and read `git diff --name-status <trunk>...<deploy>` (three dots): what the
+   deploy branch changed since the two last met. **Content, not commits**: a promotion's merge commit
+   lives on the deploy branch alone, so a commit count would never read zero again. Nothing changed, and
+   the run ends.
+3. An open PR with the deploy branch as its head is **reported, not duplicated**: the PR follows the
+   branch, so a new bot commit is already in it. A PR list it cannot read refuses a real run, because
+   *unknown* is not *none open*.
+4. Otherwise it **opens** the PR, with the body `New-SyncPrBody -Backflow` composes (every path with its
+   kind) or `Get-ShopifySyncPrBody`'s, and `Get-ShopifySyncPrLabels`' labels.
+
+**It never merges, whatever `Get-ShopifySyncMerges` says.** Merge it with a **merge commit**: the next
+back-flow is measured from the merge base, and a squash or a rebase leaves the base where it was, so every
+edit would read as owed again. The run warns when `Get-PrMergeMethod` answers otherwise. `-DryRun`
+reports the paths and the PR it would open, and writes nothing. No sync log entry is written in this
+mode, because there is no sync branch to carry it.
+
+**The back-flow PR's head ref is the deploy branch itself** (`live`, not a `sync/` branch), so the entry
+gate of a repo on `dkj-policy` does not exempt it by prefix. #3011 adds the exemption for it.
 
 **Why the default pattern carries a capital.** The two consumers that wrote this script spell their sync
 commits differently: one writes `sync: live theme drift <date>`, the other has written `Sync main with
