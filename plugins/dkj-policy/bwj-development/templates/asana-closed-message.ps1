@@ -26,11 +26,17 @@
         the issue (build-golive-block.ps1). That block is the "new form": TE BEKIJKEN OP, WAT ER NU
         ANDERS IS, WANNEER HET LIVE KOMT, WAT ER BEWUST NIET IN ZIT, WAT WE VAN JE VRAGEN.
       - A close as completed whose newest block is a RESEARCH block (build-golive-block.ps1 -Research,
-        #3004): the header, the research closed line -- 'is now closed. Nothing has changed. This issue
-        was for research purposes only.' -- and the block's WHAT WE FOUND section under it. A research,
-        test or decision ticket changed nothing on the store, so the reopen line ('when something is
-        still not working as expected') would describe a result that does not exist. The block carries a
-        second marker (Get-AsanaResearchBlockMarker) beside its own, and that is how it is recognised.
+        #3004): Maikel's general form (#3017) -- the header, the research closed line ('is now closed:
+        the Asana task is ready for review. Read the outcome below.'), the block's OUTCOME section as a
+        bulleted list, and the closing ask: 'Is anything still unclear? Leave a comment on this task. No
+        more questions? Move the task to '<done section>' and mark it as complete.' A research, test or
+        decision ticket changed nothing on the store, so the reopen line ('when something is still not
+        working as expected') would describe a result that does not exist. The block carries a second
+        marker (Get-AsanaResearchBlockMarker) beside its own, and that is how it is recognised.
+        THE DONE SECTION IS THE BOARD'S OWN NAME, NEVER A FIXED '4. Done' (#3017): the code the repo's
+        Get-AsanaStageMap gives the Completed stage, matched against the sections of the task's own
+        board (Resolve-DoneSectionName). Where any step of that does not answer, the ask says 'Mark the
+        task as complete.' and names no section, rather than one this run could not confirm.
       - A close as completed that CARRIES NO BLOCK, for any reason: the header, the closed line, and one
         sentence under them -- 'The result message for this round follows.' NEVER THE CLOSED LINE ALONE
         (Maikel, October 14, 2026, #3004): 'with this automation there must always be an explanation of
@@ -93,13 +99,20 @@
     THE TASK IT WRITES TO is the one the issue body's marker names, and whoever can edit the body can
     point that marker at any task the token reaches. That is the retired
     asana-mirror's trust model unchanged, and it is accepted rather than closed here: the write is one
-    comment, and checking the task's project would need a project read this workflow deliberately does
-    without. A reopen (#2854) is one more trigger on that same model, not a new one: an issue's author
-    can reopen it, but what a reopen posts is fixed text, with nothing from the issue in it.
+    comment, and checking the task's project against a configured one is a check this workflow
+    deliberately does without. The board read for the done section (#3017) is no such check: it reads
+    the sections of whichever board the task is on, to NAME one in the ask, and gates nothing. A reopen
+    (#2854) is one more trigger on that same model, not a new one: an issue's author can reopen it, but
+    what a reopen posts is fixed text, with nothing from the issue in it.
+
+    THE REPO'S STAGE MAP IS READ AS TEXT, NEVER RUN (#3017). scripts/repo-config.ps1 is the repo's own
+    seam file, and dot-sourcing it in a job that holds ASANA_PAT would run whatever it, and everything
+    it dot-sources in turn, does. The one value needed is the Completed code inside Get-AsanaStageMap,
+    and Get-RepoStageCode reads that with a pattern.
 
     IT PRINTS NOTHING ANOTHER PERSON WROTE. The only foreign text this run could meet is a task name, a
-    comment body or an Asana API error message, and none of them is printed: a failed post reports its
-    HTTP status and nothing else. The one error text it does print is gh's own stderr on a failed
+    comment body, a board's section name or an Asana API error message, and none of them is printed: a
+    failed post reports its HTTP status and nothing else. The one error text it does print is gh's own stderr on a failed
     comment read (#2875) -- GitHub's API or auth message, never a comment -- because a read that failed
     silently was once logged as an issue with no block on it, and the cause could not be recovered.
 
@@ -108,7 +121,9 @@
     which 'issues: read' covers; the GraphQL read it replaced answered nothing on the runner (#2875).
     The issue's last reopen is read the same way ('gh api .../issues/<n>/events', Get-IssueReopenApiArgs),
     and only when a block is there to judge (#2968).
-    There is no project, workspace or Projects token: a comment addresses its task by GID alone.
+    There is no project, workspace or Projects token: a comment addresses its task by GID alone. The
+    ASANA_PAT also makes the two reads a research close needs for its done section (#3017): the task's
+    board memberships, then that board's sections. Nothing else is read from Asana.
 
     The script runs its main flow only when invoked directly; dot-sourcing it loads the pure helpers and
     does nothing else, which is how the suite exercises them.
@@ -132,7 +147,11 @@ param(
     # awaiting-info-client makes it the on-hold message. Empty from a workflow copied before #2902, which
     # leaves a not-planned close silent as it was.
     [string]$IssueLabels = $env:ISSUE_LABELS,
-    [string]$AsanaPat = $env:ASANA_PAT
+    [string]$AsanaPat = $env:ASANA_PAT,
+    # The repo's seam file, read as TEXT for the Completed stage code a research close names its done
+    # section by (#3017). Empty means the checkout's own, two levels above this script, resolved in
+    # Invoke-Main: $PSScriptRoot is empty in a param default when the file is dot-sourced from a prompt.
+    [string]$RepoConfigPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -208,13 +227,29 @@ function Get-ClosedMessageHeader {
 
 function Get-ClosedMessageTail {
     <#
-        Pure: what follows 'is now closed.' in the closed sentence. The result form invites a reopen
-        (#2700); the research form (#3004) says nothing changed, because a research, test or decision
-        ticket has no result that can be 'not working as expected'. Maikel's wording, October 14, 2026.
+        Pure: what follows 'is now closed' in the closed sentence, its own punctuation first. The result
+        form invites a reopen (#2700); the research form says the task is ready for review and points at
+        the outcome below it (#3017, Maikel, October 14, 2026, replacing #3004's 'Nothing has changed.
+        This issue was for research purposes only.'), because a research, test or decision ticket has no
+        result that can be 'not working as expected'. Both are fixed and fit every ticket.
     #>
     param([switch]$Research)
-    if ($Research) { return 'Nothing has changed. This issue was for research purposes only.' }
-    return 'It can be reopened anytime when something is still not working as expected.'
+    if ($Research) { return ': the Asana task is ready for review. Read the outcome below.' }
+    return '. It can be reopened anytime when something is still not working as expected.'
+}
+
+function Get-ClosedMessageAsk {
+    <#
+        Pure: the closing ask under a research close's outcome (#3017), fixed and English on every
+        board. -DoneSection is the board's own name for its done column (Resolve-DoneSectionName), so
+        the line stays true where that column is not called '4. Done'; without one the ask names no
+        section, because a name this run could not confirm would send the requester to a column that
+        is not there.
+    #>
+    param([AllowEmptyString()][string]$DoneSection = '')
+    $unclear = 'Is anything still unclear? Leave a comment on this task.'
+    if ($DoneSection) { return "$unclear No more questions? Move the task to '$DoneSection' and mark it as complete." }
+    return "$unclear No more questions? Mark the task as complete."
 }
 
 function New-ClosedMessage {
@@ -227,7 +262,7 @@ function New-ClosedMessage {
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [switch]$Research
     )
-    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed. $(Get-ClosedMessageTail -Research:$Research)") -join "`n")
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageTail -Research:$Research)") -join "`n")
 }
 
 function Get-PasteBlockSections {
@@ -275,64 +310,96 @@ function ConvertTo-AsanaStoryHtml {
         line (capitals and spaces) becomes <strong>, '[text](url)' and a bare http(s) URL become <a>,
         and '**x**' becomes <strong>. Everything else is XML-escaped, so the body is always well-formed:
         a malformed one is answered 400 and the requester is told nothing. Newlines survive as written.
-    #>
-    param([AllowEmptyString()][string]$Markdown)
 
-    $esc = { param($s) ConvertTo-AsanaXmlText -Text $s }
-    $out = foreach ($line in (([string]$Markdown) -split "`r?`n")) {
-        if ($line -cmatch '^[A-Z][A-Z /]*[A-Z]$') { "<strong>$(& $esc $line)</strong>"; continue }
-        $sb  = New-Object System.Text.StringBuilder
-        $pos = 0
-        foreach ($m in [regex]::Matches($line, '\[([^\]]+)\]\((https?://[^)\s]+)\)|(https?://[^\s<>()]+)|\*\*([^*]+)\*\*')) {
-            [void]$sb.Append((& $esc $line.Substring($pos, $m.Index - $pos)))
-            if ($m.Groups[1].Success) {
-                [void]$sb.Append("<a href=`"$(& $esc $m.Groups[2].Value)`">$(& $esc $m.Groups[1].Value)</a>")
-            } elseif ($m.Groups[3].Success) {
-                # A bare URL at the end of a sentence would swallow its full stop and link to a page that
-                # does not exist (code review, #2818), so trailing punctuation goes back into the text.
-                $bare  = $m.Groups[3].Value
-                $trail = ([regex]::Match($bare, '[.,;:!?]+$')).Value
-                if ($trail) { $bare = $bare.Substring(0, $bare.Length - $trail.Length) }
-                [void]$sb.Append("<a href=`"$(& $esc $bare)`">$(& $esc $bare)</a>$(& $esc $trail)")
-            } else {
-                [void]$sb.Append("<strong>$(& $esc $m.Groups[4].Value)</strong>")
-            }
-            $pos = $m.Index + $m.Length
-        }
-        [void]$sb.Append((& $esc $line.Substring($pos)))
-        $sb.ToString()
+        -Lists (#3017): a run of consecutive '- ' lines becomes ONE line, '<ul><li>..</li>..</ul>', the
+        shape Maikel's reference story on smartwatchbanden#944's task carries, so Asana shows a list
+        rather than hyphens. Only the research form asks for it; a result block's text is posted as it
+        always was.
+    #>
+    param(
+        [AllowEmptyString()][string]$Markdown,
+        [switch]$Lists
+    )
+
+    $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
+    $out   = New-Object System.Collections.Generic.List[string]
+    $items = New-Object System.Collections.Generic.List[string]
+    foreach ($line in (([string]$Markdown) -split "`r?`n")) {
+        if ($Lists -and $line -match '^\s*-\s+(.*)$') { $items.Add("<li>$(ConvertTo-AsanaInlineHtml -Line $Matches[1].Trim())</li>"); continue }
+        if ($items.Count -gt 0) { $out.Add("<ul>$($items -join '')</ul>"); $items.Clear() }
+        if ($line -cmatch '^[A-Z][A-Z /]*[A-Z]$') { $out.Add("<strong>$(& $esc $line)</strong>"); continue }
+        $out.Add((ConvertTo-AsanaInlineHtml -Line $line))
     }
+    if ($items.Count -gt 0) { $out.Add("<ul>$($items -join '')</ul>") }
     return (@($out) -join "`n")
+}
+
+function ConvertTo-AsanaInlineHtml {
+    <#
+        Pure: one line of a block's Markdown as html_text -- '[text](url)' and a bare http(s) URL as <a>,
+        '**x**' as <strong>, everything else XML-escaped. The inline half of ConvertTo-AsanaStoryHtml,
+        apart so a list item is converted exactly as a line is (#3017).
+    #>
+    param([AllowEmptyString()][string]$Line)
+
+    $esc  = { param($s) ConvertTo-AsanaXmlText -Text $s }
+    $line = [string]$Line
+    $sb   = New-Object System.Text.StringBuilder
+    $pos  = 0
+    foreach ($m in [regex]::Matches($line, '\[([^\]]+)\]\((https?://[^)\s]+)\)|(https?://[^\s<>()]+)|\*\*([^*]+)\*\*')) {
+        [void]$sb.Append((& $esc $line.Substring($pos, $m.Index - $pos)))
+        if ($m.Groups[1].Success) {
+            [void]$sb.Append("<a href=`"$(& $esc $m.Groups[2].Value)`">$(& $esc $m.Groups[1].Value)</a>")
+        } elseif ($m.Groups[3].Success) {
+            # A bare URL at the end of a sentence would swallow its full stop and link to a page that
+            # does not exist (code review, #2818), so trailing punctuation goes back into the text.
+            $bare  = $m.Groups[3].Value
+            $trail = ([regex]::Match($bare, '[.,;:!?]+$')).Value
+            if ($trail) { $bare = $bare.Substring(0, $bare.Length - $trail.Length) }
+            [void]$sb.Append("<a href=`"$(& $esc $bare)`">$(& $esc $bare)</a>$(& $esc $trail)")
+        } else {
+            [void]$sb.Append("<strong>$(& $esc $m.Groups[4].Value)</strong>")
+        }
+        $pos = $m.Index + $m.Length
+    }
+    [void]$sb.Append((& $esc $line.Substring($pos)))
+    return $sb.ToString()
 }
 
 function New-ClosedMessageHtml {
     <#
         Pure: the closed message as Asana html_text -- the header, the closed sentence with the issue
         name as a link and 'closed' in bold (the requester's form, #2656), and the block's sections
-        under it where -BlockSections carries any. Only <body>, <a> and <strong>, all on Asana's
-        allow-list for a story.
+        under it where -BlockSections carries any. Only <body>, <a>, <strong> and, in the research form,
+        <ul> and <li>, all on Asana's allow-list for a story.
 
         WITHOUT SECTIONS, ONE SENTENCE SAYS THE RESULT MESSAGE FOLLOWS (#3004), in the closed line's own
         style -- never the closed line alone, which tells the requester the work is done and nothing about
         how to see it. It began as the close whose only block describes an EARLIER round (#2968); it is
         now every close that carries no block. Never beside a block, which it would contradict.
 
-        -Research (#3004): the block is a research block, so the closed sentence says nothing changed
-        instead of inviting a reopen. It is meaningful only beside sections: a research close that
-        carries no block gets the result form, because nothing it could say about a finding is known.
+        -Research (#3004, its form #3017's): the block is a research block, so the closed sentence says
+        the task is ready for review instead of inviting a reopen, the outcome's bullets become a list,
+        and the closing ask follows them, naming -DoneSection where one was found (Get-ClosedMessageAsk).
+        It is meaningful only beside sections: a research close that carries no block gets the result
+        form, because nothing it could say about a finding is known.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [AllowEmptyString()][string]$BlockSections = '',
-        [switch]$Research
+        [switch]$Research,
+        [AllowEmptyString()][string]$DoneSection = ''
     )
 
-    $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
-    $parts = $IssueRef -split '#'
-    $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    $tail  = Get-ClosedMessageTail -Research:($Research -and [bool]$BlockSections)
-    $html  = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>. $(& $esc $tail)"
-    if ($BlockSections) { $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) }
+    $esc      = { param($s) ConvertTo-AsanaXmlText -Text $s }
+    $parts    = $IssueRef -split '#'
+    $url      = "https://github.com/$($parts[0])/issues/$($parts[1])"
+    $research = $Research -and [bool]$BlockSections
+    $tail     = Get-ClosedMessageTail -Research:$research
+    $html     = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>$(& $esc $tail)"
+    if ($research) {
+        $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections -Lists) + "`n" + (& $esc (Get-ClosedMessageAsk -DoneSection $DoneSection))
+    } elseif ($BlockSections) { $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) }
     else { $html += "`n`n" + (& $esc 'The result message for this round follows.') }
     return $html + '</body>'
 }
@@ -876,6 +943,89 @@ function Get-ClosedMessageBlockPhrase {
     return "without a go-live block -- none was on the issue$owed"
 }
 
+function Get-RepoStageCode {
+    <#
+        Pure: the section code the repo's Get-AsanaStageMap gives a stage -- 'Completed' by default, the
+        stage whose column a reviewed task is moved to -- read from the TEXT of scripts/repo-config.ps1
+        (#3017). '' when the file states no map or the map no such stage: the plugin's built-in map was
+        retired with the CI mirror, so there is no default to fall back on, and the ask then names no
+        section. A code is a number with at most one letter after it ('4', '3A'), quoted or bare.
+
+        READ, NEVER RUN: the job holds ASANA_PAT, and dot-sourcing the repo's seam file would run whatever
+        it does. Only the body of Get-AsanaStageMap is searched, up to the next function, and a line that
+        is a comment does not count.
+    #>
+    param(
+        [AllowEmptyString()][string]$ConfigText = '',
+        [string]$Stage = 'Completed'
+    )
+    $start = [regex]::Match([string]$ConfigText, '(?im)^\s*function\s+Get-AsanaStageMap\b')
+    if (-not $start.Success) { return '' }
+    $body = $ConfigText.Substring($start.Index + $start.Length)
+    $next = [regex]::Match($body, '(?im)^\s*function\s+')
+    if ($next.Success) { $body = $body.Substring(0, $next.Index) }
+    # The key opens a line or follows '{' or ';' (a one-line hashtable), and the value ends the entry.
+    $m = [regex]::Match($body, "(?im)(?:^|[{;])\s*$([regex]::Escape($Stage))\s*=\s*['`"]?([0-9]+[A-Za-z]?)['`"]?(?=\s*(?:[;}#]|$))")
+    if ($m.Success) { return $m.Groups[1].Value }
+    return ''
+}
+
+function Select-DoneSectionName {
+    <#
+        Pure: the one section among -Names whose code -- the text before its first '.', as
+        Get-AsanaStageMap reads a board -- is -Code, compared without regard to case. '' when none is, or
+        when more than one distinct name is (a task on two boards that disagree), because the ask must not
+        guess which column the requester is looking at.
+    #>
+    param(
+        [AllowEmptyCollection()][string[]]$Names = @(),
+        [AllowEmptyString()][string]$Code = ''
+    )
+    if (-not $Code) { return '' }
+    $hits = @(@($Names) | Where-Object {
+        $m = [regex]::Match([string]$_, '^\s*([0-9]+[A-Za-z]?)\.')
+        $m.Success -and $m.Groups[1].Value -ieq $Code
+    } | ForEach-Object { ([string]$_).Trim() } | Select-Object -Unique)
+    if ($hits.Count -eq 1) { return $hits[0] }
+    return ''
+}
+
+function Resolve-DoneSectionName {
+    <#
+        The board's own name for the column a reviewed task moves to (#3017): the task's board
+        memberships, then the sections of each of those boards, and the one whose code is -Code.
+        Returns Name ('' when not found) and Why, a log phrase that never carries a section's or task's
+        text. Every read failure is an answer, never a throw: the message goes out either way, and the ask
+        then names no section. -Get is the read, injectable so the suite can drive it without a network.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Gid,
+        [AllowEmptyString()][string]$Code = '',
+        [string]$Pat = '',
+        [scriptblock]$Get = $null
+    )
+    if (-not $Code) { return [pscustomobject]@{ Name = ''; Why = 'the repo states no Completed stage in Get-AsanaStageMap' } }
+    if ($Gid -notmatch '\A[0-9]+\z') { return [pscustomobject]@{ Name = ''; Why = 'the task GID is not numeric' } }
+    # No closure: invoked from here, the block sees $Pat through this function's scope, and it calls
+    # whatever Invoke-RestMethod this script's scope resolves, which is how the suite stubs it.
+    if (-not $Get) { $Get = { param($Uri) Invoke-RestMethod -Method GET -Uri $Uri -Headers @{ Authorization = "Bearer $Pat" } } }
+    try {
+        $task = & $Get "$script:AsanaApiBase/tasks/$($Gid)?opt_fields=memberships.project.gid"
+    } catch { return [pscustomobject]@{ Name = ''; Why = 'the task could not be read' } }
+    $projects = @(@($task.data.memberships) | ForEach-Object { [string]$_.project.gid } | Where-Object { $_ -match '\A[0-9]+\z' } | Select-Object -Unique)
+    if ($projects.Count -eq 0) { return [pscustomobject]@{ Name = ''; Why = 'the task is on no board' } }
+    $names = @()
+    foreach ($p in $projects) {
+        try {
+            $sections = & $Get "$script:AsanaApiBase/projects/$p/sections?opt_fields=name"
+        } catch { return [pscustomobject]@{ Name = ''; Why = "the sections of board $p could not be read" } }
+        $names += @(@($sections.data) | ForEach-Object { [string]$_.name })
+    }
+    $name = Select-DoneSectionName -Names $names -Code $Code
+    if ($name) { return [pscustomobject]@{ Name = $name; Why = "found by code $Code" } }
+    return [pscustomobject]@{ Name = ''; Why = "no single section with code $Code on the task's board" }
+}
+
 function Invoke-Main {
     if ($IssueRef -notmatch '\A[^\s#/]+/[^\s#/]+#[0-9]+\z') { throw "IssueRef '$IssueRef' is not 'owner/repo#<n>'." }
     $decision = Get-ClosedMessageDecision -StateReason $StateReason -IssueBody $IssueBody -Event $Event `
@@ -940,7 +1090,20 @@ function Invoke-Main {
         }
         # NO SECTIONS IS NEVER THE CLOSED LINE ALONE (#3004): New-ClosedMessageHtml adds that the result
         # message follows, whichever of the reasons above left the block out.
-        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research
+        # A RESEARCH CLOSE NAMES THE BOARD'S OWN DONE SECTION IN ITS CLOSING ASK (#3017), never a fixed
+        # '4. Done'. The reads are made only here, so every other message costs nothing extra.
+        $done = ''
+        if ($research -and $sections) {
+            $configText = ''
+            $configPath = if ($RepoConfigPath) { $RepoConfigPath } else { Join-Path $PSScriptRoot '../../scripts/repo-config.ps1' }
+            if (Test-Path -LiteralPath $configPath -PathType Leaf) {
+                $configText = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $configPath).ProviderPath)
+            }
+            $resolved = Resolve-DoneSectionName -Gid $decision.Gid -Code (Get-RepoStageCode -ConfigText $configText) -Pat $AsanaPat
+            $done = $resolved.Name
+            Write-Host "Done section for the closing ask: $(if ($done) { 'named' } else { 'not named' }) -- $($resolved.Why)."
+        }
+        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research -DoneSection $done
     }
     $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
     # UTF-8 BYTES, not the string: Windows PowerShell 5.1 encodes a string body as ISO-8859-1, which

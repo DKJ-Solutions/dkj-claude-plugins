@@ -183,7 +183,7 @@ if ($close) {
         [Console]::Error.WriteLine(@(
             '  Post the block on the issue first, then close it:',
             "    a result to look at:         build-golive-block.ps1 -Issue $first$repoHint -Link <result url> -ProseFile <prose> -Post  (add -Force while no PR names the issue)",
-            "    research, a test, a decision: build-golive-block.ps1 -Issue $first$repoHint -Research -ProseFile <findings under [found]> -Post",
+            "    research, a test, a decision: build-golive-block.ps1 -Issue $first$repoHint -Research -ProseFile <the outcome under [outcome]> -Post",
             "  Nothing was done and nothing found? Close it as not planned instead: gh issue close $closeHint --reason `"not planned`"."
         ) -join "`n")
         exit 2

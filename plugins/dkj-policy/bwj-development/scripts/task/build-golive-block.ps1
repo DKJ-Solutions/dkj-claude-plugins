@@ -69,8 +69,10 @@
     2026). A research, test or decision ticket changes nothing on the store, so it has no link, no
     release day, no live URLs and no pull request -- and it was closed by hand with no block at all,
     which sent the requester of smartwatchbanden#943 a bare 'is now closed'. -Research writes the
-    research form instead (Format-GoLiveResearchBlock): the research closed line and one section, what we
-    found, from the prose file's [found] section, which it then requires. It refuses the go-live
+    research form instead (Format-GoLiveResearchBlock): the research closed line ('is now closed: the
+    Asana task is ready for review. Read the outcome below.', #3017) and one section, OUTCOME, as
+    bullets from the prose file's [outcome] section ([found] before #3017, still read), which it then
+    requires. It refuses the go-live
     parameters, which have nothing to describe, and skips the pull-request check, since there is none.
     The block carries Get-AsanaResearchBlockMarker beside its marker, so the closed message writes the
     research closed line. The close guard (hooks/guard-stale-paste-block.ps1) refuses a hand close of an
@@ -143,7 +145,7 @@
 
 .PARAMETER Research
     Write the research form (#3004) for a ticket without a storefront result: research, a test, a
-    decision. Requires a -ProseFile with a [found] section, and refuses its other sections and -Link,
+    decision. Requires a -ProseFile with an [outcome] section, and refuses its other sections and -Link,
     -Path, -Version, -LiveSince, -From and -ReleaseDay. -Post skips the pull-request check, since such a
     ticket has none; every other check stays.
 
@@ -307,7 +309,7 @@ if ((Test-PrivateResultLink -Link $LinkArg) -and -not $AllowPrivateLink) {
 # --- The session's prose ----------------------------------------------------------------------------
 # READ AS UTF-8 AND REFUSED WHOLE ON A FORMAT ERROR: a section line the parser does not know would
 # otherwise drop the paragraph under it, and the block would ship without the part the session wrote.
-$prose = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Found = @() }
+$prose = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @() }
 if ($ProseArg) {
     if (-not (Test-Path -LiteralPath $ProseArg -PathType Leaf)) {
         Write-Host "[ERROR] -ProseFile '$ProseArg' does not exist. Nothing written." -ForegroundColor Red
@@ -323,7 +325,7 @@ if ($ProseArg) {
 
 # --- Which form: a result to look at, or a finding (#3004) -------------------------------------------
 # EACH FORM REFUSES THE OTHER'S PROSE, so a section the session wrote is never silently left out of the
-# block: [found] has no place in a result block, and a research block carries nothing but [found].
+# block: [outcome] has no place in a result block, and a research block carries nothing but [outcome].
 if ($ResearchArg) {
     if ($ResearchConflicts.Count -gt 0) {
         Write-Host "[ERROR] -Research writes a block for a ticket that changed nothing on the store, so -$($ResearchConflicts -join ', -') has nothing to describe. Nothing written." -ForegroundColor Red
@@ -331,15 +333,15 @@ if ($ResearchArg) {
     }
     $resultProse = @(@('Changed', 'WhereToLook', 'NotIncluded') | Where-Object { @($prose[$_]).Count -gt 0 })
     if ($resultProse.Count -gt 0) {
-        Write-Host "[ERROR] -Research carries the [found] section only; -ProseFile also has a result section ([changed], [where] or [not-included]). Move it under [found]. Nothing written." -ForegroundColor Red
+        Write-Host "[ERROR] -Research carries the [outcome] section only; -ProseFile also has a result section ([changed], [where] or [not-included]). Move it under [outcome]. Nothing written." -ForegroundColor Red
         exit 1
     }
-    if (@($prose.Found).Count -eq 0) {
-        Write-Host "[ERROR] -Research needs the findings: a -ProseFile with a [found] section, written for the requester. A link to the issue is no substitute -- not every requester can open it. Nothing written." -ForegroundColor Red
+    if (@($prose.Outcome).Count -eq 0) {
+        Write-Host "[ERROR] -Research needs the outcome: a -ProseFile with an [outcome] section, written for the requester. A link to the issue is no substitute -- not every requester can open it. Nothing written." -ForegroundColor Red
         exit 1
     }
-} elseif (@($prose.Found).Count -gt 0) {
-    Write-Host "[ERROR] -ProseFile has a [found] section, which only a research block carries. Pass -Research for a ticket that changed nothing on the store. Nothing written." -ForegroundColor Red
+} elseif (@($prose.Outcome).Count -gt 0) {
+    Write-Host "[ERROR] -ProseFile has an [outcome] section, which only a research block carries. Pass -Research for a ticket that changed nothing on the store. Nothing written." -ForegroundColor Red
     exit 1
 }
 
@@ -489,7 +491,7 @@ if ($asanaRef -and $asanaLink -eq 'linked') {
 # --- The block ----------------------------------------------------------------------------------------
 if ($ResearchArg) {
     $block = Format-GoLiveResearchBlock -Marker (Get-AsanaPasteBlockMarker) -ResearchMarker (Get-AsanaResearchBlockMarker) `
-        -IssueRef $targetRef -Found $prose.Found -Language $LanguageArg -AsanaLink $asanaLink
+        -IssueRef $targetRef -Outcome $prose.Outcome -Language $LanguageArg -AsanaLink $asanaLink
 } else {
     $block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
         -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls `

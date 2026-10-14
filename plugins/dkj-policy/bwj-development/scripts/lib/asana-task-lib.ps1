@@ -139,9 +139,10 @@ function Get-AsanaResearchBlockMarker {
     <#
         The second marker build-golive-block.ps1 -Research puts on a block that reports a FINDING rather
         than a result to look at (#3004): a research, test or decision ticket, where nothing changed on
-        the store. Pure. The closed message reads it to write the research closed line ('Nothing has
-        changed. This issue was for research purposes only.') instead of the reopen line, which promises a
-        result that can be 'not working as expected'. It sits beside the block's own marker, outside the
+        the store. Pure. The closed message reads it to write the research form (#3017: 'is now closed:
+        the Asana task is ready for review. Read the outcome below.', the outcome as a list, and the
+        closing ask) instead of the reopen line, which promises a result that can be 'not working as
+        expected'. It sits beside the block's own marker, outside the
         rules, for the same reason that one does. A copy of it lives in templates/asana-closed-message.ps1.
     #>
     return '<!-- asana-paste-block-kind: research -->'

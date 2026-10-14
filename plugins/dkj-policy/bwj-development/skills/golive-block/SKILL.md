@@ -84,15 +84,24 @@ Measured on smartwatchbanden#943: such a ticket was closed by hand with no block
 heard only that the issue was closed. `-Research` writes the block for it:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-golive-block.ps1" -Issue 943 -Research -ProseFile findings.txt -Post
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-golive-block.ps1" -Issue 943 -Research -ProseFile outcome.txt -Post
 ```
 
-- **The findings are the message.** The prose file carries one section, `[found]`, written for the
-  requester in the task's language. It is required, and the run refuses a result section beside it. A
-  link to the issue's conclusion is no substitute: not every requester can open the GitHub repo.
-- **The shape**, between the rules: the header, the research closed line -- *"GitHub issue
-  owner/repo#n is now **closed**. Nothing has changed. This issue was for research purposes only."*,
-  the issue name linked -- then *WAT WE GEVONDEN HEBBEN* (*WHAT WE FOUND* under `-Language en`) and the findings.
+- **The outcome is the message.** The prose file carries one section, `[outcome]`, written for the
+  requester in the task's language (`[found]`, its name before
+  [#3017](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3017), is still read). It is
+  required, and the run refuses a result section beside it. A link to the issue's conclusion is no
+  substitute: not every requester can open the GitHub repo.
+- **The shape is general, so it fits every ticket** (#3017, Maikel: *"as general as possible"*). Between
+  the rules: the header, the research closed line -- *"GitHub issue owner/repo#n is now **closed**: the
+  Asana task is ready for review. Read the outcome below."*, the issue name linked -- then the heading
+  *OUTCOME* and the outcome as bullets. Each paragraph is one bullet, and a list you write keeps its
+  items. Every fixed line is English on every board; only the bullets are the task's own.
+- **The closed message ends with the closing ask**: *"Is anything still unclear? Leave a comment on this
+  task. No more questions? Move the task to '4. Done' and mark it as complete."* It is not in the block,
+  because `4. Done` is only one board's name for its done section: the code `Get-AsanaStageMap` gives the
+  `Completed` stage, matched against the sections of the task's board when the message posts. Where that
+  does not resolve, the ask names no section and says *"Mark the task as complete."*
 - **It refuses the go-live parameters** (`-Link`, `-Path`, `-Version`, `-LiveSince`, `-From`,
   `-ReleaseDay`), which have nothing to describe, and **`-Post` skips the pull-request check**, since
   there is none. The duplicate, store-admin and Asana-link checks run as for any block.
@@ -170,7 +179,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-From <date>` | the day the next release day is counted from. Today |
 | `-LiveSince <date>` | the day the change went live, for a block written after it did (#2943). Refused when it is after today, or beside `-From` / `-ReleaseDay` |
 | `-Language nl\|en` | the language of the Asana task, and so of the block between the rules. Omitted, the repo's own `Get-GoLiveBlockLanguage` in `scripts/repo-config.ps1` (returning `nl` or `en`) answers it, so a store that writes GitHub in English states that once ([#2830](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2830)); without that seam, `nl` |
-| `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below -- or, with `-Research`, the `[found]` section |
+| `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below -- or, with `-Research`, the `[outcome]` section |
 | `-Research` | the research form, for a ticket that changed nothing on the store (#3004) -- see above |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
