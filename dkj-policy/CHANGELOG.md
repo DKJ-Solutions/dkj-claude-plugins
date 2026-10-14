@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**11 / 19 minor entries** <!-- pending-tally -->
+**11 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2989-vendored-house-style-check · 20261014-075848Z
+
+The connector dashboard's test suite now checks that its vendored copy of the house style hashes to
+the checksums the `house-style` skill pins. The skill's repoint procedure now names that copy. The
+next repoint to a new `house-style-v<N>` tag therefore turns the suite red until the dashboard's two
+files move as well. Before, they stayed on the old tag without anyone noticing (#2989).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: the check and the vendored copy exist only in this repo. The sentence added to the skill page
+addresses whoever performs a repoint here, and a consumer's use of the skill is unchanged.
+
+**Score:** N/A
+
+#### Pull Request
+
+Hold the dashboard's vendored house style to the skill's checksums
+
+Plugins: dkj-solutions
+
+[PR #2993](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/2993)
+
+---
 
 ### DEPLOY: fix/dashboard-theme-accents · 20261014-071949Z
 
