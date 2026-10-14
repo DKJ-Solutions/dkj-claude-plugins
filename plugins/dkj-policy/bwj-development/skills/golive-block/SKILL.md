@@ -91,8 +91,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
   requester in the task's language. It is required, and the run refuses a result section beside it. A
   link to the issue's conclusion is no substitute: not every requester can open the GitHub repo.
 - **The shape**, between the rules: the header, the research closed line -- *"GitHub issue
-  [owner/repo#n](url) is now **closed**. Nothing has changed. This issue was for research purposes
-  only."* -- then *WAT WE GEVONDEN HEBBEN* (*WHAT WE FOUND* under `-Language en`) and the findings.
+  owner/repo#n is now **closed**. Nothing has changed. This issue was for research purposes only."*,
+  the issue name linked -- then *WAT WE GEVONDEN HEBBEN* (*WHAT WE FOUND* under `-Language en`) and the findings.
 - **It refuses the go-live parameters** (`-Link`, `-Path`, `-Version`, `-LiveSince`, `-From`,
   `-ReleaseDay`), which have nothing to describe, and **`-Post` skips the pull-request check**, since
   there is none. The duplicate, store-admin and Asana-link checks run as for any block.
