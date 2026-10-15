@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#### Scope, checked against the tree
+
+- #3013 names `archive-theme` as a third script that duplicates live. It does not: it refuses the live
+  theme and archives with `theme pull`, so it is out of scope. The duplicating callers are
+  `backup-live-theme` (also through `live-preflight`) and `push-preview`.
+- `Get-CutOrderWarning` did need a connected-mode wording: its line said "pushed", a step a connected
+  store never runs.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-CutOrderWarning -DeployBranch`: promote-then-cut wording; `backup-live-theme` reads `Get-ShopifyLiveDeployBranch` and passes it (both mirrors)
+- [x] `theme-lifecycle-rules.tests.ps1`: five asserts on the connected wording
+- [x] `theme-lifecycle` skill: a Git-connected section on the detached backup
+- [x] `push-preview` skill: what a detached copy means for a preview
+- [x] `THEME-LIFECYCLE-portable.md`: promote-then-cut and the detached copy
 
 ### TEST
 
+- [x] `theme-lifecycle-rules.tests.ps1` standalone: 139 pass, 0 fail
+
 ### DEPLOY: docs/3013-connected-live-duplicate
 
-**Score:**
+The theme-lifecycle pages now say what a `shopify theme duplicate` of a Git-connected live theme is: a detached copy that does not follow later commits on the deploy branch and can drop files silently (measured in `BWJ-Development/smartwatchbanden#943`). For `backup-live-theme` that is what a backup should be, and its verify step catches the drop. For `push-preview` it means a preview shows live as it was when it was created. `THEME-LIFECYCLE-portable.md` states the order as promote-then-cut for such a store. `backup-live-theme`'s order warning reads `Get-ShopifyLiveDeployBranch` and speaks of a promotion instead of a push there ([#3013](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3013), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store whose live theme deploys from a branch reads, on the pages it already uses, why its preview does not follow `live` and why its backup is still sound. A store that has not set the seam sees no difference.
+
+**Score:** 2
 
 #### Pull Request
 

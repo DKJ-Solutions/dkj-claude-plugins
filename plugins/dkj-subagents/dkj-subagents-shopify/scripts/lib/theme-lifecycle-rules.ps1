@@ -653,10 +653,23 @@ function Get-CutOrderWarning {
         a line of output is the proportionate answer to that. The destructive halves of this
         mechanism -- rotation and the sweep -- refuse rather than warn, and they are the ones that
         can take something away.
+
+        A GIT-CONNECTED LIVE THEME GOES LIVE BY A PROMOTION, NOT A PUSH (#3013). Where
+        Get-ShopifyLiveDeployBranch names a branch, the trunk reaches live when the promotion PR into
+        that branch is merged, so -DeployBranch words the same reading in those terms: a line that
+        said 'pushed' there would name a step that store never runs.
     #>
-    param([AllowNull()][bool]$TrunkIsLive = $true)
+    param([AllowNull()][bool]$TrunkIsLive = $true, [AllowNull()][string]$DeployBranch = '')
 
     if ($TrunkIsLive) { return '' }
+    $branch = ([string]$DeployBranch).Trim()
+    if ($branch) {
+        return ("ORDER: the trunk has NOT been promoted into '$branch' yet, so this backup is being taken " +
+            'BEFORE the promotion PR is merged. That makes it a ROLLBACK POINT for the promotion about to ' +
+            'happen (the moment live-preflight takes it by default), not the baseline of WHAT SHIPPED that a ' +
+            'backup at the cut would be. The order is still promote-then-cut; which moment holds the ' +
+            'release''s one backup is each store''s choice. See bwj-development/THEME-LIFECYCLE-portable.md.')
+    }
     return ('ORDER: the trunk has NOT been pushed to live yet, so this backup is being taken BEFORE ' +
         'the push. That makes it a ROLLBACK POINT for the push about to happen (the moment ' +
         'live-preflight takes it by default), not the baseline of WHAT SHIPPED that a backup at the ' +

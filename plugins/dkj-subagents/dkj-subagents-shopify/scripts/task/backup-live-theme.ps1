@@ -177,7 +177,7 @@ Set-Location -LiteralPath $repoRoot
 # to defaults rather than take this script down.
 $seam = & {
     Set-StrictMode -Off
-    $answers = @{ LiveThemeId = ''; StoreDomain = ''; DeleteMarker = ''; TrunkIsLive = $true }
+    $answers = @{ LiveThemeId = ''; StoreDomain = ''; DeleteMarker = ''; TrunkIsLive = $true; DeployBranch = '' }
     $cfg = Join-Path $repoRoot 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $cfg -PathType Leaf) {
         try { . $cfg } catch { Write-Warning "scripts/repo-config.ps1 could not be read: $(Format-SafeProseToken -Value $_.Exception.Message)" }
@@ -189,6 +189,9 @@ $seam = & {
     # a 'no' produces the order warning. Unanswered, the documented order is assumed and nothing is
     # said -- a warning printed on every run because a seam is unanswered is a warning nobody reads.
     if (Test-FunctionDefined 'Get-ShopifyTrunkIsLive')       { $answers.TrunkIsLive  = [bool](Get-ShopifyTrunkIsLive) }
+    # OPTIONAL TOO. Named, live deploys from that branch (#2998), and the order warning speaks of a
+    # promotion instead of a push (#3013).
+    if (Test-FunctionDefined 'Get-ShopifyLiveDeployBranch')  { $answers.DeployBranch = [string](Get-ShopifyLiveDeployBranch) }
     [pscustomobject]$answers
 }
 
@@ -213,7 +216,7 @@ if (-not $liveId) {
 Write-Host "== backup-live-theme -- $store ==" -ForegroundColor Cyan
 if ($DryRun) { Write-Host '   DRY RUN: every verdict is reported and nothing is created, deleted or pushed.' -ForegroundColor Yellow }
 
-$orderWarning = Get-CutOrderWarning -TrunkIsLive ([bool]$seam.TrunkIsLive)
+$orderWarning = Get-CutOrderWarning -TrunkIsLive ([bool]$seam.TrunkIsLive) -DeployBranch ([string]$seam.DeployBranch)
 if ($orderWarning) { Write-Warning $orderWarning }
 
 # --- Read the estate -------------------------------------------------------------------------------
