@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**0 / 3 patch entries** <!-- pending-tally -->
+**1 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3033-house-style-v3 · 20261015-125828Z
+
+The `house-style` skill now points at the brand book's `house-style-v3` tag
+([#3033](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3033)), with its commit and both
+checksums measured here. The connector dashboard serves the v3 copy, and its own layer uses only tokens
+v3 defines.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app that takes its next copy of the house style gets v3, and v3 renames the colour tokens:
+`--good`/`--bad`/`--up`/`--down`/`--warn`/`--ink`/`--muted`/`--gain` and the bare `--primary` are gone,
+and their roles now sit on `--positive-N`/`--negative-N`/`--warning-N` and a nine-step `--primary-1`…`-9`.
+An app's own layer must be renamed when it takes the copy. The mapping tables are in
+`house-style/README.md` at the tag.
+
+**Score:** 4
+
+#### Pull Request
+
+house-style skill repointed to house-style-v3, the renamed colour tokens
+
+Plugins: dkj-solutions
+
+[PR #3036](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3036)
+
+---
 
 ### DEPLOY: fix/3031-djcylow-register-no-lenses · 20261015-123321Z
 
