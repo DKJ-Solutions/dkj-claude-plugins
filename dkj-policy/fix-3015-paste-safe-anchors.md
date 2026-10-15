@@ -41,17 +41,24 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ref-print-lib.ps1`: both paste-safe patterns anchored with `\A...\z` (all four mirrors)
+- [x] `ref-print-lib.tests.ps1`: trailing-newline negative cases on both axes
 
 ### TEST
 
+- [x] `ref-print-lib.tests.ps1` standalone: 484 pass, 0 fail
+
 ### DEPLOY: fix/3015-paste-safe-anchors
 
-**Score:**
+`Test-RefPasteSafe` and `Test-PathPasteSafe` no longer report a ref or path with a trailing newline as paste-safe. Their patterns ended in `$`, which in .NET also matches before a final newline, so a value read off a file or a native call's output could pass, and a printed command broke at that point. Both are now anchored with `\A...\z`, as #3008 did for its own copies ([#3015](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3015)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing a user notices: it prevents a printed command that breaks at a stray newline, which has not been reported in use.
+
+**Score:** N/A
 
 #### Pull Request
 
