@@ -139,9 +139,11 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 
 function Get-GitLine {
     # One line of git output for $Path, or '' where git answers nothing or fails -- every caller below
-    # treats '' as "could not establish", never as a value.
+    # treats '' as "could not establish", never as a value. The four git reads in this sweep take no
+    # -Utf8: what they return is compared for equality or counted, never decoded into a path, and the
+    # plain arm keeps them out of #1931's unmeasured-exit race.
     param([string]$Path, [string[]]$GitArgs)
-    $r = Invoke-NativeCapture -FilePath 'git' -Arguments (@('-C', $Path) + $GitArgs) -Utf8 -DiscardStderr
+    $r = Invoke-NativeCapture -FilePath 'git' -Arguments (@('-C', $Path) + $GitArgs) -DiscardStderr
     if ($r.ExitCode -ne 0) { return '' }
     return ("$(@($r.Output) | Where-Object { "$_".Trim() } | Select-Object -First 1)").Trim()
 }
@@ -151,7 +153,7 @@ function Test-ClaudeDirDirty {
     # git could not answer: an unknown reads as dirty, so neither the guard nor the after-run warning
     # fails open (code review).
     param([string]$Path)
-    $r = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $Path, 'status', '--porcelain', '--', '.claude') -Utf8 -DiscardStderr
+    $r = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $Path, 'status', '--porcelain', '--', '.claude') -DiscardStderr
     if ($r.ExitCode -ne 0) { return $true }
     return (@(@($r.Output) | Where-Object { "$_".Trim() }).Count -gt 0)
 }
@@ -200,7 +202,7 @@ if ($AllCheckouts) {
         # UTF-8 bytes a code page can corrupt (#2115, and the repo-wide guard on that flag). Inside a
         # work tree, an empty cdup line means the folder IS the root; --is-inside-work-tree keeps the
         # .git directory itself from answering 'yes'.
-        $rootProbe = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $p, 'rev-parse', '--is-inside-work-tree', '--show-cdup') -Utf8 -DiscardStderr
+        $rootProbe = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $p, 'rev-parse', '--is-inside-work-tree', '--show-cdup') -DiscardStderr
         $probeLines = @(@($rootProbe.Output) | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
         $isRoot = ($rootProbe.ExitCode -eq 0) -and ($probeLines.Count -eq 1) -and ($probeLines[0] -eq 'true')
         if (-not $isRoot) {
@@ -235,9 +237,11 @@ if ($AllCheckouts) {
                   (Test-Path -LiteralPath $ownCopy -PathType Leaf)
         if ($useOwn) {
             $origin = Get-GitLine -Path $p -GitArgs @('remote', 'get-url', 'origin')
-            $ownDirty = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $p, 'status', '--porcelain', '--', 'scripts/task/update-plugins.ps1') -Utf8 -DiscardStderr
+            $ownDirty = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $p, 'status', '--porcelain', '--', 'scripts/task/update-plugins.ps1') -DiscardStderr
             $isSource = $origin -match '[/:]DKJ-Solutions/dkj-claude-plugins(\.git)?$'
-            if (-not $isSource -or @(@($ownDirty.Output) | Where-Object { "$_".Trim() }).Count -gt 0) {
+            # A git failure counts as modified: the own copy runs only on a positive answer.
+            $ownModified = ($ownDirty.ExitCode -ne 0) -or (@(@($ownDirty.Output) | Where-Object { "$_".Trim() }).Count -gt 0)
+            if (-not $isSource -or $ownModified) {
                 $results.Add([pscustomobject]@{ Path = $p; Outcome = 'skipped'; Detail = 'it carries its own update-plugins.ps1 but is not an unmodified checkout of the source repo -- run the update there by hand'; Hint = '' })
                 continue
             }
