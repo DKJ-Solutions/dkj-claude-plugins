@@ -842,6 +842,118 @@ function New-SyncPrBody {
     return (($lines -join "`n") + "`n")
 }
 
+# A PATH IN A PR BODY IS THIRD-PARTY MARKDOWN UNTIL PROVEN OTHERWISE (#3020). Convert-GitQuotedPath restores
+# '\n', '\r', a backtick and '"' from git's C-quoting, so a theme filename saved on live can close its code
+# span and start a new body line -- measured: a row reading 'Hello @octocat Fixes #1', a ping and a closing
+# keyword that would fire at the merge. The console never had this: every printed path goes through
+# Get-DisplayPath. The PR body and the sync log did not.
+#
+# THE STRIP IS A FOURTH BYTE-IDENTICAL COPY, NOT A DOT-SOURCE. This file is dependency-free on purpose (the
+# live-theme guard dot-sources it on every command), so it cannot load ref-print-lib.ps1. The copy is held
+# to the other three by the DISAGREE asserts in pr-issues.tests.ps1, like the other three already are.
+$script:ConsoleDeceptiveCategories = @(
+    [System.Globalization.UnicodeCategory]::Control,
+    [System.Globalization.UnicodeCategory]::Format,
+    [System.Globalization.UnicodeCategory]::LineSeparator,
+    [System.Globalization.UnicodeCategory]::ParagraphSeparator,
+    [System.Globalization.UnicodeCategory]::NonSpacingMark,
+    [System.Globalization.UnicodeCategory]::EnclosingMark
+)
+
+function ConvertTo-ConsoleStrippedText {
+    <#
+        .SYNOPSIS
+            One line of foreign text, with every character that could make it read as something other
+            than what it says replaced by a space -- Cc, Cf, Zl, Zp, Mn and Me, read a CODE POINT AT A
+            TIME rather than through a regex character class.
+
+        .DESCRIPTION
+            ISSUE #2024'S SECOND HALF. Every caller of this function used to type the class directly, as
+            a regex: '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]'. On this runtime (Windows PowerShell 5.1 /
+            .NET Framework, measured while repairing #2025) that class is silently wrong twice:
+
+              1. U+00AD SOFT HYPHEN is Format (Cf) in the CURRENT Unicode table and Dash Punctuation (Pd)
+                 to the REGEX ENGINE, whose category tables predate the Unicode 4.0 reclassification --
+                 the only such divergence in the whole BMP, all 65,536 code points compared one by one.
+                 [regex]::IsMatch([string][char]0xAD, '[\p{Cf}]') is $false on this runtime.
+              2. EVERY FORMAT CHARACTER ABOVE THE BMP is invisible to the class outright, because a .NET
+                 character class matches one UTF-16 CODE UNIT and those characters are surrogate PAIRS.
+                 That is the U+E0020..U+E007F TAG block -- an invisible-text channel that can carry a
+                 whole hidden ASCII message and render as nothing -- plus U+E0001, U+1D173..U+1D17A and
+                 U+110BD/U+110CD.
+
+            So the category is read from [CharUnicodeInfo]::GetUnicodeCategory(string, index), which uses
+            the CURRENT table and resolves a surrogate pair to the single code point it names. On an
+            UNPAIRED surrogate it answers Surrogate, none of the six categories above, so a broken pair
+            is copied through rather than silently eaten.
+
+            A SPACE PER UTF-16 CODE UNIT CONSUMED, not one space per code point. Get-DisplayPath
+            (ref-print-lib.ps1, #1638) measures its output in .Length to preserve a padded column's
+            alignment, and .Length counts UTF-16 units -- so a two-unit surrogate pair becomes two
+            spaces, keeping format width and display width in agreement exactly as a one-unit character
+            already does. Every other caller collapses and trims afterward and is indifferent to the
+            count, so the one convention serves them all.
+
+            SIX CATEGORIES AND NO EXCEPTIONS -- unlike ConvertTo-BacklogVisibleText (#2025,
+            bwj-development's backlog-page-rules.ps1), which keeps eight invisible code points an HTML
+            page can afford to render (three bidi MARKS, two joiners) because an HTML element can be
+            told a text direction and a console line cannot. That is why this is not a reuse of that
+            function -- only of its LOOKUP; the policy differs; the code-point walk does not.
+
+            THERE ARE FOUR LIB-INDEPENDENT COPIES -- claim-issue-lib.ps1, pr-issues-lib.ps1,
+            ref-print-lib.ps1 and, since #3020, sync-rules.ps1 -- identical byte for byte. The DISAGREE rule
+            that used to hold one regex literal in agreement now holds one function definition in
+            agreement instead (pr-issues.tests.ps1). ref-print-lib.ps1 defines it once for both
+            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other three libs each
+            carry their own copy, for the reason their docstrings already give for not sharing a
+            dot-source.
+    #>
+    param([string]$Text)
+    if (-not $Text) { return $Text }
+
+    $sb = New-Object System.Text.StringBuilder
+    $i  = 0
+    while ($i -lt $Text.Length) {
+        $category = [System.Globalization.CharUnicodeInfo]::GetUnicodeCategory($Text, $i)
+        $paired   = ([char]::IsHighSurrogate($Text[$i]) -and ($i + 1) -lt $Text.Length -and
+                     [char]::IsLowSurrogate($Text[$i + 1]))
+        $width    = if ($paired) { 2 } else { 1 }
+
+        if ($script:ConsoleDeceptiveCategories -contains $category) {
+            [void]$sb.Append(' ' * $width)
+        } else {
+            [void]$sb.Append($Text.Substring($i, $width))
+        }
+        $i += $width
+    }
+    return $sb.ToString()
+}
+
+function Format-SyncPathCodeSpan {
+    <#
+    .SYNOPSIS
+        A theme path as an inert markdown code span: control and format characters replaced by a space,
+        and a fence one backtick longer than the longest backtick run inside the path.
+
+    .DESCRIPTION
+        INSIDE A CODE SPAN NOTHING IS MARKDOWN -- no link, no image, no @-mention, no #-reference -- so the
+        span holding is the whole defence, and it holds once two things are true. No line break survives
+        (the strip), and no backtick run inside can close the fence early (the longer fence). CommonMark
+        strips ONE space from each end when both ends carry one, so a path that starts or ends with a
+        backtick, or starts AND ends with a space, is padded with one space each side, which that same rule
+        then removes again.
+    #>
+    param([AllowEmptyString()][AllowNull()][string]$Path)
+
+    $shown = ConvertTo-ConsoleStrippedText -Text ([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($shown)) { return '(no printable path)' }
+    $longest = 0
+    foreach ($run in [regex]::Matches($shown, '`+')) { if ($run.Length -gt $longest) { $longest = $run.Length } }
+    $fence = '`' * ($longest + 1)
+    $pad = ''
+    if ($shown.StartsWith('`') -or $shown.EndsWith('`') -or ($shown.StartsWith(' ') -and $shown.EndsWith(' '))) { $pad = ' ' }
+    return "$fence$pad$shown$pad$fence"
+}
 function Get-SyncPrBodySection {
     <#
     .SYNOPSIS
@@ -868,7 +980,7 @@ function Get-SyncPrBodySection {
     foreach ($reason in @($groups.Keys)) {
         $out += @('', "*$reason*", '')
         foreach ($r in $groups[$reason]) {
-            $out += "- $(Get-SyncFileKind -Status ([string]$r.Status)) -- ``$($r.Path)``"
+            $out += "- $(Get-SyncFileKind -Status ([string]$r.Status)) -- $(Format-SyncPathCodeSpan -Path ([string]$r.Path))"
         }
     }
     return $out

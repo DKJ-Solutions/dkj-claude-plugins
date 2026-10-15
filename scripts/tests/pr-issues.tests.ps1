@@ -1958,13 +1958,17 @@ Assert-True ([bool]$walkerRefPrint) 'and so does ref-print-lib, which owns the o
 Assert-True ([bool]$walkerClaimIssue) 'and so does claim-issue-lib, whose Format-ForConsole reached only the ASCII control range until #1858'
 Assert-Equal $walkerPrIssues $walkerRefPrint 'the three copies must not DISAGREE -- pr-issues-lib and ref-print-lib byte for byte'
 Assert-Equal $walkerPrIssues $walkerClaimIssue 'and pr-issues-lib and claim-issue-lib byte for byte'
+# THE FOURTH COPY (#3020): sync-rules.ps1 renders theme paths into a PR body and may not dot-source.
+$walkerSyncRules = Get-ConsoleStrippedTextBlock -Text ([System.IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\lib\sync-rules.ps1')))
+Assert-True ([bool]$walkerSyncRules) 'and so does sync-rules, which renders theme paths into a PR body (#3020)'
+Assert-Equal $walkerPrIssues $walkerSyncRules 'and pr-issues-lib and sync-rules byte for byte'
 Assert-True (-not ($claimIssueText -match ([regex]::Escape("'[\x00-\x1F\x7F]', ' '")))) 'and the ASCII-only class it replaced no longer STRIPS anything -- naming it in the docstring is the record, a second live strip beside the first is the drift this pin exists to refuse'
 Assert-True (-not ($remoteAheadText -match 'function ConvertTo-ConsoleStrippedText')) 'while the sibling relay it was copied FROM no longer does -- it reads Get-DisplayRef instead (#1623)'
 Assert-True ($remoteAheadText -match 'ref-print-lib\.ps1') 'because it dot-sources the lib that owns the definition'
 $classSites = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '..\lib') -Filter '*.ps1' |
                 Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match 'function ConvertTo-ConsoleStrippedText' } |
                 ForEach-Object { $_.Name } | Sort-Object)
-Assert-NameSet @('claim-issue-lib.ps1', 'pr-issues-lib.ps1', 'ref-print-lib.ps1') $classSites 'THREE libs in scripts/lib type this function and no more -- a fourth has to update Format-AuthoredText, Format-ForConsole and the new-branch skill page, which is the claim #1612 was filed about. The asana-mirror CI template that once typed a standalone fourth copy (#2019) was retired on October 5, 2026'
+Assert-NameSet @('claim-issue-lib.ps1', 'pr-issues-lib.ps1', 'ref-print-lib.ps1', 'sync-rules.ps1') $classSites 'FOUR libs in scripts/lib type this function and no more (sync-rules since #3020) -- a fifth has to update Format-AuthoredText, Format-ForConsole and the new-branch skill page, which is the claim #1612 was filed about. The asana-mirror CI template that once typed a standalone fourth copy (#2019) was retired on October 5, 2026'
 Assert-Equal 1 ([regex]::Matches($prIssuesLibText, 'function ConvertTo-ConsoleStrippedText').Count) 'ONE definition inside this lib'
 Assert-Equal 1 ([regex]::Matches($prIssuesLibText, [regex]::Escape('ConvertTo-ConsoleStrippedText -Text $Text')).Count) 'and Format-AuthoredText is its one caller here -- both the title and the message go through it'
 

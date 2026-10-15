@@ -848,6 +848,23 @@ sync-main.tests.ps1 goes from 20 to 32 asserts. One earns its place twice: the
     Assert-True ($flow -match 'MERGE COMMIT, never a squash') 'backflow/body: it says why the merge must be a merge commit'
     Assert-True ($flow -match 'changed on live -- .sections/header\.liquid.') 'backflow/body: each path keeps its kind'
 
+    # A THEME PATH IS THIRD-PARTY TEXT IN A PR BODY (#3020). The measured shape: a filename that closes its
+    # code span and opens a new markdown line carrying a ping and a closing keyword.
+    $hostile = 'x' + '`' + "`n" + 'Hello @octocat Fixes #1' + "`n" + '`y.liquid'
+    $evil = New-SyncPrBody -Take @([pscustomobject]@{ Status = 'A'; Path = $hostile; Reason = $takeReason })
+    $evilRow = @($evil -split "`n" | Where-Object { $_ -like '- new on live -- *' })
+    Assert-Equal 1 $evilRow.Count 'escape/body: a path carrying newlines stays on ONE body line'
+    Assert-True (-not ($evil -split "`n" | Where-Object { $_ -like 'Hello @octocat*' })) 'escape/body: no line of the body starts with the injected text'
+    Assert-True ($evilRow[0].EndsWith('-- ``x` Hello @octocat Fixes #1 `y.liquid``')) 'escape/body: the fence is longer than the backtick run inside the path'
+    Assert-Equal '`a b`' (Format-SyncPathCodeSpan -Path 'a b') 'escape/span: an ordinary path keeps the one-backtick span it always had'
+    Assert-Equal '``a`b``' (Format-SyncPathCodeSpan -Path 'a`b') 'escape/span: an inner backtick doubles the fence'
+    Assert-Equal '`` `a ``' (Format-SyncPathCodeSpan -Path '`a') 'escape/span: a leading backtick is padded, so it cannot merge with the fence'
+    Assert-Equal '`a `' (Format-SyncPathCodeSpan -Path "a`r") 'escape/span: a CR becomes a space, not a line break'
+    Assert-Equal '`x y`' (Format-SyncPathCodeSpan -Path ('x' + [char]0x202E + 'y')) 'escape/span: a format character (RTL override) is replaced by a space'
+    Assert-Equal '(no printable path)' (Format-SyncPathCodeSpan -Path ([string][char]0x200B)) 'escape/span: a path with nothing printable is named, not blanked'
+    $log = New-SyncLogEntry -Branch 'sync/x' -Date '2026-10-15' -Take @([pscustomobject]@{ Status = 'A'; Path = $hostile; Reason = $takeReason })
+    Assert-True (-not ($log -split "`n" | Where-Object { $_ -like 'Hello @octocat*' })) 'escape/log: the sync log renders the same rows, so it is inert too'
+
     $ns = ConvertFrom-BackflowNameStatus -Line "M`tsections/header.liquid"
     Assert-True (($ns.Status -eq 'M') -and ($ns.RawPath -eq 'sections/header.liquid')) 'backflow/name-status: a modified line becomes an M row'
     Assert-Equal 'A' (ConvertFrom-BackflowNameStatus -Line "A`ttemplates/x.json").Status 'backflow/name-status: added stays A'

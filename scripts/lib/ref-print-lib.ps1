@@ -254,11 +254,11 @@ function ConvertTo-ConsoleStrippedText {
             told a text direction and a console line cannot. That is why this is not a reuse of that
             function -- only of its LOOKUP; the policy differs; the code-point walk does not.
 
-            THIS IS THE THIRD LIB-INDEPENDENT COPY -- claim-issue-lib.ps1, pr-issues-lib.ps1 and
-            ref-print-lib.ps1, identical byte for byte, the same three libs and the same DISAGREE rule
+            THERE ARE FOUR LIB-INDEPENDENT COPIES -- claim-issue-lib.ps1, pr-issues-lib.ps1,
+            ref-print-lib.ps1 and, since #3020, sync-rules.ps1 -- identical byte for byte. The DISAGREE rule
             that used to hold one regex literal in agreement now holds one function definition in
             agreement instead (pr-issues.tests.ps1). ref-print-lib.ps1 defines it once for both
-            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other two libs each
+            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other three libs each
             carry their own copy, for the reason their docstrings already give for not sharing a
             dot-source.
     #>
