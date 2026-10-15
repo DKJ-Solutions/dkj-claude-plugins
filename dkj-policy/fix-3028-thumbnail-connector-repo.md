@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#3028: the consumer `DKJ-Solutions/thumbnail-generator` was renamed to `DKJ-Solutions/dkj-thumbnail-generator`,
+and on this machine the checkout folder carries the new name too. The fix follows the #2980 pattern for the
+`repo` field. `localCheckout` becomes a candidate list (#1524), so a machine that still has the old folder
+name keeps resolving.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/thumbnail-generator.json`: `repo` is now `DKJ-Solutions/dkj-thumbnail-generator`,
+      `localCheckout` lists `../dkj-thumbnail-generator` before `../thumbnail-generator`, and a RENAMED note
+      is appended.
 
 ### TEST
 
+- [x] `gh api repos/DKJ-Solutions/thumbnail-generator` resolves to `DKJ-Solutions/dkj-thumbnail-generator`.
+      `check-connectors.ps1` now finds the checkout and reads its block. The block shows one lag in the
+      register, filed as #3029.
+
 ### DEPLOY: fix/3028-thumbnail-connector-repo
 
-**Score:**
+The connector register names thumbnail-generator's renamed repo, `DKJ-Solutions/dkj-thumbnail-generator`, and its
+renamed checkout folder ([#3028](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3028)). Until now
+the connector check could not find that checkout and skipped its whole block.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the register is bookkeeping inside this repo, and no consumer takes it.
+
+**Score:** N/A
 
 #### Pull Request
 
+connectors: thumbnail-generator names its renamed repo and checkout folder
