@@ -312,6 +312,7 @@ const PARKED_BECAUSE = {
   "awaiting-review-dev": "waiting on the dev's review",
   "awaiting-review-client": "waiting on the client's review",
   "awaiting-pull": "waiting on another issue's pull request",
+  "awaiting-pull-external": "waiting on a pull request outside this repo",
   "awaiting-action-external": "waiting on an external event or date",
   "awaiting-action-dev": "waiting on an act only the owner performs",
   "awaiting-release": "waiting on the next release",
