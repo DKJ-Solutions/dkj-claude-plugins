@@ -25,6 +25,7 @@ $Vendored = Join-Path $RepoRoot 'scripts\dashboard\house-style'
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "house-style-$PID-$([guid]::NewGuid().ToString('n'))"
 
 . (Join-Path $Plugin 'scripts\lib\house-style-rules.ps1')
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -116,7 +117,7 @@ Write-Host '-- group 3: the gate and the session check, against scratch repos' -
 function New-FixtureRepo([string]$Name) {
     $dir = Join-Path $Fixture $Name
     New-Item -ItemType Directory -Force -Path (Join-Path $dir 'web') | Out-Null
-    & git -C $dir init -q 2>$null | Out-Null
+    Invoke-FixtureGitIn $dir init -q
     return $dir
 }
 function Add-PinnedCopy([string]$Dir) {
@@ -132,7 +133,7 @@ try {
     $clean = New-FixtureRepo 'clean'
     Add-PinnedCopy $clean
     Set-Content -LiteralPath (Join-Path $clean 'web\app.css') -Value ':root { --my-accent: var(--primary-7); } .my-card { color: var(--primary-9); }' -Encoding ascii
-    & git -C $clean add -A 2>$null | Out-Null
+    Invoke-FixtureGitIn $clean add -A
     $r = Invoke-Child $Gate $clean 'RepoRoot'
     Assert-Equal 0 $r.Code 'a clean repo passes the gate'
     $r = Invoke-Child $Hook $clean 'RepoRootOverride'
@@ -143,7 +144,7 @@ try {
     Add-Content -LiteralPath (Join-Path $drift 'web\house-theme.js') -Value '// edited'
     $py = "PAGE = '''<style>:root { --primary-7: red; } .card { padding: 0; } p { color: var(--muted); }</style>'''"
     Set-Content -LiteralPath (Join-Path $drift 'web\page.py') -Value $py -Encoding ascii
-    & git -C $drift add -A 2>$null | Out-Null
+    Invoke-FixtureGitIn $drift add -A
     $r = Invoke-Child $Gate $drift 'RepoRoot'
     Assert-Equal 1 $r.Code 'a drifted repo fails the gate'
     Assert-True ($r.Out -match '\[pin\] web/house-theme\.js') 'check 1: an edited copy is named'
@@ -166,7 +167,7 @@ try {
 
     $none = New-FixtureRepo 'none'
     Set-Content -LiteralPath (Join-Path $none 'web\app.js') -Value 'console.log(1)' -Encoding ascii
-    & git -C $none add -A 2>$null | Out-Null
+    Invoke-FixtureGitIn $none add -A
     $r = Invoke-Child $Gate $none 'RepoRoot'
     Assert-True ($r.Code -eq 1 -and $r.Out -match '\[missing\]') 'a repo without a vendored copy fails the gate'
     $r = Invoke-Child $Hook $none 'RepoRootOverride'
@@ -179,6 +180,8 @@ $r = Invoke-Child $Gate $RepoRoot 'RepoRoot'
 Assert-Equal 0 $r.Code 'this repo passes its own house-style gate'
 
 Write-Host ''
+# A broken fixture fails the run even when every assert passed (issue #1635).
+$fixtureBroken = Write-FixtureGitSummary -Subject 'check-house-style'
 Write-Host "check-house-style: $script:pass passed, $script:fail failed."
-if ($script:fail) { exit 1 }
+if ($script:fail -or $fixtureBroken) { exit 1 }
 exit 0
