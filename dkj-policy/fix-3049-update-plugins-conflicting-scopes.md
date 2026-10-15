@@ -51,8 +51,8 @@ each distinct scope rather than falling back to one `--scope project` call.
 
 ### TEST
 
-- [x] `update-plugins.tests.ps1` scenarios 21 (project + local + user shadow; local + managed) and
-  22 (-DryRun): 124 pass, 0 fail
+- [x] `update-plugins.tests.ps1` scenarios 21 (project + local + user shadow; local + managed),
+  22 (-DryRun) and 23 (a user sibling and a user shadow are one call, from code review): 128 pass, 0 fail
 
 ### DEPLOY: fix/3049-update-plugins-conflicting-scopes
 

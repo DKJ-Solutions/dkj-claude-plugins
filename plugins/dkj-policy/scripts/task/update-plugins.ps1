@@ -40,7 +40,8 @@
          above), so step 2 and the receipt's own prescriptions cannot disagree inside one run. Where a
          plugin ALSO has a path-less user-scope record beside this checkout's own, that record is
          updated too (#2459): it is a second install a session can load (#2442), and leaving it
-         behind made the receipt call the run's own result behind. A plugin with NO record for this
+         behind made the receipt call the run's own result behind. Where this checkout's OWN records
+         disagree on scope, every distinct scope is updated, for the same reason (#3049). A plugin with NO record for this
          checkout gets `claude plugin install <id> --scope project` instead (#2560): an update there
          moved another checkout's record.
       3. plugin-versions.ps1, run as a CHILD PROCESS (Start-Process, live console, exactly the pattern
@@ -330,12 +331,42 @@ $install = Get-InstallRecord -RepoRoot $repoRoot -UserHomeOverride $UserHomeOver
 # the one already in the tree.
 $targets = New-Object System.Collections.Generic.List[object]
 $skipped = New-Object System.Collections.Generic.List[string]
+# THE CHECKOUT'S OWN RECORDS CAN DISAGREE, AND EACH ONE IS AN INSTALL A SESSION CAN LOAD (issue #3049).
+# Get-PluginUpdateScope answers one scope, and where this checkout's records disagree it falls back to
+# 'project' -- so step 2 moved one record and left the other behind, measured October 15, 2026 on
+# 5.20.0 -> 5.21.0: a 'project' record updated, a 'local' one beside it not, under "0 failed" while
+# this run's own receipt said "2 CONFLICTING records for this checkout". The repair is the #2459 shape:
+# every distinct scope recorded for this checkout is a target. The primary keeps 'project' where it is
+# among them; the others go through step 2 after the targets, as $siblings. 'managed' is never one --
+# it is an administrator's, exactly as it is for the shadows below. Only canonical scopes are taken, so
+# no byte of the administration reaches a command line (see Get-PluginUpdateScope).
+$siblings = New-Object System.Collections.Generic.List[object]
+$splitIds = New-Object System.Collections.Generic.List[string]
 foreach ($id in $ids) {
     $parts = $id -split '@'
     $name = $parts[0]
     $mp = $parts[-1]
     if ((Test-PluginNameSlug -Name $name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
         $sc = Get-PluginUpdateScope -InstallRecord $install -PluginId $id
+        $hereScopes = @()
+        if ($sc.Source -eq 'default' -and $sc.Note -and $null -ne $install -and $install.Readable -and
+            $null -ne $install.RecordsById -and $install.RecordsById.ContainsKey($id)) {
+            $hereScopes = [string[]]@(@($install.RecordsById[$id]) | ForEach-Object {
+                $raw = [string]$_.Scope
+                @(Get-PluginScopeNames) | Where-Object { $_ -ieq $raw -and $_ -ne 'managed' }
+            } | Sort-Object -Unique)
+        }
+        # -ge 1, not -gt 1: 'local' beside 'managed' leaves one scope to move, and the fallback would
+        # have handed it '--scope project', a scope it is not installed at.
+        if ($hereScopes.Count -ge 1) {
+            [array]::Sort($hereScopes, [System.StringComparer]::Ordinal)
+            $primary = if ($hereScopes -contains 'project') { 'project' } else { $hereScopes[0] }
+            $sc = [pscustomobject]@{ Scope = $primary; Source = 'record'; Note = '' }
+            foreach ($s in $hereScopes) {
+                if ($s -ne $primary) { $siblings.Add([pscustomobject]@{ Id = $id; Verb = 'update'; Scope = $s }) }
+            }
+            $splitIds.Add("$id ($($hereScopes -join ', '))")
+        }
         # NO RECORD FOR THIS CHECKOUT AT ALL IS AN INSTALL, NEVER AN UPDATE (issue #2560). That is the
         # one 'default' answer with an empty Note: nothing names this path and nothing is tied to no
         # path. `claude plugin update --scope project` does not install there -- it goes looking for
@@ -380,6 +411,8 @@ foreach ($t in $targets) {
     if ($t.ScopeSource -ne 'record' -or $t.Scope -eq 'user') { continue }
     if ($null -eq $install -or -not $install.Readable -or $null -eq $install.PathlessById) { continue }
     if (-not $install.PathlessById.ContainsKey($t.Id)) { continue }
+    # A 'user' record for this checkout is already a sibling (#3049): one call per scope, not two.
+    if (@($siblings | Where-Object { $_.Id -eq $t.Id -and $_.Scope -eq 'user' }).Count -gt 0) { continue }
     $hasUser = @(@($install.PathlessById[$t.Id]) | Where-Object { [string]$_.Scope -ieq 'user' }).Count -gt 0
     if ($hasUser) {
         $shadows.Add([pscustomobject]@{ Id = $t.Id; Verb = 'update'; Scope = 'user' })
@@ -408,6 +441,12 @@ if ($scopeNotes.Count -gt 0) {
     Write-Host "Scope could not be read from the install administration for $($scopeNotes.Count) plugin(s):" -ForegroundColor Yellow
     foreach ($t in $scopeNotes) { Write-Host "  $($t.Id) -- $($t.ScopeNote)" -ForegroundColor Yellow }
 }
+# Same place and same reason as the notes: a disagreement is a finding, so it is named before step 1.
+if ($splitIds.Count -gt 0) {
+    Write-Host ""
+    Write-Host "$($splitIds.Count) plugin(s) have install records for this checkout that disagree on scope -- each scope below is updated, 'managed' never (#3049):" -ForegroundColor Yellow
+    foreach ($s in $splitIds) { Write-Host "  $s" -ForegroundColor Yellow }
+}
 
 $marketplaces = [string[]]@($targets | ForEach-Object { $_.Marketplace } | Select-Object -Unique)
 [array]::Sort($marketplaces, [System.StringComparer]::Ordinal)
@@ -421,6 +460,7 @@ if ($DryRun) {
     # has to be edited first. The provenance that matters -- the administration failing to answer --
     # is the $scopeNotes block above, which is prose and does not pretend to be a command.
     foreach ($t in $targets) { Write-Host "  claude plugin $($t.Verb) $($t.Id) --scope $($t.Scope)" }
+    foreach ($t in $siblings) { Write-Host "  claude plugin $($t.Verb) $($t.Id) --scope $($t.Scope)" }
     foreach ($t in $shadows) { Write-Host "  claude plugin $($t.Verb) $($t.Id) --scope $($t.Scope)" }
     exit 0
 }
@@ -471,14 +511,20 @@ $updateFailures = 0
 # shadows have their own clause in the summary.
 $alreadyCurrent = 0
 $inShadows = $false
-# ONE LOOP FOR BOTH: the path-less user-scope records beside a checkout record (#2459, see the block
-# above $targets' skip report) go through the same call site as the targets, after them. They are the
-# same question -- counted as update failures like any other call -- and one site is one audited
-# bounded capture rather than two copies of it.
+# ONE LOOP FOR ALL THREE: this checkout's other-scope records (#3049) and the path-less user-scope
+# records beside a checkout record (#2459, see the blocks above $targets' skip report) go through the
+# same call site as the targets, after them. They are the same question -- counted as update failures
+# like any other call -- and one site is one audited bounded capture rather than three copies of it.
+$firstSibling = if ($siblings.Count -gt 0) { $siblings[0] } else { $null }
 $firstShadow = if ($shadows.Count -gt 0) { $shadows[0] } else { $null }
-# .ToArray() on both, not @(): Windows PowerShell 5.1 hands a generic List back from @() unchanged, and
+# .ToArray() on each, not @(): Windows PowerShell 5.1 hands a generic List back from @() unchanged, and
 # List + List throws "argument types do not match" rather than concatenating.
-foreach ($t in ([object[]]$targets.ToArray() + [object[]]$shadows.ToArray())) {
+foreach ($t in ([object[]]$targets.ToArray() + [object[]]$siblings.ToArray() + [object[]]$shadows.ToArray())) {
+    if ($null -ne $firstSibling -and [object]::ReferenceEquals($t, $firstSibling)) {
+        $inShadows = $true
+        Write-Host ""
+        Write-Host "  ...and $($siblings.Count) other record(s) for this checkout, at a second scope a session can load instead (#3049):" -ForegroundColor Cyan
+    }
     if ($null -ne $firstShadow -and [object]::ReferenceEquals($t, $firstShadow)) {
         $inShadows = $true
         Write-Host ""
@@ -512,7 +558,10 @@ Start-Process -FilePath 'powershell' -ArgumentList $receiptArgs -NoNewWindow -Wa
 Write-Host ""
 $totalFailures = $marketplaceFailures + $updateFailures
 if ($totalFailures -eq 0) {
-    $shadowText = if ($shadows.Count -gt 0) { " (plus $($shadows.Count) path-less user-scope record(s))" } else { '' }
+    $extras = @()
+    if ($siblings.Count -gt 0) { $extras += "$($siblings.Count) other-scope record(s) for this checkout" }
+    if ($shadows.Count -gt 0) { $extras += "$($shadows.Count) path-less user-scope record(s)" }
+    $shadowText = if ($extras.Count -gt 0) { " (plus $($extras -join ', '))" } else { '' }
     $installed = @($targets | Where-Object { $_.Verb -eq 'install' }).Count
     $installText = if ($installed -gt 0) { ", $installed installed into this checkout (it had no install record)" } else { '' }
     $currentText = if ($alreadyCurrent -gt 0) { ", $alreadyCurrent already at the latest version" } else { '' }

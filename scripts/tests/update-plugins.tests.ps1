@@ -69,6 +69,13 @@
       18 -AllCheckouts -DryRun                          -> the clean checkout's command printed, nothing ran
       19 -AllCheckouts with -RootOverride                -> refused, exit 1, nothing ran
       20 -AllCheckouts where a child run fails          -> named FAILED with its exit code, exit 1
+      21 this checkout's own records disagree on scope  -> one update per scope ('project', 'local'),
+         (#3049)                                             never 'managed', and the path-less user
+                                                             shadow beside them is updated too; the
+                                                             disagreement is named before step 1
+      22 -DryRun with disagreeing records               -> every scope's command printed, nothing ran
+      23 a 'user' record for this checkout beside a     -> one '--scope user' call, not a sibling AND
+         path-less user record                               a shadow
 
     Dependency-free (no Pester), same style as plugin-versions.tests.ps1. Pure ASCII (repo convention
     for .ps1).
@@ -598,6 +605,63 @@ try {
     Assert-Has   $r 'already at the latest version 9.9.9' '16: the shim printed the no-op sentence for plugin 1'
     Assert-Summary $r '1 plugin(s) updated, 1 already at the latest version, 0 failed' '16: the summary counts the no-op apart from the update'
     Assert-Lacks $r '2 plugin(s) updated' '16: and no longer counts the no-op call as an update'
+
+    # --- 21. this checkout's OWN records disagree on scope: each scope is updated (#3049) -----------
+    #     The measured state: a 'project' and a 'local' record for one plugin, both naming this
+    #     checkout. Only 'project' used to move, under "0 failed". A path-less user shadow beside them
+    #     is written too: the disagreement used to hide it from the #2459 loop as well.
+    Write-Host "21. disagreeing records for this checkout: every scope is updated" -ForegroundColor Cyan
+    $c = New-Case 'split'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $ID2)
+    Set-InstallRecords -HomeDir $c.Home -Records @{
+        $ID1 = @( @{ scope = 'project'; projectPath = $c.Repo }, @{ scope = 'local'; projectPath = $c.Repo }, @{ scope = 'user' } )
+        $ID2 = @( @{ scope = 'local'; projectPath = $c.Repo }, @{ scope = 'managed'; projectPath = $c.Repo } )
+    }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-CleanExit -Run $r -Label '21: exit 0'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '21: the project record is updated'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope local" '21: AND the local record beside it'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope user" '21: and the path-less user shadow is no longer hidden by the disagreement'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID2 --scope local" '21: a local record beside a managed one is updated at its own scope'
+    Assert-Lacks $r "plugin update $ID2 --scope managed" '21: a managed record is never this run''s to move'
+    Assert-Lacks $r "plugin update $ID2 --scope project" '21: and no project call is invented where no project record exists'
+    Assert-Lacks $r 'falling back to project' '21: no fallback is claimed -- the scopes were read, not guessed'
+    Assert-Has   $r '2 plugin(s) have install records for this checkout that disagree on scope' '21: the disagreement is named, for both plugins'
+    Assert-Before $r 'disagree on scope' 'Step 1/3' '21: named BEFORE step 1, like the scope notes'
+    Assert-Summary $r '2 plugin(s) updated (plus 1 other-scope record(s) for this checkout, 1 path-less user-scope record(s)), 0 failed' '21: the summary counts the second scope separately'
+
+    # --- 22. -DryRun prints every scope's command ------------------------------------------------------
+    Write-Host "22. -DryRun prints every disagreeing scope's command" -ForegroundColor Cyan
+    $c = New-Case 'split-dry'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    Set-InstallRecords -HomeDir $c.Home -Records @{
+        $ID1 = @( @{ scope = 'project'; projectPath = $c.Repo }, @{ scope = 'local'; projectPath = $c.Repo } )
+    }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt -DryRun
+    Assert-CleanExit -Run $r -Label '22: exit 0'
+    Assert-Has   $r "claude plugin update $ID1 --scope project" '22: the project command is printed'
+    Assert-Has   $r "claude plugin update $ID1 --scope local" '22: and the local one beside it'
+    Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '22: and nothing ran'
+
+    # --- 23. a 'user' record for this checkout beside a path-less user one: one user call, not two ---
+    Write-Host "23. a user-scope sibling and a path-less user shadow are one call" -ForegroundColor Cyan
+    $c = New-Case 'split-user'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    Set-InstallRecords -HomeDir $c.Home -Records @{
+        $ID1 = @( @{ scope = 'local'; projectPath = $c.Repo }, @{ scope = 'user'; projectPath = $c.Repo }, @{ scope = 'user' } )
+    }
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-CleanExit -Run $r -Label '23: exit 0'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope local" '23: the local record is updated'
+    $userCalls = ([regex]::Matches($r.Text, [regex]::Escape("CLAUDE-SHIM-CALLED plugin update $ID1 --scope user"))).Count
+    Assert-Equal 1 $userCalls '23: the user scope is updated exactly once'
+    Assert-Lacks $r 'path-less user-scope record(s)' '23: and no shadow is counted for it'
 
     # --- 17-19. -AllCheckouts: the sweep over every checkout in the install administration ---------
     #     One fixture home holding records for five folders: a clean checkout on its trunk (runs), one on

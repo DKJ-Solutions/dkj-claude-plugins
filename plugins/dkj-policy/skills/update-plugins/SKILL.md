@@ -133,10 +133,18 @@ is wrong in both of those too.
 **It returns one of the CLI's own four scope names, never the file's string.** `installed_plugins.json`
 is machine-written, but it still feeds a `claude plugin ...` line this skill both executes and prints,
 so the value is matched case-insensitively against `user`/`project`/`local`/`managed` and the canonical
-spelling is what goes in the command. Where the administration cannot answer -- unreadable, silent on
-the scope, or holding records that **disagree** with each other (a scope mismatch accumulates records
-rather than replacing one) -- the run falls back to `project` exactly as before and prints one line per
-plugin saying why, above step 1.
+spelling is what goes in the command. Where the administration cannot answer (unreadable, or silent on
+the scope) the run falls back to `project` exactly as before and prints one line per plugin saying why,
+above step 1.
+
+**Records for this checkout that disagree on scope are each updated**
+([#3049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3049)). A scope mismatch
+accumulates records rather than replacing one, and every one of them is an install a session can load.
+The run used to fall back to `project` here too, and moved only that record. Measured October 15, 2026,
+v5.20.0 -> v5.21.0: a `local` record beside the `project` one was left at 5.20.0 under `0 failed`,
+while the run's own receipt said `2 CONFLICTING records for this checkout`. Step 2 now runs one update
+per distinct scope recorded for this checkout (`project` first where it is among them), never `managed`,
+names the disagreement above step 1, and counts the extra records separately in the summary.
 
 **One scope per plugin was not enough, and a path-less user-scope record is now a second target**
 ([#2459](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2459)). Where a plugin has both a
