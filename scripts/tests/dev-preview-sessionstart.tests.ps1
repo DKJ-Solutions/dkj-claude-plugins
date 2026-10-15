@@ -173,6 +173,7 @@ Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText $routed -Port 4881))
 Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '{ "localhost:48801": "simpleBrowser.open" }' -Port 4880)) 'nor is a port that merely starts with it'
 Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '{ "localhost:4880": "default" }' -Port 4880)) 'a route to another opener is not the Simple Browser'
 Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '' -Port 4880)) 'no settings file routes nothing'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText "{`n  // `"localhost:4880`": `"simpleBrowser.open`"`n}" -Port 4880)) 'a route commented out with // is no route'
 
 $html = Format-DevPreviewPlaceholderHtml -RepoName 'dkj-thumbnail-generator'
 Assert-True ($html -match '<h1>dkj-thumbnail-generator</h1>') 'the page names the repo'

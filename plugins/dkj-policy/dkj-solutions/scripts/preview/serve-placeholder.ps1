@@ -95,6 +95,9 @@ Write-Host "placeholder preview for ${repoName}: http://localhost:$Port/"
 try {
     while ($true) {
         $client = $listener.AcceptTcpClient()
+        # A client that sends its head and then never reads must not hold the loop on Write either
+        # (Sebastian's review, #3047).
+        $client.SendTimeout = 2000
         try {
             $request = Read-PlaceholderRequest -Client $client
             if ($null -eq $request) { continue }

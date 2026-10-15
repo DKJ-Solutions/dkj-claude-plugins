@@ -73,7 +73,9 @@ function Test-DevPreviewVsCodeRoute {
     #>
     param([AllowNull()][AllowEmptyString()][string]$SettingsText, [int]$Port)
     if (-not $SettingsText) { return $false }
-    return [bool]($SettingsText -match ('"(localhost|127\.0\.0\.1):' + $Port + '"\s*:\s*"simpleBrowser\.open"'))
+    # A line commented out with // is no route (Victor's review, #3047).
+    $live = ($SettingsText -split "`n" | Where-Object { $_ -notmatch '^\s*//' }) -join "`n"
+    return [bool]($live -match ('"(localhost|127\.0\.0\.1):' + $Port + '"\s*:\s*"simpleBrowser\.open"'))
 }
 
 function ConvertTo-DevPreviewConfig {
