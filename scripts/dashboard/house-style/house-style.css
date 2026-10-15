@@ -18,55 +18,71 @@
        dark, both with those house defaults.
      The dark token block therefore appears twice; keep both in sync.
 
+   How far a theme reaches: every use of --primary-5 (a grey of the colour; links and text in the colour are -7:
+   links, titles, values) (the pressed .seg,
+   .badge--info, .meter--info, the settings toggle, focus rings), the text caret and the selection;
+   .btn--primary (a filled main action, owner's decision, October 15, 2026, #109) and native checkboxes, radios, sliders and progress bars take --primary-7 through accent-color. Beyond that, by default: the page, the
+   cards and tiles carry a tint of the primary (--primary-1, --primary-2), and every line and tinted surface
+   is --primary-3, with --primary-9 as the text on it. There are no untinted neutrals: text is --primary-9, and --primary-7 is the highlight (h1, h2, a state, a value that stands out) (owner's decisions, October 14 and 15, 2026). Status, direction and categorical colours are never tinted. The
+   --accent modifiers (header, table) carry it further where an app opts in.
+
    Categorical colours: --cat-1 .. --cat-3 are series slots. Pick a slot per
    series in your own app; do not reuse one slot for two meanings in a view.
-   Semantic colours (--gain/--loss/--up/--down) are for direction and result,
-   never for categories.
+   Semantic colours (--negative-3/--positive-5/--negative-5) are for direction and result, never
+   for categories. The one exception: --cat-1 doubles as the gain colour in a
+   chart (there is no --gain); --negative-3 is the loss colour.
    ========================================================================== */
 
 /* ---- Tokens: light (default) -------------------------------------------- */
 :root {
   color-scheme: light;
 
-  /* surfaces and ink */
-  --page: #f9f9f7;        /* page background */
-  --surface: #fcfcfb;     /* cards, tiles, tooltips */
-  --ink: #0b0b0b;         /* primary text */
-  --ink-2: #52514e;       /* secondary text, labels */
-  --muted: #898781;       /* tertiary text, notes */
-  --grid: #e1e0d9;        /* row dividers, meter track, gridlines */
-  --axis: #c3c2b7;        /* axes, info-button outline, neutral badge */
-  --border: rgba(11,11,11,0.10);
+  /* the theme's nine steps, fixed values per theme (owner's decision, October 14, 2026). On light every theme
+     behaves the same and only the hue differs (owner's decision, October 15, 2026): each step has one OKLCH
+     lightness and one chroma in all six, capped at a share of what the hue can hold (relative chroma) where the hue
+     holds less. -1 L 0.989 C 0.0053, -2 L 0.972 C 0.0136 (the owner's Petrol #faffff and #f2ffff, at the lightest
+     lightness every hue holds); -3 L 0.848 C 0.066, at most 0.45 relative (Petrol #9adae2); -4 L 0.70 (October 15, 2026: a big step towards the ground, keeping its hue and chroma) and -6 L 0.39 in -5's hue at half its base chroma (October 15, 2026: the greys a step either side, extra grey); -5 L 0.47 C 0.1135, at
+     most 0.486 relative (the owner's Paars #5d458b, Magenta #954c7a, Blauw #49498d), its base chroma, taken at 0.6 (October 15, 2026: greyer); -7 L 0.369 at 0.99, -8 L 0.289
+     at 0.83 and -9 L 0.131 at 0.99 relative (the owner's Blauw #0707bf, #181873, #00002b). Each step keeps its hue,
+     and Blauw's sit on #0000ff's HSL hue 240, from 264 to 286 in OKLCH as their chroma falls. Dark follows the same rule,
+     mirrored (owner's decision, October 15, 2026): -1 L 0.19 C 0.035, -2 L 0.21 C 0.045, -3 L 0.32 C 0.08 at most
+     0.6 relative, -4 L 0.38 (October 15, 2026: a big step towards the ground, as on light) and -6 L 0.70 (October 15, 2026: a big step lighter, keeping its hue and chroma; 6.58:1 or better on -2), -5 L 0.538 C 0.105 at most 0.49 relative (the owner's Oranje #8f6249, at most the chroma of the owner's
+     Hemelsblauw #4c4c8d) its base chroma, taken at 0.6, -7 L 0.80 at 0.99, -8 L 0.90 at 0.83 relative, -9 L
+     0.981 C 0.008. -4, -5 and -6 are the greys, -5 in the middle of the scale with a little more colour than -4 and -6, and -7 and -8 carry
+     the colour. A role takes the same step in both modes, never light-dark() between two steps (owner's
+     decision, October 15, 2026): on dark that puts -1 on a -5 fill, and -5 text and rings on -1 and -2, at about
+     3.3:1 (owner accepted). Hemelsblauw sits on #0000ff's HSL hue 240 like Blauw. -1 and -2 are the ground end (lightest
+     on light, darkest on dark), -8 and -9 the far end (darkest on light, whitest on dark). Blauw here; each [data-theme]
+     below sets its own nine.
+     -1 the page, and the text on a -5 fill; -2 the cards (tiles, tooltips); -3 every line (borders, row
+     dividers, meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a today row, the
+     accent dialog); -5 the fills (switches, info badges), focus rings, meters and text in
+     the colour (values), the picker's dot; -4 no role yet; -6 sub lines, notes and .muted; -7 the highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), h1 and h2, the states (hover, focus outlines, sorted, pressed) and native controls through accent-color; -8 h3-h6 (owner's decision, October 14, 2026; on -9 h1 and h2 are -3 and h3-h6 are -2); -9 the far end: every paragraph, and an inverted
+     surface (the showcase's panel on dark). Measured (WCAG relative luminance) worst cases: -5 on the card 6.25:1
+     on light (Oker), -1 on -5 6.54:1 on light (Oker) and 3.51:1 on dark (Roze), -5 on the card 3.38:1 on dark (Roze), -7 on -3 6.53:1 on light (Petrol);
+     -7, the highlight, on -1 and -2 at 9.42:1 or better on light (Petrol) and 9.02:1 on dark (Roze), and 6.42:1 or better
+     on a status background (Roze on dark). */
+  --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #cacae4; --primary-4: #979bc1; --primary-5: #545680; --primary-6: #404163;
+  --primary-7: #0704c0; --primary-8: #181675; --primary-9: #000325;
 
   /* categorical palette (series slots) */
-  --cat-1: #2a78d6;
+  --cat-1: #2574d1;          /* dark enough for --primary-1 text on it at 4.5:1 in every light theme (4.51:1, worst Roest; #92) */
   --cat-2: #eb6834;
   --cat-3: #1baf7a;
 
   /* direction and result semantics */
-  --gain: #2a78d6;        /* positive result in charts */
-  --loss: #e34948;        /* negative result in charts */
-  --up: #006300;          /* positive number in text: a step darker than --good, so it reads as text */
-  --down: #a32424;        /* negative number in text: a step darker than --bad */
+  --positive-5: #006300;          /* positive number in text: a step darker than --positive-3, so it reads as text */
+  --negative-5: #a32424;        /* negative number in text: a step darker than --negative-3 */
 
   /* status colours (badges, meters): fills */
-  --good: #0ca30c;
-  --warn: #e0761a;        /* the warning icon; amber-yellow on the dark themes */
-  --bad: #d03b3b;
-  --status-mark: #ffffff; /* the mark inside a status icon (check, cross, "!"): white on light, near-black on dark */
+  --positive-3: #0ca30c;
+  --warning-3: #e0761a;        /* the warning icon; amber-yellow on the dark themes */
+  --warning-5: #a84f00;        /* a warning in text: a step darker than --warning-3, so it reads as text (4.8:1 on the lightest tinted page) */
+  --negative-3: #d03b3b;
 
-  /* the theme's primary colour: switches, primary buttons, info badges and meters.
-     Light default Blauw; each [data-theme] below sets its own. */
-  --primary: #2563d0;
-  --on-primary: #ffffff;  /* text and icons on the primary */
-  /* text and icons on a --warn fill. Same in every mode and theme: --warn is orange or yellow everywhere, so
-     the text is always dark (--ink and --status-mark flip to light on one side). Measured on the fill: 6.4:1
-     light, 6.3:1 Roest, 12.5:1 dark, 7.8:1 Geel; white would be 3.1:1 on the light one. A theme that moves
-     --warn to a dark colour redefines this beside it. */
-  --on-warn: #0b0b0b;
-  --primary-soft: color-mix(in srgb, var(--primary) 14%, var(--surface));  /* a tint for backgrounds */
-
-  --warn-bg: #fff4e0;     /* notice background */
+  --warning-1: #fff4e0;     /* notice background */
+  --negative-1: #fde8e8;    /* a background for a negative message: the same lightness as --warning-1, in red */
+  --positive-1: #e6f6e6;    /* a background for a positive message, in green */
   --shadow-pop: 0 4px 16px rgba(0,0,0,0.15);  /* tooltips; same in both modes */
 
   /* spacing scale: the Figma library's spacing variables (Shopify Theme - LIBRARY, collection
@@ -91,6 +107,8 @@
   --text-h0: 48px; --text-h1: 40px; --text-h2: 32px; --text-h3: 24px;
   --text-h4: 22px; --text-h5: 18px; --text-h6: 16px;
   --text-lg: 18px; --text-base: 14px; --text-sm: 12px; --text-xs: 11px;
+  /* the serif h1 and h2 are set in; a component whose title keeps that face at another level takes it from here */
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
 
   /* app-shell sizes, same in both modes (built from the spacing scale; see "App components" at the end):
      the height of a value field and of the button beside it, the minimum touch target, the height of
@@ -99,6 +117,10 @@
   --tap: var(--spacing-11);
   --topbar-h: var(--spacing-14);
   --column-narrow: 512px;
+
+  /* native controls (checkbox, radio, range, progress) and the text caret take the theme */
+  accent-color: var(--primary-7);
+  caret-color: var(--primary-5);
 }
 
 /* ---- Tokens: dark, following the OS unless the page forces a theme -------- */
@@ -107,13 +129,9 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
-    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
-    --gain: #3987e5; --loss: #e66767;
-    --up: #3fc23f; --down: #ff7a7a; --good: #0ca30c; --bad: #e66767; --warn: #ffc61a; --warn-bg: #3a2a10;
-    --status-mark: #0b0b0b;
-    --primary: #2fc8d8; --on-primary: #0b0b0b;
+    --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
+    --primary-1: #00181a; --primary-2: #001d20; --primary-3: #1d383a; --primary-4: #354648; --primary-5: #5c7375; --primary-6: #8ea3a5; --primary-7: #0fd6e8; --primary-8: #97eff9; --primary-9: #f3fbfb;
   }
 }
 
@@ -122,37 +140,33 @@
 :root[data-theme="pink"], :root[data-theme="lilac"], :root[data-theme="sky"],
 :root[data-theme="cyan"], :root[data-theme="yellow"], :root[data-theme="orange"] {
   color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
-  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
-  --gain: #3987e5; --loss: #e66767;
-  --up: #3fc23f; --down: #ff7a7a; --good: #0ca30c; --bad: #e66767; --warn: #ffc61a; --warn-bg: #3a2a10;
-  --status-mark: #0b0b0b;
-  --primary: #2fc8d8; --on-primary: #0b0b0b;
+  --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
+  --primary-1: #00181a; --primary-2: #001d20; --primary-3: #1d383a; --primary-4: #354648; --primary-5: #5c7375; --primary-6: #8ea3a5; --primary-7: #0fd6e8; --primary-8: #97eff9; --primary-9: #f3fbfb;
 }
 
 /* ---- Themes: the primary colour ------------------------------------------ */
 /* Twelve themes the user picks from (house-theme.js draws the picker). A light theme takes the
-   light tokens of :root, a dark theme the dark block above; each sets only its primary, and the
+   light tokens of :root, a dark theme the dark block above; each sets its own nine --primary-*, and the
    two whose primary sits next to the warning colour move the warning away from it. No red and
    no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
    pink, lilac, sky, cyan, yellow, orange (dark). */
-:root[data-theme="magenta"] { --primary: #c0258f; }
-:root[data-theme="purple"]  { --primary: #7a3fd6; }
-:root[data-theme="blue"]    { --primary: #2563d0; }
-:root[data-theme="teal"]    { --primary: #0f7c86; }
-:root[data-theme="ochre"]   { --primary: #7a6b00; }
-:root[data-theme="rust"]    { --primary: #ad5a0a; --warn: #b88a00; }
-:root[data-theme="pink"]    { --primary: #ff7ac8; }
-:root[data-theme="lilac"]   { --primary: #b69cff; }
-:root[data-theme="sky"]     { --primary: #5cb3ff; }
-:root[data-theme="cyan"]    { --primary: #2fc8d8; }
-:root[data-theme="yellow"]  { --primary: #f2c230; --warn: #f08a24; }
-:root[data-theme="orange"]  { --primary: #f5873a; }
+:root[data-theme="magenta"] { --primary-1: #fefafc; --primary-2: #fdf2f8; --primary-3: #e5c1d4; --primary-4: #b593a6; --primary-5: #734e63; --primary-6: #583b4c; --primary-7: #720252; --primary-8: #4b0e37; --primary-9: #15000d; }
+:root[data-theme="purple"] { --primary-1: #fcfbff; --primary-2: #f6f4fe; --primary-3: #cfc9e4; --primary-4: #a298be; --primary-5: #5f537d; --primary-6: #493f60; --primary-7: #4f0399; --primary-8: #331263; --primary-9: #0c0020; }
+:root[data-theme="blue"] { --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #cacae4; --primary-4: #979bc1; --primary-5: #545680; --primary-6: #404163; --primary-7: #0704c0; --primary-8: #181675; --primary-9: #000325; }
+:root[data-theme="teal"] { --primary-1: #f8fdfd; --primary-2: #ecf9f9; --primary-3: #9adae2; --primary-4: #91a2a4; --primary-5: #4c5e61; --primary-6: #39484a; --primary-7: #02494f; --primary-8: #0d3135; --primary-9: #000a0c; }
+:root[data-theme="ochre"] { --primary-1: #fcfbf8; --primary-2: #f8f6ec; --primary-3: #d7cf9d; --primary-4: #a29f8e; --primary-5: #5e5c49; --primary-6: #484637; --primary-7: #494001; --primary-8: #312c0a; --primary-9: #0a0700; }
+:root[data-theme="rust"] { --primary-1: #fffaf8; --primary-2: #fef4ee; --primary-3: #e5c6b4; --primary-4: #ad9a8e; --primary-5: #6a5649; --primary-6: #514237; --primary-7: #633001; --primary-8: #41220a; --primary-9: #110400; --warning-3: #b88a00; }
+:root[data-theme="pink"] { --primary-1: #1e0d18; --primary-2: #260f1e; --primary-3: #4d203f; --primary-4: #573748; --primary-5: #895f75; --primary-6: #b892a5; --primary-7: #fe97d0; --primary-8: #fad0e5; --primary-9: #fef7f9; }
+:root[data-theme="lilac"] { --primary-1: #161021; --primary-2: #1b132a; --primary-3: #392855; --primary-4: #443d5b; --primary-5: #706790; --primary-6: #a099bd; --primary-7: #c2affe; --primary-8: #e0d9f9; --primary-9: #faf8fd; }
+:root[data-theme="sky"] { --primary-1: #121223; --primary-2: #15152c; --primary-3: #2c2c5a; --primary-4: #3d3f5e; --primary-5: #686a92; --primary-6: #999bbf; --primary-7: #b5b5fe; --primary-8: #dbdbf9; --primary-9: #f8f8fe; }
+:root[data-theme="cyan"] { --primary-1: #00181a; --primary-2: #001d20; --primary-3: #1d383a; --primary-4: #354648; --primary-5: #5c7375; --primary-6: #8ea3a5; --primary-7: #0fd6e8; --primary-8: #97eff9; --primary-9: #f3fbfb; }
+:root[data-theme="yellow"] { --primary-1: #1a1302; --primary-2: #1f1800; --primary-3: #3a321b; --primary-4: #474232; --primary-5: #756e59; --primary-6: #a49f8b; --primary-7: #e8b70c; --primary-8: #f9db90; --primary-9: #fbf9f3; --warning-3: #f08a24; }
+:root[data-theme="orange"] { --primary-1: #200f05; --primary-2: #281105; --primary-3: #472b1a; --primary-4: #523d32; --primary-5: #836759; --primary-6: #b1998b; --primary-7: #fea56e; --primary-8: #fad6c1; --primary-9: #fef7f5; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--page); color: var(--ink);
+body { margin: 0; background: var(--primary-1); color: var(--primary-9);
   font: var(--text-base)/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
 
 /* ---- Layout -------------------------------------------------------------- */
@@ -172,9 +186,14 @@ body > header, main > header { display: flex; justify-content: space-between; al
 /* Headings set in a serif so they stand off from the sans body text. System fonts only (no
    external requests): Iowan Old Style (macOS/iOS), Palatino Linotype (Windows), Georgia,
    Noto Serif (Android/Linux). Their bold is heavier than the sans 600, so the tracking is
-   pulled in slightly. h3 stays in the body sans. */
-h1, h2 { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
+   pulled in slightly. h3-h6 stay in the body sans. */
+h1, h2 { font-family: var(--font-serif);
   font-weight: 600; letter-spacing: -0.01em; }
+/* h1 and h2 are -7, h3-h6 are -8 (owner's decision, October 14, 2026). On a --primary-9 surface h1 and h2 take
+   -3 and h3-h6 take -2 instead, set where that surface is. :where() keeps them at
+   zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
+:where(h1, h2) { color: var(--primary-7); }
+:where(h3, h4, h5, h6) { color: var(--primary-8); }
 h1 { font-size: var(--text-h1); margin: 0; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 /* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
@@ -182,37 +201,55 @@ h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 h2 { display: flex; align-items: center; }
 h2 .info-button { top: 1px; }
 h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; }
-.sub { color: var(--ink-2); font-size: var(--text-sm); margin: 0 0 var(--spacing-4); }   /* line under a heading */
-.muted { color: var(--muted); font-size: var(--text-sm); }
-.meta { font-size: var(--text-sm); color: var(--ink-2); white-space: nowrap; }
-.note { font-size: var(--text-sm); color: var(--muted); margin-top: var(--spacing-1); }
-.footer-note { color: var(--muted); font-size: var(--text-sm); margin-top: var(--spacing-6); }
+/* h4-h6 take the token of their own level too, in the body sans like h3. */
+h4 { font-size: var(--text-h4); margin: 0 0 var(--spacing-2); font-weight: 600; }
+h5 { font-size: var(--text-h5); margin: 0 0 var(--spacing-1-5); font-weight: 600; }
+h6 { font-size: var(--text-h6); margin: 0 0 var(--spacing-1); font-weight: 600; }
+.sub { color: var(--primary-6); font-size: var(--text-sm); margin: 0 0 var(--spacing-4); }   /* line under a heading */
+.muted { color: var(--primary-6); font-size: var(--text-sm); }
+.meta { font-size: var(--text-sm); color: var(--primary-8); white-space: nowrap; }
+.note { font-size: var(--text-sm); color: var(--primary-6); margin-top: var(--spacing-1); }
+.footer-note { color: var(--primary-6); font-size: var(--text-sm); margin-top: var(--spacing-6); }
+/* Sub lines (.sub, .dialog__sub) , notes (.note, .footer-note) and .muted are --primary-6, on a <p> too (owner's decision,
+   October 15, 2026). Any other paragraph is --primary-9, the far end (owner's decision, October 14, 2026): .meta on a <p> takes
+   it too, while the same class on a span or a div stays -7. A <p> in a status colour, or on a --primary-9 surface,
+   sets its own. */
+p, p.meta { color: var(--primary-9); }
 .num { font-variant-numeric: tabular-nums; }                        /* aligned digits */
 .delta { font-weight: 600; }
-.delta--up, .pos { color: var(--up); }
-.delta--down, .neg { color: var(--down); }
+.delta--up, .pos { color: var(--positive-5); }
+.delta--down, .neg { color: var(--negative-5); }
+
+/* ---- Links and selection ---------------------------------------------------- */
+/* A link (an <a> with an href) takes the theme's colour as text (--primary-7, owner's decision, October 15, 2026), visited or not: it reaches 6:1
+   on the tinted page and surface in every theme. :where() keeps each rule at zero specificity, so any class on an
+   <a> (a .btn, a .menu-item, an app's own) wins over it without an override. */
+:where(a:any-link) { color: var(--primary-7); text-decoration-thickness: 1px; text-underline-offset: 0.15em; }
+:where(a:any-link:hover) { text-decoration-thickness: 2px; }
+:where(a:any-link:focus-visible) { outline: 2px solid var(--primary-5); outline-offset: 2px; border-radius: 2px; }
+::selection { background: var(--primary-3); }
 
 /* ---- Surfaces ------------------------------------------------------------- */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
+.card { background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
 .hero { display: flex; flex-wrap: wrap; gap: var(--spacing-6) var(--spacing-12); align-items: flex-end; }   /* use with .card */
-.hero .value { font-size: var(--text-h0); font-weight: 600; line-height: 1.1; }
-.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
-.tile .label { color: var(--ink-2); font-size: var(--text-sm); }
+.hero .value { font-size: var(--text-h0); font-weight: 600; line-height: 1.1; color: var(--primary-9); }
+.tile { background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
+.tile .label { color: var(--primary-9); font-size: var(--text-sm); }
 .tile .v { font-size: var(--text-h4); font-weight: 600; margin-top: var(--spacing-0-5); }
-.mini-card { border: 1px solid var(--border); border-radius: 10px; padding: var(--spacing-3) var(--spacing-3-5); }
-.mini-card--highlight { border-color: var(--warn); }
-.mini-card__label { font-size: var(--text-sm); color: var(--ink-2); }
+.mini-card { border: 1px solid var(--primary-3); border-radius: 10px; padding: var(--spacing-3) var(--spacing-3-5); }
+.mini-card--highlight { border-color: var(--warning-3); }
+.mini-card__label { font-size: var(--text-sm); color: var(--primary-9); }
 .mini-card__value { font-size: var(--text-lg); font-weight: 600; margin: var(--spacing-0-5) 0 var(--spacing-2); font-variant-numeric: tabular-nums; }
-.notice { background: var(--warn-bg); border: 1px solid var(--border); border-radius: 12px; padding: var(--spacing-3) var(--spacing-4); margin-top: var(--spacing-4); }
-.item { border-top: 1px solid var(--grid); padding: var(--spacing-2-5) 0; }
+.notice { background: var(--warning-1); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-3) var(--spacing-4); margin-top: var(--spacing-4); }
+.item { border-top: 1px solid var(--primary-3); padding: var(--spacing-2-5) 0; }
 .item b { display: block; font-size: var(--text-sm); margin-bottom: var(--spacing-0-5); }
-.item p { margin: 0; font-size: var(--text-sm); color: var(--ink-2); }
+.item p { margin: 0; font-size: var(--text-sm); color: var(--primary-9); }
 
 /* ---- Tables --------------------------------------------------------------- */
 .table-wrap { overflow-x: auto; }
 .table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
-.table th, .table td { padding: var(--spacing-2) var(--spacing-2-5); text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
-.table th { color: var(--ink-2); font-weight: 600; }
+.table th, .table td { padding: var(--spacing-2) var(--spacing-2-5); text-align: right; border-bottom: 1px solid var(--primary-3); white-space: nowrap; }
+.table th { color: var(--primary-9); font-weight: 600; }
 .table th:first-child, .table td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 .table td { font-variant-numeric: tabular-nums; }
 .table .row-total td { font-weight: 600; border-bottom: none; }
@@ -224,23 +261,23 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
    Idle: two faint chevrons, brighter on hover. Active: only the current direction, in full ink. */
 .table th .sort { position: relative; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; border-radius: 3px; }
 .table th .sort::before { content: ""; position: absolute; left: -4px; right: -4px; top: 50%; height: var(--tap); transform: translateY(-50%); }   /* a 44px-high hit area around the label */
-.table th .sort::after { content: ""; position: absolute; left: 0; right: 0; bottom: -5px; height: 2px; border-radius: 1px; background: var(--ink); opacity: 0; transition: opacity .15s; }
-.table th .sort:hover, .table th .sort:focus-visible { color: var(--ink); }
+.table th .sort::after { content: ""; position: absolute; left: 0; right: 0; bottom: -5px; height: 2px; border-radius: 1px; background: var(--primary-7); opacity: 0; transition: opacity .15s; }
+.table th .sort:hover, .table th .sort:focus-visible { color: var(--primary-7); }
 .table th .sort:hover::after, .table th .sort:focus-visible::after { opacity: .3; }
-.table th .sort:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; }
-.table th[aria-sort="ascending"] .sort, .table th[aria-sort="descending"] .sort { color: var(--ink); }
+.table th .sort:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 4px; }
+.table th[aria-sort="ascending"] .sort, .table th[aria-sort="descending"] .sort { color: var(--primary-7); }
 .table th[aria-sort="ascending"] .sort::after, .table th[aria-sort="descending"] .sort::after { opacity: 1; }
 .table th .arrow { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 3px; width: 8px; height: 12px; line-height: 0; pointer-events: none; }
-.table th .arrow svg { display: block; width: 8px; height: 12px; fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.table th .arrow svg { display: block; width: 8px; height: 12px; fill: none; stroke: var(--primary-7); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .table th .arrow path { opacity: .5; transition: opacity .15s, stroke .15s; }
-.table th .sort:hover .arrow path, .table th .sort:focus-visible .arrow path { opacity: 1; stroke: var(--ink-2); }
+.table th .sort:hover .arrow path, .table th .sort:focus-visible .arrow path { opacity: 1; stroke: var(--primary-7); }
 .table th[aria-sort="ascending"] .arrow .d, .table th[aria-sort="descending"] .arrow .u { opacity: 0; }
-.table th[aria-sort="ascending"] .arrow .u, .table th[aria-sort="descending"] .arrow .d { opacity: 1; stroke: var(--ink); stroke-width: 2; }
+.table th[aria-sort="ascending"] .arrow .u, .table th[aria-sort="descending"] .arrow .d { opacity: 1; stroke: var(--primary-7); stroke-width: 2; }
 @media (prefers-reduced-motion: reduce) { .table th .sort::after, .table th .arrow path { transition: none; } }
 
 /* ---- Legend and swatches -------------------------------------------------- */
 /* Set the colour per item with style="--c: var(--cat-1)". */
-.legend { display: flex; gap: var(--spacing-4); flex-wrap: wrap; font-size: var(--text-sm); color: var(--ink-2); margin: var(--spacing-1) 0 var(--spacing-3); }
+.legend { display: flex; gap: var(--spacing-4); flex-wrap: wrap; font-size: var(--text-sm); color: var(--primary-9); margin: var(--spacing-1) 0 var(--spacing-3); }
 .legend__item::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px;
   background: var(--c); margin-right: var(--spacing-1-5); vertical-align: -1px; }
 .legend__item--line::before { height: 2px; border-radius: 1px; vertical-align: 3px; width: 14px; }
@@ -248,51 +285,51 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 
 /* ---- Charts (inline SVG inside .chart) ------------------------------------ */
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.chart svg text { fill: var(--ink-2); font-size: var(--text-sm); }
-.chart svg .axis-note { fill: var(--muted); font-size: var(--text-xs); }
-.chart svg .val { fill: var(--ink); font-variant-numeric: tabular-nums; }
+.chart svg text { fill: var(--primary-9); font-size: var(--text-sm); }
+.chart svg .axis-note { fill: var(--primary-9); font-size: var(--text-xs); }
+.chart svg .val { fill: var(--primary-9); font-variant-numeric: tabular-nums; }
 .chart .bar:hover, .chart .bar:focus-visible { opacity: 0.8; }
 .chart .bar:focus { outline: none; }
-.chart .bar:focus-visible { stroke: var(--ink); stroke-width: 2px; }   /* an SVG shape takes no reliable outline, so focus is a stroke */
+.chart .bar:focus-visible { stroke: var(--primary-7); stroke-width: 2px; }   /* an SVG shape takes no reliable outline, so focus is a stroke */
 
 /* ---- Meter ---------------------------------------------------------------- */
-/* Fill colour via --m: <span style="--m: var(--good)"> or a .meter--* class on the meter. */
-.meter { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
+/* Fill colour via --m: <span style="--m: var(--positive-3)"> or a .meter--* class on the meter. */
+.meter { height: 6px; border-radius: 3px; background: var(--primary-3); overflow: hidden; }
 .meter span { display: block; height: 100%; border-radius: 3px; background: var(--m); }
-.meter--good { --m: var(--good); } .meter--warn { --m: var(--warn); }
-.meter--bad { --m: var(--bad); }   .meter--info { --m: var(--primary); }
+.meter--good { --m: var(--positive-3); } .meter--warn { --m: var(--warning-3); }
+.meter--bad { --m: var(--negative-3); }   .meter--info { --m: var(--primary-5); }
 
 /* ---- Badge ---------------------------------------------------------------- */
 .badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%;
-  font: 700 var(--text-sm)/1 system-ui, sans-serif; color: var(--status-mark); background: var(--b); flex: none; }
-.badge--good    { --b: var(--good); }
-.badge--warn    { --b: var(--warn); }
-.badge--bad     { --b: var(--bad); }
-.badge--info    { --b: var(--primary); color: var(--on-primary); }
-.badge--neutral { --b: var(--axis); color: var(--ink); }
+  font: 700 var(--text-sm)/1 system-ui, sans-serif; color: var(--primary-1); background: var(--b); flex: none; }
+.badge--good    { --b: var(--positive-3); }
+.badge--warn    { --b: var(--warning-3); }
+.badge--bad     { --b: var(--negative-3); }
+.badge--info    { --b: var(--primary-5); color: var(--primary-1); }
+.badge--neutral { --b: var(--primary-3); color: var(--primary-9); }
 .badge--sm { width: 18px; height: 18px; font-size: var(--text-xs); }
 .badge-row { display: flex; align-items: center; gap: var(--spacing-1-5); font-size: var(--text-sm); margin-top: var(--spacing-2); }
 
 /* ---- Buttons -------------------------------------------------------------- */
-.btn { background: none; border: 1px solid var(--border); color: var(--ink-2); border-radius: 8px;
+.btn { background: none; border: 1px solid var(--primary-3); color: var(--primary-9); border-radius: 8px;
   padding: var(--spacing-1) var(--spacing-2-5); font: inherit; font-size: var(--text-sm); cursor: pointer; }
 /* Segmented switch: <span class="seg" role="group"><button aria-pressed="true">A</button><button aria-pressed="false">B</button></span>. */
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; vertical-align: middle; }
-.seg button { background: none; border: 0; color: var(--ink-2); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: var(--text-sm); cursor: pointer; }
-.seg button + button { border-left: 1px solid var(--border); }
-.seg button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
-.seg button:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }   /* inset: .seg clips its overflow; ink shows on the page and on the primary */
+.seg { display: inline-flex; border: 1px solid var(--primary-3); border-radius: 8px; overflow: hidden; vertical-align: middle; }
+.seg button { background: none; border: 0; color: var(--primary-9); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--primary-3); }
+.seg button[aria-pressed="true"] { background: var(--primary-5); color: var(--primary-1); }
+.seg button:focus-visible { outline: 2px solid var(--primary-7); outline-offset: -2px; }   /* inset: .seg clips its overflow; ink shows on the page and on the primary */
 /* The round "?" button that opens an explanation tooltip. */
 .info-button { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
-  margin-left: 5px; padding: 0; border-radius: 50%; border: 1px solid var(--axis); background: none;
-  color: var(--ink-2); font: 600 var(--text-xs)/1 system-ui, sans-serif; cursor: help; vertical-align: 1px; position: relative; }
+  margin-left: 5px; padding: 0; border-radius: 50%; border: 1px solid var(--primary-3); background: none;
+  color: var(--primary-9); font: 600 var(--text-xs)/1 system-ui, sans-serif; cursor: help; vertical-align: 1px; position: relative; }
 .info-button::after { content: ""; position: absolute; inset: -14px; }  /* a 44px hit target around the 16px mark */
-.info-button:hover, .info-button:focus-visible, .info-button[aria-expanded="true"] { border-color: var(--ink-2); color: var(--ink); }
-.info-button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.info-button:hover, .info-button:focus-visible, .info-button[aria-expanded="true"] { border-color: var(--primary-7); color: var(--primary-7); }
+.info-button:focus-visible { outline: 2px solid var(--primary-5); outline-offset: 2px; }
 
 /* ---- Tooltip -------------------------------------------------------------- */
-.tooltip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink);
-  border: 1px solid var(--border); border-radius: 8px; padding: var(--spacing-2) var(--spacing-2-5); font-size: var(--text-sm);
+.tooltip { position: fixed; pointer-events: none; background: var(--primary-2); color: var(--primary-9);
+  border: 1px solid var(--primary-3); border-radius: 8px; padding: var(--spacing-2) var(--spacing-2-5); font-size: var(--text-sm);
   box-shadow: var(--shadow-pop); display: none; max-width: 280px; z-index: 10; }
 .tooltip b { display: block; margin-bottom: var(--spacing-0-5); }
 .tooltip--explain { max-width: 320px; line-height: 1.45; }
@@ -303,39 +340,48 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 
 /* ---- Disclosure (details/summary) ------------------------------------------ */
 .more { margin-top: var(--spacing-2); }
-.more summary { cursor: pointer; font-size: var(--text-sm); font-weight: 600; color: var(--ink-2); list-style: none; }
+.more summary { cursor: pointer; font-size: var(--text-sm); font-weight: 600; color: var(--primary-9); list-style: none; }
 .more summary::-webkit-details-marker { display: none; }
 .more summary::after { content: " \25BE"; }
 .more[open] summary::after { content: " \25B4"; }
 .more[open] summary { margin-bottom: var(--spacing-1); }
-.more summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.more summary:focus-visible { outline: 2px solid var(--primary-5); outline-offset: 2px; border-radius: 4px; }
 /* A full-width "read more" button under a block; the extra detail opens ABOVE it, so the toggle
    moves down with the text it reveals. Set aria-expanded from the script. */
 .moretoggle { display: flex; justify-content: center; align-items: center; gap: var(--spacing-1); width: 100%; min-height: var(--tap); cursor: pointer; text-align: center; padding: var(--spacing-2) var(--spacing-4); background: none; border: 0;
-  border-top: 1px solid var(--border); font: 600 var(--text-sm)/1.4 system-ui, sans-serif; color: var(--ink-2); }
+  border-top: 1px solid var(--primary-3); font: 600 var(--text-sm)/1.4 system-ui, sans-serif; color: var(--primary-9); }
 .moretoggle::after { content: " \25BE"; }
 .moretoggle[aria-expanded="true"]::after { content: " \25B4"; }
-.moretoggle:focus-visible { outline: 2px solid var(--ink-2); outline-offset: -2px; }
+.moretoggle:focus-visible { outline: 2px solid var(--primary-7); outline-offset: -2px; }
 
 /* ---- Primary button -------------------------------------------------------- */
-.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 600; }
-.btn--primary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.btn--primary { background: var(--primary-7); border-color: var(--primary-7); color: var(--primary-1); font-weight: 600; }
+.btn--primary:focus-visible { outline: 2px solid var(--primary-5); outline-offset: 2px; }
 /* Disabled: one rule for every .btn variant, so an app never adds its own on this reserved class. */
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ---- Theme accents (opt-in) ------------------------------------------------- */
+/* Carry the theme beyond the primary controls, on the surfaces a page is built from. Add one to a
+   house element; an app that does not keeps the base look. Text stays --primary-7, on a tinted
+   surface (--primary-3) too. */
+.header--accent { padding-bottom: var(--spacing-3); border-bottom: 2px solid var(--primary-5); }   /* on the page header */
+.table--accent th { background: var(--primary-3); color: var(--primary-9); }
 
 /* ---- Theme picker (drawn by house-theme.js: DKJTheme.picker(el)) ------------ */
 /* Two rows of round swatches, light and dark; each swatch is the theme's page colour with its
    primary as a dot, so the choice shows both halves of the theme. */
 .theme-picker { display: grid; gap: var(--spacing-3); }
 .theme-picker__row { display: grid; grid-template-columns: 64px 1fr; gap: var(--spacing-4); align-items: center; }
-.theme-picker__label { font-size: var(--text-sm); font-weight: 600; color: var(--ink-2); }
+.theme-picker__label { font-size: var(--text-sm); font-weight: 600; color: var(--primary-9); }
 .theme-picker__swatches { display: flex; gap: var(--spacing-2); flex-wrap: wrap; }
-.theme-swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--border); cursor: pointer; display: grid; place-items: center; }
-.theme-swatch--light { background: #f9f9f7; }
-.theme-swatch--dark { background: #0d0d0d; }
+.theme-swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--primary-3); cursor: pointer; display: grid; place-items: center; }
+/* Each swatch previews its own theme's page, whichever mode is current: that theme's tint (2% light, 10% dark,
+   as in its --primary-1) over white for a light theme and over black for a dark one. */
+.theme-swatch--light { background: color-mix(in srgb, var(--swatch) 2%, white); }
+.theme-swatch--dark { background: color-mix(in srgb, var(--swatch) 10%, black); }
 .theme-swatch i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--swatch); }
-.theme-swatch[aria-pressed="true"] { outline: 2px solid var(--ink); outline-offset: 2px; }   /* the chosen theme */
-.theme-swatch:focus-visible { outline: 2px dashed var(--primary); outline-offset: 4px; }       /* keyboard focus: a different ring */
+.theme-swatch[aria-pressed="true"] { outline: 2px solid var(--primary-7); outline-offset: 2px; }   /* the chosen theme */
+.theme-swatch:focus-visible { outline: 2px dashed var(--primary-5); outline-offset: 4px; }       /* keyboard focus: a different ring */
 
 /* ---- Settings button (drawn by house-theme.js: DKJTheme.settings(el)) ------- */
 /* A round toggle that opens a panel with the theme picker, a reset and the app's own controls
@@ -344,21 +390,21 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 .theme-settings { position: relative; display: inline-block; }
 .theme-settings--floating { position: fixed; top: var(--spacing-3); right: var(--spacing-3); z-index: 20; }
 .theme-settings__toggle { display: inline-flex; align-items: center; justify-content: center; width: var(--tap); height: var(--tap);
-  padding: 0; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 50%;
+  padding: 0; color: var(--primary-9); background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 50%;
   box-shadow: var(--shadow-pop); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-.theme-settings__toggle:hover { background: var(--primary-soft); }
-.theme-settings__toggle[aria-expanded="true"] { color: var(--primary); border-color: var(--primary); }
-.theme-settings__toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.theme-settings__toggle:hover { background: var(--primary-3); color: var(--primary-7); }
+.theme-settings__toggle[aria-expanded="true"] { color: var(--primary-5); border-color: var(--primary-5); }
+.theme-settings__toggle:focus-visible { outline: 2px solid var(--primary-5); outline-offset: 2px; }
 .theme-settings__close, .theme-settings__toggle[aria-expanded="true"] .theme-settings__open { display: none; }
 .theme-settings__toggle[aria-expanded="true"] .theme-settings__close { display: block; }
 .theme-settings__panel { position: absolute; top: calc(100% + var(--spacing-2)); right: 0; z-index: 20; display: grid; gap: var(--spacing-4);
   width: max-content; max-width: calc(100vw - 2 * var(--spacing-4)); max-height: calc(100dvh - var(--tap) - 2 * var(--spacing-5));
-  overflow-y: auto; padding: var(--spacing-4); text-align: left; background: var(--surface); border: 1px solid var(--border);
+  overflow-y: auto; padding: var(--spacing-4); text-align: left; background: var(--primary-2); border: 1px solid var(--primary-3);
   border-radius: 12px; box-shadow: var(--shadow-pop); }
 .theme-settings__panel[hidden] { display: none; }
-.theme-settings__title { margin: 0; font-size: var(--text-lg); font-weight: 600; color: var(--ink); }
-.theme-settings__group { display: grid; gap: var(--spacing-2); padding-top: var(--spacing-4); border-top: 1px solid var(--border); }
-.theme-settings__label { font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+.theme-settings__title { margin: 0; font-size: var(--text-lg); font-weight: 600; color: var(--primary-9); }
+.theme-settings__group { display: grid; gap: var(--spacing-2); padding-top: var(--spacing-4); border-top: 1px solid var(--primary-3); }
+.theme-settings__label { font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-9); }
 .theme-settings__foot { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-4); }
 .theme-settings__extra:empty { display: none; }
 .theme-settings__reset { margin-left: auto; }
@@ -367,9 +413,8 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
    App components: the generic, mobile-first parts of an app shell (lifted from MesoWise).
    A form field, touch buttons, a dialog, a side drawer, a top bar and a menu list. Domain
    components stay in the app. Touch targets are at least --tap (44px) high. Every colour
-   pairing below is an existing token pair (ink on page or surface, ink-2 on surface, down on
-   surface, on-primary on primary) and holds 4.5:1 in every theme; --muted is used only for
-   icons, which need 3:1.
+   pairing below is an existing token pair (--primary-7 on --primary-1 or --primary-2,
+   --negative-5 on --primary-2, --primary-1 on --primary-5) and holds 4.5:1 in every theme.
    ========================================================================== */
 
 /* ---- Narrow column --------------------------------------------------------- */
@@ -381,37 +426,37 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
    under the control and is hidden while empty: <p class="field__error" role="alert"></p>. */
 .field { display: block; margin-bottom: var(--spacing-3-5); }
 .field:last-child { margin-bottom: 0; }
-.field > span { display: block; font-size: var(--text-base); color: var(--ink-2); margin-bottom: var(--spacing-1); }
+.field > span { display: block; font-size: var(--text-base); color: var(--primary-9); margin-bottom: var(--spacing-1); }
 .field input, .field select { display: block; width: 100%; min-height: var(--control-h);
   font: inherit; font-size: 16px;   /* literal: iOS zooms in on focus below 16px, a platform constraint, not a type step */
-  padding: var(--spacing-2) var(--spacing-3); border: 1px solid var(--border); border-radius: 8px;
-  background: var(--page); color: var(--ink); }
+  padding: var(--spacing-2) var(--spacing-3); border: 1px solid var(--primary-3); border-radius: 8px;
+  background: var(--primary-1); color: var(--primary-9); }
 /* A select draws its own chevron, in the muted colour, with room to the edge. */
 .field select { -webkit-appearance: none; appearance: none; padding-right: var(--spacing-10); text-overflow: ellipsis;
-  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-image: linear-gradient(45deg, transparent 50%, var(--primary-7) 50%), linear-gradient(135deg, var(--primary-7) 50%, transparent 50%);
   background-position: right 18px center, right 13px center; background-size: 5px 5px; background-repeat: no-repeat; }
-.field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.field__error { margin: var(--spacing-1) 0 0; font-size: var(--text-base); color: var(--down); }
+.field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--primary-5); outline-offset: 2px; }
+.field__error { margin: var(--spacing-1) 0 0; font-size: var(--text-base); color: var(--negative-5); }
 .field__error:empty { display: none; }
 
 /* ---- Touch buttons ----------------------------------------------------------- */
 /* .btn--touch makes a .btn a touch target; .btn--block makes it full width. Both combine with
    .btn--primary (restated below, because this block comes after it). */
 .btn--touch { display: inline-flex; align-items: center; justify-content: center; min-height: var(--tap);
-  padding: var(--spacing-2-5) var(--spacing-4); font-size: var(--text-base); font-weight: 600; color: var(--ink);
-  background: var(--surface); -webkit-tap-highlight-color: transparent; }
-.btn--touch.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
-.btn--touch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  padding: var(--spacing-2-5) var(--spacing-4); font-size: var(--text-base); font-weight: 600; color: var(--primary-9);
+  background: var(--primary-2); -webkit-tap-highlight-color: transparent; }
+.btn--touch.btn--primary { background: var(--primary-7); border-color: var(--primary-7); color: var(--primary-1); }
+.btn--touch:focus-visible { outline: 2px solid var(--primary-5); outline-offset: 2px; }
 .btn--block { width: 100%; }
 
 /* ---- Icon button and action row --------------------------------------------- */
 /* A filled icon button: an svg that takes the text colour, as tall as a touch target; it grows
    to the width of its row where .action-row stretches it. --ghost is the quiet one (menu button). */
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; min-width: var(--tap); height: var(--tap); padding: 0;
-  border: 0; border-radius: 8px; background: var(--ink); color: var(--page); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  border: 0; border-radius: 8px; background: var(--primary-7); color: var(--primary-1); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .icon-btn svg { flex: none; }
-.icon-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.icon-btn--ghost { background: transparent; color: var(--ink-2); }
+.icon-btn:focus-visible { outline: 2px solid var(--primary-5); outline-offset: 2px; }
+.icon-btn--ghost { background: transparent; color: var(--primary-9); }
 /* A row of icon buttons that share the full width. */
 .action-row { display: flex; gap: var(--spacing-2-5); width: 100%; }
 .action-row > * { flex: 1; min-width: 0; }
@@ -421,8 +466,8 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
    on top of a dialog sets --dialog-scale smaller. The page behind stands still while one is open. */
 .dialog { width: calc(min(100vw, var(--column-narrow)) * var(--dialog-scale, 0.95)); max-width: none; max-height: calc(100% - var(--spacing-8));
   margin: auto; padding: 0; overflow-y: auto; overscroll-behavior: contain; text-align: left;
-  color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
-.dialog::backdrop { background: rgba(0,0,0,0.45); }   /* same in both modes */
+  color: var(--primary-9); background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 16px; }
+.dialog::backdrop { background: var(--primary-1); opacity: 0.45; }
 html:has(dialog:modal) { overflow: hidden; }
 /* The padding sits in the body, so a tap on empty space in the dialog never counts as a tap outside it. */
 .dialog__body { position: relative; padding: var(--spacing-4); }
@@ -430,20 +475,20 @@ html:has(dialog:modal) { overflow: hidden; }
    one-line title sits level with it. */
 .dialog__head { display: flex; align-items: center; min-height: var(--tap); padding-right: calc(var(--tap) + var(--spacing-2)); margin-bottom: var(--spacing-4); }
 .dialog__title { margin: 0; min-width: 0; font-size: var(--text-h6); font-weight: 600; overflow-wrap: anywhere; }
-.dialog__sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-sm); color: var(--ink-2); }
+.dialog__sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-sm); color: var(--primary-6); }
 /* The close button, top right, with no visible border. Variants: --save (a filled plate, the
    check that saves), --cancel (an outlined plate to the left of save, the undo arrow), --back
    (on the left instead, for a second panel). The plates are 36px, the tap area stays 44px, and
    the two tap areas overlap by 2px so the plates stand 6px apart. */
 .dialog__close { position: absolute; top: var(--spacing-4); right: var(--spacing-4); display: flex; align-items: center; justify-content: center;
-  width: var(--tap); height: var(--tap); padding: 0; color: var(--muted); background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.dialog__close:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  width: var(--tap); height: var(--tap); padding: 0; color: var(--primary-9); background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.dialog__close:focus-visible { outline: 2px solid var(--primary-5); outline-offset: 2px; }
 .dialog__close svg { position: relative; }   /* above the plate */
 .dialog__close--save::before, .dialog__close--cancel::before { content: ""; position: absolute; inset: var(--spacing-1); border: 1px solid; border-radius: var(--spacing-1-5); }
-.dialog__close--save { color: var(--on-primary); }
-.dialog__close--save::before { background: var(--primary); border-color: var(--primary); }
-.dialog__close--cancel { right: calc(var(--spacing-4) + var(--tap) - 2px); color: var(--down); }
-.dialog__close--cancel::before { border-color: var(--down); }
+.dialog__close--save { color: var(--primary-1); }
+.dialog__close--save::before { background: var(--primary-5); border-color: var(--primary-5); }
+.dialog__close--cancel { right: calc(var(--spacing-4) + var(--tap) - 2px); color: var(--negative-5); }
+.dialog__close--cancel::before { border-color: var(--negative-5); }
 .dialog__close--back { right: auto; left: var(--spacing-4); }
 /* Room for two buttons (cancel and save), or for the back button on the left. */
 .dialog__head--two { padding-right: calc(2 * var(--tap) + var(--spacing-2) - 2px); }
@@ -458,10 +503,10 @@ html:has(dialog:modal) { overflow: hidden; }
 .dialog--drawer .dialog__body { display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box;
   padding-top: calc(var(--spacing-4) + env(safe-area-inset-top)); padding-bottom: calc(var(--spacing-4) + env(safe-area-inset-bottom)); }
 .dialog--drawer .dialog__head { box-sizing: border-box; height: var(--topbar-h); min-height: 0; margin: calc(-1 * var(--spacing-4)) calc(-1 * var(--spacing-4)) 0;
-  padding: 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)) 0 var(--spacing-4); border-bottom: 1px solid var(--border); }
+  padding: 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)) 0 var(--spacing-4); border-bottom: 1px solid var(--primary-3); }
 .dialog--drawer .dialog__head--two { padding-right: calc(var(--spacing-4) + 2 * var(--tap) + var(--spacing-4)); }
 .dialog--drawer .dialog__head--back { padding: 0 var(--spacing-4) 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)); }
-.dialog--drawer .dialog__title { font-size: var(--text-lg); font-weight: 700; }   /* as the name in the top bar */
+.dialog--drawer .dialog__title { font-size: var(--text-h5); font-weight: 700; }   /* as the name in the top bar */
 .dialog--drawer .dialog__close { top: calc((var(--topbar-h) - var(--tap)) / 2 + env(safe-area-inset-top)); }
 .dialog--drawer::backdrop { animation: house-backdrop-in 220ms ease-out; }
 @keyframes house-drawer-in { from { transform: translateX(100%); } }
@@ -472,7 +517,7 @@ html:has(dialog:modal) { overflow: hidden; }
 /* <header class="topbar"><div class="topbar__inner"><div class="topbar__brand">...</div> a .icon-btn--ghost</div></header>.
    Always at the top, in the surface colour, over the full width; its content lines up with
    the narrow column. A field scrolled into view stays below it. */
-.topbar { display: block; position: sticky; top: 0; z-index: 2; background: var(--surface); box-shadow: 0 1px 0 var(--border); }
+.topbar { display: block; position: sticky; top: 0; z-index: 2; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }
 .topbar__inner { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: var(--column-narrow); height: var(--topbar-h);
   margin: 0 auto; padding: 0 var(--spacing-1) 0 var(--spacing-4); }
 .topbar__brand { display: flex; align-items: center; gap: var(--spacing-3); min-width: 0; }
@@ -484,7 +529,7 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    <span class="menu-row__value">..</span> an .icon-btn</li></ul>. A line between rows, not above or below. */
 .menu-list { margin: 0; padding: 0; list-style: none; }
 .menu-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--spacing-3); min-height: var(--tap); padding: var(--spacing-2); }
-.menu-row + .menu-row { border-top: 1px solid var(--border); }
+.menu-row + .menu-row { border-top: 1px solid var(--primary-3); }
 .menu-row__label { font-size: var(--text-h6); font-weight: 600; }
 .menu-row__value { min-width: 0; font-size: var(--text-h6); text-align: right; overflow-wrap: anywhere; }
 /* A button at the end of the row is control-h tall and its centre sits under a close button's. */
@@ -492,12 +537,12 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
 /* A navigation row: a full-width button with icon, label and chevron; a line between items.
    <button class="menu-item"><svg class="menu-item__icon"/><span class="menu-item__label">..</span><svg class="menu-item__chevron"/></button> */
 .menu-item { display: flex; align-items: center; gap: var(--spacing-3); width: 100%; min-height: var(--tap); margin: 0; padding: var(--spacing-2);
-  border: 0; border-radius: 8px; background: none; font: inherit; text-align: left; text-decoration: none; color: var(--ink); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.menu-item + .menu-item { border-top: 1px solid var(--border); border-top-left-radius: 0; border-top-right-radius: 0; }
-.menu-item:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }   /* inset, so the ring is not cut off by the panel */
+  border: 0; border-radius: 8px; background: none; font: inherit; text-align: left; text-decoration: none; color: var(--primary-9); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.menu-item + .menu-item { border-top: 1px solid var(--primary-3); border-top-left-radius: 0; border-top-right-radius: 0; }
+.menu-item:focus-visible { outline: 2px solid var(--primary-5); outline-offset: -2px; }   /* inset, so the ring is not cut off by the panel */
 .menu-item__icon, .menu-item__chevron { flex: none; }
 .menu-item__label { flex: 1; min-width: 0; }
-.menu-item__chevron { color: var(--muted); }
+.menu-item__chevron { color: var(--primary-9); }
 
 /* ---- Screen readers only --------------------------------------------------------- */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
