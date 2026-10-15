@@ -1595,7 +1595,7 @@ Assert-True ((Format-ClaimOpening -ForeignParked -PrerequisiteFound -Parked) -ma
 # THE WIRING: read on the view, defaulted on the single-issue route, and handed to the headline.
 Assert-True ($body -match "else \{ 'number,title,state,url,assignees,body,labels' \}") 'the default-route issue read asks for the labels'
 Assert-True ($body -match "ParameterSetName -eq 'Issue' -and -not \`$PSBoundParameters\.ContainsKey\('SkipLabel'\)") 'the single-issue route defaults its skip list only when none was passed'
-Assert-True ($body -match "\`$SkipLabel = @\('awaiting-info-client', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-review-dev', 'awaiting-review-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first', 'awaiting-recurrences',\s+'awaiting-first-recurrence', 'awaiting-more-recurrences',\s+'awaiting-more-info', 'needs-info', 'needs-decision', 'awaiting-decision', 'awaiting-recurrence', 'record', 'dossier', 'awaiting-owner-act', 'awaiting-event'\)") 'and the default is the labels sweep-issues skips on -- blocked on the submitter, waiting on the owner (#2519) or the client (#2890), waiting on a first recurrence (#2587), and a record (September 30, 2026), under their current names (#2723, #2917) and every former one'
+Assert-True ($body -match "\`$SkipLabel = @\('awaiting-info-client', 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-review-dev', 'awaiting-review-client', 'awaiting-pull', 'awaiting-pull-external', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release', 'awaiting-recurrences-first', 'awaiting-recurrences',\s+'awaiting-first-recurrence', 'awaiting-more-recurrences',\s+'awaiting-more-info', 'needs-info', 'needs-decision', 'awaiting-decision', 'awaiting-recurrence', 'record', 'dossier', 'awaiting-owner-act', 'awaiting-event'\)") 'and the default is the labels sweep-issues skips on -- blocked on the submitter, waiting on the owner (#2519) or the client (#2890), waiting on a first recurrence (#2587), and a record (September 30, 2026), under their current names (#2723, #2917) and every former one'
 Assert-True ($body -match 'Select-ParkingLabels -Labels @\(Get-IssueLabelNames -Issue \$facts\) -SkipLabel \$SkipLabel') 'the view''s labels are held against the skip list'
 Assert-True ($body -match '\$opening\s*=\s*Format-ClaimOpening[^\r\n]*-Parked:\$parked') 'and the headline is told when the issue is parked'
 Assert-True ($body -match 'AND IT IS PARKED') 'the resume verdict carries it too'
@@ -1607,8 +1607,8 @@ Write-Host ''
 Write-Host 'Two parking labels on one issue (#2938)' -ForegroundColor Cyan
 
 # AT MOST ONE awaiting-* LABEL (#2936): both routes name the pair, neither refuses on it.
-$conflict = Format-ParkingLabelConflict -Labels @('awaiting-pull', 'awaiting-action-external')
-Assert-True ($conflict -match "^TWO PARKING LABELS: 'awaiting-pull', 'awaiting-action-external'") 'two parking labels are named together -- the measured consumer pair'
+$conflict = Format-ParkingLabelConflict -Labels @('awaiting-pull', 'awaiting-pull-external', 'awaiting-action-external')
+Assert-True ($conflict -match "^TWO PARKING LABELS: 'awaiting-pull', 'awaiting-pull-external', 'awaiting-action-external'") 'two parking labels are named together -- the measured consumer pair'
 Assert-True ($conflict -match 'at most one awaiting-\* label \(#2936\)') 'and the line points at the rule'
 Assert-True ((Format-ParkingLabelConflict -Labels @('awaiting-pull')) -eq '') 'one label is the rule kept -- silent'
 Assert-True ((Format-ParkingLabelConflict -Labels @()) -eq '') 'no label -- silent'
@@ -1616,7 +1616,7 @@ Assert-True ((Format-ParkingLabelConflict -Labels @('Awaiting-Pull', 'awaiting-p
 Assert-True (-not (Format-ParkingLabelConflict -Labels @("x${esc}[31m", 'awaiting-pull')).Contains($esc)) 'a label name is tracker text and is stripped before printing'
 
 $twoParked = '[{"number":6,"title":"t","labels":[{"name":"awaiting-pull"},{"name":"awaiting-action-external"}],"comments":[]}]'
-$c2 = @(Get-SweepCandidates -Json $twoParked -SkipLabel @('awaiting-pull', 'awaiting-action-external'))
+$c2 = @(Get-SweepCandidates -Json $twoParked -SkipLabel @('awaiting-pull', 'awaiting-pull-external', 'awaiting-action-external'))
 Assert-True ($c2[0].Verdict -eq 'skipped') 'the sweep still skips an issue with two parking labels'
 Assert-True ($c2[0].Reason -match "^label 'awaiting-pull'; TWO PARKING LABELS") 'and its reason names the pair after the label it skipped on'
 $c1 = @(Get-SweepCandidates -Json '[{"number":6,"title":"t","labels":[{"name":"awaiting-pull"}],"comments":[]}]' -SkipLabel @('awaiting-pull'))

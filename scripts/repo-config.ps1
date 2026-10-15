@@ -1318,6 +1318,13 @@ function Get-ExpectedRepoSettings {
 # requester outside the dev team (a preview sent to them). Both are skipped by the sweep route, warned on by a claim and shown
 # as Waiting on the issue dashboard. New, so no former names; same purple, same 'copy' reasoning: "waiting on a look"
 # asserts nothing about the adopting repo.
+# AND A FIFTEENTH, A TENTH PARKING LABEL: 'awaiting-pull-external' (issue #3044, October 15, 2026). An issue
+# whose blocker is a pull request in ANOTHER repo -- a consumer waiting on a dkj-brandbook token -- is not
+# unblocked by that merge: it still waits on the upstream release and on this repo taking the new copy.
+# 'awaiting-pull' comes off at the merge, two steps too early, and 'awaiting-action-external' and
+# 'awaiting-release' name a third party's date and this repo's own cut. So the label comes off once the
+# upstream work is AVAILABLE here, and plain 'awaiting-pull' keeps its meaning (same repo, off at merge).
+# New, so no former name; same purple, same 'copy' reasoning.
 $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'prio-1'; Color = 'FFA726'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
     [pscustomobject]@{ Name = 'prio-2'; Color = 'F57C00'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
@@ -1329,6 +1336,7 @@ $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'awaiting-review-dev'; Color = '5319E7'; Description = 'Waiting on the dev''s review by eye -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-review-client'; Color = '5319E7'; Description = 'Waiting on the client''s review by eye -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-pull'; Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-pull-external'; Color = '5319E7'; Description = 'Waiting on a pull request in another repo -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-action-external'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-action-dev'; Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-release'; Color = '5319E7'; Description = 'Waiting on the next release -- parks the issue so no session picks it up' }
@@ -1338,9 +1346,9 @@ $script:TriageLabels = @(
 function Get-TriageLabels {
     <# The canonical triage labels this workflow's consumers are invited to share -- the four
        priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'awaiting-recurrences', the kind label for
-       a collecting issue, and the nine parking labels 'awaiting-decision-dev' (an issue awaiting the owner's
+       a collecting issue, and the ten parking labels 'awaiting-decision-dev' (an issue awaiting the owner's
        choice), 'awaiting-decision-client' (an issue awaiting a choice from the client or requester outside the
-       dev team), 'awaiting-review-dev' (an issue awaiting the dev's look at a visible result), 'awaiting-review-client' (an issue awaiting the client's look), 'awaiting-pull' (an issue awaiting another issue's pull request), 'awaiting-action-external' (an issue
+       dev team), 'awaiting-review-dev' (an issue awaiting the dev's look at a visible result), 'awaiting-review-client' (an issue awaiting the client's look), 'awaiting-pull' (an issue awaiting another issue's pull request), 'awaiting-pull-external' (an issue awaiting a pull request outside this repo until its work is available here), 'awaiting-action-external' (an issue
        awaiting an external event or date), 'awaiting-action-dev' (an issue awaiting an act only the owner
        performs), 'awaiting-release' (an issue awaiting the next release) and 'awaiting-recurrences-first' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
        a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the

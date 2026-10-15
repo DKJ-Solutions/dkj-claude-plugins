@@ -2,7 +2,7 @@
 .SYNOPSIS
     Reports which of this workflow's canonical triage labels (the priority rungs 'prio-1' through
     'prio-4', plus the 'awaiting-recurrences' kind label, #2462 (named 'dossier' until #2683, 'record'
-    until #2723 and 'awaiting-more-recurrences' until #2904), and the 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-review-dev', 'awaiting-review-client', 'awaiting-pull', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release' and 'awaiting-recurrences-first' parking labels, #2519, #2890, #2977, #2757, #2784, #2828, #2851 and #2587
+    until #2723 and 'awaiting-more-recurrences' until #2904), and the 'awaiting-decision-dev', 'awaiting-decision-client', 'awaiting-review-dev', 'awaiting-review-client', 'awaiting-pull', 'awaiting-pull-external', 'awaiting-action-external', 'awaiting-action-dev', 'awaiting-release' and 'awaiting-recurrences-first' parking labels, #2519, #2890, #2977, #2757, #3044, #2784, #2828, #2851 and #2587
     ('awaiting-recurrence' until #2723 and 'awaiting-first-recurrence' until #2904, 'awaiting-decision' and before it 'needs-decision' until #2890 and #2741)) this repository's tracker is missing, and prints a paste-ready `gh label create` line for each one
     -- never creates a label itself. Issue #1895, split from #1843.
 
@@ -155,6 +155,8 @@ $builtInTriageLabels = @(
     [pscustomobject]@{ Name = 'awaiting-review-client'; Color = '5319E7'; Description = 'Waiting on the client''s review by eye -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on another issue to land through a pull request (#2757).
     [pscustomobject]@{ Name = 'awaiting-pull'; Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
+    # And its twin for a blocker OUTSIDE this repo, whose merge alone does not unblock it: it comes off once the upstream work is available here (#3044).
+    [pscustomobject]@{ Name = 'awaiting-pull-external'; Color = '5319E7'; Description = 'Waiting on a pull request in another repo -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on an external event or date (#2784).
     [pscustomobject]@{ Name = 'awaiting-action-external'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
     # And the parking label for an issue waiting on an act only the owner performs (#2828).

@@ -152,26 +152,26 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `awaiting-recurrences`, `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
-`awaiting-recurrences-first`), so adopting the convention costs one command instead of fourteen typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-recurrences`, `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-pull-external`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
+`awaiting-recurrences-first`), so adopting the convention costs one command instead of fifteen typed by hand.
 
 **A parking label goes on when the issue is filed, whichever one it is**
-([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The ten
+([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The eleven
 `awaiting-*` labels below each park an issue whose next step waits on something other than work: the
-owner's choice, a client's choice, the owner's or a client's look at a result, another issue's pull request, an external event or date, an act only
+owner's choice, a client's choice, the owner's or a client's look at a result, another issue's pull request, a pull request in another repo, an external event or date, an act only
 the owner performs, the next release, a first recurrence, or a record's next instance. Such an issue carries the matching label in the same `gh issue create` that
 files it, beside its `prio-N`. Filed without it, it reads as free work to both pickup routes until
 somebody notices. Measured in this plugin's source repo: an issue whose own body said it waited on
 later CI runs was filed with only its `prio-N`, and was parked by hand six minutes later. Each
 paragraph below says what its label parks and when it comes off. When it goes on is this rule, for all
-ten alike.
+eleven alike.
 
 **An issue carries at most one `awaiting-*` label, so setting one replaces any other**
 ([#2936](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2936), Maikel, October 12, 2026).
 The label says why nothing can move *now*, and that is a single reason. Two labels side by side leave the
 next reader to work out which one still holds, and the one that has lapsed never gets taken off. So you
 remove the old label in the same `gh issue edit` that adds the new one
-(`--add-label <new> --remove-label <old>`). The rule covers the eight below and also `awaiting-info-client`
+(`--add-label <new> --remove-label <old>`). The rule covers every `awaiting-*` label below and also `awaiting-info-client`
 where `bwj-development` is installed. **A record is the one exception: it keeps `awaiting-recurrences`
 and takes no second label**, because that label also governs how the issue is closed (below), and
 removing it would undo that. **When the wait is transitive, take the label for the root wait.** An issue
@@ -221,7 +221,7 @@ label's name moved. Six things follow from being a record:
   record drops out of the default issue list, the search before filing reads closed issues too (below).
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `awaiting-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
+  skip `awaiting-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-pull-external`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
   `awaiting-recurrences-first`. Working a
   record is a deliberate assignment, named by its number.
 
@@ -294,6 +294,17 @@ answer) and `awaiting-recurrences-first` (evidence) say something else. Both pic
 default, `claim-issue <n>` warns that the issue is parked, and the label comes off when the blocking pull
 request merges. Where the blocking issue is itself parked, the issue takes that issue's label instead,
 by the one-label rule above, and moves to `awaiting-pull` once that root wait clears. It is a new label, so no former name is matched for it.
+
+- **A blocker in another repo is `awaiting-pull-external`**
+  ([#3044](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3044), October 15, 2026). The
+  upstream merge does not unblock such an issue. It still waits on the upstream release, and on this repo
+  taking the new copy through whatever skill or file delivers it. Measured in a consumer, the issue waited
+  on a new house-style token in `dkj-brandbook`. `awaiting-pull` would come off two steps too early, and
+  the owner read it as "a PR exists" when none did yet. `awaiting-action-external` and `awaiting-release`
+  name a third party's date and this repo's own cut. **The label comes off once the upstream work is
+  available here**: merged, released and picked up. Name the blocking issue (`owner/repo#n`) in the body.
+  Plain `awaiting-pull` keeps its meaning: same repo, off at the merge. Both pickup routes skip it, and
+  `claim-issue <n>` warns on it. It is a new label, so no former name is matched for it.
 
 **`awaiting-action-external` parks an issue that waits on an external event or date** (a launch, a third party's
 release; [#2784](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2784), Dave, October 3, 2026).

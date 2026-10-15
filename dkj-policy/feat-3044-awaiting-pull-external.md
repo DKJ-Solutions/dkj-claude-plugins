@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Issue [#3044](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3044), built to the owner's
+proposal in its comment: a separate label `awaiting-pull-external`, rather than stretching
+`awaiting-pull` or `awaiting-action-external`. Done in the shape of #2977 (commit 9aded751), which added
+the review pair to the same family.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The label in `adopt-triage-labels.ps1`'s fallback and `repo-config.ps1`'s `Get-TriageLabels`, the contract's Default/Returns, and the regenerated config blueprint.
+- [x] Every skip list: `claim-issue`'s default, the `-Candidates` examples, `sweep-issues` step 1, the dashboard's parking set and its label text.
+- [x] `CONTRIBUTING-portable.md`'s definition (comes off once the upstream work is available here), the count of the family, and the lenses and skill pages that list it.
+- [x] The label created on this tracker (a description over 100 characters is refused by GitHub, so it is the short one).
 
 ### TEST
 
+- [x] `adopt-triage-labels` 186, `repo-config` 106, `claim-issue` 590, `pr-issues` 1153, `issue-dashboard` 451, `script-contract` 421, `config-blueprint` 228: all green.
+
 ### DEPLOY: feat/3044-awaiting-pull-external
 
-**Score:**
+A new parking label, `awaiting-pull-external`, for an issue whose blocker is a pull request in another
+repo ([#3044](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3044)). Unlike `awaiting-pull`,
+it does not come off at the upstream merge but once that work is released and taken here. Both pickup
+routes skip it, `claim-issue` warns on it, the issue dashboard shows it as waiting, and
+`adopt-triage-labels` prints the line that creates it.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+An issue that waits on work in another repo, such as a consumer waiting on a new `dkj-brandbook` token,
+now has its own label: `awaiting-pull-external`. Sweeps skip it until the upstream work has been
+released and picked up here, where `awaiting-pull` came off at the upstream merge, two steps too early.
+Run `adopt-triage-labels` to get the `gh label create` line for your tracker.
+
+**Score:** 3
 
 #### Pull Request
 

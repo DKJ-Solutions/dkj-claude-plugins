@@ -290,6 +290,7 @@ out.status = {
   parkingFormerMoreInfo: statusOf(iss(1, { ...bl, labels: ["awaiting-more-info"] }), [], false),
   parkingFormerEvent:   statusOf(iss(1, { ...bl, labels: ["awaiting-event"] }), [], false),
   parkingPull:          statusOf(iss(1, { ...bl, labels: ["awaiting-pull"] }), [], false),
+  parkingPullExternal:  statusOf(iss(1, { ...bl, labels: ["awaiting-pull-external"] }), [], false),
   parkingEvent:         statusOf(iss(1, { ...bl, labels: ["awaiting-action-external"] }), [], false),
   parkingOwnerAct:      statusOf(iss(1, { ...bl, labels: ["awaiting-action-dev"] }), [], false),
   parkingRelease:       statusOf(iss(1, { ...bl, labels: ["awaiting-release"] }), [], false),
@@ -639,6 +640,7 @@ console.log(JSON.stringify(out));
         Assert-Equal 'Waiting'     $s.parkingOverBlocked   'a parking label beats an open blocker'
         Assert-Equal 'Waiting'     $s.parkingOverAssignee  '...and an assignee'
         Assert-Equal 'Waiting'     $s.parkingPull          'awaiting-pull parks (#2757)'
+        Assert-Equal 'Waiting'     $s.parkingPullExternal  'awaiting-pull-external parks (#3044)'
         Assert-Equal 'Waiting'     $s.parkingEvent         'awaiting-action-external parks (#2784)'
         Assert-Equal 'Waiting'     $s.parkingOwnerAct      'awaiting-action-dev parks (#2828)'
         Assert-Equal 'Waiting'     $s.parkingRelease       'awaiting-release parks (#2851)'
