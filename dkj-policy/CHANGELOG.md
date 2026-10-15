@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**20 / 35 minor entries** <!-- pending-tally -->
+**21 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3012-prepare-release-connected-mode · 20261015-081541Z
+
+`prepare-release` now reads `Get-ShopifyLiveDeployBranch`. Where it names a branch, the live theme deploys from that branch through Shopify's GitHub integration, and the Friday run follows: the push list is what goes live with the promotion, the early drift read becomes a back-flow check of the deploy branch against the trunk, and the runbook prints the promotion PR where it printed the push. `SYNC-LOG-portable.md`, `THEME-LIFECYCLE-portable.md`, `WORKFLOW-portable.md` and the skill page describe the mode: the back-flow PR as the sync, the Shopify bot as committer, the Always-allow bypass on the deploy ruleset, the rule-suite log as the only trace of a rejected write-back, theme-check before anything lands on the deploy branch, and the `# promoted` line in the live-push record ([#3012](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3012), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store whose live theme deploys from a branch gets a Friday runbook that matches its release day -- a promotion PR and a back-flow check instead of a CLI push and drift read. A store that has not set the seam sees no difference.
+
+**Score:** 2
+
+#### Pull Request
+
+prepare-release and the bwj-development pages: the Git-connected live mode
+
+Plugins: bwj-development
+
+[PR #3026](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3026)
+
+---
 
 ### DEPLOY: fix/3020-sync-body-path-escape · 20261015-072306Z
 
