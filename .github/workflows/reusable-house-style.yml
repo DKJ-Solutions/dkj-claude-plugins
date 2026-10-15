@@ -1,0 +1,70 @@
+# The house-style gate AS A CONSUMER RUNS IT -- a reusable workflow (`on: workflow_call`), called from a
+# few-line .github/workflows/house-style.yml in a DKJ-Solutions repo with a UI (issue #3035). Every vendored
+# house-style.css / house-theme.js is the copy the house-style skill pins, and the repo's own layer
+# redefines no house token or class and uses no retired token name.
+#
+# The caller, as the house-style skill gives it:
+#
+#   name: House style
+#   on:
+#     pull_request:
+#   permissions:
+#     contents: read
+#   jobs:
+#     house-style:
+#       uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-house-style.yml@main
+#
+# NEVER CALL IT FROM pull_request_target. The gate dot-sources the PR's own scripts/repo-config.ps1 (for
+# its allowlist), so under that trigger a fork's code would run with a privileged token. For the same
+# reason neither checkout below keeps its credentials.
+#
+# WHY A CHECKOUT OF THIS REPO AND NOT A VENDORED SCRIPT: one definition of the gate, as with the
+# branch-entry and always-on gates. And the pinned checksums are read from the skill page in that same
+# checkout, so a repoint of the skill reaches every caller with no change on its side.
+#
+# `scripts-ref` DEFAULTS TO main, for the reason reusable-branch-entry.yml states: a pinned gate keeps
+# enforcing the tag it was pinned at, while the copies it checks follow the skill.
+#
+# LINUX, UNDER PWSH 7, with the same `powershell` shim as the other reusable gates (issue #2616).
+name: House style (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      scripts-ref:
+        description: The ref of DKJ-Solutions/dkj-claude-plugins whose house-style gate this runs.
+        type: string
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  house-style:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Fetch the shared workflow scripts
+        uses: actions/checkout@v5
+        with:
+          repository: DKJ-Solutions/dkj-claude-plugins
+          ref: ${{ inputs.scripts-ref }}
+          path: .workflow-scripts
+          persist-credentials: false
+
+      - name: Make `powershell` resolve to pwsh
+        shell: bash
+        run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
+
+      - name: The house style holds
+        shell: pwsh
+        env:
+          CLAUDE_PROJECT_DIR: ${{ github.workspace }}
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/dkj-solutions/scripts/lint/check-house-style.ps1
+          exit $LASTEXITCODE
