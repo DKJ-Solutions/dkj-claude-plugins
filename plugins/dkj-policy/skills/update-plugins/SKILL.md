@@ -6,8 +6,9 @@ description: >-
   that plugin is installed at, then prints plugin-versions' receipt so the run's own result is
   verifiable. Use it whenever
   plugin-versions (or connector-sessioncheck's -Brief line) reports something behind and you want to
-  close the gap without typing one command per plugin. Scoped to this checkout plus the machine-wide
-  marketplace clone -- never a walk into another repo.
+  close the gap without typing one command per plugin. With -AllCheckouts it does the same in EVERY
+  checkout on this machine that holds an install record -- use that for "update all repos", in
+  whatever language it is asked -- skipping any checkout that is not clean on its trunk.
 ---
 
 # update-plugins -- one command instead of 1 + N
@@ -33,6 +34,12 @@ so for them the line above is the correct one.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/update-plugins.ps1" -DryRun
+```
+
+**Update every checkout on this machine at once** -- from any checkout, `-DryRun` still allowed:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/update-plugins.ps1" -AllCheckouts
 ```
 
 ## Why this exists
@@ -61,16 +68,32 @@ hand, in the order plugin-versions' own verdict table already prescribes.
 the rest. Every `FAILED` line names the exit code; the run's own exit code is non-zero only if
 something failed, and `-DryRun` never runs anything and always exits 0.
 
-## The boundary -- this checkout plus the machine-wide lanes, never a walk into another checkout
+## The boundary -- this checkout, unless you ask for all of them
 
-Named in [#1890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1890) and kept here on
-purpose. Every `claude plugin update` call names the checkout you ran this
-from; nothing here reads or writes any other repo's tree. That matters because `claude plugin
-install`/`update` **rewrites the visited repo's `.claude/settings.json`** -- a sweeping updater that
-walked several checkouts would leave uncommitted diffs in repos nobody opened, possibly on a mid-work
-branch. The marketplace clone itself is the one machine-wide piece (it lives under
-`~/.claude/plugins/marketplaces/`, shared by every checkout on the machine that uses it), and step 1
-refreshes it exactly once per marketplace regardless of how many enabled plugins name it.
+Named in [#1890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1890). A default run
+writes only the checkout you ran it from. That matters because `claude plugin install`/`update`
+**rewrites the visited repo's `.claude/settings.json`**, so a sweeping updater could leave
+uncommitted diffs in repos nobody opened, possibly on a mid-work branch. The marketplace clone itself
+is the one machine-wide piece (it lives under `~/.claude/plugins/marketplaces/`, shared by every
+checkout on the machine that uses it), and step 1 refreshes it once per marketplace regardless of how
+many enabled plugins name it.
+
+**`-AllCheckouts` is that sweep, built so the cost #1890 named cannot land unseen** (October 15,
+2026, on the owner's request). Measured that day over 11 checkouts going 5.20.0 -> 5.21.0, the update
+left **no** diff in any of them, so the wall became a guard per checkout:
+
+- the checkouts are every `projectPath` in `~/.claude/plugins/installed_plugins.json`, so no folder
+  list is kept and any machine finds its own set;
+- a checkout **not on its trunk** (`origin/HEAD`) is skipped -- a mid-work branch is never touched;
+- a checkout with **uncommitted changes under `.claude/`** is skipped, so this run's rewrite is never
+  mixed into somebody's own edit;
+- a checkout the run **did** leave a `.claude/` diff in is named in the summary;
+- a record whose folder is gone is counted in one line, which [tidy-machine](../tidy-machine/SKILL.md)
+  clears.
+
+Each checkout runs the ordinary three steps as a child process, handed its own root explicitly
+(a session's `CLAUDE_PROJECT_DIR` outranks the working directory, and would otherwise point every
+child at the session's repo). The source repo runs its own copy, as the source-repo guard requires.
 
 **What this does not reach**, by the same construction as `plugin-versions`: a machine on which
 nobody opens a checkout is invisible to every mechanism here. That is the "part no tool reaches" the
@@ -147,12 +170,13 @@ Anything else is reported under a `Skipped` line and never handed to the CLI.
 
 ## Parameters
 
-The default run takes no arguments. `-DryRun` is the one a caller might genuinely pass; the other two
-are **test seams** a consumer never types.
+The default run takes no arguments. `-DryRun` and `-AllCheckouts` are the two a caller might
+genuinely pass; the other three are **test seams** a consumer never types.
 
 | parameter | what it does |
 |---|---|
 | `-DryRun` | print every command this run would execute and run none of them -- no receipt either, since nothing changed for it to report on. |
+| `-AllCheckouts` | run the whole thing in every checkout on this machine that holds an install record, under the guards in [the boundary](#the-boundary----this-checkout-unless-you-ask-for-all-of-them). Cannot be combined with `-RootOverride`. |
 | `-RootOverride` | the repo root to resolve the enable state against. |
 | `-UserHomeOverride` | the home directory `~/.claude` hangs off. |
 | `-ReceiptScriptOverride` | the plugin-versions.ps1 path step 3 runs as a child process -- a test double, never a consumer's own path. |

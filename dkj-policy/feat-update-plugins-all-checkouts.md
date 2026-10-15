@@ -41,21 +41,50 @@
 
 Add an -AllCheckouts mode to update-plugins.ps1 that enumerates checkouts from installed_plugins.json, skips any checkout not clean on its trunk, runs the per-checkout update in each, and reports a summary. Then tests, skill page, mirror, ship.
 
+#### Why a mode and not a second skill
+
+Asked for on October 15, 2026 ("make a skill that does this from now on") right after updating all 11
+checkouts on this machine by hand. A mode on the existing skill reuses the tested per-checkout run and
+adds no always-on skill description; the skill's description now names the "update all repos" request.
+
+#### #1890's boundary, re-read rather than obeyed
+
+The boundary existed for one measured cost: a sweep could leave uncommitted `.claude/settings.json`
+diffs in repos nobody opened, possibly on a mid-work branch. The hand run that day left no diff in any
+of the 11 checkouts, so the cost is guarded per checkout instead: skip a checkout not on its trunk or
+with a dirty `.claude/`, and name any diff the run does leave.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/task/update-plugins.ps1`: `-AllCheckouts` -- checkouts from every `projectPath` in the install administration, guards per checkout, one child run each handed its own root (`-RootOverride` + `CLAUDE_PROJECT_DIR`), the source repo on its own copy, a sweep summary; gone folders counted in one line
+- [x] the plugin mirror `plugins/dkj-policy/scripts/task/update-plugins.ps1`, byte-identical
+- [x] `plugins/dkj-policy/skills/update-plugins/SKILL.md`: description, usage line, boundary section, parameter row
 
 ### TEST
 
+- [x] `scripts/tests/update-plugins.tests.ps1` scenarios 17-19: the sweep runs the clean checkout handed its own root, skips a feature branch, a dirty `.claude/` and a missing origin/HEAD, counts a gone folder; `-DryRun` runs nothing; `-RootOverride` is refused -- 104 pass, 0 fail
+- [x] live `-AllCheckouts -DryRun` on this machine: 10 checkouts run, this checkout skipped on its feature branch, 6 gone-folder records counted
+
 ### DEPLOY: feat/update-plugins-all-checkouts
 
-**Score:**
+`update-plugins` takes a new `-AllCheckouts` switch that runs the update in every checkout on the
+machine holding a plugin install record, in one command. The checkouts are read off
+`~/.claude/plugins/installed_plugins.json`, so no folder list is kept. A checkout that is not on its
+trunk, or that has uncommitted changes under `.claude/`, is skipped, so a mid-work branch is never
+touched ([#1890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1890)'s concern). Each
+checkout is handed its own root explicitly, because a session's `CLAUDE_PROJECT_DIR` would otherwise
+send every child run to the session's repo. Records whose folder is gone are counted in one line.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Updating the plugins in every repo on a machine is now one command instead of one run per repo:
+`update-plugins.ps1 -AllCheckouts`, or ask for "update all repos". Repos on a feature branch or with
+uncommitted `.claude/` changes are skipped and listed, and `-DryRun` shows every command first.
+
+**Score:** 3
 
 #### Pull Request
 
 update-plugins -AllCheckouts: update every checkout on this machine in one run
-
