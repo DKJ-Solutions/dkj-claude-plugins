@@ -298,8 +298,7 @@ function Write-PathHandover {
         quote as a CLOSE followed by an OPEN, so Git Bash resolves it to C:\its\here -- a different,
         plausible-looking path, silently, with no error to notice. In cmd, where single quotes are not
         quoting at all, any spaced path splits into two arguments. That matters here specifically
-        because the two lines this function prints per lane are 'worktree-lane.ps1 -HandBack -Lane ...',
-        which is PowerShell-only, and 'git worktree remove ...' directly beneath it, which is exactly
+        because the line this function prints per lane is 'git worktree remove ...', which is exactly
         the kind a reader pastes into Git Bash.
 
         SO A SPACE IS REFUSED RATHER THAN ADMITTED, AND THAT IS THE ANSWER, NOT A GAP. The token is
@@ -491,7 +490,6 @@ if ($runCheckout) {
             Write-Item '    this ALSO blocks lane 2: git will not delete a branch checked out in a worktree.' 'Red'
         }
         Write-PathHandover -Prefix $l.Command -Path $l.Path
-        Write-PathHandover -Prefix $l.RawCommand -Path $l.Path
     }
     Write-Item (Get-TidySummaryLine -Lane 'Stale lanes' -Reported $lanes.Count) 'White'
 }

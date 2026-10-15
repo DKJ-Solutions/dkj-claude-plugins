@@ -172,7 +172,11 @@ $records = Get-WorktreeRecords -PorcelainLines @(
 $lanes = @(Get-StaleLaneDecisions -WorktreeRecords $records -BranchClasses $classes)
 Assert-Equal 1 $lanes.Count 'exactly one lane is stale'
 Assert-Equal 'fix/abandoned' $lanes[0].Branch 'and it is the abandoned one'
-Assert-True ($lanes[0].Command -notlike '*C:\lanes*') 'the hand-back verb does not carry the path either'
+Assert-True ($lanes[0].Command -notlike '*C:\lanes*') 'the verb does not carry the path either'
+# A FINISHED LANE IS REMOVED, NOT HANDED BACK (#3039): -HandBack checks the branch out in the primary,
+# which keeps lane 2 from reaping it, and its script path does not exist in a consumer.
+Assert-Equal 'git worktree remove' $lanes[0].Command 'a finished lane is handed over as a bare worktree remove'
+Assert-True (-not ($lanes | Where-Object { "$($_.Command)" -like '*HandBack*' })) 'and never as -HandBack'
 
 # THE PRIMARY IS NEVER A LANE, even standing on a finished branch. git lists it first and that IS the
 # definition; removing it is deleting the checkout, not tidying it.
@@ -372,8 +376,8 @@ Assert-True ($codeText -match "'--state', 'merged'") 'and the merged lookup is i
 # second mechanism for one day -- tidy-lib's Format-PasteablePathToken, a PowerShell single-quote
 # literal -- while sync-main.ps1 and check-plugin-integrity.ps1 printed theirs through the shared
 # allowlist. The literal is exact in PowerShell and silently WRONG in Git Bash, which reads its doubled
-# quote as close-then-open and resolves C:\it's\here to a different, existing-looking path; the second
-# of the two commands printed per lane is a bare `git worktree remove`, which is exactly what a reader
+# quote as close-then-open and resolves C:\it's\here to a different, existing-looking path; the
+# command printed per lane is a bare `git worktree remove`, which is exactly what a reader
 # pastes into Git Bash. Pinned in both directions so the second mechanism cannot come back by halves.
 Assert-True ($codeText -notmatch 'Format-PasteablePathToken') 'the retired literal-quote formatter is not called here'
 Assert-True ($codeText -match "-Kind Path")                   'and the path handover goes through the shared allowlist'

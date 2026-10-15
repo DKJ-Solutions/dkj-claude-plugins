@@ -310,12 +310,14 @@ function Get-StaleLaneDecisions {
             # THE VERBS ONLY, and the Path above is what the caller renders into them -- see this lib's
             # header for why no finished command line leaves this file.
             #
-            # The hand-back route is named first because it is the workflow's own, and it refuses the
-            # two states a bare `git worktree remove` would discover halfway through (uncommitted work
-            # in the lane, a dirty primary). The raw verb is offered as well because a lane whose
-            # branch is ABANDONED has nothing to hand back to -- nobody is going to ship it.
-            Command    = 'scripts\task\worktree-lane.ps1 -HandBack -Lane'
-            RawCommand = 'git worktree remove'
+            # ONLY `git worktree remove`, NEVER worktree-lane.ps1 -HandBack (#3039). Every class that
+            # reaches this line is FINISHED -- merged or closed -- and -HandBack exists for a lane whose
+            # work still has to ship: it removes the lane and then checks the branch out in the PRIMARY,
+            # which is exactly what keeps lane 2 from reaping it, and it says "ship it from there" about
+            # a branch that already merged. Measured in a consumer on 5.20.0, where clearing it then
+            # took a manual checkout and delete. The bare verb also refuses a dirty lane on its own (no
+            # --force), and it is a path every checkout has, where the script path was the source repo's.
+            Command = 'git worktree remove'
         }
     }
 

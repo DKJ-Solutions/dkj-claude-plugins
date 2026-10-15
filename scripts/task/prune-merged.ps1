@@ -650,7 +650,7 @@ foreach ($branch in $branches) {
     if ($heldBy) {
         $kept += [pscustomobject]@{
             Branch = $branch
-            Why    = "proven merged ($proof), but another worktree is standing on it: $heldBy, and git will not delete a branch that is checked out. Hand that lane back (scripts\task\worktree-lane.ps1 -HandBack -Lane `"$heldBy`"), or move it off (git -C `"$heldBy`" checkout <another branch>), then rerun."
+            Why    = "proven merged ($proof), but another worktree is standing on it: $heldBy, and git will not delete a branch that is checked out. Remove that lane (git worktree remove `"$heldBy`") -- not -HandBack, which would check the merged branch out here instead (#3039) -- or move it off (git -C `"$heldBy`" checkout <another branch>), then rerun."
         }
         continue
     }

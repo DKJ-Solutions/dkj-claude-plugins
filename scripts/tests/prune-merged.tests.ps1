@@ -626,7 +626,8 @@ try {
     Assert-True ((Get-LocalBranches -Dir $dirE3) -contains 'feat/landed-in-a-lane') 'branch held: the branch is still there'
     Assert-Says $rE3.Out 'another worktree is standing on it' 'branch held: reported in this script vocabulary, not git refusal text'
     Assert-Says $rE3.Out (Split-Path -Leaf $branchLane) 'branch held: and it names the directory holding it'
-    Assert-Says $rE3.Out 'HandBack' 'branch held: with the way out, not only the verdict'
+    Assert-Says $rE3.Out 'git worktree remove' 'branch held: with the way out, not only the verdict'
+    Assert-DoesNotSay $rE3.Out 'HandBack -Lane' 'branch held: and the way out is a remove, never a hand-back of a merged branch (#3039)'
     Assert-DoesNotSay $rE3.Out 'refused:' 'branch held: git own refusal is never what the reader is handed'
     Assert-Equal 'main' (Get-HeadName -Dir $dirE3) 'branch held: and this checkout was never moved'
     Invoke-FixtureGit -Arguments @('-C', $dirE3, 'worktree', 'remove', '--force', $branchLane)
