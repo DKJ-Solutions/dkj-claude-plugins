@@ -22,7 +22,9 @@
 
     BIND TO 127.0.0.1 IN THE COMMAND. The hook cannot know what a server exposes, so where the repo serves
     something private (etf-tracker its ledger, life-hub its Brains/), its own Command says so -- e.g.
-    `--bind 127.0.0.1` or `-H 127.0.0.1`.
+    `--bind 127.0.0.1` or `-H 127.0.0.1`. A server it REUSES did not necessarily come from that Command
+    (one started by hand in the checkout counts as ours too), so where the Command names loopback and the
+    reused listener is bound to every interface, the line says so (#3041).
 
     OpenInVsCode hands the URL to VS Code through `code --open-url`, only when the session runs in VS
     Code's terminal (TERM_PROGRAM=vscode) -- etf-tracker's route, where .vscode/settings.json routes the
@@ -108,7 +110,7 @@ $cfg = $parsed.Config
 # the ports has a listener at all: with none, every port is free and there is nobody to recognise.
 function Get-DevPreviewListeners([int[]]$Ports) {
     return @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-        Where-Object { $Ports -contains [int]$_.LocalPort } | Select-Object LocalPort, OwningProcess)
+        Where-Object { $Ports -contains [int]$_.LocalPort } | Select-Object LocalPort, LocalAddress, OwningProcess)
 }
 function Get-DevPreviewProcesses {
     $processes = @{}
@@ -134,7 +136,13 @@ $range = Format-DevPreviewPorts -Ports $cfg.Ports
 if ($pick.Action -eq 'reuse') {
     $url = Get-DevPreviewUrl -Port $pick.Port -Path $cfg.Path
     $opened = Open-DevPreviewInVsCode $url
-    Write-DevPreviewLine "$($cfg.Name): $url (already running$opened)"
+    # A REUSED server may not be the one the Command starts (#3041): one started by hand binds wherever
+    # its default says. Where the repo asked for loopback and got every interface, the line says so; the
+    # restart stays the owner's call.
+    $exposed = if ((Test-DevPreviewCommandIsLoopback $cfg.Command) -and (Test-DevPreviewListensOnAll -Port $pick.Port -Listeners $listeners)) {
+        ', LISTENING ON ALL INTERFACES -- not started by the loopback Command; restart it to bind 127.0.0.1'
+    } else { '' }
+    Write-DevPreviewLine "$($cfg.Name): $url (already running$opened$exposed)"
 }
 if ($pick.Action -eq 'none') {
     Write-DevPreviewLine "$($cfg.Name): not started -- $range taken by other processes."

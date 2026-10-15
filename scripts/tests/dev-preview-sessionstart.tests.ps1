@@ -134,6 +134,18 @@ Assert-True ($pick.Action -eq 'start' -and $pick.Port -eq 5174) 'with none ours,
 $pick = Select-DevPreviewPort -Ports @(5173) -Listeners @((& $L 5173 200)) -Processes $procs -Root $root
 Assert-Equal 'none' $pick.Action 'every port taken by others is none'
 
+# #3041: a reused listener bound to every interface while the Command asked for loopback.
+Assert-True (Test-DevPreviewCommandIsLoopback 'next dev -H 127.0.0.1 -p {port}') 'a Command binding 127.0.0.1 is loopback'
+Assert-True (Test-DevPreviewCommandIsLoopback 'vite --host localhost --port {port}') 'and so is one binding localhost'
+Assert-True (Test-DevPreviewCommandIsLoopback 'serve --bind ::1 {port}') 'and one binding ::1'
+Assert-True (-not (Test-DevPreviewCommandIsLoopback 'npm run dev -- --port {port}')) 'a Command naming no host is not'
+Assert-True (-not (Test-DevPreviewCommandIsLoopback 'serve --host 127.0.0.10 {port}')) 'nor one naming a longer address'
+$A = { param($port, $addr) [pscustomobject]@{ LocalPort = $port; LocalAddress = $addr; OwningProcess = 103 } }
+Assert-True (Test-DevPreviewListensOnAll -Port 3000 -Listeners @((& $A 3000 '0.0.0.0'))) 'a listener on 0.0.0.0 is on all interfaces'
+Assert-True (Test-DevPreviewListensOnAll -Port 3000 -Listeners @((& $A 3000 '127.0.0.1'), (& $A 3000 '::'))) 'and so is a port whose IPv6 half is on ::'
+Assert-True (-not (Test-DevPreviewListensOnAll -Port 3000 -Listeners @((& $A 3000 '127.0.0.1'), (& $A 3000 '::1')))) 'loopback on both halves is not'
+Assert-True (-not (Test-DevPreviewListensOnAll -Port 3000 -Listeners @((& $A 3001 '0.0.0.0')))) 'nor is another port''s listener'
+
 $line = Get-DevPreviewStartLine -Root $root -Command 'npm run dev -- --port {port} --strictPort' -Port 5176 -LogPath 'C:\t\dev.log'
 Assert-True ($line.Contains('cd /d "C:\Users\x\GitHub\repo" && npm run dev -- --port 5176 --strictPort > "C:\t\dev.log" 2>&1')) 'the start line changes into the root first, fills {port} and logs'
 Assert-True (Test-CommandLineNamesRoot -CommandLine "cmd.exe $line" -Root $root) 'and that cmd.exe line is one the ownership rule recognises'

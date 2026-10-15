@@ -216,6 +216,30 @@ function Select-DevPreviewPort {
     return @{ Action = 'none'; Port = $null }
 }
 
+function Test-DevPreviewCommandIsLoopback {
+    <#
+        True when -Command names a loopback host (127.0.0.1, localhost or ::1) as a whole token -- the
+        repo's own statement that its server must not be reachable from the network.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Command)
+    if (-not $Command) { return $false }
+    return [bool]($Command -match '(?<![\w.:-])(127\.0\.0\.1|localhost|\[?::1\]?)(?![\w.-])')
+}
+
+function Test-DevPreviewListensOnAll {
+    <#
+        True when any listener on -Port is bound to every interface (0.0.0.0 or ::). INBOUND #3041: a
+        server started by hand in the checkout (`npm run dev` without -H) is reused as ours, so the
+        repo's loopback Command never ran -- this is what tells the hook to say so.
+    #>
+    param([int]$Port, [AllowEmptyCollection()][object[]]$Listeners)
+    foreach ($l in @($Listeners)) {
+        if (-not $l -or [int]$l.LocalPort -ne $Port) { continue }
+        if (@('0.0.0.0', '::') -contains [string]$l.LocalAddress) { return $true }
+    }
+    return $false
+}
+
 function Get-DevPreviewStartLine {
     <#
         The single argument string for cmd.exe that starts the server: it changes into the root FIRST, so
