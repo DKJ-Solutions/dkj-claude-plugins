@@ -21,6 +21,9 @@
          theme write while the repo has not said which theme is live. It does not wait for
          --allow-mutations, which can come from the environment. A file it cannot read or place, and a
          command substitution, are refused.
+      5. a 'git push' to the branch a GIT-CONNECTED live theme deploys from (#3014) -- unless the command
+         carries the live-push marker. Only where the repo answers Get-ShopifyLiveDeployBranch; rule 5's
+         block below says what counts as aimed at that branch, and what is deliberately not gated.
 
     WHY hooks.json WRAPS THIS FILE IN A SHELL COMMAND (issue #2217). Everything above is what this script
     decides once it RUNS. When PowerShell cannot start at all -- out of memory, a failed type
@@ -139,6 +142,10 @@
                                  is allowed, EXCEPT one aimed at the live theme id, which is refused
                                  unconditionally. Answering it with the same string as the push marker
                                  also leaves the capability off: see the note beside $DELETE_MARKER.
+      Get-ShopifyLiveDeployBranch  the branch a Git-connected live theme deploys from (#2998). Absent or
+                                 '' -- the default, the CLI push -- rule 5 does not exist. Answered with
+                                 a plain branch name, a 'git push' to that branch needs the live-push
+                                 marker. Anything that is not a plain branch name counts as no answer.
 
     AUTHORISING THE DELIBERATE LIVE PUSH. Add the marker as a shell comment to that exact push
     command: '... --allow-live # LIVE-PUSH-AUTHORIZED'. It is a comment in both shells, so it changes
@@ -171,13 +178,14 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
 $config = & {
     Set-StrictMode -Off
-    $answers = @{ LiveThemeId = ''; Marker = ''; DeleteMarker = '' }
+    $answers = @{ LiveThemeId = ''; Marker = ''; DeleteMarker = ''; DeployBranch = '' }
     $configPath = Join-Path $args[0] 'scripts\repo-config.ps1'
     if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) { return $answers }
     try { . $configPath } catch { return $answers }
     if (Get-Command Get-ShopifyLiveThemeId       -ErrorAction SilentlyContinue) { $answers.LiveThemeId  = [string](Get-ShopifyLiveThemeId) }
     if (Get-Command Get-ShopifyLivePushMarker    -ErrorAction SilentlyContinue) { $answers.Marker       = [string](Get-ShopifyLivePushMarker) }
     if (Get-Command Get-ShopifyThemeDeleteMarker -ErrorAction SilentlyContinue) { $answers.DeleteMarker = [string](Get-ShopifyThemeDeleteMarker) }
+    if (Get-Command Get-ShopifyLiveDeployBranch  -ErrorAction SilentlyContinue) { $answers.DeployBranch = [string](Get-ShopifyLiveDeployBranch) }
     return $answers
 } $repoRoot
 
@@ -214,6 +222,13 @@ $DELETE_MARKER = ([string]$config.DeleteMarker).Trim()
 # live push doubles as a standing authorisation to delete. That is the opposite of a marker authorising
 # ONE command visibly. Failing safe costs a repo one word of config; failing open costs it a theme.
 if ($DELETE_MARKER -and $DELETE_MARKER.ToLower() -eq $MARKER.ToLower()) { $DELETE_MARKER = '' }
+
+# THE DEPLOY BRANCH, AND THE SAME PLACEHOLDER RULE THE LIVE ID KEEPS. A name that is not a plain branch
+# name (letters, digits, . _ / -, not starting with '-') is nothing a refspec can be matched against, so
+# it counts as unanswered -- the reading sync-main gives it before handing it to git. A leading
+# 'refs/heads/' is dropped so both spellings of one branch compare equal.
+$DEPLOY_BRANCH = ([string]$config.DeployBranch).Trim() -replace '^refs/heads/', ''
+if ($DEPLOY_BRANCH -and $DEPLOY_BRANCH -notmatch '^[A-Za-z0-9._/][A-Za-z0-9._/-]*$') { $DEPLOY_BRANCH = '' }
 
 # Commands that read or write text rather than run the store CLI. A segment led by one of these is
 # handling the words, not obeying them.
@@ -414,6 +429,107 @@ function Get-StoreExecuteText([string]$Command) {
         } catch { $unreadable += $path }
     }
     return @{ Text = $text.ToLower(); Unreadable = $unreadable }
+}
+
+# --- Rule 5: a 'git push' to a Git-connected live theme's deploy branch (#3014) ---------------------
+# Where Get-ShopifyLiveDeployBranch names a branch, Shopify's GitHub integration deploys the live theme
+# from it, so the live-affecting act is no longer a 'shopify' command at all: it is a commit reaching
+# that branch. Rules 1 to 4 never see it, and without this rule the GitHub ruleset on the branch is the
+# only rail.
+#
+# WHAT IS GATED, AND WHAT IS DELIBERATELY NOT (Maikel, October 15, 2026, on #3014). The ordinary route
+# is a promotion PR from the trunk into the deploy branch, and the deploy ruleset already requires a PR,
+# so 'gh pr merge' is NOT gated: that would add a confirm step to every promotion and buy nothing the
+# ruleset does not already hold. What IS gated is the push that goes AROUND the PR -- credentials that
+# carry a ruleset bypass reach live with it, silently. The live-push marker authorises one, exactly as
+# it authorises a deliberate 'shopify theme push --allow-live'.
+#
+# WHAT COUNTS AS AIMED AT THE BRANCH, read from a segment whose git subcommand is 'push':
+#   - a refspec whose destination is the branch: 'live', 'main:live', '+HEAD:refs/heads/live', ':live';
+#   - '--all', '--branches' or '--mirror', which push every branch;
+#   - NO refspec, or a bare 'HEAD', where the checked-out branch is the deploy branch -- or where that
+#     cannot be told: a 'git -C' or '--git-dir', a directory change earlier in the command, or a HEAD
+#     that cannot be read. Fail towards checking, as everywhere else in this file.
+# The comparison ignores case: on a case-insensitive file system 'Live' and 'live' are one ref.
+#
+# WHY A SECOND SEGMENT LIST. 'git' is in $TEXT_TOOLS, so the list rules 1 to 4 read never holds a
+# segment led by git. Here git IS the subject, so the list is rebuilt without that one exemption; the
+# heredoc, here-string and wrapper handling stay the lib's. A git segment that is not a push
+# ('git commit -m "git push origin live"') is read by its subcommand position and passes.
+#
+# THE RESIDUAL LIMITS, STATED: a push from inside a script file, a ref moved through 'gh api', and the
+# hooks.json fail-closed path, which refuses only a payload naming a Shopify theme -- that wrapper
+# cannot know the deploy branch, and widening it to every 'git push' would refuse ordinary pushes in
+# every consumer on a machine where PowerShell will not start.
+function Get-CurrentBranchName {
+    try {
+        $out = & git -C $repoRoot symbolic-ref --short -q HEAD 2>$null
+        if ($LASTEXITCODE -ne 0) { return $null }
+        return ([string]($out | Select-Object -First 1)).Trim()
+    } catch { return $null }
+}
+
+function Test-PushTargetsDeployBranch([string]$Segment, [bool]$ChangesDir) {
+    $tokens = @([regex]::Matches($Segment, '"[^"]*"|''[^'']*''|\S+') | ForEach-Object { $_.Value.Trim('"', "'") })
+    $i = 0
+    while ($i -lt $tokens.Count -and $tokens[$i] -match '^[A-Za-z_][A-Za-z0-9_]*=') { $i++ }
+    if ($i -ge $tokens.Count) { return $false }
+    if ((($tokens[$i] -replace '.*[\\/]', '') -replace '\.exe$', '').ToLower() -ne 'git') { return $false }
+    $i++
+    $elsewhere = $ChangesDir
+    while ($i -lt $tokens.Count -and $tokens[$i].StartsWith('-')) {
+        $t = $tokens[$i]
+        # -ceq, because PowerShell's -eq ignores case and '-c key=value' does not move the repo.
+        if ($t -ceq '-C' -or $t -match '^--(git-dir|work-tree)') { $elsewhere = $true }
+        if ($t -in @('-C', '-c', '--git-dir', '--work-tree', '--namespace')) { $i += 2; continue }
+        $i++
+    }
+    if ($i -ge $tokens.Count -or $tokens[$i].ToLower() -ne 'push') { return $false }
+
+    $positional = @()
+    for ($j = $i + 1; $j -lt $tokens.Count; $j++) {
+        $t = $tokens[$j]
+        if ($t.StartsWith('#')) { break }
+        if ($t -in @('--all', '--branches', '--mirror')) { return $true }
+        if ($t -in @('-o', '--push-option', '--receive-pack', '--exec', '--repo')) { $j++; continue }
+        if ($t.StartsWith('-')) { continue }
+        $positional += $t
+    }
+
+    $deploy = $DEPLOY_BRANCH.ToLower()
+    $refspecs = @($positional | Select-Object -Skip 1)
+    $needsHead = $refspecs.Count -eq 0
+    foreach ($r in $refspecs) {
+        $spec = $r.TrimStart('+')
+        if ($spec -eq 'HEAD') { $needsHead = $true; continue }
+        $dst = if ($spec.Contains(':')) { $spec.Substring($spec.LastIndexOf(':') + 1) } else { $spec }
+        if (($dst -replace '^refs/heads/', '').ToLower() -eq $deploy) { return $true }
+    }
+    if (-not $needsHead) { return $false }
+    if ($elsewhere) { return $true }
+    $head = Get-CurrentBranchName
+    if (-not $head) { return $true }
+    return ($head.ToLower() -eq $deploy)
+}
+
+# DEGRADED (no lib), the payload is raw JSON and no segment is led by 'git', so the parse above cannot
+# run. Failing towards checking then means any payload holding a 'git ... push' needs the marker.
+if ($DEPLOY_BRANCH -and -not $libLoaded -and $cmd -match '(?i)\bgit\b[^\r\n]*\bpush\b' -and -not $authorised) {
+    Deny "a 'git push' is blocked while this guard runs degraded: this repo's live theme deploys from '$DEPLOY_BRANCH', and without command-guard-lib.ps1 the push target cannot be read. Reinstall or update the dkj-subagents-shopify plugin, or add the marker '# $MARKER' if this IS the deliberate direct push."
+}
+
+if ($DEPLOY_BRANCH -and $libLoaded) {
+    $gitSegments = Get-GuardSegments -Command $cmd -TextTools @($TEXT_TOOLS | Where-Object { $_ -ne 'git' })
+    $changesDir = $cmd -match '(^|[\s;&|(])(cd|pushd|set-location|sl|chdir)\s'
+    foreach ($segment in $gitSegments) {
+        if ($segment -notmatch '(?i)\bpush\b') { continue }
+        if (-not (Test-PushTargetsDeployBranch $segment $changesDir)) { continue }
+        if ($authorised) {
+            [Console]::Error.WriteLine("guard-live-theme: push to the deploy branch '$DEPLOY_BRANCH' allowed (authorisation marker present).")
+            continue
+        }
+        Deny "a 'git push' to '$DEPLOY_BRANCH' is blocked: this repo's live theme deploys from that branch (Get-ShopifyLiveDeployBranch), so the push IS a live deploy, made around the promotion PR the deploy ruleset requires. Promote through that PR instead. If this IS the deliberate direct push this repo's own rules describe, add the marker '# $MARKER' to this exact command."
+    }
 }
 
 foreach ($segment in $segments) {

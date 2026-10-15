@@ -513,7 +513,8 @@ which is why a store answering this seam passes that record to every cut.
 
 **In a Git-connected store, going live is merging the promotion PR** (trunk into the deploy branch,
 `Get-ShopifyLiveDeployBranch`; #2998). That merge is a person's act and waits for the owner's word exactly
-as a push does, so "live" in the go-live block and in the owner's three rules means *in a merged
+as a push does; a direct `git push` to the deploy branch, which goes around that PR, is refused by the
+live-theme guard without the live-push marker (#3014). So "live" in the go-live block and in the owner's three rules means *in a merged
 promotion*. The live-push record then carries a `# promoted <sha> to <branch>` line naming the promoted
 commit, and is not edited by hand in this mode. The back-flow PR, the bot committer, the bypass and the
 rule-suite log are on the

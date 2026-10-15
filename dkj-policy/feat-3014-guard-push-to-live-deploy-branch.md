@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#### The decision
+
+#3014 asked whether `guard-live-theme` should also gate `git push` / `gh pr merge` aimed at a
+Git-connected live theme's deploy branch. Maikel decided (October 15, 2026, following the specialist's
+advice, recorded on the issue): gate the direct push only. The deploy ruleset already requires a PR, so
+`gh pr merge` stays ungated; the push that goes around the PR needs the live-push marker.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `hooks/guard-live-theme.ps1`: read `Get-ShopifyLiveDeployBranch`; rule 5 refuses a `git push`
+      whose refspec targets that branch, `--all`/`--mirror`, or no refspec while it is checked out (or
+      when that cannot be told), unless the live-push marker is on the command. Degraded mode refuses
+      any `git push` while the seam is answered.
+- [x] `scripts/tests/guard-live-theme.tests.ps1`: rule 5 group -- blocked, allowed, HEAD-based,
+      unanswered/placeholder seam, marker narrowing, refusal text, degraded mode.
+- [x] Docs: the shopify README's rules table and seam row, `WORKFLOW-portable.md`'s Git-connected
+      go-live passage.
 
 ### TEST
 
+- [x] `guard-live-theme.tests.ps1`: 181 passed, 0 failed.
+- [ ] The full gate through `open-pr`.
+
 ### DEPLOY: feat/3014-guard-push-to-live-deploy-branch
 
-**Score:**
+`guard-live-theme` now holds a Git-connected live theme too. Where `Get-ShopifyLiveDeployBranch` names the branch the live theme deploys from, a `git push` to that branch is refused unless it carries the live-push marker: a refspec whose destination is the branch, `--all` or `--mirror`, or a push with no refspec while that branch is checked out or when that cannot be told. `gh pr merge` is deliberately not gated, because the deploy ruleset already requires the promotion PR; the push is what goes around it. Without the seam nothing changes ([#3014](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3014), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store whose live theme deploys from a branch no longer has its ruleset as the only rail: a session whose credentials carry a ruleset bypass can no longer push straight to live without the marker. A store on the CLI push sees no difference.
+
+**Score:** 2
 
 #### Pull Request
 
+guard-live-theme: refuse a git push to a Git-connected live theme's deploy branch
