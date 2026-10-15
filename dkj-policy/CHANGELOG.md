@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3049-update-plugins-conflicting-scopes · 20261015-214246Z
+
+`update-plugins` now updates every install record a checkout holds for a plugin, at each scope those
+records name ([#3049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3049)). Where a
+checkout's records disagreed on scope (a `project` and a `local` record side by side, a state a
+session start can produce), the run fell back to one `--scope project` call and left the other record
+behind, under `0 failed`, while its own receipt said `CONFLICTING`. A path-less `user` record beside
+them was skipped as well. Now each scope gets its own `claude plugin update`, `managed` excepted, and the
+disagreement is named before step 1.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+`update-plugins` no longer leaves a second copy of a plugin behind in a checkout that holds two install
+records for it, so a session there stops loading the older version after a run that reported success.
+
+**Score:** 2
+
+#### Pull Request
+
+update-plugins updates every disagreeing checkout record, one call per scope
+
+Plugins: dkj-policy
+
+[PR #3051](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3051)
+
+---
 
 ### DEPLOY: fix/3038-connector-dashboard-test-windows · 20261015-201744Z
 
