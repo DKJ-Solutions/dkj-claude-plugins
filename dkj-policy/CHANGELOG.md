@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**3 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3040-house-style-method-call · 20261015-155905Z
+
+`check-house-style` no longer reads a method call or an object spread in a script as a house class
+selector ([#3040](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3040)). A chained `.sort(`
+or `.map(` before an arrow function, and `...meta,` inside an object literal, had been reported as
+restyling `.sort`, `.map` or `.meta`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a DKJ-Solutions repo, the house-style gate and its session-start line no longer flag TypeScript or
+JavaScript such as `.sort((a, b) => {` or `{ ...meta, }` as a restyled house class. A repo that had to
+answer those lines in `Get-HouseStyleAllowlist` can remove those entries.
+
+**Score:** 2
+
+#### Pull Request
+
+check-house-style: a method call or object spread is no house class selector
+
+Plugins: dkj-solutions
+
+[PR #3043](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3043)
+
+---
 
 ### DEPLOY: fix/3039-tidy-lane-remove · 20261015-154452Z
 
