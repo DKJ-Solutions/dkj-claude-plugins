@@ -235,18 +235,29 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     $proc = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port)
     try {
-        $up = $false
-        for ($i = 0; $i -lt 40 -and -not $up; $i++) {
-            Start-Sleep -Milliseconds 250
-            $t = New-Object System.Net.Sockets.TcpClient
-            try { $t.Connect('127.0.0.1', $port); $up = $true } catch { } finally { $t.Close() }
+        # THE TWO WINDOWS BELOW ARE WIDE ON PURPOSE (#3038). Both groups failed on a loaded CI shard and
+        # passed on a rerun. Measured unloaded: the server is up in ~0.6s, a request behind a silent
+        # connection takes ~1.0s (the server's 1s deadline), and group 3's cold page ~0.5s -- against a
+        # 3s read window, a 3x margin that 4 lanes of suites can eat. No assert here measures time with
+        # these windows, so widening them costs a failing run time and a passing run nothing: a server
+        # that DOES stall still returns no answer inside 15s, because the stalling client stays open
+        # until after its assert.
+        function Wait-ServerUp([int]$OnPort) {
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            while ($sw.ElapsedMilliseconds -lt 30000) {
+                Start-Sleep -Milliseconds 250
+                $t = New-Object System.Net.Sockets.TcpClient
+                try { $t.Connect('127.0.0.1', $OnPort); return $true } catch { } finally { $t.Close() }
+            }
+            return $false
         }
+        $up = Wait-ServerUp $port
         Assert-True $up 'the server listens on the port it was given'
 
         $group2Ran = $true
         function Get-Raw([string]$Method, [string]$Path, [string]$HostHeader, [string]$Extra = '', [int]$OnPort = $port) {
             $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $OnPort)
-            $c.ReceiveTimeout = 3000
+            $c.ReceiveTimeout = 15000
             try {
                 $s = $c.GetStream()
                 $req = [System.Text.Encoding]::ASCII.GetBytes("$Method $Path HTTP/1.1`r`nHost: $HostHeader`r`n$Extra`r`n")
@@ -275,7 +286,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             $drip = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $port)
             $dripStream = $drip.GetStream()
             # Drip past the server's 1s deadline and keep the connection OPEN: without the deadline the loop
-            # would still be reading it, and the next request would get no answer (Get-Raw gives up at 3s).
+            # would still be reading it, and the next request would get no answer (Get-Raw gives up at 15s).
             try { for ($i = 0; $i -lt 20; $i++) { $dripStream.WriteByte(71); $dripStream.Flush(); Start-Sleep -Milliseconds 100 } } catch { }
             $sw = [Diagnostics.Stopwatch]::StartNew()
             Assert-Equal 200 (Get-Status 'GET' '/house-theme.js' "localhost:$port") 'a dripping client is cut off by one deadline, and the next one is answered'
@@ -315,12 +326,10 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         $proc3 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $src 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port3)
         try {
-            $up = $false
-            for ($i = 0; $i -lt 40 -and -not $up; $i++) {
-                Start-Sleep -Milliseconds 250
-                $t = New-Object System.Net.Sockets.TcpClient
-                try { $t.Connect('127.0.0.1', $port3); $up = $true } catch { } finally { $t.Close() }
-            }
+            # Asserted on its own, so a recurrence says whether the server never came up or the page did not
+            # come back -- the question #3038 could not answer from four asserts failing together.
+            $up = Wait-ServerUp $port3
+            Assert-True $up 'the group-3 server listens on the port it was given'
             $page = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($page -match 'HTTP/1.1 200') 'the page is served with a checkout that has no upstream'
             Assert-True ($page -match '(master|main) &#183; clean') 'and that checkout shows its branch and state'
