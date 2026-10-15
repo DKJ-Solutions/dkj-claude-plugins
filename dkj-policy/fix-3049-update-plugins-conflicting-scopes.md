@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Repair #3049: where this checkout's own install records disagree on scope, `update-plugins` updates
+each distinct scope rather than falling back to one `--scope project` call.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `update-plugins.ps1` (and its `dkj-policy` mirror): one update per distinct canonical scope
+  recorded for this checkout, never `managed`; the disagreement named above step 1; the extra records
+  counted in the summary
+- [x] `update-plugins` skill page: the fallback paragraph corrected, the #3049 paragraph added
 
 ### TEST
 
+- [x] `update-plugins.tests.ps1` scenarios 21 (project + local + user shadow; local + managed) and
+  22 (-DryRun): 124 pass, 0 fail
+
 ### DEPLOY: fix/3049-update-plugins-conflicting-scopes
 
-**Score:**
+`update-plugins` now updates every install record a checkout holds for a plugin, at each scope those
+records name ([#3049](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3049)). Where a
+checkout's records disagreed on scope (a `project` and a `local` record side by side, a state a
+session start can produce), the run fell back to one `--scope project` call and left the other record
+behind, under `0 failed`, while its own receipt said `CONFLICTING`. A path-less `user` record beside
+them was skipped as well. Now each scope gets its own `claude plugin update`, `managed` excepted, and the
+disagreement is named before step 1.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+`update-plugins` no longer leaves a second copy of a plugin behind in a checkout that holds two install
+records for it, so a session there stops loading the older version after a run that reported success.
+
+**Score:** 2
 
 #### Pull Request
 
