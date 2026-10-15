@@ -39,21 +39,45 @@
 
 ### PLAN
 
+Issue [#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035), with the owner's three
+design decisions from its comments: a discovery glob for the copies, a pattern grep rather than a CSS
+parse for checks 2 and 3, and CSS embedded in non-CSS files in scope.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/house-style-rules.ps1` in the dkj-solutions plugin: the three checks, the pin read from the skill page, the retired names (v1/v2 tokens plus v3's `Was` column, minus what v3 defines), the allowlist seam.
+- [x] `scripts/lint/check-house-style.ps1`: the gate (exit 0 / 1 / 2).
+- [x] `hooks/house-style-sessioncheck.ps1`, registered in the plugin's `hooks.json`: read-only, quiet in a repo without a house style.
+- [x] `.github/workflows/reusable-house-style.yml`: the CI gate a consumer calls.
+- [x] This repo's `Get-HouseStyleAllowlist`: the dkj-policy pages are outside the house style by design (BWJ-Development runs them too).
+- [x] The skill page, the plugin README and both plugin descriptions.
 
 ### TEST
 
+- [x] `scripts/tests/check-house-style.tests.ps1`: 47 asserts on the rules, the retired list held to the vendored v3 copy, and the gate and session check against scratch repos and this repo itself.
+- [x] Run on this repo: the first version took 281s (a selector regex rescanning every run), the lookbehind version 21s; 101 findings, all in dkj-policy pages, answered by the allowlist.
+
 ### DEPLOY: feat/3035-check-house-style
 
-**Score:**
+A new `check-house-style` gate in the `dkj-solutions` plugin
+([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035)) checks three things. Every
+vendored `house-style.css` and `house-theme.js` must be the copy the `house-style` skill pins. The repo's
+own layer must not redefine a house token or restyle a house class app-wide. And it must not use a token
+name the brand book retired. The gate runs in CI through a reusable workflow and, read-only, at session
+start. This repo's connector dashboard passes it.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+In a DKJ-Solutions repo with this plugin, a new session-start line now reports a drifted copy of the
+house style, a redefined house token or class, or a retired token name such as `--muted` or `--good`, with
+file and line. To block a pull request on the same findings, a repo adds the few-line caller from the
+`house-style` skill page, which calls `reusable-house-style.yml`. A false positive is answered with a
+reason in `Get-HouseStyleAllowlist` in `scripts/repo-config.ps1`.
+
+**Score:** 3
 
 #### Pull Request
 
 house-style: a check-house-style gate
-

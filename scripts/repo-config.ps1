@@ -1466,3 +1466,21 @@ function Get-DevPreview {
         WaitSeconds = 15
     }
 }
+
+# --- The house-style gate seam (dkj-solutions, #3035) ---------------------------------------------------
+
+function Get-HouseStyleAllowlist {
+    <# What check-house-style may leave alone here, each with its reason. The connector dashboard is this
+       repo's one page on the house style, and the gate holds it. The pages below belong to dkj-policy,
+       which BWJ-Development runs too, with its own styling: they stay on their own tokens by design, so
+       a house-style name in them is not drift. And the gate's own suite writes the names as fixtures. #>
+    $shared = 'a dkj-policy page: BWJ-Development runs it too, with its own styling, so it is outside the house style by design'
+    @(
+        @{ Path = 'plugins/dkj-policy/scripts/release/*';      Reason = $shared }
+        @{ Path = 'scripts/release/*';                         Reason = "$shared (the source repo's mirror)" }
+        @{ Path = 'plugins/dkj-policy/skills/*';               Reason = $shared }
+        @{ Path = 'plugins/dkj-policy/worker/*';               Reason = $shared }
+        @{ Path = 'scripts/tests/release-notes-page.tests.ps1'; Reason = 'fixtures of the release-notes page above' }
+        @{ Path = 'scripts/tests/check-house-style.tests.ps1';  Reason = "the gate's own suite: every name in it is a fixture" }
+    )
+}

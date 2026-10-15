@@ -9,7 +9,7 @@ no specialists.
 
 | Chapter | Where | What it holds |
 |---|---|---|
-| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | A pointer to [DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook), which holds the design tokens, the twelve themes and the base stylesheet, plus the rules a session needs before it fetches them |
+| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | A pointer to [DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook), which holds the design tokens, the twelve themes and the base stylesheet, plus the rules a session needs before it fetches them, and the `check-house-style` gate that holds a repo to them |
 | The tracker labels | [below](#the-tracker-labels--feature-and-bug-in-every-repo) | `feat/` is labelled `feature` and `fix/` `bug`, in every DKJ-Solutions repo, and how a repo still on `enhancement` moves over |
 
 ## The tracker labels — `feature` and `bug`, in every repo
@@ -34,8 +34,18 @@ in this order.** `open-pr` refuses a label the tracker does not carry, so the tr
 Measured on October 13, 2026, five repos needed it: `dkj-brandbook`, `dkj-etf-tracker`,
 `djcylow-react`, `dkj-music-library` and `dkj-recipes`.
 
-Beside its chapters, the plugin ships one hook (below). A hook is tooling the harness runs, not a rule a
-session has to follow, so it is no chapter and `CLAUDE.md` does not name it.
+Beside its chapters, the plugin ships two SessionStart hooks (below). A hook is tooling the harness runs,
+not a rule a session has to follow, so it is no chapter and `CLAUDE.md` does not name it.
+
+## The house-style session check
+
+[`hooks/house-style-sessioncheck.ps1`](hooks/house-style-sessioncheck.ps1) runs the `check-house-style`
+gate at session start (`startup`, `resume`, `clear`) and reports what it finds: a vendored copy that is not
+the pinned one, a redefined house token or class, a retired token name. It is read-only and never fails
+the session. In a repo with no house style at all it prints one line saying there is nothing to check.
+The gate itself, its allowlist and the CI caller are on the
+[`house-style` skill page](skills/house-style/SKILL.md#the-gate-check-house-style)
+([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035)).
 
 ## The dev-preview hook
 

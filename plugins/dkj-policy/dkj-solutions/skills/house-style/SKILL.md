@@ -64,6 +64,45 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    value that is wrong for one app is a new domain token in that app, not an override. Extend, never
    override.
 
+## The gate: `check-house-style`
+
+**[`scripts/lint/check-house-style.ps1`](../../scripts/lint/check-house-style.ps1) holds a repo to the
+three rules above** ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035)):
+
+1. **pin**: every tracked `house-style.css` and `house-theme.js` hashes to the table above. The copies are
+   found in the tree, so no repo needs to declare where they live. A repo without a `house-style.css` fails too.
+2. **redefine**: the repo's own layer defines no house token (`--x:`) and restyles no house class app-wide
+   (`.card { }`, `main .card { }`). A house class inside a component of the repo's own (`.my-panel .card`) is
+   composition, not a redefinition.
+3. **retired**: the repo's own layer neither defines nor reads (`var(--x)`) a token name the brand book retired.
+
+Checks 2 and 3 use a pattern grep over every tracked text file a page is built in (`.css`, `.html`, `.js`,
+`.py`, `.ps1` and the like, not Markdown), so CSS inside a Python or PowerShell string counts. A false
+positive is answered in the repo's `scripts/repo-config.ps1`. Every entry needs a reason, and a drifted
+copy is never answered there:
+
+```powershell
+function Get-HouseStyleAllowlist {
+    @( @{ Path = 'docs/demo/*'; Name = '--muted'; Reason = 'a frozen screenshot page' } )   # Name optional
+}
+```
+
+**As a CI gate**, a repo with a UI calls the reusable workflow (the gate exits 1 on a finding):
+
+```yaml
+name: House style
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  house-style:
+    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-house-style.yml@main
+```
+
+**At session start**, the plugin's `house-style-sessioncheck` hook runs the same checks and reports them.
+It is read-only and stays quiet in a repo without any house style.
+
 ## Changing the house style
 
 **Upstream, in `dkj-brandbook`, never in the repo you are working in** (the extension's `CLAUDE.md`
@@ -79,7 +118,8 @@ instead of merging.
 releases the house style as a new `house-style-v<N>` tag, set only on the owner's request and never moved.
 Then an inbound issue on this plugin's source repo asks for a repoint to the new tag, and the change
 repoints every link to the previous tag on this page and replaces the commit and both checksums, measured
-from the bytes served at that tag. **The same change replaces the source repo's own vendored copy**, the
+from the bytes served at that tag, and `Get-HouseStyleRetiredTokens` in `scripts/lib/house-style-rules.ps1`
+takes the new tag's retired names. **The same change replaces the source repo's own vendored copy**, the
 two files under `scripts/dashboard/house-style/` that its connector dashboard serves: its test suite holds
 them to this page's checksums and goes red until they move
 ([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989)). The apps get it with the next

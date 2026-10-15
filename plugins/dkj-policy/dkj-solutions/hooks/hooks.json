@@ -8,6 +8,11 @@
             "type": "command",
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/dev-preview-sessionstart.ps1\"",
             "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/house-style-sessioncheck.ps1\"",
+            "timeout": 120
           }
         ]
       }
