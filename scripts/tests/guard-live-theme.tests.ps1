@@ -63,7 +63,9 @@
 $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$Guard    = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-shopify\hooks\guard-live-theme.ps1'
+# Rule 5's fixtures need a git repo, built through the judged helper so a failed git is seen (#1635).
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+$Guard   = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-shopify\hooks\guard-live-theme.ps1'
 $Check    = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-shopify\hooks\shopify-floor-sessioncheck.ps1'
 # Fixture paths carry $PID: the test gate is a throttled PARALLEL scheduler, so two runs at one fixed
 # temp path tear down each other's tree mid-assert.
@@ -595,8 +597,8 @@ function Get-ShopifyLiveThemeId { return '$LIVE' }
 function Get-ShopifyLiveDeployBranch { return 'live' }
 "@
     $conn = New-FixtureRepo -Label 'conn' -ConfigBody $deployCfg
-    & git -C $conn init -q 2>&1 | Out-Null
-    & git -C $conn symbolic-ref HEAD refs/heads/feat/x 2>&1 | Out-Null
+    Invoke-FixtureGitIn $conn init -q
+    Invoke-FixtureGitIn $conn symbolic-ref HEAD refs/heads/feat/x
 
     $pushBlocked = @(
         @{ n = 'the branch by name';                  c = 'git push origin live' },
@@ -652,7 +654,7 @@ function Get-ShopifyLiveDeployBranch { return 'live' }
     foreach ($case in $pushAllowed) { Assert-Equal 0 (Invoke-Guard -Command $case.c -Root $conn) "deploy push allowed: $($case.n)" }
 
     # The checked-out branch decides a push with no refspec, or a bare HEAD.
-    & git -C $conn symbolic-ref HEAD refs/heads/live 2>&1 | Out-Null
+    Invoke-FixtureGitIn $conn symbolic-ref HEAD refs/heads/live
     Assert-Equal 2 (Invoke-Guard -Command 'git push' -Root $conn) 'deploy push: no refspec ON the deploy branch is blocked'
     Assert-Equal 2 (Invoke-Guard -Command 'git push origin HEAD' -Root $conn) 'deploy push: and a bare HEAD on it too'
     Assert-Equal 2 (Invoke-Guard -Command 'git push origin @' -Root $conn) "deploy push: and '@', git's alias for HEAD"
@@ -661,19 +663,19 @@ function Get-ShopifyLiveDeployBranch { return 'live' }
     # branch is judged by its own HEAD, not the project root's.
     $lane = Join-Path $Fixture 'conn-lane'
     New-Item -ItemType Directory -Force -Path $lane | Out-Null
-    & git -C $lane init -q 2>&1 | Out-Null
-    & git -C $lane symbolic-ref HEAD refs/heads/feat/y 2>&1 | Out-Null
+    Invoke-FixtureGitIn $lane init -q
+    Invoke-FixtureGitIn $lane symbolic-ref HEAD refs/heads/feat/y
     $cwdPayload = { param($c, $cwd) @{ tool_name = 'Bash'; cwd = $cwd; tool_input = @{ command = $c } } | ConvertTo-Json -Compress -Depth 5 }
     $prevDir = $env:CLAUDE_PROJECT_DIR
     $env:CLAUDE_PROJECT_DIR = $conn
     try {
         (& $cwdPayload 'git push' $lane) | & powershell -NoProfile -ExecutionPolicy Bypass -File $Guard 2>&1 | Out-Null
         Assert-Equal 0 $LASTEXITCODE 'deploy push: a bare push from a lane on a work branch passes, though the project root sits on the deploy branch'
-        & git -C $lane symbolic-ref HEAD refs/heads/live 2>&1 | Out-Null
-        & git -C $conn symbolic-ref HEAD refs/heads/feat/x 2>&1 | Out-Null
+        Invoke-FixtureGitIn $lane symbolic-ref HEAD refs/heads/live
+        Invoke-FixtureGitIn $conn symbolic-ref HEAD refs/heads/feat/x
         (& $cwdPayload 'git push' $lane) | & powershell -NoProfile -ExecutionPolicy Bypass -File $Guard 2>&1 | Out-Null
         Assert-Equal 2 $LASTEXITCODE 'deploy push: and a bare push from a lane ON the deploy branch is blocked, though the project root is not'
-        & git -C $conn symbolic-ref HEAD refs/heads/live 2>&1 | Out-Null
+        Invoke-FixtureGitIn $conn symbolic-ref HEAD refs/heads/live
     } finally {
         if ($null -eq $prevDir) { Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue } else { $env:CLAUDE_PROJECT_DIR = $prevDir }
     }
@@ -709,5 +711,7 @@ function Get-ShopifyLiveDeployBranch { return 'live' }
 
 Write-Host ""
 Write-Host "Summary: $script:pass passed, $script:fail failed" -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
+$fixtureBroken = Write-FixtureGitSummary -Subject 'guard-live-theme.ps1'
 if ($script:fail -gt 0) { exit 1 }
+if ($fixtureBroken) { exit 1 }
 exit 0
