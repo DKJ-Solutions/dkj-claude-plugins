@@ -70,11 +70,11 @@ function ConvertTo-ConsoleStrippedText {
             told a text direction and a console line cannot. That is why this is not a reuse of that
             function -- only of its LOOKUP; the policy differs; the code-point walk does not.
 
-            THIS IS THE THIRD LIB-INDEPENDENT COPY -- claim-issue-lib.ps1, pr-issues-lib.ps1 and
-            ref-print-lib.ps1, identical byte for byte, the same three libs and the same DISAGREE rule
+            THERE ARE FOUR LIB-INDEPENDENT COPIES -- claim-issue-lib.ps1, pr-issues-lib.ps1,
+            ref-print-lib.ps1 and, since #3020, sync-rules.ps1 -- identical byte for byte. The DISAGREE rule
             that used to hold one regex literal in agreement now holds one function definition in
             agreement instead (pr-issues.tests.ps1). ref-print-lib.ps1 defines it once for both
-            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other two libs each
+            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other three libs each
             carry their own copy, for the reason their docstrings already give for not sharing a
             dot-source.
     #>
@@ -140,7 +140,8 @@ function Format-ForConsole {
             joined by U+200D prints as its parts. Everything printable stays exactly as written,
             because a title is quoted evidence and a mangled one is worse than a blunt one.
 
-            THE SAME WALK THIS REPO ALREADY SHIPS, and this is the THIRD lib that types it -- see
+            THE SAME WALK THIS REPO ALREADY SHIPS, and this was the THIRD lib to type it (sync-rules.ps1
+            became the fourth with #3020) -- see
             ConvertTo-ConsoleStrippedText above for the full account. Neither sibling's own function
             fits this one's contract either: Get-DisplayRef collapses runs of spaces and trims, and a
             title is evidence that must not be re-spaced; Get-DisplayPath answers the all-stripped case
@@ -149,7 +150,7 @@ function Format-ForConsole {
             A FOURTH COPY LIVED OUTSIDE THE LIBS until October 5, 2026: the bwj-development template
             asana-mirror.ps1, which shipped standalone into a consumer's .github/scripts/ (#2019) and
             was retired with its workflow. What the remaining copies may not do is DISAGREE, so
-            pr-issues.tests.ps1 compares the three here.
+            pr-issues.tests.ps1 compares the four in scripts/lib.
 
             IT IS IN THIS LIB RATHER THAN IN THE SCRIPT so that it can be tested at all: a lib is
             dot-sourceable and claim-issue.ps1 is not. Same reasoning as the two decisions below.

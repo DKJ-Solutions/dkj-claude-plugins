@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#### Why a fourth copy rather than a call
+
+`sync-rules.ps1` is dependency-free on purpose (the live-theme guard dot-sources it on every command), so
+it cannot load `ref-print-lib.ps1` for `Get-DisplayPath`. It carries a byte-identical copy of
+`ConvertTo-ConsoleStrippedText`, held to the other three by the DISAGREE asserts in `pr-issues.tests.ps1`.
+The copy-count pin, the docstrings that state the count and the `new-branch` page move with it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `sync-rules.ps1`: `Format-SyncPathCodeSpan` (strip, then a fence longer than any backtick run), used by `Get-SyncPrBodySection` (both mirrors)
+- [x] the fourth walker copy, and the count updated in `pr-issues-lib`, `claim-issue-lib`, the walker docstring in every copy, and the `new-branch` page
+- [x] `sync-rules.tests.ps1`: the measured injection, fence, padding, strip and sync-log cases
+- [x] `pr-issues.tests.ps1`: sync-rules joins the DISAGREE asserts and the copy-count pin
 
 ### TEST
 
+- [x] standalone: sync-rules 201, pr-issues 1152, claim-issue 590, ref-print-lib 484 -- all pass
+
 ### DEPLOY: fix/3020-sync-body-path-escape
 
-**Score:**
+A theme path in the sync PR body, the Git-connected back-flow PR body and the sync log can no longer turn into markdown. `Convert-GitQuotedPath` restores newlines and backticks from git's quoting, so a filename saved on live could close its code span and start a body line carrying an `@`-ping and a closing keyword that fires at the merge. Each path now has its control and format characters replaced by a space, the same class the console already strips, and sits in a code span longer than any backtick run inside it ([#3020](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3020)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store running `sync-main` gets a sync PR body that a third party's filename cannot inject into. Ordinary paths render exactly as before.
+
+**Score:** 1
 
 #### Pull Request
 
