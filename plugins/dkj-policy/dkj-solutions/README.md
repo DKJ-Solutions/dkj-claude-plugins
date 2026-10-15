@@ -80,7 +80,9 @@ function Get-DevPreview {
   log captures the last one's output only. A `Write-Host` in the config is harmless.
 - **Bind to `127.0.0.1` in the `Command`** wherever the server shows something private, e.g.
   `python -m http.server {port} --bind 127.0.0.1` or `next dev -H 127.0.0.1 -p {port}`. The hook cannot
-  know what a server exposes.
+  know what a server exposes. A server you started by hand in the checkout is reused as well, without
+  your `Command`, so when the `Command` names a loopback host and the reused server listens on every
+  interface, the session-start line says `LISTENING ON ALL INTERFACES`. Restarting it is up to you.
 - **A running server is reused, never doubled.** A listener counts as this checkout's when its own
   command line, or one of its four nearest ancestors' command lines, names this checkout's root at a path
   boundary. The hook starts every server under a `cmd.exe` that changes into the root first, which is how

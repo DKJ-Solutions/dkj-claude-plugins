@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Issue [#3041](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3041), confirmed in
+`dev-preview-sessionstart.ps1`: the listener read selects `LocalPort` and `OwningProcess` only. Its
+proposal is followed: say it, and leave the restart to the owner.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dev-preview-rules.ps1`: `Test-DevPreviewCommandIsLoopback` and `Test-DevPreviewListensOnAll`, both pure.
+- [x] The hook reads `LocalAddress` too, and a reuse line gains `LISTENING ON ALL INTERFACES` when the Command names loopback and the reused listener is on `0.0.0.0` or `::`.
+- [x] The plugin README's bind bullet says so.
 
 ### TEST
 
+- [x] Nine new asserts in group 1c of `dev-preview-sessionstart.tests.ps1`; 72 passed. No end-to-end case: binding a test listener to every interface can raise the Windows firewall prompt.
+
 ### DEPLOY: feat/3041-dev-preview-bind-address
 
-**Score:**
+The `dev-preview` session-start hook now reads which address a reused server listens on
+([#3041](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3041)). When the repo's `Command`
+binds to a loopback host and the server it reuses listens on every interface, as one started by hand
+without `-H` does, the line says `LISTENING ON ALL INTERFACES`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a DKJ-Solutions repo whose `Get-DevPreview` binds the server to `127.0.0.1`, a session start now
+warns when the server it hands you is one you started by hand that is reachable from the network,
+instead of handing out its link as if it were private.
+
+**Score:** 2
 
 #### Pull Request
 
+dev-preview: say when a reused server listens on all interfaces
