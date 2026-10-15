@@ -26,6 +26,13 @@
       7 open work    open pull requests, so what rides along is decided before the weekend.
       8 runbook      the day's sequence with every derived fact filled in; -OutFile also writes it.
 
+    THE GIT-CONNECTED MODE (#2998, #3012). Where Get-ShopifyLiveDeployBranch names a branch -- the seam
+    live-preflight reads -- the live theme deploys from that branch, and the day is a promotion PR rather
+    than a push. Step 4 still lists the range's theme files, as what goes live with the promotion. Step 5
+    replaces the CLI drift check with the back-flow check: the deploy branch against the trunk, by
+    Get-LivePromotionStep, so live edits the trunk lacks are found on the Friday and the back-flow PR lands
+    first. Step 8's runbook prints the promotion PR where it printed the push.
+
     ------------------------------------------------------------------------------------------------
     THE BOUNDARIES live-preflight STATES HOLD HERE UNCHANGED, and for the same reasons.
 
@@ -182,6 +189,10 @@ $trunk = ([string](Get-Seam 'Get-TrunkBranchName' 'main')).Trim(); if (-not $tru
 $syncPrefix = ([string](Get-Seam 'Get-ShopifySyncBranchPrefix' 'sync/')).Trim(); if (-not $syncPrefix) { $syncPrefix = 'sync/' }
 $changelogRel = ([string](Get-Seam 'Get-ChangelogPath' 'CHANGELOG.md')).Trim(); if (-not $changelogRel) { $changelogRel = 'CHANGELOG.md' }
 $audience = Get-Seam 'Get-ReleaseAudienceTier' $null
+# THE GIT-CONNECTED MODE (#2998, #3012): the seam live-preflight reads, with its VUL-IN guard.
+$deployBranch = ([string](Get-Seam 'Get-ShopifyLiveDeployBranch')).Trim()
+if ($deployBranch -match 'VUL-IN') { $deployBranch = '' }
+$connected = [bool]$deployBranch
 
 # COUNTED FROM YESTERDAY, so a run ON the release day names today. Get-NextReleaseDate is strictly-after
 # on purpose -- work closing on a Monday ships the NEXT Monday -- but a release being prepared that
@@ -190,6 +201,9 @@ $releaseDate = Format-GoLiveDate -Date (Get-NextReleaseDate -From (Get-Date).Add
 
 Write-Host "== prepare-release -- $(if ($store) { $store } else { '(no store domain)' }) -- release day $releaseDate ==" -ForegroundColor Cyan
 Write-Host '   it reads and reports. It never pushes, cuts, tags, or writes the authorisation marker.'
+if ($connected) {
+    Write-Host "   Git-connected: the live theme deploys from '$(ConvertTo-ConsoleStrippedText -Text $deployBranch)', so the day is a promotion PR, not a push."
+}
 Write-Host ''
 
 $steps = @()
@@ -356,19 +370,34 @@ if (-not $sinceTag) {
         # DELETIONS ARE THEIR OWN DECISION, found days ahead so the day does not have to make it (#2566).
         # They ARE carriable: an --only push of a path missing from the checkout removes it from live
         # (#2641), and live-preflight prints that as its own, separately named deletion command.
-        if ($stillOnLive.Count -gt 0) {
-            Add-Step -Name 'deletions' -State 'attention' -Detail "$($stillOnLive.Count) theme file(s) are deleted on the trunk and are still on live. On the day, live-preflight prints a separate deletion command that removes them (an --only push of a path missing locally deletes it) -- decide before the day whether that command runs."
-        }
-        if ($unsafe.Count -gt 0) {
-            Add-Step -Name 'push list' -State 'attention' -Detail "$($unsafe.Count) of $($pushFiles.Count) theme path(s) cannot be pasted safely into a command line, so the runbook composes no push or pull. Read them: $(@($unsafe | ForEach-Object { ConvertTo-ConsoleStrippedText -Text $_ }) -join ', ')"
-        } elseif ($pushFiles.Count -eq 0) {
+        # CONNECTED, THE PROMOTION CARRIES THE WHOLE TREE (#3012): deletions go live with the merge, and no
+        # theme path is printed in the promotion command -- only the verification pull still names them.
+        if ($connected) {
             if ($stillOnLive.Count -gt 0) {
-                Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to upload -- its only theme changes are deletions, so the live push is the deletion command alone."
+                Add-Step -Name 'deletions' -State 'attention' -Detail "$($stillOnLive.Count) theme file(s) are deleted on the trunk and are still on live. The promotion merge removes them from the deploy branch, and so from live -- decide before the day that it should."
+            }
+            if ($unsafe.Count -gt 0) {
+                Add-Step -Name 'push list' -State 'attention' -Detail "$($unsafe.Count) of $($pushFiles.Count) theme path(s) cannot be pasted safely into a command line, so the runbook composes no verification pull. Read them: $(@($unsafe | ForEach-Object { ConvertTo-ConsoleStrippedText -Text $_ }) -join ', ')"
+            } elseif ($pushFiles.Count -eq 0) {
+                Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to go live$(if ($stillOnLive.Count -gt 0) { ' beside the deletions' }) -- step 5 measures whether the deploy branch still differs from the trunk."
             } else {
-                Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to push -- this release is code and docs only, with no live push."
+                Add-Step -Name 'push list' -State 'ready' -Detail "$($pushFiles.Count) theme file(s) go live with the promotion, $newCount of them new on the theme, out of $($changed.Count) changed."
             }
         } else {
-            Add-Step -Name 'push list' -State 'ready' -Detail "$($pushFiles.Count) theme file(s) to push, $newCount of them new on the theme, out of $($changed.Count) changed."
+            if ($stillOnLive.Count -gt 0) {
+                Add-Step -Name 'deletions' -State 'attention' -Detail "$($stillOnLive.Count) theme file(s) are deleted on the trunk and are still on live. On the day, live-preflight prints a separate deletion command that removes them (an --only push of a path missing locally deletes it) -- decide before the day whether that command runs."
+            }
+            if ($unsafe.Count -gt 0) {
+                Add-Step -Name 'push list' -State 'attention' -Detail "$($unsafe.Count) of $($pushFiles.Count) theme path(s) cannot be pasted safely into a command line, so the runbook composes no push or pull. Read them: $(@($unsafe | ForEach-Object { ConvertTo-ConsoleStrippedText -Text $_ }) -join ', ')"
+            } elseif ($pushFiles.Count -eq 0) {
+                if ($stillOnLive.Count -gt 0) {
+                    Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to upload -- its only theme changes are deletions, so the live push is the deletion command alone."
+                } else {
+                    Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to push -- this release is code and docs only, with no live push."
+                }
+            } else {
+                Add-Step -Name 'push list' -State 'ready' -Detail "$($pushFiles.Count) theme file(s) to push, $newCount of them new on the theme, out of $($changed.Count) changed."
+            }
         }
     }
 }
@@ -382,7 +411,29 @@ if (-not $driftRel) { $driftRel = ([string](Get-Seam 'Get-ShopifyDriftCheckPath'
 if (-not $driftRel) { $driftRel = 'scripts/theme/live-snapshot.ps1' }
 $driftFull = Join-Path $repoRoot ($driftRel -replace '/', '\')
 
-if ($SkipDriftArg) {
+if ($connected) {
+    # THE BACK-FLOW CHECK REPLACES THE CLI DRIFT CHECK (#3012). Connected, a third-party edit on live is a
+    # commit the Shopify bot made on the deploy branch, so git can see it and no theme pull is needed.
+    # The same two reads and the same verdict live-preflight's step 6 makes (Get-LivePromotionStep), run
+    # on the Friday so the back-flow PR (deploy branch into the trunk, sync-main) lands before the day.
+    # What the rule-suite log says about REJECTED write-backs is read on the day, by live-preflight.
+    if (-not (Test-LivePromotionRef $deployBranch) -or -not (Test-LivePromotionRef $trunk)) {
+        $s = Get-LivePromotionStep -Trunk $trunk -DeployBranch $deployBranch
+        Add-Step -Name 'back-flow' -State 'attention' -Detail $s.Detail
+    } else {
+        $fetchDeploy = Invoke-Git @('fetch', 'origin', $deployBranch)
+        $backRead = Invoke-Git @('diff', '--no-renames', '--name-only', "HEAD...origin/$deployBranch")
+        $promRead = Invoke-Git @('diff', '--no-renames', '--name-only', "origin/$deployBranch", 'HEAD')
+        if ($fetchDeploy.Code -ne 0 -or $backRead.Code -ne 0 -or $promRead.Code -ne 0) {
+            Add-Step -Name 'back-flow' -State 'skip' -Detail "could not read origin/$deployBranch against the trunk, so neither an owed back-flow nor what the promotion carries is known. live-preflight measures both on the day."
+        } else {
+            $s = Get-LivePromotionStep -Trunk $trunk -DeployBranch $deployBranch `
+                -PromotionPaths @($promRead.Lines | ForEach-Object { Convert-GitQuotedPath -Path $_ }) `
+                -BackflowPaths @($backRead.Lines | ForEach-Object { Convert-GitQuotedPath -Path $_ })
+            Add-Step -Name 'back-flow' -State $(if ($s.State -eq 'pass') { 'ready' } else { 'attention' }) -Detail "$($s.Detail). live-preflight measures it again on the day."
+        }
+    }
+} elseif ($SkipDriftArg) {
     Add-Step -Name 'drift' -State 'skip' -Detail '-SkipDrift was passed. Drift is still checked for real by live-preflight on the day.'
 } elseif ($pushFiles.Count -eq 0) {
     Add-Step -Name 'drift' -State 'skip' -Detail 'there is no push list to check.'
@@ -445,7 +496,7 @@ Write-Host '[8/8] runbook -- the day, in order' -ForegroundColor Cyan
 Write-Host ''
 
 $runbook = @(Format-ReleaseRunbook -Store $store -LiveThemeId $liveId -PushFiles $pushFiles -Bump "$bump" `
-    -TargetVersion $targetVersion -ReleaseDate $releaseDate -Obligations $obligations)
+    -TargetVersion $targetVersion -ReleaseDate $releaseDate -Obligations $obligations -DeployBranch $deployBranch -Trunk $trunk)
 foreach ($l in $runbook) { Write-Host "  $l" }
 if ($OutFileArg) {
     $outFull = if ([System.IO.Path]::IsPathRooted($OutFileArg)) { $OutFileArg } else { Join-Path $repoRoot $OutFileArg }

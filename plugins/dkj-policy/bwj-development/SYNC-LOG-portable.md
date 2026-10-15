@@ -186,6 +186,38 @@ prints the path it wrote to on every run, and says so in words when the seam sti
 marker. A repo that has silently stopped logging says so on its next sync, in the run's own output,
 which is where the operator already is.
 
+## A Git-connected live theme -- the back-flow PR is the sync
+
+**Where `Get-ShopifyLiveDeployBranch` names a branch, the live theme deploys from it** through Shopify's
+GitHub integration
+([#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998), decided on
+`BWJ-Development/smartwatchbanden#943`). Everything above was written for the CLI model, where drift
+reaches git only when `sync-main` pulls it. In this mode it reaches git by itself, so four things read
+differently. The rule does not change: a sync still owes a sync-log entry and still owes no changelog
+entry.
+
+- **The Shopify bot is the committer.** A theme-editor, code-editor or app save lands as a commit by
+  the Shopify GitHub app, straight onto the deploy branch. Those commits are the third party's record.
+  They take the place of the files a CLI pull would have copied into a mirror.
+- **The back-flow PR is the sync branch.** It comes from the deploy branch into the trunk, and its head
+  ref is the deploy branch itself (`live`), not a `sync/` branch. It owes the same sync-log entry, for
+  the same reason. Teaching `sync-main` to open it in this mode is
+  [#3010](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3010). Because its head carries no
+  `sync/` prefix, the entry gate needs the branch named: answer
+  `function Get-EntryGateExemptBranches { return @('live') }` in `scripts/repo-config.ps1`. That seam
+  adds to the prefixes rather than replacing them
+  ([#3011](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3011)). Listed as a prefix
+  instead, `live` would exempt every `live-*` branch too.
+- **The deploy ruleset needs the Shopify GitHub app as an Always-allow bypass actor.** On
+  smartwatchbanden that is the `Integration` actor `101950`. The deploy branch's ruleset carries a
+  `pull_request` rule, so that the promotion is a pull request. Without the bypass, that same rule
+  rejects the bot's write-back.
+- **A rejected write-back leaves drift that git never sees.** The edit stays on live, no commit
+  reaches the deploy branch, and no back-flow PR will ever carry it. GitHub's rule-suite log for the
+  deploy branch is the only trace. `live-preflight` reads that log and refuses on a rejection it finds
+  there, until a person has reconciled the edit by hand and passes `-AcceptRejectedWriteBacks`. Record
+  that reconciliation the way you would record a sync, because nothing else will.
+
 ## Adopting it in a repo
 
 One line in your repo-owned `scripts/repo-config.ps1` -- the same file

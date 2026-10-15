@@ -951,6 +951,19 @@ foreach ($evil in @('assets/x.css; calc', 'assets/$(calc).css', "assets/a`ncalc.
 $evilBook = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @("assets/a$([char]27)[31m.css")) -join "`n"
 Assert-True ($evilBook.Contains('cannot be pasted safely')) 'the refusal says why'
 Assert-True (-not $evilBook.Contains([char]27)) 'and the path it names has its control characters stripped'
+# THE GIT-CONNECTED MODE (#3012): the promotion PR replaces the push, by the function live-preflight prints
+# it with, and the runbook still composes no marker. An unsafe or self-referential branch composes nothing.
+$prConn = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @('sections/a.liquid') `
+    -TargetVersion '1.3.0' -DeployBranch 'live' -Trunk 'main') -join "`n"
+Assert-True $prConn.Contains('gh pr create --base live --head main --title "promote: main to live for v1.3.0"') 'connected: the promotion PR is printed, titled with the target version'
+Assert-True ($prConn -notmatch 'shopify theme push') 'connected: no push is composed -- the promotion is the act that goes live'
+Assert-True $prConn.Contains('shopify theme pull --store s.myshopify.com --theme 42 --path') 'connected: the verification pull still reads the files back off live'
+Assert-True $prConn.Contains('rule-suite') 'connected: the preflight step names the write-back read'
+Assert-True ($prConn -cnotmatch '[A-Z]+-[A-Z-]*AUTHORI[SZ]ED') 'connected: no marker-shaped token appears'
+foreach ($badBranch in @('main', '-live', "live`n")) {
+    $prBadConn = (Format-ReleaseRunbook -PushFiles @() -DeployBranch $badBranch -Trunk 'main') -join "`n"
+    Assert-True ($prBadConn -notmatch 'gh pr create') "connected: no promotion is composed for deploy branch '$($badBranch -replace "`n", '\n')'"
+}
 $prCtl = @([pscustomobject]@{ Branch = 'feat/1-x'; Sentence = "Once live, stop it.$([char]27)[2J" })
 Assert-True (-not ((Format-ReleaseRunbook -Obligations $prCtl) -join "`n").Contains([char]27)) 'entry prose reaches the runbook with its control characters stripped'
 
@@ -972,11 +985,14 @@ try {
     [System.IO.File]::WriteAllText((Join-Path $prRoot 'scripts\repo-config.ps1'), (@(
         "function Get-ShopifyThemeEstateStore { 'seam-fixture-2565.myshopify.com' }",
         "function Get-ChangelogPath { 'seam-fixture/CHANGELOG-2565.md' }",
-        "function Get-RepoName { 'fixture/prepare-release-2565' }"
+        "function Get-RepoName { 'fixture/prepare-release-2565' }",
+        "function Get-ShopifyLiveDeployBranch { 'deploy-3012' }"
     ) -join "`n"))
     $prSeamRun = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PluginRoot 'scripts\task\prepare-release.ps1') -RootOverride $prRoot -SkipDrift 2>&1) | ForEach-Object { "$_" }) -join "`n"
     Assert-True $prSeamRun.Contains('seam-fixture-2565.myshopify.com') 'the store domain is read from the repo''s own seam, not defaulted'
     Assert-True $prSeamRun.Contains("no changelog at 'seam-fixture/CHANGELOG-2565.md'") 'the changelog path is read from the repo''s own seam, not defaulted'
+    Assert-True $prSeamRun.Contains("deploys from 'deploy-3012'") 'the deploy branch is read from the repo''s own seam (#3012)'
+    Assert-True ($prSeamRun -match 'back-flow') '...and step 5 reads the back-flow instead of running the drift check'
 
     # A FAULTY CONFIG DEGRADES, and names the exception's type rather than the consumer's own text (#2509).
     [System.IO.File]::WriteAllText((Join-Path $prRoot 'scripts\repo-config.ps1'), "throw 'consumer-secret-text-2565'")
