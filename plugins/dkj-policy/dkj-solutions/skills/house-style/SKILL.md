@@ -8,7 +8,7 @@ description: The DKJ-Solutions house style -- the design tokens, the twelve them
 **Every DKJ-Solutions app looks like one family** (Dave, issue
 [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1, 2026), and that
 family is written down in **[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook)**,
-folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/house-style-v2/house-style). The
+folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/house-style-v3/house-style). The
 stylesheet and the theme script lived beside this page until October 13, 2026; they moved there so the
 brand book is the single copy, and this skill carries the pointer instead of a second one.
 
@@ -17,19 +17,19 @@ BWJ-Development has its own styling, and this skill says nothing about it.
 
 ## Where the files are
 
-The repo is public, so these read without auth. **They are pinned to the release tag `house-style-v2`,
+The repo is public, so these read without auth. **They are pinned to the release tag `house-style-v3`,
 never to `main`**: `main` moves, and `house-theme.js` is executable wherever it is inlined, so a fetch from
 `main` would carry an unreleased push into every app's next copy
 ([#2954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2954)).
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v2/house-style/house-style.css` | `192e1ad27e720c762c17aa9ffe2056ab85f3085f05aacd6946d6fd13c66872d2` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v2/house-style/house-theme.js` | `4de3fcb877ace986df4ebd784542cff3b3e602df49300cab6e0d6a854b9a7ab3` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v3/house-style/house-style.css` | `58cf0bbc4fdd534f662af560e6aa0eec31e3c4f11171119d28104697acd5e15f` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v3/house-style/house-theme.js` | `80e771ba62e5700aab06a43c897fff604eacf3e2f200fd8b70966cefbe65be28` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
-[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/house-style-v2/house-style/README.md)
-at the same tag, which points at commit `f681386200df4419285f70260ee29b4ed6c47c2a`.
+[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/house-style-v3/house-style/README.md)
+at the same tag, which points at commit `ac7a86b9e3cc646fbc389675480e0a4f01ec25aa`.
 
 **Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
 and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
