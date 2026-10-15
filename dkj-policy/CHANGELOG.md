@@ -2,7 +2,95 @@
 
 ## [Unreleased]
 
-**17 / 31 minor entries** <!-- pending-tally -->
+**20 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3020-sync-body-path-escape · 20261015-072306Z
+
+A theme path in the sync PR body, the Git-connected back-flow PR body and the sync log can no longer turn into markdown. `Convert-GitQuotedPath` restores newlines and backticks from git's quoting, so a filename saved on live could close its code span and start a body line carrying an `@`-ping and a closing keyword that fires at the merge. Each path now has its control and format characters replaced by a space, the same class the console already strips, and sits in a code span longer than any backtick run inside it ([#3020](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3020)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store running `sync-main` gets a sync PR body that a third party's filename cannot inject into. Ordinary paths render exactly as before.
+
+**Score:** 1
+
+#### Pull Request
+
+sync PR body: a theme path is rendered inert in its code span
+
+Plugins: bwj-development, dkj-policy, dkj-subagents-shopify
+
+[PR #3025](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3025)
+
+---
+
+### DEPLOY: fix/3015-paste-safe-anchors · 20261015-070659Z
+
+`Test-RefPasteSafe` and `Test-PathPasteSafe` no longer report a ref or path with a trailing newline as paste-safe. Their patterns ended in `$`, which in .NET also matches before a final newline, so a value read off a file or a native call's output could pass, and a printed command broke at that point. Both are now anchored with `\A...\z`, as #3008 did for its own copies ([#3015](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3015)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing a user notices: it prevents a printed command that breaks at a stray newline, which has not been reported in use.
+
+**Score:** N/A
+
+#### Pull Request
+
+ref-print-lib: paste-safe patterns refuse a trailing newline
+
+Plugins: bwj-development, dkj-policy, dkj-subagents-shopify
+
+[PR #3024](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3024)
+
+---
+
+### DEPLOY: docs/3013-connected-live-duplicate · 20261015-065212Z
+
+The theme-lifecycle pages now say what a `shopify theme duplicate` of a Git-connected live theme is: a detached copy that does not follow later commits on the deploy branch and can drop files silently (measured in `BWJ-Development/smartwatchbanden#943`). For `backup-live-theme` that is what a backup should be, and its verify step catches the drop. For `push-preview` it means a preview shows live as it was when it was created. `THEME-LIFECYCLE-portable.md` states the order as promote-then-cut for such a store. `backup-live-theme`'s order warning reads `Get-ShopifyLiveDeployBranch` and speaks of a promotion instead of a push there ([#3013](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3013), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store whose live theme deploys from a branch reads, on the pages it already uses, why its preview does not follow `live` and why its backup is still sound. A store that has not set the seam sees no difference.
+
+**Score:** 2
+
+#### Pull Request
+
+theme-lifecycle pages: a duplicate of a connected live theme is a detached copy
+
+Plugins: bwj-development, dkj-subagents-shopify
+
+[PR #3023](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3023)
+
+---
+
+### DEPLOY: feat/3010-sync-main-backflow-pr · 20261014-174226Z
+
+`sync-main` gains a Git-connected mode. Where `Get-ShopifyLiveDeployBranch` names the branch a live theme deploys from, it no longer pulls live into a mirror. It measures what that branch changed since it last met the trunk, and opens the deploy-branch->trunk back-flow PR with every path and its kind in the body. Where such a PR is already open it reports it rather than opening a second, and it never merges: the back-flow has to be a merge commit, and the run says so. Store and theme id are not needed in this mode. With the seam unanswered, nothing changes ([#3010](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3010), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store whose live theme is connected to a branch can run its pre-task sync at all. Until now `sync-main` pulled live through the CLI, which such a store does not use. A store that has not set the seam sees no difference.
+
+**Score:** 3
+
+#### Pull Request
+
+sync-main: open the back-flow PR when the live theme deploys from a branch
+
+Plugins: dkj-subagents-shopify
+
+[PR #3022](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3022)
+
+---
 
 ### DEPLOY: feat/3011-entry-gate-exempt-branches · 20261014-145535Z
 

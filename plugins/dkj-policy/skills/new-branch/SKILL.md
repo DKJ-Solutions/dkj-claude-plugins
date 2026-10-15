@@ -400,10 +400,10 @@ count is worth stating precisely because the wrong one is what kept the second s
 9. **The `check-report-lib.ps1` family -- a FOURTH hand-typed strip mechanism, and the largest single
    find this sweep made** (`Format-SafeToken`, `Format-SuspectToken`, `Format-SafeProseToken`,
    `Format-SafePathToken`, `scripts/lib/check-report-lib.ps1`, inbound #309, inbound #414, #1419).
-   **It is a different class from the three libs below, not a fourth copy of them**: those three carry
+   **It is a different class from the four libs below, not another copy of them**: those four carry
    `ConvertTo-ConsoleStrippedText`, which since #2025 reads each code point's category off the
    runtime's own table, while this file works off its own `$script:CheckReportControlPattern = '\p{C}'`
-   plus a marker pattern for square brackets. `pr-issues.tests.ps1`'s assert pinning "three libs in
+   plus a marker pattern for square brackets. `pr-issues.tests.ps1`'s assert pinning "four libs in
    scripts/lib type this function and no more" stays TRUE exactly as written -- it matches on
    `function ConvertTo-ConsoleStrippedText`, and this file defines no function by that name -- so this
    is not a test failure. It is a gap the pin was never asked about, said here because a reader who
@@ -664,16 +664,20 @@ merged first; only `$inv.Reason`'s half is this branch's repair. That split is a
 ownership, not about foreign text, and it is not this page's to hold -- named here only because it is
 why the sentence above splits credit rather than claiming the whole site.
 
-The class itself is hand-typed in **three** libs, on purpose and knowingly: this one,
-`ref-print-lib.ps1` and `claim-issue-lib.ps1`. #1594 re-typed it with this site already in place and
+The class itself is hand-typed in **four** libs, on purpose and knowingly: this one,
+`ref-print-lib.ps1`, `claim-issue-lib.ps1` and `sync-rules.ps1`. #1594 re-typed it with this site already in place and
 recorded why; #1623 retired a copy rather than adding one -- `remote-ahead-lib.ps1` acquired a reason to
 load `ref-print-lib.ps1` for its own sake (its branch label, printed raw beside the subject it already
 sanitised), and once the lib was loaded a private copy was pure drift surface. #1858 added one back, for
 the two reasons that keep the others apart and one more: no function in `ref-print-lib.ps1` fits an issue
 title. `Get-DisplayRef` collapses runs of spaces and trims, and a title is quoted evidence that must not
 be re-spaced; `Get-DisplayPath` answers the all-stripped case with `(no printable path)`, the wrong noun
-for a title -- so reuse would have meant a fourth function there rather than one regex fewer. The three
-share nothing else -- different bounds, different source processes, and none of them loaded by another's
+for a title -- so reuse would have meant a fourth function there rather than one regex fewer. **#3020
+made it four**: `sync-rules.ps1` renders theme paths into the sync PR body and the sync log, where a
+filename that closes its code span becomes markdown, and that lib is dependency-free on purpose (the
+live-theme guard dot-sources it on every command), so it carries its own copy rather than loading
+`ref-print-lib.ps1`. That site writes markdown, not a console line, so it is not an entry in the list
+above. The four share nothing else -- different bounds, different source processes, and none of them loaded by another's
 callers -- so what is guarded is that they cannot DISAGREE, by an assert in `pr-issues.tests.ps1` that
 compares the patterns themselves and pins **which** libs carry the class. **The retired sentence this
 list replaced claimed completeness, and this list must not make the same claim twice.** It grew from
@@ -691,7 +695,8 @@ dot-source there named a path that was not there, and the argument that keeps th
 not even have to be made. It was the reason entry 6 went unguarded for as long as it did: every other
 site got the strip when its own lib acquired one, and that file had no lib. Its own suite
 (`bwj-development.tests.ps1`) compared the class character for character against all three. The history
-is kept for the "no claim of completeness" argument above; no fourth copy exists now. **Entry 9's `check-report-lib.ps1` is not a fifth
+is kept for the "no claim of completeness" argument above; that copy no longer exists, and the fourth
+copy today is the lib one #3020 added, `sync-rules.ps1`. **Entry 9's `check-report-lib.ps1` is not a fifth
 appearance of this same class, and the two "fourth"s in this section name different things**:
 `asana-mirror.ps1` replicated `ConvertTo-ConsoleStrippedText` character for character, as above, while
 `check-report-lib.ps1` strips `\p{C}` under its own pattern, was built for an unrelated set of callers,

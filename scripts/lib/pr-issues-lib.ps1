@@ -2719,11 +2719,11 @@ function ConvertTo-ConsoleStrippedText {
             told a text direction and a console line cannot. That is why this is not a reuse of that
             function -- only of its LOOKUP; the policy differs; the code-point walk does not.
 
-            THIS IS THE THIRD LIB-INDEPENDENT COPY -- claim-issue-lib.ps1, pr-issues-lib.ps1 and
-            ref-print-lib.ps1, identical byte for byte, the same three libs and the same DISAGREE rule
+            THERE ARE FOUR LIB-INDEPENDENT COPIES -- claim-issue-lib.ps1, pr-issues-lib.ps1,
+            ref-print-lib.ps1 and, since #3020, sync-rules.ps1 -- identical byte for byte. The DISAGREE rule
             that used to hold one regex literal in agreement now holds one function definition in
             agreement instead (pr-issues.tests.ps1). ref-print-lib.ps1 defines it once for both
-            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other two libs each
+            Get-DisplayRef and Get-DisplayPath, since both live in that file; the other three libs each
             carry their own copy, for the reason their docstrings already give for not sharing a
             dot-source.
     #>
@@ -2769,9 +2769,9 @@ function Format-AuthoredText {
         THE WORDS STAY. The note only has to be READABLE; quoting the payload would keep it and add
         noise. Same choice and same reasoning as the sibling site.
 
-        THREE LIBS CARRY THIS CLASS, AND THE COUNT IS STATED BECAUSE A WRONG ONE IS WHAT MADE THIS GAP
-        HARD TO FIND (the second half of #1612). It was three until #1623, two until #1858, and the
-        arrangement is worth reading before it is changed again:
+        FOUR LIBS CARRY THIS CLASS, AND THE COUNT IS STATED BECAUSE A WRONG ONE IS WHAT MADE THIS GAP
+        HARD TO FIND (the second half of #1612). It was three until #1623, two until #1858, three until
+        #3020, and the arrangement is worth reading before it is changed again:
 
           - THIS LIB types it, for the reason above.
           - ref-print-lib.ps1 types it, inside Get-DisplayRef -- the one definition of the prose strip
@@ -2781,6 +2781,9 @@ function Format-AuthoredText {
             subjects and the branch names claim-issue.ps1 prints. It reached only '[\x00-\x1F\x7F]'
             until #1858, so a bidi override or a zero-width run in a title passed through it untouched,
             as did the whole C1 range.
+          - sync-rules.ps1 types it, inside Format-SyncPathCodeSpan -- the theme paths the sync PR body
+            and the sync log render as markdown (#3020). That lib is dependency-free on purpose, because
+            the live-theme guard dot-sources it on every command.
           - remote-ahead-lib.ps1 typed the FIRST copy (a commit's %an and %s, #1439) and no longer does:
             #1623 gave it a caller's reason to load ref-print-lib anyway -- the branch label in its own
             sentence, which it had been printing raw beside the subject it sanitised -- and once the lib

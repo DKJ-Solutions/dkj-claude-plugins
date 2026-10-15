@@ -841,6 +841,41 @@ sync-main.tests.ps1 goes from 20 to 32 asserts. One earns its place twice: the
     Assert-True ($emptyTake -match 'Nothing was taken from live\.') 'body/empty: and so does an empty taken half'
     Assert-True ((New-SyncPrBody -Take @() -Keep @()) -match 'Nothing was taken from live\.') 'body/empty: neither half is required for a body at all'
 
+    # THE BACK-FLOW SHAPE (#3010): one half, its own heading, and the merge-commit warning.
+    $flow = New-SyncPrBody -Take $rowsTake -Intro 'Live edits from live.' -Backflow
+    Assert-True ($flow -match '\*\*Flowing back from live \(2\)\*\*') 'backflow/body: the one half carries its own heading and count'
+    Assert-True ($flow -notmatch 'Held back') 'backflow/body: there is no held-back half, because there is no content rule'
+    Assert-True ($flow -match 'MERGE COMMIT, never a squash') 'backflow/body: it says why the merge must be a merge commit'
+    Assert-True ($flow -match 'changed on live -- .sections/header\.liquid.') 'backflow/body: each path keeps its kind'
+
+    # A THEME PATH IS THIRD-PARTY TEXT IN A PR BODY (#3020). The measured shape: a filename that closes its
+    # code span and opens a new markdown line carrying a ping and a closing keyword.
+    $hostile = 'x' + '`' + "`n" + 'Hello @octocat Fixes #1' + "`n" + '`y.liquid'
+    $evil = New-SyncPrBody -Take @([pscustomobject]@{ Status = 'A'; Path = $hostile; Reason = $takeReason })
+    $evilRow = @($evil -split "`n" | Where-Object { $_ -like '- new on live -- *' })
+    Assert-Equal 1 $evilRow.Count 'escape/body: a path carrying newlines stays on ONE body line'
+    Assert-True (-not ($evil -split "`n" | Where-Object { $_ -like 'Hello @octocat*' })) 'escape/body: no line of the body starts with the injected text'
+    Assert-True ($evilRow[0].EndsWith('-- ``x` Hello @octocat Fixes #1 `y.liquid``')) 'escape/body: the fence is longer than the backtick run inside the path'
+    Assert-Equal '`a b`' (Format-SyncPathCodeSpan -Path 'a b') 'escape/span: an ordinary path keeps the one-backtick span it always had'
+    Assert-Equal '``a`b``' (Format-SyncPathCodeSpan -Path 'a`b') 'escape/span: an inner backtick doubles the fence'
+    Assert-Equal '`` `a ``' (Format-SyncPathCodeSpan -Path '`a') 'escape/span: a leading backtick is padded, so it cannot merge with the fence'
+    Assert-Equal '`a `' (Format-SyncPathCodeSpan -Path "a`r") 'escape/span: a CR becomes a space, not a line break'
+    Assert-Equal '`x y`' (Format-SyncPathCodeSpan -Path ('x' + [char]0x202E + 'y')) 'escape/span: a format character (RTL override) is replaced by a space'
+    Assert-Equal '(no printable path)' (Format-SyncPathCodeSpan -Path ([string][char]0x200B)) 'escape/span: a path with nothing printable is named, not blanked'
+    $log = New-SyncLogEntry -Branch 'sync/x' -Date '2026-10-15' -Take @([pscustomobject]@{ Status = 'A'; Path = $hostile; Reason = $takeReason })
+    Assert-True (-not ($log -split "`n" | Where-Object { $_ -like 'Hello @octocat*' })) 'escape/log: the sync log renders the same rows, so it is inert too'
+
+    $ns = ConvertFrom-BackflowNameStatus -Line "M`tsections/header.liquid"
+    Assert-True (($ns.Status -eq 'M') -and ($ns.RawPath -eq 'sections/header.liquid')) 'backflow/name-status: a modified line becomes an M row'
+    Assert-Equal 'A' (ConvertFrom-BackflowNameStatus -Line "A`ttemplates/x.json").Status 'backflow/name-status: added stays A'
+    Assert-Equal 'D' (ConvertFrom-BackflowNameStatus -Line "D`ttemplates/x.json`r").Status 'backflow/name-status: deleted stays D, and a CR is not part of the path'
+    Assert-Equal 'templates/x.json' (ConvertFrom-BackflowNameStatus -Line "D`ttemplates/x.json`r").RawPath 'backflow/name-status: ...and the path loses the CR'
+    Assert-Equal 'M' (ConvertFrom-BackflowNameStatus -Line "T`tassets/a.js").Status 'backflow/name-status: a type change reads as changed on live'
+    Assert-Equal '"assets/caf\303\251.css"' (ConvertFrom-BackflowNameStatus -Line "M`t`"assets/caf\303\251.css`"").RawPath 'backflow/name-status: a quoted path is returned raw, for the caller to decode'
+    Assert-True ($null -eq (ConvertFrom-BackflowNameStatus -Line 'M')) 'backflow/name-status: a line without a path is not a row'
+    Assert-True ($null -eq (ConvertFrom-BackflowNameStatus -Line "M`t")) 'backflow/name-status: nor is a tab with nothing after it'
+    Assert-True ($null -eq (ConvertFrom-BackflowNameStatus -Line '')) 'backflow/name-status: nor is an empty line'
+
     # A $null in a row array is what a caller's filter leaves behind; it must not become a blank bullet.
     $withNull = New-SyncPrBody -Take @($rowsTake[0], $null) -Keep @()
     Assert-Equal 1 ([regex]::Matches($withNull, '(?m)^- ').Count) 'body/null: an empty row is dropped rather than printed as a blank bullet'

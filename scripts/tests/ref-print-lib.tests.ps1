@@ -758,13 +758,26 @@ Assert-True  (-not (Get-PasteableRef -Ref ('fix/' + $kelvin)).IsSafe) '...and Ge
 Assert-True  (Test-RefPasteSafe -Ref 'Fix/K-Upper')              'case-sensitive matching still admits an upper-case ASCII ref'
 Assert-True  (Test-PathPasteSafe -Path 'C:\Users\Dave\X')        '...and an upper-case ASCII path'
 
+# --- a trailing newline is refused on both axes (#3015) -------------------------------------------
+# In .NET `$` also matches before a final `\n`, so the patterns once read "live`n" as safe. An embedded
+# newline always failed the class; only the trailing one got through.
+Write-Host ''
+Write-Host 'A trailing newline -- refused on both axes (#3015)' -ForegroundColor Cyan
+
+Assert-True  ("live`n" -cmatch '^[A-Za-z0-9]+$')                 'the premise: `$` matches before a final newline'
+Assert-True  (-not (Test-RefPasteSafe -Ref "live`n"))            'Test-RefPasteSafe refuses a ref with a trailing newline'
+Assert-True  (-not (Test-RefPasteSafe -Ref "fix/x`r`n"))         '...and one with a trailing CRLF'
+Assert-True  (-not (Test-PathPasteSafe -Path "C:/x`n"))          'Test-PathPasteSafe refuses a path with a trailing newline'
+Assert-True  (-not (Get-PasteableRef -Ref "live`n").IsSafe)      '...and Get-PasteableRef does not hand it to a command'
+Assert-True  (Test-RefPasteSafe -Ref 'live')                     'the same ref without the newline still passes'
+
 # --- the four sync-main sites the two issues measured ---------------------------------------------
 Write-Host ''
 Write-Host 'The path call sites in sync-main.ps1' -ForegroundColor Cyan
 
 # THE THREE PADDED LISTINGS (#1638). Asserted as a count rather than one by one: they are the same line
 # three times, and what must hold is that none of the three was left behind.
-Assert-Equal 3 ([regex]::Matches($syncText, [regex]::Escape('(Get-DisplayPath -Path $r.Path)')).Count) 'all three of the take / hold-back / conflict listings go through the path strip'
+Assert-Equal 4 ([regex]::Matches($syncText, [regex]::Escape('(Get-DisplayPath -Path $r.Path)')).Count) 'all four of the take / hold-back / conflict / back-flow (#3010) listings go through the path strip'
 Assert-True (-not $syncText.Contains('-f $r.Status, $r.Path,')) 'and none of them still formats the raw path into the padded column'
 
 # THE CONFLICT REMEDY (#1637). One judgement per row, both operands answered from it.

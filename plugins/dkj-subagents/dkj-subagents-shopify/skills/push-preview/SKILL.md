@@ -78,6 +78,21 @@ files): a preview this checkout has no record of creating as a copy -- one made 
 another machine, or by the fallback -- and a branch that itself changes a per-market settings file,
 which no preview can show, because the preview carries live's values for it.
 
+**Where live is Git-connected, the copy does not follow `live` (#3013).** With
+`Get-ShopifyLiveDeployBranch` answered, live deploys from that branch, and a `theme duplicate` of it is
+**detached**: measured in `BWJ-Development/smartwatchbanden#943`, it does not follow later commits on the
+deploy branch and can drop files without saying so (486 of 494 templates). Two things follow for a
+preview:
+
+- **It shows live as it was when the preview was created**, not as it is now. A theme-editor or app save
+  that the Shopify bot commits to the deploy branch afterwards is not in it, so a long-lived preview
+  drifts from live just as it would in a CLI store. Re-create it (delete the theme and clear
+  `branch.<name>.previewTheme`) when the comparison with live is what is being judged.
+- **A dropped file shows up as a copy that stays short.** The fill wait then ends on `short`, the branch
+  is pushed in full anyway, and the closing notice says live's per-market settings are unverified on it.
+  A dropped template the branch does not touch is missing from the preview, so the preview renders that
+  template differently from live.
+
 ## Parameters
 
 | parameter | what it does |
