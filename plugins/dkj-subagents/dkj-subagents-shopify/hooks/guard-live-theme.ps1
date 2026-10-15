@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    PreToolUse hook: deterministically blocks a write action against the LIVE Shopify theme.
+    PreToolUse hook: deterministically blocks a write action against the LIVE Shopify theme, or a push
+    to the branch a Git-connected live theme deploys from.
 
 .DESCRIPTION
     Reads the hook JSON from stdin, takes the command out of tool_input.command, and blocks (exit 2)
@@ -309,7 +310,8 @@ if (-not $libLoaded) {
     # AN UNPARSEABLE PAYLOAD FALLS BACK TO THE RAW TEXT rather than to an empty string, so a hook
     # contract that changes shape fails towards CHECKING instead of towards allowing. Asserted in the
     # suite; the fallback itself now lives in Get-HookCommandPayload rather than here.
-    $cmd = [string](Get-HookCommandPayload $raw).Command
+    $hookPayload = Get-HookCommandPayload $raw
+    $cmd = [string]$hookPayload.Command
 
     # $scan IS THE COMMAND WITH THE DATA STRIPPED OUT OF IT, and the two marker tests below read it
     # rather than the raw string: a marker sitting inside a heredoc body is text somebody wrote down,
@@ -446,8 +448,9 @@ function Get-StoreExecuteText([string]$Command) {
 #
 # WHAT COUNTS AS AIMED AT THE BRANCH, read from a segment whose git subcommand is 'push':
 #   - a refspec whose destination is the branch: 'live', 'main:live', '+HEAD:refs/heads/live', ':live';
-#   - '--all', '--branches' or '--mirror', which push every branch;
-#   - NO refspec, or a bare 'HEAD', where the checked-out branch is the deploy branch -- or where that
+#   - a refspec this cannot read or that matches many branches: a glob, '$B', '$(...)', a backtick;
+#   - '--all', '--branches' or '--mirror', or an abbreviation git accepts for one ('--mir');
+#   - NO refspec, or a bare 'HEAD' or '@', where the checked-out branch is the deploy branch -- or where that
 #     cannot be told: a 'git -C' or '--git-dir', a directory change earlier in the command, or a HEAD
 #     that cannot be read. Fail towards checking, as everywhere else in this file.
 # The comparison ignores case: on a case-insensitive file system 'Live' and 'live' are one ref.
@@ -457,30 +460,48 @@ function Get-StoreExecuteText([string]$Command) {
 # heredoc, here-string and wrapper handling stay the lib's. A git segment that is not a push
 # ('git commit -m "git push origin live"') is read by its subcommand position and passes.
 #
-# THE RESIDUAL LIMITS, STATED: a push from inside a script file, a ref moved through 'gh api', and the
+# THE COST, STATED: 'cd sub && git push' and 'git -C x push' with no refspec need the marker (or an
+# explicit refspec) in a repo that answers the seam, because which branch they push cannot be told.
+#
+# THE RESIDUAL LIMITS, STATED: a push from inside a script file, a git alias or a remote.<name>.push
+# config that maps a push onto the branch (an alias given with 'git -c' on the line itself IS caught),
+# a seam answer that is not a plain branch name (it switches the rule off as unanswered, silently --
+# the live id's placeholder precedent, and sync-main refuses such a value loudly), a ref moved
+# through 'gh api', and the
 # hooks.json fail-closed path, which refuses only a payload naming a Shopify theme -- that wrapper
 # cannot know the deploy branch, and widening it to every 'git push' would refuse ordinary pushes in
 # every consumer on a machine where PowerShell will not start.
+# HEAD IS READ WHERE THE COMMAND STARTS -- the payload's cwd, which for a worktree lane is the lane and
+# not the project root -- and from the project root only when the payload carries no cwd.
 function Get-CurrentBranchName {
+    $where = $repoRoot
+    if ($hookPayload -and $hookPayload.Cwd -and (Test-Path -LiteralPath $hookPayload.Cwd -PathType Container)) { $where = $hookPayload.Cwd }
     try {
-        $out = & git -C $repoRoot symbolic-ref --short -q HEAD 2>$null
+        $out = & git -C $where symbolic-ref --short -q HEAD 2>$null
         if ($LASTEXITCODE -ne 0) { return $null }
         return ([string]($out | Select-Object -First 1)).Trim()
     } catch { return $null }
 }
 
 function Test-PushTargetsDeployBranch([string]$Segment, [bool]$ChangesDir) {
-    $tokens = @([regex]::Matches($Segment, '"[^"]*"|''[^'']*''|\S+') | ForEach-Object { $_.Value.Trim('"', "'") })
+    # EVERY quote character goes, not only the ends: the shell drops them too, so main:"live" and
+    # main:li"v"e both reach git as main:live.
+    $tokens = @([regex]::Matches($Segment, '"[^"]*"|''[^'']*''|\S+') | ForEach-Object { $_.Value -replace '["'']', '' })
+    # GIT IS FOUND WHEREVER IT STANDS, not only as the leading word: '& git', 'env git', 'command git',
+    # 'sudo git' and a quoted path to git.exe are all git. A text tool leading the segment was already
+    # dropped by Get-GuardSegments, so reading wider here only refuses more.
     $i = 0
-    while ($i -lt $tokens.Count -and $tokens[$i] -match '^[A-Za-z_][A-Za-z0-9_]*=') { $i++ }
+    while ($i -lt $tokens.Count -and (($tokens[$i] -replace '.*[\\/]', '') -replace '\.exe$', '').ToLower() -ne 'git') { $i++ }
     if ($i -ge $tokens.Count) { return $false }
-    if ((($tokens[$i] -replace '.*[\\/]', '') -replace '\.exe$', '').ToLower() -ne 'git') { return $false }
     $i++
     $elsewhere = $ChangesDir
     while ($i -lt $tokens.Count -and $tokens[$i].StartsWith('-')) {
         $t = $tokens[$i]
         # -ceq, because PowerShell's -eq ignores case and '-c key=value' does not move the repo.
         if ($t -ceq '-C' -or $t -match '^--(git-dir|work-tree)') { $elsewhere = $true }
+        # An alias defined on the command line ('git -c alias.p=push p origin live') hides the
+        # subcommand, so it counts as aimed at the branch.
+        if ($t -ceq '-c' -and ($i + 1) -lt $tokens.Count -and $tokens[$i + 1] -match '^(?i)alias\.') { return $true }
         if ($t -in @('-C', '-c', '--git-dir', '--work-tree', '--namespace')) { $i += 2; continue }
         $i++
     }
@@ -490,7 +511,9 @@ function Test-PushTargetsDeployBranch([string]$Segment, [bool]$ChangesDir) {
     for ($j = $i + 1; $j -lt $tokens.Count; $j++) {
         $t = $tokens[$j]
         if ($t.StartsWith('#')) { break }
-        if ($t -in @('--all', '--branches', '--mirror')) { return $true }
+        # git accepts an unambiguous abbreviation, so '--mir' is '--mirror'. Four characters is the
+        # floor because '--a' is ambiguous with '--atomic' and git refuses it.
+        if ($t.Length -ge 4 -and @('--all', '--branches', '--mirror' | Where-Object { $_.StartsWith($t.ToLower()) }).Count -gt 0) { return $true }
         if ($t -in @('-o', '--push-option', '--receive-pack', '--exec', '--repo')) { $j++; continue }
         if ($t.StartsWith('-')) { continue }
         $positional += $t
@@ -500,10 +523,14 @@ function Test-PushTargetsDeployBranch([string]$Segment, [bool]$ChangesDir) {
     $refspecs = @($positional | Select-Object -Skip 1)
     $needsHead = $refspecs.Count -eq 0
     foreach ($r in $refspecs) {
+        # A refspec the shell still has to expand ($B, $(...), a backtick) cannot be read from here, and
+        # a glob destination pushes every branch it matches: both count as aimed at the deploy branch.
+        if ($r -match '[$`()*]') { return $true }
         $spec = $r.TrimStart('+')
-        if ($spec -eq 'HEAD') { $needsHead = $true; continue }
+        if ($spec -ceq 'HEAD' -or $spec -eq '@') { $needsHead = $true; continue }
         $dst = if ($spec.Contains(':')) { $spec.Substring($spec.LastIndexOf(':') + 1) } else { $spec }
-        if (($dst -replace '^refs/heads/', '').ToLower() -eq $deploy) { return $true }
+        # git resolves 'heads/live' to refs/heads/live too, so both prefixes are optional.
+        if (($dst -replace '^(refs/)?heads/', '').ToLower() -eq $deploy) { return $true }
     }
     if (-not $needsHead) { return $false }
     if ($elsewhere) { return $true }

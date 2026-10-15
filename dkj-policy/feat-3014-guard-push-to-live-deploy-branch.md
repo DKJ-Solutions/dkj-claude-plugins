@@ -59,12 +59,15 @@ advice, recorded on the issue): gate the direct push only. The deploy ruleset al
 
 ### TEST
 
-- [x] `guard-live-theme.tests.ps1`: 181 passed, 0 failed.
+- [x] Review (Victor, Sebastian, Edith): wrapper-led git (`& git`, `env git`), glob and shell-expanded
+      refspecs, inner quotes, `heads/<branch>`, abbreviated `--mirror`/`--all`, `@`, a `-c alias.`, and HEAD
+      read from the payload's cwd -- all repaired and pinned; prose findings applied.
+- [x] `guard-live-theme.tests.ps1`: 203 passed, 0 failed.
 - [ ] The full gate through `open-pr`.
 
 ### DEPLOY: feat/3014-guard-push-to-live-deploy-branch
 
-`guard-live-theme` now holds a Git-connected live theme too. Where `Get-ShopifyLiveDeployBranch` names the branch the live theme deploys from, a `git push` to that branch is refused unless it carries the live-push marker: a refspec whose destination is the branch, `--all`, `--branches` or `--mirror`, or a push with no refspec while that branch is checked out or when that cannot be told. `gh pr merge` is deliberately not gated, because the deploy ruleset already requires the promotion PR; the push is what goes around it. Without the seam nothing changes ([#3014](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3014), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+`guard-live-theme` now holds a Git-connected live theme too. Where `Get-ShopifyLiveDeployBranch` names the branch the live theme deploys from, a `git push` to that branch is refused unless it carries the live-push marker: a refspec whose destination is the branch, `--all`, `--branches` or `--mirror`, a glob or a refspec the shell still expands, or a push with no refspec while that branch is checked out or when that cannot be told. `gh pr merge` is deliberately not gated, because the deploy ruleset already requires the promotion PR; the push is what goes around it. Without the seam nothing changes ([#3014](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3014), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
 
 **Score:** 2
 

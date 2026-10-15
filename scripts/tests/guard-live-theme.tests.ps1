@@ -612,7 +612,23 @@ function Get-ShopifyLiveDeployBranch { return 'live' }
         @{ n = 'after a harmless command';            c = 'git status && git push origin main:live' },
         @{ n = 'no refspec, after a cd';              c = 'cd ../elsewhere && git push' },
         @{ n = 'no refspec, with git -C';             c = 'git -C ../elsewhere push' },
-        @{ n = 'a heredoc fed to an interpreter';     c = "bash <<'EOF'${LF}git push origin main:live${LF}EOF" }
+        @{ n = 'a heredoc fed to an interpreter';     c = "bash <<'EOF'${LF}git push origin main:live${LF}EOF" },
+        # Review of #3014: each of these exited 0 in the first cut.
+        @{ n = 'the PowerShell call operator';        c = '& git push origin live' },
+        @{ n = 'a quoted path to git.exe';            c = "& 'C:\Program Files\Git\cmd\git.exe' push origin live" },
+        @{ n = 'env git';                             c = 'env git push origin live' },
+        @{ n = 'command git';                         c = 'command git push origin live' },
+        @{ n = 'a glob refspec';                      c = 'git push origin +refs/heads/*:refs/heads/*' },
+        @{ n = 'a quoted glob refspec';               c = "git push origin 'refs/heads/*:refs/heads/*'" },
+        @{ n = 'a shell variable';                    c = 'git push origin $B' },
+        @{ n = 'a quoted shell variable';             c = 'git push origin "$B"' },
+        @{ n = 'a command substitution';              c = 'git push origin $(echo live)' },
+        @{ n = 'quotes inside the refspec';           c = 'git push origin main:"live"' },
+        @{ n = 'quotes splitting the name';           c = 'git push origin main:li"v"e' },
+        @{ n = 'heads/ without refs/';                c = 'git push origin HEAD:heads/live' },
+        @{ n = 'an abbreviated --mirror';             c = 'git push --mir origin' },
+        @{ n = 'an abbreviated --all';                c = 'git push --al origin' },
+        @{ n = 'an alias given with -c';              c = 'git -c alias.p=push p origin live' }
     )
     foreach ($case in $pushBlocked) { Assert-Equal 2 (Invoke-Guard -Command $case.c -Root $conn) "deploy push blocked: $($case.n)" }
 
@@ -627,7 +643,11 @@ function Get-ShopifyLiveDeployBranch { return 'live' }
         @{ n = 'the deliberate push, with the marker'; c = 'git push origin main:live # LIVE-PUSH-AUTHORIZED' },
         @{ n = 'documenting it in a heredoc';         c = "cat > notes.md <<'EOF'${LF}git push origin main:live${LF}EOF" },
         @{ n = 'grepping for it';                     c = "grep -n 'git push origin live' docs/*.md" },
-        @{ n = 'a fetch of it';                       c = 'git fetch origin live' }
+        @{ n = 'a fetch of it';                       c = 'git fetch origin live' },
+        @{ n = 'git stash push';                      c = 'git stash push -m live' },
+        @{ n = 'a push option that says live';        c = 'git push -o live origin main' },
+        @{ n = 'a branch that only starts with it';   c = 'git push origin main:live2' },
+        @{ n = '--atomic is not --all';               c = 'git push --atomic origin main' }
     )
     foreach ($case in $pushAllowed) { Assert-Equal 0 (Invoke-Guard -Command $case.c -Root $conn) "deploy push allowed: $($case.n)" }
 
@@ -635,6 +655,28 @@ function Get-ShopifyLiveDeployBranch { return 'live' }
     & git -C $conn symbolic-ref HEAD refs/heads/live 2>&1 | Out-Null
     Assert-Equal 2 (Invoke-Guard -Command 'git push' -Root $conn) 'deploy push: no refspec ON the deploy branch is blocked'
     Assert-Equal 2 (Invoke-Guard -Command 'git push origin HEAD' -Root $conn) 'deploy push: and a bare HEAD on it too'
+    Assert-Equal 2 (Invoke-Guard -Command 'git push origin @' -Root $conn) "deploy push: and '@', git's alias for HEAD"
+
+    # HEAD is read where the command starts -- the payload's cwd -- so a worktree lane on the deploy
+    # branch is judged by its own HEAD, not the project root's.
+    $lane = Join-Path $Fixture 'conn-lane'
+    New-Item -ItemType Directory -Force -Path $lane | Out-Null
+    & git -C $lane init -q 2>&1 | Out-Null
+    & git -C $lane symbolic-ref HEAD refs/heads/feat/y 2>&1 | Out-Null
+    $cwdPayload = { param($c, $cwd) @{ tool_name = 'Bash'; cwd = $cwd; tool_input = @{ command = $c } } | ConvertTo-Json -Compress -Depth 5 }
+    $prevDir = $env:CLAUDE_PROJECT_DIR
+    $env:CLAUDE_PROJECT_DIR = $conn
+    try {
+        (& $cwdPayload 'git push' $lane) | & powershell -NoProfile -ExecutionPolicy Bypass -File $Guard 2>&1 | Out-Null
+        Assert-Equal 0 $LASTEXITCODE 'deploy push: a bare push from a lane on a work branch passes, though the project root sits on the deploy branch'
+        & git -C $lane symbolic-ref HEAD refs/heads/live 2>&1 | Out-Null
+        & git -C $conn symbolic-ref HEAD refs/heads/feat/x 2>&1 | Out-Null
+        (& $cwdPayload 'git push' $lane) | & powershell -NoProfile -ExecutionPolicy Bypass -File $Guard 2>&1 | Out-Null
+        Assert-Equal 2 $LASTEXITCODE 'deploy push: and a bare push from a lane ON the deploy branch is blocked, though the project root is not'
+        & git -C $conn symbolic-ref HEAD refs/heads/live 2>&1 | Out-Null
+    } finally {
+        if ($null -eq $prevDir) { Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue } else { $env:CLAUDE_PROJECT_DIR = $prevDir }
+    }
     $noGit = New-FixtureRepo -Label 'conn-nogit' -ConfigBody $deployCfg
     Assert-Equal 2 (Invoke-Guard -Command 'git push' -Root $noGit) 'deploy push: no refspec where HEAD cannot be read is blocked -- fail towards checking'
     Assert-Equal 0 (Invoke-Guard -Command 'git push origin main' -Root $noGit) 'deploy push: while an explicit refspec elsewhere needs no HEAD'
