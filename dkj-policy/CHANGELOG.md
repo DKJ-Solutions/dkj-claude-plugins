@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**3 / 3 minor entries** <!-- pending-tally -->
+**4 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3041-dev-preview-bind-address · 20261015-161442Z
+
+The `dev-preview` session-start hook now reads which address a reused server listens on
+([#3041](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3041)). When the repo's `Command`
+binds to a loopback host and the server it reuses listens on every interface, as one started by hand
+without `-H` does, the line says `LISTENING ON ALL INTERFACES`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a DKJ-Solutions repo whose `Get-DevPreview` binds the server to `127.0.0.1`, a session start now
+warns when the server it hands you is one you started by hand that is reachable from the network,
+instead of handing out its link as if it were private.
+
+**Score:** 2
+
+#### Pull Request
+
+dev-preview: say when a reused server listens on all interfaces
+
+Plugins: dkj-solutions
+
+[PR #3045](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3045)
+
+---
 
 ### DEPLOY: fix/3040-house-style-method-call · 20261015-155905Z
 
