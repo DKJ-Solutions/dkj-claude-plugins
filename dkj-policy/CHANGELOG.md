@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**0 / 2 patch entries** <!-- pending-tally -->
+**0 / 3 patch entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3031-djcylow-register-no-lenses · 20261015-123321Z
+
+The djcylow-react connector record no longer registers the 19 team-alpha lenses that the consumer
+removed on 2026-09-28 ([#3031](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3031)), so
+the extension check stops reporting them as missing.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: the register is bookkeeping inside this repo, and no consumer takes it.
+
+**Score:** N/A
+
+#### Pull Request
+
+connectors: djcylow-react registers no team-alpha lenses, as the consumer carries none
+
+[PR #3034](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3034)
+
+---
 
 ### DEPLOY: fix/3029-thumbnail-register-dkj-solutions · 20261015-121700Z
 
