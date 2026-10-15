@@ -23,7 +23,10 @@
             }
         }
 
-    A repo that does not define it pays nothing: the hook prints nothing at all.
+    A repo that does not define it gets the PLACEHOLDER (#3047, reversing #2967's silent no-op on the
+    owner's word, October 15, 2026): Get-DevPreviewPlaceholder below is the answer the hook uses in its
+    place, a plugin-shipped page on the first free port of 4880-4889 that says the repo states no preview
+    yet and how to add one. What a repo without a server pays is that one small server per checkout.
 
     OWNERSHIP IS READ OFF THE PROCESS TABLE, NOT OFF THE PORT. brandbook's rule, generalised: a listener
     is ours when its own command line, or one of its nearest ancestors' (the hook starts every server under
@@ -41,6 +44,37 @@
 #>
 
 $script:DevPreviewMaxAncestors = 4
+# Fixed, so a .vscode route can name them; ten, so ten checkouts open side by side each get their own.
+# Clear of the ranges the repos measured in #2967 and #2976 use (3000, 4870-4879, 5173-5180, 8765).
+$script:DevPreviewPlaceholderPorts = 4880..4889
+
+function Get-DevPreviewPlaceholder {
+    <#
+        The Get-DevPreview answer the hook uses where a repo states none: the plugin's placeholder server
+        under -PluginRoot (the dkj-solutions plugin folder), on -Ports. Returned raw, so it passes through
+        ConvertTo-DevPreviewConfig like any repo's answer. The server takes the repo's name from its working
+        directory, which the hook's cmd.exe has set to the root, so no repo value enters the Command.
+    #>
+    param([Parameter(Mandatory = $true)][string]$PluginRoot, [int[]]$Ports = $script:DevPreviewPlaceholderPorts)
+    $server = Join-Path ([System.IO.Path]::GetFullPath($PluginRoot)) 'scripts\preview\serve-placeholder.ps1'
+    return @{
+        Command     = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$server`" -Port {port}"
+        Ports       = $Ports
+        Name        = 'Placeholder preview'
+        WaitSeconds = 15
+    }
+}
+
+function Test-DevPreviewVsCodeRoute {
+    <#
+        True when -SettingsText (a .vscode/settings.json, comments allowed) routes localhost:<Port> to VS
+        Code's Simple Browser through workbench.externalUriOpeners. A pattern, not a JSON parse: the file is
+        JSONC, and a key spelled exactly so is the only form VS Code's own UI writes.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$SettingsText, [int]$Port)
+    if (-not $SettingsText) { return $false }
+    return [bool]($SettingsText -match ('"(localhost|127\.0\.0\.1):' + $Port + '"\s*:\s*"simpleBrowser\.open"'))
+}
 
 function ConvertTo-DevPreviewConfig {
     <#

@@ -6,9 +6,12 @@
 .DESCRIPTION
     Group 1 pins the rules without a server: what Get-DevPreview may state, when a command line names a
     checkout, and which port is reused, started or refused -- from hand-built socket and process tables.
-    Group 2 runs the hook as a child process against scratch repos: silent without the seam, one line on a
-    seam it cannot run or a missing prerequisite, and -- on Windows -- one real start of a tiny loopback
-    listener followed by a second run that REUSES it, which is the whole point of the hook.
+    Group 1d pins the placeholder a repo without the seam gets (#3047): its answer, the Simple Browser
+    route test, its page, and its vendored house style against the skill's checksums.
+    Group 2 runs the hook as a child process against scratch repos: the placeholder started and reused
+    without the seam, one line on a seam it cannot run or a missing prerequisite, and -- on Windows -- one
+    real start of a tiny loopback listener followed by a second run that REUSES it, which is the whole
+    point of the hook.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -150,6 +153,47 @@ $line = Get-DevPreviewStartLine -Root $root -Command 'npm run dev -- --port {por
 Assert-True ($line.Contains('cd /d "C:\Users\x\GitHub\repo" && npm run dev -- --port 5176 --strictPort > "C:\t\dev.log" 2>&1')) 'the start line changes into the root first, fills {port} and logs'
 Assert-True (Test-CommandLineNamesRoot -CommandLine "cmd.exe $line" -Root $root) 'and that cmd.exe line is one the ownership rule recognises'
 
+Write-Host '-- group 1d: the placeholder a repo without a seam gets (#3047)' -ForegroundColor Cyan
+
+$PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions'
+. (Join-Path $PluginRoot 'scripts\lib\dev-preview-placeholder.ps1')
+
+$ph = ConvertTo-DevPreviewConfig -Raw (Get-DevPreviewPlaceholder -PluginRoot $PluginRoot)
+Assert-True $ph.Ok 'the placeholder''s answer passes the same validation as a repo''s'
+Assert-Equal '4880 4881 4882 4883 4884 4885 4886 4887 4888 4889' (@($ph.Config.Ports) -join ' ') 'it takes the fixed range 4880-4889, so a route can name it'
+Assert-Equal 'Placeholder preview' $ph.Config.Name 'and opens its line with Placeholder preview'
+$server = Join-Path $PluginRoot 'scripts\preview\serve-placeholder.ps1'
+Assert-True ($ph.Config.Command.Contains("-File `"$server`" -Port {port}")) 'its Command runs the plugin''s own server, quoted, on {port}'
+Assert-True (Test-Path -LiteralPath $server -PathType Leaf) 'and that server ships in the plugin'
+Assert-True ($ph.Config.Command -notmatch [regex]::Escape($root)) 'no repo value enters the Command: the server reads the name off its working directory'
+
+$routed = "{`n  // the preview`n  `"workbench.externalUriOpeners`": {`n    `"localhost:4880`": `"simpleBrowser.open`"`n  }`n}"
+Assert-True (Test-DevPreviewVsCodeRoute -SettingsText $routed -Port 4880) 'a settings file routing the port to the Simple Browser is a route, comments and all'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText $routed -Port 4881)) 'another port is not routed by it'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '{ "localhost:48801": "simpleBrowser.open" }' -Port 4880)) 'nor is a port that merely starts with it'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '{ "localhost:4880": "default" }' -Port 4880)) 'a route to another opener is not the Simple Browser'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '' -Port 4880)) 'no settings file routes nothing'
+
+$html = Format-DevPreviewPlaceholderHtml -RepoName 'dkj-thumbnail-generator'
+Assert-True ($html -match '<h1>dkj-thumbnail-generator</h1>') 'the page names the repo'
+Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
+Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1') 'and says how to state a preview of its own'
+$html = Format-DevPreviewPlaceholderHtml -RepoName '<script>x</script>'
+Assert-True ($html -notmatch '<script>x' -and $html -match '&lt;script&gt;x') 'a folder name is HTML-escaped before it reaches the page'
+Assert-True (Test-DevPreviewPlaceholderHost -HostHeader 'LOCALHOST:4880' -Port 4880) 'localhost on its own port is its host'
+Assert-True (-not (Test-DevPreviewPlaceholderHost -HostHeader 'evil.example:4880' -Port 4880)) 'a rebound foreign name is not'
+Assert-True (Test-DevPreviewPlaceholderCrossSite 'cross-site') 'a cross-site request is marked as such'
+Assert-True (-not (Test-DevPreviewPlaceholderCrossSite '')) 'a request without Sec-Fetch-Site is allowed'
+
+# The plugin's vendored copy is held to the house-style skill's table, like the dashboard's (#2989): a
+# repoint that leaves it behind goes red here instead of shipping a stale page to every repo.
+$skillPage = Get-Content -LiteralPath (Join-Path $PluginRoot 'skills\house-style\SKILL.md') -Raw
+foreach ($file in 'house-style.css', 'house-theme.js') {
+    $pinned = [regex]::Match($skillPage, '\|\s*`' + [regex]::Escape($file) + '`\s*\|[^|]*\|\s*`([0-9a-f]{64})`').Groups[1].Value
+    $actual = (Get-FileHash -LiteralPath (Join-Path $PluginRoot "assets\house-style\$file") -Algorithm SHA256).Hash.ToLowerInvariant()
+    Assert-True ($pinned -and $actual -eq $pinned) "the plugin's vendored $file is the copy the house-style skill pins"
+}
+
 Write-Host '-- group 2: the hook, end to end' -ForegroundColor Cyan
 
 function New-Repo {
@@ -160,8 +204,9 @@ function New-Repo {
     return $r
 }
 function Invoke-Hook {
-    param([string]$Root)
-    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Hook -RepoRootOverride $Root 2>&1 | ForEach-Object { "$_" }
+    param([string]$Root, [int[]]$PlaceholderPorts)
+    $extra = if ($PlaceholderPorts) { @('-PlaceholderPortsOverride', ($PlaceholderPorts -join ',')) } else { @() }
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Hook -RepoRootOverride $Root @extra 2>&1 | ForEach-Object { "$_" }
     return [pscustomobject]@{ Text = ($out -join "`n"); Code = $LASTEXITCODE }
 }
 function Get-Message([string]$Text) {
@@ -171,12 +216,37 @@ function Get-Message([string]$Text) {
 $isWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 $started = @()
 try {
-    $r = Invoke-Hook (New-Repo 'no-config' $null)
-    Assert-True ($r.Code -eq 0 -and -not $r.Text.Trim()) 'a repo without scripts/repo-config.ps1 hears nothing'
-    $r = Invoke-Hook (New-Repo 'no-seam' "function Get-ReachLabel { 'minor' }`n")
-    Assert-True ($r.Code -eq 0 -and -not $r.Text.Trim()) 'a repo whose config states no Get-DevPreview hears nothing'
+    $r = Invoke-Hook (New-Repo 'silent-seam' "function Get-DevPreview { }`n")
+    Assert-True ($r.Code -eq 0 -and -not $r.Text.Trim()) 'a Get-DevPreview that answers nothing stays silent: the repo stated its seam'
 
     if ($isWindows) {
+        # THE PLACEHOLDER (#3047), on a port the OS hands out, never the real 4880-4889.
+        $probe = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
+        $probe.Start(); $phPort = ([System.Net.IPEndPoint]$probe.LocalEndpoint).Port; $probe.Stop()
+        $noConfig = New-Repo 'no-config' $null
+        $r = Invoke-Hook $noConfig $phPort
+        $m = Get-Message $r.Text
+        Assert-True ($r.Code -eq 0 -and $m -match "^Placeholder preview: http://localhost:$phPort/ \(started -- this repo states no Get-DevPreview yet") "a repo without scripts/repo-config.ps1 gets the placeholder, started (got '$m')"
+        Assert-True ($m -match "route localhost:$phPort to simpleBrowser\.open") 'and, with no Simple Browser route, the line names the one to add'
+        $started += @(Get-NetTCPConnection -State Listen -LocalPort $phPort -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess)
+        try {
+            $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$phPort/" -TimeoutSec 10
+            Assert-True ($page.StatusCode -eq 200 -and $page.Content -match '<h1>no-config</h1>') 'the placeholder serves a page naming the repo it was started in'
+            $css = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$phPort/house-style.css" -TimeoutSec 10
+            Assert-True ($css.StatusCode -eq 200) 'and serves the house style beside it'
+        } catch { Assert-True $false "the placeholder answers over HTTP ($($_.Exception.Message))" }
+
+        New-Item -ItemType Directory -Force -Path (Join-Path $noConfig '.vscode') | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $noConfig '.vscode\settings.json'), "{ `"workbench.externalUriOpeners`": { `"localhost:$phPort`": `"simpleBrowser.open`" } }")
+        $r = Invoke-Hook $noConfig $phPort
+        $m = Get-Message $r.Text
+        Assert-True ($m -match '\(already running' -and $m -notmatch 'route localhost') "a second start reuses it, and a routed port needs no hint (got '$m')"
+        $after = @(Get-NetTCPConnection -State Listen -LocalPort $phPort -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique)
+        Assert-Equal 1 $after.Count 'and exactly one placeholder listens'
+
+        $r = Invoke-Hook (New-Repo 'no-seam' "function Get-ReachLabel { 'minor' }`n") $phPort
+        Assert-True ((Get-Message $r.Text) -match '^Placeholder preview: not started -- port \d+ taken') 'a config without Get-DevPreview gets the placeholder too, and another checkout''s is not taken for its own'
+
         $r = Invoke-Hook (New-Repo 'bad-seam' "function Get-DevPreview { @{ Command = 'npm run dev'; Ports = 3000 } }`n")
         $m = Get-Message $r.Text
         Assert-True ($r.Code -eq 0 -and $m -match 'not started' -and $m -match '\{port\}') 'a seam it cannot run gets one line naming why'

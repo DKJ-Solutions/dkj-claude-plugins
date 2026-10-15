@@ -39,19 +39,46 @@
 
 ### PLAN
 
+#### Why this stops for the owner's eye
+
+The placeholder is a rendered page, so the branch parks for a look and opens no pull request (sweep
+step 5). Issue #3047 lists four needs; this branch covers all four in the source. The per-repo adoption
+(a Simple Browser route in each consumer) is the consumers' own issues.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Vendor the pinned house style (`house-style-v3`) into `plugins/dkj-policy/dkj-solutions/assets/house-style/`
+- [x] `scripts/lib/dev-preview-placeholder.ps1`: the page and the request rules, with no I/O
+- [x] `scripts/preview/serve-placeholder.ps1`: a loopback `TcpListener` server, taking the repo name from its working directory
+- [x] `dev-preview-rules.ps1`: `Get-DevPreviewPlaceholder` (ports 4880-4889) and `Test-DevPreviewVsCodeRoute`
+- [x] The hook: no seam means the placeholder; the line names the missing Simple Browser route, and a routed port opens in VS Code
+- [x] README (the rule in prose and the route) and the house-style skill's repoint sentence (the second vendored copy)
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: group 1d (answer, route test, page, escaping, host rules, checksums of the plugin copy) and group 2 (placeholder started, served over HTTP, reused, routed, another checkout's not taken), 99 passed
+
 ### DEPLOY: feat/3047-dev-preview-placeholder
 
-**Score:**
+The dev-preview hook in `dkj-solutions` no longer stays silent in a repo that states no `Get-DevPreview`
+([#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). It starts a plugin-shipped
+placeholder page on the first free port from 4880 to 4889, built on the house style, that names the repo
+and shows how to add a preview of its own. The placeholder is reused and never doubled, like any repo's
+server. Where the repo's `.vscode/settings.json` routes that port to the Simple Browser, it opens there.
+Otherwise the session-start line names the route to add. The plugin now carries its own vendored house
+style, and a test holds it to the skill's checksums.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions repo now opens a dev preview at session start. A repo with nothing to serve yet gets
+a placeholder page at `http://localhost:4880/` (or the next free port up to 4889) that says how to state
+`Get-DevPreview`, instead of nothing. To see it in VS Code's Simple Browser, add
+`"localhost:4880": "simpleBrowser.open"` under `workbench.externalUriOpeners` in the repo's
+`.vscode/settings.json`. The line at session start tells you when that route is missing.
+
+**Score:** 3
 
 #### Pull Request
 

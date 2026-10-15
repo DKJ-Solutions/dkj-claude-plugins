@@ -50,14 +50,36 @@ The gate itself, its allowlist and the CI caller are on the
 ## The dev-preview hook
 
 [`hooks/dev-preview-sessionstart.ps1`](hooks/dev-preview-sessionstart.ps1) runs at session start
-(`startup`, `resume`, `clear`; not `compact`, which is mid-work) and does one thing for a repo that has
-a local dev server: it starts that server, or reuses the one already running, and hands the owner a
-clickable `http://localhost:<port>/...` link, with the same line in the session's context. It replaced a
+(`startup`, `resume`, `clear`; not `compact`, which is mid-work) and does one thing: it starts the repo's
+local dev server, or reuses the one already running, and hands the owner a clickable
+`http://localhost:<port>/...` link, with the same line in the session's context. It replaced a
 copy per repo in `dkj-brandbook`, `dkj-etf-tracker` and `life-hub`
 ([#2967](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2967)).
 
-**A repo opts in by stating `Get-DevPreview` in its `scripts/repo-config.ps1`.** Without it the hook
-prints nothing at all.
+**Every DKJ-Solutions repo has a dev preview, and the placeholder is the floor** (decided October 15,
+2026, [#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047), reversing #2967's
+silent no-op). A repo states its own server with `Get-DevPreview` in its `scripts/repo-config.ps1`.
+**A repo that states none gets a placeholder page**: a plugin-shipped server
+([`scripts/preview/serve-placeholder.ps1`](scripts/preview/serve-placeholder.ps1)) on the first free port
+from **4880 to 4889**, built on the house style, that names the repo and shows how to add a preview of
+its own. It runs under the same rules as a repo's own server (loopback only, reused and never doubled), so
+what a repo without a server pays is one small server per checkout. A `Get-DevPreview` that answers
+nothing stays silent.
+
+**To open it in VS Code's Simple Browser, route the range once** in the repo's `.vscode/settings.json`.
+With a route for the port it got, the placeholder opens there by itself. Without one, the session-start
+line names the route to add:
+
+```json
+"workbench.externalUriOpeners": {
+    "localhost:4880": "simpleBrowser.open",
+    "localhost:4881": "simpleBrowser.open"
+}
+```
+
+List as many of the ten ports as the repo needs. A repo opened beside others takes a later port.
+
+A repo with a server of its own states it like this:
 
 ```powershell
 function Get-DevPreview {

@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
     SessionStart hook: start (or reuse) this repo's local dev server and hand the session its localhost
-    link -- for a repo whose scripts/repo-config.ps1 states Get-DevPreview, and silently nothing otherwise.
+    link -- the server scripts/repo-config.ps1 states in Get-DevPreview, or the plugin's placeholder page
+    where the repo states none.
 
 .DESCRIPTION
     INBOUND #2967. Replaces the three per-repo copies (dkj-brandbook, dkj-etf-tracker, life-hub); the seam
@@ -9,7 +10,10 @@
     a listener counts as ours.
 
     WHAT IT DOES, in order: reads Get-DevPreview (in a child scope with StrictMode off, the way the
-    bwj-development hooks read their seams); with no answer it ends here, printing nothing. Otherwise it
+    bwj-development hooks read their seams). Where the repo has no such function -- or no config file at
+    all -- it takes Get-DevPreviewPlaceholder's answer instead (#3047: every DKJ-Solutions repo opens a
+    preview, and scripts/preview/serve-placeholder.ps1 is the floor); a function that answers nothing ends
+    it here, printing nothing. Otherwise it
     takes one snapshot of the listening sockets and the process table, REUSES the first port whose
     listener is this checkout's server -- so a /clear or a second session never starts a second one --
     or STARTS the repo's Command on the first free port, hidden and detached so it outlives the hook,
@@ -29,7 +33,8 @@
     OpenInVsCode hands the URL to VS Code through `code --open-url`, only when the session runs in VS
     Code's terminal (TERM_PROGRAM=vscode) -- etf-tracker's route, where .vscode/settings.json routes the
     URL to the Simple Browser through workbench.externalUriOpeners. Off by default: without that setting
-    VS Code passes the URL to the system browser.
+    VS Code passes the URL to the system browser. The placeholder sets it itself, from that very setting:
+    on where the repo routes the port it got, and otherwise off, with the line naming the route to add.
 
     NEVER FAILS THE SESSION: every path exits 0, with at most one line. Windows only, like the three
     copies it replaces (the socket and process reads are Windows cmdlets); elsewhere it prints nothing.
@@ -43,9 +48,12 @@
 
 .PARAMETER RepoRootOverride
     (For tests) The repo root instead of CLAUDE_PROJECT_DIR or the working directory.
+
+.PARAMETER PlaceholderPortsOverride
+    (For tests) The placeholder's ports instead of 4880-4889, so a test run never meets a real one.
 #>
 [CmdletBinding()]
-param([string]$RepoRootOverride)
+param([string]$RepoRootOverride, [int[]]$PlaceholderPortsOverride)
 
 $ErrorActionPreference = 'Stop'
 
@@ -81,20 +89,38 @@ $root = [System.IO.Path]::GetFullPath($root).TrimEnd('\', '/')
 
 # --- The repo's answer -------------------------------------------------------------------------------
 $configPath = Join-Path $root 'scripts\repo-config.ps1'
-if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) { exit 0 }
 $raw = $null
-try {
-    $raw = & {
-        Set-StrictMode -Off
-        # 6>$null: a Write-Host in the repo's config would otherwise land on stdout under -File and break
-        # the JSON this hook prints.
-        $null = . $args[0] 6>$null
-        if (@($ExecutionContext.InvokeCommand.GetCommands('Get-DevPreview', 'Function', $false)).Count) { Get-DevPreview 6>$null }
-    } $configPath
-} catch {
-    Write-DevPreviewLine 'dev-preview: scripts/repo-config.ps1 could not be read, so Get-DevPreview was not asked -- no server started.'
+$hasSeam = $false
+if (Test-Path -LiteralPath $configPath -PathType Leaf) {
+    try {
+        $read = & {
+            Set-StrictMode -Off
+            # 6>$null: a Write-Host in the repo's config would otherwise land on stdout under -File and break
+            # the JSON this hook prints.
+            $null = . $args[0] 6>$null
+            if (@($ExecutionContext.InvokeCommand.GetCommands('Get-DevPreview', 'Function', $false)).Count) {
+                @{ Seam = $true; Value = (Get-DevPreview 6>$null) }
+            } else { @{ Seam = $false } }
+        } $configPath
+        $hasSeam = [bool]$read.Seam
+        $raw = $read.Value
+    } catch {
+        Write-DevPreviewLine 'dev-preview: scripts/repo-config.ps1 could not be read, so Get-DevPreview was not asked -- no server started.'
+    }
 }
 if ($raw -is [array]) { $raw = @($raw | Where-Object { $_ -is [System.Collections.IDictionary] })[-1] }
+
+# No seam at all -- no config file, or one without Get-DevPreview -- is the placeholder (#3047): every
+# DKJ-Solutions repo opens a preview, and this is the floor. A seam that answers nothing stays silent.
+$placeholder = -not $hasSeam
+if ($placeholder) {
+    $pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+    if ($pluginRoot -match '[%^]') {
+        Write-DevPreviewLine "dev-preview: placeholder not started -- the plugin path holds a '%' or '^', which cmd.exe would rewrite."
+    }
+    $raw = if ($PlaceholderPortsOverride) { Get-DevPreviewPlaceholder -PluginRoot $pluginRoot -Ports $PlaceholderPortsOverride }
+           else { Get-DevPreviewPlaceholder -PluginRoot $pluginRoot }
+}
 
 $parsed = ConvertTo-DevPreviewConfig -Raw $raw
 if (-not $parsed.Ok) {
@@ -102,6 +128,19 @@ if (-not $parsed.Ok) {
     exit 0
 }
 $cfg = $parsed.Config
+
+# The placeholder's own words after the link: why it is a placeholder, and -- where the repo has no
+# Simple Browser route for the port it got -- the one line that adds it. With the route it opens in VS
+# Code; without it, it does not, because VS Code would hand the URL to the system browser.
+function Get-DevPreviewPlaceholderNote([int]$Port) {
+    if (-not $placeholder) { return '' }
+    $settings = Join-Path $root '.vscode\settings.json'
+    $text = if (Test-Path -LiteralPath $settings -PathType Leaf) { [System.IO.File]::ReadAllText($settings) } else { '' }
+    $cfg.OpenInVsCode = Test-DevPreviewVsCodeRoute -SettingsText $text -Port $Port
+    $note = ' -- this repo states no Get-DevPreview yet'
+    if (-not $cfg.OpenInVsCode) { $note += "; route localhost:$Port to simpleBrowser.open in .vscode/settings.json to open it in VS Code" }
+    return $note
+}
 
 # --- Who listens, and who started them ---------------------------------------------------------------
 # THE CALLERS WRAP IN @(): a function returning a one-element array unrolls it, and .Count on a lone
@@ -135,6 +174,7 @@ $range = Format-DevPreviewPorts -Ports $cfg.Ports
 
 if ($pick.Action -eq 'reuse') {
     $url = Get-DevPreviewUrl -Port $pick.Port -Path $cfg.Path
+    $note = Get-DevPreviewPlaceholderNote $pick.Port
     $opened = Open-DevPreviewInVsCode $url
     # A REUSED server may not be the one the Command starts (#3041): one started by hand binds wherever
     # its default says. Where the repo asked for loopback and got every interface, the line says so; the
@@ -142,7 +182,7 @@ if ($pick.Action -eq 'reuse') {
     $exposed = if ((Test-DevPreviewCommandIsLoopback $cfg.Command) -and (Test-DevPreviewListensOnAll -Port $pick.Port -Listeners $listeners)) {
         ', LISTENING ON ALL INTERFACES -- not started by the loopback Command; restart it to bind 127.0.0.1'
     } else { '' }
-    Write-DevPreviewLine "$($cfg.Name): $url (already running$opened$exposed)"
+    Write-DevPreviewLine "$($cfg.Name): $url (already running$opened$exposed$note)"
 }
 if ($pick.Action -eq 'none') {
     Write-DevPreviewLine "$($cfg.Name): not started -- $range taken by other processes."
@@ -170,6 +210,7 @@ $shell = Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle 
     -ArgumentList (Get-DevPreviewStartLine -Root $root -Command $cfg.Command -Port $port -LogPath $log)
 
 $url = Get-DevPreviewUrl -Port $port -Path $cfg.Path
+$note = Get-DevPreviewPlaceholderNote $port
 $deadline = (Get-Date).AddSeconds($cfg.WaitSeconds)
 while ((Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 500
@@ -181,7 +222,7 @@ while ((Get-Date) -lt $deadline) {
     }
     if ((Get-DevPreviewPortState -Port $port -Listeners $listeners -Processes (Get-DevPreviewProcesses) -Root $root) -eq 'ours') {
         $opened = Open-DevPreviewInVsCode $url
-        Write-DevPreviewLine "$($cfg.Name): $url (started$opened)"
+        Write-DevPreviewLine "$($cfg.Name): $url (started$opened$note)"
     }
 }
 Write-DevPreviewLine "$($cfg.Name): starting on $url but not listening after $($cfg.WaitSeconds)s -- see $log"

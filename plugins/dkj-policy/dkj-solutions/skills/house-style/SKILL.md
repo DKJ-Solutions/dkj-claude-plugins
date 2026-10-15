@@ -119,8 +119,10 @@ releases the house style as a new `house-style-v<N>` tag, set only on the owner'
 Then an inbound issue on this plugin's source repo asks for a repoint to the new tag, and the change
 repoints every link to the previous tag on this page and replaces the commit and both checksums, measured
 from the bytes served at that tag, and `Get-HouseStyleRetiredTokens` in `scripts/lib/house-style-rules.ps1`
-takes the new tag's retired names. **The same change replaces the source repo's own vendored copy**, the
-two files under `scripts/dashboard/house-style/` that its connector dashboard serves: its test suite holds
-them to this page's checksums and goes red until they move
-([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989)). The apps get it with the next
+takes the new tag's retired names. **The same change replaces the source repo's two vendored copies**:
+the files under `scripts/dashboard/house-style/` that its connector dashboard serves, and the files under
+this plugin's `assets/house-style/` that the placeholder preview serves in every repo without a preview of
+its own. A test suite holds each copy to this page's checksums and goes red until it moves
+([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989),
+[#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). The apps get it with the next
 plugin release.
