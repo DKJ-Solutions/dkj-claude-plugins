@@ -62,7 +62,8 @@ with a dirty `.claude/`, and name any diff the run does leave.
 
 ### TEST
 
-- [x] `scripts/tests/update-plugins.tests.ps1` scenarios 17-19: the sweep runs the clean checkout handed its own root, skips a feature branch, a dirty `.claude/` and a missing origin/HEAD, counts a gone folder; `-DryRun` runs nothing; `-RootOverride` is refused -- 104 pass, 0 fail
+- [x] `scripts/tests/update-plugins.tests.ps1` scenarios 17-20, in a fixture path with a space: the sweep runs the clean checkout handed its own root, skips a feature branch, a dirty `.claude/`, a missing origin/HEAD and a clone merely shaped like the source repo (its planted script never runs), counts a gone folder; `-DryRun` runs nothing; `-RootOverride` is refused; a failed child run is named and exits 1 -- 109 pass, 0 fail
+- [x] review: Victor (no correctness bug; the `.claude/` probe now fails closed), Sebastian (a checkout's own copy runs only for an unmodified source-repo origin; the git-config trust is documented), Edith (the old boundary prose qualified as the default run)
 - [x] live `-AllCheckouts -DryRun` on this machine: 10 checkouts run, this checkout skipped on its feature branch, 6 gone-folder records counted
 
 ### DEPLOY: feat/update-plugins-all-checkouts

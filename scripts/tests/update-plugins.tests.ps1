@@ -62,10 +62,13 @@
       16 a plugin already current                       -> counted apart from an updated one (#2728)
       17 -AllCheckouts over five recorded folders       -> the clean checkout on its trunk runs, handed
                                                              its OWN root; a feature branch, a dirty
-                                                             .claude/ and a missing origin/HEAD are
-                                                             skipped; a gone folder is counted, not run
+                                                             .claude/, a missing origin/HEAD and a
+                                                             clone merely shaped like the source repo
+                                                             are skipped (its script never runs); a
+                                                             gone folder is counted, not run
       18 -AllCheckouts -DryRun                          -> the clean checkout's command printed, nothing ran
       19 -AllCheckouts with -RootOverride                -> refused, exit 1, nothing ran
+      20 -AllCheckouts where a child run fails          -> named FAILED with its exit code, exit 1
 
     Dependency-free (no Pester), same style as plugin-versions.tests.ps1. Pure ASCII (repo convention
     for .ps1).
@@ -601,7 +604,7 @@ try {
     #     a feature branch (skipped -- #1890's mid-work branch), one with uncommitted .claude/ changes
     #     (skipped), one with no origin/HEAD (skipped, with the repair command), and one that is gone
     #     (counted, not listed).
-    $sweep = Join-Path $Fixture 'sweep'
+    $sweep = Join-Path $Fixture 'sweep dir'   # a space: the quoting risk of the child's -File/-RootOverride
     $sweepHome = Join-Path $sweep 'home'
     $sweepBin = Join-Path $sweep 'bin'
     $sweepReceipt = Join-Path $sweep 'receipt.ps1'
@@ -612,17 +615,27 @@ try {
     function New-SweepCheckout {
         # A git checkout with $ID1 enabled and COMMITTED (an untracked settings.json would read as a
         # dirty .claude/), origin/HEAD pointing at main unless -NoOriginHead, on $Branch.
-        param([string]$Name, [string]$Branch = 'main', [switch]$NoOriginHead, [switch]$DirtyClaude)
+        param([string]$Name, [string]$Branch = 'main', [switch]$NoOriginHead, [switch]$DirtyClaude, [switch]$SourceShaped)
         $dir = Join-Path $sweep $Name
         New-Item -ItemType Directory -Path $dir -Force | Out-Null
         Set-Enabled -RepoDir $dir -Ids @($ID1)
+        if ($SourceShaped) {
+            # Shaped like the source repo -- a marketplace.json and its own copy of the script -- with an
+            # origin that is NOT the source: the sweep must skip it rather than execute that copy.
+            New-Item -ItemType Directory -Path (Join-Path $dir '.claude-plugin'), (Join-Path $dir 'scripts\task') -Force | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $dir '.claude-plugin\marketplace.json'), '{}', $Utf8)
+            [System.IO.File]::WriteAllText((Join-Path $dir 'scripts\task\update-plugins.ps1'), "Write-Host 'PLANTED-COPY-RAN'`r`n", $Utf8)
+        }
         $g = @('-C', $dir, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false')
         Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $dir, 'init', '-q', '-b', 'main') -DiscardStderr | Out-Null
-        Invoke-NativeCapture -FilePath 'git' -Arguments ($g + @('add', '.claude')) -DiscardStderr | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments ($g + @('add', '-A')) -DiscardStderr | Out-Null
         Invoke-NativeCapture -FilePath 'git' -Arguments ($g + @('commit', '-q', '-m', 'init')) -DiscardStderr | Out-Null
         Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $dir, 'update-ref', 'refs/remotes/origin/main', 'HEAD') -DiscardStderr | Out-Null
         if (-not $NoOriginHead) {
             Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $dir, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main') -DiscardStderr | Out-Null
+        }
+        if ($SourceShaped) {
+            Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $dir, 'remote', 'add', 'origin', 'https://github.com/someone-else/dkj-claude-plugins.git') -DiscardStderr | Out-Null
         }
         if ($Branch -ne 'main') {
             Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $dir, 'checkout', '-q', '-b', $Branch) -DiscardStderr | Out-Null
@@ -637,9 +650,10 @@ try {
     $onFeat  = New-SweepCheckout -Name 'onfeat' -Branch 'feat/mid-work'
     $dirty   = New-SweepCheckout -Name 'dirty' -DirtyClaude
     $noHead  = New-SweepCheckout -Name 'nohead' -NoOriginHead
+    $shaped  = New-SweepCheckout -Name 'shaped' -SourceShaped
     $goneDir = Join-Path $sweep 'gone'
     $recs = @()
-    foreach ($p in @($clean, $onFeat, $dirty, $noHead, $goneDir)) { $recs += @{ scope = 'project'; projectPath = $p } }
+    foreach ($p in @($clean, $onFeat, $dirty, $noHead, $shaped, $goneDir)) { $recs += @{ scope = 'project'; projectPath = $p } }
     Set-InstallRecords -HomeDir $sweepHome -Records @{ $ID1 = $recs }
 
     function Invoke-UPAll {
@@ -661,7 +675,7 @@ try {
         }
     }
 
-    Write-Host "17. -AllCheckouts runs the clean checkout on its trunk and skips the other three" -ForegroundColor Cyan
+    Write-Host "17. -AllCheckouts runs the clean checkout on its trunk and skips the other four" -ForegroundColor Cyan
     $r = Invoke-UPAll
     Assert-CleanExit -Run $r -Label '17: exit 0 -- a skip is not a failure'
     Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '17: the clean checkout was updated'
@@ -672,7 +686,9 @@ try {
     Assert-Has   $r 'remote set-head origin --auto' '17: ...and handed the command that repairs it'
     Assert-Has   $r '1 install record path(s) name a folder that is gone' '17: the gone folder is counted into one line'
     Assert-Lacks $r "==== $goneDir" '17: ...and is never run'
-    Assert-Has   $r '1 checkout(s) run, 3 skipped, 0 failed' '17: the sweep summary counts the run, the skips and the failures'
+    Assert-Has   $r "skipped $shaped -- it carries its own update-plugins.ps1 but is not an unmodified checkout of the source repo" '17: a checkout merely shaped like the source repo is skipped'
+    Assert-Lacks $r 'PLANTED-COPY-RAN' '17: ...and its own script is never executed'
+    Assert-Has   $r '1 checkout(s) run, 4 skipped, 0 failed' '17: the sweep summary counts the run, the skips and the failures'
     Assert-Equal 1 ([regex]::Matches($r.Text, 'CLAUDE-SHIM-CALLED plugin update').Count) '17: exactly one checkout reached the CLI'
 
     Write-Host "18. -AllCheckouts -DryRun prints the clean checkout's commands and runs nothing" -ForegroundColor Cyan
@@ -687,6 +703,14 @@ try {
     Assert-Equal 1 $r.Code '19: exit 1'
     Assert-Has   $r '-AllCheckouts and -RootOverride cannot be combined' '19: the refusal says why'
     Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '19: and nothing ran'
+
+    Write-Host "20. -AllCheckouts reports a checkout whose run failed, and exits 1" -ForegroundColor Cyan
+    New-ClaudeShim -BinDir $sweepBin -FailNeedle 'plugin update'
+    $r = Invoke-UPAll
+    Assert-Equal 1 $r.Code '20: exit 1'
+    Assert-Has   $r "FAILED $clean -- exit 1" '20: the summary names the failed checkout and its exit code'
+    Assert-Has   $r '0 checkout(s) run, 4 skipped, 1 failed' '20: and counts it as failed, not run'
+    New-ClaudeShim -BinDir $sweepBin
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

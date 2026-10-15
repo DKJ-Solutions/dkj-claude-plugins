@@ -13,12 +13,13 @@
     there is no `--all` and no repeatable `<plugin>` argument, so the act stays 1 + N commands unless
     something wraps it. This is that wrapper.
 
-    THE BOUNDARY, NAMED IN #1890 ITSELF AND KEPT HERE ON PURPOSE: this checkout plus the machine-wide
+    THE BOUNDARY, NAMED IN #1890 ITSELF, AND A DEFAULT RUN KEEPS IT: this checkout plus the machine-wide
     marketplace clone, never a walk into another checkout. Every `claude plugin update` call below
     names $repoRoot alone, and `claude plugin install/update` rewrites the visited repo's
-    .claude/settings.json -- so a sweeping updater would leave uncommitted diffs in repos nobody
-    opened, possibly on a mid-work branch (#1810's second cost). Nothing here reads or writes any tree
-    but this one.
+    .claude/settings.json -- so a sweeping updater could leave uncommitted diffs in repos nobody
+    opened, possibly on a mid-work branch (#1810's second cost). A default run reads and writes no tree
+    but this one; -AllCheckouts is the sweep, asked for by name and guarded per checkout against
+    exactly that cost -- see .PARAMETER AllCheckouts.
 
     THE SCOPE IS READ OFF THE INSTALL RECORD, AND THAT DOES NOT WIDEN THAT BOUNDARY (issue #1986).
     Until then every call was hardcoded `--scope project`, and the CLI refuses a scope a plugin is not
@@ -85,9 +86,12 @@
       * a checkout this run DID leave a .claude/ diff in is named in the summary, so the diff is a
         line to act on rather than a surprise in the next session there.
     A record that does not name the root of a git checkout is skipped too, and records whose folder is
-    gone are counted into one summary line (tidy-machine owns those records). Each checkout runs this same script as a child process, from its
-    own root -- except a checkout that maintains its own copy (the source repo), which runs that copy,
-    since the source-repo guard refuses any other. -DryRun is passed through, so -AllCheckouts -DryRun
+    gone are counted into one summary line (tidy-machine owns those records). Each checkout runs this
+    same script as a child process, from its own root -- except an unmodified checkout of the source
+    repo, which runs its own copy, since the source-repo guard refuses any other; a checkout merely
+    SHAPED like the source repo is skipped rather than having its script executed. TRUST: the sweep
+    runs git in every recorded checkout before deciding to skip it, and git honours that repo's own
+    .git/config -- the same trust as opening it, extended to repos you did not open this time. -DryRun is passed through, so -AllCheckouts -DryRun
     prints every checkout's commands and runs none. Exits 1 if any checkout's run failed.
 
 .PARAMETER RootOverride
@@ -139,14 +143,17 @@ function Get-GitLine {
     param([string]$Path, [string[]]$GitArgs)
     $r = Invoke-NativeCapture -FilePath 'git' -Arguments (@('-C', $Path) + $GitArgs) -Utf8 -DiscardStderr
     if ($r.ExitCode -ne 0) { return '' }
-    return ((@($r.Output) | Where-Object { "$_".Trim() } | Select-Object -First 1) -as [string]) -replace '^\s+|\s+$', ''
+    return ("$(@($r.Output) | Where-Object { "$_".Trim() } | Select-Object -First 1)").Trim()
 }
 
-function Get-ClaudeDirChanges {
-    # Uncommitted paths under .claude/ in $Path -- the one tree this run rewrites.
+function Test-ClaudeDirDirty {
+    # $true when .claude/ in $Path -- the one tree this run rewrites -- has uncommitted changes, AND when
+    # git could not answer: an unknown reads as dirty, so neither the guard nor the after-run warning
+    # fails open (code review).
     param([string]$Path)
     $r = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $Path, 'status', '--porcelain', '--', '.claude') -Utf8 -DiscardStderr
-    return @(@($r.Output) | Where-Object { "$_".Trim() })
+    if ($r.ExitCode -ne 0) { return $true }
+    return (@(@($r.Output) | Where-Object { "$_".Trim() }).Count -gt 0)
 }
 
 if ($AllCheckouts) {
@@ -188,28 +195,27 @@ if ($AllCheckouts) {
         if (-not (Test-Path -LiteralPath $p -PathType Container)) {
             $gone++
             continue
+        }
+        # IS THIS FOLDER THE ROOT: asked as --show-cdup rather than --show-toplevel, which returns raw
+        # UTF-8 bytes a code page can corrupt (#2115, and the repo-wide guard on that flag). Inside a
+        # work tree, an empty cdup line means the folder IS the root; --is-inside-work-tree keeps the
+        # .git directory itself from answering 'yes'.
+        $rootProbe = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $p, 'rev-parse', '--is-inside-work-tree', '--show-cdup') -Utf8 -DiscardStderr
+        $probeLines = @(@($rootProbe.Output) | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+        $isRoot = ($rootProbe.ExitCode -eq 0) -and ($probeLines.Count -eq 1) -and ($probeLines[0] -eq 'true')
+        if (-not $isRoot) {
+            $skip = 'not the root of a git checkout'
         } else {
-            # IS THIS FOLDER THE ROOT: asked as --show-cdup rather than --show-toplevel, which returns raw
-            # UTF-8 bytes a code page can corrupt (#2115, and the repo-wide guard on that flag). Inside a
-            # work tree, an empty cdup line means the folder IS the root; --is-inside-work-tree keeps the
-            # .git directory itself from answering 'yes'.
-            $rootProbe = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $p, 'rev-parse', '--is-inside-work-tree', '--show-cdup') -Utf8 -DiscardStderr
-            $probeLines = @(@($rootProbe.Output) | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
-            $isRoot = ($rootProbe.ExitCode -eq 0) -and ($probeLines.Count -eq 1) -and ($probeLines[0] -eq 'true')
-            if (-not $isRoot) {
-                $skip = 'not the root of a git checkout'
-            } else {
-                $branch = Get-GitLine -Path $p -GitArgs @('branch', '--show-current')
-                $trunk = (Get-GitLine -Path $p -GitArgs @('symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD')) -replace '^origin/', ''
-                if (-not $trunk) {
-                    $skip = 'its trunk cannot be read (origin/HEAD is not set)'
-                    $hint = "git -C `"$p`" remote set-head origin --auto"
-                } elseif ($branch -ne $trunk) {
-                    $shown = if ($branch) { "branch '$branch'" } else { 'a detached HEAD' }
-                    $skip = "on $shown, not on its trunk '$trunk' -- a mid-work branch is never touched (#1890)"
-                } elseif (@(Get-ClaudeDirChanges -Path $p).Count -gt 0) {
-                    $skip = 'uncommitted changes under .claude/ -- this run would mix its rewrite into them'
-                }
+            $branch = Get-GitLine -Path $p -GitArgs @('branch', '--show-current')
+            $trunk = (Get-GitLine -Path $p -GitArgs @('symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD')) -replace '^origin/', ''
+            if (-not $trunk) {
+                $skip = 'its trunk cannot be read (origin/HEAD is not set)'
+                $hint = "git -C `"$p`" remote set-head origin --auto"
+            } elseif ($branch -ne $trunk) {
+                $shown = if ($branch) { "branch '$branch'" } else { 'a detached HEAD' }
+                $skip = "on $shown, not on its trunk '$trunk' -- a mid-work branch is never touched (#1890)"
+            } elseif (Test-ClaudeDirDirty -Path $p) {
+                $skip = 'uncommitted changes under .claude/ (or git could not say) -- this run would mix its rewrite into them'
             }
         }
 
@@ -220,9 +226,22 @@ if ($AllCheckouts) {
 
         # The source repo refuses every copy but its own (source-repo-guard-lib), so a checkout that
         # publishes plugins AND holds this script runs that copy; everyone else runs this file.
+        # BUT ONLY THE REAL SOURCE REPO'S COPY, AND ONLY UNMODIFIED (security review): any clone can carry
+        # a marketplace.json and a scripts/task/update-plugins.ps1, and the sweep would execute it in a
+        # repo nobody opened. So the own copy runs only where origin IS the source repo and that file has
+        # no uncommitted change; any other checkout shaped like a source repo is skipped, not executed.
         $ownCopy = Join-Path $p 'scripts\task\update-plugins.ps1'
         $useOwn = (Test-Path -LiteralPath (Join-Path $p '.claude-plugin\marketplace.json') -PathType Leaf) -and
                   (Test-Path -LiteralPath $ownCopy -PathType Leaf)
+        if ($useOwn) {
+            $origin = Get-GitLine -Path $p -GitArgs @('remote', 'get-url', 'origin')
+            $ownDirty = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $p, 'status', '--porcelain', '--', 'scripts/task/update-plugins.ps1') -Utf8 -DiscardStderr
+            $isSource = $origin -match '[/:]DKJ-Solutions/dkj-claude-plugins(\.git)?$'
+            if (-not $isSource -or @(@($ownDirty.Output) | Where-Object { "$_".Trim() }).Count -gt 0) {
+                $results.Add([pscustomobject]@{ Path = $p; Outcome = 'skipped'; Detail = 'it carries its own update-plugins.ps1 but is not an unmodified checkout of the source repo -- run the update there by hand'; Hint = '' })
+                continue
+            }
+        }
         $childScript = if ($useOwn) { $ownCopy } else { $PSCommandPath }
         # THE CHILD IS TOLD ITS CHECKOUT THREE WAYS, because each reader resolves it differently:
         # -RootOverride for this script's own root (Resolve-CheckRoot puts CLAUDE_PROJECT_DIR ABOVE the
@@ -250,8 +269,8 @@ if ($AllCheckouts) {
 
         if ($code -ne 0) {
             $results.Add([pscustomobject]@{ Path = $p; Outcome = 'FAILED'; Detail = "exit $code -- see its run above"; Hint = '' })
-        } elseif (-not $DryRun -and @(Get-ClaudeDirChanges -Path $p).Count -gt 0) {
-            $results.Add([pscustomobject]@{ Path = $p; Outcome = 'updated'; Detail = 'left uncommitted changes under .claude/ -- review and commit them in that repo'; Hint = '' })
+        } elseif (-not $DryRun -and (Test-ClaudeDirDirty -Path $p)) {
+            $results.Add([pscustomobject]@{ Path = $p; Outcome = 'updated'; Detail = 'left uncommitted changes under .claude/ (or git could not say) -- review and commit them in that repo'; Hint = '' })
         } else {
             $results.Add([pscustomobject]@{ Path = $p; Outcome = $(if ($DryRun) { 'dry-run' } else { 'updated' }); Detail = ''; Hint = '' })
         }
@@ -260,7 +279,8 @@ if ($AllCheckouts) {
     Write-Host ""
     Write-Host "update-plugins -AllCheckouts -- summary:" -ForegroundColor Cyan
     foreach ($r in $results) {
-        $color = switch ($r.Outcome) { 'FAILED' { 'Red' } 'skipped' { 'Yellow' } default { if ($r.Detail) { 'Yellow' } else { 'Green' } } }
+        # Yellow for a skip and for an update that left a .claude/ diff -- the two lines to act on.
+        $color = if ($r.Outcome -eq 'FAILED') { 'Red' } elseif ($r.Detail) { 'Yellow' } else { 'Green' }
         $line = "  {0,-8} {1}" -f $r.Outcome, $r.Path
         if ($r.Detail) { $line += " -- $($r.Detail)" }
         Write-Host $line -ForegroundColor $color

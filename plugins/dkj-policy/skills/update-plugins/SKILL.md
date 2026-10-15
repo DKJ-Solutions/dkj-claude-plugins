@@ -93,10 +93,14 @@ left **no** diff in any of them, so the wall became a guard per checkout:
 
 Each checkout runs the ordinary three steps as a child process, handed its own root explicitly
 (a session's `CLAUDE_PROJECT_DIR` outranks the working directory, and would otherwise point every
-child at the session's repo). The source repo runs its own copy, as the source-repo guard requires.
+child at the session's repo). The source repo runs its own copy, as the source-repo guard requires, but only an unmodified
+checkout whose `origin` is the source repo; any other checkout shaped like it is skipped rather than
+having its script executed. The sweep runs `git` in every recorded checkout before deciding, and git
+honours that repo's own config, so it extends the trust of opening a repo to the ones you did not open.
 
-**What this does not reach**, by the same construction as `plugin-versions`: a machine on which
-nobody opens a checkout is invisible to every mechanism here. That is the "part no tool reaches" the
+**What this does not reach**, by the same construction as `plugin-versions`: a checkout with no install
+record on this machine, and any machine on which nobody runs this at all, are invisible to every
+mechanism here. That is the "part no tool reaches" the
 parent issue named, and it stays outside this skill's scope -- see the issue for the open question
 behind it.
 
