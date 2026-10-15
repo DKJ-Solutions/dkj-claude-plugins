@@ -4,6 +4,7 @@
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [5.20.0](audience/5.x/5.20.0.md) | 2026-10-15 | Minor | The house-style skill points at house-style-v3, with the brand book's renamed colour tokens |
 | [5.19.0](audience/5.x/5.19.0.md) | 2026-10-15 | Minor | Minor release |
 | [5.18.0](audience/5.x/5.18.0.md) | 2026-10-13 | Minor | Release version 5.18.0 |
 | [5.17.0](audience/5.x/5.17.0.md) | 2026-10-07 | Minor | Release version 5.17.0 |
