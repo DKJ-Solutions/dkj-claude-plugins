@@ -85,10 +85,19 @@ Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text '.my-thing.card {}'
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text '.btn--ghost {}' -Classes $classes)) '.btn--ghost is not .btn'
 Assert-Equal 'styles .btn' (Get-HitNames (Find-HouseStyleClassHit -Text '.x { a: b; } .btn, .y {}' -Classes $classes)) 'one selector of a list, after another rule'
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text '@media (min-width: 1px) {}' -Classes $classes)) 'an at-rule prelude is no selector'
-Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text 'if ($x.card) { }' -Classes $classes)) 'a property access in code is no selector'Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "if (document.querySelector('.card')) { }" -Classes $classes)) 'a class in a quoted string is no selector'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text 'if ($x.card) { }' -Classes $classes)) 'a property access in code is no selector'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "if (document.querySelector('.card')) { }" -Classes $classes)) 'a class in a quoted string is no selector'
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ".card[data-x='a b'] {}" -Classes $classes)) 'a space inside an attribute value is no combinator'
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text '.my-row:is(.a .b) {}' -Classes $classes)) 'nor one inside :is()'
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "sb.AppendLine('.my-list li .card { }')" -Classes $classes)) 'a domain class right after a string''s quote still scopes the rule'
+# Script shapes measured in three consumers (#3040): a method call or an object spread before a `{`.
+$jsClasses = @('card', 'sort', 'map', 'meta')
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "return [...g]`n  .sort(([a], [b]) => a - b)`n  .map(([k, v]) => ({`n    k, v`n  }));" -Classes $jsClasses)) 'a chained method call before an arrow returning an object is no selector'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "return [...H].sort((a, b) => {`n  return a - b;`n});" -Classes $jsClasses)) 'nor one before an arrow with a block body'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "const x = {`n  ...meta,`n  nested: {`n    a: 1`n  }`n};" -Classes $jsClasses)) 'nor an object spread'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text '[data-x].card {}' -Classes $jsClasses)) 'a house class after an attribute selector still counts'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ':not(.a).card {}' -Classes $jsClasses)) 'and after a functional pseudo-class'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "list.map(x => x);`n.card { color: red; }" -Classes $jsClasses)) 'a method call elsewhere in the file does not hide a real rule'
 
 
 Write-Host '-- group 1e: the allowlist and the quoted path' -ForegroundColor Cyan

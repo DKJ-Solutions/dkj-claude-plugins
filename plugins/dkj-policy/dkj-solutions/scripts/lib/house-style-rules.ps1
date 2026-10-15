@@ -212,7 +212,10 @@ function Find-HouseStyleClassHit {
     if (-not [regex]::IsMatch($Text, $any)) { return }
     $map = New-HouseStyleLineMap -Text $Text
     # A quote before the dot is a string such as querySelector('.card'), never a stylesheet selector.
-    $classPattern = '(?<![\w''"-])\.(-?[A-Za-z_][\w-]*)'
+    # Nor is a dot before it -- an object spread, `...meta` -- or a `(` straight after the name, which
+    # is a method call such as `.sort(` and never CSS (#3040). `[x].card` and `:not(.a).card` are
+    # selectors, so a `]` or `)` before the dot stays allowed.
+    $classPattern = '(?<![\w''".-])\.(-?[A-Za-z_][\w-]*)(?![\w-]|\()'
 
     foreach ($m in [regex]::Matches($Text, '(?<=^|[{};])(?<pre>[^{};]+)\{')) {
         $pre = $m.Groups['pre'].Value
@@ -227,7 +230,7 @@ function Find-HouseStyleClassHit {
             if ($house.Count -eq 0) { continue }
             # A class of the repo's own anywhere in the selector scopes the rule to its own component.
             # Counted without the quote rule: a page built in a string opens its first selector after a quote.
-            $own = @([regex]::Matches($flat, '(?<![\w-])\.(-?[A-Za-z_][\w-]*)') | Where-Object { -not $set.Contains($_.Groups[1].Value) })
+            $own = @([regex]::Matches($flat, '(?<![\w.-])\.(-?[A-Za-z_][\w-]*)(?![\w-]|\()') | Where-Object { -not $set.Contains($_.Groups[1].Value) })
             if ($own.Count) { continue }
             $at = $m.Index + $m.Groups['pre'].Value.IndexOf($selector.Trim())
             @{ Name = ('.' + $house[0]); Kind = 'styles'; Line = (Get-HouseStyleLineNumber -Map $map -Index ([Math]::Max($m.Index, $at))) }
