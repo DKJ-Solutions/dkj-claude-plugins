@@ -68,6 +68,8 @@ window it overran.
 
 #### What makes this deploy extra special
 
+A test suite of this repo's own CI only; nothing a plugin user installs or runs changes.
+
 **Score:** N/A
 
 #### Pull Request
