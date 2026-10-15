@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**0 / 1 patch entry** <!-- pending-tally -->
+**0 / 2 patch entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3029-thumbnail-register-dkj-solutions · 20261015-121700Z
+
+The thumbnail-generator connector record registers the `dkj-solutions` plugin the consumer enables
+([#3029](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3029)), so it now falls under the
+extension and version checks.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: the register is bookkeeping inside this repo, and no consumer takes it.
+
+**Score:** N/A
+
+#### Pull Request
+
+connectors: thumbnail-generator registers the dkj-solutions plugin
+
+[PR #3032](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3032)
+
+---
 
 ### DEPLOY: fix/3028-thumbnail-connector-repo · 20261015-104628Z
 
