@@ -511,6 +511,16 @@ the last two only checkable with the live-push record `live-preflight` writes (s
 [`live-preflight` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md#the-live-push-record-it-writes-for-the-cut-2570-2586)),
 which is why a store answering this seam passes that record to every cut.
 
+**In a Git-connected store, going live is merging the promotion PR** (trunk into the deploy branch,
+`Get-ShopifyLiveDeployBranch`; #2998). That merge is a person's act and waits for the owner's word exactly
+as a push does, so "live" in the go-live block and in the owner's three rules means *in a merged
+promotion*. The live-push record then carries a `# promoted <sha> to <branch>` line naming the promoted
+commit, and is not edited by hand in this mode. The back-flow PR, the bot committer, the bypass and the
+rule-suite log are on the
+[sync log page](SYNC-LOG-portable.md#a-git-connected-live-theme----the-back-flow-pr-is-the-sync), and the
+order promote-then-cut is in the
+[theme lifecycle page](THEME-LIFECYCLE-portable.md#the-order-push-then-cut).
+
 #### The go-live block -- written BEFORE the close, by the session that shipped the work
 
 **The order is the rule** (BWJ/Maikel, September 17, 2026, inbound

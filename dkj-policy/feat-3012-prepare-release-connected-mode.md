@@ -48,24 +48,29 @@ Issue #3012, part of #2998. Parked mid-branch on October 14, 2026 (session ended
       step 5 runs the back-flow check (Get-LivePromotionStep) instead of the CLI drift check
 - [x] Format-ReleaseRunbook prints the promotion PR (Format-LivePromotionCommand) instead of the push
 - [x] SYNC-LOG-portable.md: connected-mode section (back-flow PR, bot as committer, bypass, rule-suite log)
-- [ ] THEME-LIFECYCLE-portable.md: connected-mode section -- promote-then-cut, theme-check before anything
+- [x] THEME-LIFECYCLE-portable.md: connected-mode section -- promote-then-cut, theme-check before anything
       lands on the deploy branch (leave the detached-duplicate point to #3013)
-- [ ] WORKFLOW-portable.md: connected-mode section -- going live is merging the promotion PR; the
+- [x] WORKFLOW-portable.md: connected-mode section -- going live is merging the promotion PR; the
       live-push record's `# promoted` line; pointers to the other two pages
-- [ ] prepare-release SKILL.md: name the connected mode
+- [x] prepare-release SKILL.md: name the connected mode
 
 ### TEST
 
 - [x] bwj-development.tests.ps1: runbook connected cases + the seam read in the fixture run (661 green)
-- [ ] copy edit of the three pages, then write DEPLOY and ship with `ship-pr.ps1 -Resolves 3012`
+- [x] copy edit of the three pages, then write DEPLOY and ship with `ship-pr.ps1 -Resolves 3012`
+      (Edith: no dead links or drift; the skill description and steps 5/8 reworded, one app name harmonised)
 
 ### DEPLOY: feat/3012-prepare-release-connected-mode
 
-**Score:**
+`prepare-release` now reads `Get-ShopifyLiveDeployBranch`. Where it names a branch, the live theme deploys from that branch through Shopify's GitHub integration, and the Friday run follows: the push list is what goes live with the promotion, the early drift read becomes a back-flow check of the deploy branch against the trunk, and the runbook prints the promotion PR where it printed the push. `SYNC-LOG-portable.md`, `THEME-LIFECYCLE-portable.md`, `WORKFLOW-portable.md` and the skill page describe the mode: the back-flow PR as the sync, the Shopify bot as committer, the Always-allow bypass on the deploy ruleset, the rule-suite log as the only trace of a rejected write-back, theme-check before anything lands on the deploy branch, and the `# promoted` line in the live-push record ([#3012](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3012), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store whose live theme deploys from a branch gets a Friday runbook that matches its release day -- a promotion PR and a back-flow check instead of a CLI push and drift read. A store that has not set the seam sees no difference.
+
+**Score:** 2
 
 #### Pull Request
 

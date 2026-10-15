@@ -7,7 +7,8 @@ description: >-
   worth a second look, derives the
   theme push list by the same rules live-preflight uses, runs an early drift read, collects the
   go-live obligations buried in entry prose, lists open pull requests that could still ride along, and
-  prints the release-day runbook. Read-only: it never pushes, cuts, tags, or writes the authorisation
+  prints the release-day runbook. In a Git-connected store the early drift read is a back-flow check
+  and the runbook prints the promotion PR instead of the push. Read-only: it never pushes, cuts, tags, or writes the authorisation
   marker.
 ---
 
@@ -38,12 +39,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    sync are held back, and files new on the theme are marked.
 5. **Early drift** -- the repo's own drift check over that list, passed as an array, so a third-party
    edit is found days ahead and can get a `sync/` branch. **It runs again, for real, on the day**:
-   `live-preflight` does that, and this read does not replace it.
+   `live-preflight` does that, and this read does not replace it. In a Git-connected store this step
+   is the back-flow check instead -- see [below](#the-git-connected-mode-2998-3012).
 6. **Go-live obligations** -- the *"once this is live"* sentences in the entries, their reach
    section included and only the Pull Request section left out, as one checklist. Matched by phrase, so it is a candidate list and says so.
 7. **Open work** -- open pull requests against the trunk, so what rides along is decided before the
    weekend.
-8. **The runbook** -- the day in order: preflight, push, verification pull, obligations, preview sweep,
+8. **The runbook** -- the day in order: preflight, push (in a Git-connected store, the promotion PR),
+   verification pull, obligations, preview sweep,
    cut, backup, release-notes page. Every fact the run derived is filled in; one it could not derive is
    named as missing, never guessed. **A theme path that is not paste-safe composes no command at all**
    -- a name holding `;` or `$(...)` would run when the line is pasted, and #1594 measured that quoting
@@ -88,11 +91,29 @@ could not measure is reported as skipped and named, never counted as passing.
   measured as noise at tier 2: 6 of 23 pending entries flagged in this plugin's source repo, every one
   correctly scored.
 
+## The Git-connected mode (#2998, #3012)
+
+**Where `Get-ShopifyLiveDeployBranch` names a branch, the live theme deploys from it and the day is a
+promotion PR, not a push.** Three steps read differently; the rest are unchanged.
+
+- **Step 4** still lists the range's theme files, now as what goes live with the promotion.
+- **Step 5 is the back-flow check instead of the drift check.** It compares the deploy branch with the
+  trunk, by the same `Get-LivePromotionStep` verdict `live-preflight` makes, so a live edit the trunk
+  lacks is found on the Friday and its back-flow PR lands before the day. `-SkipDrift` does not apply to
+  it: that switch skips only the CLI drift read, which a connected run does not make.
+- **Step 8 prints the promotion PR** where it printed the push. Merging it is a person's act and waits
+  for the owner's word. Deletions go live with that merge.
+
+What the rule-suite log says about write-backs the sync rejected is read on the day, by `live-preflight`.
+The mechanics are on the
+[`live-preflight`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md#the-git-connected-mode-2998-3009)
+page and in [`SYNC-LOG-portable.md`](../../SYNC-LOG-portable.md).
+
 ## Requirements in the consumer
 
 `git`, which every step reads. `gh`, authenticated, for the check runs and the open pull requests --
 missing, logged out or offline, those two report as skipped rather than stopping the run. The seams it reads from `scripts/repo-config.ps1`, all optional:
-`Get-ShopifyThemeEstateStore`, `Get-ShopifyLiveThemeId`, `Get-TrunkBranchName`,
+`Get-ShopifyThemeEstateStore`, `Get-ShopifyLiveThemeId`, `Get-ShopifyLiveDeployBranch`, `Get-TrunkBranchName`,
 `Get-ShopifySyncBranchPrefix`, `Get-ChangelogPath`, `Get-ShopifyDriftCheckPath`,
 `Get-ReleaseAudienceTier` and `Get-RepoName`. It refuses to run in this plugin's own source repo, which
 has no theme.

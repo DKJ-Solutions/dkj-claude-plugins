@@ -197,7 +197,7 @@ differently. The rule does not change: a sync still owes a sync-log entry and st
 entry.
 
 - **The Shopify bot is the committer.** A theme-editor, code-editor or app save lands as a commit by
-  Shopify's GitHub app, straight onto the deploy branch. Those commits are the third party's record.
+  the Shopify GitHub app, straight onto the deploy branch. Those commits are the third party's record.
   They take the place of the files a CLI pull would have copied into a mirror.
 - **The back-flow PR is the sync branch.** It comes from the deploy branch into the trunk, and its head
   ref is the deploy branch itself (`live`), not a `sync/` branch. It owes the same sync-log entry, for

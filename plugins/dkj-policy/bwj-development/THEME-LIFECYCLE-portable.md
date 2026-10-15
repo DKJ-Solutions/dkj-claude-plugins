@@ -84,6 +84,12 @@ on the `push-preview` page, and the mechanics are on the
 [`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md#a-git-connected-live-theme-the-backup-is-a-detached-copy-3013)
 page (#3013).
 
+**The repo's own `theme-check` runs before anything lands on the deploy branch, because that branch is
+live.** A file Shopify rejects during the sync is dropped silently: the merge looks green, the file never
+reaches the storefront, and nothing in git says so (measured in `BWJ-Development/smartwatchbanden#943`).
+The check stays with the repo's own gates, so the promotion PR is opened only from a trunk it has
+passed. What the sync then rejects anyway is read on the day, from the rule-suite log, by `live-preflight`.
+
 **#1965 also asked for a preview of the trunk at the cut, and it is deliberately not built.** Under
 push-then-cut the trunk is already live at that moment, so the preview would be byte-identical to the
 live storefront -- a theme slot spent on a review target with nothing to review. It is worth building
