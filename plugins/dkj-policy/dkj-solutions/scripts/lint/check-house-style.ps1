@@ -46,7 +46,10 @@ if (-not $pin) {
 
 # A repo-config.ps1 that throws is a config the repo stated wrongly: exit 2, never the 1 of a finding.
 try { $allow = Read-HouseStyleAllowlist -RepoRoot $root }
-catch { $allow = @{ Ok = $false; Problem = "it throws when loaded: $($_.Exception.Message)" } }
+catch {
+    $why = ((([string]$_.Exception.Message -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
+    $allow = @{ Ok = $false; Problem = "it throws when loaded: $why" }
+}
 if (-not $allow.Ok) {
     Write-Host "[ERROR] scripts/repo-config.ps1: $($allow.Problem)" -ForegroundColor Red
     exit 2
@@ -54,7 +57,9 @@ if (-not $allow.Ok) {
 
 try { $result = Invoke-HouseStyleCheck -RepoRoot $root -Pin $pin -Allow $allow.Entries }
 catch {
-    Write-Host "[ERROR] $($_.Exception.Message)" -ForegroundColor Red
+    # The repo's own text can reach this message (a file name, its config), so it is flattened first.
+    $why = ((([string]$_.Exception.Message -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
+    Write-Host "[ERROR] $why" -ForegroundColor Red
     exit 2
 }
 

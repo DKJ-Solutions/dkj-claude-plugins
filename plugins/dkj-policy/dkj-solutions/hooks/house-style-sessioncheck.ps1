@@ -28,7 +28,9 @@ $ErrorActionPreference = 'Stop'
 $name = 'house-style-sessioncheck'
 
 trap {
-    $reason = ([string]$_.Exception.Message -replace '\s+', ' ') -replace '\p{C}', ''
+    # The three passes every hook catch-all runs (exception-message-guard.tests.ps1): whitespace, control
+    # characters, then brackets, so a message cannot forge a marker line.
+    $reason = ((([string]$_.Exception.Message -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
     Write-Output "${name}: skipped -- $reason"
     exit 0
 }
