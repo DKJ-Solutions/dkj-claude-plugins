@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#3031: the djcylow-react record registers 19 team-alpha lenses that the consumer's clean slate
+(`3239753`) deleted. The owner decided that the clean slate was meant to drop the specialists, so the
+register follows the tree: no extensions.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/djcylow-react.json`: the `dkj-subagents-alpha` extensions array is emptied, and an
+      EMPTIED note is appended. Measured against the consumer's main (`65c3302`) through the GitHub
+      API: `.claude/specialists/` holds only `always-on-baseline.json`.
 
 ### TEST
 
+- [x] The record parses, and the plugin block stays, because the consumer's `.claude/settings.json`
+      still enables `dkj-subagents-alpha`. On this machine `check-connectors.ps1` reports `[SKIP]` for
+      the record, because no checkout is present.
+
 ### DEPLOY: fix/3031-djcylow-register-no-lenses
 
-**Score:**
+The djcylow-react connector record no longer registers the 19 team-alpha lenses that the consumer
+removed on 2026-09-28 ([#3031](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3031)), so
+the extension check stops reporting them as missing.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the register is bookkeeping inside this repo, and no consumer takes it.
+
+**Score:** N/A
 
 #### Pull Request
 
