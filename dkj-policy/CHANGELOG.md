@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**4 / 4 minor entries** <!-- pending-tally -->
+**5 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3044-awaiting-pull-external · 20261015-163427Z
+
+A new parking label, `awaiting-pull-external`, for an issue whose blocker is a pull request in another
+repo ([#3044](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3044)). Unlike `awaiting-pull`,
+it does not come off at the upstream merge but once that work is released and taken here. Both pickup
+routes skip it, `claim-issue` warns on it, the issue dashboard shows it as waiting, and
+`adopt-triage-labels` prints the line that creates it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+An issue that waits on work in another repo, such as a consumer waiting on a new `dkj-brandbook` token,
+now has its own label: `awaiting-pull-external`. Sweeps skip it until the upstream work has been
+released and picked up here, where `awaiting-pull` came off at the upstream merge, two steps too early.
+Run `adopt-triage-labels` to get the `gh label create` line for your tracker.
+
+**Score:** 3
+
+#### Pull Request
+
+awaiting-pull-external: a parking label for a blocker outside this repo
+
+Plugins: dkj-policy
+
+[PR #3046](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3046)
+
+---
 
 ### DEPLOY: feat/3041-dev-preview-bind-address · 20261015-161442Z
 
