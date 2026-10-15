@@ -90,7 +90,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 
 | # | lane | authority |
 |---|---|---|
-| 1 | **stale lanes** -- a worktree whose branch is finished | reports, with the hand-back command |
+| 1 | **stale lanes** -- a worktree whose branch is finished | reports, with the `git worktree remove` that frees it |
 | 2 | merged branches and stale tracking refs | → `prune-merged.ps1`; **deletes on proof** |
 | 3 | **abandoned** -- a PR CLOSED without merging | reports, with `git branch -D` |
 | 4 | **expired backups**, and branches no proof reaches | reports |

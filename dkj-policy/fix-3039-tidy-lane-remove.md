@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Issue [#3039](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3039). Read in
+`worktree-lane.ps1`: `-HandBack` removes the lane and then checks its branch out in the primary, which
+is the hand-over for work that still has to ship. Lane 1 only ever reports a finished (merged or
+closed) branch, so the bare `git worktree remove` is the one command that frees it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-StaleLaneDecisions` (`tidy-lib.ps1`) hands over `git worktree remove` only; the `-HandBack` line and the `RawCommand` field are gone.
+- [x] `tidy-machine.ps1` prints the one line, and the skill's lane table says so. Both mirrors synced.
+- [x] `prune-merged.ps1` had the same handover for a merged branch a lane holds: now `git worktree remove` too (mirror synced).
 
 ### TEST
 
+- [x] `tidy-lib.tests.ps1`: a finished lane's command is `git worktree remove` and never `-HandBack`; 91 passed.
+- [x] `prune-merged.tests.ps1`: a held merged branch is handed `git worktree remove`, never `HandBack -Lane`; 128 passed.
+
 ### DEPLOY: fix/3039-tidy-lane-remove
 
-**Score:**
+`tidy-machine` lane 1 now hands over `git worktree remove <lane>` for a lane whose branch is finished,
+instead of `worktree-lane.ps1 -HandBack`
+([#3039](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3039)). The hand-back checked the
+merged branch out in the primary checkout, so lane 2 still could not reap it, and its script path does
+not exist in a consumer. `prune-merged`, which said the same for a merged branch a lane holds, now says
+`git worktree remove` too.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+When `tidy-machine` finds a worktree holding a merged or abandoned branch, the command it prints now
+removes that worktree and leaves your primary checkout where it is, so a rerun deletes the branch. It
+used to print a command that put the finished branch back in your primary checkout and told you to ship
+it, and in a consumer repo that command's path did not exist.
+
+**Score:** 2
 
 #### Pull Request
 
