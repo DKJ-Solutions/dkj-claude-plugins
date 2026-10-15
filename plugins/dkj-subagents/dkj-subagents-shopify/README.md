@@ -44,6 +44,7 @@ insufficient here rather than merely weak:
 | 2 | a theme **delete** — always, unless the repo opts into a delete marker; the live theme never | only to opt in |
 | 3 | a theme **push** aimed at live — unless authorised | the id half does |
 | 4 | the same three through the Admin API: `shopify store execute` (or `store:execute`) running `themePublish` or a `role: MAIN` (as 1), `themeDelete` (as 2), or another theme write aimed at live (as 3), read from the command and any `--query-file`/`--variable-file` it names, whether or not `--allow-mutations` is on the line. With no live id configured, every theme write counts as aimed at live; a file it cannot read or place, and a `$(...)`, are refused | the id half does |
+| 5 | a **`git push` to the deploy branch** of a Git-connected live theme (#3014) — unless authorised with the live-push marker. Aimed at it means a refspec whose destination is that branch, `--all`/`--branches`/`--mirror`, a glob or a refspec the shell still expands, or no refspec while that branch is checked out (or while that cannot be told, as after a `cd` or with `git -C` -- so there an explicit refspec or the marker is needed). `gh pr merge` is **not** gated: the deploy ruleset already requires the promotion PR, and the push is what goes around it. On a broken install (no `command-guard-lib.ps1` beside the hook) the target cannot be read, so every `git push` needs the marker | yes: `Get-ShopifyLiveDeployBranch`; unanswered, the rule does not exist |
 
 Rule 1 has **no escape hatch at all**, and rule 2 has none by default, and that is deliberate:
 publishing makes a theme the customer-facing one and a delete cannot be undone, so both stay the store
@@ -52,10 +53,11 @@ exception is opt-in: a repo that answers `Get-ShopifyThemeDeleteMarker` lets a s
 preview theme carrying that exact marker, and the live theme stays refused even then
 ([below](#letting-a-session-clear-away-its-own-spent-preview-themes)).
 
-**Every rule matches the CLI's colon form too** (`theme:publish`, `theme:push`, `theme:delete`, `store:execute`): the CLI accepts both spellings, and until #2881 the guard knew only the spaced one.
+**Rules 1 to 4 match the CLI's colon form too** (`theme:publish`, `theme:push`, `theme:delete`, `store:execute`): the CLI accepts both spellings, and until #2881 the guard knew only the spaced one.
 
 **Untouched:** every form of `theme pull`, including `--live` — reading is how a pre-task sync works —
-pushes to an unpublished preview theme, and every other command.
+pushes to an unpublished preview theme, every `git push` that does not target a configured deploy
+branch, and every other command.
 
 ### Authorising the deliberate live push
 
@@ -194,7 +196,7 @@ store, the live theme id, the trunk and the sync prefix from the tables above:
 | function | default | what it decides |
 |---|---|---|
 | `Get-ShopifyDriftCheckPath` | `scripts/theme/live-snapshot.ps1` | your own drift check — the script that pulls the files about to be overwritten and refuses on content a third party wrote. Unanswered **and** absent at the default path, the preflight says the push list is unchecked rather than pretending it verified one. |
-| `Get-ShopifyLiveDeployBranch` | `''` (the CLI push) | the branch a **Git-connected** live theme deploys from (#2998). Named, the preflight verifies a promotion of the trunk into it instead of printing a push -- see the [`live-preflight`](skills/live-preflight/SKILL.md#the-git-connected-mode-2998-3009) page -- and `sync-main` opens the back-flow PR instead of pulling -- see [`sync-main`](skills/sync-main/SKILL.md#a-git-connected-live-theme-the-back-flow-pr-3010). |
+| `Get-ShopifyLiveDeployBranch` | `''` (the CLI push) | the branch a **Git-connected** live theme deploys from (#2998). Named, the preflight verifies a promotion of the trunk into it instead of printing a push -- see the [`live-preflight`](skills/live-preflight/SKILL.md#the-git-connected-mode-2998-3009) page -- and `sync-main` opens the back-flow PR instead of pulling -- see [`sync-main`](skills/sync-main/SKILL.md#a-git-connected-live-theme-the-back-flow-pr-3010). The live-theme guard then refuses a `git push` to that branch without the live-push marker (rule 5 above). |
 
 **It is a bridge rather than a permanent seam**, and that is worth knowing before you answer it.
 [#2228](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2228) argued that the preflight needed

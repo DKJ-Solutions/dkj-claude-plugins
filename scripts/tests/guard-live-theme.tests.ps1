@@ -63,7 +63,9 @@
 $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$Guard    = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-shopify\hooks\guard-live-theme.ps1'
+# Rule 5's fixtures need a git repo, built through the judged helper so a failed git is seen (#1635).
+. (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+$Guard   = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-shopify\hooks\guard-live-theme.ps1'
 $Check    = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-shopify\hooks\shopify-floor-sessioncheck.ps1'
 # Fixture paths carry $PID: the test gate is a throttled PARALLEL scheduler, so two runs at one fixed
 # temp path tear down each other's tree mid-assert.
@@ -506,10 +508,10 @@ function Get-ShopifyThemeDeleteMarker { return 'XOXO-THEME-DELETE-AUTHORIZED' }
     Copy-Item -LiteralPath $Guard -Destination $noLibGuard -Force
 
     function Invoke-DegradedGuard {
-        param([string]$Command)
+        param([string]$Command, [string]$Root = $both)
         $payload = @{ tool_name = 'Bash'; tool_input = @{ command = $Command } } | ConvertTo-Json -Compress -Depth 5
         $prev = $env:CLAUDE_PROJECT_DIR
-        $env:CLAUDE_PROJECT_DIR = $both
+        $env:CLAUDE_PROJECT_DIR = $Root
         try {
             $err = ($payload | & powershell -NoProfile -ExecutionPolicy Bypass -File $noLibGuard 2>&1 | Out-String)
             return @{ Code = $LASTEXITCODE; Out = $err }
@@ -585,11 +587,131 @@ function Get-ShopifyThemeDeleteMarker { return 'XOXO-THEME-DELETE-AUTHORIZED' }
     Assert-Equal 0 (Invoke-Guard -Command "grep -n 'shopify store execute --allow-mutations' notes.md # themePublish" -Root $configured) 'store execute: mentioning it in a text command is not running it'
     $refusal = Get-GuardRefusal -Command "$exec --query 'mutation { themeFilesUpsert(themeId: \`"$gid\`", files: []) { job { id } } }'" -Root $configured
     Assert-True ($refusal -match 'LIVE-PUSH-AUTHORIZED') 'store execute: the refusal names the marker for the deliberate live write'
+
+    # --- rule 5: a git push to a Git-connected live theme's deploy branch (#3014) --------------------
+    # The seam is answered, so the live theme deploys from 'live' and a push to it IS a live deploy.
+    # 'gh pr merge' stays ungated by decision: the deploy ruleset already requires the promotion PR.
+    Write-Host "rule 5 -- a git push to the deploy branch of a Git-connected live theme (#3014)" -ForegroundColor Cyan
+    $deployCfg = @"
+function Get-ShopifyLiveThemeId { return '$LIVE' }
+function Get-ShopifyLiveDeployBranch { return 'live' }
+"@
+    $conn = New-FixtureRepo -Label 'conn' -ConfigBody $deployCfg
+    Invoke-FixtureGitIn $conn init -q
+    Invoke-FixtureGitIn $conn symbolic-ref HEAD refs/heads/feat/x
+
+    $pushBlocked = @(
+        @{ n = 'the branch by name';                  c = 'git push origin live' },
+        @{ n = 'trunk into it by refspec';            c = 'git push origin main:live' },
+        @{ n = 'a forced full-ref refspec';           c = 'git push origin +HEAD:refs/heads/live' },
+        @{ n = 'deleting it';                         c = 'git push origin :live' },
+        @{ n = 'with flags around it';                c = 'git push --force-with-lease -u origin main:live' },
+        @{ n = '--all pushes every branch';           c = 'git push --all origin' },
+        @{ n = '--mirror too';                        c = 'git push --mirror origin' },
+        @{ n = 'a different case of the name';        c = 'git push origin Live' },
+        @{ n = 'wrapped in bash -c';                  c = 'bash -c "git push origin main:live"' },
+        @{ n = 'wrapped in powershell -Command';      c = 'powershell -NoProfile -Command "git push origin main:live"' },
+        @{ n = 'after a harmless command';            c = 'git status && git push origin main:live' },
+        @{ n = 'no refspec, after a cd';              c = 'cd ../elsewhere && git push' },
+        @{ n = 'no refspec, with git -C';             c = 'git -C ../elsewhere push' },
+        @{ n = 'a heredoc fed to an interpreter';     c = "bash <<'EOF'${LF}git push origin main:live${LF}EOF" },
+        # Review of #3014: each of these exited 0 in the first cut.
+        @{ n = 'the PowerShell call operator';        c = '& git push origin live' },
+        @{ n = 'a quoted path to git.exe';            c = "& 'C:\Program Files\Git\cmd\git.exe' push origin live" },
+        @{ n = 'env git';                             c = 'env git push origin live' },
+        @{ n = 'command git';                         c = 'command git push origin live' },
+        @{ n = 'a glob refspec';                      c = 'git push origin +refs/heads/*:refs/heads/*' },
+        @{ n = 'a quoted glob refspec';               c = "git push origin 'refs/heads/*:refs/heads/*'" },
+        @{ n = 'a shell variable';                    c = 'git push origin $B' },
+        @{ n = 'a quoted shell variable';             c = 'git push origin "$B"' },
+        @{ n = 'a command substitution';              c = 'git push origin $(echo live)' },
+        @{ n = 'quotes inside the refspec';           c = 'git push origin main:"live"' },
+        @{ n = 'quotes splitting the name';           c = 'git push origin main:li"v"e' },
+        @{ n = 'heads/ without refs/';                c = 'git push origin HEAD:heads/live' },
+        @{ n = 'an abbreviated --mirror';             c = 'git push --mir origin' },
+        @{ n = 'an abbreviated --all';                c = 'git push --al origin' },
+        @{ n = 'an alias given with -c';              c = 'git -c alias.p=push p origin live' }
+    )
+    foreach ($case in $pushBlocked) { Assert-Equal 2 (Invoke-Guard -Command $case.c -Root $conn) "deploy push blocked: $($case.n)" }
+
+    $pushAllowed = @(
+        @{ n = 'the trunk';                           c = 'git push origin main' },
+        @{ n = 'a work branch';                       c = 'git push -u origin feat/x' },
+        @{ n = 'a branch whose name merely contains it'; c = 'git push origin feat/live-preview' },
+        @{ n = 'no refspec on a work branch';         c = 'git push' },
+        @{ n = 'git -c is config, not a directory';   c = 'git -c push.default=simple push origin main' },
+        @{ n = 'a commit message naming the push';    c = 'git commit -m "git push origin live is gated now"' },
+        @{ n = 'the promotion PR merge';              c = 'gh pr merge 12 --merge' },
+        @{ n = 'the deliberate push, with the marker'; c = 'git push origin main:live # LIVE-PUSH-AUTHORIZED' },
+        @{ n = 'documenting it in a heredoc';         c = "cat > notes.md <<'EOF'${LF}git push origin main:live${LF}EOF" },
+        @{ n = 'grepping for it';                     c = "grep -n 'git push origin live' docs/*.md" },
+        @{ n = 'a fetch of it';                       c = 'git fetch origin live' },
+        @{ n = 'git stash push';                      c = 'git stash push -m live' },
+        @{ n = 'a push option that says live';        c = 'git push -o live origin main' },
+        @{ n = 'a branch that only starts with it';   c = 'git push origin main:live2' },
+        @{ n = '--atomic is not --all';               c = 'git push --atomic origin main' }
+    )
+    foreach ($case in $pushAllowed) { Assert-Equal 0 (Invoke-Guard -Command $case.c -Root $conn) "deploy push allowed: $($case.n)" }
+
+    # The checked-out branch decides a push with no refspec, or a bare HEAD.
+    Invoke-FixtureGitIn $conn symbolic-ref HEAD refs/heads/live
+    Assert-Equal 2 (Invoke-Guard -Command 'git push' -Root $conn) 'deploy push: no refspec ON the deploy branch is blocked'
+    Assert-Equal 2 (Invoke-Guard -Command 'git push origin HEAD' -Root $conn) 'deploy push: and a bare HEAD on it too'
+    Assert-Equal 2 (Invoke-Guard -Command 'git push origin @' -Root $conn) "deploy push: and '@', git's alias for HEAD"
+
+    # HEAD is read where the command starts -- the payload's cwd -- so a worktree lane on the deploy
+    # branch is judged by its own HEAD, not the project root's.
+    $lane = Join-Path $Fixture 'conn-lane'
+    New-Item -ItemType Directory -Force -Path $lane | Out-Null
+    Invoke-FixtureGitIn $lane init -q
+    Invoke-FixtureGitIn $lane symbolic-ref HEAD refs/heads/feat/y
+    $cwdPayload = { param($c, $cwd) @{ tool_name = 'Bash'; cwd = $cwd; tool_input = @{ command = $c } } | ConvertTo-Json -Compress -Depth 5 }
+    $prevDir = $env:CLAUDE_PROJECT_DIR
+    $env:CLAUDE_PROJECT_DIR = $conn
+    try {
+        (& $cwdPayload 'git push' $lane) | & powershell -NoProfile -ExecutionPolicy Bypass -File $Guard 2>&1 | Out-Null
+        Assert-Equal 0 $LASTEXITCODE 'deploy push: a bare push from a lane on a work branch passes, though the project root sits on the deploy branch'
+        Invoke-FixtureGitIn $lane symbolic-ref HEAD refs/heads/live
+        Invoke-FixtureGitIn $conn symbolic-ref HEAD refs/heads/feat/x
+        (& $cwdPayload 'git push' $lane) | & powershell -NoProfile -ExecutionPolicy Bypass -File $Guard 2>&1 | Out-Null
+        Assert-Equal 2 $LASTEXITCODE 'deploy push: and a bare push from a lane ON the deploy branch is blocked, though the project root is not'
+        Invoke-FixtureGitIn $conn symbolic-ref HEAD refs/heads/live
+    } finally {
+        if ($null -eq $prevDir) { Remove-Item Env:\CLAUDE_PROJECT_DIR -ErrorAction SilentlyContinue } else { $env:CLAUDE_PROJECT_DIR = $prevDir }
+    }
+    $noGit = New-FixtureRepo -Label 'conn-nogit' -ConfigBody $deployCfg
+    Assert-Equal 2 (Invoke-Guard -Command 'git push' -Root $noGit) 'deploy push: no refspec where HEAD cannot be read is blocked -- fail towards checking'
+    Assert-Equal 0 (Invoke-Guard -Command 'git push origin main' -Root $noGit) 'deploy push: while an explicit refspec elsewhere needs no HEAD'
+
+    # Unanswered or unusable, rule 5 does not exist -- the CLI-push consumer sees no change.
+    Assert-Equal 0 (Invoke-Guard -Command 'git push origin main:live' -Root $configured) 'seam unanswered: a push to a branch named live is ordinary'
+    $connPlaceholder = New-FixtureRepo -Label 'conn-placeholder' -ConfigBody "function Get-ShopifyLiveDeployBranch { return 'VUL-IN: the deploy branch' }"
+    Assert-Equal 0 (Invoke-Guard -Command 'git push origin main:live' -Root $connPlaceholder) 'seam placeholder: not a branch name, so no answer'
+    $connBad = New-FixtureRepo -Label 'conn-bad' -ConfigBody "function Get-ShopifyLiveDeployBranch { return '--upload-pack=x' }"
+    Assert-Equal 0 (Invoke-Guard -Command 'git push origin main' -Root $connBad) 'seam that is an option, not a branch: no answer'
+    $connRef = New-FixtureRepo -Label 'conn-ref' -ConfigBody "function Get-ShopifyLiveDeployBranch { return 'refs/heads/live' }"
+    Assert-Equal 2 (Invoke-Guard -Command 'git push origin main:live' -Root $connRef) 'seam spelled refs/heads/live: the same branch'
+
+    # A configured marker narrows rule 5 exactly as it narrows rule 3.
+    $connNarrow = New-FixtureRepo -Label 'conn-narrow' -ConfigBody "function Get-ShopifyLiveDeployBranch { return 'live' }${LF}function Get-ShopifyLivePushMarker { return 'SWB-LIVE-PUSH-AUTHORIZED' }"
+    Assert-Equal 0 (Invoke-Guard -Command 'git push origin main:live # SWB-LIVE-PUSH-AUTHORIZED' -Root $connNarrow) 'deploy push: the repo marker authorises'
+    Assert-Equal 2 (Invoke-Guard -Command 'git push origin main:live # NOT-THE-MARKER' -Root $connNarrow) 'deploy push: an unrelated comment does not'
+
+    $refusal = Get-GuardRefusal -Command 'git push origin main:live' -Root $conn
+    Assert-True ($refusal -match 'promotion PR') 'deploy push: the refusal points at the promotion PR'
+    Assert-True ($refusal -match 'LIVE-PUSH-AUTHORIZED') 'deploy push: and names the marker for the deliberate direct push'
+
+    # Degraded (no lib beside the hook), the push target cannot be read, so any git push needs the marker.
+    Assert-Equal 2 (Invoke-DegradedGuard -Command 'git push origin main' -Root $conn).Code 'no lib, deploy branch answered: a git push is blocked -- the target cannot be read'
+    Assert-Equal 0 (Invoke-DegradedGuard -Command 'git push origin main:live # LIVE-PUSH-AUTHORIZED' -Root $conn).Code 'no lib: and the marker still authorises it'
+    Assert-Equal 0 (Invoke-DegradedGuard -Command 'git push origin main' -Root $configured).Code 'no lib, seam unanswered: a git push is untouched'
 } finally {
     Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue
 }
 
 Write-Host ""
 Write-Host "Summary: $script:pass passed, $script:fail failed" -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
+$fixtureBroken = Write-FixtureGitSummary -Subject 'guard-live-theme.ps1'
 if ($script:fail -gt 0) { exit 1 }
+if ($fixtureBroken) { exit 1 }
 exit 0
