@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#3029: the thumbnail-generator record does not register `dkj-solutions`, which the consumer enables.
+Add the block, with a dated note. Precedent: #2982 for life-hub.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/thumbnail-generator.json`: a `dkj-solutions` block with an empty extension list is
+      added (it ships no agents/), and a CAUGHT UP note is appended. Measured against the consumer's
+      main (`5495ebc`) through the GitHub API, because this machine holds no checkout of it.
 
 ### TEST
 
+- [x] The record parses, and its `plugins[]` now names every plugin from this marketplace that the
+      consumer's committed `.claude/settings.json` enables (`dkj-solutions`, `dkj-subagents-alpha`,
+      `dkj-policy`). On this machine `check-connectors.ps1` reports `[SKIP]` for the record, because
+      no checkout is present; the machine that filed #3029 holds one and will read the block.
+
 ### DEPLOY: fix/3029-thumbnail-register-dkj-solutions
 
-**Score:**
+The thumbnail-generator connector record registers the `dkj-solutions` plugin the consumer enables
+([#3029](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3029)), so it now falls under the
+extension and version checks.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the register is bookkeeping inside this repo, and no consumer takes it.
+
+**Score:** N/A
 
 #### Pull Request
 
