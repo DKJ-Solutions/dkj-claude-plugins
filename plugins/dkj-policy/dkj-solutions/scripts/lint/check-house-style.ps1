@@ -44,7 +44,9 @@ if (-not $pin) {
     exit 2
 }
 
-$allow = Read-HouseStyleAllowlist -RepoRoot $root
+# A repo-config.ps1 that throws is a config the repo stated wrongly: exit 2, never the 1 of a finding.
+try { $allow = Read-HouseStyleAllowlist -RepoRoot $root }
+catch { $allow = @{ Ok = $false; Problem = "it throws when loaded: $($_.Exception.Message)" } }
 if (-not $allow.Ok) {
     Write-Host "[ERROR] scripts/repo-config.ps1: $($allow.Problem)" -ForegroundColor Red
     exit 2

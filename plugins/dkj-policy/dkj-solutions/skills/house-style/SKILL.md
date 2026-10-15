@@ -66,8 +66,8 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
 
 ## The gate: `check-house-style`
 
-**[`scripts/lint/check-house-style.ps1`](../../scripts/lint/check-house-style.ps1) holds a repo to the
-three rules above** ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035)):
+**[`scripts/lint/check-house-style.ps1`](../../scripts/lint/check-house-style.ps1) holds a repo to these
+three rules** ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035)):
 
 1. **pin**: every tracked `house-style.css` and `house-theme.js` hashes to the table above. The copies are
    found in the tree, so no repo needs to declare where they live. A repo without a `house-style.css` fails too.
@@ -76,7 +76,7 @@ three rules above** ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins
    composition, not a redefinition.
 3. **retired**: the repo's own layer neither defines nor reads (`var(--x)`) a token name the brand book retired.
 
-Checks 2 and 3 use a pattern grep over every tracked text file a page is built in (`.css`, `.html`, `.js`,
+Checks 2 and 3 use a pattern grep over every tracked file of the kinds a page is built in (`.css`, `.html`, `.js`,
 `.py`, `.ps1` and the like, not Markdown), so CSS inside a Python or PowerShell string counts. A false
 positive is answered in the repo's `scripts/repo-config.ps1`. Every entry needs a reason, and a drifted
 copy is never answered there:
@@ -101,7 +101,7 @@ jobs:
 ```
 
 **At session start**, the plugin's `house-style-sessioncheck` hook runs the same checks and reports them.
-It is read-only and stays quiet in a repo without any house style.
+It is read-only, and in a repo with no house style at all it prints one line saying there is nothing to check.
 
 ## Changing the house style
 

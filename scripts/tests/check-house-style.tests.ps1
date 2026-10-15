@@ -84,7 +84,11 @@ Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text '.my-thing.card {}'
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text '.btn--ghost {}' -Classes $classes)) '.btn--ghost is not .btn'
 Assert-Equal 'styles .btn' (Get-HitNames (Find-HouseStyleClassHit -Text '.x { a: b; } .btn, .y {}' -Classes $classes)) 'one selector of a list, after another rule'
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text '@media (min-width: 1px) {}' -Classes $classes)) 'an at-rule prelude is no selector'
-Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text 'if ($x.card) { }' -Classes $classes)) 'a property access in code is no selector'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text 'if ($x.card) { }' -Classes $classes)) 'a property access in code is no selector'Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "if (document.querySelector('.card')) { }" -Classes $classes)) 'a class in a quoted string is no selector'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ".card[data-x='a b'] {}" -Classes $classes)) 'a space inside an attribute value is no combinator'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text '.my-row:is(.a .b) {}' -Classes $classes)) 'nor one inside :is()'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "sb.AppendLine('.my-list li .card { }')" -Classes $classes)) 'a domain class right after a string''s quote still scopes the rule'
+
 
 Write-Host '-- group 1e: the allowlist and the quoted path' -ForegroundColor Cyan
 
@@ -156,7 +160,9 @@ try {
     Assert-True ($r.Code -eq 1 -and $r.Out -match '3 answered by Get-HouseStyleAllowlist' -and $r.Out -match '\[pin\]') 'the allowlist answers checks 2 and 3, never a drifted copy'
     Set-Content -LiteralPath (Join-Path $drift 'scripts\repo-config.ps1') -Value "function Get-HouseStyleAllowlist { @(@{ Path = 'web/*' }) }" -Encoding ascii
     $r = Invoke-Child $Gate $drift 'RepoRoot'
-    Assert-Equal 2 $r.Code 'an allowlist entry without a Reason stops the gate'
+    Assert-Equal 2 $r.Code 'an allowlist entry without a Reason stops the gate'    Set-Content -LiteralPath (Join-Path $drift 'scripts\repo-config.ps1') -Value "throw 'broken config'" -Encoding ascii
+    $r = Invoke-Child $Gate $drift 'RepoRoot'
+    Assert-Equal 2 $r.Code 'a repo-config.ps1 that throws stops the gate with 2, not the 1 of a finding'
 
     $none = New-FixtureRepo 'none'
     Set-Content -LiteralPath (Join-Path $none 'web\app.js') -Value 'console.log(1)' -Encoding ascii

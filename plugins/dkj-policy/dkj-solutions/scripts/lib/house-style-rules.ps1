@@ -206,19 +206,28 @@ function Find-HouseStyleClassHit {
     $set = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::Ordinal)
     foreach ($c in $Classes) { [void]$set.Add($c) }
     if ($set.Count -eq 0) { return }
+    # Most files name no house class at all, and walking every `{` of a script is the expensive part
+    # (19s of 22s on this repo before this line), so one alternation decides first whether to walk.
+    $any = '(?<![\w''"-])\.(' + ((@($Classes) | Sort-Object Length -Descending | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')(?![\w-])'
+    if (-not [regex]::IsMatch($Text, $any)) { return }
     $map = New-HouseStyleLineMap -Text $Text
-    $classPattern = '(?<![\w-])\.(-?[A-Za-z_][\w-]*)'
+    # A quote before the dot is a string such as querySelector('.card'), never a stylesheet selector.
+    $classPattern = '(?<![\w''"-])\.(-?[A-Za-z_][\w-]*)'
 
     foreach ($m in [regex]::Matches($Text, '(?<=^|[{};])(?<pre>[^{};]+)\{')) {
         $pre = $m.Groups['pre'].Value
         if ($pre.Trim().StartsWith('@')) { continue }
         foreach ($selector in ($pre -split ',')) {
-            $parts = @($selector.Trim() -split '[\s>+~]+' | Where-Object { $_ })
+            # Bracket and paren contents first: `[data-x='a b']` and `:is(.a .b)` hold spaces that are
+            # no combinator.
+            $flat = [regex]::Replace([regex]::Replace($selector, '\[[^\]]*\]', '[]'), '\([^()]*\)', '()')
+            $parts = @($flat.Trim() -split '[\s>+~]+' | Where-Object { $_ })
             if ($parts.Count -eq 0) { continue }
             $house = @([regex]::Matches($parts[-1], $classPattern) | ForEach-Object { $_.Groups[1].Value } | Where-Object { $set.Contains($_) })
             if ($house.Count -eq 0) { continue }
             # A class of the repo's own anywhere in the selector scopes the rule to its own component.
-            $own = @([regex]::Matches($selector, $classPattern) | Where-Object { -not $set.Contains($_.Groups[1].Value) })
+            # Counted without the quote rule: a page built in a string opens its first selector after a quote.
+            $own = @([regex]::Matches($flat, '(?<![\w-])\.(-?[A-Za-z_][\w-]*)') | Where-Object { -not $set.Contains($_.Groups[1].Value) })
             if ($own.Count) { continue }
             $at = $m.Index + $m.Groups['pre'].Value.IndexOf($selector.Trim())
             @{ Name = ('.' + $house[0]); Kind = 'styles'; Line = (Get-HouseStyleLineNumber -Map $map -Index ([Math]::Max($m.Index, $at))) }
@@ -361,6 +370,7 @@ function Invoke-HouseStyleCheck {
     $retired = Get-HouseStyleRetiredTokens
     $exts = Get-HouseStyleScanExtensions
     $copySet = @($copyPaths)
+    $skipped = 0
 
     foreach ($rel in $Files) {
         if ($copySet -contains $rel) { continue }
@@ -368,9 +378,9 @@ function Invoke-HouseStyleCheck {
         if ($exts -notcontains $ext) { continue }
         $full = Join-Path $RepoRoot $rel
         if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { continue }
-        if ((Get-Item -LiteralPath $full).Length -gt 2MB) { continue }
+        if ((Get-Item -LiteralPath $full).Length -gt 2MB) { $skipped++; continue }
         $text = [System.IO.File]::ReadAllText($full, [System.Text.Encoding]::UTF8)
-        if ($text.IndexOf([char]0) -ge 0) { continue }
+        if ($text.IndexOf([char]0) -ge 0) { $skipped++; continue }
 
         $hits = @()
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $houseTokens)) {
@@ -387,6 +397,7 @@ function Invoke-HouseStyleCheck {
         }
     }
 
+    if ($skipped) { $notes.Add("checks 2 and 3 skipped $skipped file(s) over 2 MB or holding a NUL byte -- a bundle there is not read") }
     # ToArray, not @(): Windows PowerShell 5.1 throws "argument types do not match" on @() over a List.
     return @{ Tag = $Pin.Tag; Copies = $copies; Findings = $findings.ToArray(); Allowed = $allowed; Notes = $notes.ToArray() }
 }

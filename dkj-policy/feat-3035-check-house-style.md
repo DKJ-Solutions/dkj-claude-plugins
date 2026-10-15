@@ -54,8 +54,9 @@ parse for checks 2 and 3, and CSS embedded in non-CSS files in scope.
 
 ### TEST
 
-- [x] `scripts/tests/check-house-style.tests.ps1`: 47 asserts on the rules, the retired list held to the vendored v3 copy, and the gate and session check against scratch repos and this repo itself.
-- [x] Run on this repo: the first version took 281s (a selector regex rescanning every run), the lookbehind version 21s; 101 findings, all in dkj-policy pages, answered by the allowlist.
+- [x] `scripts/tests/check-house-style.tests.ps1`: 51 asserts on the rules, the retired list held to the vendored v3 copy, and the gate and session check against scratch repos and this repo itself.
+- [x] Run on this repo: the first version took 281s (a selector regex rescanning every run), the lookbehind version 21s, and with a one-regex prefilter before the class pass (Victor's review) 2.5s. Every hit is in a dkj-policy page and answered by the allowlist; the connector dashboard passes on its own.
+- [x] Review: Victor (prefilter, quoted selectors, attribute and `:is()` spaces, exit 2 on a throwing repo-config, a note for skipped files), Sebastian (session output sanitised, `persist-credentials: false`, no `pull_request_target`), Edith (three doc-versus-code wordings) -- all applied.
 
 ### DEPLOY: feat/3035-check-house-style
 
