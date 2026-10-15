@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**19 / 34 minor entries** <!-- pending-tally -->
+**20 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3020-sync-body-path-escape · 20261015-072306Z
+
+A theme path in the sync PR body, the Git-connected back-flow PR body and the sync log can no longer turn into markdown. `Convert-GitQuotedPath` restores newlines and backticks from git's quoting, so a filename saved on live could close its code span and start a body line carrying an `@`-ping and a closing keyword that fires at the merge. Each path now has its control and format characters replaced by a space, the same class the console already strips, and sits in a code span longer than any backtick run inside it ([#3020](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3020)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store running `sync-main` gets a sync PR body that a third party's filename cannot inject into. Ordinary paths render exactly as before.
+
+**Score:** 1
+
+#### Pull Request
+
+sync PR body: a theme path is rendered inert in its code span
+
+Plugins: bwj-development, dkj-policy, dkj-subagents-shopify
+
+[PR #3025](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3025)
+
+---
 
 ### DEPLOY: fix/3015-paste-safe-anchors · 20261015-070659Z
 
