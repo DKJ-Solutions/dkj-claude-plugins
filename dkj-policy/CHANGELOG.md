@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**21 / 36 minor entries** <!-- pending-tally -->
+**22 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3014-guard-push-to-live-deploy-branch · 20261015-085746Z
+
+`guard-live-theme` now holds a Git-connected live theme too. Where `Get-ShopifyLiveDeployBranch` names the branch the live theme deploys from, a `git push` to that branch is refused unless it carries the live-push marker: a refspec whose destination is the branch, `--all`, `--branches` or `--mirror`, a glob or a refspec the shell still expands, or a push with no refspec while that branch is checked out or when that cannot be told. `gh pr merge` is deliberately not gated, because the deploy ruleset already requires the promotion PR; the push is what goes around it. Without the seam nothing changes ([#3014](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3014), part of [#2998](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2998)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store whose live theme deploys from a branch no longer has its ruleset as the only rail: a session whose credentials carry a ruleset bypass can no longer push straight to live without the marker. A store on the CLI push sees no difference.
+
+**Score:** 2
+
+#### Pull Request
+
+guard-live-theme: refuse a git push to a Git-connected live theme's deploy branch
+
+Plugins: bwj-development, dkj-subagents-shopify
+
+[PR #3027](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3027)
+
+---
 
 ### DEPLOY: feat/3012-prepare-release-connected-mode · 20261015-081541Z
 
