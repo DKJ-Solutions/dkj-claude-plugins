@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**5 / 5 minor entries** <!-- pending-tally -->
+**6 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3047-dev-preview-placeholder · 20261015-183438Z
+
+The dev-preview hook in `dkj-solutions` no longer stays silent in a repo that states no `Get-DevPreview`
+([#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). It starts a plugin-shipped
+placeholder page on the first free port from 4880 to 4889, built on the house style, that names the repo
+and shows how to add a preview of its own. The placeholder is reused and never doubled, like any repo's
+server. Where the repo's `.vscode/settings.json` routes that port to the Simple Browser, it opens there.
+Otherwise the session-start line names the route to add. The plugin now carries its own vendored house
+style, and a test holds it to the skill's checksums.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions repo now opens a dev preview at session start. A repo with nothing to serve yet gets
+a placeholder page at `http://localhost:4880/` (or the next free port up to 4889) that says how to state
+`Get-DevPreview`, instead of nothing. To see it in VS Code's Simple Browser, add
+`"localhost:4880": "simpleBrowser.open"` under `workbench.externalUriOpeners` in the repo's
+`.vscode/settings.json`. The line at session start tells you when that route is missing.
+
+**Score:** 3
+
+#### Pull Request
+
+Open a placeholder dev preview when a DKJ-Solutions repo states no Get-DevPreview
+
+Plugins: dkj-solutions
+
+[PR #3048](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3048)
+
+---
 
 ### DEPLOY: feat/3044-awaiting-pull-external · 20261015-163427Z
 
