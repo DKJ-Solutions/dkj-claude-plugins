@@ -63,7 +63,7 @@ advice, recorded on the issue): gate the direct push only. The deploy ruleset al
       refspecs, inner quotes, `heads/<branch>`, abbreviated `--mirror`/`--all`, `@`, a `-c alias.`, and HEAD
       read from the payload's cwd -- all repaired and pinned; prose findings applied.
 - [x] `guard-live-theme.tests.ps1`: 203 passed, 0 failed.
-- [ ] The full gate through `open-pr`.
+- [x] The full gate through `open-pr` (run by ship-pr; a red gate stops it before the push).
 
 ### DEPLOY: feat/3014-guard-push-to-live-deploy-branch
 
