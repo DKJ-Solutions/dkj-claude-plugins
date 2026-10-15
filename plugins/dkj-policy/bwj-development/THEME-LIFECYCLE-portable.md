@@ -73,6 +73,17 @@ it was verified against, are on the
 [`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md#restore-live-from-the-backup)
 page.
 
+**A store whose live theme is Git-connected runs the same order, with a promotion in the push's
+place** (#2998). Answering `Get-ShopifyLiveDeployBranch` makes going live the merge of a promotion PR
+into that branch, so the order reads promote-then-cut and the two moments above read *before* and
+*after* the promotion. The backup is still a `shopify theme duplicate` of live, and of a connected theme
+that is a **detached** copy that can drop files without saying so (measured in
+`BWJ-Development/smartwatchbanden#943`). For a backup detached is what is wanted, and the drop is what
+the verify step exists to catch, so neither changes what a store owes. What it changes for a preview is
+on the `push-preview` page, and the mechanics are on the
+[`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md#a-git-connected-live-theme-the-backup-is-a-detached-copy-3013)
+page (#3013).
+
 **#1965 also asked for a preview of the trunk at the cut, and it is deliberately not built.** Under
 push-then-cut the trunk is already live at that moment, so the preview would be byte-identical to the
 live storefront -- a theme slot spent on a review target with nothing to review. It is worth building

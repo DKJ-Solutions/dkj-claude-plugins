@@ -357,6 +357,13 @@ $warn = Get-CutOrderWarning -TrunkIsLive $false
 Assert-True ([bool]$warn)                             'a cut taken before the push warns'
 Assert-True ($warn.Contains('push-then-cut'))         '...naming the order this workflow runs'
 Assert-True ($warn.Contains('THEME-LIFECYCLE'))       '...and where the rule is written down'
+# A GIT-CONNECTED STORE NEVER PUSHES (#3013): named, the deploy branch turns the line into a promotion.
+$conn = Get-CutOrderWarning -TrunkIsLive $false -DeployBranch 'live'
+Assert-True ($conn.Contains("promoted into 'live'"))  'a connected store is told the trunk has not been promoted'
+Assert-True ($conn.Contains('promote-then-cut'))      '...naming the order it runs'
+Assert-True (-not $conn.Contains('pushed'))           '...and never a push it does not make'
+Assert-Equal $warn (Get-CutOrderWarning -TrunkIsLive $false -DeployBranch '  ') 'a blank deploy branch is the CLI wording'
+Assert-Equal '' (Get-CutOrderWarning -TrunkIsLive $true -DeployBranch 'live') 'a promoted trunk is silent'
 
 # BOTH CALLERS READ 'short' THE SAME WAY (#2350, Dave, September 23, 2026): it ends a wait only once the
 # deadline has passed. backup-live-theme used to break on the first 'short' while push-preview waited it

@@ -130,6 +130,24 @@ for example in the release document or the sync log.
 The rule is where the bytes are, not why Shopify dropped them. That is why the two unexplained paths
 pass on the same terms as the two explained ones.
 
+### A Git-connected live theme: the backup is a detached copy (#3013)
+
+**Where `Get-ShopifyLiveDeployBranch` names a branch, live deploys from it** (#2998), and the copy this
+step makes is still an ordinary theme. Measured in `BWJ-Development/smartwatchbanden#943`: a `shopify
+theme duplicate` of a Git-connected theme is **detached**. It does not follow later commits on the deploy
+branch, and it can **drop files without saying so** (486 of 494 templates there).
+
+- **For a backup, detached is what is wanted.** A rollback point that moved with the branch would hold
+  the state it was taken to protect against. The copy holds live as it stood at the duplicate, and that
+  is the whole job.
+- **The drop is caught by the verify step above, not by the CLI.** The duplicate reports success either
+  way, so a short copy is judged path by path against the trunk exactly as in any other store. A path
+  the trunk does not hold with live's bytes still refuses. In a connected store that is the likely case
+  for a theme-editor save the back-flow PR has not landed yet, so land that PR first.
+- **The order warning speaks of a promotion.** Answered, the seam turns `Get-CutOrderWarning`'s line
+  into *"the trunk has NOT been promoted into `<branch>` yet"*, because a connected store never runs the
+  push the CLI wording names.
+
 ## Restore live from the backup
 
 **A restore PUBLISHES the backup theme, and a person runs it** (Dave, September 28, 2026,
