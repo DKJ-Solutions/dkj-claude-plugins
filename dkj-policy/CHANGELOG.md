@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**19 / 33 minor entries** <!-- pending-tally -->
+**19 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3015-paste-safe-anchors · 20261015-070659Z
+
+`Test-RefPasteSafe` and `Test-PathPasteSafe` no longer report a ref or path with a trailing newline as paste-safe. Their patterns ended in `$`, which in .NET also matches before a final newline, so a value read off a file or a native call's output could pass, and a printed command broke at that point. Both are now anchored with `\A...\z`, as #3008 did for its own copies ([#3015](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3015)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing a user notices: it prevents a printed command that breaks at a stray newline, which has not been reported in use.
+
+**Score:** N/A
+
+#### Pull Request
+
+ref-print-lib: paste-safe patterns refuse a trailing newline
+
+Plugins: bwj-development, dkj-policy, dkj-subagents-shopify
+
+[PR #3024](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3024)
+
+---
 
 ### DEPLOY: docs/3013-connected-live-duplicate · 20261015-065212Z
 
