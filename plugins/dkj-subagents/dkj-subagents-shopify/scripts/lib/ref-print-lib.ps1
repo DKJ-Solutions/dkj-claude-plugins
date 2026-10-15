@@ -151,13 +151,15 @@
 # Both patterns are matched with -cmatch, NEVER -match (issue #2516): -match is case-INsensitive, and under
 # case folding U+212A KELVIN SIGN matches `k` in [A-Za-z0-9], so a look-alike letter passed as safe. The
 # classes already list both cases, so -cmatch refuses nothing that is genuinely ASCII.
-$script:RefPasteSafePattern = '^[A-Za-z0-9][A-Za-z0-9._/-]*$'
+# Anchored with \A and \z, NEVER ^ and $ (issue #3015): in .NET `$` also matches before a final `\n`, so
+# "live`n" passed as safe and a printed command broke at the newline. \z is the true end of the string.
+$script:RefPasteSafePattern = '\A[A-Za-z0-9][A-Za-z0-9._/-]*\z'
 
 # The path variant (issue #1762). The ref pattern plus exactly the two characters an ABSOLUTE path
 # needs and a ref never has: a drive/scheme `:`, and a leading `/` for a POSIX root. `\` is NOT in it --
 # it is folded to `/` before the match (ConvertTo-PastePath). Everything the ref pattern refuses, this
 # refuses too. The reasoning is in this file's header block, under THE PATH PATTERN IS ITS OWN.
-$script:PathPasteSafePattern = '^[A-Za-z0-9/][A-Za-z0-9._/:-]*$'
+$script:PathPasteSafePattern = '\A[A-Za-z0-9/][A-Za-z0-9._/:-]*\z'
 
 function Test-RefPasteSafe {
     <#
