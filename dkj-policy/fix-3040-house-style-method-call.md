@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Issue [#3040](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3040) and its two comments
+(dkj-music-library, dkj-etf-tracker). Read in `Find-HouseStyleClassHit`: the text before any `{` is
+taken as a selector, and the class pattern excluded only a word character or quote before the dot.
+Reproduced on strings: a chained `.sort(`/`.map(` before `=> ({`, `[...H].sort((a, b) => {`, and an
+object spread `...meta,`. The Python `.sub(lambda` shape did not reproduce from the description alone.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The class pattern (and the own-class pattern beside it) refuses a dot before the dot and a `(` right after the name; `]` and `)` before the dot stay allowed, because `[x].card` and `:not(.a).card` are selectors.
+- [x] `check-house-style.tests.ps1`: one line held two asserts with no separator; split.
 
 ### TEST
 
+- [x] Six new asserts in group 1d: the three script shapes give no hit, the two CSS shapes beside a `]`/`)` still do, and a method call elsewhere does not hide a real rule. 58 passed.
+
 ### DEPLOY: fix/3040-house-style-method-call
 
-**Score:**
+`check-house-style` no longer reads a method call or an object spread in a script as a house class
+selector ([#3040](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3040)). A chained `.sort(`
+or `.map(` before an arrow function, and `...meta,` inside an object literal, had been reported as
+restyling `.sort`, `.map` or `.meta`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a DKJ-Solutions repo, the house-style gate and its session-start line no longer flag TypeScript or
+JavaScript such as `.sort((a, b) => {` or `{ ...meta, }` as a restyled house class. A repo that had to
+answer those lines in `Get-HouseStyleAllowlist` can remove those entries.
+
+**Score:** 2
 
 #### Pull Request
 
+check-house-style: a method call or object spread is no house class selector
