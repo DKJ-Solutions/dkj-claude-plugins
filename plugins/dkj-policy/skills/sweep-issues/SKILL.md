@@ -110,6 +110,10 @@ gh issue edit <n> --add-label <awaiting-label>
 gh issue comment <n> --body "Parked by a sweep: waiting on <what>."
 ```
 
+Where an installed extension closes an act-only issue instead of parking it (`bwj-development` does,
+#3062), that extension's close applies in place of `awaiting-action-dev`, under that extension's own
+conditions and with the act, and who performs it, recorded on the issue.
+
 `-SkipIssue` lasts one run and writes nothing, so a wait held out that way is judged again by every
 sweep after it. Measured October 6, 2026
 ([xoxowildhearts](https://github.com/BWJ-Development/xoxowildhearts)): five of six `free` issues

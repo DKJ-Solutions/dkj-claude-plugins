@@ -59,7 +59,7 @@ The core's `CONTRIBUTING-portable.md` now permits an extension to close an act-o
 with a record of the act and of who performs it, instead of parking it under `awaiting-action-dev`
 ([#3062](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3062), Maikel, October 16, 2026).
 `bwj-development` uses that permission through its #3059 rule. That rule had contradicted the core, and
-since the core wins it would have lost. A repo without such an extension still parks the issue. The
+since the core wins, that rule would have had to give way. A repo without such an extension still parks the issue. The
 `sweep-issues` skill's parking step says the same.
 
 **Score:** 2

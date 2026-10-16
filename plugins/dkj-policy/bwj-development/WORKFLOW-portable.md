@@ -425,7 +425,8 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   names that act and who performs it. Examples are a release, a publish in the Shopify admin, or an
   owner's decision on a ruleset. It is not parked under an `awaiting-*` label, so the open issues and the
   `In Progress` column show only work that can still be built. The core's `CONTRIBUTING-portable.md`
-  parks the same issue under `awaiting-action-dev` instead, and which of the two pages yields is open
+  parks such an issue under `awaiting-action-dev` by default and permits an extension to close it
+  instead, so this rule extends the core rather than overriding it
   ([#3062](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3062)). **The test is one question: does any step
   still change a file in the repo?** Where one code step is all that keeps an otherwise act-only issue
   open, move that step into the issue that already carries the related code work, and close this one.
