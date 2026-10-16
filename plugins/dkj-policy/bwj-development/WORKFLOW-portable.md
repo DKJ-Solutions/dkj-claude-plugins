@@ -497,6 +497,26 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   #2860). No comment goes on the closed issue, no relay carries it and no connector posts it on the
   task. The issue stays closed, so nothing is done with it there. Measured on smartwatchbanden#393: reopened at the question, the answer was "this is already
   how it works", and the task kept a reopened/closed pair for work that never restarted.
+  **"Something has to be built" means a file in the repo changes** (Maikel, October 16, 2026,
+  [#3073](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3073)): *"een github issue wordt
+  alleen heropend als we echt iets in de code moeten aanpassen."* Work in the Shopify admin -- a
+  metaobject or its definition, a metafield, a setting, content, a tag -- or any other act outside the
+  repo is no reason to reopen, and nothing is posted on the task for it. Measured on smartwatchbanden#395:
+  the requester sent author data, the session reopened the issue, found the theme already read the
+  `blog_author` metaobject, created the definition and one entry through the Admin API, and closed it
+  again with a go-live block. The task kept a reopened/closed pair, and a block that read like a
+  release, for work that never touched the repo. **Admin-only work goes one of two ways, and neither
+  reopens:**
+  - **The requester can do it themselves: hand it to them, do not do it for them.** *"Als Dwight gewoon
+    de mogelijkheid heeft om het zelf te doen, dan heeft mijn voorkeur altijd dat hij het ook gewoon zelf
+    doet."* The session's answer, in the terminal by the #2860 route above, is an instruction the
+    requester can follow now and next time: where in the admin, what exactly to enter, and the exact
+    keys or handles the theme reads. The point is that the next request of the same kind never comes
+    back to development.
+  - **Only where they cannot** -- no access, or a tool they do not have -- **development does the admin
+    act**, still without reopening, because no code changes. That act is not closed out with a
+    `-LiveSince` go-live block on the reopened issue either: there is no reopened issue, and the answer
+    to the requester goes by the same terminal route.
 - A card stays where `report-issue` put it (`Filed`) unless a person moves it.
 - A priority is set in Asana and the `asana-prio-label` workflow puts it on the issue as `prio-N` (step 5).
 
@@ -708,9 +728,10 @@ the block's position and the issue.
    instead of assuming it.
 3. **A rejection asks for two things, and starts a new round.** *What* is not right yet **and** *what*
    exactly should change -- the first alone hands the next round another guess. The rejection is
-   researched with the issue still closed, and the issue is reopened only once that shows something has
-   to be built (#2856, under *Reopening an issue* above); then the cycle starts again with a new result
-   to look at.
+   researched with the issue still closed, and the issue is reopened only once that shows a file in the
+   repo has to change (#2856, #3073, under *Reopening an issue* above). Then the cycle starts again with
+   a new result to look at. Admin-only work is not that: where the requester can do it themselves, they
+   get an instruction for it, and nothing is reopened.
 4. **The issue and the task close at different moments.** The issue carries the development work, which
    is finished once the block is on the task; the task carries the colleague's question, which stays
    open until they have answered it. Holding the issue open until then ties the tracker to the calendar

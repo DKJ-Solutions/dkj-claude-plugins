@@ -94,6 +94,13 @@ store even though no repo file changed, so it takes the go-live form with `-Link
 <day>`. Measured on smartwatchbanden#395: a metaobject that changed the live structured data was closed
 with `-Research`, and the requester rejected it.
 
+**That form closes an issue that was opened for the admin act, never one reopened for it**
+([#3073](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3073), Maikel, October 16, 2026). A
+follow-up on a closed issue that needs only admin work does not reopen it, because no repo file changes.
+Where the requester can do the work, they get an instruction; where they cannot, development does it
+without reopening. Either way the answer goes to the requester by the terminal route in
+[`WORKFLOW-portable.md`](../../WORKFLOW-portable.md) (*Reopening an issue*), and no block is posted.
+
 **Which close, by one question** -- every completed close opens with the same intro, *"is now
 **closed**: this Asana task is now in review."*, because the task goes on to review:
 
