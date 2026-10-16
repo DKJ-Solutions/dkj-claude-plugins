@@ -935,6 +935,50 @@ if (-not $queueActive -and $foldVerdict.Unknown) {
     Write-Warning "could not decide whether the fold can be pushed to 'main' -- $($foldVerdict.Reason)"
 }
 
+# --- Step 0c: is the local 'main' AHEAD of origin/main? (inbound #3078) ---------------------------
+# BOTH FOLD ARMS OF STEP 5 START FROM THE LOCAL 'main' -- the in-place arm checks it out, the worktree arm
+# adds a worktree on it -- and then fast-forward it to origin/main. A local trunk carrying a commit
+# origin/main lacks cannot be fast-forwarded, so that merge fails AFTER the PR has merged. Measured in
+# DKJ-Solutions/dkj-brandbook, October 16, 2026: one ship lost the fold race (#1792) and left its
+# redundant fold commit on 'main' with the two realign commands, the next ship from that checkout merged
+# PR #167, and step 5 then refused with "the FOLD IS STILL OWED" -- while fold-on-merge.yml had folded it.
+#
+# KNOWN BEFORE ANYTHING IS PUSHED, so asked HERE, where stopping is free. Read against the origin/main
+# this clone last fetched, with no fetch of its own: a stale origin/main can only hide a divergence the
+# post-merge check below still catches, never invent one. A count that cannot be read is no refusal --
+# the same best-effort posture as the worktree list above.
+#
+# NOT UNDER A QUEUE OR A FOLD LEFT TO CI, where step 5 never touches the local trunk, and NOT WITH
+# -TrustedRoot, whose fold is made in the caller's own tree. NEITHER COMMAND BELOW IS RUN: moving a
+# trunk pointer is a history operation this script leaves to a person, as step 5c does.
+if (-not $queueActive -and -not $foldDeferredToCi -and -not $TrustedRoot) {
+    $aheadRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-list', '--count', 'origin/main..main') -DiscardStderr
+    $aheadCount = 0
+    if ($aheadRead.ExitCode -eq 0 -and [int]::TryParse((($aheadRead.Output -join '') -replace '\s', ''), [ref]$aheadCount) -and $aheadCount -gt 0) {
+        $headAt0 = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--abbrev-ref', 'HEAD') -DiscardStderr
+        $onMain = ($headAt0.ExitCode -eq 0 -and (($headAt0.Output -join '') -replace '\s', '') -eq 'main')
+        $realign = if ($onMain) { "git -C `"$repoRoot`" reset --keep origin/main" } else { "git -C `"$repoRoot`" branch -f main origin/main" }
+        Write-Error @"
+This checkout's 'main' carries $aheadCount commit(s) that origin/main does not, so step 5 could not
+fast-forward it after the merge (inbound #3078). Nothing has been pushed or merged -- this is the cheap
+place to stop.
+
+The usual cause is an earlier ship that LOST the fold race (#1792): its redundant fold commit is still on
+the local trunk. Read what the commits are before moving anything:
+
+  git -C "$repoRoot" log --oneline origin/main..main
+
+If every one is a fold already upstream, preserve them and realign, then run ship-pr again:
+
+  git -C "$repoRoot" branch backup/main-ahead-$((Get-Date).ToString('yyyyMMdd-HHmmss')) main
+  $realign
+
+If one is real work, push it through its own branch instead -- it does not belong on the trunk.
+"@
+        exit 1
+    }
+}
+
 # --- Step 1: open the PR (open-pr.ps1 runs the lint + test gate, pushes, opens) ------------------
 # -Title is forwarded ONLY when one was given (#506): passing an empty string would make open-pr warn
 # about an ignored title on every ordinary run, which is how a warning stops being read.
@@ -3534,6 +3578,8 @@ $foldTree = $null
 # an undefined variable. $foldStoodDown is initialised for step 5c's sake on the same grounds: it asks
 # whether this run LOST the fold race, and a run that never entered it did not.
 $foldStoodDown = $false
+# Set where step 5's ff-only merge failed and origin/main already carries the fold (inbound #3078).
+$foldFoundUpstream = $false
 # WHETHER THIS RUN OWNS $foldTree AND MUST TAKE IT DOWN AFTERWARD (issue #2437). Every existing call
 # site below -- the two failure arms and the one after a successful fold -- calls Remove-ShipFoldWorktree
 # unconditionally, because until now $foldTree was ALWAYS either $null or a worktree THIS RUN created with
@@ -3711,7 +3757,31 @@ that output -- then fold by hand from a tree standing on an up-to-date main:
 
     $ff = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $foldRoot, 'merge', '--ff-only', 'origin/main')
     $ff.Output | ForEach-Object { Write-Host $_ }
-    if ($ff.ExitCode -ne 0) { Remove-ShipFoldWorktree -Path $foldTree -NotOwned:(-not $foldTreeIsOwned); Write-Error "git merge --ff-only of origin/main failed.$mergedNotFoldedNote"; exit 1 }
+    if ($ff.ExitCode -ne 0) {
+        Remove-ShipFoldWorktree -Path $foldTree -NotOwned:(-not $foldTreeIsOwned)
+        # BEFORE SAYING THE FOLD IS OWED, LOOK WHETHER IT IS (inbound #3078). The ff-only merge fails on a
+        # local trunk that diverged from origin/main -- step 0c refuses the known case before the merge, so
+        # what reaches here moved during the CI wait -- and fold-on-merge.yml folds off the very push this
+        # merge made. Measured in dkj-brandbook on PR #167: the run said "the FOLD IS STILL OWED" over a fold
+        # the runner had already pushed. So origin/main is read the way the fold's own race diagnosis reads
+        # it (#1792): the entry is there and the branch document is gone. Only BOTH turn the verdict;
+        # anything that cannot be read leaves the refusal exactly as it was, the safe direction.
+        try {
+            $clRel = (Get-SeamValue -Name 'Get-ChangelogPath' -Default (Get-DefaultChangelogPath -RepoRoot $repoRoot)) -replace '\\', '/'
+            $docRel = ([string]$shipProgressRel) -replace '\\', '/'
+            $remoteCl = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'show', "origin/main:$clRel") -Utf8 -DiscardStderr
+            $docUpstream = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'cat-file', '-e', "origin/main:$docRel") -DiscardStderr
+            if ($docRel -and $remoteCl.ExitCode -eq 0 -and $docUpstream.ExitCode -ne 0 -and
+                @(Get-EntryBlocksForBranch -ChangelogText ($remoteCl.Output -join "`n") -Branch $branch).Count -ge 1) {
+                $foldFoundUpstream = $true
+            }
+        } catch { $foldFoundUpstream = $false }
+        if (-not $foldFoundUpstream) { Write-Error "git merge --ff-only of origin/main failed.$mergedNotFoldedNote"; exit 1 }
+        Write-Host "ship-pr: 'main' here could not fast-forward, but origin/main ALREADY carries this branch's fold -- nothing is owed (#3078)." -ForegroundColor Yellow
+        Write-Host "  The entry is in the changelog on origin/main and the branch document is gone from it (fold-on-merge.yml, or another device)." -ForegroundColor DarkGray
+        Write-Host "  What is left is local only: this checkout's 'main' diverged from origin/main. Reported at the end of the run." -ForegroundColor DarkGray
+    }
+    if (-not $foldFoundUpstream) {
 
     # The fold, its commit AND its push are all fold-changelog-entry.ps1's job (-Push implies -Commit).
     # This used to be a fold followed by `git add -A` + commit + push right here, and that was a real
@@ -3814,6 +3884,7 @@ that output -- then fold by hand from a tree standing on an up-to-date main:
         Write-Error "fold-changelog-entry failed -- the fold is NOT committed or NOT pushed. Its own output above says which; do not re-run the fold if it already removed the entry file."
         exit 1
     }
+    } # end: if (-not $foldFoundUpstream) -- inbound #3078
 }
 
 # --- Step 5b: give the trunk back, if this is not the primary checkout (issue #1069) ---------------
@@ -3904,6 +3975,19 @@ if ($foldStoodDown) {
     }
     if ($backupRef.Note) { Write-Host "  $($backupRef.Note)" -ForegroundColor DarkGray }
 }
+# THE DIVERGED TRUNK WHOSE FOLD WAS ALREADY UPSTREAM (inbound #3078). Unlike the arm above, nothing proved
+# what the local-only commits are -- the fold never ran here -- so the log comes first, and the realign is
+# offered only for the case where they turn out to be folds. Neither command is run.
+if ($foldFoundUpstream) {
+    $headAfterUp = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', '--abbrev-ref', 'HEAD') -DiscardStderr
+    $onMainUp = ($headAfterUp.ExitCode -eq 0 -and (($headAfterUp.Output -join '') -replace '\s', '') -eq 'main')
+    Write-Host "ship-pr: this checkout's 'main' diverged from origin/main -- origin/main is CORRECT and folded. Read what is local only:" -ForegroundColor Yellow
+    Write-Host "    git -C `"$repoRoot`" log --oneline origin/main..main" -ForegroundColor Yellow
+    Write-Host "  If every commit there is a fold already upstream, preserve them and realign:" -ForegroundColor Yellow
+    Write-Host "    git -C `"$repoRoot`" branch backup/main-ahead-$((Get-Date).ToString('yyyyMMdd-HHmmss')) main" -ForegroundColor Yellow
+    if ($onMainUp) { Write-Host "    git -C `"$repoRoot`" reset --keep origin/main" -ForegroundColor Yellow }
+    else { Write-Host "    git -C `"$repoRoot`" branch -f main origin/main" -ForegroundColor Yellow }
+}
 
 # --- Step 6: the issues the PR declared it closes are actually closed -----------------------------
 # Its own script, so this state-MUTATING logic (it comments and closes) is testable against a fake gh
@@ -3920,6 +4004,8 @@ if ($LASTEXITCODE -ne 0) { Write-Warning "the issue-closing check reported a pro
 # that. Same sentence, one clause different, so the two runs are told apart at a glance.
 if ($foldStoodDown) {
     Write-Host "Done: PR #$pr shipped -- opened, CI green, merged, folded on main by whoever won the fold race (step 5c: two commands realign this checkout)." -ForegroundColor Green
+} elseif ($foldFoundUpstream) {
+    Write-Host "Done: PR #$pr shipped -- opened, CI green, merged, folded on main by CI or another device (step 5c: this checkout's 'main' diverged; read it before realigning)." -ForegroundColor Green
 } else {
     Write-Host "Done: PR #$pr shipped -- opened, CI green, merged, folded on main." -ForegroundColor Green
 }
