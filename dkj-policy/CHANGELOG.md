@@ -2,7 +2,42 @@
 
 ## [Unreleased]
 
-**7 / 10 minor entries** <!-- pending-tally -->
+**7 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/dashboard-owner-groups · 20261016-122013Z
+
+The connector dashboard (`scripts/dashboard/serve-connector-dashboard.ps1`) now groups its repos as
+**BWJ repos**, **DKJ repos** and **Other repos**. A repo's group is read from the owner in its connector
+manifest's `repo` slug (`BWJ-Development`, `DKJ-Solutions`, anything else), so a newly registered repo
+lands in the right group without an edit; inside a group the order is unchanged, worst status first,
+then by name, and a group with no repos is left out.
+
+The page's h1 is the repo's name, `dkj-claude-plugins`. A card headed **Connected repos** holds a table
+per group, the group named in the first column head, all sharing one fixed column set so their columns
+line up. A second card headed **Issues** carries an h3 per group and a house `mini-card` per repo with its
+details. Each group opens with a rule above its h3 and a line under it counting its repos and each
+status, worst first (`3 repos · 1 needs action · 1 not on this machine · 1 in sync`), and a repo's name
+in its card is set a size below that h3, so a group heading no longer reads as part of the card above.
+
+The Overview's **Errors** and **Notes** columns are gone: the tiles at the top count both, and each repo's own lines are in its Issues card. So is its **Checkout** column. What a checkout is checked out on and whether it holds
+uncommitted work said nothing about the repo, so the card no longer shows it either: it shows the last
+commit on the checkout's trunk, read from local refs. Nothing is fetched.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the dashboard is a local tool for this repo's maintainers and is not shipped in any plugin.
+
+**Score:** N/A
+
+#### Pull Request
+
+Connector dashboard groups repos by owner: BWJ, DKJ and other
+
+[PR #3068](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3068)
+
+---
 
 ### DEPLOY: fix/3062-extension-may-close-act-only · 20261016-120740Z
 
