@@ -193,6 +193,45 @@ function Test-DashboardCheckoutInScope {
     return $f.StartsWith($r + '\', [StringComparison]::OrdinalIgnoreCase)
 }
 
+function Get-ConnectorOwnerGroup {
+    <#
+        The group a repo is shown under, by the owner in its 'owner/name' slug: 'bwj' (BWJ-Development),
+        'dkj' (DKJ-Solutions) or 'other' for any other owner, a personal account included. Read from the
+        slug so a newly registered repo lands in its group without an edit here.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Repo)
+    $owner = if ($Repo -and $Repo.Contains('/')) { $Repo.Split('/')[0].ToLowerInvariant() } else { '' }
+    switch ($owner) {
+        'bwj-development' { return 'bwj' }
+        'dkj-solutions'   { return 'dkj' }
+        default           { return 'other' }
+    }
+}
+
+function Get-DashboardOwnerGroups {
+    <# The groups in page order, each with its heading. #>
+    return @(
+        @{ Key = 'bwj';   Title = 'BWJ repos' },
+        @{ Key = 'dkj';   Title = 'DKJ repos' },
+        @{ Key = 'other'; Title = 'Other repos' })
+}
+
+function Format-DashboardGroupSummary {
+    <# One line for a group: how many repos, then how many in each status, worst first -- '3 repos &#183; 1 needs action &#183; 2 in sync'. #>
+    param([AllowEmptyCollection()][AllowNull()][object[]]$Members)
+    $all = @($Members | Where-Object { $_ })
+    $parts = @("$($all.Count) repo" + $(if ($all.Count -ne 1) { 's' } else { '' }))
+    foreach ($s in @(
+            @{ Key = 'bad';  One = 'needs action';        Many = 'need action' },
+            @{ Key = 'warn'; One = 'has notes';           Many = 'have notes' },
+            @{ Key = 'skip'; One = 'not on this machine'; Many = 'not on this machine' },
+            @{ Key = 'good'; One = 'in sync';             Many = 'in sync' })) {
+        $n = @($all | Where-Object { $(if ([string]$_.Status -in @('bad', 'warn', 'skip')) { [string]$_.Status } else { 'good' }) -eq $s.Key }).Count
+        if ($n) { $parts += "$n " + $(if ($n -eq 1) { $s.One } else { $s.Many }) }
+    }
+    return ($parts -join ' &#183; ')
+}
+
 function Get-DashboardStatusBadge {
     <# The house-style badge and the word for a status. #>
     param([string]$Status)
@@ -204,23 +243,11 @@ function Get-DashboardStatusBadge {
     }
 }
 
-function Format-DashboardGitState {
-    <# One short phrase for a checkout's git state: branch, uncommitted count, and ahead/behind its upstream. #>
-    param([AllowNull()]$Git)
-    if ($null -eq $Git) { return 'not on this machine' }
-    if (-not $Git.Branch) { return 'not a git checkout' }
-    $parts = @($Git.Branch)
-    if ([int]$Git.Dirty -gt 0) { $parts += "$([int]$Git.Dirty) uncommitted" } else { $parts += 'clean' }
-    if ($null -ne $Git.Ahead -and [int]$Git.Ahead -gt 0) { $parts += "$([int]$Git.Ahead) ahead" }
-    if ($null -ne $Git.Behind -and [int]$Git.Behind -gt 0) { $parts += "$([int]$Git.Behind) behind" }
-    return ($parts -join ' &#183; ')
-}
-
 function Format-ConnectorDashboardHtml {
     <#
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
-        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Dirty; Ahead; Behind; Subject;
-        When } or $null); Notes }. -Meta is @{ GeneratedAt; SourceCommit; Seconds; CheckFailed }.
+        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
+        or $null); Notes }. -Meta is @{ GeneratedAt; SourceCommit; Seconds; CheckFailed }.
     #>
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
@@ -241,7 +268,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>Connected repos</title>')
+    [void]$sb.AppendLine('<title>dkj-claude-plugins &#183; Connected repos</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: only names the house file does not define (.cd-*), spaced from the house scale.
@@ -253,8 +280,14 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-figure { color: var(--primary-7); }')
     [void]$sb.AppendLine('.cd-link { color: var(--primary-7); text-underline-offset: 2px; }')
     [void]$sb.AppendLine('.cd-thead th { background: var(--primary-3); }')
+    [void]$sb.AppendLine('.cd-table-gap { margin-top: var(--spacing-4); }')
+    [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--primary-1); }')
+    # Each group opens with a rule above its h3 (not the first, right under the h2) and its summary line under it.
+    [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-6) 0 var(--spacing-0-5); padding-top: var(--spacing-5); border-top: 1px solid var(--primary-3); }')
+    [void]$sb.AppendLine('h2 + .cd-subgroup { margin-top: var(--spacing-3); padding-top: 0; border-top: 0; }')
+    [void]$sb.AppendLine('.cd-group-summary { margin: 0 0 var(--spacing-1); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
-    [void]$sb.AppendLine('.cd-repo h3 { margin: 0; }')
+    [void]$sb.AppendLine('.cd-repo h4 { margin: 0; font-size: var(--text-h5); }')
     [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
     [void]$sb.AppendLine('.cd-signals li { display: flex; gap: var(--spacing-2); align-items: flex-start; padding: var(--spacing-1-5) 0; border-top: 1px solid var(--primary-3); font-size: var(--text-sm); }')
     [void]$sb.AppendLine('.cd-signals li .badge { margin-top: 1px; }')
@@ -263,6 +296,10 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-notes { white-space: pre-wrap; font-size: var(--text-xs); color: var(--primary-6); max-height: 320px; overflow: auto; }')
     [void]$sb.AppendLine('.cd-status { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }')
     [void]$sb.AppendLine('.table td.cd-left, .table th.cd-left { text-align: left; }')
+    # Fixed layout, so each group's table takes these widths rather than sizing to its own content; the min-width keeps them readable, scrolling inside .table-wrap on a narrow screen.
+    [void]$sb.AppendLine('.cd-overview { table-layout: fixed; width: 100%; min-width: 860px; }')
+    [void]$sb.AppendLine('.cd-overview td { overflow-wrap: anywhere; }')
+    [void]$sb.AppendLine('.cd-col-repo { width: 36%; } .cd-col-status { width: 24%; } .cd-col-vis { width: 14%; } .cd-col-num { width: 10%; } .cd-col-ver { width: 16%; }')
     [void]$sb.AppendLine('@media (max-width: 760px) { main { padding-left: var(--spacing-4); padding-right: var(--spacing-4); } }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
@@ -270,7 +307,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<div class="cd-band" aria-hidden="true"></div>')
     [void]$sb.AppendLine('<main>')
     [void]$sb.AppendLine('<header class="cd-head">')
-    [void]$sb.AppendLine('<div><h1>Connected repos</h1>')
+    [void]$sb.AppendLine('<div><h1>dkj-claude-plugins</h1>')
     $commit = if ($Meta.SourceCommit) { ' &#183; source at <code>' + (& $e $Meta.SourceCommit) + '</code>' } else { '' }
     [void]$sb.AppendLine('<p class="sub">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine' + $commit + '.</p></div>')
     [void]$sb.AppendLine('<div class="controls"><a class="btn btn--primary" href="/refresh">Re-run the check</a></div>')
@@ -291,67 +328,82 @@ function Format-ConnectorDashboardHtml {
     }
     [void]$sb.AppendLine('</div>')
 
-    # The overview table: one row per repo, worst first, then by name.
+    # Grouped by owner (BWJ, DKJ, other); inside a group worst first, then by name. An empty group is left out.
     $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
     $sorted = @($all | Sort-Object @{ Expression = { $rank[[string]$_.Status] } }, @{ Expression = { [string]$_.Repo } })
-    [void]$sb.AppendLine('<div class="card cd-accent"><h2>Overview</h2>')
-    [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="cd-thead"><tr><th>Repo</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th><th class="cd-left">Checkout</th></tr></thead><tbody>')
-    foreach ($c in $sorted) {
-        $b = Get-DashboardStatusBadge ([string]$c.Status)
-        $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-        $nErr = @($c.Signals | Where-Object { $_.Level -eq 'ERROR' }).Count
-        $nInf = @($c.Signals | Where-Object { $_.Level -eq 'INFO' }).Count
-        [void]$sb.AppendLine('<tr><td><a class="cd-link" href="#' + $anchor + '">' + (& $e $c.Repo) + '</a></td>' +
-            '<td class="cd-left"><span class="cd-status"><span class="badge badge--sm ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span>' + $b.Word + '</span></td>' +
-            '<td>' + (& $e $c.Visibility) + '</td>' +
-            '<td>' + @($c.Plugins).Count + '</td>' +
-            '<td class="cd-left">' + (Format-DashboardInstalledVersion $c) + '</td>' +
-            '<td>' + $nErr + '</td><td>' + $nInf + '</td>' +
-            '<td class="cd-left">' + (Format-DashboardGitState $c.Git) + '</td></tr>')
-    }
-    [void]$sb.AppendLine('</tbody></table></div></div>')
+    $groups = @(foreach ($g in @(Get-DashboardOwnerGroups)) {
+            $members = @($sorted | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key })
+            if ($members.Count) { @{ Key = $g.Key; Title = $g.Title; Members = $members } }
+        })
 
-    # One card per repo.
-    foreach ($c in $sorted) {
-        $b = Get-DashboardStatusBadge ([string]$c.Status)
-        $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-        [void]$sb.AppendLine('<section class="card cd-accent" id="' + $anchor + '">')
-        [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h3>' + (& $e $c.Repo) + '</h3></div>')
-        $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
-        $ghUrl = 'https://github.com/' + (& $e $c.Repo)
-        [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
-            ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
-        if ($c.Git -and $c.Git.Branch) {
-            $last = if ($c.Git.Subject) { ' &#183; last commit ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) } else { '' }
-            [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + (Format-DashboardGitState $c.Git) + $last + '</p>')
+    # The overview (headed Connected repos): one card, one table per group, the group named in its first column head.
+    [void]$sb.AppendLine('<div class="card cd-accent"><h2>Connected repos</h2>')
+    foreach ($g in $groups) {
+        $members = $g.Members
+        # One fixed column set for every group's table, so the columns line up from table to table.
+        [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-overview" id="overview-' + $g.Key + '"><colgroup><col class="cd-col-repo"><col class="cd-col-status"><col class="cd-col-vis"><col class="cd-col-num"><col class="cd-col-ver"></colgroup><thead class="cd-thead"><tr><th>' + $g.Title + '</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th></tr></thead><tbody>')
+        foreach ($c in $members) {
+            $b = Get-DashboardStatusBadge ([string]$c.Status)
+            $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
+            [void]$sb.AppendLine('<tr><td><a class="cd-link" href="#' + $anchor + '">' + (& $e $c.Repo) + '</a></td>' +
+                '<td class="cd-left"><span class="cd-status"><span class="badge badge--sm ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span>' + $b.Word + '</span></td>' +
+                '<td>' + (& $e $c.Visibility) + '</td>' +
+                '<td>' + @($c.Plugins).Count + '</td>' +
+                '<td class="cd-left">' + (Format-DashboardInstalledVersion $c) + '</td></tr>')
         }
-        [void]$sb.AppendLine('<div class="cd-plugins">')
-        foreach ($p in @($c.Plugins)) {
-            $n = @($p.Extensions).Count
-            [void]$sb.AppendLine('<span><code>' + (& $e $p.Id) + '</code> &#183; ' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + '</span>')
-        }
-        [void]$sb.AppendLine('</div>')
-        $drift = Format-DashboardDrift $c.Drift
-        if ($drift) { [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + $drift + '</p>') }
-        $shown =@($c.Signals | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
-        if ($shown.Count) {
-            [void]$sb.AppendLine('<ul class="cd-signals">')
-            foreach ($s in $shown) {
-                $cls = switch ($s.Level) { 'ERROR' { 'badge--bad' } 'INFO' { 'badge--warn' } default { 'badge--neutral' } }
-                $mk = switch ($s.Level) { 'ERROR' { '!' } 'INFO' { 'i' } default { '-' } }
-                $who = if ($s.Plugin) { '<code>' + (& $e $s.Plugin) + '</code> ' } else { '' }
-                [void]$sb.AppendLine('<li><span class="badge badge--sm ' + $cls + '" aria-label="' + $s.Level + '">' + $mk + '</span><span>' + $who + (& $e $s.Text) + '</span></li>')
-            }
-            [void]$sb.AppendLine('</ul>')
-        } elseif ($c.Present) {
-            $nOk = @($c.Signals | Where-Object { $_.Level -eq 'OK' }).Count
-            [void]$sb.AppendLine('<p class="note">All ' + $nOk + ' checks pass.</p>')
-        }
-        if ($c.Notes) {
-            [void]$sb.AppendLine('<details class="more"><summary>Register notes</summary><div class="cd-notes">' + (& $e $c.Notes) + '</div></details>')
-        }
-        [void]$sb.AppendLine('</section>')
+        [void]$sb.AppendLine('</tbody></table></div>')
     }
+    [void]$sb.AppendLine('</div>')
+
+    # The per-repo details, a card of their own beside Connected repos, headed Issues: an h2, an h3 per group, and a house
+    # mini-card per repo (a card inside a card).
+    [void]$sb.AppendLine('<div class="card cd-accent" id="issues"><h2>Issues</h2>')
+    foreach ($g in $groups) {
+        $members = $g.Members
+        # The group's own line under its heading, so the h3 opens a block instead of hanging between two cards.
+        [void]$sb.AppendLine('<h3 class="cd-subgroup" id="group-' + $g.Key + '">' + $g.Title + '</h3>')
+        [void]$sb.AppendLine('<p class="sub cd-group-summary">' + (Format-DashboardGroupSummary $members) + '</p>')
+        foreach ($c in $members) {
+            $b = Get-DashboardStatusBadge ([string]$c.Status)
+            $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
+            [void]$sb.AppendLine('<section class="mini-card cd-accent cd-repo-card" id="' + $anchor + '">')
+            [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h4>' + (& $e $c.Repo) + '</h4></div>')
+            $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
+            $ghUrl = 'https://github.com/' + (& $e $c.Repo)
+            [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
+                ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
+            if ($c.Git -and $c.Git.Subject) {
+                [void]$sb.AppendLine('<p class="meta" style="white-space: normal">Last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) + '</p>')
+            }
+            [void]$sb.AppendLine('<div class="cd-plugins">')
+            foreach ($p in @($c.Plugins)) {
+                $n = @($p.Extensions).Count
+                [void]$sb.AppendLine('<span><code>' + (& $e $p.Id) + '</code> &#183; ' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + '</span>')
+            }
+            [void]$sb.AppendLine('</div>')
+            $drift = Format-DashboardDrift $c.Drift
+            if ($drift) { [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + $drift + '</p>') }
+            $shown =@($c.Signals | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
+            if ($shown.Count) {
+                [void]$sb.AppendLine('<ul class="cd-signals">')
+                foreach ($s in $shown) {
+                    $cls = switch ($s.Level) { 'ERROR' { 'badge--bad' } 'INFO' { 'badge--warn' } default { 'badge--neutral' } }
+                    $mk = switch ($s.Level) { 'ERROR' { '!' } 'INFO' { 'i' } default { '-' } }
+                    $who = if ($s.Plugin) { '<code>' + (& $e $s.Plugin) + '</code> ' } else { '' }
+                    [void]$sb.AppendLine('<li><span class="badge badge--sm ' + $cls + '" aria-label="' + $s.Level + '">' + $mk + '</span><span>' + $who + (& $e $s.Text) + '</span></li>')
+                }
+                [void]$sb.AppendLine('</ul>')
+            } elseif ($c.Present) {
+                $nOk = @($c.Signals | Where-Object { $_.Level -eq 'OK' }).Count
+                [void]$sb.AppendLine('<p class="note">All ' + $nOk + ' checks pass.</p>')
+            }
+            if ($c.Notes) {
+                [void]$sb.AppendLine('<details class="more"><summary>Register notes</summary><div class="cd-notes">' + (& $e $c.Notes) + '</div></details>')
+            }
+            [void]$sb.AppendLine('</section>')
+        }
+    }
+    [void]$sb.AppendLine('</div>')
 
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     [void]$sb.AppendLine('<p class="footer-note">Checked ' + (& $e $Meta.GeneratedAt) + $secs + '. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')

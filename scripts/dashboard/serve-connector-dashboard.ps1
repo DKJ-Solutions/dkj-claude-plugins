@@ -19,8 +19,8 @@
 
     THE DATA IS READ ON DEMAND AND KEPT FOR -CacheSeconds. The first request after that runs
     check-connectors.ps1 again, drift check included (#2997, about 1.4 s more), reads every connectors/*.json, and asks
-    git for each checkout's branch, uncommitted count and ahead/behind against its upstream -- local refs
-    only, no fetch. /refresh drops the cache and redirects to the page.
+    git for the last commit on each checkout's trunk -- local refs only, no fetch.
+    /refresh drops the cache and redirects to the page.
 
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped, so a browser's speculative
@@ -81,15 +81,25 @@ function Invoke-DashboardGit {
 }
 
 function Get-DashboardGitInfo {
-    <# Branch, uncommitted count and ahead/behind of one checkout, from local refs only. #>
+    <#
+        The last commit on one checkout's TRUNK -- origin/HEAD's target, else 'main', or 'master' where only
+        that exists -- from local refs only. The branch the checkout stands on is read only to tell a git
+        checkout from a folder that is not one.
+    #>
     param([string]$Path)
     $branch = Invoke-DashboardGit $Path @('rev-parse', '--abbrev-ref', 'HEAD')
     if ($null -eq $branch) { return @{ Branch = $null } }
-    $dirty = Invoke-DashboardGit $Path @('status', '--porcelain')
-    $info = @{ Branch = [string]$branch[0]; Dirty = @($dirty | Where-Object { $_ }).Count; Ahead = $null; Behind = $null; Subject = ''; When = '' }
-    $counts = Invoke-DashboardGit $Path @('rev-list', '--left-right', '--count', 'HEAD...@{u}')
-    if ($counts -and ([string]$counts[0]) -match '^(\d+)\s+(\d+)$') { $info.Ahead = [int]$Matches[1]; $info.Behind = [int]$Matches[2] }
-    $last = Invoke-DashboardGit $Path @('log', '-1', '--format=%cr%x09%s')
+    $info = @{ Branch = [string]$branch[0]; Subject = ''; When = ''; Trunk = $null }
+    $originHead = Invoke-DashboardGit $Path @('symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD')
+    $trunk = if ($originHead -and ([string]$originHead[0]) -match '^origin/(.+)$') { $Matches[1] }
+             elseif (-not (Invoke-DashboardGit $Path @('rev-parse', '--verify', '--quiet', 'refs/heads/main')) -and (Invoke-DashboardGit $Path @('rev-parse', '--verify', '--quiet', 'refs/heads/master'))) { 'master' }
+             else { 'main' }
+    # The name goes on a git command line, so it must read as a ref and never as an option.
+    if ($trunk -match '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -and (Invoke-DashboardGit $Path @('rev-parse', '--verify', '--quiet', "refs/heads/$trunk"))) {
+        $info.Trunk = $trunk
+    }
+    if (-not $info.Trunk) { return $info }
+    $last = Invoke-DashboardGit $Path @('log', '-1', '--format=%cr%x09%s', "refs/heads/$($info.Trunk)")
     if ($last -and ([string]$last[0]) -match '^([^\t]*)\t(.*)$') { $info.When = $Matches[1]; $info.Subject = $Matches[2] }
     return $info
 }
