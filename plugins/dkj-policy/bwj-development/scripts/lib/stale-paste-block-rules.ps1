@@ -2,7 +2,9 @@
 .SYNOPSIS
     The pure half of hooks/guard-stale-paste-block.ps1: whether a shell command ships a pull request, and
     which issues that command says the PR will close (Get-ShipPrInvocation) -- and whether it closes an
-    issue as completed by hand, with 'gh issue close' (Get-IssueCloseInvocation, #3004).
+    issue as completed by hand, with 'gh issue close' (Get-IssueCloseInvocation, #3004) -- and which
+    issues it reopens with 'gh issue reopen' (Get-IssueReopenInvocation, read by guard-issue-reopen.ps1,
+    #3076).
 
 .DESCRIPTION
     INBOUND #2968. The go-live block an issue carries is what the asana-closed-message workflow forwards
@@ -229,4 +231,62 @@ function Get-IssueCloseInvocation {
     }
     if ($closes.Count -eq 0) { return $null }
     return [pscustomobject]@{ Closes = @($closes.ToArray()) }
+}
+function Get-IssueReopenInvocation {
+    <#
+        Pure: $null where -Command reopens no issue with 'gh issue reopen'; else Reopens -- the issues it
+        reopens, each Number and Repo ('' for the current repo, else the owner/name of --repo/-R or of an
+        issue URL), distinct, at most 20 (#3076).
+
+        THE REOPEN GUARD'S HALF, read for hooks/guard-issue-reopen.ps1. A reopen of an Asana-linked issue
+        posts a message on that task, so it reaches the colleague who asked: smartwatchbanden#395 was
+        reopened for work that changed no repo file, after #2856 already said to research first. The hook
+        asks a person before such a reopen runs.
+
+        THE SAME READING AS Get-IssueCloseInvocation: the tokeniser above, a leading '&', '.' or
+        'VAR=value' skipped, gh or gh.exe by its leaf name followed by the bare tokens 'issue' and
+        'reopen', and gh's flags read case-sensitively, an attached short value ('-Ro/r') included. Every
+        reopen counts; there is no reason to tell apart. An accident guard, with the same reach.
+    #>
+    param([AllowEmptyString()][string]$Command = '')
+
+    $reopens = New-Object System.Collections.Generic.List[object]
+    foreach ($segment in @(ConvertTo-ShellSegments -Command $Command)) {
+        $tok = @($segment)
+        $at = 0
+        while ($at -lt $tok.Count -and -not $tok[$at].Quoted -and ($tok[$at].Text -eq '&' -or $tok[$at].Text -eq '.' -or $tok[$at].Text -match '\A[A-Za-z_][A-Za-z0-9_]*=')) { $at++ }
+        if ($at + 2 -ge $tok.Count) { continue }
+        if (($tok[$at].Text -split '[\/]')[-1] -notmatch '(?i)\Agh(?:\.exe)?\z') { continue }
+        if ($tok[$at + 1].Quoted -or $tok[$at + 1].Text -ne 'issue' -or $tok[$at + 2].Quoted -or $tok[$at + 2].Text -ne 'reopen') { continue }
+
+        $repo    = ''
+        $targets = @()
+        for ($k = $at + 3; $k -lt $tok.Count; $k++) {
+            $t = $tok[$k].Text
+            $flag = $null
+            if (-not $tok[$k].Quoted -and $t -cmatch '\A(--repo|-R|--comment|-c)(?:=(.*))?\z') {
+                $flag  = $Matches[1]
+                $value = $Matches[2]
+            } elseif (-not $tok[$k].Quoted -and $t -cmatch '\A(-R|-c)(.+)\z') {
+                $flag  = $Matches[1]
+                $value = $Matches[2]
+            }
+            if ($flag) {
+                if ($null -eq $value) { if ($k + 1 -lt $tok.Count) { $k++; $value = $tok[$k].Text } else { $value = '' } }
+                if ($flag -ceq '--repo' -or $flag -ceq '-R') { $repo = ([string]$value).Trim() }
+                continue
+            }
+            if (-not $tok[$k].Quoted -and $t.StartsWith('-')) { continue }
+            $target = ConvertTo-IssueCloseTarget -Text $t
+            if ($target) { $targets += $target }
+        }
+        foreach ($target in $targets) {
+            $r = if ($target.Repo) { $target.Repo } else { $repo }
+            if ($r -and $r -notmatch '\A[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+\z') { continue }
+            $dup = @($reopens | Where-Object { $_.Number -eq $target.Number -and $_.Repo -eq $r }).Count -gt 0
+            if (-not $dup -and $reopens.Count -lt 20) { $reopens.Add([pscustomobject]@{ Number = $target.Number; Repo = $r }) }
+        }
+    }
+    if ($reopens.Count -eq 0) { return $null }
+    return [pscustomobject]@{ Reopens = @($reopens.ToArray()) }
 }

@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Option 2 of #3076, as Maikel decided it on October 16, 2026: a PreToolUse hook in `bwj-development`
+that asks (`permissionDecision: ask`) before `gh issue reopen` on an issue linking one Asana task, and
+passes every other reopen untouched.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-IssueReopenInvocation` in `stale-paste-block-rules.ps1`, beside the close parser it mirrors
+- [x] `hooks/guard-issue-reopen.ps1`, reading the body through `Read-AsanaIssueBlockState`, registered in `hooks.json` behind its own shell pre-gate
+- [x] The README hook row, the workflow page's reopen rule, the plugin description and the teams README count five hooks
 
 ### TEST
 
+- [x] `guard-stale-paste-block.tests.ps1` asserts the parser, the hook against the fake gh (linked asks, unlinked and ambiguous pass, unreadable asks, a mention costs no call, `-R` is read there) and the registration: 154 asserts green standalone
+
 ### DEPLOY: feat/3076-guard-issue-reopen
 
-**Score:**
+A new PreToolUse hook in `bwj-development`, `guard-issue-reopen.ps1`, asks the person in the session
+before `gh issue reopen` reopens an issue that links one Asana task
+([#3076](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3076)). Such a reopen posts a
+message on the task to the colleague who asked, and it is right only when repo code will change; the
+rule said so in prose (#2856, #3073), and a session on smartwatchbanden#395 still reopened. A hook
+cannot tell whether a file will change, so it asks rather than refuses. Every other reopen passes
+untouched, and an issue it cannot read is asked about too. Its parser sits beside the close guard's in
+`stale-paste-block-rules.ps1`, and its cases ride in that guard's suite, against the same fake gh.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a BWJ store session, reopening an Asana-linked issue now stops for a confirmation that names the
+issue and asks whether repo code will change, so a reopen for admin work or an answer no longer sends
+the colleague a "back in development" message by accident.
+
+**Score:** 3
 
 #### Pull Request
 

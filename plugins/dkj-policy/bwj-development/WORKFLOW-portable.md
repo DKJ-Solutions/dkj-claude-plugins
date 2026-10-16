@@ -505,8 +505,12 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   the requester sent author data, the session reopened the issue, found the theme already read the
   `blog_author` metaobject, created the definition and one entry through the Admin API, and closed it
   again with a go-live block. The task kept a reopened/closed pair, and a block that read like a
-  release, for work that never touched the repo. **Admin-only work goes one of two ways, and neither
-  reopens:**
+  release, for work that never touched the repo. **The rule alone did not hold, so a hook asks**
+  ([#3076](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3076)): the PreToolUse hook
+  `guard-issue-reopen.ps1` puts `gh issue reopen` on an issue that links one Asana task to the person in
+  the session (`permissionDecision: ask`), who confirms that repo code will change; every other reopen
+  passes untouched. It cannot tell whether a file will change, so it asks rather than refuses.
+  **Admin-only work goes one of two ways, and neither reopens:**
   - **The requester can do it themselves: hand it to them, do not do it for them.** *"Als Dwight gewoon
     de mogelijkheid heeft om het zelf te doen, dan heeft mijn voorkeur altijd dat hij het ook gewoon zelf
     doet."* The session's answer, in the terminal by the #2860 route above, is an instruction the
