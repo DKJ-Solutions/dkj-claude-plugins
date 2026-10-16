@@ -2,7 +2,46 @@
 
 ## [Unreleased]
 
-**7 / 11 minor entries** <!-- pending-tally -->
+**8 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3069-closed-message-intros · 20261016-130027Z
+
+In `bwj-development`, the message a closed issue posts on its Asana task now opens with where the
+task goes ([#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069)). Every close as
+completed opens with *"GitHub issue owner/repo#n is now **closed**: this Asana task is now in
+review."*. Only the line under it differs:
+
+- a visible change invites a reopen, as before;
+- a block that names a planned release day (no `-LiveSince`) says the result becomes visible with
+  that release. `build-golive-block` marks such a block with
+  `<!-- asana-paste-block-kind: after-release -->`;
+- a research close says *"Nothing has changed. Read the outcome below."*, replacing #3017's *"the
+  Asana task is ready for review"*.
+
+The not-planned on-hold close opens with *"this Asana task has been cancelled, because there is not
+enough information to start development."*. It never says "in review". The `golive-block` skill and
+`WORKFLOW-portable.md` now say `-Research` is only for when nothing changed on the store or in the
+repo, so a store-admin act that is already live takes the go-live form with `-LiveSince`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store maintainer takes the new `asana-closed-message.ps1` through `adopt-bwj-development`, and
+their colleagues read the new intros on the next close. Blocks posted before this version carry no
+after-release marker, so they keep the plain reopen line.
+
+**Score:** 3
+
+#### Pull Request
+
+bwj-development: closed messages open with the task's destination; -Research only when nothing changed
+
+Plugins: bwj-development
+
+[PR #3071](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3071)
+
+---
 
 ### DEPLOY: feat/dashboard-owner-groups · 20261016-122013Z
 
