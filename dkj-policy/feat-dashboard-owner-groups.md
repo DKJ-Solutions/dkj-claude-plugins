@@ -45,18 +45,20 @@ The group is read from the owner in each manifest's `repo` slug, so a new repo n
 ### CREATE
 
 - [x] `Get-ConnectorOwnerGroup` and `Get-DashboardOwnerGroups` in `scripts/lib/connector-dashboard-lib.ps1`
-- [x] The page renders one section per non-empty group (heading, Overview table, repo cards)
+- [x] One "Connected repos" overview card (h2) with an h3 and a table per non-empty group, then the repo cards under an h2 per group
+- [x] The h1 is the repo's name, `dkj-claude-plugins`
 
 ### TEST
 
-- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, and an empty group left out (98 passed)
+- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure, and an empty group left out (101 passed)
 - [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1
 
 ### DEPLOY: feat/dashboard-owner-groups
 
 The connector dashboard (`scripts/dashboard/serve-connector-dashboard.ps1`) now splits its index into
-three sections, **BWJ repos**, **DKJ repos** and **Other repos**, each with its own heading, repo count,
-Overview table and repo cards. A repo's group is read from the owner in its connector manifest's `repo`
+three groups, **BWJ repos**, **DKJ repos** and **Other repos**. Its h1 is the repo's name,
+`dkj-claude-plugins`, and the one overview card, now headed **Connected repos**, carries an h3 and a
+table per group, followed by the repo cards under an h2 per group. A repo's group is read from the owner in its connector manifest's `repo`
 slug (`BWJ-Development`, `DKJ-Solutions`, anything else), so a newly registered repo lands in the right
 section without an edit. Inside a group the order is unchanged: worst status first, then by name. A
 group with no repos is left out.

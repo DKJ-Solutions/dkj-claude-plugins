@@ -264,7 +264,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>Connected repos</title>')
+    [void]$sb.AppendLine('<title>dkj-claude-plugins &#183; Connected repos</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: only names the house file does not define (.cd-*), spaced from the house scale.
@@ -277,6 +277,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-link { color: var(--primary-7); text-underline-offset: 2px; }')
     [void]$sb.AppendLine('.cd-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.cd-group { display: flex; align-items: center; gap: var(--spacing-2); margin: var(--spacing-8) 0 var(--spacing-3); padding-bottom: var(--spacing-2); border-bottom: 2px solid var(--primary-7); }')
+    [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-5) 0 var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-group-count { font-size: var(--text-sm); color: var(--primary-6); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-repo h3 { margin: 0; }')
@@ -295,7 +296,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<div class="cd-band" aria-hidden="true"></div>')
     [void]$sb.AppendLine('<main>')
     [void]$sb.AppendLine('<header class="cd-head">')
-    [void]$sb.AppendLine('<div><h1>Connected repos</h1>')
+    [void]$sb.AppendLine('<div><h1>dkj-claude-plugins</h1>')
     $commit = if ($Meta.SourceCommit) { ' &#183; source at <code>' + (& $e $Meta.SourceCommit) + '</code>' } else { '' }
     [void]$sb.AppendLine('<p class="sub">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine' + $commit + '.</p></div>')
     [void]$sb.AppendLine('<div class="controls"><a class="btn btn--primary" href="/refresh">Re-run the check</a></div>')
@@ -319,11 +320,16 @@ function Format-ConnectorDashboardHtml {
     # Grouped by owner (BWJ, DKJ, other); inside a group worst first, then by name. An empty group is left out.
     $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
     $sorted = @($all | Sort-Object @{ Expression = { $rank[[string]$_.Status] } }, @{ Expression = { [string]$_.Repo } })
-    foreach ($g in @(Get-DashboardOwnerGroups)) {
-        $members = @($sorted | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key })
-        if (-not $members.Count) { continue }
-        [void]$sb.AppendLine('<h2 class="cd-group" id="group-' + $g.Key + '">' + $g.Title + ' <span class="cd-group-count">' + $members.Count + '</span></h2>')
-        [void]$sb.AppendLine('<div class="card cd-accent"><h3>Overview</h3>')
+    $groups = @(foreach ($g in @(Get-DashboardOwnerGroups)) {
+            $members = @($sorted | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key })
+            if ($members.Count) { @{ Key = $g.Key; Title = $g.Title; Members = $members } }
+        })
+
+    # The overview (headed Connected repos): one card, one table per group.
+    [void]$sb.AppendLine('<div class="card cd-accent"><h2>Connected repos</h2>')
+    foreach ($g in $groups) {
+        $members = $g.Members
+        [void]$sb.AppendLine('<h3 class="cd-subgroup" id="overview-' + $g.Key + '">' + $g.Title + ' <span class="cd-group-count">' + $members.Count + '</span></h3>')
         [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="cd-thead"><tr><th>Repo</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th><th class="cd-left">Checkout</th></tr></thead><tbody>')
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
@@ -338,9 +344,14 @@ function Format-ConnectorDashboardHtml {
                 '<td>' + $nErr + '</td><td>' + $nInf + '</td>' +
                 '<td class="cd-left">' + (Format-DashboardGitState $c.Git) + '</td></tr>')
         }
-        [void]$sb.AppendLine('</tbody></table></div></div>')
+        [void]$sb.AppendLine('</tbody></table></div>')
+    }
+    [void]$sb.AppendLine('</div>')
 
-        # One card per repo.
+    # One card per repo, under its group's heading.
+    foreach ($g in $groups) {
+        $members = $g.Members
+        [void]$sb.AppendLine('<h2 class="cd-group" id="group-' + $g.Key + '">' + $g.Title + ' <span class="cd-group-count">' + $members.Count + '</span></h2>')
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
