@@ -232,6 +232,7 @@ $iS = $grouped.IndexOf('<div class="card cd-accent" id="issues"><h2>Issues</h2>'
 Assert-True ($oO -lt $iS -and $iS -lt $iB -and $grouped -match '<h3 class="cd-subgroup" id="group-bwj">' -and $grouped -match '<h4>Someone/x</h4>') 'the details sit beside Connected repos: an h2 Issues, an h3 per group, the repo name an h4'
 Assert-True (([regex]::Matches($grouped, 'class="card ')).Count -eq 2 -and ([regex]::Matches($grouped, '<section class="mini-card cd-accent cd-repo-card"')).Count -eq 3) 'Connected repos and Issues are a card each, and each repo a house mini-card inside Issues'
 Assert-True ($html -notmatch 'id="group-bwj"' -and $html -match 'id="group-other"') 'an empty group is left out'
+Assert-True ($html -notmatch '<th>Errors</th>' -and $html -notmatch '<th>Notes</th>' -and ([regex]::Match($html, '<colgroup>.*?</colgroup>').Value -split '<col ').Count -eq 6) 'the overview has no Errors or Notes column: five columns, five widths'
 Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' -and $html -notmatch 'behind') 'the overview has no Main or Checkout column, and nothing measures a trunk against origin'
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="notice"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is a notice, escaped'

@@ -281,7 +281,7 @@ function Format-ConnectorDashboardHtml {
     # Fixed layout, so each group's table takes these widths rather than sizing to its own content; the min-width keeps them readable, scrolling inside .table-wrap on a narrow screen.
     [void]$sb.AppendLine('.cd-overview { table-layout: fixed; width: 100%; min-width: 860px; }')
     [void]$sb.AppendLine('.cd-overview td { overflow-wrap: anywhere; }')
-    [void]$sb.AppendLine('.cd-col-repo { width: 30%; } .cd-col-status { width: 20%; } .cd-col-vis { width: 12%; } .cd-col-num { width: 8%; } .cd-col-ver { width: 14%; }')
+    [void]$sb.AppendLine('.cd-col-repo { width: 36%; } .cd-col-status { width: 24%; } .cd-col-vis { width: 14%; } .cd-col-num { width: 10%; } .cd-col-ver { width: 16%; }')
     [void]$sb.AppendLine('@media (max-width: 760px) { main { padding-left: var(--spacing-4); padding-right: var(--spacing-4); } }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
@@ -323,18 +323,15 @@ function Format-ConnectorDashboardHtml {
     foreach ($g in $groups) {
         $members = $g.Members
         # One fixed column set for every group's table, so the columns line up from table to table.
-        [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-overview" id="overview-' + $g.Key + '"><colgroup><col class="cd-col-repo"><col class="cd-col-status"><col class="cd-col-vis"><col class="cd-col-num"><col class="cd-col-ver"><col class="cd-col-num"><col class="cd-col-num"></colgroup><thead class="cd-thead"><tr><th>' + $g.Title + '</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th></tr></thead><tbody>')
+        [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-overview" id="overview-' + $g.Key + '"><colgroup><col class="cd-col-repo"><col class="cd-col-status"><col class="cd-col-vis"><col class="cd-col-num"><col class="cd-col-ver"></colgroup><thead class="cd-thead"><tr><th>' + $g.Title + '</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th></tr></thead><tbody>')
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-            $nErr = @($c.Signals | Where-Object { $_.Level -eq 'ERROR' }).Count
-            $nInf = @($c.Signals | Where-Object { $_.Level -eq 'INFO' }).Count
             [void]$sb.AppendLine('<tr><td><a class="cd-link" href="#' + $anchor + '">' + (& $e $c.Repo) + '</a></td>' +
                 '<td class="cd-left"><span class="cd-status"><span class="badge badge--sm ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span>' + $b.Word + '</span></td>' +
                 '<td>' + (& $e $c.Visibility) + '</td>' +
                 '<td>' + @($c.Plugins).Count + '</td>' +
-                '<td class="cd-left">' + (Format-DashboardInstalledVersion $c) + '</td>' +
-                '<td>' + $nErr + '</td><td>' + $nInf + '</td></tr>')
+                '<td class="cd-left">' + (Format-DashboardInstalledVersion $c) + '</td></tr>')
         }
         [void]$sb.AppendLine('</tbody></table></div>')
     }
