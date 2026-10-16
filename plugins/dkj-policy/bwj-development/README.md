@@ -315,6 +315,7 @@ matched, so the sibling check could see the pair only as `ALIASED`
 | [`publish-page`](skills/publish-page/SKILL.md) | a built page has to reach somebody outside the development work -- publishes it to the one worker both stores share, at an unguessable path, and verifies by reading the bytes back |
 | [`golive-block`](skills/golive-block/SKILL.md) | the work is shipped and the issue is about to close -- writes the paste-ready block with its go-live half: where the result can be seen, the next release day, and the live URL per market |
 | [`prepare-release`](skills/prepare-release/SKILL.md) | release day is coming up -- stages it days ahead, read-only: the trunk's readiness, what is pending and the bump it makes, scores worth a second look, the theme push list by `live-preflight`'s own rules, an early drift read, the go-live obligations out of entry prose, the open pull requests, and the release-day runbook |
+| [`notify-live`](skills/notify-live/SKILL.md) | a release has just gone live, after the push and the cut -- tells the Asana task of every issue the release carried, and was told "visible with the release", that it is live now; a dry run until `-Post` |
 
 <!-- /skills:plugin -->
 

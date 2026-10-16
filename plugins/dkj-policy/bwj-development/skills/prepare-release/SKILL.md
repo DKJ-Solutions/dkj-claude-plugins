@@ -47,7 +47,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    weekend.
 8. **The runbook** -- the day in order: preflight, push (in a Git-connected store, the promotion PR),
    verification pull, obligations, preview sweep,
-   cut, backup, release-notes page. Every fact the run derived is filled in; one it could not derive is
+   cut, the live message to the requesters ([`notify-live`](../notify-live/SKILL.md)), backup, release-notes page. Every fact the run derived is filled in; one it could not derive is
    named as missing, never guessed. **A theme path that is not paste-safe composes no command at all**
    -- a name holding `;` or `$(...)` would run when the line is pasted, and #1594 measured that quoting
    does not close that class -- so the run names the path and flags the push list instead. An accented
