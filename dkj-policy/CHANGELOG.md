@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**13 / 17 minor entries** <!-- pending-tally -->
+**14 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3066-repo-dashboard-form · 20261016-150905Z
+
+In this repo, the connector dashboard is now a Repo dashboard in the house form: an eyebrow, the fixed
+`h1`, the tiles, the two data cards and an "About this repo" facts card. The re-run link has moved into
+the footer note. The `house-style` skill and both vendored copies are on `house-style-v4`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions repo that states no dev preview now gets a placeholder in the one Repo dashboard
+form. The `house-style` skill now points at `house-style-v4` and names the Repo dashboard pattern, so a
+session building a repo's dashboard starts from that form.
+
+**Score:** 3
+
+#### Pull Request
+
+Repo dashboard: every repo's index follows the house-style form (house-style-v4)
+
+Plugins: dkj-solutions
+
+[PR #3082](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3082)
+
+---
 
 ### DEPLOY: feat/3076-guard-issue-reopen · 20261016-145034Z
 
