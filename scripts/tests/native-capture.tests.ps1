@@ -1996,7 +1996,10 @@ foreach ($af in $auditFiles) {
 # and $flowCreate (`gh pr create`), all at the shared network bound. Each asks Test-NativeExitMeasured: an
 # unmeasured fetch refuses; an unreadable PR list refuses a real run (it might hide an open PR, and a second
 # one is the pile #1021 measured); an unmeasured create says the run does not know and names the read.
-Assert-Equal 94 $boundedTotal 'the parser still counts 94 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 94 -> 95 (#3078): ship-pr.ps1's $remoteCl (`git show origin/main:<changelog>`, -Utf8 because the entry text
+# is parsed), read after a failed fast-forward to ask whether the fold is already upstream. Only a measured 0
+# AND the branch document's absence turn the verdict; anything else keeps the "fold is owed" refusal.
+Assert-Equal 95 $boundedTotal 'the parser still counts 95 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
