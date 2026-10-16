@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**4 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3058-guard-fail-open-visible · 20261016-102909Z
+
+`guard-stale-paste-block` now tells the session when it let a command through unchecked
+([#3058](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3058)). Each fail-open path used to
+write its warning to stderr and exit 0, which Claude Code never shows the model, so a close with no go-live
+block went through in smartwatchbanden#946 and nothing in the session said the check had been skipped.
+The hook now prints PreToolUse JSON whenever something was not checked: `additionalContext` for the model,
+and `permissionDecision: "ask"` when the unchecked command is a `gh issue close`, because a close has no
+later check that can still stop it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In a store repo running `bwj-development`, a hand close of an Asana-linked issue that the guard could not
+check now stops at a permission prompt that names the issue, instead of quietly posting the bare closed
+line to the Asana task. A ship the guard could not check still runs, and the session is now told so.
+
+**Score:** 3
+
+#### Pull Request
+
+guard-stale-paste-block makes a fail-open visible to the session
+
+Plugins: bwj-development
+
+[PR #3061](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3061)
+
+---
 
 ### DEPLOY: fix/3056-one-retired-extension-repair · 20261016-101309Z
 
