@@ -69,14 +69,26 @@
     2026). A research, test or decision ticket changes nothing on the store, so it has no link, no
     release day, no live URLs and no pull request -- and it was closed by hand with no block at all,
     which sent the requester of smartwatchbanden#943 a bare 'is now closed'. -Research writes the
-    research form instead (Format-GoLiveResearchBlock): the research closed line ('is now closed: the
-    Asana task is ready for review. Read the outcome below.', #3017) and one section, OUTCOME, as
+    research form instead (Format-GoLiveResearchBlock): the intro every completed close shares ('is now
+    closed: this Asana task is now in review.'), 'Nothing has changed. Read the outcome below.' (#3069)
+    and one section, OUTCOME, as
     bullets from the prose file's [outcome] section ([found] before #3017, still read), which it then
     requires. It refuses the go-live
     parameters, which have nothing to describe, and skips the pull-request check, since there is none.
     The block carries Get-AsanaResearchBlockMarker beside its marker, so the closed message writes the
-    research closed line. The close guard (hooks/guard-stale-paste-block.ps1) refuses a hand close of an
+    research form. The close guard (hooks/guard-stale-paste-block.ps1) refuses a hand close of an
     Asana-linked issue until a block like this one is on it.
+
+    -Research ONLY WHEN NOTHING CHANGED, ON THE STORE OR IN THE REPO (#3069, Maikel, October 16, 2026).
+    A store-admin act that is already live -- a metaobject, a metafield value, a setting -- changed the
+    store, so it takes the go-live form with -LiveSince, even though no repo file changed. Measured on
+    smartwatchbanden#395: a metaobject that changed the live structured data was closed with -Research,
+    and the requester rejected it. And the [outcome] names the NEW information and why it is valuable,
+    not what was done or where to look.
+
+    A RESULT BLOCK WITHOUT -LiveSince CARRIES Get-AsanaReleaseBlockMarker (#3069): it names a planned
+    release day, so its result is visible only once that release is out, and the closed line -- in the
+    block and in the closed message -- says so under the intro.
 
     WHY IT DOT-SOURCES scripts/lib/asana-task-lib.ps1. For Get-AsanaPasteBlockMarker and
     Test-AsanaPasteBlockPosted -- the marker the block's comment carries, and the read that answers
@@ -496,7 +508,7 @@ if ($ResearchArg) {
     $block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
         -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls `
         -Language $LanguageArg -Changed $prose.Changed -WhereToLook $prose.WhereToLook -NotIncluded $prose.NotIncluded `
-        -AsanaLink $asanaLink -Live:$isLive
+        -AsanaLink $asanaLink -Live:$isLive -ReleaseMarker (Get-AsanaReleaseBlockMarker)
 }
 
 Write-Host ""

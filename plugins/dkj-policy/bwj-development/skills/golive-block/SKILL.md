@@ -51,8 +51,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    ([#2352](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2352)). The five rules behind it
    are in `WORKFLOW-portable.md`, under *What the block asks of the requester*.
 6. **The shape and the language** -- the block as it was written for Asana: its header (*— GitHub automation 🤖*)
-   and the closed line (`GitHub issue [<owner>/<repo>#<n>](<issue url>) is now **closed**.`, then
-   *"It can be reopened anytime when something is still not working as expected."*), both fixed and
+   and the closed line: the intro every completed close shares
+   (`GitHub issue [<owner>/<repo>#<n>](<issue url>) is now **closed**: this Asana task is now in review.`),
+   then *"It can be reopened anytime when something is still not working as expected."* -- or, without
+   `-LiveSince`, *"It becomes visible with the release named below, and can be reopened anytime ..."*,
+   with `<!-- asana-paste-block-kind: after-release -->` beside the marker so the closed message says
+   the same ([#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069)). Both are fixed and
    English on every board, then five fixed
    headings (`TE BEKIJKEN OP` / `WAT ER NU ANDERS IS` / `WANNEER HET LIVE KOMT` / `WAT ER BEWUST NIET IN ZIT`
    / `WAT WE VAN JE VRAGEN`, where-to-look first, [#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700)), in the language
@@ -81,7 +85,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 day, no live URLs and no pull request -- and it still closes, so its requester still gets a message
 ([#3004](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3004), Maikel, October 14, 2026).
 Measured on smartwatchbanden#943: such a ticket was closed by hand with no block, and the Asana task
-heard only that the issue was closed. `-Research` writes the block for it:
+heard only that the issue was closed. `-Research` writes the block for it.
+
+**Only when nothing changed, on the store or in the repo**
+([#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069), Maikel, October 16, 2026).
+A store-admin act that is already live -- a metaobject, a metafield value, a setting -- changed the
+store even though no repo file changed, so it takes the go-live form with `-Link <live page> -LiveSince
+<day>`. Measured on smartwatchbanden#395: a metaobject that changed the live structured data was closed
+with `-Research`, and the requester rejected it.
+
+**Which close, by one question** -- every completed close opens with the same intro, *"is now
+**closed**: this Asana task is now in review."*, because the task goes on to review:
+
+| Did something change? | The close | Under the intro |
+|---|---|---|
+| Yes, and it can be seen | completed, go-live block (`-LiveSince` once live) | *"It can be reopened anytime ..."*, or that it becomes visible with the release, then the go-live headings |
+| No, but we learned something useful | completed, `-Research` | *"Nothing has changed. Read the outcome below."*, then OUTCOME |
+| No, because information is missing | **not planned**, `awaiting-info-client` kept on | its own intro: *"this Asana task has been cancelled, because there is not enough information to start development."*, then the ask to answer the questions |
+
+The not-planned close is never *"in review"*: development is stuck, so the task goes back rather than
+on. It is posted by the `asana-closed-message` workflow, not by this script, and no card is moved.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-golive-block.ps1" -Issue 943 -Research -ProseFile outcome.txt -Post
@@ -91,10 +114,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
   requester in the task's language (`[found]`, its name before
   [#3017](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3017), is still read). It is
   required, and the run refuses a result section beside it. A link to the issue's conclusion is no
-  substitute: not every requester can open the GitHub repo.
+  substitute: not every requester can open the GitHub repo. **It names the new information and why it
+  is valuable to us**, not what was done or where to look (#3069).
 - **The shape is general, so it fits every ticket** (#3017, Maikel: *"as general as possible"*). Between
-  the rules: the header, the research closed line -- *"GitHub issue owner/repo#n is now **closed**: the
-  Asana task is ready for review. Read the outcome below."*, the issue name linked -- then the heading
+  the rules: the header, the intro -- *"GitHub issue owner/repo#n is now **closed**: this Asana task is
+  now in review."*, the issue name linked -- with *"Nothing has changed. Read the outcome below."* under
+  it (#3069, replacing #3017's *"the Asana task is ready for review"*), then the heading
   *OUTCOME* and the outcome as bullets. Each paragraph is one bullet, and a list you write keeps its
   items. Every fixed line is English on every board; only the bullets are the task's own.
 - **The closed message ends with the closing ask**: *"Is anything still unclear? Leave a comment on this
@@ -106,7 +131,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
   `-ReleaseDay`), which have nothing to describe, and **`-Post` skips the pull-request check**, since
   there is none. The duplicate, store-admin and Asana-link checks run as for any block.
 - **The block carries a second marker**, `<!-- asana-paste-block-kind: research -->`, beside its own.
-  That is how the closed message recognizes it and writes the research closed line instead of the
+  That is how the closed message recognizes it and writes *"Nothing has changed"* instead of the
   invitation to reopen.
 
 **And close it only once the block is on it.** The `guard-stale-paste-block` hook refuses `gh issue

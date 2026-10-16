@@ -402,7 +402,14 @@ same day brought back **the closed message** (#2818), and the next day **the reo
 (#2945) as a second, separate copied workflow, `asana-prio-label`** (step 5). In practice:
 
 - **Closing an issue as completed** posts one comment on the linked task: the automation's header, the
-  closed line, and the go-live block's sections under it.
+  closed line, and the go-live block's sections under it. **The closed line opens with where the task
+  goes** (Maikel, October 16, 2026,
+  [#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069)): every completed close sends
+  it on to review, so every one opens with *"GitHub issue <owner>/<repo>#<n> is now **closed**: this
+  Asana task is now in review."*, and only the line under it differs -- the invitation to reopen for a
+  visible change, the same with *"It becomes visible with the release named below"* where the block
+  names a planned release day rather than `-LiveSince`, and *"Nothing has changed. Read the outcome
+  below."* for research.
 - **The closed line is never sent alone** (Maikel, October 14, 2026,
   [#3004](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3004)): *"there must always be an
   explanation of how to view the result"*. Measured on smartwatchbanden#943: a research ticket was closed
@@ -413,11 +420,19 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   stand in for it: not every requester can open the repo.
 - **A ticket without a storefront result gets a research block.** Research, a test or a decision changes
   nothing on the store, so `build-golive-block.ps1 -Research` writes the outcome itself, for the
-  requester, as bullets under one heading, *OUTCOME*. The closed message then opens with the research
-  form of the closed line, *"GitHub issue <owner>/<repo>#<n> is now **closed**: the Asana task is ready
-  for review. Read the outcome below."*, and ends with the closing ask, which names the board's own done
-  section (#3017). Every fixed line of it is general and English on every board, so only the bullets
-  carry the task. The form is in [`golive-block`](skills/golive-block/SKILL.md).
+  requester, as bullets under one heading, *OUTCOME*. The closed message then opens with the shared
+  intro, *"Nothing has changed. Read the outcome below."* under it (#3069), and ends with the closing
+  ask, which names the board's own done section (#3017). Every fixed line of it is general and English
+  on every board, so only the bullets carry the task. The form is in
+  [`golive-block`](skills/golive-block/SKILL.md).
+- **`-Research` only when nothing changed, on the store or in the repo** (#3069). A store-admin act
+  that is already live -- a metaobject, a metafield value, a setting -- changed the store, so it takes
+  the go-live form with `-LiveSince`, even with no repo file changed. Measured on smartwatchbanden#395:
+  such an act was closed with `-Research`, and the requester rejected it. The `[outcome]` names the new
+  information and why it is valuable, not what was done or where to look. **Which close, by one
+  question:** did something visible change? Completed, with the go-live block. Nothing changed, but we
+  learned something useful? Completed, with `-Research`. Nothing changed because information is
+  missing? Not planned, with `awaiting-info-client` kept on (below) -- never completed.
 - **An issue stays open only while it will still change code in the repo** (Maikel, October 16, 2026,
   [#3059](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3059)): *"De enige github issues die
   open blijven staan, zijn issues die echt daadwerkelijk nog iets gaan aanpassen aan de code."* An issue
@@ -454,10 +469,12 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   so its pass is not proof -- the workflow, which carries only a trusted author's block, is the authority
   at the close.
 - **Closing as not planned with the `awaiting-info-client` label kept on** (the parked-while-waiting pair,
-  step 6) posts one comment: the header and the on-hold line, *"GitHub issue <owner>/<repo>#<n> is
-  **closed:** there is not enough information to start development yet. Once the questions above are
-  answered, the issue will be reopened and the work picks up again."* (#2902, in the requester's fixed
-  form from #2909). It reads no go-live block, because nothing was built.
+  step 6) posts one comment: the header, the cancelled intro, *"GitHub issue <owner>/<repo>#<n> is now
+  **closed**: this Asana task has been cancelled, because there is not enough information to start
+  development."* (#3069), and under it *"Once the questions above are answered, the issue will be
+  reopened and the work picks up again."* (#2902, in the requester's fixed form from #2909). It never
+  says *"in review"*: development is stuck, so the task goes back rather than on. It reads no go-live
+  block, because nothing was built, and it moves no card.
 - **Closing as not planned without that label, or as a duplicate, posts nothing** (#2765): nothing was
   built, so there is nothing to test, and a rejection is said by a person.
 - **Reopening an issue** posts one comment on the linked task, whatever it was closed as: the header
@@ -559,13 +576,15 @@ between the rules has a fixed **shape** too, and it is written in the **colleagu
 
 ```text
 <!-- asana-paste-block -->
+<!-- asana-paste-block-kind: after-release -->     (only without -LiveSince, #3069)
 
 The closed message carries the block below into the Asana task when this issue closes as completed -- no paste needed:
 
 ---
 — GitHub automation 🤖
 
-GitHub issue [<owner>/<repo>#<n>](<issue url>) is now **closed**. It can be reopened anytime when something is still not working as expected.
+GitHub issue [<owner>/<repo>#<n>](<issue url>) is now **closed**: this Asana task is now in review.
+It can be reopened anytime when something is still not working as expected.
 
 TE BEKIJKEN OP
 
@@ -876,12 +895,12 @@ remove the label**: whoever brings the answer does.
 [#2732](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2732)), for an owner who wants the
 waiting ticket off the open list. Close it as **not planned** and **keep the `awaiting-info-client` label
 on through the close**, so the pair still reads as *waiting for information* and not as a rejection. The
-question is written first, exactly as above. The `asana-closed-message` workflow then tells the task the
-issue is closed until there is enough information to start development, and will be reopened once the
-questions are answered (#2902) -- the label must still be on at the moment of the close, because that is
-what the workflow reads. **Never close a waiting ticket as completed to get a message out**: the closed
-line says the issue *is now closed*, which a colleague with an open question in front of them reads as
-finished.
+question is written first, exactly as above. The `asana-closed-message` workflow then tells the task it
+is cancelled because there is not enough information to start development, and that the issue
+will be reopened once the questions are answered (#2902, #3069) -- the label must still be on at the
+moment of the close, because that is what the workflow reads. **Never close a waiting ticket as
+completed to get a message out**: the completed close says the task *is now in review*, which a
+colleague with an open question in front of them reads as finished.
 
 ### 7. What still needs a person
 

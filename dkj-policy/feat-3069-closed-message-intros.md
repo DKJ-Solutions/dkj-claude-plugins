@@ -39,19 +39,49 @@
 
 ### PLAN
 
+Inbound #3069 (Maikel, October 16, 2026), built to its last comment, which supersedes the body and the
+three comments before it: the closed message's intro follows where the Asana task goes.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-closed-message` template: one intro for every completed close, a second line per form (live, after the release, research), and the cancelled intro for the on-hold close
+- [x] `Get-AsanaReleaseBlockMarker` in `asana-task-lib.ps1` plus its template copy; `build-golive-block` puts it on a block without `-LiveSince`
+- [x] `Get-PasteBlockSections` (lib and copy) drops the closed line's second line with the intro
+- [x] `golive-block-rules.ps1`: the block's closed line is the intro plus its second line, in the result and the research block
+- [x] `golive-block` skill page and `WORKFLOW-portable.md`: the three closes side by side, and `-Research` only when nothing changed
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the moved asserts follow the new wording, and new cases cover the after-release line, the marker on a planned block only, the section reader on old and new blocks, and a full run with an after-release block (679 asserts pass)
+
 ### DEPLOY: feat/3069-closed-message-intros
 
-**Score:**
+In `bwj-development`, the message a closed issue posts on its Asana task now opens with where the
+task goes ([#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069)). Every close as
+completed opens with *"GitHub issue owner/repo#n is now **closed**: this Asana task is now in
+review."*. Only the line under it differs:
+
+- a visible change invites a reopen, as before;
+- a block that names a planned release day (no `-LiveSince`) says the result becomes visible with
+  that release. `build-golive-block` marks such a block with
+  `<!-- asana-paste-block-kind: after-release -->`;
+- a research close says *"Nothing has changed. Read the outcome below."*, replacing #3017's *"the
+  Asana task is ready for review"*.
+
+The not-planned on-hold close opens with *"this Asana task has been cancelled, because there is not
+enough information to start development."*. It never says "in review". The `golive-block` skill and
+`WORKFLOW-portable.md` now say `-Research` is only for when nothing changed on the store or in the
+repo, so a store-admin act that is already live takes the go-live form with `-LiveSince`.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store maintainer takes the new `asana-closed-message.ps1` through `adopt-bwj-development`, and
+their colleagues read the new intros on the next close. Blocks posted before this version carry no
+after-release marker, so they keep the plain reopen line.
+
+**Score:** 3
 
 #### Pull Request
 

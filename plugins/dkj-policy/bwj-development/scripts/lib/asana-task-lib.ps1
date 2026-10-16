@@ -139,13 +139,25 @@ function Get-AsanaResearchBlockMarker {
     <#
         The second marker build-golive-block.ps1 -Research puts on a block that reports an OUTCOME rather
         than a result to look at (#3004): a research, test or decision ticket, where nothing changed on
-        the store. Pure. The closed message reads it to write the research form (#3017: 'is now closed:
-        the Asana task is ready for review. Read the outcome below.', the outcome as a list, and the
-        closing ask) instead of the reopen line, which promises a result that can be 'not working as
+        the store. Pure. The closed message reads it to write the research form (#3017, its second line
+        #3069's: 'Nothing has changed. Read the outcome below.', the outcome as a list, and the closing
+        ask) instead of the reopen line, which promises a result that can be 'not working as
         expected'. It sits beside the block's own marker, outside the
         rules, for the same reason that one does. A copy of it lives in templates/asana-closed-message.ps1.
     #>
     return '<!-- asana-paste-block-kind: research -->'
+}
+
+function Get-AsanaReleaseBlockMarker {
+    <#
+        The second marker build-golive-block.ps1 puts on a result block that names a PLANNED release day
+        rather than -LiveSince (#3069): built, but visible only once that release is out. Pure. The
+        closed message reads it to say so under its intro instead of implying the requester can look
+        now; a block without it -- a -LiveSince block, or one posted before #3069 -- keeps the plain
+        reopen line. It sits beside the block's own marker, outside the rules, for the same reason that
+        one does. A copy of it lives in templates/asana-closed-message.ps1.
+    #>
+    return '<!-- asana-paste-block-kind: after-release -->'
 }
 
 function Get-AsanaPasteBlockLead {
@@ -178,12 +190,16 @@ function ConvertTo-AsanaInstant {
 
 function Get-PasteBlockSections {
     <#
-        Pure: the sections of a go-live block -- the text between its two '---' rules, minus the two
+        Pure: the sections of a go-live block -- the text between its two '---' rules, minus the
         lines this message composes itself (the header and the closed line). '' when there is no block.
         A copy of templates/asana-closed-message.ps1's function of this name (#2968): the hook and
         build-golive-block.ps1 judge a block by the same sections the closed message carries.
         The header is dropped by SHAPE (the first non-blank line, opening with an em dash), so a block
         posted under an older header is carried without it too.
+        THE CLOSED LINE CAN RUN ON TO A SECOND LINE (#3069): the intro, then the line that tells the
+        forms apart, with no blank line between them. That line is the message's own as well, so it is
+        dropped with the intro -- unless it is a section heading, which a block written before #3069
+        never had directly under its one-line closed line, but a hand-typed one might.
     #>
     param([AllowEmptyString()][string]$Body)
 
@@ -198,7 +214,10 @@ function Get-PasteBlockSections {
     if ($at -lt $inner.Count -and $inner[$at].TrimStart().StartsWith($dash)) {
         $at++
         while ($at -lt $inner.Count -and -not $inner[$at].Trim()) { $at++ }
-        if ($at -lt $inner.Count -and $inner[$at].StartsWith('GitHub issue ')) { $at++ }
+        if ($at -lt $inner.Count -and $inner[$at].StartsWith('GitHub issue ')) {
+            $at++
+            if ($at -lt $inner.Count -and $inner[$at].Trim() -and $inner[$at] -cnotmatch '^[A-Z][A-Z /]*[A-Z]$') { $at++ }
+        }
     }
     $rest = @(if ($at -lt $inner.Count) { $inner[$at..($inner.Count - 1)] })
     return (($rest -join "`n").Trim())
