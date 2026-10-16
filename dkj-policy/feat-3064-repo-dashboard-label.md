@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Inbound [#3064](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3064): the owner's term for
+the dev-preview page is `Repo dashboard`, in every repo. Verified against the tree before building:
+`ConvertTo-DevPreviewConfig` read the repo's `Name` (default `dev-preview`) and the placeholder set its own
+`Placeholder preview`, so the issue stood as filed. A stated `Name` is ignored rather than refused, so a
+consumer config that still carries one keeps working.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dev-preview-rules.ps1`: the label is fixed at `Repo dashboard`, a repo's `Name` is no longer read,
+  and the placeholder states none; the contract comment says why
+- [x] `dev-preview-placeholder.ps1`: the page title carries the term, and the example drops `Name`
+- [x] `dkj-solutions/README.md` and this repo's own `Get-DevPreview` follow the term
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1` repointed to the fixed label, plus a stated `Name` is ignored
+  and the placeholder page's title and example: 102 passed, 0 failed
+
 ### DEPLOY: feat/3064-repo-dashboard-label
 
-**Score:**
+The dev-preview hook's session-start line now opens with `Repo dashboard:` in every DKJ-Solutions repo
+([#3064](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3064), the owner's term, October 16,
+2026). It used to open with whatever word each repo chose through `Get-DevPreview`'s `Name` (Showcase,
+connector dashboard, dev-preview), so the same page had three names. The plugin now fixes the label, the
+placeholder's included. A `Name` a repo still states is ignored rather than refused, so delete it at your
+next edit. The hook's own diagnostic lines keep the `dev-preview:` prefix, because that word names the
+mechanism.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In every DKJ-Solutions repo, the link to the repo's local page at session start now reads
+`Repo dashboard: http://localhost:...`, whatever the repo once called it.
+
+**Score:** 2
 
 #### Pull Request
 

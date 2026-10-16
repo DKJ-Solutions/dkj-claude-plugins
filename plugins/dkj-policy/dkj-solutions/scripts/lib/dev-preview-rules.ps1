@@ -17,11 +17,16 @@
                 Ports        = 5173..5180       # required: one port or a list, tried in order
                 Path         = '/'              # optional: the URL path after the port (default '/')
                 Requires     = 'node_modules'   # optional: path(s) under the repo root that must exist
-                Name         = 'Showcase'       # optional: the word the message opens with
                 WaitSeconds  = 20               # optional: how long to wait for the server to listen (1-45)
                 OpenInVsCode = $false           # optional: also hand the URL to VS Code (see the hook)
             }
         }
+
+    THE PAGE HAS ONE NAME IN EVERY REPO, 'Repo dashboard' (INBOUND #3064, the owner's term, October 16,
+    2026): the line the hook prints opens with it, the placeholder's included. A repo once chose its own
+    word through a Name key, and three repos said Showcase, connector dashboard and dev-preview for the
+    same page. A Name a repo still states is ignored rather than refused, so a config that predates this
+    keeps working; the word "dev-preview" stays the MECHANISM's, on the hook's own diagnostic lines.
 
     A repo that does not define it gets the PLACEHOLDER (#3047, reversing #2967's silent no-op on the
     owner's word, October 15, 2026): Get-DevPreviewPlaceholder below is the answer the hook uses in its
@@ -47,6 +52,8 @@ $script:DevPreviewMaxAncestors = 4
 # Fixed, so a .vscode route can name them; ten, so ten checkouts open side by side each get their own.
 # Clear of the ranges the repos measured in #2967 and #2976 use (3000, 4870-4879, 5173-5180, 8765).
 $script:DevPreviewPlaceholderPorts = 4880..4889
+# The word every line about the page opens with, in every repo (#3064).
+$script:DevPreviewLabel = 'Repo dashboard'
 
 function Get-DevPreviewPlaceholder {
     <#
@@ -60,7 +67,6 @@ function Get-DevPreviewPlaceholder {
     return @{
         Command     = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$server`" -Port {port}"
         Ports       = $Ports
-        Name        = 'Placeholder preview'
         WaitSeconds = 15
     }
 }
@@ -145,19 +151,13 @@ function ConvertTo-DevPreviewConfig {
         $wait = $w
     }
 
-    # THE NAME OPENS A LINE THAT REACHES THE SESSION'S CONTEXT, so it is held to a short plain label: no
-    # control characters (a newline would start a line of the repo's choosing) and at most 40 characters.
-    $name = ([string]$Raw['Name']) -replace '[\p{C}]', ' '
-    if ($name.Length -gt 40) { $name = $name.Substring(0, 40) }
-    if (-not $name.Trim()) { $name = 'dev-preview' }
-
     $result.Ok = $true
     $result.Config = @{
         Command      = $command
         Ports        = $ports
         Path         = $path
         Requires     = $requires
-        Name         = $name.Trim()
+        Name         = $script:DevPreviewLabel   # fixed: a repo's own Name is not read (#3064)
         WaitSeconds  = $wait
         OpenInVsCode = [bool]$Raw['OpenInVsCode']
     }

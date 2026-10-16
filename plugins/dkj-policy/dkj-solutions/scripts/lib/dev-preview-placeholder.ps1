@@ -61,7 +61,7 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>' + $n + ' -- preview</title>')
+    [void]$sb.AppendLine('<title>' + $n + ' -- Repo dashboard</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: only names the house file does not define (.ph-*), spaced from the house scale.
@@ -90,7 +90,6 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('    @{')
     [void]$sb.AppendLine('        Command = ''npm run dev -- --host 127.0.0.1 --port {port} --strictPort''')
     [void]$sb.AppendLine('        Ports   = 5173..5180')
-    [void]$sb.AppendLine('        Name    = ''' + $n + '''')
     [void]$sb.AppendLine('    }')
     [void]$sb.AppendLine('}</code></pre>')
     [void]$sb.AppendLine('<p class="muted">Every field, and the rules for <code>Command</code>, are in the dkj-solutions plugin README, under &quot;The dev-preview hook&quot;.</p>')
