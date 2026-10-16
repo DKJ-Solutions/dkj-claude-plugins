@@ -238,7 +238,8 @@ $t.Branch = 'feat/x'; $t.TrunkFetched = $false
 $cell = Format-DashboardTrunkState $t
 Assert-True ($cell -match 'not fetched' -and $cell -notmatch 'feat/x') 'a failed fetch is the one note; the branch the checkout stands on is not shown'
 Assert-Equal 'no trunk found' (Format-DashboardTrunkState @{ Branch = 'x'; Trunk = $null }) 'a checkout without its trunk says so'
-Assert-Equal 'not on this machine' (Format-DashboardTrunkState $null) 'an absent checkout says so in the Main cell too'
+Assert-Equal 'N/A' (Format-DashboardTrunkState $null -InMainColumn) 'an absent checkout is N/A in the Main column'
+Assert-Equal 'not on this machine' (Format-DashboardTrunkState $null) 'and says so in words elsewhere'
 Assert-True ($html -match '<th class="cd-left">Main</th>' -and $html -notmatch '>Checkout</th>') 'the Overview column is Main, not Checkout'
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="notice"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is a notice, escaped'

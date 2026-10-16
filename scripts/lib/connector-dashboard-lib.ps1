@@ -237,7 +237,8 @@ function Format-DashboardTrunkState {
     #>
     # -InMainColumn: the column is headed Main, so a trunk named 'main' is not named again in it.
     param([AllowNull()]$Git, [switch]$InMainColumn)
-    if ($null -eq $Git) { return 'not on this machine' }
+    # No checkout here: in the column that is N/A, since the Status column already says why.
+    if ($null -eq $Git) { if ($InMainColumn) { return 'N/A' } return 'not on this machine' }
     if (-not $Git.Branch) { return 'not a git checkout' }
     if (-not $Git.Trunk) { return 'no trunk found' }
     $state = @()
