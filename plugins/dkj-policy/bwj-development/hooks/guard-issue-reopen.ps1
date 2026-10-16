@@ -16,8 +16,9 @@
     stale-paste-block-rules.ps1, an invocation and not a mention), read with Read-AsanaIssueBlockState --
     the same one bounded GraphQL call guard-stale-paste-block.ps1 makes, whose reply carries the issue
     body. An issue whose body links one Asana task (Resolve-AsanaTaskRef, the workflow's own matcher) is
-    asked about; one linking no task, or several, passes silently, because the workflow posts nothing
-    for it.
+    asked about -- including one listing several, where its asana-task marker or Asana header row names
+    its own. One linking no task, or several bare task URLs with neither, passes silently, because the
+    workflow posts nothing for it.
 
     AN UNREAD ISSUE IS ASKED ABOUT TOO. gh absent, logged out, slow, or a reply that does not parse: the
     hook cannot tell whether a task is linked, and asking costs one confirmation while a wrong pass costs
