@@ -39,19 +39,44 @@
 
 ### PLAN
 
+- Issue [#3055](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3055): a retired plugin id
+  (`dkj-policy-bwj`) made `update-plugins` count a failed update and `plugin-versions` prescribe a
+  refresh step 1 had just run. Reason verified: `Get-RetiredPolicyExtensionNames` exists in
+  `claude-md-import-lib.ps1`, and neither script read it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugin-versions.ps1`: a retired id whose successor the clone lists gets its own `retired` verdict,
+  naming the successor and the install, with its own summary bucket and an `[INFO]` line in `-Brief`
+- [x] `update-plugins.ps1`: a retired id is named with its successor and skipped, never handed to the CLI,
+  never counted as failed; only retired ids left exits 0
+- [x] Plugin mirrors synced with `build-shared-scripts.ps1`
 
 ### TEST
 
+- [x] `plugin-versions.tests.ps1` scenario 38 and `update-plugins.tests.ps1` scenario 24 added; both
+  suites green (264 and 136 pass)
+
 ### DEPLOY: fix/3055-retired-plugin-id-in-update-tools
 
-**Score:**
+`update-plugins` and `plugin-versions` now recognise a retired plugin id
+([#3055](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3055)). A checkout still enabling
+`dkj-policy-bwj` or `dkj-policy-dkjs` (renamed in #2788) made `update-plugins` call
+`claude plugin update` on a name the marketplace no longer declares and count it as `FAILED`, which
+turned the whole checkout red in an `-AllCheckouts` sweep. Its receipt then advised a marketplace
+refresh that step 1 of the same run had just done. Now the update skips that id and names its
+successor, and the receipt reports it as `retired` with the real repair: enable the successor and
+install it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+An `update-plugins` run in a repo that has not migrated off a retired extension name no longer reports
+failure. It names the one change that fixes it, instead of advising a refresh that cannot help.
+
+**Score:** 1
 
 #### Pull Request
 
+update-plugins and plugin-versions recognise a retired plugin id
