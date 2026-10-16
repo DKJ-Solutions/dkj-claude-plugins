@@ -19,9 +19,7 @@
 
     THE DATA IS READ ON DEMAND AND KEPT FOR -CacheSeconds. The first request after that runs
     check-connectors.ps1 again, drift check included (#2997, about 1.4 s more), reads every connectors/*.json, and asks
-    git, after one 'git fetch origin <trunk>' per checkout, how its trunk stands against origin's and
-    what the trunk's last commit is. That fetch is the
-    one network call and the one write (a remote-tracking ref); a failed fetch is shown, never fatal.
+    git for the last commit on each checkout's trunk -- local refs only, no fetch.
     /refresh drops the cache and redirects to the page.
 
     One request at a time, each answered with Connection: close. A connection whose request head is not
@@ -84,15 +82,14 @@ function Invoke-DashboardGit {
 
 function Get-DashboardGitInfo {
     <#
-        One checkout's TRUNK against origin's, and the trunk's last commit: the trunk is origin/HEAD's
-        target (else 'main', or 'master' where only that exists), fetched first so 'up to date' means up to date with GitHub rather than with
-        the last fetch. TrunkFetched says whether that fetch succeeded. The branch the checkout stands on
-        is read only to tell a git checkout from a folder that is not one.
+        The last commit on one checkout's TRUNK -- origin/HEAD's target, else 'main', or 'master' where only
+        that exists -- from local refs only. The branch the checkout stands on is read only to tell a git
+        checkout from a folder that is not one.
     #>
     param([string]$Path)
     $branch = Invoke-DashboardGit $Path @('rev-parse', '--abbrev-ref', 'HEAD')
     if ($null -eq $branch) { return @{ Branch = $null } }
-    $info = @{ Branch = [string]$branch[0]; Subject = ''; When = ''; Trunk = $null; TrunkAhead = $null; TrunkBehind = $null; TrunkFetched = $false }
+    $info = @{ Branch = [string]$branch[0]; Subject = ''; When = ''; Trunk = $null }
     $originHead = Invoke-DashboardGit $Path @('symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD')
     $trunk = if ($originHead -and ([string]$originHead[0]) -match '^origin/(.+)$') { $Matches[1] }
              elseif (-not (Invoke-DashboardGit $Path @('rev-parse', '--verify', '--quiet', 'refs/heads/main')) -and (Invoke-DashboardGit $Path @('rev-parse', '--verify', '--quiet', 'refs/heads/master'))) { 'master' }
@@ -100,12 +97,6 @@ function Get-DashboardGitInfo {
     # The name goes on a git command line, so it must read as a ref and never as an option.
     if ($trunk -match '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -and (Invoke-DashboardGit $Path @('rev-parse', '--verify', '--quiet', "refs/heads/$trunk"))) {
         $info.Trunk = $trunk
-        # GIT_TERMINAL_PROMPT=0: a remote that wants credentials fails at once instead of waiting on a prompt nobody sees.
-        $prompt = $env:GIT_TERMINAL_PROMPT; $env:GIT_TERMINAL_PROMPT = '0'
-        try { $info.TrunkFetched = ($null -ne (Invoke-DashboardGit $Path @('fetch', '--quiet', 'origin', "refs/heads/${trunk}:refs/remotes/origin/$trunk"))) }
-        finally { $env:GIT_TERMINAL_PROMPT = $prompt }
-        $tc = Invoke-DashboardGit $Path @('rev-list', '--left-right', '--count', "refs/heads/$trunk...refs/remotes/origin/$trunk")
-        if ($tc -and ([string]$tc[0]) -match '^(\d+)\s+(\d+)$') { $info.TrunkAhead = [int]$Matches[1]; $info.TrunkBehind = [int]$Matches[2] }
     }
     if (-not $info.Trunk) { return $info }
     $last = Invoke-DashboardGit $Path @('log', '-1', '--format=%cr%x09%s', "refs/heads/$($info.Trunk)")

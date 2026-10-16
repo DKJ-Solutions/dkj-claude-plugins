@@ -227,38 +227,11 @@ function Get-DashboardStatusBadge {
     }
 }
 
-function Format-DashboardTrunkState {
-    <#
-        How a checkout's trunk stands against origin's -- 'main &#183; up to date' or 'main &#183; 3
-        behind' -- the one git fact the page shows, in the Overview's Main cell and on the repo card. The
-        branch the checkout stands on and its uncommitted work say nothing about the trunk, so they are
-        left out (Dave, #2976 follow-up). The one note is a fetch that failed: the count is then against
-        the last fetch.
-    #>
-    # -InMainColumn: the column is headed Main, so a trunk named 'main' is not named again in it.
-    param([AllowNull()]$Git, [switch]$InMainColumn)
-    # No checkout here: in the column that is N/A, since the Status column already says why.
-    if ($null -eq $Git) { if ($InMainColumn) { return 'N/A' } return 'not on this machine' }
-    if (-not $Git.Branch) { return 'not a git checkout' }
-    if (-not $Git.Trunk) { return 'no trunk found' }
-    $state = @()
-    if ($null -eq $Git.TrunkBehind) { $state += 'no origin copy' }
-    else {
-        if ([int]$Git.TrunkBehind -gt 0) { $state += "<strong>$([int]$Git.TrunkBehind) behind</strong>" }
-        if ([int]$Git.TrunkAhead -gt 0) { $state += "$([int]$Git.TrunkAhead) ahead" }
-        if (-not $state.Count) { $state += 'up to date' }
-    }
-    $cell = $state -join ', '
-    if (-not ($InMainColumn -and $Git.Trunk -eq 'main')) { $cell = (ConvertTo-DashboardText $Git.Trunk) + ' &#183; ' + $cell }
-    if (-not $Git.TrunkFetched) { $cell += '<br><span class="cd-cell-note">not fetched</span>' }
-    return $cell
-}
-
 function Format-ConnectorDashboardHtml {
     <#
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
-        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; TrunkAhead;
-        TrunkBehind; TrunkFetched; Subject; When } or $null); Notes }. -Meta is @{ GeneratedAt; SourceCommit; Seconds; CheckFailed }.
+        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
+        or $null); Notes }. -Meta is @{ GeneratedAt; SourceCommit; Seconds; CheckFailed }.
     #>
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
@@ -295,7 +268,6 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-table-gap { margin-top: var(--spacing-4); }')
     [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--primary-1); }')
     [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-5) 0 var(--spacing-2); }')
-    [void]$sb.AppendLine('.cd-cell-note { font-size: var(--text-xs); color: var(--primary-6); }')
     [void]$sb.AppendLine('.cd-group-count { font-size: var(--text-sm); color: var(--primary-6); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-repo h5 { margin: 0; }')
@@ -310,7 +282,7 @@ function Format-ConnectorDashboardHtml {
     # Fixed layout, so each group's table takes these widths rather than sizing to its own content; the min-width keeps them readable, scrolling inside .table-wrap on a narrow screen.
     [void]$sb.AppendLine('.cd-overview { table-layout: fixed; width: 100%; min-width: 860px; }')
     [void]$sb.AppendLine('.cd-overview td { overflow-wrap: anywhere; }')
-    [void]$sb.AppendLine('.cd-col-repo { width: 24%; } .cd-col-status { width: 16%; } .cd-col-vis { width: 9%; } .cd-col-num { width: 7%; } .cd-col-ver { width: 10%; } .cd-col-git { width: 20%; }')
+    [void]$sb.AppendLine('.cd-col-repo { width: 30%; } .cd-col-status { width: 20%; } .cd-col-vis { width: 12%; } .cd-col-num { width: 8%; } .cd-col-ver { width: 14%; }')
     [void]$sb.AppendLine('@media (max-width: 760px) { main { padding-left: var(--spacing-4); padding-right: var(--spacing-4); } }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
@@ -352,7 +324,7 @@ function Format-ConnectorDashboardHtml {
     foreach ($g in $groups) {
         $members = $g.Members
         # One fixed column set for every group's table, so the columns line up from table to table.
-        [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-overview" id="overview-' + $g.Key + '"><colgroup><col class="cd-col-repo"><col class="cd-col-status"><col class="cd-col-vis"><col class="cd-col-num"><col class="cd-col-ver"><col class="cd-col-num"><col class="cd-col-num"><col class="cd-col-git"></colgroup><thead class="cd-thead"><tr><th>' + $g.Title + '</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th><th class="cd-left">Main</th></tr></thead><tbody>')
+        [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-overview" id="overview-' + $g.Key + '"><colgroup><col class="cd-col-repo"><col class="cd-col-status"><col class="cd-col-vis"><col class="cd-col-num"><col class="cd-col-ver"><col class="cd-col-num"><col class="cd-col-num"></colgroup><thead class="cd-thead"><tr><th>' + $g.Title + '</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th></tr></thead><tbody>')
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
@@ -363,8 +335,7 @@ function Format-ConnectorDashboardHtml {
                 '<td>' + (& $e $c.Visibility) + '</td>' +
                 '<td>' + @($c.Plugins).Count + '</td>' +
                 '<td class="cd-left">' + (Format-DashboardInstalledVersion $c) + '</td>' +
-                '<td>' + $nErr + '</td><td>' + $nInf + '</td>' +
-                '<td class="cd-left">' + (Format-DashboardTrunkState $c.Git -InMainColumn) + '</td></tr>')
+                '<td>' + $nErr + '</td><td>' + $nInf + '</td></tr>')
         }
         [void]$sb.AppendLine('</tbody></table></div>')
     }
@@ -384,9 +355,8 @@ function Format-ConnectorDashboardHtml {
             $ghUrl = 'https://github.com/' + (& $e $c.Repo)
             [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
                 ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
-            if ($c.Git -and $c.Git.Branch) {
-                $last = if ($c.Git.Subject) { ' &#183; last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) } else { '' }
-                [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + ((Format-DashboardTrunkState $c.Git) -replace '<br>', ' ') + $last + '</p>')
+            if ($c.Git -and $c.Git.Subject) {
+                [void]$sb.AppendLine('<p class="meta" style="white-space: normal">Last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) + '</p>')
             }
             [void]$sb.AppendLine('<div class="cd-plugins">')
             foreach ($p in @($c.Plugins)) {

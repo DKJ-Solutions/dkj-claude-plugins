@@ -45,38 +45,34 @@ The group is read from the owner in each manifest's `repo` slug, so a new repo n
 ### CREATE
 
 - [x] `Get-ConnectorOwnerGroup` and `Get-DashboardOwnerGroups` in `scripts/lib/connector-dashboard-lib.ps1`
-- [x] One "Connected repos" overview card (h2) with an h3 and a table per non-empty group, then the repo cards under an h2 per group
-- [x] The h1 is the repo's name, `dkj-claude-plugins`
-- [x] The overview tables share one fixed column set, so their columns line up
-- [x] The Checkout column becomes Main: the trunk against origin's, after a `git fetch origin <trunk>` per checkout (Dave chose fetching over the last-fetch reading)
-- [x] Only the trunk is shown, in the Main cell and on the repo card: the checked-out branch, uncommitted work and the branch's own ahead/behind are gone, and the card's last commit is the trunk's
-- [x] In the Main column a trunk named `main` is not named again; any other trunk name stays
-- [x] A checkout not on this machine reads N/A in the Main column
-- [x] The repo cards sit one level under Connected repos: an h3 Status, an h4 per group, a card's repo name an h5
-- [x] No h3 over the overview tables: each names its group in its first column head (BWJ repos, DKJ repos, Other repos)
-- [x] Status sits inside the Connected repos card, each repo a house `mini-card`
+- [x] The h1 is the repo's name, `dkj-claude-plugins`; one h2 "Connected repos" card holds everything below it
+- [x] A table per non-empty group, naming its group in its first column head (BWJ repos, DKJ repos, Other repos), with no heading above it
+- [x] The tables share one fixed column set, so their columns line up
+- [x] The Checkout column is gone, with no replacement: Dave tried a Main column (trunk against origin, after a fetch) and dropped it as unimportant here, so nothing fetches
+- [x] The repo card shows only the trunk's last commit: no checked-out branch, uncommitted count or ahead/behind
+- [x] Inside the same card, one level down: an h3 Status, an h4 per group, and a house `mini-card` per repo with its name as an h5
 
 ### TEST
 
-- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure, the shared column set, the Main cell and card showing the trunk only, and an empty group left out (115 passed)
-- [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1, with each present checkout's main measured after a fetch (first load about 19 s)
+- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure, the column heads and shared column set, the card's trunk-only last commit, and an empty group left out (107 passed)
+- [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1; an uncached load takes about 5.5 s
 
 ### DEPLOY: feat/dashboard-owner-groups
 
-The connector dashboard (`scripts/dashboard/serve-connector-dashboard.ps1`) now splits its index into
-three groups, **BWJ repos**, **DKJ repos** and **Other repos**. Its h1 is the repo's name,
-`dkj-claude-plugins`, and the one overview card, now headed **Connected repos**, carries a table per group, each naming its group
-in its first column head, followed, one level under it and inside the same card, by an h3 **Status** with an h4 per group and a house `mini-card` per repo beneath it. The tables share one fixed column
-set, so their columns line up. The Overview's Checkout column is now **Main**: it says whether each
-checkout's trunk is up to date with origin's or how many commits it is behind, measured after a
-`git fetch origin <trunk>` (with prompts off), so the number is GitHub's rather than the last fetch's.
-In that column a trunk named `main` is not named again, so a cell reads `24 behind`; a trunk with another name keeps it, and a repo not checked out here reads N/A. The repo card states the same, trunk named, with the trunk's last commit. The branch a checkout stands on and its
-uncommitted work are no longer shown at all, since they say nothing about the trunk; the one note left
-is a fetch that failed, when the count is against the last fetch. That fetch is the
-dashboard's one network call and makes an uncached load slower, about 19 s here. A repo's group is read from the owner in its connector manifest's `repo`
-slug (`BWJ-Development`, `DKJ-Solutions`, anything else), so a newly registered repo lands in the right
-section without an edit. Inside a group the order is unchanged: worst status first, then by name. A
-group with no repos is left out.
+The connector dashboard (`scripts/dashboard/serve-connector-dashboard.ps1`) now groups its repos as
+**BWJ repos**, **DKJ repos** and **Other repos**. A repo's group is read from the owner in its connector
+manifest's `repo` slug (`BWJ-Development`, `DKJ-Solutions`, anything else), so a newly registered repo
+lands in the right group without an edit; inside a group the order is unchanged, worst status first,
+then by name, and a group with no repos is left out.
+
+The page's h1 is the repo's name, `dkj-claude-plugins`, and one card headed **Connected repos** holds
+the rest. It opens with a table per group, the group named in the first column head, all sharing one
+fixed column set so their columns line up. One level down, in the same card, an h3 **Status** carries an
+h4 per group and a house `mini-card` per repo.
+
+The Overview's **Checkout** column is gone. What a checkout is checked out on and whether it holds
+uncommitted work said nothing about the repo, so the card no longer shows it either: it shows the last
+commit on the checkout's trunk, read from local refs. Nothing is fetched.
 
 **Score:** 2
 
