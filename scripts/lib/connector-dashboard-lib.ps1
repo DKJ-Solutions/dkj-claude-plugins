@@ -289,6 +289,10 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-notes { white-space: pre-wrap; font-size: var(--text-xs); color: var(--primary-6); max-height: 320px; overflow: auto; }')
     [void]$sb.AppendLine('.cd-status { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }')
     [void]$sb.AppendLine('.table td.cd-left, .table th.cd-left { text-align: left; }')
+    # Fixed layout, so each group's table takes these widths rather than sizing to its own content; the min-width keeps them readable, scrolling inside .table-wrap on a narrow screen.
+    [void]$sb.AppendLine('.cd-overview { table-layout: fixed; width: 100%; min-width: 860px; }')
+    [void]$sb.AppendLine('.cd-overview td { overflow-wrap: anywhere; }')
+    [void]$sb.AppendLine('.cd-col-repo { width: 24%; } .cd-col-status { width: 16%; } .cd-col-vis { width: 9%; } .cd-col-num { width: 7%; } .cd-col-ver { width: 10%; } .cd-col-git { width: 20%; }')
     [void]$sb.AppendLine('@media (max-width: 760px) { main { padding-left: var(--spacing-4); padding-right: var(--spacing-4); } }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
@@ -330,7 +334,8 @@ function Format-ConnectorDashboardHtml {
     foreach ($g in $groups) {
         $members = $g.Members
         [void]$sb.AppendLine('<h3 class="cd-subgroup" id="overview-' + $g.Key + '">' + $g.Title + ' <span class="cd-group-count">' + $members.Count + '</span></h3>')
-        [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="cd-thead"><tr><th>Repo</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th><th class="cd-left">Checkout</th></tr></thead><tbody>')
+        # One fixed column set for every group's table, so the columns line up from table to table.
+        [void]$sb.AppendLine('<div class="table-wrap"><table class="table cd-overview"><colgroup><col class="cd-col-repo"><col class="cd-col-status"><col class="cd-col-vis"><col class="cd-col-num"><col class="cd-col-ver"><col class="cd-col-num"><col class="cd-col-num"><col class="cd-col-git"></colgroup><thead class="cd-thead"><tr><th>Repo</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th><th class="cd-left">Checkout</th></tr></thead><tbody>')
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
