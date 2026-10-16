@@ -193,7 +193,7 @@ $hostile = '<script>alert(1)</script>'
 $connectors = @(
     @{ Repo = 'Org/beta'; Visibility = 'private'; File = 'beta.json'; Checkout = @('../beta'); Present = $true
        Plugins = @(@{ Id = 'p1@m'; Extensions = @('01-01', '05-05') }); Signals = $beta; Status = 'bad'
-       Git = @{ Branch = 'main'; Dirty = 2; Ahead = 1; Behind = 0; Subject = $hostile; When = '2 days ago' }; Notes = "a`"note" },
+       Git = @{ Branch = 'feat/y'; Trunk = 'main'; TrunkAhead = 0; TrunkBehind = 5; TrunkFetched = $true; Subject = $hostile; When = '2 days ago' }; Notes = "a`"note" },
     @{ Repo = 'Org/gamma'; Visibility = 'public'; File = 'gamma.json'; Checkout = @('../gamma'); Present = $false
        Plugins = @(); Signals = @($parsed['Org/gamma'].Signals); Status = 'skip'; Git = $null; Notes = '' }
 )
@@ -201,7 +201,7 @@ $html = Format-ConnectorDashboardHtml -Connectors $connectors -Meta @{ Generated
 Assert-True ($html -notmatch '<script>alert') 'a git subject is shown as text, never as markup'
 Assert-True ($html -match '&lt;script&gt;alert') 'and it is still shown'
 Assert-True ($html -match 'a&quot;note') 'the register notes are escaped too'
-Assert-True ($html -match 'main &#183; 2 uncommitted &#183; 1 ahead') 'the git state names branch, uncommitted and ahead'
+Assert-True ($html -match 'main &#183; <strong>5 behind</strong> &#183; last commit on main 2 days ago' -and $html -notmatch 'feat/y') 'the card states the trunk against origin and its last commit, never the checked-out branch'
 Assert-True ($html -match 'not on this machine') 'an absent checkout says so'
 Assert-True ($html.IndexOf('id="repo-org-beta"') -lt $html.IndexOf('id="repo-org-gamma"')) 'a repo that needs action comes before a skipped one'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'the page loads the house style from its own server'
@@ -232,9 +232,9 @@ $t = @{ Branch = 'main'; Dirty = 0; Trunk = 'main'; TrunkAhead = 0; TrunkBehind 
 Assert-Equal 'main &#183; up to date' (Format-DashboardTrunkState $t) 'a fetched trunk level with origin is up to date, with no notes'
 $t.TrunkBehind = 3
 Assert-Equal 'main &#183; <strong>3 behind</strong>' (Format-DashboardTrunkState $t) 'a trunk behind origin says by how much'
-$t.Branch = 'feat/<x>'; $t.Dirty = 2; $t.TrunkFetched = $false
+$t.Branch = 'feat/x'; $t.TrunkFetched = $false
 $cell = Format-DashboardTrunkState $t
-Assert-True ($cell -match 'on <code>feat/&lt;x&gt;</code> &#183; 2 uncommitted &#183; not fetched') 'another branch, uncommitted work and a failed fetch are notes, the branch escaped'
+Assert-True ($cell -match 'not fetched' -and $cell -notmatch 'feat/x') 'a failed fetch is the one note; the branch the checkout stands on is not shown'
 Assert-Equal 'no trunk found' (Format-DashboardTrunkState @{ Branch = 'x'; Trunk = $null }) 'a checkout without its trunk says so'
 Assert-Equal 'not on this machine' (Format-DashboardTrunkState $null) 'an absent checkout says so in the Main cell too'
 Assert-True ($html -match '<th class="cd-left">Main</th>' -and $html -notmatch '>Checkout</th>') 'the Overview column is Main, not Checkout'
@@ -361,7 +361,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True $up 'the group-3 server listens on the port it was given'
             $page = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($page -match 'HTTP/1.1 200') 'the page is served with a checkout that has no upstream'
-            Assert-True ($page -match '(master|main) &#183; clean') 'and that checkout shows its branch and state'
+            Assert-True ($page -match '(master|main) &#183; no origin copy') 'and that checkout shows its trunk, with no origin copy to compare it to'
             Assert-True ($page -match 'class="notice"') 'a check that could not run is reported, not fatal'
             $at = $page.IndexOf('id="repo-org-far"')
             $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }

@@ -227,24 +227,13 @@ function Get-DashboardStatusBadge {
     }
 }
 
-function Format-DashboardGitState {
-    <# One short phrase for a checkout's git state: branch, uncommitted count, and ahead/behind its upstream. #>
-    param([AllowNull()]$Git)
-    if ($null -eq $Git) { return 'not on this machine' }
-    if (-not $Git.Branch) { return 'not a git checkout' }
-    $parts = @($Git.Branch)
-    if ([int]$Git.Dirty -gt 0) { $parts += "$([int]$Git.Dirty) uncommitted" } else { $parts += 'clean' }
-    if ($null -ne $Git.Ahead -and [int]$Git.Ahead -gt 0) { $parts += "$([int]$Git.Ahead) ahead" }
-    if ($null -ne $Git.Behind -and [int]$Git.Behind -gt 0) { $parts += "$([int]$Git.Behind) behind" }
-    return ($parts -join ' &#183; ')
-}
-
 function Format-DashboardTrunkState {
     <#
-        The Overview's Main cell: how the checkout's trunk stands against origin's, which is what a reader
-        wants kept current -- 'main &#183; up to date' or 'main &#183; 3 behind' -- then, as notes, a
-        checkout standing on another branch, uncommitted work, and a fetch that failed (the count is then
-        against the last fetch).
+        How a checkout's trunk stands against origin's -- 'main &#183; up to date' or 'main &#183; 3
+        behind' -- the one git fact the page shows, in the Overview's Main cell and on the repo card. The
+        branch the checkout stands on and its uncommitted work say nothing about the trunk, so they are
+        left out (Dave, #2976 follow-up). The one note is a fetch that failed: the count is then against
+        the last fetch.
     #>
     param([AllowNull()]$Git)
     if ($null -eq $Git) { return 'not on this machine' }
@@ -258,19 +247,15 @@ function Format-DashboardTrunkState {
         if (-not $state.Count) { $state += 'up to date' }
     }
     $cell = (ConvertTo-DashboardText $Git.Trunk) + ' &#183; ' + ($state -join ', ')
-    $notes = @()
-    if ($Git.Branch -ne $Git.Trunk) { $notes += 'on <code>' + (ConvertTo-DashboardText $Git.Branch) + '</code>' }
-    if ([int]$Git.Dirty -gt 0) { $notes += "$([int]$Git.Dirty) uncommitted" }
-    if (-not $Git.TrunkFetched) { $notes += 'not fetched' }
-    if ($notes.Count) { $cell += '<br><span class="cd-cell-note">' + ($notes -join ' &#183; ') + '</span>' }
+    if (-not $Git.TrunkFetched) { $cell += '<br><span class="cd-cell-note">not fetched</span>' }
     return $cell
 }
 
 function Format-ConnectorDashboardHtml {
     <#
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
-        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Dirty; Ahead; Behind; Subject;
-        When } or $null); Notes }. -Meta is @{ GeneratedAt; SourceCommit; Seconds; CheckFailed }.
+        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; TrunkAhead;
+        TrunkBehind; TrunkFetched; Subject; When } or $null); Notes }. -Meta is @{ GeneratedAt; SourceCommit; Seconds; CheckFailed }.
     #>
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
@@ -395,8 +380,8 @@ function Format-ConnectorDashboardHtml {
             [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
                 ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
             if ($c.Git -and $c.Git.Branch) {
-                $last = if ($c.Git.Subject) { ' &#183; last commit ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) } else { '' }
-                [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + (Format-DashboardGitState $c.Git) + $last + '</p>')
+                $last = if ($c.Git.Subject) { ' &#183; last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) } else { '' }
+                [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + ((Format-DashboardTrunkState $c.Git) -replace '<br>', ' ') + $last + '</p>')
             }
             [void]$sb.AppendLine('<div class="cd-plugins">')
             foreach ($p in @($c.Plugins)) {
