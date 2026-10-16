@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**6 / 9 minor entries** <!-- pending-tally -->
+**7 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3062-extension-may-close-act-only · 20261016-120740Z
+
+The core's `CONTRIBUTING-portable.md` now permits an extension to close an act-only issue as completed,
+with a record of the act and of who performs it, instead of parking it under `awaiting-action-dev`
+([#3062](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3062), Maikel, October 16, 2026).
+`bwj-development` uses that permission through its #3059 rule. That rule had contradicted the core, and
+since the core wins, that rule would have had to give way. A repo without such an extension still parks the issue. The
+`sweep-issues` skill's parking step says the same.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing changes in how either kind of repo works. What it prevents: a session in a `bwj-development`
+repo reads both pages, applies "the core wins" and parks an act-only issue under `awaiting-action-dev`,
+where the extension says to close it. That has not happened yet.
+
+**Score:** 1
+
+#### Pull Request
+
+An extension may close an act-only issue instead of parking it
+
+Plugins: bwj-development, dkj-policy
+
+[PR #3067](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3067)
+
+---
 
 ### DEPLOY: feat/3064-repo-dashboard-label · 20261016-114424Z
 
