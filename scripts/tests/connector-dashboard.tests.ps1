@@ -228,6 +228,16 @@ $tables = [regex]::Matches($grouped, '<table class="table cd-overview"><colgroup
 Assert-True ($tables.Count -eq 3 -and @($tables | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique).Count -eq 1) 'every group''s table carries the same fixed column set, so the columns line up'
 Assert-True ($grouped -match '\.cd-overview \{ table-layout: fixed;') 'the overview tables use a fixed layout'
 Assert-True ($html -notmatch 'id="group-bwj"' -and $html -match 'id="group-other"') 'an empty group is left out'
+$t = @{ Branch = 'main'; Dirty = 0; Trunk = 'main'; TrunkAhead = 0; TrunkBehind = 0; TrunkFetched = $true }
+Assert-Equal 'main &#183; up to date' (Format-DashboardTrunkState $t) 'a fetched trunk level with origin is up to date, with no notes'
+$t.TrunkBehind = 3
+Assert-Equal 'main &#183; <strong>3 behind</strong>' (Format-DashboardTrunkState $t) 'a trunk behind origin says by how much'
+$t.Branch = 'feat/<x>'; $t.Dirty = 2; $t.TrunkFetched = $false
+$cell = Format-DashboardTrunkState $t
+Assert-True ($cell -match 'on <code>feat/&lt;x&gt;</code> &#183; 2 uncommitted &#183; not fetched') 'another branch, uncommitted work and a failed fetch are notes, the branch escaped'
+Assert-Equal 'no trunk found' (Format-DashboardTrunkState @{ Branch = 'x'; Trunk = $null }) 'a checkout without its trunk says so'
+Assert-Equal 'not on this machine' (Format-DashboardTrunkState $null) 'an absent checkout says so in the Main cell too'
+Assert-True ($html -match '<th class="cd-left">Main</th>' -and $html -notmatch '>Checkout</th>') 'the Overview column is Main, not Checkout'
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="notice"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is a notice, escaped'
 

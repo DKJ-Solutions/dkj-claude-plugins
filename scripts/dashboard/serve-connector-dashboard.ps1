@@ -19,8 +19,10 @@
 
     THE DATA IS READ ON DEMAND AND KEPT FOR -CacheSeconds. The first request after that runs
     check-connectors.ps1 again, drift check included (#2997, about 1.4 s more), reads every connectors/*.json, and asks
-    git for each checkout's branch, uncommitted count and ahead/behind against its upstream -- local refs
-    only, no fetch. /refresh drops the cache and redirects to the page.
+    git for each checkout's branch, uncommitted count and ahead/behind against its upstream, and -- after
+    one 'git fetch origin <trunk>' per checkout -- how its trunk stands against origin's. That fetch is the
+    one network call and the one write (a remote-tracking ref); a failed fetch is shown, never fatal.
+    /refresh drops the cache and redirects to the page.
 
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped, so a browser's speculative
@@ -81,14 +83,31 @@ function Invoke-DashboardGit {
 }
 
 function Get-DashboardGitInfo {
-    <# Branch, uncommitted count and ahead/behind of one checkout, from local refs only. #>
+    <#
+        Branch, uncommitted count and ahead/behind of one checkout, and its TRUNK against origin's: the
+        trunk is origin/HEAD's target (else 'main'), fetched first so 'up to date' means up to date with
+        GitHub rather than with the last fetch. TrunkFetched says whether that fetch succeeded.
+    #>
     param([string]$Path)
     $branch = Invoke-DashboardGit $Path @('rev-parse', '--abbrev-ref', 'HEAD')
     if ($null -eq $branch) { return @{ Branch = $null } }
     $dirty = Invoke-DashboardGit $Path @('status', '--porcelain')
-    $info = @{ Branch = [string]$branch[0]; Dirty = @($dirty | Where-Object { $_ }).Count; Ahead = $null; Behind = $null; Subject = ''; When = '' }
+    $info = @{ Branch = [string]$branch[0]; Dirty = @($dirty | Where-Object { $_ }).Count; Ahead = $null; Behind = $null; Subject = ''; When = ''
+               Trunk = $null; TrunkAhead = $null; TrunkBehind = $null; TrunkFetched = $false }
     $counts = Invoke-DashboardGit $Path @('rev-list', '--left-right', '--count', 'HEAD...@{u}')
     if ($counts -and ([string]$counts[0]) -match '^(\d+)\s+(\d+)$') { $info.Ahead = [int]$Matches[1]; $info.Behind = [int]$Matches[2] }
+    $originHead = Invoke-DashboardGit $Path @('symbolic-ref', '--quiet', '--short', 'refs/remotes/origin/HEAD')
+    $trunk = if ($originHead -and ([string]$originHead[0]) -match '^origin/(.+)$') { $Matches[1] } else { 'main' }
+    # The name goes on a git command line, so it must read as a ref and never as an option.
+    if ($trunk -match '^[A-Za-z0-9][A-Za-z0-9._/-]*$' -and (Invoke-DashboardGit $Path @('rev-parse', '--verify', '--quiet', "refs/heads/$trunk"))) {
+        $info.Trunk = $trunk
+        # GIT_TERMINAL_PROMPT=0: a remote that wants credentials fails at once instead of waiting on a prompt nobody sees.
+        $prompt = $env:GIT_TERMINAL_PROMPT; $env:GIT_TERMINAL_PROMPT = '0'
+        try { $info.TrunkFetched = ($null -ne (Invoke-DashboardGit $Path @('fetch', '--quiet', 'origin', "refs/heads/${trunk}:refs/remotes/origin/$trunk"))) }
+        finally { $env:GIT_TERMINAL_PROMPT = $prompt }
+        $tc = Invoke-DashboardGit $Path @('rev-list', '--left-right', '--count', "refs/heads/$trunk...refs/remotes/origin/$trunk")
+        if ($tc -and ([string]$tc[0]) -match '^(\d+)\s+(\d+)$') { $info.TrunkAhead = [int]$Matches[1]; $info.TrunkBehind = [int]$Matches[2] }
+    }
     $last = Invoke-DashboardGit $Path @('log', '-1', '--format=%cr%x09%s')
     if ($last -and ([string]$last[0]) -match '^([^\t]*)\t(.*)$') { $info.When = $Matches[1]; $info.Subject = $Matches[2] }
     return $info

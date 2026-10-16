@@ -47,18 +47,25 @@ The group is read from the owner in each manifest's `repo` slug, so a new repo n
 - [x] `Get-ConnectorOwnerGroup` and `Get-DashboardOwnerGroups` in `scripts/lib/connector-dashboard-lib.ps1`
 - [x] One "Connected repos" overview card (h2) with an h3 and a table per non-empty group, then the repo cards under an h2 per group
 - [x] The h1 is the repo's name, `dkj-claude-plugins`
+- [x] The overview tables share one fixed column set, so their columns line up
+- [x] The Checkout column becomes Main: the trunk against origin's, after a `git fetch origin <trunk>` per checkout (Dave chose fetching over the last-fetch reading)
 
 ### TEST
 
-- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure, and an empty group left out (101 passed)
-- [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1
+- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure, the shared column set, the Main cell, and an empty group left out (109 passed)
+- [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1, with each present checkout's main measured after a fetch (first load about 19 s)
 
 ### DEPLOY: feat/dashboard-owner-groups
 
 The connector dashboard (`scripts/dashboard/serve-connector-dashboard.ps1`) now splits its index into
 three groups, **BWJ repos**, **DKJ repos** and **Other repos**. Its h1 is the repo's name,
 `dkj-claude-plugins`, and the one overview card, now headed **Connected repos**, carries an h3 and a
-table per group, followed by the repo cards under an h2 per group. A repo's group is read from the owner in its connector manifest's `repo`
+table per group, followed by the repo cards under an h2 per group. The tables share one fixed column
+set, so their columns line up. The Overview's Checkout column is now **Main**: it says whether each
+checkout's trunk is up to date with origin's or how many commits it is behind, measured after a
+`git fetch origin <trunk>` (with prompts off), so the number is GitHub's rather than the last fetch's.
+Another checked-out branch, uncommitted work and a failed fetch show as a small note. That fetch is the
+dashboard's one network call and makes an uncached load slower, about 19 s here. A repo's group is read from the owner in its connector manifest's `repo`
 slug (`BWJ-Development`, `DKJ-Solutions`, anything else), so a newly registered repo lands in the right
 section without an edit. Inside a group the order is unchanged: worst status first, then by name. A
 group with no repos is left out.
