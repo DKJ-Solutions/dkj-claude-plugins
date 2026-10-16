@@ -39,19 +39,55 @@
 
 ### PLAN
 
+Closes #3066. The owner's decision (October 16, 2026): every repo's Repo dashboard takes the one form
+`dkj-brandbook` lays down. That form was released as `house-style-v4` the same day, so this branch takes
+the new copy and moves both pages the plugin source serves onto it.
+
+#### A visible result
+
+The placeholder page and the connector dashboard are judged by eye, so this branch stops before the merge
+and the checkout stays on it until the owner has looked.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Repoint the `house-style` skill to `house-style-v4` (tag, commit, the stylesheet's checksum), and
+      replace both vendored `house-style.css` copies. `house-theme.js` and the retired token names did
+      not change at v4.
+- [x] Item 1: the dkj-solutions README states the rule under "The dev-preview hook".
+- [x] Item 2: the skill names the Repo dashboard pattern and the stylesheet-only reference page.
+- [x] Item 3: the placeholder page (`dev-preview-placeholder.ps1`) takes the form: the repo name as the
+      eyebrow, the fixed `h1`, the two setup cards in the data cards' place, an "About this repo" facts
+      card and the footer note. No tiles, because a placeholder has no lists to count.
+- [x] Item 4: the connector dashboard takes the form: the slug as the eyebrow, the fixed `h1`, the lead,
+      the tiles, the warning line as `.msg--warn`, the two data cards with card heads, an "About this
+      repo" facts card, and the footer note, which now carries the re-run link. The band, the header rule
+      and the card accents are gone, because the form carries no decoration of its own.
+- [~] Item 5, a gate that flags a dashboard departing from the form: dropped. The form is a block order
+      and a set of house classes in HTML that each repo builds its own way (React, a Python string,
+      PowerShell), so a pattern grep would either miss the departures or flag every build. The issue
+      leaves the call to the implementer.
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: 58 passed. The gate on this tree holds at `house-style-v4`.
+- [x] `dev-preview-sessionstart.tests.ps1`: 104 passed, now also asserting the form on the placeholder.
+- [x] `connector-dashboard.tests.ps1`: 117 passed, now also asserting the form and its block order.
+
 ### DEPLOY: feat/3066-repo-dashboard-form
 
-**Score:**
+In this repo, the connector dashboard is now a Repo dashboard in the house form: an eyebrow, the fixed
+`h1`, the tiles, the two data cards and an "About this repo" facts card. The re-run link has moved into
+the footer note. The `house-style` skill and both vendored copies are on `house-style-v4`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions repo that states no dev preview now gets a placeholder in the one Repo dashboard
+form. The `house-style` skill now points at `house-style-v4` and names the Repo dashboard pattern, so a
+session building a repo's dashboard starts from that form.
+
+**Score:** 3
 
 #### Pull Request
 

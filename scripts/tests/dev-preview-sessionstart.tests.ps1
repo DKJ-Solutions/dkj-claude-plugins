@@ -178,7 +178,9 @@ Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '' -Port 4880)) 'no 
 Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText "{`n  // `"localhost:4880`": `"simpleBrowser.open`"`n}" -Port 4880)) 'a route commented out with // is no route'
 
 $html = Format-DevPreviewPlaceholderHtml -RepoName 'dkj-thumbnail-generator'
-Assert-True ($html -match '<h1>dkj-thumbnail-generator</h1>') 'the page names the repo'
+Assert-True ($html -match '<p class="eyebrow">dkj-thumbnail-generator</p>') 'the page names the repo, in the eyebrow'
+Assert-True ($html -match '<h1>Repo dashboard</h1>' -and $html -match '<main class="page-column">' -and $html -match 'About this repo</h2>') 'and takes the Repo dashboard form: the fixed h1, the page column, the facts card (#3066)'
+Assert-True ($html -notmatch '<header') 'and its intro is no <header>, which the house style lays out as a flex row'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
 Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1') 'and says how to state a preview of its own'
 Assert-True ($html -match '<title>dkj-thumbnail-generator -- Repo dashboard</title>' -and $html -notmatch 'Name\s+=') 'its title carries the term, and its example states no Name (#3064)'
@@ -235,7 +237,7 @@ try {
         $started += @(Get-NetTCPConnection -State Listen -LocalPort $phPort -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess)
         try {
             $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$phPort/" -TimeoutSec 10
-            Assert-True ($page.StatusCode -eq 200 -and $page.Content -match '<h1>no-config</h1>') 'the placeholder serves a page naming the repo it was started in'
+            Assert-True ($page.StatusCode -eq 200 -and $page.Content -match '<p class="eyebrow">no-config</p>') 'the placeholder serves a page naming the repo it was started in'
             $css = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$phPort/house-style.css" -TimeoutSec 10
             Assert-True ($css.StatusCode -eq 200) 'and serves the house style beside it'
         } catch { Assert-True $false "the placeholder answers over HTTP ($($_.Exception.Message))" }

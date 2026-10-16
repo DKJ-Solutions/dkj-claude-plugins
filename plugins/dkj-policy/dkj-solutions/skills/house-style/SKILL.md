@@ -56,6 +56,12 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    way it is a copy of the brand book's file, never a retyped version. An app that offers a theme choice
    uses `DKJTheme.settings(el)` from that script, the round settings button with the picker inside,
    instead of building its own toggle around `DKJTheme.picker`; the README has its options.
+   **A Repo dashboard** (the index of a repo's dev server) **takes the one form the README lays down
+   under "Page patterns", "The Repo dashboard"**: its blocks, their order and the fixed `h1`, with only
+   the content the repo's own. A repo without a build starts from
+   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/house-style-v4/house-style/patterns/repo-dashboard.html)
+   at the same tag, which carries no CSS of its own
+   ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
 2. **Add the repo's own layer after it, in a separate block or file.** Domain colours and components go
    there. They **use** house tokens and may add tokens of their own, under a name the house file does
    not define.

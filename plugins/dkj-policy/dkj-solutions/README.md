@@ -63,6 +63,13 @@ included, and a repo cannot choose another word. A `Name` a repo still states in
 ignored, so delete it at your next edit. "dev-preview" names the mechanism, which is why the hook's lines
 about its own setup (skipped, config unreadable, a config it cannot run) still open with it.
 
+**And it has one form, in every repo** (the owner's decision, October 16, 2026,
+[#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)): the one laid down in
+`dkj-brandbook`'s `house-style/README.md`, section "The Repo dashboard", at the tag the
+[`house-style` skill](skills/house-style/SKILL.md) pins. The blocks, their order and the `h1` are fixed;
+the slug, the lead, the lists, the facts and the data source are the repo's own. The placeholder below
+follows that form too.
+
 **Every DKJ-Solutions repo has a dev preview, and the placeholder is the floor** (decided October 15,
 2026, [#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047), reversing #2967's
 silent no-op). A repo states its own server with `Get-DevPreview` in its `scripts/repo-config.ps1`.

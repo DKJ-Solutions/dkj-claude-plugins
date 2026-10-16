@@ -268,23 +268,21 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>dkj-claude-plugins &#183; Connected repos</title>')
+    [void]$sb.AppendLine('<title>dkj-claude-plugins -- Repo dashboard</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: only names the house file does not define (.cd-*), spaced from the house scale.
+    # The page itself takes the Repo dashboard form (house-style-v4, "The Repo dashboard"; #3066), so this
+    # layer styles only what is inside its cards, never the blocks the form fixes.
     [void]$sb.AppendLine('<style>')
-    # The accents take the house highlight (--primary-7), the tinted head and the lines --primary-3, and the notes --primary-6 (house-style-v3 roles).
-    [void]$sb.AppendLine('.cd-band { position: fixed; top: 0; left: 0; right: 0; height: var(--spacing-1); background: var(--primary-7); }')
-    [void]$sb.AppendLine('.cd-head { padding-bottom: var(--spacing-3); border-bottom: 2px solid var(--primary-7); }')
-    [void]$sb.AppendLine('.cd-accent { border-top: 3px solid var(--primary-7); }')
-    [void]$sb.AppendLine('.cd-figure { color: var(--primary-7); }')
+    # The links take the house highlight (--primary-7), the tinted head and the lines --primary-3, and the notes --primary-6.
     [void]$sb.AppendLine('.cd-link { color: var(--primary-7); text-underline-offset: 2px; }')
     [void]$sb.AppendLine('.cd-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.cd-table-gap { margin-top: var(--spacing-4); }')
     [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--primary-1); }')
     # Each group opens with a rule above its h3 (not the first, right under the h2) and its summary line under it.
     [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-6) 0 var(--spacing-0-5); padding-top: var(--spacing-5); border-top: 1px solid var(--primary-3); }')
-    [void]$sb.AppendLine('h2 + .cd-subgroup { margin-top: var(--spacing-3); padding-top: 0; border-top: 0; }')
+    [void]$sb.AppendLine('.cd-subgroup:first-child { margin-top: 0; padding-top: 0; border-top: 0; }')
     [void]$sb.AppendLine('.cd-group-summary { margin: 0 0 var(--spacing-1); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-repo h4 { margin: 0; font-size: var(--text-h5); }')
@@ -300,33 +298,35 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-overview { table-layout: fixed; width: 100%; min-width: 860px; }')
     [void]$sb.AppendLine('.cd-overview td { overflow-wrap: anywhere; }')
     [void]$sb.AppendLine('.cd-col-repo { width: 36%; } .cd-col-status { width: 24%; } .cd-col-vis { width: 14%; } .cd-col-num { width: 10%; } .cd-col-ver { width: 16%; }')
-    [void]$sb.AppendLine('@media (max-width: 760px) { main { padding-left: var(--spacing-4); padding-right: var(--spacing-4); } }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    [void]$sb.AppendLine('<div class="cd-band" aria-hidden="true"></div>')
-    [void]$sb.AppendLine('<main>')
-    [void]$sb.AppendLine('<header class="cd-head">')
-    [void]$sb.AppendLine('<div><h1>dkj-claude-plugins</h1>')
-    $commit = if ($Meta.SourceCommit) { ' &#183; source at <code>' + (& $e $Meta.SourceCommit) + '</code>' } else { '' }
-    [void]$sb.AppendLine('<p class="sub">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine' + $commit + '.</p></div>')
-    [void]$sb.AppendLine('<div class="controls"><a class="btn btn--primary" href="/refresh">Re-run the check</a></div>')
-    [void]$sb.AppendLine('</header>')
+    # Block 1, the settings button, sits outside <main>.
     [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
+    [void]$sb.AppendLine('<main class="page-column">')
+    # Blocks 2 to 5: the intro is a <div>, never a <header>, which the house style lays out as a flex row.
+    # This repo is no product, so block 6 (the product button) is left out.
+    [void]$sb.AppendLine('<div>')
+    [void]$sb.AppendLine('<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>')
+    [void]$sb.AppendLine('<h1>Repo dashboard</h1>')
+    [void]$sb.AppendLine('<p class="lead">The source of the Claude Specialists plugins, and every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine.</p>')
+    [void]$sb.AppendLine('</div>')
 
-    if ($Meta.CheckFailed) {
-        [void]$sb.AppendLine('<div class="notice">check-connectors.ps1 could not be run: ' + (& $e $Meta.CheckFailed) + '. The register is shown without its signals.</div>')
-    }
-
+    # Block 7: one tile per count.
     [void]$sb.AppendLine('<div class="tiles">')
     foreach ($t in @(
             @{ L = 'Registered repos'; V = $all.Count },
             @{ L = 'Checked out here'; V = $present },
             @{ L = 'Errors'; V = $errors },
             @{ L = 'Notes'; V = $infos })) {
-        [void]$sb.AppendLine('<div class="tile"><div class="label">' + $t.L + '</div><div class="v num cd-figure">' + $t.V + '</div></div>')
+        [void]$sb.AppendLine('<div class="tile"><div class="label">' + $t.L + '</div><div class="v num">' + $t.V + '</div></div>')
     }
     [void]$sb.AppendLine('</div>')
+
+    # Block 8: the warning that the signals could not be read.
+    if ($Meta.CheckFailed) {
+        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">check-connectors.ps1 could not be run: ' + (& $e $Meta.CheckFailed) + '. The register is shown without its signals.</p>')
+    }
 
     # Grouped by owner (BWJ, DKJ, other); inside a group worst first, then by name. An empty group is left out.
     $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
@@ -337,7 +337,10 @@ function Format-ConnectorDashboardHtml {
         })
 
     # The overview (headed Connected repos): one card, one table per group, the group named in its first column head.
-    [void]$sb.AppendLine('<div class="card cd-accent"><h2>Connected repos</h2>')
+    # Block 9: the data cards.
+    [void]$sb.AppendLine('<section class="card" id="overview">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Connected repos</h2><p class="card__sub">By owner, worst first</p></div>')
+    [void]$sb.AppendLine('<div>')
     foreach ($g in $groups) {
         $members = $g.Members
         # One fixed column set for every group's table, so the columns line up from table to table.
@@ -354,10 +357,13 @@ function Format-ConnectorDashboardHtml {
         [void]$sb.AppendLine('</tbody></table></div>')
     }
     [void]$sb.AppendLine('</div>')
+    [void]$sb.AppendLine('</section>')
 
     # The per-repo details, a card of their own beside Connected repos, headed Issues: an h2, an h3 per group, and a house
-    # mini-card per repo (a card inside a card).
-    [void]$sb.AppendLine('<div class="card cd-accent" id="issues"><h2>Issues</h2>')
+    # mini-card per repo (a card inside a card). The overview links down to it, so its head carries the way back.
+    [void]$sb.AppendLine('<section class="card" id="issues">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Issues</h2><p class="card__sub">What the check reports per repo</p><a class="btn" href="#overview">Back to overview</a></div>')
+    [void]$sb.AppendLine('<div>')
     foreach ($g in $groups) {
         $members = $g.Members
         # The group's own line under its heading, so the h3 opens a block instead of hanging between two cards.
@@ -366,7 +372,7 @@ function Format-ConnectorDashboardHtml {
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-            [void]$sb.AppendLine('<section class="mini-card cd-accent cd-repo-card" id="' + $anchor + '">')
+            [void]$sb.AppendLine('<section class="mini-card cd-repo-card" id="' + $anchor + '">')
             [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h4>' + (& $e $c.Repo) + '</h4></div>')
             $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
             $ghUrl = 'https://github.com/' + (& $e $c.Repo)
@@ -404,9 +410,23 @@ function Format-ConnectorDashboardHtml {
         }
     }
     [void]$sb.AppendLine('</div>')
+    [void]$sb.AppendLine('</section>')
 
+    # Block 10: About this repo, the fixed title, with this repo's own facts.
+    [void]$sb.AppendLine('<section class="card">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">About this repo</h2></div>')
+    [void]$sb.AppendLine('<dl class="facts">')
+    [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Trunk</dt><dd>main</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Visibility</dt><dd>public</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Required check</dt><dd>lint-en-tests</dd></div>')
+    if ($Meta.SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $Meta.SourceCommit) + '</code></dd></div>') }
+    [void]$sb.AppendLine('</dl>')
+    [void]$sb.AppendLine('</section>')
+
+    # Block 11: where the data comes from, with the way to read it again.
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    [void]$sb.AppendLine('<p class="footer-note">Checked ' + (& $e $Meta.GeneratedAt) + $secs + '. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
+    [void]$sb.AppendLine('<p class="footer-note">Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark" });</script>')
     [void]$sb.AppendLine('</body>')
