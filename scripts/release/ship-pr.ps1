@@ -417,6 +417,10 @@ if ($TrustedRoot) {
     }
     $SkipLint = $true
     $SkipTests = $true
+    # AND IT DECLARES THE TRUSTED TREE TO THE SOURCE-REPO GUARD (#3053), before that guard runs below and
+    # for every child spawned from here (open-pr, the fold, verify-resolved-issues): this run executes the
+    # trunk's code from $TrustedRoot on purpose, so the branch's own copy is not the one to run instead.
+    $env:DKJ_GUARD_TRUSTED_ROOT = $TrustedRoot
 }
 $ErrorActionPreference = 'Stop'
 
