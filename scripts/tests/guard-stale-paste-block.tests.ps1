@@ -224,10 +224,13 @@ function Invoke-Hook {
     $p.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
     $p.StandardInput.Close()
     $errTask = $p.StandardError.ReadToEndAsync()
-    $null = $p.StandardOutput.ReadToEnd()
+    $out = $p.StandardOutput.ReadToEnd()
     $p.WaitForExit()
     $calls = Join-Path $work 'calls.log'
-    return @{ Code = $p.ExitCode; Err = $errTask.Result; Calls = $(if (Test-Path -LiteralPath $calls) { @(Get-Content -LiteralPath $calls) } else { @() }) }
+    # Json: the PreToolUse decision a fail-open prints (#3058), or $null where stdout carries none.
+    $json = $null
+    if ($out.Trim()) { try { $json = (ConvertFrom-Json -InputObject $out).hookSpecificOutput } catch { $json = 'unparseable' } }
+    return @{ Code = $p.ExitCode; Err = $errTask.Result; Out = $out; Json = $json; Calls = $(if (Test-Path -LiteralPath $calls) { @(Get-Content -LiteralPath $calls) } else { @() }) }
 }
 
 if ($built) {
@@ -258,6 +261,7 @@ if ($built) {
     $r = Invoke-Hook $ship
     Assert-Equal 0 $r.Code 'a block newer than the reopen passes'
     Assert-Equal '' $r.Err.Trim() 'silently'
+    Assert-Equal '' $r.Out.Trim() 'and with nothing on stdout: a checked pass needs no decision (#3058)'
 
     Reset-Fake
     Set-Fake 'issue-7.out' (New-State -Comments @(, @($stBlock, '2026-10-01T10:00:00Z')))
@@ -286,12 +290,23 @@ if ($built) {
     $r = Invoke-Hook $ship
     Assert-Equal 0 $r.Code 'an issue gh cannot read passes'
     Assert-True ($r.Err -match 'could not judge the go-live block of #7') 'with a warning that names it'
+    # #3058: stderr on an exit 0 never reaches the model, so the warning is said as PreToolUse JSON too.
+    Assert-True ($null -ne $r.Json -and $r.Json -ne 'unparseable' -and $r.Json.hookEventName -eq 'PreToolUse') 'the fail-open prints PreToolUse JSON (#3058)'
+    Assert-True ([string]$r.Json.additionalContext -match 'could not judge the go-live block of #7') 'whose additionalContext tells the model what was not checked'
+    Assert-True ($null -eq $r.Json.permissionDecision) 'and a ship only informs: the workflow is its backstop, so no ask'
 
     Reset-Fake
     Set-Fake 'issue-7.out' 'this is not json'
     $r = Invoke-Hook $ship
     Assert-Equal 0 $r.Code 'an unparseable reply passes'
     Assert-True ($r.Err -match 'could not judge') 'with the same warning'
+
+    # The pre-gate matches a close by text; once parsed, a MENTION of one is no close to ask about (#3058).
+    Reset-Fake
+    Set-Fake 'issue-7.code' '1'
+    $r = Invoke-Hook "git commit -m `"gh issue close 5`"; $ship"
+    Assert-True ([string]$r.Json.additionalContext -match 'could not judge the go-live block of #7') 'a ship beside a mentioned close still informs (#3058)'
+    Assert-True ($null -eq $r.Json.permissionDecision) 'and does not ask, because no close is invoked'
 
     Reset-Fake
     Set-Fake 'issue-7.out' (New-State -Comments @(, @('talk', '2026-10-01T10:00:00Z')) -Total 150)
@@ -304,6 +319,7 @@ if ($built) {
     $r = Invoke-Hook $ship
     Assert-Equal 0 $r.Code 'a repo that cannot be resolved passes'
     Assert-True ($r.Err -match 'could not resolve which repo') 'with a warning'
+    Assert-True ([string]$r.Json.additionalContext -match 'could not resolve which repo') 'said to the model as well (#3058)'
     Assert-True (-not ($r.Calls -match 'issue-')) 'and no issue is read'
 
     # WHICH ISSUES: -Resolves, plus the closing issues of the PR already open, same repo only.
@@ -358,6 +374,7 @@ if ($built) {
     Assert-Equal 0 $r.Code 'an empty payload passes'
     $r = Invoke-Hook '' -Payload 'ship-pr.ps1 but not json'
     Assert-Equal 0 $r.Code 'an unparseable payload passes rather than blocking every shell call'
+    Assert-True ([string]$r.Json.additionalContext -match 'did not parse as JSON') 'and says so to the model (#3058)'
 
     # THE CLOSE GUARD (#3004): a completed close by hand of an Asana-linked issue needs a block for this round.
     $linked   = "Body`n<!-- asana-task: 1234567890 -->"
@@ -408,6 +425,10 @@ if ($built) {
     $r = Invoke-Hook $close
     Assert-Equal 0 $r.Code 'an issue gh cannot read lets the close through'
     Assert-True ($r.Err -match 'could not judge the go-live block of DKJ-Solutions/xoxo#943 -- the close was NOT checked') 'with a warning that names it'
+    # #3058, smartwatchbanden#946's route: a close has no backstop that can still stop it, so a person is asked.
+    Assert-Equal 'ask' ([string]$r.Json.permissionDecision) 'an unchecked close asks before it runs (#3058)'
+    Assert-True ([string]$r.Json.permissionDecisionReason -match 'xoxo#943 -- the close was NOT checked') 'with the reason, naming the issue'
+    Assert-True ([string]$r.Json.additionalContext -match 'the close was NOT checked') 'and the model is told too'
 
     Reset-Fake
     Set-Fake 'issue-943.out' (New-State -Body $linked -Comments @(, @('talk', '2026-10-01T10:00:00Z')) -Total 150)
