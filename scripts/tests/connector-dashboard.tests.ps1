@@ -229,6 +229,7 @@ Assert-True ($tables.Count -eq 3 -and @($tables | ForEach-Object { $_.Groups[1].
 Assert-True ($grouped -match '\.cd-overview \{ table-layout: fixed;') 'the overview tables use a fixed layout'
 $iS = $grouped.IndexOf('<h3 class="cd-group" id="status">Status</h3>')
 Assert-True ($oO -lt $iS -and $iS -lt $iB -and $grouped -match '<h4 class="cd-subgroup" id="group-bwj">' -and $grouped -match '<h5>Someone/x</h5>') 'the details sit one level under Connected repos: an h3 Status, an h4 per group, the repo name an h5'
+Assert-True (([regex]::Matches($grouped, 'class="card ')).Count -eq 1 -and ([regex]::Matches($grouped, '<section class="mini-card cd-accent cd-repo-card"')).Count -eq 3) 'Status and its repo cards sit inside the one Connected repos card, each repo a house mini-card'
 Assert-True ($html -notmatch 'id="group-bwj"' -and $html -match 'id="group-other"') 'an empty group is left out'
 $t = @{ Branch = 'main'; Dirty = 0; Trunk = 'main'; TrunkAhead = 0; TrunkBehind = 0; TrunkFetched = $true }
 Assert-Equal 'main &#183; up to date' (Format-DashboardTrunkState $t) 'a fetched trunk level with origin is up to date, with no notes'

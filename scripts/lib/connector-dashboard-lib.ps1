@@ -292,6 +292,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-link { color: var(--primary-7); text-underline-offset: 2px; }')
     [void]$sb.AppendLine('.cd-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.cd-group { display: flex; align-items: center; gap: var(--spacing-2); margin: var(--spacing-8) 0 var(--spacing-3); padding-bottom: var(--spacing-2); border-bottom: 2px solid var(--primary-7); }')
+    [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--primary-1); }')
     [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-5) 0 var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-cell-note { font-size: var(--text-xs); color: var(--primary-6); }')
     [void]$sb.AppendLine('.cd-group-count { font-size: var(--text-sm); color: var(--primary-6); }')
@@ -367,9 +368,9 @@ function Format-ConnectorDashboardHtml {
         }
         [void]$sb.AppendLine('</tbody></table></div>')
     }
-    [void]$sb.AppendLine('</div>')
 
-    # The status details, one level under Connected repos: an h3, an h4 per group, one card per repo.
+    # The status details, one level under Connected repos and inside its card: an h3, an h4 per group,
+    # and a house mini-card per repo (a card inside a card).
     [void]$sb.AppendLine('<h3 class="cd-group" id="status">Status</h3>')
     foreach ($g in $groups) {
         $members = $g.Members
@@ -377,7 +378,7 @@ function Format-ConnectorDashboardHtml {
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-            [void]$sb.AppendLine('<section class="card cd-accent" id="' + $anchor + '">')
+            [void]$sb.AppendLine('<section class="mini-card cd-accent cd-repo-card" id="' + $anchor + '">')
             [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h5>' + (& $e $c.Repo) + '</h5></div>')
             $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
             $ghUrl = 'https://github.com/' + (& $e $c.Repo)
@@ -415,6 +416,7 @@ function Format-ConnectorDashboardHtml {
             [void]$sb.AppendLine('</section>')
         }
     }
+    [void]$sb.AppendLine('</div>')
 
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     [void]$sb.AppendLine('<p class="footer-note">Checked ' + (& $e $Meta.GeneratedAt) + $secs + '. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
