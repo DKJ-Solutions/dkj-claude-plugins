@@ -63,10 +63,10 @@
 ([#3055](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3055)). A checkout still enabling
 `dkj-policy-bwj` or `dkj-policy-dkjs` (renamed in #2788) made `update-plugins` call
 `claude plugin update` on a name the marketplace no longer declares and count it as `FAILED`, which
-turned the whole checkout red in an `-AllCheckouts` sweep. Its receipt then advised a marketplace
-refresh that step 1 of the same run had just done. Now the update skips that id and names its
-successor, and the receipt reports it as `retired` with the real repair: enable the successor and
-install it.
+turned the whole checkout red in an `-AllCheckouts` sweep. The `plugin-versions` receipt printed at
+the end of the run then advised a marketplace refresh that step 1 of the same run had just done. Now
+`update-plugins` skips that id and names its successor, and `plugin-versions` reports it as `retired`
+with the real repair: enable the successor and install it.
 
 **Score:** 2
 
