@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**12 / 16 minor entries** <!-- pending-tally -->
+**13 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3076-guard-issue-reopen · 20261016-145034Z
+
+A new PreToolUse hook in `bwj-development`, `guard-issue-reopen.ps1`, asks the person in the session
+before `gh issue reopen` reopens an issue that links one Asana task
+([#3076](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3076)). Such a reopen posts a
+message on the task to the colleague who asked, and it is right only when repo code will change; the
+rule said so in prose (#2856, #3073), and a session on smartwatchbanden#395 still reopened. A hook
+cannot tell whether a file will change, so it asks rather than refuses. Every other reopen passes
+untouched, and an issue it cannot read is asked about too. Its parser sits beside the close guard's in
+`stale-paste-block-rules.ps1`, and its cases ride in that guard's suite, against the same fake gh.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a BWJ store session, reopening an Asana-linked issue now stops for a confirmation that names the
+issue and asks whether repo code will change, so a reopen for admin work or an answer no longer sends
+the colleague a "back in development" message by accident.
+
+**Score:** 3
+
+#### Pull Request
+
+bwj-development: ask before gh issue reopen on an Asana-linked issue
+
+Plugins: bwj-development
+
+[PR #3080](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3080)
+
+---
 
 ### DEPLOY: fix/3078-ship-pr-diverged-trunk · 20261016-141753Z
 
