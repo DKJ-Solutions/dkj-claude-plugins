@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**9 / 13 minor entries** <!-- pending-tally -->
+**10 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3073-reopen-only-for-code · 20261016-134302Z
+
+In a BWJ store, a closed issue is now reopened only when a file in the repo has to change (#3073).
+Admin-only work, such as a metaobject, a metafield, a setting or content, never reopens it. Where the
+requester can do that work themselves, the session answers with an instruction they can follow now and
+next time. Where they cannot, development does the admin act without reopening and without a go-live
+block.
+
+**Score:** 2 -- prevents a reopened/closed pair on a task for work that never touched the repo
+
+#### What makes this deploy extra special
+
+A requester stops seeing "back in development" on their task for admin-only follow-ups, and gets an
+instruction to do such work themselves next time.
+
+**Score:** 2
+
+#### Pull Request
+
+bwj-development: reopen only when repo code changes; admin-only follow-ups go to the requester
+
+Plugins: bwj-development
+
+[PR #3077](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3077)
+
+---
 
 ### DEPLOY: feat/3070-notify-live · 20261016-132827Z
 
