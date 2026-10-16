@@ -232,6 +232,8 @@ $t = @{ Branch = 'main'; Dirty = 0; Trunk = 'main'; TrunkAhead = 0; TrunkBehind 
 Assert-Equal 'main &#183; up to date' (Format-DashboardTrunkState $t) 'a fetched trunk level with origin is up to date, with no notes'
 $t.TrunkBehind = 3
 Assert-Equal 'main &#183; <strong>3 behind</strong>' (Format-DashboardTrunkState $t) 'a trunk behind origin says by how much'
+Assert-Equal '<strong>3 behind</strong>' (Format-DashboardTrunkState $t -InMainColumn) 'in the Main column a trunk named main is not named again'
+Assert-Equal 'master &#183; up to date' (Format-DashboardTrunkState @{ Branch = 'master'; Trunk = 'master'; TrunkAhead = 0; TrunkBehind = 0; TrunkFetched = $true } -InMainColumn) 'a trunk with another name keeps it, even in the Main column'
 $t.Branch = 'feat/x'; $t.TrunkFetched = $false
 $cell = Format-DashboardTrunkState $t
 Assert-True ($cell -match 'not fetched' -and $cell -notmatch 'feat/x') 'a failed fetch is the one note; the branch the checkout stands on is not shown'

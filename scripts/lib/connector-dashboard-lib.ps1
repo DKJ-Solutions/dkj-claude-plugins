@@ -235,7 +235,8 @@ function Format-DashboardTrunkState {
         left out (Dave, #2976 follow-up). The one note is a fetch that failed: the count is then against
         the last fetch.
     #>
-    param([AllowNull()]$Git)
+    # -InMainColumn: the column is headed Main, so a trunk named 'main' is not named again in it.
+    param([AllowNull()]$Git, [switch]$InMainColumn)
     if ($null -eq $Git) { return 'not on this machine' }
     if (-not $Git.Branch) { return 'not a git checkout' }
     if (-not $Git.Trunk) { return 'no trunk found' }
@@ -246,7 +247,8 @@ function Format-DashboardTrunkState {
         if ([int]$Git.TrunkAhead -gt 0) { $state += "$([int]$Git.TrunkAhead) ahead" }
         if (-not $state.Count) { $state += 'up to date' }
     }
-    $cell = (ConvertTo-DashboardText $Git.Trunk) + ' &#183; ' + ($state -join ', ')
+    $cell = $state -join ', '
+    if (-not ($InMainColumn -and $Git.Trunk -eq 'main')) { $cell = (ConvertTo-DashboardText $Git.Trunk) + ' &#183; ' + $cell }
     if (-not $Git.TrunkFetched) { $cell += '<br><span class="cd-cell-note">not fetched</span>' }
     return $cell
 }
@@ -360,7 +362,7 @@ function Format-ConnectorDashboardHtml {
                 '<td>' + @($c.Plugins).Count + '</td>' +
                 '<td class="cd-left">' + (Format-DashboardInstalledVersion $c) + '</td>' +
                 '<td>' + $nErr + '</td><td>' + $nInf + '</td>' +
-                '<td class="cd-left">' + (Format-DashboardTrunkState $c.Git) + '</td></tr>')
+                '<td class="cd-left">' + (Format-DashboardTrunkState $c.Git -InMainColumn) + '</td></tr>')
         }
         [void]$sb.AppendLine('</tbody></table></div>')
     }

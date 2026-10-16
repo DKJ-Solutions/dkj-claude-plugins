@@ -50,10 +50,11 @@ The group is read from the owner in each manifest's `repo` slug, so a new repo n
 - [x] The overview tables share one fixed column set, so their columns line up
 - [x] The Checkout column becomes Main: the trunk against origin's, after a `git fetch origin <trunk>` per checkout (Dave chose fetching over the last-fetch reading)
 - [x] Only the trunk is shown, in the Main cell and on the repo card: the checked-out branch, uncommitted work and the branch's own ahead/behind are gone, and the card's last commit is the trunk's
+- [x] In the Main column a trunk named `main` is not named again; any other trunk name stays
 
 ### TEST
 
-- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure, the shared column set, the Main cell and card showing the trunk only, and an empty group left out (109 passed)
+- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure, the shared column set, the Main cell and card showing the trunk only, and an empty group left out (111 passed)
 - [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1, with each present checkout's main measured after a fetch (first load about 19 s)
 
 ### DEPLOY: feat/dashboard-owner-groups
@@ -65,7 +66,7 @@ table per group, followed by the repo cards under an h2 per group. The tables sh
 set, so their columns line up. The Overview's Checkout column is now **Main**: it says whether each
 checkout's trunk is up to date with origin's or how many commits it is behind, measured after a
 `git fetch origin <trunk>` (with prompts off), so the number is GitHub's rather than the last fetch's.
-The repo card states the same, with the trunk's last commit. The branch a checkout stands on and its
+In that column a trunk named `main` is not named again, so a cell reads `24 behind`; a trunk with another name keeps it. The repo card states the same, trunk named, with the trunk's last commit. The branch a checkout stands on and its
 uncommitted work are no longer shown at all, since they say nothing about the trunk; the one note left
 is a fetch that failed, when the count is against the last fetch. That fetch is the
 dashboard's one network call and makes an uncached load slower, about 19 s here. A repo's group is read from the owner in its connector manifest's `repo`
