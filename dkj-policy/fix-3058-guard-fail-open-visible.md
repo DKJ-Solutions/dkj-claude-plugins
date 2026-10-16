@@ -39,19 +39,46 @@
 
 ### PLAN
 
+Inbound #3058, measured in BWJ-Development/smartwatchbanden#946: every fail-open path of
+`guard-stale-paste-block.ps1` wrote its warning to stderr and exited 0, and Claude Code shows the model
+no stderr from a hook that exits 0 (confirmed in the hooks reference). The issue proposed `ask` or at
+least `additionalContext`. This branch does both, split by backstop: a **close** has none that can still
+stop it, so an unchecked close asks a person; a **ship** has the workflow's own check at the close, so it
+only informs.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Add-NotChecked` collects every fail-open warning (still on stderr too); `Exit-Allow` prints
+  PreToolUse JSON with `additionalContext`, plus `permissionDecision: "ask"` where a close went unchecked
+- [x] a close only *mentioned* in the command does not ask once the payload has parsed; before the parse,
+  the pre-gate's match decides
+- [x] header docstring and the bwj-development README row say the new behaviour
 
 ### TEST
 
+- [x] `guard-stale-paste-block.tests.ps1` (127 pass): a checked pass prints nothing on stdout; a ship's
+  fail-open informs without asking; a mentioned close beside a ship does not ask; an unchecked close asks
+  with the issue named in the reason; an unparseable payload and an unresolved repo are said to the model
+
 ### DEPLOY: fix/3058-guard-fail-open-visible
 
-**Score:**
+`guard-stale-paste-block` now tells the session when it let a command through unchecked
+([#3058](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3058)). Each fail-open path used to
+write its warning to stderr and exit 0, which Claude Code never shows the model, so a close with no go-live
+block went through in smartwatchbanden#946 and nothing in the session said the check had been skipped.
+The hook now prints PreToolUse JSON whenever something was not checked: `additionalContext` for the model,
+and `permissionDecision: "ask"` when the unchecked command is a `gh issue close`, because a close has no
+later check that can still stop it.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store repo running `bwj-development`, a hand close of an Asana-linked issue that the guard could not
+check now stops at a permission prompt that names the issue, instead of quietly posting the bare closed
+line to the Asana task. A ship the guard could not check still runs, and the session is now told so.
+
+**Score:** 3
 
 #### Pull Request
 
