@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Maikel chose on #3070 (October 16, 2026) where the step lives: a script a person runs right after the
+live push, printed by the runbook so it is not forgotten. Not the cut and not a release workflow,
+because neither knows the moment a release is live.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/live-message-rules.ps1` -- the pure verdict, the message and the range parsing
+- [x] `scripts/task/notify-live.ps1` -- the driver: tag range, merged PRs, closed issues, dry run, `-Post`
+- [x] `skills/notify-live/SKILL.md`, and the runbook step after the cut in `Format-ReleaseRunbook`
+- [x] the README rows, `WORKFLOW-portable.md`'s closed-message list and the `prepare-release` page
 
 ### TEST
 
+- [x] `scripts/tests/bwj-development.tests.ps1`: the verdict case by case, the message's words and
+  html, the runbook's step order, the copied escaper held equal to the template's, and the driver's
+  refusal in this repo -- 715 asserts green before the last one was added
+
 ### DEPLOY: feat/3070-notify-live
 
-**Score:**
+The `bwj-development` plugin gains `notify-live`. It is a script a person runs right after a store
+release's live push and cut. It tells the Asana task of every issue that release carried, if that task
+was told the result "becomes visible with the release", that the work is now live, as version vX.Y.Z,
+and that the review can start. The message repeats the go-live block's own closing ask, in the block's
+language. It is a dry run until `-Post`, it never tells a task twice, and `prepare-release`'s runbook
+now prints it as the step after the cut (#3070).
+
+**Score:** 3 -- a hand step that used to be missing
 
 #### What makes this deploy extra special
 
-**Score:**
+A requester whose closed message said "visible with the release" is now told when that release is out.
+Until now they had to work out for themselves whether that day's release carried their work. The store
+maintainer gains one step on release day, and the runbook prints it.
+
+**Score:** 3
 
 #### Pull Request
 

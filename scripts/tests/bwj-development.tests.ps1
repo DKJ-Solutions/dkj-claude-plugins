@@ -67,6 +67,8 @@ foreach ($rel in @('README.md', 'WORKFLOW-portable.md', 'SYNC-LOG-portable.md', 
                    'scripts\lib\golive-block-rules.ps1', 'scripts\task\build-golive-block.ps1',
                    'skills\prepare-release\SKILL.md', 'scripts\lib\prepare-release-rules.ps1',
                    'scripts\task\prepare-release.ps1',
+                   'skills\notify-live\SKILL.md', 'scripts\lib\live-message-rules.ps1',
+                   'scripts\task\notify-live.ps1',
                    'scripts\lib\asana-task-lib.ps1')) {
     Assert-True (Test-Path -LiteralPath (Join-Path $PluginRoot $rel)) "ships $rel"
 }
@@ -108,7 +110,7 @@ Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'agents'))) 'ca
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'manuals'))) 'carries no manuals/ (workflow rule)'
 
 # skill folder name matches its frontmatter name:
-foreach ($skill in @('report-issue', 'adopt-bwj-development', 'golive-block', 'prepare-release')) {
+foreach ($skill in @('report-issue', 'adopt-bwj-development', 'golive-block', 'prepare-release', 'notify-live')) {
     $txt = Get-Content -LiteralPath (Join-Path $PluginRoot "skills\$skill\SKILL.md") -Raw
     $nm  = [regex]::Match($txt, '(?m)^name:\s*(\S+)\s*$')
     Assert-Equal $skill $nm.Groups[1].Value "skill '$skill' frontmatter name matches its folder"
@@ -1013,6 +1015,76 @@ try {
     if (Test-Path -LiteralPath $prRoot) { Remove-Item -LiteralPath $prRoot -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
+# THE LIVE MESSAGE IS THE RUNBOOK'S STEP AFTER THE CUT (#3070): printed there so the hand step is not forgotten.
+$nlBook = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @('sections/a.liquid') -TargetVersion '1.3.0') -join "`n"
+$nlCut = $nlBook.IndexOf('6. The cut'); $nlStep = $nlBook.IndexOf('7. Tell the requesters'); $nlBackup = $nlBook.IndexOf('8. Backup')
+Assert-True ($nlCut -ge 0 -and $nlStep -gt $nlCut -and $nlBackup -gt $nlStep) 'the runbook names notify-live between the cut and the backup'
+Assert-True $nlBook.Contains('`notify-live` skill, -Version v1.3.0') '...with the version the cut makes'
+
+# --- notify-live (inbound #3070) ----------------------------------------------------------------
+# WHO IS TOLD IS THE WHOLE RISK: a requester told 'live' too early, or told twice, or a -LiveSince one told
+# again. So the verdict is pinned case by case over hand-built comments, and the message by its exact words.
+Write-Host "`n-- notify-live --" -ForegroundColor Cyan
+. (Join-Path $PluginRoot 'scripts\lib\live-message-rules.ps1')
+
+Assert-Equal '12,7,3067' ((Get-ReleaseRangePullNumbers -Subjects @('merge: fix/12-x (#12)', 'Merge pull request #7 from o/b', 'fold: y (#3067)', 'fold: again (#12)', 'no number')) -join ',') 'every #<n> in the subjects, distinct, in first-seen order'
+Assert-Equal 0 @(Get-ReleaseRangePullNumbers -Subjects @()).Count 'no subjects, no numbers'
+Assert-Equal 'v2.9.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.45.0', 'v1.0.0-rc1') -Version 'v2.44.0') 'the tag below is compared as a version, not lexically'
+Assert-Equal 'v2.44.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.45.0') -Version 'v2.45.0') 'the highest tag below wins'
+Assert-Equal '' (Get-PreviousReleaseTag -Tags @('v1.0.0') -Version 'v1.0.0') 'the first release has no range start'
+
+$nlDash = [string][char]0x2014
+function New-NlBlockComment {
+    param([string[]]$Kinds = @(), [string]$CreatedAt = '2026-10-10T10:00:00Z', [string]$Heading = 'WAT WE VAN JE VRAGEN')
+    $kindLines = @($Kinds | ForEach-Object { "<!-- asana-paste-block-kind: $_ -->" })
+    $body = (@('<!-- asana-paste-block -->') + $kindLines + @('', 'framing', '', '---', "$nlDash GitHub automation", '',
+        'GitHub issue [o/r#5](https://github.com/o/r/issues/5) is now **closed**: this Asana task is now in review.', '',
+        $Heading, 'Klopt het: laat het weten.', '---')) -join "`n"
+    return [pscustomobject]@{ Body = $body; CreatedAt = $CreatedAt }
+}
+function New-NlIssue {
+    param($Comments = @(), [string]$State = 'CLOSED', [string]$Reason = 'COMPLETED', $Reopened = $null,
+          [string]$Body = "x`n<!-- asana-task: 1201 -->")
+    return [pscustomobject]@{ Number = 5; State = $State; StateReason = $Reason; Body = $Body; Comments = @($Comments); LastReopenedAt = $Reopened }
+}
+
+$nlOwed = Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-NlBlockComment -Kinds @('after-release')))
+Assert-True $nlOwed.Owed 'a block waiting on the release is owed the live message'
+Assert-Equal '1201' $nlOwed.Gid '...on the task the issue marks'
+Assert-Equal 'nl' $nlOwed.Language '...in the block''s own language'
+Assert-Equal 'en' (Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-NlBlockComment -Kinds @('after-release') -Heading 'WHAT WE ASK OF YOU'))).Language 'an English block gets an English ask'
+Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-NlBlockComment))).Owed) 'a -LiveSince block (no after-release marker) was told at the close -- skipped'
+$nlResearch = Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-NlBlockComment -Kinds @('research')))
+Assert-True ((-not $nlResearch.Owed) -and $nlResearch.Reason -match 'research') 'a research block is skipped, and says so'
+Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -State 'OPEN' -Comments @(New-NlBlockComment -Kinds @('after-release')))).Owed) 'an issue reopened since is back in development -- skipped'
+Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -Reason 'NOT_PLANNED' -Comments @(New-NlBlockComment -Kinds @('after-release')))).Owed) 'a close as not planned is skipped'
+Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -Body 'no task' -Comments @(New-NlBlockComment -Kinds @('after-release')))).Owed) 'an issue linking no task is skipped'
+Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue)).Owed) 'an issue with no block is skipped'
+$nlTold = [pscustomobject]@{ Body = (Format-LiveMessageIssueComment -Version 'v1.3.0' -Gid '1201'); CreatedAt = '2026-10-12T10:00:00Z' }
+Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @((New-NlBlockComment -Kinds @('after-release')), $nlTold))).Owed) 'an issue already told is not told twice'
+$nlRound2 = @((New-NlBlockComment -Kinds @('after-release') -CreatedAt '2026-10-01T10:00:00Z'), $nlTold, (New-NlBlockComment -Kinds @('after-release') -CreatedAt '2026-10-14T10:00:00Z'))
+Assert-True (Get-LiveMessageVerdict -Issue (New-NlIssue -Comments $nlRound2 -Reopened '2026-10-13T10:00:00Z')).Owed 'a marker from before the last reopen belongs to the earlier round -- this round is told'
+Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-NlBlockComment -Kinds @('after-release')) -Reopened '2026-10-13T10:00:00Z')).Owed) 'a block from before the last reopen is not this round''s -- skipped'
+
+$nlLines = (Get-LiveMessageLines -IssueRef 'o/r#5' -Version 'v1.3.0' -Language 'nl') -join "`n"
+Assert-True $nlLines.Contains('GitHub issue o/r#5 is now **live**, as version v1.3.0: the review can start now.') 'the live line, only the state word bold'
+Assert-True ($nlLines.Contains('WAT WE VAN JE VRAGEN') -and $nlLines.Contains('Klopt het: laat het weten en vink deze taak af.')) 'the block''s own closing ask, in its language'
+Assert-True (-not $nlLines.Contains('link hierboven')) 'the look-sentence pointing at a link above is left out -- this message carries none'
+$nlHtml = New-LiveMessageHtml -IssueRef 'o/r#5' -Version '1.3.0' -Language 'en'
+Assert-True $nlHtml.Contains('<a href="https://github.com/o/r/issues/5">o/r#5</a> is now <strong>live</strong>, as version v1.3.0') 'html: the issue as a link, the state word in <strong>, a bare version gets its v'
+Assert-True ($nlHtml.StartsWith('<body>') -and $nlHtml.EndsWith('</body>') -and $nlHtml.Contains('<strong>WHAT WE ASK OF YOU</strong>')) 'html: one body, the ask heading bold'
+Assert-True ($nlHtml -notmatch '<(?!/?(body|a|strong)\b)') 'html: only <body>, <a> and <strong>'
+Assert-Throws { New-LiveMessageHtml -IssueRef 'o/r#5"><x' -Version 'v1' } 'html: a ref that is not owner/repo#<n> is refused'
+Assert-Throws { Format-LiveMessageIssueComment -Version 'v1.0.0' -Gid '12/../x' } 'the issue comment refuses a non-numeric GID'
+
+# THE DRIVER, STATICALLY AND IN THIS REPO: no store write, the post gated by -Post, and a refusal here.
+$nlDriver = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\notify-live.ps1'))
+Assert-True ($nlDriver -notmatch '(?m)^[^#]*shopify theme') 'the driver touches no theme'
+Assert-True ($nlDriver -match 'if \(\$PostArg -and \$owed\.Count -gt 0\)') 'the Asana write sits behind -Post'
+$nlRun = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PluginRoot 'scripts\task\notify-live.ps1') 2>&1) | ForEach-Object { "$_" }) -join "`n"
+Assert-Equal 1 $LASTEXITCODE 'run in the plugin''s own source repo, the driver refuses'
+Assert-True $nlRun.Contains('publishes plugins') '...and says why'
+
 # --- the preview step's carrier (#2655) ---------------------------------------------------------
 # PREVIEW-portable.md names the step's exact words, and the adopt skill proposes the seam that makes
 # new-branch write them. Two copies of one sentence: this holds them to each other, so a reworded step
@@ -1514,6 +1586,9 @@ foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-Asa
     Assert-True ($null -ne $mine) "the closed-message template defines $fn"
     Assert-Equal (Get-FunctionSourceText -Path $plLib -Name $fn) $mine "$fn equals asana-task-lib.ps1's, apart from its help comment"
 }
+# #3070: the live message escapes its html_text by the closed message's rule, copied because the template ships standalone.
+Assert-Equal (Get-FunctionSourceText -Path $cmTemplate -Name 'ConvertTo-AsanaXmlText') (Get-FunctionSourceText -Path (Join-Path $PluginRoot 'scripts\lib\live-message-rules.ps1') -Name 'ConvertTo-AsanaXmlText') `
+    'live-message-rules.ps1''s ConvertTo-AsanaXmlText equals the closed-message template''s, apart from its help comment'
 # And the loaded matchers answer as the lib's did (the lib's answers were taken before either template loaded).
 Assert-Equal ($cmLibRefs -join ';') (@($cmSamples | ForEach-Object { $r = Resolve-AsanaTaskRef -IssueBody $_; "$($r.Gid)|$($r.Source)" }) -join ';') 'the prio template''s matchers answer as the lib''s on every matcher shape'
 
