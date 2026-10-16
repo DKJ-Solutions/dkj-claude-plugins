@@ -52,10 +52,11 @@ The group is read from the owner in each manifest's `repo` slug, so a new repo n
 - [x] The Checkout column is gone, with no replacement: Dave tried a Main column (trunk against origin, after a fetch) and dropped it as unimportant here, so nothing fetches
 - [x] The repo card shows only the trunk's last commit: no checked-out branch, uncommitted count or ahead/behind
 - [x] A second card beside it, headed Issues (h2), with an h3 per group and a house `mini-card` per repo with its name as an h4
+- [x] Each Issues group opens with a rule above its h3 and a summary line under it (repos, then each status, worst first), and a card's repo name is set a size below that h3
 
 ### TEST
 
-- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure and the two cards, the column heads, the five-column set, the card's trunk-only last commit, and an empty group left out (108 passed)
+- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure and the two cards, the column heads, the five-column set, the card's trunk-only last commit, and an empty group left out (113 passed)
 - [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1; an uncached load takes about 5.5 s
 
 ### DEPLOY: feat/dashboard-owner-groups
@@ -69,7 +70,9 @@ then by name, and a group with no repos is left out.
 The page's h1 is the repo's name, `dkj-claude-plugins`. A card headed **Connected repos** holds a table
 per group, the group named in the first column head, all sharing one fixed column set so their columns
 line up. A second card headed **Issues** carries an h3 per group and a house `mini-card` per repo with its
-details.
+details. Each group opens with a rule above its h3 and a line under it counting its repos and each
+status, worst first (`3 repos · 1 needs action · 1 not on this machine · 1 in sync`), and a repo's name
+in its card is set a size below that h3, so a group heading no longer reads as part of the card above.
 
 The Overview's **Errors** and **Notes** columns are gone: the tiles at the top count both, and each repo's own lines are in its Issues card. So is its **Checkout** column. What a checkout is checked out on and whether it holds
 uncommitted work said nothing about the repo, so the card no longer shows it either: it shows the last

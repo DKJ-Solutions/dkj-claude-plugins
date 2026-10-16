@@ -216,6 +216,22 @@ function Get-DashboardOwnerGroups {
         @{ Key = 'other'; Title = 'Other repos' })
 }
 
+function Format-DashboardGroupSummary {
+    <# One line for a group: how many repos, then how many in each status, worst first -- '3 repos &#183; 1 needs action &#183; 2 in sync'. #>
+    param([AllowEmptyCollection()][AllowNull()][object[]]$Members)
+    $all = @($Members | Where-Object { $_ })
+    $parts = @("$($all.Count) repo" + $(if ($all.Count -ne 1) { 's' } else { '' }))
+    foreach ($s in @(
+            @{ Key = 'bad';  One = 'needs action';        Many = 'need action' },
+            @{ Key = 'warn'; One = 'has notes';           Many = 'have notes' },
+            @{ Key = 'skip'; One = 'not on this machine'; Many = 'not on this machine' },
+            @{ Key = 'good'; One = 'in sync';             Many = 'in sync' })) {
+        $n = @($all | Where-Object { $(if ([string]$_.Status -in @('bad', 'warn', 'skip')) { [string]$_.Status } else { 'good' }) -eq $s.Key }).Count
+        if ($n) { $parts += "$n " + $(if ($n -eq 1) { $s.One } else { $s.Many }) }
+    }
+    return ($parts -join ' &#183; ')
+}
+
 function Get-DashboardStatusBadge {
     <# The house-style badge and the word for a status. #>
     param([string]$Status)
@@ -266,10 +282,12 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.cd-table-gap { margin-top: var(--spacing-4); }')
     [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--primary-1); }')
-    [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-5) 0 var(--spacing-2); }')
-    [void]$sb.AppendLine('.cd-group-count { font-size: var(--text-sm); color: var(--primary-6); }')
+    # Each group opens with a rule above its h3 (not the first, right under the h2) and its summary line under it.
+    [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-6) 0 var(--spacing-0-5); padding-top: var(--spacing-5); border-top: 1px solid var(--primary-3); }')
+    [void]$sb.AppendLine('h2 + .cd-subgroup { margin-top: var(--spacing-3); padding-top: 0; border-top: 0; }')
+    [void]$sb.AppendLine('.cd-group-summary { margin: 0 0 var(--spacing-1); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
-    [void]$sb.AppendLine('.cd-repo h4 { margin: 0; }')
+    [void]$sb.AppendLine('.cd-repo h4 { margin: 0; font-size: var(--text-h5); }')
     [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
     [void]$sb.AppendLine('.cd-signals li { display: flex; gap: var(--spacing-2); align-items: flex-start; padding: var(--spacing-1-5) 0; border-top: 1px solid var(--primary-3); font-size: var(--text-sm); }')
     [void]$sb.AppendLine('.cd-signals li .badge { margin-top: 1px; }')
@@ -342,7 +360,9 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<div class="card cd-accent" id="issues"><h2>Issues</h2>')
     foreach ($g in $groups) {
         $members = $g.Members
-        [void]$sb.AppendLine('<h3 class="cd-subgroup" id="group-' + $g.Key + '">' + $g.Title + ' <span class="cd-group-count">' + $members.Count + '</span></h3>')
+        # The group's own line under its heading, so the h3 opens a block instead of hanging between two cards.
+        [void]$sb.AppendLine('<h3 class="cd-subgroup" id="group-' + $g.Key + '">' + $g.Title + '</h3>')
+        [void]$sb.AppendLine('<p class="sub cd-group-summary">' + (Format-DashboardGroupSummary $members) + '</p>')
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
