@@ -216,13 +216,6 @@ function Get-DashboardOwnerGroups {
         @{ Key = 'other'; Title = 'Other repos' })
 }
 
-function Get-DashboardPluginLabel {
-    <# A plugin id without its '@dkj-claude-plugins' suffix, which every plugin on this page shares; another marketplace's id is kept whole. #>
-    param([AllowNull()][AllowEmptyString()][string]$Id)
-    if ($Id -match '^(.+)@dkj-claude-plugins$') { return $Matches[1] }
-    return [string]$Id
-}
-
 function Get-DashboardStatusBadge {
     <# The house-style badge and the word for a status. #>
     param([string]$Status)
@@ -272,27 +265,16 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-link { color: var(--primary-7); text-underline-offset: 2px; }')
     [void]$sb.AppendLine('.cd-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.cd-table-gap { margin-top: var(--spacing-4); }')
-    # The repo cards: a left edge in the status colour, the head, the signals, the facts and the plugin chips.
-    [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--primary-1); border-left: 4px solid var(--cd-state); padding: var(--spacing-3-5) var(--spacing-4); }')
-    [void]$sb.AppendLine('.cd-state-bad { --cd-state: var(--negative-3); } .cd-state-warn { --cd-state: var(--warning-3); } .cd-state-good { --cd-state: var(--positive-3); } .cd-state-skip { --cd-state: var(--primary-3); }')
+    [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--primary-1); }')
     [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-5) 0 var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-group-count { font-size: var(--text-sm); color: var(--primary-6); }')
-    [void]$sb.AppendLine('.cd-repo-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-2) var(--spacing-4); }')
-    [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); min-width: 0; }')
-    [void]$sb.AppendLine('.cd-repo h4 { margin: 0; overflow-wrap: anywhere; }')
-    [void]$sb.AppendLine('.cd-repo-links { display: flex; align-items: center; gap: var(--spacing-3); font-size: var(--text-sm); }')
-    [void]$sb.AppendLine('.cd-pill { display: inline-flex; align-items: center; padding: var(--spacing-0-5) var(--spacing-2-5); border-radius: 999px; border: 1px solid var(--cd-state); background: var(--primary-2); font-size: var(--text-xs); font-weight: 600; color: var(--primary-9); }')
-    [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-3) 0 0; display: grid; gap: var(--spacing-1-5); }')
-    [void]$sb.AppendLine('.cd-signals li { display: flex; gap: var(--spacing-2); align-items: flex-start; padding: var(--spacing-2) var(--spacing-2-5); border-radius: 8px; font-size: var(--text-sm); line-height: 1.45; }')
-    [void]$sb.AppendLine('.cd-signal-error { background: var(--negative-1); } .cd-signal-info { background: var(--warning-1); }')
-    [void]$sb.AppendLine('.cd-signals li .badge { margin-top: 1px; flex: none; }')
-    [void]$sb.AppendLine('.cd-allgood { margin: var(--spacing-3) 0 0; padding: var(--spacing-2) var(--spacing-2-5); border-radius: 8px; background: var(--positive-1); font-size: var(--text-sm); }')
-    [void]$sb.AppendLine('.cd-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--spacing-1) var(--spacing-4); margin: var(--spacing-3) 0 0; font-size: var(--text-sm); }')
-    [void]$sb.AppendLine('.cd-facts dt { color: var(--primary-6); } .cd-facts dd { margin: 0; overflow-wrap: anywhere; } .cd-facts code { font-size: var(--text-xs); }')
-    [void]$sb.AppendLine('.cd-chips { display: flex; flex-wrap: wrap; gap: var(--spacing-1-5); margin-top: var(--spacing-3); }')
-    [void]$sb.AppendLine('.cd-chip { display: inline-flex; align-items: center; gap: var(--spacing-1); padding: var(--spacing-0-5) var(--spacing-2); border-radius: 999px; border: 1px solid var(--primary-3); background: var(--primary-2); font-size: var(--text-xs); color: var(--primary-9); white-space: nowrap; }')
-    [void]$sb.AppendLine('.cd-chip-count { font-weight: 600; color: var(--primary-7); }')
-    [void]$sb.AppendLine('.cd-signals .cd-chip { margin-right: var(--spacing-1); }')
+    [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
+    [void]$sb.AppendLine('.cd-repo h4 { margin: 0; }')
+    [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
+    [void]$sb.AppendLine('.cd-signals li { display: flex; gap: var(--spacing-2); align-items: flex-start; padding: var(--spacing-1-5) 0; border-top: 1px solid var(--primary-3); font-size: var(--text-sm); }')
+    [void]$sb.AppendLine('.cd-signals li .badge { margin-top: 1px; }')
+    [void]$sb.AppendLine('.cd-signals code, .cd-plugins code { font-size: var(--text-xs); }')
+    [void]$sb.AppendLine('.cd-plugins { display: flex; flex-wrap: wrap; gap: var(--spacing-1-5) var(--spacing-4); margin-top: var(--spacing-2); font-size: var(--text-sm); color: var(--primary-6); }')
     [void]$sb.AppendLine('.cd-notes { white-space: pre-wrap; font-size: var(--text-xs); color: var(--primary-6); max-height: 320px; overflow: auto; }')
     [void]$sb.AppendLine('.cd-status { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }')
     [void]$sb.AppendLine('.table td.cd-left, .table th.cd-left { text-align: left; }')
@@ -364,51 +346,36 @@ function Format-ConnectorDashboardHtml {
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-            $state = switch ([string]$c.Status) { 'bad' { 'bad' } 'warn' { 'warn' } 'skip' { 'skip' } default { 'good' } }
-            [void]$sb.AppendLine('<section class="mini-card cd-repo-card cd-state-' + $state + '" id="' + $anchor + '">')
+            [void]$sb.AppendLine('<section class="mini-card cd-accent cd-repo-card" id="' + $anchor + '">')
+            [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h4>' + (& $e $c.Repo) + '</h4></div>')
+            $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
             $ghUrl = 'https://github.com/' + (& $e $c.Repo)
-            [void]$sb.AppendLine('<div class="cd-repo-head"><div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h4>' + (& $e $c.Repo) + '</h4></div>' +
-                '<div class="cd-repo-links"><span class="cd-pill">' + $b.Word + '</span><a class="cd-link" href="' + $ghUrl + '">GitHub</a></div></div>')
-
-            # What needs attention comes first. A [SKIP] is not repeated here: the Checkout fact below says it.
-            $shown = @($c.Signals | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' })
+            [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
+                ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
+            if ($c.Git -and $c.Git.Subject) {
+                [void]$sb.AppendLine('<p class="meta" style="white-space: normal">Last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) + '</p>')
+            }
+            [void]$sb.AppendLine('<div class="cd-plugins">')
+            foreach ($p in @($c.Plugins)) {
+                $n = @($p.Extensions).Count
+                [void]$sb.AppendLine('<span><code>' + (& $e $p.Id) + '</code> &#183; ' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + '</span>')
+            }
+            [void]$sb.AppendLine('</div>')
+            $drift = Format-DashboardDrift $c.Drift
+            if ($drift) { [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + $drift + '</p>') }
+            $shown =@($c.Signals | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
             if ($shown.Count) {
                 [void]$sb.AppendLine('<ul class="cd-signals">')
                 foreach ($s in $shown) {
-                    $cls = if ($s.Level -eq 'ERROR') { 'badge--bad' } else { 'badge--warn' }
-                    $mk = if ($s.Level -eq 'ERROR') { '!' } else { 'i' }
-                    $who = if ($s.Plugin) { '<span class="cd-chip" title="' + (& $e $s.Plugin) + '">' + (& $e (Get-DashboardPluginLabel $s.Plugin)) + '</span> ' } else { '' }
-                    [void]$sb.AppendLine('<li class="cd-signal-' + $s.Level.ToLowerInvariant() + '"><span class="badge badge--sm ' + $cls + '" aria-label="' + $s.Level + '">' + $mk + '</span><span>' + $who + (& $e $s.Text) + '</span></li>')
+                    $cls = switch ($s.Level) { 'ERROR' { 'badge--bad' } 'INFO' { 'badge--warn' } default { 'badge--neutral' } }
+                    $mk = switch ($s.Level) { 'ERROR' { '!' } 'INFO' { 'i' } default { '-' } }
+                    $who = if ($s.Plugin) { '<code>' + (& $e $s.Plugin) + '</code> ' } else { '' }
+                    [void]$sb.AppendLine('<li><span class="badge badge--sm ' + $cls + '" aria-label="' + $s.Level + '">' + $mk + '</span><span>' + $who + (& $e $s.Text) + '</span></li>')
                 }
                 [void]$sb.AppendLine('</ul>')
             } elseif ($c.Present) {
                 $nOk = @($c.Signals | Where-Object { $_.Level -eq 'OK' }).Count
-                [void]$sb.AppendLine('<p class="cd-allgood">All ' + $nOk + ' checks pass.</p>')
-            }
-
-            # The facts, as label and value.
-            $tried = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { & $e $_ }) -join ', '
-            $checkout = if ($c.Present -and $c.CheckoutHere) { '<code>' + (& $e $c.CheckoutHere) + '</code>' }
-                        elseif ($c.Present) { 'present' }
-                        else { '<span title="tried: ' + $tried + '">not on this machine, so not checked</span>' }
-            $facts = @(@('Visibility', (& $e $c.Visibility)), @('Checkout', $checkout))
-            if ($c.Git -and $c.Git.Subject) { $facts += , @('Last commit', ('on <code>' + (& $e $c.Git.Trunk) + '</code>, ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject))) }
-            if ($c.Drift) {
-                $d = $c.Drift
-                $clean = ($d.Dead -eq 0 -and $d.Drifted -eq 0 -and $d.PersonaDrifted -eq 0)
-                $facts += , @('Drift', $(if ($clean) { 'none' } else { (Format-DashboardDrift $d) -replace '^Drift: ', '' }))
-            }
-            $facts += , @('Manifest', ('<code>connectors/' + (& $e $c.File) + '</code>'))
-            [void]$sb.AppendLine('<dl class="cd-facts">' + (($facts | ForEach-Object { '<dt>' + $_[0] + '</dt><dd>' + $_[1] + '</dd>' }) -join '') + '</dl>')
-
-            if (@($c.Plugins).Count) {
-                [void]$sb.AppendLine('<div class="cd-chips">')
-                foreach ($pl in @($c.Plugins)) {
-                    $n = @($pl.Extensions).Count
-                    $lens = if ($n) { ' <span class="cd-chip-count">' + $n + '</span>' } else { '' }
-                    [void]$sb.AppendLine('<span class="cd-chip" title="' + (& $e $pl.Id) + ' &#183; ' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + '">' + (& $e (Get-DashboardPluginLabel $pl.Id)) + $lens + '</span>')
-                }
-                [void]$sb.AppendLine('</div>')
+                [void]$sb.AppendLine('<p class="note">All ' + $nOk + ' checks pass.</p>')
             }
             if ($c.Notes) {
                 [void]$sb.AppendLine('<details class="more"><summary>Register notes</summary><div class="cd-notes">' + (& $e $c.Notes) + '</div></details>')
