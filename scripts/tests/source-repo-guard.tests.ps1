@@ -142,6 +142,39 @@ try {
     Assert-Equal $null (Get-OwnCopyPath -ScriptPath $foreign -RepoRoot (Join-Path $cache 'no-such-tree')) `
         'a root that does not exist yields no finding'
 
+    Write-Host "The declared TRUSTED TREE is NOT refused, and only that tree is exempt (#3053)" -ForegroundColor Cyan
+    # merge-on-green.yml's layout: CLAUDE_PROJECT_DIR is 'pr-branch' (publishes, carries its own copy) and
+    # the code runs from a separate 'trusted-main' clone. Measured on PR #3051: refused on every sweep.
+    # The pair matters, as in the worktree case below: exempting the trusted tree must not also exempt the
+    # released snapshot, which is a clone of the same GitHub repo.
+    $trusted = New-Tree -Label 'trusted' -Local; $fixtures += $trusted
+    $trustedScript = Join-Path $trusted 'scripts\task\park-branch.ps1'
+    $prevTrusted = $env:DKJ_GUARD_TRUSTED_ROOT
+    try {
+        Remove-Item Env:\DKJ_GUARD_TRUSTED_ROOT -ErrorAction SilentlyContinue
+        Assert-Equal 'scripts\task\park-branch.ps1' (Get-OwnCopyPath -ScriptPath $trustedScript -RepoRoot $src) `
+            'undeclared, the trusted-main copy is refused -- the measured failure'
+        $env:DKJ_GUARD_TRUSTED_ROOT = $trusted
+        Assert-Equal $null (Get-OwnCopyPath -ScriptPath $trustedScript -RepoRoot $src) `
+            'declared through -TrustedRoot, a script inside the trusted tree runs'
+        Assert-Equal 'scripts\task\park-branch.ps1' (Get-OwnCopyPath -ScriptPath $foreign -RepoRoot $src) `
+            'and a copy OUTSIDE the declared tree -- the released snapshot -- is still refused'
+        $env:DKJ_GUARD_TRUSTED_ROOT = $trusted.TrimEnd('\') + '-not-there'
+        Assert-Equal 'scripts\task\park-branch.ps1' (Get-OwnCopyPath -ScriptPath $trustedScript -RepoRoot $src) `
+            'a declaration naming a tree that does not exist exempts nothing'
+    } finally {
+        if ($null -eq $prevTrusted) { Remove-Item Env:\DKJ_GUARD_TRUSTED_ROOT -ErrorAction SilentlyContinue }
+        else { $env:DKJ_GUARD_TRUSTED_ROOT = $prevTrusted }
+    }
+    # AND THE TWO ENTRY POINTS MAKE THE DECLARATION BEFORE THEIR OWN GUARD RUNS -- a declaration below the
+    # guard is the same refusal, with a test above that still passes.
+    foreach ($ep in @('scripts\release\ship-pr.ps1', 'scripts\release\open-pr.ps1')) {
+        $epText = Get-Content -LiteralPath (Join-Path $RepoRoot $ep) -Raw
+        $declAt = $epText.IndexOf('$env:DKJ_GUARD_TRUSTED_ROOT = ')
+        $guardAt = $epText.IndexOf('Assert-OwnCopy -ScriptPath')
+        Assert-True ($declAt -ge 0 -and $guardAt -gt $declAt) "$ep declares the trusted tree before its guard runs"
+    }
+
     Write-Host 'INTEGRATION: a real entry point stops, with exit 1, naming the local path' -ForegroundColor Cyan
     # The asserts above prove the decision; this proves the CONSEQUENCE. Without it, a lib returning the
     # right answer to nobody would pass the suite.

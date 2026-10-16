@@ -37,7 +37,8 @@
          repo root on purpose, so without this every gate run from a lane was refused -- and reported as
          an encoding failure, because the lint gate sees only the sub-script's exit code. Compared on
          `git rev-parse --git-common-dir`, which a separate CLONE answers differently, so the plugin cache
-         is still refused;
+         is still refused. And outside the TRUSTED TREE a caller declared through -TrustedRoot (#3053),
+         which merge-on-green.yml runs the trunk's code from on purpose -- see 1c in Get-OwnCopyPath;
       2. the repo publishes plugins at all -- it has a .claude-plugin/marketplace.json. This is the
          condition that keeps a consumer out of it. A consumer who happens to carry an abandoned vendored
          copy under scripts/ would otherwise be refused on the strength of a file they no longer use;
@@ -201,6 +202,24 @@ function Get-OwnCopyPath {
                 return $null
             }
         }
+    }
+
+    # 1c. OR inside the TRUSTED TREE a caller declared, in trusted-tree mode (#3053). merge-on-green.yml
+    #     runs ship-pr.ps1 from a 'trusted-main' checkout of the trunk while CLAUDE_PROJECT_DIR names the
+    #     'pr-branch' checkout (#2437): the code comes from the trunk ON PURPOSE, so the branch's own
+    #     copy is exactly what must NOT run. The two are separate CLONES, so 1b cannot see it, and in the
+    #     source repo 'pr-branch' carries both the marketplace and its own copy -- so every
+    #     merge-on-green ship was refused, measured on PR #3051 (October 15, 2026).
+    #
+    #     THE DECLARATION IS -TrustedRoot ITSELF. ship-pr.ps1 (and open-pr.ps1 for its -SeamRoot) put the
+    #     path in DKJ_GUARD_TRUSTED_ROOT before their own guard runs, and every child they spawn --
+    #     open-pr, the fold, verify-resolved-issues -- inherits it. Not a comparison by repository
+    #     identity: the plugin cache is a clone of this same GitHub repo, so any such test would wave
+    #     the released snapshot through, which is the one thing this guard exists to refuse.
+    $trustedRoot = $env:DKJ_GUARD_TRUSTED_ROOT
+    if ($trustedRoot -and (Test-Path -LiteralPath $trustedRoot -PathType Container)) {
+        $trustedFull = (Resolve-Path -LiteralPath $trustedRoot).ProviderPath.TrimEnd('\', '/') + $sep
+        if ($scriptFull.StartsWith($trustedFull, [System.StringComparison]::OrdinalIgnoreCase)) { return $null }
     }
 
     # 2. Only a repo that publishes plugins can be the repo a shared script is maintained in. This is the

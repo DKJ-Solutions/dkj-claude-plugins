@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Exempt the trusted tree that `-TrustedRoot` names from the source-repo guard. Comparing by repository
+identity would also wave through the plugin cache, which is a clone of the same GitHub repo.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `source-repo-guard-lib.ps1`: condition 1c exempts a script inside `DKJ_GUARD_TRUSTED_ROOT`
+- [x] `ship-pr.ps1` (`-TrustedRoot`) and `open-pr.ps1` (`-SeamRoot`) set it before their own guard; children inherit it
+- [x] the plugin mirrors copied byte-identical
 
 ### TEST
 
+- [x] `source-repo-guard.tests.ps1`: the two-checkout layout refused undeclared, allowed declared, the released copy still refused, a missing declared tree exempts nothing, and both entry points declare before their guard (64 asserts green)
+
 ### DEPLOY: fix/3053-trusted-root-guard-exemption
 
-**Score:**
+`merge-on-green` can ship a PR in this repo again
+([#3053](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3053)). The runner runs
+`ship-pr.ps1` from a `trusted-main` checkout of the trunk while `CLAUDE_PROJECT_DIR` names `pr-branch`,
+and the source-repo guard refused that as a released copy, because the two are separate clones and
+`pr-branch` carries both the marketplace and its own copy. So PR #3051 sat green and armed through
+every sweep. `-TrustedRoot` (and `open-pr`'s `-SeamRoot`) now declares that tree in
+`DKJ_GUARD_TRUSTED_ROOT`, the guard exempts a script inside it, and the fold and
+`verify-resolved-issues` children inherit the declaration. The plugin cache is still refused.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer has no marketplace, so the guard never refused it and nothing changes for it.
+
+**Score:** N/A
 
 #### Pull Request
 

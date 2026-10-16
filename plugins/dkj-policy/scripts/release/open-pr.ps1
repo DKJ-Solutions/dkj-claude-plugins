@@ -513,6 +513,9 @@ if ($SeamRoot) {
     }
     $SkipLint = $true
     $SkipTests = $true
+    # And the trusted tree is declared to the source-repo guard below (#3053) -- ship-pr.ps1's copy of
+    # this block says why.
+    $env:DKJ_GUARD_TRUSTED_ROOT = $SeamRoot
 }
 $ErrorActionPreference = 'Stop'
 
