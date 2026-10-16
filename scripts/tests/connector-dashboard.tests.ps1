@@ -227,8 +227,8 @@ Assert-True ($grouped.IndexOf('<h2>Connected repos</h2>') -lt $oB -and $oB -lt $
 $tables = [regex]::Matches($grouped, '<table class="table cd-overview"><colgroup>(.*?)</colgroup>')
 Assert-True ($tables.Count -eq 3 -and @($tables | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique).Count -eq 1) 'every group''s table carries the same fixed column set, so the columns line up'
 Assert-True ($grouped -match '\.cd-overview \{ table-layout: fixed;') 'the overview tables use a fixed layout'
-$iS = $grouped.IndexOf('<h2 class="cd-group" id="status">Status</h2>')
-Assert-True ($oO -lt $iS -and $iS -lt $iB -and $grouped -match '<h3 class="cd-subgroup" id="group-bwj">' -and $grouped -match '<h4>Someone/x</h4>') 'the details sit under one h2 Status, an h3 per group, the repo name an h4'
+$iS = $grouped.IndexOf('<h3 class="cd-group" id="status">Status</h3>')
+Assert-True ($oO -lt $iS -and $iS -lt $iB -and $grouped -match '<h4 class="cd-subgroup" id="group-bwj">' -and $grouped -match '<h5>Someone/x</h5>') 'the details sit one level under Connected repos: an h3 Status, an h4 per group, the repo name an h5'
 Assert-True ($html -notmatch 'id="group-bwj"' -and $html -match 'id="group-other"') 'an empty group is left out'
 $t = @{ Branch = 'main'; Dirty = 0; Trunk = 'main'; TrunkAhead = 0; TrunkBehind = 0; TrunkFetched = $true }
 Assert-Equal 'main &#183; up to date' (Format-DashboardTrunkState $t) 'a fetched trunk level with origin is up to date, with no notes'

@@ -52,7 +52,7 @@ The group is read from the owner in each manifest's `repo` slug, so a new repo n
 - [x] Only the trunk is shown, in the Main cell and on the repo card: the checked-out branch, uncommitted work and the branch's own ahead/behind are gone, and the card's last commit is the trunk's
 - [x] In the Main column a trunk named `main` is not named again; any other trunk name stays
 - [x] A checkout not on this machine reads N/A in the Main column
-- [x] The repo cards sit under one h2 Status, with an h3 per group; a card's repo name is an h4
+- [x] The repo cards sit one level under Connected repos: an h3 Status, an h4 per group, a card's repo name an h5
 
 ### TEST
 
@@ -64,7 +64,7 @@ The group is read from the owner in each manifest's `repo` slug, so a new repo n
 The connector dashboard (`scripts/dashboard/serve-connector-dashboard.ps1`) now splits its index into
 three groups, **BWJ repos**, **DKJ repos** and **Other repos**. Its h1 is the repo's name,
 `dkj-claude-plugins`, and the one overview card, now headed **Connected repos**, carries an h3 and a
-table per group, followed by an h2 **Status** with an h3 per group and the repo cards beneath it. The tables share one fixed column
+table per group, followed, one level under it, by an h3 **Status** with an h4 per group and the repo cards beneath it. The tables share one fixed column
 set, so their columns line up. The Overview's Checkout column is now **Main**: it says whether each
 checkout's trunk is up to date with origin's or how many commits it is behind, measured after a
 `git fetch origin <trunk>` (with prompts off), so the number is GitHub's rather than the last fetch's.
