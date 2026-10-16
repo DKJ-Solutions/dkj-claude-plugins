@@ -270,7 +270,7 @@ function Format-ReleaseRunbook {
 
         THE ORDER IS BWJ'S RELEASE DAY, and each step names the tool that owns it rather than restating
         what that tool does: preflight -> push -> verification pull -> go-live obligations -> preview
-        sweep -> cut -> backup -> release-notes page. The preflight re-derives the push list and runs the
+        sweep -> cut -> live message (#3070) -> backup -> release-notes page. The preflight re-derives the push list and runs the
         drift check for real on the day; what this run printed on the Friday is the plan, not the proof.
 
         THE GIT-CONNECTED MODE (#2998, #3012). With -DeployBranch, the live theme deploys from that branch
@@ -376,8 +376,14 @@ function Format-ReleaseRunbook {
     $out += "6. The cut -- the dkj-policy ``cut-release`` skill$(if ($Bump) { ", with$bumpText" } else { ' (the bump could not be read from the pending tally)' })."
     if ($Bump -eq 'minor') { $out += '   A minor owes the hand-written audience note (audience/<dir>/<X.Y.Z>.md) -- draft it before the day.' }
     $out += ''
-    $out += '7. Backup -- the `theme-lifecycle` skill, backup-live-theme, at the moment THEME-LIFECYCLE-portable.md names.'
+    # THE LIVE MESSAGE, RIGHT AFTER THE CUT (#3070): the push (or the promotion) has happened and the tag
+    # exists, so this is the first moment 'live as of vX.Y.Z' is true -- and printing it here is what
+    # keeps a hand step from being forgotten (Maikel's choice on #3070).
+    $out += "7. Tell the requesters -- the ``notify-live`` skill$(if ($TargetVersion) { ", -Version v$TargetVersion" }): a dry run, then -Post. It tells the"
+    $out += '   Asana task of every issue this release carried, and was told "visible with the release", that it is live.'
     $out += ''
-    $out += '8. Release-notes page -- the dkj-policy `release-notes-page` skill: rebuild, then deploy as its own step.'
+    $out += '8. Backup -- the `theme-lifecycle` skill, backup-live-theme, at the moment THEME-LIFECYCLE-portable.md names.'
+    $out += ''
+    $out += '9. Release-notes page -- the dkj-policy `release-notes-page` skill: rebuild, then deploy as its own step.'
     return @($out)
 }

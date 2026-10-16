@@ -410,6 +410,13 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   visible change, the same with *"It becomes visible with the release named below"* where the block
   names a planned release day rather than `-LiveSince`, and *"Nothing has changed. Read the outcome
   below."* for research.
+- **A task told "visible with the release" hears again once that release is live** (Maikel, October 16,
+  2026, [#3070](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3070)). The closed message
+  posts before the release, and nothing automated knows when the live push has been made, so a person
+  runs [`notify-live`](skills/notify-live/SKILL.md) right after the push and the cut. It is the runbook
+  step `prepare-release` prints after the cut. It posts *"is now **live**, as version vX.Y.Z: the review
+  can start now."* and the block's closing ask, on the task of every issue the release carried whose
+  block carries the after-release marker. A `-LiveSince` issue and a research issue are skipped.
 - **The closed line is never sent alone** (Maikel, October 14, 2026,
   [#3004](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3004)): *"there must always be an
   explanation of how to view the result"*. Measured on smartwatchbanden#943: a research ticket was closed
