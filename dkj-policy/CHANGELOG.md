@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**8 / 12 minor entries** <!-- pending-tally -->
+**9 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3070-notify-live · 20261016-132827Z
+
+The `bwj-development` plugin gains `notify-live`. It is a script a person runs right after a store
+release's live push and cut. It tells the Asana task of every issue that release carried, if that task
+was told the result "becomes visible with the release", that the work is now live, as version vX.Y.Z,
+and that the review can start. The message repeats the go-live block's own closing ask, in the block's
+language. It is a dry run until `-Post`, it never tells a task twice, and `prepare-release`'s runbook
+now prints it as the step after the cut (#3070).
+
+**Score:** 3 -- a hand step that used to be missing
+
+#### What makes this deploy extra special
+
+A requester whose closed message said "visible with the release" is now told when that release is out.
+Until now they had to work out for themselves whether that day's release carried their work. The store
+maintainer gains one step on release day, and the runbook prints it.
+
+**Score:** 3
+
+#### Pull Request
+
+bwj-development: tell each carried issue's Asana task when its release goes live
+
+Plugins: bwj-development
+
+[PR #3074](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3074)
+
+---
 
 ### DEPLOY: feat/3069-closed-message-intros · 20261016-130027Z
 
