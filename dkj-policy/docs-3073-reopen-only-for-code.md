@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Maikel's decision is on #3073 (October 16, 2026). This branch carries the rule text. The hook his
+comment suggests in front of `gh issue reopen` is a design choice of its own, filed as #3076 and parked
+for his decision.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `WORKFLOW-portable.md`, *Reopening an issue*: a reopen means a repo file changes, and admin-only
+  work goes to the requester as an instruction, or is done by development without reopening
+- [x] the same in point 3 of the requester loop, and a note in `golive-block`'s store-admin passage
 
 ### TEST
 
+- [~] no suite reads these sentences; the gates' doc checks run in ship-pr
+
 ### DEPLOY: docs/3073-reopen-only-for-code
 
-**Score:**
+In a BWJ store, a closed issue is now reopened only when a file in the repo has to change (#3073).
+Admin-only work, such as a metaobject, a metafield, a setting or content, never reopens it. Where the
+requester can do that work themselves, the session answers with an instruction they can follow now and
+next time. Where they cannot, development does the admin act without reopening and without a go-live
+block.
+
+**Score:** 2 -- prevents a reopened/closed pair on a task for work that never touched the repo
 
 #### What makes this deploy extra special
 
-**Score:**
+A requester stops seeing "back in development" on their task for admin-only follow-ups, and gets an
+instruction to do such work themselves next time.
+
+**Score:** 2
 
 #### Pull Request
 
