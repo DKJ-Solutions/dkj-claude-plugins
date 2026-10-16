@@ -43,7 +43,8 @@
          behind made the receipt call the run's own result behind. Where this checkout's OWN records
          disagree on scope, every distinct scope is updated, for the same reason (#3049). A plugin with NO record for this
          checkout gets `claude plugin install <id> --scope project` instead (#2560): an update there
-         moved another checkout's record.
+         moved another checkout's record. A RETIRED id (Get-RetiredPolicyExtensionNames) is not a
+         target at all: it is named with its successor and skipped, never counted as failed (#3055).
       3. plugin-versions.ps1, run as a CHILD PROCESS (Start-Process, live console, exactly the pattern
          Invoke-TestSuiteGate and the lint gate already use) -- never dot-sourced, because that script
          ends in `exit 0` on every path and dot-sourcing it would exit THIS script too.
@@ -135,6 +136,7 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # -- same precedence, but it names git's exit code and stderr instead of dying on $null.Trim().
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\claude-md-import-lib.ps1')
 
 # --- -AllCheckouts: the sweep, one child run per checkout (see .PARAMETER AllCheckouts) -------------
 
@@ -342,11 +344,23 @@ $skipped = New-Object System.Collections.Generic.List[string]
 # no byte of the administration reaches a command line (see Get-PluginUpdateScope).
 $siblings = New-Object System.Collections.Generic.List[object]
 $splitIds = New-Object System.Collections.Generic.List[string]
+# A RETIRED NAME IS NOT A TARGET (issue #3055). The marketplace no longer declares it (#2788), so
+# `claude plugin update` fails with "Plugin ... not found", which counted as FAILED here and turned a
+# whole -AllCheckouts checkout red -- for a state no update can move. It is named, with the repair
+# consumer-prose-sessioncheck gives, and skipped; the step-3 receipt says the same per row. The NAME
+# alone decides here, where plugin-versions also asks that the clone list the successor: step 1
+# refreshes the clone to a marketplace that no longer declares the old name, so the two agree on
+# every run that reaches the receipt.
+$retiredNames = Get-RetiredPolicyExtensionNames
+$retiredIds = New-Object System.Collections.Generic.List[object]
 foreach ($id in $ids) {
     $parts = $id -split '@'
     $name = $parts[0]
     $mp = $parts[-1]
-    if ((Test-PluginNameSlug -Name $name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
+    if ($retiredNames.Contains($name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
+        # Rebuilt from the two checked halves rather than the raw key, so no unchecked byte is printed.
+        $retiredIds.Add([pscustomobject]@{ Id = "$name@$mp"; Successor = "$($retiredNames[$name])@$mp" })
+    } elseif ((Test-PluginNameSlug -Name $name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
         $sc = Get-PluginUpdateScope -InstallRecord $install -PluginId $id
         $hereScopes = @()
         if ($sc.Source -eq 'default' -and $sc.Note -and $null -ne $install -and $install.Readable -and
@@ -424,9 +438,20 @@ if ($skipped.Count -gt 0) {
     Write-Host "Skipped (not a valid plugin id, so not handed to the CLI): $($skipped -join ', ')" -ForegroundColor Yellow
 }
 
+if ($retiredIds.Count -gt 0) {
+    Write-Host ""
+    Write-Host "Skipped $($retiredIds.Count) retired plugin id(s) -- the marketplace no longer declares them, so no update can move them (#3055):" -ForegroundColor Yellow
+    foreach ($r in $retiredIds) {
+        Write-Host "  $($r.Id) -- renamed to $($r.Successor); enable '$($r.Successor)' in .claude/settings.json in place of '$($r.Id)', then: claude plugin install $($r.Successor) --scope project" -ForegroundColor Yellow
+    }
+}
+
 if ($targets.Count -eq 0) {
     Write-Host ""
     Write-Host "Nothing left to update after the id check above." -ForegroundColor Yellow
+    # Only retired ids left is not a failure: nothing was attempted, and the lines above name the repair.
+    # No receipt either, as for every exit before step 1: nothing changed for it to report on.
+    if ($skipped.Count -eq 0 -and $retiredIds.Count -gt 0) { exit 0 }
     exit 1
 }
 
@@ -565,7 +590,8 @@ if ($totalFailures -eq 0) {
     $installed = @($targets | Where-Object { $_.Verb -eq 'install' }).Count
     $installText = if ($installed -gt 0) { ", $installed installed into this checkout (it had no install record)" } else { '' }
     $currentText = if ($alreadyCurrent -gt 0) { ", $alreadyCurrent already at the latest version" } else { '' }
-    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed, $($targets.Count - $installed - $alreadyCurrent) plugin(s) updated$shadowText$currentText$installText, 0 failed." -ForegroundColor Green
+    $retiredText = if ($retiredIds.Count -gt 0) { ", $($retiredIds.Count) retired id(s) skipped" } else { '' }
+    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed, $($targets.Count - $installed - $alreadyCurrent) plugin(s) updated$shadowText$currentText$installText$retiredText, 0 failed." -ForegroundColor Green
     exit 0
 }
 Write-Host "update-plugins: $marketplaceFailures marketplace refresh(es) failed, $updateFailures plugin update(s) failed -- see FAILED lines above." -ForegroundColor Red

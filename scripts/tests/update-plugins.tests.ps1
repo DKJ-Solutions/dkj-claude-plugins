@@ -76,6 +76,9 @@
       22 -DryRun with disagreeing records               -> every scope's command printed, nothing ran
       23 a 'user' record for this checkout beside a     -> one '--scope user' call, not a sibling AND
          path-less user record                               a shadow
+      24 a retired id (#3055) beside a current one      -> named with its successor and skipped, never
+                                                             handed to the CLI and never FAILED; with
+                                                             only the retired id enabled, exit 0
 
     Dependency-free (no Pester), same style as plugin-versions.tests.ps1. Pure ASCII (repo convention
     for .ps1).
@@ -662,6 +665,31 @@ try {
     $userCalls = ([regex]::Matches($r.Text, [regex]::Escape("CLAUDE-SHIM-CALLED plugin update $ID1 --scope user"))).Count
     Assert-Equal 1 $userCalls '23: the user scope is updated exactly once'
     Assert-Lacks $r 'path-less user-scope record(s)' '23: and no shadow is counted for it'
+
+    # --- 24. a retired id is named and skipped, never counted as a failed update (#3055) ------------
+    Write-Host "24. a retired plugin id is skipped with its successor, never FAILED" -ForegroundColor Cyan
+    $old = 'dkj-policy-bwj@ccs-fixture'
+    $c = New-Case 'retired'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1, $old)
+    Set-HereRecords -Case $c -Ids @($ID1, $old)
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-CleanExit -Run $r -Label '24: exit 0 -- a retired id is not a failure'
+    Assert-Has   $r "$old -- renamed to bwj-development@ccs-fixture" '24: the retired id is named with its successor'
+    Assert-Has   $r 'claude plugin install bwj-development@ccs-fixture --scope project' '24: and the repair is the successor install'
+    Assert-Lacks $r "CLAUDE-SHIM-CALLED plugin update $old" '24: the retired id is never handed to the CLI'
+    Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '24: the current id still updates'
+    Assert-Summary $r '1 retired id(s) skipped, 0 failed' '24: the summary counts the skip, zero failed'
+
+    $c = New-Case 'retired-only'
+    New-ClaudeShim -BinDir $c.Bin
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($old)
+    Set-HereRecords -Case $c -Ids @($old)
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-Equal 0 $r.Code '24: only a retired id enabled -> exit 0, nothing was attempted'
+    Assert-Lacks $r 'CLAUDE-SHIM-CALLED' '24: and the CLI never ran'
 
     # --- 17-19. -AllCheckouts: the sweep over every checkout in the install administration ---------
     #     One fixture home holding records for five folders: a clean checkout on its trunk (runs), one on
