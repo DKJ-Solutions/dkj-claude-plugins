@@ -45,16 +45,16 @@ The group is read from the owner in each manifest's `repo` slug, so a new repo n
 ### CREATE
 
 - [x] `Get-ConnectorOwnerGroup` and `Get-DashboardOwnerGroups` in `scripts/lib/connector-dashboard-lib.ps1`
-- [x] The h1 is the repo's name, `dkj-claude-plugins`; one h2 "Connected repos" card holds everything below it
+- [x] The h1 is the repo's name, `dkj-claude-plugins`; an h2 "Connected repos" card holds the tables
 - [x] A table per non-empty group, naming its group in its first column head (BWJ repos, DKJ repos, Other repos), with no heading above it
 - [x] The tables share one fixed column set, so their columns line up
 - [x] The Checkout column is gone, with no replacement: Dave tried a Main column (trunk against origin, after a fetch) and dropped it as unimportant here, so nothing fetches
 - [x] The repo card shows only the trunk's last commit: no checked-out branch, uncommitted count or ahead/behind
-- [x] Inside the same card, one level down: an h3 Status, an h4 per group, and a house `mini-card` per repo with its name as an h5
+- [x] A second card beside it, headed Issues (h2), with an h3 per group and a house `mini-card` per repo with its name as an h4
 
 ### TEST
 
-- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure, the column heads and shared column set, the card's trunk-only last commit, and an empty group left out (107 passed)
+- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure and the two cards, the column heads and shared column set, the card's trunk-only last commit, and an empty group left out (107 passed)
 - [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1; an uncached load takes about 5.5 s
 
 ### DEPLOY: feat/dashboard-owner-groups
@@ -65,10 +65,10 @@ manifest's `repo` slug (`BWJ-Development`, `DKJ-Solutions`, anything else), so a
 lands in the right group without an edit; inside a group the order is unchanged, worst status first,
 then by name, and a group with no repos is left out.
 
-The page's h1 is the repo's name, `dkj-claude-plugins`, and one card headed **Connected repos** holds
-the rest. It opens with a table per group, the group named in the first column head, all sharing one
-fixed column set so their columns line up. One level down, in the same card, an h3 **Status** carries an
-h4 per group and a house `mini-card` per repo.
+The page's h1 is the repo's name, `dkj-claude-plugins`. A card headed **Connected repos** holds a table
+per group, the group named in the first column head, all sharing one fixed column set so their columns
+line up. A second card headed **Issues** carries an h3 per group and a house `mini-card` per repo with its
+details.
 
 The Overview's **Checkout** column is gone. What a checkout is checked out on and whether it holds
 uncommitted work said nothing about the repo, so the card no longer shows it either: it shows the last
