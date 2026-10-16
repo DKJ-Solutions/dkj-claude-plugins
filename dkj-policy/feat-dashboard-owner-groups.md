@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Dave asked for the dashboard index to separate BWJ repos, DKJ repos and other repos (djcylow-react).
+The group is read from the owner in each manifest's `repo` slug, so a new repo needs no edit here.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ConnectorOwnerGroup` and `Get-DashboardOwnerGroups` in `scripts/lib/connector-dashboard-lib.ps1`
+- [x] The page renders one section per non-empty group (heading, Overview table, repo cards)
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, and an empty group left out (98 passed)
+- [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1
+
 ### DEPLOY: feat/dashboard-owner-groups
 
-**Score:**
+The connector dashboard (`scripts/dashboard/serve-connector-dashboard.ps1`) now splits its index into
+three sections, **BWJ repos**, **DKJ repos** and **Other repos**, each with its own heading, repo count,
+Overview table and repo cards. A repo's group is read from the owner in its connector manifest's `repo`
+slug (`BWJ-Development`, `DKJ-Solutions`, anything else), so a newly registered repo lands in the right
+section without an edit. Inside a group the order is unchanged: worst status first, then by name. A
+group with no repos is left out.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the dashboard is a local tool for this repo's maintainers and is not shipped in any plugin.
+
+**Score:** N/A
 
 #### Pull Request
 

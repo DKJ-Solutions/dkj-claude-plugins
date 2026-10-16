@@ -209,6 +209,18 @@ Assert-True ($html -match 'DKJTheme\.settings\(' -and $html -notmatch 'DKJTheme\
 Assert-True ($html -match '<div id="settings" class="theme-settings--floating">') 'the settings button floats fixed top right, outside the header'
 Assert-True (([regex]::Matches($html, 'var\(--primary')).Count -ge 6 -and $html -match 'class="cd-band"' -and $html -match 'class="card cd-accent"' -and $html -match 'class="cd-link"') 'the chosen theme reaches the page beyond its buttons, through the repo layer''s own --primary accents'
 Assert-True ($html -match '1\.3s|1\.2s') 'the run time is printed with an invariant decimal point'
+Assert-Equal 'bwj' (Get-ConnectorOwnerGroup 'BWJ-Development/shop') 'a BWJ-Development repo is in the BWJ group'
+Assert-Equal 'dkj' (Get-ConnectorOwnerGroup 'dkj-solutions/hub') 'a DKJ-Solutions repo is in the DKJ group, whatever the case'
+Assert-Equal 'other' (Get-ConnectorOwnerGroup 'DaveKJohn/djcylow-react') 'any other owner is Other'
+Assert-Equal 'other' (Get-ConnectorOwnerGroup '') 'no slug is Other, not an error'
+$grouped = Format-ConnectorDashboardHtml -Connectors @(
+    @{ Repo = 'Someone/x'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null },
+    @{ Repo = 'DKJ-Solutions/y'; Status = 'good'; Plugins = @(); Signals = @(); Present = $false; Git = $null },
+    @{ Repo = 'BWJ-Development/z'; Status = 'good'; Plugins = @(); Signals = @(); Present = $false; Git = $null }) -Meta @{ GeneratedAt = 'now' }
+$iB = $grouped.IndexOf('id="group-bwj"'); $iD = $grouped.IndexOf('id="group-dkj"'); $iO = $grouped.IndexOf('id="group-other"')
+Assert-True ($iB -ge 0 -and $iB -lt $iD -and $iD -lt $iO) 'the groups come BWJ, DKJ, Other -- owner order beats status order'
+Assert-True ($iO -lt $grouped.IndexOf('id="repo-someone-x"')) 'a repo sits under its own group heading'
+Assert-True ($html -notmatch 'id="group-bwj"' -and $html -match 'id="group-other"') 'an empty group is left out'
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="notice"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is a notice, escaped'
 
