@@ -49,6 +49,10 @@
       - no sha on one side                       -> the two versions are compared instead, and the
                                                    line says a sha was not available
       - a whole side is missing                  -> cannot determine, and the line says which side
+      - a retired id (Get-RetiredPolicyExtensionNames) the clone no longer lists, while its
+        successor is listed                     -> retired: no refresh brings it back -> enable the
+                                                   successor and `claude plugin install <successor>@<marketplace>
+                                                   --scope project` (#3055)
       - a path-less record OLDER than this
         checkout's own one, whatever the above  -> behind: a session can load the older record
                                                    (#2442) -> `claude plugin update <id> --scope <the
@@ -101,6 +105,7 @@ $repoRoot = Resolve-RepoRootOrFail -Override $RootOverride -ScriptName 'plugin-v
 
 . (Join-Path $PSScriptRoot '..\lib\plugin-tree-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\claude-md-import-lib.ps1')
 
 # --- small helpers ------------------------------------------------------------------------------
 
@@ -275,6 +280,8 @@ foreach ($mp in $marketplaces) { $clones[$mp] = Resolve-Clone -Marketplace $mp -
 # --- per plugin: build a row --------------------------------------------------------------------
 
 $rows = New-Object System.Collections.Generic.List[object]
+# Retired plugin name -> its successor (#3055), the map consumer-prose-sessioncheck already warns from.
+$retiredNames = Get-RetiredPolicyExtensionNames
 
 foreach ($id in $ids) {
     $parts = $id -split '@'
@@ -465,6 +472,16 @@ foreach ($id in $ids) {
             # verdict is the only side that can speak about its version at all.
             $verdict = "cannot determine -- '$name' is declared with a url source, so the clone holds no plugin.json to read a version from"
             $action = "nothing to run -- this is permanent for a url-sourced plugin, not a stale clone; the installed version above is the only one there is"
+        } elseif ($retiredNames.Contains($name) -and $clone.PluginVersion.ContainsKey([string]$retiredNames[$name])) {
+            # A RETIRED NAME, AND THE FOURTH WAY OF NOT ANSWERING (#3055). The clone dropped the old
+            # name on purpose (#2788) and lists its successor, so the absent-plugin advice below -- a
+            # refresh -- is the one move that provably cannot help: update-plugins runs that refresh as
+            # its own step 1, and then prescribed it again in its step-3 receipt. The successor being
+            # in THIS clone is the condition, not the map alone, so the verdict is never a guess.
+            $successor = [string]$retiredNames[$name]
+            $code = 'retired'
+            $verdict = "retired -- '$name' was renamed to '$successor' (#2788), so no refresh brings it back and nothing of it loads"
+            $action = "enable '$successor@$mpTok' in .claude/settings.json in place of '$idTok', then: claude plugin install $successor@$mpTok --scope project"
         } else {
             $verdict = "cannot determine -- '$name' is not in the clone's marketplace.json"
             $action = "refresh the clone and re-run: claude plugin marketplace update $mpTok"
@@ -789,6 +806,9 @@ $unreleased = @($rows | Where-Object { $_.Code -eq 'unreleased' })
 # MARKER in -Brief, which splits it back out -- the severity question and the bucket question have
 # different answers, and conflating them is what would have made this a wider change than it is.
 $unknown = @($rows | Where-Object { @('indeterminate', 'not-installed') -contains $_.Code })
+# ITS OWN BUCKET TOO (#3055): not 'could not be determined' -- the verdict is certain -- and not
+# 'behind', since no update command moves a name the marketplace no longer declares.
+$retired = @($rows | Where-Object { $_.Code -eq 'retired' })
 $total = $rows.Count
 
 # --- brief mode: marker lines a session start can carry, and nothing else -----------------------
@@ -879,6 +899,10 @@ if ($Brief) {
             Write-Host $line
         } elseif (@('clone-behind', 'unreleased', 'indeterminate') -contains $row.Code) {
             Write-Host "[INFO] ${safeId}: $safeVerdict"
+        } elseif ($row.Code -eq 'retired') {
+            # [INFO], not [ERROR]: consumer-prose-sessioncheck already raises this at every session
+            # start as a [WARNING] with the same repair, so a second loud marker would only repeat it.
+            Write-Host "[INFO] ${safeId}: $safeVerdict -- $safeAction"
         }
         # 'match' / 'ver-match': nothing to say, and the summary below says how many.
     }
@@ -888,6 +912,7 @@ if ($Brief) {
     if ($staleClone.Count -gt 0) { $parts += "$($staleClone.Count) ahead of a stale clone" }
     if ($unreleased.Count -gt 0) { $parts += "$($unreleased.Count) on the released version with unreleased clone commits" }
     if ($undetermined.Count -gt 0) { $parts += "$($undetermined.Count) undetermined" }
+    if ($retired.Count -gt 0) { $parts += "$($retired.Count) retired" }
     $parts += "$($good.Count) up to date"
     Write-Host "[SUMMARY] $total plugin(s) enabled here: $($parts -join ', ')."
     exit 0
@@ -915,11 +940,13 @@ if ($good.Count -eq $total) {
     if ($good.Count -gt 0)       { $bits += "$($good.Count) up to date" }
     if ($unreleased.Count -gt 0) { $bits += "$($unreleased.Count) on the released version, with unreleased commits in the clone" }
     if ($unknown.Count -gt 0)    { $bits += "$($unknown.Count) could not be determined" }
+    if ($retired.Count -gt 0)    { $bits += "$($retired.Count) retired, enable the successor instead" }
     Write-Host "$total plugin(s): $($bits -join ', ') -- nothing to update (see below)." -ForegroundColor Yellow
 } else {
     $tailBits = @()
     if ($unknown.Count -gt 0)    { $tailBits += "$($unknown.Count) could not be determined" }
     if ($unreleased.Count -gt 0) { $tailBits += "$($unreleased.Count) on the released version, with unreleased commits in the clone" }
+    if ($retired.Count -gt 0)    { $tailBits += "$($retired.Count) retired, enable the successor instead" }
     $tail = if ($tailBits.Count -gt 0) { " ($($tailBits -join '; '))" } else { "" }
     Write-Host "$($behind.Count) of $total plugin(s) behind -- run the update command shown for each$tail." -ForegroundColor Yellow
 }

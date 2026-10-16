@@ -107,6 +107,8 @@
           whose name is not a valid slug                        placeholder sentence stands in
       34d #1993: a plugin the manifest declares with a        -> told apart from one it never declared,
           url source instead of a path                          and no refresh is prescribed
+      38 #3055: a retired id whose successor the clone      -> 'retired', naming the successor and
+         lists (default view and -Brief)                        the install, never the refresh
     Every scenario asserts exit code 0 explicitly (this is a report, not a gate).
 
     Scenarios 12/13 build the "reachable but not an ancestor" state the way a real marketplace clone
@@ -1337,6 +1339,34 @@ try {
     Assert-Has   $r 'unrecognised-scope record at 4.30.0' '37d: the finding still stands'
     Assert-Lacks $r 'bogus;value' '37d: the file''s own scope string never reaches the output'
     Assert-Lacks $r 'claude plugin update' '37d: and no command is built from it'
+
+    # --- 38. #3055: a retired id is named as retired, not sent round a refresh -----------------------
+    Write-Host "38. #3055: a retired plugin id -> 'retired', with its successor, never a refresh" -ForegroundColor Cyan
+    $c = New-Case 'retired-id'
+    New-Clone -Dir $c.Clone -Version '4.32.0' -PluginNames @('bwj-development') | Out-Null
+    $old = 'dkj-policy-bwj@ccs-fixture'
+    Set-Enabled -RepoDir $c.Repo -Ids @($old)
+    Write-Admin -Path $c.Admin -Plugins @{ $old = @( (New-Rec -ProjectPath $c.Repo -Version '4.30.0' -Sha 'beefbeef') ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Equal 0 $r.Code '38: exit 0'
+    Assert-Has   $r "retired -- 'dkj-policy-bwj' was renamed to 'bwj-development'" '38: the verdict names the successor'
+    Assert-Has   $r 'claude plugin install bwj-development@ccs-fixture --scope project' '38: the action is the successor install'
+    Assert-Lacks $r 'claude plugin marketplace update' '38: no refresh is prescribed -- it cannot help'
+    Assert-Has   $r '1 retired, enable the successor instead' '38: the summary names it as retired'
+    Assert-Lacks $r 'could not be determined' '38: and not as undetermined'
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home -Brief
+    Assert-Has   $r "[INFO] $($old): retired --" '38: -Brief reports it as [INFO]'
+    Assert-Lacks $r '[ERROR]' '38: never [ERROR] -- consumer-prose-sessioncheck already warns'
+    Assert-Has   $r '[SUMMARY] 1 plugin(s) enabled here: 0 behind, 1 retired, 0 up to date.' '38: -Brief summary counts it as retired'
+
+    # The map alone is not enough: a retired name whose successor the clone does NOT list stays the
+    # ordinary absent-plugin row, because then a refresh genuinely is the first move.
+    $c = New-Case 'retired-id-no-successor'
+    New-Clone -Dir $c.Clone -Version '4.32.0' -PluginNames @('dkj-subagents-alpha') | Out-Null
+    Set-Enabled -RepoDir $c.Repo -Ids @($old)
+    Write-Admin -Path $c.Admin -Plugins @{ $old = @( (New-Rec -ProjectPath $c.Repo -Version '4.30.0' -Sha 'beefbeef') ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home
+    Assert-Has   $r "cannot determine -- 'dkj-policy-bwj' is not in the clone's marketplace.json" '38: without the successor in the clone, the old verdict stands'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
