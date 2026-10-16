@@ -20,6 +20,10 @@
       4. THE REGISTRATION: hooks.json matches the shell tools, greps the payload for the two scripts
          before it starts PowerShell, and names the file.
 
+    THE REOPEN GUARD RIDES ALONG (#3076). hooks/guard-issue-reopen.ps1 shares this hook's parser lib and
+    its GraphQL reader, so its parser is asserted in group 1, its verdicts against the same fake gh in
+    group 3, and its registration in group 4 -- one compile of the fake, not two.
+
     Windows PowerShell 5.1 and Windows only, as guard-asana-mirror.tests.ps1 is: it starts 'powershell'
     and compiles the fake with Add-Type.
 
@@ -117,6 +121,19 @@ Assert-Equal 'o/r#5' (Format-Closes (Get-IssueCloseInvocation -Command 'gh issue
 Assert-Equal '#5' (Format-Closes (Get-IssueCloseInvocation -Command 'GH_TOKEN=x gh issue close 5')) 'an environment prefix does not hide the close'
 Assert-Equal 20 @((Get-IssueCloseInvocation -Command ('gh issue close ' + ((1..40) -join ' '))).Closes).Count 'the list is bounded at 20'
 
+# THE REOPEN PARSER (#3076), the same reading as the close parser.
+function Format-Reopens { param($c) if ($null -eq $c) { return '' } (@($c.Reopens) | ForEach-Object { "$($_.Repo)#$($_.Number)" }) -join ',' }
+Assert-Equal '#395' (Format-Reopens (Get-IssueReopenInvocation -Command 'gh issue reopen 395')) 'a bare reopen names its issue'
+Assert-Equal '#395' (Format-Reopens (Get-IssueReopenInvocation -Command 'gh issue reopen 395 --comment "round 2; see above"')) 'a quoted comment with a separator in it is one value'
+Assert-Equal 'BWJ-Development/smartwatchbanden#395' (Format-Reopens (Get-IssueReopenInvocation -Command 'gh issue reopen 395 -R BWJ-Development/smartwatchbanden')) '-R names the repo'
+Assert-Equal 'o/r#5' (Format-Reopens (Get-IssueReopenInvocation -Command 'gh issue reopen 5 -Ro/r')) 'and so does an attached -Ro/r'
+Assert-Equal 'BWJ-Development/xoxowildhearts#414' (Format-Reopens (Get-IssueReopenInvocation -Command 'gh issue reopen https://github.com/BWJ-Development/xoxowildhearts/issues/414')) 'an issue URL carries its own repo'
+Assert-Equal '#9' (Format-Reopens (Get-IssueReopenInvocation -Command 'git push; GH_TOKEN=x gh.exe issue reopen 9')) 'gh.exe after another command and an environment prefix is a reopen'
+Assert-Equal '#395' (Format-Reopens (Get-IssueReopenInvocation -Command 'gh issue reopen 395 -c 12')) 'the value of -c is a comment, not a second issue'
+Assert-True ($null -eq (Get-IssueReopenInvocation -Command 'git commit -m "gh issue reopen 395"')) 'a mention in a commit message is not a reopen'
+Assert-True ($null -eq (Get-IssueReopenInvocation -Command 'gh issue close 395')) 'a close is not a reopen'
+Assert-True ($null -eq (Get-IssueReopenInvocation -Command 'gh issue reopen')) 'a reopen that names no issue names nothing to judge'
+
 # --- 3. The hook, against a fake gh -----------------------------------------------------------------
 Write-Host 'the hook, against a fake gh' -ForegroundColor Cyan
 
@@ -201,11 +218,11 @@ function Set-Fake { param([string]$Name, [string]$Text) [System.IO.File]::WriteA
 
 function Invoke-Hook {
     <# Runs the hook with a shell command as the payload, the fake gh first on PATH; returns Code, Err, Calls. #>
-    param([string]$Command, [string]$Payload, [switch]$Bom)
+    param([string]$Command, [string]$Payload, [switch]$Bom, [string]$HookPath = $Hook)
     if (-not $PSBoundParameters.ContainsKey('Payload')) { $Payload = ConvertTo-Json -Compress @{ tool_name = 'Bash'; tool_input = @{ command = $Command } } }
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = 'powershell'
-    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Hook`""
+    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$HookPath`""
     $psi.UseShellExecute = $false
     $psi.RedirectStandardInput = $true
     $psi.RedirectStandardOutput = $true
@@ -443,6 +460,46 @@ if ($built) {
     Assert-True ($r.Err -match 'BWJ-Development/smartwatchbanden#943') 'and named by that repo'
     Assert-True ($r.Err -match '-Issue 943 -Repo BWJ-Development/smartwatchbanden -Research' -and $r.Err -match 'gh issue close 943 -R BWJ-Development/smartwatchbanden --reason') 'and the fix points at that repo''s issue, not the checkout''s'
     Assert-True (-not ($r.Calls -contains 'repo')) 'without asking which repo the checkout is'
+
+    # --- The reopen guard (#3076): ask before reopening an Asana-linked issue, pass every other ---
+    Write-Host 'the reopen guard, against a fake gh' -ForegroundColor Cyan
+    $reopenHook = Join-Path $PluginRoot 'hooks\guard-issue-reopen.ps1'
+
+    Reset-Fake
+    Set-Fake 'issue-395.out' (New-State -Body $linked)
+    $r = Invoke-Hook 'gh issue reopen 395' -HookPath $reopenHook
+    Assert-Equal 0 $r.Code 'a reopen of an Asana-linked issue is not refused'
+    Assert-Equal 'ask' ([string]$r.Json.permissionDecision) 'it asks a person first'
+    Assert-True ([string]$r.Json.permissionDecisionReason -match 'DKJ-Solutions/xoxo#395 links an Asana task' -and [string]$r.Json.permissionDecisionReason -match 'repo code will change') 'naming the issue and what the confirmation is for'
+    Assert-True ([string]$r.Json.additionalContext -match 'belongs in a comment') 'and the model is told the alternative'
+
+    Reset-Fake
+    Set-Fake 'issue-395.out' (New-State -Body 'no task linked here')
+    $r = Invoke-Hook 'gh issue reopen 395' -HookPath $reopenHook
+    Assert-Equal 0 $r.Code 'a reopen of an issue linking no task passes'
+    Assert-Equal '' $r.Out.Trim() 'untouched: no decision is printed'
+
+    Reset-Fake
+    Set-Fake 'issue-395.out' (New-State -Body "<!-- x -->`nhttps://app.asana.com/0/1/111 and https://app.asana.com/0/1/222")
+    $r = Invoke-Hook 'gh issue reopen 395' -HookPath $reopenHook
+    Assert-Equal '' $r.Out.Trim() 'nor one linking several tasks: the workflow posts nothing for it'
+
+    Reset-Fake
+    Set-Fake 'issue-395.code' '1'
+    $r = Invoke-Hook 'gh issue reopen 395' -HookPath $reopenHook
+    Assert-Equal 'ask' ([string]$r.Json.permissionDecision) 'an issue gh cannot read is asked about too'
+    Assert-True ([string]$r.Json.permissionDecisionReason -match 'xoxo#395 could not be read') 'naming what could not be read'
+
+    Reset-Fake
+    $r = Invoke-Hook 'git commit -m "gh issue reopen 395"' -HookPath $reopenHook
+    Assert-Equal '' $r.Out.Trim() 'a mention is not judged'
+    Assert-Equal 0 @($r.Calls).Count 'and costs no gh call'
+
+    Reset-Fake
+    Set-Fake 'issue-395.out' (New-State -Body $linked)
+    $r = Invoke-Hook 'gh issue reopen 395 -R BWJ-Development/smartwatchbanden' -HookPath $reopenHook
+    Assert-True ([string]$r.Json.permissionDecisionReason -match 'BWJ-Development/smartwatchbanden#395') 'a reopen in another repo is read there'
+    Assert-True (-not ($r.Calls -contains 'repo')) 'without asking which repo the checkout is'
 }
 
 Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
@@ -450,14 +507,21 @@ Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 # --- 4. The registration ------------------------------------------------------------------------------
 Write-Host 'the registration' -ForegroundColor Cyan
 $hooks = Get-Content -LiteralPath $HooksJson -Raw | ConvertFrom-Json
-$entry = @($hooks.hooks.PreToolUse | Where-Object { $_.matcher -eq 'Bash|PowerShell' })
-Assert-Equal 1 $entry.Count 'hooks.json has one PreToolUse entry on the shell tools'
+$shell = @($hooks.hooks.PreToolUse | Where-Object { $_.matcher -eq 'Bash|PowerShell' })
+Assert-Equal 2 $shell.Count 'hooks.json has two PreToolUse entries on the shell tools: the block guard and the reopen guard (#3076)'
+$entry = @($shell | Where-Object { [string]$_.hooks[0].command -match 'guard-stale-paste-block\.ps1' })
+Assert-Equal 1 $entry.Count 'one of them runs the block guard'
 $cmd = [string]$entry[0].hooks[0].command
 Assert-True ($cmd.Contains('guard-stale-paste-block.ps1')) 'it runs this hook'
 Assert-True ($cmd -match "grep -Eq '\(ship-pr\|open-pr\)\\\.ps1\|gh\(\\\.exe\)\?\[\[:space:\]\]\+issue\[\[:space:\]\]\+close' \|\| exit 0") 'behind a shell pre-gate on the two scripts and gh issue close (#3004), so no other command pays a PowerShell start'
 Assert-True ($cmd.IndexOf('grep -Eq') -lt $cmd.IndexOf('powershell -NoProfile')) 'the pre-gate comes before PowerShell starts'
 Assert-True ($cmd -notmatch 'fail-closed|exit 2') 'and carries no fail-closed wrapper: the hook fails open on purpose (its header says why)'
 Assert-True ([int]$entry[0].hooks[0].timeout -ge 30) 'with the timeout the hook''s 25-second budget is sized for'
+$reopenEntry = @($shell | Where-Object { [string]$_.hooks[0].command -match 'guard-issue-reopen\.ps1' })
+Assert-Equal 1 $reopenEntry.Count 'and the other runs the reopen guard'
+$rcmd = [string]$reopenEntry[0].hooks[0].command
+Assert-True ($rcmd -match "grep -Eq 'gh\(\\\.exe\)\?\[\[:space:\]\]\+issue\[\[:space:\]\]\+reopen' \|\| exit 0" -and $rcmd.IndexOf('grep -Eq') -lt $rcmd.IndexOf('powershell -NoProfile')) 'behind its own shell pre-gate on gh issue reopen, before PowerShell starts'
+Assert-True ([int]$reopenEntry[0].hooks[0].timeout -ge 30) 'with the timeout its 25-second budget is sized for'
 $guard = @($hooks.hooks.PreToolUse | Where-Object { $_.matcher -like 'mcp__*' })
 Assert-Equal 1 $guard.Count 'and the Asana create-task guard is still registered beside it'
 
