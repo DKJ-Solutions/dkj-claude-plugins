@@ -678,6 +678,8 @@ try {
     Assert-CleanExit -Run $r -Label '24: exit 0 -- a retired id is not a failure'
     Assert-Has   $r "$old -- renamed to bwj-development@ccs-fixture" '24: the retired id is named with its successor'
     Assert-Has   $r 'claude plugin install bwj-development@ccs-fixture --scope project' '24: and the repair is the successor install'
+    . (Join-Path $PSScriptRoot '..\lib\claude-md-import-lib.ps1')
+    Assert-Has   $r (Get-RetiredExtensionRepair -Name 'dkj-policy-bwj' -Marketplace 'ccs-fixture') '24: and it is the lib''s one repair sentence (#3056)'
     Assert-Lacks $r "CLAUDE-SHIM-CALLED plugin update $old" '24: the retired id is never handed to the CLI'
     Assert-Has   $r "CLAUDE-SHIM-CALLED plugin update $ID1 --scope project" '24: the current id still updates'
     Assert-Summary $r '1 retired id(s) skipped, 0 failed' '24: the summary counts the skip, zero failed'

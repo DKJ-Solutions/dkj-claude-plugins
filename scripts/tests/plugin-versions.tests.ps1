@@ -1351,6 +1351,8 @@ try {
     Assert-Equal 0 $r.Code '38: exit 0'
     Assert-Has   $r "retired -- 'dkj-policy-bwj' was renamed to 'bwj-development'" '38: the verdict names the successor'
     Assert-Has   $r 'claude plugin install bwj-development@ccs-fixture --scope project' '38: the action is the successor install'
+    . (Join-Path $PSScriptRoot '..\lib\claude-md-import-lib.ps1')
+    Assert-Has   $r (Get-RetiredExtensionRepair -Name 'dkj-policy-bwj' -Marketplace 'ccs-fixture') '38: and it is the lib''s one repair sentence (#3056)'
     Assert-Lacks $r 'claude plugin marketplace update' '38: no refresh is prescribed -- it cannot help'
     Assert-Has   $r '1 retired, enable the successor instead' '38: the summary names it as retired'
     Assert-Lacks $r 'could not be determined' '38: and not as undetermined'

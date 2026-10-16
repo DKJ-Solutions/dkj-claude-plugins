@@ -33,6 +33,7 @@
         Get-ExtensionImportPattern -- which plugins are extensions, and the '@'-line pattern for one.
       * Get-RetiredPolicyExtensionNames / Get-RetiredExtensionImportPattern / Get-RetiredExtensionImports
         -- the names #2788 retired, and the import lines that still carry them.
+      * Get-RetiredExtensionRepair -- the one repair sentence for an enabled id under a retired name.
       * Test-ConstitutionImported / Test-ExtensionImported -- is the line already in the '@'-import
         closure, judged on the rows Get-AlwaysOnDocuments returns.
       * Add-ClaudeMdImportLine -- the fence-aware scan and the byte-preserving insert.
@@ -69,6 +70,20 @@ function Get-RetiredPolicyExtensionNames {
         name is mapped rather than dropped.
     #>
     return [ordered]@{ 'dkj-policy-bwj' = 'bwj-development'; 'dkj-policy-dkjs' = 'dkj-solutions' }
+}
+
+function Get-RetiredExtensionRepair {
+    <#
+        The one repair for an enabled id that carries a retired extension name, or $null when Name is not
+        retired (#3056). consumer-prose-sessioncheck, plugin-versions and update-plugins each wrote this
+        sentence out for themselves, so a change to the command in one would have drifted from the other
+        two. Marketplace is printed as given: a caller holding an unchecked value passes '<marketplace>'.
+    #>
+    param([string]$Name, [string]$Marketplace)
+    $retired = Get-RetiredPolicyExtensionNames
+    if (-not $retired.Contains($Name)) { return $null }
+    $successor = "$($retired[$Name])@$Marketplace"
+    return "enable '$successor' in .claude/settings.json in place of '$Name@$Marketplace', then: claude plugin install $successor --scope project"
 }
 
 function Test-DkjPolicyPayloadName {

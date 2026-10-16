@@ -795,6 +795,11 @@ try {
     $r = Invoke-Script -Dir $retiredBwj
     Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables dkj-policy-bwj, a retired name -- the extension is bwj-development now') `
         'a retired enabled id -- a [WARNING] naming the current extension'
+    # The repair is the lib's one sentence (#3056), so this check cannot word it apart from plugin-versions
+    # and update-plugins.
+    . (Join-Path $PSScriptRoot '..\lib\claude-md-import-lib.ps1')
+    Assert-True ($r.Out.Contains((Get-RetiredExtensionRepair -Name 'dkj-policy-bwj' -Marketplace 'dkj-claude-plugins'))) `
+        'a retired enabled id -- the repair is the shared sentence, with the marketplace from settings'
     Assert-True ($r.Out -match '\[WARNING\] CLAUDE\.md imports the dkj-policy-bwj extension under its retired name' -and
                  $r.Out -match [regex]::Escape('/plugins/dkj-policy/bwj-development/CLAUDE.md')) `
         'a retired import line -- a [WARNING] with the current line'
