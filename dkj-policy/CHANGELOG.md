@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3059-act-only-issue-closes · 20261016-104312Z
+
+`bwj-development`'s ticket-handling page now says that an issue stays open only while it will still change
+code in the repo ([#3059](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3059), Maikel,
+October 16, 2026). An issue whose remaining work is only an act outside the repo (a release, a publish in
+the Shopify admin, an owner's decision) closes as completed with a research block naming that act. The
+page gives the test, "does any step still change a file in the repo?", and says to move a lone code step
+into the issue that already carries the related code work. The core still parks such an issue under
+`awaiting-action-dev`, and which of the two yields is filed as
+[#3062](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3062). The same page's description of
+the go-live guard's fail-open is brought in line with #3058.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a store repo running `bwj-development`, a session closes an issue whose only remaining step is a store
+act or a release, with a research block naming that act, instead of parking it. The open issues and the
+`In Progress` column then show only work that can still be built.
+
+**Score:** 3
+
+#### Pull Request
+
+An issue stays open only while it will still change code
+
+Plugins: bwj-development
+
+[PR #3063](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3063)
+
+---
 
 ### DEPLOY: fix/3058-guard-fail-open-visible · 20261016-102909Z
 
