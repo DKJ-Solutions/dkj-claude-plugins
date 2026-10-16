@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**11 / 15 minor entries** <!-- pending-tally -->
+**12 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3078-ship-pr-diverged-trunk · 20261016-141753Z
+
+`ship-pr` no longer merges a PR it cannot fold locally (inbound #3078). When this checkout's `main` carries
+commits that `origin/main` lacks, usually the redundant fold commit of an earlier ship that lost the fold
+race, the run now stops before anything is pushed and prints the log to read and the two commands that
+realign the trunk. When the fast-forward still fails after the merge, it first checks whether `origin/main`
+already carries the fold. If it does, it says so instead of reporting a fold that is still owed.
+
+**Score:** 3 -- a false "fold is still owed" after a merge, met in dkj-brandbook on PR #167
+
+#### What makes this deploy extra special
+
+A maintainer who ships several branches in a row with `fold-on-merge` active is no longer left with a
+merged PR and a refusal that names a state that does not exist. The stop now comes before the merge, where
+it costs nothing.
+
+**Score:** 3
+
+#### Pull Request
+
+ship-pr refuses a trunk ahead of origin before the merge, and checks upstream before saying the fold is owed
+
+Plugins: dkj-policy
+
+[PR #3079](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3079)
+
+---
 
 ### DEPLOY: docs/3072-bwj-overview-texts · 20261016-135041Z
 
