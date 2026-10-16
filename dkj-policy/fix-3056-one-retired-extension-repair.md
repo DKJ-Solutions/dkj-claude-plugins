@@ -71,6 +71,9 @@ repo's own marketplace name in place of a `<marketplace>` placeholder.
 
 #### What makes this deploy extra special
 
+A consumer still enabling a retired extension name sees the same repair as before, now worded alike in
+all three places. Nothing changes in how they work.
+
 **Score:** N/A
 
 #### Pull Request
