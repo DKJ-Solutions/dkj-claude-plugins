@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**3 / 5 minor entries** <!-- pending-tally -->
+**3 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3056-one-retired-extension-repair · 20261016-101309Z
+
+The repair for an enabled plugin id under a retired extension name (`dkj-policy-bwj`,
+`dkj-policy-dkjs`) is now composed by one helper, `Get-RetiredExtensionRepair` in
+`scripts/lib/claude-md-import-lib.ps1`
+([#3056](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3056)).
+`consumer-prose-sessioncheck`, `plugin-versions` and `update-plugins` had each written that sentence out
+for themselves, so a change to the command in one would drift from the other two. The tests for all three
+now assert the helper's sentence itself. The session check's warning also gains the settings step and the
+repo's own marketplace name in place of a `<marketplace>` placeholder.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer still enabling a retired extension name sees the same repair as before, now worded alike in
+all three places. Nothing changes in how they work.
+
+**Score:** N/A
+
+#### Pull Request
+
+One helper composes the retired-extension repair
+
+Plugins: bwj-development, dkj-policy
+
+[PR #3060](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3060)
+
+---
 
 ### DEPLOY: fix/3055-retired-plugin-id-in-update-tools · 20261016-095331Z
 
