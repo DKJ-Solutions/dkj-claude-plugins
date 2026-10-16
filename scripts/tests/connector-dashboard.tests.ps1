@@ -223,8 +223,9 @@ Assert-True ($iO -lt $grouped.IndexOf('id="repo-someone-x"')) 'a repo sits under
 Assert-True ($grouped -match '<h1>dkj-claude-plugins</h1>') 'the h1 is this repo''s name'
 Assert-Equal 1 ([regex]::Matches($grouped, '<h2>Connected repos</h2>')).Count 'the overview stays one h2 card, headed Connected repos'
 $oB = $grouped.IndexOf('id="overview-bwj"'); $oD = $grouped.IndexOf('id="overview-dkj"'); $oO = $grouped.IndexOf('id="overview-other"')
-Assert-True ($grouped.IndexOf('<h2>Connected repos</h2>') -lt $oB -and $oB -lt $oD -and $oD -lt $oO -and $oO -lt $iB) 'inside the Overview an h3 per group, BWJ, DKJ, Other, before the repo cards'
-$tables = [regex]::Matches($grouped, '<table class="table cd-overview"><colgroup>(.*?)</colgroup>')
+Assert-True ($grouped.IndexOf('<h2>Connected repos</h2>') -lt $oB -and $oB -lt $oD -and $oD -lt $oO -and $oO -lt $iB) 'inside Connected repos a table per group, BWJ, DKJ, Other, before the Status cards'
+Assert-True ($grouped -notmatch '<h3[^>]*id="overview-' -and $grouped -match '<th>BWJ repos</th>' -and $grouped -match '<th>DKJ repos</th>' -and $grouped -match '<th>Other repos</th>' -and $grouped -notmatch '<th>Repo</th>') 'no h3 over the tables: each table names its group in its first column head'
+$tables = [regex]::Matches($grouped, '<table class="table cd-overview"[^>]*><colgroup>(.*?)</colgroup>')
 Assert-True ($tables.Count -eq 3 -and @($tables | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique).Count -eq 1) 'every group''s table carries the same fixed column set, so the columns line up'
 Assert-True ($grouped -match '\.cd-overview \{ table-layout: fixed;') 'the overview tables use a fixed layout'
 $iS = $grouped.IndexOf('<h3 class="cd-group" id="status">Status</h3>')

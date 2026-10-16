@@ -292,6 +292,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-link { color: var(--primary-7); text-underline-offset: 2px; }')
     [void]$sb.AppendLine('.cd-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.cd-group { display: flex; align-items: center; gap: var(--spacing-2); margin: var(--spacing-8) 0 var(--spacing-3); padding-bottom: var(--spacing-2); border-bottom: 2px solid var(--primary-7); }')
+    [void]$sb.AppendLine('.cd-table-gap { margin-top: var(--spacing-4); }')
     [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--primary-1); }')
     [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-5) 0 var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-cell-note { font-size: var(--text-xs); color: var(--primary-6); }')
@@ -346,13 +347,12 @@ function Format-ConnectorDashboardHtml {
             if ($members.Count) { @{ Key = $g.Key; Title = $g.Title; Members = $members } }
         })
 
-    # The overview (headed Connected repos): one card, one table per group.
+    # The overview (headed Connected repos): one card, one table per group, the group named in its first column head.
     [void]$sb.AppendLine('<div class="card cd-accent"><h2>Connected repos</h2>')
     foreach ($g in $groups) {
         $members = $g.Members
-        [void]$sb.AppendLine('<h3 class="cd-subgroup" id="overview-' + $g.Key + '">' + $g.Title + ' <span class="cd-group-count">' + $members.Count + '</span></h3>')
         # One fixed column set for every group's table, so the columns line up from table to table.
-        [void]$sb.AppendLine('<div class="table-wrap"><table class="table cd-overview"><colgroup><col class="cd-col-repo"><col class="cd-col-status"><col class="cd-col-vis"><col class="cd-col-num"><col class="cd-col-ver"><col class="cd-col-num"><col class="cd-col-num"><col class="cd-col-git"></colgroup><thead class="cd-thead"><tr><th>Repo</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th><th class="cd-left">Main</th></tr></thead><tbody>')
+        [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-overview" id="overview-' + $g.Key + '"><colgroup><col class="cd-col-repo"><col class="cd-col-status"><col class="cd-col-vis"><col class="cd-col-num"><col class="cd-col-ver"><col class="cd-col-num"><col class="cd-col-num"><col class="cd-col-git"></colgroup><thead class="cd-thead"><tr><th>' + $g.Title + '</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th><th>Errors</th><th>Notes</th><th class="cd-left">Main</th></tr></thead><tbody>')
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
