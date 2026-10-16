@@ -296,7 +296,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-cell-note { font-size: var(--text-xs); color: var(--primary-6); }')
     [void]$sb.AppendLine('.cd-group-count { font-size: var(--text-sm); color: var(--primary-6); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
-    [void]$sb.AppendLine('.cd-repo h3 { margin: 0; }')
+    [void]$sb.AppendLine('.cd-repo h4 { margin: 0; }')
     [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
     [void]$sb.AppendLine('.cd-signals li { display: flex; gap: var(--spacing-2); align-items: flex-start; padding: var(--spacing-1-5) 0; border-top: 1px solid var(--primary-3); font-size: var(--text-sm); }')
     [void]$sb.AppendLine('.cd-signals li .badge { margin-top: 1px; }')
@@ -369,15 +369,16 @@ function Format-ConnectorDashboardHtml {
     }
     [void]$sb.AppendLine('</div>')
 
-    # One card per repo, under its group's heading.
+    # The status details: one h2, an h3 per group, one card per repo.
+    [void]$sb.AppendLine('<h2 class="cd-group" id="status">Status</h2>')
     foreach ($g in $groups) {
         $members = $g.Members
-        [void]$sb.AppendLine('<h2 class="cd-group" id="group-' + $g.Key + '">' + $g.Title + ' <span class="cd-group-count">' + $members.Count + '</span></h2>')
+        [void]$sb.AppendLine('<h3 class="cd-subgroup" id="group-' + $g.Key + '">' + $g.Title + ' <span class="cd-group-count">' + $members.Count + '</span></h3>')
         foreach ($c in $members) {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
             [void]$sb.AppendLine('<section class="card cd-accent" id="' + $anchor + '">')
-            [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h3>' + (& $e $c.Repo) + '</h3></div>')
+            [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h4>' + (& $e $c.Repo) + '</h4></div>')
             $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
             $ghUrl = 'https://github.com/' + (& $e $c.Repo)
             [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
