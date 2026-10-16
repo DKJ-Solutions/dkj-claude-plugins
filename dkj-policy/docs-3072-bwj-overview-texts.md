@@ -60,9 +60,10 @@ The `bwj-development` row in the teams README and the plugin's marketplace descr
 that closing an issue tells Asana nothing, or that the plugin ships one hook
 ([#3072](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3072)). Both now say that the
 `asana-closed-message` workflow posts on the task when an issue is closed, reopened or parked on hold,
-and that four hooks ship. They match the plugin's own README again.
+and that four hooks ship. They match the plugin's own README again, so a maintainer editing the
+plugin no longer has two overview texts contradicting the one they are editing.
 
-**Score:** N/A
+**Score:** 1
 
 #### What makes this deploy extra special
 
