@@ -14,6 +14,12 @@
     serves from the plugin's own vendored copy (assets/house-style/), and its own layer uses only names the
     house file does not define (.ph-*).
 
+    AND IT TAKES THE REPO DASHBOARD FORM (#3066): the blocks and their order laid down in the brand book's
+    house-style/README.md, "The Repo dashboard", at the tag the house-style skill pins. The repo name is
+    the eyebrow and the h1 is "Repo dashboard", word for word. A placeholder has no in-flight lists to
+    count, so the tiles and the loading line are left out and its two setup cards take the data cards'
+    place.
+
     THE REPO NAME IS THE ONLY VALUE FROM OUTSIDE, and it is a folder name, so it is HTML-escaped and cut
     at 80 characters before it reaches the page.
 
@@ -64,28 +70,27 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<title>' + $n + ' -- Repo dashboard</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
-    # The repo layer: only names the house file does not define (.ph-*), spaced from the house scale.
+    # The repo layer: one name the house file does not define (.ph-code), for the code samples.
     [void]$sb.AppendLine('<style>')
-    [void]$sb.AppendLine('.ph-band { position: fixed; top: 0; left: 0; right: 0; height: var(--spacing-1); background: var(--primary-7); }')
-    [void]$sb.AppendLine('.ph-head { padding-bottom: var(--spacing-3); border-bottom: 2px solid var(--primary-7); }')
-    [void]$sb.AppendLine('.ph-accent { border-top: 3px solid var(--primary-7); }')
     [void]$sb.AppendLine('.ph-code { margin: var(--spacing-3) 0 0; padding: var(--spacing-3) var(--spacing-4); background: var(--primary-1); border: 1px solid var(--primary-3); border-radius: 8px; overflow-x: auto; font-size: var(--text-xs); line-height: 1.6; }')
-    [void]$sb.AppendLine('.ph-steps { margin: var(--spacing-2) 0 0; padding-left: var(--spacing-5); }')
-    [void]$sb.AppendLine('.ph-steps li { margin-top: var(--spacing-2); }')
-    [void]$sb.AppendLine('@media (max-width: 760px) { main { padding-left: var(--spacing-4); padding-right: var(--spacing-4); } }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    [void]$sb.AppendLine('<div class="ph-band" aria-hidden="true"></div>')
-    [void]$sb.AppendLine('<main>')
-    [void]$sb.AppendLine('<header class="ph-head">')
-    [void]$sb.AppendLine('<div><h1>' + $n + '</h1>')
-    [void]$sb.AppendLine('<p class="sub">This repo states no dev preview yet, so the dev-preview hook serves this placeholder instead.</p></div>')
-    [void]$sb.AppendLine('</header>')
+    # Block 1, the settings button, sits outside <main>.
     [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
+    [void]$sb.AppendLine('<main class="page-column">')
+    # Blocks 2 to 5: the intro is a <div>, never a <header>, which the house style lays out as a flex row.
+    [void]$sb.AppendLine('<div>')
+    [void]$sb.AppendLine('<p class="eyebrow">' + $n + '</p>')
+    [void]$sb.AppendLine('<h1>Repo dashboard</h1>')
+    [void]$sb.AppendLine('<p class="lead">This repo states no dev preview of its own yet, so the dev-preview hook serves this placeholder in its place.</p>')
+    [void]$sb.AppendLine('</div>')
 
-    [void]$sb.AppendLine('<div class="card ph-accent"><h2>Add a preview of your own</h2>')
-    [void]$sb.AppendLine('<p>State <code>Get-DevPreview</code> in this repo''s <code>scripts/repo-config.ps1</code>. From the next session on, the hook starts that server, or reuses the one already running, and hands out its link instead of this page.</p>')
+    # Block 9's place: the two setup cards.
+    [void]$sb.AppendLine('<section class="card">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Add a preview of your own</h2><p class="card__sub">From the next session on, it replaces this page</p></div>')
+    [void]$sb.AppendLine('<div>')
+    [void]$sb.AppendLine('<p>State <code>Get-DevPreview</code> in this repo''s <code>scripts/repo-config.ps1</code>. The hook then starts that server, or reuses the one already running, and hands out its link instead of this page. Its index is this repo''s own Repo dashboard, in the same form as this page.</p>')
     [void]$sb.AppendLine('<pre class="ph-code"><code>function Get-DevPreview {')
     [void]$sb.AppendLine('    @{')
     [void]$sb.AppendLine('        Command = ''npm run dev -- --host 127.0.0.1 --port {port} --strictPort''')
@@ -94,15 +99,31 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('}</code></pre>')
     [void]$sb.AppendLine('<p class="muted">Every field, and the rules for <code>Command</code>, are in the dkj-solutions plugin README, under &quot;The dev-preview hook&quot;.</p>')
     [void]$sb.AppendLine('</div>')
+    [void]$sb.AppendLine('</section>')
 
-    [void]$sb.AppendLine('<div class="card"><h2>Open it in VS Code</h2>')
-    [void]$sb.AppendLine('<p>To land a preview in VS Code''s Simple Browser rather than the system browser, route its port in this repo''s <code>.vscode/settings.json</code>:</p>')
+    [void]$sb.AppendLine('<section class="card">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Open it in VS Code</h2><p class="card__sub">In the Simple Browser rather than the system browser</p></div>')
+    [void]$sb.AppendLine('<div>')
+    [void]$sb.AppendLine('<p>Route the preview''s port in this repo''s <code>.vscode/settings.json</code>:</p>')
     [void]$sb.AppendLine('<pre class="ph-code"><code>"workbench.externalUriOpeners": {')
     [void]$sb.AppendLine('    "localhost:4880": "simpleBrowser.open"')
     [void]$sb.AppendLine('}</code></pre>')
     [void]$sb.AppendLine('<p class="muted">The placeholder takes the first free port from 4880 to 4889, so a repo opened beside others may get a later one; the session-start line names the port it got.</p>')
     [void]$sb.AppendLine('</div>')
+    [void]$sb.AppendLine('</section>')
 
+    # Block 10: About this repo, the fixed title, with what the placeholder knows.
+    [void]$sb.AppendLine('<section class="card">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">About this repo</h2></div>')
+    [void]$sb.AppendLine('<dl class="facts">')
+    [void]$sb.AppendLine('<div><dt>Folder</dt><dd>' + $n + '</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Dev preview</dt><dd>none stated yet</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Stated in</dt><dd>scripts/repo-config.ps1</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Placeholder ports</dt><dd>4880 to 4889</dd></div>')
+    [void]$sb.AppendLine('</dl>')
+    [void]$sb.AppendLine('</section>')
+
+    # Block 11: where the page comes from.
     [void]$sb.AppendLine('<p class="footer-note">Served on 127.0.0.1 only, by the dkj-solutions plugin''s <code>scripts/preview/serve-placeholder.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark" });</script>')

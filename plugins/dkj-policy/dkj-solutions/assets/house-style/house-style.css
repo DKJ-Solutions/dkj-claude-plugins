@@ -29,8 +29,8 @@
    Categorical colours: --cat-1 .. --cat-3 are series slots. Pick a slot per
    series in your own app; do not reuse one slot for two meanings in a view.
    Semantic colours (--negative-3/--positive-5/--negative-5) are for direction and result, never
-   for categories. The one exception: --cat-1 doubles as the gain colour in a
-   chart (there is no --gain); --negative-3 is the loss colour.
+   for categories. In a chart, a gain is --positive-3 and a loss --negative-3, so
+   --cat-1 is only a series slot (there is no --gain; owner's decision, October 15, 2026, #131).
    ========================================================================== */
 
 /* ---- Tokens: light (default) -------------------------------------------- */
@@ -176,6 +176,15 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .controls { display: flex; align-items: center; gap: var(--spacing-2); flex-wrap: wrap; }
 .controls .seg, .controls .btn { height: 30px; box-sizing: border-box; }
 .controls .btn { display: inline-flex; align-items: center; padding: 0 var(--spacing-2-5); }
+/* Page column (#141): put it on <main> and its blocks stack with one --spacing-5 gap between them, the Repo dashboard's
+   rhythm. .card, .tiles, .notice and .footer-note carry a margin-top of their own, which would add to the gap, so a
+   direct child of the column gives it up. .page-cta is the spacing of a primary button under the lead (a <p> that holds
+   the button). */
+.page-column { display: grid; gap: var(--spacing-5); align-content: start; }
+.page-column > .card, .page-column > .tiles, .page-column > .notice, .page-column > .footer-note { margin-top: 0; }
+/* An in-page anchor in the column lands with room above it, clear of the settings button (#156). */
+.page-column [id] { scroll-margin-top: 5rem; }
+.page-cta { margin: var(--spacing-4) 0 0; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--spacing-3); margin-top: var(--spacing-4); }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: var(--spacing-4); }
@@ -215,6 +224,13 @@ h6 { font-size: var(--text-h6); margin: 0 0 var(--spacing-1); font-weight: 600; 
    it too, while the same class on a span or a div stays -7. A <p> in a status colour, or on a --primary-9 surface,
    sets its own. */
 p, p.meta { color: var(--primary-9); }
+/* Eyebrow: a small uppercase line above a page title, the Repo dashboard's <owner>/<repo> (#141). Put it on a <p>
+   (the class beats the paragraph colour). The colour is --primary-5, the greyed middle of the scale, as the approved
+   dashboard draws it; semibold, with the same 0.04em tracking as the settings panel's uppercase labels. */
+.eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-5); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
+/* Lead: the one paragraph under a page title that says what the page is for (#141). On a <p>, in the paragraph
+   colour, at the large running size, held to a readable measure. */
+.lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: 1.35; color: var(--primary-9); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */
 .num { font-variant-numeric: tabular-nums; }                        /* aligned digits */
 .delta { font-weight: 600; }
 .delta--up, .pos { color: var(--positive-5); }
@@ -231,6 +247,17 @@ p, p.meta { color: var(--primary-9); }
 
 /* ---- Surfaces ------------------------------------------------------------- */
 .card { background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
+/* Data-card head (#141): <section class="card"><div class="card__head"><h2 class="card__title">Title</h2>
+   <p class="card__sub">Sub line</p></div> a .table-wrap or .facts</section>. The head is left-aligned, with no rule between it
+   and the body; whatever follows it sits --spacing-4 below. The title is an <h2> and takes its size from --text-h2, in the
+   house serif, but in --primary-8 rather than the h2 highlight --primary-7, as the approved dashboard draws it. Flex keeps
+   an .info-button on the title's centre line, as it does on a bare h2. */
+.card__head { text-align: left; }
+.card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h2); font-weight: 600; color: var(--primary-8); }
+/* A status .badge before the title text (#153); the badge is decorative, so the .card__sub says the status too. */
+.card__title > .badge { margin-right: var(--spacing-2); }
+.card__sub { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--primary-6); }
+.card > .card__head + * { margin-top: var(--spacing-4); }   /* (0,2,0): beats a body's own margin: 0, such as .facts */
 .hero { display: flex; flex-wrap: wrap; gap: var(--spacing-6) var(--spacing-12); align-items: flex-end; }   /* use with .card */
 .hero .value { font-size: var(--text-h0); font-weight: 600; line-height: 1.1; color: var(--primary-9); }
 .tile { background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
@@ -241,6 +268,11 @@ p, p.meta { color: var(--primary-9); }
 .mini-card__label { font-size: var(--text-sm); color: var(--primary-9); }
 .mini-card__value { font-size: var(--text-lg); font-weight: 600; margin: var(--spacing-0-5) 0 var(--spacing-2); font-variant-numeric: tabular-nums; }
 .notice { background: var(--warning-1); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-3) var(--spacing-4); margin-top: var(--spacing-4); }
+/* Message line: one plain line for a state, a loading line or a warning that data could not be read (#141). A <p>,
+   in the paragraph colour at the running size; --warn is the warning in text, --warning-5, semibold. A link in it is
+   an ordinary house link. For a boxed message use .notice. */
+.msg { margin: 0; font-size: var(--text-base); color: var(--primary-9); }
+.msg--warn { color: var(--warning-5); font-weight: 600; }
 .item { border-top: 1px solid var(--primary-3); padding: var(--spacing-2-5) 0; }
 .item b { display: block; font-size: var(--text-sm); margin-bottom: var(--spacing-0-5); }
 .item p { margin: 0; font-size: var(--text-sm); color: var(--primary-9); }
@@ -274,6 +306,14 @@ p, p.meta { color: var(--primary-9); }
 .table th[aria-sort="ascending"] .arrow .d, .table th[aria-sort="descending"] .arrow .u { opacity: 0; }
 .table th[aria-sort="ascending"] .arrow .u, .table th[aria-sort="descending"] .arrow .d { opacity: 1; stroke: var(--primary-7); stroke-width: 2; }
 @media (prefers-reduced-motion: reduce) { .table th .sort::after, .table th .arrow path { transition: none; } }
+
+/* Facts list (#141): <dl class="facts"><div><dt>Term</dt><dd>Value</dd></div>...</dl>. A term on the left in the text
+   colour, its value on the right in semibold and tabular figures, a --primary-3 rule under every row. Put it in a
+   .card whose .card__head sits above it. */
+.facts { margin: 0; font-variant-numeric: tabular-nums; }
+.facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--spacing-4); padding: var(--spacing-1-5) 0; border-bottom: 1px solid var(--primary-3); }
+.facts dt { min-width: 0; color: var(--primary-9); }
+.facts dd { margin: 0; white-space: nowrap; font-weight: 600; text-align: right; }
 
 /* ---- Legend and swatches -------------------------------------------------- */
 /* Set the colour per item with style="--c: var(--cat-1)". */
@@ -309,10 +349,15 @@ p, p.meta { color: var(--primary-9); }
 .badge--neutral { --b: var(--primary-3); color: var(--primary-9); }
 .badge--sm { width: 18px; height: 18px; font-size: var(--text-xs); }
 .badge-row { display: flex; align-items: center; gap: var(--spacing-1-5); font-size: var(--text-sm); margin-top: var(--spacing-2); }
+/* A list of badged items (#155): a <ul> of .badge-row <li>s, so a screen reader hears it as a list and its length.
+   An item whose text wraps keeps its badge on the first line. */
+.badge-list { margin: var(--spacing-2) 0 0; padding: 0; list-style: none; }
+.badge-list > .badge-row { align-items: baseline; }
+.badge-list > .badge-row:first-child { margin-top: 0; }
 
 /* ---- Buttons -------------------------------------------------------------- */
 .btn { background: none; border: 1px solid var(--primary-3); color: var(--primary-9); border-radius: 8px;
-  padding: var(--spacing-1) var(--spacing-2-5); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+  padding: var(--spacing-1) var(--spacing-2-5); font: inherit; font-size: var(--text-sm); cursor: pointer; text-decoration: none; }   /* none: a .btn on an <a> (a link that looks like a button) draws no underline */
 /* Segmented switch: <span class="seg" role="group"><button aria-pressed="true">A</button><button aria-pressed="false">B</button></span>. */
 .seg { display: inline-flex; border: 1px solid var(--primary-3); border-radius: 8px; overflow: hidden; vertical-align: middle; }
 .seg button { background: none; border: 0; color: var(--primary-9); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: var(--text-sm); cursor: pointer; }

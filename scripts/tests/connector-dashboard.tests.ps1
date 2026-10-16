@@ -207,7 +207,12 @@ Assert-True ($html.IndexOf('id="repo-org-beta"') -lt $html.IndexOf('id="repo-org
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'the page loads the house style from its own server'
 Assert-True ($html -match 'DKJTheme\.settings\(' -and $html -notmatch 'DKJTheme\.picker\(') 'the theme choice is the house settings button, not a hand-built picker card'
 Assert-True ($html -match '<div id="settings" class="theme-settings--floating">') 'the settings button floats fixed top right, outside the header'
-Assert-True (([regex]::Matches($html, 'var\(--primary')).Count -ge 6 -and $html -match 'class="cd-band"' -and $html -match 'class="card cd-accent"' -and $html -match 'class="cd-link"') 'the chosen theme reaches the page beyond its buttons, through the repo layer''s own --primary accents'
+Assert-True (([regex]::Matches($html, 'var\(--primary')).Count -ge 6 -and $html -match 'class="cd-link"') 'the chosen theme reaches the page beyond its buttons, through the repo layer''s own --primary accents'
+Assert-True ($html -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>' -and $html -match '<h1>Repo dashboard</h1>' -and $html -match '<main class="page-column">') 'the page takes the Repo dashboard form: the slug as eyebrow, the fixed h1, the page column (#3066)'
+Assert-True ($html -notmatch '<header' -and $html -notmatch 'cd-band|cd-accent') 'and its intro is no <header>, and no decoration the form does not carry'
+Assert-True ($html -match 'About this repo</h2>' -and $html -match '<dl class="facts">' -and $html -match 'href="#overview">Back to overview') 'it has the facts card, and the card the overview links down to carries the way back'
+$ix = @('class="eyebrow"', 'class="tiles"', 'Connected repos</h2>', 'Issues</h2>', 'About this repo</h2>', 'class="footer-note"') | ForEach-Object { $html.IndexOf($_) }
+Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'and its blocks stand in the form''s order'
 Assert-True ($html -match '1\.3s|1\.2s') 'the run time is printed with an invariant decimal point'
 Assert-Equal 'bwj' (Get-ConnectorOwnerGroup 'BWJ-Development/shop') 'a BWJ-Development repo is in the BWJ group'
 Assert-Equal 'dkj' (Get-ConnectorOwnerGroup 'dkj-solutions/hub') 'a DKJ-Solutions repo is in the DKJ group, whatever the case'
@@ -220,17 +225,17 @@ $grouped = Format-ConnectorDashboardHtml -Connectors @(
 $iB = $grouped.IndexOf('id="group-bwj"'); $iD = $grouped.IndexOf('id="group-dkj"'); $iO = $grouped.IndexOf('id="group-other"')
 Assert-True ($iB -ge 0 -and $iB -lt $iD -and $iD -lt $iO) 'the groups come BWJ, DKJ, Other -- owner order beats status order'
 Assert-True ($iO -lt $grouped.IndexOf('id="repo-someone-x"')) 'a repo sits under its own group heading'
-Assert-True ($grouped -match '<h1>dkj-claude-plugins</h1>') 'the h1 is this repo''s name'
-Assert-Equal 1 ([regex]::Matches($grouped, '<h2>Connected repos</h2>')).Count 'the overview stays one h2 card, headed Connected repos'
+Assert-True ($grouped -match '<h1>Repo dashboard</h1>' -and $grouped -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>') 'the h1 is the Repo dashboard, and the eyebrow this repo''s slug (#3066)'
+Assert-Equal 1 ([regex]::Matches($grouped, '<h2 class="card__title">Connected repos</h2>')).Count 'the overview stays one h2 card, headed Connected repos'
 $oB = $grouped.IndexOf('id="overview-bwj"'); $oD = $grouped.IndexOf('id="overview-dkj"'); $oO = $grouped.IndexOf('id="overview-other"')
-Assert-True ($grouped.IndexOf('<h2>Connected repos</h2>') -lt $oB -and $oB -lt $oD -and $oD -lt $oO -and $oO -lt $iB) 'inside Connected repos a table per group, BWJ, DKJ, Other, before the Status cards'
+Assert-True ($grouped.IndexOf('<h2 class="card__title">Connected repos</h2>') -lt $oB -and $oB -lt $oD -and $oD -lt $oO -and $oO -lt $iB) 'inside Connected repos a table per group, BWJ, DKJ, Other, before the Status cards'
 Assert-True ($grouped -notmatch '<h3[^>]*id="overview-' -and $grouped -match '<th>BWJ repos</th>' -and $grouped -match '<th>DKJ repos</th>' -and $grouped -match '<th>Other repos</th>' -and $grouped -notmatch '<th>Repo</th>') 'no h3 over the tables: each table names its group in its first column head'
 $tables = [regex]::Matches($grouped, '<table class="table cd-overview"[^>]*><colgroup>(.*?)</colgroup>')
 Assert-True ($tables.Count -eq 3 -and @($tables | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique).Count -eq 1) 'every group''s table carries the same fixed column set, so the columns line up'
 Assert-True ($grouped -match '\.cd-overview \{ table-layout: fixed;') 'the overview tables use a fixed layout'
-$iS = $grouped.IndexOf('<div class="card cd-accent" id="issues"><h2>Issues</h2>')
+$iS = $grouped.IndexOf('<section class="card" id="issues">')
 Assert-True ($oO -lt $iS -and $iS -lt $iB -and $grouped -match '<h3 class="cd-subgroup" id="group-bwj">' -and $grouped -match '<h4>Someone/x</h4>') 'the details sit beside Connected repos: an h2 Issues, an h3 per group, the repo name an h4'
-Assert-True (([regex]::Matches($grouped, 'class="card ')).Count -eq 2 -and ([regex]::Matches($grouped, '<section class="mini-card cd-accent cd-repo-card"')).Count -eq 3) 'Connected repos and Issues are a card each, and each repo a house mini-card inside Issues'
+Assert-True (([regex]::Matches($grouped, 'class="card"')).Count -eq 3 -and ([regex]::Matches($grouped, '<section class="mini-card cd-repo-card"')).Count -eq 3) 'Connected repos, Issues and About this repo are a card each, and each repo a house mini-card inside Issues'
 Assert-True ($html -notmatch 'id="group-bwj"' -and $html -match 'id="group-other"') 'an empty group is left out'
 Assert-Equal '3 repos &#183; 1 needs action &#183; 2 in sync' (Format-DashboardGroupSummary @(@{ Status = 'good' }, @{ Status = 'bad' }, @{ Status = 'good' })) 'a group summary counts its repos, then each status worst first'
 Assert-Equal '1 repo &#183; 1 not on this machine' (Format-DashboardGroupSummary @(@{ Status = 'skip' })) 'one repo is singular'
@@ -240,7 +245,7 @@ Assert-True ($html -match '\.cd-repo h4 \{ margin: 0; font-size: var\(--text-h5\
 Assert-True ($html -notmatch '<th>Errors</th>' -and $html -notmatch '<th>Notes</th>' -and ([regex]::Match($html, '<colgroup>.*?</colgroup>').Value -split '<col ').Count -eq 6) 'the overview has no Errors or Notes column: five columns, five widths'
 Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' -and $html -notmatch 'behind') 'the overview has no Main or Checkout column, and nothing measures a trunk against origin'
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
-Assert-True ($failed -match 'class="notice"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is a notice, escaped'
+Assert-True ($failed -match 'class="msg msg--warn" role="alert"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is the form''s warning line, escaped'
 
 Write-Host '-- group 1e: the vendored house style is the copy the skill pins' -ForegroundColor Cyan
 
@@ -363,7 +368,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $page = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($page -match 'HTTP/1.1 200') 'the page is served with a checkout that has no upstream'
             Assert-True ($page -match 'Last commit on (master|main) [^:]*: local only') 'and that checkout shows its trunk''s last commit'
-            Assert-True ($page -match 'class="notice"') 'a check that could not run is reported, not fatal'
+            Assert-True ($page -match 'class="msg msg--warn"') 'a check that could not run is reported, not fatal'
             $at = $page.IndexOf('id="repo-org-far"')
             $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }
             Assert-True ($far -and $far -notmatch 'class="meta"') 'a checkout outside the scope root is not read'
