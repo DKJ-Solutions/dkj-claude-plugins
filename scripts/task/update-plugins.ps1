@@ -359,7 +359,7 @@ foreach ($id in $ids) {
     $mp = $parts[-1]
     if ($retiredNames.Contains($name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
         # Rebuilt from the two checked halves rather than the raw key, so no unchecked byte is printed.
-        $retiredIds.Add([pscustomobject]@{ Id = "$name@$mp"; Successor = "$($retiredNames[$name])@$mp" })
+        $retiredIds.Add([pscustomobject]@{ Id = "$name@$mp"; Successor = "$($retiredNames[$name])@$mp"; Repair = (Get-RetiredExtensionRepair -Name $name -Marketplace $mp) })
     } elseif ((Test-PluginNameSlug -Name $name) -and (Test-PluginMarketplaceSlug -Marketplace $mp)) {
         $sc = Get-PluginUpdateScope -InstallRecord $install -PluginId $id
         $hereScopes = @()
@@ -442,7 +442,7 @@ if ($retiredIds.Count -gt 0) {
     Write-Host ""
     Write-Host "Skipped $($retiredIds.Count) retired plugin id(s) -- the marketplace no longer declares them, so no update can move them (#3055):" -ForegroundColor Yellow
     foreach ($r in $retiredIds) {
-        Write-Host "  $($r.Id) -- renamed to $($r.Successor); enable '$($r.Successor)' in .claude/settings.json in place of '$($r.Id)', then: claude plugin install $($r.Successor) --scope project" -ForegroundColor Yellow
+        Write-Host "  $($r.Id) -- renamed to $($r.Successor); $($r.Repair)" -ForegroundColor Yellow
     }
 }
 

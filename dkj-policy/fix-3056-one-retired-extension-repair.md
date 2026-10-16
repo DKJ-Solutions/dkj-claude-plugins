@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Issue #3056: the repair for a retired extension id was composed independently in three scripts. One
+helper beside `Get-RetiredPolicyExtensionNames` composes it, and all three call it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-RetiredExtensionRepair` in `scripts/lib/claude-md-import-lib.ps1`, returning `$null` for a
+  name that is not retired
+- [x] `check-consumer-prose.ps1`, `plugin-versions.ps1` and `update-plugins.ps1` call it; consumer-prose
+  now prints the settings' own marketplace once `Test-PluginMarketplaceSlug` accepts it, `<marketplace>`
+  otherwise
+- [x] the plugin mirrors under `plugins/dkj-policy/` (both copies of the lib) synced byte-identical
 
 ### TEST
 
+- [x] each script's retired-id case asserts the lib's sentence itself: `consumer-prose-gate` (143 pass),
+  `plugin-versions` case 38 (265 pass), `update-plugins` case 24 (137 pass)
+
 ### DEPLOY: fix/3056-one-retired-extension-repair
 
-**Score:**
+The repair for an enabled plugin id under a retired extension name (`dkj-policy-bwj`,
+`dkj-policy-dkjs`) is now composed by one helper, `Get-RetiredExtensionRepair` in
+`scripts/lib/claude-md-import-lib.ps1`
+([#3056](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3056)).
+`consumer-prose-sessioncheck`, `plugin-versions` and `update-plugins` had each written that sentence out
+for themselves, so a change to the command in one would drift from the other two. The tests for all three
+now assert the helper's sentence itself. The session check's warning also gains the settings step and the
+repo's own marketplace name in place of a `<marketplace>` placeholder.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 

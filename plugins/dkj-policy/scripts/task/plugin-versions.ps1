@@ -481,7 +481,7 @@ foreach ($id in $ids) {
             $successor = [string]$retiredNames[$name]
             $code = 'retired'
             $verdict = "retired -- '$name' was renamed to '$successor' (#2788), so no refresh brings it back and nothing of it loads"
-            $action = "enable '$successor@$mpTok' in .claude/settings.json in place of '$idTok', then: claude plugin install $successor@$mpTok --scope project"
+            $action = Get-RetiredExtensionRepair -Name $name -Marketplace $mpTok
         } else {
             $verdict = "cannot determine -- '$name' is not in the clone's marketplace.json"
             $action = "refresh the clone and re-run: claude plugin marketplace update $mpTok"

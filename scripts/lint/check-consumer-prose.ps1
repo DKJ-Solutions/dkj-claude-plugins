@@ -256,11 +256,13 @@ if (Test-FunctionDefined 'Get-RetiredPolicyExtensionNames') {
         $enabledIds = @()
         try { $enabledIds = @((Get-EnabledPlugins -RepoRoot $repoRoot).RepoEnabledIds) } catch { $enabledIds = @() }
         foreach ($id in $enabledIds) {
-            $name = ([string]$id -split '@', 2)[0]
+            $name, $mp = ([string]$id -split '@', 2)
             if (-not $retiredExt.Contains($name)) { continue }
+            # The marketplace half comes from the consumer's settings, so it is printed only once checked.
+            $mpTok = if ($mp -and (Test-PluginMarketplaceSlug -Marketplace $mp)) { $mp } else { '<marketplace>' }
             Write-Host "[WARNING] this repo enables $name, a retired name -- the extension is $($retiredExt[$name]) now, so" -ForegroundColor Yellow
-            Write-Host '          nothing of it loads until .claude/settings.json enables the current name and it is' -ForegroundColor Yellow
-            Write-Host "          installed: claude plugin install $($retiredExt[$name])@<marketplace> --scope project" -ForegroundColor Yellow
+            Write-Host '          nothing of it loads until you' -ForegroundColor Yellow
+            Write-Host "          $(Get-RetiredExtensionRepair -Name $name -Marketplace $mpTok)" -ForegroundColor Yellow
         }
     }
     if (@($documents).Count -gt 0) {
