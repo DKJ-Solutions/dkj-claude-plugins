@@ -128,13 +128,14 @@ function Get-DashboardModel {
         if (-not $repo) { continue }
         $candidates = @(Get-ConnectorCheckoutCandidates $m.localCheckout)
         $resolved = $null
+        $resolvedCandidate = $null
         foreach ($cand in $candidates) {
             # The manifest is data from a public repo and git runs in the folder it names, so the path is
             # held to check-connectors' own bound: relative, and resolving under the scope root.
             if ([System.IO.Path]::IsPathRooted($cand)) { continue }
             $full = [System.IO.Path]::GetFullPath((Join-Path $root $cand))
             if (-not (Test-DashboardCheckoutInScope -Full $full -ScopeRoot $scopeRoot)) { continue }
-            if (Test-Path -LiteralPath $full -PathType Container) { $resolved = $full; break }
+            if (Test-Path -LiteralPath $full -PathType Container) { $resolved = $full; $resolvedCandidate = $cand; break }
         }
         $signals = if ($parsed.Contains($repo)) { @($parsed[$repo].Signals) } else { @() }
         $plugins = @(@($m.plugins) | Where-Object { $_ } | ForEach-Object { @{ Id = [string]$_.id; Extensions = @($_.extensions) } })
@@ -143,6 +144,7 @@ function Get-DashboardModel {
             Visibility = [string]$m.visibility
             File       = $f.Name
             Checkout   = $candidates
+            CheckoutHere = $resolvedCandidate
             Present    = [bool]$resolved
             Plugins    = $plugins
             Signals    = $signals

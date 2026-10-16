@@ -201,7 +201,7 @@ $html = Format-ConnectorDashboardHtml -Connectors $connectors -Meta @{ Generated
 Assert-True ($html -notmatch '<script>alert') 'a git subject is shown as text, never as markup'
 Assert-True ($html -match '&lt;script&gt;alert') 'and it is still shown'
 Assert-True ($html -match 'a&quot;note') 'the register notes are escaped too'
-Assert-True ($html -match 'Last commit on main 2 days ago: ' -and $html -notmatch 'feat/y') 'the card states the trunk''s last commit, never the checked-out branch'
+Assert-True ($html -match 'on <code>main</code>, 2 days ago: ' -and $html -notmatch 'feat/y') 'the card states the trunk''s last commit, never the checked-out branch'
 Assert-True ($html -match 'not on this machine') 'an absent checkout says so'
 Assert-True ($html.IndexOf('id="repo-org-beta"') -lt $html.IndexOf('id="repo-org-gamma"')) 'a repo that needs action comes before a skipped one'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'the page loads the house style from its own server'
@@ -230,8 +230,13 @@ Assert-True ($tables.Count -eq 3 -and @($tables | ForEach-Object { $_.Groups[1].
 Assert-True ($grouped -match '\.cd-overview \{ table-layout: fixed;') 'the overview tables use a fixed layout'
 $iS = $grouped.IndexOf('<div class="card cd-accent" id="issues"><h2>Issues</h2>')
 Assert-True ($oO -lt $iS -and $iS -lt $iB -and $grouped -match '<h3 class="cd-subgroup" id="group-bwj">' -and $grouped -match '<h4>Someone/x</h4>') 'the details sit beside Connected repos: an h2 Issues, an h3 per group, the repo name an h4'
-Assert-True (([regex]::Matches($grouped, 'class="card ')).Count -eq 2 -and ([regex]::Matches($grouped, '<section class="mini-card cd-accent cd-repo-card"')).Count -eq 3) 'Connected repos and Issues are a card each, and each repo a house mini-card inside Issues'
+Assert-True (([regex]::Matches($grouped, 'class="card ')).Count -eq 2 -and ([regex]::Matches($grouped, '<section class="mini-card cd-repo-card cd-state-')).Count -eq 3) 'Connected repos and Issues are a card each, and each repo a house mini-card inside Issues'
 Assert-True ($html -notmatch 'id="group-bwj"' -and $html -match 'id="group-other"') 'an empty group is left out'
+Assert-Equal 'dkj-policy' (Get-DashboardPluginLabel 'dkj-policy@dkj-claude-plugins') 'a plugin of this marketplace is shown without the shared suffix'
+Assert-Equal 'figma@claude-plugins-official' (Get-DashboardPluginLabel 'figma@claude-plugins-official') 'another marketplace''s id is kept whole'
+Assert-True ($html -match 'class="mini-card cd-repo-card cd-state-bad" id="repo-org-beta"' -and $html -match 'class="mini-card cd-repo-card cd-state-skip" id="repo-org-gamma"') 'each repo card carries its status as a state class, for its coloured edge'
+Assert-True ($html -match '<dt>Checkout</dt><dd><span title="tried: ../gamma">not on this machine, so not checked</span></dd>' -and $html -notmatch 'aria-label="SKIP"') 'an absent checkout is one fact, the paths tried in its tooltip, and its [SKIP] is not repeated as a signal'
+Assert-True ($html -match '<dt>Visibility</dt><dd>private</dd>' -and $html -match '<dt>Manifest</dt><dd><code>connectors/beta.json</code></dd>') 'the facts are a label-and-value list'
 Assert-True ($html -notmatch '<th>Errors</th>' -and $html -notmatch '<th>Notes</th>' -and ([regex]::Match($html, '<colgroup>.*?</colgroup>').Value -split '<col ').Count -eq 6) 'the overview has no Errors or Notes column: five columns, five widths'
 Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' -and $html -notmatch 'behind') 'the overview has no Main or Checkout column, and nothing measures a trunk against origin'
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
@@ -357,7 +362,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True $up 'the group-3 server listens on the port it was given'
             $page = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($page -match 'HTTP/1.1 200') 'the page is served with a checkout that has no upstream'
-            Assert-True ($page -match 'Last commit on (master|main) [^:]*: local only') 'and that checkout shows its trunk''s last commit'
+            Assert-True ($page -match 'on <code>(master|main)</code>, [^:]*: local only') 'and that checkout shows its trunk''s last commit'
             Assert-True ($page -match 'class="notice"') 'a check that could not run is reported, not fatal'
             $at = $page.IndexOf('id="repo-org-far"')
             $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }

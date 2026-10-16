@@ -52,10 +52,11 @@ The group is read from the owner in each manifest's `repo` slug, so a new repo n
 - [x] The Checkout column is gone, with no replacement: Dave tried a Main column (trunk against origin, after a fetch) and dropped it as unimportant here, so nothing fetches
 - [x] The repo card shows only the trunk's last commit: no checked-out branch, uncommitted count or ahead/behind
 - [x] A second card beside it, headed Issues (h2), with an h3 per group and a house `mini-card` per repo with its name as an h4
+- [x] Each repo card redesigned: a left edge and pill in its status colour, its signals first as tinted rows, the facts as a label-and-value list (the checkout found here, not every candidate), and the plugins as chips without the shared `@dkj-claude-plugins` suffix
 
 ### TEST
 
-- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure and the two cards, the column heads, the five-column set, the card's trunk-only last commit, and an empty group left out (108 passed)
+- [x] `connector-dashboard.tests.ps1`: the owner mapping, the group order, the heading structure and the two cards, the column heads, the five-column set, the card's trunk-only last commit, and an empty group left out (113 passed)
 - [x] The live server on port 4871 restarted and shows BWJ 2, DKJ 3, Other 1; an uncached load takes about 5.5 s
 
 ### DEPLOY: feat/dashboard-owner-groups
@@ -68,8 +69,12 @@ then by name, and a group with no repos is left out.
 
 The page's h1 is the repo's name, `dkj-claude-plugins`. A card headed **Connected repos** holds a table
 per group, the group named in the first column head, all sharing one fixed column set so their columns
-line up. A second card headed **Issues** carries an h3 per group and a house `mini-card` per repo with its
-details.
+line up. A second card headed **Issues** carries an h3 per group and a house `mini-card` per repo. Each card
+has a left edge and a pill in its status colour, then what needs attention (its error and note lines as
+tinted rows, or that all checks pass), then its facts as a label-and-value list: visibility, the checkout
+found on this machine (or that there is none, the paths tried in a tooltip, so a skip is no longer
+repeated as a signal line), the trunk's last commit, drift (`none` when clean) and the manifest. Its
+plugins follow as chips, without the `@dkj-claude-plugins` suffix they all share.
 
 The Overview's **Errors** and **Notes** columns are gone: the tiles at the top count both, and each repo's own lines are in its Issues card. So is its **Checkout** column. What a checkout is checked out on and whether it holds
 uncommitted work said nothing about the repo, so the card no longer shows it either: it shows the last
