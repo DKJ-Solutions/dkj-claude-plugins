@@ -6,7 +6,7 @@
 .DESCRIPTION
     Group 1 pins the rules on strings: the pin read from the skill page, the CRLF-tolerant hash, which
     token and class occurrences count, the allowlist's shape and the quoted-path decode. Group 2 holds the
-    retired-name list to the vendored house-style-v3 copy, so a name the tag defines again can never be
+    retired-name list to the vendored house-style-v4 copy, so a name the tag defines again can never be
     listed as retired. Group 3 runs the gate and the session check as child processes against scratch git
     repos -- a clean one, a drifted one, one without a copy, one answered by its allowlist -- and once
     against this repo, which runs the gate on itself.
@@ -46,7 +46,7 @@ Write-Host '-- group 1a: the pin, read from the skill page' -ForegroundColor Cya
 
 $pin = Get-HouseStylePin -SkillText ([System.IO.File]::ReadAllText($Skill))
 Assert-True ($null -ne $pin) 'the skill page carries a complete checksum table'
-Assert-Equal 'house-style-v3' $pin.Tag 'the tag is read from the fetch URL'
+Assert-Equal 'house-style-v4' $pin.Tag 'the tag is read from the fetch URL'
 foreach ($leaf in 'house-style.css', 'house-theme.js') {
     $hashes = Get-HouseStyleSha256 -Bytes ([System.IO.File]::ReadAllBytes((Join-Path $Vendored $leaf)))
     Assert-True (@($hashes) -contains $pin.Hashes[$leaf]) "this repo's vendored $leaf is the pinned copy"
@@ -146,7 +146,7 @@ try {
     $r = Invoke-Child $Gate $clean 'RepoRoot'
     Assert-Equal 0 $r.Code 'a clean repo passes the gate'
     $r = Invoke-Child $Hook $clean 'RepoRootOverride'
-    Assert-True ($r.Code -eq 0 -and $r.Out -match 'holds at house-style-v3') 'the session check says the house style holds'
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'holds at house-style-v4') 'the session check says the house style holds'
 
     $drift = New-FixtureRepo 'drift'
     Add-PinnedCopy $drift
