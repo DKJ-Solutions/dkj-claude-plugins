@@ -418,6 +418,21 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   for review. Read the outcome below."*, and ends with the closing ask, which names the board's own done
   section (#3017). Every fixed line of it is general and English on every board, so only the bullets
   carry the task. The form is in [`golive-block`](skills/golive-block/SKILL.md).
+- **An issue stays open only while it will still change code in the repo** (Maikel, October 16, 2026,
+  [#3059](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3059)): *"De enige github issues die
+  open blijven staan, zijn issues die echt daadwerkelijk nog iets gaan aanpassen aan de code."* An issue
+  whose remaining work is only an act outside the repo closes as completed, with a research block that
+  names that act and who performs it. Examples are a release, a publish in the Shopify admin, or an
+  owner's decision on a ruleset. It is not parked under an `awaiting-*` label, so the open issues and the
+  `In Progress` column show only work that can still be built. The core's `CONTRIBUTING-portable.md`
+  parks the same issue under `awaiting-action-dev` instead, and which of the two pages yields is open
+  ([#3062](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3062)). **The test is one question: does any step
+  still change a file in the repo?** Where one code step is all that keeps an otherwise act-only issue
+  open, move that step into the issue that already carries the related code work, and close this one.
+  Measured on smartwatchbanden, October 16, 2026: #946 (a cutover) and #945 (a code retirement) were both
+  parked and treated alike, and #945 was closed by mistake and reopened. #946 shows the line is not always
+  obvious, because its runbook is mostly store acts but one step swaps the live theme id in
+  `scripts/repo-config.ps1` and its tests.
 - **A close by hand is guarded too** (#3004). The `guard-stale-paste-block` PreToolUse hook also reads
   `gh issue close`. It refuses a completed close of an issue whose body links one Asana task while that
   issue carries no block posted since its last reopen, and the refusal names both blocks' commands and
@@ -432,8 +447,9 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   `open-pr.ps1` while a closing issue's newest block is older than its last reopen (`-GatesOnly` is not
   a ship and is skipped), and the workflow is the backstop for a merge it never saw (the GitHub merge
   button, a merge queue). **The hook is an accident guard, not an adversarial one**: it reads the command
-  as a session writes it (not `pwsh -Command "..."`, `$env` values or obfuscation), it fails open with a
-  warning on stderr where it cannot read an issue, and it judges every comment's block, trusted or not,
+  as a session writes it (not `pwsh -Command "..."`, `$env` values or obfuscation), it fails open where it
+  cannot read an issue, telling the session what it did not check and asking a person first where the
+  unchecked command is a close (#3058), and it judges every comment's block, trusted or not,
   so its pass is not proof -- the workflow, which carries only a trusted author's block, is the authority
   at the close.
 - **Closing as not planned with the `awaiting-info-client` label kept on** (the parked-while-waiting pair,
