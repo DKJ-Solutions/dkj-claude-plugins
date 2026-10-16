@@ -65,13 +65,23 @@
     a warning on stderr naming what was not checked. The same reasoning covers PowerShell failing to
     start, so hooks.json carries no fail-closed wrapper.
 
+    AND A FAIL-OPEN IS SAID TO THE SESSION, NOT ONLY TO STDERR (#3058). Claude Code shows the model no
+    stderr from a hook that exits 0, and the transcript keeps none, so the 'Confirm by hand' each warning
+    asks for reached nobody: measured in BWJ-Development/smartwatchbanden#946, a close went through with
+    no block and nothing in the session said the check had been skipped. So every warning is collected,
+    and the allow is printed as PreToolUse JSON: additionalContext for the model, and -- where a CLOSE
+    was not checked -- permissionDecision 'ask', so a person sees the reason before the close runs. A
+    close has no backstop that can still stop it; a ship has the workflow's check at the close, so a
+    ship's fail-open only informs. stderr keeps the same lines for a debug log.
+
     ONE TIME BUDGET for every read, 25s under hooks.json's 30s ceiling, so the harness never decides in
     this file's place; a read the budget can no longer cover is 'unknown' and takes the warned fail-open.
 
     WHAT IT PRINTS is its own text, issue numbers and an owner/name pair gh resolved and the regex below
     re-checked -- never a comment, a title or a body.
 
-    Exit codes (PreToolUse contract): 2 = block and send stderr to Claude; 0 = allow.
+    Exit codes (PreToolUse contract): 2 = block and send stderr to Claude; 0 = allow, with the JSON
+    above on stdout whenever something was not checked.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/guard-stale-paste-block.tests.ps1 in
     the source repo -- change one, run the other.
@@ -86,20 +96,46 @@ if ([Console]::IsInputRedirected) { $raw = [Console]::In.ReadToEnd() }
 # spent. The same test hooks.json makes in shell first, repeated for a run that reaches this file another way.
 if ($raw -notmatch '(ship-pr|open-pr)\.ps1|gh(\.exe)?\s+issue\s+close') { exit 0 }
 
+# THE FAIL-OPEN, SAID WHERE THE SESSION SEES IT (#3058). Until the payload is parsed, the pre-gate's own
+# match is the best reading of whether a close is at stake; the close guard sets it for certain below.
+$script:notChecked = New-Object System.Collections.Generic.List[string]
+$script:closeUnchecked = $raw -match 'gh(\.exe)?\s+issue\s+close'
+function Add-NotChecked {
+    <# One fail-open warning: to stderr for a debug log, and kept for the JSON Exit-Allow prints. #>
+    param([string]$Message, [switch]$Close)
+    [Console]::Error.WriteLine($Message)
+    $script:notChecked.Add($Message)
+    if ($Close) { $script:closeUnchecked = $true }
+}
+function Exit-Allow {
+    <# exit 0. Where something was not checked, the allow says so: additionalContext for the model, and
+       'ask' where a close is about to run unchecked, so a person reads the reason first. #>
+    if ($script:notChecked.Count -gt 0) {
+        $text = ($script:notChecked -join "`n")
+        $out = @{ hookEventName = 'PreToolUse'; additionalContext = $text }
+        if ($script:closeUnchecked) {
+            $out.permissionDecision = 'ask'
+            $out.permissionDecisionReason = "$text`nThe close would post the Asana closed message without this check -- allow it only once the issue carries this round's go-live block."
+        }
+        [Console]::Out.WriteLine((@{ hookSpecificOutput = $out } | ConvertTo-Json -Compress))
+    }
+    exit 0
+}
+
 $libs = @('asana-task-lib.ps1', 'stale-paste-block-rules.ps1')
 foreach ($lib in $libs) {
     $libPath = Join-Path $PSScriptRoot "..\scripts\lib\$lib"
     if (-not (Test-Path -LiteralPath $libPath -PathType Leaf)) {
-        [Console]::Error.WriteLine("guard-stale-paste-block: $lib not found beside this hook -- the stale go-live block check is OFF for this call. Reinstall or update the bwj-development plugin.")
-        exit 0
+        Add-NotChecked "guard-stale-paste-block: $lib not found beside this hook -- the stale go-live block check is OFF for this call. Reinstall or update the bwj-development plugin."
+        Exit-Allow
     }
     . $libPath
 }
 
 # ANY UNEXPECTED THROW FROM HERE ON IS THE DELIBERATE FAIL-OPEN, NOT A CRASH (see guard-asana-mirror).
 trap {
-    [Console]::Error.WriteLine('guard-stale-paste-block: an unexpected error stopped the check -- the go-live blocks of the issues this PR closes were NOT checked. Confirm by hand that each is newer than the issue''s last reopen.')
-    exit 0
+    Add-NotChecked 'guard-stale-paste-block: an unexpected error stopped the check -- the go-live blocks were NOT checked. Confirm by hand that each issue carries a block newer than its last reopen.'
+    Exit-Allow
 }
 
 # A BYTE-ORDER MARK IS NOT PART OF THE PAYLOAD. A writer whose console input code page is UTF-8 prefixes
@@ -114,12 +150,14 @@ $jsonText = [string]$raw
 $brace = $jsonText.IndexOf('{')
 if ($brace -gt 0) { $jsonText = $jsonText.Substring($brace) }
 try { $command = [string](($jsonText | ConvertFrom-Json).tool_input.command) } catch {
-    [Console]::Error.WriteLine('guard-stale-paste-block: the hook payload did not parse as JSON -- the go-live blocks of the issues this PR closes were NOT checked.')
-    exit 0
+    Add-NotChecked 'guard-stale-paste-block: the hook payload did not parse as JSON -- the go-live blocks were NOT checked.'
+    Exit-Allow
 }
 $ship  = Get-ShipPrInvocation -Command $command
 $close = Get-IssueCloseInvocation -Command $command
 if ($null -eq $ship -and $null -eq $close) { exit 0 }
+# Parsed now, so a close is at stake only where one is invoked -- a mention the pre-gate matched is not.
+$script:closeUnchecked = $false
 
 $projectDir = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
 $deadline = [DateTime]::UtcNow.AddSeconds(25)
@@ -167,7 +205,7 @@ if ($close) {
         }
     }
     if ($unread.Count -gt 0) {
-        [Console]::Error.WriteLine("guard-stale-paste-block: could not judge the go-live block of $($unread -join ', ') -- the close was NOT checked. Confirm by hand that each Asana-linked issue carries a block for this round.")
+        Add-NotChecked -Close "guard-stale-paste-block: could not judge the go-live block of $($unread -join ', ') -- the close was NOT checked. Confirm by hand that each Asana-linked issue carries a block for this round."
     }
     if ($missing.Count -gt 0 -or $old.Count -gt 0) {
         # THE FIX NAMES THE REPO where the close named one (-R or a URL), so the hint never points at the
@@ -189,20 +227,20 @@ if ($close) {
         exit 2
     }
 }
-if ($null -eq $ship) { exit 0 }
+if ($null -eq $ship) { Exit-Allow }
 
 # --- Which repo, and which issues ---------------------------------------------------------------------
 # A ship that names no issue and may not consult the open PR needs no read at all.
 $numbers = New-Object System.Collections.Generic.List[int]
 foreach ($n in $ship.Resolves) { $numbers.Add([int]$n) }
 $needRepo = $numbers.Count -gt 0 -or -not $ship.NoResolves
-if (-not $needRepo) { exit 0 }
+if (-not $needRepo) { Exit-Allow }
 
 $repoRun = Invoke-GhBounded -Arguments 'repo view --json nameWithOwner -q .nameWithOwner'
 $nameWithOwner = ([string]$repoRun.Out).Trim()
 if (-not $repoRun.Ok -or $nameWithOwner -notmatch '\A([A-Za-z0-9][A-Za-z0-9-]*)/([A-Za-z0-9._-]+)\z') {
-    [Console]::Error.WriteLine('guard-stale-paste-block: could not resolve which repo this is -- the go-live blocks of the issues this PR closes were NOT checked against their last reopen.')
-    exit 0
+    Add-NotChecked 'guard-stale-paste-block: could not resolve which repo this is -- the go-live blocks of the issues this PR closes were NOT checked against their last reopen.'
+    Exit-Allow
 }
 $owner = $Matches[1]
 $repo  = $Matches[2]
@@ -217,13 +255,13 @@ if (-not $ship.NoResolves) {
                 if ($sameRepo -and $n -gt 0 -and -not $numbers.Contains($n)) { $numbers.Add($n) }
             }
         } catch {
-            [Console]::Error.WriteLine('guard-stale-paste-block: the closing issues of the open pull request did not parse -- only the issues named with -Resolves were checked.')
+            Add-NotChecked 'guard-stale-paste-block: the closing issues of the open pull request did not parse -- only the issues named with -Resolves were checked.'
         }
     } elseif ($prRun.Err -notmatch 'no pull requests? found') {
-        [Console]::Error.WriteLine('guard-stale-paste-block: the closing issues of the open pull request could not be read -- only the issues named with -Resolves were checked.')
+        Add-NotChecked 'guard-stale-paste-block: the closing issues of the open pull request could not be read -- only the issues named with -Resolves were checked.'
     }
 }
-if ($numbers.Count -eq 0) { exit 0 }
+if ($numbers.Count -eq 0) { Exit-Allow }
 
 # --- Ask the tracker, bounded -------------------------------------------------------------------------
 $stale   = @()
@@ -244,9 +282,9 @@ foreach ($n in $checkNumbers) {
 }
 
 if ($unknown.Count -gt 0) {
-    [Console]::Error.WriteLine("guard-stale-paste-block: could not judge the go-live block of #$($unknown -join ', #') -- not checked against the issue's last reopen. Confirm by hand that its block is newer than the reopen.")
+    Add-NotChecked "guard-stale-paste-block: could not judge the go-live block of #$($unknown -join ', #') -- not checked against the issue's last reopen. Confirm by hand that its block is newer than the reopen."
 }
-if ($stale.Count -eq 0) { exit 0 }
+if ($stale.Count -eq 0) { Exit-Allow }
 
 $staleRefs = ($stale | ForEach-Object { "$owner/$repo#$_" }) -join ', '
 $first     = $stale[0]

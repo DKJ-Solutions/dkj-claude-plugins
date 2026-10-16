@@ -323,7 +323,11 @@ and nothing outside the owner's own hands has to happen first, so it is not `awa
 label every sweep on every machine reads such an issue in full, finds nothing it may do, and holds it out
 by hand with `-SkipIssue`. Both pickup routes skip it by default, and `claim-issue <n>` warns that the
 issue is parked. **The issue names the act**, and the label comes off once the owner has performed it.
-It was named `awaiting-owner-act` until #2896, and that former name is still matched.
+It was named `awaiting-owner-act` until #2896, and that former name is still matched. **An extension
+may close such an issue instead of parking it**, as completed, with a record of the act and of who
+performs it ([#3062](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3062), Maikel,
+October 16, 2026). `bwj-development` does this, because there the closed issue's research block, mirrored to
+the ticket, names the act and who performs it. A repo without such an extension parks the issue under this label.
 
 **`awaiting-release` parks an issue whose remaining work may only run inside the next release** — its
 cut or its live step

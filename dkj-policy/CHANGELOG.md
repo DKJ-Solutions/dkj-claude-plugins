@@ -2,7 +2,127 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**7 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3062-extension-may-close-act-only · 20261016-120740Z
+
+The core's `CONTRIBUTING-portable.md` now permits an extension to close an act-only issue as completed,
+with a record of the act and of who performs it, instead of parking it under `awaiting-action-dev`
+([#3062](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3062), Maikel, October 16, 2026).
+`bwj-development` uses that permission through its #3059 rule. That rule had contradicted the core, and
+since the core wins, that rule would have had to give way. A repo without such an extension still parks the issue. The
+`sweep-issues` skill's parking step says the same.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing changes in how either kind of repo works. What it prevents: a session in a `bwj-development`
+repo reads both pages, applies "the core wins" and parks an act-only issue under `awaiting-action-dev`,
+where the extension says to close it. That has not happened yet.
+
+**Score:** 1
+
+#### Pull Request
+
+An extension may close an act-only issue instead of parking it
+
+Plugins: bwj-development, dkj-policy
+
+[PR #3067](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3067)
+
+---
+
+### DEPLOY: feat/3064-repo-dashboard-label · 20261016-114424Z
+
+The dev-preview hook's session-start line now opens with `Repo dashboard:` in every DKJ-Solutions repo
+([#3064](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3064), the owner's term, October 16,
+2026). It used to open with whatever word each repo chose through `Get-DevPreview`'s `Name` (Showcase,
+connector dashboard, dev-preview), so the same page had three names. The plugin now fixes the label, the
+placeholder's included. A `Name` a repo still states is ignored rather than refused, so delete it at your
+next edit. The hook's lines about its own setup (skipped, config unreadable, a config it cannot run) keep
+the `dev-preview:` prefix, because that word names the mechanism.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In every DKJ-Solutions repo, the link to the repo's local page at session start now reads
+`Repo dashboard: http://localhost:...`, whatever the repo once called it.
+
+**Score:** 2
+
+#### Pull Request
+
+dev-preview: one fixed label, Repo dashboard
+
+Plugins: dkj-solutions
+
+[PR #3065](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3065)
+
+---
+
+### DEPLOY: docs/3059-act-only-issue-closes · 20261016-104312Z
+
+`bwj-development`'s ticket-handling page now says that an issue stays open only while it will still change
+code in the repo ([#3059](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3059), Maikel,
+October 16, 2026). An issue whose remaining work is only an act outside the repo (a release, a publish in
+the Shopify admin, an owner's decision) closes as completed with a research block naming that act. The
+page gives the test, "does any step still change a file in the repo?", and says to move a lone code step
+into the issue that already carries the related code work. The core still parks such an issue under
+`awaiting-action-dev`, and which of the two yields is filed as
+[#3062](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3062). The same page's description of
+the go-live guard's fail-open is brought in line with #3058.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a store repo running `bwj-development`, a session closes an issue whose only remaining step is a store
+act or a release, with a research block naming that act, instead of parking it. The open issues and the
+`In Progress` column then show only work that can still be built.
+
+**Score:** 3
+
+#### Pull Request
+
+An issue stays open only while it will still change code
+
+Plugins: bwj-development
+
+[PR #3063](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3063)
+
+---
+
+### DEPLOY: fix/3058-guard-fail-open-visible · 20261016-102909Z
+
+`guard-stale-paste-block` now tells the session when it let a command through unchecked
+([#3058](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3058)). Each fail-open path used to
+write its warning to stderr and exit 0, which Claude Code never shows the model, so a close with no go-live
+block went through in smartwatchbanden#946 and nothing in the session said the check had been skipped.
+The hook now prints PreToolUse JSON whenever something was not checked: `additionalContext` for the model,
+and `permissionDecision: "ask"` when the unchecked command is a `gh issue close`, because a close has no
+later check that can still stop it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In a store repo running `bwj-development`, a hand close of an Asana-linked issue that the guard could not
+check now stops at a permission prompt that names the issue, instead of quietly posting the bare closed
+line to the Asana task. A ship the guard could not check still runs, and the session is now told so.
+
+**Score:** 3
+
+#### Pull Request
+
+guard-stale-paste-block makes a fail-open visible to the session
+
+Plugins: bwj-development
+
+[PR #3061](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3061)
+
+---
 
 ### DEPLOY: fix/3056-one-retired-extension-repair · 20261016-101309Z
 
