@@ -255,12 +255,18 @@ function Get-GoLiveBlockText {
     # (#2656), and the same two lines the asana-closed-message workflow opens its comment with (#2818).
     # {0} is 'owner/repo#<n>', {1} the issue URL.
     $header = "$dash GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
-    $closed = 'GitHub issue [{0}]({1}) is now **closed**. It can be reopened anytime when something is still not working as expected.'
-    # THE RESEARCH FORM OF THE CLOSED LINE (#3004, reworded by #3017, Maikel, October 14, 2026): English
-    # and fixed like the other, and the same words the closed message composes for a research block
-    # (Get-ClosedMessageTail). Fixed means GENERAL: 'the Asana task is ready for review' is true of every
-    # ticket, where the #3004 wording ('This issue was for research purposes only') fit one kind.
-    $closedResearch = 'GitHub issue [{0}]({1}) is now **closed**: the Asana task is ready for review. Read the outcome below.'
+    # THE CLOSED LINE IS AN INTRO AND THE LINE UNDER IT (#3069, Maikel, October 16, 2026). A close as
+    # completed sends the task on to review whatever the block holds, so the intro is one line for every
+    # form, and only the line under it differs: the reopen invitation for a result already visible, the
+    # same with 'visible with the release' for one that names a planned day, and 'Nothing has changed'
+    # for research -- which replaces #3017's 'the Asana task is ready for review. Read the outcome
+    # below.', a lead that did not say nothing changed, so a research form used for a change that went
+    # live read as plausible (smartwatchbanden#395). The same words the closed message composes
+    # (Get-ClosedMessageIntroTail, Get-ClosedMessageSecondLine).
+    $closed         = 'GitHub issue [{0}]({1}) is now **closed**: this Asana task is now in review.'
+    $closedLive     = 'It can be reopened anytime when something is still not working as expected.'
+    $closedRelease  = 'It becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.'
+    $closedResearch = 'Nothing has changed. Read the outcome below.'
     # THE RESEARCH BLOCK'S HEADING IS FIXED AND ENGLISH ON EVERY BOARD (#3017), like the closed line above
     # it, so it is the same in both languages; only the bullets under it carry the task's own words.
     $outcome = 'OUTCOME'
@@ -269,6 +275,8 @@ function Get-GoLiveBlockText {
         return @{
             Header       = $header
             Closed       = $closed
+            ClosedLive   = $closedLive
+            ClosedRelease = $closedRelease
             ClosedResearch = $closedResearch
             Outcome      = $outcome
             Changed     = 'WHAT IS DIFFERENT NOW'
@@ -293,6 +301,8 @@ function Get-GoLiveBlockText {
     return @{
         Header       = $header
         Closed       = $closed
+        ClosedLive   = $closedLive
+        ClosedRelease = $closedRelease
         ClosedResearch = $closedResearch
         Outcome      = $outcome
         Changed     = 'WAT ER NU ANDERS IS'
@@ -503,19 +513,25 @@ function Get-GoLiveLandingNodes {
 
 function Format-GoLiveClosedLine {
     <#
-        Pure: the closed line, in Markdown -- the issue name as a link, the verb bold (#2700).
+        Pure: the closed line, in Markdown -- the intro with the issue name as a link and the verb bold
+        (#2700), and on the next line, with no blank line between, the line that tells the forms apart
+        (#3069): the reopen invitation, or with -AfterRelease the same said of a result that becomes
+        visible with the release, or with -Research that nothing changed.
         -IssueRef is 'owner/repo#<n>'; a bare number has no repo to link to and is refused.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
-        [hashtable]$Text
+        [hashtable]$Text,
+        [switch]$AfterRelease,
+        [switch]$Research
     )
     if ($IssueRef -notmatch '^([^\s#/]+/[^\s#/]+)#(\d+)$') {
         throw "IssueRef '$IssueRef' is not 'owner/repo#<n>', so the closed line has no issue to link."
     }
     $url = "https://github.com/$($Matches[1])/issues/$($Matches[2])"
     $t = if ($Text) { $Text } else { Get-GoLiveBlockText }
-    return ($t.Closed -f $IssueRef, $url)
+    $second = if ($Research) { $t.ClosedResearch } elseif ($AfterRelease) { $t.ClosedRelease } else { $t.ClosedLive }
+    return (($t.Closed -f $IssueRef, $url) + "`n" + $second)
 }
 
 function Format-GoLiveBlock {
@@ -556,6 +572,11 @@ function Format-GoLiveBlock {
         last-moment sentence. Measured on BWJ-Development/xoxowildhearts#190: its work went live in a
         separate per-file push before the close, and the block would have named the next Monday.
 
+        WITHOUT -Live THE RESULT IS VISIBLE ONLY AFTER THE RELEASE (#3069), so the closed line's second
+        line says so, and -ReleaseMarker (Get-AsanaReleaseBlockMarker, passed in for the reason the
+        marker is) sits beside the marker so the closed message can say the same. Omitted, the block
+        carries no second marker and the closed message keeps its plain reopen line.
+
         THE LIVE LIST IS READ BEFORE THE RELEASE, AND A BARE URL LIES THEN (#2477). The result link is
         normally a storefront PREVIEW, which sets a per-domain cookie, and a bare storefront URL keeps
         rendering that preview once it has been opened -- the trap PREVIEW-portable.md measured. So a
@@ -584,21 +605,23 @@ function Format-GoLiveBlock {
         [string[]]$NotIncluded = @(),
         # What the driver resolved the issue's Asana link to (#2918); the lead follows it.
         [ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked',
-        [switch]$Live
+        [switch]$Live,
+        [string]$ReleaseMarker = ''
     )
 
     $t    = Get-GoLiveBlockText -Language $Language
     $dash = [string][char]0x2014
 
-    $lines = @(
-        $Marker,
+    $lines = @($Marker)
+    if (-not $Live -and $ReleaseMarker) { $lines += $ReleaseMarker }
+    $lines += @(
         '',
         (Get-GoLiveBlockLead -AsanaLink $AsanaLink),
         '',
         '---',
         $t.Header,
         '',
-        (Format-GoLiveClosedLine -IssueRef $IssueRef -Text $t)
+        (Format-GoLiveClosedLine -IssueRef $IssueRef -Text $t -AfterRelease:(-not $Live))
     )
 
     # One section: a blank line, the heading, a blank line, then its paragraphs a blank line apart.
@@ -650,8 +673,14 @@ function Format-GoLiveResearchBlock {
     <#
         Pure: the whole GitHub comment for a ticket WITHOUT a storefront result -- research, a test, a
         decision (#3004) -- in the general form Maikel set on smartwatchbanden#944's task, October 14,
-        2026 (#3017): the header, the research closed line ('is now closed: the Asana task is ready for
-        review. Read the outcome below.'), then the heading OUTCOME and the outcome as bullets.
+        2026 (#3017): the header, the intro every completed close shares ('is now closed: this Asana task
+        is now in review.') with 'Nothing has changed. Read the outcome below.' under it (#3069), then
+        the heading OUTCOME and the outcome as bullets.
+
+        ONLY WHEN NOTHING CHANGED, ON THE STORE OR IN THE REPO (#3069). A store-admin act that is already
+        live -- a metaobject, a metafield value, a setting -- changed the store, so it takes
+        Format-GoLiveBlock with -Live. Measured on smartwatchbanden#395, where this form was used for a
+        metaobject that changed the live structured data, and the requester rejected it.
 
         THE OUTCOME IS THE MESSAGE, NOT A LINK TO IT. Not every requester can open the GitHub repo, so
         a pointer to the issue's conclusion explains nothing (Maikel's correction on #3004); -Outcome
@@ -680,10 +709,6 @@ function Format-GoLiveResearchBlock {
 
     $bullets = @(ConvertTo-GoLiveOutcomeBullets -Paragraphs $Outcome)
     if ($bullets.Count -eq 0) { throw 'A research block needs its outcome: -Outcome is empty.' }
-    if ($IssueRef -notmatch '^([^\s#/]+/[^\s#/]+)#(\d+)$') {
-        throw "IssueRef '$IssueRef' is not 'owner/repo#<n>', so the closed line has no issue to link."
-    }
-    $url = "https://github.com/$($Matches[1])/issues/$($Matches[2])"
     $t   = Get-GoLiveBlockText -Language $Language
 
     $lines = @(
@@ -695,7 +720,7 @@ function Format-GoLiveResearchBlock {
         '---',
         $t.Header,
         '',
-        ($t.ClosedResearch -f $IssueRef, $url),
+        (Format-GoLiveClosedLine -IssueRef $IssueRef -Text $t -Research),
         '',
         $t.Outcome
     )

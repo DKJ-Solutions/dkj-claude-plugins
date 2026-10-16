@@ -21,13 +21,22 @@
 
     WHAT IT POSTS, AND WHEN:
 
+      THE INTRO FOLLOWS WHERE THE TASK GOES (#3069, Maikel, October 16, 2026). Every close as completed
+      sends the task on to review, so every one opens with the same intro, 'GitHub issue <ref> is now
+      closed: this Asana task is now in review.', and only the line under it differs. A close as not
+      planned cancels the task, so it can never say 'in review' and opens with its own intro.
+
       - A close as COMPLETED with a linked task: one comment, as html_text. The automation's header,
-        the closed line, and under it the sections of the go-live block the shipping session left on
+        the intro, the reopen line ('It can be reopened anytime when something is still not working as
+        expected.'), and under them the sections of the go-live block the shipping session left on
         the issue (build-golive-block.ps1). That block is the "new form": TE BEKIJKEN OP, WAT ER NU
-        ANDERS IS, WANNEER HET LIVE KOMT, WAT ER BEWUST NIET IN ZIT, WAT WE VAN JE VRAGEN.
+        ANDERS IS, WANNEER HET LIVE KOMT, WAT ER BEWUST NIET IN ZIT, WAT WE VAN JE VRAGEN. Where the
+        block names a PLANNED release day rather than -LiveSince, it carries Get-AsanaReleaseBlockMarker
+        beside its own, and the line under the intro says the result becomes visible with that release
+        (#3069) -- the same message, not a separate kind.
       - A close as completed whose newest block is a RESEARCH block (build-golive-block.ps1 -Research,
-        #3004): Maikel's general form (#3017) -- the header, the research closed line ('is now closed:
-        the Asana task is ready for review. Read the outcome below.'), the block's OUTCOME section as a
+        #3004): Maikel's general form (#3017) -- the header, the intro, 'Nothing has changed. Read the
+        outcome below.' (#3069), the block's OUTCOME section as a
         bulleted list, and the closing ask: 'Is anything still unclear? Leave a comment on this task. No
         more questions? Move the task to '<done section>' and mark it as complete.' A research, test or
         decision ticket changed nothing on the store, so the reopen line ('when something is still not
@@ -56,9 +65,10 @@
         The requester is delayed, never misinformed. This is the BACKSTOP for a merge or a close the
         hook never saw -- the GitHub merge button, a merge queue, the close button.
       - A close as NOT PLANNED that keeps the awaiting-info-client label on, with a linked task: one
-        comment, the header and the on-hold line in the requester's fixed form -- 'is closed: there is not
-        enough information to start development yet. Once the questions above are answered, the issue will
-        be reopened and the work picks up again.' (#2902, #2909). That pair is the BWJ procedure's
+        comment, the header, the cancelled intro -- 'is now closed: this Asana task has been cancelled,
+        because there is not enough information to start development.' (#3069) -- and the requester's
+        fixed ask under it: 'Once the questions above are answered, the issue will be reopened and the
+        work picks up again.' (#2902, #2909). The card is not moved: nothing in this file can. That pair is the BWJ procedure's
         sanctioned way to park a ticket waiting on its requester (#2732), and without this line the
         requester heard nothing, or -- where a session closed it as completed to get a message out --
         read 'is now closed' as finished. No block is read: nothing was built.
@@ -225,17 +235,34 @@ function Get-ClosedMessageHeader {
     return "$([char]0x2014) GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
 }
 
-function Get-ClosedMessageTail {
+function Get-ClosedMessageIntroTail {
     <#
-        Pure: what follows 'is now closed' in the closed sentence, its own punctuation first. The result
-        form invites a reopen (#2700); the research form says the task is ready for review and points at
-        the outcome below it (#3017, Maikel, October 14, 2026, replacing #3004's 'Nothing has changed.
-        This issue was for research purposes only.'), because a research, test or decision ticket has no
-        result that can be 'not working as expected'. Both are fixed and fit every ticket.
+        Pure: what follows 'is now closed' in the closed line, its own punctuation first. THE INTRO
+        FOLLOWS WHERE THE TASK GOES (#3069, Maikel, October 16, 2026): a close as completed sends the
+        task on to review, whichever form it carries, so every completed close opens with the same
+        line; a close as not planned cancels it (-Cancelled), and can never say 'in review'. Fixed and
+        English on every board, and the go-live block's own closed line says the same words.
     #>
-    param([switch]$Research)
-    if ($Research) { return ': the Asana task is ready for review. Read the outcome below.' }
-    return '. It can be reopened anytime when something is still not working as expected.'
+    param([switch]$Cancelled)
+    if ($Cancelled) { return ': this Asana task has been cancelled, because there is not enough information to start development.' }
+    return ': this Asana task is now in review.'
+}
+
+function Get-ClosedMessageSecondLine {
+    <#
+        Pure: the line under the intro of a close as completed -- the one line that tells the forms
+        apart (#3069). A result invites a reopen (#2700). A result that only becomes visible with the
+        release (-AfterRelease, a block without -LiveSince) says so, and stays the same message: it is
+        not a fourth kind. A research block says that nothing changed and points at the outcome below
+        it, replacing #3017's 'the Asana task is ready for review. Read the outcome below.', which did
+        not say that nothing changed, so a research form used for a change that went live read as
+        plausible (smartwatchbanden#395). -Research wins over -AfterRelease: a research block has no
+        release.
+    #>
+    param([switch]$Research, [switch]$AfterRelease)
+    if ($Research) { return 'Nothing has changed. Read the outcome below.' }
+    if ($AfterRelease) { return 'It becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.' }
+    return 'It can be reopened anytime when something is still not working as expected.'
 }
 
 function Get-ClosedMessageAsk {
@@ -254,23 +281,28 @@ function Get-ClosedMessageAsk {
 
 function New-ClosedMessage {
     <#
-        Pure: the closed comment as plain text -- the header, a blank line, and the closed sentence
-        (#2700). It is the go-live block's own opening, so the two read the same. -Research is the
-        research form (#3004).
+        Pure: the closed comment as plain text -- the header, a blank line, the intro and the line under
+        it (#2700, #3069). It is the go-live block's own opening, so the two read the same. -Research is
+        the research form (#3004), -AfterRelease the result that becomes visible with the release.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
-        [switch]$Research
+        [switch]$Research,
+        [switch]$AfterRelease
     )
-    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageTail -Research:$Research)") -join "`n")
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageIntroTail)", (Get-ClosedMessageSecondLine -Research:$Research -AfterRelease:$AfterRelease)) -join "`n")
 }
 
 function Get-PasteBlockSections {
     <#
-        Pure: the sections of a go-live block -- the text between its two '---' rules, minus the two
+        Pure: the sections of a go-live block -- the text between its two '---' rules, minus the
         lines this message composes itself (the header and the closed line). '' when there is no block.
         The header is dropped by SHAPE (the first non-blank line, opening with an em dash), so a block
         posted under an older header is carried without it too.
+        THE CLOSED LINE CAN RUN ON TO A SECOND LINE (#3069): the intro, then the line that tells the
+        forms apart, with no blank line between them. That line is the message's own as well, so it is
+        dropped with the intro -- unless it is a section heading, which a block written before #3069
+        never had directly under its one-line closed line, but a hand-typed one might.
     #>
     param([AllowEmptyString()][string]$Body)
 
@@ -285,7 +317,10 @@ function Get-PasteBlockSections {
     if ($at -lt $inner.Count -and $inner[$at].TrimStart().StartsWith($dash)) {
         $at++
         while ($at -lt $inner.Count -and -not $inner[$at].Trim()) { $at++ }
-        if ($at -lt $inner.Count -and $inner[$at].StartsWith('GitHub issue ')) { $at++ }
+        if ($at -lt $inner.Count -and $inner[$at].StartsWith('GitHub issue ')) {
+            $at++
+            if ($at -lt $inner.Count -and $inner[$at].Trim() -and $inner[$at] -cnotmatch '^[A-Z][A-Z /]*[A-Z]$') { $at++ }
+        }
     }
     $rest = @(if ($at -lt $inner.Count) { $inner[$at..($inner.Count - 1)] })
     return (($rest -join "`n").Trim())
@@ -378,16 +413,22 @@ function New-ClosedMessageHtml {
         how to see it. It began as the close whose only block describes an EARLIER round (#2968); it is
         now every close that carries no block. Never beside a block, which it would contradict.
 
-        -Research (#3004, its form #3017's): the block is a research block, so the closed sentence says
-        the task is ready for review instead of inviting a reopen, the outcome's bullets become a list,
-        and the closing ask follows them, naming -DoneSection where one was found (Get-ClosedMessageAsk).
-        It is meaningful only beside sections: a research close that carries no block gets the result
-        form, because nothing it could say about the outcome is known.
+        EVERY FORM OPENS WITH THE SAME INTRO, AND ONLY THE LINE UNDER IT DIFFERS (#3069): the task goes
+        on to review whichever form this is (Get-ClosedMessageIntroTail, Get-ClosedMessageSecondLine).
+
+        -Research (#3004, its form #3017's, its second line #3069's): the block is a research block, so
+        the line under the intro says nothing changed instead of inviting a reopen, the outcome's bullets
+        become a list, and the closing ask follows them, naming -DoneSection where one was found
+        (Get-ClosedMessageAsk). -AfterRelease (#3069): the block names a planned release day rather than
+        -LiveSince, so the line under the intro says the result becomes visible with that release. Both
+        are meaningful only beside sections: a close that carries no block gets the result form, because
+        nothing it could say about the outcome or the release is known.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [AllowEmptyString()][string]$BlockSections = '',
         [switch]$Research,
+        [switch]$AfterRelease,
         [AllowEmptyString()][string]$DoneSection = ''
     )
 
@@ -395,8 +436,9 @@ function New-ClosedMessageHtml {
     $parts    = $IssueRef -split '#'
     $url      = "https://github.com/$($parts[0])/issues/$($parts[1])"
     $research = $Research -and [bool]$BlockSections
-    $tail     = Get-ClosedMessageTail -Research:$research
-    $html     = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>$(& $esc $tail)"
+    $after    = $AfterRelease -and [bool]$BlockSections
+    $second   = Get-ClosedMessageSecondLine -Research:$research -AfterRelease:$after
+    $html     = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>$(& $esc (Get-ClosedMessageIntroTail))`n$(& $esc $second)"
     if ($research) {
         $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections -Lists) + "`n" + (& $esc (Get-ClosedMessageAsk -DoneSection $DoneSection))
     } elseif ($BlockSections) { $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) }
@@ -429,28 +471,37 @@ function New-ReopenedMessageHtml {
 
 function New-OnHoldMessage {
     <#
-        Pure: the on-hold comment as plain text (#2902) -- the header, a blank line, and the on-hold
-        sentence in the requester's fixed form (#2909). Posted on a close as not planned with
-        awaiting-info-client kept on, so the requester reads a parked ticket as waiting for them, never as
-        finished: the completed line says 'is now closed. It can be reopened anytime', which a colleague
-        with an open question in front of them reads as done.
+        Pure: the on-hold comment as plain text (#2902) -- the header, a blank line, the cancelled intro
+        and the ask under it (#3069). Posted on a close as not planned with awaiting-info-client kept on,
+        so the requester reads a parked ticket as waiting for them, never as finished. THE INTRO SAYS
+        CANCELLED, NEVER 'IN REVIEW' (Maikel, October 16, 2026): development is stuck, so the task goes
+        back rather than on, and the completed intro would send the requester to review nothing.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
-    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is closed: there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again.") -join "`n")
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageIntroTail -Cancelled)", (Get-OnHoldSecondLine)) -join "`n")
+}
+
+function Get-OnHoldSecondLine {
+    <#
+        Pure: the ask under the on-hold message's intro -- the requester's fixed form (#2909), unchanged
+        by #3069, which moved only the intro.
+    #>
+    return 'Once the questions above are answered, the issue will be reopened and the work picks up again.'
 }
 
 function New-OnHoldMessageHtml {
     <#
-        Pure: the on-hold message as Asana html_text -- the header, then the on-hold sentence with the
-        issue name as a link and only the state word, 'closed:', in bold (#2909) -- the same form the
-        reopened line takes. No block is read: nothing was built, so there is nothing to test.
+        Pure: the on-hold message as Asana html_text -- the header, then the cancelled intro with the
+        issue name as a link and only the state word, 'closed', in bold, the same form the completed
+        intro takes (#3069), and the ask under it. No block is read: nothing was built, so there is
+        nothing to test.
     #>
     param([Parameter(Mandatory = $true)][string]$IssueRef)
 
     $esc   = { param($s) ConvertTo-AsanaXmlText -Text $s }
     $parts = $IssueRef -split '#'
     $url   = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is <strong>closed:</strong> there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again.</body>"
+    return "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>$(& $esc (Get-ClosedMessageIntroTail -Cancelled))`n$(& $esc (Get-OnHoldSecondLine))</body>"
 }
 
 function Get-AsanaPasteBlockMarker {
@@ -467,6 +518,14 @@ function Get-AsanaResearchBlockMarker {
         of asana-task-lib.ps1's function of this name.
     #>
     return '<!-- asana-paste-block-kind: research -->'
+}
+
+function Get-AsanaReleaseBlockMarker {
+    <#
+        Pure: the second marker build-golive-block.ps1 puts on a result block that names a planned
+        release day rather than -LiveSince (#3069). A copy of asana-task-lib.ps1's function of this name.
+    #>
+    return '<!-- asana-paste-block-kind: after-release -->'
 }
 
 function ConvertTo-AsanaInstant {
@@ -1067,6 +1126,9 @@ function Invoke-Main {
         $chosen   = Select-SessionPasteBlockBody -Bodies $trusted.Bodies
         $sections = if ($chosen) { Get-PasteBlockSections -Body $chosen } else { '' }
         $research = [bool]$chosen -and $chosen.Contains((Get-AsanaResearchBlockMarker))
+        # A RESULT THAT IS VISIBLE ONLY AFTER THE RELEASE SAYS SO UNDER THE INTRO (#3069); a block from
+        # before #3069 carries no such marker and keeps the plain reopen line.
+        $afterRelease = [bool]$chosen -and -not $research -and $chosen.Contains((Get-AsanaReleaseBlockMarker))
 
         # A BLOCK FROM BEFORE THE LAST REOPEN IS NOT CARRIED (#2968). xoxowildhearts#414 closed after
         # round 1 with its block, was reopened, and closed again by the PR of round 2 -- whose block the
@@ -1089,7 +1151,7 @@ function Invoke-Main {
                     if ($verdict -eq 'stale') { $held = 'stale' }
                     elseif ($verdict -eq 'unknown') { $held = 'unread' }
                 }
-                if ($held) { $sections = ''; $research = $false }
+                if ($held) { $sections = ''; $research = $false; $afterRelease = $false }
             }
         }
         # NO SECTIONS IS NEVER THE CLOSED LINE ALONE (#3004): New-ClosedMessageHtml adds that the result
@@ -1107,7 +1169,7 @@ function Invoke-Main {
             $done = $resolved.Name
             Write-Host "Done section for the closing ask: $(if ($done) { 'named' } else { 'not named' }) -- $($resolved.Why)."
         }
-        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research -DoneSection $done
+        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research -AfterRelease:$afterRelease -DoneSection $done
     }
     $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
     # UTF-8 BYTES, not the string: Windows PowerShell 5.1 encodes a string body as ISO-8859-1, which

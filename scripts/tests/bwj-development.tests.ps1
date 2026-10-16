@@ -426,8 +426,13 @@ $glTextNl = Get-GoLiveBlockText -Language nl
 Assert-True ($goLivePasted.TrimStart().StartsWith(($glTextNl.Header -f '500'))) 'the block opens with the header line'
 Assert-True ($goLivePasted.TrimStart().StartsWith($hdr)) 'the block opens with the automation''s own header (#2700)'
 $glPastedLines = @($goLivePasted.Trim() -split "`n")
-Assert-Equal 'GitHub issue [BWJ-Development/smartwatchbanden#500](https://github.com/BWJ-Development/smartwatchbanden/issues/500) is now **closed**. It can be reopened anytime when something is still not working as expected.' `
-    $glPastedLines[2] 'then the closed line, the issue name a link and the verb bold -- the requester''s form'
+Assert-Equal 'GitHub issue [BWJ-Development/smartwatchbanden#500](https://github.com/BWJ-Development/smartwatchbanden/issues/500) is now **closed**: this Asana task is now in review.' `
+    $glPastedLines[2] 'then the intro, the issue name a link and the verb bold -- the requester''s form (#3069)'
+Assert-Equal 'It becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.' `
+    $glPastedLines[3] 'and directly under it, a planned release day''s line: visible only once that release is out (#3069)'
+Assert-True (-not $goLiveBlock.Contains((Get-AsanaReleaseBlockMarker))) 'without -ReleaseMarker the block carries no second marker'
+$glRel = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'maandag 19 oktober 2026' -ReleaseMarker (Get-AsanaReleaseBlockMarker)
+Assert-True ($glRel.StartsWith("<!-- m -->`n$(Get-AsanaReleaseBlockMarker)`n`n")) 'a planned block carries the after-release marker beside its own, outside the rules (#3069)'
 Assert-Throws { Format-GoLiveClosedLine -IssueRef '500' } 'a bare number has no repo to link the closed line to'
 # WHERE TO LOOK LEADS (Dave, #2700); the rest keep their order.
 $glHeadings = @('TE BEKIJKEN OP', 'WAT ER NU ANDERS IS', 'WANNEER HET LIVE KOMT', 'WAT ER BEWUST NIET IN ZIT', 'WAT WE VAN JE VRAGEN')
@@ -525,6 +530,9 @@ Assert-True ($glLive.Contains("Je ziet het hier live:`n`nNL $glDash https://exam
 Assert-True ($glLive.Contains("`nWANNEER HET LIVE KOMT`n") -and $glLive.Contains('Het staat al live')) 'the fixed headings stay; the ask says it is already live'
 $glLiveEn = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#190' -GoLiveDate 'Monday 12 October 2026' -Live -Version '3.1.0' -Language en
 Assert-True ($glLiveEn.Contains('It has been live since Monday 12 October 2026, as version v3.1.0.')) 'in English, with a version'
+$glLiveRel = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#190' -GoLiveDate 'maandag 12 oktober 2026' -Live -ReleaseMarker (Get-AsanaReleaseBlockMarker)
+Assert-True (-not $glLiveRel.Contains((Get-AsanaReleaseBlockMarker))) 'a -Live block never carries the after-release marker, even when one is handed in (#3069)'
+Assert-True ($glLiveRel.Contains("is now **closed**: this Asana task is now in review.`nIt can be reopened anytime when something is still not working as expected.`n") -and $glLiveRel -notmatch 'becomes visible') 'and its closed line is the intro with the plain reopen line'
 
 # THE CLOSING RULE FOLLOWS A BLANK LINE, whichever section ends the block (#2701): a text line directly
 # above '---' is a setext H2, which rendered the block's last paragraph as a heading on GitHub.
@@ -556,7 +564,8 @@ Assert-Equal 'Niets mis.' @((ConvertFrom-GoLiveProse -Text "[found]`nNiets mis."
 $rbBlock = Format-GoLiveResearchBlock -Marker (Get-AsanaPasteBlockMarker) -ResearchMarker (Get-AsanaResearchBlockMarker) `
     -IssueRef 'BWJ-Development/smartwatchbanden#943' -Outcome @("Een.`n- punt", "Twee`nregels.")
 Assert-True ($rbBlock.StartsWith("$(Get-AsanaPasteBlockMarker)`n$(Get-AsanaResearchBlockMarker)`n")) 'the research block carries both markers, outside the rules'
-Assert-True ($rbBlock.Contains('GitHub issue [BWJ-Development/smartwatchbanden#943](https://github.com/BWJ-Development/smartwatchbanden/issues/943) is now **closed**: the Asana task is ready for review. Read the outcome below.')) 'its closed line is the general research form, with only the state word bold (#3017)'
+Assert-True ($rbBlock.Contains("GitHub issue [BWJ-Development/smartwatchbanden#943](https://github.com/BWJ-Development/smartwatchbanden/issues/943) is now **closed**: this Asana task is now in review.`nNothing has changed. Read the outcome below.`n`nOUTCOME")) 'its closed line is the shared intro with ''Nothing has changed'' under it, only the state word bold (#3017, #3069)'
+Assert-True ($rbBlock -notmatch 'ready for review') 'and nothing of #3017''s lead'
 Assert-True ($rbBlock.Contains("`nOUTCOME`n- Een.`n- punt`n- Twee regels.`n`n---")) 'the outcome sits under OUTCOME as one list: a paragraph per bullet, a hand-made list keeping its items, a blank line before the closing rule'
 Assert-True ($rbBlock -notmatch 'WANNEER HET LIVE KOMT|WAT WE VAN JE VRAGEN|TE BEKIJKEN OP|reopened anytime|research purposes|GEVONDEN') 'and nothing that goes live, nothing to look at, no reopen invitation, nothing of the #3004 wording'
 Assert-True ($rbBlock.Contains('no paste needed')) 'with the same lead as a result block'
@@ -738,7 +747,7 @@ try {
     $glResOut = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -Research `
         -RootOverride $glRoot -ProseFile $glFoundFile 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
     Assert-Equal 0 $LASTEXITCODE 'the driver run with -Research and an [outcome] section exits 0'
-    Assert-True ($glResOut.Contains('the Asana task is ready for review. Read the outcome below.') -and $glResOut.Contains("OUTCOME`n- Het bandje")) 'and prints the research block, the outcome as a bullet (#3017)'
+    Assert-True ($glResOut.Contains('Nothing has changed. Read the outcome below.') -and $glResOut.Contains("OUTCOME`n- Het bandje")) 'and prints the research block, the outcome as a bullet (#3017)'
     Assert-True ($glResOut.Contains('nothing goes live') -and $glResOut -notmatch 'go live  :|version  :|No -Link given|No \[changed\]') 'with no go-live half and no result warnings'
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -Research -Link 'https://x.example/' `
         -RootOverride $glRoot -ProseFile $glFoundFile 2>&1 | Out-Null
@@ -1066,9 +1075,9 @@ $cmHoldXml = New-Object System.Xml.XmlDocument
 $cmHoldXml.PreserveWhitespace = $true
 $cmHoldXml.LoadXml($cmHoldHtml)
 Assert-True ($cmHoldXml.DocumentElement.InnerText -ceq (New-OnHoldMessage -IssueRef 'BWJ-Development/smartwatchbanden#882')) 'the on-hold message is well-formed XML and reads as the plain on-hold message'
-Assert-True ($cmHoldHtml.Contains('<a href="https://github.com/BWJ-Development/smartwatchbanden/issues/882">BWJ-Development/smartwatchbanden#882</a> is <strong>closed:</strong> there is not enough information to start development yet. Once the questions above are answered, the issue will be reopened and the work picks up again.</body>')) 'in the requester''s fixed form (#2909): the issue as a link, only the state word in bold'
+Assert-True ($cmHoldHtml.Contains("<a href=`"https://github.com/BWJ-Development/smartwatchbanden/issues/882`">BWJ-Development/smartwatchbanden#882</a> is now <strong>closed</strong>: this Asana task has been cancelled, because there is not enough information to start development.`nOnce the questions above are answered, the issue will be reopened and the work picks up again.</body>")) 'the cancelled intro, then the requester''s fixed ask (#2909, #3069): the issue as a link, only the state word in bold'
 Assert-True ($cmHoldHtml.StartsWith("<body>$(Get-ClosedMessageHeader)")) 'under the same header as the closed message'
-Assert-True (-not $cmHoldHtml.Contains('is now <strong>closed</strong>')) 'and never the closed line, which a waiting requester reads as finished'
+Assert-True ($cmHoldHtml -notmatch 'in review|reopened anytime') 'and never ''in review'' or the reopen line, which a waiting requester reads as finished (#3069)'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Post) 'several different tasks is ambiguous and posts nothing'
 Assert-True ((Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Why -match 'refusing to guess') 'and says so'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[4]).Post) 'no linked task posts nothing'
@@ -1113,13 +1122,25 @@ $cmResXml = New-Object System.Xml.XmlDocument
 $cmResXml.PreserveWhitespace = $true
 $cmResXml.LoadXml($cmRes)
 Assert-True ($cmResXml.DocumentElement.InnerText.StartsWith((New-ClosedMessage -IssueRef 'BWJ-Development/smartwatchbanden#943' -Research))) 'the research message is well-formed XML and opens with the plain research closed message'
-Assert-True ($cmRes.EndsWith("</a> is now <strong>closed</strong>: the Asana task is ready for review. Read the outcome below.`n`n<strong>OUTCOME</strong>`n<ul><li>Een.</li><li>punt</li><li>Twee regels.</li></ul>`nIs anything still unclear? Leave a comment on this task. No more questions? Mark the task as complete.</body>")) 'in Maikel''s general form (#3017): only the state word bold, OUTCOME, the bullets as one list, and the closing ask -- naming no section where none was found'
-Assert-True ($cmRes -notmatch 'reopened anytime|follows|research purposes') 'with no reopen invitation, no pending sentence, nothing of the #3004 wording'
+Assert-True ($cmRes.EndsWith("</a> is now <strong>closed</strong>: this Asana task is now in review.`nNothing has changed. Read the outcome below.`n`n<strong>OUTCOME</strong>`n<ul><li>Een.</li><li>punt</li><li>Twee regels.</li></ul>`nIs anything still unclear? Leave a comment on this task. No more questions? Mark the task as complete.</body>")) 'in Maikel''s general form (#3017): only the state word bold, OUTCOME, the bullets as one list, and the closing ask -- naming no section where none was found'
+Assert-True ($cmRes -notmatch 'reopened anytime|follows|research purposes|ready for review|becomes visible') 'with no reopen invitation, no pending sentence, nothing of the #3004 or #3017 wording'
 $cmResDone = New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections $cmResSections -Research -DoneSection '4. Done & dusted'
 Assert-True ($cmResDone.EndsWith("No more questions? Move the task to '4. Done &amp; dusted' and mark it as complete.</body>")) 'a found done section is named in the ask, escaped like any text'
 [void][xml]$cmResDone
 Assert-Equal "<ul><li><a href=`"https://x.nl/a`">https://x.nl/a</a></li></ul>`nnext" (ConvertTo-AsanaStoryHtml -Markdown "- https://x.nl/a`nnext" -Lists) 'a list item converts its links like a line does, and the list closes before the next line'
 Assert-Equal "- a" (ConvertTo-AsanaStoryHtml -Markdown '- a') 'without -Lists a result block''s hyphen lines are posted as they always were'
+
+# ONE INTRO, AND THE LINE UNDER IT TELLS THE FORMS APART (#3069).
+$cmRel = New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'TE BEKIJKEN OP' -AfterRelease
+[void][xml]$cmRel
+Assert-True ($cmRel.Contains("is now <strong>closed</strong>: this Asana task is now in review.`nIt becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.`n`n<strong>TE BEKIJKEN OP</strong>")) 'a result visible only after the release says so under the intro, and stays the same message'
+Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -AfterRelease) -notmatch 'becomes visible') 'without a block -AfterRelease says nothing about a release it cannot see'
+Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'OUTCOME' -Research -AfterRelease) -match 'Nothing has changed' -and (New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'OUTCOME' -Research -AfterRelease) -notmatch 'becomes visible') 'research wins over -AfterRelease: a research block has no release'
+Assert-True ((New-ClosedMessage -IssueRef 'o/r#1' -AfterRelease).EndsWith("is now closed: this Asana task is now in review.`nIt becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.")) 'the plain message carries the same two lines'
+$cmIntro = 'GitHub issue o/r#1 is now **closed**: this Asana task is now in review.'
+Assert-Equal 'TE BEKIJKEN OP' (Get-PasteBlockSections -Body "m`n---`n$hdr`n`n$cmIntro`nIt can be reopened anytime.`n`nTE BEKIJKEN OP`n---") 'the closed line''s second line is the message''s own, so it is dropped with the intro'
+Assert-Equal 'TE BEKIJKEN OP' (Get-PasteBlockSections -Body "m`n---`n$hdr`n`nGitHub issue o/r#1 is now **closed**. It can be reopened anytime.`n`nTE BEKIJKEN OP`n---") 'a block written before #3069, its closed line one line, is read as before'
+Assert-Equal "TE BEKIJKEN OP`nx" (Get-PasteBlockSections -Body "m`n---`n$hdr`n`n$cmIntro`nTE BEKIJKEN OP`nx`n---") 'a heading directly under the closed line is a section, never dropped'
 
 # THE DONE SECTION IS THE BOARD'S OWN (#3017): the Completed code from the repo's stage map, read as text,
 # matched against the sections of the task's board. Never a fixed '4. Done'.
@@ -1322,7 +1343,7 @@ Assert-True ($null -eq (ConvertFrom-ReopenEventLines -Lines @())) 'no lines is a
 Assert-Throws { ConvertFrom-ReopenEventLines -Lines @('<html>rate limited</html>') } 'a line that is not a timestamp throws, so a garbled read is a failed read and never "never reopened"'
 $stPending = New-ClosedMessageHtml -IssueRef 'o/r#7'
 [void][xml]$stPending
-Assert-True ($stPending.Contains("is now <strong>closed</strong>. It can be reopened anytime when something is still not working as expected.`n`nThe result message for this round follows.</body>")) 'the pending close is the closed line and one sentence under it'
+Assert-True ($stPending.Contains("is now <strong>closed</strong>: this Asana task is now in review.`nIt can be reopened anytime when something is still not working as expected.`n`nThe result message for this round follows.</body>")) 'the pending close is the closed line and one sentence under it'
 Assert-True (-not ($stPending -cmatch '<strong>[A-Z ]+</strong>')) 'with no block'
 Assert-True (-not (New-ClosedMessageHtml -IssueRef 'o/r#7' -BlockSections 'TE BEKIJKEN OP').Contains('follows')) 'and never beside a block, which it would contradict'
 Assert-True ([System.IO.File]::ReadAllText($cmTemplate) -notmatch 'ResultPending') 'the switch is gone: every close without a block says the result follows (#3004)'
@@ -1385,7 +1406,7 @@ $stRun = Invoke-StMain -Comments @((New-StLine 'just talk' $stT1)) -Events @($st
 Assert-True (-not @($stRun.Calls | Where-Object { $_ -like '*/events' }).Count) 'an issue with no block costs no events read'
 Assert-True ($stRun.Body.Contains('follows')) 'and the closed line is never sent alone: the result message follows (#3004, smartwatchbanden#943)'
 $stRun = Invoke-StMain -Comments @((New-StLine $rbBlock $stT1)) -Events @()
-Assert-True ($stRun.Body.Contains('the Asana task is ready for review. Read the outcome below.') -and $stRun.Body.Contains('<strong>OUTCOME</strong>')) 'a research block is carried under the research closed line (#3004, #3017)'
+Assert-True ($stRun.Body.Contains('Nothing has changed. Read the outcome below.') -and $stRun.Body.Contains('<strong>OUTCOME</strong>')) 'a research block is carried under the research closed line (#3004, #3017)'
 Assert-True ($stRun.Body.Contains("Move the task to '4. Done' and mark it as complete.")) 'and the ask names the done section the repo''s stage map and the task''s board agree on (#3017)'
 Assert-True ($stRun.Log -match 'Done section for the closing ask: named -- found by code 4' -and $stRun.Log -notmatch '4\. Done') 'the log says it was found, and does not print the board''s text'
 Assert-Equal 2 $stRun.AsanaReads.Count 'two Asana reads: the task''s boards, then that board''s sections'
@@ -1393,8 +1414,14 @@ Assert-True ($stRun.Body -notmatch 'reopened anytime|follows') 'without the reop
 Assert-True ($stRun.Log -match "with the session's research block") 'and the log says it was one'
 $stRun = Invoke-StMain -Comments @($stOld) -Events @()
 Assert-Equal 0 $stRun.AsanaReads.Count 'a result close makes no board read'
+Assert-True ($stRun.Body.Contains("this Asana task is now in review.`nIt can be reopened anytime") -and $stRun.Body -notmatch 'becomes visible') 'a block without the after-release marker keeps the plain reopen line (#3069)'
+$stRel = New-StLine ($stBlock.Replace("$cmLibMarker`n", "$cmLibMarker`n$(Get-AsanaReleaseBlockMarker)`n")) $stT1
+$stRun = Invoke-StMain -Comments @($stRel) -Events @()
+Assert-True ($stRun.Body.Contains("this Asana task is now in review.`nIt becomes visible with the release named below") -and $stRun.Body.Contains('round-1')) 'a block carrying the after-release marker says the result is visible with the release, above its sections (#3069)'
+$stRun = Invoke-StMain -Comments @($stRel) -Events @($stT2)
+Assert-True ($stRun.Body -notmatch 'becomes visible' -and $stRun.Body.Contains('follows')) 'and a held-back after-release block takes its line with it'
 $stRun = Invoke-StMain -Comments @((New-StLine $rbBlock $stT1)) -Events @($stT2)
-Assert-True ($stRun.Body -notmatch 'ready for review|OUTCOME' -and $stRun.Body.Contains('follows')) 'a research block from before the last reopen is held back like any other'
+Assert-True ($stRun.Body -notmatch 'Nothing has changed|OUTCOME' -and $stRun.Body.Contains('follows')) 'a research block from before the last reopen is held back like any other'
 $stRun = Invoke-StMain -Comments @((New-StLine $stBlock $stT1)) -Events @($stT1)
 Assert-True ($stRun.Body.Contains('follows')) 'a block stamped the second of the reopen is held back too'
 $stRun = Invoke-StMain -Comments @($stOld, (New-StLine "$cmLibMarker`n---`n---" $stT3)) -Events @($stT2)
@@ -1482,7 +1509,7 @@ $plGh = Get-FunctionSourceText -Path $plTemplate -Name 'Invoke-GhCapture'
 Assert-True ($null -ne $plGh) 'the prio template defines Invoke-GhCapture'
 Assert-Equal (Get-FunctionSourceText -Path $cmTemplate -Name 'Invoke-GhCapture') $plGh 'Invoke-GhCapture equals asana-closed-message.ps1''s'
 # #2968: the freshness judgement is copied into the template as well, and held equal to the lib's.
-foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections', 'Get-AsanaResearchBlockMarker')) {
+foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections', 'Get-AsanaResearchBlockMarker', 'Get-AsanaReleaseBlockMarker')) {
     $mine = Get-FunctionSourceText -Path $cmTemplate -Name $fn
     Assert-True ($null -ne $mine) "the closed-message template defines $fn"
     Assert-Equal (Get-FunctionSourceText -Path $plLib -Name $fn) $mine "$fn equals asana-task-lib.ps1's, apart from its help comment"
