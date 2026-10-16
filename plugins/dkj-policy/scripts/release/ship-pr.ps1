@@ -892,6 +892,49 @@ if ($trunkHolder -and $queueActive) {
     Write-Host "  Another worktree holds 'main' ($trunkHolder) -- not a blocker under a queue: step 5 folds nothing here (#1572)." -ForegroundColor DarkGray
 }
 
+# AND UNDER A QUEUE THE FOLD-PUSH VERDICT IS NOT THIS RUN'S QUESTION (issue #1506). Step 0b asks whether
+# THIS ACCOUNT can push the fold; with a queue the pusher is the GitHub Actions app running
+# fold-on-merge.yml, whose entitlement is a different actor's and cannot be read from `gh api user`.
+# Refusing here on this account's bypass would stop a ship that was never going to make that push --
+# and it would refuse EVERY ship, since a merge_queue rule blocks direct pushes by definition. The
+# verdict is still computed rather than skipped, so it stays a pure function of the payload and the
+# tests below can read it either way; only its two consequences are gated.
+
+$foldVerdict = Get-FoldPushVerdict -BranchRulesJson $foldRulesJson -BypassByRulesetId $foldBypass -NameByRulesetId $foldNames
+if (-not $queueActive -and $foldVerdict.Blocked) {
+    # WHOSE ACCOUNT, said out loud. The verdict knows only "this account", and the whole repair is that
+    # a run from the wrong account stops here -- so naming it is what turns the refusal into an action.
+    # Best-effort, like every diagnostic on a refusal path: a read that fails costs the name, not the
+    # refusal.
+    $who = ''
+    try {
+        $me = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @('api', 'user', '--jq', '.login')
+        if ($me.ExitCode -eq 0) { $who = ($me.Output -join '').Trim() }
+    } catch { $who = '' }
+    $whoLine = if ($who) { " The account is '$who'." } else { '' }
+
+    Write-Error @"
+The FOLD could not be pushed to 'main' after the merge, so ship-pr stops BEFORE merging (issue #1278):
+
+  $($foldVerdict.Reason)$whoLine
+
+The fold is a direct push by design -- one of the three named exceptions to "never commit directly on
+main" -- and a rule like this one cannot be satisfied by a direct push: the pushed commit carries no
+checks, so GitHub refuses the ref update before any workflow could run. Merging first would leave the
+trunk merged-but-unfolded, which is the state nothing reports until a release trips over it.
+
+Nothing has been pushed, opened or merged -- this is the cheap place to stop.
+
+Two remedies, and this script takes neither:
+  - give this account bypass on that ruleset (repo settings, so it is the repo owner's call), or
+  - ship this branch from an account that already has it.
+"@
+    exit 1
+}
+if (-not $queueActive -and $foldVerdict.Unknown) {
+    Write-Warning "could not decide whether the fold can be pushed to 'main' -- $($foldVerdict.Reason)"
+}
+
 # --- Step 0c: is the local 'main' AHEAD of origin/main? (inbound #3078) ---------------------------
 # BOTH FOLD ARMS OF STEP 5 START FROM THE LOCAL 'main' -- the in-place arm checks it out, the worktree arm
 # adds a worktree on it -- and then fast-forward it to origin/main. A local trunk carrying a commit
@@ -934,49 +977,6 @@ If one is real work, push it through its own branch instead -- it does not belon
 "@
         exit 1
     }
-}
-
-# AND UNDER A QUEUE THE FOLD-PUSH VERDICT IS NOT THIS RUN'S QUESTION (issue #1506). Step 0b asks whether
-# THIS ACCOUNT can push the fold; with a queue the pusher is the GitHub Actions app running
-# fold-on-merge.yml, whose entitlement is a different actor's and cannot be read from `gh api user`.
-# Refusing here on this account's bypass would stop a ship that was never going to make that push --
-# and it would refuse EVERY ship, since a merge_queue rule blocks direct pushes by definition. The
-# verdict is still computed rather than skipped, so it stays a pure function of the payload and the
-# tests below can read it either way; only its two consequences are gated.
-
-$foldVerdict = Get-FoldPushVerdict -BranchRulesJson $foldRulesJson -BypassByRulesetId $foldBypass -NameByRulesetId $foldNames
-if (-not $queueActive -and $foldVerdict.Blocked) {
-    # WHOSE ACCOUNT, said out loud. The verdict knows only "this account", and the whole repair is that
-    # a run from the wrong account stops here -- so naming it is what turns the refusal into an action.
-    # Best-effort, like every diagnostic on a refusal path: a read that fails costs the name, not the
-    # refusal.
-    $who = ''
-    try {
-        $me = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @('api', 'user', '--jq', '.login')
-        if ($me.ExitCode -eq 0) { $who = ($me.Output -join '').Trim() }
-    } catch { $who = '' }
-    $whoLine = if ($who) { " The account is '$who'." } else { '' }
-
-    Write-Error @"
-The FOLD could not be pushed to 'main' after the merge, so ship-pr stops BEFORE merging (issue #1278):
-
-  $($foldVerdict.Reason)$whoLine
-
-The fold is a direct push by design -- one of the three named exceptions to "never commit directly on
-main" -- and a rule like this one cannot be satisfied by a direct push: the pushed commit carries no
-checks, so GitHub refuses the ref update before any workflow could run. Merging first would leave the
-trunk merged-but-unfolded, which is the state nothing reports until a release trips over it.
-
-Nothing has been pushed, opened or merged -- this is the cheap place to stop.
-
-Two remedies, and this script takes neither:
-  - give this account bypass on that ruleset (repo settings, so it is the repo owner's call), or
-  - ship this branch from an account that already has it.
-"@
-    exit 1
-}
-if (-not $queueActive -and $foldVerdict.Unknown) {
-    Write-Warning "could not decide whether the fold can be pushed to 'main' -- $($foldVerdict.Reason)"
 }
 
 # --- Step 1: open the PR (open-pr.ps1 runs the lint + test gate, pushes, opens) ------------------
