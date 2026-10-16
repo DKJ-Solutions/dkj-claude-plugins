@@ -834,6 +834,20 @@ pointer on its own has taken a power nobody granted it, and the fold script it d
 same thing in as many words. What #1792 measured missing was never the authority — it was the sentence
 naming which two commands, which the operator of that incident had to derive by hand.
 
+**And the next ship from that checkout is refused before it merges, not after**
+([#3078](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3078)). Those two commands are only
+printed, so the redundant commit can still be on the local trunk when the next branch ships. Both fold arms
+of step 5 start from the local `main`, and a trunk carrying a commit `origin/main` lacks cannot be
+fast-forwarded. Measured in `dkj-brandbook`, October 16, 2026: PR #167 merged, and step 5 then refused with
+*"the FOLD IS STILL OWED"*, while `fold-on-merge.yml` had already folded it. So **step 0c** counts
+`origin/main..main` before anything is pushed. Where it finds a commit, it refuses and prints the log to
+read plus the backup-and-realign pair. It does not do this under a queue, with a fold left to CI, or with
+`-TrustedRoot`, because none of those fold from the local trunk. **And where the fast-forward still fails
+after the merge** (a divergence that arose during the CI wait), step 5 first reads `origin/main`. If the
+entry is in its changelog and the branch document is gone from it, the fold is not owed: the run says so,
+skips the fold, and step 5c prints the same log-then-realign lines. Anything it cannot read leaves the
+old refusal in place.
+
 ## Step 6 on its own: repairing bookkeeping after the fact
 
 Step 6 is **`verify-resolved-issues.ps1`**, mirrored alongside this script because a consumer whose

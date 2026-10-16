@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Inbound #3078 was verified against the tree before the repair. Step 0 never compared the local `main` with
+`origin/main`, and step 5's failed fast-forward printed "the FOLD IS STILL OWED" without reading
+`origin/main`. The report suggested two halves, (a) and (b), and this branch does both.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] step 0c in `ship-pr.ps1`: refuse a local `main` ahead of `origin/main` before anything is pushed,
+  printing the log and the backup-and-realign pair (not under a queue, a fold left to CI, or `-TrustedRoot`)
+- [x] step 5: on a failed fast-forward, read `origin/main` for the entry and the branch document's
+  absence before saying the fold is owed; a found fold skips the fold and step 5c prints the realign lines
+- [x] the mirror under `plugins/dkj-policy/scripts/release/`, and the `ship-pr` skill page
 
 ### TEST
 
+- [x] `fold-changelog.tests.ps1`: step 0c sits before step 1 and is gated to the local-trunk folds, and the
+  upstream read sits between the ff merge and the owed refusal, needs both halves, and skips the fold
+  (300 pass)
+
 ### DEPLOY: fix/3078-ship-pr-diverged-trunk
 
-**Score:**
+`ship-pr` no longer merges a PR it cannot fold locally (inbound #3078). When this checkout's `main` carries
+commits that `origin/main` lacks, usually the redundant fold commit of an earlier ship that lost the fold
+race, the run now stops before anything is pushed and prints the log to read and the two commands that
+realign the trunk. When the fast-forward still fails after the merge, it first checks whether `origin/main`
+already carries the fold. If it does, it says so instead of reporting a fold that is still owed.
+
+**Score:** 3 -- a false "fold is still owed" after a merge, met in dkj-brandbook on PR #167
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer who ships several branches in a row with `fold-on-merge` active is no longer left with a
+merged PR and a refusal that names a state that does not exist. The stop now comes before the merge, where
+it costs nothing.
+
+**Score:** 3
 
 #### Pull Request
 

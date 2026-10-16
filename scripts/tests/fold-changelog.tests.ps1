@@ -1703,6 +1703,24 @@ Assert-True ($shipSrcText -match '(?ms)\$foldExit\s+-eq\s+3.*?\}\s*elseif\s*\(\s
     'raced fold: and its hard-failure arm is an elseif, so 3 cannot fall through into it'
 Assert-True ($shipSrcText -like '*#1792*')                              'raced fold: ship-pr.ps1 cites the issue that explains why 3 is not a failure'
 
+# THE FOLLOW-ON OF A LOST RACE (inbound #3078): the redundant fold commit it leaves on the local trunk made the
+# NEXT ship merge and then refuse with "the FOLD IS STILL OWED" over a fold CI had made. Two halves, pinned in order.
+$s0c   = $shipSrcText.IndexOf('# --- Step 0c:')
+$s1    = $shipSrcText.IndexOf('# --- Step 1: open the PR')
+$s4    = $shipSrcText.IndexOf('# --- Step 4: merge')
+Assert-True ($s0c -gt 0 -and $s0c -lt $s1) 'diverged trunk: the ahead-of-origin check sits in step 0, before anything is pushed'
+Assert-True ($shipSrcText -match "'rev-list', '--count', 'origin/main\.\.main'") '...and counts what the local trunk has that origin/main lacks'
+Assert-True ($shipSrcText -match '(?s)# --- Step 0c:.*?if \(-not \$queueActive -and -not \$foldDeferredToCi -and -not \$TrustedRoot\)') '...only where step 5 folds from the local trunk'
+$ffAt  = $shipSrcText.IndexOf("'merge', '--ff-only', 'origin/main')")
+$upAt  = $shipSrcText.IndexOf('$foldFoundUpstream = $true')
+$owed  = $shipSrcText.IndexOf('if (-not $foldFoundUpstream) { Write-Error "git merge --ff-only of origin/main failed.$mergedNotFoldedNote"')
+Assert-True ($s4 -lt $ffAt -and $ffAt -lt $upAt -and $upAt -lt $owed) 'diverged trunk: after the merge, origin/main is read for the fold before "the fold is owed" is said'
+Assert-True ($shipSrcText -match "(?s)\`$docUpstream\.ExitCode -ne 0 -and\s+@\(Get-EntryBlocksForBranch") '...and both halves must hold: the entry upstream AND the branch document gone'
+$wrapAt = $shipSrcText.IndexOf("    if (-not `$foldFoundUpstream) {`n", $owed)
+if ($wrapAt -lt 0) { $wrapAt = $shipSrcText.IndexOf("    if (-not `$foldFoundUpstream) {`r`n", $owed) }
+$foldAt = $shipSrcText.IndexOf('Write-Host "ship-pr: folding the changelog entry')
+Assert-True ($wrapAt -gt $owed -and $wrapAt -lt $foldAt -and $shipSrcText.Contains('} # end: if (-not $foldFoundUpstream)')) '...and a fold found upstream is not folded again'
+
 # AND THE SECOND READER OF THAT SAME CODE, ACROSS A DIFFERENT BOUNDARY (issue #1796). ship-pr.ps1 loses
 # this race from the session's side; fold-on-merge.yml loses it from the runner's, and stands down on the
 # same 3. Its half was asserted nowhere -- only the emitted template in adopt-ci-floor.tests.ps1 was,
