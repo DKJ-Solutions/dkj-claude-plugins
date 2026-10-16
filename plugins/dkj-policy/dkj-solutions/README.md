@@ -60,8 +60,8 @@ copy per repo in `dkj-brandbook`, `dkj-etf-tracker` and `life-hub`
 [#3064](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3064)): the most important
 information about this repo, in one place. The line opens with `Repo dashboard:`, the placeholder's
 included, and a repo cannot choose another word. A `Name` a repo still states in `Get-DevPreview` is
-ignored, so delete it at your next edit. "dev-preview" names the mechanism, which is why the hook's own
-diagnostics still open with it.
+ignored, so delete it at your next edit. "dev-preview" names the mechanism, which is why the hook's lines
+about its own setup (skipped, config unreadable, a config it cannot run) still open with it.
 
 **Every DKJ-Solutions repo has a dev preview, and the placeholder is the floor** (decided October 15,
 2026, [#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047), reversing #2967's
@@ -150,8 +150,8 @@ session start ([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
 
 The plugin is enabled here since October 13, 2026
 ([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)), for the dev-preview hook:
-this repo's `Get-DevPreview` starts its Repo dashboard, the **connector dashboard**, a page with every repo registered under
-`connectors/` and what `check-connectors.ps1` reports for it, served on `127.0.0.1` by
+this repo's `Get-DevPreview` starts its `Repo dashboard`, the **connector dashboard**, a page with every
+repo registered under `connectors/` and what `check-connectors.ps1` reports for it, served on `127.0.0.1` by
 `scripts/dashboard/serve-connector-dashboard.ps1` with a vendored copy of the house style. That server
 uses a `TcpListener` rather than an `HttpListener`: under the latter the socket belongs to `http.sys`
 (PID 4), and the hook could never recognise the server as this checkout's.

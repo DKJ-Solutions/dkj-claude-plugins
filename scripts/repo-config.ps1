@@ -1465,7 +1465,8 @@ function Get-DeclinedAdoptions {
 
 function Get-DevPreview {
     <# The connector dashboard, this repo's Repo dashboard (the label the plugin fixes, #3064): the
-       dkj-solutions dev-preview hook starts it (or reuses it) at session start and hands out its localhost link. The server binds to 127.0.0.1 itself, so the Command needs
+       dkj-solutions dev-preview hook starts it (or reuses it) at session start and hands out its
+       localhost link. The server binds to 127.0.0.1 itself, so the Command needs
        no bind flag. It runs under cmd.exe, hence the backslashes. #>
     @{
         Command     = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port {port}'

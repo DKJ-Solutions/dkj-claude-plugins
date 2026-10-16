@@ -64,8 +64,8 @@ The dev-preview hook's session-start line now opens with `Repo dashboard:` in ev
 2026). It used to open with whatever word each repo chose through `Get-DevPreview`'s `Name` (Showcase,
 connector dashboard, dev-preview), so the same page had three names. The plugin now fixes the label, the
 placeholder's included. A `Name` a repo still states is ignored rather than refused, so delete it at your
-next edit. The hook's own diagnostic lines keep the `dev-preview:` prefix, because that word names the
-mechanism.
+next edit. The hook's lines about its own setup (skipped, config unreadable, a config it cannot run) keep
+the `dev-preview:` prefix, because that word names the mechanism.
 
 **Score:** 2
 

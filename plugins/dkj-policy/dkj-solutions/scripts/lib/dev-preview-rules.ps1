@@ -26,7 +26,8 @@
     2026): the line the hook prints opens with it, the placeholder's included. A repo once chose its own
     word through a Name key, and three repos said Showcase, connector dashboard and dev-preview for the
     same page. A Name a repo still states is ignored rather than refused, so a config that predates this
-    keeps working; the word "dev-preview" stays the MECHANISM's, on the hook's own diagnostic lines.
+    keeps working; the word "dev-preview" stays the MECHANISM's, on the hook's lines about its own setup
+    (skipped, config unreadable, a config it cannot run), which are printed before any config is read.
 
     A repo that does not define it gets the PLACEHOLDER (#3047, reversing #2967's silent no-op on the
     owner's word, October 15, 2026): Get-DevPreviewPlaceholder below is the answer the hook uses in its
