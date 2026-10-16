@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3064-repo-dashboard-label · 20261016-114424Z
+
+The dev-preview hook's session-start line now opens with `Repo dashboard:` in every DKJ-Solutions repo
+([#3064](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3064), the owner's term, October 16,
+2026). It used to open with whatever word each repo chose through `Get-DevPreview`'s `Name` (Showcase,
+connector dashboard, dev-preview), so the same page had three names. The plugin now fixes the label, the
+placeholder's included. A `Name` a repo still states is ignored rather than refused, so delete it at your
+next edit. The hook's lines about its own setup (skipped, config unreadable, a config it cannot run) keep
+the `dev-preview:` prefix, because that word names the mechanism.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In every DKJ-Solutions repo, the link to the repo's local page at session start now reads
+`Repo dashboard: http://localhost:...`, whatever the repo once called it.
+
+**Score:** 2
+
+#### Pull Request
+
+dev-preview: one fixed label, Repo dashboard
+
+Plugins: dkj-solutions
+
+[PR #3065](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3065)
+
+---
 
 ### DEPLOY: docs/3059-act-only-issue-closes · 20261016-104312Z
 
