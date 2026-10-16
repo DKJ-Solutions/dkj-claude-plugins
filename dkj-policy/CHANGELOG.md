@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3055-retired-plugin-id-in-update-tools · 20261016-095331Z
+
+`update-plugins` and `plugin-versions` now recognise a retired plugin id
+([#3055](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3055)). A checkout still enabling
+`dkj-policy-bwj` or `dkj-policy-dkjs` (renamed in #2788) made `update-plugins` call
+`claude plugin update` on a name the marketplace no longer declares and count it as `FAILED`, which
+turned the whole checkout red in an `-AllCheckouts` sweep. The `plugin-versions` receipt printed at
+the end of the run then advised a marketplace refresh that step 1 of the same run had just done. Now
+`update-plugins` skips that id and names its successor, and `plugin-versions` reports it as `retired`
+with the real repair: enable the successor and install it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+An `update-plugins` run in a repo that has not migrated off a retired extension name no longer reports
+failure. It names the one change that fixes it, instead of advising a refresh that cannot help.
+
+**Score:** 1
+
+#### Pull Request
+
+update-plugins and plugin-versions recognise a retired plugin id
+
+Plugins: dkj-policy
+
+[PR #3057](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3057)
+
+---
 
 ### DEPLOY: fix/3053-trusted-root-guard-exemption · 20261016-092814Z
 
