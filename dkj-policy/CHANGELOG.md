@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3053-trusted-root-guard-exemption · 20261016-092814Z
+
+`merge-on-green` can ship a PR in this repo again
+([#3053](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3053)). The runner runs
+`ship-pr.ps1` from a `trusted-main` checkout of the trunk while `CLAUDE_PROJECT_DIR` names `pr-branch`,
+and the source-repo guard refused that as a released copy, because the two are separate clones and
+`pr-branch` carries both the marketplace and its own copy. So PR #3051 sat green and armed through
+every sweep. `-TrustedRoot` (and `open-pr`'s `-SeamRoot`) now declares that tree in
+`DKJ_GUARD_TRUSTED_ROOT`, the guard exempts a script inside it, and the fold and
+`verify-resolved-issues` children inherit the declaration. The plugin cache is still refused.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer has no marketplace, so the guard never refused it and nothing changes for it.
+
+**Score:** N/A
+
+#### Pull Request
+
+merge-on-green can ship in the source repo: the own-copy guard exempts the declared trusted tree
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #3054](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3054)
+
+---
 
 ### DEPLOY: fix/3049-update-plugins-conflicting-scopes · 20261015-214246Z
 
