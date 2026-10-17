@@ -8,7 +8,7 @@ description: The DKJ-Solutions house style -- the design tokens, the twelve them
 **Every DKJ-Solutions app looks like one family** (Dave, issue
 [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1, 2026), and that
 family is written down in **[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook)**,
-folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/v0.1.0/house-style). The
+folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/v0.2.0/house-style). The
 stylesheet and the theme script lived beside this page until October 13, 2026; they moved there so the
 brand book is the single copy, and this skill carries the pointer instead of a second one.
 
@@ -17,19 +17,19 @@ BWJ-Development has its own styling, and this skill says nothing about it.
 
 ## Where the files are
 
-The repo is public, so these read without auth. **They are pinned to the release tag `v0.1.0`,
+The repo is public, so these read without auth. **They are pinned to the release tag `v0.2.0`,
 never to `main`**: `main` moves, and `house-theme.js` is executable wherever it is inlined, so a fetch from
 `main` would carry an unreleased push into every app's next copy
 ([#2954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2954)).
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.1.0/house-style/house-style.css` | `efee34bebc5d3ba4103bb529bd794f91c08a80e5bf5e282003a3d25ff5adc5f2` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.1.0/house-style/house-theme.js` | `80e771ba62e5700aab06a43c897fff604eacf3e2f200fd8b70966cefbe65be28` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.2.0/house-style/house-style.css` | `4527c1c8ff3b71888bb169a4573ae7e2e8abd7ef6aebaafbc35a68ea3ad79368` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.2.0/house-style/house-theme.js` | `294c9543ad0a2fcd615d01f9f30ff90e9bd4cbe5e072c7a75e25d8e3b5ca856e` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
-[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.1.0/house-style/README.md)
-at the same tag, which points at commit `ed2cadd5c8964479bf96e243f1e1d31e1540c6b5`.
+[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.2.0/house-style/README.md)
+at the same tag, which points at commit `a07f9fa2aa6c282272de1fd375c4c6efa1423136`.
 
 **Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
 and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
@@ -59,9 +59,13 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    **A Repo dashboard** (the index of a repo's dev server) **takes the one form the README lays down
    under "Page patterns", "The Repo dashboard"**: its blocks, their order and the fixed `h1`, with only
    the content the repo's own. A repo without a build starts from
-   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.1.0/house-style/patterns/repo-dashboard.html)
+   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.2.0/house-style/patterns/repo-dashboard.html)
    at the same tag, which carries no CSS of its own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
+   **Every page a repo's dev server serves opens with the breadcrumb bar**, the Repo dashboard and the
+   product alike, its trail starting at **Repo dashboard**, as the README lays it down under "Page
+   patterns", "Every page: the breadcrumb bar"
+   ([#3088](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3088)).
 2. **Add the repo's own layer after it, in a separate block or file.** Domain colours and components go
    there. They **use** house tokens and may add tokens of their own, under a name the house file does
    not define.
