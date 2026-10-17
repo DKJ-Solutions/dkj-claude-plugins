@@ -248,11 +248,15 @@ function Format-ConnectorDashboardHtml {
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
         (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
         or $null); Notes }. -Meta is @{ GeneratedAt; SourceCommit; Seconds; CheckFailed }.
+        -SubPage renders it as the Connectors page under the Repo dashboard (#3097): a two-crumb trail and
+        its own h1, the rest unchanged.
     #>
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
-        [Parameter(Mandatory = $true)][hashtable]$Meta
+        [Parameter(Mandatory = $true)][hashtable]$Meta,
+        [switch]$SubPage
     )
+    $pageName = if ($SubPage) { 'Connectors' } else { 'Repo dashboard' }
     $e = { param($v) ConvertTo-DashboardText $v }
     $all = @($Connectors | Where-Object { $_ })
     $present = @($all | Where-Object { $_.Present }).Count
@@ -268,7 +272,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>dkj-claude-plugins -- Repo dashboard</title>')
+    [void]$sb.AppendLine('<title>dkj-claude-plugins -- ' + $pageName + '</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: only names the house file does not define (.cd-*), spaced from the house scale.
@@ -303,7 +307,12 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<body>')
     # Block 0, the breadcrumb bar: first in <body> on every dev-server page; on the Repo dashboard its trail is this one crumb.
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
-    [void]$sb.AppendLine('<li><span aria-current="page">Repo dashboard</span></li>')
+    if ($SubPage) {
+        [void]$sb.AppendLine('<li><a href="/">Repo dashboard</a></li>')
+        [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true">/</span><span aria-current="page">Connectors</span></li>')
+    } else {
+        [void]$sb.AppendLine('<li><span aria-current="page">Repo dashboard</span></li>')
+    }
     [void]$sb.AppendLine('</ol></nav></div></div>')
     # Block 1, the settings button, sits outside <main>.
     [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
@@ -312,7 +321,7 @@ function Format-ConnectorDashboardHtml {
     # This repo is no product, so block 6 (the product button) is left out.
     [void]$sb.AppendLine('<div>')
     [void]$sb.AppendLine('<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>')
-    [void]$sb.AppendLine('<h1>Repo dashboard</h1>')
+    [void]$sb.AppendLine('<h1>' + $pageName + '</h1>')
     [void]$sb.AppendLine('<p class="lead">The source of the Claude Specialists plugins, and every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine.</p>')
     [void]$sb.AppendLine('</div>')
 
@@ -430,7 +439,7 @@ function Format-ConnectorDashboardHtml {
 
     # Block 11: where the data comes from, with the way to read it again.
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    [void]$sb.AppendLine('<p class="footer-note">Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
+    [void]$sb.AppendLine('<p class="footer-note">Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh' + $(if ($SubPage) { '?page=connectors' } else { '' }) + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark" });</script>')
     [void]$sb.AppendLine('</body>')

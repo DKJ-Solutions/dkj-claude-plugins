@@ -313,6 +313,8 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-Equal 405 (Get-Status 'POST' '/' "localhost:$port") 'a POST is refused'
             Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
             Assert-Equal 303 (Get-Status 'GET' '/refresh' "localhost:$port") '/refresh redirects to the page'
+            Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /sessionstart\r') '/refresh?page= goes back to the page that asked'
+            Assert-True ((Get-Raw 'GET' '/refresh?page=//evil.example' "localhost:$port") -match 'Location: /\r') 'and to the index for a page outside its list'
             Assert-Equal 403 (Get-Status 'GET' '/refresh' "localhost:$port" "Sec-Fetch-Site: cross-site`r`n") 'a request another site makes is refused'
             $headRaw = Get-Raw 'HEAD' '/house-style.css' "localhost:$port"
             Assert-True ($headRaw -match 'Content-Length: 0' -and $headRaw.TrimEnd().EndsWith('close')) 'HEAD on a static file sends no body'
@@ -351,6 +353,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     try {
         New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
+        Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item $Server (Join-Path $src 'scripts\dashboard\')
         Set-Content -LiteralPath (Join-Path $src 'connectors\noup.json') -Encoding ASCII -Value '{ "repo": "Org/noup", "visibility": "private", "localCheckout": "../noup", "plugins": [] }'
         Set-Content -LiteralPath (Join-Path $src 'connectors\far.json') -Encoding ASCII -Value ('{ "repo": "Org/far", "visibility": "public", "localCheckout": "../../../' + (Split-Path -Leaf $outside) + '", "plugins": [] }')
@@ -382,6 +385,14 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Set-Content -LiteralPath (Join-Path $pageDir 'release-notes.html') -Encoding ASCII -Value '<html>fixture notes</html>'
             $notes = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($notes -match 'HTTP/1.1 200' -and $notes -match 'text/html' -and $notes -match 'fixture notes') 'and served as HTML once it is, read on each request'
+            # The pages under the Repo dashboard (#3097). The fixture has no always-on lib and no
+            # suite-durations.json, so both measurement pages take their failure path, and are still served.
+            $conn = if ($up) { Get-Raw 'GET' '/connectors' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($conn -match 'HTTP/1.1 200' -and $conn -match '<h1>Connectors</h1>' -and $conn -match '<a href="/">Repo dashboard</a>') '/connectors serves the overview as a page under the Repo dashboard'
+            $ss = if ($up) { Get-Raw 'GET' '/sessionstart' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($ss -match 'HTTP/1.1 200' -and $ss -match 'could not be measured') '/sessionstart reports a measurement that failed, rather than failing'
+            $tg = if ($up) { Get-Raw 'GET' '/test-gate' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($tg -match 'HTTP/1.1 200' -and $tg -match 'the file is not there') '/test-gate reports a missing suite-durations.json, rather than failing'
         } finally {
             if (-not $proc3.HasExited) { Stop-Process -Id $proc3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
         }

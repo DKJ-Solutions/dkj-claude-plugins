@@ -2,7 +2,9 @@
 .SYNOPSIS
     Serve the connector dashboard (#2976) on http://localhost:<Port>/ -- one page with every repo
     registered under connectors/, its plugins, its local checkout and what check-connectors.ps1 reports
-    for it on this machine.
+    for it on this machine. The same page is served at /connectors as a page under the Repo dashboard,
+    beside /sessionstart (the always-on path every session loads) and /test-gate (the per-suite CI
+    durations), whose rules are in scripts/lib/dev-pages-lib.ps1 (#3097).
 
 .DESCRIPTION
     Normally started by the dkj-solutions dev-preview SessionStart hook, through this repo's
@@ -60,6 +62,7 @@ $ErrorActionPreference = 'Stop'
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
 . (Join-Path $root 'scripts\lib\connector-dashboard-lib.ps1')
+. (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
 
 $scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 $styleDir = Join-Path $root 'scripts\dashboard\house-style'
@@ -158,6 +161,65 @@ function Get-DashboardModel {
     return @{ Connectors = $connectors; Meta = $meta; At = Get-Date }
 }
 
+function Get-SessionStartModel {
+    <#
+        The always-on path, measured the way always-on-sessioncheck measures it. In a CHILD process,
+        because the measurement dot-sources repo-config.ps1 and three libs, and their functions must not
+        land in this server's scope. The child hands back objects, deserialized; a failure is a ReadError.
+    #>
+    $started = Get-Date
+    $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
+    try {
+        $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -Command {
+                param($Root)
+                $ErrorActionPreference = 'Stop'
+                $cfg = Join-Path $Root 'scripts\repo-config.ps1'
+                if (Test-Path -LiteralPath $cfg) { try { . $cfg } catch { } }
+                . (Join-Path $Root 'scripts\lib\always-on-budget-lib.ps1')
+                $baseline = Read-AlwaysOnBaseline -RepoRoot $Root
+                $m = Get-AlwaysOnMeasurement -RepoRoot $Root -Baseline $baseline
+                $v = Get-AlwaysOnBudgetVerdict -Measurement $m -Budget (Resolve-AlwaysOnBudget) -Baseline $baseline
+                $docs = @()
+                foreach ($d in @($m.Measured)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]$d.Bytes; Source = 'measured' } }
+                foreach ($d in @($m.Carried)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]$d.Bytes; Source = 'carried' } }
+                foreach ($d in @($m.Unmeasured)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]0; Source = 'unmeasured' } }
+                [pscustomobject]@{
+                    Total = [int64]$v.Total; Budget = [int64]$v.Budget; State = [string]$v.State; Ok = [bool]$v.Ok
+                    Tokens = [int64](ConvertTo-EstimatedTokens -Bytes $v.Total); Documents = $docs
+                }
+            } -args $root 2>$null | Where-Object { $_ -and $_.PSObject.Properties['Total'] })
+        if (-not $out.Count) { return @{ Model = $null; Error = 'the measurement returned nothing'; At = Get-Date } }
+        $r = $out[-1]
+        # An import through the marketplace clone resolves to an absolute path; the page names it from ~.
+        $homeDir = ([string]$env:USERPROFILE).Replace('\', '/').TrimEnd('/')
+        foreach ($d in @($r.Documents)) {
+            if ($homeDir -and $d.Display.Replace('\', '/').StartsWith($homeDir + '/', [StringComparison]::OrdinalIgnoreCase)) {
+                $d.Display = '~' + $d.Display.Replace('\', '/').Substring($homeDir.Length)
+            }
+        }
+        $model = @{
+            Total = $r.Total; Budget = $r.Budget; State = $r.State; Ok = $r.Ok; Tokens = $r.Tokens
+            Documents = @($r.Documents | ForEach-Object { @{ Display = [string]$_.Display; Bytes = [int64]$_.Bytes; Source = [string]$_.Source } })
+            GeneratedAt = $started.ToString('yyyy-MM-dd HH:mm:ss'); Seconds = ((Get-Date) - $started).TotalSeconds
+        }
+        return @{ Model = $model; Error = ''; At = Get-Date }
+    } catch {
+        return @{ Model = $null; Error = (([string]$_.Exception.Message) -replace '\s+', ' '); At = Get-Date }
+    }
+}
+
+function Get-TestGateModel {
+    <# scripts/tests/suite-durations.json and the suite files beside it, read on every request: one small file. #>
+    $testsDir = Join-Path $root 'scripts\tests'
+    $files = @(Get-ChildItem -LiteralPath $testsDir -Filter '*.tests.ps1' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
+    $json = $null; $err = ''
+    $path = Join-Path $testsDir 'suite-durations.json'
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+        try { $json = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $err = 'it is not valid JSON' }
+    } else { $err = 'the file is not there' }
+    return @{ Model = (ConvertFrom-SuiteDurations -Durations $json -SuiteFiles $files); Error = $err }
+}
+
 function Read-DashboardRequest {
     <#
         The request line and the two headers the server reads, or $null. ONE deadline for the whole head
@@ -207,6 +269,7 @@ $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Lo
 $listener.Start()
 Write-Host "connector dashboard: http://localhost:$Port/"
 $cache = $null
+$ssCache = $null
 
 try {
     while ($true) {
@@ -243,14 +306,33 @@ try {
                 continue
             }
             if ($path -eq '/refresh') {
-                # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for.
-                if ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
-                Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/' }
+                # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for. ?page= names
+                # where to go back to, from a fixed list, so the redirect never leaves this server.
+                $page = if ([string]$target -match '[?&]page=(connectors|sessionstart)(&|$)') { $Matches[1] } else { '' }
+                if ($page -eq 'sessionstart') {
+                    if ($ssCache -and ((Get-Date) - $ssCache.At).TotalSeconds -ge $MinRefreshSeconds) { $ssCache = $null }
+                } elseif ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
+                Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" }
                 continue
             }
-            if ($path -eq '/' -or $path -eq '/index.html') {
+            if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/connectors') {
                 if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $CacheSeconds) { $cache = Get-DashboardModel }
-                $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta
+                # '/' keeps the connector overview until the hub that links the pages lands (#3097).
+                $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -SubPage:($path -eq '/connectors')
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                continue
+            }
+            if ($path -eq '/sessionstart') {
+                if ($null -eq $ssCache -or ((Get-Date) - $ssCache.At).TotalSeconds -ge $CacheSeconds) { $ssCache = Get-SessionStartModel }
+                $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                continue
+            }
+            if ($path -eq '/test-gate') {
+                $tg = Get-TestGateModel
+                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
