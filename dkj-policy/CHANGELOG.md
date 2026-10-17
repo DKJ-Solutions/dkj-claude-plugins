@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3086-ccs-release-notes-worker-deleted · 20261017-200853Z
+
+The `ccs-release-notes` Cloudflare worker, which kept serving v5.21.0 after #3083 stopped hosting this
+repo's release notes, is gone, and Sylvester's lens now says so
+([#3086](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3086)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- nothing a plugin ships changes; the edit is to this repo's own lens.
+
+**Score:** N/A
+
+#### Pull Request
+
+The ccs-release-notes worker is deleted, and the lens says so
+
+[PR #3093](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3093)
+
+---
 
 ### DEPLOY: feat/3090-dev-pages-breadcrumb-bar · 20261017-154017Z
 
