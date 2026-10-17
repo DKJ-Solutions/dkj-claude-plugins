@@ -4508,9 +4508,10 @@ any device. A DKJ repo's notes are read by the owners on their own machine, so t
 seam with `''`, and `cut-release` no longer prints the redeploy step. From August 15, 2026 until then the
 page was served by the `ccs-release-notes` worker, whose path token was local, gitignored state, so a cut on
 any machine without that file stopped at the redeploy
-([#2868](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2868), #3083). That worker still exists
-in the DKJ-Solutions Cloudflare account and serves v5.21.0; removing it is an owner's act
-([#3086](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3086)).
+([#2868](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2868), #3083). The worker itself was
+deleted from the DKJ-Solutions Cloudflare account on October 17, 2026
+([#3086](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3086)), so an old link to it no longer
+shows stale notes.
 
 #### Where the rest lives
 

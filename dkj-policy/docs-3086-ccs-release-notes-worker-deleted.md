@@ -39,19 +39,31 @@
 
 ### PLAN
 
+The owner deleted the `ccs-release-notes` worker from the DKJ-Solutions Cloudflare account on October 17,
+2026 (`wrangler delete`, after `whoami` and `deployments list` confirmed the account). What is left of
+#3086 is the lens sentence that still says the worker exists.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Sylvester's lens: the release-notes block records the worker as deleted instead of still serving v5.21.0
 
 ### TEST
 
 ### DEPLOY: docs/3086-ccs-release-notes-worker-deleted
 
-**Score:**
+N/A -- nothing a plugin ships changes; the edit is to this repo's own lens.
+
+**Score:** N/A
 
 #### What makes this deploy extra special
 
-**Score:**
+The `ccs-release-notes` Cloudflare worker, which kept serving v5.21.0 after #3083 stopped hosting this
+repo's release notes, is gone, and Sylvester's lens now says so
+([#3086](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3086)).
+
+**Score:** 1
 
 #### Pull Request
+
+The ccs-release-notes worker is deleted, and the lens says so
 
