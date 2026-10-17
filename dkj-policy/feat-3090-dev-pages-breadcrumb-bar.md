@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#### A visible result -- parked for the owner's look
+
+Both pages render differently, so this branch stops before a pull request (issue #3090 says so). The
+markup follows the brand book's `patterns/repo-dashboard.html` at `v0.2.0` block 0 verbatim.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The connector dashboard (`scripts/lib/connector-dashboard-lib.ps1`) opens `<body>` with the breadcrumb bar
+- [x] The placeholder Repo dashboard (`dev-preview-placeholder.ps1`) does the same
+- [x] Each suite asserts the bar is the first element in `<body>`, with the one crumb `Repo dashboard`
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1`: 120 passed, 0 failed
+- [x] `dev-preview-sessionstart.tests.ps1`: 105 passed, 0 failed
+
 ### DEPLOY: feat/3090-dev-pages-breadcrumb-bar
 
-**Score:**
+The placeholder Repo dashboard the `dkj-solutions` plugin serves, in every repo without a dev preview of
+its own, now opens with the house breadcrumb bar: one crumb, **Repo dashboard**, sticky at the top
+([#3090](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3090)). It follows the rule the
+brand book's `v0.2.0` sets for every page a dev server serves. Nothing in a repo's own layer changes.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+This repo's own connector dashboard carries the same bar, so both dev-server pages here now take the
+Repo dashboard form block for block.
+
+**Score:** 1
 
 #### Pull Request
 
