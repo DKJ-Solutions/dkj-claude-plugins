@@ -57,12 +57,12 @@
      -1 the page, and the text on a -5 fill; -2 the cards (tiles, tooltips); -3 every line (borders, row
      dividers, meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a today row, the
      accent dialog); -5 the fills (switches, info badges), focus rings, meters and text in
-     the colour (values), the picker's dot; -4 no role yet; -6 sub lines, notes and .muted; -7 the highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), h1 and h2, the states (hover, focus outlines, sorted, pressed) and native controls through accent-color; -8 h3-h6 (owner's decision, October 14, 2026; on -9 h1 and h2 are -3 and h3-h6 are -2); -9 the far end: every paragraph, and an inverted
+     the colour (values); -4 no role yet; -6 sub lines, notes and .muted; -7 the highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1 and h2, the states (hover, focus outlines, sorted, pressed) and native controls through accent-color; -8 h3-h6 (owner's decision, October 14, 2026; on -9 h1 and h2 are -3 and h3-h6 are -2); -9 the far end: every paragraph, and an inverted
      surface (the showcase's panel on dark). Measured (WCAG relative luminance) worst cases: -5 on the card 6.25:1
      on light (Oker), -1 on -5 6.54:1 on light (Oker) and 3.51:1 on dark (Roze), -5 on the card 3.38:1 on dark (Roze), -7 on -3 6.53:1 on light (Petrol);
      -7, the highlight, on -1 and -2 at 9.42:1 or better on light (Petrol) and 9.02:1 on dark (Roze), and 6.42:1 or better
      on a status background (Roze on dark). */
-  --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #cacae4; --primary-4: #979bc1; --primary-5: #545680; --primary-6: #404163;
+  --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #cacae4; --primary-4: #9a9db0; --primary-5: #57596e; --primary-6: #424354;
   --primary-7: #0704c0; --primary-8: #181675; --primary-9: #000325;
 
   /* categorical palette (series slots) */
@@ -131,7 +131,7 @@
     color-scheme: dark;
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
     --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-    --primary-1: #00181a; --primary-2: #001d20; --primary-3: #1d383a; --primary-4: #354648; --primary-5: #5c7375; --primary-6: #8ea3a5; --primary-7: #0fd6e8; --primary-8: #97eff9; --primary-9: #f3fbfb;
+    --primary-1: #00181a; --primary-2: #001d20; --primary-3: #1d383a; --primary-4: #3c4445; --primary-5: #657171; --primary-6: #96a1a2; --primary-7: #0fd6e8; --primary-8: #97eff9; --primary-9: #f3fbfb;
   }
 }
 
@@ -142,7 +142,7 @@
   color-scheme: dark;
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
   --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-  --primary-1: #00181a; --primary-2: #001d20; --primary-3: #1d383a; --primary-4: #354648; --primary-5: #5c7375; --primary-6: #8ea3a5; --primary-7: #0fd6e8; --primary-8: #97eff9; --primary-9: #f3fbfb;
+  --primary-1: #00181a; --primary-2: #001d20; --primary-3: #1d383a; --primary-4: #3c4445; --primary-5: #657171; --primary-6: #96a1a2; --primary-7: #0fd6e8; --primary-8: #97eff9; --primary-9: #f3fbfb;
 }
 
 /* ---- Themes: the primary colour ------------------------------------------ */
@@ -151,18 +151,18 @@
    two whose primary sits next to the warning colour move the warning away from it. No red and
    no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
    pink, lilac, sky, cyan, yellow, orange (dark). */
-:root[data-theme="magenta"] { --primary-1: #fefafc; --primary-2: #fdf2f8; --primary-3: #e5c1d4; --primary-4: #b593a6; --primary-5: #734e63; --primary-6: #583b4c; --primary-7: #720252; --primary-8: #4b0e37; --primary-9: #15000d; }
-:root[data-theme="purple"] { --primary-1: #fcfbff; --primary-2: #f6f4fe; --primary-3: #cfc9e4; --primary-4: #a298be; --primary-5: #5f537d; --primary-6: #493f60; --primary-7: #4f0399; --primary-8: #331263; --primary-9: #0c0020; }
-:root[data-theme="blue"] { --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #cacae4; --primary-4: #979bc1; --primary-5: #545680; --primary-6: #404163; --primary-7: #0704c0; --primary-8: #181675; --primary-9: #000325; }
-:root[data-theme="teal"] { --primary-1: #f8fdfd; --primary-2: #ecf9f9; --primary-3: #9adae2; --primary-4: #91a2a4; --primary-5: #4c5e61; --primary-6: #39484a; --primary-7: #02494f; --primary-8: #0d3135; --primary-9: #000a0c; }
-:root[data-theme="ochre"] { --primary-1: #fcfbf8; --primary-2: #f8f6ec; --primary-3: #d7cf9d; --primary-4: #a29f8e; --primary-5: #5e5c49; --primary-6: #484637; --primary-7: #494001; --primary-8: #312c0a; --primary-9: #0a0700; }
-:root[data-theme="rust"] { --primary-1: #fffaf8; --primary-2: #fef4ee; --primary-3: #e5c6b4; --primary-4: #ad9a8e; --primary-5: #6a5649; --primary-6: #514237; --primary-7: #633001; --primary-8: #41220a; --primary-9: #110400; --warning-3: #b88a00; }
-:root[data-theme="pink"] { --primary-1: #1e0d18; --primary-2: #260f1e; --primary-3: #4d203f; --primary-4: #573748; --primary-5: #895f75; --primary-6: #b892a5; --primary-7: #fe97d0; --primary-8: #fad0e5; --primary-9: #fef7f9; }
-:root[data-theme="lilac"] { --primary-1: #161021; --primary-2: #1b132a; --primary-3: #392855; --primary-4: #443d5b; --primary-5: #706790; --primary-6: #a099bd; --primary-7: #c2affe; --primary-8: #e0d9f9; --primary-9: #faf8fd; }
-:root[data-theme="sky"] { --primary-1: #121223; --primary-2: #15152c; --primary-3: #2c2c5a; --primary-4: #3d3f5e; --primary-5: #686a92; --primary-6: #999bbf; --primary-7: #b5b5fe; --primary-8: #dbdbf9; --primary-9: #f8f8fe; }
-:root[data-theme="cyan"] { --primary-1: #00181a; --primary-2: #001d20; --primary-3: #1d383a; --primary-4: #354648; --primary-5: #5c7375; --primary-6: #8ea3a5; --primary-7: #0fd6e8; --primary-8: #97eff9; --primary-9: #f3fbfb; }
-:root[data-theme="yellow"] { --primary-1: #1a1302; --primary-2: #1f1800; --primary-3: #3a321b; --primary-4: #474232; --primary-5: #756e59; --primary-6: #a49f8b; --primary-7: #e8b70c; --primary-8: #f9db90; --primary-9: #fbf9f3; --warning-3: #f08a24; }
-:root[data-theme="orange"] { --primary-1: #200f05; --primary-2: #281105; --primary-3: #472b1a; --primary-4: #523d32; --primary-5: #836759; --primary-6: #b1998b; --primary-7: #fea56e; --primary-8: #fad6c1; --primary-9: #fef7f5; }
+:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --primary-1: #fefafc; --primary-2: #fdf2f8; --primary-3: #e5c1d4; --primary-4: #aa99a2; --primary-5: #68555f; --primary-6: #4f4049; --primary-7: #720252; --primary-8: #4b0e37; --primary-9: #15000d; }
+:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --primary-1: #fcfbff; --primary-2: #f6f4fe; --primary-3: #cfc9e4; --primary-4: #a09caf; --primary-5: #5d576c; --primary-6: #474353; --primary-7: #4f0399; --primary-8: #331263; --primary-9: #0c0020; }
+:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #cacae4; --primary-4: #9a9db0; --primary-5: #57596e; --primary-6: #424354; --primary-7: #0704c0; --primary-8: #181675; --primary-9: #000325; }
+:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --primary-1: #f8fdfd; --primary-2: #ecf9f9; --primary-3: #9adae2; --primary-4: #98a0a1; --primary-5: #535c5e; --primary-6: #3f4647; --primary-7: #02494f; --primary-8: #0d3135; --primary-9: #000a0c; }
+:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --primary-1: #fcfbf8; --primary-2: #f8f6ec; --primary-3: #d7cf9d; --primary-4: #a09f96; --primary-5: #5c5c52; --primary-6: #47463e; --primary-7: #494001; --primary-8: #312c0a; --primary-9: #0a0700; }
+:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffaf8; --primary-2: #fef4ee; --primary-3: #e5c6b4; --primary-4: #a69c96; --primary-5: #635852; --primary-6: #4b443e; --primary-7: #633001; --primary-8: #41220a; --primary-9: #110400; --warning-3: #b88a00; }
+:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #1e0d18; --primary-2: #260f1e; --primary-3: #4d203f; --primary-4: #4d3d45; --primary-5: #7c6771; --primary-6: #ac98a2; --primary-7: #fe97d0; --primary-8: #fad0e5; --primary-9: #fef7f9; }
+:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #161021; --primary-2: #1b132a; --primary-3: #392855; --primary-4: #43404f; --primary-5: #6f6b7f; --primary-6: #9f9cae; --primary-7: #c2affe; --primary-8: #e0d9f9; --primary-9: #faf8fd; }
+:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --primary-1: #121223; --primary-2: #15152c; --primary-3: #2c2c5a; --primary-4: #3f4150; --primary-5: #6b6c80; --primary-6: #9c9daf; --primary-7: #b5b5fe; --primary-8: #dbdbf9; --primary-9: #f8f8fe; }
+:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --primary-1: #00181a; --primary-2: #001d20; --primary-3: #1d383a; --primary-4: #3c4445; --primary-5: #657171; --primary-6: #96a1a2; --primary-7: #0fd6e8; --primary-8: #97eff9; --primary-9: #f3fbfb; }
+:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --primary-1: #1a1302; --primary-2: #1f1800; --primary-3: #3a321b; --primary-4: #45423a; --primary-5: #726e64; --primary-6: #a19f95; --primary-7: #e8b70c; --primary-8: #f9db90; --primary-9: #fbf9f3; --warning-3: #f08a24; }
+:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --primary-1: #200f05; --primary-2: #281105; --primary-3: #472b1a; --primary-4: #4a403a; --primary-5: #796b64; --primary-6: #a89c95; --primary-7: #fea56e; --primary-8: #fad6c1; --primary-9: #fef7f5; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }
@@ -420,11 +420,11 @@ p, p.meta { color: var(--primary-9); }
 .theme-picker__label { font-size: var(--text-sm); font-weight: 600; color: var(--primary-9); }
 .theme-picker__swatches { display: flex; gap: var(--spacing-2); flex-wrap: wrap; }
 .theme-swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--primary-3); cursor: pointer; display: grid; place-items: center; }
-/* Each swatch previews its own theme's page, whichever mode is current: that theme's tint (2% light, 10% dark,
-   as in its --primary-1) over white for a light theme and over black for a dark one. */
-.theme-swatch--light { background: color-mix(in srgb, var(--swatch) 2%, white); }
-.theme-swatch--dark { background: color-mix(in srgb, var(--swatch) 10%, black); }
-.theme-swatch i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--swatch); }
+/* Each swatch previews its own theme, whichever theme is current: the theme blocks above also match
+   .theme-swatch[data-id="<id>"], so inside a swatch every --primary-* is that theme's own. The swatch is its
+   page (--primary-1) and the dot its colour (--primary-7). */
+.theme-swatch { background: var(--primary-1); }
+.theme-swatch i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--primary-7); }
 .theme-swatch[aria-pressed="true"] { outline: 2px solid var(--primary-7); outline-offset: 2px; }   /* the chosen theme */
 .theme-swatch:focus-visible { outline: 2px dashed var(--primary-5); outline-offset: 4px; }       /* keyboard focus: a different ring */
 
@@ -438,7 +438,7 @@ p, p.meta { color: var(--primary-9); }
   padding: 0; color: var(--primary-9); background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 50%;
   box-shadow: var(--shadow-pop); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .theme-settings__toggle:hover { background: var(--primary-3); color: var(--primary-7); }
-.theme-settings__toggle[aria-expanded="true"] { color: var(--primary-5); border-color: var(--primary-5); }
+.theme-settings__toggle[aria-expanded="true"] { color: var(--primary-7); border-color: var(--primary-7); }   /* open: a state, so the highlight */
 .theme-settings__toggle:focus-visible { outline: 2px solid var(--primary-5); outline-offset: 2px; }
 .theme-settings__close, .theme-settings__toggle[aria-expanded="true"] .theme-settings__open { display: none; }
 .theme-settings__toggle[aria-expanded="true"] .theme-settings__close { display: block; }
@@ -447,7 +447,7 @@ p, p.meta { color: var(--primary-9); }
   overflow-y: auto; padding: var(--spacing-4); text-align: left; background: var(--primary-2); border: 1px solid var(--primary-3);
   border-radius: 12px; box-shadow: var(--shadow-pop); }
 .theme-settings__panel[hidden] { display: none; }
-.theme-settings__title { margin: 0; font-size: var(--text-lg); font-weight: 600; color: var(--primary-9); }
+.theme-settings__title { margin: 0; font-size: var(--text-lg); font-weight: 600; color: var(--primary-7); }   /* the highlight, as an h2 */
 .theme-settings__group { display: grid; gap: var(--spacing-2); padding-top: var(--spacing-4); border-top: 1px solid var(--primary-3); }
 .theme-settings__label { font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-9); }
 .theme-settings__foot { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-4); }
@@ -568,6 +568,27 @@ html:has(dialog:modal) { overflow: hidden; }
 .topbar__brand { display: flex; align-items: center; gap: var(--spacing-3); min-width: 0; }
 .topbar__name { flex: none; font-size: var(--text-lg); font-weight: 700; }
 html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
+
+/* ---- Breadcrumbs ---------------------------------------------------------------- */
+/* Where the page sits, on every page a dev server serves: the first thing in <body>, above <main>.
+   <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>
+   <li><a href="/">Repo dashboard</a></li><li><span class="breadcrumbs__sep" aria-hidden="true">/</span>
+   <span aria-current="page">Current page</span></li></ol></nav></div></div>.
+   The slash is muted, the ancestors are links, the current page is the strongest.
+   The bar spans the full width on the surface tint and sticks to the top of the screen, so it is always visible. It is
+   one --tap high and one line: a trail longer than the screen scrolls sideways inside the bar rather than wrapping, so
+   the height stays fixed and whatever else sticks to the top sits right under it. Its trail lines up with the page
+   column (.container). */
+.breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
+.breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
+.breadcrumbs a { color: var(--primary-7); text-underline-offset: 2px; }
+.breadcrumbs__sep { color: var(--primary-5); }
+.breadcrumbs [aria-current='page'] { color: var(--primary-9); font-weight: 600; }
+.breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }
+.breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
+/* Under the bar: an anchor lands below it, and the floating settings button moves down by its height. */
+html:has(.breadcrumbs-bar) { scroll-padding-top: var(--tap); }
+html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + var(--spacing-3)); }
 
 /* ---- Menu list and menu item ---------------------------------------------------- */
 /* Settings as rows: <ul class="menu-list"><li class="menu-row"><span class="menu-row__label">..</span>

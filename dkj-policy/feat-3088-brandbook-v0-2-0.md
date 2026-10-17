@@ -39,21 +39,48 @@
 
 ### PLAN
 
+Inbound #3088 (name the breadcrumb bar) and #3089 (repoint the pin), absorbed together: both ask for
+the same repoint to the brand book's `v0.2.0`, which carries dkj-brandbook#189. Verified first: the merge
+of #189 is an ancestor of `v0.2.0`, and both files there hash to the values #3089 measured. Unlike
+`v0.1.0` the files changed, so both vendored copies move with the pin; the safety reads the skill names
+(no network call, no `eval`, no cookie, only the theme in storage, no `@import` or remote `url()`) pass,
+and the README renames or retires no token, so the retired-name list stands.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Repoint every brand-book link in the `house-style` skill to `v0.2.0`, its commit to `a07f9fa2` and both checksums
+- [x] Step 1 of "How to use it" names the breadcrumb bar on every dev-server page (#3088)
+- [x] Replace the vendored copies under `scripts/dashboard/house-style/` and the plugin's `assets/house-style/`
+- [x] The retired-names docstring and the test's tag asserts follow the new pin
+- [x] The two dev-server pages here that lack the bar are filed, not built: #3090 (a visible result)
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: 58 passed, 0 failed
+- [x] `connector-dashboard.tests.ps1`: 119 passed, 0 failed
+- [x] `dev-preview-sessionstart.tests.ps1`: 104 passed, 0 failed
+
 ### DEPLOY: feat/3088-brandbook-v0-2-0
 
-**Score:**
+The `house-style` skill now fetches from the brand book's `v0.2.0` release, and its first step says that
+every page a repo's dev server serves opens with the breadcrumb bar, starting at **Repo dashboard**
+([#3088](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3088),
+[#3089](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3089)). An app that takes the new copy
+gets greyer middle steps (`--primary-4`..`-6`) in every theme, a theme picker whose dots come from the
+stylesheet instead of the script, and the `.breadcrumbs` / `.breadcrumbs-bar` classes. No token was
+renamed or removed, so nothing in an app's own layer has to change. The placeholder Repo dashboard this
+plugin serves takes the same copy.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A session doing visual work in a DKJ-Solutions repo now meets the breadcrumb rule in the skill it
+loads first, rather than only in the brand book's README, so new dev-server pages get the bar from the
+start.
+
+**Score:** 2
 
 #### Pull Request
 
 house-style skill: repoint at dkj-brandbook v0.2.0 and name the breadcrumb bar
-
