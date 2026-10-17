@@ -4,6 +4,7 @@
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [5.23.0](audience/5.x/5.23.0.md) | 2026-10-17 | Minor | The house style moves to dkj-brandbook v0.2.0, dev pages get a breadcrumb bar, and release notes stay local |
 | [5.22.0](audience/5.x/5.22.0.md) | 2026-10-17 | Minor | Minor release |
 | [5.21.0](audience/5.x/5.21.0.md) | 2026-10-15 | Minor | Every DKJ-Solutions repo opens a dev preview at session start, plus the check-house-style gate and the awaiting-pull-external label |
 | [5.20.0](audience/5.x/5.20.0.md) | 2026-10-15 | Minor | The house-style skill points at house-style-v3, with the brand book's renamed colour tokens |
