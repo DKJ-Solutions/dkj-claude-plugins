@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#3083: the v5.22.0 cut could not redeploy the `ccs-release-notes` worker, because its path token is
+local state on another machine. Maikel's answer (October 17, 2026): only BWJ-Development's release notes
+are hosted on Cloudflare; a DKJ repo's notes are read locally, in VS Code's Simple Browser. The seam for
+that already exists, since `Get-ReleasePageWorkerName = ''` makes `cut-release` skip the redeploy step, and
+the connector dashboard already runs at every session start, so it serves the page.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ReleasePageWorkerName` answers `''` here, with the reason in its comment
+- [x] The connector dashboard serves `dkj-policy/releases/page/release-notes.html` at `/release-notes`, a 404 naming the build step while it is not built
+- [x] The config blueprint regenerated from that answer
+- [x] Sylvester's lens: the release-notes block says where the page is read and why it is no longer hosted
+- [x] The leftover worker filed for removal as an owner's act: #3086
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1`: 119 passed, 0 failed, including the new route before and after the page is built
+
 ### DEPLOY: fix/3083-release-notes-local-only
 
-**Score:**
+This repo's release-notes page is no longer hosted on Cloudflare, so a cut no longer stops at a redeploy
+that needs a token only one machine had
+([#3083](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3083)). The page is still built at
+every cut, and the connector dashboard serves it at `/release-notes`, for VS Code's Simple Browser. Only
+BWJ-Development hosts its release notes, so colleagues can read them from any device.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A. A consumer's own `Get-ReleasePageWorkerName` answer is untouched, and the blueprint already offered
+`''` as the default.
+
+**Score:** N/A
 
 #### Pull Request
+
+Release notes: read locally in this repo, no Cloudflare worker
 

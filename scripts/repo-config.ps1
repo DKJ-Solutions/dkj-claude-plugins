@@ -1050,27 +1050,13 @@ function Get-ReleasePageTitle {
 # THE WORKER THAT HOSTS IT. Empty means this repo builds the page but hosts it nowhere, which is the
 # right answer for most consumers and is why the default is empty rather than a name.
 #
-# WHAT THE NAME BUYS AND WHAT IT DOES NOT. The worker serves the page at /notes/<32 hex>, and that
-# path is the only lock on it -- no login, anyone with the link reads it. That is a deliberate choice
-# here (Dave, August 15, 2026) and it is defensible for exactly one reason: these notes are already
-# public in this repository, so the path guards the ROUTE and not the content. It is also why the
-# page carries noindex in both the header and the meta tag: a link nobody can guess is worth nothing
-# once a crawler has published it.
-#
-# THE TOKEN IS NOT IN THIS REPOSITORY, and that is the half to remember. This repo is public, so a
-# committed token would be a lock with its key taped to the door -- it lives in
-# dkj-policy/releases/page/worker-path-token.txt, which .gitignore keeps out. Nothing in git
-# therefore remembers the URL: whoever creates it records it outside the repo. A consumer whose repo
-# is PRIVATE has the opposite answer available and should take it, since a tracked token survives a
-# lost machine.
-#
-# BUT "NOT IN GIT" IS NOT "NOWHERE" (issue #1453). The deployed worker carries its route as a literal,
-# so while the worker named below is up, Cloudflare holds a copy of the token that no machine here has
-# -- readable from that worker's code view in the dashboard, or from the Workers script API. Losing
-# every local copy is therefore recoverable, and only a worker that is ALSO gone makes the URL
-# unrecoverable. Check the deployment before reaching for -InitToken, which mints a fresh path and
-# 404s every link already sent.
-$script:ReleasePageWorkerName = 'ccs-release-notes'
+# EMPTY HERE TOO, SINCE OCTOBER 17, 2026 (Maikel, #3083). Only BWJ-Development's release notes are
+# hosted on Cloudflare, so colleagues can read them from any device; a DKJ repo's notes are read by
+# the owners on their own machine. This repo hosted them as the 'ccs-release-notes' worker from
+# August 15, 2026, and the path token that worker needs is local, gitignored state -- so every cut
+# on a machine without it stopped at the redeploy (#2868, #3083). The page is still built at every
+# cut; the connector dashboard serves it at /release-notes, which opens in VS Code's Simple Browser.
+$script:ReleasePageWorkerName = ''
 
 function Get-ReleasePageWorkerName {
     <# The Cloudflare Worker that serves the generated page; '' = this repo hosts it nowhere. #>

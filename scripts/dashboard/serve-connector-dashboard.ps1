@@ -66,6 +66,8 @@ $styleDir = Join-Path $root 'scripts\dashboard\house-style'
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
+    # The release-notes page build-release-notes-page.ps1 leaves here: this repo hosts it nowhere else (#3083).
+    '/release-notes'   = @{ File = (Join-Path $root 'dkj-policy\releases\page\release-notes.html'); Type = 'text/html; charset=utf-8' }
 }
 
 function Invoke-DashboardGit {
@@ -232,6 +234,10 @@ try {
             }
             if ($static.ContainsKey($path)) {
                 $s = $static[$path]
+                if (-not (Test-Path -LiteralPath $s.File -PathType Leaf)) {
+                    Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: run scripts/release/build-release-notes-page.ps1.'))
+                    continue
+                }
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
                 Send-DashboardResponse $stream 200 'OK' $s.Type $body
                 continue
