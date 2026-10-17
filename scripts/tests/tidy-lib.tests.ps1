@@ -447,6 +447,27 @@ try {
     $checkout = Invoke-TidyMachine -ScriptArgs @('-CheckoutOnly', '-DryRun')
     Assert-True ($checkout.Code -ne 0)              'the per-checkout half still refuses outside a checkout'
     Assert-True ($checkout.Text -match 'REFUSED')   'and says so, naming git''s own exit code and message'
+
+    # LANE 11 READS A URL-SOURCED PLUGIN AS LISTED (#3096). A marketplace clone mixing a local and a
+    # url-sourced entry, and three records: the local one, the url-sourced one, and one the clone no longer
+    # names. Only the last is retired; the url-sourced one was reported too, with an uninstall beside it.
+    $mkDir = Join-Path $fixtureHome '.claude\plugins\marketplaces\mk\.claude-plugin'
+    New-Item -ItemType Directory -Path $mkDir -Force | Out-Null
+    $mkJson = '{ "name": "mk", "plugins": [ { "name": "local-one", "source": "./plugins/local-one" }, ' +
+        '{ "name": "url-one", "source": { "source": "url", "url": "https://example.invalid/url-one.git" } } ] }'
+    [System.IO.File]::WriteAllText((Join-Path $mkDir 'marketplace.json'), $mkJson)
+    $proj = Join-Path $fixture 'proj'
+    New-Item -ItemType Directory -Path $proj | Out-Null
+    $projJson = $proj -replace '\\', '\\'
+    $admin = '{ "version": 2, "plugins": { ' +
+        ('"local-one@mk": [ {{ "scope": "project", "projectPath": "{0}", "version": "1.0.0" }} ], ' -f $projJson) +
+        ('"url-one@mk": [ {{ "scope": "project", "projectPath": "{0}", "version": "1.0.0" }} ], ' -f $projJson) +
+        ('"gone-one@mk": [ {{ "scope": "project", "projectPath": "{0}", "version": "1.0.0" }} ] }} }}' -f $projJson)
+    [System.IO.File]::WriteAllText((Join-Path $fixtureHome '.claude\plugins\installed_plugins.json'), $admin)
+    $lane11 = Invoke-TidyMachine -ScriptArgs @('-MachineOnly', '-DryRun', '-UserHomeOverride', $fixtureHome, '-ScratchRoot', $fixtureScratch)
+    Assert-True ($lane11.Text -match 'uninstall gone-one@mk') 'lane 11: a plugin the clone no longer names is reported as retired'
+    Assert-True ($lane11.Text -notmatch 'uninstall url-one@mk') 'lane 11: a url-sourced plugin the clone still names is not (#3096)'
+    Assert-True ($lane11.Text -notmatch 'uninstall local-one@mk') 'lane 11: nor is a local one'
 } finally {
     if (Test-Path -LiteralPath $fixture) { Remove-Item -Recurse -Force -LiteralPath $fixture -ErrorAction SilentlyContinue }
 }
