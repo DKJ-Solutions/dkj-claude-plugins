@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3090-dev-pages-breadcrumb-bar · 20261017-154017Z
+
+The placeholder Repo dashboard the `dkj-solutions` plugin serves, in every repo without a dev preview of
+its own, now opens with the house breadcrumb bar: one crumb, **Repo dashboard**, sticky at the top
+([#3090](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3090)). It follows the rule the
+brand book's `v0.2.0` sets for every page a dev server serves. Nothing in a repo's own layer changes.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+This repo's own connector dashboard carries the same bar, so both dev-server pages here now take the
+Repo dashboard form block for block.
+
+**Score:** 1
+
+#### Pull Request
+
+Dev-server pages here carry the house breadcrumb bar
+
+Plugins: dkj-solutions
+
+[PR #3092](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3092)
+
+---
 
 ### DEPLOY: feat/3088-brandbook-v0-2-0 · 20261017-150058Z
 
