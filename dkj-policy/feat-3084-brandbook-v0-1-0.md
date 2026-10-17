@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Inbound #3084: the brand book released its four `house-style-v*` tags as one `v0.1.0`, and the skill
+must stop pointing at `house-style-v4` before that tag can be deleted. Verified first: both files served
+at `v0.1.0` hash to the pinned sha256 values, and the README and `patterns/repo-dashboard.html` exist at
+the tag, so the vendored copies and the retired-name list stand unchanged.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Repoint every brand-book link in the `house-style` skill to `v0.1.0`, and its commit to `ed2cadd5`
+- [x] Name the brand book's releases `vX.Y.Z`, cut with `cut-release`, in "Changing the house style"
+- [x] The retired-names docstring and the test's tag asserts follow the new pin
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: 58 passed, 0 failed
+
 ### DEPLOY: feat/3084-brandbook-v0-1-0
 
-**Score:**
+The `house-style` skill now fetches from the brand book's `v0.1.0` release, which brought the four
+`house-style-v1`..`-v4` tags together ([#3084](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3084)).
+The two files there are byte-identical to `house-style-v4`, so the checksums and both vendored copies stand.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing a DKJ-Solutions app takes changes: the bytes are the same. It prevents a failure that has not
+happened yet: the brand book deleting its `house-style-v*` tags would otherwise leave every installed
+copy of the skill fetching from a tag that no longer exists.
+
+**Score:** 1
 
 #### Pull Request
 

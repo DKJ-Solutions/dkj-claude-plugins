@@ -8,7 +8,7 @@ description: The DKJ-Solutions house style -- the design tokens, the twelve them
 **Every DKJ-Solutions app looks like one family** (Dave, issue
 [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1, 2026), and that
 family is written down in **[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook)**,
-folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/house-style-v4/house-style). The
+folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/v0.1.0/house-style). The
 stylesheet and the theme script lived beside this page until October 13, 2026; they moved there so the
 brand book is the single copy, and this skill carries the pointer instead of a second one.
 
@@ -17,19 +17,19 @@ BWJ-Development has its own styling, and this skill says nothing about it.
 
 ## Where the files are
 
-The repo is public, so these read without auth. **They are pinned to the release tag `house-style-v4`,
+The repo is public, so these read without auth. **They are pinned to the release tag `v0.1.0`,
 never to `main`**: `main` moves, and `house-theme.js` is executable wherever it is inlined, so a fetch from
 `main` would carry an unreleased push into every app's next copy
 ([#2954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2954)).
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v4/house-style/house-style.css` | `efee34bebc5d3ba4103bb529bd794f91c08a80e5bf5e282003a3d25ff5adc5f2` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/house-style-v4/house-style/house-theme.js` | `80e771ba62e5700aab06a43c897fff604eacf3e2f200fd8b70966cefbe65be28` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.1.0/house-style/house-style.css` | `efee34bebc5d3ba4103bb529bd794f91c08a80e5bf5e282003a3d25ff5adc5f2` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.1.0/house-style/house-theme.js` | `80e771ba62e5700aab06a43c897fff604eacf3e2f200fd8b70966cefbe65be28` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
-[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/house-style-v4/house-style/README.md)
-at the same tag, which points at commit `f6513f7b323e74bad6e77ce090773e8e43b3ef7b`.
+[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.1.0/house-style/README.md)
+at the same tag, which points at commit `ed2cadd5c8964479bf96e243f1e1d31e1540c6b5`.
 
 **Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
 and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
@@ -59,7 +59,7 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    **A Repo dashboard** (the index of a repo's dev server) **takes the one form the README lays down
    under "Page patterns", "The Repo dashboard"**: its blocks, their order and the fixed `h1`, with only
    the content the repo's own. A repo without a build starts from
-   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/house-style-v4/house-style/patterns/repo-dashboard.html)
+   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.1.0/house-style/patterns/repo-dashboard.html)
    at the same tag, which carries no CSS of its own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
 2. **Add the repo's own layer after it, in a separate block or file.** Domain colours and components go
@@ -121,7 +121,9 @@ reaches every DKJ-Solutions app the next time it takes a copy, so the branch sto
 instead of merging.
 
 **A merged change reaches the apps only once it is released and this page follows it.** The brand book
-releases the house style as a new `house-style-v<N>` tag, set only on the owner's request and never moved.
+releases the house style as a new `vX.Y.Z` tag, cut with its `cut-release` on the owner's request and never
+moved. Its first, `v0.1.0` (October 17, 2026), brought the four earlier `house-style-v1`..`-v4` tags together
+([#3084](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3084)).
 Then an inbound issue on this plugin's source repo asks for a repoint to the new tag, and the change
 repoints every link to the previous tag on this page and replaces the commit and both checksums, measured
 from the bytes served at that tag, and `Get-HouseStyleRetiredTokens` in `scripts/lib/house-style-rules.ps1`
