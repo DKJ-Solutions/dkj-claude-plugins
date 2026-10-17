@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**1 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3083-release-notes-local-only · 20261017-104120Z
+
+This repo's release-notes page is no longer hosted on Cloudflare, so a cut no longer stops at a redeploy
+that needs a token only one machine had
+([#3083](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3083)). The page is still built at
+every cut, and the connector dashboard serves it at `/release-notes`, for VS Code's Simple Browser. Only
+BWJ-Development hosts its release notes, so colleagues can read them from any device.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A. A consumer's own `Get-ReleasePageWorkerName` answer is untouched, and the blueprint already offered
+`''` as the default.
+
+**Score:** N/A
+
+#### Pull Request
+
+Release notes: read locally in this repo, no Cloudflare worker
+
+Plugins: dkj-policy
+
+[PR #3087](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3087)
+
+---
 
 ### DEPLOY: feat/3084-brandbook-v0-1-0 · 20261017-092629Z
 
