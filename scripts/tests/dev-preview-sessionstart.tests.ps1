@@ -180,6 +180,7 @@ Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText "{`n  // `"localhost
 $html = Format-DevPreviewPlaceholderHtml -RepoName 'dkj-thumbnail-generator'
 Assert-True ($html -match '<p class="eyebrow">dkj-thumbnail-generator</p>') 'the page names the repo, in the eyebrow'
 Assert-True ($html -match '<h1>Repo dashboard</h1>' -and $html -match '<main class="page-column">' -and $html -match 'About this repo</h2>') 'and takes the Repo dashboard form: the fixed h1, the page column, the facts card (#3066)'
+Assert-True ($html -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo dashboard</span></li>') 'the breadcrumb bar opens <body>, its trail the one crumb Repo dashboard (#3090)'
 Assert-True ($html -notmatch '<header') 'and its intro is no <header>, which the house style lays out as a flex row'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
 Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1') 'and says how to state a preview of its own'

@@ -301,6 +301,10 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
+    # Block 0, the breadcrumb bar: first in <body> on every dev-server page; on the Repo dashboard its trail is this one crumb.
+    [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
+    [void]$sb.AppendLine('<li><span aria-current="page">Repo dashboard</span></li>')
+    [void]$sb.AppendLine('</ol></nav></div></div>')
     # Block 1, the settings button, sits outside <main>.
     [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
     [void]$sb.AppendLine('<main class="page-column">')

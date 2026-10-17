@@ -210,6 +210,7 @@ Assert-True ($html -match 'DKJTheme\.settings\(' -and $html -notmatch 'DKJTheme\
 Assert-True ($html -match '<div id="settings" class="theme-settings--floating">') 'the settings button floats fixed top right, outside the header'
 Assert-True (([regex]::Matches($html, 'var\(--primary')).Count -ge 6 -and $html -match 'class="cd-link"') 'the chosen theme reaches the page beyond its buttons, through the repo layer''s own --primary accents'
 Assert-True ($html -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>' -and $html -match '<h1>Repo dashboard</h1>' -and $html -match '<main class="page-column">') 'the page takes the Repo dashboard form: the slug as eyebrow, the fixed h1, the page column (#3066)'
+Assert-True ($html -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo dashboard</span></li>') 'the breadcrumb bar opens <body>, its trail the one crumb Repo dashboard (#3090)'
 Assert-True ($html -notmatch '<header' -and $html -notmatch 'cd-band|cd-accent') 'and its intro is no <header>, and no decoration the form does not carry'
 Assert-True ($html -match 'About this repo</h2>' -and $html -match '<dl class="facts">' -and $html -match 'href="#overview">Back to overview') 'it has the facts card, and the card the overview links down to carries the way back'
 $ix = @('class="eyebrow"', 'class="tiles"', 'Connected repos</h2>', 'Issues</h2>', 'About this repo</h2>', 'class="footer-note"') | ForEach-Object { $html.IndexOf($_) }
