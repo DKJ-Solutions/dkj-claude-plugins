@@ -757,8 +757,11 @@ if ($runMachine) {
             # correctly so, that IS a misconfiguration. But an authority this run could not read is not
             # evidence that a plugin is gone, so the marketplace simply gets no entry and every record
             # naming it stays silent.
+            # -IncludeRemote, because the question is "does the manifest still name it", not "does the
+            # clone hold a copy": without it every url-sourced plugin read as retired, and the lane handed
+            # over an uninstall of a live one (#3096).
             try {
-                $roots = @(Get-RepoPluginRoots -RepoRoot $cloneDir)
+                $roots = @(Get-RepoPluginRoots -RepoRoot $cloneDir -IncludeRemote)
                 if ($roots.Count -gt 0) { $liveNames[$mp] = [string[]]@($roots | ForEach-Object { [string]$_.Name }) }
                 else { $unreadable += "$mp (the clone's marketplace.json lists no plugins)" }
             } catch {

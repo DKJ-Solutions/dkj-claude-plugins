@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Verified the reason in #3096: lane 11 calls `Get-RepoPluginRoots -RepoRoot $cloneDir` without
+`-IncludeRemote`, and `Get-PluginRoots` skips every non-string source unless that switch is passed.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Pass `-IncludeRemote` in lane 11, in `scripts/` and its `plugins/dkj-policy/scripts/` mirror
+- [x] Name lane 11 beside plugin-versions in `Get-PluginRoots`'s comment on the switch, in both copies
+- [x] A behavioural case in `tidy-lib.tests.ps1`: a clone mixing a local and a url-sourced entry
 
 ### TEST
 
+- [x] `tidy-lib.tests.ps1`: 94 passed, 0 failed; with the fix reverted, the url-sourced case fails
+
 ### DEPLOY: fix/3096-tidy-lane11-remote-plugins
 
-**Score:**
+`tidy-machine`'s lane 11 no longer reports a url-sourced plugin, such as `figma` from the official
+marketplace, as retired, and no longer hands over an uninstall of it: it reads the marketplace clone with
+`-IncludeRemote`, so a plugin the manifest still names counts as listed whether or not the clone holds a
+copy ([#3096](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3096)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Anyone running `tidy-machine` with a url-sourced plugin installed was told to uninstall a live plugin;
+pasting that command removed it.
+
+**Score:** 3
 
 #### Pull Request
 

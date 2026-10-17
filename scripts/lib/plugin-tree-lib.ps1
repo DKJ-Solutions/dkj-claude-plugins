@@ -227,8 +227,9 @@ function Get-PluginRoots {
         # as a folder that does not exist. So a plugin cannot fall out of a release cut without the lint
         # gate going red first -- which is also why that second implementation is worth keeping.
         #
-        # -IncludeRemote EMITS IT ANYWAY, WITH EVERY PATH FIELD NULL, for the one caller that has to tell
-        # "declared, but its payload is elsewhere" from "not declared at all". Skipping alone made those
+        # -IncludeRemote EMITS IT ANYWAY, WITH EVERY PATH FIELD NULL, for the callers that have to tell
+        # "declared, but its payload is elsewhere" from "not declared at all" -- plugin-versions, and
+        # tidy-machine's lane 11, which reported every url-sourced plugin as retired without it (#3096). Skipping alone made those
         # two indistinguishable, and plugin-versions answers them with opposite advice -- it prescribed a
         # marketplace refresh for the absent case, which for a remotely-sourced plugin is the same advice
         # that provably cannot help that #1987 had just finished removing from the neighbouring branch.
