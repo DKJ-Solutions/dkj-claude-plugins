@@ -9,7 +9,8 @@
     escaped, and that the vendored house style is the copy the house-style skill pins. Group 2 starts
     the real server on a free loopback port against this tree and asks it for the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
     an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
-    outside the scope root, and no check-connectors.ps1 at all.
+    outside the scope root, and no check-connectors.ps1 at all -- and the release-notes page, before
+    and after it is built (#3083).
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -372,6 +373,14 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $at = $page.IndexOf('id="repo-org-far"')
             $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }
             Assert-True ($far -and $far -notmatch 'class="meta"') 'a checkout outside the scope root is not read'
+            # The release-notes page is served from where build-release-notes-page.ps1 leaves it (#3083).
+            $notes = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($notes -match 'HTTP/1.1 404' -and $notes -match 'Not built yet') 'the release notes are a 404 naming the build step until the page is built'
+            $pageDir = Join-Path $src 'dkj-policy\releases\page'
+            New-Item -ItemType Directory -Force -Path $pageDir | Out-Null
+            Set-Content -LiteralPath (Join-Path $pageDir 'release-notes.html') -Encoding ASCII -Value '<html>fixture notes</html>'
+            $notes = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($notes -match 'HTTP/1.1 200' -and $notes -match 'text/html' -and $notes -match 'fixture notes') 'and served as HTML once it is, read on each request'
         } finally {
             if (-not $proc3.HasExited) { Stop-Process -Id $proc3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
         }

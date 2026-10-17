@@ -4497,26 +4497,20 @@ This repo's answers:
 | | |
 |---|---|
 | `Get-ReleasePageTitle` | `Claude Specialists` — the **product's** name, not the repository's and not what the page is. It is the masthead eyebrow and half the window title; the heading is the template's own *Release notes*. Without it the fallback would head the page `claude-code-specialists`, which is a true answer and not one to send anybody. It carried `-- release notes` until 2026-08-21, which printed those words twice |
-| `Get-ReleasePageWorkerName` | `ccs-release-notes` |
+| `Get-ReleasePageWorkerName` | `''` — hosted nowhere since October 17, 2026 (below) |
 | where the output lands | `dkj-policy/releases/page/`, derived from `Get-ReleaseNoteRoot` rather than configured — the note root already says where this repo keeps its release documents |
-| what is committed | **nothing from that directory.** The page and the worker are derivatives of the tracked documents, and a 400 KB file changing every release would dirty the tree `cut-release.ps1` refuses to run on |
+| where it is read | the connector dashboard serves it at `http://localhost:<port>/release-notes` (the Repo dashboard link the session start prints, plus `/release-notes`), which opens in VS Code's Simple Browser |
+| what is committed | **nothing from that directory.** The page is a derivative of the tracked documents, and a 400 KB file changing every release would dirty the tree `cut-release.ps1` refuses to run on |
 
-**The path token is deliberately not in this repository, and that costs something worth stating.** The
-worker serves the page at `/notes/<32 hex>` with no login, so the path is the only lock — and this repo is
-**public**, which would put the key beside the door. It lives in
-`dkj-policy/releases/page/worker-path-token.txt`, which `.gitignore` keeps out, so **nothing in git
-remembers the URL**: the file on the machine that made it is the only copy, and whoever creates it records
-the finished URL outside the repo. A consumer whose repository is private has the opposite answer available
-and should take it — a tracked token is what survives a lost machine.
-
-**What the lock is actually for here, since the notes are public anyway.** It guards the *route*, not the
-content: every document on that page is already readable in this repository. What it buys is that the page
-is not a second, crawlable, permanent surface for the same text — which is why the `noindex` in the header
-and the meta tag matters more than the token does.
-
-**Rebuilding is not part of the cut, and no gate watches it.** The page is a snapshot: after a release it is
-stale until somebody runs the script and deploys again. Same category-A silence as any external link — if
-the worker is ever removed, whoever removes it takes this section with it.
+**Only BWJ-Development hosts its release notes on Cloudflare** (Maikel, October 17, 2026,
+[#3083](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3083)): colleagues there read them from
+any device. A DKJ repo's notes are read by the owners on their own machine, so this repo answers the worker
+seam with `''`, and `cut-release` no longer prints the redeploy step. From August 15, 2026 until then the
+page was served by the `ccs-release-notes` worker, whose path token was local, gitignored state, so a cut on
+any machine without that file stopped at the redeploy
+([#2868](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2868), #3083). That worker still exists
+in the DKJ-Solutions Cloudflare account and serves v5.21.0; removing it is an owner's act
+([#3086](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3086)).
 
 #### Where the rest lives
 
