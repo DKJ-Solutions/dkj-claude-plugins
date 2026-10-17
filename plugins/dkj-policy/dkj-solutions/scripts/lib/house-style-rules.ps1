@@ -222,8 +222,12 @@ function Find-HouseStyleClassHit {
         if ($pre.Trim().StartsWith('@')) { continue }
         foreach ($selector in ($pre -split ',')) {
             # Bracket and paren contents first: `[data-x='a b']` and `:is(.a .b)` hold spaces that are
-            # no combinator.
-            $flat = [regex]::Replace([regex]::Replace($selector, '\[[^\]]*\]', '[]'), '\([^()]*\)', '()')
+            # no combinator. Parens fold innermost-out, to `[]` so the next pass does not re-match them.
+            $flat = [regex]::Replace($selector, '\[[^\]]*\]', '[]')
+            do { $before = $flat; $flat = [regex]::Replace($flat, '\([^()]*\)', '[]') } while ($flat -ne $before)
+            # A paren left over is unbalanced, and a selector never is: `, OPTIONS).sort).toEqual(` is
+            # the tail of a call whose argument held an object literal (#3095).
+            if ($flat.IndexOfAny([char[]]'()') -ge 0) { continue }
             $parts = @($flat.Trim() -split '[\s>+~]+' | Where-Object { $_ })
             if ($parts.Count -eq 0) { continue }
             $house = @([regex]::Matches($parts[-1], $classPattern) | ForEach-Object { $_.Groups[1].Value } | Where-Object { $set.Contains($_) })
