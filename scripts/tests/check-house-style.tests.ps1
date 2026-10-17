@@ -98,6 +98,9 @@ Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "const x = {`n  ...
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text '[data-x].card {}' -Classes $jsClasses)) 'a house class after an attribute selector still counts'
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ':not(.a).card {}' -Classes $jsClasses)) 'and after a functional pseudo-class'
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "list.map(x => x);`n.card { color: red; }" -Classes $jsClasses)) 'a method call elsewhere in the file does not hide a real rule'
+# Measured in dkj-music-library (#3095): a property access between a call's closing parens, then an object literal.
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text 'expect(validate({ sort: { key: "year" } }, OPTIONS).sort).toEqual({ key: "year" });' -Classes $jsClasses)) 'a property access inside unbalanced parens is no selector'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ':is(:not(.a)).card {}' -Classes $jsClasses)) 'nested functional pseudo-classes still fold to a selector'
 
 
 Write-Host '-- group 1e: the allowlist and the quoted path' -ForegroundColor Cyan

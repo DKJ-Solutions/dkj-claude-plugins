@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Verified the reason in #3095 against `Find-HouseStyleClassHit`: the text between `}` and the next `{`
+is `, OPTIONS).sort).toEqual(`, `.sort` sits between two `)`, and neither #3040 guard catches it. A
+real selector is balanced once its paren groups are folded, so a leftover paren rules it out.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Fold paren groups innermost-out until stable, and skip a "selector" with a paren left over
+- [x] Two suite cases: the measured shape, and a nested `:is(:not(.a)).card` that must still count
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: 60 passed, 0 failed
+
 ### DEPLOY: fix/3095-house-style-property-access
 
-**Score:**
+`check-house-style` no longer reads a property access inside a call's closing parens, followed by an
+object literal, as a selector styling a house class: a "selector" with an unbalanced paren is skipped,
+and nested functional pseudo-classes now fold fully
+([#3095](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3095)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo whose script reads a property named like a house class (`.sort`, `.card`) and
+passes an object literal on the same statement no longer gets a red house-style gate it cannot act on.
+
+**Score:** 2
 
 #### Pull Request
 
