@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Serve the connector dashboard (#2976) on http://localhost:<Port>/ -- one page with every repo
-    registered under connectors/, its plugins, its local checkout and what check-connectors.ps1 reports
-    for it on this machine. The same page is served at /connectors as a page under the Repo dashboard,
-    beside /sessionstart (the always-on path every session loads) and /test-gate (the per-suite CI
-    durations), whose rules are in scripts/lib/dev-pages-lib.ps1 (#3097).
+    Serve this repo's dev server on http://localhost:<Port>/ -- the Repo hub on '/', which links the
+    pages below it (#3097): /connectors, every repo registered under connectors/ with its plugins, its
+    local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /release-notes;
+    /sessionstart, the always-on path every session loads; and /test-gate, the per-suite CI durations.
+    The rules of the hub and the measurement pages are in scripts/lib/dev-pages-lib.ps1.
 
 .DESCRIPTION
     Normally started by the dkj-solutions dev-preview SessionStart hook, through this repo's
@@ -111,9 +111,7 @@ function Get-DashboardGitInfo {
 
 function Get-DashboardModel {
     $started = Get-Date
-    $meta = @{ GeneratedAt = $started.ToString('yyyy-MM-dd HH:mm:ss'); SourceCommit = ''; Seconds = $null; CheckFailed = $null }
-    $sha = Invoke-DashboardGit $root @('rev-parse', '--short', 'HEAD')
-    if ($sha) { $meta.SourceCommit = [string]$sha[0] }
+    $meta = @{ GeneratedAt = $started.ToString('yyyy-MM-dd HH:mm:ss'); Seconds = $null; CheckFailed = $null }
 
     $parsed = @{}
     $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
@@ -315,10 +313,16 @@ try {
                 Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" }
                 continue
             }
-            if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/connectors') {
+            if ($path -eq '/' -or $path -eq '/index.html') {
+                $sha = Invoke-DashboardGit $root @('rev-parse', '--short', 'HEAD')
+                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($sha) { [string]$sha[0] } else { '' })
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                continue
+            }
+            if ($path -eq '/connectors') {
                 if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $CacheSeconds) { $cache = Get-DashboardModel }
-                # '/' keeps the connector overview until the hub that links the pages lands (#3097).
-                $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -SubPage:($path -eq '/connectors')
+                $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue

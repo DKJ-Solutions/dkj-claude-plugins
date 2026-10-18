@@ -39,19 +39,51 @@
 
 ### PLAN
 
+Step 2 of #3097; step 1 (the three pages) shipped in #3101. dkj-brandbook v0.3.0, which #3105 repointed
+the house-style skill to, carries both things this step waited on: the rename to **Repo hub** (brandbook
+#199) and the **Pages** block, block 7 (brandbook #200), read from `house-style/README.md` at that tag.
+
+#### Visible result
+
+The hub on `/` and the renamed crumb on every page are judged by eye, so this branch stops for the
+owner's look and opens no PR.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/dev-pages-lib.ps1`: `Get-RepoHubPages` and `Format-RepoHubHtml`, the hub in the
+  v0.3.0 form (bar, settings, intro, Pages, About this repo, footer note); the page shell's crumb reads
+  Repo hub
+- [x] `scripts/lib/connector-dashboard-lib.ps1`: the overview is only the Connectors page now; its
+  facts card moved to the hub
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `/` serves the hub, `/connectors` the overview
+- [x] `dkj-solutions`: the dev-preview label and the placeholder page say Repo hub (`dev-preview-rules.ps1`,
+  `dev-preview-placeholder.ps1`, block numbers moved to v0.3.0's)
+- [x] Docs: the `house-style` skill, the `dkj-solutions` README, Sylvester's lens, `repo-config.ps1`
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the hub's form, order, rows, escaping and the Source-at row
+- [x] `connector-dashboard.tests.ps1`: `/` serves the hub, `/connectors` the overview under it
+- [x] `dev-preview-sessionstart.tests.ps1`: the label and the placeholder read Repo hub
+- [x] The three suites green locally (49, 126 and 105 passed)
+
 ### DEPLOY: feat/3097-repo-hub
 
-**Score:**
+The dev server's index (`/`) in this repo is now the **Repo hub**: a page in dkj-brandbook v0.3.0's form
+whose Pages card links the connector overview (now at `/connectors`), the release notes, the SessionStart
+measurements and the test-gate durations
+([#3097](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3097)). Every page's breadcrumb starts
+at Repo hub.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+In every DKJ-Solutions repo the session-start line now opens with `Repo hub:` instead of
+`Repo dashboard:`, and the placeholder page carries the same name, the term the brand book adopted in
+v0.3.0. Nothing to do: a repo's own index takes the new name when it next follows the brand book.
+
+**Score:** 2
 
 #### Pull Request
 
