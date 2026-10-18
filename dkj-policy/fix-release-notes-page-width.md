@@ -39,19 +39,38 @@
 
 ### PLAN
 
+The settings panel's width (house style v0.4.0, #3115) is written as `<html data-width>` and applied by
+`house-style.css` to `main` and `.container` only. The release-notes template's column is a
+`<div class="wrap">` with a fixed `max-width: 52rem`, so the setting never reached it: only the breadcrumb
+bar followed the choice. Repaired in the shared template, so every repo whose page runs the house theme
+script gets it at once, and a page without that script is unchanged.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `release-notes-page-template.html`: `.wrap` answers `data-width="phone"` (360px) and `"full"` (no maximum); fluid stays the template's own 52rem column
+- [x] Plugin mirror refreshed with `build-shared-scripts.ps1`
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` pins the two width rules in the template (108 passed); `release-notes-page.tests.ps1` 175 passed
+- [ ] The owner has looked at `/release-notes` on the dev server at Fluid, Phone and Full (a visible result)
+
 ### DEPLOY: fix/release-notes-page-width
 
-**Score:**
+The release-notes template's column now follows the page width a reader picks in the house settings
+panel: Phone narrows it to 360px and Full lifts its maximum, where it used to stay at 52rem whatever was
+picked while only the breadcrumb bar moved. Fluid keeps the template's own reading column. The rules key
+off the attribute the house theme script sets, so a page without that script, a Worker-served one
+included, renders exactly as before.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo that serves its release notes with the house theme script gets a width setting that
+actually applies to the notes, after its next plugin update and page rebuild.
+
+**Score:** 2
 
 #### Pull Request
 
