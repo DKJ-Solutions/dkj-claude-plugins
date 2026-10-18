@@ -8,8 +8,11 @@
 .DESCRIPTION
     THE HUB TAKES THE ONE FORM THE BRAND BOOK LAYS DOWN (house style v0.3.0, "The Repo hub"): the bar
     with its one crumb, the settings button, the intro with the fixed h1, the Pages card (block 7) linking
-    every page below, About this repo and a footer note. This repo is no product and keeps no in-flight
-    lists on the hub, so blocks 6 and 8 to 10 are left out. The pages it links are Get-RepoHubPages.
+    the repo's own pages, About this repo and a footer note. This repo is no product and keeps no in-flight
+    lists on the hub, so blocks 6 and 8 to 10 are left out. The pages it links are Get-RepoHubPages; the
+    general ones -- a page any repo running the workflow could serve, such as its issues or its release
+    notes -- stand in a second card of the same form, General pages, directly under block 7, so a page that
+    is this repo's own is never read as one every repo has.
 
     ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
     starting at the Repo hub on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
@@ -105,16 +108,19 @@ $script:RepoHubChevron = '<svg class="menu-item__chevron" viewBox="0 0 24 24" wi
 
 function Get-RepoHubPages {
     <#
-        The pages the Repo hub links, in the order its Pages card lists them: each a route on this server,
-        its label the page's own name as its breadcrumb reads it, and one line on what it shows.
+        The pages the Repo hub links, in the order it lists them: each a route on this server, its label
+        the page's own name as its breadcrumb reads it, one line on what it shows, and its Group. 'repo' is
+        a page only this repo has, listed in the Pages card; 'general' is a page any repo running the
+        workflow could serve the same way -- its GitHub issues, its releases, what a session loads --
+        listed in the General pages card below it, so the two are never mistaken for each other.
     #>
     @(
-        @{ Href = '/artifacts';     Label = 'Artifacts';     Sub = 'Every claude.ai Artifact published from a session in this repo' },
-        @{ Href = '/connectors';    Label = 'Connectors';    Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
-        @{ Href = '/issues';        Label = 'Issues';        Sub = 'The open GitHub issues and where they stand, and the flow of the last four weeks' },
-        @{ Href = '/release-notes'; Label = 'Release notes'; Sub = 'What each released version of the plugins changed' },
-        @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn' },
-        @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI' }
+        @{ Href = '/connectors';    Label = 'Connectors';    Group = 'repo';    Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
+        @{ Href = '/test-gate';     Label = 'Test gate';     Group = 'repo';    Sub = 'What each test suite costs on CI' },
+        @{ Href = '/artifacts';     Label = 'Artifacts';     Group = 'general'; Sub = 'Every claude.ai Artifact published from a session in this repo' },
+        @{ Href = '/issues';        Label = 'Issues';        Group = 'general'; Sub = 'The open GitHub issues and where they stand, and the flow of the last four weeks' },
+        @{ Href = '/release-notes'; Label = 'Release notes'; Group = 'general'; Sub = 'What each released version of the plugins changed' },
+        @{ Href = '/sessionstart';  Label = 'SessionStart';  Group = 'general'; Sub = 'The always-on path every session loads before its first turn' }
     )
 }
 
@@ -153,16 +159,25 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<p class="lead">The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.</p>')
     [void]$sb.AppendLine('</div>')
 
-    # Block 7, Pages: one menu-item row per page, direct siblings so the house draws the line between them.
-    [void]$sb.AppendLine('<section class="card">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Pages</h2></div>')
-    [void]$sb.AppendLine('<nav class="menu-list" aria-label="Pages">')
-    foreach ($p in $Pages) {
-        $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-        [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
+    # Block 7, Pages: the repo's own pages, then the general ones in a card of their own. One menu-item row
+    # per page, direct siblings so the house draws the line between them. A page without a Group is the
+    # repo's own.
+    $cards = @(
+        @{ Title = 'Pages';         Sub = 'Specific to this repo';                          Rows = @($Pages | Where-Object { $_.Group -ne 'general' }) },
+        @{ Title = 'General pages'; Sub = 'Not specific to this repo: any repo running the workflow has them'; Rows = @($Pages | Where-Object { $_.Group -eq 'general' }) }
+    )
+    foreach ($c in $cards) {
+        if ($c.Rows.Count -eq 0) { continue }
+        [void]$sb.AppendLine('<section class="card">')
+        [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">' + $c.Title + '</h2><p class="card__sub">' + $c.Sub + '</p></div>')
+        [void]$sb.AppendLine('<nav class="menu-list" aria-label="' + $c.Title + '">')
+        foreach ($p in $c.Rows) {
+            $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
+            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
+        }
+        [void]$sb.AppendLine('</nav>')
+        [void]$sb.AppendLine('</section>')
     }
-    [void]$sb.AppendLine('</nav>')
-    [void]$sb.AppendLine('</section>')
 
     # Block 11: About this repo, the fixed title, with this repo's own facts.
     [void]$sb.AppendLine('<section class="card">')

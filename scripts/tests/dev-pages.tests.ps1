@@ -42,13 +42,17 @@ Assert-True ($shell -match '<p class="footer-note">note</p>') 'the footer note c
 
 Write-Host '-- the Repo hub' -ForegroundColor Cyan
 $pages = @(Get-RepoHubPages)
-Assert-Equal '/artifacts,/connectors,/issues,/release-notes,/sessionstart,/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the six pages, in order'
+Assert-Equal '/connectors,/test-gate,/artifacts,/issues,/release-notes,/sessionstart' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the six pages, in order'
+Assert-Equal 'repo,repo,general,general,general,general' (($pages | ForEach-Object { $_.Group }) -join ',') 'the repo''s own pages first, then the general ones'
 $hub = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234'
 Assert-True ($hub -match '<title>dkj-claude-plugins -- Repo hub</title>' -and $hub -match '<h1>Repo hub</h1>') 'the h1 and the title are Repo hub, word for word'
 Assert-True ($hub -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo hub</span></li>\s*</ol>') 'the bar opens <body>, its trail the one crumb Repo hub'
 Assert-True ($hub -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>' -and $hub -notmatch '<header' -and $hub -notmatch 'btn--primary') 'the intro is the slug and no <header>, and there is no product button'
 Assert-Equal 6 ([regex]::Matches($hub, '<a class="menu-item" href="/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
 Assert-True ($hub -match '<nav class="menu-list" aria-label="Pages">\r?\n<a class="menu-item"' -and $hub -match '</a>\r?\n<a class="menu-item"') 'the rows are direct siblings in the nav, so the house draws the line between them'
+Assert-True ($hub -match '<h2 class="card__title">Pages</h2>.*\r?\n<nav class="menu-list" aria-label="Pages">\r?\n<a class="menu-item" href="/connectors"' -and $hub -match '<h2 class="card__title">General pages</h2>.*\r?\n<nav class="menu-list" aria-label="General pages">\r?\n<a class="menu-item" href="/artifacts"') 'the repo''s own pages are in the Pages card, the general ones in a card of their own'
+Assert-True ($hub.IndexOf('href="/test-gate"') -lt $hub.IndexOf('General pages</h2>') -and $hub.IndexOf('href="/issues"') -gt $hub.IndexOf('General pages</h2>')) 'and no page sits in the other group''s card'
+Assert-True ((Format-RepoHubHtml -Pages @(@{ Href = '/x'; Label = 'X'; Sub = '' })) -notmatch 'General pages') 'a group with no page has no card, and a page without a Group is the repo''s own'
 Assert-True ($hub -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'About this repo names the commit it serves from'
 Assert-True ((Format-RepoHubHtml -Pages $pages) -notmatch 'Source at') 'and leaves the row out when the commit could not be read'
 $ix = @('class="breadcrumbs-bar"', 'id="settings"', 'class="eyebrow"', 'Pages</h2>', 'About this repo</h2>', 'class="footer-note"') | ForEach-Object { $hub.IndexOf($_) }
