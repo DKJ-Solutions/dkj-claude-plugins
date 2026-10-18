@@ -1,0 +1,81 @@
+## fix/3122-dev-server-restarts-on-moved-head
+
+> **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
+> `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
+> open-pr and ship-pr both refuse while one is still open, and there is no `-Force`.
+>
+> **FOUR `###` HEADINGS, AND NEVER A FIFTH** -- PLAN, CREATE, TEST, DEPLOY are the whole top
+> level. A section needing its own heading goes in as a `####` UNDER whichever of the four owns
+> it. No gate in YOUR repo reads a heading, so this half is on you -- only the repo that authors
+> this workflow refuses a fifth (Dave, August 26, 2026).
+>
+> **AND NOTHING BRANCH-SPECIFIC ABOVE THE FIRST OF THOSE FOUR HEADINGS** -- everything between the
+> title and it is this guidance, which is identical in every branch document. A status line, a note about
+> THIS branch or an instruction to a session belongs under one of the four, normally as a `####`
+> in PLAN. THIS half open-pr refuses, in every repo, before the push -- it reads the shape, so a
+> guidance block in your own language passes and your own paragraph here does not (Dave,
+> August 26, 2026; refused since #1650).
+>
+> **DEPLOY takes no steps of its own, and it is WRITTEN LAST** -- it is what the branch DID, once
+> TEST says so. Written while steps above it are still open it states an INTENTION, and no gate
+> holds it against what landed: the step gate splits this file at that heading and counts only
+> above it. The PR title is the one exception -- new-branch -Title writes it at creation, because
+> open-pr composes the PR title from it. It is the one part of this file that travels verbatim
+> into `CHANGELOG.md` at the merge. In each tier, write the reason
+> ABOVE the Score line -- anything below it is discarded.
+>
+> Relative links in that text resolve FROM THIS DIRECTORY -- `CHANGELOG.md` sits here too, so
+> write each path exactly as it reads in this file.
+>
+> For tier 2 audiences: the user who relies on what this repo ships, and decides whether to take the next version -- a subscriber of a service, or the user of a tool, its own maintainer included. That reader and nobody else -- what matters only
+> inside this repo belongs under the first `**Score:**`. If the change reaches that reader
+> not at all, N/A is a complete answer and the common one. **One hop and no further:** where that
+> reader is itself a business, ITS own customers sit one hop past this repo and are never the reader
+> here -- they take nothing this repo ships. Name the party that runs the upgrade, and score
+> against them.
+>
+> The phase arc, the marks and the whole form: `DEVELOPMENT-portable.md`, which ships
+> with this workflow.
+
+### PLAN
+
+Issue #3122: the dev server dot-sources its libs once, the dev-preview hook reuses any server of this
+checkout, and the hub's "Source at" read HEAD live -- so after a pull it served old pages under the new
+commit's name. Repaired in the server, not the shared hook: the hook's reuse is right once the server
+it reuses cannot be stale.
+
+### CREATE
+
+- [x] `serve-connector-dashboard.ps1` notes the HEAD it loaded; a request that finds HEAD moved gets a
+  503 that reloads in two seconds, and the server starts its successor on the same port under a
+  cmd.exe that changes into the root first, so the hook still recognises it
+- [x] "Source at" names the loaded commit, not the live one
+- [x] Review (Victor, Sebastian): no blocking findings; applied the refusal of '%' and '"' in the
+  cmd.exe line, the resolved root forwarded instead of the raw override, a 3 s reload, and the test's
+  log cleanup
+
+### TEST
+
+- [x] `connector-dashboard.tests.ps1` group 4: a fixture repo, a commit after the start, then the 503,
+  the old server's exit, and the successor serving the new commit -- 134 passed, 0 failed
+
+### DEPLOY: fix/3122-dev-server-restarts-on-moved-head
+
+This repo's dev server no longer keeps serving the code it started on after a pull or a branch switch.
+It notes the commit it loaded, and the first page asked for after HEAD has moved answers with a short
+"restarting" notice that reloads itself, while the server hands its port to a fresh copy of itself on
+the new code. The hub's "Source at" now names the commit the pages were actually built from, so it can
+no longer read the new commit while the old code runs. Static files skip the check.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the server is this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The dev server restarts itself when the checkout's HEAD has moved
+
