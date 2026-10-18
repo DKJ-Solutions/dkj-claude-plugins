@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**4 / 12 minor entries** <!-- pending-tally -->
+**5 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3115-house-style-v0.4.0 · 20261018-134044Z
+
+The `house-style` skill now fetches from the brand book's `v0.4.0` release
+([DKJ-Solutions/dkj-brandbook@v0.4.0](https://github.com/DKJ-Solutions/dkj-brandbook/releases/tag/v0.4.0)). Both files changed, so the two vendored copies move with the pin. No token was renamed or removed, so the retired-name list stands.
+The settings panel of every page the dev server renders now offers the page width -- fluid, phone or
+full -- remembered per device like the theme ([#3115](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3115),
+brand book #203). The repoint's safety read now accepts a second storage key where it is a house
+`dkj-` name, which is what let this release through; a foreign key is still refused.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app that takes the plugin's `assets/house-style/` copy gets the width choice in its
+settings panel without writing a line, and can opt out with `settings(el, { widths: false })` where
+its layout has no page column.
+
+**Score:** 2
+
+#### Pull Request
+
+Repoints the `house-style` skill and the four vendored copies to `dkj-brandbook` `v0.4.0`, which adds the
+fluid/phone/full page width to `DKJTheme.settings()`. The repoint's safety read is relaxed from "one
+storage key" to "only house `dkj-` keys", hardened after review. A visible result: it waits for the
+owner's look at the dev server's settings panel before merging.
+
+Plugins: dkj-solutions
+
+[PR #3116](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3116)
+
+---
 
 ### DEPLOY: feat/3112-harvest-artifacts · 20261018-130135Z
 
