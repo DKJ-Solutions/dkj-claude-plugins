@@ -5,7 +5,8 @@
     local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /release-notes;
     /sessionstart, the always-on path every session loads; /test-gate, the per-suite CI durations; and
     /artifacts, every claude.ai Artifact published from this repo, from scripts/dashboard/artifacts.json;
-    and /issues, this repo's GitHub issues as gh reads them.
+    /issues, this repo's GitHub issues as gh reads them; and /specialists, every specialist the
+    dkj-subagents plugins ship and the context each one costs, read from this tree.
     The rules of the hub and the measurement pages are in scripts/lib/dev-pages-lib.ps1.
 
 .DESCRIPTION
@@ -247,6 +248,42 @@ function Get-ArtifactsModel {
     return @{ Model = (ConvertFrom-ArtifactRegister -Register $json); Error = $err }
 }
 
+function Get-SpecialistsModel {
+    <#
+        Every specialist under plugins/dkj-subagents/, read on every request: about sixty small files. A
+        definition's manual is the plugin's manuals/specialist-<id>-manual.md, its lens this repo's
+        .claude/specialists/lenses/specialist-<id>-lens.md; whether its plugin is enabled here is read from
+        .claude/settings.json. A file that cannot be read is named in the ReadError, never a blank page.
+    #>
+    $rows = @(); $errs = @(); $enabled = @{}
+    # The token factor's one home; loaded in this call's scope, as the Issues read loads its lib. Should
+    # it fail to load, the page still renders at the last calibrated value and says so in its warning.
+    $factor = 3.12
+    try { . (Join-Path $root 'scripts\lib\measure-context-lib.ps1'); $factor = (Get-CalibratedCharsPerToken).Value } catch { $errs += 'measure-context-lib.ps1 did not load, so the tokens use the fallback factor 3.12' }
+    try {
+        $settings = Get-Content -LiteralPath (Join-Path $root '.claude\settings.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($p in @($settings.enabledPlugins.PSObject.Properties)) { if ($p.Value -eq $true) { $enabled[($p.Name -split '@')[0]] = $true } }
+    } catch { $errs += '.claude/settings.json is not readable' }
+    $lensDir = Join-Path $root '.claude\specialists\lenses'
+    $size = { param($f) if (Test-Path -LiteralPath $f -PathType Leaf) { [int64](Get-Item -LiteralPath $f).Length } else { $null } }
+    foreach ($plugin in @(Get-ChildItem -LiteralPath (Join-Path $root 'plugins\dkj-subagents') -Directory -Filter 'dkj-subagents-*' -ErrorAction SilentlyContinue)) {
+        foreach ($form in 'subagent', 'persona') {
+            $dir = Join-Path $plugin.FullName ($form + 's')
+            foreach ($file in @(Get-ChildItem -LiteralPath $dir -File -Filter "specialist-*-$form.md" -ErrorAction SilentlyContinue)) {
+                if ($file.Name -notmatch '^specialist-(\d\d-\d\d)-') { continue }
+                $id = $Matches[1]
+                try {
+                    $rows += ConvertTo-SpecialistRow -Id $id -Plugin $plugin.Name -Form $form -Enabled ([bool]$enabled[$plugin.Name]) `
+                        -Text ([System.IO.File]::ReadAllText($file.FullName, $utf8)) `
+                        -ManualBytes (& $size (Join-Path $plugin.FullName "manuals\specialist-$id-manual.md")) `
+                        -LensBytes (& $size (Join-Path $lensDir "specialist-$id-lens.md"))
+                } catch { $errs += "$($plugin.Name)/$($file.Name)" }
+            }
+        }
+    }
+    return @{ Rows = $rows; Error = ($errs -join ', '); CharsPerToken = $factor }
+}
+
 function Get-IssuesModel {
     <#
         This repo's issues from GitHub: every open one, and those created or closed in the last 28 days --
@@ -436,6 +473,13 @@ try {
             if ($path -eq '/test-gate') {
                 $tg = Get-TestGateModel
                 $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                continue
+            }
+            if ($path -eq '/specialists') {
+                $sp = Get-SpecialistsModel
+                $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
