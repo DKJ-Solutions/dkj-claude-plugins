@@ -111,6 +111,7 @@ function Get-RepoHubPages {
     @(
         @{ Href = '/artifacts';     Label = 'Artifacts';     Sub = 'Every claude.ai Artifact published from a session in this repo' },
         @{ Href = '/connectors';    Label = 'Connectors';    Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
+        @{ Href = '/issues';        Label = 'Issues';        Sub = 'The open GitHub issues and where they stand, and the flow of the last four weeks' },
         @{ Href = '/release-notes'; Label = 'Release notes'; Sub = 'What each released version of the plugins changed' },
         @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn' },
         @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI' }
@@ -440,6 +441,242 @@ function Format-ArtifactsPageHtml {
     return Format-DevPageHtml -Title 'Artifacts' -Body $body.ToString() `
         -Lead 'Every claude.ai Artifact a session in this repo has published: pages, decks and documents. An Artifact is private to the account that made it until it is shared, so a link may not open for everyone.' `
         -FooterNote 'Read from <code>scripts/dashboard/artifacts.json</code>, on every request. A new Artifact is added there by <code>scripts/maintenance/harvest-artifacts.ps1</code> (the <code>harvest-artifacts</code> skill), from each machine''s session transcripts.'
+}
+
+function Format-DevDuration {
+    <# Hours as hours under two days, else days, one decimal -- 5.25 -> '5.3 h', 60 -> '2.5 d'. #>
+    param([AllowNull()]$Hours)
+    if ($null -eq $Hours) { return '--' }
+    $h = [double]$Hours
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    if ($h -lt 48) { return $h.ToString('0.0', $inv) + ' h' }
+    return ($h / 24).ToString('0.0', $inv) + ' d'
+}
+
+function ConvertTo-IssueRow {
+    <#
+        One issue from gh issue list --json (number,title,state,stateReason,labels,assignees,createdAt,closedAt)
+        as the page reads it: its priority (prio-N, 0 for none), its parking label (awaiting-*), its kind (the
+        first of the tracker's type labels it carries) and its state on the board -- Parked over Claimed over Free.
+    #>
+    param([Parameter(Mandatory = $true)]$Issue)
+    $labels = @(@($Issue.labels) | Where-Object { $_ } | ForEach-Object { [string]$_.name })
+    $assignees = @(@($Issue.assignees) | Where-Object { $_ } | ForEach-Object { [string]$_.login })
+    $prio = 0
+    foreach ($l in $labels) { if ($l -match '^prio-([1-4])$') { $prio = [int]$Matches[1] } }
+    $parked = @($labels | Where-Object { $_ -like 'awaiting-*' } | Select-Object -First 1)
+    $kind = 'other'
+    foreach ($k in 'bug-inbound', 'feature-inbound', 'bug', 'feature', 'documentation') {
+        if ($labels -contains $k) { $kind = $k; break }
+    }
+    $parse = { param($v) if ($v) { [DateTime]::Parse([string]$v, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::AdjustToUniversal -bor [Globalization.DateTimeStyles]::AssumeUniversal) } else { $null } }
+    $board = if ($parked.Count) { 'Parked' } elseif ($assignees.Count) { 'Claimed' } else { 'Free' }
+    return @{
+        Number    = [int]$Issue.number
+        Title     = [string]$Issue.title
+        Open      = ([string]$Issue.state -eq 'OPEN')
+        Reason    = [string]$Issue.stateReason
+        Labels    = $labels
+        Assignees = $assignees
+        Prio      = $prio
+        Parked    = if ($parked.Count) { $parked[0] } else { '' }
+        Kind      = $kind
+        Board     = $board
+        Created   = (& $parse $Issue.createdAt)
+        Closed    = (& $parse $Issue.closedAt)
+    }
+}
+
+function ConvertFrom-IssueList {
+    <#
+        The Issues page model. -Open is every open issue; -Recent the issues created or closed inside the
+        window (the two searches the server makes, so a number may arrive twice and is counted once). -Now
+        is the moment the window ends, -Days its length. Returns @{ Open; Opened; Closed; MedianCloseHours;
+        Weeks (list of @{ From; To; Opened; Closed }, oldest first); Matrix ('4'..'0' -> @{ Free; Parked;
+        Claimed }); ClosedBy (@{ Kind; Prio; Reason }, each a list of @{ Name; Count }, largest first); Days; Now }.
+    #>
+    param(
+        [AllowEmptyCollection()][object[]]$Open = @(),
+        [AllowEmptyCollection()][object[]]$Recent = @(),
+        [Parameter(Mandatory = $true)][datetime]$Now,
+        [ValidateRange(7, 365)][int]$Days = 28
+    )
+    $now = $Now.ToUniversalTime()
+    $start = $now.AddDays(-$Days)
+    $byNumber = @{}
+    foreach ($i in @(@($Open) + @($Recent))) {
+        if (-not $i) { continue }
+        $r = ConvertTo-IssueRow $i
+        $byNumber[$r.Number] = $r
+    }
+    $rows = @($byNumber.Values)
+    $open = @($rows | Where-Object { $_.Open } | Sort-Object @{ Expression = { $_.Prio }; Descending = $true }, @{ Expression = { $_.Number } })
+    # Bounded at -Now on both ends, so the tiles and the weekly rows count the same issues.
+    $opened = @($rows | Where-Object { $_.Created -and $_.Created -ge $start -and $_.Created -lt $now })
+    $closed = @($rows | Where-Object { -not $_.Open -and $_.Closed -and $_.Closed -ge $start -and $_.Closed -lt $now })
+
+    $hours = @($closed | Where-Object { $_.Created } | ForEach-Object { ($_.Closed - $_.Created).TotalHours } | Sort-Object)
+    $median = $null
+    if ($hours.Count) {
+        $mid = [int][Math]::Floor($hours.Count / 2)
+        $median = if ($hours.Count % 2) { [double]$hours[$mid] } else { ([double]$hours[$mid - 1] + [double]$hours[$mid]) / 2 }
+    }
+
+    $weeks = @()
+    for ($w = [int][Math]::Ceiling($Days / 7) - 1; $w -ge 0; $w--) {
+        $to = $now.AddDays(-7 * $w)
+        $from = $to.AddDays(-7)
+        if ($from -lt $start) { $from = $start }
+        $weeks += @{
+            From   = $from
+            To     = $to
+            Opened = @($opened | Where-Object { $_.Created -ge $from -and $_.Created -lt $to }).Count
+            Closed = @($closed | Where-Object { $_.Closed -ge $from -and $_.Closed -lt $to }).Count
+        }
+    }
+
+    $matrix = [ordered]@{}
+    foreach ($p in 4, 3, 2, 1, 0) {
+        $at = @($open | Where-Object { $_.Prio -eq $p })
+        # String keys: an [ordered] dictionary indexed by an int reads by POSITION, not by key.
+        $matrix[[string]$p] = @{
+            Free    = @($at | Where-Object { $_.Board -eq 'Free' }).Count
+            Parked  = @($at | Where-Object { $_.Board -eq 'Parked' }).Count
+            Claimed = @($at | Where-Object { $_.Board -eq 'Claimed' }).Count
+        }
+    }
+
+    $group = { param($items, $key)
+        @($items | Group-Object -Property { & $key $_ } | Sort-Object @{ Expression = { $_.Count }; Descending = $true }, @{ Expression = { $_.Name } } |
+            ForEach-Object { @{ Name = [string]$_.Name; Count = [int]$_.Count } })
+    }
+    return @{
+        Open             = $open
+        Opened           = $opened.Count
+        Closed           = $closed.Count
+        MedianCloseHours = $median
+        Weeks            = $weeks
+        Matrix           = $matrix
+        ClosedBy         = @{
+            Kind   = (& $group $closed { param($r) $r.Kind })
+            Prio   = (& $group $closed { param($r) if ($r.Prio) { 'prio-' + $r.Prio } else { 'no priority' } })
+            Reason = (& $group $closed { param($r) if ($r.Reason) { $r.Reason.ToLowerInvariant().Replace('_', ' ') } else { 'unknown' } })
+        }
+        Days             = $Days
+        Now              = $now
+    }
+}
+
+$script:IssueRepoUrl = 'https://github.com/DKJ-Solutions/dkj-claude-plugins/issues'
+
+function Format-IssueGroupCard {
+    <# One card of the closed-in-the-window breakdown: -Groups is a list of @{ Name; Count }. #>
+    param([string]$Title, [AllowEmptyCollection()][object[]]$Groups, [int]$Total)
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<section class="card">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">' + (& $e $Title) + '</h2></div>')
+    if (@($Groups).Count) {
+        $max = [double](@($Groups)[0].Count)
+        [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">' + (& $e $Title) + '</th><th>Issues</th><th class="dp-left">Against the largest</th><th>Share</th></tr></thead><tbody>')
+        foreach ($g in @($Groups)) {
+            [void]$sb.AppendLine('<tr><td class="dp-left">' + (& $e $g.Name) + '</td><td class="num">' + (Format-DevNumber $g.Count) + '</td>' + (Format-DevShareCell ([double]$g.Count) ([double]$Total) $max) + '</tr>')
+        }
+        [void]$sb.AppendLine('</tbody></table></div>')
+    } else {
+        [void]$sb.AppendLine('<p class="note">No issue was closed in the window.</p>')
+    }
+    [void]$sb.AppendLine('</section>')
+    return $sb.ToString()
+}
+
+function Format-IssuesPageHtml {
+    <#
+        The Issues page from ConvertFrom-IssueList's model. -ReadError is set when gh could not be read;
+        -GeneratedAt and -Seconds say when and how long the read took.
+    #>
+    param(
+        $Model,
+        [AllowEmptyString()][string]$ReadError = '',
+        [AllowEmptyString()][string]$GeneratedAt = '',
+        [AllowNull()]$Seconds = $null
+    )
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    $open = if ($Model) { @($Model.Open) } else { @() }
+    $days = if ($Model) { [int]$Model.Days } else { 28 }
+    $body = New-Object System.Text.StringBuilder
+    [void]$body.Append((Format-DevTiles @(
+        @{ L = 'Open now'; V = $(if ($Model) { $open.Count } else { '--' }) },
+        @{ L = "Opened, last $days days"; V = $(if ($Model) { Format-DevNumber $Model.Opened } else { '--' }) },
+        @{ L = "Closed, last $days days"; V = $(if ($Model) { Format-DevNumber $Model.Closed } else { '--' }) },
+        @{ L = 'Median time to close'; V = $(if ($Model) { Format-DevDuration $Model.MedianCloseHours } else { '--' }) })))
+    if ($ReadError) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The issues could not be read from GitHub: ' + (& $e $ReadError) + '.</p>')
+    }
+
+    if ($Model) {
+        # The open issues: where they stand, then each one.
+        [void]$body.AppendLine('<section class="card" id="open">')
+        [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Open issues</h2><p class="card__sub">Free is work nobody holds, parked waits on an awaiting-* label, claimed has an assignee</p></div>')
+        if ($open.Count) {
+            [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Priority</th><th>Free</th><th>Parked</th><th>Claimed</th><th>Total</th></tr></thead><tbody>')
+            foreach ($p in $Model.Matrix.Keys) {
+                $m = $Model.Matrix[$p]
+                $sum = $m.Free + $m.Parked + $m.Claimed
+                if (-not $sum) { continue }
+                $name = if ($p -ne '0') { 'prio-' + $p } else { 'no priority' }
+                [void]$body.AppendLine('<tr><td class="dp-left">' + $name + '</td><td class="num">' + $m.Free + '</td><td class="num">' + $m.Parked + '</td><td class="num">' + $m.Claimed + '</td><td class="num">' + $sum + '</td></tr>')
+            }
+            [void]$body.AppendLine('</tbody></table></div>')
+            [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Issue</th><th class="dp-left">Priority</th><th class="dp-left">State</th><th class="dp-left">Kind</th><th>Age</th></tr></thead><tbody>')
+            foreach ($i in $open) {
+                $tone = switch ($i.Board) { 'Free' { 'good' } 'Parked' { 'warn' } default { 'info' } }
+                $state = '<span class="badge badge--sm badge--' + $tone + '">' + $i.Board + '</span>'
+                if ($i.Parked) { $state += ' <code>' + (& $e $i.Parked) + '</code>' }
+                if ($i.Assignees.Count) { $state += ' ' + (& $e ($i.Assignees -join ', ')) }
+                $age = if ($i.Created -and $Model.Now) { Format-DevDuration (($Model.Now - $i.Created).TotalHours) } else { '--' }
+                [void]$body.AppendLine('<tr><td class="dp-left"><a class="dp-link" href="' + $script:IssueRepoUrl + '/' + [int]$i.Number + '" target="_blank" rel="noopener noreferrer">#' + [int]$i.Number + '</a> ' + (& $e $i.Title) + '</td><td class="dp-left">' +
+                    $(if ($i.Prio) { 'prio-' + $i.Prio } else { '--' }) + '</td><td class="dp-left">' + $state + '</td><td class="dp-left">' + (& $e $i.Kind) + '</td><td class="num">' + $age + '</td></tr>')
+            }
+            [void]$body.AppendLine('</tbody></table></div>')
+        } else {
+            [void]$body.AppendLine('<p class="msg" role="status">No open issue: everything filed has been closed.</p>')
+        }
+        [void]$body.AppendLine('</section>')
+
+        # The flow: opened against closed, per week of the window.
+        $weeks = @($Model.Weeks)
+        $peak = [double](@($weeks | ForEach-Object { $_.Opened; $_.Closed } | Measure-Object -Maximum).Maximum)
+        $bar = { param($n) $w = if ($peak -gt 0) { [Math]::Min(100.0, 100.0 * $n / $peak) } else { 0.0 }
+            '<span class="dp-bar" aria-hidden="true"><span style="width: ' + $w.ToString('0.##', $inv) + '%"></span></span>' }
+        [void]$body.AppendLine('<section class="card" id="flow">')
+        [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Opened and closed</h2><p class="card__sub">Per week of the last ' + $days + ' days, oldest first</p></div>')
+        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Week</th><th>Opened</th><th class="dp-left"></th><th>Closed</th><th class="dp-left"></th><th>Net</th></tr></thead><tbody>')
+        foreach ($w in $weeks) {
+            $net = $w.Opened - $w.Closed
+            $netTxt = if ($net -gt 0) { '+' + $net } else { [string]$net }
+            [void]$body.AppendLine('<tr><td class="dp-left num">' + $w.From.ToString('yyyy-MM-dd', $inv) + ' to ' + $w.To.ToString('yyyy-MM-dd', $inv) + '</td><td class="num">' + $w.Opened + '</td><td class="dp-left">' + (& $bar $w.Opened) +
+                '</td><td class="num">' + $w.Closed + '</td><td class="dp-left">' + (& $bar $w.Closed) + '</td><td class="num">' + $netTxt + '</td></tr>')
+        }
+        [void]$body.AppendLine('</tbody></table></div>')
+        [void]$body.AppendLine('</section>')
+
+        # What was closed in the window, three ways.
+        [void]$body.AppendLine('<div class="grid-2">')
+        [void]$body.Append((Format-IssueGroupCard -Title 'Kind' -Groups $Model.ClosedBy.Kind -Total $Model.Closed))
+        [void]$body.Append((Format-IssueGroupCard -Title 'Priority' -Groups $Model.ClosedBy.Prio -Total $Model.Closed))
+        [void]$body.AppendLine('</div>')
+        [void]$body.Append((Format-IssueGroupCard -Title 'Closed as' -Groups $Model.ClosedBy.Reason -Total $Model.Closed))
+    }
+
+    $when = if ($GeneratedAt) {
+        $secs = if ($null -ne $Seconds) { ' in ' + ([double]$Seconds).ToString('0.0', $inv) + 's' } else { '' }
+        ', read ' + (& $e $GeneratedAt) + $secs
+    } else { '' }
+    return Format-DevPageHtml -Title 'Issues' -Style $script:DevBarStyle -Body $body.ToString() `
+        -Lead ('This repo''s GitHub issues: what is open and where it stands, and what came in and went out over the last ' + $days + ' days.') `
+        -FooterNote ('Read from GitHub with <code>gh issue list</code>, as the account <code>gh</code> is logged in as on this machine' + $when + ' (<a class="dp-link" href="/refresh?page=issues">read again</a>). The window is bounded because a GitHub search returns at most 1,000 issues.')
 }
 
 function Format-ReleaseNotesDevPage {

@@ -54,6 +54,7 @@ eight weeks is already reached, so the window is 28 days (about 475 issues).
 
 - [x] `scripts/tests/dev-pages.tests.ps1`: the model (ordering, board states, kinds, dedupe, window edges, weeks, median, reasons) and the page (escaped titles, integer-only links, the empty and the failed read); 127 pass
 - [x] Served live on this machine: 0 open, 455 opened and 458 closed in 28 days, median 1.3 h to close, in 12.3 s
+- [x] Victor's and Sebastian's reviews: the gh read goes through `Invoke-NativeCapture -Utf8` (5.1 would decode a non-ASCII title through the console code page), a failed read is cached 30 s instead of 300 s, `/refresh?page=issues` re-reads at most once a minute (a read holds the single-threaded server about 12 s), and the tiles and weekly rows both end at the read's own moment
 - [x] The page is a visible result: it waits for the owner's look before it merges
 
 ### DEPLOY: feat/issues-page
