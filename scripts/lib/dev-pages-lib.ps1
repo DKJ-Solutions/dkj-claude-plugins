@@ -439,7 +439,7 @@ function Format-ArtifactsPageHtml {
     [void]$body.AppendLine('</section>')
     return Format-DevPageHtml -Title 'Artifacts' -Body $body.ToString() `
         -Lead 'Every claude.ai Artifact a session in this repo has published: pages, decks and documents. An Artifact is private to the account that made it until it is shared, so a link may not open for everyone.' `
-        -FooterNote 'Read from <code>scripts/dashboard/artifacts.json</code>, on every request. A new Artifact is added there by hand when it is published.'
+        -FooterNote 'Read from <code>scripts/dashboard/artifacts.json</code>, on every request. A new Artifact is added there by <code>scripts/maintenance/harvest-artifacts.ps1</code> (the <code>harvest-artifacts</code> skill), from each machine''s session transcripts.'
 }
 
 function Format-ReleaseNotesDevPage {
