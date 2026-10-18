@@ -32,6 +32,8 @@
 
 Set-StrictMode -Version Latest
 
+. (Join-Path $PSScriptRoot 'document-newline-lib.ps1')
+
 function Get-HouseStyleBrandbookRepo {
     <# The repo the house style is released from. #>
     return 'DKJ-Solutions/dkj-brandbook'
@@ -171,7 +173,7 @@ function Set-HouseStyleRetiredList {
         [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Names
     )
 
-    $nl = if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $nl = Get-DocumentNewline -Content $Text
     $lines = New-Object System.Collections.Generic.List[string]
     $current = ''
     foreach ($n in $Names) {
@@ -224,7 +226,7 @@ function Set-HouseStyleRepointDocument {
         'No token was renamed or removed, so the retired-name list stands.'
     }
 
-    $nl = if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $nl = Get-DocumentNewline -Content $Text
     $phases = @(
         '### PLAN', '',
         "Opened by the house-style repoint runner (#3100): ``$repo`` released ``$To``, and the skill pinned ``$From``.",

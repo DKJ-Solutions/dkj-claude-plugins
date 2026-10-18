@@ -31,6 +31,7 @@
 .PARAMETER RepoRoot
     The tree to rewrite. Default: the checkout this script sits in.
 #>
+[CmdletBinding()]
 param(
     [string]$Tag = '',
     [string]$BranchDocument = '',
@@ -57,6 +58,18 @@ function Write-RepointOutput {
     foreach ($k in $Values.Keys) { Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "$k=$($Values[$k])" }
 }
 
+function Invoke-RepointGh {
+    <#
+        One gh call: its trimmed stdout and its exit code. ErrorActionPreference is Continue in here, because
+        under Stop a native command that writes to stderr throws in Windows PowerShell 5.1 before its exit
+        code can be read -- the pitfall shared-scripts.tests.ps1 holds the tree to.
+    #>
+    param([Parameter(Mandatory)][string[]]$Arguments)
+    $ErrorActionPreference = 'Continue'
+    $out = (& gh @Arguments 2>$null | Out-String).Trim()
+    return @{ Out = $out; Code = $LASTEXITCODE }
+}
+
 function Stop-Repoint {
     param([string]$Reason)
     Write-Host "repoint-house-style: REFUSED -- $Reason" -ForegroundColor Red
@@ -69,15 +82,17 @@ $pin = Get-HouseStylePin -SkillText $skillText
 if ($null -eq $pin -or -not (Test-HouseStyleReleaseTag $pin.Tag)) { Stop-Repoint 'the skill page carries no complete checksum table with a vX.Y.Z tag' }
 
 if (-not $Tag) {
-    $Tag = (& gh release view -R $repo --json tagName --jq .tagName 2>$null | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0) { Stop-Repoint "gh could not read the latest release of $repo" }
+    $r = Invoke-RepointGh @('release', 'view', '-R', $repo, '--json', 'tagName', '--jq', '.tagName')
+    $Tag = $r.Out
+    if ($r.Code -ne 0) { Stop-Repoint "gh could not read the latest release of $repo" }
 }
 if (-not (Test-HouseStyleReleaseTag $Tag)) { Stop-Repoint "'$Tag' is not a vX.Y.Z release tag" }
 
 # A PUBLISHED RELEASE, NOT JUST A TAG. A dispatch can name any tag, and a tag nobody released (or a draft,
 # or a pre-release) is not something the brand book has said every app should take.
-$release = (& gh release view $Tag -R $repo --json isDraft,isPrerelease 2>$null | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or -not $release) { Stop-Repoint "$Tag is not a release of $repo" }
+$r = Invoke-RepointGh @('release', 'view', $Tag, '-R', $repo, '--json', 'isDraft,isPrerelease')
+$release = $r.Out
+if ($r.Code -ne 0 -or -not $release) { Stop-Repoint "$Tag is not a release of $repo" }
 $release = $release | ConvertFrom-Json
 if ($release.isDraft -or $release.isPrerelease) { Stop-Repoint "$Tag is a draft or a pre-release" }
 
@@ -98,8 +113,9 @@ if ($CheckOnly) {
 # THE COMMIT FIRST, THEN THE BYTES AT THAT COMMIT. A tag can be moved; fetching at the tag and resolving it
 # separately could pin one commit and hash another's bytes. raw.githubusercontent.com rather than the
 # contents API, because that is the host every session fetches from when it checks the copy.
-$commit = (& gh api "repos/$repo/commits/$Tag" --jq .sha 2>$null | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { Stop-Repoint "the commit behind $Tag did not resolve" }
+$r = Invoke-RepointGh @('api', "repos/$repo/commits/$Tag", '--jq', '.sha')
+$commit = $r.Out
+if ($r.Code -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') { Stop-Repoint "the commit behind $Tag did not resolve" }
 
 $scratch = Join-Path ([System.IO.Path]::GetTempPath()) "house-style-repoint-$PID-$([guid]::NewGuid().ToString('n'))"
 New-Item -ItemType Directory -Path $scratch | Out-Null
