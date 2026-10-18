@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**6 / 15 minor entries** <!-- pending-tally -->
+**6 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/hub-pages-grid-head · 20261018-172955Z
+
+The Repo hub's two Pages cards stand under one **Pages** heading spanning the row, and each card is titled
+one level lower: **This repo** and **General**. **About this repo** takes the same shape, its heading above
+its card rather than inside it, and every heading carries a short line saying what is under it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the hub lives on this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+a grid heading over the Repo hub's two Pages cards
+
+[PR #3121](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3121)
+
+---
 
 ### DEPLOY: feat/issues-page · 20261018-162753Z
 
