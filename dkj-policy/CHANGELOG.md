@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**7 / 18 minor entries** <!-- pending-tally -->
+**7 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/specialists-page · 20261018-190506Z
+
+The Repo hub gains a Specialists page: every specialist the dkj-subagents plugins ship, with the context
+each one costs -- its always-on listing, its definition, its manual and this repo's lens, in measured
+bytes and estimated tokens -- largest first, so an oversized manual or lens shows at a glance.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the dev server runs in this repo only; no plugin a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+a Specialists page on the Repo hub -- every specialist and the context each one costs
+
+[PR #3125](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3125)
+
+---
 
 ### DEPLOY: fix/3122-dev-server-restarts-on-moved-head · 20261018-180247Z
 

@@ -62,8 +62,9 @@ function Get-RepoHubPages {
         general pages are the plugin's (Get-GeneralPages), on a server of their own.
     #>
     @(
-        @{ Href = '/connectors'; Label = 'Connectors'; Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
-        @{ Href = '/test-gate';  Label = 'Test gate';  Sub = 'What each test suite costs on CI' }
+        @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
+        @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs' },
+        @{ Href = '/test-gate';   Label = 'Test gate';   Sub = 'What each test suite costs on CI' }
     )
 }
 
@@ -241,3 +242,148 @@ function Format-TestGatePageHtml {
         -Lead 'What each test suite costs on CI, as the gate packs its shards from it. Measured on CI runners, never on a workstation: a local reading does not convert.' `
         -FooterNote 'Read from <code>scripts/tests/suite-durations.json</code>. Refreshed by <code>scripts/maintenance/record-suite-durations.ps1</code>; the <code>measure-suites</code> skill compares two sets of runs.'
 }
+
+function ConvertTo-SpecialistRow {
+    <#
+        One specialist from its definition file. -Text is the file as read (a subagent definition or a
+        persona); -ManualBytes and -LensBytes are the sizes of its manual and this repo's lens, $null where
+        there is none. Returns @{ Id; Number; Name; Emoji; Title; Plugin; Form; Enabled; ListingBytes;
+        DefinitionBytes; ManualBytes; LensBytes; TotalBytes; AlwaysOn }.
+
+        WHAT EACH PART IS. The listing is a subagent's frontmatter description, which Claude Code puts in
+        every session that enables its plugin; a persona has none. The definition is the file without its
+        frontmatter: a subagent's system prompt when it is spawned, or a persona's body when it is read --
+        and the orchestrator's persona (01-01) is imported on every turn, which is what AlwaysOn says. The
+        manual and the lens are read on demand.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Id,
+        [Parameter(Mandatory = $true)][string]$Plugin,
+        [Parameter(Mandatory = $true)][ValidateSet('subagent', 'persona')][string]$Form,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text,
+        [AllowNull()]$ManualBytes,
+        [AllowNull()]$LensBytes,
+        [bool]$Enabled = $false
+    )
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    $lines = @($Text.Replace("`r`n", "`n").Split("`n"))
+    $front = @(); $bodyFrom = 0
+    if ($lines.Count -gt 1 -and $lines[0].TrimStart([char]0xFEFF) -eq '---') {
+        for ($j = 1; $j -lt $lines.Count; $j++) {
+            # An empty block ($j = 1) would make 1..0 a descending range, so it is guarded.
+            if ($lines[$j] -eq '---') { if ($j -gt 1) { $front = @($lines[1..($j - 1)]) }; $bodyFrom = $j + 1; break }
+        }
+    }
+    $body = if ($bodyFrom -lt $lines.Count) { ($lines[$bodyFrom..($lines.Count - 1)]) -join "`n" } else { '' }
+
+    # The description: an inline value, or a folded/literal block of the indented lines below it.
+    $desc = ''
+    for ($k = 0; $k -lt $front.Count; $k++) {
+        if ($front[$k] -match '^description:\s*(.*)$') {
+            $v = $Matches[1].Trim()
+            if ($v -match '^[>|][-+]?$') {
+                $parts = @()
+                for ($m = $k + 1; $m -lt $front.Count -and $front[$m] -match '^\s+\S|^\s*$'; $m++) { $parts += $front[$m].Trim() }
+                $desc = ($parts | Where-Object { $_ }) -join ' '
+            } else { $desc = $v.Trim('"', "'") }
+            break
+        }
+    }
+
+    # The name, emoji and title: a subagent says "You are **Name E**, the Title."; a persona's h1 is
+    # "# Name E -- the Title (*...*)", with an em dash.
+    $who = ''; $title = ''
+    if ($Form -eq 'subagent' -and $body -match '(?m)^You are \*\*(.+?)\*\*,\s+(?:the\s+)?([^.]+?)\.') {
+        $who = $Matches[1]; $title = $Matches[2]
+    } elseif ($body -match ('(?m)^#\s+(.+?)\s+' + [char]0x2014 + '\s+(?:the\s+)?(.+?)\s*$')) {
+        $who = $Matches[1]; $title = $Matches[2] -replace '\s*\(\*[^)]*\*\)\s*$', ''
+    }
+    $title = ($title -replace '\s+', ' ').Trim()
+    $name = ($who -split '\s+', 2)[0]
+    $emoji = if ($who -match '^\S+\s+(.+)$') { $Matches[1].Trim() } else { '' }
+    if (-not $name) { $name = $Id }
+
+    $listing = if ($desc) { [int64]$utf8.GetByteCount($desc) } else { [int64]0 }
+    $definition = [int64]$utf8.GetByteCount($body)
+    $total = $listing + $definition + $(if ($null -ne $ManualBytes) { [int64]$ManualBytes } else { 0 }) + $(if ($null -ne $LensBytes) { [int64]$LensBytes } else { 0 })
+    return @{
+        Id = $Id; Number = ($Id -split '-')[-1]; Name = $name; Emoji = $emoji; Title = $title
+        Plugin = $Plugin; Form = $Form; Enabled = $Enabled
+        ListingBytes = $listing; DefinitionBytes = $definition
+        ManualBytes = $(if ($null -ne $ManualBytes) { [int64]$ManualBytes } else { $null })
+        LensBytes = $(if ($null -ne $LensBytes) { [int64]$LensBytes } else { $null })
+        TotalBytes = $total; AlwaysOn = ($Id -eq '01-01')
+    }
+}
+
+function Format-SpecialistsPageHtml {
+    <#
+        The Specialists page. -Rows is ConvertTo-SpecialistRow's shape; -CharsPerToken the calibrated
+        factor (measure-context-lib's Get-CalibratedCharsPerToken). The bytes are measured, the tokens an
+        estimate at that factor, and the page says which is which.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Rows,
+        [Parameter(Mandatory = $true)][double]$CharsPerToken,
+        [AllowEmptyString()][string]$ReadError = ''
+    )
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    $tok = { param($b) if ($null -eq $b) { '--' } elseif ([int64]$b -eq 0) { '--' } else { '~' + (Format-DevNumber ([Math]::Round([double]$b / $CharsPerToken))) } }
+    $rows = @($Rows | Where-Object { $_ } | Sort-Object @{ Expression = { [int64]$_.TotalBytes }; Descending = $true }, @{ Expression = { $_.Id } })
+    $enabled = @($rows | Where-Object { $_.Enabled })
+    # Summed by hand: 5.1's Measure-Object -Property does not read a hashtable's keys.
+    $listingHere = [int64]0
+    foreach ($r in $enabled) { $listingHere += [int64]$r.ListingBytes }
+    $max = if ($rows.Count) { [double]$rows[0].TotalBytes } else { 0 }
+
+    $body = New-Object System.Text.StringBuilder
+    [void]$body.Append((Format-DevTiles @(
+        @{ L = 'Specialists'; V = $rows.Count },
+        @{ L = 'Enabled here'; V = $enabled.Count },
+        @{ L = 'Listing, every session here'; V = (& $tok $listingHere) },
+        @{ L = 'Largest full read'; V = $(if ($rows.Count) { $rows[0].Name + ' ' + (& $tok $rows[0].TotalBytes) } else { '--' }) })))
+    if ($ReadError) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The specialists could not all be read: ' + (& $e $ReadError) + '.</p>')
+    }
+    [void]$body.AppendLine('<section class="card" id="specialists">')
+    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Context per specialist</h2><p class="card__sub">Estimated tokens, largest full read first. The bar is the full read against the largest one</p></div>')
+    if ($rows.Count) {
+        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Specialist</th><th class="dp-left">Plugin</th><th>Listing</th><th>Definition</th><th>Manual</th><th>Lens</th><th>Full read</th><th class="dp-left">Against the largest</th></tr></thead><tbody>')
+        foreach ($r in $rows) {
+            $badges = '<span class="badge badge--sm badge--neutral">' + (& $e $r.Form) + '</span>'
+            if ($r.AlwaysOn) { $badges += ' <span class="badge badge--sm">always-on</span>' }
+            $plugin = (& $e ($r.Plugin -replace '^dkj-subagents-', '')) + $(if ($r.Enabled) { '' } else { ' <span class="note">(off here)</span>' })
+            $w = $(if ($max -gt 0) { [Math]::Min(100.0, 100.0 * [double]$r.TotalBytes / $max) } else { 0.0 }).ToString('0.##', $inv)
+            $label = (& $e $r.Name) + $(if ($r.Emoji) { ' ' + (& $e $r.Emoji) } else { '' })
+            [void]$body.AppendLine('<tr><td class="dp-left"><strong>' + $label + '</strong> <span class="note">#' + (& $e $r.Number) + '</span>' +
+                $(if ($r.Title) { '<p class="note">' + (& $e $r.Title) + '</p>' } else { '' }) + '<p>' + $badges + '</p></td>' +
+                '<td class="dp-left">' + $plugin + '</td>' +
+                '<td class="num" title="' + (Format-DevNumber $r.ListingBytes) + ' B">' + (& $tok $r.ListingBytes) + '</td>' +
+                '<td class="num" title="' + (Format-DevNumber $r.DefinitionBytes) + ' B">' + (& $tok $r.DefinitionBytes) + '</td>' +
+                '<td class="num" title="' + (Format-DevNumber $r.ManualBytes) + ' B">' + (& $tok $r.ManualBytes) + '</td>' +
+                '<td class="num" title="' + (Format-DevNumber $r.LensBytes) + ' B">' + (& $tok $r.LensBytes) + '</td>' +
+                '<td class="num"><strong>' + (& $tok $r.TotalBytes) + '</strong></td>' +
+                '<td class="dp-left"><span class="dp-bar" aria-hidden="true"><span style="width: ' + $w + '%"></span></span></td></tr>')
+        }
+        [void]$body.AppendLine('</tbody></table></div>')
+    } else {
+        [void]$body.AppendLine('<p class="note">No specialist was found.</p>')
+    }
+    [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('<section class="card" id="when">')
+    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">When each part loads</h2></div>')
+    [void]$body.AppendLine('<dl class="facts">')
+    [void]$body.AppendLine('<div><dt>Listing</dt><dd>A subagent''s description. Every session of a repo that enables its plugin carries it, whether the specialist is called or not. A persona has none.</dd></div>')
+    [void]$body.AppendLine('<div><dt>Definition</dt><dd>The file without its frontmatter: a subagent''s system prompt each time it is spawned, or a persona''s body when it is read. The orchestrator''s persona is imported on every turn.</dd></div>')
+    [void]$body.AppendLine('<div><dt>Manual</dt><dd>The portable playbook, read on demand.</dd></div>')
+    [void]$body.AppendLine('<div><dt>Lens</dt><dd>This repo''s own lens, read on demand. A plugin not enabled here has none.</dd></div>')
+    [void]$body.AppendLine('<div><dt>Full read</dt><dd>All four together: what a specialist costs when everything about it is in context.</dd></div>')
+    [void]$body.AppendLine('</dl>')
+    [void]$body.AppendLine('</section>')
+    $factor = $CharsPerToken.ToString('0.00', $inv)
+    return Format-DevPageHtml -Title 'Specialists' -Style $script:DevBarStyle -Body $body.ToString() `
+        -Lead 'Every specialist the dkj-subagents plugins ship, and how much context each one brings along: what every session pays for it, what it costs when it is called, and what its manual and lens add.' `
+        -FooterNote ('Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.')
+}
+
