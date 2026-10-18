@@ -73,3 +73,4 @@ N/A -- the dev server is this repo's own; nothing a plugin ships changes.
 
 #### Pull Request
 
+Dev server: the pages default to the brand book's lilac theme
