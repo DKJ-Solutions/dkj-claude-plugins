@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Tests for scripts/lib/dev-pages-lib.ps1 -- the Repo hub, the SessionStart page and the test-gate page
-    of the dev server (#3097). Pure: the server that serves them is exercised by
+    Tests for scripts/lib/dev-pages-lib.ps1 -- the Repo hub, the SessionStart page, the test-gate page
+    and the Artifacts page of the dev server (#3097). Pure: the server that serves them is exercised by
     connector-dashboard.tests.ps1.
 
     Pure ASCII (repo convention for .ps1).
@@ -42,12 +42,12 @@ Assert-True ($shell -match '<p class="footer-note">note</p>') 'the footer note c
 
 Write-Host '-- the Repo hub' -ForegroundColor Cyan
 $pages = @(Get-RepoHubPages)
-Assert-Equal '/connectors,/release-notes,/sessionstart,/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the four pages, in order'
+Assert-Equal '/artifacts,/connectors,/release-notes,/sessionstart,/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the five pages, in order'
 $hub = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234'
 Assert-True ($hub -match '<title>dkj-claude-plugins -- Repo hub</title>' -and $hub -match '<h1>Repo hub</h1>') 'the h1 and the title are Repo hub, word for word'
 Assert-True ($hub -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo hub</span></li>\s*</ol>') 'the bar opens <body>, its trail the one crumb Repo hub'
 Assert-True ($hub -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>' -and $hub -notmatch '<header' -and $hub -notmatch 'btn--primary') 'the intro is the slug and no <header>, and there is no product button'
-Assert-Equal 4 ([regex]::Matches($hub, '<a class="menu-item" href="/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
+Assert-Equal 5 ([regex]::Matches($hub, '<a class="menu-item" href="/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
 Assert-True ($hub -match '<nav class="menu-list" aria-label="Pages">\r?\n<a class="menu-item"' -and $hub -match '</a>\r?\n<a class="menu-item"') 'the rows are direct siblings in the nav, so the house draws the line between them'
 Assert-True ($hub -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'About this repo names the commit it serves from'
 Assert-True ((Format-RepoHubHtml -Pages $pages) -notmatch 'Source at') 'and leaves the row out when the commit could not be read'
@@ -107,6 +107,45 @@ Assert-True ($over -match 'msg msg--warn" role="alert">The always-on path is ove
 $failed = Format-SessionStartPageHtml -Model $null -ReadError 'boom <x>'
 Assert-True ($failed -match 'could not be measured: boom &lt;x&gt;') 'a failed measurement is a warning, escaped'
 Assert-True ($failed -match 'No always-on document was measured') 'and the table says it is empty'
+
+Write-Host '-- the Artifacts link check' -ForegroundColor Cyan
+Assert-True (Test-ArtifactUrl 'https://claude.ai/artifact/TzrnhFefotMqYp6oWXYp5y') 'a claude.ai/artifact link is one'
+Assert-True (Test-ArtifactUrl 'https://claude.ai/code/artifact/7d2fa536-ace6-412a-8977-60a4ddc4b6be') 'and so is a claude.ai/code/artifact link'
+Assert-True (-not (Test-ArtifactUrl 'javascript:alert(1)')) 'a script url is not'
+Assert-True (-not (Test-ArtifactUrl 'http://claude.ai/artifact/abc')) 'nor plain http'
+Assert-True (-not (Test-ArtifactUrl 'https://claude.ai.evil.example/artifact/abc')) 'nor another host'
+Assert-True (-not (Test-ArtifactUrl 'https://claude.ai/artifact/abc"><script>')) 'nor a link that breaks out of its attribute'
+Assert-True (-not (Test-ArtifactUrl '')) 'nor an empty one'
+Assert-True (-not (Test-ArtifactUrl "https://claude.ai/artifact/abc`n")) 'nor one with a trailing newline'
+
+Write-Host '-- the Artifacts model' -ForegroundColor Cyan
+$reg = '{ "recordedFrom": { "date": "2026-10-18", "method": "transcripts" }, "artifacts": [ { "title": "Old", "url": "https://claude.ai/artifact/aaa", "kind": "page", "created": "2026-09-01", "updated": "2026-09-02", "about": "first" }, { "title": "New <b>", "url": "https://claude.ai/code/artifact/0f1e-2a", "kind": "document", "created": "2026-10-07", "updated": "2026-10-07" }, { "title": "Bad", "url": "javascript:alert(1)", "kind": "page", "created": "2026-09-15" } ] }' | ConvertFrom-Json
+$am = ConvertFrom-ArtifactRegister -Register $reg
+Assert-Equal 'New <b>,Bad,Old' ((@($am.Artifacts) | ForEach-Object { $_.Title }) -join ',') 'newest first'
+Assert-Equal 'False' (@($am.Artifacts | Where-Object { $_.Title -eq 'Bad' })[0].Linked) 'a url that is not an Artifact link is kept, unlinked'
+Assert-Equal '2026-10-18' $am.Date 'the recording date is read'
+$empty = ConvertFrom-ArtifactRegister -Register $null
+Assert-Equal 0 @($empty.Artifacts).Count 'a missing register is an empty list'
+
+Write-Host '-- the Artifacts page' -ForegroundColor Cyan
+$ap = Format-ArtifactsPageHtml -Model $am
+Assert-True ($ap -match '<h1>Artifacts</h1>' -and $ap -match '<span aria-current="page">Artifacts</span>') 'the page is named Artifacts, in the h1 and the trail'
+Assert-True ($ap -match 'Artifacts</div><div class="v num">3<') 'the tile counts every recorded Artifact'
+Assert-True ($ap -match '<a class="dp-link" href="https://claude.ai/artifact/aaa" target="_blank" rel="noopener noreferrer">Old</a>') 'a recorded Artifact links to claude.ai, in a new tab'
+Assert-True ($ap -match 'New &lt;b&gt;</a>' -and $ap -notmatch 'New <b>') 'the title is escaped'
+Assert-True ($ap -notmatch 'href="javascript' -and $ap -match '<td class="dp-left">Bad</td>') 'an unlinked row shows its title without an href'
+Assert-True ($ap -match 'msg msg--warn" role="status">Not a claude.ai Artifact link.*<code>Bad</code>') 'and is named in a warning'
+Assert-True ($ap -match '<p class="note">first</p>') 'the one-line description sits under the title'
+Assert-True ($ap -match '<dt>Recorded</dt><dd>2026-10-18</dd>') 'where the list comes from is stated'
+$apFailed = Format-ArtifactsPageHtml -Model $empty -ReadError 'it is not valid JSON'
+Assert-True ($apFailed -match 'could not be read: it is not valid JSON' -and $apFailed -match 'No Artifact is recorded') 'an unreadable register is a warning and an empty table'
+
+Write-Host '-- the register in the tree' -ForegroundColor Cyan
+$treeReg = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\dashboard\artifacts.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$treeModel = ConvertFrom-ArtifactRegister -Register $treeReg
+Assert-True (@($treeModel.Artifacts).Count -gt 0) 'the register parses and records at least one Artifact'
+Assert-Equal 0 @($treeModel.Artifacts | Where-Object { -not $_.Linked }).Count 'every recorded url is a claude.ai Artifact link'
+Assert-Equal 0 @($treeModel.Artifacts | Where-Object { $_.Created -notmatch '^\d{4}-\d{2}-\d{2}$' }).Count 'every row has an ISO creation date'
 
 Write-Host '-- the release-notes page, as the dev server serves it (#3108)' -ForegroundColor Cyan
 # The real template, so a change to its shape that would leave the served copy undressed goes red here.
