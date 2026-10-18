@@ -59,7 +59,7 @@ function Get-HouseStyleSafetyFindings {
     <#
         What the skill page forbids in a fetched copy. Returns one string per finding; empty means clean.
         house-theme.js: no network call, no eval, no cookie, and storage only through localStorage under a
-        single key (the theme choice). house-style.css: no @import and no remote url().
+        single key, or under several only where each is a house 'dkj-' name (the theme and width choices). house-style.css: no @import and no remote url().
     #>
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string]$CssText,
@@ -84,7 +84,25 @@ function Get-HouseStyleSafetyFindings {
     }
     $keys = @([regex]::Matches($JsText, '\.\s*setItem\s*\(\s*([^,)]+)') |
         ForEach-Object { $_.Groups[1].Value.Trim() } | Sort-Object -Unique)
-    if ($keys.Count -gt 1) { $findings.Add("house-theme.js stores under more than one key: $($keys -join ', ')") }
+    # A second key is the house's own only when every key is a 'dkj-' name -- a literal, or a variable
+    # declared from one -- as the theme and the width choice are since v0.4.0 (#3115). Comments are stripped
+    # first, and a variable counts only where that declaration is its one assignment, so neither a
+    # commented-out declaration nor a later reassignment passes.
+    $code = [regex]::Replace($JsText, '/\*[\s\S]*?\*/|(?<![:\\])//[^\r\n]*', ' ')
+    # The WHOLE key is a house name: 'dkj-<name>', optionally + one identifier (the per-app suffix).
+    $houseKey = "'dkj-[\w:-]*'(?:\s*\+\s*[A-Za-z_$][\w$]*)?"
+    $foreign = @($keys | Where-Object {
+        $k = $_
+        $isHouse = $k -cmatch ('^' + $houseKey + '$')
+        if (-not $isHouse -and $k -match '^[A-Za-z_$][\w$]*$') {
+            $id = [regex]::Escape($k)
+            $declared = [regex]::IsMatch($code, '(?:var|let|const)\s+' + $id + '\s*=\s*' + $houseKey + '\s*[;,\r\n]')
+            $assigned = [regex]::Matches($code, '(?<![\w$.])' + $id + '\s*(?:[-+*/%&|^]|<<|>>>?|\*\*|\?\?|&&|\|\|)?=(?!=)').Count
+            $isHouse  = $declared -and $assigned -eq 1
+        }
+        -not $isHouse
+    })
+    if ($keys.Count -gt 1 -and $foreign.Count -gt 0) { $findings.Add("house-theme.js stores under more than one key: $($keys -join ', ')") }
 
     $css = [regex]::Replace($CssText, '/\*[\s\S]*?\*/', ' ')
     if ([regex]::IsMatch($css, '@import\b', 'IgnoreCase')) { $findings.Add('house-style.css carries an @import') }

@@ -8,7 +8,7 @@ description: The DKJ-Solutions house style -- the design tokens, the twelve them
 **Every DKJ-Solutions app looks like one family** (Dave, issue
 [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1, 2026), and that
 family is written down in **[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook)**,
-folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/v0.3.0/house-style). The
+folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/v0.4.0/house-style). The
 stylesheet and the theme script lived beside this page until October 13, 2026; they moved there so the
 brand book is the single copy, and this skill carries the pointer instead of a second one.
 
@@ -17,19 +17,19 @@ BWJ-Development has its own styling, and this skill says nothing about it.
 
 ## Where the files are
 
-The repo is public, so these read without auth. **They are pinned to the release tag `v0.3.0`,
+The repo is public, so these read without auth. **They are pinned to the release tag `v0.4.0`,
 never to `main`**: `main` moves, and `house-theme.js` is executable wherever it is inlined, so a fetch from
 `main` would carry an unreleased push into every app's next copy
 ([#2954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2954)).
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.3.0/house-style/house-style.css` | `231b993e2b9f6ea358839505dc1667b2ab384b8c24662166265a9bf9324db7d6` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.3.0/house-style/house-theme.js` | `83e9151f4ae3421eabdfec563945811e6d3537f95185f475d3ae46d3eaac9173` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.4.0/house-style/house-style.css` | `51a0ded7e3ef6b921ce8826a851a938b660f53000ffcdbe690fe6ad20f8ac070` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.4.0/house-style/house-theme.js` | `a1ba3dd4b0eff918b7ef53dddae4e23b838fb4ca616ad27ce6b42936a1561267` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
-[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.3.0/house-style/README.md)
-at the same tag, which points at commit `ea4bf21362c2b445aec9b082c899a3dab3f9c6f6`.
+[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.4.0/house-style/README.md)
+at the same tag, which points at commit `b1f1a69fa4e42087981ea8938c2cbf6a099d077d`.
 
 **Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
 and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
@@ -60,7 +60,7 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    one form the README lays down under "Page patterns", "The Repo hub"**: its blocks, their order and the
    fixed `h1`, with only the content the repo's own. A repo with pages of its own links them from its
    **Pages** card. A repo without a build starts from
-   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.3.0/house-style/patterns/repo-dashboard.html)
+   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.4.0/house-style/patterns/repo-dashboard.html)
    at the same tag, which carries no CSS of its own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
    **Every page a repo's dev server serves opens with the breadcrumb bar**, the Repo hub and the

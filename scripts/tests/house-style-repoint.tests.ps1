@@ -68,6 +68,14 @@ $cases = [ordered]@{
     'document.cookie' = @('', 'var c = document.cookie;')
     'sessionStorage'  = @('', 'sessionStorage.setItem("a", "b");')
     'a second key'    = @('', 'localStorage.setItem(key, id); localStorage.setItem("other", 1);')
+    'a foreign second key' = @('', "var key = 'dkj-theme'; var k2 = 'track'; localStorage.setItem(key, id); localStorage.setItem(k2, 1);")
+    'a foreign literal beside a house key' = @('', "var key = 'dkj-theme'; localStorage.setItem(key, id); localStorage.setItem('track', 1);")
+    'a commented-out house declaration' = @('', "var key = 'dkj-theme'; // var k2 = 'dkj-x'`nlocalStorage.setItem(key, id); localStorage.setItem(k2, 1);")
+    'a reassigned house key' = @('', "var key = 'dkj-theme'; var k2 = 'dkj-x'; k2 = 'track'; localStorage.setItem(key, id); localStorage.setItem(k2, 1);")
+    'a DKJ- key in capitals' = @('', "localStorage.setItem('dkj-a', 1); localStorage.setItem('DKJ-b', 1);")
+    'a dkj- prefix on a computed key' = @('', "localStorage.setItem('dkj-a', 1); localStorage.setItem('dkj-'.slice(9) + x, 1);")
+    'a dkj- prefix on a computed declaration' = @('', "var key = 'dkj-theme'; var k2 = 'dkj-'.slice(9); localStorage.setItem(key, id); localStorage.setItem(k2, 1);")
+    'a redeclared house key' = @('', "var key = 'dkj-theme'; var k2 = 'dkj-x'; var k2 = 'track'; localStorage.setItem(key, id); localStorage.setItem(k2, 1);")
     '@import'         = @('@import "x.css";', '')
     'a remote url()'  = @('a { background: url(https://x/y.png); }', '')
     'a //host url()'  = @("a { background: url('//x/y.png'); }", '')
@@ -77,6 +85,7 @@ foreach ($name in $cases.Keys) {
     Assert-True ($f.Count -gt 0) "$name is a finding"
 }
 Assert-Equal 0 @(Get-HouseStyleSafetyFindings -CssText 'a { background: url(data:image/png;base64,AA); } /* @import x */' -JsText 'prefetch(); refetch(1); localStorage.setItem(key, id);').Count 'a data url, a commented @import and a name containing fetch are not'
+Assert-Equal 0 @(Get-HouseStyleSafetyFindings -CssText '' -JsText "var key = 'dkj-theme' + s; var widthKey = 'dkj-width' + s; localStorage.setItem(key, id); localStorage.setItem(widthKey, w);").Count 'two house dkj- keys (theme and width, v0.4.0) are not'
 
 Write-Host '-- group 3: the retired names' -ForegroundColor Cyan
 
