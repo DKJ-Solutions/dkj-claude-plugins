@@ -56,6 +56,7 @@ renames this crumb as well, as noted on #3097.
   then the breadcrumb bar and the settings button
 - [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `/release-notes` leaves the static map and is
   served through that function, with the same 404 while the page is unbuilt
+- [x] `scripts/repo-config.ps1`: `Get-HouseStyleAllowlist` answers `--ink` in `dev-pages-lib.ps1`, the`n  template's own token that the retired-name check read as a house name
 
 ### TEST
 
