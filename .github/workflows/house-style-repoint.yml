@@ -79,6 +79,9 @@ jobs:
       # superseded, since the new one carries everything it did; a newer one stops this run instead.
       # The same branch on origin with no open pull request (a create that failed, a close without
       # deleting it) is deleted, so the build below does not fail on a non-fast-forward every day.
+      # THE EXPLICIT exit 0 AT THE END (#3103). The runner appends `exit $LASTEXITCODE` to every pwsh step,
+      # and `ls-remote --exit-code` answers 2 for an absent branch -- the normal first run -- so without it
+      # the step failed on exactly the case it exists for. 0 and 2 are answers; anything else is a failure.
       - name: Is its pull request already open?
         id: open
         if: ${{ steps.check.outputs.due == 'true' }}
@@ -102,13 +105,18 @@ jobs:
           }
           if (-not $already) {
               git ls-remote --exit-code --heads origin $env:BRANCH | Out-Null
-              if ($LASTEXITCODE -eq 0) {
+              $onOrigin = $LASTEXITCODE
+              if ($onOrigin -eq 0) {
                   Write-Host "$env:BRANCH is on origin with no open pull request; deleting it to rebuild."
                   gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/git/refs/heads/$env:BRANCH"
                   if ($LASTEXITCODE -ne 0) { exit 1 }
+              } elseif ($onOrigin -ne 2) {
+                  Write-Host "git ls-remote exited $onOrigin asking origin for $env:BRANCH."
+                  exit 1
               }
           }
           Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value "already=$($already.ToString().ToLowerInvariant())"
+          exit 0
 
       - name: Build the branch and open the pull request
         if: ${{ steps.check.outputs.due == 'true' && steps.open.outputs.already == 'false' }}
