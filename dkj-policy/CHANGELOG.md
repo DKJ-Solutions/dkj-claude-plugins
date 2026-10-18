@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3100-house-style-auto-repoint · 20261018-082828Z
+
+A dkj-brandbook release now reaches this repo as a pull request within a day, opened by a scheduled
+runner ([#3100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3100)). It repoints the
+`house-style` skill's links, commit and checksums, updates the retired-name list and replaces both
+vendored copies; a file carrying a spelling the skill forbids stops it before any pull request, and a
+changed theme script waits for a person to read its diff. It never merges: whoever ships it scores the
+entry. Nothing changes for a repo that uses the house style until
+such a repoint is released.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+house-style: open the repoint PR automatically on a dkj-brandbook release
+
+Plugins: dkj-solutions
+
+[PR #3102](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3102)
+
+---
 
 ### DEPLOY: feat/3097-dev-server-pages · 20261018-074844Z
 
