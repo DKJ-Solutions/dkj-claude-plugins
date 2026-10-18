@@ -6,8 +6,8 @@
 
 .DESCRIPTION
     THE HUB TAKES THE ONE FORM THE BRAND BOOK LAYS DOWN (house style v0.3.0, "The Repo hub"): the bar
-    with its one crumb, the settings button, the intro with the fixed h1, the Pages card (block 7) linking
-    the repo's own pages, About this repo and a footer note. This repo is no product and keeps no in-flight
+    with its one crumb, the settings button, the intro with the fixed h1, the Pages block (block 7: the
+    'This repo' card linking the repo's own pages, then the General card), About this repo and a footer note. This repo is no product and keeps no in-flight
     lists on the hub, so blocks 6 and 8 to 10 are left out. The pages it links are Get-RepoHubPages, the
     two only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
     every DKJ-Solutions repo has -- are no longer built here (#3119): the dkj-solutions plugin ships them as

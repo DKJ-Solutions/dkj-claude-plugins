@@ -32,6 +32,7 @@
 #>
 
 . (Join-Path $PSScriptRoot 'general-pages-lib.ps1')
+. (Join-Path $PSScriptRoot 'loopback-server-lib.ps1')
 
 function ConvertTo-DevPreviewPlaceholderText {
     <# HTML-escapes one value for text or a quoted attribute. #>
@@ -41,22 +42,23 @@ function ConvertTo-DevPreviewPlaceholderText {
 }
 
 function Test-DevPreviewPlaceholderHost {
-    <#
-        True when the request's Host header names this server on loopback. A page elsewhere that rebinds
-        its DNS name to 127.0.0.1 arrives with its own name, so it is refused (DNS rebinding).
-    #>
+    <# True when the request's Host header names this server on loopback (the plugin's shared rule). #>
     param([AllowNull()][AllowEmptyString()][string]$HostHeader, [int]$Port)
-    if (-not $HostHeader) { return $false }
-    $h = $HostHeader.Trim().ToLowerInvariant()
-    return ($h -eq "localhost:$Port" -or $h -eq "127.0.0.1:$Port")
+    return (Test-LoopbackHost -HostHeader $HostHeader -Port $Port)
 }
 
 function Test-DevPreviewPlaceholderCrossSite {
-    <# True when the browser marks the request as coming from another site. A missing header is allowed. #>
-    param([AllowNull()][AllowEmptyString()][string]$SecFetchSite)
-    if (-not $SecFetchSite) { return $false }
-    $v = $SecFetchSite.Trim().ToLowerInvariant()
-    return ($v -eq 'cross-site' -or $v -eq 'same-site')
+    <#
+        True when the browser marks the request as coming from another site, by the plugin's shared rule
+        (Test-LoopbackCrossSite): a same-site top-level GET navigation -- the "Repo hub" crumb on a general
+        page, which sits on another port -- is served. A missing header is allowed.
+    #>
+    param(
+        [AllowNull()][AllowEmptyString()][string]$SecFetchSite,
+        [AllowNull()][AllowEmptyString()][string]$SecFetchMode = '',
+        [AllowNull()][AllowEmptyString()][string]$Method = ''
+    )
+    return (Test-LoopbackCrossSite -SecFetchSite $SecFetchSite -SecFetchMode $SecFetchMode -Method $Method)
 }
 
 function Format-DevPreviewPlaceholderHtml {

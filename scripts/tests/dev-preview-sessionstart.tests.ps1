@@ -24,10 +24,13 @@ $ErrorActionPreference = 'Continue'
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\hooks\dev-preview-sessionstart.ps1'
 $Lib      = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib\dev-preview-rules.ps1'
+$StateLib = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib\general-pages-state.ps1'
 # $PID and a guid in the fixture path: the test gate runs suites in parallel.
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "dev-preview-$PID-$([guid]::NewGuid().ToString('n'))"
 
 . $Lib
+. $StateLib
+. (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib\loopback-server-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -225,10 +228,30 @@ Assert-True (-not $st.Hub -and -not $st.Pages) 'but is nothing for another root'
 Assert-True (-not (ConvertFrom-RepoHubState -Text 'not json {' -Root $stateRoot).Hub -and -not (ConvertFrom-RepoHubState -Text '' -Root $stateRoot).Pages) 'and so is a file that is not JSON, or empty'
 $st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/index.html?tab=1' -Pages 'http://localhost:4890/') -Root $stateRoot
 Assert-True ($st.Hub -eq 'http://localhost:4870/index.html?tab=1' -and $st.Pages -eq 'http://localhost:4890') 'a hub url keeps its path, a pages url is a bare base'
-foreach ($bad in 'http://evil.example:4890', 'https://localhost:4890', 'http://localhost:4890/x', 'http://localhost:489', 'http://localhost:4890@evil.example', "http://localhost:4890`r`nSet-Cookie: x", 'javascript:alert(1)') {
+Assert-Equal '4890 4891 4892 4893 4894 4895 4896 4897 4898 4899' (@(Get-GeneralPagesPortRange) -join ' ') 'with no override the pages url is believed on 4890-4899 only'
+foreach ($bad in 'http://localhost:4889', 'http://localhost:4900', 'http://localhost:8080', 'http://evil.example:4890', 'https://localhost:4890', 'http://localhost:4890/x', 'http://localhost:489', 'http://localhost:4890@evil.example', "http://localhost:4890`r`nSet-Cookie: x", 'javascript:alert(1)') {
     Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages $bad) -Root $stateRoot).Pages "a pages url of '$($bad -replace '\s', ' ')' is not believed"
 }
 Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://evil.example/' -Pages 'http://localhost:4890') -Root $stateRoot).Hub 'nor is a hub url that leaves localhost'
+$env:DKJ_GENERAL_PAGES_PORTS = '4955'
+Assert-Equal 'http://localhost:4955' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages 'http://localhost:4955') -Root $stateRoot).Pages 'the test override moves the believed range'
+Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages 'http://localhost:4890') -Root $stateRoot).Pages 'and then the real range is not believed'
+$env:DKJ_GENERAL_PAGES_PORTS = 'not a list'
+Assert-Equal 4890 (@(Get-GeneralPagesPortRange)[0]) 'an override that is not a port list is ignored'
+Remove-Item Env:\DKJ_GENERAL_PAGES_PORTS -ErrorAction SilentlyContinue
+
+# The Sec-Fetch rule both plugin servers share (#3119). Ports do not count toward "site", so the hub's link, the
+# 303 hop and the crumb back all arrive same-site, as top-level navigations.
+Assert-True (-not (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'navigate' -Method 'GET')) 'a same-site top-level GET navigation is served'
+Assert-True (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'no-cors' -Method 'GET') 'a same-site subresource request is refused'
+Assert-True (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'cors' -Method 'GET') 'and a same-site fetch'
+Assert-True (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'navigate' -Method 'POST') 'and a same-site navigation that is a POST'
+Assert-True (Test-LoopbackCrossSite -SecFetchSite 'Same-Site') 'a same-site request that names no mode is the old refusal'
+Assert-True (Test-LoopbackCrossSite -SecFetchSite 'cross-site' -SecFetchMode 'navigate' -Method 'GET') 'a cross-site navigation is refused'
+Assert-True ((-not (Test-LoopbackCrossSite -SecFetchSite 'none' -SecFetchMode 'navigate' -Method 'GET')) -and (-not (Test-LoopbackCrossSite -SecFetchSite 'same-origin')) -and (-not (Test-LoopbackCrossSite -SecFetchSite ''))) 'a typed URL, the page itself and no header are served'
+Assert-True (-not (Test-DevPreviewPlaceholderCrossSite -SecFetchSite 'same-site' -SecFetchMode 'navigate' -Method 'GET')) 'the placeholder applies the same rule'
+Assert-True (Test-DevPreviewPlaceholderCrossSite 'same-site') 'and keeps the one-argument form refusing same-site'
+Assert-Equal @('C:\r\mkt\dkj-policy') @(Get-DkjPolicyCacheDir -PluginRoot 'C:\r\mkt\dkj-solutions\5.23.0\') 'dkj-policy''s version folders sit beside the plugin''s own in the cache'
 Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/a b' -Pages '') -Root $stateRoot).Hub 'nor one with a space in its path'
 
 Write-Host '-- group 2: the hook, end to end' -ForegroundColor Cyan
@@ -245,11 +268,13 @@ function New-Repo {
 # hook starts there owns it; a later one finds it taken by another, which is the case the state file records.
 $probe = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
 $probe.Start(); $genPort = ([System.Net.IPEndPoint]$probe.LocalEndpoint).Port; $probe.Stop()
+# The override reaches the hook, the servers it starts and the hubs that read the state file alike, so the
+# writing side and the reading side agree on the one port.
+$env:DKJ_GENERAL_PAGES_PORTS = [string]$genPort
 $repos = @()
 function Invoke-Hook {
     param([string]$Root, [int[]]$PlaceholderPorts)
     $extra = if ($PlaceholderPorts) { @('-PlaceholderPortsOverride', ($PlaceholderPorts -join ',')) } else { @() }
-    $extra += @('-GeneralPortsOverride', [string]$genPort)
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Hook -RepoRootOverride $Root @extra 2>&1 | ForEach-Object { "$_" }
     return [pscustomobject]@{ Text = ($out -join "`n"); Code = $LASTEXITCODE }
 }
@@ -302,17 +327,35 @@ try {
         Assert-Equal 1 $genOwners.Count 'exactly one general pages server listens, on the port it was given'
         $started += $genOwners
         $getRaw = {
-            param([int]$OnPort, [string]$Path, [string]$HostHeader = '')
+            param([int]$OnPort, [string]$Path, [string]$HostHeader = '', [string]$Extra = '')
             if (-not $HostHeader) { $HostHeader = "localhost:$OnPort" }
             $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $OnPort)
             $c.ReceiveTimeout = 30000
             try {
                 $net = $c.GetStream()
-                $req = [System.Text.Encoding]::ASCII.GetBytes("GET $Path HTTP/1.1`r`nHost: $HostHeader`r`n`r`n")
+                $req = [System.Text.Encoding]::ASCII.GetBytes("GET $Path HTTP/1.1`r`nHost: $HostHeader`r`n$Extra`r`n")
                 $net.Write($req, 0, $req.Length)
                 return (New-Object System.IO.StreamReader($net)).ReadToEnd()
             } catch { return '' } finally { $c.Close() }
         }
+        $r2 = & $getRaw $genPort '/whoami'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2.TrimEnd().EndsWith((Get-DevPreviewRootHash -Root $noConfigRoot))) '/whoami says which checkout''s server it is: the hash of the root it was started in'
+        Assert-Equal "http://localhost:$genPort" (Get-GeneralPagesUrl -Root $noConfigRoot) 'a hub that asks gets the pages url only from the server that answers as its own'
+        $otherRoot = Join-Path $Fixture 'someone-else'
+        Write-RepoHubState -Root $otherRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$genPort"
+        Assert-Equal '' (Get-GeneralPagesUrl -Root $otherRoot) 'while a state file that names another checkout''s server (a stale one, or a port race lost) gets the not-running form'
+        Remove-Item -LiteralPath (Get-RepoHubStatePath -Root $otherRoot) -Force -ErrorAction SilentlyContinue
+        # THE BROWSER'S OWN HEADERS (#3119): the hub's link to the pages, the crumb back to /hub, and the placeholder
+        # hub they land on, all arrive same-site as top-level navigations.
+        $nav = "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: navigate`r`nSec-Fetch-Dest: document`r`n"
+        $r2 = & $getRaw $genPort '/artifacts' '' $nav
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Artifacts</h1>') 'a click from the hub to a general page, same-site and a navigation, is served'
+        $r2 = & $getRaw $genPort '/hub' '' $nav
+        Assert-True ($r2 -match 'HTTP/1.1 303' -and $r2 -match "Location: http://localhost:$phPort/\r") 'and so is the "Repo hub" crumb on it'
+        $r2 = & $getRaw $phPort '/' '' $nav
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Repo hub</h1>') 'which the placeholder hub serves when it is reached that way'
+        Assert-True ((& $getRaw $genPort '/artifacts' '' "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: no-cors`r`n") -match 'HTTP/1.1 403') 'a same-site subresource request is refused'
+        Assert-True ((& $getRaw $genPort '/artifacts' '' "Sec-Fetch-Site: cross-site`r`nSec-Fetch-Mode: navigate`r`n") -match 'HTTP/1.1 403') 'and a cross-site navigation'
         $r2 = & $getRaw $genPort '/hub'
         Assert-True ($r2 -match 'HTTP/1.1 303' -and $r2 -match "Location: http://localhost:$phPort/\r") '/hub on the general server goes to the repo''s own hub, as the state file names it'
         Assert-True ((& $getRaw $genPort '/') -match "HTTP/1.1 303") 'and so does /'
@@ -372,8 +415,17 @@ try {
         $probe = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
         $probe.Start(); $port = ([System.Net.IPEndPoint]$probe.LocalEndpoint).Port; $probe.Stop()
 
-        $r = Invoke-Hook (New-Repo 'requires' "function Get-DevPreview { @{ Command = 'x {port}'; Ports = $port; Requires = 'node_modules' } }`n")
+        $requiresRepo = New-Repo 'requires' "function Get-DevPreview { @{ Command = 'x {port}'; Ports = $port; Requires = 'node_modules' } }`n"
+        $requiresRoot = [System.IO.Path]::GetFullPath($requiresRepo)
+        Write-RepoHubState -Root $requiresRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$genPort"
+        $r = Invoke-Hook $requiresRepo
         Assert-True ((Get-Message $r.Text) -match "'node_modules' is missing") 'a missing prerequisite is named and nothing is started'
+        Assert-True (-not (Test-Path -LiteralPath (Get-RepoHubStatePath -Root $requiresRoot))) 'and last session''s state file is removed: there is no hub this session to point at'
+        $takenRepo = New-Repo 'ports-taken' "function Get-DevPreview { @{ Command = 'x {port}'; Ports = $phPort } }`n"
+        $takenRoot = [System.IO.Path]::GetFullPath($takenRepo)
+        Write-RepoHubState -Root $takenRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$genPort"
+        $r = Invoke-Hook $takenRepo
+        Assert-True ((Get-Message $r.Text) -match 'taken by other processes' -and -not (Test-Path -LiteralPath (Get-RepoHubStatePath -Root $takenRoot))) 'and so is it when the hub''s ports are all taken'
 
         # THE REAL START: a loopback listener that holds the port for a minute, started by the hook.
         $listen = "powershell -NoProfile -Command `"`$l = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), {port}; `$l.Start(); Start-Sleep 60`""
@@ -416,6 +468,7 @@ try {
         Stop-Process -Id $o -Force -ErrorAction SilentlyContinue
     }
     Start-Sleep -Milliseconds 500
+    Remove-Item Env:\DKJ_GENERAL_PAGES_PORTS -ErrorAction SilentlyContinue
     foreach ($rp in $repos) {
         Remove-Item -LiteralPath (Get-RepoHubStatePath -Root $rp), (Get-DevPreviewLogPath -Root $rp), (Get-DevPreviewLogPath -Root $rp -Name 'dev-preview-general') -Force -ErrorAction SilentlyContinue
     }

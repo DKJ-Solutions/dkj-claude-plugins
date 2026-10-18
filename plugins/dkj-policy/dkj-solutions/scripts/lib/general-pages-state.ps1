@@ -34,17 +34,36 @@ function Write-RepoHubState {
     [System.IO.File]::WriteAllText((Get-RepoHubStatePath -Root $Root), $text, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-function Test-LoopbackPortOpen {
-    <# True when something accepts a connection on 127.0.0.1:-Port within -TimeoutMs. A hub must not hang on a dead server. #>
-    param([int]$Port, [int]$TimeoutMs = 300)
+function Get-LoopbackWhoami {
+    <#
+        What the general pages server on 127.0.0.1:-Port says it serves: the text body of its /whoami, which is
+        the hash of the repo root it was started in (Get-DevPreviewRootHash), or '' when nothing answers it
+        within -TimeoutMs (one deadline for the connect and the read). An open port proves only that
+        something listens; this is what proves whose server it is.
+    #>
+    param([int]$Port, [int]$TimeoutMs = 500)
     $c = New-Object System.Net.Sockets.TcpClient
     try {
+        $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
         $wait = $c.BeginConnect('127.0.0.1', $Port, $null, $null)
-        if (-not $wait.AsyncWaitHandle.WaitOne($TimeoutMs, $false)) { return $false }
+        if (-not $wait.AsyncWaitHandle.WaitOne($TimeoutMs, $false)) { return '' }
         $c.EndConnect($wait)
-        return $c.Connected
+        $left = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
+        if ($left -le 0) { return '' }
+        $c.ReceiveTimeout = $left
+        $c.SendTimeout = $left
+        $stream = $c.GetStream()
+        $req = [System.Text.Encoding]::ASCII.GetBytes("GET /whoami HTTP/1.1`r`nHost: localhost:$Port`r`nConnection: close`r`n`r`n")
+        $stream.Write($req, 0, $req.Length)
+        $text = (New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::ASCII)).ReadToEnd()
+        if ($text -notmatch '^HTTP/1\.1 200 ') { return '' }
+        $at = $text.IndexOf("`r`n`r`n")
+        if ($at -lt 0) { return '' }
+        $body = $text.Substring($at + 4).Trim()
+        if ($body -cmatch '^[0-9a-f]{8}\z') { return $body }
+        return ''
     } catch {
-        return $false
+        return ''
     } finally {
         $c.Close()
     }
@@ -53,13 +72,15 @@ function Test-LoopbackPortOpen {
 function Get-GeneralPagesUrl {
     <#
         The general pages server's base url for the checkout at -Root, for a hub's General card: the one the
-        state file names, and only when it answers within -TimeoutMs; '' otherwise (the card's "not running"
-        form).
+        state file names, and only when the server there says it is THIS checkout's (its /whoami is this
+        root's hash) within -TimeoutMs; '' otherwise, which is the card's "not running" form. A bare connect
+        is not enough: two checkouts race for the same ports, and a stale file can name a port another
+        checkout's server has taken since.
     #>
-    param([Parameter(Mandatory = $true)][string]$Root, [int]$TimeoutMs = 300)
+    param([Parameter(Mandatory = $true)][string]$Root, [int]$TimeoutMs = 500)
     $state = Read-RepoHubState -Root $Root
     if (-not $state.Pages) { return '' }
     $port = ([uri]$state.Pages).Port
-    if (Test-LoopbackPortOpen -Port $port -TimeoutMs $TimeoutMs) { return $state.Pages }
+    if ((Get-LoopbackWhoami -Port $port -TimeoutMs $TimeoutMs) -eq (Get-DevPreviewRootHash -Root $Root)) { return $state.Pages }
     return ''
 }

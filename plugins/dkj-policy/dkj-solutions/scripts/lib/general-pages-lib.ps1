@@ -232,6 +232,17 @@ function Select-HighestVersionDir {
     return $bestName
 }
 
+function Get-DkjPolicyCacheDir {
+    <#
+        Where dkj-policy's version folders sit when -PluginRoot is the plugin's folder in the plugin cache
+        (cache/<marketplace>/<plugin>/<version>): cache/<marketplace>/dkj-policy. In the source layout the
+        same derivation names a folder with no version folders in it, which the caller finds out by listing it.
+    #>
+    param([Parameter(Mandatory = $true)][string]$PluginRoot)
+    $plugin = $PluginRoot.TrimEnd('\', '/')
+    return Join-Path (Split-Path -Parent (Split-Path -Parent $plugin)) 'dkj-policy'
+}
+
 function Get-AlwaysOnBudgetLibCandidates {
     <#
         Where the SessionStart page may find always-on-budget-lib.ps1, in the order it is tried: the repo's
@@ -239,7 +250,7 @@ function Get-AlwaysOnBudgetLibCandidates {
         plugins/dkj-policy/<plugin> and dkj-policy's scripts are its sibling; and the cache layout, where
         the plugin is cache/<marketplace>/<plugin>/<version> and dkj-policy is cache/<marketplace>/dkj-policy/
         <version>. -PolicyVersions are the version folder names found under the cache's dkj-policy folder
-        (the caller lists them; this function only picks the highest). The lib dot-sources its two
+        (the caller lists them, under Get-DkjPolicyCacheDir; this function only picks the highest). The lib dot-sources its two
         neighbours from its own folder, so they resolve wherever it is found.
     #>
     param(
@@ -255,8 +266,7 @@ function Get-AlwaysOnBudgetLibCandidates {
     )
     $top = Select-HighestVersionDir -Names $PolicyVersions
     if ($top) {
-        $cacheMarket = Split-Path -Parent (Split-Path -Parent $plugin)
-        $list += (Join-Path (Join-Path (Join-Path $cacheMarket 'dkj-policy') $top) $rel)
+        $list += (Join-Path (Join-Path (Get-DkjPolicyCacheDir -PluginRoot $plugin) $top) $rel)
     }
     return $list
 }

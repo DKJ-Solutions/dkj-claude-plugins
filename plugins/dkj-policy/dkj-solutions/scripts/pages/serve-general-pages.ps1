@@ -21,10 +21,14 @@
       /sessionstart   the always-on path, measured in a CHILD process by always-on-budget-lib.ps1, found in
                       the repo's own scripts/lib, else in the plugin's source tree, else in the highest
                       dkj-policy version in the plugin cache. Kept for -CacheSeconds.
+                      The child first dot-sources the repo's own scripts/repo-config.ps1, the trust the
+                      dev-preview hook already gives it, and is bounded at 60 s.
       /hub and /      a 303 to the repo's own hub, whose url the hook wrote to the state file
                       (%TEMP%\dkj-repo-hub-<leaf>-<hash>.json); a plain 404 text where it names none.
       /refresh        ?page=issues or ?page=sessionstart drops that page's cache (at most once per
                       -MinRefreshSeconds, and per 60 s for issues) and goes back to the page.
+      /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
+                      hubs ask it before they link here, because an open port does not say whose server it is.
       /house-style.css, /house-theme.js   the plugin's vendored copy under assets/house-style/.
     The repo's name on the pages is owner/name from the origin remote, else the folder's name.
 
@@ -32,7 +36,8 @@
     http.sys (PID 4), so the hook's ownership walk could never reach the cmd.exe that names the checkout, and
     every session would start another server on the next port. Loopback only, and a request whose Host is not
     localhost:<Port> or 127.0.0.1:<Port> is refused (DNS rebinding), as is one the browser marks as coming
-    from another site. GET and HEAD only.
+    from another site -- except a same-site top-level GET navigation (the hub's link, the 303 hop, the
+    crumb back), which is a user following a link and is served (Test-LoopbackCrossSite). GET and HEAD only.
 
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped, and one that never reads its answer
@@ -75,8 +80,9 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '..\lib\general-pages-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\general-pages-state.ps1')
-# The request rules the placeholder already has (the Host and Sec-Fetch-Site checks): one copy in the plugin.
-. (Join-Path $PSScriptRoot '..\lib\dev-preview-placeholder.ps1')
+# The request reader, the response writer and the Host and Sec-Fetch-Site rules: one copy in the plugin,
+# shared with the placeholder server.
+. (Join-Path $PSScriptRoot '..\lib\loopback-server-lib.ps1')
 
 $pluginRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
@@ -204,7 +210,7 @@ function Get-IssuesModel {
 
 function Resolve-AlwaysOnBudgetLib {
     <# The always-on-budget-lib.ps1 this server measures with, or '': the first of Get-AlwaysOnBudgetLibCandidates that exists. #>
-    $cacheDir = Join-Path (Split-Path -Parent (Split-Path -Parent $pluginRoot)) 'dkj-policy'
+    $cacheDir = Get-DkjPolicyCacheDir -PluginRoot $pluginRoot
     $versions = @(if (Test-Path -LiteralPath $cacheDir -PathType Container) { Get-ChildItem -LiteralPath $cacheDir -Directory | ForEach-Object { $_.Name } })
     foreach ($c in @(Get-AlwaysOnBudgetLibCandidates -RepoRoot $root -PluginRoot $pluginRoot -PolicyVersions $versions)) {
         if (Test-Path -LiteralPath $c -PathType Leaf) { return $c }
@@ -219,31 +225,47 @@ function Get-SessionStartModel {
         in this server's scope. The child hands back objects, deserialized; a failure is a ReadError.
     #>
     $started = Get-Date
-    $ErrorActionPreference = 'Continue'   # Windows PowerShell 5.1 turns a native command's stderr into a terminating error under 'Stop'
     try {
         $lib = Resolve-AlwaysOnBudgetLib
         if (-not $lib) {
             return @{ Model = $null; Error = 'always-on-budget-lib.ps1 was not found in the repo, the plugin''s source tree or the plugin cache'; At = Get-Date }
         }
-        $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -Command {
-                param($Root, $Lib)
-                $ErrorActionPreference = 'Stop'
-                $cfg = Join-Path $Root 'scripts\repo-config.ps1'
-                if (Test-Path -LiteralPath $cfg) { try { . $cfg } catch { } }
-                . $Lib
-                $baseline = Read-AlwaysOnBaseline -RepoRoot $Root
-                $m = Get-AlwaysOnMeasurement -RepoRoot $Root -Baseline $baseline
-                $v = Get-AlwaysOnBudgetVerdict -Measurement $m -Budget (Resolve-AlwaysOnBudget) -Baseline $baseline
-                $docs = @()
-                foreach ($d in @($m.Measured)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]$d.Bytes; Source = 'measured' } }
-                foreach ($d in @($m.Carried)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]$d.Bytes; Source = 'carried' } }
-                foreach ($d in @($m.Unmeasured)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]0; Source = 'unmeasured' } }
-                [pscustomobject]@{
-                    Total = [int64]$v.Total; Budget = [int64]$v.Budget; State = [string]$v.State; Ok = [bool]$v.Ok
-                    Tokens = [int64](ConvertTo-EstimatedTokens -Bytes $v.Total); Documents = $docs
-                }
-            } -args $root, $lib 2>$null | Where-Object { $_ -and $_.PSObject.Properties['Total'] })
-        if (-not $out.Count) { return @{ Model = $null; Error = 'the measurement returned nothing'; At = Get-Date } }
+        # The script is handed over encoded, so no quoting layer touches it; the root and the lib go in the
+        # environment of the child. The child prints ONE json line with every non-ASCII character escaped, so the
+        # console's code page cannot garble a document path. Bounded at 60 s like the gh and git calls.
+        $script = @'
+$ErrorActionPreference = 'Stop'
+$Root = $env:DKJ_GP_ROOT
+$Lib = $env:DKJ_GP_LIB
+$cfg = Join-Path $Root 'scripts\repo-config.ps1'
+if (Test-Path -LiteralPath $cfg) { try { . $cfg } catch { } }
+. $Lib
+$baseline = Read-AlwaysOnBaseline -RepoRoot $Root
+$m = Get-AlwaysOnMeasurement -RepoRoot $Root -Baseline $baseline
+$v = Get-AlwaysOnBudgetVerdict -Measurement $m -Budget (Resolve-AlwaysOnBudget) -Baseline $baseline
+$docs = @()
+foreach ($d in @($m.Measured)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]$d.Bytes; Source = 'measured' } }
+foreach ($d in @($m.Carried)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]$d.Bytes; Source = 'carried' } }
+foreach ($d in @($m.Unmeasured)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]0; Source = 'unmeasured' } }
+$o = [pscustomobject]@{
+    Total = [int64]$v.Total; Budget = [int64]$v.Budget; State = [string]$v.State; Ok = [bool]$v.Ok
+    Tokens = [int64](ConvertTo-EstimatedTokens -Bytes $v.Total); Documents = @($docs)
+}
+$json = $o | ConvertTo-Json -Compress -Depth 4
+[Console]::Out.WriteLine('DKJ-GP-RESULT ' + [regex]::Replace($json, '[^\x00-\x7F]', { param($x) '\u{0:x4}' -f [int][char]$x.Value }))
+'@
+        $env:DKJ_GP_ROOT = $root
+        $env:DKJ_GP_LIB = $lib
+        try {
+            $run = Invoke-BoundedProcess -FilePath (Join-Path $PSHOME 'powershell.exe') -TimeoutSeconds 60 -WorkingDirectory $root -Arguments @(
+                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($script)))
+        } finally {
+            Remove-Item Env:\DKJ_GP_ROOT, Env:\DKJ_GP_LIB -ErrorAction SilentlyContinue
+        }
+        if ($run.TimedOut) { return @{ Model = $null; Error = 'the measurement did not finish within 60 s'; At = Get-Date } }
+        $line = @($run.Output -split "`r?`n" | Where-Object { $_.StartsWith('DKJ-GP-RESULT ') }) | Select-Object -Last 1
+        if (-not $line) { return @{ Model = $null; Error = 'the measurement returned nothing'; At = Get-Date } }
+        $out = @(($line.Substring(14) | ConvertFrom-Json))
         $r = $out[-1]
         # An import through the marketplace clone resolves to an absolute path; the page names it from ~.
         $homeDir = ([string]$env:USERPROFILE).Replace('\', '/').TrimEnd('/')
@@ -263,46 +285,8 @@ function Get-SessionStartModel {
     }
 }
 
-function Read-GeneralPagesRequest {
-    <# The request line and the two headers the server reads, or $null -- one deadline, at most 8 KB. #>
-    param($Client)
-    $stream = $Client.GetStream()
-    $buffer = New-Object byte[] 1024
-    $head = New-Object System.IO.MemoryStream
-    $deadline = [DateTime]::UtcNow.AddMilliseconds($ReadTimeoutMs)
-    while ($true) {
-        $left = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
-        if ($left -le 0) { return $null }
-        $Client.ReceiveTimeout = $left
-        $n = $stream.Read($buffer, 0, $buffer.Length)
-        if ($n -le 0) { return $null }
-        $head.Write($buffer, 0, $n)
-        if ($head.Length -gt 8192) { return $null }
-        $text = [System.Text.Encoding]::ASCII.GetString($head.ToArray())
-        $end = $text.IndexOf("`r`n`r`n")
-        if ($end -ge 0) { break }
-    }
-    $lines = $text.Substring(0, $end) -split "`r`n"
-    $result = @{ RequestLine = $lines[0]; Host = ''; SecFetchSite = '' }
-    foreach ($h in @($lines | Select-Object -Skip 1)) {
-        if ($h -match '^Host:\s*(.*)$') { $result.Host = $Matches[1] }
-        elseif ($h -match '^Sec-Fetch-Site:\s*(.*)$') { $result.SecFetchSite = $Matches[1] }
-    }
-    return $result
-}
-
-function Send-GeneralPagesResponse {
-    param($Stream, [int]$Status, [string]$Reason, [string]$Type, [byte[]]$Body, [hashtable]$Headers = @{})
-    $head = "HTTP/1.1 $Status $Reason`r`nContent-Type: $Type`r`nContent-Length: $($Body.Length)`r`n" +
-        "Cache-Control: no-store`r`nX-Content-Type-Options: nosniff`r`nConnection: close`r`n"
-    foreach ($k in $Headers.Keys) { $head += "$k`: $($Headers[$k])`r`n" }
-    $bytes = [System.Text.Encoding]::ASCII.GetBytes($head + "`r`n")
-    $Stream.Write($bytes, 0, $bytes.Length)
-    if ($Body.Length) { $Stream.Write($Body, 0, $Body.Length) }
-    $Stream.Flush()
-}
-
 $utf8 = New-Object System.Text.UTF8Encoding($false)
+$rootHash = Get-DevPreviewRootHash -Root $root
 $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
 $listener.Start()
 Write-Host "general pages for $((Get-RepoIdentity).Name): http://localhost:$Port/"
@@ -315,36 +299,41 @@ try {
         # A client that sends its head and then never reads must not hold the loop on Write either.
         $client.SendTimeout = 2000
         try {
-            $request = Read-GeneralPagesRequest -Client $client
+            $request = Read-LoopbackRequest -Client $client -ReadTimeoutMs $ReadTimeoutMs
             if ($null -eq $request) { continue }
             $stream = $client.GetStream()
             $method, $target = ($request.RequestLine -split ' ')[0, 1]
             $path = ([string]$target -split '\?')[0]
 
-            if (-not (Test-DevPreviewPlaceholderHost -HostHeader $request.Host -Port $Port)) {
-                Send-GeneralPagesResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
+            if (-not (Test-LoopbackHost -HostHeader $request.Host -Port $Port)) {
+                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
                 continue
             }
-            if (Test-DevPreviewPlaceholderCrossSite $request.SecFetchSite) {
-                Send-GeneralPagesResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
+            if (Test-LoopbackCrossSite -SecFetchSite $request.SecFetchSite -SecFetchMode $request.SecFetchMode -Method $method) {
+                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
                 continue
             }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
-                Send-GeneralPagesResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' }
+                Send-LoopbackResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' }
+                continue
+            }
+            if ($path -eq '/whoami') {
+                # Whose server this is: the hash of the root it was started in. The hubs ask before they link here.
+                Send-LoopbackResponse $stream 200 'OK' 'text/plain; charset=utf-8' ($utf8.GetBytes($rootHash))
                 continue
             }
             if ($static.ContainsKey($path)) {
                 $s = $static[$path]
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
-                Send-GeneralPagesResponse $stream 200 'OK' $s.Type $body
+                Send-LoopbackResponse $stream 200 'OK' $s.Type $body
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/hub') {
                 $hub = (Read-RepoHubState -Root $root).Hub
                 if ($hub) {
-                    Send-GeneralPagesResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $hub }
+                    Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $hub }
                 } else {
-                    Send-GeneralPagesResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('This repo''s hub is not known yet: the dev-preview hook records it at the next session start.'))
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('This repo''s hub is not known yet: the dev-preview hook records it at the next session start.'))
                 }
                 continue
             }
@@ -358,7 +347,7 @@ try {
                     # At least a minute: a re-read holds this single-threaded loop for about 12 s.
                     if ($isCache -and ((Get-Date) - $isCache.At).TotalSeconds -ge [Math]::Max($MinRefreshSeconds, 60)) { $isCache = $null }
                 }
-                Send-GeneralPagesResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" }
+                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" }
                 continue
             }
             $html = $null
@@ -375,17 +364,17 @@ try {
                 $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -RepoName (Get-RepoIdentity).Name
             } elseif ($path -eq '/release-notes') {
                 if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
-                    Send-GeneralPagesResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: this repo has no dkj-policy/releases/page/release-notes.html. The dkj-policy plugin builds it with scripts/release/build-release-notes-page.ps1.'))
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: this repo has no dkj-policy/releases/page/release-notes.html. The dkj-policy plugin builds it with scripts/release/build-release-notes-page.ps1.'))
                     continue
                 }
                 $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8))
             }
             if ($null -ne $html) {
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-GeneralPagesResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
             }
-            Send-GeneralPagesResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.'))
+            Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.'))
         } catch {
             # A dropped or silent connection ends that request, never the server.
         } finally {

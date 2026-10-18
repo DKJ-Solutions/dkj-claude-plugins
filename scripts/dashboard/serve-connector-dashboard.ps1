@@ -9,10 +9,11 @@
     every DKJ-Solutions repo, so the dkj-solutions plugin serves them from a server of its own
     (scripts/pages/serve-general-pages.ps1), which the dev-preview hook starts beside this one. This server
     only links it. The hook writes both servers' urls to a state file in %TEMP%; the hub reads it on every
-    request and draws its General card from it, probing the pages port for at most ~300 ms and showing the
-    "not running" form when nothing answers. A request for /artifacts, /issues, /release-notes or
-    /sessionstart is answered with a 303 to the same path on that server when the file names it, and with a
-    404 text naming the general pages server when it does not.
+    request and draws its General card from it, asking the server named there who it is (its /whoami, the
+    hash of this root) for at most ~500 ms and showing the "not running" form when nothing answers, or the
+    wrong checkout does. A request for /artifacts, /issues, /release-notes or /sessionstart is answered with
+    a 303 to the same path on that server when it answers as this checkout's, and with a short 404 text
+    naming the general pages server when it does not.
 
 .DESCRIPTION
     Normally started by the dkj-solutions dev-preview SessionStart hook, through this repo's
@@ -217,10 +218,11 @@ function Read-DashboardRequest {
         if ($end -ge 0) { break }
     }
     $lines = $text.Substring(0, $end) -split "`r`n"
-    $result = @{ RequestLine = $lines[0]; Host = ''; SecFetchSite = '' }
+    $result = @{ RequestLine = $lines[0]; Host = ''; SecFetchSite = ''; SecFetchMode = '' }
     foreach ($h in @($lines | Select-Object -Skip 1)) {
         if ($h -match '^Host:\s*(.*)$') { $result.Host = $Matches[1] }
         elseif ($h -match '^Sec-Fetch-Site:\s*(.*)$') { $result.SecFetchSite = $Matches[1] }
+        elseif ($h -match '^Sec-Fetch-Mode:\s*(.*)$') { $result.SecFetchMode = $Matches[1] }
     }
     return $result
 }
@@ -264,7 +266,7 @@ try {
                 Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
                 continue
             }
-            if (Test-DashboardCrossSite $request.SecFetchSite) {
+            if (Test-DashboardCrossSite -SecFetchSite $request.SecFetchSite -SecFetchMode $request.SecFetchMode -Method $method) {
                 Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
                 continue
             }
@@ -296,7 +298,7 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
-                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 300)
+                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
@@ -317,11 +319,11 @@ try {
             }
             if ($generalRoutes -contains $path) {
                 # Moved to the plugin's general pages server (#3119): sent on when the state file names it.
-                $pages = (Read-RepoHubState -Root $root).Pages
+                $pages = Get-GeneralPagesUrl -Root $root -TimeoutMs 500
                 if ($pages) {
                     Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $pages + $path }
                 } else {
-                    Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("This page is served by the dkj-solutions general pages server, which this repo's hub does not know yet: the dev-preview hook starts it and records its address at the next session start."))
+                    Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("This page is served by the dkj-solutions general pages server, which is not running for this repo: the dev-preview hook starts it at the next session start."))
                 }
                 continue
             }

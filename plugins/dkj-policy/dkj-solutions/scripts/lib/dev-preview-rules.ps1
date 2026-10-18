@@ -68,6 +68,21 @@ $script:DevPreviewLabel = 'Repo hub'
 # The general pages server (#3119): ten more, clear of 4880-4889, 4870-4879 and the repos' own ranges.
 $script:GeneralPagesPorts = 4890..4899
 
+function Get-GeneralPagesPortRange {
+    <#
+        The ports the general pages server may take, and so the only ports a state file's pages url is
+        believed on: 4890-4899. DKJ_GENERAL_PAGES_PORTS (comma-separated ports) replaces them -- the TEST
+        override, read from the environment of the process the hook, the servers and the hubs all start in,
+        so a test run never meets a real server. A value that is not a plain port list is ignored.
+    #>
+    $o = [string]$env:DKJ_GENERAL_PAGES_PORTS
+    if ($o -match '^[0-9]{4,5}(,[0-9]{4,5})*$') {
+        $ports = @($o -split ',' | ForEach-Object { [int]$_ } | Where-Object { $_ -ge 1024 -and $_ -le 65535 })
+        if ($ports.Count) { return $ports }
+    }
+    return $script:GeneralPagesPorts
+}
+
 function Get-DevPreviewPlaceholder {
     <#
         The Get-DevPreview answer the hook uses where a repo states none: the plugin's placeholder server
@@ -370,7 +385,9 @@ function ConvertFrom-RepoHubState {
     <#
         @{ Hub; Pages } from the state file's -Text, each '' unless it can be believed: the file is JSON,
         its root is -Root (compared the way paths are), and the url is a plain loopback url -- the hub's
-        with an optional path of the characters Get-DevPreview's Path allows, the pages' a bare base.
+        with an optional path of the characters Get-DevPreview's Path allows, the pages' a bare base on one
+        of the general pages ports (Get-GeneralPagesPortRange), so a file another process can write cannot
+        point a hub's links at any other local service.
         The urls are redirect targets and link hrefs, so a state file that names anything else is ignored.
     #>
     param([AllowNull()][AllowEmptyString()][string]$Text, [Parameter(Mandatory = $true)][string]$Root)
@@ -384,6 +401,6 @@ function ConvertFrom-RepoHubState {
     $h = if ($s.PSObject.Properties['hub']) { [string]$s.hub } else { '' }
     $p = if ($s.PSObject.Properties['pages']) { [string]$s.pages } else { '' }
     if ($h -cmatch '^http://localhost:[0-9]{4,5}(/[A-Za-z0-9._~/%?=&#+-]*)?\z' -and $h.Length -le 240) { $hub = $h }
-    if ($p -cmatch '^http://localhost:[0-9]{4,5}/?\z') { $pages = $p.TrimEnd('/') }
+    if ($p -cmatch '^http://localhost:([0-9]{4,5})/?\z' -and (@(Get-GeneralPagesPortRange) -contains [int]$Matches[1])) { $pages = $p.TrimEnd('/') }
     return @{ Hub = $hub; Pages = $pages }
 }

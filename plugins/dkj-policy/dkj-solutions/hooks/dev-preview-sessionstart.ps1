@@ -28,7 +28,12 @@
     own link is the one this hook promises, and the hub shows the general card's "not running" form until
     the server answers. It then writes the state file (%TEMP%\dkj-repo-hub-<repo>-<hash>.json: the hub url
     and the pages url), the one contract by which the two servers find each other. Placeholder repos get it
-    too. This step never fails the session and never changes the line printed below.
+    too. This step never fails the session and never changes the line printed below. Where the hook ends
+    before any hub exists (its ports all taken, a Requires path missing, a root cmd.exe would rewrite, a
+    seam that answers nothing) it REMOVES last session's state file instead: with no hub to link there is
+    nothing for the general server to send a visitor back to, and a stale file would name a hub that is
+    not this session's. The listener snapshot is ONE read over the hub's ports and the general pages' ports
+    together, and the process table is read at most once, shared by both steps.
 
     THE OUTPUT is SessionStart JSON with BOTH systemMessage (shown to the owner, so the link is clickable
     in the terminal) and additionalContext (the session knows the URL too). life-hub sent only the first.
@@ -61,11 +66,13 @@
 .PARAMETER PlaceholderPortsOverride
     (For tests) The placeholder's ports instead of 4880-4889, so a test run never meets a real one.
 
-.PARAMETER GeneralPortsOverride
-    (For tests) The general pages server's ports instead of 4890-4899, for the same reason.
+.NOTES
+    The general pages server's ports are 4890-4899. A test replaces them through the environment variable
+    DKJ_GENERAL_PAGES_PORTS (see Get-GeneralPagesPortRange), which the servers and hubs the hook starts
+    inherit, so the same range holds on the writing and the reading side of the state file.
 #>
 [CmdletBinding()]
-param([string]$RepoRootOverride, [int[]]$PlaceholderPortsOverride, [int[]]$GeneralPortsOverride)
+param([string]$RepoRootOverride, [int[]]$PlaceholderPortsOverride)
 
 $ErrorActionPreference = 'Stop'
 
@@ -98,7 +105,7 @@ if (-not (Test-Path -LiteralPath $libPath -PathType Leaf)) {
 $stateLibPath = Join-Path $PSScriptRoot '..\scripts\lib\general-pages-state.ps1'
 if (Test-Path -LiteralPath $stateLibPath -PathType Leaf) { . $stateLibPath }
 
-$root =if ($RepoRootOverride) { $RepoRootOverride }
+$root = if ($RepoRootOverride) { $RepoRootOverride }
         elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR }
         else { (Get-Location).Path }
 $root = [System.IO.Path]::GetFullPath($root).TrimEnd('\', '/')
@@ -138,8 +145,18 @@ if ($placeholder) {
            else { Get-DevPreviewPlaceholder -PluginRoot $pluginRoot }
 }
 
+# Last session's state file is only true while a hub is up: a hook that ends before there is one removes it.
+function Clear-DevPreviewState {
+    try {
+        if (Get-Command Get-RepoHubStatePath -ErrorAction SilentlyContinue) {
+            Remove-Item -LiteralPath (Get-RepoHubStatePath -Root $root) -Force -ErrorAction SilentlyContinue
+        }
+    } catch { }
+}
+
 $parsed = ConvertTo-DevPreviewConfig -Raw $raw
 if (-not $parsed.Ok) {
+    Clear-DevPreviewState
     if ($parsed.Problem) { Write-DevPreviewLine "dev-preview: not started -- $($parsed.Problem) (scripts/repo-config.ps1)." }
     exit 0
 }
@@ -186,18 +203,16 @@ function Open-DevPreviewInVsCode([string]$Url) {
 # The general pages server (#3119), started or reused beside the repo's own, and the state file that tells
 # each of the two where the other is. NEVER WAITS for the server to listen, and never throws: whatever goes
 # wrong here leaves the hub's General card in its "not running" form and the session's line untouched.
-function Start-DevPreviewGeneralPages([string]$HubUrl) {
+function Start-DevPreviewGeneralPages([string]$HubUrl, $Listeners, $Processes) {
     try {
         if (-not (Get-Command Write-RepoHubState -ErrorAction SilentlyContinue)) { return }
         $pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
         $server = Join-Path $pluginRoot 'scripts\pages\serve-general-pages.ps1'
-        $ports = if ($GeneralPortsOverride) { $GeneralPortsOverride } else { $script:GeneralPagesPorts }
+        $ports = @(Get-GeneralPagesPortRange)
         $pagesUrl = ''
         # A '%' or '^' in either path is rewritten by cmd.exe even inside quotes: refused, as for the repo's server.
         if ((Test-Path -LiteralPath $server -PathType Leaf) -and $pluginRoot -notmatch '[%^]' -and $root -notmatch '[%^]') {
-            $gl = @(Get-DevPreviewListeners $ports)
-            $gp = if ($gl.Count) { Get-DevPreviewProcesses } else { @{} }
-            $gpick = Select-DevPreviewPort -Ports $ports -Listeners $gl -Processes $gp -Root $root
+            $gpick = Select-DevPreviewPort -Ports $ports -Listeners $Listeners -Processes $Processes -Root $root
             if ($gpick.Action -eq 'start') {
                 $gcommand = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$server`" -Port {port}"
                 $glog = Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general'
@@ -210,7 +225,7 @@ function Start-DevPreviewGeneralPages([string]$HubUrl) {
     } catch { }
 }
 
-$listeners = @(Get-DevPreviewListeners $cfg.Ports)
+$listeners = @(Get-DevPreviewListeners (@($cfg.Ports) + @(Get-GeneralPagesPortRange)))
 $processes = if ($listeners.Count) { Get-DevPreviewProcesses } else { @{} }
 $pick = Select-DevPreviewPort -Ports $cfg.Ports -Listeners $listeners -Processes $processes -Root $root
 $range = Format-DevPreviewPorts -Ports $cfg.Ports
@@ -225,15 +240,17 @@ if ($pick.Action -eq 'reuse') {
     $exposed = if ((Test-DevPreviewCommandIsLoopback $cfg.Command) -and (Test-DevPreviewListensOnAll -Port $pick.Port -Listeners $listeners)) {
         ', LISTENING ON ALL INTERFACES -- not started by the loopback Command; restart it to bind 127.0.0.1'
     } else { '' }
-    Start-DevPreviewGeneralPages -HubUrl $url
+    Start-DevPreviewGeneralPages -HubUrl $url -Listeners $listeners -Processes $processes
     Write-DevPreviewLine "$($cfg.Name): $url (already running$opened$exposed$note)"
 }
 if ($pick.Action -eq 'none') {
+    Clear-DevPreviewState
     Write-DevPreviewLine "$($cfg.Name): not started -- $range taken by other processes."
 }
 
 foreach ($rel in $cfg.Requires) {
     if (-not (Test-Path -LiteralPath (Join-Path $root $rel))) {
+        Clear-DevPreviewState
         Write-DevPreviewLine "$($cfg.Name): not started -- '$rel' is missing (set it up, then start a new session)."
     }
 }
@@ -242,6 +259,7 @@ foreach ($rel in $cfg.Requires) {
 # A '%' or '^' in the root is expanded or eaten by cmd.exe even inside quotes, so the server would start
 # in the wrong directory and never be recognised as ours: refused rather than started wrong.
 if ($root -match '[%^]') {
+    Clear-DevPreviewState
     Write-DevPreviewLine "$($cfg.Name): not started -- the repo path holds a '%' or '^', which cmd.exe would rewrite."
 }
 $log = Get-DevPreviewLogPath -Root $root
@@ -252,7 +270,7 @@ $shell = Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle 
 
 $url = Get-DevPreviewUrl -Port $port -Path $cfg.Path
 $note = Get-DevPreviewPlaceholderNote $port
-Start-DevPreviewGeneralPages -HubUrl $url
+Start-DevPreviewGeneralPages -HubUrl $url -Listeners $listeners -Processes $processes
 $deadline = (Get-Date).AddSeconds($cfg.WaitSeconds)
 while ((Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 500
