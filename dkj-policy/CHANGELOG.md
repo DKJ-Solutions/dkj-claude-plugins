@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**4 / 10 minor entries** <!-- pending-tally -->
+**4 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/artifacts-page · 20261018-123507Z
+
+The dev server gains an Artifacts page (`/artifacts`), linked from the Repo hub: every claude.ai
+Artifact a session in this repo has published -- pages, decks and documents -- newest first, each with
+its kind, its dates and one line on what it shows. The list is a committed register,
+`scripts/dashboard/artifacts.json`, seeded from this repo's session transcripts; a url that is not a
+claude.ai Artifact link is shown without an href, so a register edit cannot inject a link.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the dev server is this repo's own maintenance tool; nothing a plugin user installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The dev server lists every Artifact made for this repo
+
+[PR #3113](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3113)
+
+---
 
 ### DEPLOY: fix/3108-release-notes-page-house-style · 20261018-121205Z
 
