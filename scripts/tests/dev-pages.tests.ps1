@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
-    Tests for scripts/lib/dev-pages-lib.ps1 -- the SessionStart and test-gate pages of the dev server
-    (#3097). Pure: the server that serves them is exercised by connector-dashboard.tests.ps1.
+    Tests for scripts/lib/dev-pages-lib.ps1 -- the Repo hub, the SessionStart page and the test-gate page
+    of the dev server (#3097). Pure: the server that serves them is exercised by
+    connector-dashboard.tests.ps1.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -33,11 +34,27 @@ Assert-Equal '59.6s' (Format-DevSeconds 59.6) 'just under a minute stays in seco
 Write-Host '-- the page shell' -ForegroundColor Cyan
 $shell = Format-DevPageHtml -Title 'A <b>page' -Lead 'lead' -Body '<p>body</p>' -FooterNote 'note'
 Assert-True ($shell.IndexOf('<div class="breadcrumbs-bar">') -lt $shell.IndexOf('<main')) 'the breadcrumb bar comes before <main>'
-Assert-True ($shell -match '<li><a href="/">Repo dashboard</a></li>') 'the trail starts at the Repo dashboard, linked'
+Assert-True ($shell -match '<li><a href="/">Repo hub</a></li>') 'the trail starts at the Repo hub, linked'
 Assert-True ($shell -match 'breadcrumbs__sep" aria-hidden="true">/</span><span aria-current="page">A &lt;b&gt;page</span>') 'and ends at the page, unlinked and escaped'
 Assert-True ($shell -match '<h1>A &lt;b&gt;page</h1>') 'the h1 is the page name, escaped'
 Assert-True ($shell -match 'data-theme-key="connector-dashboard"') 'the theme key is the index page''s, so a picked theme holds across pages'
 Assert-True ($shell -match '<p class="footer-note">note</p>') 'the footer note closes the column'
+
+Write-Host '-- the Repo hub' -ForegroundColor Cyan
+$pages = @(Get-RepoHubPages)
+Assert-Equal '/connectors,/release-notes,/sessionstart,/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the four pages, in order'
+$hub = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234'
+Assert-True ($hub -match '<title>dkj-claude-plugins -- Repo hub</title>' -and $hub -match '<h1>Repo hub</h1>') 'the h1 and the title are Repo hub, word for word'
+Assert-True ($hub -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo hub</span></li>\s*</ol>') 'the bar opens <body>, its trail the one crumb Repo hub'
+Assert-True ($hub -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>' -and $hub -notmatch '<header' -and $hub -notmatch 'btn--primary') 'the intro is the slug and no <header>, and there is no product button'
+Assert-Equal 4 ([regex]::Matches($hub, '<a class="menu-item" href="/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
+Assert-True ($hub -match '<nav class="menu-list" aria-label="Pages">\r?\n<a class="menu-item"' -and $hub -match '</a>\r?\n<a class="menu-item"') 'the rows are direct siblings in the nav, so the house draws the line between them'
+Assert-True ($hub -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'About this repo names the commit it serves from'
+Assert-True ((Format-RepoHubHtml -Pages $pages) -notmatch 'Source at') 'and leaves the row out when the commit could not be read'
+$ix = @('class="breadcrumbs-bar"', 'id="settings"', 'class="eyebrow"', 'Pages</h2>', 'About this repo</h2>', 'class="footer-note"') | ForEach-Object { $hub.IndexOf($_) }
+Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'the blocks stand in the form''s order'
+$evil = Format-RepoHubHtml -Pages @(@{ Href = '/x"><script>'; Label = '<b>'; Sub = '' })
+Assert-True ($evil -notmatch 'x"><script>' -and $evil -match 'href="/x&quot;&gt;&lt;script&gt;"' -and $evil -notmatch '<b>' -and $evil -notmatch 'menu-item__sub') 'every value is escaped, and an empty description is left out'
 
 Write-Host '-- the test-gate model' -ForegroundColor Cyan
 $json = '{ "seconds": { "a.tests.ps1": 10, "b.tests.ps1": 30, "gone.tests.ps1": 5 }, "recordedFrom": { "runs": ["111", "222"], "date": "2026-10-07", "machine": "m", "method": "mean" } }' | ConvertFrom-Json

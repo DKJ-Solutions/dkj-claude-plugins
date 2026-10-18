@@ -56,16 +56,17 @@ local dev server, or reuses the one already running, and hands the owner a click
 copy per repo in `dkj-brandbook`, `dkj-etf-tracker` and `life-hub`
 ([#2967](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2967)).
 
-**The page it opens is the repo's `Repo dashboard`, in every repo** (the owner's term, October 16, 2026,
-[#3064](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3064)): the most important
-information about this repo, in one place. The line opens with `Repo dashboard:`, the placeholder's
+**The page it opens is the repo's `Repo hub`, in every repo** (the owner's term, October 16, 2026,
+[#3064](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3064), called `Repo dashboard` until
+`dkj-brandbook` v0.3.0, [#3097](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3097)): the
+way to every page about this repo, in one place. The line opens with `Repo hub:`, the placeholder's
 included, and a repo cannot choose another word. A `Name` a repo still states in `Get-DevPreview` is
 ignored, so delete it at your next edit. "dev-preview" names the mechanism, which is why the hook's lines
 about its own setup (skipped, config unreadable, a config it cannot run) still open with it.
 
 **And it has one form, in every repo** (the owner's decision, October 16, 2026,
 [#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)): the one laid down in
-`dkj-brandbook`'s `house-style/README.md`, section "The Repo dashboard", at the tag the
+`dkj-brandbook`'s `house-style/README.md`, section "The Repo hub", at the tag the
 [`house-style` skill](skills/house-style/SKILL.md) pins. The blocks, their order and the `h1` are fixed;
 the slug, the lead, the lists, the facts and the data source are the repo's own. The placeholder below
 follows that form too.
@@ -157,8 +158,9 @@ session start ([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
 
 The plugin is enabled here since October 13, 2026
 ([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)), for the dev-preview hook:
-this repo's `Get-DevPreview` starts its `Repo dashboard`, the **connector dashboard**, a page with every
-repo registered under `connectors/` and what `check-connectors.ps1` reports for it, served on `127.0.0.1` by
+this repo's `Get-DevPreview` starts its `Repo hub`, whose pages are the **connector dashboard** (every
+repo registered under `connectors/` and what `check-connectors.ps1` reports for it), the release notes,
+the SessionStart measurements and the test-gate durations, served on `127.0.0.1` by
 `scripts/dashboard/serve-connector-dashboard.ps1` with a vendored copy of the house style. That server
 uses a `TcpListener` rather than an `HttpListener`: under the latter the socket belongs to `http.sys`
 (PID 4), and the hook could never recognise the server as this checkout's.

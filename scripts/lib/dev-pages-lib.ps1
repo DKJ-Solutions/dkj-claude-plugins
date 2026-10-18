@@ -1,15 +1,20 @@
 <#
 .SYNOPSIS
-    The measurement pages of this repo's dev server (#3097): the SessionStart page (the always-on path
-    every session loads before its first turn) and the test-gate page (the per-suite CI durations). No
-    I/O -- the server (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the
+    The Repo hub on '/' of this repo's dev server and its measurement pages (#3097): the SessionStart page
+    (the always-on path every session loads before its first turn) and the test-gate page (the per-suite
+    CI durations). No I/O -- the server (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the
     results in, so every rule here is tested without a server.
 
 .DESCRIPTION
-    ONE SHELL FOR EVERY PAGE BELOW THE INDEX. Each page opens with the house breadcrumb bar, its trail
-    starting at the Repo dashboard on '/' and ending at the page itself, unlinked (house style v0.2.0,
-    "Every page: the breadcrumb bar"); then the settings button, an intro (eyebrow, h1, lead), the page's
-    own blocks and a footer note naming where the data comes from.
+    THE HUB TAKES THE ONE FORM THE BRAND BOOK LAYS DOWN (house style v0.3.0, "The Repo hub"): the bar
+    with its one crumb, the settings button, the intro with the fixed h1, the Pages card (block 7) linking
+    every page below, About this repo and a footer note. This repo is no product and keeps no in-flight
+    lists on the hub, so blocks 6 and 8 to 10 are left out. The pages it links are Get-RepoHubPages.
+
+    ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
+    starting at the Repo hub on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
+    bar"); then the settings button, an intro (eyebrow, h1, lead), the page's own blocks and a footer
+    note naming where the data comes from.
 
     THE DATA IS THE REPO'S OWN, NOT A SECOND MEASUREMENT. The SessionStart page shows what
     always-on-budget-lib measures -- the figure always-on-sessioncheck prints at every session start --
@@ -76,7 +81,7 @@ function Format-DevPageHtml {
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
-    [void]$sb.AppendLine('<li><a href="/">Repo dashboard</a></li>')
+    [void]$sb.AppendLine('<li><a href="/">Repo hub</a></li>')
     [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true">/</span><span aria-current="page">' + (& $e $Title) + '</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')
     [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
@@ -88,6 +93,89 @@ function Format-DevPageHtml {
     [void]$sb.AppendLine('</div>')
     [void]$sb.Append($Body)
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }
+    [void]$sb.AppendLine('</main>')
+    [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark" });</script>')
+    [void]$sb.AppendLine('</body>')
+    [void]$sb.AppendLine('</html>')
+    return $sb.ToString()
+}
+
+# The Pages row's chevron, the brand book's own svg (patterns/repo-dashboard.html at v0.3.0).
+$script:RepoHubChevron = '<svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+
+function Get-RepoHubPages {
+    <#
+        The pages the Repo hub links, in the order its Pages card lists them: each a route on this server,
+        its label the page's own name as its breadcrumb reads it, and one line on what it shows.
+    #>
+    @(
+        @{ Href = '/connectors';    Label = 'Connectors';    Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
+        @{ Href = '/release-notes'; Label = 'Release notes'; Sub = 'What each released version of the plugins changed' },
+        @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn' },
+        @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI' }
+    )
+}
+
+function Format-RepoHubHtml {
+    <#
+        The Repo hub on '/'. -Pages is Get-RepoHubPages' shape; -SourceCommit is the short sha the server
+        reads, or empty.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][object[]]$Pages,
+        [AllowEmptyString()][string]$SourceCommit = ''
+    )
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<!doctype html>')
+    [void]$sb.AppendLine('<html lang="en" data-theme-light="teal" data-theme-dark="sky" data-theme-key="connector-dashboard">')
+    [void]$sb.AppendLine('<head>')
+    [void]$sb.AppendLine('<meta charset="utf-8">')
+    [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
+    [void]$sb.AppendLine('<title>dkj-claude-plugins -- Repo hub</title>')
+    [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
+    [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
+    [void]$sb.AppendLine('</head>')
+    [void]$sb.AppendLine('<body>')
+    # Block 0, the breadcrumb bar: on the hub its trail is the one crumb.
+    [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
+    [void]$sb.AppendLine('<li><span aria-current="page">Repo hub</span></li>')
+    [void]$sb.AppendLine('</ol></nav></div></div>')
+    # Block 1, the settings button, sits outside <main>.
+    [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
+    [void]$sb.AppendLine('<main class="page-column">')
+    # Blocks 2 to 5: the intro is a <div>, never a <header>, which the house style lays out as a flex row.
+    [void]$sb.AppendLine('<div>')
+    [void]$sb.AppendLine('<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>')
+    [void]$sb.AppendLine('<h1>Repo hub</h1>')
+    [void]$sb.AppendLine('<p class="lead">The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.</p>')
+    [void]$sb.AppendLine('</div>')
+
+    # Block 7, Pages: one menu-item row per page, direct siblings so the house draws the line between them.
+    [void]$sb.AppendLine('<section class="card">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Pages</h2></div>')
+    [void]$sb.AppendLine('<nav class="menu-list" aria-label="Pages">')
+    foreach ($p in $Pages) {
+        $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
+        [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
+    }
+    [void]$sb.AppendLine('</nav>')
+    [void]$sb.AppendLine('</section>')
+
+    # Block 11: About this repo, the fixed title, with this repo's own facts.
+    [void]$sb.AppendLine('<section class="card">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">About this repo</h2></div>')
+    [void]$sb.AppendLine('<dl class="facts">')
+    [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Trunk</dt><dd>main</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Visibility</dt><dd>public</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Required check</dt><dd>lint-en-tests</dd></div>')
+    if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
+    [void]$sb.AppendLine('</dl>')
+    [void]$sb.AppendLine('</section>')
+
+    # Block 12: where the data comes from.
+    [void]$sb.AppendLine('<p class="footer-note">The facts are this repo''s own, and each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark" });</script>')
     [void]$sb.AppendLine('</body>')
