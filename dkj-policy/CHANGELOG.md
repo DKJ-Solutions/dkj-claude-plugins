@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**6 / 16 minor entries** <!-- pending-tally -->
+**7 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3120-house-style-comment-prose · 20261018-175119Z
+
+This repo's own test gate runs the house-style check over this tree, and a comment here was what tripped
+it (`scripts/lib/dev-pages-lib.ps1`): a sentence before a comma no longer blocks a PR.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+`check-house-style` no longer fails a DKJ-Solutions repo's PR over a house class named in a comment or a
+string before a comma (`# the same .grid-2, which ...`), which until now needed a reworded comment or an
+allowlist entry that exempted the real class for the whole file.
+
+**Score:** 2
+
+#### Pull Request
+
+check-house-style no longer reads prose before a comma as a selector
+
+Plugins: dkj-solutions
+
+[PR #3123](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3123)
+
+---
 
 ### DEPLOY: feat/hub-pages-grid-head · 20261018-172955Z
 
