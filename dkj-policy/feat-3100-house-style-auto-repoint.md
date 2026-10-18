@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Inbound #3100: a dkj-brandbook release should become a repoint pull request here without a session in
+between. Verified first: the repoint was hand work four times in five days, `FOLD_PUSH_TOKEN` already
+holds `Contents` and `Pull requests: write` (merge-on-green), and this repo does not let the job-scoped
+token create pull requests, which would start no CI anyway. The brand book publishes no list of retired
+names, so the runner derives it by the rule `house-style-rules.ps1`'s header already states.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/house-style-repoint-lib.ps1`: the pure rewrites, the safety reads and the retired-name derivation
+- [x] `scripts/ci/repoint-house-style.ps1`: due-or-not, the fetch at the tag, and the rewrite, fail-closed
+- [x] `.github/workflows/house-style-repoint.yml`: daily plus dispatch; one open repoint pull request, an older one closed as superseded
+- [x] `check-house-style.tests.ps1` reads the pinned tag instead of hard-coding it, so a repoint's own pull request stays green
+- [x] The `house-style` skill's "Changing the house style" names the runner instead of an inbound issue
 
 ### TEST
 
+- [x] `house-style-repoint.tests.ps1` (new): 49 passed, 0 failed
+- [x] `check-house-style.tests.ps1`: 61 passed, 0 failed
+- [x] Replayed the v0.1.0 to v0.2.0 repoint in a worktree at 62e284c3: links, commit, checksums, retired list and both vendored copies match what #3089 did by hand
+
 ### DEPLOY: feat/3100-house-style-auto-repoint
 
-**Score:**
+A dkj-brandbook release now reaches this repo as a pull request within a day, opened by a scheduled
+runner ([#3100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3100)). It repoints the
+`house-style` skill's links, commit and checksums, updates the retired-name list and replaces both
+vendored copies; a file that fails the skill's safety reads stops it before any pull request. It never
+merges: whoever ships it scores the entry. Nothing changes for a repo that uses the house style until
+such a repoint is released.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
