@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**5 / 13 minor entries** <!-- pending-tally -->
+**6 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/release-notes-page-width · 20261018-153451Z
+
+The release-notes template's column now follows the page width a reader picks in the house settings
+panel: Phone narrows it to 360px and Full lifts its maximum, where it used to stay at 52rem whatever was
+picked while only the breadcrumb bar moved. Fluid keeps the template's own reading column. The rules key
+off the attribute the house theme script sets, so a page without that script, a Worker-served one
+included, renders exactly as before.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo that serves its release notes with the house theme script gets a width setting that
+actually applies to the notes, after its next plugin update and page rebuild.
+
+**Score:** 2
+
+#### Pull Request
+
+The release-notes page follows the house page-width setting
+
+Plugins: dkj-policy
+
+[PR #3118](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3118)
+
+---
 
 ### DEPLOY: feat/3115-house-style-v0.4.0 · 20261018-134044Z
 
