@@ -57,6 +57,7 @@ app that takes the new copy will notice.
 The required check runs `check-house-style.tests.ps1`, which holds both vendored copies to the new checksums.
 
 - [x] Read the `house-theme.js` diff in full: it is inlined into every app that takes the copy, and no check here can prove a script harmless -- read: the width group, `setWidth`/`width()` and a second `localStorage` key `dkj-width<suffix>` holding only a value checked against `fluid|phone|full`; no network, no `eval`, no new sink beyond the panel's own fixed markup
+- [x] The owner's first look found the width group in Dutch (`Breedte`, `Vloeiend`, ...): the five `DKJTheme.settings(...)` calls in `connector-dashboard-lib.ps1`, `dev-pages-lib.ps1` and `dev-preview-placeholder.ps1` passed every panel text in English except the four new ones, so the script's Dutch defaults showed. They now pass `width: "Width", fluid: "Fluid", phone: "Phone", full: "Full"`, the brand book's own texts (its showcase and README). The brand book's `patterns/repo-dashboard.html` has the same gap: DKJ-Solutions/dkj-brandbook#205
 - [x] The dev server serves the new copy (`/house-theme.js` carries `dkj-width`); the settings panel's look is for the owner to judge on this branch
 
 ### DEPLOY: feat/3115-house-style-v0.4.0
