@@ -117,6 +117,16 @@
   }
   .wrap { max-width: 52rem; margin: 0 auto; padding: 0 1.25rem 5rem; }
 
+  /* THE PAGE WIDTH A READER PICKS, where a theme script sets one. The DKJ-Solutions house theme script
+     writes <html data-width="fluid|phone|full"> from its settings panel, and the house stylesheet applies
+     it to main and .container only -- so this column, a .wrap, ignored it: the breadcrumb bar above it
+     followed the choice and the notes stayed at 52rem whatever was picked. Keyed off the attribute here
+     rather than by renaming the column, so the page stays self-contained and owes the house stylesheet
+     nothing; where no script sets the attribute (a Worker-served page, a repo without the house style)
+     neither rule matches and the column is the 52rem above. fluid needs no rule: it is that column. */
+  :root[data-width="phone"] .wrap { max-width: 360px; }
+  :root[data-width="full"] .wrap { max-width: none; }
+
   /* ---------- masthead ----------
      A SERIF HEADING OVER A SANS PAGE, and the reason is what this document is: a record somebody
      reads, not an interface they operate. The old page led with the same sans as its buttons, which
