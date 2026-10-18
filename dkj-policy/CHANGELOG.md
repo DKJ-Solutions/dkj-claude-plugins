@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**8 / 21 minor entries** <!-- pending-tally -->
+**9 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3130-brandbook-into-dkj-solutions · 20261018-214742Z
+
+The house style's canonical copy now lives in the dkj-solutions plugin, at
+`plugins/dkj-policy/dkj-solutions/assets/house-style/`. Alongside `house-style.css` and
+`house-theme.js` it now holds the rules `README.md` and `patterns/repo-dashboard.html`, all taken from
+dkj-brandbook v0.4.0. The Repo hub serves that copy instead of a vendored one of its own. The scheduled
+runner that opened a repoint PR for every brandbook release is retired, together with its script, lib
+and suite, because there is no longer a second repo to follow. This is step 1 of #3130; the remaining
+steps are #3131 to #3134.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The house-style rule in the dkj-solutions `CLAUDE.md` changes. A consuming repo that needs the house
+style changed now files a `feature-inbound` or `bug-inbound` issue on `DKJ-Solutions/dkj-claude-plugins`,
+no longer on `dkj-brandbook`. The files a consumer vendors, and their pin, are unchanged.
+
+**Score:** 2
+
+#### Pull Request
+
+The dkj-solutions plugin becomes the house style's home (#3130 step 1)
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3135](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3135)
+
+---
 
 ### DEPLOY: feat/3119-general-pages-from-dkj-solutions · 20261018-212753Z
 
