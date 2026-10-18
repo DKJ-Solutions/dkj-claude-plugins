@@ -42,13 +42,13 @@ Assert-True ($shell -match '<p class="footer-note">note</p>') 'the footer note c
 
 Write-Host '-- the Repo hub' -ForegroundColor Cyan
 $pages = @(Get-RepoHubPages)
-Assert-Equal '/connectors,/test-gate,/artifacts,/issues,/release-notes,/sessionstart' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the six pages, in order'
-Assert-Equal 'repo,repo,general,general,general,general' (($pages | ForEach-Object { $_.Group }) -join ',') 'the repo''s own pages first, then the general ones'
+Assert-Equal '/connectors,/specialists,/test-gate,/artifacts,/issues,/release-notes,/sessionstart' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the seven pages, in order'
+Assert-Equal 'repo,repo,repo,general,general,general,general' (($pages | ForEach-Object { $_.Group }) -join ',') 'the repo''s own pages first, then the general ones'
 $hub = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234'
 Assert-True ($hub -match '<title>dkj-claude-plugins -- Repo hub</title>' -and $hub -match '<h1>Repo hub</h1>') 'the h1 and the title are Repo hub, word for word'
 Assert-True ($hub -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo hub</span></li>\s*</ol>') 'the bar opens <body>, its trail the one crumb Repo hub'
 Assert-True ($hub -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>' -and $hub -notmatch '<header' -and $hub -notmatch 'btn--primary') 'the intro is the slug and no <header>, and there is no product button'
-Assert-Equal 6 ([regex]::Matches($hub, '<a class="menu-item" href="/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
+Assert-Equal 7 ([regex]::Matches($hub, '<a class="menu-item" href="/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
 Assert-True ($hub -match '<nav class="menu-list" aria-label="Pages">\r?\n<a class="menu-item"' -and $hub -match '</a>\r?\n<a class="menu-item"') 'the rows are direct siblings in the nav, so the house draws the line between them'
 Assert-True ($hub -match '<h2 class="card__title">Pages</h2>.*\r?\n<nav class="menu-list" aria-label="Pages">\r?\n<a class="menu-item" href="/connectors"' -and $hub -match '<h2 class="card__title">General pages</h2>.*\r?\n<nav class="menu-list" aria-label="General pages">\r?\n<a class="menu-item" href="/artifacts"') 'the repo''s own pages are in the Pages card, the general ones in a card of their own'
 Assert-True ($hub.IndexOf('href="/test-gate"') -lt $hub.IndexOf('General pages</h2>') -and $hub.IndexOf('href="/issues"') -gt $hub.IndexOf('General pages</h2>')) 'and no page sits in the other group''s card'
@@ -275,6 +275,39 @@ $ipNone = Format-IssuesPageHtml -Model (ConvertFrom-IssueList -Now $now)
 Assert-True ($ipNone.Contains('No open issue')) 'no open issue says so instead of an empty table'
 $ipFailed = Format-IssuesPageHtml -Model $null -ReadError 'gh issue list exited 1'
 Assert-True ($ipFailed.Contains('msg--warn') -and $ipFailed.Contains('gh issue list exited 1')) 'a failed read is a warning on the page'
+
+Write-Host '-- the Specialists model' -ForegroundColor Cyan
+# The emoji and the em dash as code points: the script layer is ASCII.
+$compass = [char]::ConvertFromUtf32(0x1F9ED)
+$agentText = "---`nname: paula`nid: 09`ndescription: >`n  Project Planner -- tracks`n  deadlines.`ntools: Read`n---`n`nYou are **Paula $compass**, the Project Planner. Your playbook`nlives here.`n"
+$sa = ConvertTo-SpecialistRow -Id '02-09' -Plugin 'dkj-subagents-alpha' -Form subagent -Text $agentText -ManualBytes 1000 -LensBytes $null -Enabled $true
+Assert-Equal 'Paula' $sa.Name 'a subagent''s name comes from its "You are" line'
+Assert-Equal $compass $sa.Emoji 'and its emoji beside it'
+Assert-Equal 'Project Planner' $sa.Title 'and its title, without "the"'
+Assert-Equal '09' $sa.Number 'the number is the id''s second half'
+Assert-Equal ([Text.Encoding]::UTF8.GetByteCount('Project Planner -- tracks deadlines.')) $sa.ListingBytes 'the listing is the folded description, its lines joined'
+Assert-Equal ([Text.Encoding]::UTF8.GetByteCount("`nYou are **Paula $compass**, the Project Planner. Your playbook`nlives here.`n")) $sa.DefinitionBytes 'the definition is the file without its frontmatter'
+Assert-True ($null -eq $sa.LensBytes) 'no lens is $null, not 0'
+Assert-Equal ($sa.ListingBytes + $sa.DefinitionBytes + 1000) $sa.TotalBytes 'the full read sums the parts that exist'
+$personaText = "---`nid: 01`ngroup: 01`n---`n`n# Chris $compass " + [char]0x2014 + " the Chief of Staff (*Chief of Staff Chris*)`n`nBody.`n"
+$pa = ConvertTo-SpecialistRow -Id '01-01' -Plugin 'dkj-subagents-alpha' -Form persona -Text $personaText -Enabled $true
+Assert-Equal 'Chris|Chief of Staff|0' ($pa.Name + '|' + $pa.Title + '|' + $pa.ListingBytes) 'a persona''s name and title come from its h1, and it has no listing'
+Assert-True $pa.AlwaysOn 'the orchestrator''s persona is always-on'
+Assert-Equal '07-77' (ConvertTo-SpecialistRow -Id '07-77' -Plugin 'x' -Form subagent -Text 'no shape').Name 'a file of no known shape is named by its id'
+
+Write-Host '-- the Specialists page' -ForegroundColor Cyan
+$evil = ConvertTo-SpecialistRow -Id '06-99' -Plugin 'dkj-subagents-ecomm' -Form subagent -Text "---`ndescription: <b>x</b>`n---`nYou are **Eve <i>**, the Bad <b>. Body`n" -ManualBytes 99999
+$sp = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12
+Assert-True ($sp -match '<h1>Specialists</h1>' -and $sp -match '<span aria-current="page">Specialists</span>') 'the page is named Specialists, in the h1 and the trail'
+Assert-True ($sp -match 'Specialists</div><div class="v num">3<' -and $sp -match 'Enabled here</div><div class="v num">2<') 'the tiles count the specialists and those enabled here'
+Assert-True ($sp.IndexOf('<strong>Eve') -lt $sp.IndexOf('<strong>Paula') -and $sp.IndexOf('<strong>Paula') -lt $sp.IndexOf('<strong>Chris')) 'largest full read first'
+Assert-True ($sp.Contains('Eve &lt;i&gt;') -and -not $sp.Contains('Eve <i>')) 'a name is escaped'
+Assert-True ($sp.Contains('ecomm <span class="note">(off here)</span>')) 'a plugin not enabled here says so'
+Assert-True ($sp.Contains('always-on</span>')) 'the orchestrator carries the always-on badge'
+Assert-True ($sp.Contains('~' + (Format-DevNumber ([Math]::Round(1000 / 3.12))) + '<')) 'tokens are the bytes at the given factor'
+Assert-True ($sp.Contains('3.12 characters per token')) 'the footer names the factor, so the estimate is labelled as one'
+Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12).Contains('No specialist was found')) 'none found says so instead of an empty table'
+Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12 -ReadError 'x.md').Contains('msg--warn')) 'a failed read is a warning on the page'
 Write-Host ''
 Write-Host "dev-pages: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }

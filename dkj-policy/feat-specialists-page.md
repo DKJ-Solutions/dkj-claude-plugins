@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Maikel asked for a hub page listing every specialist, to show how large each one's context is. Four
+parts per specialist, each measured in bytes off the tree and estimated in tokens at measure-context-lib's
+factor: the listing (a subagent's description, always-on wherever its plugin is enabled), the definition
+(the file minus frontmatter: a subagent's system prompt, a persona's body), the manual and this repo's lens.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/dev-pages-lib.ps1`: `ConvertTo-SpecialistRow` (pure parse of one definition file) and `Format-SpecialistsPageHtml`; `/specialists` added to the hub's Pages card
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `Get-SpecialistsModel` reads the four plugins, the manuals, the lenses and `enabledPlugins`; the route serves it
+- [x] The persona h1's em dash is composed from `[char]0x2014`: the Edit tool wrote a typed `—` to disk as the literal character, which 5.1 then read as ANSI (the #2671 trap)
 
 ### TEST
 
+- [x] `scripts/tests/dev-pages.tests.ps1`: the hub's seven pages, the row parse (subagent and persona, folded description, frontmatter cut, no lens, unknown shape) and the page (order, tiles, escaping, off-here, always-on, the labelled factor, empty and failed reads); 155 pass, `connector-dashboard.tests.ps1` 127 pass
+- [x] Served live on 4875: 30 specialists, 19 enabled here, ~2,267 tokens of listing in every session here, Sylvester's full read the largest at ~143,664
+- [x] The page is a visible result: it waits for the owner's look before it merges
+
 ### DEPLOY: feat/specialists-page
 
-**Score:**
+The Repo hub gains a Specialists page: every specialist the dkj-subagents plugins ship, with the context
+each one costs -- its always-on listing, its definition, its manual and this repo's lens, in measured
+bytes and estimated tokens -- largest first, so an oversized manual or lens shows at a glance.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the dev server runs in this repo only; no plugin a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
