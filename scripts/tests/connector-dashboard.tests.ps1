@@ -9,8 +9,9 @@
     escaped, and that the vendored house style is the copy the house-style skill pins. Group 2 starts
     the real server on a free loopback port against this tree and asks it for the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
     an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
-    outside the scope root, and no check-connectors.ps1 at all -- and the release-notes page, before
-    and after it is built (#3083).
+    outside the scope root, and no check-connectors.ps1 at all -- and the four general routes that moved to
+    the dkj-solutions general pages server (#3119): the hub's General card before and after a state file
+    names a server that answers, and the 303 or 404 each moved route gets.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -19,6 +20,9 @@ $ErrorActionPreference = 'Continue'
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Server   = Join-Path $RepoRoot 'scripts\dashboard\serve-connector-dashboard.ps1'
 . (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1')
+# The state file's reader and writer, which the server and these fixtures share (#3119).
+$PluginLib = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib'
+. (Join-Path $PluginLib 'general-pages-state.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -313,7 +317,8 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-Equal 405 (Get-Status 'POST' '/' "localhost:$port") 'a POST is refused'
             Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
             Assert-Equal 303 (Get-Status 'GET' '/refresh' "localhost:$port") '/refresh redirects to the page'
-            Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /sessionstart\r') '/refresh?page= goes back to the page that asked'
+            Assert-True ((Get-Raw 'GET' '/refresh?page=connectors' "localhost:$port") -match 'Location: /connectors\r') '/refresh?page= goes back to the page that asked'
+            Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a page that moved to the general pages server (#3119) is no page of this one''s'
             Assert-True ((Get-Raw 'GET' '/refresh?page=//evil.example' "localhost:$port") -match 'Location: /\r') 'and to the index for a page outside its list'
             Assert-Equal 403 (Get-Status 'GET' '/refresh' "localhost:$port" "Sec-Fetch-Site: cross-site`r`n") 'a request another site makes is refused'
             $headRaw = Get-Raw 'HEAD' '/house-style.css' "localhost:$port"
@@ -354,6 +359,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $src 'scripts\lib\')
+        # dev-pages-lib reads the plugin's lib from the plugin tree beside scripts/, and the server its state reader.
+        New-Item -ItemType Directory -Force -Path (Join-Path $src 'plugins\dkj-policy\dkj-solutions\scripts\lib') | Out-Null
+        Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $src 'plugins\dkj-policy\dkj-solutions\scripts\lib\')
         Copy-Item $Server (Join-Path $src 'scripts\dashboard\')
         Set-Content -LiteralPath (Join-Path $src 'connectors\noup.json') -Encoding ASCII -Value '{ "repo": "Org/noup", "visibility": "private", "localCheckout": "../noup", "plugins": [] }'
         Set-Content -LiteralPath (Join-Path $src 'connectors\far.json') -Encoding ASCII -Value ('{ "repo": "Org/far", "visibility": "public", "localCheckout": "../../../' + (Split-Path -Leaf $outside) + '", "plugins": [] }')
@@ -377,24 +385,37 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $at = $page.IndexOf('id="repo-org-far"')
             $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }
             Assert-True ($far -and $far -notmatch 'class="meta"') 'a checkout outside the scope root is not read'
-            # The release-notes page is served from where build-release-notes-page.ps1 leaves it (#3083).
-            $notes = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($notes -match 'HTTP/1.1 404' -and $notes -match 'Not built yet') 'the release notes are a 404 naming the build step until the page is built'
-            $pageDir = Join-Path $src 'dkj-policy\releases\page'
-            New-Item -ItemType Directory -Force -Path $pageDir | Out-Null
-            Set-Content -LiteralPath (Join-Path $pageDir 'release-notes.html') -Encoding ASCII -Value '<html>fixture notes</html>'
-            $notes = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($notes -match 'HTTP/1.1 200' -and $notes -match 'text/html' -and $notes -match 'fixture notes') 'and served as HTML once it is, read on each request'
-            Set-Content -LiteralPath (Join-Path $pageDir 'release-notes.html') -Encoding ASCII -Value '<html lang="en"><head><style>a{}</style></head><body>shaped notes</body></html>'
-            $notes = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($notes -match 'shaped notes' -and $notes -match '<a href="/">Repo hub</a>' -and $notes -match 'href="/house-style.css"') 'a page of the template''s shape is served with the house style and the breadcrumb bar (#3108)'
-            # The Repo hub on '/' and the pages under it (#3097). The fixture has no always-on lib and no
-            # suite-durations.json, so both measurement pages take their failure path, and are still served.
+            # THE GENERAL PAGES MOVED (#3119): Artifacts, Issues, Release notes and SessionStart are the dkj-solutions
+            # general pages server's now, so this server sends each on when the state file names that server, and
+            # says so in a 404 text when it does not.
+            foreach ($moved in '/artifacts', '/issues', '/release-notes', '/sessionstart') {
+                $r = if ($up) { Get-Raw 'GET' $moved "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'general pages server') "$moved is a 404 text naming the general pages server while no state file names one"
+            }
+            $srcState = Get-RepoHubStatePath -Root $src
+            Write-RepoHubState -Root $src -Hub "http://localhost:$port3/" -Pages 'http://localhost:4890'
+            foreach ($moved in '/artifacts', '/issues', '/release-notes', '/sessionstart') {
+                $r = if ($up) { Get-Raw 'GET' $moved "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match ('Location: http://localhost:4890' + $moved + '\r')) "$moved is sent on to the same path on the general pages server the state file names"
+            }
+            Remove-Item -LiteralPath $srcState -Force -ErrorAction SilentlyContinue
+            # The Repo hub on '/' and the pages under it (#3097). The fixture has no
+            # suite-durations.json, so the test-gate page takes its failure path, and is still served.
             $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match '<h1>Repo hub</h1>' -and $hub -match '<a class="menu-item" href="/connectors">') '/ serves the Repo hub, linking the pages below it'
+            Assert-True ($hub -match 'The general pages server is not running' -and $hub -notmatch 'href="http://localhost') 'its General card says the general pages server is not running while no state file names one'
+            # A state file that names a server which answers: the card links the four pages there (#3119).
+            $fake = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+            $fake.Start(); $fakePort = $fake.LocalEndpoint.Port
+            try {
+                Write-RepoHubState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$fakePort"
+                $hubUp = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ($hubUp -match ('<a class="menu-item" href="http://localhost:' + $fakePort + '/issues">') -and $hubUp -match ('href="http://localhost:' + $fakePort + '/release-notes"') -and $hubUp -notmatch 'is not running') 'the General card links the pages on the server the state file names, when it answers'
+            } finally { $fake.Stop() }
+            $hubDown = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($hubDown -match 'HTTP/1.1 200' -and $hubDown -match 'The general pages server is not running') 'and the card is back to not running once nothing answers there'
+            Remove-Item -LiteralPath $srcState -Force -ErrorAction SilentlyContinue
             Assert-True ($page -match 'HTTP/1.1 200' -and $page -match '<h1>Connectors</h1>' -and $page -match '<a href="/">Repo hub</a>') '/connectors serves the overview as a page under the Repo hub'
-            $ss = if ($up) { Get-Raw 'GET' '/sessionstart' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($ss -match 'HTTP/1.1 200' -and $ss -match 'could not be measured') '/sessionstart reports a measurement that failed, rather than failing'
             $tg = if ($up) { Get-Raw 'GET' '/test-gate' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($tg -match 'HTTP/1.1 200' -and $tg -match 'the file is not there') '/test-gate reports a missing suite-durations.json, rather than failing'
         } finally {
@@ -418,6 +439,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard\house-style') | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
+        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\scripts\lib') | Out-Null
+        Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\scripts\lib\')
         Copy-Item $Server (Join-Path $fixture4 'scripts\dashboard\')
         & git -C $fixture4 init -q 2>$null
         & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'first' 2>$null

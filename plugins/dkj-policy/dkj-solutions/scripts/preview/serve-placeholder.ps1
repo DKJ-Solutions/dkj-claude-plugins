@@ -18,7 +18,9 @@
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped. It serves three paths -- the page,
     /house-style.css and /house-theme.js from the plugin's vendored copy -- and runs until the process is
-    stopped.
+    stopped. The page is built per request, because its General card (#3119) links the general pages
+    server the hook's state file names, when that server answers a connect within 300 ms, and says it is
+    not running otherwise.
 
     Pure ASCII (repo convention for .ps1). The page and the request rules are in
     scripts/lib/dev-preview-placeholder.ps1, tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in
@@ -39,8 +41,11 @@ param(
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '..\lib\dev-preview-placeholder.ps1')
+. (Join-Path $PSScriptRoot '..\lib\general-pages-state.ps1')
 
-$repoName = Split-Path -Leaf ((Get-Location).Path.TrimEnd('\', '/'))
+# The root the hook's state file is named for: the working directory, which its cmd.exe set to the root.
+$repoRoot = [System.IO.Path]::GetFullPath((Get-Location).Path).TrimEnd('\', '/')
+$repoName = Split-Path -Leaf $repoRoot
 $styleDir = Join-Path $PSScriptRoot '..\..\assets\house-style'
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
@@ -87,7 +92,6 @@ function Send-PlaceholderResponse {
 }
 
 $utf8 = New-Object System.Text.UTF8Encoding($false)
-$page = $utf8.GetBytes((Format-DevPreviewPlaceholderHtml -RepoName $repoName))
 $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
 $listener.Start()
 Write-Host "placeholder preview for ${repoName}: http://localhost:$Port/"
@@ -124,6 +128,8 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
+                # Built per request: the General card follows the state file and whether that server answers.
+                $page = $utf8.GetBytes((Format-DevPreviewPlaceholderHtml -RepoName $repoName -GeneralPagesUrl (Get-GeneralPagesUrl -Root $repoRoot)))
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $page }
                 Send-PlaceholderResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
