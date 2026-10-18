@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Cause verified (#3103): the runner appends `exit $LASTEXITCODE` to every `pwsh` step, so the
+`git ls-remote --exit-code` answer 2 (branch absent, the normal first run) became the step's exit, and
+`pwsh -command` reported it as 1. Reproduced locally: the same script shape exits 1.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style-repoint.yml`, step "Is its pull request already open?": read `ls-remote`'s exit into
+  `$onOrigin`, treat 0 and 2 as answers and anything else as a failure, and end the step with `exit 0`.
 
 ### TEST
 
+- [x] The repaired shape, with the runner's appended line, exits 0 on an absent branch (local repro).
+
 ### DEPLOY: fix/3103-repoint-absent-branch
 
-**Score:**
+The house-style repoint runner's open-PR check no longer fails on the first run for a brand-book release:
+`git ls-remote --exit-code` answering 2 for an absent branch was left in `$LASTEXITCODE`, which the
+runner's appended `exit $LASTEXITCODE` turned into a failed step, so no repoint pull request was ever
+opened (run 39112387739, `v0.3.0`). The step now treats 0 and 2 as answers, fails on any other exit, and
+ends with an explicit `exit 0`. Only this repo's own CI is touched.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a CI workflow of this repo only; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
