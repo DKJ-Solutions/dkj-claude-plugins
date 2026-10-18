@@ -407,6 +407,57 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     Write-Host '  [SKIP] group 3 needs Windows PowerShell, git and group 2' -ForegroundColor Yellow
 }
 
+Write-Host '-- group 4: a server whose checkout moved restarts itself on the new commit (#3122)' -ForegroundColor Cyan
+
+if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -and (Get-Command git -ErrorAction SilentlyContinue) -and $group2Ran) {
+    # Measured October 18, 2026: the hook started the server, a pull moved HEAD four seconds later, and the
+    # server kept serving the old pages while its "Source at" line read the new commit live.
+    $fixture4 = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-move-$PID-$([guid]::NewGuid().ToString('n'))"
+    $port4 = $null
+    try {
+        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard\house-style') | Out-Null
+        Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
+        Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
+        Copy-Item $Server (Join-Path $fixture4 'scripts\dashboard\')
+        & git -C $fixture4 init -q 2>$null
+        & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'first' 2>$null
+        $first = ([string](& git -C $fixture4 rev-parse HEAD)).Trim()
+
+        $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+        $probe.Start(); $port4 = $probe.LocalEndpoint.Port; $probe.Stop()
+        $proc4 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $fixture4 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port4)
+        $up = Wait-ServerUp $port4
+        Assert-True $up 'the group-4 server listens on the port it was given'
+        $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
+        Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($first.Substring(0, 8))</code>") '"Source at" names the commit the server loaded'
+
+        & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'second' 2>$null
+        $second = ([string](& git -C $fixture4 rev-parse HEAD)).Trim()
+        $css = if ($up) { Get-Raw 'GET' '/house-style.css' "localhost:$port4" '' $port4 } else { '' }
+        Assert-True ($css -notmatch 'HTTP/1.1 503') 'a static file skips the check'
+        $moved = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
+        Assert-True ($moved -match 'HTTP/1.1 503' -and $moved -match 'Refresh: 2' -and $moved -match 'restarting on the new code') 'a page asked for after HEAD moved answers 503 and reloads'
+        Assert-True ($proc4.WaitForExit(15000)) 'and the old server exits'
+        $up = Wait-ServerUp $port4
+        Assert-True $up 'its successor listens on the same port'
+        $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
+        Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($second.Substring(0, 8))</code>") 'and serves the new commit'
+    } finally {
+        if ($proc4 -and -not $proc4.HasExited) { Stop-Process -Id $proc4.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
+        # The successor is detached; it is found by the port it holds.
+        if ($port4) {
+            foreach ($o in @(Get-NetTCPConnection -State Listen -LocalPort $port4 -ErrorAction SilentlyContinue | ForEach-Object { $_.OwningProcess })) {
+                Stop-Process -Id $o -Force -Confirm:$false -ErrorAction SilentlyContinue
+            }
+        }
+        Start-Sleep -Milliseconds 500
+        Remove-Item -LiteralPath $fixture4 -Recurse -Force -ErrorAction SilentlyContinue
+    }
+} else {
+    Write-Host '  [SKIP] group 4 needs Windows PowerShell, git and group 2' -ForegroundColor Yellow
+}
+
 Write-Host ''
 Write-Host "connector-dashboard: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }

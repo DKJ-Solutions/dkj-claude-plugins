@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Issue #3122: the dev server dot-sources its libs once, the dev-preview hook reuses any server of this
+checkout, and the hub's "Source at" read HEAD live -- so after a pull it served old pages under the new
+commit's name. Repaired in the server, not the shared hook: the hook's reuse is right once the server
+it reuses cannot be stale.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `serve-connector-dashboard.ps1` notes the HEAD it loaded; a request that finds HEAD moved gets a
+  503 that reloads in two seconds, and the server starts its successor on the same port under a
+  cmd.exe that changes into the root first, so the hook still recognises it
+- [x] "Source at" names the loaded commit, not the live one
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` group 4: a fixture repo, a commit after the start, then the 503,
+  the old server's exit, and the successor serving the new commit -- 134 passed, 0 failed
+
 ### DEPLOY: fix/3122-dev-server-restarts-on-moved-head
 
-**Score:**
+This repo's dev server no longer keeps serving the code it started on after a pull or a branch switch.
+It notes the commit it loaded, and the first page asked for after HEAD has moved answers with a short
+"restarting" notice that reloads itself, while the server hands its port to a fresh copy of itself on
+the new code. The hub's "Source at" now names the commit the pages were actually built from, so it can
+no longer read the new commit while the old code runs. Static files skip the check.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the server is this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
