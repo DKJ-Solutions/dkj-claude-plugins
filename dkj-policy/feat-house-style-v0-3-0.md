@@ -55,18 +55,23 @@ app that takes the new copy will notice.
 
 The required check runs `check-house-style.tests.ps1`, which holds both vendored copies to the new checksums.
 
-- [ ] Read the `house-theme.js` diff in full: it is inlined into every app that takes the copy, and no check here can prove a script harmless
+- [x] Read the `house-theme.js` diff in full: it is inlined into every app that takes the copy, and no check here can prove a script harmless. It adds one read of `data-theme-default` on `<html>`, looked up through `byId` against the known themes and honoured only when its mode matches a shipped `data-theme`; no network, storage or eval path is added, and both vendored copies are identical
 
 ### DEPLOY: feat/house-style-v0-3-0
 
 The `house-style` skill now fetches from the brand book's `v0.3.0` release
 ([DKJ-Solutions/dkj-brandbook@v0.3.0](https://github.com/DKJ-Solutions/dkj-brandbook/releases/tag/v0.3.0)). Both files changed, so the two vendored copies move with the pin. No token was renamed or removed, so the retired-name list stands.
 
-**Score:**
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+An app that takes the new copy can declare one default theme with `<html data-theme-default="teal">`
+instead of a light/dark pair, and can build a navigation list of links with `a.menu-item` and a one-line
+`.menu-item__sub` description. Both are opt-in: an app that changes nothing renders exactly as before,
+since `data-theme-light`/`data-theme-dark` are still read and no token was renamed or removed.
+
+**Score:** 2
 
 #### Pull Request
 
