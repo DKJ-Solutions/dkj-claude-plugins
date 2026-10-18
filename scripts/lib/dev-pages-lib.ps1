@@ -169,7 +169,7 @@ function Format-RepoHubHtml {
         @{ Id = 'pages-general'; Title = 'General';   Sub = 'Every DKJ-Solutions repo has these'; Rows = @($Pages | Where-Object { $_.Group -eq 'general' }) }
     )
     [void]$sb.AppendLine('<section class="card">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Pages</h2></div>')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Pages</h2><p class="card__sub">Every page this dev server serves, this repo''s own first</p></div>')
     foreach ($g in $groups) {
         if ($g.Rows.Count -eq 0) { continue }
         [void]$sb.AppendLine('<div class="dp-group">')
