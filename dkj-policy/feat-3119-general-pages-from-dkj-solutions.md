@@ -93,5 +93,4 @@ of failing.
 
 dkj-solutions serves the general Repo hub pages to every DKJ-Solutions repo
 
-Plugins: dkj-solutions
 
