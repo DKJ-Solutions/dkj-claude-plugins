@@ -159,15 +159,17 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<p class="lead">The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.</p>')
     [void]$sb.AppendLine('</div>')
 
-    # Block 7, Pages: the repo's own pages, then the general ones in a card of their own. One menu-item row
+    # Block 7, Pages: the repo's own pages, then the general ones in a card of their own, the two on one row. One menu-item row
     # per page, direct siblings so the house draws the line between them. A page without a Group is the
     # repo's own.
     $cards = @(
         @{ Title = 'Pages';         Sub = 'Specific to this repo';                          Rows = @($Pages | Where-Object { $_.Group -ne 'general' }) },
         @{ Title = 'General pages'; Sub = 'Not specific to this repo: every DKJ-Solutions repo has them'; Rows = @($Pages | Where-Object { $_.Group -eq 'general' }) }
     )
+    # Side by side in the house's .grid-2 when both have rows; it stacks them again below 760px.
+    $cards = @($cards | Where-Object { $_.Rows.Count -gt 0 })
+    if ($cards.Count -gt 1) { [void]$sb.AppendLine('<div class="grid-2">') }
     foreach ($c in $cards) {
-        if ($c.Rows.Count -eq 0) { continue }
         [void]$sb.AppendLine('<section class="card">')
         [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">' + $c.Title + '</h2><p class="card__sub">' + $c.Sub + '</p></div>')
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="' + $c.Title + '">')
@@ -178,6 +180,7 @@ function Format-RepoHubHtml {
         [void]$sb.AppendLine('</nav>')
         [void]$sb.AppendLine('</section>')
     }
+    if ($cards.Count -gt 1) { [void]$sb.AppendLine('</div>') }
 
     # Block 11: About this repo, the fixed title, with this repo's own facts.
     [void]$sb.AppendLine('<section class="card">')

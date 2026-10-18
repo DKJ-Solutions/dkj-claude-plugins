@@ -49,7 +49,7 @@ eight weeks is already reached, so the window is 28 days (about 475 issues).
 
 - [x] `scripts/lib/dev-pages-lib.ps1`: `ConvertTo-IssueRow`, `ConvertFrom-IssueList` (pure model: dedupe by number, the board state -- parked over claimed over free --, the priority matrix, four weekly buckets, the median time to close, the closed-by groups) and `Format-IssuesPageHtml` in the shell every hub page shares; the hub's Pages card links `/issues`
 - [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `Get-IssuesModel` (three `gh issue list` calls: open, created in the window, closed in the window), the `/issues` route, its own cache (`-IssuesCacheSeconds`, 300: the read takes about 12 s) and `/refresh?page=issues`
-- [x] The owner asked for a clear split between the general pages and this repo's own (October 18, 2026): `Get-RepoHubPages` gives each page a `Group`, and the hub lists the repo's own (Connectors, Test gate) in block 7 **Pages** and the general ones (Artifacts, Issues, Release notes, SessionStart) in a second card of the same form, **General pages**, directly under it -- house classes only (a split one level down, two h3s in one Pages card, was tried and the owner chose the two cards back); "general" means every DKJ-Solutions repo (owner, same day), the form itself is asked for upstream in DKJ-Solutions/dkj-brandbook#206 and shipping the pages from `dkj-solutions` is #3119
+- [x] The owner asked for a clear split between the general pages and this repo's own (October 18, 2026): `Get-RepoHubPages` gives each page a `Group`, and the hub lists the repo's own (Connectors, Test gate) in block 7 **Pages** and the general ones (Artifacts, Issues, Release notes, SessionStart) in a second card of the same form, **General pages**, directly under it -- house classes only (a split one level down, two h3s in one Pages card, was tried and the owner chose the two cards back, side by side in the house `.grid-2`, which stacks them below 760px); "general" means every DKJ-Solutions repo (owner, same day), the form itself is asked for upstream in DKJ-Solutions/dkj-brandbook#206 and shipping the pages from `dkj-solutions` is #3119
 
 ### TEST
 
@@ -57,7 +57,7 @@ eight weeks is already reached, so the window is 28 days (about 475 issues).
 - [x] Served live on this machine: 0 open, 455 opened and 458 closed in 28 days, median 1.3 h to close, in 12.3 s
 - [x] Victor's and Sebastian's reviews: the gh read goes through `Invoke-NativeCapture -Utf8` (5.1 would decode a non-ASCII title through the console code page), a failed read is cached 30 s instead of 300 s, `/refresh?page=issues` re-reads at most once a minute (a read holds the single-threaded server about 12 s), and the tiles and weekly rows both end at the read's own moment
 - [x] `native-capture.tests.ps1`: the new bounded capture asks `Test-NativeExitMeasured` and the audited site count moves 95 -> 96 with its reason; the lib is loaded inside `Get-IssuesModel` on every read, with no `Get-Command` probe (`command-probe-lib.tests.ps1` refuses one), so the server keeps its start-up set (`connector-dashboard.tests.ps1` 127 pass)
-- [x] `dev-pages.tests.ps1`: the groups, each card holding only its own rows, and a group with no page leaving its card out; 131 pass
+- [x] `dev-pages.tests.ps1`: the groups, each card holding only its own rows, and a group with no page leaving its card out, the row only when both cards have pages; 133 pass
 - [x] The page is a visible result: it waits for the owner's look before it merges
 
 ### DEPLOY: feat/issues-page
