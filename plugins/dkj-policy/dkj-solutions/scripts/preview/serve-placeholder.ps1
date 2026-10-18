@@ -17,7 +17,7 @@
 
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped. It serves three paths -- the page,
-    /house-style.css and /house-theme.js from the plugin's vendored copy -- and runs until the process is
+    /house-style.css and /house-theme.js from the plugin's canonical copy -- and runs until the process is
     stopped. The page is built per request, because its General card (#3119) links the general pages
     server the hook's state file names, when that server answers /whoami as this checkout's within 500 ms, and says it is
     not running otherwise.

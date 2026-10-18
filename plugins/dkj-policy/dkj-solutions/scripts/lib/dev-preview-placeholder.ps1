@@ -11,11 +11,11 @@
     Get-DevPreview seam the plugin README documents.
 
     THE PAGE STARTS FROM THE HOUSE STYLE: it loads /house-style.css and /house-theme.js, which the server
-    serves from the plugin's own vendored copy (assets/house-style/), and its own layer uses only names the
+    serves from the plugin's own canonical copy (assets/house-style/), and its own layer uses only names the
     house file does not define (.ph-*).
 
-    AND IT TAKES THE REPO HUB FORM (#3066, #3097): the blocks and their order laid down in the brand book's
-    house-style/README.md, "The Repo hub", at the tag the house-style skill pins. The repo name is the
+    AND IT TAKES THE REPO HUB FORM (#3066, #3097): the blocks and their order laid down in the plugin's
+    assets/house-style/README.md, "The Repo hub". The repo name is the
     eyebrow and the h1 is "Repo hub", word for word. A placeholder has no in-flight lists to
     count, so the tiles and the loading line are left out and its two setup cards take the data cards'
     place.

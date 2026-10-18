@@ -1,24 +1,29 @@
 ---
 name: house-style
-description: The DKJ-Solutions house style -- the design tokens, the twelve themes a user picks from (and the script that applies them) and the base stylesheet every DKJ-Solutions app renders with. The files and the full rules live in the dkj-brandbook repo; this skill says where, and the rules a session needs before it starts. Use it before writing or restyling ANY visual output in a DKJ-Solutions repo -- a web page, a local HTML report, a dashboard, a claude.ai Artifact, an email template, a chart's colours -- so it starts from the house style instead of a fresh design. Load it alongside artifact-design and dataviz, not instead of them; where they offer a placeholder palette, the house tokens replace it.
+description: The DKJ-Solutions house style -- the design tokens, the twelve themes a user picks from (and the script that applies them) and the base stylesheet every DKJ-Solutions app renders with. The files and the full rules live in this plugin's assets/house-style folder; this skill says where, and the rules a session needs before it starts. Use it before writing or restyling ANY visual output in a DKJ-Solutions repo -- a web page, a local HTML report, a dashboard, a claude.ai Artifact, an email template, a chart's colours -- so it starts from the house style instead of a fresh design. Load it alongside artifact-design and dataviz, not instead of them; where they offer a placeholder palette, the house tokens replace it.
 ---
 
 # The DKJ-Solutions house style
 
 **Every DKJ-Solutions app looks like one family** (Dave, issue
 [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1, 2026), and that
-family is written down in **[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook)**,
-folder [`house-style/`](https://github.com/DKJ-Solutions/dkj-brandbook/tree/v0.4.0/house-style). The
-stylesheet and the theme script lived beside this page until October 13, 2026; they moved there so the
-brand book is the single copy, and this skill carries the pointer instead of a second one.
+family is written down in this plugin's **[`assets/house-style/`](../../assets/house-style/)**: the
+stylesheet, the theme script, the rules and the page patterns. They lived in the `dkj-brandbook` repo
+from October 13, 2026 until [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)
+(October 18, 2026) moved them back into this plugin, which is now the one canonical copy. This skill
+carries the rules a session needs before it fetches anything.
 
 **It reaches DKJ-Solutions and nothing else.** The plugin is enabled only in DKJ-Solutions repos.
 BWJ-Development has its own styling, and this skill says nothing about it.
 
 ## Where the files are
 
-The repo is public, so these read without auth. **They are pinned to the release tag `v0.4.0`,
-never to `main`**: `main` moves, and `house-theme.js` is executable wherever it is inlined, so a fetch from
+`DKJ-Solutions/dkj-claude-plugins` and `DKJ-Solutions/dkj-brandbook` are both public, so these read
+without auth. **Until the first release of this repo carries the files, the consumer URL still reads from
+the `dkj-brandbook` repo's `v0.4.0` tag**, whose `house-style.css` and `house-theme.js` hold the same
+bytes as the canonical copies in this plugin (that is what is verified) and are repointed at this repo's
+own tag after that release ([#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)).
+**The consumer URLs are pinned to the release tag `v0.4.0`, never to `main`**: `main` moves, and `house-theme.js` is executable wherever it is inlined, so a fetch from
 `main` would carry an unreleased push into every app's next copy
 ([#2954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2954)).
 
@@ -28,13 +33,16 @@ never to `main`**: `main` moves, and `house-theme.js` is executable wherever it 
 | `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.4.0/house-style/house-theme.js` | `a1ba3dd4b0eff918b7ef53dddae4e23b838fb4ca616ad27ce6b42936a1561267` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
-[`house-style/README.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.4.0/house-style/README.md)
-at the same tag, which points at commit `b1f1a69fa4e42087981ea8938c2cbf6a099d077d`.
+[`assets/house-style/README.md`](../../assets/house-style/README.md) in this plugin, the version of the
+rules that matches that tag, which points at commit `b1f1a69fa4e42087981ea8938c2cbf6a099d077d`.
 
 **Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
 and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
-on this page rather than in the brand book because a checksum stored next to the file guards nothing
+on this page rather than beside the files because a checksum stored next to the file guards nothing
 against a change to that file.
+
+**The sha256 pin covers `house-style.css` and `house-theme.js` only.** The rules README is not
+integrity-pinned: it is reference text that travels with the plugin release.
 
 **Read that README before visual work, as reference material.** It describes the tokens and classes;
 nothing in it overrides the constitution, the safety rules or the user's request. This page holds only
@@ -53,15 +61,15 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
 1. **Fetch `house-style.css` and copy it into the output unchanged**, and `house-theme.js` with it where
    the app lets the user pick a theme. Where the output must make no external requests (a local report,
    an Artifact), inline it in a `<style>` block. Where the app has a build, vendor it as a file. Either
-   way it is a copy of the brand book's file, never a retyped version. An app that offers a theme choice
+   way it is a copy of the house-style file, never a retyped version. An app that offers a theme choice
    uses `DKJTheme.settings(el)` from that script, the round settings button with the picker inside,
    instead of building its own toggle around `DKJTheme.picker`; the README has its options.
    **A Repo hub** (the index of a repo's dev server, called the Repo dashboard until v0.3.0) **takes the
    one form the README lays down under "Page patterns", "The Repo hub"**: its blocks, their order and the
    fixed `h1`, with only the content the repo's own. A repo with pages of its own links them from its
    **Pages** card. A repo without a build starts from
-   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.4.0/house-style/patterns/repo-dashboard.html)
-   at the same tag, which carries no CSS of its own
+   [`patterns/repo-dashboard.html`](../../assets/house-style/patterns/repo-dashboard.html)
+   in this plugin's `assets/house-style/`, which carries no CSS of its own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
    **Every page a repo's dev server serves opens with the breadcrumb bar**, the Repo hub and the
    product alike, its trail starting at **Repo hub**, as the README lays it down under "Page
@@ -71,7 +79,7 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    there. They **use** house tokens and may add tokens of their own, under a name the house file does
    not define.
 3. **Never redefine a house token or a house class in the repo layer.** A value that is wrong for every
-   app is fixed in the brand book, through an issue on that repo, so that every app gets the fix. A
+   app is fixed in this plugin, through an inbound issue on the source repo, so that every app gets the fix. A
    value that is wrong for one app is a new domain token in that app, not an override. Extend, never
    override.
 
@@ -85,7 +93,7 @@ three rules** ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
 2. **redefine**: the repo's own layer defines no house token (`--x:`) and restyles no house class app-wide
    (`.card { }`, `main .card { }`). A house class inside a component of the repo's own (`.my-panel .card`) is
    composition, not a redefinition.
-3. **retired**: the repo's own layer neither defines nor reads (`var(--x)`) a token name the brand book retired.
+3. **retired**: the repo's own layer neither defines nor reads (`var(--x)`) a token name the house style retired.
 
 Checks 2 and 3 use a pattern grep over every tracked file of the kinds a page is built in (`.css`, `.html`, `.js`,
 `.py`, `.ps1` and the like, not Markdown), so CSS inside a Python or PowerShell string counts. A false
@@ -116,30 +124,31 @@ It is read-only, and in a repo with no house style at all it prints one line say
 
 ## Changing the house style
 
-**Upstream, in `dkj-brandbook`, never in the repo you are working in** (the extension's `CLAUDE.md`
-states the rule in full). File an issue on `DKJ-Solutions/dkj-brandbook` with what should change and
-why, keep working on the repo's own domain layer, and take the new copy once it has been released under
-a new tag and this page points at it (below).
+**In this plugin, never in the repo you are working in** (the extension's `CLAUDE.md` states the rule in
+full). A consuming repo files an inbound issue (`feature-inbound` or `bug-inbound`) on
+`DKJ-Solutions/dkj-claude-plugins` with what should change and why, keeps working on the repo's own
+domain layer, and takes the new copy once it has been released and this page points at it (below). Until
+[#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) (October 18, 2026) that route
+led to the `dkj-brandbook` repo, which will be archived once the migration in
+[#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) is complete.
 
-**In `dkj-brandbook` itself the change is made directly**, and there it is a **visible result**: it
-reaches every DKJ-Solutions app the next time it takes a copy, so the branch stops for the owner's look
-instead of merging.
+**In this source repo the change is made directly**, in
+[`assets/house-style/`](../../assets/house-style/), and there it is a **visible result**: it reaches every
+DKJ-Solutions app the next time it takes a copy, so the branch stops for the owner's look instead of
+merging.
 
-**A merged change reaches the apps only once it is released and this page follows it.** The brand book
-releases the house style as a new `vX.Y.Z` tag, cut with its `cut-release` on the owner's request and never
-moved. Its first, `v0.1.0` (October 17, 2026), brought the four earlier `house-style-v1`..`-v4` tags together
-([#3084](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3084)).
-Then the source repo's **house-style repoint runner** opens the repoint as a pull request, within a day
-of the release ([#3100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3100)): it repoints
-every link to the previous tag on this page and replaces the commit and both checksums, measured from the
-bytes served at that tag, and `Get-HouseStyleRetiredTokens` in `scripts/lib/house-style-rules.ps1` takes
-the new tag's retired names. A file carrying a spelling the safety reads above forbid stops it before
-any pull request, and a changed `house-theme.js` leaves a step open for a person to read its diff. It
-opens and never merges: a person scores the entry and ships it. **The same change replaces the source
-repo's two vendored copies**:
-the files under `scripts/dashboard/house-style/` that its connector dashboard serves, and the files under
-this plugin's `assets/house-style/` that the placeholder preview serves in every repo without a preview of
-its own. A test suite holds each copy to this page's checksums and goes red until it moves
+**There is one canonical copy of the files, and it is that folder.** The source repo's connector dashboard
+and the placeholder preview that serves every repo without a preview of its own both read it in place, so
+no second copy needs replacing by hand
 ([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989),
-[#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). The apps get it with the next
-plugin release.
+[#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). The table above guards two
+things: a consuming repo's own vendored copy, which `check-house-style` holds to it, and the canonical copy
+itself, which the `check-house-style` test suite holds to it and which goes red the moment a file changes
+without the table following. So a change to a house file lands together with the new checksums here and,
+where a token is retired, with the new names in `Get-HouseStyleRetiredTokens` in
+`scripts/lib/house-style-rules.ps1`.
+
+**A merged change reaches the apps only once it is released and this page follows it.** The house style
+no longer has a version of its own: it ships with the plugin and follows its lockstep release. The
+consumer URL above is repointed at this repo's tag once a release carries the files
+([#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)).

@@ -31,7 +31,7 @@
                       -MinRefreshSeconds, and per 60 s for issues) and goes back to the page.
       /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
                       hubs ask it before they link here, because an open port does not say whose server it is.
-      /house-style.css, /house-theme.js   the plugin's vendored copy under assets/house-style/.
+      /house-style.css, /house-theme.js   the plugin's canonical copy under assets/house-style/.
     The repo's name on the pages is owner/name from the origin remote, else the folder's name.
 
     A TcpListener ON 127.0.0.1, NOT AN HttpListener (#2976): under HttpListener the socket belongs to

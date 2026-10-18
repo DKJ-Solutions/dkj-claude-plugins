@@ -9,7 +9,7 @@ no specialists.
 
 | Chapter | Where | What it holds |
 |---|---|---|
-| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | A pointer to [DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook), which holds the design tokens, the twelve themes and the base stylesheet, plus the rules a session needs before it fetches them, and the `check-house-style` gate that holds a repo to them |
+| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The canonical house style in [`assets/house-style/`](assets/house-style/) (the design tokens, the twelve themes, the base stylesheet and the rules), the skill with what a session needs before it fetches them, and the `check-house-style` gate that holds a repo to them |
 | The tracker labels | [below](#the-tracker-labels--feature-and-bug-in-every-repo) | `feat/` is labelled `feature` and `fix/` `bug`, in every DKJ-Solutions repo, and how a repo still on `enhancement` moves over |
 
 ## The tracker labels — `feature` and `bug`, in every repo
@@ -66,8 +66,8 @@ about its own setup (skipped, config unreadable, a config it cannot run) still o
 
 **And it has one form, in every repo** (the owner's decision, October 16, 2026,
 [#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)): the one laid down in
-`dkj-brandbook`'s `house-style/README.md`, section "The Repo hub", at the tag the
-[`house-style` skill](skills/house-style/SKILL.md) pins. The blocks, their order and the `h1` are fixed;
+[`assets/house-style/README.md`](assets/house-style/README.md), section "The Repo hub", the version
+the [`house-style` skill](skills/house-style/SKILL.md) pins. The blocks, their order and the `h1` are fixed;
 the slug, the lead, the lists, the facts and the data source are the repo's own. The placeholder below
 follows that form too.
 
@@ -215,11 +215,13 @@ The plugin is enabled here since October 13, 2026
 ([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)), for the dev-preview hook:
 this repo's `Get-DevPreview` starts its `Repo hub`, whose own pages are the **connector dashboard** (every
 repo registered under `connectors/` and what `check-connectors.ps1` reports for it) and the test-gate
-durations, served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1` with a vendored copy
-of the house style. The release notes, the SessionStart measurements, the Artifacts and the Issues are the
+durations, served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1` with the plugin's
+own copy of the house style. The release notes, the SessionStart measurements, the Artifacts and the Issues are the
 general pages above, which the hub's General card links, and `dev-pages-lib.ps1` reads the plugin's
 `general-pages-lib.ps1` from this tree. That server
 uses a `TcpListener` rather than an `HttpListener`: under the latter the socket belongs to `http.sys`
 (PID 4), and the hook could never recognise the server as this checkout's.
 
-The house style itself is maintained in `dkj-brandbook`. Only the skill's pointer is maintained here.
+The house style itself is maintained here, in `assets/house-style/`, since
+[#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) (October 18, 2026) moved it in
+from `dkj-brandbook`. A consuming repo asks for a change through an inbound issue on this repo.
