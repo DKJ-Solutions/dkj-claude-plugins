@@ -80,3 +80,8 @@ its layout has no page column.
 
 #### Pull Request
 
+Repoints the `house-style` skill and the four vendored copies to `dkj-brandbook` `v0.4.0`, which adds the
+fluid/phone/full page width to `DKJTheme.settings()`. The repoint's safety read is relaxed from "one
+storage key" to "only house `dkj-` keys", hardened after review. A visible result: it waits for the
+owner's look at the dev server's settings panel before merging.
+
