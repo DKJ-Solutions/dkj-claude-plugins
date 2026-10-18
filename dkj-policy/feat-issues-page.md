@@ -49,7 +49,7 @@ eight weeks is already reached, so the window is 28 days (about 475 issues).
 
 - [x] `scripts/lib/dev-pages-lib.ps1`: `ConvertTo-IssueRow`, `ConvertFrom-IssueList` (pure model: dedupe by number, the board state -- parked over claimed over free --, the priority matrix, four weekly buckets, the median time to close, the closed-by groups) and `Format-IssuesPageHtml` in the shell every hub page shares; the hub's Pages card links `/issues`
 - [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `Get-IssuesModel` (three `gh issue list` calls: open, created in the window, closed in the window), the `/issues` route, its own cache (`-IssuesCacheSeconds`, 300: the read takes about 12 s) and `/refresh?page=issues`
-- [x] The owner asked for a clear split between the general pages and this repo's own (October 18, 2026): `Get-RepoHubPages` gives each page a `Group`, and the hub lists the repo's own (Connectors, Test gate) in block 7 **Pages** and the general ones (Artifacts, Issues, Release notes, SessionStart) in a second card of the same form, **General pages**, directly under it -- house classes only; the form itself is asked for upstream in DKJ-Solutions/dkj-brandbook#206
+- [x] The owner asked for a clear split between the general pages and this repo's own (October 18, 2026): `Get-RepoHubPages` gives each page a `Group`, and the hub lists the repo's own (Connectors, Test gate) in block 7 **Pages** and the general ones (Artifacts, Issues, Release notes, SessionStart) in a second card of the same form, **General pages**, directly under it -- house classes only; "general" means every DKJ-Solutions repo (owner, same day), the form itself is asked for upstream in DKJ-Solutions/dkj-brandbook#206 and shipping the pages from `dkj-solutions` is #3119
 
 ### TEST
 

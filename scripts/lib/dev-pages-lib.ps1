@@ -10,7 +10,7 @@
     with its one crumb, the settings button, the intro with the fixed h1, the Pages card (block 7) linking
     the repo's own pages, About this repo and a footer note. This repo is no product and keeps no in-flight
     lists on the hub, so blocks 6 and 8 to 10 are left out. The pages it links are Get-RepoHubPages; the
-    general ones -- a page any repo running the workflow could serve, such as its issues or its release
+    general ones -- a page every DKJ-Solutions repo is meant to serve, such as its issues or its release
     notes -- stand in a second card of the same form, General pages, directly under block 7, so a page that
     is this repo's own is never read as one every repo has.
 
@@ -110,8 +110,8 @@ function Get-RepoHubPages {
     <#
         The pages the Repo hub links, in the order it lists them: each a route on this server, its label
         the page's own name as its breadcrumb reads it, one line on what it shows, and its Group. 'repo' is
-        a page only this repo has, listed in the Pages card; 'general' is a page any repo running the
-        workflow could serve the same way -- its GitHub issues, its releases, what a session loads --
+        a page only this repo has, listed in the Pages card; 'general' is a page every DKJ-Solutions
+        repo is meant to serve the same way -- its GitHub issues, its releases, what a session loads --
         listed in the General pages card below it, so the two are never mistaken for each other.
     #>
     @(
@@ -164,7 +164,7 @@ function Format-RepoHubHtml {
     # repo's own.
     $cards = @(
         @{ Title = 'Pages';         Sub = 'Specific to this repo';                          Rows = @($Pages | Where-Object { $_.Group -ne 'general' }) },
-        @{ Title = 'General pages'; Sub = 'Not specific to this repo: any repo running the workflow has them'; Rows = @($Pages | Where-Object { $_.Group -eq 'general' }) }
+        @{ Title = 'General pages'; Sub = 'Not specific to this repo: every DKJ-Solutions repo has them'; Rows = @($Pages | Where-Object { $_.Group -eq 'general' }) }
     )
     foreach ($c in $cards) {
         if ($c.Rows.Count -eq 0) { continue }
