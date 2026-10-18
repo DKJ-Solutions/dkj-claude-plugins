@@ -70,7 +70,6 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
 . (Join-Path $root 'scripts\lib\connector-dashboard-lib.ps1')
 . (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
-. (Join-Path $root 'scripts\lib\native-capture-lib.ps1')
 
 $scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 $styleDir = Join-Path $root 'scripts\dashboard\house-style'
@@ -247,12 +246,17 @@ function Get-IssuesModel {
     $since = $started.ToUniversalTime().AddDays(-28).ToString('yyyy-MM-dd')
     $fields = 'number,title,state,stateReason,labels,assignees,createdAt,closedAt'
     $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
+    # Loaded here rather than at start: it pulls in libs of its own, and only this page needs it.
+    if (-not (Get-Command Invoke-NativeCapture -ErrorAction SilentlyContinue)) {
+        try { . (Join-Path $root 'scripts\lib\native-capture-lib.ps1') } catch { }
+    }
     $read = {
         param([string[]]$Extra)
         # -Utf8: gh writes UTF-8, and 5.1 would decode a title's non-ASCII through the console code page.
         $q = Invoke-NativeCapture -Utf8 -DiscardStderr -TimeoutSeconds 60 -FilePath 'gh' -Arguments (@(
                 'issue', 'list', '--repo', 'DKJ-Solutions/dkj-claude-plugins', '--limit', '1000', '--json', $fields) + $Extra)
         if ($q.TimedOut) { throw 'gh issue list did not answer within 60 s' }
+        if (-not (Test-NativeExitMeasured -Capture $q)) { throw 'gh issue list left no exit code' }
         if ($q.ExitCode -ne 0 -or $q.ShortRead) { throw "gh issue list exited $($q.ExitCode)" }
         # 5.1's ConvertFrom-Json emits a JSON array as ONE object, so it is enumerated before it is wrapped.
         $parsed = ConvertFrom-Json -InputObject (@($q.Output) -join "`n")
