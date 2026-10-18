@@ -144,10 +144,16 @@ jobs:
           $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$env:PUSH_TOKEN"))
           git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $basic" push -u origin $env:BRANCH
           if ($LASTEXITCODE -ne 0) { exit 1 }
+          # SHIP WITH -RefreshBody (#3106). This body is not open-pr's, so it carries no DEPLOY section, and
+          # the DEPLOY lock (branch-entry and ship-pr's step 4) compares the body against the document. The
+          # scoring the body asks for changes that section anyway, so even a body that carried it would
+          # drift: the step after scoring is the republish, and ship-pr -RefreshBody does it before its lock.
           $body = @(
               "DKJ-Solutions/dkj-brandbook released [$env:TAG](https://github.com/DKJ-Solutions/dkj-brandbook/releases/tag/$env:TAG); the house-style skill pinned $env:FROM.",
               '',
-              "Opened by the house-style repoint runner (#3100). Before shipping: read the release, tick any open step in ``$doc`` (a changed ``house-theme.js`` has one), score the two DEPLOY tiers, and say there what an app that takes the new copy will notice."
+              "Opened by the house-style repoint runner (#3100). Before shipping: read the release, tick any open step in ``$doc`` (a changed ``house-theme.js`` has one), score the two DEPLOY tiers, and say there what an app that takes the new copy will notice.",
+              '',
+              "Then ship with ``ship-pr.ps1 -RefreshBody``. This body carries no DEPLOY section, so until ``-RefreshBody`` republishes it from ``$doc`` the branch-entry check and ship-pr's DEPLOY lock both refuse (#3106)."
           ) -join "`n"
           $env:GH_TOKEN = $env:PUSH_TOKEN
           gh pr create --base main --head $env:BRANCH --title $env:TITLE --label feature --body $body
