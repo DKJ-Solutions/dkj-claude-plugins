@@ -39,9 +39,100 @@
 
 ### PLAN
 
+#### What #3130 asks
+
+Move the whole of `DKJ-Solutions/dkj-brandbook` into the dkj-solutions plugin. Copy first; archive the
+brandbook only once everything works here. The brandbook gets its own page on this repo's Repo hub. A
+step plan comes first, then the migration.
+
+#### What is being moved (measured October 18, 2026, brandbook `origin/main` at `c3cefff`)
+
+- 137 tracked files, no open issues or PRs, `dist/` untracked.
+- `house-style/`: the canonical `house-style.css`, `house-theme.js`, the rules `README.md` and
+  `patterns/repo-dashboard.html`. This is what consumers take.
+- `src/` plus the Vite/React/TS tooling: the visual brandbook app (showcase, previews, the reference
+  Repo hub, the default-theme-per-repo table) with its own web lint gate (`scripts/lint/lint-web.ps1`
+  plus three `.mjs` checks) and CI job.
+- The brandbook's own workflow scaffolding (`dkj-policy/`, six standard runners, `.claude/` lenses) is
+  **not** moved, because this repo has its own. Its release history stays readable in the archived repo.
+- Three house-style changes sit unreleased on the brandbook's `main` (#205, #207, #206/#210). Together
+  they add 13 lines to `house-style.css`, so `main` no longer matches the v0.4.0 pin that consumers
+  vendor. This branch therefore copies `house-style/` **at the v0.4.0 tag** (`b1f1a69`), byte-identical
+  to the pin. The three changes are ported on their own branch with the URL repoint (step 4), because
+  that is when consumers can fetch them.
+
+#### What changes in this repo
+
+- **The tag-pinned cross-repo pipeline dissolves.** `house-style-repoint.yml`,
+  `scripts/ci/repoint-house-style.ps1`, `scripts/lib/house-style-repoint-lib.ps1` and their suite
+  exist only because the files came from another repo (#3100, #2954). With the canonical copy in this
+  repo they are retired.
+- **Two copies become one.** `plugins/dkj-policy/dkj-solutions/assets/house-style/` becomes the
+  canonical copy. `scripts/dashboard/house-style/` stops being a vendored copy and the hub serves the
+  plugin's copy.
+- **The pin.** The skill's tag, commit and sha256 table keep guarding the consumers' own vendored copies
+  against drift, but are computed in this repo. The raw URL becomes this repo's path at a release tag.
+- **The rule.** The dkj-solutions `CLAUDE.md` rule "change it upstream, in dkj-brandbook" becomes
+  "change it in the dkj-solutions plugin", and the brandbook issue route stops. The same goes for the
+  skill, the plugin README, `plugin.json`, `marketplace.json`, the blueprint, `CONTRIBUTING-portable.md:302`
+  and Gwen's lens. History (CHANGELOG, release documents) is left as written.
+
+#### The order: five branches, one change each
+
+1. **This branch: the house style itself.** Copy `house-style/` into the plugin, repoint the skill, the
+   rules lib, the lint and the sessioncheck to it, retire the repoint runner, collapse the hub's copy,
+   and rewrite the rule text. No visible change: the CSS and JS are byte-identical to the pin.
+2. **The brandbook app**, to the location the owner picks (decision D1), with its web lint gate as a CI
+   job here.
+3. **The hub page `/brandbook`**, in the form the owner picks (decision D2). A visible result, so it
+   stops for the owner's look.
+4. **Repointing the consumer URL** to this repo's raw path, once a release tag carries the files, and
+   porting the three brandbook changes made since v0.4.0. A visible result, so it stops for the owner's
+   look.
+5. **Archiving the brandbook**, only after the criteria below hold: its README points here, and the repo
+   is archived. Outward-facing, so it takes the owner's word.
+
+Nothing is released or version-bumped by any of the five; a cut stays on explicit request.
+
+#### When "everything works" (the archive criteria)
+
+- All gates and suites green here, with no reference to `dkj-brandbook` left outside history.
+- The house-style sessioncheck and `check-house-style.ps1` read the in-repo pin, and a consumer
+  (`dkj-etf-tracker` or `dkj-maplestory-classic-mesowise`) passes the reusable CI check against it.
+- The brandbook app builds and its web lint passes from its new place.
+- The `/brandbook` hub page is approved by the owner.
+
+#### Decisions for the owner
+
+Answered by Dave, October 18, 2026:
+
+- **D1, where the React app lands:** in `brandbook/` at the repo root, outside `plugins/`. Consumers
+  install only the css, js, README and patterns through the plugin. The app stays a maintainer tool,
+  with its own CI job.
+- **D2, how the hub page renders:** as a native PowerShell page like the hub's other pages. It renders
+  the tokens, the twelve themes and the components from the house style, needs no Node, and links to
+  `npm run dev` for the full app.
+- **D3, the consumer contract:** consumers keep vendoring a sha256-checked copy, fetched from this
+  repo's raw path at a release tag. The house style gives up its own 0.x version and follows the plugin
+  lockstep.
+
+#### Consequence of D3: the raw URL moves only after a release
+
+A raw URL at a tag needs a tag that contains the files, and no release of this repo has them yet. So
+this branch makes the in-repo copy canonical and keeps it byte-identical to the v0.4.0 pin. The skill's
+consumer URL keeps pointing at `dkj-brandbook/v0.4.0` for now, which still serves after an archive. The
+URL is repointed to `dkj-claude-plugins/<tag>/plugins/dkj-policy/dkj-solutions/assets/house-style/` in
+the first branch after the next release cut. That makes it a fifth step, ahead of the archive.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Owner's answers to D1-D3 recorded above
+- [ ] Copy `house-style/` (css, js, README, patterns) from brandbook tag v0.4.0 (`b1f1a69`) into
+      `plugins/dkj-policy/dkj-solutions/assets/house-style/`, with css and js byte-identical to the pin
+- [ ] Skill, `house-style-rules.ps1`, `check-house-style.ps1` and the sessioncheck read the in-repo pin
+- [ ] Retire the repoint runner (workflow, script, lib, suite)
+- [ ] Hub serves the plugin's copy; `scripts/dashboard/house-style/` removed
+- [ ] Rule text rewritten in every non-history place that names dkj-brandbook
 
 ### TEST
 
