@@ -52,9 +52,10 @@ factor: the listing (a subagent's description, always-on wherever its plugin is 
 
 ### TEST
 
-- [x] `scripts/tests/dev-pages.tests.ps1`: the hub's seven pages, the row parse (subagent and persona, folded description, frontmatter cut, no lens, unknown shape) and the page (order, tiles, escaping, off-here, always-on, the labelled factor, empty and failed reads); 155 pass, `connector-dashboard.tests.ps1` 127 pass
+- [x] `scripts/tests/dev-pages.tests.ps1`: the hub's seven pages, the row parse (subagent and persona, folded description, frontmatter cut, no lens, unknown shape) and the page (order, tiles, escaping, off-here, always-on, the labelled factor, empty and failed reads); 156 pass, `connector-dashboard.tests.ps1` 127 pass
 - [x] Served live on 4875: 30 specialists, 19 enabled here, ~2,267 tokens of listing in every session here, Sylvester's full read the largest at ~143,664
-- [x] The page is a visible result: it waits for the owner's look before it merges
+- [x] Victor's and Sebastian's reviews: an empty frontmatter block no longer yields a descending range, and a failed load of measure-context-lib names the fallback factor in the page's warning; escaping and path handling held
+- [x] The page is a visible result: Maikel looked and approved it
 
 ### DEPLOY: feat/specialists-page
 

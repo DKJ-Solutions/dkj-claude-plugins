@@ -725,7 +725,8 @@ function ConvertTo-SpecialistRow {
     $front = @(); $bodyFrom = 0
     if ($lines.Count -gt 1 -and $lines[0].TrimStart([char]0xFEFF) -eq '---') {
         for ($j = 1; $j -lt $lines.Count; $j++) {
-            if ($lines[$j] -eq '---') { $front = @($lines[1..($j - 1)]); $bodyFrom = $j + 1; break }
+            # An empty block ($j = 1) would make 1..0 a descending range, so it is guarded.
+            if ($lines[$j] -eq '---') { if ($j -gt 1) { $front = @($lines[1..($j - 1)]) }; $bodyFrom = $j + 1; break }
         }
     }
     $body = if ($bodyFrom -lt $lines.Count) { ($lines[$bodyFrom..($lines.Count - 1)]) -join "`n" } else { '' }

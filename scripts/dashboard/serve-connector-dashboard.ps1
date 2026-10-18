@@ -245,9 +245,10 @@ function Get-SpecialistsModel {
         .claude/settings.json. A file that cannot be read is named in the ReadError, never a blank page.
     #>
     $rows = @(); $errs = @(); $enabled = @{}
-    # The token factor's one home; loaded in this call's scope, as the Issues read loads its lib.
+    # The token factor's one home; loaded in this call's scope, as the Issues read loads its lib. Should
+    # it fail to load, the page still renders at the last calibrated value and says so in its warning.
     $factor = 3.12
-    try { . (Join-Path $root 'scripts\lib\measure-context-lib.ps1'); $factor = (Get-CalibratedCharsPerToken).Value } catch { $errs += 'measure-context-lib.ps1 did not load' }
+    try { . (Join-Path $root 'scripts\lib\measure-context-lib.ps1'); $factor = (Get-CalibratedCharsPerToken).Value } catch { $errs += 'measure-context-lib.ps1 did not load, so the tokens use the fallback factor 3.12' }
     try {
         $settings = Get-Content -LiteralPath (Join-Path $root '.claude\settings.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         foreach ($p in @($settings.enabledPlugins.PSObject.Properties)) { if ($p.Value -eq $true) { $enabled[($p.Name -split '@')[0]] = $true } }
