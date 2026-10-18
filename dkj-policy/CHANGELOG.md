@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**7 / 17 minor entries** <!-- pending-tally -->
+**7 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3122-dev-server-restarts-on-moved-head · 20261018-180247Z
+
+This repo's dev server no longer keeps serving the code it started on after a pull or a branch switch.
+It notes the commit it loaded, and the first page asked for after HEAD has moved answers with a short
+"restarting" notice that reloads itself, while the server hands its port to a fresh copy of itself on
+the new code. The hub's "Source at" now names the commit the pages were actually built from, so it can
+no longer read the new commit while the old code runs. Static files skip the check.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the server is this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The dev server restarts itself when the checkout's HEAD has moved
+
+[PR #3124](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3124)
+
+---
 
 ### DEPLOY: fix/3120-house-style-comment-prose · 20261018-175119Z
 
