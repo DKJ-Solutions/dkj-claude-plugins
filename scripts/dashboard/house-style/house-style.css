@@ -176,7 +176,7 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .controls { display: flex; align-items: center; gap: var(--spacing-2); flex-wrap: wrap; }
 .controls .seg, .controls .btn { height: 30px; box-sizing: border-box; }
 .controls .btn { display: inline-flex; align-items: center; padding: 0 var(--spacing-2-5); }
-/* Page column (#141): put it on <main> and its blocks stack with one --spacing-5 gap between them, the Repo dashboard's
+/* Page column (#141): put it on <main> and its blocks stack with one --spacing-5 gap between them, the Repo hub's
    rhythm. .card, .tiles, .notice and .footer-note carry a margin-top of their own, which would add to the gap, so a
    direct child of the column gives it up. .page-cta is the spacing of a primary button under the lead (a <p> that holds
    the button). */
@@ -224,7 +224,7 @@ h6 { font-size: var(--text-h6); margin: 0 0 var(--spacing-1); font-weight: 600; 
    it too, while the same class on a span or a div stays -7. A <p> in a status colour, or on a --primary-9 surface,
    sets its own. */
 p, p.meta { color: var(--primary-9); }
-/* Eyebrow: a small uppercase line above a page title, the Repo dashboard's <owner>/<repo> (#141). Put it on a <p>
+/* Eyebrow: a small uppercase line above a page title, the Repo hub's <owner>/<repo> (#141). Put it on a <p>
    (the class beats the paragraph colour). The colour is --primary-5, the greyed middle of the scale, as the approved
    dashboard draws it; semibold, with the same 0.04em tracking as the settings panel's uppercase labels. */
 .eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-5); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
@@ -572,7 +572,7 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
 /* ---- Breadcrumbs ---------------------------------------------------------------- */
 /* Where the page sits, on every page a dev server serves: the first thing in <body>, above <main>.
    <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>
-   <li><a href="/">Repo dashboard</a></li><li><span class="breadcrumbs__sep" aria-hidden="true">/</span>
+   <li><a href="/">Repo hub</a></li><li><span class="breadcrumbs__sep" aria-hidden="true">/</span>
    <span aria-current="page">Current page</span></li></ol></nav></div></div>.
    The slash is muted, the ancestors are links, the current page is the strongest.
    The bar spans the full width on the surface tint and sticks to the top of the screen, so it is always visible. It is
@@ -609,6 +609,10 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 .menu-item__icon, .menu-item__chevron { flex: none; }
 .menu-item__label { flex: 1; min-width: 0; }
 .menu-item__chevron { color: var(--primary-9); }
+/* A navigation row that is a link (#200): <nav class="menu-list"><a class="menu-item" href>..</a><a class="menu-item"..>,
+   optionally with a one-line description under the label: <span class="menu-item__label">Label<span class="menu-item__sub">..</span></span>. */
+.menu-item__sub { display: block; font-size: var(--text-sm); font-weight: 400; color: var(--primary-6); }
+a.menu-item:hover { background: var(--primary-3); }
 
 /* ---- Screen readers only --------------------------------------------------------- */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

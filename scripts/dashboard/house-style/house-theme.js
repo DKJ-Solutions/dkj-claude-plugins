@@ -6,10 +6,14 @@
 
    Which theme applies, in this order:
      1. the user's own choice, remembered per app on this device;
-     2. otherwise the app's own default for the OS mode, declared on <html>:
-        <html data-theme-light="purple" data-theme-dark="cyan">
-        (an app picks its own pair, so apps are told apart before anyone chooses);
-     3. otherwise the house defaults, Blauw (light) and Cyaan (dark).
+     2. otherwise the app's own default theme, declared on <html>:
+        <html data-theme-default="teal">
+        (an app picks its own, so apps are told apart before anyone chooses;
+        its mode is then fixed by the theme, whatever the OS mode is; a page
+        that ships data-theme="light"/"dark" ignores a default of the other mode);
+     3. otherwise, for apps that have not moved to that yet, their default for
+        the OS mode: <html data-theme-light="purple" data-theme-dark="lilac">;
+     4. otherwise the house defaults, Blauw (light) and Cyaan (dark).
    Without this script the stylesheet still works: no data-theme follows the
    OS with the house defaults. A page that ships data-theme="light" or "dark"
    keeps that mode: the script then picks that mode's default, not the OS's.
@@ -56,7 +60,13 @@
   /* a page that ships data-theme="light"/"dark" has fixed its mode; honour it */
   var shipped = root.getAttribute('data-theme');
   var fixedMode = shipped === 'light' || shipped === 'dark' ? shipped : null;
-  function resolve() { var s = stored(); return byId(s) ? s : appDefault(fixedMode || osMode()); }
+  /* the app's own default theme, read live like data-theme-light/dark; a page with a fixed mode ignores
+     a default of the other mode and falls through to that mode's default */
+  function ownDefault() {
+    var t = byId(root.getAttribute('data-theme-default'));
+    return t && (!fixedMode || t.mode === fixedMode) ? t.id : null;
+  }
+  function resolve() { var s = stored(); return byId(s) ? s : ownDefault() || appDefault(fixedMode || osMode()); }
   function apply() { root.setAttribute('data-theme', resolve()); render(); }
 
   var pickers = [];
