@@ -11,8 +11,8 @@
     the repo's own pages, About this repo and a footer note. This repo is no product and keeps no in-flight
     lists on the hub, so blocks 6 and 8 to 10 are left out. The pages it links are Get-RepoHubPages; the
     general ones -- a page every DKJ-Solutions repo is meant to serve, such as its issues or its release
-    notes -- stand in a second card of the same form, General pages, directly under block 7, so a page that
-    is this repo's own is never read as one every repo has.
+    notes -- stand under a second h3 in the same card, so a page that is this repo's own is never read as
+    one every repo has.
 
     ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
     starting at the Repo hub on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
@@ -110,9 +110,9 @@ function Get-RepoHubPages {
     <#
         The pages the Repo hub links, in the order it lists them: each a route on this server, its label
         the page's own name as its breadcrumb reads it, one line on what it shows, and its Group. 'repo' is
-        a page only this repo has, listed in the Pages card; 'general' is a page every DKJ-Solutions
+        a page only this repo has, under the Pages card's first h3; 'general' is a page every DKJ-Solutions
         repo is meant to serve the same way -- its GitHub issues, its releases, what a session loads --
-        listed in the General pages card below it, so the two are never mistaken for each other.
+        under its second, so the two are never mistaken for each other.
     #>
     @(
         @{ Href = '/connectors';    Label = 'Connectors';    Group = 'repo';    Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
@@ -143,6 +143,8 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<title>dkj-claude-plugins -- Repo hub</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
+    # The page layer: only names the house file does not define (.dp-*), with house tokens.
+    [void]$sb.AppendLine('<style>.dp-group + .dp-group { margin-top: var(--spacing-5); }</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
     # Block 0, the breadcrumb bar: on the hub its trail is the one crumb.
@@ -159,25 +161,29 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<p class="lead">The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.</p>')
     [void]$sb.AppendLine('</div>')
 
-    # Block 7, Pages: the repo's own pages, then the general ones in a card of their own. One menu-item row
-    # per page, direct siblings so the house draws the line between them. A page without a Group is the
-    # repo's own.
-    $cards = @(
-        @{ Title = 'Pages';         Sub = 'Specific to this repo';                          Rows = @($Pages | Where-Object { $_.Group -ne 'general' }) },
-        @{ Title = 'General pages'; Sub = 'Not specific to this repo: every DKJ-Solutions repo has them'; Rows = @($Pages | Where-Object { $_.Group -eq 'general' }) }
+    # Block 7, Pages: one card, split one level down into the repo's own pages and the general ones, each
+    # an h3 over its own list. One menu-item row per page, direct siblings so the house draws the line
+    # between them. A page without a Group is the repo's own; a group with no page has no heading.
+    $groups = @(
+        @{ Id = 'pages-repo';    Title = 'This repo'; Rows = @($Pages | Where-Object { $_.Group -ne 'general' }) },
+        @{ Id = 'pages-general'; Title = 'General';   Sub = 'Every DKJ-Solutions repo has these'; Rows = @($Pages | Where-Object { $_.Group -eq 'general' }) }
     )
-    foreach ($c in $cards) {
-        if ($c.Rows.Count -eq 0) { continue }
-        [void]$sb.AppendLine('<section class="card">')
-        [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">' + $c.Title + '</h2><p class="card__sub">' + $c.Sub + '</p></div>')
-        [void]$sb.AppendLine('<nav class="menu-list" aria-label="' + $c.Title + '">')
-        foreach ($p in $c.Rows) {
+    [void]$sb.AppendLine('<section class="card">')
+    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Pages</h2></div>')
+    foreach ($g in $groups) {
+        if ($g.Rows.Count -eq 0) { continue }
+        [void]$sb.AppendLine('<div class="dp-group">')
+        [void]$sb.AppendLine('<h3 id="' + $g.Id + '">' + $g.Title + '</h3>')
+        if ($g.Sub) { [void]$sb.AppendLine('<p class="card__sub">' + $g.Sub + '</p>') }
+        [void]$sb.AppendLine('<nav class="menu-list" aria-labelledby="' + $g.Id + '">')
+        foreach ($p in $g.Rows) {
             $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
             [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
         }
         [void]$sb.AppendLine('</nav>')
-        [void]$sb.AppendLine('</section>')
+        [void]$sb.AppendLine('</div>')
     }
+    [void]$sb.AppendLine('</section>')
 
     # Block 11: About this repo, the fixed title, with this repo's own facts.
     [void]$sb.AppendLine('<section class="card">')
