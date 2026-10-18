@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Adopt this repo's default theme `lilac` from the brand book (#3094, DKJ-Solutions/dkj-brandbook#198).
+The vendored `house-theme.js` that reads `data-theme-default` already landed with the v0.3.0 repoint
+(#3105), so what is left is the `<html>` attribute on the pages this repo renders itself. The shipped
+`dev-preview-placeholder.ps1` keeps its pair: it renders in every consumer, and each repo has a default
+of its own. A visible result, so the branch stops for the owner's look.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace `data-theme-light="teal" data-theme-dark="sky"` with `data-theme-default="lilac"` on the
+  three `<html>` roots: `connector-dashboard-lib.ps1` (the dashboard) and `dev-pages-lib.ps1` (the
+  dev pages and their shell)
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` 126/0 and `dev-pages.tests.ps1` 49/0
+- [x] The dev server on :4873 restarted from this branch serves `<html lang="en" data-theme-default="lilac" ...>`
+- [ ] The owner has looked at the dashboard in `lilac`
+
 ### DEPLOY: feat/3094-default-theme-lilac
 
-**Score:**
+The dev server's pages (the connector dashboard, the repo hub and the pages it links) open in the
+brand book's `lilac` theme, this repo's default, instead of following the OS between `teal` and `sky`.
+A theme a viewer picked by hand still wins.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the dev server is this repo's own; nothing a plugin ships changes.
+
+**Score:** N/A
 
 #### Pull Request
 
