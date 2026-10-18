@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**6 / 14 minor entries** <!-- pending-tally -->
+**6 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/issues-page · 20261018-162753Z
+
+The dev server's Repo hub has an **Issues** page: the open GitHub issues by priority and by where they
+stand (free, parked on an `awaiting-*` label, or claimed), and the last 28 days of flow -- opened against
+closed per week, and what was closed by kind, priority and how it was closed.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the page lives on this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Adds `/issues` to the Repo hub of this repo's dev server: a map of the GitHub issues (the open board and
+four weeks of flow), read with `gh` and cached for five minutes. A visible result, so it waits for the
+owner's look before merging.
+
+[PR #3117](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3117)
+
+---
 
 ### DEPLOY: fix/release-notes-page-width · 20261018-153451Z
 
