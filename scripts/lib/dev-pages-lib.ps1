@@ -143,6 +143,9 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<title>dkj-claude-plugins -- Repo hub</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
+    # The page layer: only names the house file does not define, with house tokens. The grid head spans
+    # both columns of the .grid-2 the Pages cards stand in.
+    [void]$sb.AppendLine('<style>.grid-2 > .grid__head { grid-column: 1 / -1; } .grid__head > h2 { margin: 0; }</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
     # Block 0, the breadcrumb bar: on the hub its trail is the one crumb.
@@ -159,20 +162,27 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<p class="lead">The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.</p>')
     [void]$sb.AppendLine('</div>')
 
-    # Block 7, Pages: the repo's own pages, then the general ones in a card of their own, the two on one row. One menu-item row
-    # per page, direct siblings so the house draws the line between them. A page without a Group is the
-    # repo's own.
+    # Block 7, Pages: the repo's own pages, then the general ones in a card of their own, the two on one row
+    # of the house's .grid-2 (it stacks them again below 760px) under one grid__head carrying the h2, so
+    # each card's title is an h3, the house's own. One menu-item row per page, direct siblings so the house
+    # draws the line between them. A page without a Group is the repo's own; a group with no page has no
+    # card, and one card alone is block 7 as the form gives it, its title the h2.
     $cards = @(
-        @{ Title = 'Pages';         Sub = 'Specific to this repo';                          Rows = @($Pages | Where-Object { $_.Group -ne 'general' }) },
-        @{ Title = 'General pages'; Sub = 'Not specific to this repo: every DKJ-Solutions repo has them'; Rows = @($Pages | Where-Object { $_.Group -eq 'general' }) }
+        @{ Title = 'This repo'; Sub = 'Specific to this repo';                                        Rows = @($Pages | Where-Object { $_.Group -ne 'general' }) },
+        @{ Title = 'General';   Sub = 'Not specific to this repo: every DKJ-Solutions repo has them'; Rows = @($Pages | Where-Object { $_.Group -eq 'general' }) }
     )
-    # Side by side in the house's .grid-2 when both have rows; it stacks them again below 760px.
     $cards = @($cards | Where-Object { $_.Rows.Count -gt 0 })
-    if ($cards.Count -gt 1) { [void]$sb.AppendLine('<div class="grid-2">') }
+    $row = $cards.Count -gt 1
+    if ($row) {
+        [void]$sb.AppendLine('<div class="grid-2">')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2></div>')
+    }
     foreach ($c in $cards) {
+        $title = if ($row) { '<h3>' + $c.Title + '</h3>' } else { '<h2 class="card__title">Pages</h2>' }
+        $label = if ($row) { $c.Title + ' pages' } else { 'Pages' }
         [void]$sb.AppendLine('<section class="card">')
-        [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">' + $c.Title + '</h2><p class="card__sub">' + $c.Sub + '</p></div>')
-        [void]$sb.AppendLine('<nav class="menu-list" aria-label="' + $c.Title + '">')
+        [void]$sb.AppendLine('<div class="card__head">' + $title + '<p class="card__sub">' + $c.Sub + '</p></div>')
+        [void]$sb.AppendLine('<nav class="menu-list" aria-label="' + $label + '">')
         foreach ($p in $c.Rows) {
             $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
             [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
@@ -180,7 +190,7 @@ function Format-RepoHubHtml {
         [void]$sb.AppendLine('</nav>')
         [void]$sb.AppendLine('</section>')
     }
-    if ($cards.Count -gt 1) { [void]$sb.AppendLine('</div>') }
+    if ($row) { [void]$sb.AppendLine('</div>') }
 
     # Block 11: About this repo, the fixed title, with this repo's own facts.
     [void]$sb.AppendLine('<section class="card">')
