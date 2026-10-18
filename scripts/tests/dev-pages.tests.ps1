@@ -116,6 +116,7 @@ Assert-True (-not (Test-ArtifactUrl 'http://claude.ai/artifact/abc')) 'nor plain
 Assert-True (-not (Test-ArtifactUrl 'https://claude.ai.evil.example/artifact/abc')) 'nor another host'
 Assert-True (-not (Test-ArtifactUrl 'https://claude.ai/artifact/abc"><script>')) 'nor a link that breaks out of its attribute'
 Assert-True (-not (Test-ArtifactUrl '')) 'nor an empty one'
+Assert-True (-not (Test-ArtifactUrl "https://claude.ai/artifact/abc`n")) 'nor one with a trailing newline'
 
 Write-Host '-- the Artifacts model' -ForegroundColor Cyan
 $reg = '{ "recordedFrom": { "date": "2026-10-18", "method": "transcripts" }, "artifacts": [ { "title": "Old", "url": "https://claude.ai/artifact/aaa", "kind": "page", "created": "2026-09-01", "updated": "2026-09-02", "about": "first" }, { "title": "New <b>", "url": "https://claude.ai/code/artifact/0f1e-2a", "kind": "document", "created": "2026-10-07", "updated": "2026-10-07" }, { "title": "Bad", "url": "javascript:alert(1)", "kind": "page", "created": "2026-09-15" } ] }' | ConvertFrom-Json
@@ -134,7 +135,7 @@ Assert-True ($ap -match '<a class="dp-link" href="https://claude.ai/artifact/aaa
 Assert-True ($ap -match 'New &lt;b&gt;</a>' -and $ap -notmatch 'New <b>') 'the title is escaped'
 Assert-True ($ap -notmatch 'href="javascript' -and $ap -match '<td class="dp-left">Bad</td>') 'an unlinked row shows its title without an href'
 Assert-True ($ap -match 'msg msg--warn" role="status">Not a claude.ai Artifact link.*<code>Bad</code>') 'and is named in a warning'
-Assert-True ($ap -match '<div class="dp-about">first</div>') 'the one-line description sits under the title'
+Assert-True ($ap -match '<p class="note">first</p>') 'the one-line description sits under the title'
 Assert-True ($ap -match '<dt>Recorded</dt><dd>2026-10-18</dd>') 'where the list comes from is stated'
 $apFailed = Format-ArtifactsPageHtml -Model $empty -ReadError 'it is not valid JSON'
 Assert-True ($apFailed -match 'could not be read: it is not valid JSON' -and $apFailed -match 'No Artifact is recorded') 'an unreadable register is a warning and an empty table'

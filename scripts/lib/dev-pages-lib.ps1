@@ -355,7 +355,7 @@ function Test-ArtifactUrl {
         renders each url as a link, so anything else is never given an href.
     #>
     param([AllowEmptyString()][string]$Url)
-    return $Url -cmatch '^https://claude\.ai/(artifact/[A-Za-z0-9]+|code/artifact/[0-9a-f-]+)$'
+    return $Url -cmatch '^https://claude\.ai/(artifact/[A-Za-z0-9]+|code/artifact/[0-9a-f-]+)\z'
 }
 
 function ConvertFrom-ArtifactRegister {
@@ -382,7 +382,8 @@ function ConvertFrom-ArtifactRegister {
             }
         }
     }
-    # ISO dates sort as text; the title breaks a tie so two of one day keep a stable order.
+    # ISO dates sort as text -- Windows PowerShell 5.1's ConvertFrom-Json leaves them strings, where 7 would
+    # make them DateTime, and the server runs under powershell.exe. The title breaks a tie so two of one day keep a stable order.
     $rows = @($rows | Sort-Object @{ Expression = { $_.Created }; Descending = $true }, @{ Expression = { $_.Title } })
     $from = if ($Register) { $Register.recordedFrom } else { $null }
     return @{
@@ -419,7 +420,7 @@ function Format-ArtifactsPageHtml {
         foreach ($a in $rows) {
             $name = if ($a.Title) { & $e $a.Title } else { '(untitled)' }
             $title = if ($a.Linked) { '<a class="dp-link" href="' + (& $e $a.Url) + '" target="_blank" rel="noopener noreferrer">' + $name + '</a>' } else { $name }
-            $about = if ($a.About) { '<div class="dp-about">' + (& $e $a.About) + '</div>' } else { '' }
+            $about = if ($a.About) { '<p class="note">' + (& $e $a.About) + '</p>' } else { '' }
             $kind = if ($a.Kind) { '<span class="badge badge--sm badge--neutral">' + (& $e $a.Kind) + '</span>' } else { '--' }
             [void]$body.AppendLine('<tr><td class="dp-left">' + $title + $about + '</td><td class="dp-left">' + $kind + '</td><td class="dp-left num">' +
                 $(if ($a.Created) { & $e $a.Created } else { '--' }) + '</td><td class="dp-left num">' + $(if ($a.Updated) { & $e $a.Updated } else { '--' }) + '</td></tr>')
@@ -437,7 +438,6 @@ function Format-ArtifactsPageHtml {
     [void]$body.AppendLine('</dl>')
     [void]$body.AppendLine('</section>')
     return Format-DevPageHtml -Title 'Artifacts' -Body $body.ToString() `
-        -Style '.dp-about { font-size: var(--text-sm); color: var(--primary-6); margin-top: var(--spacing-1); }' `
         -Lead 'Every claude.ai Artifact a session in this repo has published: pages, decks and documents. An Artifact is private to the account that made it until it is shared, so a link may not open for everyone.' `
         -FooterNote 'Read from <code>scripts/dashboard/artifacts.json</code>, on every request. A new Artifact is added there by hand when it is published.'
 }
