@@ -45,16 +45,18 @@ in the house `.grid-2`: a `grid__head` inside that row carries the h2, and the t
 ### CREATE
 
 - [x] `scripts/lib/dev-pages-lib.ps1`: `Format-RepoHubHtml` opens the `.grid-2` with `<div class="grid__head"><h2>Pages</h2></div>`, and the cards are titled with the house's own `h3` -- **This repo** and **General** (a `.card__title` would keep them at the h2 size) -- each nav named "<title> pages"; `grid__head` is a page-layer name the house file does not define, spanning both columns (`grid-column: 1 / -1`) and the cards drop the house `.card`'s `margin-top` inside that row, where it came on top of the grid's own `--spacing-4` gap and doubled it (the owner's look; a negative margin on the head was tried first) -- a house class touched in context, so asked for upstream in DKJ-Solutions/dkj-brandbook#207. One card alone stays block 7 as the form gives it, its title the h2
+- [x] Block 11 the same way, for consistency and a clearer split from Pages (the owner's look): **About this repo**'s h2 leaves its card for a `grid__head` in a `.grid-2` of its own, and the card spans that row (`grid__full`, a page-layer name beside `grid__head`), so head and card sit at the same gap as in the Pages row
 
 ### TEST
 
-- [x] `scripts/tests/dev-pages.tests.ps1`: the head and its h2 open the row, the h3s and their rows, no card repeating the h2, the head spanning both columns, the cards without their margin-top in the row, and one card alone keeping the plain block 7; 136 pass
+- [x] `scripts/tests/dev-pages.tests.ps1`: the head and its h2 open the row, the h3s and their rows, no card repeating the h2, the head spanning both columns, the cards without their margin-top in the row, and one card alone keeping the plain block 7, and About this repo's h2 outside its full-row card; 137 pass
 - [x] Served on this machine's dev server for the owner's look -- a visible result, so it waits for that before it merges
 
 ### DEPLOY: feat/hub-pages-grid-head
 
 The Repo hub's two Pages cards stand under one **Pages** heading spanning the row, and each card is titled
-one level lower: **This repo** and **General**.
+one level lower: **This repo** and **General**. **About this repo** takes the same shape, its heading above
+its card rather than inside it.
 
 **Score:** 2
 

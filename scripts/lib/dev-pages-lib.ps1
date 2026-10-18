@@ -144,9 +144,9 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The page layer, with house tokens. The grid head spans both columns of the .grid-2 the Pages cards
-    # stand in. The cards drop the house .card's margin-top inside that row, where it came on top of the
+    # stand in, as does a card that is a row of its own (grid__full, About this repo's). The cards drop the house .card's margin-top inside that row, where it came on top of the
     # grid's own gap and doubled it; the gap alone spaces the heading and the cards (the owner's look).
-    [void]$sb.AppendLine('<style>.grid-2 > .grid__head { grid-column: 1 / -1; } .grid__head > h2 { margin: 0; } .grid-2 > .card { margin-top: 0; }</style>')
+    [void]$sb.AppendLine('<style>.grid-2 > .grid__head, .grid-2 > .grid__full { grid-column: 1 / -1; } .grid__head > h2 { margin: 0; } .grid-2 > .card { margin-top: 0; }</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
     # Block 0, the breadcrumb bar: on the hub its trail is the one crumb.
@@ -193,9 +193,12 @@ function Format-RepoHubHtml {
     }
     if ($row) { [void]$sb.AppendLine('</div>') }
 
-    # Block 11: About this repo, the fixed title, with this repo's own facts.
-    [void]$sb.AppendLine('<section class="card">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">About this repo</h2></div>')
+    # Block 11: About this repo, the fixed title, with this repo's own facts. Its h2 stands outside the
+    # card in a grid__head, as Pages' does, so the two blocks read alike and stay apart; the card spans
+    # both columns of the same .grid-2, which gives head and card the same gap as the Pages row.
+    [void]$sb.AppendLine('<div class="grid-2">')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<dl class="facts">')
     [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
     [void]$sb.AppendLine('<div><dt>Trunk</dt><dd>main</dd></div>')
@@ -204,6 +207,7 @@ function Format-RepoHubHtml {
     if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
     [void]$sb.AppendLine('</dl>')
     [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
 
     # Block 12: where the data comes from.
     [void]$sb.AppendLine('<p class="footer-note">The facts are this repo''s own, and each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
