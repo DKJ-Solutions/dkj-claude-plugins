@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#3120: `check-house-style` reported a house class named in a comment or an assert message as a
+redefinition. Cause, verified in `Find-HouseStyleClassHit`: a rule's prelude runs back to the previous
+`{`, `}` or `;`, so it takes in the code and comments before the rule, and the comma split turns the prose
+before a comma into a "selector" whose subject is the house class.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style-rules.ps1`: the selector is the last line of the prelude after the last string quote,
+  and every compound in it has to be a compound -- a lone `#` or `//` is not, nor a bare word that names
+  no HTML or SVG element (`Get-HouseStyleElementNames`). The own-class scope is read from that selector.
+- [x] `check-house-style.tests.ps1`: the two measured shapes, a `//` comment, and three real rules that
+  still count (a rule on its own line after code, one opened in a one-line string, a custom element with
+  a pseudo-element).
 
 ### TEST
 
+- [x] The suite: 67 passed, 0 failed; this repo's own gate still holds at v0.4.0.
+
 ### DEPLOY: fix/3120-house-style-comment-prose
 
-**Score:**
+N/A -- the gate itself ships in `dkj-solutions`; the change is felt in the consumers, below.
+
+**Score:** N/A
 
 #### What makes this deploy extra special
 
-**Score:**
+`check-house-style` no longer fails a DKJ-Solutions repo's PR over a house class named in a comment or a
+string before a comma (`# the same .grid-2, which ...`), which until now needed a reworded comment or an
+allowlist entry that exempted the real class for the whole file.
+
+**Score:** 2
 
 #### Pull Request
 

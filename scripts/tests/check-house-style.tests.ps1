@@ -104,6 +104,14 @@ Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "list.m
 # Measured in dkj-music-library (#3095): a property access between a call's closing parens, then an object literal.
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text 'expect(validate({ sort: { key: "year" } }, OPTIONS).sort).toEqual({ key: "year" });' -Classes $jsClasses)) 'a property access inside unbalanced parens is no selector'
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ':is(:not(.a)).card {}' -Classes $jsClasses)) 'nested functional pseudo-classes still fold to a selector'
+# Measured on this repo (#3120): prose before a comma, in a comment and in an assert message.
+$gridClasses = @('card', 'grid-2')
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "    # both columns of the same .grid-2, which gives head and card the same gap.`n    if (`$x) { }" -Classes $gridClasses)) 'a comment naming a house class before a comma is no selector'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "// the same .card, again`nfoo() { }" -Classes $gridClasses)) 'nor a // comment'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "Assert-True (`$x) 'one row, in the house .grid-2, closed before it'`nif (`$y) { }" -Classes $gridClasses)) 'nor prose in a string, whose words name no element'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "`$css = @'`n.card { color: red; }`n'@" -Classes $gridClasses)) 'a rule on its own line after code still counts'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "css = `"main .card { color: red }`"" -Classes $gridClasses)) 'and a rule opened inside a one-line string'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "x-panel > .card:hover::before {}" -Classes $gridClasses)) 'a custom element and a pseudo-element are compounds'
 
 
 Write-Host '-- group 1e: the allowlist and the quoted path' -ForegroundColor Cyan

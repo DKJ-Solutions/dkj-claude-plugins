@@ -83,6 +83,28 @@ function Get-HouseStyleScanExtensions {
     )
 }
 
+function Get-HouseStyleElementNames {
+    <#
+        The element names a type selector can match: HTML's and SVG's common ones. A word that is none
+        of them and carries no hyphen (a custom element's mark) is prose, not a selector (#3120).
+    #>
+    return [string[]]@(
+        'a', 'abbr', 'address', 'area', 'article', 'aside', 'audio', 'b', 'base', 'bdi', 'bdo', 'blockquote',
+        'body', 'br', 'button', 'canvas', 'caption', 'cite', 'code', 'col', 'colgroup', 'data', 'datalist',
+        'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt', 'em', 'embed', 'fieldset', 'figcaption',
+        'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'hr',
+        'html', 'i', 'iframe', 'img', 'input', 'ins', 'kbd', 'label', 'legend', 'li', 'link', 'main', 'map',
+        'mark', 'math', 'menu', 'meta', 'meter', 'nav', 'noscript', 'object', 'ol', 'optgroup', 'option',
+        'output', 'p', 'picture', 'pre', 'progress', 'q', 'rp', 'rt', 'ruby', 's', 'samp', 'script',
+        'search', 'section', 'select', 'slot', 'small', 'source', 'span', 'strong', 'style', 'sub',
+        'summary', 'sup', 'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead', 'time',
+        'title', 'tr', 'track', 'u', 'ul', 'var', 'video', 'wbr',
+        'svg', 'g', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'text', 'tspan',
+        'defs', 'symbol', 'marker', 'pattern', 'image', 'stop', 'mask', 'clippath', 'lineargradient',
+        'radialgradient', 'foreignobject'
+    )
+}
+
 function Get-HouseStylePin {
     <#
         The pinned tag and the sha256 per file, read from the skill page's table -- the one place they
@@ -215,6 +237,11 @@ function Find-HouseStyleClassHit {
     # is a method call such as `.sort(` and never CSS (#3040). `[x].card` and `:not(.a).card` are
     # selectors, so a `]` or `)` before the dot stays allowed.
     $classPattern = '(?<![\w''".-])\.(-?[A-Za-z_][\w-]*)(?![\w-]|\()'
+    # One compound of a selector, after the folds below: an optional element, `*` or `&`, then classes,
+    # ids, `[]` and pseudo-classes. A lone `#` or `//` is a comment's mark, never a compound (#3120).
+    $compound = '^(\*|&[\w-]*|[A-Za-z][A-Za-z0-9-]*)?(\.-?[A-Za-z_][\w-]*|#-?[A-Za-z_][\w-]*|\[\]|::?[A-Za-z][\w-]*(\[\])?|&)*$'
+    $elements = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($e in (Get-HouseStyleElementNames)) { [void]$elements.Add($e) }
 
     foreach ($m in [regex]::Matches($Text, '(?<=^|[{};])(?<pre>[^{};]+)\{')) {
         $pre = $m.Groups['pre'].Value
@@ -227,13 +254,24 @@ function Find-HouseStyleClassHit {
             # A paren left over is unbalanced, and a selector never is: `, OPTIONS).sort).toEqual(` is
             # the tail of a call whose argument held an object literal (#3095).
             if ($flat.IndexOfAny([char[]]'()') -ge 0) { continue }
-            $parts = @($flat.Trim() -split '[\s>+~]+' | Where-Object { $_ })
+            # The prelude runs back to the previous `{`, `}` or `;`, so it takes in the code and the
+            # comments before the rule: the selector is the last line of it, after the last string quote
+            # (attribute values are folded already, so a quote left over opens or closes a string). And
+            # every compound in it has to be one -- prose before a comma, `# the same .grid-2,`, is not (#3120).
+            $sel = ($flat -split "`n")[-1]
+            $q = $sel.LastIndexOfAny([char[]]"'`"``")
+            if ($q -ge 0) { $sel = $sel.Substring($q + 1) }
+            $parts = @($sel.Trim() -split '[\s>+~]+' | Where-Object { $_ })
             if ($parts.Count -eq 0) { continue }
+            $prose = @($parts | Where-Object {
+                    $_ -notmatch $compound -or ($_ -match '^[A-Za-z][A-Za-z0-9]*(?![\w-])' -and -not $elements.Contains($Matches[0]))
+                })
+            if ($prose.Count) { continue }
             $house = @([regex]::Matches($parts[-1], $classPattern) | ForEach-Object { $_.Groups[1].Value } | Where-Object { $set.Contains($_) })
             if ($house.Count -eq 0) { continue }
             # A class of the repo's own anywhere in the selector scopes the rule to its own component.
             # Counted without the quote rule: a page built in a string opens its first selector after a quote.
-            $own = @([regex]::Matches($flat, '(?<![\w.-])\.(-?[A-Za-z_][\w-]*)(?![\w-]|\()') | Where-Object { -not $set.Contains($_.Groups[1].Value) })
+            $own = @([regex]::Matches($sel, '(?<![\w.-])\.(-?[A-Za-z_][\w-]*)(?![\w-]|\()') | Where-Object { -not $set.Contains($_.Groups[1].Value) })
             if ($own.Count) { continue }
             $at = $m.Index + $m.Groups['pre'].Value.IndexOf($selector.Trim())
             @{ Name = ('.' + $house[0]); Kind = 'styles'; Line = (Get-HouseStyleLineNumber -Map $map -Index ([Math]::Max($m.Index, $at))) }
