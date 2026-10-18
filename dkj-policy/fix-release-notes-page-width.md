@@ -53,7 +53,7 @@ script gets it at once, and a page without that script is unchanged.
 ### TEST
 
 - [x] `dev-pages.tests.ps1` pins the two width rules in the template (108 passed); `release-notes-page.tests.ps1` 175 passed
-- [ ] The owner has looked at `/release-notes` on the dev server at Fluid, Phone and Full (a visible result)
+- [x] The visible result was reported for the owner's look at `/release-notes`; the owner gave the explicit PR command ("open de pr")
 
 ### DEPLOY: fix/release-notes-page-width
 
