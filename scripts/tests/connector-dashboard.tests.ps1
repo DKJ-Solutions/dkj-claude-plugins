@@ -385,6 +385,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Set-Content -LiteralPath (Join-Path $pageDir 'release-notes.html') -Encoding ASCII -Value '<html>fixture notes</html>'
             $notes = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($notes -match 'HTTP/1.1 200' -and $notes -match 'text/html' -and $notes -match 'fixture notes') 'and served as HTML once it is, read on each request'
+            Set-Content -LiteralPath (Join-Path $pageDir 'release-notes.html') -Encoding ASCII -Value '<html lang="en"><head><style>a{}</style></head><body>shaped notes</body></html>'
+            $notes = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($notes -match 'shaped notes' -and $notes -match '<a href="/">Repo hub</a>' -and $notes -match 'href="/house-style.css"') 'a page of the template''s shape is served with the house style and the breadcrumb bar (#3108)'
             # The Repo hub on '/' and the pages under it (#3097). The fixture has no always-on lib and no
             # suite-durations.json, so both measurement pages take their failure path, and are still served.
             $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }

@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**4 / 9 minor entries** <!-- pending-tally -->
+**4 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3108-release-notes-page-house-style · 20261018-121205Z
+
+The release-notes page on this repo's dev server now carries the house style and opens with the
+breadcrumb bar back to the Repo hub, like the other pages under it
+([#3108](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3108)). The page is dressed as
+it is served. The shared template and the page a Worker publishes are untouched.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- this repo's own dev server only; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The release-notes page carries the house style and the breadcrumb bar
+
+[PR #3110](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3110)
+
+---
 
 ### DEPLOY: feat/3094-default-theme-lilac · 20261018-115225Z
 

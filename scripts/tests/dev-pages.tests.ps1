@@ -147,6 +147,25 @@ Assert-True (@($treeModel.Artifacts).Count -gt 0) 'the register parses and recor
 Assert-Equal 0 @($treeModel.Artifacts | Where-Object { -not $_.Linked }).Count 'every recorded url is a claude.ai Artifact link'
 Assert-Equal 0 @($treeModel.Artifacts | Where-Object { $_.Created -notmatch '^\d{4}-\d{2}-\d{2}$' }).Count 'every row has an ISO creation date'
 
+Write-Host '-- the release-notes page, as the dev server serves it (#3108)' -ForegroundColor Cyan
+# The real template, so a change to its shape that would leave the served copy undressed goes red here.
+$tpl = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\release-notes-page-template.html'))
+$rn = Format-ReleaseNotesDevPage -Html $tpl
+Assert-True ($rn -ne $tpl) 'the template has the shape the dressing needs'
+Assert-True ($rn -match '<html lang="en" data-theme-light="teal" data-theme-dark="sky" data-theme-key="connector-dashboard">') 'it takes the theme key every other page of this server uses'
+$tplStyleEnd = $rn.IndexOf('</style>')
+$houseAt = $rn.IndexOf('<link rel="stylesheet" href="/house-style.css">')
+Assert-True ($houseAt -gt $tplStyleEnd -and $tplStyleEnd -gt 0) 'the house stylesheet loads after the template''s own style, so the house body wins'
+Assert-True ($rn.IndexOf('--panel: var(--primary-2)') -gt $houseAt) 'and the template''s tokens are pointed at house tokens after it'
+Assert-True ($rn.IndexOf('<script src="/house-theme.js"></script>') -lt $rn.IndexOf('<body')) 'the theme script loads in the head'
+$bodyAt = $rn.IndexOf('<body>')
+$barAt = $rn.IndexOf('<div class="breadcrumbs-bar">')
+Assert-True ($barAt -gt $bodyAt -and $rn.Substring($bodyAt + 6, $barAt - $bodyAt - 6).Trim() -eq '') 'the breadcrumb bar is the first thing in <body>'
+Assert-True ($rn -match '<li><a href="/">Repo hub</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true">/</span><span aria-current="page">Release notes</span></li>') 'its trail runs from the Repo hub to this page'
+Assert-True ($rn.IndexOf('DKJTheme.settings(') -gt $rn.IndexOf('id="settings"') -and $rn.IndexOf('DKJTheme.settings(') -lt $rn.LastIndexOf('</body>')) 'the settings button is mounted before </body>'
+Assert-True ($rn.Contains('<div class="wrap">') -and $rn.Contains('@@RELEASE_ROWS@@') -and $rn.Contains('@@PAGE_STYLE@@')) 'the template''s own content is left alone'
+Assert-Equal '<html>fixture</html>' (Format-ReleaseNotesDevPage -Html '<html>fixture</html>') 'a page without the template''s shape is served as it came'
+
 Write-Host ''
 Write-Host "dev-pages: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }
