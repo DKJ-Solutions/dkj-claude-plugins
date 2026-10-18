@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Direction B of #3106, not A: the runner's body carrying the DEPLOY section would still drift the moment
+a session scores the tiers, because the lock compares the scored document against the body as opened.
+The republish is the step either way, and `ship-pr.ps1 -RefreshBody` runs it (open-pr, line ~1034)
+before its own DEPLOY lock (step 4).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.github/workflows/house-style-repoint.yml`: the PR body names `ship-pr.ps1 -RefreshBody` as the
+  step after scoring, with a comment on why
 
 ### TEST
 
+- [x] Nothing to unit-test: the change is a string in a workflow step; the YAML stays valid through the
+  lint gate
+
 ### DEPLOY: fix/3106-repoint-body-refresh
 
-**Score:**
+The pull request the house-style repoint runner opens now tells its reader to ship with
+`ship-pr.ps1 -RefreshBody` once the DEPLOY tiers are scored
+([#3106](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3106)). Its body is not open-pr's
+and carries no DEPLOY section, so the branch-entry check and ship-pr's DEPLOY lock refused every such
+pull request until somebody found that step by hand, as #3105 did. Only this repo's own CI is touched.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a CI workflow of this repo only; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
