@@ -173,11 +173,26 @@ function Test-DashboardCrossSite {
         'same-site'). The Host check cannot catch this: a page elsewhere that links or fetches here sends
         localhost as the Host. It cannot read the answer, but every page load runs check-connectors, so
         it could keep the single-threaded loop busy. A missing header (curl, an old browser) is allowed.
+
+        ONE EXCEPTION, the same one the dkj-solutions plugin's servers make (Test-LoopbackCrossSite, #3119):
+        a same-site TOP-LEVEL NAVIGATION -- Sec-Fetch-Mode 'navigate' on a GET. Ports do not count toward
+        'site', so a user following the general pages' "Repo hub" crumb from localhost:4890 to this server
+        arrives same-site; that is a user's click and is served. A same-site fetch, image or form post is
+        still refused, and so is a call that does not pass -SecFetchMode and -Method.
     #>
-    param([AllowNull()][AllowEmptyString()][string]$SecFetchSite)
+    param(
+        [AllowNull()][AllowEmptyString()][string]$SecFetchSite,
+        [AllowNull()][AllowEmptyString()][string]$SecFetchMode = '',
+        [AllowNull()][AllowEmptyString()][string]$Method = ''
+    )
     if (-not $SecFetchSite) { return $false }
     $v = $SecFetchSite.Trim().ToLowerInvariant()
-    return ($v -eq 'cross-site' -or $v -eq 'same-site')
+    if ($v -eq 'cross-site') { return $true }
+    if ($v -eq 'same-site') {
+        $navigation = ([string]$SecFetchMode).Trim().ToLowerInvariant() -eq 'navigate' -and ([string]$Method).Trim().ToUpperInvariant() -eq 'GET'
+        return (-not $navigation)
+    }
+    return $false
 }
 
 function Test-DashboardCheckoutInScope {

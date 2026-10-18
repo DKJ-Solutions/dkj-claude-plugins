@@ -18,7 +18,9 @@
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped. It serves three paths -- the page,
     /house-style.css and /house-theme.js from the plugin's canonical copy -- and runs until the process is
-    stopped.
+    stopped. The page is built per request, because its General card (#3119) links the general pages
+    server the hook's state file names, when that server answers /whoami as this checkout's within 500 ms, and says it is
+    not running otherwise.
 
     Pure ASCII (repo convention for .ps1). The page and the request rules are in
     scripts/lib/dev-preview-placeholder.ps1, tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in
@@ -39,55 +41,18 @@ param(
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot '..\lib\dev-preview-placeholder.ps1')
+. (Join-Path $PSScriptRoot '..\lib\general-pages-state.ps1')
 
-$repoName = Split-Path -Leaf ((Get-Location).Path.TrimEnd('\', '/'))
+# The root the hook's state file is named for: the working directory, which its cmd.exe set to the root.
+$repoRoot = [System.IO.Path]::GetFullPath((Get-Location).Path).TrimEnd('\', '/')
+$repoName = Split-Path -Leaf $repoRoot
 $styleDir = Join-Path $PSScriptRoot '..\..\assets\house-style'
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
 }
 
-function Read-PlaceholderRequest {
-    <# The request line and the two headers the server reads, or $null -- one deadline, at most 8 KB. #>
-    param($Client)
-    $stream = $Client.GetStream()
-    $buffer = New-Object byte[] 1024
-    $head = New-Object System.IO.MemoryStream
-    $deadline = [DateTime]::UtcNow.AddMilliseconds($ReadTimeoutMs)
-    while ($true) {
-        $left = [int]($deadline - [DateTime]::UtcNow).TotalMilliseconds
-        if ($left -le 0) { return $null }
-        $Client.ReceiveTimeout = $left
-        $n = $stream.Read($buffer, 0, $buffer.Length)
-        if ($n -le 0) { return $null }
-        $head.Write($buffer, 0, $n)
-        if ($head.Length -gt 8192) { return $null }
-        $text = [System.Text.Encoding]::ASCII.GetString($head.ToArray())
-        $end = $text.IndexOf("`r`n`r`n")
-        if ($end -ge 0) { break }
-    }
-    $lines = $text.Substring(0, $end) -split "`r`n"
-    $result = @{ RequestLine = $lines[0]; Host = ''; SecFetchSite = '' }
-    foreach ($h in @($lines | Select-Object -Skip 1)) {
-        if ($h -match '^Host:\s*(.*)$') { $result.Host = $Matches[1] }
-        elseif ($h -match '^Sec-Fetch-Site:\s*(.*)$') { $result.SecFetchSite = $Matches[1] }
-    }
-    return $result
-}
-
-function Send-PlaceholderResponse {
-    param($Stream, [int]$Status, [string]$Reason, [string]$Type, [byte[]]$Body, [hashtable]$Headers = @{})
-    $head = "HTTP/1.1 $Status $Reason`r`nContent-Type: $Type`r`nContent-Length: $($Body.Length)`r`n" +
-        "Cache-Control: no-store`r`nX-Content-Type-Options: nosniff`r`nConnection: close`r`n"
-    foreach ($k in $Headers.Keys) { $head += "$k`: $($Headers[$k])`r`n" }
-    $bytes = [System.Text.Encoding]::ASCII.GetBytes($head + "`r`n")
-    $Stream.Write($bytes, 0, $bytes.Length)
-    if ($Body.Length) { $Stream.Write($Body, 0, $Body.Length) }
-    $Stream.Flush()
-}
-
 $utf8 = New-Object System.Text.UTF8Encoding($false)
-$page = $utf8.GetBytes((Format-DevPreviewPlaceholderHtml -RepoName $repoName))
 $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
 $listener.Start()
 Write-Host "placeholder preview for ${repoName}: http://localhost:$Port/"
@@ -99,36 +64,38 @@ try {
         # (Sebastian's review, #3047).
         $client.SendTimeout = 2000
         try {
-            $request = Read-PlaceholderRequest -Client $client
+            $request = Read-LoopbackRequest -Client $client -ReadTimeoutMs $ReadTimeoutMs
             if ($null -eq $request) { continue }
             $stream = $client.GetStream()
             $method, $target = ($request.RequestLine -split ' ')[0, 1]
             $path = ([string]$target -split '\?')[0]
 
             if (-not (Test-DevPreviewPlaceholderHost -HostHeader $request.Host -Port $Port)) {
-                Send-PlaceholderResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
+                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
                 continue
             }
-            if (Test-DevPreviewPlaceholderCrossSite $request.SecFetchSite) {
-                Send-PlaceholderResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
+            if (Test-DevPreviewPlaceholderCrossSite -SecFetchSite $request.SecFetchSite -SecFetchMode $request.SecFetchMode -Method $method) {
+                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
                 continue
             }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
-                Send-PlaceholderResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' }
+                Send-LoopbackResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' }
                 continue
             }
             if ($static.ContainsKey($path)) {
                 $s = $static[$path]
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
-                Send-PlaceholderResponse $stream 200 'OK' $s.Type $body
+                Send-LoopbackResponse $stream 200 'OK' $s.Type $body
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
+                # Built per request: the General card follows the state file and whether that server answers.
+                $page = $utf8.GetBytes((Format-DevPreviewPlaceholderHtml -RepoName $repoName -GeneralPagesUrl (Get-GeneralPagesUrl -Root $repoRoot)))
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $page }
-                Send-PlaceholderResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
             }
-            Send-PlaceholderResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.'))
+            Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.'))
         } catch {
             # A dropped or silent connection ends that request, never the server.
         } finally {

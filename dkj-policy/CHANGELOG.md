@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**7 / 20 minor entries** <!-- pending-tally -->
+**8 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3119-general-pages-from-dkj-solutions · 20261018-212753Z
+
+This repo's Repo hub lists only its own pages (Connectors, Test gate) under **This repo**. Its **General** card
+now links Artifacts, Issues, Release notes and SessionStart on the `dkj-solutions` plugin's own pages server,
+on a port from 4890 to 4899, and the old paths on this repo's server redirect there.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions repo with `dkj-solutions` enabled gets four pages at session start that until now only
+this repo had: its GitHub issues and where they stand, its release notes, what a session loads before its
+first turn, and its published Artifacts. The dev-preview hook starts the plugin's pages server beside the
+repo's own preview (the placeholder included), and the placeholder hub links them. A repo's own hub links them
+by reading the per-checkout state file the README describes. A page whose data the repo lacks says so instead
+of failing.
+
+**Score:** 3
+
+#### Pull Request
+
+dkj-solutions serves the general Repo hub pages to every DKJ-Solutions repo
+
+Plugins: dkj-solutions
+
+[PR #3128](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3128)
+
+---
 
 ### DEPLOY: feat/sessionstart-snapshot · 20261018-210620Z
 

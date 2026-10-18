@@ -46,6 +46,15 @@
     worktree-lane sibling) or by 'C:\x\repo2', and a nested Claude Code worktree under
     '<root>\.claude\worktrees\' is a different checkout, so a server started there is not ours either.
 
+    THE GENERAL PAGES SERVER AND THE STATE FILE (#3119). Beside the repo's own server the hook starts the
+    plugin's general pages server (scripts/pages/serve-general-pages.ps1: Artifacts, Issues, Release notes,
+    SessionStart), on the first free port of 4890-4899 under the same ownership rule. The two servers learn
+    of each other through ONE file per checkout, %TEMP%\dkj-repo-hub-<leaf>-<hash>.json, which the hook
+    writes at every session start: { root, hub, pages }, the repo hub's url and the general server's base
+    url. Get-RepoHubStatePath names it, Format-RepoHubState writes it, ConvertFrom-RepoHubState reads it and
+    believes it only when it names this root and carries plain loopback urls. The hash is the one the hook's
+    log paths use (Get-DevPreviewRootHash), so a checkout's files sit together in %TEMP%.
+
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in
     the source repo -- change one, run the other.
 #>
@@ -56,6 +65,23 @@ $script:DevPreviewMaxAncestors = 4
 $script:DevPreviewPlaceholderPorts = 4880..4889
 # The word every line about the page opens with, in every repo (#3064).
 $script:DevPreviewLabel = 'Repo hub'
+# The general pages server (#3119): ten more, clear of 4880-4889, 4870-4879 and the repos' own ranges.
+$script:GeneralPagesPorts = 4890..4899
+
+function Get-GeneralPagesPortRange {
+    <#
+        The ports the general pages server may take, and so the only ports a state file's pages url is
+        believed on: 4890-4899. DKJ_GENERAL_PAGES_PORTS (comma-separated ports) replaces them -- the TEST
+        override, read from the environment of the process the hook, the servers and the hubs all start in,
+        so a test run never meets a real server. A value that is not a plain port list is ignored.
+    #>
+    $o = [string]$env:DKJ_GENERAL_PAGES_PORTS
+    if ($o -match '^[0-9]{4,5}(,[0-9]{4,5})*$') {
+        $ports = @($o -split ',' | ForEach-Object { [int]$_ } | Where-Object { $_ -ge 1024 -and $_ -le 65535 })
+        if ($ports.Count) { return $ports }
+    }
+    return $script:GeneralPagesPorts
+}
 
 function Get-DevPreviewPlaceholder {
     <#
@@ -319,4 +345,62 @@ function ConvertTo-DevPreviewLine {
 function Get-DevPreviewUrl {
     param([int]$Port, [string]$Path = '/')
     return "http://localhost:$Port$Path"
+}
+
+function Get-DevPreviewRootHash {
+    <# The first four bytes of the SHA1 of the lowercased root, as eight hex digits: the checkout's tag in %TEMP% file names. #>
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $sha = [System.Security.Cryptography.SHA1]::Create()
+    return -join ($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Root.ToLowerInvariant()))[0..3] | ForEach-Object { $_.ToString('x2') })
+}
+
+function Get-DevPreviewLogPath {
+    <# %TEMP%\<Name>-<leaf>-<hash>.log: the hook's log for one server of one checkout ('dev-preview' is the repo's own, 'dev-preview-general' the general pages server). #>
+    param([Parameter(Mandatory = $true)][string]$Root, [string]$Name = 'dev-preview')
+    $leaf = Split-Path -Leaf $Root
+    return Join-Path ([System.IO.Path]::GetTempPath()) ("$Name-$leaf-$(Get-DevPreviewRootHash -Root $Root).log")
+}
+
+function Get-RepoHubStatePath {
+    <# %TEMP%\dkj-repo-hub-<leaf>-<hash>.json: where the two servers of one checkout find each other (#3119). #>
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $leaf = Split-Path -Leaf $Root
+    return Join-Path ([System.IO.Path]::GetTempPath()) ("dkj-repo-hub-$leaf-$(Get-DevPreviewRootHash -Root $Root).json")
+}
+
+function ConvertTo-DevPreviewRootKey {
+    <# A root as the hook normalises it, then compared the way a path is: slashes unified, trailing one cut, lowercase. #>
+    param([AllowNull()][AllowEmptyString()][string]$Root)
+    if (-not $Root) { return '' }
+    return $Root.Replace('/', '\').TrimEnd('\').ToLowerInvariant()
+}
+
+function Format-RepoHubState {
+    <# The state file's text: -Hub is the repo hub's url, -Pages the general server's base url or '' where none is running. #>
+    param([Parameter(Mandatory = $true)][string]$Root, [AllowEmptyString()][string]$Hub = '', [AllowEmptyString()][string]$Pages = '')
+    return ([ordered]@{ root = $Root; hub = $Hub; pages = $Pages } | ConvertTo-Json -Compress)
+}
+
+function ConvertFrom-RepoHubState {
+    <#
+        @{ Hub; Pages } from the state file's -Text, each '' unless it can be believed: the file is JSON,
+        its root is -Root (compared the way paths are), and the url is a plain loopback url -- the hub's
+        with an optional path of the characters Get-DevPreview's Path allows, the pages' a bare base on one
+        of the general pages ports (Get-GeneralPagesPortRange), so a file another process can write cannot
+        point a hub's links at any other local service.
+        The urls are redirect targets and link hrefs, so a state file that names anything else is ignored.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Text, [Parameter(Mandatory = $true)][string]$Root)
+    $none = @{ Hub = ''; Pages = '' }
+    if (-not $Text) { return $none }
+    try { $s = $Text | ConvertFrom-Json } catch { return $none }
+    if (-not $s -or -not $s.PSObject.Properties['root']) { return $none }
+    if ((ConvertTo-DevPreviewRootKey ([string]$s.root)) -ne (ConvertTo-DevPreviewRootKey $Root)) { return $none }
+    $hub = ''
+    $pages = ''
+    $h = if ($s.PSObject.Properties['hub']) { [string]$s.hub } else { '' }
+    $p = if ($s.PSObject.Properties['pages']) { [string]$s.pages } else { '' }
+    if ($h -cmatch '^http://localhost:[0-9]{4,5}(/[A-Za-z0-9._~/%?=&#+-]*)?\z' -and $h.Length -le 240) { $hub = $h }
+    if ($p -cmatch '^http://localhost:([0-9]{4,5})/?\z' -and (@(Get-GeneralPagesPortRange) -contains [int]$Matches[1])) { $pages = $p.TrimEnd('/') }
+    return @{ Hub = $hub; Pages = $pages }
 }
