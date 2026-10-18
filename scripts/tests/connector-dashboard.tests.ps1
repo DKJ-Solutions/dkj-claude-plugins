@@ -6,7 +6,7 @@
 .DESCRIPTION
     Group 1 pins the rules without a server: how check-connectors.ps1's report splits into repos and
     plugins, which status a repo gets, which Host is served, that every value the page shows is
-    escaped, and that the vendored house style is the copy the house-style skill pins. Group 2 starts
+    escaped, and that the plugin's canonical house style is the copy the house-style skill pins. Group 2 starts
     the real server on a free loopback port against this tree and asks it for the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
     an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
     outside the scope root, and no check-connectors.ps1 at all -- and the release-notes page, before
@@ -249,7 +249,7 @@ Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' 
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="msg msg--warn" role="alert"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is the form''s warning line, escaped'
 
-Write-Host '-- group 1e: the vendored house style is the copy the skill pins' -ForegroundColor Cyan
+Write-Host '-- group 1e: the canonical house style is the copy the skill pins' -ForegroundColor Cyan
 
 # A repoint of the house-style skill to a new tag left both vendored files on the old one, and nothing
 # noticed (#2989). The skill's table is the one place the checksums live, so the copy is held to it.
@@ -258,8 +258,8 @@ foreach ($file in 'house-style.css', 'house-theme.js') {
     $row = [regex]::Match($skillPage, '(?m)^\| `' + [regex]::Escape($file) + '` \|.*\| `([0-9a-f]{64})` \|\s*$')
     Assert-True $row.Success "the skill's table pins a sha256 for $file"
     if (-not $row.Success) { continue }
-    $actual = (Get-FileHash -LiteralPath (Join-Path $RepoRoot "scripts\dashboard\house-style\$file") -Algorithm SHA256).Hash.ToLowerInvariant()
-    Assert-Equal $row.Groups[1].Value $actual "the vendored $file hashes to the skill's pinned sha256 -- a repoint moves this copy too"
+    $actual = (Get-FileHash -LiteralPath (Join-Path $RepoRoot "plugins\dkj-policy\dkj-solutions\assets\house-style\$file") -Algorithm SHA256).Hash.ToLowerInvariant()
+    Assert-Equal $row.Groups[1].Value $actual "the canonical $file hashes to the skill's pinned sha256"
 }
 
 Write-Host '-- group 2: the server answers on loopback only to itself' -ForegroundColor Cyan
@@ -351,7 +351,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     $noup = Join-Path $fixture 'org\noup'
     $outside = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-outside-$PID-$([guid]::NewGuid().ToString('n'))"
     try {
-        New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'plugins\dkj-policy\dkj-solutions\assets\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item $Server (Join-Path $src 'scripts\dashboard\')
@@ -415,7 +415,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     $fixture4 = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-move-$PID-$([guid]::NewGuid().ToString('n'))"
     $port4 = $null
     try {
-        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard\house-style') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\assets\house-style') | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         Copy-Item $Server (Join-Path $fixture4 'scripts\dashboard\')

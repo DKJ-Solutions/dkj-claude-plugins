@@ -20,7 +20,7 @@ $Plugin   = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions'
 $Gate     = Join-Path $Plugin 'scripts\lint\check-house-style.ps1'
 $Hook     = Join-Path $Plugin 'hooks\house-style-sessioncheck.ps1'
 $Skill    = Join-Path $Plugin 'skills\house-style\SKILL.md'
-$Vendored = Join-Path $RepoRoot 'scripts\dashboard\house-style'
+$Vendored = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style'
 # $PID and a guid in the fixture path: the test gate runs suites in parallel.
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "house-style-$PID-$([guid]::NewGuid().ToString('n'))"
 
@@ -46,13 +46,13 @@ Write-Host '-- group 1a: the pin, read from the skill page' -ForegroundColor Cya
 
 $pin = Get-HouseStylePin -SkillText ([System.IO.File]::ReadAllText($Skill))
 Assert-True ($null -ne $pin) 'the skill page carries a complete checksum table'
-# The tag is not written here: the repoint runner (#3100) moves it, and a hard-coded copy turned every
-# repoint's own pull request red. The README link names the same tag through a different URL form.
+# The tag is not written here: it moves with each repoint of the consumer URL, and a hard-coded copy
+# would turn every repoint's own pull request red. The README link names the same tag through a different URL form.
 Assert-True ($pin.Tag -cmatch '^v\d+\.\d+\.\d+$') 'the tag is read from the fetch URL'
 Assert-True ([System.IO.File]::ReadAllText($Skill).Contains("/blob/$($pin.Tag)/house-style/README.md")) 'the README link names the tag the fetch URLs name'
 foreach ($leaf in 'house-style.css', 'house-theme.js') {
     $hashes = Get-HouseStyleSha256 -Bytes ([System.IO.File]::ReadAllBytes((Join-Path $Vendored $leaf)))
-    Assert-True (@($hashes) -contains $pin.Hashes[$leaf]) "this repo's vendored $leaf is the pinned copy"
+    Assert-True (@($hashes) -contains $pin.Hashes[$leaf]) "this repo's canonical (in-plugin) $leaf is the pinned copy"
 }
 Assert-True ($null -eq (Get-HouseStylePin -SkillText '| `house-style.css` | `x` | `aa` |')) 'a page without both rows is no pin'
 

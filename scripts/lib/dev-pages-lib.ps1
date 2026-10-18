@@ -149,7 +149,7 @@ function Format-RepoHubHtml {
     # as does a card that is a row of its own (grid__full, About this repo's); every h2 in one carries a
     # short sub line, the house .card__sub. A card in such a row (grid__card) drops the house .card's
     # margin-top, which came on top of the grid's own gap and doubled it (the owner's look; asked for
-    # upstream in DKJ-Solutions/dkj-brandbook#207).
+    # upstream in DKJ-Solutions/dkj-brandbook#207, since moved into the dkj-solutions plugin).
     [void]$sb.AppendLine('<style>.grid__head, .grid__full { grid-column: 1 / -1; } .grid__head > h2 { margin: 0; } .grid__card { margin-top: 0; }</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')

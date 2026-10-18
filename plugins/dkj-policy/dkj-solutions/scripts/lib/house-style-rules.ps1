@@ -428,10 +428,10 @@ function Invoke-HouseStyleCheck {
 
         $hits = @()
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $houseTokens)) {
-            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "defines the house token $($h.Name) -- add a domain token under a name of its own, or fix the value upstream in dkj-brandbook" }
+            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "defines the house token $($h.Name) -- add a domain token under a name of its own, or fix the value in the dkj-solutions plugin (plugins/dkj-policy/dkj-solutions/assets/house-style/)" }
         }
         foreach ($h in @(Find-HouseStyleClassHit -Text $text -Classes $houseClasses)) {
-            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class upstream in dkj-brandbook" }
+            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class in the dkj-solutions plugin (plugins/dkj-policy/dkj-solutions/assets/house-style/)" }
         }
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $retired -IncludeReads)) {
             $hits += @{ Check = 'retired'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "$($h.Kind) $($h.Name), a token name the brand book retired -- rename it per the rename tables in house-style/README.md at $($Pin.Tag)" }
