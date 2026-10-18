@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Put the content of the dkj-claude-plugins session-start Artifact
+(https://claude.ai/artifact/7etv9gy5m9PorHaCShghGu, measured October 2, 2026) on the dev server's
+`/sessionstart` page, below the live always-on table. The owner asked for the DKJ page only, not the
+smartwatchbanden one. Visible result, so the branch stops for the owner's look.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/dashboard/session-start-snapshot.json`: the Artifact's data block, copied as data, with a `source` naming the Artifact
+- [x] `Format-SessionStartSnapshotHtml` in `scripts/lib/dev-pages-lib.ps1`: score and influence tiles, every layer by influence, the actions, what cannot change, the advice and the method, in house classes
+- [x] the server reads the snapshot on every request and hands it to the page
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: 15 new asserts (order, score, escaping, done actions, an unlinked source, an unreadable file); 153 passed
+- [x] the dev server restarted on 4870 and `/sessionstart` renders all sections
+- [ ] the owner has looked at the page
+
 ### DEPLOY: feat/sessionstart-snapshot
 
-**Score:**
+The dev server's SessionStart page also shows the last full session-start measurement: every layer a
+session loads, by who can change it, the actions ranked by gain, and the advice.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the page is this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
+The SessionStart page shows the last full session-start measurement
