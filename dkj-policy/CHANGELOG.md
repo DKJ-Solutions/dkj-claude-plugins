@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3103-repoint-absent-branch · 20261018-090522Z
+
+The house-style repoint runner's open-PR check no longer fails on the first run for a brand-book release:
+`git ls-remote --exit-code` answering 2 for an absent branch was left in `$LASTEXITCODE`, which the
+runner's appended `exit $LASTEXITCODE` turned into a failed step, so no repoint pull request was ever
+opened (run 39112387739, `v0.3.0`). The step now treats 0 and 2 as answers, fails on any other exit, and
+ends with an explicit `exit 0`. Only this repo's own CI is touched.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- a CI workflow of this repo only; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+the house-style repoint workflow no longer fails when its branch is not on origin yet
+
+[PR #3104](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3104)
+
+---
 
 ### DEPLOY: feat/3100-house-style-auto-repoint · 20261018-082828Z
 
