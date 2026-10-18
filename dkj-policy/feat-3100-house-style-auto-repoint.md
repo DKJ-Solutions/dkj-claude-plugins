@@ -55,17 +55,19 @@ names, so the runner derives it by the rule `house-style-rules.ps1`'s header alr
 
 ### TEST
 
-- [x] `house-style-repoint.tests.ps1` (new): 49 passed, 0 failed
+- [x] `house-style-repoint.tests.ps1` (new): 55 passed, 0 failed
 - [x] `check-house-style.tests.ps1`: 61 passed, 0 failed
-- [x] Replayed the v0.1.0 to v0.2.0 repoint in a worktree at 62e284c3: links, commit, checksums, retired list and both vendored copies match what #3089 did by hand
+- [x] Replayed the v0.1.0 to v0.2.0 repoint in a worktree at 62e284c3: links, commit, checksums, retired list and both vendored copies match what #3089 did by hand, and the changed `house-theme.js` left its read step open
+- [x] Code and security review: the denylist missed member calls (`window.fetch`), so it is tightened and no longer presented as the gate, a changed script waits for a person instead; bytes are fetched at the resolved commit of a published release; the PAT stays off disk; fork pull requests and newer repoints are never closed; a stale branch no longer wedges the daily run
 
 ### DEPLOY: feat/3100-house-style-auto-repoint
 
 A dkj-brandbook release now reaches this repo as a pull request within a day, opened by a scheduled
 runner ([#3100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3100)). It repoints the
 `house-style` skill's links, commit and checksums, updates the retired-name list and replaces both
-vendored copies; a file that fails the skill's safety reads stops it before any pull request. It never
-merges: whoever ships it scores the entry. Nothing changes for a repo that uses the house style until
+vendored copies; a file carrying a spelling the skill forbids stops it before any pull request, and a
+changed theme script waits for a person to read its diff. It never merges: whoever ships it scores the
+entry. Nothing changes for a repo that uses the house style until
 such a repoint is released.
 
 **Score:** 2

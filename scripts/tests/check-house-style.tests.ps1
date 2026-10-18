@@ -6,7 +6,7 @@
 .DESCRIPTION
     Group 1 pins the rules on strings: the pin read from the skill page, the CRLF-tolerant hash, which
     token and class occurrences count, the allowlist's shape and the quoted-path decode. Group 2 holds the
-    retired-name list to the vendored v0.2.0 copy, so a name the tag defines again can never be
+    retired-name list to the vendored copy of the pinned tag, so a name the tag defines again can never be
     listed as retired. Group 3 runs the gate and the session check as child processes against scratch git
     repos -- a clean one, a drifted one, one without a copy, one answered by its allowlist -- and once
     against this repo, which runs the gate on itself.
@@ -46,7 +46,10 @@ Write-Host '-- group 1a: the pin, read from the skill page' -ForegroundColor Cya
 
 $pin = Get-HouseStylePin -SkillText ([System.IO.File]::ReadAllText($Skill))
 Assert-True ($null -ne $pin) 'the skill page carries a complete checksum table'
-Assert-Equal 'v0.2.0' $pin.Tag 'the tag is read from the fetch URL'
+# The tag is not written here: the repoint runner (#3100) moves it, and a hard-coded copy turned every
+# repoint's own pull request red. The README link names the same tag through a different URL form.
+Assert-True ($pin.Tag -cmatch '^v\d+\.\d+\.\d+$') 'the tag is read from the fetch URL'
+Assert-True ([System.IO.File]::ReadAllText($Skill).Contains("/blob/$($pin.Tag)/house-style/README.md")) 'the README link names the tag the fetch URLs name'
 foreach ($leaf in 'house-style.css', 'house-theme.js') {
     $hashes = Get-HouseStyleSha256 -Bytes ([System.IO.File]::ReadAllBytes((Join-Path $Vendored $leaf)))
     Assert-True (@($hashes) -contains $pin.Hashes[$leaf]) "this repo's vendored $leaf is the pinned copy"
@@ -149,7 +152,7 @@ try {
     $r = Invoke-Child $Gate $clean 'RepoRoot'
     Assert-Equal 0 $r.Code 'a clean repo passes the gate'
     $r = Invoke-Child $Hook $clean 'RepoRootOverride'
-    Assert-True ($r.Code -eq 0 -and $r.Out -match 'holds at v0\.2\.0') 'the session check says the house style holds'
+    Assert-True ($r.Code -eq 0 -and $r.Out -match ('holds at ' + [regex]::Escape($pin.Tag))) 'the session check says the house style holds'
 
     $drift = New-FixtureRepo 'drift'
     Add-PinnedCopy $drift
