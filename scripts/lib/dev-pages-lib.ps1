@@ -144,8 +144,9 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The page layer: only names the house file does not define, with house tokens. The grid head spans
-    # both columns of the .grid-2 the Pages cards stand in.
-    [void]$sb.AppendLine('<style>.grid-2 > .grid__head { grid-column: 1 / -1; } .grid__head > h2 { margin: 0; }</style>')
+    # both columns of the .grid-2 the Pages cards stand in, and sits --spacing-2 above them: the grid's own
+    # gap is --spacing-4, which keeps the cards apart and set the heading adrift from them.
+    [void]$sb.AppendLine('<style>.grid-2 > .grid__head { grid-column: 1 / -1; margin-bottom: calc(var(--spacing-2) - var(--spacing-4)); } .grid__head > h2 { margin: 0; }</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
     # Block 0, the breadcrumb bar: on the hub its trail is the one crumb.
