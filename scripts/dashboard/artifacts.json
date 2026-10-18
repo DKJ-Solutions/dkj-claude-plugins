@@ -1,8 +1,8 @@
 {
-  "about": "Every claude.ai Artifact published from a session in this repo, read by the dev server's /artifacts page. A new one is added here by hand when it is published. Titles are quoted as published.",
+  "about": "Every claude.ai Artifact published from a session in this repo, read by the dev server's /artifacts page. A new one is added by the harvest-artifacts skill, which reads each machine's session transcripts; a title, kind or about line corrected here by hand is kept. Titles are quoted as published.",
   "recordedFrom": {
     "date": "2026-10-18",
-    "method": "Artifact publish calls and Claude Docs creates in this repo's session transcripts on one machine, under both of the repo's names"
+    "method": "harvest-artifacts: Artifact publish calls and Claude Docs creates in the session transcripts of each machine that ran it, merged"
   },
   "artifacts": [
     {
@@ -41,7 +41,7 @@
       "title": "Handout: werken in BWJ-Development",
       "url": "https://claude.ai/code/artifact/7d2fa536-ace6-412a-8977-60a4ddc4b6be",
       "kind": "document",
-      "created": "2026-10-07",
+      "created": "2026-10-05",
       "updated": "2026-10-07",
       "about": "The handout beside that deck: installing per machine and per store repo, with the exact commands."
     }

@@ -39,19 +39,42 @@
 
 ### PLAN
 
+[#3112](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3112): the Artifacts register behind
+`/artifacts` is kept by hand, so a newly published Artifact is missing until somebody adds it. Of the two
+options the issue weighs, the harvester (option 2) is built: a PostToolUse hook on Artifact publish would
+rewrite a tracked file on whatever branch is checked out -- usually the trunk -- and leave it dirty for
+the ship scripts. Measured first: this machine's transcripts are about 450 MB, too much to scan on every
+page request, so the page keeps reading the committed register and the harvest fills it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/artifact-harvest-lib.ps1`: read publishes from one transcript (url from the result, session attributed by `cwd`), merge them into the register (adds only, widens dates), write the file in its own two-space shape
+- [x] `scripts/maintenance/harvest-artifacts.ps1`: the dry run and `-Apply` around it
+- [x] `.claude/skills/harvest-artifacts/SKILL.md`: the repo-local skill that documents it
+- [x] `scripts/dashboard/artifacts.json` harvested: no Artifact was missing; the handout's creation date corrected from 2026-10-07 to 2026-10-05, the day of its Docs create; the about and method lines name the harvest
+- [x] `scripts/lib/dev-pages-lib.ps1`: the page footer names the harvest instead of "added by hand"
 
 ### TEST
 
+- [x] `scripts/tests/dev-pages.tests.ps1`: url reading, cwd attribution, one fixture transcript (read, asset upload, another repo and a cut-off last line skipped), the merge keeping hand corrections, a second harvest changing nothing, and the written file's round trip (107 passed)
+- [x] A real run on this machine: 1196 transcripts in 6.6 s, 17 publishes from this repo, all five Artifacts already recorded
+
 ### DEPLOY: feat/3112-harvest-artifacts
 
-**Score:**
+The Artifacts register behind the dev server's `/artifacts` page is no longer kept by hand
+([#3112](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3112)). The new repo-local
+`harvest-artifacts` skill reads this machine's session transcripts and adds every Artifact or Claude
+Docs doc a session here published that the register lacks; it only adds, so a title or kind corrected
+in the register by hand is kept. A dry run unless `-Apply`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the dev server and its register are this repo's own maintenance tools; nothing a plugin user installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
+The Artifacts register is filled from the session transcripts
