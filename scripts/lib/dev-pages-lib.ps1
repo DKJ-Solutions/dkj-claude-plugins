@@ -143,10 +143,10 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<title>dkj-claude-plugins -- Repo hub</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
-    # The page layer: only names the house file does not define, with house tokens. The grid head spans
-    # both columns of the .grid-2 the Pages cards stand in, and sits --spacing-2 above them: the grid's own
-    # gap is --spacing-4, which keeps the cards apart and set the heading adrift from them.
-    [void]$sb.AppendLine('<style>.grid-2 > .grid__head { grid-column: 1 / -1; margin-bottom: calc(var(--spacing-2) - var(--spacing-4)); } .grid__head > h2 { margin: 0; }</style>')
+    # The page layer, with house tokens. The grid head spans both columns of the .grid-2 the Pages cards
+    # stand in. The cards drop the house .card's margin-top inside that row, where it came on top of the
+    # grid's own gap and doubled it; the gap alone spaces the heading and the cards (the owner's look).
+    [void]$sb.AppendLine('<style>.grid-2 > .grid__head { grid-column: 1 / -1; } .grid__head > h2 { margin: 0; } .grid-2 > .card { margin-top: 0; }</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
     # Block 0, the breadcrumb bar: on the hub its trail is the one crumb.
