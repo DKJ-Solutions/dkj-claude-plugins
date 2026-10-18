@@ -112,6 +112,14 @@ Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "Assert-True (`$x) 
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "`$css = @'`n.card { color: red; }`n'@" -Classes $gridClasses)) 'a rule on its own line after code still counts'
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "css = `"main .card { color: red }`"" -Classes $gridClasses)) 'and a rule opened inside a one-line string'
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "x-panel > .card:hover::before {}" -Classes $gridClasses)) 'a custom element and a pseudo-element are compounds'
+# The shapes the first cut of #3120 lost in review: none of them is prose.
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text '<style>.card{x:y}</style>' -Classes $gridClasses)) 'a rule right after an inline <style>'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text '/* the .card, again */ .card { }' -Classes $gridClasses)) 'a rule after a block comment on its line'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "x { }`r`n.card`r`n{ }" -Classes $gridClasses)) 'a rule whose brace stands on its own line'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "css = `"`"`"`n.card { color: red }" -Classes $gridClasses)) 'a rule after the line that opens a Python string'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-comp`n  .card { }" -Classes $gridClasses)) 'a domain class on the line above still scopes the rule'
+$h = @(Find-HouseStyleClassHit -Text "x { }`n/* a`n b */`n.card { }" -Classes $gridClasses)
+Assert-Equal 4 $h[0].Line 'a blanked comment keeps the line number of the rule after it'
 
 
 Write-Host '-- group 1e: the allowlist and the quoted path' -ForegroundColor Cyan

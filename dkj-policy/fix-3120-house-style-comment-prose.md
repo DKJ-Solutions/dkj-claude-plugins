@@ -46,16 +46,18 @@ before a comma into a "selector" whose subject is the house class.
 
 ### CREATE
 
-- [x] `house-style-rules.ps1`: the selector is the last line of the prelude after the last string quote,
-  and every compound in it has to be a compound -- a lone `#` or `//` is not, nor a bare word that names
-  no HTML or SVG element (`Get-HouseStyleElementNames`). The own-class scope is read from that selector.
-- [x] `check-house-style.tests.ps1`: the two measured shapes, a `//` comment, and three real rules that
-  still count (a rule on its own line after code, one opened in a one-line string, a custom element with
-  a pseudo-element).
+- [x] `house-style-rules.ps1`: comments inside a prelude (`/* */`, a line opened by `# ` or `//`) are
+  blanked to spaces, and a selector whose subject line -- after the last string quote -- holds a bare word
+  that names no HTML or SVG element (`Get-HouseStyleElementNames`) is prose, not a rule.
+- [x] `check-house-style.tests.ps1`: the two measured shapes, a `//` comment, and the real rules that still
+  count.
+- [x] Code review (Victor): a first cut that read only the subject's last line missed `<style>.card`, a
+  rule after a block comment, an Allman brace and a domain class on the line above; reworked, and each of
+  those is now an assert.
 
 ### TEST
 
-- [x] The suite: 67 passed, 0 failed; this repo's own gate still holds at v0.4.0.
+- [x] The suite: 73 passed, 0 failed; this repo's own gate still holds at v0.4.0.
 
 ### DEPLOY: fix/3120-house-style-comment-prose
 

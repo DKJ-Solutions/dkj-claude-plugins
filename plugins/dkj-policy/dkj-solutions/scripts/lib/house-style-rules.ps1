@@ -101,7 +101,7 @@ function Get-HouseStyleElementNames {
         'title', 'tr', 'track', 'u', 'ul', 'var', 'video', 'wbr',
         'svg', 'g', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'ellipse', 'text', 'tspan',
         'defs', 'symbol', 'marker', 'pattern', 'image', 'stop', 'mask', 'clippath', 'lineargradient',
-        'radialgradient', 'foreignobject'
+        'radialgradient', 'foreignobject', 'use', 'filter', 'animate', 'center', 'font'
     )
 }
 
@@ -237,14 +237,15 @@ function Find-HouseStyleClassHit {
     # is a method call such as `.sort(` and never CSS (#3040). `[x].card` and `:not(.a).card` are
     # selectors, so a `]` or `)` before the dot stays allowed.
     $classPattern = '(?<![\w''".-])\.(-?[A-Za-z_][\w-]*)(?![\w-]|\()'
-    # One compound of a selector, after the folds below: an optional element, `*` or `&`, then classes,
-    # ids, `[]` and pseudo-classes. A lone `#` or `//` is a comment's mark, never a compound (#3120).
-    $compound = '^(\*|&[\w-]*|[A-Za-z][A-Za-z0-9-]*)?(\.-?[A-Za-z_][\w-]*|#-?[A-Za-z_][\w-]*|\[\]|::?[A-Za-z][\w-]*(\[\])?|&)*$'
+    # A comment inside a prelude -- `/* */`, or a whole line opened by `# ` or `//` (an id selector has
+    # no space after its `#`) -- is blanked to spaces, so a line number still lands where it did (#3120).
+    $comment = [regex]'(?m)/\*[\s\S]*?\*/|^[ \t]*(#(?=[ \t\r]|$)|//).*$'
+    $blank = [System.Text.RegularExpressions.MatchEvaluator] { param($c) $c.Value -replace '[^\n]', ' ' }
     $elements = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($e in (Get-HouseStyleElementNames)) { [void]$elements.Add($e) }
 
     foreach ($m in [regex]::Matches($Text, '(?<=^|[{};])(?<pre>[^{};]+)\{')) {
-        $pre = $m.Groups['pre'].Value
+        $pre = $comment.Replace($m.Groups['pre'].Value, $blank)
         if ($pre.Trim().StartsWith('@')) { continue }
         foreach ($selector in ($pre -split ',')) {
             # Bracket and paren contents first: `[data-x='a b']` and `:is(.a .b)` hold spaces that are
@@ -254,26 +255,25 @@ function Find-HouseStyleClassHit {
             # A paren left over is unbalanced, and a selector never is: `, OPTIONS).sort).toEqual(` is
             # the tail of a call whose argument held an object literal (#3095).
             if ($flat.IndexOfAny([char[]]'()') -ge 0) { continue }
-            # The prelude runs back to the previous `{`, `}` or `;`, so it takes in the code and the
-            # comments before the rule: the selector is the last line of it, after the last string quote
-            # (attribute values are folded already, so a quote left over opens or closes a string). And
-            # every compound in it has to be one -- prose before a comma, `# the same .grid-2,`, is not (#3120).
-            $sel = ($flat -split "`n")[-1]
+            $parts = @($flat.Trim() -split '[\s>+~]+' | Where-Object { $_ })
+            if ($parts.Count -eq 0) { continue }
+            # Prose before a comma is no selector (#3120): `in the house .grid-2, closed ...` in a string.
+            # Read on the subject's own line, after the last string quote (attribute values are folded
+            # already), so the code before a rule -- `css = """` -- is not read as part of it: a bare word
+            # there that names no element and carries no hyphen (a custom element's mark) is prose.
+            $sel = @(($flat -split "`n") | Where-Object { $_.Trim() })
+            $sel = if ($sel.Count) { $sel[-1] } else { '' }
             $q = $sel.LastIndexOfAny([char[]]"'`"``")
             if ($q -ge 0) { $sel = $sel.Substring($q + 1) }
-            $parts = @($sel.Trim() -split '[\s>+~]+' | Where-Object { $_ })
-            if ($parts.Count -eq 0) { continue }
-            $prose = @($parts | Where-Object {
-                    $_ -notmatch $compound -or ($_ -match '^[A-Za-z][A-Za-z0-9]*(?![\w-])' -and -not $elements.Contains($Matches[0]))
-                })
-            if ($prose.Count) { continue }
+            $words = @($sel.Trim() -split '[\s>+~]+' | Where-Object { $_ -match '^[A-Za-z][A-Za-z0-9]*$' -and -not $elements.Contains($_) })
+            if ($words.Count) { continue }
             $house = @([regex]::Matches($parts[-1], $classPattern) | ForEach-Object { $_.Groups[1].Value } | Where-Object { $set.Contains($_) })
             if ($house.Count -eq 0) { continue }
             # A class of the repo's own anywhere in the selector scopes the rule to its own component.
             # Counted without the quote rule: a page built in a string opens its first selector after a quote.
-            $own = @([regex]::Matches($sel, '(?<![\w.-])\.(-?[A-Za-z_][\w-]*)(?![\w-]|\()') | Where-Object { -not $set.Contains($_.Groups[1].Value) })
+            $own = @([regex]::Matches($flat, '(?<![\w.-])\.(-?[A-Za-z_][\w-]*)(?![\w-]|\()') | Where-Object { -not $set.Contains($_.Groups[1].Value) })
             if ($own.Count) { continue }
-            $at = $m.Index + $m.Groups['pre'].Value.IndexOf($selector.Trim())
+            $at = $m.Index + $pre.IndexOf($selector.Trim())
             @{ Name = ('.' + $house[0]); Kind = 'styles'; Line = (Get-HouseStyleLineNumber -Map $map -Index ([Math]::Max($m.Index, $at))) }
         }
     }
