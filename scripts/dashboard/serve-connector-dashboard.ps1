@@ -2,12 +2,19 @@
 .SYNOPSIS
     Serve this repo's dev server on http://localhost:<Port>/ -- the Repo hub on '/', which links the
     pages below it (#3097): /connectors, every repo registered under connectors/ with its plugins, its
-    local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /release-notes;
-    /sessionstart, the always-on path every session loads; /test-gate, the per-suite CI durations; and
-    /artifacts, every claude.ai Artifact published from this repo, from scripts/dashboard/artifacts.json;
-    /issues, this repo's GitHub issues as gh reads them; and /specialists, every specialist the
-    dkj-subagents plugins ship and the context each one costs, read from this tree.
-    The rules of the hub and the measurement pages are in scripts/lib/dev-pages-lib.ps1.
+    local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /specialists, every
+    specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; and /test-gate,
+    the per-suite CI durations. The rules of the hub and the test-gate page are in scripts/lib/dev-pages-lib.ps1.
+
+    THE GENERAL PAGES ARE NOT SERVED HERE (#3119): Artifacts, Issues, Release notes and SessionStart belong to
+    every DKJ-Solutions repo, so the dkj-solutions plugin serves them from a server of its own
+    (scripts/pages/serve-general-pages.ps1), which the dev-preview hook starts beside this one. This server
+    only links it. The hook writes both servers' urls to a state file in %TEMP%; the hub reads it on every
+    request and draws its General card from it, asking the server named there who it is (its /whoami, the
+    hash of this root) for at most ~500 ms and showing the "not running" form when nothing answers, or the
+    wrong checkout does. A request for /artifacts, /issues, /release-notes or /sessionstart is answered with
+    a 303 to the same path on that server when it answers as this checkout's, and with a short 404 text
+    naming the general pages server when it does not.
 
 .DESCRIPTION
     Normally started by the dkj-solutions dev-preview SessionStart hook, through this repo's
@@ -53,10 +60,6 @@
 .PARAMETER CacheSeconds
     How long one read of the register is served before the next request reads it again.
 
-.PARAMETER IssuesCacheSeconds
-    How long one read of the GitHub issues is served: three gh calls take about 12 s, so longer than
-    -CacheSeconds. /refresh?page=issues reads them again sooner.
-
 .PARAMETER ReadTimeoutMs
     How long a connection may take to send its whole request head (one deadline, not one per read).
 
@@ -70,7 +73,6 @@
 param(
     [Parameter(Mandatory = $true)][ValidateRange(1024, 65535)][int]$Port,
     [ValidateRange(0, 86400)][int]$CacheSeconds = 60,
-    [ValidateRange(0, 86400)][int]$IssuesCacheSeconds = 300,
     [ValidateRange(100, 60000)][int]$ReadTimeoutMs = 1000,
     [ValidateRange(0, 3600)][int]$MinRefreshSeconds = 10,
     [string]$RepoRootOverride
@@ -82,6 +84,9 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
 . (Join-Path $root 'scripts\lib\connector-dashboard-lib.ps1')
 . (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
+# The state file the hook writes, and the probe of the general pages server (#3119): the plugin's, read from
+# this repo's own tree because this repo is the plugin's source.
+. (Join-Path $root 'plugins\dkj-policy\dkj-solutions\scripts\lib\general-pages-state.ps1')
 
 $scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 $styleDir = Join-Path $root 'scripts\dashboard\house-style'
@@ -89,9 +94,8 @@ $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
 }
-# The release-notes page build-release-notes-page.ps1 leaves here: this repo hosts it nowhere else (#3083).
-# Served through Format-ReleaseNotesDevPage, which gives it the house style and the breadcrumb bar (#3108).
-$releaseNotesFile = Join-Path $root 'dkj-policy\releases\page\release-notes.html'
+# The routes that moved to the general pages server (#3119): each is sent on, or answered with a 404 text.
+$generalRoutes = @('/artifacts', '/issues', '/release-notes', '/sessionstart')
 
 function Invoke-DashboardGit {
     param([string]$Path, [string[]]$GitArgs)
@@ -179,53 +183,6 @@ function Get-DashboardModel {
     return @{ Connectors = $connectors; Meta = $meta; At = Get-Date }
 }
 
-function Get-SessionStartModel {
-    <#
-        The always-on path, measured the way always-on-sessioncheck measures it. In a CHILD process,
-        because the measurement dot-sources repo-config.ps1 and three libs, and their functions must not
-        land in this server's scope. The child hands back objects, deserialized; a failure is a ReadError.
-    #>
-    $started = Get-Date
-    $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
-    try {
-        $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -Command {
-                param($Root)
-                $ErrorActionPreference = 'Stop'
-                $cfg = Join-Path $Root 'scripts\repo-config.ps1'
-                if (Test-Path -LiteralPath $cfg) { try { . $cfg } catch { } }
-                . (Join-Path $Root 'scripts\lib\always-on-budget-lib.ps1')
-                $baseline = Read-AlwaysOnBaseline -RepoRoot $Root
-                $m = Get-AlwaysOnMeasurement -RepoRoot $Root -Baseline $baseline
-                $v = Get-AlwaysOnBudgetVerdict -Measurement $m -Budget (Resolve-AlwaysOnBudget) -Baseline $baseline
-                $docs = @()
-                foreach ($d in @($m.Measured)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]$d.Bytes; Source = 'measured' } }
-                foreach ($d in @($m.Carried)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]$d.Bytes; Source = 'carried' } }
-                foreach ($d in @($m.Unmeasured)) { $docs += [pscustomobject]@{ Display = [string]$d.Display; Bytes = [int64]0; Source = 'unmeasured' } }
-                [pscustomobject]@{
-                    Total = [int64]$v.Total; Budget = [int64]$v.Budget; State = [string]$v.State; Ok = [bool]$v.Ok
-                    Tokens = [int64](ConvertTo-EstimatedTokens -Bytes $v.Total); Documents = $docs
-                }
-            } -args $root 2>$null | Where-Object { $_ -and $_.PSObject.Properties['Total'] })
-        if (-not $out.Count) { return @{ Model = $null; Error = 'the measurement returned nothing'; At = Get-Date } }
-        $r = $out[-1]
-        # An import through the marketplace clone resolves to an absolute path; the page names it from ~.
-        $homeDir = ([string]$env:USERPROFILE).Replace('\', '/').TrimEnd('/')
-        foreach ($d in @($r.Documents)) {
-            if ($homeDir -and $d.Display.Replace('\', '/').StartsWith($homeDir + '/', [StringComparison]::OrdinalIgnoreCase)) {
-                $d.Display = '~' + $d.Display.Replace('\', '/').Substring($homeDir.Length)
-            }
-        }
-        $model = @{
-            Total = $r.Total; Budget = $r.Budget; State = $r.State; Ok = $r.Ok; Tokens = $r.Tokens
-            Documents = @($r.Documents | ForEach-Object { @{ Display = [string]$_.Display; Bytes = [int64]$_.Bytes; Source = [string]$_.Source } })
-            GeneratedAt = $started.ToString('yyyy-MM-dd HH:mm:ss'); Seconds = ((Get-Date) - $started).TotalSeconds
-        }
-        return @{ Model = $model; Error = ''; At = Get-Date }
-    } catch {
-        return @{ Model = $null; Error = (([string]$_.Exception.Message) -replace '\s+', ' '); At = Get-Date }
-    }
-}
-
 function Get-TestGateModel {
     <# scripts/tests/suite-durations.json and the suite files beside it, read on every request: one small file. #>
     $testsDir = Join-Path $root 'scripts\tests'
@@ -236,24 +193,6 @@ function Get-TestGateModel {
         try { $json = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $err = 'it is not valid JSON' }
     } else { $err = 'the file is not there' }
     return @{ Model = (ConvertFrom-SuiteDurations -Durations $json -SuiteFiles $files); Error = $err }
-}
-
-function Get-SessionStartSnapshot {
-    <# scripts/dashboard/session-start-snapshot.json, read on every request: one small file. A missing file is no error. #>
-    $path = Join-Path $root 'scripts\dashboard\session-start-snapshot.json'
-    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @{ Data = $null; Error = '' } }
-    try { return @{ Data = (Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json); Error = '' } }
-    catch { return @{ Data = $null; Error = 'it is not valid JSON' } }
-}
-
-function Get-ArtifactsModel {
-    <# scripts/dashboard/artifacts.json, read on every request: one small file. #>
-    $json = $null; $err = ''
-    $path = Join-Path $root 'scripts\dashboard\artifacts.json'
-    if (Test-Path -LiteralPath $path -PathType Leaf) {
-        try { $json = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $err = 'it is not valid JSON' }
-    } else { $err = 'the file is not there' }
-    return @{ Model = (ConvertFrom-ArtifactRegister -Register $json); Error = $err }
 }
 
 function Get-SpecialistsModel {
@@ -292,44 +231,6 @@ function Get-SpecialistsModel {
     return @{ Rows = $rows; Error = ($errs -join ', '); CharsPerToken = $factor }
 }
 
-function Get-IssuesModel {
-    <#
-        This repo's issues from GitHub: every open one, and those created or closed in the last 28 days --
-        three gh calls, about 4 s each, so the result is cached for -IssuesCacheSeconds. A search returns at
-        most 1,000 issues, which is what bounds the window. A gh failure is a ReadError, never a blank page.
-    #>
-    $started = Get-Date
-    $since = $started.ToUniversalTime().AddDays(-28).ToString('yyyy-MM-dd')
-    $fields = 'number,title,state,stateReason,labels,assignees,createdAt,closedAt'
-    $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
-    # Loaded here rather than at start: it pulls in libs of its own, and only this page needs it. Its
-    # functions live in this call's scope; a lib that fails to load surfaces as the read error below.
-    try { . (Join-Path $root 'scripts\lib\native-capture-lib.ps1') } catch { }
-    $read = {
-        param([string[]]$Extra)
-        # -Utf8: gh writes UTF-8, and 5.1 would decode a title's non-ASCII through the console code page.
-        $q = Invoke-NativeCapture -Utf8 -DiscardStderr -TimeoutSeconds 60 -FilePath 'gh' -Arguments (@(
-                'issue', 'list', '--repo', 'DKJ-Solutions/dkj-claude-plugins', '--limit', '1000', '--json', $fields) + $Extra)
-        if ($q.TimedOut) { throw 'gh issue list did not answer within 60 s' }
-        if (-not (Test-NativeExitMeasured -Capture $q)) { throw 'gh issue list left no exit code' }
-        if ($q.ExitCode -ne 0 -or $q.ShortRead) { throw "gh issue list exited $($q.ExitCode)" }
-        # 5.1's ConvertFrom-Json emits a JSON array as ONE object, so it is enumerated before it is wrapped.
-        $parsed = ConvertFrom-Json -InputObject (@($q.Output) -join "`n")
-        return , @($parsed | ForEach-Object { $_ })
-    }
-    try {
-        $open = & $read @('--state', 'open')
-        $created = & $read @('--state', 'all', '--search', "created:>=$since")
-        $closed = & $read @('--state', 'closed', '--search', "closed:>=$since")
-        $model = ConvertFrom-IssueList -Open $open -Recent (@($created) + @($closed)) -Now $started -Days 28
-        $err = ''
-    } catch {
-        $model = $null
-        $err = ([string]$_.Exception.Message) -replace '\s+', ' '
-    }
-    return @{ Model = $model; Error = $err; GeneratedAt = $started.ToString('yyyy-MM-dd HH:mm:ss'); Seconds = ((Get-Date) - $started).TotalSeconds; At = Get-Date }
-}
-
 function Read-DashboardRequest {
     <#
         The request line and the two headers the server reads, or $null. ONE deadline for the whole head
@@ -354,10 +255,11 @@ function Read-DashboardRequest {
         if ($end -ge 0) { break }
     }
     $lines = $text.Substring(0, $end) -split "`r`n"
-    $result = @{ RequestLine = $lines[0]; Host = ''; SecFetchSite = '' }
+    $result = @{ RequestLine = $lines[0]; Host = ''; SecFetchSite = ''; SecFetchMode = '' }
     foreach ($h in @($lines | Select-Object -Skip 1)) {
         if ($h -match '^Host:\s*(.*)$') { $result.Host = $Matches[1] }
         elseif ($h -match '^Sec-Fetch-Site:\s*(.*)$') { $result.SecFetchSite = $Matches[1] }
+        elseif ($h -match '^Sec-Fetch-Mode:\s*(.*)$') { $result.SecFetchMode = $Matches[1] }
     }
     return $result
 }
@@ -379,8 +281,6 @@ $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Lo
 $listener.Start()
 Write-Host "connector dashboard: http://localhost:$Port/"
 $cache = $null
-$ssCache = $null
-$isCache = $null
 # The commit this process loaded its code from; $null outside a git checkout or on an unborn HEAD, and
 # then it never restarts.
 $loaded = Invoke-DashboardGit $root @('rev-parse', 'HEAD')
@@ -403,7 +303,7 @@ try {
                 Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
                 continue
             }
-            if (Test-DashboardCrossSite $request.SecFetchSite) {
+            if (Test-DashboardCrossSite -SecFetchSite $request.SecFetchSite -SecFetchMode $request.SecFetchMode -Method $method) {
                 Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
                 continue
             }
@@ -426,31 +326,16 @@ try {
                     break
                 }
             }
-            if ($path -eq '/release-notes') {
-                if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
-                    Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: run scripts/release/build-release-notes-page.ps1.'))
-                    continue
-                }
-                $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8))
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
-                continue
-            }
             if ($path -eq '/refresh') {
                 # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for. ?page= names
                 # where to go back to, from a fixed list, so the redirect never leaves this server.
-                $page = if ([string]$target -match '[?&]page=(connectors|sessionstart|issues)(&|$)') { $Matches[1] } else { '' }
-                if ($page -eq 'sessionstart') {
-                    if ($ssCache -and ((Get-Date) - $ssCache.At).TotalSeconds -ge $MinRefreshSeconds) { $ssCache = $null }
-                } elseif ($page -eq 'issues') {
-                    # At least a minute: a re-read holds this single-threaded loop for about 12 s.
-                    if ($isCache -and ((Get-Date) - $isCache.At).TotalSeconds -ge [Math]::Max($MinRefreshSeconds, 60)) { $isCache = $null }
-                } elseif ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
+                $page = if ([string]$target -match '[?&]page=(connectors)(&|$)') { $Matches[1] } else { '' }
+                if ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
                 Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" }
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
-                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' })
+                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
@@ -458,23 +343,6 @@ try {
             if ($path -eq '/connectors') {
                 if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $CacheSeconds) { $cache = Get-DashboardModel }
                 $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
-                continue
-            }
-            if ($path -eq '/sessionstart') {
-                if ($null -eq $ssCache -or ((Get-Date) - $ssCache.At).TotalSeconds -ge $CacheSeconds) { $ssCache = Get-SessionStartModel }
-                $snap = Get-SessionStartSnapshot
-                $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -Snapshot $snap.Data -SnapshotError $snap.Error
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
-                continue
-            }
-            if ($path -eq '/issues') {
-                # A failed read is kept for 30 s only, so a passing gh hiccup does not show for five minutes.
-                $isAge = if ($isCache) { ((Get-Date) - $isCache.At).TotalSeconds } else { 0 }
-                if ($null -eq $isCache -or $isAge -ge $IssuesCacheSeconds -or ($isCache.Error -and $isAge -ge 30)) { $isCache = Get-IssuesModel }
-                $html = Format-IssuesPageHtml -Model $isCache.Model -ReadError $isCache.Error -GeneratedAt $isCache.GeneratedAt -Seconds $isCache.Seconds
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
@@ -493,11 +361,14 @@ try {
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
             }
-            if ($path -eq '/artifacts') {
-                $ar = Get-ArtifactsModel
-                $html = Format-ArtifactsPageHtml -Model $ar.Model -ReadError $ar.Error
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+            if ($generalRoutes -contains $path) {
+                # Moved to the plugin's general pages server (#3119): sent on when the state file names it.
+                $pages = Get-GeneralPagesUrl -Root $root -TimeoutMs 500
+                if ($pages) {
+                    Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $pages + $path }
+                } else {
+                    Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("This page is served by the dkj-solutions general pages server, which is not running for this repo: the dev-preview hook starts it at the next session start."))
+                }
                 continue
             }
             Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.'))

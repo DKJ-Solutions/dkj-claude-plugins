@@ -2426,7 +2426,7 @@ fact of which plugins are enabled, and this is the harness consequence behind it
 **Three of the seven are enabled: the core team, `dkj-policy` and `dkj-solutions`.** The last since
 October 13, 2026 (Maikel, [#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)),
 for its dev-preview hook: this repo's `Get-DevPreview` starts the connector dashboard
-(`scripts/dashboard/serve-connector-dashboard.ps1`) at session start, and the root `CLAUDE.md` imports the
+(`scripts/dashboard/serve-connector-dashboard.ps1`) at session start, and the hook starts the plugin's own general pages server beside it (Artifacts, Issues, Release notes, SessionStart; [#3119](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3119)), the second port per checkout, and the root `CLAUDE.md` imports the
 extension, as the constitution requires of an installed one. The three add-on teams are set to
 `false` since September 30, 2026, and the BWJ extension (then `dkj-policy-bwj`) since October 1 (both Dave). From September 8 to
 September 30 all six were on, for validation (see below). **`false`, not absent, and that is
@@ -4499,7 +4499,7 @@ This repo's answers:
 | `Get-ReleasePageTitle` | `Claude Specialists` — the **product's** name, not the repository's and not what the page is. It is the masthead eyebrow and half the window title; the heading is the template's own *Release notes*. Without it the fallback would head the page `claude-code-specialists`, which is a true answer and not one to send anybody. It carried `-- release notes` until 2026-08-21, which printed those words twice |
 | `Get-ReleasePageWorkerName` | `''` — hosted nowhere since October 17, 2026 (below) |
 | where the output lands | `dkj-policy/releases/page/`, derived from `Get-ReleaseNoteRoot` rather than configured — the note root already says where this repo keeps its release documents |
-| where it is read | the connector dashboard serves it at `http://localhost:<port>/release-notes` (the Repo hub link the session start prints, whose Pages card links it), which opens in VS Code's Simple Browser |
+| where it is read | the dkj-solutions general pages server serves it at `http://localhost:<port>/release-notes` (a port from 4890 to 4899; the Repo hub the session start prints links it from its General card, and the repo's own server redirects `/release-notes` there), which opens in VS Code's Simple Browser |
 | what is committed | **nothing from that directory.** The page is a derivative of the tracked documents, and a 400 KB file changing every release would dirty the tree `cut-release.ps1` refuses to run on |
 
 **Only BWJ-Development hosts its release notes on Cloudflare** (Maikel, October 17, 2026,

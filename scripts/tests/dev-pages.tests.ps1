@@ -1,8 +1,10 @@
 <#
 .SYNOPSIS
-    Tests for scripts/lib/dev-pages-lib.ps1 -- the Repo hub, the SessionStart page, the test-gate page
-    and the Artifacts page of the dev server (#3097). Pure: the server that serves them is exercised by
-    connector-dashboard.tests.ps1.
+    Tests for scripts/lib/dev-pages-lib.ps1 -- the Repo hub and the test-gate page of the dev server
+    (#3097) -- and for the plugin lib it reuses, plugins/dkj-policy/dkj-solutions/scripts/lib/
+    general-pages-lib.ps1 -- the page shell, the number formats and the four general pages (SessionStart,
+    Artifacts, Issues, Release notes) that moved there in #3119. Pure: the servers that serve them are
+    exercised by connector-dashboard.tests.ps1 and dev-preview-sessionstart.tests.ps1.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -40,32 +42,44 @@ Assert-True ($shell -match '<h1>A &lt;b&gt;page</h1>') 'the h1 is the page name,
 Assert-True ($shell -match 'data-theme-key="connector-dashboard"') 'the theme key is the index page''s, so a picked theme holds across pages'
 Assert-True ($shell -match '<p class="footer-note">note</p>') 'the footer note closes the column'
 
+Write-Host '-- the general page shell (the plugin''s)' -ForegroundColor Cyan
+$gshell = Format-GeneralPageHtml -Title 'An <i>issue' -Lead 'lead' -Body '<p>body</p>' -Eyebrow 'Org/some<repo>' -SiteName 'Org/some<repo>'
+Assert-True ($gshell -match '<li><a href="/hub">Repo hub</a></li>') 'the first crumb goes to /hub on the general server'
+Assert-True ($gshell -match '<title>Org/some&lt;repo&gt; -- An &lt;i&gt;issue</title>' -and $gshell -match '<p class="eyebrow">Org/some&lt;repo&gt;</p>') 'the title and the eyebrow carry the repo''s name, escaped'
+Assert-True ($gshell -match 'data-theme-key="general-pages"') 'the theme key is the general server''s own'
+Assert-True ($gshell -notmatch 'dkj-claude-plugins') 'and nothing of this repo is built into it'
+
 Write-Host '-- the Repo hub' -ForegroundColor Cyan
 $pages = @(Get-RepoHubPages)
-Assert-Equal '/connectors,/specialists,/test-gate,/artifacts,/issues,/release-notes,/sessionstart' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the seven pages, in order'
-Assert-Equal 'repo,repo,repo,general,general,general,general' (($pages | ForEach-Object { $_.Group }) -join ',') 'the repo''s own pages first, then the general ones'
-$hub = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234'
+Assert-Equal '/connectors,/specialists,/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links this repo''s own three pages, in order'
+Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the four general pages, in order'
+$hub = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890'
 Assert-True ($hub -match '<title>dkj-claude-plugins -- Repo hub</title>' -and $hub -match '<h1>Repo hub</h1>') 'the h1 and the title are Repo hub, word for word'
 Assert-True ($hub -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo hub</span></li>\s*</ol>') 'the bar opens <body>, its trail the one crumb Repo hub'
 Assert-True ($hub -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>' -and $hub -notmatch '<header' -and $hub -notmatch 'btn--primary') 'the intro is the slug and no <header>, and there is no product button'
-Assert-Equal 7 ([regex]::Matches($hub, '<a class="menu-item" href="/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
+Assert-Equal 7 ([regex]::Matches($hub, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
 Assert-True ($hub -match '<nav class="menu-list" aria-label="This repo pages">\r?\n<a class="menu-item"' -and $hub -match '</a>\r?\n<a class="menu-item"') 'the rows are direct siblings in the nav, so the house draws the line between them'
 Assert-True ($hub -match '<div class="grid-2">\r?\n<div class="grid__head"><h2>Pages</h2><p class="card__sub">[^<]+</p></div>\r?\n<section class="card grid__card">') 'the row opens with a grid__head carrying the h2 Pages and its sub line'
-Assert-True ($hub -match '<h3>This repo</h3>.*\r?\n<nav class="menu-list" aria-label="This repo pages">\r?\n<a class="menu-item" href="/connectors"' -and $hub -match '<h3>General</h3>.*\r?\n<nav class="menu-list" aria-label="General pages">\r?\n<a class="menu-item" href="/artifacts"') 'each card''s title is an h3: the repo''s own pages, then the general ones'
+Assert-True ($hub -match '<h3>This repo</h3>.*\r?\n<nav class="menu-list" aria-label="This repo pages">\r?\n<a class="menu-item" href="/connectors"' -and $hub -match '<h3>General</h3>.*\r?\n<nav class="menu-list" aria-label="General pages">\r?\n<a class="menu-item" href="http://localhost:4890/artifacts"') 'each card''s title is an h3: the repo''s own pages, then the general ones, linked on the general server'
 Assert-True ($hub -notmatch '<h2 class="card__title">Pages</h2>' -and $hub -match '<style>\.grid__head, \.grid__full \{ grid-column: 1 / -1; \} \.grid__head > h2 \{ margin: 0; \} \.grid__card \{ margin-top: 0; \}</style>') 'no card repeats the h2, the head spans both columns, and the cards drop their margin-top inside the row -- through domain classes only'
-Assert-True ($hub.IndexOf('href="/test-gate"') -lt $hub.IndexOf('<h3>General</h3>') -and $hub.IndexOf('href="/issues"') -gt $hub.IndexOf('<h3>General</h3>')) 'and no page sits in the other group''s card'
+Assert-True ($hub.IndexOf('href="/test-gate"') -lt $hub.IndexOf('<h3>General</h3>') -and $hub.IndexOf('href="http://localhost:4890/issues"') -gt $hub.IndexOf('<h3>General</h3>')) 'and no page sits in the other group''s card'
 Assert-True ($hub.IndexOf('<h3>General</h3>') -lt $hub.IndexOf('</section>' + [Environment]::NewLine + '</div>' + [Environment]::NewLine + '<div class="grid-2">' + [Environment]::NewLine + '<div class="grid__head"><h2>About this repo</h2>')) 'the two cards stand on one row of the house grid, closed before About this repo'
 Assert-True ($hub -match '<div class="grid-2">\r?\n<div class="grid__head"><h2>About this repo</h2><p class="card__sub">[^<]+</p></div>\r?\n<section class="card grid__card grid__full">\r?\n<dl class="facts">' -and $hub -notmatch 'card__title">About this repo') 'About this repo''s h2 stands outside its card too, with its sub line, the card a full row under it'
 Assert-Equal ([regex]::Matches($hub, '<h2[ >]')).Count ([regex]::Matches($hub, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on the hub carries a sub line'
-$alone = Format-RepoHubHtml -Pages @(@{ Href = '/x'; Label = 'X'; Sub = '' })
-Assert-True ($alone -notmatch '<h2>Pages</h2>' -and $alone -notmatch '<h3>' -and $alone -match '<h2 class="card__title">Pages</h2>') 'one card alone gets no row: block 7 as the form gives it, its title the h2'
-Assert-True ($alone -notmatch 'General') 'a group with no page has no card, and a page without a Group is the repo''s own'
+$down = Format-RepoHubHtml -Pages $pages
+Assert-True ($down -match '<h3>General</h3>' -and $down -match 'The general pages server is not running' -and $down -notmatch 'href="http://localhost' -and $down -notmatch 'href="/artifacts"') 'with no general server the General card says it is not running, and links nothing'
+Assert-True ((Format-RepoHubHtml -Pages $pages -GeneralPagesUrl 'http://evil.example:4890') -match 'is not running') 'a pages url that is not plain loopback is no server at all'
+Assert-True ((Format-RepoHubHtml -Pages $pages -GeneralPagesUrl 'http://localhost:4890/') -match 'href="http://localhost:4890/issues"') 'a trailing slash on the base url is cut'
+$alone = Format-RepoHubHtml -Pages @() -GeneralPagesUrl 'http://localhost:4890'
+Assert-True ($alone -notmatch '<h2>Pages</h2>' -and $alone -notmatch '<h3>' -and $alone -match '<h2 class="card__title">General pages</h2>') 'a hub with no page of its own has the General card alone, its title the h2'
+Assert-True ($alone -notmatch 'This repo</h3>') 'and no card for the repo''s own'
 Assert-True ($hub -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'About this repo names the commit it serves from'
 Assert-True ((Format-RepoHubHtml -Pages $pages) -notmatch 'Source at') 'and leaves the row out when the commit could not be read'
 $ix = @('class="breadcrumbs-bar"', 'id="settings"', 'class="eyebrow"', 'Pages</h2>', 'About this repo</h2>', 'class="footer-note"') | ForEach-Object { $hub.IndexOf($_) }
 Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'the blocks stand in the form''s order'
 $evil = Format-RepoHubHtml -Pages @(@{ Href = '/x"><script>'; Label = '<b>'; Sub = '' })
-Assert-True ($evil -notmatch 'x"><script>' -and $evil -match 'href="/x&quot;&gt;&lt;script&gt;"' -and $evil -notmatch '<b>' -and $evil -notmatch 'menu-item__sub') 'every value is escaped, and an empty description is left out'
+Assert-True ($evil -notmatch 'x"><script>' -and $evil -match 'href="/x&quot;&gt;&lt;script&gt;"' -and $evil -notmatch '<b>') 'every value is escaped'
+Assert-True ($evil -notmatch 'menu-item__sub">[^<]*</span></span><svg[^>]*><path[^>]*/></svg></a>\r?\n</nav>\r?\n</section>\r?\n<section class="card grid__card"><div') 'and an empty description is left out'
 
 Write-Host '-- the test-gate model' -ForegroundColor Cyan
 $json = '{ "seconds": { "a.tests.ps1": 10, "b.tests.ps1": 30, "gone.tests.ps1": 5 }, "recordedFrom": { "runs": ["111", "222"], "date": "2026-10-07", "machine": "m", "method": "mean" } }' | ConvertFrom-Json
@@ -261,7 +275,8 @@ Write-Host '-- the release-notes page, as the dev server serves it (#3108)' -For
 $tpl = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\release-notes-page-template.html'))
 $rn = Format-ReleaseNotesDevPage -Html $tpl
 Assert-True ($rn -ne $tpl) 'the template has the shape the dressing needs'
-Assert-True ($rn -match '<html lang="en" data-theme-light="teal" data-theme-dark="sky" data-theme-key="connector-dashboard">') 'it takes the theme key every other page of this server uses'
+Assert-True ($rn -match '<html lang="en" data-theme-light="teal" data-theme-dark="sky" data-theme-key="general-pages">') 'it takes the theme key every other page of the general server uses'
+Assert-True ((Format-ReleaseNotesDevPage -Html $tpl -ThemeKey 'k"x' -HubHref '/') -match 'data-theme-key="k&quot;x"' -and (Format-ReleaseNotesDevPage -Html $tpl -HubHref '/') -match '<li><a href="/">Repo hub</a></li>') 'a caller may name the theme key and the hub crumb''s target, both escaped'
 $tplStyleEnd = $rn.IndexOf('</style>')
 $houseAt = $rn.IndexOf('<link rel="stylesheet" href="/house-style.css">')
 Assert-True ($houseAt -gt $tplStyleEnd -and $tplStyleEnd -gt 0) 'the house stylesheet loads after the template''s own style, so the house body wins'
@@ -270,7 +285,7 @@ Assert-True ($rn.IndexOf('<script src="/house-theme.js"></script>') -lt $rn.Inde
 $bodyAt = $rn.IndexOf('<body>')
 $barAt = $rn.IndexOf('<div class="breadcrumbs-bar">')
 Assert-True ($barAt -gt $bodyAt -and $rn.Substring($bodyAt + 6, $barAt - $bodyAt - 6).Trim() -eq '') 'the breadcrumb bar is the first thing in <body>'
-Assert-True ($rn -match '<li><a href="/">Repo hub</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true">/</span><span aria-current="page">Release notes</span></li>') 'its trail runs from the Repo hub to this page'
+Assert-True ($rn -match '<li><a href="/hub">Repo hub</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true">/</span><span aria-current="page">Release notes</span></li>') 'its trail runs from the Repo hub, on /hub of the general server, to this page'
 Assert-True ($rn.IndexOf('DKJTheme.settings(') -gt $rn.IndexOf('id="settings"') -and $rn.IndexOf('DKJTheme.settings(') -lt $rn.LastIndexOf('</body>')) 'the settings button is mounted before </body>'
 Assert-True ($rn.Contains('<div class="wrap">') -and $rn.Contains('@@RELEASE_ROWS@@') -and $rn.Contains('@@PAGE_STYLE@@')) 'the template''s own content is left alone'
 # The settings panel's width reaches main and .container only, and the template's column is neither, so the
@@ -280,14 +295,14 @@ Assert-Equal '<html>fixture</html>' (Format-ReleaseNotesDevPage -Html '<html>fix
 
 Write-Host '-- the Issues model' -ForegroundColor Cyan
 $now = [DateTime]::new(2026, 10, 18, 12, 0, 0, [DateTimeKind]::Utc)
-$isOpen = '[ { "number": 7, "title": "Free <b>", "state": "OPEN", "labels": [ { "name": "bug" }, { "name": "prio-3" } ], "assignees": [], "createdAt": "2026-10-16T12:00:00Z", "closedAt": null },
-  { "number": 8, "title": "Parked", "state": "OPEN", "labels": [ { "name": "feature" }, { "name": "awaiting-decision-dev" } ], "assignees": [ { "login": "a" } ], "createdAt": "2026-10-10T12:00:00Z", "closedAt": null },
+$isOpen = '[ { "number": 7, "title": "Free <b>", "url": "https://github.com/Org/some-repo/issues/7", "state": "OPEN", "labels": [ { "name": "bug" }, { "name": "prio-3" } ], "assignees": [], "createdAt": "2026-10-16T12:00:00Z", "closedAt": null },
+  { "number": 8, "title": "Parked", "url": "javascript:alert(1)", "state": "OPEN", "labels": [ { "name": "feature" }, { "name": "awaiting-decision-dev" } ], "assignees": [ { "login": "a" } ], "createdAt": "2026-10-10T12:00:00Z", "closedAt": null },
   { "number": 9, "title": "Claimed", "state": "OPEN", "labels": [ { "name": "bug-inbound" }, { "name": "bug" }, { "name": "prio-3" } ], "assignees": [ { "login": "b" } ], "createdAt": "2026-08-01T12:00:00Z", "closedAt": null } ]' | ConvertFrom-Json
 $isRecent = '[ { "number": 1, "title": "Done", "state": "CLOSED", "stateReason": "COMPLETED", "labels": [ { "name": "bug" }, { "name": "prio-2" } ], "assignees": [], "createdAt": "2026-10-17T00:00:00Z", "closedAt": "2026-10-17T10:00:00Z" },
   { "number": 1, "title": "Done", "state": "CLOSED", "stateReason": "COMPLETED", "labels": [ { "name": "bug" }, { "name": "prio-2" } ], "assignees": [], "createdAt": "2026-10-17T00:00:00Z", "closedAt": "2026-10-17T10:00:00Z" },
   { "number": 2, "title": "Old one closed", "state": "CLOSED", "stateReason": "NOT_PLANNED", "labels": [], "assignees": [], "createdAt": "2026-09-01T00:00:00Z", "closedAt": "2026-10-01T00:00:00Z" },
   { "number": 3, "title": "Closed before the window", "state": "CLOSED", "stateReason": "COMPLETED", "labels": [], "assignees": [], "createdAt": "2026-09-01T00:00:00Z", "closedAt": "2026-09-02T00:00:00Z" },
-  { "number": 7, "title": "Free <b>", "state": "OPEN", "labels": [ { "name": "bug" }, { "name": "prio-3" } ], "assignees": [], "createdAt": "2026-10-16T12:00:00Z", "closedAt": null } ]' | ConvertFrom-Json
+  { "number": 7, "title": "Free <b>", "url": "https://github.com/Org/some-repo/issues/7", "state": "OPEN", "labels": [ { "name": "bug" }, { "name": "prio-3" } ], "assignees": [], "createdAt": "2026-10-16T12:00:00Z", "closedAt": null } ]' | ConvertFrom-Json
 $im = ConvertFrom-IssueList -Open @($isOpen | ForEach-Object { $_ }) -Recent @($isRecent | ForEach-Object { $_ }) -Now $now -Days 28
 Assert-Equal '7,9,8' ((@($im.Open) | ForEach-Object { $_.Number }) -join ',') 'open issues, highest priority first, then by number'
 Assert-Equal 'Free,Claimed,Parked' ((@($im.Open) | ForEach-Object { $_.Board }) -join ',') 'a parking label wins over an assignee; an assignee makes it claimed'
@@ -308,12 +323,36 @@ $ip = Format-IssuesPageHtml -Model $im -GeneratedAt '2026-10-18 14:00:00' -Secon
 Assert-True ($ip -match '<h1>Issues</h1>' -and $ip -match '<span aria-current="page">Issues</span>') 'the page is named Issues, in the h1 and the trail'
 Assert-True ($ip -match 'Open now</div><div class="v num">3<') 'the tile counts the open issues'
 Assert-True ($ip.Contains('Free &lt;b&gt;') -and -not $ip.Contains('Free <b>')) 'an issue title is escaped'
-Assert-True ($ip.Contains('href="https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/7"')) 'each open issue links to GitHub'
+Assert-True ($ip.Contains('href="https://github.com/Org/some-repo/issues/7"')) 'an open issue links to the url gh gave it, not to a repo this lib knows'
+Assert-True ($ip -notmatch 'href="javascript' -and $ip.Contains('#8 Parked')) 'an issue whose url is not a GitHub issue link is shown without an href'
+Assert-True ($ip -notmatch 'dkj-claude-plugins') 'and nothing of this repo is built into the page'
+Assert-True ((Format-IssuesPageHtml -Model $im -RepoName 'Org/some<repo>') -match 'The GitHub issues of <code>Org/some&lt;repo&gt;</code>' -and (Format-IssuesPageHtml -Model $im -RepoName 'Org/x') -match '<title>Org/x -- Issues</title>') 'the repo''s name, escaped, is in the lead and the title'
+Assert-Equal '' (ConvertTo-IssueRow -Issue ('{ "number": 1, "title": "t", "url": "https://github.com/a/b/issues/1x" }' | ConvertFrom-Json)).Url 'a url with anything after the number is not kept'
+Assert-Equal 'https://github.com/a/b/issues/1' (ConvertTo-IssueRow -Issue ('{ "number": 1, "title": "t", "url": "https://github.com/a/b/issues/1" }' | ConvertFrom-Json)).Url 'a GitHub issue url is kept'
+Assert-Equal '' (ConvertTo-IssueRow -Issue ('{ "number": 1, "title": "t" }' | ConvertFrom-Json)).Url 'an issue without a url has none'
 Assert-True ($ip.Contains('/refresh?page=issues')) 'the footer offers a fresh read'
 $ipNone = Format-IssuesPageHtml -Model (ConvertFrom-IssueList -Now $now)
 Assert-True ($ipNone.Contains('No open issue')) 'no open issue says so instead of an empty table'
 $ipFailed = Format-IssuesPageHtml -Model $null -ReadError 'gh issue list exited 1'
 Assert-True ($ipFailed.Contains('msg--warn') -and $ipFailed.Contains('gh issue list exited 1')) 'a failed read is a warning on the page'
+Write-Host '-- the repo name and the always-on lib, as the general server finds them (#3119)' -ForegroundColor Cyan
+Assert-Equal 'Foo/bar' (ConvertFrom-GitRemoteUrl 'https://github.com/Foo/bar.git') 'an https remote reads as owner/name'
+Assert-Equal 'Foo/bar' (ConvertFrom-GitRemoteUrl 'git@github.com:Foo/bar.git') 'and so does an scp-style ssh remote'
+Assert-Equal 'Foo/bar.js' (ConvertFrom-GitRemoteUrl 'ssh://git@github.com/Foo/bar.js') 'a dot in the name stays, and ssh:// is read'
+Assert-Equal 'Foo/bar' (ConvertFrom-GitRemoteUrl 'https://user@github.com/Foo/bar/') 'a user and a trailing slash are dropped'
+Assert-Equal '' (ConvertFrom-GitRemoteUrl 'https://gitlab.com/Foo/bar.git') 'a host that is not github.com is no repo name'
+Assert-Equal '' (ConvertFrom-GitRemoteUrl 'https://github.com/Foo/bar baz') 'nor is a name with a space'
+Assert-Equal '' (ConvertFrom-GitRemoteUrl 'https://github.com/Foo/..') 'nor a dot-dot'
+Assert-Equal '' (ConvertFrom-GitRemoteUrl '') 'nor is no remote'
+Assert-Equal '5.22.0' (Select-HighestVersionDir @('5.9.0', '5.22.0', '5.10.0', 'latest')) 'the highest version folder is read as a version, not as text'
+Assert-Equal '' (Select-HighestVersionDir @('latest')) 'a folder that is no version is never picked'
+$cands = @(Get-AlwaysOnBudgetLibCandidates -RepoRoot 'C:\r\repo' -PluginRoot 'C:\r\mkt\plugins\dkj-policy\dkj-solutions')
+Assert-Equal 'C:\r\repo\scripts\lib\always-on-budget-lib.ps1' $cands[0] 'the repo''s own copy is tried first'
+Assert-Equal 'C:\r\mkt\plugins\dkj-policy\scripts\lib\always-on-budget-lib.ps1' $cands[1] 'then the source layout: dkj-policy beside the plugin'
+Assert-Equal 2 $cands.Count 'and no cache candidate where no dkj-policy version is known'
+$cands = @(Get-AlwaysOnBudgetLibCandidates -RepoRoot 'C:\r\repo' -PluginRoot 'C:\cache\mkt\dkj-solutions\5.23.0\' -PolicyVersions @('5.9.0', '5.22.0'))
+Assert-Equal 'C:\cache\mkt\dkj-policy\5.22.0\scripts\lib\always-on-budget-lib.ps1' $cands[2] 'then the cache layout, in the highest dkj-policy version'
+
 
 Write-Host '-- the Specialists model' -ForegroundColor Cyan
 # The emoji and the em dash as code points: the script layer is ASCII.

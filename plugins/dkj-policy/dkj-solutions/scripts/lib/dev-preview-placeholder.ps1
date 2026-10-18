@@ -23,9 +23,16 @@
     THE REPO NAME IS THE ONLY VALUE FROM OUTSIDE, and it is a folder name, so it is HTML-escaped and cut
     at 80 characters before it reaches the page.
 
+    AND IT LINKS THE GENERAL PAGES (#3119): the same "General" card every Repo hub carries, rendered by
+    general-pages-lib.ps1 from the general pages server's base url, which the server reads from the state
+    file the hook writes -- or, where none answers, the card's "not running" form.
+
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in
     the source repo -- change one, run the other.
 #>
+
+. (Join-Path $PSScriptRoot 'general-pages-lib.ps1')
+. (Join-Path $PSScriptRoot 'loopback-server-lib.ps1')
 
 function ConvertTo-DevPreviewPlaceholderText {
     <# HTML-escapes one value for text or a quoted attribute. #>
@@ -35,27 +42,31 @@ function ConvertTo-DevPreviewPlaceholderText {
 }
 
 function Test-DevPreviewPlaceholderHost {
-    <#
-        True when the request's Host header names this server on loopback. A page elsewhere that rebinds
-        its DNS name to 127.0.0.1 arrives with its own name, so it is refused (DNS rebinding).
-    #>
+    <# True when the request's Host header names this server on loopback (the plugin's shared rule). #>
     param([AllowNull()][AllowEmptyString()][string]$HostHeader, [int]$Port)
-    if (-not $HostHeader) { return $false }
-    $h = $HostHeader.Trim().ToLowerInvariant()
-    return ($h -eq "localhost:$Port" -or $h -eq "127.0.0.1:$Port")
+    return (Test-LoopbackHost -HostHeader $HostHeader -Port $Port)
 }
 
 function Test-DevPreviewPlaceholderCrossSite {
-    <# True when the browser marks the request as coming from another site. A missing header is allowed. #>
-    param([AllowNull()][AllowEmptyString()][string]$SecFetchSite)
-    if (-not $SecFetchSite) { return $false }
-    $v = $SecFetchSite.Trim().ToLowerInvariant()
-    return ($v -eq 'cross-site' -or $v -eq 'same-site')
+    <#
+        True when the browser marks the request as coming from another site, by the plugin's shared rule
+        (Test-LoopbackCrossSite): a same-site top-level GET navigation -- the "Repo hub" crumb on a general
+        page, which sits on another port -- is served. A missing header is allowed.
+    #>
+    param(
+        [AllowNull()][AllowEmptyString()][string]$SecFetchSite,
+        [AllowNull()][AllowEmptyString()][string]$SecFetchMode = '',
+        [AllowNull()][AllowEmptyString()][string]$Method = ''
+    )
+    return (Test-LoopbackCrossSite -SecFetchSite $SecFetchSite -SecFetchMode $SecFetchMode -Method $Method)
 }
 
 function Format-DevPreviewPlaceholderHtml {
-    <# The whole page for the repo named -RepoName (a folder name). #>
-    param([AllowNull()][AllowEmptyString()][string]$RepoName)
+    <#
+        The whole page for the repo named -RepoName (a folder name). -GeneralPagesUrl is the general pages
+        server's base url, or empty where it is not running (the General card says so).
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$RepoName, [AllowEmptyString()][string]$GeneralPagesUrl = '')
     $name = ([string]$RepoName) -replace '[\p{C}]', ' '
     if ($name.Length -gt 80) { $name = $name.Substring(0, 80) }
     if (-not $name.Trim()) { $name = 'this repo' }
@@ -89,6 +100,9 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<h1>Repo hub</h1>')
     [void]$sb.AppendLine('<p class="lead">This repo states no dev preview of its own yet, so the dev-preview hook serves this placeholder in its place.</p>')
     [void]$sb.AppendLine('</div>')
+
+    # Block 7, Pages: the general pages, the one card a placeholder repo has to link.
+    [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false))
 
     # Block 10's place: the two setup cards.
     [void]$sb.AppendLine('<section class="card">')
