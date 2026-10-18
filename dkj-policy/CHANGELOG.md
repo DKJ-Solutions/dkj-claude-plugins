@@ -2,7 +2,78 @@
 
 ## [Unreleased]
 
-**6 / 15 minor entries** <!-- pending-tally -->
+**7 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3122-dev-server-restarts-on-moved-head · 20261018-180247Z
+
+This repo's dev server no longer keeps serving the code it started on after a pull or a branch switch.
+It notes the commit it loaded, and the first page asked for after HEAD has moved answers with a short
+"restarting" notice that reloads itself, while the server hands its port to a fresh copy of itself on
+the new code. The hub's "Source at" now names the commit the pages were actually built from, so it can
+no longer read the new commit while the old code runs. Static files skip the check.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the server is this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The dev server restarts itself when the checkout's HEAD has moved
+
+[PR #3124](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3124)
+
+---
+
+### DEPLOY: fix/3120-house-style-comment-prose · 20261018-175119Z
+
+This repo's own test gate runs the house-style check over this tree, and a comment here was what tripped
+it (`scripts/lib/dev-pages-lib.ps1`): a sentence before a comma no longer blocks a PR.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+`check-house-style` no longer fails a DKJ-Solutions repo's PR over a house class named in a comment or a
+string before a comma (`# the same .grid-2, which ...`), which until now needed a reworded comment or an
+allowlist entry that exempted the real class for the whole file.
+
+**Score:** 2
+
+#### Pull Request
+
+check-house-style no longer reads prose before a comma as a selector
+
+Plugins: dkj-solutions
+
+[PR #3123](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3123)
+
+---
+
+### DEPLOY: feat/hub-pages-grid-head · 20261018-172955Z
+
+The Repo hub's two Pages cards stand under one **Pages** heading spanning the row, and each card is titled
+one level lower: **This repo** and **General**. **About this repo** takes the same shape, its heading above
+its card rather than inside it, and every heading carries a short line saying what is under it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the hub lives on this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+a grid heading over the Repo hub's two Pages cards
+
+[PR #3121](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3121)
+
+---
 
 ### DEPLOY: feat/issues-page · 20261018-162753Z
 

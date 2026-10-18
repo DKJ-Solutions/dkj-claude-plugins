@@ -33,6 +33,17 @@
     another site (Sec-Fetch-Site) is refused, and /refresh re-runs the check at most once per
     -MinRefreshSeconds. It runs until the process is stopped.
 
+    IT RESTARTS ITSELF WHEN THE CHECKOUT MOVES (#3122). The libs are dot-sourced once, so a server keeps
+    the code it started on; and the hook reuses any server of this checkout, so a pull after the start
+    left every later session on the old pages. So the server notes the HEAD it loaded, and a request that
+    finds HEAD somewhere else is answered with a 503 that reloads in three seconds, after which the server
+    stops listening and starts its successor on the same port -- under a cmd.exe that changes into the
+    root first, as the hook's own start line does, so the hook still recognises it as this checkout's.
+    The hub's "Source at" names that loaded commit, not the live one. Static files skip the check.
+    A successor that dies at start (a broken commit) leaves the port empty, with the reason in
+    %TEMP%\serve-connector-dashboard-<Port>-<guid>.log; the next session's hook starts a server again. A root
+    holding '%' or '"', which cmd.exe would rewrite, gets the notice but no restart.
+
     Pure ASCII (repo convention for .ps1). The page's rules are in scripts/lib/connector-dashboard-lib.ps1,
     tested by scripts/tests/connector-dashboard.tests.ps1.
 
@@ -362,6 +373,11 @@ Write-Host "connector dashboard: http://localhost:$Port/"
 $cache = $null
 $ssCache = $null
 $isCache = $null
+# The commit this process loaded its code from; $null outside a git checkout or on an unborn HEAD, and
+# then it never restarts.
+$loaded = Invoke-DashboardGit $root @('rev-parse', 'HEAD')
+$loadedSha = if ($loaded) { [string]$loaded[0] } else { $null }
+$restart = $false
 
 try {
     while ($true) {
@@ -393,6 +409,15 @@ try {
                 Send-DashboardResponse $stream 200 'OK' $s.Type $body
                 continue
             }
+            if ($loadedSha) {
+                $live = Invoke-DashboardGit $root @('rev-parse', 'HEAD')
+                if ($live -and [string]$live[0] -ne $loadedSha) {
+                    $text = "This server was started on $($loadedSha.Substring(0, 8)); the checkout is now at $(([string]$live[0]).Substring(0, 8)). It is restarting on the new code -- this page reloads in a few seconds."
+                    Send-DashboardResponse $stream 503 'Service Unavailable' 'text/plain; charset=utf-8' ($utf8.GetBytes($text)) @{ 'Retry-After' = '3'; Refresh = '3' }
+                    $restart = $true
+                    break
+                }
+            }
             if ($path -eq '/release-notes') {
                 if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
                     Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: run scripts/release/build-release-notes-page.ps1.'))
@@ -417,8 +442,7 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
-                $sha = Invoke-DashboardGit $root @('rev-parse', '--short', 'HEAD')
-                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($sha) { [string]$sha[0] } else { '' })
+                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' })
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
@@ -476,4 +500,21 @@ try {
     }
 } finally {
     $listener.Stop()
+}
+
+if ($restart -and ($root + $PSCommandPath) -notmatch '[%"]') {
+    # The listener is closed above, so the successor can bind the port. Every parameter goes along -- the
+    # root as resolved here, never the raw override -- and the root is on the cmd.exe line first: that
+    # ancestor is what the dev-preview hook recognises.
+    $argLine = (@($PSBoundParameters.GetEnumerator() | Where-Object { $_.Key -ne 'RepoRootOverride' } |
+        ForEach-Object { "-$($_.Key) `"$($_.Value)`"" }) -join ' ')
+    if ($RepoRootOverride) { $argLine += " -RepoRootOverride `"$root`"" }
+    $log = Join-Path ([System.IO.Path]::GetTempPath()) "serve-connector-dashboard-$Port-$([guid]::NewGuid().ToString('n')).log"
+    try {
+        Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle Hidden -ArgumentList (
+            '/d /s /c "cd /d "{0}" && powershell -NoProfile -ExecutionPolicy Bypass -File "{1}" {2} > "{3}" 2>&1"' -f $root, $PSCommandPath, $argLine, $log) | Out-Null
+    } catch {
+        # The port is free either way, so the next session's hook starts a server again.
+        [Console]::Error.WriteLine("serve-connector-dashboard: the successor did not start -- $($_.Exception.Message)")
+    }
 }
