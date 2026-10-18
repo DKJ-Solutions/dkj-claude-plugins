@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**3 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3106-repoint-body-refresh · 20261018-101158Z
+
+The pull request the house-style repoint runner opens now tells its reader to ship with
+`ship-pr.ps1 -RefreshBody` once the DEPLOY tiers are scored
+([#3106](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3106)). Its body is not open-pr's
+and carries no DEPLOY section, so the branch-entry check and ship-pr's DEPLOY lock refused every such
+pull request until somebody found that step by hand, as #3105 did. Only this repo's own CI is touched.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a CI workflow of this repo only; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+House-style repoint PR body names ship-pr -RefreshBody after scoring
+
+[PR #3107](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3107)
+
+---
 
 ### DEPLOY: feat/house-style-v0-3-0 · 20261018-093108Z
 
