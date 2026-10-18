@@ -55,7 +55,7 @@ of its own. A visible result, so the branch stops for the owner's look.
 
 - [x] `connector-dashboard.tests.ps1` 126/0 and `dev-pages.tests.ps1` 49/0
 - [x] The dev server on :4873 restarted from this branch serves `<html lang="en" data-theme-default="lilac" ...>`
-- [ ] The owner has looked at the dashboard in `lilac`
+- [x] The owner has looked at the dashboard in `lilac` and approved it (October 18, 2026)
 
 ### DEPLOY: feat/3094-default-theme-lilac
 
