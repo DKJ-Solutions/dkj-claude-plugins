@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**4 / 8 minor entries** <!-- pending-tally -->
+**4 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3094-default-theme-lilac · 20261018-115225Z
+
+The dev server's pages (the connector dashboard, the repo hub and the pages it links) open in the
+brand book's `lilac` theme, this repo's default, instead of following the OS between `teal` and `sky`.
+A theme a viewer picked by hand still wins.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the dev server is this repo's own; nothing a plugin ships changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Dev server: the pages default to the brand book's lilac theme
+
+[PR #3111](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3111)
+
+---
 
 ### DEPLOY: feat/3097-repo-hub · 20261018-111834Z
 
