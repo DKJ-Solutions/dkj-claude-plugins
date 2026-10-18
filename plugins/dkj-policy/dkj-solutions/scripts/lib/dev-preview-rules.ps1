@@ -22,8 +22,9 @@
             }
         }
 
-    THE PAGE HAS ONE NAME IN EVERY REPO, 'Repo dashboard' (INBOUND #3064, the owner's term, October 16,
-    2026): the line the hook prints opens with it, the placeholder's included. A repo once chose its own
+    THE PAGE HAS ONE NAME IN EVERY REPO, 'Repo hub' (INBOUND #3064, the owner's term, October 16, 2026;
+    renamed from 'Repo dashboard' with dkj-brandbook v0.3.0, #3097): the line the hook prints opens with
+    it, the placeholder's included. A repo once chose its own
     word through a Name key, and three repos said Showcase, connector dashboard and dev-preview for the
     same page. A Name a repo still states is ignored rather than refused, so a config that predates this
     keeps working; the word "dev-preview" stays the MECHANISM's, on the hook's lines about its own setup
@@ -54,7 +55,7 @@ $script:DevPreviewMaxAncestors = 4
 # Clear of the ranges the repos measured in #2967 and #2976 use (3000, 4870-4879, 5173-5180, 8765).
 $script:DevPreviewPlaceholderPorts = 4880..4889
 # The word every line about the page opens with, in every repo (#3064).
-$script:DevPreviewLabel = 'Repo dashboard'
+$script:DevPreviewLabel = 'Repo hub'
 
 function Get-DevPreviewPlaceholder {
     <#

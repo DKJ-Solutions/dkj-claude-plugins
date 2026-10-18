@@ -56,14 +56,15 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    way it is a copy of the brand book's file, never a retyped version. An app that offers a theme choice
    uses `DKJTheme.settings(el)` from that script, the round settings button with the picker inside,
    instead of building its own toggle around `DKJTheme.picker`; the README has its options.
-   **A Repo dashboard** (the index of a repo's dev server) **takes the one form the README lays down
-   under "Page patterns", "The Repo dashboard"**: its blocks, their order and the fixed `h1`, with only
-   the content the repo's own. A repo without a build starts from
+   **A Repo hub** (the index of a repo's dev server, called the Repo dashboard until v0.3.0) **takes the
+   one form the README lays down under "Page patterns", "The Repo hub"**: its blocks, their order and the
+   fixed `h1`, with only the content the repo's own. A repo with pages of its own links them from its
+   **Pages** card. A repo without a build starts from
    [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.3.0/house-style/patterns/repo-dashboard.html)
    at the same tag, which carries no CSS of its own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
-   **Every page a repo's dev server serves opens with the breadcrumb bar**, the Repo dashboard and the
-   product alike, its trail starting at **Repo dashboard**, as the README lays it down under "Page
+   **Every page a repo's dev server serves opens with the breadcrumb bar**, the Repo hub and the
+   product alike, its trail starting at **Repo hub**, as the README lays it down under "Page
    patterns", "Every page: the breadcrumb bar"
    ([#3088](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3088)).
 2. **Add the repo's own layer after it, in a separate block or file.** Domain colours and components go

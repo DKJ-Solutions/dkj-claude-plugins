@@ -14,9 +14,9 @@
     serves from the plugin's own vendored copy (assets/house-style/), and its own layer uses only names the
     house file does not define (.ph-*).
 
-    AND IT TAKES THE REPO DASHBOARD FORM (#3066): the blocks and their order laid down in the brand book's
-    house-style/README.md, "The Repo dashboard", at the tag the house-style skill pins. The repo name is
-    the eyebrow and the h1 is "Repo dashboard", word for word. A placeholder has no in-flight lists to
+    AND IT TAKES THE REPO HUB FORM (#3066, #3097): the blocks and their order laid down in the brand book's
+    house-style/README.md, "The Repo hub", at the tag the house-style skill pins. The repo name is the
+    eyebrow and the h1 is "Repo hub", word for word. A placeholder has no in-flight lists to
     count, so the tiles and the loading line are left out and its two setup cards take the data cards'
     place.
 
@@ -67,7 +67,7 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>' + $n + ' -- Repo dashboard</title>')
+    [void]$sb.AppendLine('<title>' + $n + ' -- Repo hub</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: one name the house file does not define (.ph-code), for the code samples.
@@ -76,9 +76,9 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    # Block 0, the breadcrumb bar: first in <body> on every dev-server page; on the Repo dashboard its trail is this one crumb.
+    # Block 0, the breadcrumb bar: first in <body> on every dev-server page; on the Repo hub its trail is this one crumb.
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
-    [void]$sb.AppendLine('<li><span aria-current="page">Repo dashboard</span></li>')
+    [void]$sb.AppendLine('<li><span aria-current="page">Repo hub</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')
     # Block 1, the settings button, sits outside <main>.
     [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
@@ -86,15 +86,15 @@ function Format-DevPreviewPlaceholderHtml {
     # Blocks 2 to 5: the intro is a <div>, never a <header>, which the house style lays out as a flex row.
     [void]$sb.AppendLine('<div>')
     [void]$sb.AppendLine('<p class="eyebrow">' + $n + '</p>')
-    [void]$sb.AppendLine('<h1>Repo dashboard</h1>')
+    [void]$sb.AppendLine('<h1>Repo hub</h1>')
     [void]$sb.AppendLine('<p class="lead">This repo states no dev preview of its own yet, so the dev-preview hook serves this placeholder in its place.</p>')
     [void]$sb.AppendLine('</div>')
 
-    # Block 9's place: the two setup cards.
+    # Block 10's place: the two setup cards.
     [void]$sb.AppendLine('<section class="card">')
     [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Add a preview of your own</h2><p class="card__sub">From the next session on, it replaces this page</p></div>')
     [void]$sb.AppendLine('<div>')
-    [void]$sb.AppendLine('<p>State <code>Get-DevPreview</code> in this repo''s <code>scripts/repo-config.ps1</code>. The hook then starts that server, or reuses the one already running, and hands out its link instead of this page. Its index is this repo''s own Repo dashboard, in the same form as this page.</p>')
+    [void]$sb.AppendLine('<p>State <code>Get-DevPreview</code> in this repo''s <code>scripts/repo-config.ps1</code>. The hook then starts that server, or reuses the one already running, and hands out its link instead of this page. Its index is this repo''s own Repo hub, in the same form as this page.</p>')
     [void]$sb.AppendLine('<pre class="ph-code"><code>function Get-DevPreview {')
     [void]$sb.AppendLine('    @{')
     [void]$sb.AppendLine('        Command = ''npm run dev -- --host 127.0.0.1 --port {port} --strictPort''')
@@ -116,7 +116,7 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('</section>')
 
-    # Block 10: About this repo, the fixed title, with what the placeholder knows.
+    # Block 11: About this repo, the fixed title, with what the placeholder knows.
     [void]$sb.AppendLine('<section class="card">')
     [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">About this repo</h2></div>')
     [void]$sb.AppendLine('<dl class="facts">')
@@ -127,7 +127,7 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('</dl>')
     [void]$sb.AppendLine('</section>')
 
-    # Block 11: where the page comes from.
+    # Block 12: where the page comes from.
     [void]$sb.AppendLine('<p class="footer-note">Served on 127.0.0.1 only, by the dkj-solutions plugin''s <code>scripts/preview/serve-placeholder.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark" });</script>')

@@ -45,9 +45,7 @@ BWJ-Development repos included, which do not take the house style -- and it is d
 self-contained for the Worker. This repo hosts the page nowhere but the dev server (#3083), so the
 server is where the house style belongs.
 
-The crumb reads "Repo dashboard", as every other page on `main` does today. #3097's step 2
-(`feat/3097-repo-hub`, unmerged) renames that crumb to "Repo hub". Whichever of the two lands second
-renames this crumb as well, as noted on #3097.
+The crumb reads "Repo hub": #3097 landed the rename while this branch waited for the owner's look, and the trunk merge renamed this crumb with it.
 
 ### CREATE
 
@@ -71,7 +69,7 @@ renames this crumb as well, as noted on #3097.
 ### DEPLOY: fix/3108-release-notes-page-house-style
 
 The release-notes page on this repo's dev server now carries the house style and opens with the
-breadcrumb bar back to the Repo dashboard, like the other pages under it
+breadcrumb bar back to the Repo hub, like the other pages under it
 ([#3108](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3108)). The page is dressed as
 it is served. The shared template and the page a Worker publishes are untouched.
 

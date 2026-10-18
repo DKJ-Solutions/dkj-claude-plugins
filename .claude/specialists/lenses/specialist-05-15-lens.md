@@ -4499,7 +4499,7 @@ This repo's answers:
 | `Get-ReleasePageTitle` | `Claude Specialists` — the **product's** name, not the repository's and not what the page is. It is the masthead eyebrow and half the window title; the heading is the template's own *Release notes*. Without it the fallback would head the page `claude-code-specialists`, which is a true answer and not one to send anybody. It carried `-- release notes` until 2026-08-21, which printed those words twice |
 | `Get-ReleasePageWorkerName` | `''` — hosted nowhere since October 17, 2026 (below) |
 | where the output lands | `dkj-policy/releases/page/`, derived from `Get-ReleaseNoteRoot` rather than configured — the note root already says where this repo keeps its release documents |
-| where it is read | the connector dashboard serves it at `http://localhost:<port>/release-notes` (the Repo dashboard link the session start prints, plus `/release-notes`), which opens in VS Code's Simple Browser |
+| where it is read | the connector dashboard serves it at `http://localhost:<port>/release-notes` (the Repo hub link the session start prints, whose Pages card links it), which opens in VS Code's Simple Browser |
 | what is committed | **nothing from that directory.** The page is a derivative of the tracked documents, and a 400 KB file changing every release would dirty the tree `cut-release.ps1` refuses to run on |
 
 **Only BWJ-Development hosts its release notes on Cloudflare** (Maikel, October 17, 2026,
