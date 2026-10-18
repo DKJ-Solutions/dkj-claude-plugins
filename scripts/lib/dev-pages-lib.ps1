@@ -144,7 +144,8 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The page layer, with house tokens. The grid head spans both columns of the .grid-2 the Pages cards
-    # stand in, as does a card that is a row of its own (grid__full, About this repo's). The cards drop the house .card's margin-top inside that row, where it came on top of the
+    # stand in, as does a card that is a row of its own (grid__full, About this repo's). Every h2 in a
+    # grid head carries a short sub line, the house .card__sub (the owner's look). The cards drop the house .card's margin-top inside that row, where it came on top of the
     # grid's own gap and doubled it; the gap alone spaces the heading and the cards (the owner's look).
     [void]$sb.AppendLine('<style>.grid-2 > .grid__head, .grid-2 > .grid__full { grid-column: 1 / -1; } .grid__head > h2 { margin: 0; } .grid-2 > .card { margin-top: 0; }</style>')
     [void]$sb.AppendLine('</head>')
@@ -176,7 +177,7 @@ function Format-RepoHubHtml {
     $row = $cards.Count -gt 1
     if ($row) {
         [void]$sb.AppendLine('<div class="grid-2">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2></div>')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2><p class="card__sub">Every page this dev server serves</p></div>')
     }
     foreach ($c in $cards) {
         $title = if ($row) { '<h3>' + $c.Title + '</h3>' } else { '<h2 class="card__title">Pages</h2>' }
@@ -197,7 +198,7 @@ function Format-RepoHubHtml {
     # card in a grid__head, as Pages' does, so the two blocks read alike and stay apart; the card spans
     # both columns of the same .grid-2, which gives head and card the same gap as the Pages row.
     [void]$sb.AppendLine('<div class="grid-2">')
-    [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2></div>')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2><p class="card__sub">What this repo is, and the commit this hub is served from</p></div>')
     [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<dl class="facts">')
     [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
