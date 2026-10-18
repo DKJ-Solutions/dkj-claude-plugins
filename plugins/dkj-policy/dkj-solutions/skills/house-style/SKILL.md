@@ -128,10 +128,14 @@ instead of merging.
 releases the house style as a new `vX.Y.Z` tag, cut with its `cut-release` on the owner's request and never
 moved. Its first, `v0.1.0` (October 17, 2026), brought the four earlier `house-style-v1`..`-v4` tags together
 ([#3084](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3084)).
-Then an inbound issue on this plugin's source repo asks for a repoint to the new tag, and the change
-repoints every link to the previous tag on this page and replaces the commit and both checksums, measured
-from the bytes served at that tag, and `Get-HouseStyleRetiredTokens` in `scripts/lib/house-style-rules.ps1`
-takes the new tag's retired names. **The same change replaces the source repo's two vendored copies**:
+Then the source repo's **house-style repoint runner** opens the repoint as a pull request, within a day
+of the release ([#3100](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3100)): it repoints
+every link to the previous tag on this page and replaces the commit and both checksums, measured from the
+bytes served at that tag, and `Get-HouseStyleRetiredTokens` in `scripts/lib/house-style-rules.ps1` takes
+the new tag's retired names. A file carrying a spelling the safety reads above forbid stops it before
+any pull request, and a changed `house-theme.js` leaves a step open for a person to read its diff. It
+opens and never merges: a person scores the entry and ships it. **The same change replaces the source
+repo's two vendored copies**:
 the files under `scripts/dashboard/house-style/` that its connector dashboard serves, and the files under
 this plugin's `assets/house-style/` that the placeholder preview serves in every repo without a preview of
 its own. A test suite holds each copy to this page's checksums and goes red until it moves
