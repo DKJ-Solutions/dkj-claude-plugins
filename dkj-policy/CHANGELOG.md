@@ -2,7 +2,28 @@
 
 ## [Unreleased]
 
-**7 / 19 minor entries** <!-- pending-tally -->
+**7 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/sessionstart-snapshot · 20261018-210620Z
+
+The dev server's SessionStart page also shows the last full session-start measurement: every layer a
+session loads, by who can change it, the actions ranked by gain, and the advice.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- the page is this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The SessionStart page shows the last full session-start measurement
+
+[PR #3129](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3129)
+
+---
 
 ### DEPLOY: feat/specialists-page · 20261018-190506Z
 

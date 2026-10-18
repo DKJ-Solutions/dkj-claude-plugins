@@ -374,6 +374,13 @@ try {
         Assert-True ((& $getRaw $genPort '/house-style.css') -match 'HTTP/1.1 200' -and (& $getRaw $genPort '/house-theme.js') -match 'HTTP/1.1 200') 'the general server serves the plugin''s house style'
         $r2 = & $getRaw $genPort '/sessionstart'
         Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>SessionStart</h1>') '/sessionstart answers, with a model or with the reason it has none, never a failed request'
+        Assert-True ($r2 -notmatch 'id="last-measurement"' -and $r2 -notmatch 'session-start-snapshot') 'and, in a repo that keeps no session-start snapshot, adds nothing for it (#3129)'
+        $snapFile = Join-Path $noConfig 'scripts\dashboard\session-start-snapshot.json'
+        [System.IO.File]::WriteAllText($snapFile, '{ "asOf": "2026-10-02", "items": [ { "name": "Docs", "influence": "direct", "tokens": 600, "measured": true, "source": "s" } ] }')
+        Assert-True ((& $getRaw $genPort '/sessionstart') -match 'id="last-measurement"' -and (& $getRaw $genPort '/sessionstart') -match '>Docs<') 'where the repo keeps scripts/dashboard/session-start-snapshot.json, the page shows the last full measurement below the live table'
+        [System.IO.File]::WriteAllText($snapFile, '{ not json')
+        Assert-True ((& $getRaw $genPort '/sessionstart') -match 'session-start-snapshot.json could not be read: it is not valid JSON') 'and an unreadable one is a warning on the page'
+        Remove-Item -LiteralPath $snapFile -Force
         Assert-True ((& $getRaw $genPort '/nope') -match 'HTTP/1.1 404') 'and an unknown path is a 404'
         Assert-True ((& $getRaw $genPort '/refresh?page=//evil.example') -match 'Location: /\r') '/refresh goes only to a page of its own list'
 

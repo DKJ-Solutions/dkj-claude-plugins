@@ -133,6 +133,40 @@ $failed = Format-SessionStartPageHtml -Model $null -ReadError 'boom <x>'
 Assert-True ($failed -match 'could not be measured: boom &lt;x&gt;') 'a failed measurement is a warning, escaped'
 Assert-True ($failed -match 'No always-on document was measured') 'and the table says it is empty'
 
+Write-Host '-- the SessionStart snapshot' -ForegroundColor Cyan
+Assert-True ($ss -notmatch 'id="last-measurement"') 'without a snapshot the page shows only the live table'
+$snap = @'
+{ "asOf": "2026-10-02", "header": { "eyebrow": "the fourth", "lede": "About **47k** in `CLAUDE.md` <b>" },
+  "items": [
+    { "id": "a", "name": "Docs", "influence": "direct", "tokens": 600, "measured": true, "source": "s", "previousTokens": 700 },
+    { "id": "b", "name": "Stubs", "influence": "setting", "tokens": 100, "measured": false, "source": "s" },
+    { "id": "c", "name": "Tools", "influence": "none", "tokens": 300, "measured": false, "source": "s" } ],
+  "actions": { "lede": "ranked", "items": [
+    { "id": "x", "influence": "direct", "done": true, "tokens": 50, "title": "Old one", "text": "t" },
+    { "id": "y", "influence": "setting", "done": false, "tokens": 900, "title": "Open one", "text": "t", "caveat": "careful" } ] },
+  "none": { "items": [ { "title": "Harness", "text": "fixed" } ] },
+  "advice": { "heading": "Do this", "steps": [ { "title": "1", "text": "first" } ], "dont": { "label": "Do not", "text": "that" } },
+  "footer": "method", "previous": { "noneTokens": 200, "totalTokens": 1000 },
+  "source": { "artifact": "https://claude.ai/artifact/abc", "title": "Session-start context", "copied": "2026-10-18" } }
+'@ | ConvertFrom-Json
+$sp = Format-SessionStartPageHtml -Model $ssModel -Snapshot $snap
+Assert-True ($sp -match 'id="last-measurement"' -and $sp.IndexOf('id="documents"') -lt $sp.IndexOf('id="last-measurement"')) 'the snapshot follows the live table'
+Assert-True ($sp -match 'About <strong>47k</strong> in <code>CLAUDE.md</code> &lt;b&gt;') 'the lede renders bold and code, and escapes the rest'
+Assert-True ($sp -match 'Efficiency score</div><div class="v num">30 / 100 \(was 20\)') 'the score is the no-influence share, against the previous one'
+Assert-True ($sp -match 'Direct \(tokens\)</div><div class="v num">~600 \(60%\)') 'the influence tiles sum the layers'
+Assert-True ($sp.IndexOf('>Docs') -lt $sp.IndexOf('>Stubs') -and $sp.IndexOf('>Stubs') -lt $sp.IndexOf('>Tools')) 'the layers are grouped direct, setting, none'
+Assert-True ($sp -match '<td class="num">-100</td>') 'a layer that shrank shows by how much'
+Assert-True ($sp -match '<td class="num">~100</td>') 'an estimated layer is marked as one'
+Assert-True ($sp.IndexOf('Open one') -lt $sp.IndexOf('Old one')) 'open actions come before done ones'
+Assert-True ($sp -match 'Old one.*?&#10003;</span>Done') 'a done action says so'
+Assert-True ($sp -match '<em>Caveat:</em> careful') 'an action carries its caveat'
+Assert-True ($sp -match '<dt>Harness</dt><dd>fixed</dd>' -and $sp -match '<strong>Do not:</strong> that') 'what cannot change, and the advice, are shown'
+Assert-True ($sp -match 'href="https://claude.ai/artifact/abc"') 'the source Artifact is linked'
+$snap.source.artifact = 'javascript:alert(1)'
+Assert-True ((Format-SessionStartPageHtml -Model $ssModel -Snapshot $snap) -notmatch 'javascript:') 'a source that is not an Artifact link is not linked'
+$badSnap = Format-SessionStartPageHtml -Model $ssModel -SnapshotError 'it is not valid JSON'
+Assert-True ($badSnap -match 'session-start-snapshot.json could not be read: it is not valid JSON') 'an unreadable snapshot is a warning'
+
 Write-Host '-- the Artifacts link check' -ForegroundColor Cyan
 Assert-True (Test-ArtifactUrl 'https://claude.ai/artifact/TzrnhFefotMqYp6oWXYp5y') 'a claude.ai/artifact link is one'
 Assert-True (Test-ArtifactUrl 'https://claude.ai/code/artifact/7d2fa536-ace6-412a-8977-60a4ddc4b6be') 'and so is a claude.ai/code/artifact link'

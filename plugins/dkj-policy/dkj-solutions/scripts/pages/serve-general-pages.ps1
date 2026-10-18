@@ -18,7 +18,9 @@
                       read for 30 s only. A gh that fails or is missing is a warning on the page, never a blank.
       /release-notes  dkj-policy/releases/page/release-notes.html, dressed in the house style on the way out;
                       a 404 text where the page is not built.
-      /sessionstart   the always-on path, measured in a CHILD process by always-on-budget-lib.ps1, found in
+      /sessionstart   (also: scripts/dashboard/session-start-snapshot.json, where the repo keeps one -- the last
+                      full session-start measurement, shown below the live table; absent, nothing is added)
+                      the always-on path, measured in a CHILD process by always-on-budget-lib.ps1, found in
                       the repo's own scripts/lib, else in the plugin's source tree, else in the highest
                       dkj-policy version in the plugin cache. Kept for -CacheSeconds.
                       The child first dot-sources the repo's own scripts/repo-config.ps1, the trust the
@@ -171,6 +173,14 @@ function Get-JsonFileModel {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @{ Json = $null; Error = 'the file is not there' } }
     try { return @{ Json = (Get-Content -LiteralPath $Path -Raw -Encoding UTF8 | ConvertFrom-Json); Error = '' } }
     catch { return @{ Json = $null; Error = 'it is not valid JSON' } }
+}
+
+function Get-SessionStartSnapshot {
+    <# The repo's scripts/dashboard/session-start-snapshot.json, read on every request: one small file. Only some repos keep one, so a missing file is no error and adds nothing to the page. #>
+    $path = Join-Path $root 'scripts\dashboard\session-start-snapshot.json'
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @{ Data = $null; Error = '' } }
+    try { return @{ Data = (Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json); Error = '' } }
+    catch { return @{ Data = $null; Error = 'it is not valid JSON' } }
 }
 
 function Get-IssuesModel {
@@ -361,7 +371,8 @@ try {
                 $html = Format-IssuesPageHtml -Model $isCache.Model -ReadError $isCache.Error -GeneratedAt $isCache.GeneratedAt -Seconds $isCache.Seconds -RepoName (Get-RepoIdentity).Name
             } elseif ($path -eq '/sessionstart') {
                 if ($null -eq $ssCache -or ((Get-Date) - $ssCache.At).TotalSeconds -ge $CacheSeconds) { $ssCache = Get-SessionStartModel }
-                $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -RepoName (Get-RepoIdentity).Name
+                $snap = Get-SessionStartSnapshot
+                $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -RepoName (Get-RepoIdentity).Name -Snapshot $snap.Data -SnapshotError $snap.Error
             } elseif ($path -eq '/release-notes') {
                 if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: this repo has no dkj-policy/releases/page/release-notes.html. The dkj-policy plugin builds it with scripts/release/build-release-notes-page.ps1.'))
