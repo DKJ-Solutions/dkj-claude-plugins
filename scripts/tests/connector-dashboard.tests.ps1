@@ -453,7 +453,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         }
         Start-Sleep -Milliseconds 500
         Remove-Item -LiteralPath $fixture4 -Recurse -Force -ErrorAction SilentlyContinue
-        if ($port4) { Remove-Item -LiteralPath (Join-Path ([System.IO.Path]::GetTempPath()) "serve-connector-dashboard-$port4.log") -Force -ErrorAction SilentlyContinue }
+        if ($port4) { Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Filter "serve-connector-dashboard-$port4-*.log" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue }
     }
 } else {
     Write-Host '  [SKIP] group 4 needs Windows PowerShell, git and group 2' -ForegroundColor Yellow

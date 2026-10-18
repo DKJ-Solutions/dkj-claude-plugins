@@ -40,7 +40,7 @@
     root first, as the hook's own start line does, so the hook still recognises it as this checkout's.
     The hub's "Source at" names that loaded commit, not the live one. Static files skip the check.
     A successor that dies at start (a broken commit) leaves the port empty, with the reason in
-    %TEMP%\serve-connector-dashboard-<Port>.log; the next session's hook starts a server again. A root
+    %TEMP%\serve-connector-dashboard-<Port>-<guid>.log; the next session's hook starts a server again. A root
     holding '%' or '"', which cmd.exe would rewrite, gets the notice but no restart.
 
     Pure ASCII (repo convention for .ps1). The page's rules are in scripts/lib/connector-dashboard-lib.ps1,
@@ -465,7 +465,12 @@ if ($restart -and ($root + $PSCommandPath) -notmatch '[%"]') {
     $argLine = (@($PSBoundParameters.GetEnumerator() | Where-Object { $_.Key -ne 'RepoRootOverride' } |
         ForEach-Object { "-$($_.Key) `"$($_.Value)`"" }) -join ' ')
     if ($RepoRootOverride) { $argLine += " -RepoRootOverride `"$root`"" }
-    $log = Join-Path ([System.IO.Path]::GetTempPath()) "serve-connector-dashboard-$Port.log"
-    Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle Hidden -ArgumentList (
-        '/d /s /c "cd /d "{0}" && powershell -NoProfile -ExecutionPolicy Bypass -File "{1}" {2} > "{3}" 2>&1"' -f $root, $PSCommandPath, $argLine, $log) | Out-Null
+    $log = Join-Path ([System.IO.Path]::GetTempPath()) "serve-connector-dashboard-$Port-$([guid]::NewGuid().ToString('n')).log"
+    try {
+        Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle Hidden -ArgumentList (
+            '/d /s /c "cd /d "{0}" && powershell -NoProfile -ExecutionPolicy Bypass -File "{1}" {2} > "{3}" 2>&1"' -f $root, $PSCommandPath, $argLine, $log) | Out-Null
+    } catch {
+        # The port is free either way, so the next session's hook starts a server again.
+        [Console]::Error.WriteLine("serve-connector-dashboard: the successor did not start -- $($_.Exception.Message)")
+    }
 }
