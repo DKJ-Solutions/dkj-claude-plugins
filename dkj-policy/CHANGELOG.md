@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**3 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/house-style-v0-3-0 · 20261018-093108Z
+
+The `house-style` skill now fetches from the brand book's `v0.3.0` release
+([DKJ-Solutions/dkj-brandbook@v0.3.0](https://github.com/DKJ-Solutions/dkj-brandbook/releases/tag/v0.3.0)). Both files changed, so the two vendored copies move with the pin. No token was renamed or removed, so the retired-name list stands.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+An app that takes the new copy can declare one default theme with `<html data-theme-default="teal">`
+instead of a light/dark pair, and can build a navigation list of links with `a.menu-item` and a one-line
+`.menu-item__sub` description. Both are opt-in: an app that changes nothing renders exactly as before,
+since `data-theme-light`/`data-theme-dark` are still read and no token was renamed or removed.
+
+**Score:** 2
+
+#### Pull Request
+
+house-style skill: repoint at dkj-brandbook v0.3.0
+
+Plugins: dkj-solutions
+
+[PR #3105](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3105)
+
+---
 
 ### DEPLOY: fix/3103-repoint-absent-branch · 20261018-090522Z
 
