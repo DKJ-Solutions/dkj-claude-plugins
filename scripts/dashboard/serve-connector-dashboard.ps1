@@ -246,10 +246,9 @@ function Get-IssuesModel {
     $since = $started.ToUniversalTime().AddDays(-28).ToString('yyyy-MM-dd')
     $fields = 'number,title,state,stateReason,labels,assignees,createdAt,closedAt'
     $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
-    # Loaded here rather than at start: it pulls in libs of its own, and only this page needs it.
-    if (-not (Get-Command Invoke-NativeCapture -ErrorAction SilentlyContinue)) {
-        try { . (Join-Path $root 'scripts\lib\native-capture-lib.ps1') } catch { }
-    }
+    # Loaded here rather than at start: it pulls in libs of its own, and only this page needs it. Its
+    # functions live in this call's scope; a lib that fails to load surfaces as the read error below.
+    try { . (Join-Path $root 'scripts\lib\native-capture-lib.ps1') } catch { }
     $read = {
         param([string[]]$Extra)
         # -Utf8: gh writes UTF-8, and 5.1 would decode a title's non-ASCII through the console code page.
