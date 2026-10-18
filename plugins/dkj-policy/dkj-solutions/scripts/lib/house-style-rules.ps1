@@ -2,7 +2,7 @@
 .SYNOPSIS
     The rules behind check-house-style (#3035): is every vendored copy of the house style the copy the
     house-style skill pins, does the repo's own layer leave the house tokens and classes alone, and does
-    it still use a token name the brand book retired.
+    it still use a token name the house style retired.
 
 .DESCRIPTION
     WHY IT EXISTS. Measured October 15, 2026 across the DKJ-Solutions org, nothing checked a consumer's
@@ -20,8 +20,8 @@
       2. redefine -- the repo's own layer defines no house token (`--x:`) and styles no house class as
                      the subject of its own rule. The house set is read from the verified copy itself,
                      so it follows the pinned tag without a second list to maintain.
-      3. retired  -- the repo's own layer neither defines nor reads (`var(--x)`) a token name the brand
-                     book retired.
+      3. retired  -- the repo's own layer neither defines nor reads (`var(--x)`) a token name the house
+                     style retired.
 
     PATTERN GREP, NOT A PARSE. Checks 2 and 3 match patterns rather than parse CSS or SCSS: no runtime
     dependency, and a bare Windows PowerShell 5.1 runs it. The price is the occasional false positive,
@@ -47,9 +47,9 @@
     name in the `Was` column of the rename tables in house-style/README.md at the pinned tag, minus
     every name that tag's stylesheet defines again (`--primary-3` was renamed and is live with a new
     meaning). The rename tables alone miss `--gain`, which v1 and v2 defined and v3 dropped without a
-    row. They are listed here rather than fetched, so the gate needs no network; a
-    repoint of the skill to a new tag updates this list in the same change, and the suite holds the
-    list to the vendored copy so a live name can never be listed as retired.
+    row. They are listed here rather than fetched, so the gate needs no network; a change to the
+    canonical copy in assets/house-style/ that retires a name updates this list in the same change
+    (#3130), and the suite holds the list to that copy so a live name can never be listed as retired.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/check-house-style.tests.ps1 in the
     source repo -- change one, run the other.
@@ -58,7 +58,7 @@
 Set-StrictMode -Version Latest
 
 function Get-HouseStyleRetiredTokens {
-    <# The token names the brand book retired, as of the tag the skill pins (v0.4.0). #>
+    <# The token names the house style retired, as of the tag the skill pins (v0.4.0). #>
     return [string[]]@(
         '--axis', '--bad', '--border', '--border-base', '--down', '--gain', '--good', '--grid', '--grid-base',
         '--ink', '--ink-2', '--loss', '--muted', '--neutral-1', '--neutral-2', '--neutral-3', '--neutral-4',
@@ -434,7 +434,7 @@ function Invoke-HouseStyleCheck {
             $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class in the dkj-solutions plugin (plugins/dkj-policy/dkj-solutions/assets/house-style/)" }
         }
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $retired -IncludeReads)) {
-            $hits += @{ Check = 'retired'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "$($h.Kind) $($h.Name), a token name the brand book retired -- rename it per the rename tables in house-style/README.md at $($Pin.Tag)" }
+            $hits += @{ Check = 'retired'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "$($h.Kind) $($h.Name), a token name the house style retired -- rename it per the rename tables in house-style/README.md at $($Pin.Tag)" }
         }
         foreach ($f in $hits) {
             if (Test-HouseStyleAllowed -Path $rel -Name $f.Name -Allow $Allow) { $allowed++ } else { $findings.Add($f) }

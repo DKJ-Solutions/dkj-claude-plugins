@@ -299,7 +299,7 @@ by the one-label rule above, and moves to `awaiting-pull` once that root wait cl
   ([#3044](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3044), October 15, 2026). The
   upstream merge does not unblock such an issue. It still waits on the upstream release, and on this repo
   taking the new copy through whatever skill or file delivers it. Measured in a consumer, the issue waited
-  on a new house-style token in `dkj-brandbook`. `awaiting-pull` would come off two steps too early, and
+  on a new house-style token that was still released from a separate repo. `awaiting-pull` would come off two steps too early, and
   the owner read it as "a PR exists" when none did yet. `awaiting-action-external` and `awaiting-release`
   name a third party's date and this repo's own cut. **The label comes off once the upstream work is
   available here**: merged, released and picked up. Name the blocking issue (`owner/repo#n`) in the body.

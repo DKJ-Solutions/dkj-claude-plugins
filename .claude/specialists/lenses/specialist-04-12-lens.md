@@ -12,12 +12,14 @@ group: 04
 
 **Gwen's domain here is the `house-style` skill page**:
 [`plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md`](../../../plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md).
-Since October 13, 2026 it is a pointer: the stylesheet, the theme script and the full rules live in
-[DKJ-Solutions/dkj-brandbook](https://github.com/DKJ-Solutions/dkj-brandbook) (`house-style/`), and a
-change to the house style is made there, not here. Nothing in this repo renders, so the page is all she
-has here.
+Since October 18, 2026 ([#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)) the
+stylesheet, the theme script, the full rules and the page patterns live in this plugin's
+[`assets/house-style/`](../../../plugins/dkj-policy/dkj-solutions/assets/house-style/), and the change to
+the house style is made there. The page stays a pointer to them (they were in `dkj-brandbook` from
+October 13). The source repo's own Repo hub renders them, so a change to them is a visible result that
+stops for the owner's look.
 
 - **Keep the page a pointer.** It carries where the files are and the three rules a session needs before
   it fetches them (copy unchanged, a repo layer on top, never redefine). Token tables, themes and
-  reserved class names belong in the brand book's `house-style/README.md`; a second copy here is the
+  reserved class names belong in `assets/house-style/README.md`; a second copy on the page is the
   drift the move removed.
