@@ -64,7 +64,7 @@ function Format-DevPageHtml {
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
     # The theme key is the index page's, so a theme picked on one page holds on every page of this server.
-    [void]$sb.AppendLine('<html lang="en" data-theme-light="teal" data-theme-dark="sky" data-theme-key="' + (& $e $ThemeKey) + '">')
+    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-theme-key="' + (& $e $ThemeKey) + '">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
@@ -128,7 +128,7 @@ function Format-RepoHubHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
-    [void]$sb.AppendLine('<html lang="en" data-theme-light="teal" data-theme-dark="sky" data-theme-key="connector-dashboard">')
+    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-theme-key="connector-dashboard">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
