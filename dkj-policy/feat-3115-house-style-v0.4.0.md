@@ -39,19 +39,44 @@
 
 ### PLAN
 
+Opened by the house-style repoint runner (#3100): `DKJ-Solutions/dkj-brandbook` released `v0.4.0`, and the skill pinned `v0.3.0`.
+The files served at `v0.4.0` passed the denylist of spellings the skill page forbids, which is not a
+review of the script. Both files changed, so the two vendored copies move with the pin. No token was renamed or removed, so the retired-name list stands.
+Before shipping: read the release in the brand book, score the two DEPLOY tiers, and say there what an
+app that takes the new copy will notice.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Repoint every brand-book link in the `house-style` skill to `v0.4.0`, its commit to `b1f1a69f` and both checksums
+- [x] Replace the vendored copies under `scripts/dashboard/house-style/` and the plugin's `assets/house-style/`
+- [x] `Get-HouseStyleRetiredTokens` follows the new tag
+- [x] The repoint's safety read refused `v0.4.0` (`house-theme.js stores under more than one key: key, widthKey`). The single-key rule was the script's own reading, not one #2954 or #3100 names (they name network calls, `eval`, `@import` and remote `url()`); the width choice is a device preference exactly as the theme is. `Get-HouseStyleSafetyFindings` now accepts several keys only where every one is a house `dkj-` name (a literal, or a variable declared from one); a foreign second key is still a finding, and `house-style-repoint.tests.ps1` holds both cases
 
 ### TEST
 
+The required check runs `check-house-style.tests.ps1`, which holds both vendored copies to the new checksums.
+
+- [x] Read the `house-theme.js` diff in full: it is inlined into every app that takes the copy, and no check here can prove a script harmless -- read: the width group, `setWidth`/`width()` and a second `localStorage` key `dkj-width<suffix>` holding only a value checked against `fluid|phone|full`; no network, no `eval`, no new sink beyond the panel's own fixed markup
+- [x] The dev server serves the new copy (`/house-theme.js` carries `dkj-width`); the settings panel's look is for the owner to judge on this branch
+
 ### DEPLOY: feat/3115-house-style-v0.4.0
 
-**Score:**
+The `house-style` skill now fetches from the brand book's `v0.4.0` release
+([DKJ-Solutions/dkj-brandbook@v0.4.0](https://github.com/DKJ-Solutions/dkj-brandbook/releases/tag/v0.4.0)). Both files changed, so the two vendored copies move with the pin. No token was renamed or removed, so the retired-name list stands.
+The settings panel of every page the dev server renders now offers the page width -- fluid, phone or
+full -- remembered per device like the theme ([#3115](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3115),
+brand book #203). The repoint's safety read now accepts a second storage key where it is a house
+`dkj-` name, which is what let this release through; a foreign key is still refused.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app that takes the plugin's `assets/house-style/` copy gets the width choice in its
+settings panel without writing a line, and can opt out with `settings(el, { widths: false })` where
+its layout has no page column.
+
+**Score:** 2
 
 #### Pull Request
 

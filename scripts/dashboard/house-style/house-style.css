@@ -429,7 +429,7 @@ p, p.meta { color: var(--primary-9); }
 .theme-swatch:focus-visible { outline: 2px dashed var(--primary-5); outline-offset: 4px; }       /* keyboard focus: a different ring */
 
 /* ---- Settings button (drawn by house-theme.js: DKJTheme.settings(el)) ------- */
-/* A round toggle that opens a panel with the theme picker, a reset and the app's own controls
+/* A round toggle that opens a panel with the theme picker, the page width, a reset and the app's own controls
    (.theme-settings__extra). Inline by default, e.g. in a .topbar; --floating fixes it top right.
    The panel lies over the page, so nothing moves when it opens. */
 .theme-settings { position: relative; display: inline-block; }
@@ -453,6 +453,7 @@ p, p.meta { color: var(--primary-9); }
 .theme-settings__foot { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-4); }
 .theme-settings__extra:empty { display: none; }
 .theme-settings__reset { margin-left: auto; }
+.theme-settings__width { justify-self: start; height: var(--tap); }   /* the page width: a .seg at tap height */
 
 /* ==========================================================================
    App components: the generic, mobile-first parts of an app shell (lifted from MesoWise).
@@ -465,6 +466,16 @@ p, p.meta { color: var(--primary-9); }
 /* ---- Narrow column --------------------------------------------------------- */
 /* The mobile app column: a phone, and on a computer the same 512px. Use on main or .container. */
 .container--narrow, main.narrow { max-width: var(--column-narrow); }
+
+/* ---- Page width (house-theme.js: <html data-width="fluid|phone|full">) ------ */
+/* The width a user picks in the settings panel. fluid is the column above, so it needs no rule; phone
+   narrows the page column to 360px (the smallest phone an app supports) and full lifts its maximum. Both
+   reach the breadcrumb bar's .container, so the trail still lines up with the column, and the narrow
+   column too. The attribute sits in :where(), so an app's own column class still wins. */
+:where(:root[data-width="phone"]) main, :where(:root[data-width="phone"]) .container,
+:where(:root[data-width="phone"]) main.narrow, :where(:root[data-width="phone"]) .container--narrow { max-width: 360px; }
+:where(:root[data-width="full"]) main, :where(:root[data-width="full"]) .container,
+:where(:root[data-width="full"]) main.narrow, :where(:root[data-width="full"]) .container--narrow { max-width: none; }
 
 /* ---- Form field ------------------------------------------------------------ */
 /* <label class="field"><span>Label</span><input></label>, or a <select>. The error line sits

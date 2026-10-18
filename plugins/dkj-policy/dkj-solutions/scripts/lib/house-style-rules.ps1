@@ -58,7 +58,7 @@
 Set-StrictMode -Version Latest
 
 function Get-HouseStyleRetiredTokens {
-    <# The token names the brand book retired, as of the tag the skill pins (v0.3.0). #>
+    <# The token names the brand book retired, as of the tag the skill pins (v0.4.0). #>
     return [string[]]@(
         '--axis', '--bad', '--border', '--border-base', '--down', '--gain', '--good', '--grid', '--grid-base',
         '--ink', '--ink-2', '--loss', '--muted', '--neutral-1', '--neutral-2', '--neutral-3', '--neutral-4',

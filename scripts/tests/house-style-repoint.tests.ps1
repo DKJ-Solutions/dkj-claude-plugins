@@ -68,6 +68,7 @@ $cases = [ordered]@{
     'document.cookie' = @('', 'var c = document.cookie;')
     'sessionStorage'  = @('', 'sessionStorage.setItem("a", "b");')
     'a second key'    = @('', 'localStorage.setItem(key, id); localStorage.setItem("other", 1);')
+    'a foreign second key' = @('', "var key = 'dkj-theme'; var k2 = 'track'; localStorage.setItem(key, id); localStorage.setItem(k2, 1);")
     '@import'         = @('@import "x.css";', '')
     'a remote url()'  = @('a { background: url(https://x/y.png); }', '')
     'a //host url()'  = @("a { background: url('//x/y.png'); }", '')
@@ -77,6 +78,7 @@ foreach ($name in $cases.Keys) {
     Assert-True ($f.Count -gt 0) "$name is a finding"
 }
 Assert-Equal 0 @(Get-HouseStyleSafetyFindings -CssText 'a { background: url(data:image/png;base64,AA); } /* @import x */' -JsText 'prefetch(); refetch(1); localStorage.setItem(key, id);').Count 'a data url, a commented @import and a name containing fetch are not'
+Assert-Equal 0 @(Get-HouseStyleSafetyFindings -CssText '' -JsText "var key = 'dkj-theme' + s; var widthKey = 'dkj-width' + s; localStorage.setItem(key, id); localStorage.setItem(widthKey, w);").Count 'two house dkj- keys (theme and width, v0.4.0) are not'
 
 Write-Host '-- group 3: the retired names' -ForegroundColor Cyan
 
