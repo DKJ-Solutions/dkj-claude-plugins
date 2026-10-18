@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**4 / 11 minor entries** <!-- pending-tally -->
+**4 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3112-harvest-artifacts · 20261018-130135Z
+
+The Artifacts register behind the dev server's `/artifacts` page is no longer kept by hand
+([#3112](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3112)). The new repo-local
+`harvest-artifacts` skill reads this machine's session transcripts and adds every Artifact or Claude
+Docs doc a session here published that the register lacks; it only adds, so a title or kind corrected
+in the register by hand is kept. A dry run unless `-Apply`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the dev server and its register are this repo's own maintenance tools; nothing a plugin user installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Artifacts register is filled from the session transcripts
+
+[PR #3114](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3114)
+
+---
 
 ### DEPLOY: feat/artifacts-page · 20261018-123507Z
 
