@@ -437,7 +437,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         $css = if ($up) { Get-Raw 'GET' '/house-style.css' "localhost:$port4" '' $port4 } else { '' }
         Assert-True ($css -notmatch 'HTTP/1.1 503') 'a static file skips the check'
         $moved = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
-        Assert-True ($moved -match 'HTTP/1.1 503' -and $moved -match 'Refresh: 2' -and $moved -match 'restarting on the new code') 'a page asked for after HEAD moved answers 503 and reloads'
+        Assert-True ($moved -match 'HTTP/1.1 503' -and $moved -match 'Refresh: 3' -and $moved -match 'restarting on the new code') 'a page asked for after HEAD moved answers 503 and reloads'
         Assert-True ($proc4.WaitForExit(15000)) 'and the old server exits'
         $up = Wait-ServerUp $port4
         Assert-True $up 'its successor listens on the same port'
@@ -453,6 +453,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         }
         Start-Sleep -Milliseconds 500
         Remove-Item -LiteralPath $fixture4 -Recurse -Force -ErrorAction SilentlyContinue
+        if ($port4) { Remove-Item -LiteralPath (Join-Path ([System.IO.Path]::GetTempPath()) "serve-connector-dashboard-$port4.log") -Force -ErrorAction SilentlyContinue }
     }
 } else {
     Write-Host '  [SKIP] group 4 needs Windows PowerShell, git and group 2' -ForegroundColor Yellow

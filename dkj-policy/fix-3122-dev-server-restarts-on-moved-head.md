@@ -50,6 +50,9 @@ it reuses cannot be stale.
   503 that reloads in two seconds, and the server starts its successor on the same port under a
   cmd.exe that changes into the root first, so the hook still recognises it
 - [x] "Source at" names the loaded commit, not the live one
+- [x] Review (Victor, Sebastian): no blocking findings; applied the refusal of '%' and '"' in the
+  cmd.exe line, the resolved root forwarded instead of the raw override, a 3 s reload, and the test's
+  log cleanup
 
 ### TEST
 
