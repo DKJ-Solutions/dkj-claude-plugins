@@ -42,13 +42,19 @@ Assert-True ($shell -match '<p class="footer-note">note</p>') 'the footer note c
 
 Write-Host '-- the Repo hub' -ForegroundColor Cyan
 $pages = @(Get-RepoHubPages)
-Assert-Equal '/artifacts,/connectors,/release-notes,/sessionstart,/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the five pages, in order'
+Assert-Equal '/connectors,/test-gate,/artifacts,/issues,/release-notes,/sessionstart' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links the six pages, in order'
+Assert-Equal 'repo,repo,general,general,general,general' (($pages | ForEach-Object { $_.Group }) -join ',') 'the repo''s own pages first, then the general ones'
 $hub = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234'
 Assert-True ($hub -match '<title>dkj-claude-plugins -- Repo hub</title>' -and $hub -match '<h1>Repo hub</h1>') 'the h1 and the title are Repo hub, word for word'
 Assert-True ($hub -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo hub</span></li>\s*</ol>') 'the bar opens <body>, its trail the one crumb Repo hub'
 Assert-True ($hub -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>' -and $hub -notmatch '<header' -and $hub -notmatch 'btn--primary') 'the intro is the slug and no <header>, and there is no product button'
-Assert-Equal 5 ([regex]::Matches($hub, '<a class="menu-item" href="/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
+Assert-Equal 6 ([regex]::Matches($hub, '<a class="menu-item" href="/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron'
 Assert-True ($hub -match '<nav class="menu-list" aria-label="Pages">\r?\n<a class="menu-item"' -and $hub -match '</a>\r?\n<a class="menu-item"') 'the rows are direct siblings in the nav, so the house draws the line between them'
+Assert-True ($hub -match '<h2 class="card__title">Pages</h2>.*\r?\n<nav class="menu-list" aria-label="Pages">\r?\n<a class="menu-item" href="/connectors"' -and $hub -match '<h2 class="card__title">General pages</h2>.*\r?\n<nav class="menu-list" aria-label="General pages">\r?\n<a class="menu-item" href="/artifacts"') 'the repo''s own pages are in the Pages card, the general ones in a card of their own'
+Assert-True ($hub.IndexOf('href="/test-gate"') -lt $hub.IndexOf('General pages</h2>') -and $hub.IndexOf('href="/issues"') -gt $hub.IndexOf('General pages</h2>')) 'and no page sits in the other group''s card'
+Assert-True ($hub -match '<div class="grid-2">\r?\n<section class="card">\r?\n<div class="card__head"><h2 class="card__title">Pages</h2>' -and $hub.IndexOf('General pages</h2>') -lt $hub.IndexOf('</div>' + [Environment]::NewLine + '<section class="card">' + [Environment]::NewLine + '<div class="card__head"><h2 class="card__title">About this repo')) 'the two cards stand on one row, in the house .grid-2'
+Assert-True ((Format-RepoHubHtml -Pages @(@{ Href = '/x'; Label = 'X'; Sub = '' })) -notmatch 'grid-2') 'and one card alone gets no row'
+Assert-True ((Format-RepoHubHtml -Pages @(@{ Href = '/x'; Label = 'X'; Sub = '' })) -notmatch 'General pages') 'a group with no page has no card, and a page without a Group is the repo''s own'
 Assert-True ($hub -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'About this repo names the commit it serves from'
 Assert-True ((Format-RepoHubHtml -Pages $pages) -notmatch 'Source at') 'and leaves the row out when the commit could not be read'
 $ix = @('class="breadcrumbs-bar"', 'id="settings"', 'class="eyebrow"', 'Pages</h2>', 'About this repo</h2>', 'class="footer-note"') | ForEach-Object { $hub.IndexOf($_) }
@@ -233,6 +239,42 @@ Assert-True ($rn.Contains('<div class="wrap">') -and $rn.Contains('@@RELEASE_ROW
 Assert-True ($tpl.Contains(':root[data-width="phone"] .wrap {') -and $tpl.Contains(':root[data-width="full"] .wrap { max-width: none; }')) 'the template''s column follows the page-width setting'
 Assert-Equal '<html>fixture</html>' (Format-ReleaseNotesDevPage -Html '<html>fixture</html>') 'a page without the template''s shape is served as it came'
 
+Write-Host '-- the Issues model' -ForegroundColor Cyan
+$now = [DateTime]::new(2026, 10, 18, 12, 0, 0, [DateTimeKind]::Utc)
+$isOpen = '[ { "number": 7, "title": "Free <b>", "state": "OPEN", "labels": [ { "name": "bug" }, { "name": "prio-3" } ], "assignees": [], "createdAt": "2026-10-16T12:00:00Z", "closedAt": null },
+  { "number": 8, "title": "Parked", "state": "OPEN", "labels": [ { "name": "feature" }, { "name": "awaiting-decision-dev" } ], "assignees": [ { "login": "a" } ], "createdAt": "2026-10-10T12:00:00Z", "closedAt": null },
+  { "number": 9, "title": "Claimed", "state": "OPEN", "labels": [ { "name": "bug-inbound" }, { "name": "bug" }, { "name": "prio-3" } ], "assignees": [ { "login": "b" } ], "createdAt": "2026-08-01T12:00:00Z", "closedAt": null } ]' | ConvertFrom-Json
+$isRecent = '[ { "number": 1, "title": "Done", "state": "CLOSED", "stateReason": "COMPLETED", "labels": [ { "name": "bug" }, { "name": "prio-2" } ], "assignees": [], "createdAt": "2026-10-17T00:00:00Z", "closedAt": "2026-10-17T10:00:00Z" },
+  { "number": 1, "title": "Done", "state": "CLOSED", "stateReason": "COMPLETED", "labels": [ { "name": "bug" }, { "name": "prio-2" } ], "assignees": [], "createdAt": "2026-10-17T00:00:00Z", "closedAt": "2026-10-17T10:00:00Z" },
+  { "number": 2, "title": "Old one closed", "state": "CLOSED", "stateReason": "NOT_PLANNED", "labels": [], "assignees": [], "createdAt": "2026-09-01T00:00:00Z", "closedAt": "2026-10-01T00:00:00Z" },
+  { "number": 3, "title": "Closed before the window", "state": "CLOSED", "stateReason": "COMPLETED", "labels": [], "assignees": [], "createdAt": "2026-09-01T00:00:00Z", "closedAt": "2026-09-02T00:00:00Z" },
+  { "number": 7, "title": "Free <b>", "state": "OPEN", "labels": [ { "name": "bug" }, { "name": "prio-3" } ], "assignees": [], "createdAt": "2026-10-16T12:00:00Z", "closedAt": null } ]' | ConvertFrom-Json
+$im = ConvertFrom-IssueList -Open @($isOpen | ForEach-Object { $_ }) -Recent @($isRecent | ForEach-Object { $_ }) -Now $now -Days 28
+Assert-Equal '7,9,8' ((@($im.Open) | ForEach-Object { $_.Number }) -join ',') 'open issues, highest priority first, then by number'
+Assert-Equal 'Free,Claimed,Parked' ((@($im.Open) | ForEach-Object { $_.Board }) -join ',') 'a parking label wins over an assignee; an assignee makes it claimed'
+Assert-Equal 'bug-inbound' (@($im.Open)[1].Kind) 'an inbound label names the kind before bug'
+Assert-Equal 3 $im.Opened 'opened in the window: #7, #8 and #1, #1 counted once'
+Assert-Equal 2 $im.Closed 'closed in the window: #1 and #2, not #3'
+Assert-Equal 1 $im.Matrix['3'].Free 'the matrix counts the free prio-3 issue...'
+Assert-Equal 1 $im.Matrix['3'].Claimed '...and the claimed one'
+Assert-Equal 1 $im.Matrix['0'].Parked 'an issue without a priority lands in row 0'
+Assert-Equal 4 @($im.Weeks).Count 'a 28-day window is four weeks'
+Assert-Equal 2 @($im.Weeks)[-1].Opened 'the last week holds the openings of #7 and #1'
+Assert-Equal 1 @($im.Weeks)[-1].Closed 'and the one close of that week'
+Assert-Equal 365.0 ([double]$im.MedianCloseHours) 'the median of 10 h and 720 h is their mean'
+Assert-Equal 'completed,not planned' ((@($im.ClosedBy.Reason) | ForEach-Object { $_.Name }) -join ',') 'closed-as reasons, lowercase'
+
+Write-Host '-- the Issues page' -ForegroundColor Cyan
+$ip = Format-IssuesPageHtml -Model $im -GeneratedAt '2026-10-18 14:00:00' -Seconds 3.2
+Assert-True ($ip -match '<h1>Issues</h1>' -and $ip -match '<span aria-current="page">Issues</span>') 'the page is named Issues, in the h1 and the trail'
+Assert-True ($ip -match 'Open now</div><div class="v num">3<') 'the tile counts the open issues'
+Assert-True ($ip.Contains('Free &lt;b&gt;') -and -not $ip.Contains('Free <b>')) 'an issue title is escaped'
+Assert-True ($ip.Contains('href="https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/7"')) 'each open issue links to GitHub'
+Assert-True ($ip.Contains('/refresh?page=issues')) 'the footer offers a fresh read'
+$ipNone = Format-IssuesPageHtml -Model (ConvertFrom-IssueList -Now $now)
+Assert-True ($ipNone.Contains('No open issue')) 'no open issue says so instead of an empty table'
+$ipFailed = Format-IssuesPageHtml -Model $null -ReadError 'gh issue list exited 1'
+Assert-True ($ipFailed.Contains('msg--warn') -and $ipFailed.Contains('gh issue list exited 1')) 'a failed read is a warning on the page'
 Write-Host ''
 Write-Host "dev-pages: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }

@@ -1999,7 +1999,9 @@ foreach ($af in $auditFiles) {
 # 94 -> 95 (#3078): ship-pr.ps1's $remoteCl (`git show origin/main:<changelog>`, -Utf8 because the entry text
 # is parsed), read after a failed fast-forward to ask whether the fold is already upstream. Only a measured 0
 # AND the branch document's absence turn the verdict; anything else keeps the "fold is owed" refusal.
-Assert-Equal 95 $boundedTotal 'the parser still counts 95 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 95 -> 96: serve-connector-dashboard.ps1's $q (`gh issue list`, -Utf8 because issue titles are rendered), 60 s
+# bound. An unmeasured exit, a non-zero one or a short read is a ReadError on the Issues page, never a blank one.
+Assert-Equal 96 $boundedTotal 'the parser still counts 96 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

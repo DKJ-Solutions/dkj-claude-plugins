@@ -4,7 +4,8 @@
     pages below it (#3097): /connectors, every repo registered under connectors/ with its plugins, its
     local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /release-notes;
     /sessionstart, the always-on path every session loads; /test-gate, the per-suite CI durations; and
-    /artifacts, every claude.ai Artifact published from this repo, from scripts/dashboard/artifacts.json.
+    /artifacts, every claude.ai Artifact published from this repo, from scripts/dashboard/artifacts.json;
+    and /issues, this repo's GitHub issues as gh reads them.
     The rules of the hub and the measurement pages are in scripts/lib/dev-pages-lib.ps1.
 
 .DESCRIPTION
@@ -40,6 +41,10 @@
 .PARAMETER CacheSeconds
     How long one read of the register is served before the next request reads it again.
 
+.PARAMETER IssuesCacheSeconds
+    How long one read of the GitHub issues is served: three gh calls take about 12 s, so longer than
+    -CacheSeconds. /refresh?page=issues reads them again sooner.
+
 .PARAMETER ReadTimeoutMs
     How long a connection may take to send its whole request head (one deadline, not one per read).
 
@@ -53,6 +58,7 @@
 param(
     [Parameter(Mandatory = $true)][ValidateRange(1024, 65535)][int]$Port,
     [ValidateRange(0, 86400)][int]$CacheSeconds = 60,
+    [ValidateRange(0, 86400)][int]$IssuesCacheSeconds = 300,
     [ValidateRange(100, 60000)][int]$ReadTimeoutMs = 1000,
     [ValidateRange(0, 3600)][int]$MinRefreshSeconds = 10,
     [string]$RepoRootOverride
@@ -230,6 +236,44 @@ function Get-ArtifactsModel {
     return @{ Model = (ConvertFrom-ArtifactRegister -Register $json); Error = $err }
 }
 
+function Get-IssuesModel {
+    <#
+        This repo's issues from GitHub: every open one, and those created or closed in the last 28 days --
+        three gh calls, about 4 s each, so the result is cached for -IssuesCacheSeconds. A search returns at
+        most 1,000 issues, which is what bounds the window. A gh failure is a ReadError, never a blank page.
+    #>
+    $started = Get-Date
+    $since = $started.ToUniversalTime().AddDays(-28).ToString('yyyy-MM-dd')
+    $fields = 'number,title,state,stateReason,labels,assignees,createdAt,closedAt'
+    $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
+    # Loaded here rather than at start: it pulls in libs of its own, and only this page needs it. Its
+    # functions live in this call's scope; a lib that fails to load surfaces as the read error below.
+    try { . (Join-Path $root 'scripts\lib\native-capture-lib.ps1') } catch { }
+    $read = {
+        param([string[]]$Extra)
+        # -Utf8: gh writes UTF-8, and 5.1 would decode a title's non-ASCII through the console code page.
+        $q = Invoke-NativeCapture -Utf8 -DiscardStderr -TimeoutSeconds 60 -FilePath 'gh' -Arguments (@(
+                'issue', 'list', '--repo', 'DKJ-Solutions/dkj-claude-plugins', '--limit', '1000', '--json', $fields) + $Extra)
+        if ($q.TimedOut) { throw 'gh issue list did not answer within 60 s' }
+        if (-not (Test-NativeExitMeasured -Capture $q)) { throw 'gh issue list left no exit code' }
+        if ($q.ExitCode -ne 0 -or $q.ShortRead) { throw "gh issue list exited $($q.ExitCode)" }
+        # 5.1's ConvertFrom-Json emits a JSON array as ONE object, so it is enumerated before it is wrapped.
+        $parsed = ConvertFrom-Json -InputObject (@($q.Output) -join "`n")
+        return , @($parsed | ForEach-Object { $_ })
+    }
+    try {
+        $open = & $read @('--state', 'open')
+        $created = & $read @('--state', 'all', '--search', "created:>=$since")
+        $closed = & $read @('--state', 'closed', '--search', "closed:>=$since")
+        $model = ConvertFrom-IssueList -Open $open -Recent (@($created) + @($closed)) -Now $started -Days 28
+        $err = ''
+    } catch {
+        $model = $null
+        $err = ([string]$_.Exception.Message) -replace '\s+', ' '
+    }
+    return @{ Model = $model; Error = $err; GeneratedAt = $started.ToString('yyyy-MM-dd HH:mm:ss'); Seconds = ((Get-Date) - $started).TotalSeconds; At = Get-Date }
+}
+
 function Read-DashboardRequest {
     <#
         The request line and the two headers the server reads, or $null. ONE deadline for the whole head
@@ -280,6 +324,7 @@ $listener.Start()
 Write-Host "connector dashboard: http://localhost:$Port/"
 $cache = $null
 $ssCache = $null
+$isCache = $null
 
 try {
     while ($true) {
@@ -324,9 +369,12 @@ try {
             if ($path -eq '/refresh') {
                 # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for. ?page= names
                 # where to go back to, from a fixed list, so the redirect never leaves this server.
-                $page = if ([string]$target -match '[?&]page=(connectors|sessionstart)(&|$)') { $Matches[1] } else { '' }
+                $page = if ([string]$target -match '[?&]page=(connectors|sessionstart|issues)(&|$)') { $Matches[1] } else { '' }
                 if ($page -eq 'sessionstart') {
                     if ($ssCache -and ((Get-Date) - $ssCache.At).TotalSeconds -ge $MinRefreshSeconds) { $ssCache = $null }
+                } elseif ($page -eq 'issues') {
+                    # At least a minute: a re-read holds this single-threaded loop for about 12 s.
+                    if ($isCache -and ((Get-Date) - $isCache.At).TotalSeconds -ge [Math]::Max($MinRefreshSeconds, 60)) { $isCache = $null }
                 } elseif ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
                 Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" }
                 continue
@@ -348,6 +396,15 @@ try {
             if ($path -eq '/sessionstart') {
                 if ($null -eq $ssCache -or ((Get-Date) - $ssCache.At).TotalSeconds -ge $CacheSeconds) { $ssCache = Get-SessionStartModel }
                 $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                continue
+            }
+            if ($path -eq '/issues') {
+                # A failed read is kept for 30 s only, so a passing gh hiccup does not show for five minutes.
+                $isAge = if ($isCache) { ((Get-Date) - $isCache.At).TotalSeconds } else { 0 }
+                if ($null -eq $isCache -or $isAge -ge $IssuesCacheSeconds -or ($isCache.Error -and $isAge -ge 30)) { $isCache = Get-IssuesModel }
+                $html = Format-IssuesPageHtml -Model $isCache.Model -ReadError $isCache.Error -GeneratedAt $isCache.GeneratedAt -Seconds $isCache.Seconds
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
