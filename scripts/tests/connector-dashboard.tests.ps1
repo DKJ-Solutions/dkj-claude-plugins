@@ -251,8 +251,9 @@ Assert-True ($failed -match 'class="msg msg--warn" role="alert"' -and $failed -m
 
 Write-Host '-- group 1e: the canonical house style is the copy the skill pins' -ForegroundColor Cyan
 
-# A repoint of the house-style skill to a new tag left both vendored files on the old one, and nothing
-# noticed (#2989). The skill's table is the one place the checksums live, so the copy is held to it.
+# History (#2989): a repoint of the skill to a new tag once left two vendored files on the old one, and
+# nothing noticed. There is now one canonical copy, in the plugin (#3130); the skill's table is still the
+# one place the checksums live, so the copy is held to it.
 $skillPage = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md') -Raw
 foreach ($file in 'house-style.css', 'house-theme.js') {
     $row = [regex]::Match($skillPage, '(?m)^\| `' + [regex]::Escape($file) + '` \|.*\| `([0-9a-f]{64})` \|\s*$')

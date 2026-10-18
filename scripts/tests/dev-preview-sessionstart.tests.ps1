@@ -7,7 +7,7 @@
     Group 1 pins the rules without a server: what Get-DevPreview may state, when a command line names a
     checkout, and which port is reused, started or refused -- from hand-built socket and process tables.
     Group 1d pins the placeholder a repo without the seam gets (#3047): its answer, the Simple Browser
-    route test, its page, and its vendored house style against the skill's checksums.
+    route test, its page, and its canonical house style against the skill's checksums.
     Group 2 runs the hook as a child process against scratch repos: the placeholder started and reused
     without the seam, one line on a seam it cannot run or a missing prerequisite, and -- on Windows -- one
     real start of a tiny loopback listener followed by a second run that REUSES it, which is the whole
@@ -192,13 +192,13 @@ Assert-True (-not (Test-DevPreviewPlaceholderHost -HostHeader 'evil.example:4880
 Assert-True (Test-DevPreviewPlaceholderCrossSite 'cross-site') 'a cross-site request is marked as such'
 Assert-True (-not (Test-DevPreviewPlaceholderCrossSite '')) 'a request without Sec-Fetch-Site is allowed'
 
-# The plugin's vendored copy is held to the house-style skill's table, like the dashboard's (#2989): a
+# The plugin's canonical copy is held to the house-style skill's table, like the dashboard's (#2989): a
 # repoint that leaves it behind goes red here instead of shipping a stale page to every repo.
 $skillPage = Get-Content -LiteralPath (Join-Path $PluginRoot 'skills\house-style\SKILL.md') -Raw
 foreach ($file in 'house-style.css', 'house-theme.js') {
     $pinned = [regex]::Match($skillPage, '\|\s*`' + [regex]::Escape($file) + '`\s*\|[^|]*\|\s*`([0-9a-f]{64})`').Groups[1].Value
     $actual = (Get-FileHash -LiteralPath (Join-Path $PluginRoot "assets\house-style\$file") -Algorithm SHA256).Hash.ToLowerInvariant()
-    Assert-True ($pinned -and $actual -eq $pinned) "the plugin's vendored $file is the copy the house-style skill pins"
+    Assert-True ($pinned -and $actual -eq $pinned) "the plugin's canonical $file is the copy the house-style skill pins"
 }
 
 Write-Host '-- group 2: the hook, end to end' -ForegroundColor Cyan

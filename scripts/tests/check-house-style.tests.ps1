@@ -6,7 +6,7 @@
 .DESCRIPTION
     Group 1 pins the rules on strings: the pin read from the skill page, the CRLF-tolerant hash, which
     token and class occurrences count, the allowlist's shape and the quoted-path decode. Group 2 holds the
-    retired-name list to the vendored copy of the pinned tag, so a name the tag defines again can never be
+    retired-name list to the canonical copy of the pinned tag, so a name the tag defines again can never be
     listed as retired. Group 3 runs the gate and the session check as child processes against scratch git
     repos -- a clean one, a drifted one, one without a copy, one answered by its allowlist -- and once
     against this repo, which runs the gate on itself.
@@ -46,10 +46,11 @@ Write-Host '-- group 1a: the pin, read from the skill page' -ForegroundColor Cya
 
 $pin = Get-HouseStylePin -SkillText ([System.IO.File]::ReadAllText($Skill))
 Assert-True ($null -ne $pin) 'the skill page carries a complete checksum table'
-# The tag is not written here: it moves with each repoint of the consumer URL, and a hard-coded copy
-# would turn every repoint's own pull request red. The README link names the same tag through a different URL form.
+# The tag is not written here: it moves with each change of the consumer URL pin, and a hard-coded copy
+# would turn every such pull request red. The README link is relative (#3130): the README now lives in the plugin.
 Assert-True ($pin.Tag -cmatch '^v\d+\.\d+\.\d+$') 'the tag is read from the fetch URL'
-Assert-True ([System.IO.File]::ReadAllText($Skill).Contains("/blob/$($pin.Tag)/house-style/README.md")) 'the README link names the tag the fetch URLs name'
+Assert-True ([System.IO.File]::ReadAllText($Skill).Contains('](../../assets/house-style/README.md)')) 'the skill links the README by its relative path'
+Assert-True (Test-Path -LiteralPath (Join-Path $Vendored 'README.md')) 'the README the skill links exists in the plugin'
 foreach ($leaf in 'house-style.css', 'house-theme.js') {
     $hashes = Get-HouseStyleSha256 -Bytes ([System.IO.File]::ReadAllBytes((Join-Path $Vendored $leaf)))
     Assert-True (@($hashes) -contains $pin.Hashes[$leaf]) "this repo's canonical (in-plugin) $leaf is the pinned copy"
@@ -200,7 +201,7 @@ try {
     Set-Content -LiteralPath (Join-Path $none 'web\app.js') -Value 'console.log(1)' -Encoding ascii
     Invoke-FixtureGitIn $none add -A
     $r = Invoke-Child $Gate $none 'RepoRoot'
-    Assert-True ($r.Code -eq 1 -and $r.Out -match '\[missing\]') 'a repo without a vendored copy fails the gate'
+    Assert-True ($r.Code -eq 1 -and $r.Out -match '\[missing\]') 'a repo without a house-style copy fails the gate'
     $r = Invoke-Child $Hook $none 'RepoRootOverride'
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'nothing to check') 'and the session check stays quiet about it'
 } finally {

@@ -13,11 +13,11 @@ How a repo still on `enhancement` moves over is in this plugin's README.
 The second is the house style, with two rules:
 
 - **Start from it** — the [`house-style`](skills/house-style/SKILL.md) skill, which points at the
-  stylesheet and theme script in this plugin's [`assets/house-style/`](assets/house-style/) and the rules
-  in its [`README.md`](assets/house-style/README.md). Every page, report, dashboard or Artifact a DKJ-Solutions app renders starts from that stylesheet, and
-  a repo adds its own domain layer on top without redefining a house token. Load the skill before any
-  visual work. Where a repo's own lens names a style guide, that guide extends the house style and does
-  not replace it.
+  stylesheet and theme script in this plugin's [`assets/house-style/`](assets/house-style/) and the
+  rules in its [`README.md`](assets/house-style/README.md). Every page, report, dashboard or Artifact a
+  DKJ-Solutions app renders starts from that stylesheet, and a repo adds its own domain layer on top
+  without redefining a house token. Load the skill before any visual work. Where a repo's own lens
+  names a style guide, that guide extends the house style and does not replace it.
 
 - **Change it in this plugin, never in the repo that uses it** (Maikel, October 13, 2026, as reshaped
   by Dave in [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130), October 18,

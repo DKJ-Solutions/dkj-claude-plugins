@@ -20,7 +20,7 @@
 #
 # WHY A CHECKOUT OF THIS REPO AND NOT A VENDORED SCRIPT: one definition of the gate, as with the
 # branch-entry and always-on gates. And the pinned checksums are read from the skill page in that same
-# checkout, so a repoint of the skill reaches every caller with no change on its side.
+# checkout, so a change of the skill's pin reaches every caller with no change on its side.
 #
 # `scripts-ref` DEFAULTS TO main, for the reason reusable-branch-entry.yml states: a pinned gate keeps
 # enforcing the tag it was pinned at, while the copies it checks follow the skill.

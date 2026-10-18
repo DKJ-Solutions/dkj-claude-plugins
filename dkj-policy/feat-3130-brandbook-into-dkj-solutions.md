@@ -140,7 +140,7 @@ the first branch after the next release cut, which is step 4.
 
 ### TEST
 
-- [ ] The touched suites, `check-plugin-integrity.ps1` and `check-house-style.ps1` green
+- [x] The touched suites (check-house-style 74/0, connector-dashboard 115/0, dev-preview-sessionstart 105/0, dev-pages 175/0), `check-plugin-integrity.ps1` and `check-house-style.ps1` green
 
 ### DEPLOY: feat/3130-brandbook-into-dkj-solutions
 

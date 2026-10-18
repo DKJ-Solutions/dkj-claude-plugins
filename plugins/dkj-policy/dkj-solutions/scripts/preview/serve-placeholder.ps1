@@ -17,7 +17,7 @@
 
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped. It serves three paths -- the page,
-    /house-style.css and /house-theme.js from the plugin's vendored copy -- and runs until the process is
+    /house-style.css and /house-theme.js from the plugin's canonical copy -- and runs until the process is
     stopped.
 
     Pure ASCII (repo convention for .ps1). The page and the request rules are in
