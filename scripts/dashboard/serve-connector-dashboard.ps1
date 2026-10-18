@@ -238,6 +238,14 @@ function Get-TestGateModel {
     return @{ Model = (ConvertFrom-SuiteDurations -Durations $json -SuiteFiles $files); Error = $err }
 }
 
+function Get-SessionStartSnapshot {
+    <# scripts/dashboard/session-start-snapshot.json, read on every request: one small file. A missing file is no error. #>
+    $path = Join-Path $root 'scripts\dashboard\session-start-snapshot.json'
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @{ Data = $null; Error = '' } }
+    try { return @{ Data = (Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json); Error = '' } }
+    catch { return @{ Data = $null; Error = 'it is not valid JSON' } }
+}
+
 function Get-ArtifactsModel {
     <# scripts/dashboard/artifacts.json, read on every request: one small file. #>
     $json = $null; $err = ''
@@ -456,7 +464,8 @@ try {
             }
             if ($path -eq '/sessionstart') {
                 if ($null -eq $ssCache -or ((Get-Date) - $ssCache.At).TotalSeconds -ge $CacheSeconds) { $ssCache = Get-SessionStartModel }
-                $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error
+                $snap = Get-SessionStartSnapshot
+                $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -Snapshot $snap.Data -SnapshotError $snap.Error
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue

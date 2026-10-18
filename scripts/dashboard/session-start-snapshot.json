@@ -1,0 +1,414 @@
+{
+  "schema": "session-start-data/1",
+  "asOf": "2026-10-02",
+  "pageTitle": "Session-start context",
+  "locale": "en-US",
+  "labels": {
+    "direct": "Direct",
+    "setting": "Via a setting",
+    "none": "No influence",
+    "tileDirect": "Change it in this repo, through a branch and a PR.",
+    "tileSetting": "Switch it on or off on your machine or in claude.ai. Little work each.",
+    "tileNone": "Ships with Claude Code itself. Accept it and move on.",
+    "legendDirect": "Direct: files in this repo",
+    "legendSetting": "Via a setting: on or off",
+    "legendNone": "No influence: Claude Code itself",
+    "legendHatch": "Hatched = estimated",
+    "overviewHeading": "All layers, colored by influence",
+    "stackAria": "Stacked bar",
+    "showTable": "Show as table",
+    "colItem": "Item",
+    "colInfluence": "Influence",
+    "colTokens": "Tokens",
+    "colSource": "Source",
+    "actionsHeading": "What you can do, biggest gain first",
+    "actionsLede": "The gain is in tokens per session. Blue is done in this repo through a branch and a PR; orange is a setting on your machine or in claude.ai. Struck through is already done.",
+    "done": "Done",
+    "measured": "Measured",
+    "estimated": "Estimated",
+    "docsHeading": "The biggest direct block: the always-on documents",
+    "docsLede": "Every file each session loads: the @-imports from CLAUDE.md plus the unscoped rules. Measured, and entirely in your hands. The red line is the budget.",
+    "colDocument": "Document",
+    "colBytes": "Bytes",
+    "colPrevious": "Previous",
+    "colApprox": "~ Tokens",
+    "total": "Total",
+    "totalSub": "all together",
+    "budget": "budget",
+    "newDoc": "new",
+    "gone": "No longer on the path:",
+    "noneHeading": "What you cannot change",
+    "noneLede": "Claude Code ships this itself, in every repo.",
+    "adviceEyebrow": "Advice",
+    "dont": "Do not:",
+    "vs": "vs.",
+    "tokensWord": "tokens",
+    "bytesWord": "B",
+    "scoreHeading": "Efficiency score",
+    "scoreText": "The share of the session start that Claude Code itself brings along, against everything this repo and this account add on top. Only a start that adds nothing scores 100; every token saved in a direct layer or a setting moves it up."
+  },
+  "header": {
+    "eyebrow": "dkj-claude-plugins \u00b7 October 2, 2026, fourth measurement",
+    "title": "What a session costs before you ask anything",
+    "lede": "About **47.0k tokens** up front, some **0.7k less** than the previous measurement. This time the gain is in the **measured** part: the Chris persona went from 21,300 to **19,165 B** (#2731), and the always-on path now sits at 57% of the budget. The estimated layers were recounted and have not changed."
+  },
+  "items": [
+    {
+      "id": "always-on-docs",
+      "name": "Always-on documents",
+      "sub": "CLAUDE.md + imports + .claude/rules",
+      "influence": "direct",
+      "tokens": 18343,
+      "measured": true,
+      "source": "measure-session-start collect: 57,229 B measured, tokens at 3.12 chars/token",
+      "previousTokens": 19027
+    },
+    {
+      "id": "plugin-dkj-policy",
+      "name": "dkj-policy skill listing",
+      "sub": "11 skills in the session, 12 excluded",
+      "influence": "direct",
+      "tokens": 3010,
+      "measured": true,
+      "source": "claude plugin details (count_tokens API), minus disable-model-invocation",
+      "previousTokens": 3010
+    },
+    {
+      "id": "plugin-dkj-subagents-alpha",
+      "name": "dkj-subagents-alpha skill listing",
+      "sub": "1 skill in the session, 3 excluded",
+      "influence": "direct",
+      "tokens": 230,
+      "measured": true,
+      "source": "claude plugin details (count_tokens API), minus disable-model-invocation",
+      "previousTokens": 230
+    },
+    {
+      "id": "plugin-figma",
+      "name": "figma skill listing",
+      "sub": "not enabled for this repo",
+      "influence": "setting",
+      "tokens": 0,
+      "measured": true,
+      "source": "not in the collect; figma is no longer under `enabledPlugins` in `.claude/settings.json`",
+      "previousTokens": 0
+    },
+    {
+      "id": "plugin-agents-alpha",
+      "name": "Core team agent descriptions",
+      "sub": "15 subagents, counted as 0 by the inventory",
+      "influence": "direct",
+      "tokens": 1800,
+      "measured": false,
+      "source": "estimated: ~6,300 chars in context / 3.5; collect confirms 15 declared and 0 counted",
+      "previousTokens": 1800
+    },
+    {
+      "id": "synced-team-plugins",
+      "name": "Synced account plugins",
+      "sub": "only cowork-plugin-management left (2 skills)",
+      "influence": "setting",
+      "tokens": 150,
+      "measured": false,
+      "source": "estimated: ~500 chars / 3.5; checked again",
+      "previousTokens": 150
+    },
+    {
+      "id": "tool-definitions",
+      "name": "Tool definitions",
+      "sub": "18 harness tools + 3 Claude Docs tools",
+      "influence": "none",
+      "tokens": 13000,
+      "measured": false,
+      "source": "estimated: ~45k chars in context / 3.5; same set as the previous measurement, estimated again",
+      "previousTokens": 13000
+    },
+    {
+      "id": "deferred-tool-names",
+      "name": "Deferred tool names",
+      "sub": "~115 names",
+      "influence": "setting",
+      "tokens": 1500,
+      "measured": false,
+      "source": "estimated: 19 harness + 47 Asana_2 + 42 authenticate stubs + 7 other, \u00d7 ~13 tokens; recounted",
+      "previousTokens": 1500
+    },
+    {
+      "id": "harness-instructions",
+      "name": "Harness instructions",
+      "sub": "system prompt, auto mode",
+      "influence": "none",
+      "tokens": 2500,
+      "measured": false,
+      "source": "estimated: ~8.5k chars / 3.5",
+      "previousTokens": 2500
+    },
+    {
+      "id": "builtin-skills",
+      "name": "Built-in skills",
+      "sub": "17 descriptions",
+      "influence": "none",
+      "tokens": 2000,
+      "measured": false,
+      "source": "estimated: ~7k chars / 3.5; recounted, 17",
+      "previousTokens": 2000
+    },
+    {
+      "id": "account-skills",
+      "name": "claude.ai account skills",
+      "sub": "10 anthropic-skills:*",
+      "influence": "setting",
+      "tokens": 1700,
+      "measured": false,
+      "source": "estimated: ~6k chars / 3.5; recounted, 10",
+      "previousTokens": 1700
+    },
+    {
+      "id": "mcp-instructions",
+      "name": "MCP server instructions",
+      "sub": "Claude Docs only",
+      "influence": "setting",
+      "tokens": 600,
+      "measured": false,
+      "source": "estimated: ~2k chars / 3.5",
+      "previousTokens": 600
+    },
+    {
+      "id": "hook-output",
+      "name": "SessionStart hook output",
+      "sub": "8 lines; the connector register is the biggest part",
+      "influence": "direct",
+      "tokens": 750,
+      "measured": false,
+      "source": "estimated: ~2.6k chars / 3.5; still 5 [ERROR] lines about xoxowildhearts",
+      "previousTokens": 750
+    },
+    {
+      "id": "builtin-agents",
+      "name": "Built-in agents",
+      "sub": "6 descriptions",
+      "influence": "none",
+      "tokens": 700,
+      "measured": false,
+      "source": "estimated: ~2.5k chars / 3.5",
+      "previousTokens": 700
+    },
+    {
+      "id": "session-context",
+      "name": "Session context",
+      "sub": "git status, email, attribution, environment, language",
+      "influence": "none",
+      "tokens": 700,
+      "measured": false,
+      "source": "estimated: ~2.5k chars / 3.5",
+      "previousTokens": 700
+    }
+  ],
+  "actions": {
+    "lede": "Ranked by tokens per session. The persona action is checked off and measured; the open actions were checked again against this session and the measurement, and still stand.",
+    "items": [
+      {
+        "id": "connector-stubs",
+        "influence": "setting",
+        "done": false,
+        "tokens": 1000,
+        "saveSub": "estimated",
+        "title": "Clear out the remaining connector stubs and the duplicate Asana",
+        "text": "Now the biggest open lever. 21 claude.ai connectors are still there as an `authenticate`/`complete_authentication` pair (42 names). Asana still appears twice: as a stub and as `Asana_2` with 47 tool names.",
+        "how": "In claude.ai \u2192 Settings \u2192 Connectors, remove what you use nowhere, and drop one of the two Asana connections.",
+        "caveat": "Account-wide: whatever the BWJ repos use costs functionality there."
+      },
+      {
+        "id": "adopt-dkj-policy-dmi",
+        "influence": "direct",
+        "done": false,
+        "tokens": 850,
+        "saveSub": "measured, and in every consumer",
+        "title": "`adopt-dkj-policy` behind disable-model-invocation",
+        "text": "Still the most expensive skill description in dkj-policy (850 tokens), measured. It is a one-time adoption step, but it sits in every session of every consumer.",
+        "how": "`disable-model-invocation: true` in the SKILL.md, and have the session check that points to the skill name the command.",
+        "caveat": "The model then no longer triggers it on its own when a session check reports a missing folder."
+      },
+      {
+        "id": "chris-lens-chains",
+        "influence": "direct",
+        "done": false,
+        "tokens": 600,
+        "saveSub": "estimated",
+        "title": "Make the chains in Chris's lens on-demand",
+        "text": "The list of chains (~2,000 B) is only needed when a chain is laid out, not on every turn. The lens is unchanged: 13,959 B, now the second-largest document.",
+        "how": "Move it to a place that loads on demand, with a pointer in the lens.",
+        "caveat": "Chris names the chain up front; without the list in context he has to read it first."
+      },
+      {
+        "id": "connector-register-brief",
+        "influence": "direct",
+        "done": false,
+        "tokens": 400,
+        "saveSub": "estimated",
+        "title": "Shorten the connector register in the source repo to a count",
+        "text": "connector-sessioncheck still prints five `[ERROR]` lines about xoxowildhearts here in every session. That is well over half the hook output.",
+        "how": "One line with the count and the command `check-connectors.ps1` for the full overview.",
+        "caveat": "The register is deliberately visible here; a count makes a new error less noticeable."
+      },
+      {
+        "id": "cowork-plugin-mgmt-off",
+        "influence": "setting",
+        "done": false,
+        "tokens": 150,
+        "saveSub": "estimated",
+        "title": "Remove `cowork-plugin-management` from the account",
+        "text": "What remains of the synced plugins: two skills (`cowork-plugin-customizer`, `create-cowork-plugin`) that have no work in this repo.",
+        "how": "In claude.ai: Customize \u2192 Plugins, switch it off if you do not use it in Cowork.",
+        "caveat": "Account-wide; in Cowork it is the route for building plugins."
+      },
+      {
+        "id": "chris-persona-trim",
+        "influence": "direct",
+        "done": true,
+        "tokens": 684,
+        "saveSub": "measured: 21,300 \u2192 19,165 B",
+        "title": "Move more of the Chris persona into the manual",
+        "text": "Done in #2731: the situational rules now live in `specialist-01-01-manual.md`. Measured ~0.7k tokens less; the earlier estimate was ~1.5k, because the two pickup guardrails deliberately stayed always-on.",
+        "how": "The usual chain: branch, PR, fold.",
+        "caveat": "At 19,165 B the persona is still the largest document, but what it holds applies every turn; cutting further costs rules that have to survive a compaction."
+      },
+      {
+        "id": "synced-team-plugins-off",
+        "influence": "setting",
+        "done": true,
+        "tokens": 2850,
+        "saveSub": "estimated: ~3,000 \u2192 ~150",
+        "title": "Remove the synced team plugins from claude.ai",
+        "text": "Done: `team-alpha`, `team-ecomm` and `team-shopify` are no longer in the agent list, and the second `orchestrator` skill is gone.",
+        "how": "In claude.ai: Customize \u2192 Plugins.",
+        "caveat": "Only `cowork-plugin-management` is left; see the separate action."
+      },
+      {
+        "id": "connectors-trim",
+        "influence": "setting",
+        "done": true,
+        "tokens": 2500,
+        "saveSub": "measured on the list: ~4,000 \u2192 ~1,700 deferred-name tokens",
+        "title": "Disconnect unused claude.ai connectors",
+        "text": "The ~130 Klaviyo tool names and the Shopify instructions are no longer in the session; Klaviyo, Shopify and Microsoft 365 now appear only as an authenticate stub.",
+        "how": "In claude.ai \u2192 Settings \u2192 Connectors.",
+        "caveat": "Connectors are account-wide: the BWJ repos do use Klaviyo and Shopify."
+      },
+      {
+        "id": "figma-off-here",
+        "influence": "setting",
+        "done": true,
+        "tokens": 2150,
+        "saveSub": "measured",
+        "title": "Switch figma off for this repo",
+        "text": "Done: figma is no longer under `enabledPlugins` in `.claude/settings.json`, and the collect does not find the plugin.",
+        "how": "Remove the line from `enabledPlugins`.",
+        "caveat": "Only life-hub still has figma installed (project scope)."
+      }
+    ]
+  },
+  "documents": {
+    "budgetBytes": 100000,
+    "charsPerToken": 3.12,
+    "items": [
+      {
+        "id": "CLAUDE.md",
+        "name": "CLAUDE.md",
+        "sub": "CLAUDE.md",
+        "bytes": 103,
+        "previousBytes": 103
+      },
+      {
+        "id": ".claude/rules/this-repo.md",
+        "name": "this-repo.md",
+        "sub": ".claude/rules/this-repo.md",
+        "bytes": 7338,
+        "previousBytes": 7338
+      },
+      {
+        "id": "plugins/dkj-policy/CLAUDE.md",
+        "name": "CLAUDE.md",
+        "sub": "plugins/dkj-policy/CLAUDE.md",
+        "bytes": 8150,
+        "previousBytes": 8150
+      },
+      {
+        "id": ".claude/specialists/SPECIALISTS.md",
+        "name": "SPECIALISTS.md",
+        "sub": ".claude/specialists/SPECIALISTS.md",
+        "bytes": 8514,
+        "previousBytes": 8514
+      },
+      {
+        "id": "external:~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md",
+        "name": "specialist-01-01-persona.md",
+        "sub": "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md",
+        "bytes": 19165,
+        "previousBytes": 21300
+      },
+      {
+        "id": ".claude/specialists/lenses/specialist-01-01-lens.md",
+        "name": "specialist-01-01-lens.md",
+        "sub": ".claude/specialists/lenses/specialist-01-01-lens.md",
+        "bytes": 13959,
+        "previousBytes": 13959
+      }
+    ],
+    "hasPrevious": true,
+    "previousTotalBytes": 59364,
+    "removed": [],
+    "previousLabel": "2026-10-02"
+  },
+  "none": {
+    "items": [
+      {
+        "title": "Tool definitions",
+        "text": "~13k tokens estimated. The Artifact description alone is already ~5k."
+      },
+      {
+        "title": "Harness instructions, built-in skills and agents",
+        "text": "Together ~5.2k tokens estimated."
+      },
+      {
+        "title": "Session context",
+        "text": "Git status, attribution, environment: ~0.7k."
+      }
+    ]
+  },
+  "advice": {
+    "eyebrow": "Advice",
+    "heading": "The persona is done: what remains is small",
+    "lede": "The persona trim yielded a **measured** ~0.7k, less than the estimated 1.5k, because the pickup guardrails deliberately stayed always-on. Not a single open action is above ~1k any more. The always-on path is at 57% of the budget.",
+    "steps": [
+      {
+        "title": "1 \u00b7 Connector stubs and the duplicate Asana (~1k, estimated)",
+        "text": "The biggest open item, but it is an **estimate**. One pass through claude.ai \u2192 Connectors, without changing a single line in the repo. It is account-wide, so check first what the BWJ repos still use. If you get it wrong, it only costs a reconnection."
+      },
+      {
+        "title": "2 \u00b7 `adopt-dkj-policy` behind disable-model-invocation (850, measured)",
+        "text": "The biggest **measured** and direct lever, and the only one that counts in every consumer. It runs through the usual chain. The risk: a session check that reports a missing `dkj-policy/` folder can no longer have the skill trigger on its own. So have that check name the command."
+      },
+      {
+        "title": "3 \u00b7 The smaller items",
+        "text": "Then the chains out of the lens (~600), the connector register as a count (~400) and `cowork-plugin-management` off the account (~150). About 1.1k together."
+      }
+    ],
+    "dont": {
+      "label": "Do not",
+      "text": "Trim the persona further: at 19,165 B it is still the largest document, but what it holds now applies every turn and has to survive a compaction. The budget is not a problem (42.8k B of headroom), so cutting for the sake of the number makes no sense. The tool definitions (13k) cannot be influenced. And do not repeat the measurement without cause: this run made sense because a document shrank."
+    }
+  },
+  "footer": "Measured: always-on documents (bytes, tokens at 3.12 chars/token, calibrated on August 15, 2026) and plugin skill listings (claude plugin details, count_tokens API, minus disable-model-invocation). Estimated (\u00b130%): tool definitions, harness instructions, deferred tool names, MCP instructions, built-in skills and agents, account skills, synced account plugins, session context and hook output. Method: characters in context divided by ~3.5, or the number of names \u00d7 ~13. All estimated layers were re-estimated in this session, not carried over. The 15 core agent descriptions are in no measured figure. The repo skill `triage-inbound` (~100 tokens) falls outside both halves. Collect reported no problems; installed and priced version are equal (5.12.0). Step 2 of the skill failed on a short-name `out_dir` (`GEBRUI~1`); without `out_dir` it worked (#2735). Previous measurement: earlier on October 2, 2026.",
+  "previous": {
+    "asOf": "2026-10-02",
+    "totalTokens": 47667,
+    "noneTokens": 18900,
+    "totalBytes": 59364
+  },
+  "source": {
+    "artifact": "https://claude.ai/artifact/7etv9gy5m9PorHaCShghGu",
+    "title": "Session-start context",
+    "copied": "2026-10-18"
+  }
+}
