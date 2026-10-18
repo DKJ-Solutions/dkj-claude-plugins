@@ -24,6 +24,7 @@
 .PARAMETER Apply
     Write the merged register. Without it the run lists what it would add and writes nothing.
 #>
+[CmdletBinding()]
 param(
     [string]$TranscriptRoot = (Join-Path $HOME '.claude\projects'),
     [switch]$Apply
@@ -43,7 +44,7 @@ foreach ($n in @(Get-RetiredRepoNames)) {
 
 $regPath = Join-Path $RepoRoot 'scripts\dashboard\artifacts.json'
 try { $register = [IO.File]::ReadAllText($regPath) | ConvertFrom-Json }
-catch { Write-Host "[ERROR] scripts/dashboard/artifacts.json could not be read: $($_.Exception.Message)" -ForegroundColor Red; exit 1 }
+catch { Write-Host '[ERROR] scripts/dashboard/artifacts.json could not be read or is not valid JSON -- nothing harvested.' -ForegroundColor Red; exit 1 }
 
 Write-Host '== harvest-artifacts =='
 if (-not (Test-Path -LiteralPath $TranscriptRoot -PathType Container)) {
