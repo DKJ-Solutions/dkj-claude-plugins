@@ -54,7 +54,7 @@ smartwatchbanden one. Visible result, so the branch stops for the owner's look.
 
 - [x] `dev-pages.tests.ps1`: 15 new asserts (order, score, escaping, done actions, an unlinked source, an unreadable file); 153 passed
 - [x] the dev server restarted on 4870 and `/sessionstart` renders all sections
-- [ ] the owner has looked at the page
+- [x] the owner has looked at the page (Dave, October 18, 2026: "gezien en akkoord")
 
 ### DEPLOY: feat/sessionstart-snapshot
 
