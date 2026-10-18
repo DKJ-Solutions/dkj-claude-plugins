@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**3 / 7 minor entries** <!-- pending-tally -->
+**4 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3097-repo-hub · 20261018-111834Z
+
+The dev server's index (`/`) in this repo is now the **Repo hub**: a page in dkj-brandbook v0.3.0's form
+whose Pages card links the connector overview (now at `/connectors`), the release notes, the SessionStart
+measurements and the test-gate durations
+([#3097](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3097)). Every page's breadcrumb starts
+at Repo hub.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In every DKJ-Solutions repo the session-start line now opens with `Repo hub:` instead of
+`Repo dashboard:`, and the placeholder page carries the same name, the term the brand book adopted in
+v0.3.0. Nothing to do: a repo's own index takes the new name when it next follows the brand book.
+
+**Score:** 2
+
+#### Pull Request
+
+Dev server: the Repo hub on / links connectors, release notes, SessionStart and test gate
+
+Plugins: dkj-solutions
+
+[PR #3109](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3109)
+
+---
 
 ### DEPLOY: fix/3106-repoint-body-refresh · 20261018-101158Z
 
