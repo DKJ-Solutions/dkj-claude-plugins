@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3097-dev-server-pages · 20261018-074844Z
+
+This repo's dev server has three pages under the Repo dashboard: **Connectors** (`/connectors`, the
+connector overview `/` shows), **SessionStart** (`/sessionstart`, the always-on document path every
+session loads, per document, against its budget) and **Test gate** (`/test-gate`, the per-suite CI
+durations from `scripts/tests/suite-durations.json`, and the suites not recorded yet). The hub that
+links them from `/` follows once the brand book releases its index block
+([#3097](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3097)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the dev server is this repo's own; nothing a plugin ships changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Dev server: the connector overview at /connectors, and pages for the SessionStart and test-gate measurements
+
+[PR #3101](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3101)
+
+---
 
 ### DEPLOY: fix/3096-tidy-lane11-remote-plugins · 20261017-223402Z
 
