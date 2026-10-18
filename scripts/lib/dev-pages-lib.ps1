@@ -258,3 +258,62 @@ function Format-SessionStartPageHtml {
         -Lead 'What every session in this repo loads before its first turn: the always-on document path that <code>always-on-sessioncheck</code> reports at session start, against the budget the gate holds it to.' `
         -FooterNote ('Measured by <code>scripts/lib/always-on-budget-lib.ps1</code>, in LF bytes, the unit the gate judges' + $when + ' (<a class="dp-link" href="/refresh?page=sessionstart">measure again</a>).')
 }
+
+function Format-ReleaseNotesDevPage {
+    <#
+        The built release-notes page (#3108), as this dev server serves it: the house stylesheet and theme
+        script, the breadcrumb bar and the settings button, put around the page build-release-notes-page.ps1
+        leaves in dkj-policy/releases/page/.
+
+        ONLY THIS COPY, NOT THE TEMPLATE. The template is dkj-policy's, shared with every consumer --
+        BWJ-Development repos included, which do not take the house style -- and it is deliberately
+        self-contained, because a Worker serves it as one string and a request to another origin would leak
+        who reads it. So the page is dressed here, on the way out, and the file on disk stays the template's.
+
+        THE ORDER IS THE MECHANISM. The house file goes in AFTER the template's own <style>, so the house
+        body (surface, ink, font) wins on equal specificity; then a layer that points the template's own
+        tokens at house tokens, so its panel, lines and accent follow whichever theme is picked. Those token
+        names are the template's, none of them a house name, so nothing in the house file is redefined.
+
+        A page that is not the template's shape (no <html>, </style>, <body> or </body>) is returned as it
+        came: it is still the release notes, and dev-pages.tests.ps1 holds the real template to that shape.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Html,
+        [string]$ThemeKey = 'connector-dashboard'
+    )
+    $htmlRx = [regex]'<html\b[^>]*>'
+    $styleEnd = $Html.IndexOf('</style>')
+    $bodyRx = [regex]'<body\b[^>]*>'
+    $bodyEnd = $Html.LastIndexOf('</body>')
+    if (-not $htmlRx.IsMatch($Html) -or $styleEnd -lt 0 -or -not $bodyRx.IsMatch($Html) -or $bodyEnd -lt 0) { return $Html }
+
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $head = @(
+        '<link rel="stylesheet" href="/house-style.css">'
+        '<script src="/house-theme.js"></script>'
+        '<style>'
+        '/* The template''s tokens, read from the house ones (#3108). */'
+        ':root { --bg: var(--primary-1); --panel: var(--primary-2); --ink: var(--primary-9); --ink-soft: var(--primary-8); --ink-faint: var(--primary-6);'
+        '  --line: var(--primary-3); --accent: var(--primary-7); --accent-soft: var(--primary-2); --code-bg: var(--primary-1); }'
+        'header.masthead h1 { font-family: var(--font-serif); font-weight: 600; color: var(--primary-7); }'
+        '</style>'
+    ) -join "`n"
+    $bar = @(
+        '<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>'
+        '<li><a href="/">Repo dashboard</a></li>'
+        '<li><span class="breadcrumbs__sep" aria-hidden="true">/</span><span aria-current="page">Release notes</span></li>'
+        '</ol></nav></div></div>'
+        '<div id="settings" class="theme-settings--floating"></div>'
+    ) -join "`n"
+    $settings = '<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark" });</script>'
+
+    # Back to front, so each index still points where it was read.
+    $out = $Html.Substring(0, $bodyEnd) + $settings + "`n" + $Html.Substring($bodyEnd)
+    $out = $bodyRx.Replace($out, { param($m) $m.Value + "`n" + $bar }, 1)
+    $styleEnd = $out.IndexOf('</style>') + '</style>'.Length
+    $out = $out.Substring(0, $styleEnd) + "`n" + $head + $out.Substring($styleEnd)
+    # The theme key is the index page's, so a theme picked on one page holds on this one too.
+    $out = $htmlRx.Replace($out, ('<html lang="en" data-theme-light="teal" data-theme-dark="sky" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
+    return $out
+}
