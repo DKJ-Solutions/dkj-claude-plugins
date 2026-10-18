@@ -39,19 +39,39 @@
 
 ### PLAN
 
+The owner asked for a Repo hub page that maps this repo's GitHub issues. Measured first: the repo had
+**0 open issues** on October 18, 2026, and about 17 a day come in and go out, so a page of open issues
+alone would be empty. It shows the open board **and** the flow: opened against closed per week, and what
+was closed, by kind, priority and reason. A GitHub search returns at most 1,000 issues, which over
+eight weeks is already reached, so the window is 28 days (about 475 issues).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/dev-pages-lib.ps1`: `ConvertTo-IssueRow`, `ConvertFrom-IssueList` (pure model: dedupe by number, the board state -- parked over claimed over free --, the priority matrix, four weekly buckets, the median time to close, the closed-by groups) and `Format-IssuesPageHtml` in the shell every hub page shares; the hub's Pages card links `/issues`
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `Get-IssuesModel` (three `gh issue list` calls: open, created in the window, closed in the window), the `/issues` route, its own cache (`-IssuesCacheSeconds`, 300: the read takes about 12 s) and `/refresh?page=issues`
 
 ### TEST
 
+- [x] `scripts/tests/dev-pages.tests.ps1`: the model (ordering, board states, kinds, dedupe, window edges, weeks, median, reasons) and the page (escaped titles, integer-only links, the empty and the failed read); 127 pass
+- [x] Served live on this machine: 0 open, 455 opened and 458 closed in 28 days, median 1.3 h to close, in 12.3 s
+- [x] The page is a visible result: it waits for the owner's look before it merges
+
 ### DEPLOY: feat/issues-page
 
-**Score:**
+The dev server's Repo hub has an **Issues** page: the open GitHub issues by priority and by where they
+stand (free, parked on an `awaiting-*` label, or claimed), and the last 28 days of flow -- opened against
+closed per week, and what was closed by kind, priority and how it was closed.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the page lives on this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
+Adds `/issues` to the Repo hub of this repo's dev server: a map of the GitHub issues (the open board and
+four weeks of flow), read with `gh` and cached for five minutes. A visible result, so it waits for the
+owner's look before merging.
