@@ -3,7 +3,8 @@
     Serve this repo's dev server on http://localhost:<Port>/ -- the Repo hub on '/', which links the
     pages below it (#3097): /connectors, every repo registered under connectors/ with its plugins, its
     local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /release-notes;
-    /sessionstart, the always-on path every session loads; and /test-gate, the per-suite CI durations.
+    /sessionstart, the always-on path every session loads; /test-gate, the per-suite CI durations; and
+    /artifacts, every claude.ai Artifact published from this repo, from scripts/dashboard/artifacts.json.
     The rules of the hub and the measurement pages are in scripts/lib/dev-pages-lib.ps1.
 
 .DESCRIPTION
@@ -218,6 +219,16 @@ function Get-TestGateModel {
     return @{ Model = (ConvertFrom-SuiteDurations -Durations $json -SuiteFiles $files); Error = $err }
 }
 
+function Get-ArtifactsModel {
+    <# scripts/dashboard/artifacts.json, read on every request: one small file. #>
+    $json = $null; $err = ''
+    $path = Join-Path $root 'scripts\dashboard\artifacts.json'
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+        try { $json = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $err = 'it is not valid JSON' }
+    } else { $err = 'the file is not there' }
+    return @{ Model = (ConvertFrom-ArtifactRegister -Register $json); Error = $err }
+}
+
 function Read-DashboardRequest {
     <#
         The request line and the two headers the server reads, or $null. ONE deadline for the whole head
@@ -337,6 +348,13 @@ try {
             if ($path -eq '/test-gate') {
                 $tg = Get-TestGateModel
                 $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                continue
+            }
+            if ($path -eq '/artifacts') {
+                $ar = Get-ArtifactsModel
+                $html = Format-ArtifactsPageHtml -Model $ar.Model -ReadError $ar.Error
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue

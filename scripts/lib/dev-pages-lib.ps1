@@ -109,6 +109,7 @@ function Get-RepoHubPages {
         its label the page's own name as its breadcrumb reads it, and one line on what it shows.
     #>
     @(
+        @{ Href = '/artifacts';     Label = 'Artifacts';     Sub = 'Every claude.ai Artifact published from a session in this repo' },
         @{ Href = '/connectors';    Label = 'Connectors';    Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
         @{ Href = '/release-notes'; Label = 'Release notes'; Sub = 'What each released version of the plugins changed' },
         @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn' },
@@ -345,4 +346,98 @@ function Format-SessionStartPageHtml {
     return Format-DevPageHtml -Title 'SessionStart' -Style $script:DevBarStyle -Body $body.ToString() `
         -Lead 'What every session in this repo loads before its first turn: the always-on document path that <code>always-on-sessioncheck</code> reports at session start, against the budget the gate holds it to.' `
         -FooterNote ('Measured by <code>scripts/lib/always-on-budget-lib.ps1</code>, in LF bytes, the unit the gate judges' + $when + ' (<a class="dp-link" href="/refresh?page=sessionstart">measure again</a>).')
+}
+
+function Test-ArtifactUrl {
+    <#
+        True for a claude.ai Artifact link and nothing else: claude.ai/artifact/<id> or
+        claude.ai/code/artifact/<uuid>, over https. The register is data in a public repo and the page
+        renders each url as a link, so anything else is never given an href.
+    #>
+    param([AllowEmptyString()][string]$Url)
+    return $Url -cmatch '^https://claude\.ai/(artifact/[A-Za-z0-9]+|code/artifact/[0-9a-f-]+)$'
+}
+
+function ConvertFrom-ArtifactRegister {
+    <#
+        The Artifacts page model from the parsed scripts/dashboard/artifacts.json (-Register, $null when the
+        file is missing or unreadable). Returns @{ Artifacts (list of @{ Title; Url; Kind; Created; Updated;
+        About; Linked }, newest first); Date; Method }. A row whose url is not a claude.ai Artifact link is
+        kept, with Linked false, so a typo shows on the page instead of a row going missing.
+    #>
+    param($Register)
+    $rows = @()
+    if ($Register -and $Register.artifacts) {
+        foreach ($a in @($Register.artifacts)) {
+            if (-not $a) { continue }
+            $url = [string]$a.url
+            $rows += @{
+                Title   = [string]$a.title
+                Url     = $url
+                Kind    = [string]$a.kind
+                Created = [string]$a.created
+                Updated = [string]$a.updated
+                About   = [string]$a.about
+                Linked  = (Test-ArtifactUrl $url)
+            }
+        }
+    }
+    # ISO dates sort as text; the title breaks a tie so two of one day keep a stable order.
+    $rows = @($rows | Sort-Object @{ Expression = { $_.Created }; Descending = $true }, @{ Expression = { $_.Title } })
+    $from = if ($Register) { $Register.recordedFrom } else { $null }
+    return @{
+        Artifacts = $rows
+        Date      = if ($from) { [string]$from.date } else { '' }
+        Method    = if ($from) { [string]$from.method } else { '' }
+    }
+}
+
+function Format-ArtifactsPageHtml {
+    <# The Artifacts page from ConvertFrom-ArtifactRegister's model. -ReadError is set when the file could not be read. #>
+    param([Parameter(Mandatory = $true)][hashtable]$Model, [AllowEmptyString()][string]$ReadError = '')
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $rows = @($Model.Artifacts)
+    $unlinked = @($rows | Where-Object { -not $_.Linked })
+    $kinds = @($rows | ForEach-Object { $_.Kind } | Where-Object { $_ } | Sort-Object -Unique)
+    $body = New-Object System.Text.StringBuilder
+    [void]$body.Append((Format-DevTiles @(
+        @{ L = 'Artifacts'; V = $rows.Count },
+        @{ L = 'Kinds'; V = $kinds.Count },
+        @{ L = 'Most recent'; V = $(if ($rows.Count -and $rows[0].Created) { $rows[0].Created } else { '--' }) },
+        @{ L = 'Without a link'; V = $unlinked.Count })))
+    if ($ReadError) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">scripts/dashboard/artifacts.json could not be read: ' + (& $e $ReadError) + '.</p>')
+    }
+    if ($unlinked.Count) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="status">Not a claude.ai Artifact link, so shown without one: ' +
+            (($unlinked | ForEach-Object { '<code>' + (& $e $_.Title) + '</code>' }) -join ', ') + '.</p>')
+    }
+    [void]$body.AppendLine('<section class="card" id="artifacts">')
+    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Artifacts</h2><p class="card__sub">Newest first. Each opens on claude.ai, for an account it is shared with</p></div>')
+    if ($rows.Count) {
+        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Artifact</th><th class="dp-left">Kind</th><th class="dp-left">Created</th><th class="dp-left">Last published</th></tr></thead><tbody>')
+        foreach ($a in $rows) {
+            $name = if ($a.Title) { & $e $a.Title } else { '(untitled)' }
+            $title = if ($a.Linked) { '<a class="dp-link" href="' + (& $e $a.Url) + '" target="_blank" rel="noopener noreferrer">' + $name + '</a>' } else { $name }
+            $about = if ($a.About) { '<div class="dp-about">' + (& $e $a.About) + '</div>' } else { '' }
+            $kind = if ($a.Kind) { '<span class="badge badge--sm badge--neutral">' + (& $e $a.Kind) + '</span>' } else { '--' }
+            [void]$body.AppendLine('<tr><td class="dp-left">' + $title + $about + '</td><td class="dp-left">' + $kind + '</td><td class="dp-left num">' +
+                $(if ($a.Created) { & $e $a.Created } else { '--' }) + '</td><td class="dp-left num">' + $(if ($a.Updated) { & $e $a.Updated } else { '--' }) + '</td></tr>')
+        }
+        [void]$body.AppendLine('</tbody></table></div>')
+    } else {
+        [void]$body.AppendLine('<p class="note">No Artifact is recorded.</p>')
+    }
+    [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('<section class="card" id="recorded">')
+    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Where the list comes from</h2></div>')
+    [void]$body.AppendLine('<dl class="facts">')
+    [void]$body.AppendLine('<div><dt>Recorded</dt><dd>' + $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Method</dt><dd>' + $(if ($Model.Method) { & $e $Model.Method } else { '--' }) + '</dd></div>')
+    [void]$body.AppendLine('</dl>')
+    [void]$body.AppendLine('</section>')
+    return Format-DevPageHtml -Title 'Artifacts' -Body $body.ToString() `
+        -Style '.dp-about { font-size: var(--text-sm); color: var(--primary-6); margin-top: var(--spacing-1); }' `
+        -Lead 'Every claude.ai Artifact a session in this repo has published: pages, decks and documents. An Artifact is private to the account that made it until it is shared, so a link may not open for everyone.' `
+        -FooterNote 'Read from <code>scripts/dashboard/artifacts.json</code>, on every request. A new Artifact is added there by hand when it is published.'
 }

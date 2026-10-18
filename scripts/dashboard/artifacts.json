@@ -1,0 +1,49 @@
+{
+  "about": "Every claude.ai Artifact published from a session in this repo, read by the dev server's /artifacts page. A new one is added here by hand when it is published. Titles are quoted as published.",
+  "recordedFrom": {
+    "date": "2026-10-18",
+    "method": "Artifact publish calls and Claude Docs creates in this repo's session transcripts on one machine, under both of the repo's names"
+  },
+  "artifacts": [
+    {
+      "title": "Sessiestart-context",
+      "url": "https://claude.ai/artifact/TzrnhFefotMqYp6oWXYp5y",
+      "kind": "page",
+      "created": "2026-09-24",
+      "updated": "2026-10-01",
+      "about": "What a clean session in this repo loads before its first prompt, grouped by where you have influence, with concrete actions."
+    },
+    {
+      "title": "Sessiestart-context",
+      "url": "https://claude.ai/artifact/7etv9gy5m9PorHaCShghGu",
+      "kind": "page",
+      "created": "2026-10-01",
+      "updated": "2026-10-01",
+      "about": "What a session in this repo costs before you ask anything: measured and estimated, with advice."
+    },
+    {
+      "title": "Testsuite-atlas",
+      "url": "https://claude.ai/artifact/8dTeUfsKcokoXUU6BEjPK9",
+      "kind": "page",
+      "created": "2026-10-04",
+      "updated": "2026-10-04",
+      "about": "All 153 test suites: what they cost on CI, where the time goes and what has already been addressed."
+    },
+    {
+      "title": "Werken in BWJ-Development",
+      "url": "https://claude.ai/artifact/R2zBEPuroyoVUyP73dfvp7",
+      "kind": "slides",
+      "created": "2026-10-05",
+      "updated": "2026-10-05",
+      "about": "A deck on working with the BWJ-Development plugins."
+    },
+    {
+      "title": "Handout: werken in BWJ-Development",
+      "url": "https://claude.ai/code/artifact/7d2fa536-ace6-412a-8977-60a4ddc4b6be",
+      "kind": "document",
+      "created": "2026-10-07",
+      "updated": "2026-10-07",
+      "about": "The handout beside that deck: installing per machine and per store repo, with the exact commands."
+    }
+  ]
+}

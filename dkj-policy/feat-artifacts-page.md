@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Requested by the owner: a dev-server page listing every claude.ai Artifact ever made for this repo. The
+claude.ai account holds Artifacts from several repos, so the list is taken from this repo's own session
+transcripts (Artifact publish calls and Claude Docs creates) rather than from the account listing, and
+recorded in a committed register so both owners see the same list.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/dashboard/artifacts.json`: the register, five Artifacts found in the transcripts
+- [x] `scripts/lib/dev-pages-lib.ps1`: `Test-ArtifactUrl`, `ConvertFrom-ArtifactRegister`, `Format-ArtifactsPageHtml`, and the hub's Pages card links it
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1`: the `/artifacts` route
 
 ### TEST
 
+- [x] `scripts/tests/dev-pages.tests.ps1`: link check, model, page and the register in the tree (72 passed)
+- [x] `connector-dashboard.tests.ps1` still green (126 passed)
+- [x] Served on a spare port: `/artifacts` answers 200 with five links, and the hub links it
+
 ### DEPLOY: feat/artifacts-page
 
-**Score:**
+The dev server gains an Artifacts page (`/artifacts`), linked from the Repo hub: every claude.ai
+Artifact a session in this repo has published -- pages, decks and documents -- newest first, each with
+its kind, its dates and one line on what it shows. The list is a committed register,
+`scripts/dashboard/artifacts.json`, seeded from this repo's session transcripts; a url that is not a
+claude.ai Artifact link is shown without an href, so a register edit cannot inject a link.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the dev server is this repo's own maintenance tool; nothing a plugin user installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
