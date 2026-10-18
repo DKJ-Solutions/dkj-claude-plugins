@@ -69,9 +69,10 @@ $styleDir = Join-Path $root 'scripts\dashboard\house-style'
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
-    # The release-notes page build-release-notes-page.ps1 leaves here: this repo hosts it nowhere else (#3083).
-    '/release-notes'   = @{ File = (Join-Path $root 'dkj-policy\releases\page\release-notes.html'); Type = 'text/html; charset=utf-8' }
 }
+# The release-notes page build-release-notes-page.ps1 leaves here: this repo hosts it nowhere else (#3083).
+# Served through Format-ReleaseNotesDevPage, which gives it the house style and the breadcrumb bar (#3108).
+$releaseNotesFile = Join-Path $root 'dkj-policy\releases\page\release-notes.html'
 
 function Invoke-DashboardGit {
     param([string]$Path, [string[]]$GitArgs)
@@ -295,12 +296,18 @@ try {
             }
             if ($static.ContainsKey($path)) {
                 $s = $static[$path]
-                if (-not (Test-Path -LiteralPath $s.File -PathType Leaf)) {
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
+                Send-DashboardResponse $stream 200 'OK' $s.Type $body
+                continue
+            }
+            if ($path -eq '/release-notes') {
+                if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
                     Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: run scripts/release/build-release-notes-page.ps1.'))
                     continue
                 }
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
-                Send-DashboardResponse $stream 200 'OK' $s.Type $body
+                $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8))
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue
             }
             if ($path -eq '/refresh') {

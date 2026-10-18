@@ -1475,6 +1475,7 @@ function Get-HouseStyleAllowlist {
         @{ Path = 'plugins/dkj-policy/skills/*';               Reason = $shared }
         @{ Path = 'plugins/dkj-policy/worker/*';               Reason = $shared }
         @{ Path = 'scripts/tests/release-notes-page.tests.ps1'; Reason = 'fixtures of the release-notes page above' }
+        @{ Path = 'scripts/lib/dev-pages-lib.ps1'; Name = '--ink'; Reason = 'the release-notes template''s own token, which Format-ReleaseNotesDevPage points AT a house token (#3108)' }
         @{ Path = 'scripts/tests/check-house-style.tests.ps1';  Reason = "the gate's own suite: every name in it is a fixture" }
     )
 }
