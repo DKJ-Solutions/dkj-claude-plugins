@@ -50,7 +50,7 @@ app that takes the new copy will notice.
 - [x] Repoint every brand-book link in the `house-style` skill to `v0.4.0`, its commit to `b1f1a69f` and both checksums
 - [x] Replace the vendored copies under `scripts/dashboard/house-style/` and the plugin's `assets/house-style/`
 - [x] `Get-HouseStyleRetiredTokens` follows the new tag
-- [x] The repoint's safety read refused `v0.4.0` (`house-theme.js stores under more than one key: key, widthKey`). The single-key rule was the script's own reading, not one #2954 or #3100 names (they name network calls, `eval`, `@import` and remote `url()`); the width choice is a device preference exactly as the theme is. `Get-HouseStyleSafetyFindings` now accepts several keys only where every one is a house `dkj-` name (a literal, or a variable declared from one); a foreign second key is still a finding, and `house-style-repoint.tests.ps1` holds both cases
+- [x] The repoint's safety read refused `v0.4.0` (`house-theme.js stores under more than one key: key, widthKey`). The single-key rule was the script's own reading, not one #2954 or #3100 names (they name network calls, `eval`, `@import` and remote `url()`); the width choice is a device preference exactly as the theme is. `Get-HouseStyleSafetyFindings` now accepts several keys only where every one is a house `dkj-` name (the whole expression `'dkj-<name>'`, optionally `+ <identifier>`, or a variable whose one assignment outside comments is that); a foreign second key is still a finding. Victor's and Sebastian's reviews found the first draft passed a commented-out declaration, a reassignment, a `DKJ-` capital and a computed `'dkj-'.slice(...)` key; each is now refused and held by `house-style-repoint.tests.ps1`
 
 ### TEST
 

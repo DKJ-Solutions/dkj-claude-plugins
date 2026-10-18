@@ -85,12 +85,20 @@ function Get-HouseStyleSafetyFindings {
     $keys = @([regex]::Matches($JsText, '\.\s*setItem\s*\(\s*([^,)]+)') |
         ForEach-Object { $_.Groups[1].Value.Trim() } | Sort-Object -Unique)
     # A second key is the house's own only when every key is a 'dkj-' name -- a literal, or a variable
-    # declared from one -- as the theme and the width choice are since v0.4.0 (#3115).
+    # declared from one -- as the theme and the width choice are since v0.4.0 (#3115). Comments are stripped
+    # first, and a variable counts only where that declaration is its one assignment, so neither a
+    # commented-out declaration nor a later reassignment passes.
+    $code = [regex]::Replace($JsText, '/\*[\s\S]*?\*/|(?<![:\\])//[^\r\n]*', ' ')
+    # The WHOLE key is a house name: 'dkj-<name>', optionally + one identifier (the per-app suffix).
+    $houseKey = "'dkj-[\w:-]*'(?:\s*\+\s*[A-Za-z_$][\w$]*)?"
     $foreign = @($keys | Where-Object {
         $k = $_
-        $isHouse = $k -match "^['""]dkj-"
+        $isHouse = $k -cmatch ('^' + $houseKey + '$')
         if (-not $isHouse -and $k -match '^[A-Za-z_$][\w$]*$') {
-            $isHouse = [regex]::IsMatch($JsText, '(?:var|let|const)\s+' + [regex]::Escape($k) + "\s*=\s*['""]dkj-")
+            $id = [regex]::Escape($k)
+            $declared = [regex]::IsMatch($code, '(?:var|let|const)\s+' + $id + '\s*=\s*' + $houseKey + '\s*[;,\r\n]')
+            $assigned = [regex]::Matches($code, '(?<![\w$.])' + $id + '\s*(?:[-+*/%&|^]|<<|>>>?|\*\*|\?\?|&&|\|\|)?=(?!=)').Count
+            $isHouse  = $declared -and $assigned -eq 1
         }
         -not $isHouse
     })
