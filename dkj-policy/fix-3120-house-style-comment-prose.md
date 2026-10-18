@@ -61,9 +61,10 @@ before a comma into a "selector" whose subject is the house class.
 
 ### DEPLOY: fix/3120-house-style-comment-prose
 
-N/A -- the gate itself ships in `dkj-solutions`; the change is felt in the consumers, below.
+This repo's own test gate runs the house-style check over this tree, and a comment here was what tripped
+it (`scripts/lib/dev-pages-lib.ps1`): a sentence before a comma no longer blocks a PR.
 
-**Score:** N/A
+**Score:** 2
 
 #### What makes this deploy extra special
 
