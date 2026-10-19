@@ -123,7 +123,10 @@ heard only that the issue was closed. `-Research` writes the block for it.
 A store-admin act that is already live -- a metaobject, a metafield value, a setting -- changed the
 store even though no repo file changed, so it takes the go-live form with `-Link <live page> -LiveSince
 <day>`. Measured on smartwatchbanden#395: a metaobject that changed the live structured data was closed
-with `-Research`, and the requester rejected it.
+with `-Research`, and the requester rejected it. **So `-Post` warns when a merged pull request closes or
+references the issue** ([#3181](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3181)): a
+warning, not a refusal, because a PR can cite a research ticket without changing the store. Where it
+did change the store, close with the go-live form and `-LiveSince`, or with `-Measure` (above).
 
 **That form closes an issue that was opened for the admin act, never one reopened for it**
 ([#3073](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3073), Maikel, October 16, 2026). A

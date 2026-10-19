@@ -171,7 +171,8 @@
     Write the research form (#3004) for a ticket without a storefront result: research, a test, a
     decision. Requires a -ProseFile with an [outcome] section, and refuses its other sections and -Link,
     -Path, -Version, -LiveSince, -From and -ReleaseDay. -Post skips the pull-request check, since such a
-    ticket has none; every other check stays.
+    ticket has none; every other check stays. It does read whether a MERGED pull request closes or
+    references the issue, and warns if one does (#3181): 'Nothing has changed' is then likely false.
 
 .PARAMETER Measure
     Write the measurement form (#3179) for a ticket whose result is a number the requester measures
@@ -657,21 +658,34 @@ if (-not $ForceArg -and $asanaLink -ne 'linked') {
 # A RESEARCH BLOCK SKIPS IT (#3004): a ticket that changed nothing has no pull request to wait for, and its
 # block says 'nothing has changed' rather than naming a release day. A MEASUREMENT BLOCK SKIPS IT TOO
 # (#3179): it follows a change that has already shipped, often under another issue, so it has none of its own.
-if (-not $ForceArg -and $resultForm) {
-    $landingState = 'unread'
+function Read-GoLiveLandingState {
+    <# 'merged', 'open', 'none' or 'unread': the pull requests that close or reference the issue, by
+       Get-GoLivePostReadiness. One read, shared by the result form's refusal and -Research's warning. #>
     $repoParts = $StoreRepo -split '/', 2
-    if ($repoParts.Count -eq 2) {
-        $landingQuery = 'query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){' +
-            'closedByPullRequestsReferences(first:20,includeClosedPrs:true){nodes{number state}} ' +
-            'timelineItems(itemTypes:[CROSS_REFERENCED_EVENT],last:50){nodes{... on CrossReferencedEvent{source{... on PullRequest{number state repository{nameWithOwner}}}}}}}}}'
-        $landingRun = Invoke-Native { gh api graphql -f "query=$landingQuery" -f "owner=$($repoParts[0])" -f "name=$($repoParts[1])" -F "num=$issueNumber" }
-        if ($landingRun.Code -eq 0 -and $landingRun.Output.Count -gt 0) {
-            try {
-                $landingJson = ($landingRun.Output -join "`n") | ConvertFrom-Json
-                $landingState = Get-GoLivePostReadiness -Nodes @(Get-GoLiveLandingNodes -IssueData $landingJson.data.repository.issue -Repo $StoreRepo)
-            } catch { $landingState = 'unread' }
-        }
-    }
+    if ($repoParts.Count -ne 2) { return 'unread' }
+    $landingQuery = 'query($owner:String!,$name:String!,$num:Int!){repository(owner:$owner,name:$name){issue(number:$num){' +
+        'closedByPullRequestsReferences(first:20,includeClosedPrs:true){nodes{number state}} ' +
+        'timelineItems(itemTypes:[CROSS_REFERENCED_EVENT],last:50){nodes{... on CrossReferencedEvent{source{... on PullRequest{number state repository{nameWithOwner}}}}}}}}}'
+    $landingRun = Invoke-Native { gh api graphql -f "query=$landingQuery" -f "owner=$($repoParts[0])" -f "name=$($repoParts[1])" -F "num=$issueNumber" }
+    if ($landingRun.Code -ne 0 -or $landingRun.Output.Count -eq 0) { return 'unread' }
+    try {
+        $landingJson = ($landingRun.Output -join "`n") | ConvertFrom-Json
+        return (Get-GoLivePostReadiness -Nodes @(Get-GoLiveLandingNodes -IssueData $landingJson.data.repository.issue -Repo $StoreRepo))
+    } catch { return 'unread' }
+}
+
+# -Research SAYS 'Nothing has changed', SO A MERGED PULL REQUEST ON THE ISSUE IS WORTH A WARNING (#3181).
+# Measured on smartwatchbanden#919: a follow-up of a live change was closed with -Research, and the
+# requester removed the message. A warning and not a refusal: a research ticket can be referenced by a PR
+# that changed nothing on the store, and only the session knows which this is.
+if ($ResearchArg -and (Read-GoLiveLandingState) -eq 'merged') {
+    Write-Host "[WARNING] A merged pull request closes or references $targetRef, and -Research tells the requester" -ForegroundColor Yellow
+    Write-Host "          'Nothing has changed'. If that PR changed the store, close with the go-live form and" -ForegroundColor Yellow
+    Write-Host "          -LiveSince instead, or with -Measure when the result is a number the requester measures." -ForegroundColor Yellow
+}
+
+if (-not $ForceArg -and $resultForm) {
+    $landingState = Read-GoLiveLandingState
     if ($landingState -eq 'none' -or $landingState -eq 'unread') {
         if ($landingState -eq 'unread') {
             Write-Host "[ERROR] Could not read which pull requests close or reference $targetRef, so whether its work has landed is unchecked." -ForegroundColor Red
