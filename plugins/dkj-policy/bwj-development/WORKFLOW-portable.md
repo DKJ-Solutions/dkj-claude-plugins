@@ -872,12 +872,10 @@ after a performance fix, a conversion rate after a CRO change, a ranking after a
 - **A miss the requester reports is a new finding**, researched with the issue still closed and filed or
   reopened under the third rule like any other rejection.
 
-**The closed message has no form of its own for this yet.** The go-live form assumes a change you can
-see on the storefront, and `-Research` says nothing in the store changed, while here the store did
-change and the effect cannot be seen. A third form is
-[#3179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3179). Until it lands, the go-live
-form carries it: `[changed]` says the effect is invisible on the storefront and can be measured, and
-`[where]` holds the how-to-measure and the targets.
+**The closed message has a form of its own for this: the measurement block**
+(`build-golive-block.ps1 -Measure`, #3179, under *Closing an issue as completed* above). Its
+`[measure]`, `[targets]`, `[baseline]` and `[when]` sections are the handover in the second bullet,
+and the form is in [`golive-block`](skills/golive-block/SKILL.md).
 
 **Measured in `BWJ-Development/smartwatchbanden`, October 13 to 19, 2026.** A follow-up holding the
 post-live acceptance measurements of a hero-preload fix was picked up four times by dev sessions. Three

@@ -42,13 +42,14 @@
 Inbound #3177: in BWJ ticket handling, the requester checks a live result against its acceptance,
 not a dev session. The requester's refinement (a closed issue, not one parked on
 `awaiting-review-client`) and the owner's ruling (BWJ-wide, no per-repo seam) are both on the thread.
-The closed-message form that makes it concrete is #3179, which is not in scope here.
+The closed-message form that makes it concrete is #3179. It merged (#3185) while this branch was
+shipping, so the section points at `-Measure` instead of carrying a stopgap.
 
 ### CREATE
 
 - [x] `bwj-development/WORKFLOW-portable.md` chapter 4: a new section, *A result that is a number*,
-  placed after the go-live half so the existing sections stay whole. It also says what to use until
-  #3179 lands.
+  placed after the go-live half so the existing sections stay whole. It points at the `-Measure`
+  closed-message form #3179 added.
 
 ### TEST
 
