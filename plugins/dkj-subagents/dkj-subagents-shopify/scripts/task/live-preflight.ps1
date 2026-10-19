@@ -107,6 +107,10 @@
     Git-connected mode only. Turn a rejected push in the deploy branch's rule-suite log from a refusal into
     a note, after a person has reconciled what it left on live. Never a default.
 
+.PARAMETER AcceptOwedReconciliation
+    Turn a push-list path that still ends on sync-main's reconciliation base (#3145) from a refusal into a
+    note, after a person has decided the trunk's version should replace live's there. Never a default.
+
 .PARAMETER RootOverride
     Fixture root, so a suite can drive this against a scratch tree instead of a real store.
 
@@ -139,6 +143,7 @@ param(
     [switch]$SkipGates,
     [switch]$SkipBackup,
     [switch]$AcceptRejectedWriteBacks,
+    [switch]$AcceptOwedReconciliation,
     [string]$RootOverride = ''
 )
 $ErrorActionPreference = 'Stop'
@@ -531,6 +536,24 @@ if (-not $sinceTag) {
         } else {
             $delText = if ($deleteFiles.Count -gt 0) { " and $($deleteFiles.Count) to delete" } else { '' }
             Add-Step -Name 'push list' -State 'pass' -Detail "$($pushFiles.Count) theme file(s) to push$delText, out of $($changed.Count) changed."
+        }
+
+        # AN UNRECONCILED BASE REFUSES HERE, BEFORE THE DRIFT CHECK CAN CALL IT SAFE (#3145). sync-main's
+        # -ReconcileBase makes live's bytes read as ours, so step 6 goes green on a path whose third-party
+        # content the trunk still lacks. Connected mode too: the promotion carries the trunk over live the
+        # same way a push does. -AcceptOwedReconciliation is for the person who decided the trunk wins.
+        if ($pushFiles.Count -gt 0) {
+            $recWalk = Invoke-Git -Arguments @('log', '--no-merges', '--topo-order', '--no-renames', '--format=COMMIT%x09%H%x09%s', '--name-only', "$sinceTag..HEAD")
+            $owedRec = @(Get-ReconciliationOwedPaths -WalkLines (Get-GitPaths $recWalk) -Paths $pushFiles)
+            if ($owedRec.Count -gt 0) {
+                $named = (@($owedRec | Select-Object -First 5) | ForEach-Object { "'$(Format-SafePathToken -Value $_)'" }) -join ', '
+                $more  = if ($owedRec.Count -gt 5) { ", and $($owedRec.Count - 5) more" } else { '' }
+                if ($AcceptOwedReconciliation) {
+                    Add-Step -Name 'reconciliation' -State 'warn' -Detail "$($owedRec.Count) path(s) still end on a sync-main reconciliation base, accepted by -AcceptOwedReconciliation: $named$more. The push replaces live's content there with the trunk's."
+                } else {
+                    Add-Step -Name 'reconciliation' -State 'refuse' -Detail "$($owedRec.Count) path(s) end on a sync-main reconciliation base that nobody has reconciled since: $named$more. The drift check reads them as safe, but the trunk still lacks live's content, so this push would revert it. Reconcile them in an ordinary commit, or pass -AcceptOwedReconciliation if the trunk's version is meant to win."
+                }
+            }
         }
     }
 }

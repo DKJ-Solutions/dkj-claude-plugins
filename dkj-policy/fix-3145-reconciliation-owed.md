@@ -39,19 +39,29 @@
 
 ### PLAN
 
+Inbound #3145, verified on pickup: `Write-SyncReconciliationBase` puts live's bytes into the path's history, and `Test-LiveContentIsOurs` (and the consumer's drift check, by the same test) then reads live as ours while the trunk still lacks live's content. Nothing checked that the content reconciliation had happened.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ReconciliationOwedPaths` + the two shared subjects in `live-push-rules.ps1`; `sync-main` writes its commits from them and says the follow-up is required before a live push
+- [x] `live-preflight` refuses at step 3 (`-AcceptOwedReconciliation` turns it into a note); `prepare-release` flags it as attention
+- [x] skill pages for `sync-main` and `live-preflight`
 
 ### TEST
 
+- [x] `live-push-rules.tests.ps1` 178/0, `sync-main.tests.ps1` 174/0
+
 ### DEPLOY: fix/3145-reconciliation-owed
 
-**Score:**
+A merged `sync-main -ReconcileBase` branch no longer leaves a path that reads as safe to push while the trunk still lacks live's third-party content. `live-preflight` now refuses a push-list path whose newest commit is still the reconciliation base, `prepare-release` flags it days ahead, and `sync-main`'s closing text says the content commit is required before any live push. A person who decides the trunk's version should win passes `-AcceptOwedReconciliation`.
+
+**Score:** 1 -- the maintainer of this repo sees nothing change here.
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify store that reconciled a sync conflict with `-ReconcileBase` is now stopped before a live push that would have silently reverted what a third party changed on live -- measured in a store, where it would have undone a raised shipping threshold and a `noindex`.
+
+**Score:** 3
 
 #### Pull Request
 
