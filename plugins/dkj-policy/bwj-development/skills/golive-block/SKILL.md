@@ -79,6 +79,37 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    or pass `-Force` for an issue that is GitHub-only
    ([#2918](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2918)).
 
+## A result that is a number -- `-Measure`
+
+**A page-speed target after a performance fix, a conversion rate, a ranking**: the store changed, and its
+effect is a number nobody sees on a page
+([#3179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3179), Maikel, October 19, 2026).
+Neither other form fits. The go-live form points at a page where nothing visible changed, and
+`-Research` says *"Nothing has changed"*, which is false. Measured on smartwatchbanden#919: it was
+closed with `-Research` because this form did not exist yet, and the requester removed the message by
+hand. **The requester measures, not a dev session**
+([#3177](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3177)), so the block tells them how.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-golive-block.ps1" -Issue 919 -Measure -ProseFile measure.txt -Post
+```
+
+The prose file carries four sections in the task's language. `[measure]` and `[targets]` are required,
+`[baseline]` and `[when]` optional, and the run refuses the other forms' sections beside them:
+
+| section | heading (nl / en) | what goes in it |
+|---|---|---|
+| `[measure]` | ZO MEET JE HET / HOW TO MEASURE | the tool, the URL(s) per market, the settings (mobile or desktop, connection), what to read off. A `- ` line stays a list item |
+| `[targets]` | DOELEN / TARGETS | the acceptance values |
+| `[baseline]` | LAATSTE METING / LAST MEASUREMENT | the last measurement, with its date (and the value before the change), to compare against |
+| `[when]` | WANNEER JE MEET / WHEN TO MEASURE | e.g. that field data needs 28 days after the live date |
+
+It refuses `-Research`, `-Link`, `-Path`, `-Version`, `-LiveSince`, `-From` and `-ReleaseDay`, and
+`-Post` skips the pull-request check: a measurement follow-up has no pull request of its own. The closed
+message ends with the measurement ask, which names the board's own done section as the research ask
+does: *"Is the target met? Move the task to '<done section>' and mark it as complete. Not met? Leave a
+comment with your measurement, and it becomes a new finding."*
+
 ## A ticket without a storefront result -- `-Research`
 
 **Research, a test or a decision changes nothing on the store**, so it has no result link, no release
@@ -108,6 +139,7 @@ without reopening. Either way the answer goes to the requester by the terminal r
 |---|---|---|
 | Yes, and it can be seen | completed, go-live block (`-LiveSince` once live) | *"It can be reopened anytime ..."*, or that it becomes visible with the release, then the go-live headings |
 | No, but we learned something useful | completed, `-Research` | *"Nothing has changed. Read the outcome below."*, then OUTCOME |
+| Yes, but the result is a number the requester measures again | completed, `-Measure` | *"Nothing changes visibly on the storefront. You can take a new measurement yourself, as described below."*, then how to measure and the targets |
 | No, because information is missing | **not planned**, `awaiting-info-client` kept on | its own intro: *"this Asana task has been cancelled, because there is not enough information to start development."*, then the ask to answer the questions |
 
 The not-planned close is never *"in review"*: development is stuck, so the task goes back rather than
@@ -213,6 +245,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-Language nl\|en` | the language of the Asana task, and so of the block between the rules. Omitted, the repo's own `Get-GoLiveBlockLanguage` in `scripts/repo-config.ps1` (returning `nl` or `en`) answers it, so a store that writes GitHub in English states that once ([#2830](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2830)); without that seam, `nl` |
 | `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below -- or, with `-Research`, the `[outcome]` section |
 | `-Research` | the research form, for a ticket that changed nothing on the store (#3004) -- see above |
+| `-Measure` | the measurement form, for a result that is a number the requester measures again (#3179) -- see above |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
 | `-Force` | post although a block already appears to be there FOR THIS ROUND (one from before the issue's last reopen does not count, so a reopened issue's corrected block needs no `-Force` for that), a store-admin prerequisite is still open, the issue links no single Asana task, no open or merged pull request closes it yet, or the issue could not be read |

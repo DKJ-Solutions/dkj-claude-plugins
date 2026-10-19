@@ -577,6 +577,21 @@ Assert-Throws { Format-GoLiveResearchBlock -Marker 'm' -ResearchMarker 'r' -Issu
 Assert-Equal 3 @(ConvertTo-GoLiveOutcomeBullets -Paragraphs @("* a`n-  b", 'c')).Count 'a * marker counts as a bullet too, and a paragraph is one'
 Assert-Equal '**vet** blijft' @(ConvertTo-GoLiveOutcomeBullets -Paragraphs @('**vet** blijft'))[0] 'a line opening with bold is not read as a bullet'
 Assert-True (Test-AsanaPasteBlockBody -Body $rbBlock) 'it is a block the closed message carries'
+
+# THE MEASUREMENT BLOCK (#3179): a result that is a number the requester measures again (#3177).
+$mpProse = ConvertFrom-GoLiveProse -Text "[measure]`nPageSpeed Insights, mobiel.`n- https://x.nl/`n`n[targets]`nLCP onder 2,5 s.`n`n[baseline]`n3,1 s op 13 oktober.`n`n[when]`nNa 28 dagen."
+Assert-Equal 'Na 28 dagen.' @($mpProse.MeasureWhen)[0] '[when] fills the measurement block''s last section'
+Assert-Equal 'LCP onder 2,5 s.' @($mpProse.Targets)[0] 'and [targets] its targets'
+$mbBlock = Format-GoLiveMeasureBlock -Marker (Get-AsanaPasteBlockMarker) -MeasureMarker (Get-AsanaMeasureBlockMarker) `
+    -IssueRef 'BWJ-Development/smartwatchbanden#919' -Measure $mpProse.Measure -Targets $mpProse.Targets -Baseline $mpProse.Baseline -When $mpProse.MeasureWhen
+Assert-True ($mbBlock.StartsWith("$(Get-AsanaPasteBlockMarker)`n$(Get-AsanaMeasureBlockMarker)`n")) 'the measurement block carries both markers, outside the rules'
+Assert-True ($mbBlock.Contains("is now **closed**: this Asana task is now in review.`nNothing changes visibly on the storefront. You can take a new measurement yourself, as described below.`n`nZO MEET JE HET`n`nPageSpeed Insights, mobiel.`n- https://x.nl/`n`nDOELEN`n`nLCP onder 2,5 s.`n`nLAATSTE METING`n`n3,1 s op 13 oktober.`n`nWANNEER JE MEET`n`nNa 28 dagen.`n`n---")) 'the shared intro, the measurement line under it, then the four sections in order, a blank line before the closing rule'
+Assert-True ($mbBlock -notmatch 'Nothing has changed|reopened anytime|WANNEER HET LIVE KOMT|TE BEKIJKEN OP') 'and nothing of the research or the result form'
+$mbMin = Format-GoLiveMeasureBlock -Marker 'm' -MeasureMarker 'k' -IssueRef 'o/r#1' -Measure @('a') -Targets @('b') -Language en
+Assert-True ($mbMin.Contains("`nHOW TO MEASURE`n`na`n`nTARGETS`n`nb`n`n---") -and $mbMin -notmatch 'LAST MEASUREMENT|WHEN TO MEASURE') 'English headings, and an optional section with nothing to say is not written'
+Assert-Throws { Format-GoLiveMeasureBlock -Marker 'm' -MeasureMarker 'k' -IssueRef 'o/r#1' -Measure @(' ') -Targets @('b') } 'a measurement block without how to measure is refused'
+Assert-Throws { Format-GoLiveMeasureBlock -Marker 'm' -MeasureMarker 'k' -IssueRef 'o/r#1' -Measure @('a') -Targets @() } 'and one without targets'
+Assert-True (Test-AsanaPasteBlockBody -Body $mbBlock) 'it is a block the closed message carries'
 Assert-True ((Get-PasteBlockSections -Body $rbBlock).StartsWith('OUTCOME')) 'and its carried sections start at the heading: the closed line is the message''s own'
 
 # A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
@@ -1214,6 +1229,20 @@ Assert-True ($cmResDone.EndsWith("No more questions? Move the task to '4. Done &
 Assert-Equal "<ul><li><a href=`"https://x.nl/a`">https://x.nl/a</a></li></ul>`nnext" (ConvertTo-AsanaStoryHtml -Markdown "- https://x.nl/a`nnext" -Lists) 'a list item converts its links like a line does, and the list closes before the next line'
 Assert-Equal "- a" (ConvertTo-AsanaStoryHtml -Markdown '- a') 'without -Lists a result block''s hyphen lines are posted as they always were'
 
+# THE MEASUREMENT FORM (#3179): its sections under the measurement line, and the measurement ask.
+$cmMeaSections = Get-PasteBlockSections -Body $mbBlock
+Assert-True ($cmMeaSections.StartsWith('ZO MEET JE HET')) 'the measurement line is the message''s own, so it is dropped with the intro'
+$cmMea = New-ClosedMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#919' -BlockSections $cmMeaSections -Measure -DoneSection '4. Done'
+[void][xml]$cmMea
+Assert-True ($cmMea.Contains("is now <strong>closed</strong>: this Asana task is now in review.`nNothing changes visibly on the storefront. You can take a new measurement yourself, as described below.`n`n<strong>ZO MEET JE HET</strong>")) 'the measurement message opens with the shared intro and the measurement line'
+Assert-True ($cmMea.Contains('<ul><li><a href="https://x.nl/">https://x.nl/</a></li></ul>')) 'a hand-made list in a section becomes a list'
+Assert-True ($cmMea.EndsWith("`nIs the target met? Move the task to '4. Done' and mark it as complete. Not met? Leave a comment with your measurement, and it becomes a new finding.</body>")) 'and it closes with the measurement ask, naming the done section'
+Assert-True ($cmMea -notmatch 'Nothing has changed|reopened anytime|still unclear') 'with nothing of the research or the result form'
+Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'DOELEN' -Measure -Research -AfterRelease) -match 'Nothing changes visibly' -and (New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'DOELEN' -Measure -Research) -notmatch 'still unclear') 'the measurement form wins over research and -AfterRelease'
+Assert-Equal 'Is the target met? Mark the task as complete. Not met? Leave a comment with your measurement, and it becomes a new finding.' (Get-ClosedMessageMeasureAsk) 'without a done section the ask names none'
+Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -Measure) -match 'result message for this round follows') 'without a block -Measure says nothing it cannot know'
+Assert-Equal "with the session's measurement block" (Get-ClosedMessageBlockPhrase -Sections 'x' -Measure $true -Research $true) 'the log names the measurement block'
+
 # ONE INTRO, AND THE LINE UNDER IT TELLS THE FORMS APART (#3069).
 $cmRel = New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'TE BEKIJKEN OP' -AfterRelease
 [void][xml]$cmRel
@@ -1593,7 +1622,7 @@ $plGh = Get-FunctionSourceText -Path $plTemplate -Name 'Invoke-GhCapture'
 Assert-True ($null -ne $plGh) 'the prio template defines Invoke-GhCapture'
 Assert-Equal (Get-FunctionSourceText -Path $cmTemplate -Name 'Invoke-GhCapture') $plGh 'Invoke-GhCapture equals asana-closed-message.ps1''s'
 # #2968: the freshness judgement is copied into the template as well, and held equal to the lib's.
-foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections', 'Get-AsanaResearchBlockMarker', 'Get-AsanaReleaseBlockMarker')) {
+foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections', 'Get-AsanaResearchBlockMarker', 'Get-AsanaReleaseBlockMarker', 'Get-AsanaMeasureBlockMarker')) {
     $mine = Get-FunctionSourceText -Path $cmTemplate -Name $fn
     Assert-True ($null -ne $mine) "the closed-message template defines $fn"
     Assert-Equal (Get-FunctionSourceText -Path $plLib -Name $fn) $mine "$fn equals asana-task-lib.ps1's, apart from its help comment"

@@ -46,6 +46,13 @@
         Get-AsanaStageMap gives the Completed stage, matched against the sections of the task's own
         board (Resolve-DoneSectionName). Where any step of that does not answer, the ask says 'Mark the
         task as complete.' and names no section, rather than one this run could not confirm.
+      - A close as completed whose newest block is a MEASUREMENT block (build-golive-block.ps1 -Measure,
+        #3179): the header, the intro, 'Nothing changes visibly on the storefront. You can take a new
+        measurement yourself, as described below.', the block's sections (how to measure, the targets,
+        and where written the last measurement and when to measure), and the closing ask: 'Is the target
+        met? Move the task to '<done section>' and mark it as complete. Not met? Leave a comment with
+        your measurement, and it becomes a new finding.' The done section is found as for research. The
+        block carries Get-AsanaMeasureBlockMarker beside its own, and that marker wins over the others.
       - A close as completed that CARRIES NO BLOCK, for any reason: the header, the closed line, and one
         sentence under them -- 'The result message for this round follows.' NEVER THE CLOSED LINE ALONE
         (Maikel, October 14, 2026, #3004): 'with this automation there must always be an explanation of
@@ -257,9 +264,11 @@ function Get-ClosedMessageSecondLine {
         it, replacing #3017's 'the Asana task is ready for review. Read the outcome below.', which did
         not say that nothing changed, so a research form used for a change that went live read as
         plausible (smartwatchbanden#395). -Research wins over -AfterRelease: a research block has no
-        release.
+        release. -Measure (#3179) is a measurement block: the store changed and the effect is a number, so
+        the line says nothing changes visibly and that the requester can measure it; it wins over both.
     #>
-    param([switch]$Research, [switch]$AfterRelease)
+    param([switch]$Research, [switch]$AfterRelease, [switch]$Measure)
+    if ($Measure) { return 'Nothing changes visibly on the storefront. You can take a new measurement yourself, as described below.' }
     if ($Research) { return 'Nothing has changed. Read the outcome below.' }
     if ($AfterRelease) { return 'It becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.' }
     return 'It can be reopened anytime when something is still not working as expected.'
@@ -279,6 +288,19 @@ function Get-ClosedMessageAsk {
     return "$unclear No more questions? Mark the task as complete."
 }
 
+function Get-ClosedMessageMeasureAsk {
+    <#
+        Pure: the closing ask under a measurement close's sections (#3179), fixed and English on every
+        board like the research ask beside it, and naming -DoneSection by the same rule. The requester
+        measures and judges (#3177): a target met completes the task, a miss is their measurement in a
+        comment, which becomes a new finding rather than a reopen of this one.
+    #>
+    param([AllowEmptyString()][string]$DoneSection = '')
+    $miss = 'Not met? Leave a comment with your measurement, and it becomes a new finding.'
+    if ($DoneSection) { return "Is the target met? Move the task to '$DoneSection' and mark it as complete. $miss" }
+    return "Is the target met? Mark the task as complete. $miss"
+}
+
 function New-ClosedMessage {
     <#
         Pure: the closed comment as plain text -- the header, a blank line, the intro and the line under
@@ -288,9 +310,10 @@ function New-ClosedMessage {
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [switch]$Research,
-        [switch]$AfterRelease
+        [switch]$AfterRelease,
+        [switch]$Measure
     )
-    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageIntroTail)", (Get-ClosedMessageSecondLine -Research:$Research -AfterRelease:$AfterRelease)) -join "`n")
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageIntroTail)", (Get-ClosedMessageSecondLine -Research:$Research -AfterRelease:$AfterRelease -Measure:$Measure)) -join "`n")
 }
 
 function Get-PasteBlockSections {
@@ -423,23 +446,32 @@ function New-ClosedMessageHtml {
         -LiveSince, so the line under the intro says the result becomes visible with that release. Both
         are meaningful only beside sections: a close that carries no block gets the result form, because
         nothing it could say about the outcome or the release is known.
+
+        -Measure (#3179): the block is a measurement block, so the line under the intro says nothing
+        changes visibly and the requester can measure it, a '- ' run becomes a list as in the research
+        form, and the measurement ask follows (Get-ClosedMessageMeasureAsk), naming -DoneSection the same
+        way. Also meaningful only beside sections.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [AllowEmptyString()][string]$BlockSections = '',
         [switch]$Research,
         [switch]$AfterRelease,
+        [switch]$Measure,
         [AllowEmptyString()][string]$DoneSection = ''
     )
 
     $esc      = { param($s) ConvertTo-AsanaXmlText -Text $s }
     $parts    = $IssueRef -split '#'
     $url      = "https://github.com/$($parts[0])/issues/$($parts[1])"
-    $research = $Research -and [bool]$BlockSections
-    $after    = $AfterRelease -and [bool]$BlockSections
-    $second   = Get-ClosedMessageSecondLine -Research:$research -AfterRelease:$after
+    $measure  = $Measure -and [bool]$BlockSections
+    $research = $Research -and [bool]$BlockSections -and -not $measure
+    $after    = $AfterRelease -and [bool]$BlockSections -and -not $measure
+    $second   = Get-ClosedMessageSecondLine -Research:$research -AfterRelease:$after -Measure:$measure
     $html     = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>$(& $esc (Get-ClosedMessageIntroTail))`n$(& $esc $second)"
-    if ($research) {
+    if ($measure) {
+        $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections -Lists) + "`n" + (& $esc (Get-ClosedMessageMeasureAsk -DoneSection $DoneSection))
+    } elseif ($research) {
         $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections -Lists) + "`n" + (& $esc (Get-ClosedMessageAsk -DoneSection $DoneSection))
     } elseif ($BlockSections) { $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) }
     else { $html += "`n`n" + (& $esc 'The result message for this round follows.') }
@@ -518,6 +550,14 @@ function Get-AsanaResearchBlockMarker {
         of asana-task-lib.ps1's function of this name.
     #>
     return '<!-- asana-paste-block-kind: research -->'
+}
+
+function Get-AsanaMeasureBlockMarker {
+    <#
+        Pure: the second marker build-golive-block.ps1 -Measure puts on a measurement block (#3179). A copy
+        of asana-task-lib.ps1's function of this name.
+    #>
+    return '<!-- asana-paste-block-kind: measure -->'
 }
 
 function Get-AsanaReleaseBlockMarker {
@@ -986,6 +1026,8 @@ function Get-ClosedMessageBlockPhrase {
         [bool]$ReadOk = $true,
         # The carried block is a research block (#3004).
         [bool]$Research = $false,
+        # The carried block is a measurement block (#3179).
+        [bool]$Measure = $false,
         # How many go-live block comments the trust check did not carry (#2907): a dropped block and an
         # absent one are different facts, and they used to share 'none was on the issue'.
         [int]$Dropped = 0,
@@ -993,7 +1035,7 @@ function Get-ClosedMessageBlockPhrase {
         # reopen) or 'unread' (the reopen could not be read, so whether it does is unknown).
         [string]$Held = ''
     )
-    if ($Sections) { if ($Research) { return "with the session's research block" } return "with the session's go-live block" }
+    if ($Sections) { if ($Measure) { return "with the session's measurement block" } if ($Research) { return "with the session's research block" } return "with the session's go-live block" }
     $owed = "; the message says the result message follows, which the task's assignee still owes the requester"
     if ($Held -eq 'stale') { return "without a go-live block -- the only one on the issue predates its last reopen, so it describes an earlier round$owed" }
     if ($Held -eq 'unread') { return "without a go-live block -- one was on the issue, but when the issue was last reopened could not be read (the gh error is above), so whether it is stale is unknown$owed" }
@@ -1125,10 +1167,12 @@ function Invoke-Main {
         $dropped  = $trusted.Dropped
         $chosen   = Select-SessionPasteBlockBody -Bodies $trusted.Bodies
         $sections = if ($chosen) { Get-PasteBlockSections -Body $chosen } else { '' }
-        $research = [bool]$chosen -and $chosen.Contains((Get-AsanaResearchBlockMarker))
+        # A MEASUREMENT BLOCK (#3179) is its own form, and is read first so it can never also read as research.
+        $measure  = [bool]$chosen -and $chosen.Contains((Get-AsanaMeasureBlockMarker))
+        $research = [bool]$chosen -and -not $measure -and $chosen.Contains((Get-AsanaResearchBlockMarker))
         # A RESULT THAT IS VISIBLE ONLY AFTER THE RELEASE SAYS SO UNDER THE INTRO (#3069); a block from
         # before #3069 carries no such marker and keeps the plain reopen line.
-        $afterRelease = [bool]$chosen -and -not $research -and $chosen.Contains((Get-AsanaReleaseBlockMarker))
+        $afterRelease = [bool]$chosen -and -not $research -and -not $measure -and $chosen.Contains((Get-AsanaReleaseBlockMarker))
 
         # A BLOCK FROM BEFORE THE LAST REOPEN IS NOT CARRIED (#2968). xoxowildhearts#414 closed after
         # round 1 with its block, was reopened, and closed again by the PR of round 2 -- whose block the
@@ -1151,7 +1195,7 @@ function Invoke-Main {
                     if ($verdict -eq 'stale') { $held = 'stale' }
                     elseif ($verdict -eq 'unknown') { $held = 'unread' }
                 }
-                if ($held) { $sections = ''; $research = $false; $afterRelease = $false }
+                if ($held) { $sections = ''; $research = $false; $afterRelease = $false; $measure = $false }
             }
         }
         # NO SECTIONS IS NEVER THE CLOSED LINE ALONE (#3004): New-ClosedMessageHtml adds that the result
@@ -1159,7 +1203,7 @@ function Invoke-Main {
         # A RESEARCH CLOSE NAMES THE BOARD'S OWN DONE SECTION IN ITS CLOSING ASK (#3017), never a fixed
         # '4. Done'. The reads are made only here, so every other message costs nothing extra.
         $done = ''
-        if ($research -and $sections) {
+        if (($research -or $measure) -and $sections) {
             $configText = ''
             $configPath = if ($RepoConfigPath) { $RepoConfigPath } else { Join-Path $PSScriptRoot '../../scripts/repo-config.ps1' }
             if (Test-Path -LiteralPath $configPath -PathType Leaf) {
@@ -1169,7 +1213,7 @@ function Invoke-Main {
             $done = $resolved.Name
             Write-Host "Done section for the closing ask: $(if ($done) { 'named' } else { 'not named' }) -- $($resolved.Why)."
         }
-        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research -AfterRelease:$afterRelease -DoneSection $done
+        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research -AfterRelease:$afterRelease -Measure:$measure -DoneSection $done
     }
     $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
     # UTF-8 BYTES, not the string: Windows PowerShell 5.1 encodes a string body as ISO-8859-1, which
@@ -1191,7 +1235,7 @@ function Invoke-Main {
         Write-Host "Asana task $($decision.Gid) told: $IssueRef is on hold, closed as not planned while waiting for more information ($($decision.Why)). The card was NOT moved."
         return
     }
-    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped -Held $held -Research $research
+    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped -Held $held -Research $research -Measure $measure
     Write-Host "Asana task $($decision.Gid) told: $IssueRef is closed, $with ($($decision.Why)). The task was NOT completed -- that is the requester's call."
 }
 
