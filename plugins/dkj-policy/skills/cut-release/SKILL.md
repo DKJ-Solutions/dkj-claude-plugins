@@ -242,6 +242,24 @@ a release for a missing timestamp would be ceremony rather than a guard.
      and the cut committed and tagged before its push was rejected, which left a local commit and tag that
      only an owner-gated `reset --hard` could unpick. A repo with no `origin` remote skips the check on its
      own and says so.
+
+     **After the gates, a `main` that is only BEHIND is caught up rather than refused**
+     ([#3155](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3155)). Measured at the v5.25.0
+     cut: on a trunk merging about every 15 minutes, a ~13-minute gate lost the race twice in a row, and
+     every retry paid the whole gate again. So where the repo names its test check (`Get-CiTestCheckName`)
+     and its slug (`Get-RepoName`), the cut reads the CI run that the push to the trunk started for the new
+     `origin/main` tip, and waits for it while it is still running. Only when that run is green does the
+     cut fast-forward to the tip and run itself again on it. That second run reads every pending entry and
+     re-runs every content gate against the new trunk, and it skips only the lint and test gates, because CI
+     has just run them on that exact commit. It prints that it skipped them. The re-run passes two
+     parameters of its own, **`-CatchUpCertifiedSha`** (the certified tip) and **`-CatchUpRound`**. Nobody
+     needs to type either one: they hold no more authority than `-SkipLint -SkipTests`, and on any HEAD
+     other than the certified commit the gates run as usual. **It reads the main-push run, not the PRs'
+     own checks**, because a ruleset that is not strict lets each PR's check prove that PR's base rather
+     than the combined trunk. It still refuses, saying why no catch-up was made, in these cases: `main` is
+     AHEAD, the check is not named, the CI run is red or cannot be read, or the trunk is still moving after
+     three rounds. Before the gates, a first run still refuses: nothing has been paid yet, so running the
+     gates on the new tree is the stronger proof.
    - **`-Type <major|minor|patch>` — state the bump type instead of letting it be inferred.** Belongs with
      `-Version`; refused alongside `-Bump`, which says the same thing already. **You need it in exactly one
      situation**: a repo whose git tag line and whose recorded release numbering have deliberately
