@@ -316,34 +316,34 @@ try {
             $path = ([string]$target -split '\?')[0]
 
             if (-not (Test-LoopbackHost -HostHeader $request.Host -Port $Port)) {
-                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
+                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.')) -Method $method
                 continue
             }
             if (Test-LoopbackCrossSite -SecFetchSite $request.SecFetchSite -SecFetchMode $request.SecFetchMode -Method $method) {
-                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
+                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.')) -Method $method
                 continue
             }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
-                Send-LoopbackResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' }
+                Send-LoopbackResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' } -Method $method
                 continue
             }
             if ($path -eq '/whoami') {
                 # Whose server this is: the hash of the root it was started in. The hubs ask before they link here.
-                Send-LoopbackResponse $stream 200 'OK' 'text/plain; charset=utf-8' ($utf8.GetBytes($rootHash))
+                Send-LoopbackResponse $stream 200 'OK' 'text/plain; charset=utf-8' ($utf8.GetBytes($rootHash)) -Method $method
                 continue
             }
             if ($static.ContainsKey($path)) {
                 $s = $static[$path]
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
-                Send-LoopbackResponse $stream 200 'OK' $s.Type $body
+                $body = [System.IO.File]::ReadAllBytes($s.File)
+                Send-LoopbackResponse $stream 200 'OK' $s.Type $body -Method $method
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/hub') {
                 $hub = (Read-RepoHubState -Root $root).Hub
                 if ($hub) {
-                    Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $hub }
+                    Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $hub } -Method $method
                 } else {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('This repo''s hub is not known yet: the dev-preview hook records it at the next session start.'))
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('This repo''s hub is not known yet: the dev-preview hook records it at the next session start.')) -Method $method
                 }
                 continue
             }
@@ -357,7 +357,7 @@ try {
                     # At least a minute: a re-read holds this single-threaded loop for about 12 s.
                     if ($isCache -and ((Get-Date) - $isCache.At).TotalSeconds -ge [Math]::Max($MinRefreshSeconds, 60)) { $isCache = $null }
                 }
-                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" }
+                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" } -Method $method
                 continue
             }
             $html = $null
@@ -375,17 +375,17 @@ try {
                 $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -RepoName (Get-RepoIdentity).Name -Snapshot $snap.Data -SnapshotError $snap.Error
             } elseif ($path -eq '/release-notes') {
                 if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: this repo has no dkj-policy/releases/page/release-notes.html. The dkj-policy plugin builds it with scripts/release/build-release-notes-page.ps1.'))
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: this repo has no dkj-policy/releases/page/release-notes.html. The dkj-policy plugin builds it with scripts/release/build-release-notes-page.ps1.')) -Method $method
                     continue
                 }
                 $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8))
             }
             if ($null -ne $html) {
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                $body = $utf8.GetBytes($html)
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
-            Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.'))
+            Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
         } catch {
             # A dropped or silent connection ends that request, never the server.
         } finally {

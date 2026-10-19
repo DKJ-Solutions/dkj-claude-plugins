@@ -71,31 +71,30 @@ try {
             $path = ([string]$target -split '\?')[0]
 
             if (-not (Test-DevPreviewPlaceholderHost -HostHeader $request.Host -Port $Port)) {
-                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
+                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.')) -Method $method
                 continue
             }
             if (Test-DevPreviewPlaceholderCrossSite -SecFetchSite $request.SecFetchSite -SecFetchMode $request.SecFetchMode -Method $method) {
-                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
+                Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.')) -Method $method
                 continue
             }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
-                Send-LoopbackResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' }
+                Send-LoopbackResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' } -Method $method
                 continue
             }
             if ($static.ContainsKey($path)) {
                 $s = $static[$path]
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
-                Send-LoopbackResponse $stream 200 'OK' $s.Type $body
+                $body = [System.IO.File]::ReadAllBytes($s.File)
+                Send-LoopbackResponse $stream 200 'OK' $s.Type $body -Method $method
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
                 # Built per request: the General card follows the state file and whether that server answers.
-                $page = $utf8.GetBytes((Format-DevPreviewPlaceholderHtml -RepoName $repoName -GeneralPagesUrl (Get-GeneralPagesUrl -Root $repoRoot)))
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $page }
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                $body = $utf8.GetBytes((Format-DevPreviewPlaceholderHtml -RepoName $repoName -GeneralPagesUrl (Get-GeneralPagesUrl -Root $repoRoot)))
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
-            Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.'))
+            Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
         } catch {
             # A dropped or silent connection ends that request, never the server.
         } finally {

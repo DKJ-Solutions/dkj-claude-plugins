@@ -329,8 +329,14 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a page that moved to the general pages server (#3119) is no page of this one''s'
             Assert-True ((Get-Raw 'GET' '/refresh?page=//evil.example' "localhost:$port") -match 'Location: /\r') 'and to the index for a page outside its list'
             Assert-Equal 403 (Get-Status 'GET' '/refresh' "localhost:$port" "Sec-Fetch-Site: cross-site`r`n") 'a request another site makes is refused'
+            # A HEAD answers like the GET would, real Content-Length included, and carries no body (#3161).
+            $cssLength = (Get-Item -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css')).Length
             $headRaw = Get-Raw 'HEAD' '/house-style.css' "localhost:$port"
-            Assert-True ($headRaw -match 'Content-Length: 0' -and $headRaw.TrimEnd().EndsWith('close')) 'HEAD on a static file sends no body'
+            Assert-True ($headRaw -match "Content-Length: $cssLength\r" -and $headRaw.EndsWith("`r`n`r`n")) 'HEAD on a static file sends the real Content-Length and no body'
+            $head404 = Get-Raw 'HEAD' '/nope' "localhost:$port"
+            Assert-True ($head404 -match 'HTTP/1.1 404' -and $head404 -notmatch 'Content-Length: 0\r' -and $head404.EndsWith("`r`n`r`n")) 'HEAD on a non-200 route sends no body either'
+            $head403 = Get-Raw 'HEAD' '/' "evil.example:$port"
+            Assert-True ($head403 -match 'HTTP/1.1 403' -and $head403.EndsWith("`r`n`r`n")) 'nor does a refused HEAD'
             $silent = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $port)
             Assert-Equal 200 (Get-Status 'GET' '/house-theme.js' "localhost:$port") 'a connection that sends nothing does not stall the next one'
             $silent.Close()
