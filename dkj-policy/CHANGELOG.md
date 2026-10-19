@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**14 / 17 minor entries** <!-- pending-tally -->
+**15 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/heading-colours-h2-h3 · 20261019-195835Z
+
+Inside this repo the brandbook, the repo hub and the dev pages render with the twelve-step scale. The hub's theme
+table shows twelve columns.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app that takes this release has to renumber its own `--primary-*` uses. The names stay valid,
+so a missed one fails silently and just shows the wrong colour. The README's migration table gives the order. The
+headings change by themselves: h2 moves off the h1's colour to `-10`, and h3-h6 take the new dark step `-11`.
+The colours themselves change too: `-1` and `-12` are almost white and black, the theme's colour (`-9`) is the most
+saturated version of its hue that still reads on the page, and the cards and lines take a subtle tint of it.
+
+**Score:** 5
+
+#### Pull Request
+
+The primary scale grows to twelve steps (4 light, 4 grey, 4 dark), anchored at the edges and the colour; h2 takes -10 and h3-h6 -11
+
+Plugins: dkj-solutions
+
+[PR #3196](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3196)
+
+---
 
 ### DEPLOY: fix/3189-build-release-notes-on-demand · 20261019-191555Z
 
