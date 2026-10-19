@@ -298,8 +298,10 @@ out). Three more things follow it by default, in light and in dark (and a measur
     reads best on black. The hue is the HSL hue of the owner's original theme colour (Blauw and Hemelsblauw 240),
     held in HSL because at a constant OKLCH hue a saturated blue turns violet and Hemelsblauw came out as purple as
     Lila. Lila takes 270, the hue of its light counterpart Paars: at its own 254 a saturated `-6` read as blue.
-  - `-2` to `-5` run evenly from `-1` to `-6` in OKLCH, linear in lightness, chroma and hue: five small steps, so
-    the cards sit a fifth of the way to the colour. `-8` to `-11` stay on the hue at full saturation, their HSL
+  - `-2` to `-5` run from `-1` to `-6` in OKLCH along a quadratic curve, at 1/25, 4/25, 9/25 and 16/25 of the way
+    in lightness and chroma, in `-6`'s hue. The eye is most sensitive to the first tint off white or black, so the
+    steps start small by the page and grow towards the colour: the card is just visibly lifted off the page (ΔE
+    about 2), where a straight line made that first step far too big (owner, October 19, 2026). `-8` to `-11` stay on the hue at full saturation, their HSL
     lightness evenly between `-7` and `-12`, so the dark half keeps its colour (run straight in OKLCH it turned grey).
 
   **A role takes the same step in both modes** (owner's decision, October 15, 2026): never `light-dark()` between
@@ -311,10 +313,9 @@ out). Three more things follow it by default, in light and in dark (and a measur
   head, the hover of a joined choice and of the settings toggle, a near or today date row, a date row's hover,
   the accent dialog and an InfoRows box. The text on it is `--primary-12`, like all text, at 4.5:1 or better
   because `-6` is chosen against `-12`.
-- **Measured** (WCAG relative luminance, worst theme, October 19, 2026): `-12` on `-1` 19.5:1, on `-2` 15.6:1
-  and on `-6` 4.6:1. `-7` on `-1` 4.6:1 and `-1` on `-7` 4.6:1; `-8`, the sub lines, on a card 5.2:1. Below
-  4.5:1: `-7` on a card (`-2`) in six themes (Magenta 3.7:1, Roest 3.9:1, Lila 4.1:1, Hemelsblauw 4.2:1, Petrol
-  4.3:1, Oker 4.4:1).
+- **Measured** (WCAG relative luminance, worst theme, October 19, 2026): `-12` on `-1` 19.5:1, on `-2` 19.0:1
+  and on `-6` 4.6:1. `-7` on `-1` 4.6:1 and `-1` on `-7` 4.6:1; `-8`, the sub lines, on a card 5.9:1. Just below
+  4.5:1: `-7` on a card (`-2`) in Magenta (4.40:1), Roest (4.43:1) and Lila (4.49:1).
 - **The page and the cards are tinted.** On light the page is the whitest layer and a card sits a shade off it;
   on dark the card is a shade lighter than the page. Either way the page is the ground end (owner's decision,
   October 14, 2026: it used to be the other way round on light).

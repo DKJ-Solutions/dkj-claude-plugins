@@ -48,15 +48,15 @@ Dave, October 19, 2026, over five rounds on this branch. It started from the h2 
   HSL hue at 4.55:1 on `-1`, and `-6` the same at 4.55:1 on `-12`. The hue is the HSL hue of the owner's original
   colour, held in HSL because a constant OKLCH hue turned Hemelsblauw violet. Lila takes Paars's 270, because at 254
   its saturated core read blue.
-- **Even steps:** `-2` to `-5` in OKLCH between `-1` and `-6`; `-8` to `-11` on the hue at full saturation, HSL
+- **Steps:** `-2` to `-5` in OKLCH between `-1` and `-6` along a quadratic curve (1/25, 4/25, 9/25, 16/25), so the first step off the page is subtle; `-8` to `-11` on the hue at full saturation, HSL
   lightness evenly between `-7` and `-12` (straight in OKLCH they turned grey).
 - **Roles:** page `-1`, cards `-2`, stronger border `-5`, lines and tinted surfaces `-6`, the colour `-7` (h1, links,
   fills, focus, meters, states), sub lines `-8`, h2 `-9`, h3-h6 `-10`, text `-12`.
 
 #### Measured cost
 
-Links (`-7`) on a card (`-2`) stay below 4.5:1 in six themes: Magenta 3.7:1, Roest 3.9:1, Lila 4.1:1,
-Hemelsblauw 4.2:1, Petrol 4.3:1, Oker 4.4:1. That is the owner's call after the look.
+Links (`-7`) on a card (`-2`) stay just below 4.5:1 in three themes: Magenta 4.40:1, Roest 4.43:1, Lila 4.49:1.
+That is the owner's call after the look.
 
 #### A visible result
 
@@ -80,6 +80,7 @@ scale still has to be put there by hand.
 - [x] third round (Dave: Hemelsblauw's `-9` was nearly as purple as Lila's, and `-10`/`-11` showed little blue): `-4` and `-9` now hold the HSL hue of the owner's original theme colour at full saturation, and `-10`/`-11` stay on that hue at full saturation with only their HSL lightness stepping evenly to `-12`
 - [x] fourth round (Dave: Lila's `-4` read nearly as blue as Hemelsblauw): Lila takes hue 270, its light counterpart Paars's, instead of its own 254
 - [x] fifth round (Dave: the steps were too big, especially `-1` to `-2`; drop the greys): two halves of six with the anchors unchanged, every use renumbered again, the scale comment and README rewritten, and #3193 closed as obsolete
+- [x] sixth round (Dave: `-1` to `-2` still too big): the light half follows a quadratic curve instead of a straight line
 - [x] `house-theme.js`: each theme's picker dot is its new `-9`; the `house-style` skill pins both new checksums
 - [x] filed #3193: the README's detailed lightness tables disagree with the shipped grey values (it predates this branch)
 
