@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**11 / 27 minor entries** <!-- pending-tally -->
+**11 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3137-dashboard-fixture · 20261019-065857Z
+
+connector-dashboard.tests.ps1 runs its groups 3 and 4 again: the fixtures never created `scripts\dashboard`, so a Copy-Item ended each group before its server started, and the suite read green with none of their asserts run (#3137). Each group now also asserts that it ran to its end, so a fixture step that aborts one fails the suite instead of going quiet.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: a test suite in this repo only; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+connector-dashboard.tests: groups 3 and 4 run their asserts again, and an aborted group fails
+
+[PR #3143](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3143)
+
+---
 
 ### DEPLOY: fix/3136-stale-awaiting-pull · 20261019-064944Z
 
