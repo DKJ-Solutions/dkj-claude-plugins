@@ -19,7 +19,9 @@
                      whether a minor owes the hand-written audience note.
       3 scores       pending entries whose score is worth a second look (advisory; see the lib).
       4 push list    the range's theme files, by the SAME rules live-preflight uses -- live-push-rules.ps1,
-                     mirrored into this plugin -- sync-owned files held back, new files marked.
+                     mirrored into this plugin -- sync-owned files held back, new files marked. Where
+                     Get-ShopifyAppRoot names the store's Shopify app, its changed files too (#3174),
+                     which only the app deploy the runbook prints takes live.
       5 early drift  the repo's own drift check over that list, as an array, so a third-party edit is
                      found on Friday and can get a sync/ branch. It runs again, for real, on the day.
       6 obligations  the "once this is live" sentences in the entries' prose, as one checklist.
@@ -193,6 +195,9 @@ $audience = Get-Seam 'Get-ReleaseAudienceTier' $null
 $deployBranch = ([string](Get-Seam 'Get-ShopifyLiveDeployBranch')).Trim()
 if ($deployBranch -match 'VUL-IN') { $deployBranch = '' }
 $connected = [bool]$deployBranch
+# THE APP ROOT (#3174), the seam live-preflight reads: the folder of a Shopify app the store also ships.
+$appRoot = ([string](Get-Seam 'Get-ShopifyAppRoot')).Trim()
+if ($appRoot -match 'VUL-IN') { $appRoot = '' }
 
 # COUNTED FROM YESTERDAY, so a run ON the release day names today. Get-NextReleaseDate is strictly-after
 # on purpose -- work closing on a Monday ships the NEXT Monday -- but a release being prepared that
@@ -327,6 +332,7 @@ Write-Host ''
 Write-Host '[4/8] push list -- derived by the rules live-preflight uses' -ForegroundColor Cyan
 
 $pushFiles = @()
+$appFiles = @()
 if (-not $sinceTag) {
     Add-Step -Name 'push list' -State 'attention' -Detail 'no vX.Y.Z tag, so there is no previous release to diff against. Pass -SinceTag.'
 } else {
@@ -368,6 +374,19 @@ if (-not $sinceTag) {
         foreach ($g in @($rows | Where-Object { -not $_.Push } | Group-Object -Property Kind)) {
             Write-Host "    held  $($g.Count) file(s): $($g.Group[0].Reason)" -ForegroundColor DarkGray
         }
+        # THE APP'S FILES (#3174), by the lib rule live-preflight lists them with. Held above with the rest
+        # that no theme carries, and named here because the app deploy takes them live.
+        $appFiles = @(Get-ShopifyAppDeployPaths -ChangedPaths $changed -AppRoot $appRoot)
+        foreach ($p in $appFiles) { Write-Host "    app   $(ConvertTo-ConsoleStrippedText -Text $p)" -ForegroundColor Cyan }
+        if ($appRoot) {
+            if (-not (Test-ShopifyAppRoot -AppRoot $appRoot)) {
+                Add-Step -Name 'app deploy' -State 'attention' -Detail "Get-ShopifyAppRoot answers '$(ConvertTo-ConsoleStrippedText -Text $appRoot)', which is not a relative path of letters, digits, '.', '_', '/' and '-' without a '..' segment, so no app deploy can be printed. live-preflight refuses it on the day."
+            } elseif ($appFiles.Count -gt 0) {
+                Add-Step -Name 'app deploy' -State 'ready' -Detail "$($appFiles.Count) file(s) under '$appRoot/' changed -- no theme push carries them, so the runbook prints the app deploy for a person to run."
+            } else {
+                Add-Step -Name 'app deploy' -State 'ready' -Detail "nothing under '$appRoot/' changed, so there is no app deploy to make."
+            }
+        }
         $newCount = @($pushFiles | Where-Object { $added.Contains(($_ -replace '\\', '/')) }).Count
         # A PATH THAT IS NOT PASTE-SAFE STOPS THE RUNBOOK COMPOSING A COMMAND AROUND IT (see
         # Format-ReleaseRunbook), and it is named here so the reason is not only in the runbook.
@@ -397,6 +416,8 @@ if (-not $sinceTag) {
             } elseif ($pushFiles.Count -eq 0) {
                 if ($stillOnLive.Count -gt 0) {
                     Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to upload -- its only theme changes are deletions, so the live push is the deletion command alone."
+                } elseif ($appFiles.Count -gt 0) {
+                    Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to push -- this release goes live through the app deploy alone."
                 } else {
                     Add-Step -Name 'push list' -State 'ready' -Detail "nothing in $sinceTag..HEAD is a theme file to push -- this release is code and docs only, with no live push."
                 }
@@ -512,7 +533,7 @@ Write-Host '[8/8] runbook -- the day, in order' -ForegroundColor Cyan
 Write-Host ''
 
 $runbook = @(Format-ReleaseRunbook -Store $store -LiveThemeId $liveId -PushFiles $pushFiles -Bump "$bump" `
-    -TargetVersion $targetVersion -ReleaseDate $releaseDate -Obligations $obligations -DeployBranch $deployBranch -Trunk $trunk)
+    -TargetVersion $targetVersion -ReleaseDate $releaseDate -Obligations $obligations -DeployBranch $deployBranch -Trunk $trunk -AppRoot $appRoot -AppFiles $appFiles)
 foreach ($l in $runbook) { Write-Host "  $l" }
 if ($OutFileArg) {
     $outFull = if ([System.IO.Path]::IsPathRooted($OutFileArg)) { $OutFileArg } else { Join-Path $repoRoot $OutFileArg }

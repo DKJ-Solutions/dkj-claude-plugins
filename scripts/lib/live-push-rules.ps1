@@ -797,3 +797,67 @@ function Get-LiveWriteBackStep {
     }
     return [pscustomobject]@{ Name = $name; State = 'refuse'; Detail = "$what. A rejected Shopify write-back leaves an edit on live that $DeployBranch does not hold, and the promotion would overwrite it. Reconcile it, then run again with -AcceptRejectedWriteBacks" }
 }
+
+# ---------------------------------------------------------------------------------------------------
+# THE APP DEPLOY (#3174). A store repo can ship a Shopify APP beside its theme -- a discount function,
+# checkout UI blocks -- under a root it names with Get-ShopifyAppRoot. Measured in BWJ-Development/
+# smartwatchbanden (October 19, 2026): those files live under extensions/, Get-LivePushRows rightly holds
+# them back as not-a-theme-path, and neither a theme push nor a promotion carries them. They reach the
+# store only through `shopify app deploy` run against that root, and no release-day step printed it, so
+# a merged extensions/ change (smartwatchbanden#978) had no route live. The three functions below list
+# those files and print the command. Nothing here runs it: an app deploy is outward-facing exactly as a
+# live push is, so it is a person's act.
+
+function Test-ShopifyAppRoot {
+    <#
+        Whether -AppRoot may be printed inside a command a person pastes: a RELATIVE path of the ref
+        characters only (Test-LivePromotionRef's pattern), with no empty, '.' or '..' segment. The answer
+        comes from the consumer's repo-config.ps1, so it is text nobody in this repo typed -- the same
+        reason the push list's paths are checked before they are printed (#2514).
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$AppRoot)
+    $r = (([string]$AppRoot).Trim() -replace '\\', '/').TrimEnd('/')
+    if (-not $r) { return $false }
+    if ($r -cnotmatch $script:LivePromotionRefPattern) { return $false }
+    foreach ($seg in ($r -split '/')) { if (-not $seg -or $seg -eq '.' -or $seg -eq '..') { return $false } }
+    return $true
+}
+
+function Get-ShopifyAppDeployPaths {
+    <#
+        The changed paths that sit under -AppRoot, in input order and exactly as they arrived. Empty
+        where the root is unset or not printable (Test-ShopifyAppRoot), so a repo with no app sees
+        nothing. Case-insensitive and either separator, the same treatment Get-LivePushRows gives the
+        theme directories. A path equal to the root itself is not under it.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$ChangedPaths,
+        [AllowNull()][AllowEmptyString()][string]$AppRoot
+    )
+    if (-not (Test-ShopifyAppRoot -AppRoot $AppRoot)) { return @() }
+    $prefix = ((([string]$AppRoot).Trim() -replace '\\', '/').TrimEnd('/')) + '/'
+    $out = @()
+    foreach ($p in @($ChangedPaths)) {
+        if ($null -eq $p) { continue }
+        $t = ([string]$p).Trim()
+        if (-not $t) { continue }
+        if (($t -replace '\\', '/').StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) { $out += $t }
+    }
+    # Unwrapped, as Get-LivePushUnsafePaths: every caller takes this as @(...).
+    return $out
+}
+
+function Format-ShopifyAppDeployCommand {
+    <#
+        The `shopify app deploy` command for -AppRoot, for a person to run. It names the root with --path
+        so it runs from the repo root, where every other release-day command is run. A root that is not
+        printable is a throw, the backstop Format-LivePushCommand keeps for an unsafe path: a caller
+        checks Test-ShopifyAppRoot first and reports instead.
+    #>
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$AppRoot)
+    if (-not (Test-ShopifyAppRoot -AppRoot $AppRoot)) {
+        throw 'Format-ShopifyAppDeployCommand: the app root is not safe to print in a command; check it with Test-ShopifyAppRoot first.'
+    }
+    $r = (([string]$AppRoot).Trim() -replace '\\', '/').TrimEnd('/')
+    return "shopify app deploy --path $r"
+}

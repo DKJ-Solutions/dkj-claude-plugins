@@ -30,6 +30,23 @@ spell the plugin cache path out.
 **Where `Get-ShopifyLiveDeployBranch` names a branch, the live theme deploys from it** and steps 3, 6
 and 8 change -- see [the Git-connected mode](#the-git-connected-mode-2998-3009) below.
 
+## The app deploy (#3174)
+
+**Where `Get-ShopifyAppRoot` names the folder of a Shopify app the store also ships** (a discount
+function, checkout UI blocks; `extensions` in smartwatchbanden), those files are on no theme, so neither
+the push nor a promotion takes them live. They go live only through `shopify app deploy`. So, in either
+mode:
+
+- **Step 3** lists the range's files under that folder as `app`, and reports them as their own `app
+  deploy` step. A folder that is not a relative path of letters, digits, `.`, `_`, `/` and `-` without a
+  `..` segment refuses, because no command could be printed around it.
+- **A release whose only change is the app** is a note rather than "nothing to push".
+- **A green run ends with** `shopify app deploy --path <folder>`, run from the repo root. Like the push, it
+  is **printed and never run**: it releases a new app version to the store, so it waits for the owner's
+  word. A theme that places a block this deploy adds needs the deploy first.
+
+Unanswered, nothing about the run changes.
+
 ## The two boundaries, and neither is negotiable
 
 **1. It never runs `shopify theme push`.** This plugin's live guard is a **PreToolUse hook that reads
@@ -271,6 +288,7 @@ person to run, which is a **completed step** rather than a failure -- see
 | `Get-ChangelogPath` | optional | where the pending entries are, default `CHANGELOG.md`. |
 | `Get-ShopifyDriftCheckPath` | optional | the drift check, default `scripts/theme/live-snapshot.ps1`. |
 | `Get-ShopifyLiveDeployBranch` | optional | the branch a Git-connected live theme deploys from. Default `''`, the CLI push. A name switches on [the Git-connected mode](#the-git-connected-mode-2998-3009). |
+| `Get-ShopifyAppRoot` | optional | the folder of a Shopify app the store also ships, e.g. `extensions`. Default `''`, no app. See [the app deploy](#the-app-deploy-3174). |
 
 ### `Get-ShopifyLivePushMarker` is deliberately absent from that table
 
