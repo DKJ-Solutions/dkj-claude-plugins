@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Inbound #3170 from smartwatchbanden: `report-issue` maps the kind label to the `Type` option by a
+fixed name (`Bug`, `Feature`, `Task`), and that board's options are named otherwise. Verified in the
+skill (step 2); the board itself is the reporter's measurement. `report-issue` has no script, so the
+seam is a documented one, like its neighbours.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `report-issue`: read `Get-AsanaTypeOptionMap` before the default names; read the field's
+  `resource_subtype` for the value shape
+- [x] `adopt-bwj-development`: propose the seam, with its `$null` default and the measured case
+- [x] `bwj-development/README.md`: list it beside the other Asana seams
 
 ### TEST
 
+- [x] Doc-only; the full gate runs in `ship-pr`
+
 ### DEPLOY: feat/3170-asana-type-option-map
 
-**Score:**
+`report-issue` reads a new optional seam, `Get-AsanaTypeOptionMap`, that maps each kind label to the
+option name a board's `Type` field actually uses -- e.g.
+`@{ bug = 'Dev (Feature / Bug)'; feature = 'Dev (Feature / Bug)' }` -- before the default `Bug`,
+`Feature` and `Task`. A kind the map leaves out keeps its default, and the value shape follows the
+field's `resource_subtype` (#3170).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store whose Asana board names its `Type` options its own way gets every mirrored card typed
+again, by answering `Get-AsanaTypeOptionMap` in its `scripts/repo-config.ps1`, instead of a "option
+missing" note and a hand edit. Unanswered, nothing changes.
+
+**Score:** 3
 
 #### Pull Request
 

@@ -160,6 +160,12 @@ function Get-AsanaIssueFieldGid { $null }
 # resolves Bug/Feature/Task by name from the project itself.
 function Get-AsanaTypeFieldGid { $null }
 
+# The option NAME each kind label is written as on that 'Type' field, for a board whose options are
+# not called Bug, Feature and Task (#3170). Optional: $null (the default) keeps those three names, and
+# a kind the map leaves out keeps its own. Two kinds may map to one option.
+# Example: @{ bug = 'Dev (Feature / Bug)'; feature = 'Dev (Feature / Bug)' }
+function Get-AsanaTypeOptionMap { $null }
+
 # The Asana user GID a task report-issue CREATES is assigned to, so the card lands in that person's
 # My Tasks instead of only on the board. Optional: $null (the default) means the task is created
 # unassigned. A colleague's existing task that report-issue moves keeps its own assignee.
@@ -286,6 +292,14 @@ GID they do not have to be pinned, because they are resolvable at run time from 
 buys: rebuild an option and nothing breaks; **rename** one away from `Bug`, `Feature` or `Task` and
 the write is skipped with a note rather than guessing, because an unmatched name on a board that
 reads as authoritative is worse than a blank.
+
+**A board whose options were never called that is what `Get-AsanaTypeOptionMap` answers**
+([#3170](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3170)). It pins option NAMES, not
+GIDs, so the GIDs stay resolved at run time as above. Measured on smartwatchbanden's workload board,
+October 19, 2026: a single-select `Type` field offering `Dev (Feature / Bug)` among six team-specific
+options and none named `Bug`, `Feature` or `Task`, so without the map every write was the "option
+missing" note and five cards were typed by hand. Propose it only where the board you read in step 5
+names its options differently.
 
 ## 3 -- the one repo secret: `ASANA_PAT` (the two store repos only)
 
