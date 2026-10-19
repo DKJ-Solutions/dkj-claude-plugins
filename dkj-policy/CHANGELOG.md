@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**0 / 2 patch entries** <!-- pending-tally -->
+**0 / 3 patch entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3163-hub-uses-loopback-lib · 20261019-142111Z
+
+The repo hub server now loads the plugin's `loopback-server-lib.ps1` for reading a request, writing a
+response and the Host and cross-site refusals, instead of keeping its own copy of each (#3163). #3161
+had to repair the same `HEAD` defect in both copies. A fix to any of those rules now reaches the hub and
+the plugin's two servers at once. The static-file 404 added after #3161 also stops sending a body to a
+`HEAD`.
+
+**Score:** 1 -- prevents a fix to a loopback rule landing in one server and not the other; #3161 nearly did.
+
+#### What makes this deploy extra special
+
+N/A -- the hub is this repo's own server; the plugin's lib only gains a line in its synopsis.
+
+**Score:** N/A
+
+#### Pull Request
+
+Repo hub server loads the plugin's loopback-server-lib instead of its own copy
+
+Plugins: dkj-solutions
+
+[PR #3167](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3167)
+
+---
 
 ### DEPLOY: fix/3161-hub-head-no-body · 20261019-140239Z
 
