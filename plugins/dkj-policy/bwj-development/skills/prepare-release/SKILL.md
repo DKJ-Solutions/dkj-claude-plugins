@@ -91,6 +91,13 @@ could not measure is reported as skipped and named, never counted as passing.
   measured as noise at tier 2: 6 of 23 pending entries flagged in this plugin's source repo, every one
   correctly scored.
 
+## The app deploy (#3174)
+
+**Where `Get-ShopifyAppRoot` names the folder of a Shopify app the store also ships** (e.g.
+`extensions`), step 4 lists the range's files under it, which no theme push or promotion carries, and the
+runbook gains a step **2b** with `shopify app deploy --path <folder>`, for a person to run. It is printed
+and never run, like the push, and `live-preflight` prints it again on the day. Unanswered, nothing changes.
+
 ## The Git-connected mode (#2998, #3012)
 
 **Where `Get-ShopifyLiveDeployBranch` names a branch, the live theme deploys from it and the day is a
@@ -114,7 +121,7 @@ page and in [`SYNC-LOG-portable.md`](../../SYNC-LOG-portable.md).
 `git`, which every step reads. `gh`, authenticated, for the check runs and the open pull requests --
 missing, logged out or offline, those two report as skipped rather than stopping the run. The seams it reads from `scripts/repo-config.ps1`, all optional:
 `Get-ShopifyThemeEstateStore`, `Get-ShopifyLiveThemeId`, `Get-ShopifyLiveDeployBranch`, `Get-TrunkBranchName`,
-`Get-ShopifySyncBranchPrefix`, `Get-ChangelogPath`, `Get-ShopifyDriftCheckPath`,
+`Get-ShopifySyncBranchPrefix`, `Get-ChangelogPath`, `Get-ShopifyDriftCheckPath`, `Get-ShopifyAppRoot`,
 `Get-ReleaseAudienceTier` and `Get-RepoName`. It refuses to run in this plugin's own source repo, which
 has no theme.
 

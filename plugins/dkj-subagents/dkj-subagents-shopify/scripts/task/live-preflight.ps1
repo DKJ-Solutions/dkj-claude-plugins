@@ -80,6 +80,13 @@
       that goes live, so boundary 2 holds the same way: this prints, a person merges.
     ------------------------------------------------------------------------------------------------
 
+    THE APP DEPLOY (#3174), in either mode. Where Get-ShopifyAppRoot names the folder of a Shopify app the
+    store repo also ships (smartwatchbanden: 'extensions'), step 3 lists the range's files under it as
+    'app' and reports them as their own step, and the end of a green run prints `shopify app deploy
+    --path <root>` (Format-ShopifyAppDeployCommand) for a person to run. No theme push or promotion carries
+    those files, and a release whose only change is the app is a note rather than "nothing to push".
+    Unanswered, nothing about the run changes.
+
 .PARAMETER Store
     Store domain, overriding Get-ShopifyThemeEstateStore for this run. The same seam backup-live-theme
     reads, and deliberately NOT Get-ShopifyStoreDomain -- see that script's header for why answering
@@ -203,7 +210,7 @@ $seam = & {
     $answers = @{
         LiveThemeId = ''; StoreDomain = ''; TrunkIsLive = $true; Trunk = ''; SyncPrefix = ''
         LintScript = ''; TestCommands = @(); ChangelogPath = ''; DriftCheck = ''; DeleteMarker = ''
-        DeployBranch = ''
+        DeployBranch = ''; AppRoot = ''
     }
     $cfg = Join-Path $args[0] 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $cfg -PathType Leaf) {
@@ -230,6 +237,9 @@ $seam = & {
     if (Test-FunctionDefined 'Get-ShopifyDriftCheckPath')   { $answers.DriftCheck    = [string](Get-ShopifyDriftCheckPath) }
     # THE DEPLOY MODE (#3009): '' is the CLI push, a branch name is a Git-connected live theme.
     if (Test-FunctionDefined 'Get-ShopifyLiveDeployBranch') { $answers.DeployBranch  = [string](Get-ShopifyLiveDeployBranch) }
+    # THE APP ROOT (#3174): '' is a store with no Shopify app; a relative path is the folder that
+    # `shopify app deploy` runs against, whose changes no theme push carries.
+    if (Test-FunctionDefined 'Get-ShopifyAppRoot')          { $answers.AppRoot       = [string](Get-ShopifyAppRoot) }
     [pscustomobject]$answers
 } $repoRoot
 
@@ -262,6 +272,8 @@ if (-not $syncPrefix) { $syncPrefix = 'sync/' }
 $deployBranch = ([string]$seam.DeployBranch).Trim()
 if ($deployBranch -match 'VUL-IN') { $deployBranch = '' }
 $connected = [bool]$deployBranch
+$appRoot = ([string]$seam.AppRoot).Trim()
+if ($appRoot -match 'VUL-IN') { $appRoot = '' }
 
 Write-Host "== live-preflight -- $store ==" -ForegroundColor Cyan
 if ($connected) {
@@ -423,6 +435,7 @@ Write-Host '[3/9] push list -- derived from the range, never typed' -ForegroundC
 
 $pushFiles = @()
 $deleteFiles = @()
+$appFiles = @()
 # Kept at script scope: the live-push record written after the verdict is these rows (#2570/#2586).
 $rows = @()
 $sinceTag = ([string]$SinceTag).Trim()
@@ -500,6 +513,11 @@ if (-not $sinceTag) {
             foreach ($r in $g.Group) { Write-Host "            $(Format-SafePathToken -Value $r.Path)" -ForegroundColor DarkGray }
         }
 
+        # THE APP'S FILES, NAMED APART (#3174). They are among the held rows above -- no theme carries
+        # them -- and listed again here because they DO go live, through the app deploy step 8 prints.
+        $appFiles = @(Get-ShopifyAppDeployPaths -ChangedPaths $changed -AppRoot $appRoot)
+        foreach ($p in $appFiles) { Write-Host "    app     $(Format-SafePathToken -Value $p)" -ForegroundColor Cyan }
+
         # A PATH THAT IS NOT SAFE TO PASTE REFUSES HERE, AT STEP 3, AND NOT AT THE COMMAND (#2514). Step
         # 8 prints the push for a person to paste, and a theme filename off a sync branch is text nobody
         # in this repo typed -- '$(...)', ';' or a newline in one runs when the line is pasted. Refusing
@@ -523,10 +541,15 @@ if (-not $sinceTag) {
         if ($connected -and $pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
             # A NOTE, NOT A REFUSAL: what the promotion carries is measured against the deploy branch at
             # step 6, and a range with no theme file can still follow a release that was never promoted.
-            Add-Step -Name 'push list' -State 'warn' -Detail "nothing in $sinceTag..HEAD is a theme file, so this release changes nothing on live by itself. Step 6 measures what the promotion carries."
+            $appText = if ($appFiles.Count -gt 0) { ' The app deploy printed at the end is this release''s own live step.' } else { '' }
+            Add-Step -Name 'push list' -State 'warn' -Detail "nothing in $sinceTag..HEAD is a theme file, so this release changes no theme by itself. Step 6 measures what the promotion carries.$appText"
         } elseif ($connected) {
             $delText = if ($deleteFiles.Count -gt 0) { " and $($deleteFiles.Count) deleted" } else { '' }
             Add-Step -Name 'push list' -State 'pass' -Detail "$($pushFiles.Count) theme file(s) changed$delText in the range, out of $($changed.Count) -- they go live with the promotion."
+        } elseif ($pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0 -and $appFiles.Count -gt 0) {
+            # AN APP-ONLY RELEASE HAS SOMETHING TO TAKE LIVE (#3174), so it is a note rather than the
+            # refusal below: the app deploy step 8 prints is this release's whole live step.
+            Add-Step -Name 'push list' -State 'warn' -Detail "nothing in $sinceTag..HEAD is a theme file to push -- this release goes live through the app deploy alone."
         } elseif ($pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
             Add-Step -Name 'push list' -State 'refuse' -Detail "nothing in $sinceTag..HEAD is a theme file to push, so there is nothing to push. This release is code and docs only."
         } elseif ($unsafePush.Count -gt 0) {
@@ -536,6 +559,18 @@ if (-not $sinceTag) {
         } else {
             $delText = if ($deleteFiles.Count -gt 0) { " and $($deleteFiles.Count) to delete" } else { '' }
             Add-Step -Name 'push list' -State 'pass' -Detail "$($pushFiles.Count) theme file(s) to push$delText, out of $($changed.Count) changed."
+        }
+
+        # THE APP DEPLOY, ITS OWN STEP (#3174), only where the repo names an app root. A root that cannot
+        # be printed refuses: an app change that has no printable command has no route live from here.
+        if ($appRoot) {
+            if (-not (Test-ShopifyAppRoot -AppRoot $appRoot)) {
+                Add-Step -Name 'app deploy' -State 'refuse' -Detail "Get-ShopifyAppRoot answers '$(Format-SafePathToken -Value $appRoot)', which is not a relative path of letters, digits, '.', '_', '/' and '-' without a '..' segment, so no app deploy can be printed. Answer it with the app's folder, e.g. 'extensions'."
+            } elseif ($appFiles.Count -gt 0) {
+                Add-Step -Name 'app deploy' -State 'warn' -Detail "$($appFiles.Count) file(s) under '$appRoot/' changed in the range -- listed above under 'app'. No theme push carries them: they go live only through the app deploy printed at the end, which a person runs."
+            } else {
+                Add-Step -Name 'app deploy' -State 'pass' -Detail "nothing under '$appRoot/' changed in the range, so there is no app deploy to make."
+            }
         }
 
         # AN UNRECONCILED BASE REFUSES HERE, BEFORE THE DRIFT CHECK CAN CALL IT SAFE (#3145). sync-main's
@@ -875,6 +910,9 @@ if ($connected) {
     # Reported above.
 } elseif ($unsafeAtCommand.Count -gt 0) {
     Add-Step -Name 'command' -State 'skip' -Detail "not composed: $($unsafeAtCommand.Count) path(s) in the push list are not safe to paste, and the push-list step names them."
+} elseif (-not $pushCommand -and -not $deleteCommand -and $appFiles.Count -gt 0) {
+    # AN APP-ONLY RELEASE (#3174): no theme command, and that is the measured answer rather than a gap.
+    Add-Step -Name 'command' -State 'pass' -Detail 'no theme file to push, so no push command -- the app deploy is printed at the end.'
 } elseif (-not $pushCommand -and -not $deleteCommand) {
     Add-Step -Name 'command' -State 'skip' -Detail 'no push list, so no command was composed. A theme push without --only pushes the WHOLE theme, which is never printed from here.'
 } else {
@@ -882,6 +920,12 @@ if ($connected) {
     if ($pushCommand)   { $which += 'the push' }
     if ($deleteCommand) { $which += 'the deletion' }
     Add-Step -Name 'command' -State 'pass' -Detail "composed $($which -join ' and '), one --only per file."
+}
+
+# THE APP DEPLOY'S COMMAND (#3174), composed only where step 3 found app files under a printable root.
+$appCommand = ''
+if ($appFiles.Count -gt 0 -and (Test-ShopifyAppRoot -AppRoot $appRoot)) {
+    $appCommand = Format-ShopifyAppDeployCommand -AppRoot $appRoot
 }
 
 # === 9/9 -- the aftercare, previewed ===============================================================
@@ -949,6 +993,18 @@ if ($promotionCommand) {
     Write-Host 'Each command is REFUSED as it stands, and that is deliberate: this plugin''s live guard' -ForegroundColor Yellow
     Write-Host 'requires the authorisation marker your repo states in its own safety rules, appended to' -ForegroundColor Yellow
     Write-Host 'that exact command as a shell comment. Adding it is a human act and no script does it.' -ForegroundColor Yellow
+}
+
+if ($appCommand) {
+    # PRINTED, NEVER RUN (#3174). An app deploy releases a new app version to the store, so it waits for
+    # the owner's word exactly as the push does.
+    Write-Host ''
+    Write-Host "The app deploy -- $($appFiles.Count) file(s) under '$appRoot/', for a person to run from the repo root:" -ForegroundColor Cyan
+    Write-Host "  $appCommand"
+    $beside = if ($connected) { 'the promotion' } else { 'the push' }
+    Write-Host '  It releases a new version of the app to the store. A theme that places a block this deploy' -ForegroundColor Yellow
+    Write-Host "  adds needs the deploy first; otherwise its order beside $beside is yours." -ForegroundColor Yellow
+    # NO LIVE-PUSH RECORD NAMES THE APP DEPLOY YET (#3176): the cut and notify-live cannot tell whether it ran.
 }
 
 if ($pushCommand -or $deleteCommand -or $promotionCommand) {

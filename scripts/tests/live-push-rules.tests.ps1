@@ -454,6 +454,32 @@ Assert-Equal 'refuse' (Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $t
 $many = @(1..5 | ForEach-Object { [pscustomobject]@{ result = 'fail'; actor_name = "a$_"; pushed_at = 't' } })
 Assert-True ((Get-LiveWriteBackStep -DeployBranch 'live' -RuleSuites $many).Detail -match 'and 2 more') 'more than three rejections are counted, not all listed'
 
+# ---------------------------------------------------------------------------------------------------
+Write-Host ''
+Write-Host 'The app deploy -- the store''s Shopify app files, and the command no theme push replaces (#3174)' -ForegroundColor Cyan
+
+Assert-True (Test-ShopifyAppRoot -AppRoot 'extensions') 'a plain folder is a printable app root'
+Assert-True (Test-ShopifyAppRoot -AppRoot 'apps/discounts/') 'a nested folder with a trailing slash is too'
+Assert-True (Test-ShopifyAppRoot -AppRoot 'apps\discounts') 'and with a backslash'
+foreach ($bad in @('', '  ', '/extensions', '../extensions', 'apps/../x', 'apps//x', './x', 'ext;calc', 'ext $(calc)', "ext`nx", 'C:\apps')) {
+    Assert-True (-not (Test-ShopifyAppRoot -AppRoot $bad)) "'$($bad -replace "`n", '<LF>')' is refused as an app root"
+}
+Assert-True (-not (Test-ShopifyAppRoot -AppRoot $null)) 'a null root is refused'
+
+$range = @('extensions/discount/src/run.js', 'Extensions/checkout-ui/shopify.extension.toml', 'sections/a.liquid', 'extensions-old/x.js', 'extensions', 'scripts/x.ps1')
+$apps = @(Get-ShopifyAppDeployPaths -ChangedPaths $range -AppRoot 'extensions')
+Assert-Equal 2 $apps.Count 'only the paths under the root are the app''s'
+Assert-Equal 'Extensions/checkout-ui/shopify.extension.toml' $apps[1] 'case-insensitive, and reported exactly as it arrived'
+Assert-Equal 0 @(Get-ShopifyAppDeployPaths -ChangedPaths $range -AppRoot '').Count 'no root, no app files'
+Assert-Equal 0 @(Get-ShopifyAppDeployPaths -ChangedPaths $range -AppRoot '../extensions').Count 'an unprintable root lists nothing'
+Assert-Equal 1 @(Get-ShopifyAppDeployPaths -ChangedPaths @('apps\d\run.js', $null, '') -AppRoot 'apps/d').Count 'either separator, and empty entries are skipped'
+
+Assert-Equal 'shopify app deploy --path extensions' (Format-ShopifyAppDeployCommand -AppRoot 'extensions/') 'the command names the root, without its trailing slash'
+Assert-Equal 'shopify app deploy --path apps/d' (Format-ShopifyAppDeployCommand -AppRoot 'apps\d') 'with forward slashes'
+$threw = $false
+try { [void](Format-ShopifyAppDeployCommand -AppRoot 'ext;calc') } catch { $threw = $true }
+Assert-True $threw 'an unprintable root is a throw, never a command'
+
 if ($script:fail -eq 0) {
     Write-Host ''
     Write-Host "Result: $($script:pass) pass, 0 fail." -ForegroundColor Green

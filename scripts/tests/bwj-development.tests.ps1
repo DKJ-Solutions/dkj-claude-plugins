@@ -962,6 +962,15 @@ foreach ($evil in @('assets/x.css; calc', 'assets/$(calc).css', "assets/a`ncalc.
 $evilBook = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @("assets/a$([char]27)[31m.css")) -join "`n"
 Assert-True ($evilBook.Contains('cannot be pasted safely')) 'the refusal says why'
 Assert-True (-not $evilBook.Contains([char]27)) 'and the path it names has its control characters stripped'
+# THE APP DEPLOY (#3174): printed beside the push where the range changed the app, and never otherwise.
+$appBook = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @('sections/a.liquid') -AppRoot 'extensions' -AppFiles @('extensions/d/run.js')) -join "`n"
+Assert-True $appBook.Contains('shopify app deploy --path extensions') 'an app change prints the app deploy'
+Assert-True ($appBook.IndexOf('2b. The app deploy') -gt $appBook.IndexOf('2. The push')) 'beside the push, as step 2b'
+Assert-True ($prBook -notmatch 'app deploy') 'a range with no app change prints no app deploy'
+$appOnly = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @() -AppRoot 'extensions' -AppFiles @('extensions/d/run.js')) -join "`n"
+Assert-True ($appOnly.Contains('shopify app deploy') -and $appOnly -notmatch 'code and docs only') 'an app-only release is not called code and docs only'
+$appBad = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @() -AppRoot 'ext;calc' -AppFiles @('ext;calc/x.js')) -join "`n"
+Assert-True ($appBad -notmatch 'shopify app deploy' -and $appBad.Contains('not composed')) 'an unprintable app root composes no command and says so'
 # THE GIT-CONNECTED MODE (#3012): the promotion PR replaces the push, by the function live-preflight prints
 # it with, and the runbook still composes no marker. An unsafe or self-referential branch composes nothing.
 $prConn = (Format-ReleaseRunbook -Store 's.myshopify.com' -LiveThemeId '42' -PushFiles @('sections/a.liquid') `
