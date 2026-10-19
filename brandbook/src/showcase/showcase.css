@@ -27,8 +27,8 @@
   transform: translate(-50%, -50%);
   /* The panel's own colours, so it reads as part of the panel it opens and closes. */
   color: var(--primary-1);
-  background: var(--primary-9);
-  border: 1px solid var(--primary-8);
+  background: var(--primary-12);
+  border: 1px solid var(--primary-10);
   border-radius: 50%;
   box-shadow: var(--shadow-pop);
   cursor: pointer;
@@ -38,13 +38,13 @@
 }
 .dkj-shell--open .dkj-panel-toggle { left: 230px; }
 .dkj-panel-toggle:hover, .dkj-panel-toggle:focus-visible, .dkj-shell:has(.dkj-contents:hover) .dkj-panel-toggle { opacity: 1; }
-.dkj-panel-toggle:hover { background: var(--primary-8); }
-.dkj-panel-toggle:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-5); outline-offset: 2px; }
+.dkj-panel-toggle:hover { background: var(--primary-10); }
+.dkj-panel-toggle:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: 2px; }
 @media (hover: none) { .dkj-panel-toggle { opacity: 1; } }
 /* The panel: sticky over the full height of the screen; a long list scrolls inside it, and the inner box keeps its
    width, so nothing reflows while it slides. Its colours mirror the page's, by the scale itself: the panel is
-   --primary-9, the far end (near-black in the theme's hue on light, near-white on dark), and its text the opposite
-   end, --primary-1 as ink and --primary-3 as the quieter ink. One step per role in both modes; every colour is a
+   --primary-12, the far end (near-black in the theme's hue on light, near-white on dark), and its text the opposite
+   end, --primary-1 as ink and --primary-4 as the quieter ink. One step per role in both modes; every colour is a
    --primary step read directly, no local alias (owner's correction, October 14, 2026). */
 .dkj-contents {
   position: sticky;
@@ -52,18 +52,18 @@
   align-self: start;
   height: 100dvh;
   overflow: hidden;
-  background: var(--primary-9);
+  background: var(--primary-12);
   color: var(--primary-1);
 }
 /* The closed strip: a click opens the panel, and it lightens under the pointer, as a link in the panel does. */
 .dkj-shell:not(.dkj-shell--open) .dkj-contents { cursor: pointer; }
-.dkj-shell:not(.dkj-shell--open) .dkj-contents:hover { background: var(--primary-8); }
+.dkj-shell:not(.dkj-shell--open) .dkj-contents:hover { background: var(--primary-10); }
 .dkj-contents-inner { width: 230px; height: 100%; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; padding: var(--spacing-5) var(--spacing-4);
-  /* Its scrollbar is the panel's too: a --primary-6 thumb on the panel's own --primary-9, so it is not read as <main>'s. */
-  scrollbar-color: var(--primary-6) var(--primary-9); }
+  /* Its scrollbar is the panel's too: a --primary-7 thumb on the panel's own --primary-12, so it is not read as <main>'s. */
+  scrollbar-color: var(--primary-7) var(--primary-12); }
 /* The panel's heading ("Contents"): an <h2>, so it keeps the house h2 size and face; only its colour follows the panel. */
-.dkj-contents-title { margin: 0; color: var(--primary-3); }
-.dkj-contents-sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-base); color: var(--primary-3); }
+.dkj-contents-title { margin: 0; color: var(--primary-4); }
+.dkj-contents-sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-base); color: var(--primary-4); }
 .dkj-nav { margin-top: var(--spacing-2); }
 @media (prefers-reduced-motion: reduce) { .dkj-shell, .dkj-contents, .dkj-panel-toggle { transition: none !important; } }
 .dkj-nav-group {
@@ -87,11 +87,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.dkj-nav a:hover { background: var(--primary-8); }
-.dkj-nav a:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-3); outline-offset: var(--dkj-focus-offset-inset); }
-/* The current page: a --primary-5 fill, the same step in both modes. Its focus ring takes --primary-1, because the
+.dkj-nav a:hover { background: var(--primary-10); }
+.dkj-nav a:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-4); outline-offset: var(--dkj-focus-offset-inset); }
+/* The current page: a --primary-6 fill, the same step in both modes. Its focus ring takes --primary-1, because the
    usual ring would vanish on the current fill. */
-.dkj-nav a[aria-current='page'], .dkj-nav a[aria-current='page']:hover { background: var(--primary-5); color: var(--primary-1); font-weight: var(--dkj-fw-semibold); }
+.dkj-nav a[aria-current='page'], .dkj-nav a[aria-current='page']:hover { background: var(--primary-6); color: var(--primary-1); font-weight: var(--dkj-fw-semibold); }
 .dkj-nav a[aria-current='page']:focus-visible { outline-color: var(--primary-1); }
 
 /* <main>: the house style gives it a centred 1080px column; the showcase fills the full width. */
@@ -122,8 +122,8 @@
 
 /* The intro: page title, hero card and type specimen at the top of the content. */
 .dkj-intro { margin-bottom: var(--spacing-8); scroll-margin-top: 5rem; }
-.dkj-eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-5); }
-.dkj-lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: var(--dkj-lh-snug); color: var(--primary-9); }
+.dkj-eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-6); }
+.dkj-lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: var(--dkj-lh-snug); color: var(--primary-12); }
 .dkj-specimen { display: grid; gap: var(--spacing-3); }
 .dkj-specimen > * { margin: 0; }
 .dkj-specimen-lg { font-size: var(--text-lg); }
@@ -131,12 +131,12 @@
 .dkj-section { margin-bottom: var(--spacing-8); scroll-margin-top: 5rem; }
 /* An <h2> at the house h2 size; the house style makes it a flex row, the showcase title stays a block. */
 .dkj-section-title { display: block; margin: 0 0 var(--spacing-1); }
-.dkj-section-intro { margin: 0 0 var(--spacing-4); max-width: 46rem; font-size: var(--text-base); color: var(--primary-9); }
+.dkj-section-intro { margin: 0 0 var(--spacing-4); max-width: 46rem; font-size: var(--text-base); color: var(--primary-12); }
 .dkj-demos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: var(--spacing-4); }
 .dkj-demo { margin: 0; min-width: 0; }
 .dkj-demo--wide { grid-column: 1 / -1; }
-.dkj-demo figcaption { margin-bottom: var(--spacing-1-5); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-8); }
-.dkj-demo-stage { display: flex; flex-direction: column; gap: var(--spacing-3); padding: var(--spacing-4); border: 1px dashed var(--primary-3); border-radius: var(--dkj-radius-lg); }
+.dkj-demo figcaption { margin-bottom: var(--spacing-1-5); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-10); }
+.dkj-demo-stage { display: flex; flex-direction: column; gap: var(--spacing-3); padding: var(--spacing-4); border: 1px dashed var(--primary-4); border-radius: var(--dkj-radius-lg); }
 .dkj-demo-stage--surface { background: var(--primary-2); border-style: solid; }
 .dkj-demo-row { display: flex; flex-wrap: wrap; gap: var(--spacing-2); align-items: center; }
 .dkj-column { max-width: var(--dkj-column-w); }
@@ -147,8 +147,8 @@
   margin-top: var(--spacing-3);
   padding: var(--spacing-2) var(--spacing-3);
   font-size: var(--text-sm);
-  color: var(--primary-9);
-  border-left: 2px solid var(--primary-3);
+  color: var(--primary-12);
+  border-left: 2px solid var(--primary-4);
 }
 .dkj-source dl { margin: 0; display: grid; gap: var(--spacing-0-5); }
 .dkj-source dl > div { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--spacing-2); }
@@ -157,23 +157,23 @@
 .dkj-source code { white-space: pre-wrap; }
 
 /* Token swatches and scales */
-/* at most three a row, so a nine-step scale reads as three rows of three (owner's request, October 15, 2026) */
+/* at most three a row (owner's request, October 15, 2026, for the nine-step scale; the twelve steps now read as four rows of three) */
 .dkj-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(max(13rem, (100% - 2 * var(--spacing-3)) / 3), 1fr)); gap: var(--spacing-4) var(--spacing-3); }
 /* Name over value: the name in ink and semibold, the value smaller in ink-2, the chip aligned with the name. */
 .dkj-swatch { display: flex; align-items: flex-start; gap: var(--spacing-2-5); }
-.dkj-swatch-chip { flex: none; width: 2.25rem; height: 2.25rem; border: 1px solid var(--primary-3); border-radius: var(--dkj-radius-md); }
-.dkj-swatch-text { display: flex; flex-direction: column; gap: var(--spacing-0-5); min-width: 0; color: var(--primary-9); }
+.dkj-swatch-chip { flex: none; width: 2.25rem; height: 2.25rem; border: 1px solid var(--primary-4); border-radius: var(--dkj-radius-md); }
+.dkj-swatch-text { display: flex; flex-direction: column; gap: var(--spacing-0-5); min-width: 0; color: var(--primary-12); }
 .dkj-swatch-name { font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); overflow-wrap: anywhere; }
 .dkj-swatch-value { font-family: var(--dkj-font-mono); font-size: var(--text-xs); line-height: var(--dkj-lh-snug); }
 /* A mix's recipe under its resolved colour: in the body face, each "over <colour>" step kept on one line. */
 .dkj-swatch-recipe { font-size: var(--text-xs); line-height: var(--dkj-lh-snug); }
 .dkj-swatch-recipe > span { white-space: nowrap; }
 .dkj-scale { display: grid; gap: var(--spacing-2); }
-.dkj-scale-row { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--spacing-3); align-items: center; font-size: var(--text-sm); color: var(--primary-9); }
-.dkj-bar { max-width: 100%; height: 0.75rem; background: var(--primary-5); border-radius: var(--dkj-radius-xs); }
-.dkj-lh-sample { max-width: 16rem; font-size: var(--text-base); color: var(--primary-9); }
-.dkj-tracking-sample { font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); text-transform: uppercase; color: var(--primary-9); }
-.dkj-readouts { display: grid; gap: var(--spacing-0-5); margin: 0; font-size: var(--text-sm); color: var(--primary-9); }
+.dkj-scale-row { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--spacing-3); align-items: center; font-size: var(--text-sm); color: var(--primary-12); }
+.dkj-bar { max-width: 100%; height: 0.75rem; background: var(--primary-6); border-radius: var(--dkj-radius-xs); }
+.dkj-lh-sample { max-width: 16rem; font-size: var(--text-base); color: var(--primary-12); }
+.dkj-tracking-sample { font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); text-transform: uppercase; color: var(--primary-12); }
+.dkj-readouts { display: grid; gap: var(--spacing-0-5); margin: 0; font-size: var(--text-sm); color: var(--primary-12); }
 .dkj-readouts > div { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: var(--spacing-2); }
 .dkj-readouts dd { margin: 0; overflow-wrap: anywhere; }
 .dkj-focus-row { gap: var(--spacing-6); padding: var(--spacing-2); }
@@ -183,29 +183,29 @@
   width: var(--dkj-tap);
   height: var(--dkj-tap);
   font-size: var(--text-xs);
-  color: var(--primary-9);
+  color: var(--primary-12);
   background: var(--primary-1);
   border-radius: var(--dkj-radius-md);
 }
-.dkj-focus-sample { outline: var(--dkj-focus-w) solid var(--primary-5); }
+.dkj-focus-sample { outline: var(--dkj-focus-w) solid var(--primary-6); }
 .dkj-shadow-sample { background: var(--primary-2); box-shadow: var(--shadow-pop); }
 /* Motion: each dot crosses its track in its own duration when the panel is hovered or focused. */
-.dkj-motion-track { position: relative; height: 0.75rem; max-width: 16rem; background: var(--primary-3); border-radius: var(--dkj-radius-pill); }
+.dkj-motion-track { position: relative; height: 0.75rem; max-width: 16rem; background: var(--primary-4); border-radius: var(--dkj-radius-pill); }
 .dkj-motion-dot {
   position: absolute;
   top: 0;
   left: 0;
   width: 0.75rem;
   height: 0.75rem;
-  background: var(--primary-5);
+  background: var(--primary-6);
   border-radius: var(--dkj-radius-pill);
   transition-property: left;
   transition-timing-function: var(--dkj-ease-out);
 }
 .dkj-motion:hover .dkj-motion-dot, .dkj-motion:focus-visible .dkj-motion-dot { left: calc(100% - 0.75rem); }
-.dkj-motion:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-5); outline-offset: var(--dkj-focus-offset); }
+.dkj-motion:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: var(--dkj-focus-offset); }
 @media (prefers-reduced-motion: reduce) { .dkj-motion-dot { transition: none; } }
-.dkj-radius { width: 3rem; height: 3rem; background: var(--primary-3); border: 1px solid var(--primary-5); }
+.dkj-radius { width: 3rem; height: 3rem; background: var(--primary-4); border: 1px solid var(--primary-6); }
 
 @media (max-width: 52rem) {
   .dkj-main { padding: var(--spacing-4) var(--spacing-4) var(--spacing-8); }
@@ -226,30 +226,30 @@
 
 /* "Used in" line under a component */
 .dkj-used-in { margin: 0 0 var(--spacing-1-5); }
-.dkj-used-in a { color: var(--primary-7); }
+.dkj-used-in a { color: var(--primary-9); }
 
 /* Apps overview */
-.dkj-app { grid-column: 1 / -1; display: grid; gap: var(--spacing-4); padding: var(--spacing-4); border: 1px solid var(--primary-3); border-radius: var(--dkj-radius-lg); background: var(--primary-2); scroll-margin-top: 5rem; }
+.dkj-app { grid-column: 1 / -1; display: grid; gap: var(--spacing-4); padding: var(--spacing-4); border: 1px solid var(--primary-4); border-radius: var(--dkj-radius-lg); background: var(--primary-2); scroll-margin-top: 5rem; }
 .dkj-app-name { margin: 0; }
-.dkj-app-desc { margin: var(--spacing-1) 0 var(--spacing-2); max-width: 46rem; color: var(--primary-9); }
-.dkj-app-meta { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); margin: 0; font-size: var(--text-sm); color: var(--primary-9); }
-.dkj-app-meta a { color: var(--primary-7); }
+.dkj-app-desc { margin: var(--spacing-1) 0 var(--spacing-2); max-width: 46rem; color: var(--primary-12); }
+.dkj-app-meta { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); margin: 0; font-size: var(--text-sm); color: var(--primary-12); }
+.dkj-app-meta a { color: var(--primary-9); }
 .dkj-kind { margin: 0 0 var(--spacing-2); }
 .dkj-views { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); gap: var(--spacing-3); margin: 0; padding: 0; list-style: none; }
-.dkj-view { display: grid; gap: var(--spacing-1-5); align-content: start; padding: var(--spacing-3); border: 1px solid var(--primary-3); border-radius: var(--dkj-radius-md); background: var(--primary-3); }   /* the theme's tint, a step deeper than the page and the app card around it */
+.dkj-view { display: grid; gap: var(--spacing-1-5); align-content: start; padding: var(--spacing-3); border: 1px solid var(--primary-4); border-radius: var(--dkj-radius-md); background: var(--primary-4); }   /* the theme's tint, a step deeper than the page and the app card around it */
 .dkj-view h5, .dkj-view-title { margin: 0; }
-.dkj-view p strong { color: var(--primary-7); }
-.dkj-view p { margin: 0; font-size: var(--text-sm); color: var(--primary-9); }
+.dkj-view p strong { color: var(--primary-9); }
+.dkj-view p { margin: 0; font-size: var(--text-sm); color: var(--primary-12); }
 .dkj-view-components { display: flex; flex-wrap: wrap; gap: var(--spacing-1); }
-.dkj-view-components a { padding: var(--spacing-0-5) var(--spacing-2); font-size: var(--text-sm); color: var(--primary-9); text-decoration: none; border: 1px solid var(--primary-3); border-radius: var(--dkj-radius-pill); background: var(--primary-2); }
-.dkj-view-components a:hover { background: var(--primary-3); color: var(--primary-7); }
-.dkj-view-components a:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-5); outline-offset: var(--dkj-focus-offset); }
+.dkj-view-components a { padding: var(--spacing-0-5) var(--spacing-2); font-size: var(--text-sm); color: var(--primary-12); text-decoration: none; border: 1px solid var(--primary-4); border-radius: var(--dkj-radius-pill); background: var(--primary-2); }
+.dkj-view-components a:hover { background: var(--primary-4); color: var(--primary-9); }
+.dkj-view-components a:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: var(--dkj-focus-offset); }
 
 /* Repo previews (#preview/<repo>): a recreated app in a frame, on the page colour, sized by the page width in the settings panel. */
 .dkj-preview-back { margin: 0 0 var(--spacing-3); font-size: var(--text-sm); }
-.dkj-preview-back a { color: var(--primary-7); }
+.dkj-preview-back a { color: var(--primary-9); }
 .dkj-preview-meta { margin-bottom: var(--spacing-4); }
-.dkj-preview-frame { border: 1px solid var(--primary-3); border-radius: var(--dkj-radius-lg); overflow: hidden; background: var(--primary-1); }
+.dkj-preview-frame { border: 1px solid var(--primary-4); border-radius: var(--dkj-radius-lg); overflow: hidden; background: var(--primary-1); }
 .dkj-preview-app--padded { padding: var(--spacing-5) var(--spacing-4) var(--spacing-6); }
 .dkj-preview-column { display: grid; gap: var(--spacing-4); max-width: 34rem; margin: 0 auto; padding: var(--spacing-4); }
 .dkj-preview-column--wide { max-width: none; padding: var(--spacing-4) 0 0; }

@@ -4,7 +4,7 @@
 .dkj-tone-negative { color: var(--negative-5); }
 .dkj-tone-positive { color: var(--positive-5); }
 .dkj-tone-warn { color: var(--warning-5); }
-.dkj-muted { color: var(--primary-6); }
+.dkj-muted { color: var(--primary-7); }
 
 /* ---------- DefinitionList ---------- */
 .dkj-dl { margin: 0; font-variant-numeric: tabular-nums; }
@@ -14,20 +14,20 @@
   align-items: baseline;
   gap: var(--spacing-4);
   padding: var(--spacing-1-5) 0;
-  border-bottom: 1px solid var(--primary-3);
+  border-bottom: 1px solid var(--primary-4);
 }
 .dkj-dl dt { min-width: 0; }
 .dkj-dl dd { margin: 0; white-space: nowrap; font-weight: var(--dkj-fw-semibold); text-align: right; }
-.dkj-dl-detail { display: block; margin-top: var(--spacing-0-5); font-size: var(--text-sm); color: var(--primary-9); }
+.dkj-dl-detail { display: block; margin-top: var(--spacing-0-5); font-size: var(--text-sm); color: var(--primary-12); }
 .dkj-dl > .dkj-dl-total { border-bottom: 0; font-weight: var(--dkj-fw-bold); }
-.dkj-dl--facts dt { color: var(--primary-9); }
+.dkj-dl--facts dt { color: var(--primary-12); }
 .dkj-dl dd.dkj-dl-regular { font-weight: var(--dkj-fw-regular); }
 
 /* ---------- DataTable ---------- */
 /* The house .table does the layout, the sort buttons and the total row. The wrapper scrolls, so it is focusable (a
    keyboard can scroll it) and needs the ring. Cell tones are the shared .dkj-tone-* above; a row tone tints the row
    with the status background (the -1 step, as the house .notice uses --warning-1). */
-.dkj-table-wrap:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-5); outline-offset: var(--dkj-focus-offset); border-radius: var(--dkj-radius-xs); }
+.dkj-table-wrap:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: var(--dkj-focus-offset); border-radius: var(--dkj-radius-xs); }
 /* A low-priority column (DataColumn priority) drops out while the table is narrower than the house 760px breakpoint;
    the wrapper is the container, so a table in a narrow card drops it too. */
 .dkj-table-wrap { container-type: inline-size; }
@@ -47,7 +47,7 @@
 .dkj-bill th, .dkj-bill td { height: 2.25rem; padding: var(--spacing-0-5) 0 var(--spacing-0-5) var(--spacing-1); vertical-align: middle; text-align: left; }
 .dkj-bill tr > :first-child { padding-left: 0; }
 .dkj-bill .dkj-num { text-align: right; }
-.dkj-bill thead tr { border-bottom: 1px solid var(--primary-3); }
+.dkj-bill thead tr { border-bottom: 1px solid var(--primary-4); }
 .dkj-bill .dkj-bill-head > * {
   height: auto;
   padding-top: 0;
@@ -57,15 +57,15 @@
   font-weight: var(--dkj-fw-semibold);
   letter-spacing: var(--dkj-tracking-label);
   text-transform: uppercase;
-  color: var(--primary-9);
+  color: var(--primary-12);
 }
 .dkj-bill-head > :nth-child(1) { width: 4.75rem; }
 .dkj-bill-head > :nth-last-child(2) { width: 5rem; }
 .dkj-bill-head > :last-child { width: calc(var(--dkj-control-h) + var(--spacing-1)); }
 .dkj-bill--qty .dkj-bill-head > :nth-child(3) { width: 2.5rem; }
-.dkj-bill tbody tr { border-bottom: 1px solid var(--primary-3); }
+.dkj-bill tbody tr { border-bottom: 1px solid var(--primary-4); }
 .dkj-bill tbody:last-of-type tr:last-child { border-bottom: 0; }
-.dkj-bill-slot { font-size: var(--text-base); font-weight: var(--dkj-fw-semibold); color: var(--primary-9); }
+.dkj-bill-slot { font-size: var(--text-base); font-weight: var(--dkj-fw-semibold); color: var(--primary-12); }
 .dkj-bill-name {
   display: block;
   min-width: 0;
@@ -75,28 +75,28 @@
   font-size: var(--text-base);
   line-height: 1.3;
 }
-.dkj-bill-row--empty .dkj-bill-name { color: var(--primary-9); }
-.dkj-bill-qty { font-size: var(--text-base); color: var(--primary-9); }
+.dkj-bill-row--empty .dkj-bill-name { color: var(--primary-12); }
+.dkj-bill-qty { font-size: var(--text-base); color: var(--primary-12); }
 .dkj-bill-price { font-size: var(--text-base); font-weight: var(--dkj-fw-semibold); }
-.dkj-bill-row--buy .dkj-bill-price { color: var(--primary-5); }
+.dkj-bill-row--buy .dkj-bill-price { color: var(--primary-6); }
 .dkj-bill-action { text-align: right; }
 .dkj-bill-action .dkj-iconbtn { margin-left: auto; }
 .dkj-bill-action .dkj-round-toggle { margin: calc(-1 * var(--spacing-2)) calc(-1 * var(--spacing-2)) calc(-1 * var(--spacing-2)) auto; }
 /* A group closes with its subtotal, between rules slightly stronger than the row rules. */
 .dkj-bill .dkj-bill-subtotal {
-  border-top: 2px solid var(--primary-5);
-  border-bottom: 2px solid var(--primary-5);
+  border-top: 2px solid var(--primary-6);
+  border-bottom: 2px solid var(--primary-6);
 }
 .dkj-bill .dkj-bill-subtotal > * { height: auto; padding-top: var(--spacing-1-5); padding-bottom: var(--spacing-1-5); vertical-align: baseline; }
 .dkj-bill-subtotal th, .dkj-bill-total th { padding-right: var(--spacing-4); font-size: var(--text-base); font-weight: var(--dkj-fw-semibold); text-align: right; }
 .dkj-bill-subtotal strong, .dkj-bill-total strong { font-size: var(--text-base); font-variant-numeric: tabular-nums; }
-.dkj-bill tfoot tr { border-top: 1px solid var(--primary-7); }
+.dkj-bill tfoot tr { border-top: 1px solid var(--primary-9); }
 .dkj-bill .dkj-bill-total > * { height: auto; padding-top: var(--spacing-2); padding-bottom: var(--spacing-2); vertical-align: baseline; }
-.dkj-bill-total strong { color: var(--primary-5); }
+.dkj-bill-total strong { color: var(--primary-6); }
 
 /* ---------- ComparisonTable ---------- */
 .dkj-compare { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.dkj-compare th, .dkj-compare td { padding: var(--spacing-2) 0; border-bottom: 1px solid var(--primary-3); vertical-align: baseline; }
+.dkj-compare th, .dkj-compare td { padding: var(--spacing-2) 0; border-bottom: 1px solid var(--primary-4); vertical-align: baseline; }
 .dkj-compare tbody th { text-align: left; font-weight: var(--dkj-fw-regular); overflow-wrap: anywhere; }
 .dkj-compare td.dkj-num { padding-left: var(--spacing-2); }
 .dkj-compare thead th {
@@ -104,7 +104,7 @@
   font-size: var(--text-sm);
   font-weight: var(--dkj-fw-bold);
   line-height: var(--dkj-lh-tight);
-  color: var(--primary-9);
+  color: var(--primary-12);
   text-align: right;
   vertical-align: bottom;
 }
@@ -113,7 +113,7 @@
 .dkj-compare tfoot th, .dkj-compare tfoot td {
   padding-top: var(--spacing-3-5);
   border-bottom: 0;
-  border-top: 2px solid var(--primary-5);
+  border-top: 2px solid var(--primary-6);
   font-weight: var(--dkj-fw-bold);
   font-size: var(--text-lg);
   text-align: left;
@@ -123,12 +123,12 @@
 /* ---------- CalcTable ---------- */
 .dkj-calc { display: grid; grid-template-columns: [what] minmax(0, 1fr) [op] auto [num] auto; font-variant-numeric: tabular-nums; }
 .dkj-calc-row, .dkj-calc-box { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
-.dkj-calc-row { align-items: baseline; border-bottom: 1px solid var(--primary-3); line-height: var(--dkj-lh-snug); }
+.dkj-calc-row { align-items: baseline; border-bottom: 1px solid var(--primary-4); line-height: var(--dkj-lh-snug); }
 .dkj-calc-row > * { padding: var(--spacing-2) 0; }
 .dkj-calc-row:has(+ .dkj-calc-result) { margin-bottom: var(--spacing-2); border-bottom: 0; }
 .dkj-calc-what { grid-column: what; padding-left: var(--spacing-3); font-size: var(--text-base); overflow-wrap: anywhere; }
-.dkj-calc-sub { display: block; font-size: var(--text-sm); color: var(--primary-6); }
-.dkj-calc-op { grid-column: op; min-width: 1rem; padding-inline: var(--spacing-2); font-size: var(--text-base); text-align: center; color: var(--primary-9); }
+.dkj-calc-sub { display: block; font-size: var(--text-sm); color: var(--primary-7); }
+.dkj-calc-op { grid-column: op; min-width: 1rem; padding-inline: var(--spacing-2); font-size: var(--text-base); text-align: center; color: var(--primary-12); }
 .dkj-calc-num { grid-column: num; padding-inline: var(--spacing-3); text-align: right; font-size: var(--text-base); font-weight: var(--dkj-fw-semibold); white-space: nowrap; }
 .dkj-calc--boxed { --gutter: var(--spacing-1-5); grid-template-columns: [edge-l] var(--gutter) [what] minmax(0, 1fr) [op] auto [num] auto [edge-r] var(--gutter); }
 .dkj-calc--boxed .dkj-calc-what { padding-left: var(--spacing-2); }
@@ -137,14 +137,14 @@
 .dkj-calc-box {
   margin: 0;
   padding: var(--gutter, var(--spacing-1-5)) 0;
-  border: 1.5px solid var(--primary-4);
+  border: 1.5px solid var(--primary-5);
   border-radius: var(--dkj-radius-md-plus);
 }
 /* Boxes only exist in a boxed calculation, whose edge columns they span inside. */
 .dkj-calc--boxed .dkj-calc-box > .dkj-calc-row, .dkj-calc--boxed .dkj-calc-box > .dkj-calc-box { grid-column: 2 / -2; }
 .dkj-calc-box > .dkj-calc-row:last-child { border-bottom: 0; }
 .dkj-calc-result { border-bottom: 0; }
-.dkj-calc-result .dkj-calc-num { font-size: var(--text-h4); font-weight: var(--dkj-fw-bold); color: var(--primary-5); }
+.dkj-calc-result .dkj-calc-num { font-size: var(--text-h4); font-weight: var(--dkj-fw-bold); color: var(--primary-6); }
 
 /* ---------- AnswerBox and sections ---------- */
 .dkj-answer {
@@ -154,9 +154,9 @@
   margin-top: var(--spacing-2);
   padding: var(--spacing-2) var(--spacing-3);
   border-radius: var(--dkj-radius-md-plus);
-  background: var(--primary-3);
+  background: var(--primary-4);
 }
 .dkj-answer-label { flex: 1; font-weight: var(--dkj-fw-semibold); }
-.dkj-answer-value { font-size: var(--text-lg); font-weight: var(--dkj-fw-bold); color: var(--primary-7); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dkj-answer-value { font-size: var(--text-lg); font-weight: var(--dkj-fw-bold); color: var(--primary-9); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dkj-calc-section + .dkj-calc-section { margin-top: var(--spacing-6); }
-.dkj-calc-question { margin: 0 0 var(--spacing-0-5); font-size: var(--text-h6); font-weight: var(--dkj-fw-bold); color: var(--primary-9); }
+.dkj-calc-question { margin: 0 0 var(--spacing-0-5); font-size: var(--text-h6); font-weight: var(--dkj-fw-bold); color: var(--primary-12); }

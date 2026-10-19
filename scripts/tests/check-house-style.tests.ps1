@@ -73,7 +73,7 @@ Assert-Equal 'defines --good' (Get-HitNames (Find-HouseStyleTokenHit -Text "el.s
 Assert-Equal '' (Get-HitNames (Find-HouseStyleTokenHit -Text 'color: var(--good);' -Names $names)) 'a read is not a definition'
 Assert-Equal 'reads --good' (Get-HitNames (Find-HouseStyleTokenHit -Text 'color: var( --good);' -Names $names -IncludeReads)) 'a read, with -IncludeReads'
 Assert-Equal '' (Get-HitNames (Find-HouseStyleTokenHit -Text "p.add_argument('--page', type=int)" -Names $names -IncludeReads)) 'an argparse flag is not a stylesheet'
-Assert-Equal '' (Get-HitNames (Find-HouseStyleTokenHit -Text 'a { --primary-7: red; color: var(--primary-7) }' -Names $names -IncludeReads)) '--primary-7 is not bare --primary'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleTokenHit -Text 'a { --primary-9: red; color: var(--primary-9) }' -Names $names -IncludeReads)) '--primary-9 is not bare --primary'
 $h = @(Find-HouseStyleTokenHit -Text "x`ny`n  --good: 1;" -Names $names)
 Assert-Equal 3 $h[0].Line 'the line number of a hit'
 
@@ -157,7 +157,7 @@ Write-Host '-- group 2: the retired names, held to the pinned copy' -ForegroundC
 $defs = Get-HouseStyleDefinitions -CssText ([System.IO.File]::ReadAllText((Join-Path $Vendored 'house-style.css')))
 $live = @(Get-HouseStyleRetiredTokens | Where-Object { $defs.Tokens -contains $_ })
 Assert-Equal '' ($live -join ' ') 'no retired name is defined by the pinned stylesheet'
-Assert-True ($defs.Tokens -contains '--primary-7' -and $defs.Classes -contains 'card' -and $defs.Classes -contains 'btn--primary') 'the house tokens and classes are read from the copy'
+Assert-True ($defs.Tokens -contains '--primary-9' -and $defs.Classes -contains 'card' -and $defs.Classes -contains 'btn--primary') 'the house tokens and classes are read from the copy'
 Assert-True ($defs.Classes -notcontains 'media') 'an at-rule contributes no class'
 
 Write-Host '-- group 3: the gate and the session check, against scratch repos' -ForegroundColor Cyan
@@ -180,7 +180,7 @@ function Invoke-Child([string]$Script, [string]$Dir, [string]$ParamName) {
 try {
     $clean = New-FixtureRepo 'clean'
     Add-PinnedCopy $clean
-    Set-Content -LiteralPath (Join-Path $clean 'web\app.css') -Value ':root { --my-accent: var(--primary-7); } .my-card { color: var(--primary-9); }' -Encoding ascii
+    Set-Content -LiteralPath (Join-Path $clean 'web\app.css') -Value ':root { --my-accent: var(--primary-9); } .my-card { color: var(--primary-12); }' -Encoding ascii
     Invoke-FixtureGitIn $clean add -A
     $r = Invoke-Child $Gate $clean 'RepoRoot'
     Assert-Equal 0 $r.Code 'a clean repo passes the gate'
@@ -197,14 +197,14 @@ try {
     $drift = New-FixtureRepo 'drift'
     Add-PinnedCopy $drift
     Add-Content -LiteralPath (Join-Path $drift 'web\house-theme.js') -Value '// edited'
-    $py = "PAGE = '''<style>:root { --primary-7: red; } .card { padding: 0; } p { color: var(--muted); }</style>'''"
+    $py = "PAGE = '''<style>:root { --primary-9: red; } .card { padding: 0; } p { color: var(--muted); }</style>'''"
     Set-Content -LiteralPath (Join-Path $drift 'web\page.py') -Value $py -Encoding ascii
     Set-Content -LiteralPath (Join-Path $drift 'web\hub.html') -Value '<section class="card"><div class="card__head"><h2 class="card__title">Issues</h2></div></section>' -Encoding ascii
     Invoke-FixtureGitIn $drift add -A
     $r = Invoke-Child $Gate $drift 'RepoRoot'
     Assert-Equal 1 $r.Code 'a drifted repo fails the gate'
     Assert-True ($r.Out -match '\[pin\] web/house-theme\.js') 'check 1: an edited copy is named'
-    Assert-True ($r.Out -match '\[redefine\] web/page\.py:1 defines the house token --primary-7') 'check 2: a redefined token, in CSS embedded in Python'
+    Assert-True ($r.Out -match '\[redefine\] web/page\.py:1 defines the house token --primary-9') 'check 2: a redefined token, in CSS embedded in Python'
     Assert-True ($r.Out -match '\[redefine\] web/page\.py:1 styles the house class \.card') 'check 2: a restyled house class'
     Assert-True ($r.Out -match '\[retired\] web/page\.py:1 reads --muted') 'check 3: a retired name in use'
     Assert-True ($r.Out -match '\[heading\] web/hub\.html:1 puts an h2 inside a card') 'check 4: an h2 inside a card (#3175)'

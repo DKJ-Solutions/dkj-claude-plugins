@@ -39,40 +39,55 @@
 
 ### PLAN
 
-Dave, October 19, 2026: the h2 looked too much like the h1 (both `--primary-7`). From now on h1 stays
-`--primary-7`, h2 takes `--primary-8` and h3 takes `--primary-6`. h4-h6 follow h3, as they always have
-as one group. The inverted surface (`--primary-9`) mirrors that: h1 `-3`, h2 `-2`, h3-h6 `-4`.
+Dave, October 19, 2026: the h2 looked too much like the h1 (both `--primary-7`). The first pass gave h2 `-8` and h3
+the grey `-6`. Dave then rejected the grey: a grey h3 does not work, and `-9` is reserved for body text. So the
+scale grows from nine steps to twelve, in three groups of four: `-1` to `-4` the light steps of the colour, `-5` to `-8`
+the greys (a faint tint, light to dark), `-9` to `-12` the dark steps. Dave chose the strict 4/4/4 numbering from a
+menu: old -1 -2 -3 -4 -5 -6 -7 -8 -9 become -1 -2 -4 -5 -6 -7 -9 -10 -12, and -3, -8 and -11 are new. Headings: h1 `-9`,
+h2 `-10`, h3-h6 `-11`. On a `-12` surface they are h1 `-4`, h2 `-3` and h3-h6 `-2`.
 
 #### A visible result
 
 This changes what every page looks like, so the branch stops for the owner's look before it merges.
 
+#### Not reachable from here
+
+The README names the Figma library *DKJ-Solutions Theme's - LIBRARY* as the mirror of the theme values. The three
+new steps still have to be added there, by hand.
+
 ### CREATE
 
-- [x] `house-style.css`: `:where(h1)` -7, `:where(h2)` -8, `:where(h3-h6)` -6, `.card__title` -6; the token-role comments follow
-- [x] `README.md`: the primary row and the heading rule name the new steps
-- [x] brandbook `.dkj-card-title` and `.dkj-dialog-title` (h3-h6 titles) take -6
+- [x] `house-style.css`: each of the 15 theme blocks rewritten from nine to twelve values. The three new steps are derived per theme in OKLCH (-3 halfway between -2 and -4; -8 at L 0.31 or 0.80 dark in -7's hue and chroma; -11 halfway between -10 and -12), and every other value is unchanged and renumbered
+- [x] every `--primary-N` use renumbered in the stylesheet, the brandbook (`brandbook/src`) and the scripts that emit house CSS (dev-pages, connector-dashboard, general-pages, dev-preview placeholder, repo-config allowlist)
+- [x] headings: `:where(h1)` -9, `:where(h2)` -10, `:where(h3-h6)` -11, and `.card__title`, `.dkj-card-title` and `.dkj-dialog-title` -11
+- [x] the short-form step names in comments (`-7`, `-5` …) renumbered by hand, and the scale comment rewritten for the three groups
+- [x] `README.md`: the current rules renumbered, the lightness tables given the three new rows, and a nine-to-twelve migration table added for consuming apps. The historical migration tables keep their old numbers
+- [x] `dev-pages-lib.ps1` reads and draws twelve steps per theme
 - [x] `house-style` skill: the new sha256 of `house-style.css`
+- [x] filed #3193: the README's detailed lightness tables disagree with the shipped grey values (it predates this branch)
 
 ### TEST
 
-- [x] `check-house-style.tests.ps1`: 88 passed, 0 failed (red until the checksum followed)
+- [x] `check-house-style.tests.ps1`: 88 passed (red until the checksum followed)
+- [x] `dev-pages.tests.ps1`: 232 passed, its fixture and step count moved to twelve
+- [x] `connector-dashboard.tests.ps1` 164 passed, `dev-preview-sessionstart.tests.ps1` 181 passed
+- [x] `check-plugin-integrity.ps1`: 0 errors; the brandbook builds
 
 ### DEPLOY: feat/heading-colours-h2-h3
 
-Inside this repo the brandbook's card and dialog titles follow the new h3-h6 colour.
+Inside this repo the brandbook, the repo hub and the dev pages render with the twelve-step scale. The hub's theme
+table shows twelve columns.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-Every DKJ-Solutions app that takes the next release sees its h2s in `--primary-8` and its h3-h6 in
-`--primary-6`, so the h2 no longer reads like the h1. Nothing to migrate: an app that colours a heading
-itself keeps its own colour, because the house rule sits in `:where()`.
+Every DKJ-Solutions app that takes this release has to renumber its own `--primary-*` uses. The names stay valid,
+so a missed one fails silently and just shows the wrong colour. The README's migration table gives the order. The
+headings change by themselves: h2 moves off the h1's colour to `-10`, and h3-h6 take the new dark step `-11`.
 
-**Score:** 3
+**Score:** 5
 
 #### Pull Request
 
-h2 takes --primary-8, h3-h6 take --primary-6
-
+The primary scale grows to twelve steps (4 light, 4 grey, 4 dark); h2 takes -10 and h3-h6 the new -11

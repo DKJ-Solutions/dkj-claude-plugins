@@ -88,14 +88,14 @@ $fxCss = @'
 :root {
   color-scheme: light;
   /* a comment with --fake: #000; inside */
-  --primary-1: #fbfbff; --primary-7: #0704c0;
+  --primary-1: #fbfbff; --primary-9: #0704c0;
   --cat-1: #2574d1; --warning-3: #e0761a;
   --spacing-4: 16px; --text-h1: 40px; --font-serif: Georgia, serif; --tap: var(--spacing-11);
 }
 :root[data-theme="dark"] { --primary-1: #00181a; }
 /* ---- Themes: the primary colour ---- */
-:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #cacae4; --primary-4: #9a9db0; --primary-5: #57596e; --primary-6: #424354; --primary-7: #0704c0; --primary-8: #181675; --primary-9: #000325; }
-:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffaf8; --primary-7: #633001; --warning-3: #b88a00; }
+:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #dfdff2; --primary-4: #cacae4; --primary-5: #9a9db0; --primary-6: #57596e; --primary-7: #424354; --primary-8: #2e2f3f; --primary-9: #0704c0; --primary-10: #181675; --primary-11: #0c094b; --primary-12: #000325; }
+:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffaf8; --primary-9: #633001; --warning-3: #b88a00; }
 /* ---- Buttons ------- */
 .btn { color: red; }
 .seg button + button, .seg button[aria-pressed="true"] { padding: 0.5px; }
@@ -112,11 +112,11 @@ var THEMES = [
 var HOUSE_DEFAULT = { light: 'blue', dark: 'cyan' };
 '@
 $bm = ConvertFrom-HouseStyleAssets -Css $fxCss -Js $fxJs
-Assert-Equal '--primary-1,--primary-7,--cat-1,--warning-3,--spacing-4,--text-h1,--font-serif,--tap' (($bm.Tokens | ForEach-Object { $_.Name }) -join ',') 'the tokens are the light :root block''s, in order, and a comment is no token'
+Assert-Equal '--primary-1,--primary-9,--cat-1,--warning-3,--spacing-4,--text-h1,--font-serif,--tap' (($bm.Tokens | ForEach-Object { $_.Name }) -join ',') 'the tokens are the light :root block''s, in order, and a comment is no token'
 Assert-Equal '#fbfbff' ($bm.Tokens[0].Value) 'each with its light value, not the dark block''s'
 Assert-Equal 'Theme steps,Theme steps,Categorical,Status,Spacing,Type,Type,App shell' (($bm.Tokens | ForEach-Object { $_.Group }) -join ',') 'and grouped by what it is'
 Assert-Equal 'blue,rust,cyan' (($bm.Themes | ForEach-Object { $_.Id }) -join ',') 'the themes are the picker''s, in its order'
-Assert-Equal '#fbfbff,#f5f5ff,#cacae4,#9a9db0,#57596e,#424354,#0704c0,#181675,#000325' ($bm.Themes[0].Steps -join ',') 'each with the nine steps its own stylesheet block sets'
+Assert-Equal '#fbfbff,#f5f5ff,#dfdff2,#cacae4,#9a9db0,#57596e,#424354,#2e2f3f,#0704c0,#181675,#0c094b,#000325' ($bm.Themes[0].Steps -join ',') 'each with the twelve steps its own stylesheet block sets'
 Assert-True ($bm.Themes[0].Default -and $bm.Themes[2].Default -and -not $bm.Themes[1].Default) 'the house defaults are marked, light and dark'
 Assert-Equal '--warning-3 #b88a00' (($bm.Themes[1].Extra | ForEach-Object { $_.Name + ' ' + $_.Value }) -join ',') 'a token a theme moves beyond its steps is kept'
 Assert-True ($null -eq $bm.Themes[1].Steps[1] -and @($bm.Themes[2].Steps | Where-Object { $_ }).Count -eq 0) 'a step the stylesheet does not set is empty, and so is a theme with no block'
@@ -144,8 +144,8 @@ $real = ConvertFrom-HouseStyleAssets `
     -Css ([System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css'))) `
     -Js ([System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-theme.js')))
 Assert-Equal 12 @($real.Themes).Count 'the plugin''s own copy: twelve themes'
-Assert-Equal 0 @($real.Themes | Where-Object { @($_.Steps | Where-Object { $_ }).Count -ne 9 }).Count 'each with all nine steps read'
-Assert-True (@($real.Tokens | Where-Object { $_.Name -eq '--primary-7' }).Count -eq 1 -and @($real.Tokens).Count -ge 60) 'its light tokens are read'
+Assert-Equal 0 @($real.Themes | Where-Object { @($_.Steps | Where-Object { $_ }).Count -ne 12 }).Count 'each with all twelve steps read'
+Assert-True (@($real.Tokens | Where-Object { $_.Name -eq '--primary-9' }).Count -eq 1 -and @($real.Tokens).Count -ge 60) 'its light tokens are read'
 Assert-True (@($real.Sections | Where-Object { $_.Title -eq 'Buttons' -and $_.Classes -contains 'btn' }).Count -eq 1 -and @($real.Sections | Where-Object { $_.Title -like 'Menu list*' -and $_.Classes -contains 'menu-item' }).Count -eq 1) 'and its component sections, with their classes'
 
 Write-Host '-- the test-gate model' -ForegroundColor Cyan

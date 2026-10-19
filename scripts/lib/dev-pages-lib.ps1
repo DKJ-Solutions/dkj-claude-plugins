@@ -254,7 +254,7 @@ function ConvertFrom-HouseStyleAssets {
         in the picker's order); Sections (list of @{ Title; Classes }) }.
 
         WHERE EACH PART COMES FROM. The tokens are the light :root block, the house default, so each value
-        is Blauw's. The themes are house-theme.js's THEMES list and HOUSE_DEFAULT, each with the nine
+        is Blauw's. The themes are house-theme.js's THEMES list and HOUSE_DEFAULT, each with the twelve
         --primary-* the stylesheet's own block for that theme sets (Steps) and any other token it moves
         (Extra, the warning colour on Roest and Geel). The components are the stylesheet's "/* ---- Name"
         sections, each with every class its selectors name. A pattern read, not a CSS parse: the file keeps
@@ -292,8 +292,8 @@ function ConvertFrom-HouseStyleAssets {
     foreach ($t in [regex]::Matches($Js, "\{\s*id:\s*'([a-z]+)',\s*name:\s*'([^']+)',\s*mode:\s*'(light|dark)',\s*hex:\s*'(#[0-9a-fA-F]{6})'\s*\}")) {
         $id = $t.Groups[1].Value
         $props = if ($blocks.ContainsKey($id)) { $blocks[$id] } else { [ordered]@{} }
-        $steps = @(1..9 | ForEach-Object { if ($props.Contains("primary-$_")) { $props["primary-$_"] } else { $null } })
-        $extra = @($props.Keys | Where-Object { $_ -notmatch '^primary-[1-9]$' } | ForEach-Object { @{ Name = '--' + $_; Value = $props[$_] } })
+        $steps = @(1..12 | ForEach-Object { if ($props.Contains("primary-$_")) { $props["primary-$_"] } else { $null } })
+        $extra = @($props.Keys | Where-Object { $_ -notmatch '^primary-([1-9]|1[0-2])$' } | ForEach-Object { @{ Name = '--' + $_; Value = $props[$_] } })
         $themes += @{ Id = $id; Name = $t.Groups[2].Value; Mode = $t.Groups[3].Value; Hex = $t.Groups[4].Value; Steps = $steps; Extra = $extra; Default = ($defaults -contains $id) }
     }
 
@@ -320,7 +320,7 @@ function Format-BrandbookPageHtml {
 
         THE SWATCHES FOLLOW THE THEME. A token's swatch is drawn with var(--name), so picking a theme under
         Settings recolours the token table, and the components below are the house classes themselves. The
-        theme table draws each theme's own nine steps from the stylesheet's values, whatever is picked.
+        theme table draws each theme's own twelve steps from the stylesheet's values, whatever is picked.
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Model, [AllowEmptyString()][string]$ReadError = '', [bool]$AppPresent = $false)
     $e = { param($v) ConvertTo-DashboardText $v }
@@ -344,11 +344,11 @@ function Format-BrandbookPageHtml {
     }
 
     [void]$body.AppendLine('<div class="grid-2" id="themes">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>Themes</h2><p class="card__sub">The twelve the user picks from under Settings, each with its nine steps, from the ground end to the far end</p></div>')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Themes</h2><p class="card__sub">The twelve the user picks from under Settings, each with its twelve steps, from the ground end to the far end</p></div>')
     [void]$body.AppendLine('<section class="card grid__full">')
     if ($themes.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Theme</th><th class="dp-left">Mode</th>' +
-            ((1..9 | ForEach-Object { '<th class="dp-left">-' + $_ + '</th>' }) -join '') + '</tr></thead><tbody>')
+            ((1..12 | ForEach-Object { '<th class="dp-left">-' + $_ + '</th>' }) -join '') + '</tr></thead><tbody>')
         foreach ($t in $themes) {
             $notes = @()
             if ($t.Default) { $notes += 'the house default for ' + $t.Mode }
@@ -425,9 +425,9 @@ function Format-BrandbookPageHtml {
     [void]$body.AppendLine('</div>')
 
     $style = $script:DevBarStyle + "`n" +
-        '.bb-chip { display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--primary-3); vertical-align: middle; }' + "`n" +
-        '.bb-space { display: inline-block; height: 8px; border-radius: 2px; background: var(--primary-5); vertical-align: middle; }' + "`n" +
-        '.bb-type { line-height: 1; color: var(--primary-9); }' + "`n" +
+        '.bb-chip { display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--primary-4); vertical-align: middle; }' + "`n" +
+        '.bb-space { display: inline-block; height: 8px; border-radius: 2px; background: var(--primary-6); vertical-align: middle; }' + "`n" +
+        '.bb-type { line-height: 1; color: var(--primary-12); }' + "`n" +
         '.bb-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }' + "`n" +
         '.table td.bb-classes { white-space: normal; line-height: 1.8; }'
     return Format-DevPageHtml -Title 'Brandbook' -Style $style -Body $body.ToString() `

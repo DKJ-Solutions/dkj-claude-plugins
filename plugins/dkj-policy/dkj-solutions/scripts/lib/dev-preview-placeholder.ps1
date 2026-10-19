@@ -84,7 +84,7 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: one name the house file does not define (.ph-code), for the code samples.
     [void]$sb.AppendLine('<style>')
-    [void]$sb.AppendLine('.ph-code { margin: var(--spacing-3) 0 0; padding: var(--spacing-3) var(--spacing-4); background: var(--primary-1); border: 1px solid var(--primary-3); border-radius: 8px; overflow-x: auto; font-size: var(--text-xs); line-height: 1.6; }')
+    [void]$sb.AppendLine('.ph-code { margin: var(--spacing-3) 0 0; padding: var(--spacing-3) var(--spacing-4); background: var(--primary-1); border: 1px solid var(--primary-4); border-radius: 8px; overflow-x: auto; font-size: var(--text-xs); line-height: 1.6; }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
