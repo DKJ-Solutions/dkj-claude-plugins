@@ -58,7 +58,7 @@ than shipped.
 ### TEST
 
 - [x] `dev-pages.tests.ps1`: 229 passed, 0 failed
-- [ ] The full gate via `open-pr.ps1 -GatesOnly`
+- [x] The full gate via `open-pr.ps1 -GatesOnly`: all 162 suites passed in 419s
 
 ### DEPLOY: fix/3162-release-notes-lilac-default
 
