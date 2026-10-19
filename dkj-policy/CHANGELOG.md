@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**4 / 4 minor entries** <!-- pending-tally -->
+**5 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3146-sync-revert-on-live · 20261019-112503Z
+
+`sync-main` now takes a theme file that a third party reverted on live to an earlier version, where the trunk's newest commit on that path is the sync that took it. It used to hold that file back as "live holds a version this repo has had before", and the next push overwrote the revert unseen.
+
+**Score:** 1 -- nothing changes for the maintainer of this repo.
+
+#### What makes this deploy extra special
+
+A Shopify store's sync now captures a third party's revert on live instead of silently holding it back for the next release to overwrite -- measured in a store on two header-group files.
+
+**Score:** 3
+
+#### Pull Request
+
+sync-main takes a third-party revert on live when the trunk's copy came from a sync and has not moved since
+
+Plugins: dkj-subagents-shopify
+
+[PR #3154](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3154)
+
+---
 
 ### DEPLOY: fix/3148-house-style-gate-reads-tagged-pin · 20261019-111414Z
 
