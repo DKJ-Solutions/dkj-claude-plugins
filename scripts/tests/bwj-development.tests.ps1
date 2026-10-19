@@ -1171,11 +1171,11 @@ Assert-True ($nlDriver.IndexOf('$heldCount[$num] -gt 0') -ge 0 -and $nlDriver.In
 $nlRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-notify-$PID-$([guid]::NewGuid().ToString('n'))"
 try {
     New-Item -ItemType Directory -Path $nlRoot -Force | Out-Null
-    $null = & git -C $nlRoot init -q 2>&1
-    $null = & git -C $nlRoot -c user.name=t -c user.email=t@t commit -q --allow-empty -m 'one' 2>&1
-    $null = & git -C $nlRoot tag v1.0.0 2>&1
-    $null = & git -C $nlRoot -c user.name=t -c user.email=t@t commit -q --allow-empty -m 'two' 2>&1
-    $null = & git -C $nlRoot tag v1.1.0 2>&1
+    Invoke-FixtureGitIn $nlRoot init -q
+    Invoke-FixtureGitIn $nlRoot -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q --allow-empty -m one
+    Invoke-FixtureGitIn $nlRoot tag v1.0.0
+    Invoke-FixtureGitIn $nlRoot -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q --allow-empty -m two
+    Invoke-FixtureGitIn $nlRoot tag v1.1.0
     $nlRecord = Join-Path $nlRoot 'record.txt'
     $nlDriverPath = Join-Path $PluginRoot 'scripts\task\notify-live.ps1'
 
