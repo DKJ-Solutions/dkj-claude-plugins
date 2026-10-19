@@ -594,6 +594,14 @@ Assert-Throws { Format-GoLiveMeasureBlock -Marker 'm' -MeasureMarker 'k' -IssueR
 Assert-True (Test-AsanaPasteBlockBody -Body $mbBlock) 'it is a block the closed message carries'
 Assert-True ((Get-PasteBlockSections -Body $rbBlock).StartsWith('OUTCOME')) 'and its carried sections start at the heading: the closed line is the message''s own'
 
+# THE BY-HAND RECORD (#3183): a closed message posted on the task by hand, recorded so the workflow posts nothing.
+$hbBlock = Format-GoLiveByHandBlock -Marker (Get-AsanaPasteBlockMarker) -HandMarker (Get-AsanaHandBlockMarker) -Date ([datetime]'2026-10-19') -Story '1219392256834173'
+Assert-True ($hbBlock.StartsWith("$(Get-AsanaPasteBlockMarker)`n$(Get-AsanaHandBlockMarker)`n")) 'the by-hand record carries both markers, outside the rules'
+Assert-Equal 'Closed message posted by hand on 2026-10-19 (Asana story 1219392256834173).' (Get-PasteBlockSections -Body $hbBlock) 'between the rules is the one-line record, with the day and the story gid'
+Assert-True (Test-AsanaPasteBlockBody -Body $hbBlock) 'and it is a block the close guard and the round logic accept as this round''s'
+Assert-True ((Format-GoLiveByHandBlock -Marker 'm' -HandMarker 'h' -Date ([datetime]'2026-10-19')).Contains("`nClosed message posted by hand on 2026-10-19.`n`n---")) 'without -Story the record names the day only, a blank line before the closing rule'
+Assert-Throws { Format-GoLiveByHandBlock -Marker 'm' -HandMarker 'h' -Date ([datetime]'2026-10-19') -Story '12a' } 'a story gid that is not digits is refused'
+
 # A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
 # the handover page is the reviewer's surface. Both published shapes, and nothing that merely resembles one.
 Assert-True (Test-PrivateResultLink -Link 'https://claude.ai/artifact/abc123') 'a claude.ai/artifact link is private'
@@ -707,6 +715,18 @@ try {
     Assert-Equal 1 $LASTEXITCODE '-Measure beside -Research is refused'
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -ProseFile $glMeaProse -RootOverride $glRoot 2>&1 | Out-Null
     Assert-Equal 1 $LASTEXITCODE 'measurement prose without -Measure is refused'
+    # -ByHand THROUGH -File (#3183): a one-line record, and every other form's input refused.
+    $glHandOut = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 911 -Repo 'o/r' -ByHand -Story 42 -RootOverride $glRoot 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with -ByHand exits 0'
+    Assert-True ($glHandOut.Contains('(Asana story 42).') -and $glHandOut.Contains('by hand  :') -and $glHandOut -notmatch 'go live  :|No -Link given|No \[changed\]') 'and prints the record, with no go-live half and no result warnings'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 911 -Repo 'o/r' -ByHand -Research -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-ByHand beside -Research is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 911 -Repo 'o/r' -ByHand -ProseFile $glMeaProse -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-ByHand beside -ProseFile is refused: the message is already on the task'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 911 -Repo 'o/r' -ByHand -Story 'x1' -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE 'a -Story that is not digits is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 911 -Repo 'o/r' -Story 42 -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-Story without -ByHand is refused'
 
     # BARE EVEN WHERE THE SEAM NAMES A LIVE ID (#2619). A URL pinned to it reads as a preview link to the
     # colleague the block is for, so the seam the control half of a preview pair reads is not read here.
@@ -1113,6 +1133,8 @@ Assert-Equal 'en' (Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-Nl
 Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-NlBlockComment))).Owed) 'a -LiveSince block (no after-release marker) was told at the close -- skipped'
 $nlResearch = Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-NlBlockComment -Kinds @('research')))
 Assert-True ((-not $nlResearch.Owed) -and $nlResearch.Reason -match 'research') 'a research block is skipped, and says so'
+$nlHand = Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-NlBlockComment -Kinds @('by-hand')))
+Assert-True ((-not $nlHand.Owed) -and $nlHand.Reason -match 'by-hand') 'a by-hand record is skipped, and says so (#3183)'
 Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -State 'OPEN' -Comments @(New-NlBlockComment -Kinds @('after-release')))).Owed) 'an issue reopened since is back in development -- skipped'
 Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -Reason 'NOT_PLANNED' -Comments @(New-NlBlockComment -Kinds @('after-release')))).Owed) 'a close as not planned is skipped'
 Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -Body 'no task' -Comments @(New-NlBlockComment -Kinds @('after-release')))).Owed) 'an issue linking no task is skipped'
@@ -1569,6 +1591,14 @@ $stRun = Invoke-StMain -Comments @((New-StLine $stBlock $stT1)) -Events @($stT1)
 Assert-True ($stRun.Body.Contains('follows')) 'a block stamped the second of the reopen is held back too'
 $stRun = Invoke-StMain -Comments @($stOld, (New-StLine "$cmLibMarker`n---`n---" $stT3)) -Events @($stT2)
 Assert-True (-not $stRun.Body.Contains('round-1') -and $stRun.Body.Contains('follows')) 'a newer degenerate marker comment after the reopen does not bring round 1''s block back (#2968)'
+# A BY-HAND RECORD (#3183): this round's, from a trusted author, posts nothing; an earlier round's does not silence the close.
+$stRun = Invoke-StMain -Comments @((New-StLine $hbBlock $stT1)) -Events @()
+Assert-Equal '' $stRun.Body 'a by-hand record for this round: nothing is posted on the task'
+Assert-True ($stRun.Log -match 'posted on Asana task 1234 by hand' -and $stRun.AsanaReads.Count -eq 0) 'and the log says why, with no board read'
+$stRun = Invoke-StMain -Comments @((New-StLine $hbBlock $stT1)) -Events @($stT2)
+Assert-True ($stRun.Body.Contains('follows')) 'a by-hand record from before the last reopen is held back, and the close posts as any other'
+$stRun = Invoke-StMain -Comments @((ConvertTo-Json -Compress @{ author_association = 'NONE'; login = 'stranger'; body = $hbBlock; created_at = $stT1 })) -Events @()
+Assert-True ($stRun.Body.Contains('follows')) 'a by-hand record from an untrusted author silences nothing'
 foreach ($v in 'IssueRef', 'StateReason', 'IssueBody', 'AsanaPat', 'IssueLabels', 'RepoConfigPath') { Set-Variable -Name $v -Value '' -Scope Script }
 Remove-Item -LiteralPath $stConfig -ErrorAction SilentlyContinue
 $Event = 'closed'
@@ -1652,7 +1682,7 @@ $plGh = Get-FunctionSourceText -Path $plTemplate -Name 'Invoke-GhCapture'
 Assert-True ($null -ne $plGh) 'the prio template defines Invoke-GhCapture'
 Assert-Equal (Get-FunctionSourceText -Path $cmTemplate -Name 'Invoke-GhCapture') $plGh 'Invoke-GhCapture equals asana-closed-message.ps1''s'
 # #2968: the freshness judgement is copied into the template as well, and held equal to the lib's.
-foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections', 'Get-AsanaResearchBlockMarker', 'Get-AsanaReleaseBlockMarker', 'Get-AsanaMeasureBlockMarker')) {
+foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections', 'Get-AsanaResearchBlockMarker', 'Get-AsanaReleaseBlockMarker', 'Get-AsanaMeasureBlockMarker', 'Get-AsanaHandBlockMarker')) {
     $mine = Get-FunctionSourceText -Path $cmTemplate -Name $fn
     Assert-True ($null -ne $mine) "the closed-message template defines $fn"
     Assert-Equal (Get-FunctionSourceText -Path $plLib -Name $fn) $mine "$fn equals asana-task-lib.ps1's, apart from its help comment"

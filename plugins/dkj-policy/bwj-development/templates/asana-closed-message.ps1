@@ -53,6 +53,12 @@
         met? Move the task to '<done section>' and mark it as complete. Not met? Leave a comment with
         your measurement, and it becomes a new finding.' The done section is found as for research. The
         block carries Get-AsanaMeasureBlockMarker beside its own, and that marker wins over the others.
+      - A close as completed whose newest block is a BY-HAND block (build-golive-block.ps1 -ByHand,
+        #3183): nothing, and the log says why. The requester approved a closed message in a form this
+        file does not write, and somebody posted it on the task by hand; a second, fixed-form message
+        beside it is what the block exists to prevent. The block carries Get-AsanaHandBlockMarker beside
+        its own. Only a trusted author's block for this round counts, as for every other form, so one
+        from before the last reopen is held back and the close posts as usual.
       - A close as completed that CARRIES NO BLOCK, for any reason: the header, the closed line, and one
         sentence under them -- 'The result message for this round follows.' NEVER THE CLOSED LINE ALONE
         (Maikel, October 14, 2026, #3004): 'with this automation there must always be an explanation of
@@ -558,6 +564,14 @@ function Get-AsanaMeasureBlockMarker {
         of asana-task-lib.ps1's function of this name.
     #>
     return '<!-- asana-paste-block-kind: measure -->'
+}
+
+function Get-AsanaHandBlockMarker {
+    <#
+        Pure: the second marker build-golive-block.ps1 -ByHand puts on a block recording a closed message
+        posted by hand on the task (#3183). A copy of asana-task-lib.ps1's function of this name.
+    #>
+    return '<!-- asana-paste-block-kind: by-hand -->'
 }
 
 function Get-AsanaReleaseBlockMarker {
@@ -1197,6 +1211,14 @@ function Invoke-Main {
                 }
                 if ($held) { $sections = ''; $research = $false; $afterRelease = $false; $measure = $false }
             }
+        }
+        # A CLOSED MESSAGE POSTED BY HAND IS NOT POSTED AGAIN (#3183). The requester approved a message in a
+        # form this file does not write, and a session recorded it with build-golive-block -ByHand. Only
+        # this round's block counts, and only from a trusted author: a held-back one is from an earlier
+        # round, so this close posts as any other, and nobody outside the repo can silence a close.
+        if ($sections -and $chosen.Contains((Get-AsanaHandBlockMarker))) {
+            Write-Host "$IssueRef -- closed as completed; this round's closed message was posted on Asana task $($decision.Gid) by hand (build-golive-block -ByHand), so nothing was posted."
+            return
         }
         # NO SECTIONS IS NEVER THE CLOSED LINE ALONE (#3004): New-ClosedMessageHtml adds that the result
         # message follows, whichever of the reasons above left the block out.

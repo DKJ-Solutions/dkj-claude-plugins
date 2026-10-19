@@ -821,6 +821,48 @@ function Format-GoLiveMeasureBlock {
     return ($lines -join "`n")
 }
 
+function Format-GoLiveByHandBlock {
+    <#
+        Pure: the whole GitHub comment that records a closed message POSTED BY HAND on the Asana task
+        (#3183, measured in BWJ-Development/smartwatchbanden, October 19, 2026). The requester approved a
+        hand-written message in a form the automation does not have yet, and closing the issue would have
+        made asana-closed-message post its own fixed-form message beside it. The only route was to unlink
+        the issue body around the close and to post a go-live block just to pass the close guard.
+
+        A BLOCK, SO THE GUARD AND THE ROUND LOGIC NEED NOTHING NEW. Between the rules is one line, the
+        record -- the day, and the Asana story gid where one is given -- so Test-AsanaPasteBlockBody
+        accepts it and the close guard lets the close through, judged against the last reopen like every
+        other block. -HandMarker sits beside the marker, and the closed message reads it and posts nothing.
+        Nothing here is carried to Asana, so the line is English and fixed, in either language.
+
+        -Story is digits only, checked here as well as in the driver: it is written into a comment that a
+        later reader follows to the task's story.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Marker,
+        [Parameter(Mandatory = $true)][string]$HandMarker,
+        [Parameter(Mandatory = $true)][datetime]$Date,
+        [string]$Story = ''
+    )
+    if ($Story -and $Story -notmatch '\A[0-9]+\z') { throw "-Story '$Story' is not an Asana story gid (digits only)." }
+    $record = "Closed message posted by hand on $($Date.ToString('yyyy-MM-dd', [System.Globalization.CultureInfo]::InvariantCulture))"
+    $record += if ($Story) { " (Asana story $Story)." } else { '.' }
+
+    $lines = @(
+        $Marker,
+        $HandMarker,
+        '',
+        'The closed message for this round was posted on the Asana task by hand, so the closed-message workflow posts nothing when this issue closes as completed:',
+        '',
+        '---',
+        $record,
+        # The blank line before the closing rule is load-bearing, as in Format-GoLiveBlock (#2701).
+        '',
+        '---'
+    )
+    return ($lines -join "`n")
+}
+
 function ConvertTo-GoLiveOutcomeBullets {
     <#
         Pure: the research block's outcome prose as bullet texts, without their markers (#3017). Each

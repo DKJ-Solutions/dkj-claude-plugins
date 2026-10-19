@@ -447,6 +447,11 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   *"Nothing changes visibly on the storefront. You can take a new measurement yourself, as described
   below."* under the shared intro, and ends by asking whether the target is met. The form is in
   [`golive-block`](skills/golive-block/SKILL.md).
+- **A closed message posted by hand is recorded, never worked around** (#3183). Where the requester
+  approved a hand-written closed message and it is already on the task, `build-golive-block.ps1 -ByHand`
+  posts a one-line record on the issue. The close guard accepts it as this round's block, and the closed
+  message posts nothing beside the hand-written one. The issue body is never edited to get past the
+  workflow.
 - **An issue stays open only while it will still change code in the repo** (Maikel, October 16, 2026,
   [#3059](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3059)): *"De enige github issues die
   open blijven staan, zijn issues die echt daadwerkelijk nog iets gaan aanpassen aan de code."* An issue

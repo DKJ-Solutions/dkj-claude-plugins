@@ -110,6 +110,34 @@ message ends with the measurement ask, which names the board's own done section 
 does: *"Is the target met? Move the task to '<done section>' and mark it as complete. Not met? Leave a
 comment with your measurement, and it becomes a new finding."*
 
+## A closed message posted by hand -- `-ByHand`
+
+**Sometimes the requester approves a hand-written closed message**, in a form the automation does not
+have yet, and somebody posts it on the Asana task by hand
+([#3183](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3183), measured in
+smartwatchbanden, October 19, 2026). Closing the issue would then make `asana-closed-message` post its
+own fixed-form message beside it, and the close guard refuses a completed close without a block anyway.
+The only route was to post a block just to pass the guard, defuse every Asana link in the issue body
+around the close, and restore the body afterwards. `-ByHand` is the sanctioned route instead:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-golive-block.ps1" -Issue 911 -ByHand -Story <story gid> -Post
+```
+
+It writes a one-line record between the rules, *"Closed message posted by hand on <date> (Asana story
+<gid>)."*, and a second marker beside the block's own. The close guard accepts that record as this
+round's block, and the closed message reads the marker and posts nothing. **So the guard's intent still
+holds** (the requester always gets a message), and the hand route is visible on the issue. Post it
+**after** the hand-written message is on the task. `-Story` is optional, digits only, and only valid
+with `-ByHand`.
+
+The record counts only for this round and only from a trusted author, like every other block. One
+posted before the issue's last reopen is held back, so the next close posts as usual. A comment from
+outside the repo cannot silence a close. The record refuses `-Research`, `-Measure`, `-ProseFile`,
+`-Link`, `-Path`, `-Version`, `-LiveSince`, `-From` and `-ReleaseDay`. `-Post` skips the
+pull-request check, as for `-Research`, and the shared-task check (#3182), because a record that makes
+the closed message post nothing says nothing about the task.
+
 ## A ticket without a storefront result -- `-Research`
 
 **Research, a test or a decision changes nothing on the store**, so it has no result link, no release
@@ -249,6 +277,8 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below -- or, with `-Research`, the `[outcome]` section |
 | `-Research` | the research form, for a ticket that changed nothing on the store (#3004) -- see above |
 | `-Measure` | the measurement form, for a result that is a number the requester measures again (#3179) -- see above |
+| `-ByHand` | the by-hand record, for a closed message already posted on the task by hand: the workflow then posts nothing (#3183) -- see above |
+| `-Story <gid>` | with `-ByHand` only: the Asana story that carries the hand-written message, digits only |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
 | `-Force` | post although a block already appears to be there FOR THIS ROUND (one from before the issue's last reopen does not count, so a reopened issue's corrected block needs no `-Force` for that), a store-admin prerequisite is still open, the issue links no single Asana task, another open issue links the same task (#3182: the closed message would say the task is in review while that issue is open), no open or merged pull request closes it yet, or the issue could not be read |
