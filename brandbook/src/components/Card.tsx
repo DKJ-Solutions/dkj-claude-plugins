@@ -9,8 +9,8 @@ const CardVariant = createContext<'default' | 'data'>('default')
 /**
  * Card -- the main surface. flush: no padding, the head and body bring their own.
  * invalid: a danger border. open: a stronger accent-tinted border while its dialog is open.
- * variant="data": for a data view -- 20px padding, the head left-aligned in the house serif with an optional subline,
- * and no rule between head and body. The other states stay.
+ * variant="data": for a data view -- 20px padding, the head left-aligned with an optional subline, and no rule between
+ * head and body. The other states stay.
  */
 export function Card({
   children,
@@ -38,7 +38,8 @@ export function Card({
 
 /**
  * CardHead -- a centred title (optionally with an accent icon), and below it the card's actions over the full width.
- * The title is an <h6> (--text-h6), or an <h2> (--text-h2) in a data card: a heading takes the token of its own level.
+ * The title is an <h6> (--text-h6), or an <h3> (--text-h3) in a data card: a heading takes the token of its own level.
+ * Never an <h2>: an h2 never stands inside a card, it stands above the card(s) in a CardGroup (#3175).
  * subtitle: a muted line under the title. info: a slot after the title text, for an inline RoundToggle.
  * badge: a status Badge before the title text (#153). The Badge is decorative, so say the status in the subtitle too.
  * level={3}: a plain <h3>, for a card whose <h2> stands above a group of cards in a CardGroup (#206).
@@ -62,7 +63,7 @@ export function CardHead({
 }) {
   const variant = useContext(CardVariant)
   const plainH3 = level === 3
-  const Title = plainH3 ? 'h3' : variant === 'data' ? 'h2' : 'h6'
+  const Title = plainH3 || variant === 'data' ? 'h3' : 'h6'
   return (
     <div className="dkj-card-head">
       <Title className={plainH3 ? undefined : cx('dkj-card-title', icon && 'dkj-card-title--icon')}>
@@ -78,8 +79,9 @@ export function CardHead({
 }
 
 /**
- * CardGroup -- an <h2> with its sub line standing ABOVE the card(s) it heads, not inside them (#206): the house `.grid-2`
- * with a `.grid__head`. Put the cards inside: two sit side by side, one with className="grid__full" takes the whole row.
+ * CardGroup -- an <h2> with its sub line standing ABOVE the card(s) it heads, never inside them (#206, a hard rule since
+ * #3175): the house `.grid-2` with a `.grid__head`. Every h2 on a page with cards is one of these, so the h2s group the
+ * cards. Put the cards inside: two sit side by side, one with className="grid__full" takes the whole row.
  */
 export function CardGroup({ title, subtitle, children }: { title: ReactNode; subtitle: ReactNode; children: ReactNode }) {
   return (

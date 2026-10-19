@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Card, CardBody, CardHead } from '../components/Card'
+import { Card, CardBody, CardGroup, CardHead } from '../components/Card'
 import { StatTile, StatTiles } from '../components/Metrics'
 import { DataTable } from '../components/Table'
 import { Toolbar } from '../showcase/Showcase'
@@ -58,8 +58,8 @@ export function InFlightTiles({ data, trunk }: { data: InFlight | null; trunk: s
 
 export function InFlightCards({ data, repo, trunk }: { data: InFlight; repo: string; trunk: string }) {
   return (
-    <>
-      <Card variant="data">
+    <CardGroup title="In flight" subtitle="Every list this repo has open">
+      <Card variant="data" className="grid__full">
         <CardHead title="Pull requests" subtitle="Open, newest first" />
         <CardBody>
           <DataTable
@@ -79,7 +79,7 @@ export function InFlightCards({ data, repo, trunk }: { data: InFlight; repo: str
         </CardBody>
       </Card>
 
-      <Card variant="data">
+      <Card variant="data" className="grid__full">
         <CardHead title="Issues" subtitle="Open, by priority" />
         <CardBody>
           <DataTable
@@ -101,7 +101,7 @@ export function InFlightCards({ data, repo, trunk }: { data: InFlight; repo: str
         </CardBody>
       </Card>
 
-      <Card variant="data">
+      <Card variant="data" className="grid__full">
         <CardHead title="Branches" subtitle={`Every branch off ${trunk}, with its pull request where one is open`} />
         <CardBody>
           <DataTable
@@ -118,6 +118,6 @@ export function InFlightCards({ data, repo, trunk }: { data: InFlight; repo: str
           />
         </CardBody>
       </Card>
-    </>
+    </CardGroup>
   )
 }

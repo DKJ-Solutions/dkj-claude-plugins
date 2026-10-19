@@ -105,9 +105,11 @@ function Format-DevPreviewPlaceholderHtml {
     # Block 7, Pages: the general pages, the one card a placeholder repo has to link.
     [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false))
 
-    # Block 10's place: the two setup cards.
-    [void]$sb.AppendLine('<section class="card">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Add a preview of your own</h2><p class="card__sub">From the next session on, it replaces this page</p></div>')
+    # Block 10's place: the two setup cards, under one h2 of their own and each titled with an h3 (#3175).
+    [void]$sb.AppendLine('<div class="grid-2">')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>Set up a preview</h2><p class="card__sub">Two steps, both in this repo''s own files</p></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
+    [void]$sb.AppendLine('<div class="card__head"><h3 class="card__title">Add a preview of your own</h3><p class="card__sub">From the next session on, it replaces this page</p></div>')
     [void]$sb.AppendLine('<div>')
     [void]$sb.AppendLine('<p>State <code>Get-DevPreview</code> in this repo''s <code>scripts/repo-config.ps1</code>. The hook then starts that server, or reuses the one already running, and hands out its link instead of this page. Its index is this repo''s own Repo hub, in the same form as this page.</p>')
     [void]$sb.AppendLine('<pre class="ph-code"><code>function Get-DevPreview {')
@@ -119,9 +121,8 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<p class="muted">Every field, and the rules for <code>Command</code>, are in the dkj-solutions plugin README, under &quot;The dev-preview hook&quot;.</p>')
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('</section>')
-
-    [void]$sb.AppendLine('<section class="card">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Open it in VS Code</h2><p class="card__sub">In the Simple Browser rather than the system browser</p></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
+    [void]$sb.AppendLine('<div class="card__head"><h3 class="card__title">Open it in VS Code</h3><p class="card__sub">In the Simple Browser rather than the system browser</p></div>')
     [void]$sb.AppendLine('<div>')
     [void]$sb.AppendLine('<p>Route the preview''s port in this repo''s <code>.vscode/settings.json</code>:</p>')
     [void]$sb.AppendLine('<pre class="ph-code"><code>"workbench.externalUriOpeners": {')
@@ -130,10 +131,12 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<p class="muted">The placeholder takes the first free port from 4880 to 4889, so a repo opened beside others may get a later one; the session-start line names the port it got.</p>')
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
 
     # Block 11: About this repo, the fixed title, with what the placeholder knows.
-    [void]$sb.AppendLine('<section class="card">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">About this repo</h2></div>')
+    [void]$sb.AppendLine('<div class="grid-2">')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2><p class="card__sub">What the placeholder knows about this folder</p></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<dl class="facts">')
     [void]$sb.AppendLine('<div><dt>Folder</dt><dd>' + $n + '</dd></div>')
     [void]$sb.AppendLine('<div><dt>Dev preview</dt><dd>none stated yet</dd></div>')
@@ -141,6 +144,7 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<div><dt>Placeholder ports</dt><dd>4880 to 4889</dd></div>')
     [void]$sb.AppendLine('</dl>')
     [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
 
     # Block 12: where the page comes from.
     [void]$sb.AppendLine('<p class="footer-note">Served on 127.0.0.1 only, by the dkj-solutions plugin''s <code>scripts/preview/serve-placeholder.ps1</code>.</p>')

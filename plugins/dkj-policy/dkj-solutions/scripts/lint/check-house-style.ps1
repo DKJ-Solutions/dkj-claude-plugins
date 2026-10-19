@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
     The house-style gate (#3035): every vendored house-style.css / house-theme.js is the copy the
-    house-style skill pins, and the repo's own layer redefines no house token or class and uses no
-    retired token name.
+    house-style skill pins, and the repo's own layer redefines no house token or class, uses no
+    retired token name and puts no h2 inside a card (#3175).
 
 .DESCRIPTION
     The rules and the reasoning behind each are in scripts/lib/house-style-rules.ps1 beside this

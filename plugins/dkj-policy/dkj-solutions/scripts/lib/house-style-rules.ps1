@@ -11,7 +11,8 @@
     longer defines (#3033). Without a gate the migration to one design system drifts again after it
     lands, so this is phase 1 of that plan.
 
-    THE THREE CHECKS, and the decisions behind their shape (owner, October 15, 2026, on #3035):
+    THE FOUR CHECKS, and the decisions behind their shape (owner, October 15, 2026, on #3035; the
+    fourth by Maikel, October 19, 2026, on #3175):
 
       1. pin      -- every tracked file named house-style.css or house-theme.js hashes to the sha256 the
                      skill page pins. The copies are FOUND (a discovery over the tracked files), not
@@ -22,8 +23,16 @@
                      so it follows the pinned tag without a second list to maintain.
       3. retired  -- the repo's own layer neither defines nor reads (`var(--x)`) a token name the house
                      style retired.
+      4. heading  -- no h2 stands inside a card: an h2 heads a group of cards and stands ABOVE them, in a
+                     .grid__head, so the h2s group the page. A card's own title is an h3. Matched in its
+                     two shapes, an h2 carrying the card-title class (.card__title, the brand book's
+                     .dkj-card-title) and an h2 opening a card head (.card__head, .dkj-card-head). Not
+                     seen, which is the grep's price: an h2 put together across a string concatenation, a
+                     `>` inside an attribute before the class, an unquoted class, and a comment or a
+                     wrapper between the card head and its h2. Each run is bounded (400) and possessive, so a
+                     hostile file costs linear time rather than quadratic.
 
-    PATTERN GREP, NOT A PARSE. Checks 2 and 3 match patterns rather than parse CSS or SCSS: no runtime
+    PATTERN GREP, NOT A PARSE. Checks 2 to 4 match patterns rather than parse CSS or SCSS: no runtime
     dependency, and a bare Windows PowerShell 5.1 runs it. The price is the occasional false positive,
     which the repo answers in its own allowlist (Get-HouseStyleAllowlist, below) with a reason per entry.
 
@@ -73,7 +82,7 @@ function Get-HouseStyleCopyNames {
 }
 
 function Get-HouseStyleScanExtensions {
-    <# The file kinds checks 2 and 3 read: every kind a page or its styles is written in. #>
+    <# The file kinds checks 2 to 4 read: every kind a page or its styles is written in. #>
     return [string[]]@(
         '.css', '.scss', '.sass', '.less', '.styl', '.pcss',
         '.html', '.htm', '.xhtml', '.svg',
@@ -279,6 +288,30 @@ function Find-HouseStyleClassHit {
     }
 }
 
+function Find-HouseStyleHeadingHit {
+    <#
+        Every h2 inside a card, in the two shapes a page writes one (#3175): an h2 carrying the card-title
+        class, and an h2 as the first element of a card head. Returns @{ Name = 'h2'; Kind = 'heads'; Line }.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+    if ($Text.IndexOf('<h2', [System.StringComparison]::OrdinalIgnoreCase) -lt 0) { return }
+    $map = New-HouseStyleLineMap -Text $Text
+    $seen = New-Object System.Collections.Generic.HashSet[int]
+    # Each pattern takes one bounded, possessive run per start and nothing nested, so a hostile file (a run of
+    # `<h2 class="x ` with no `>`) costs linear time; the class is then tested on the tag text alone.
+    $class = [regex]'(?i)\bclass(?:Name)?\s*=\s*[''"{][^''"}]{0,400}(?<![\w-])(?:card__title|dkj-card-title)(?![\w-])'
+    $hits = New-Object System.Collections.Generic.List[int]
+    # <h2 class="card__title">, <h2 className="dkj-card-title ...">
+    foreach ($m in [regex]::Matches($Text, '(?i)<h2\b(?>[^>]{0,400})')) { if ($class.IsMatch($m.Value)) { $hits.Add($m.Index) } }
+    # <div class="card__head"><h2>, whitespace between allowed
+    foreach ($m in [regex]::Matches($Text, '(?i)(?<![\w-])(?:card__head|dkj-card-head)(?![\w-])(?>[^<>]{0,400})>(?>\s*)<h2\b')) {
+        $hits.Add($m.Index + $m.Length - 3)
+    }
+    foreach ($at in $hits) {
+        if ($seen.Add($at)) { @{ Name = 'h2'; Kind = 'heads'; Line = (Get-HouseStyleLineNumber -Map $map -Index $at) } }
+    }
+}
+
 function ConvertFrom-GitQuotedPathHs {
     <#
         One path line from `git -c core.quotePath=true ls-files`, decoded. Git quotes a path with a
@@ -365,7 +398,7 @@ function Read-HouseStyleAllowlist {
 
 function Invoke-HouseStyleCheck {
     <#
-        Run the three checks over a checkout. Returns
+        Run the four checks over a checkout. Returns
         @{ Tag; Copies = @(@{ Path; Ok }); Findings = @(@{ Check; Path; Line; Name; Text }); Allowed; Notes }.
         $Files defaults to the checkout's tracked files; tests pass their own.
     #>
@@ -403,7 +436,7 @@ function Invoke-HouseStyleCheck {
         $findings.Add(@{ Check = 'missing'; Path = '.'; Line = 0; Name = 'house-style.css'; Text = "no vendored house-style.css in the tracked files -- vendor the copy the house-style skill pins at $($Pin.Tag)" })
     }
 
-    # --- 2 and 3: the repo's own layer ---------------------------------------------------------------
+    # --- 2 to 4: the repo's own layer ----------------------------------------------------------------
     $houseTokens = @(); $houseClasses = @()
     if ($verifiedCss) {
         $defs = Get-HouseStyleDefinitions -CssText $verifiedCss
@@ -436,12 +469,15 @@ function Invoke-HouseStyleCheck {
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $retired -IncludeReads)) {
             $hits += @{ Check = 'retired'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "$($h.Kind) $($h.Name), a token name the house style retired -- rename it per the rename tables in house-style/README.md at $($Pin.Tag)" }
         }
+        foreach ($h in @(Find-HouseStyleHeadingHit -Text $text)) {
+            $hits += @{ Check = 'heading'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = 'puts an h2 inside a card -- an h2 stands above its card(s) in a .grid__head, and a card''s own title is an h3 (house-style/README.md, "An h2 never stands inside a card")' }
+        }
         foreach ($f in $hits) {
             if (Test-HouseStyleAllowed -Path $rel -Name $f.Name -Allow $Allow) { $allowed++ } else { $findings.Add($f) }
         }
     }
 
-    if ($skipped) { $notes.Add("checks 2 and 3 skipped $skipped file(s) over 2 MB or holding a NUL byte -- a bundle there is not read") }
+    if ($skipped) { $notes.Add("checks 2 to 4 skipped $skipped file(s) over 2 MB or holding a NUL byte -- a bundle there is not read") }
     # ToArray, not @(): Windows PowerShell 5.1 throws "argument types do not match" on @() over a List.
     return @{ Tag = $Pin.Tag; Copies = $copies; Findings = $findings.ToArray(); Allowed = $allowed; Notes = $notes.ToArray() }
 }

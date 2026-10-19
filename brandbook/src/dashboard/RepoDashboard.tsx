@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button } from '../components/Button'
-import { Card, CardBody, CardGroup, CardHead } from '../components/Card'
+import { Card, CardBody, CardGroup } from '../components/Card'
 import { FooterNote } from '../components/Content'
 import { Message } from '../components/Feedback'
 import { Breadcrumbs, PageLinks } from '../components/Navigation'
@@ -88,29 +88,30 @@ export function RepoDashboard() {
 
         {data && <InFlightCards data={data} repo={REPO} trunk={TRUNK} />}
 
-        <Card variant="data">
-          <CardHead title="DKJ-Solutions repos" subtitle="Every repo that follows the brand book, with its app preview and, where one exists, its dashboard preview." />
-          <CardBody>
-            <DataTable
-              label="DKJ-Solutions repos"
-              columns={[
-                { key: 'repo', label: 'Repo' },
-                { key: 'theme', label: 'Default theme' },
-                { key: 'app', label: 'App preview' },
-                { key: 'dashboard', label: 'Dashboard preview' },
-              ]}
-              rows={REPOS.map((r) => ({
-                id: r,
-                cells: {
-                  repo: <a href={`https://github.com/${ORG}/${r}`}>{r}</a>,
-                  theme: <ThemeLabel id={DEFAULT_THEMES[r]} />,
-                  app: <a href={appPreviewPath(r)}>Open</a>,
-                  dashboard: PREVIEWS.some((p) => p.id === r) ? <a href={dashboardPreviewPath(r)}>Open</a> : '--',
-                },
-              }))}
-            />
-          </CardBody>
-        </Card>
+        <CardGroup title="DKJ-Solutions repos" subtitle="Every repo that follows the brand book, with its app preview and, where one exists, its dashboard preview.">
+          <Card variant="data" className="grid__full">
+            <CardBody>
+              <DataTable
+                label="DKJ-Solutions repos"
+                columns={[
+                  { key: 'repo', label: 'Repo' },
+                  { key: 'theme', label: 'Default theme' },
+                  { key: 'app', label: 'App preview' },
+                  { key: 'dashboard', label: 'Dashboard preview' },
+                ]}
+                rows={REPOS.map((r) => ({
+                  id: r,
+                  cells: {
+                    repo: <a href={`https://github.com/${ORG}/${r}`}>{r}</a>,
+                    theme: <ThemeLabel id={DEFAULT_THEMES[r]} />,
+                    app: <a href={appPreviewPath(r)}>Open</a>,
+                    dashboard: PREVIEWS.some((p) => p.id === r) ? <a href={dashboardPreviewPath(r)}>Open</a> : '--',
+                  },
+                }))}
+              />
+            </CardBody>
+          </Card>
+        </CardGroup>
 
         <CardGroup title="About this repo" subtitle="What this repo is">
           <Card variant="data" className="grid__full">
