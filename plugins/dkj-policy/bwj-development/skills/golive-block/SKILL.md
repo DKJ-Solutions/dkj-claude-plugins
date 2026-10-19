@@ -251,7 +251,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-Measure` | the measurement form, for a result that is a number the requester measures again (#3179) -- see above |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
 | `-Post` | actually comment it on the issue. Without it, nothing is written anywhere |
-| `-Force` | post although a block already appears to be there FOR THIS ROUND (one from before the issue's last reopen does not count, so a reopened issue's corrected block needs no `-Force` for that), a store-admin prerequisite is still open, the issue links no single Asana task, no open or merged pull request closes it yet, or the issue could not be read |
+| `-Force` | post although a block already appears to be there FOR THIS ROUND (one from before the issue's last reopen does not count, so a reopened issue's corrected block needs no `-Force` for that), a store-admin prerequisite is still open, the issue links no single Asana task, another open issue links the same task (#3182: the closed message would say the task is in review while that issue is open), no open or merged pull request closes it yet, or the issue could not be read |
 | `-AllowPrivateLink` | accept a `claude.ai` Artifact as `-Link` once it has actually been shared with the requester. Kept apart from `-Force` so that posting a second block never also lets a private link through |
 
 ## What it deliberately does not do

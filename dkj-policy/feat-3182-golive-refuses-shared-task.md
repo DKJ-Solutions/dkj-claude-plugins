@@ -39,19 +39,44 @@
 
 ### PLAN
 
+Inbound #3182 from smartwatchbanden: follow-up #919 was linked to umbrella #911's Asana task at the
+close, and its closed message told the requester the task was in review while #911 was still open.
+Verified: `asana-link-pickupcheck` already names a task linked from two open issues (#2928), but only at
+`claim-issue`/`new-branch`, and a link added at the close never passes a pickup; `build-golive-block`
+asked nothing. So the close side asks the same rule (`Get-AsanaTaskCoClaimants`), and
+`WORKFLOW-portable.md` states that a follow-up or sub-issue does not take its umbrella's link. The close
+guard (a hook with a time budget) is left as it is: the post is where the block, and so the message, is
+made. Proposal 1 said "warn, or refuse without -Force"; it refuses the post, like the link check beside it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `build-golive-block.ps1`: searches the open issues for the task where the block leaves the
+  console, warns on `-OutFile`, refuses `-Post` without `-Force`; a failed search only warns
+- [x] `WORKFLOW-portable.md`: the rule, under one issue per ticket; `golive-block` skill: the `-Force` row
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: 755 pass (the rule is loaded, not copied; the search is off the
+  print-only path; the refusal before the comment; a failed search does not refuse)
+- [x] A print-only driver run is unchanged
+- [x] The full gate runs in `ship-pr`
+
 ### DEPLOY: feat/3182-golive-refuses-shared-task
 
-**Score:**
+`build-golive-block.ps1 -Post` now refuses while another open issue links the same Asana task, and names
+that issue: the closed message says "this Asana task is now in review", and posted from a follow-up or
+sub-issue it would say so while the umbrella is still open. `-OutFile` warns, `-Force` posts regardless,
+and `WORKFLOW-portable.md` states that a follow-up or sub-issue does not take its umbrella's task link
+(#3182).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ requester no longer hears that their task is in review because a follow-up closed while the issue
+that actually answers their request is still open.
+
+**Score:** 2
 
 #### Pull Request
 

@@ -651,6 +651,15 @@ Assert-True ($glResWarn -gt $goLiveDriver.IndexOf('if (-not $PostArg) {') -and $
 $glResEnd = $goLiveDriver.IndexOf('if (-not $ForceArg -and $resultForm)', $glResWarn)
 Assert-True ($glResEnd -gt $glResWarn -and $goLiveDriver.Substring($glResWarn, $glResEnd - $glResWarn) -notmatch 'exit 1') 'and warns rather than refuses: only the session knows whether that PR changed the store'
 Assert-Equal 1 ([regex]::Matches($goLiveDriver, 'closedByPullRequestsReferences').Count) 'the landing query is written once, shared by both readers'
+# ANOTHER OPEN ISSUE LINKING THE SAME TASK (#3182): asked by the pickup hook's own rule, only where the block
+# leaves the console and the issue links one task, and refused on the post before the comment unless -Force.
+Assert-True ($goLiveDriver -match "\. \(Join-Path \`$PSScriptRoot '\.\.\\lib\\asana-pickup-rules\.ps1'\)") 'the driver loads the one-task-one-issue rule rather than a copy'
+$glCoSearch = $goLiveDriver.IndexOf('--search "$($asanaRef.Gid) in:body"')
+Assert-True ($glCoSearch -gt $goLiveDriver.IndexOf('if ($PostArg -or $OutFileArg) {')) 'the open issues are searched after the issue read, so a print-only run stays offline'
+Assert-True ($goLiveDriver -match 'Get-AsanaTaskCoClaimants -Gid \$asanaRef\.Gid -Number \(\[int\]\$issueNumber\)') 'the co-claimants are judged by that rule, this issue excluded'
+$glCoRefuse = $goLiveDriver.IndexOf('if (-not $ForceArg -and $coClaimText) {')
+Assert-True ($glCoRefuse -gt $goLiveDriver.IndexOf('if (-not $PostArg) {') -and $glCoRefuse -lt $goLiveDriver.IndexOf('gh issue comment $issueNumber')) 'a shared task refuses the post, unless -Force, before the comment'
+Assert-True ($goLiveDriver -notmatch 'coClaimUnread\)\s*\{[^}]*exit 1') 'and a search that could not answer only warns'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
 # to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path
