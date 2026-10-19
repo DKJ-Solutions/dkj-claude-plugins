@@ -26,8 +26,11 @@
       4. heading  -- no h2 stands inside a card: an h2 heads a group of cards and stands ABOVE them, in a
                      .grid__head, so the h2s group the page. A card's own title is an h3. Matched in its
                      two shapes, an h2 carrying the card-title class (.card__title, the brand book's
-                     .dkj-card-title) and an h2 opening a card head (.card__head, .dkj-card-head). An h2
-                     put together across a string concatenation is not seen, which is the grep's price.
+                     .dkj-card-title) and an h2 opening a card head (.card__head, .dkj-card-head). Not
+                     seen, which is the grep's price: an h2 put together across a string concatenation, a
+                     `>` inside an attribute before the class, an unquoted class, and a comment or a
+                     wrapper between the card head and its h2. Each repetition is bounded (400), so a
+                     hostile file costs linear time rather than quadratic.
 
     PATTERN GREP, NOT A PARSE. Checks 2 to 4 match patterns rather than parse CSS or SCSS: no runtime
     dependency, and a bare Windows PowerShell 5.1 runs it. The price is the occasional false positive,
@@ -296,9 +299,9 @@ function Find-HouseStyleHeadingHit {
     $seen = New-Object System.Collections.Generic.HashSet[int]
     $patterns = @(
         # <h2 class="card__title">, <h2 className="dkj-card-title ...">
-        '(?i)<h2\b[^>]*?\bclass(?:Name)?\s*=\s*[''"{][^>]*?(?<![\w-])(?:card__title|dkj-card-title)(?![\w-])',
+        '(?i)<h2\b[^>]{0,400}?\bclass(?:Name)?\s*=\s*[''"{][^>]{0,400}?(?<![\w-])(?:card__title|dkj-card-title)(?![\w-])',
         # <div class="card__head"><h2>, whitespace between allowed
-        '(?i)(?<![\w-])(?:card__head|dkj-card-head)(?![\w-])[^<>]*>\s*(?<h><h2\b)'
+        '(?i)(?<![\w-])(?:card__head|dkj-card-head)(?![\w-])[^<>]{0,400}>\s*(?<h><h2\b)'
     )
     foreach ($pat in $patterns) {
         foreach ($m in [regex]::Matches($Text, $pat)) {
