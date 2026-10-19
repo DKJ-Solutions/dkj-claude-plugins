@@ -331,7 +331,11 @@ try {
                 Send-DashboardResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' }
                 continue
             }
-            if ($static.ContainsKey($path)) {
+            # A static file skips the restart check while it is there: a 503 handed to a <link> would leave the
+            # page it styles unstyled. A MISSING one falls through to the check -- a server on older code than
+            # the checkout looks for it where that older code kept it (the house style moved under #3130) --
+            # and is a 404 below when the checkout has not moved, never a dropped connection.
+            if ($static.ContainsKey($path) -and (Test-Path -LiteralPath $static[$path].File -PathType Leaf)) {
                 $s = $static[$path]
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
                 Send-DashboardResponse $stream 200 'OK' $s.Type $body
@@ -345,6 +349,11 @@ try {
                     $restart = $true
                     break
                 }
+            }
+            if ($static.ContainsKey($path)) {
+                $text = "Not found: $([System.IO.Path]::GetFileName($static[$path].File)) is not where this server looks for it."
+                Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes($text))
+                continue
             }
             if ($path -eq '/refresh') {
                 # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for. ?page= names

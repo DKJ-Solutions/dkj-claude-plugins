@@ -489,6 +489,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\scripts\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\scripts\lib\')
         Copy-Item $Server (Join-Path $fixture4 'scripts\dashboard\')
+        # The stylesheet is there and the theme script is not: a present and a missing static file side by side.
+        [System.IO.File]::WriteAllText((Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css'), 'body{}')
         & git -C $fixture4 init -q 2>$null
         & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'first' 2>$null
         $first = ([string](& git -C $fixture4 rev-parse HEAD)).Trim()
@@ -501,18 +503,25 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         Assert-True $up 'the group-4 server listens on the port it was given'
         $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
         Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($first.Substring(0, 8))</code>") '"Source at" names the commit the server loaded'
+        # Measured October 19, 2026: a server started before #3130 moved the house style threw on the file it
+        # could no longer find, and the browser saw a dropped connection instead of a stylesheet.
+        $gone = if ($up) { Get-Raw 'GET' '/house-theme.js' "localhost:$port4" '' $port4 } else { '' }
+        Assert-True ($gone -match 'HTTP/1.1 404' -and $gone -match 'house-theme.js is not where this server looks') 'a missing static file is a 404, not a dropped connection'
 
         & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'second' 2>$null
         $second = ([string](& git -C $fixture4 rev-parse HEAD)).Trim()
         $css = if ($up) { Get-Raw 'GET' '/house-style.css' "localhost:$port4" '' $port4 } else { '' }
-        Assert-True ($css -notmatch 'HTTP/1.1 503') 'a static file skips the check'
-        $moved = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
-        Assert-True ($moved -match 'HTTP/1.1 503' -and $moved -match 'Refresh: 3' -and $moved -match 'restarting on the new code') 'a page asked for after HEAD moved answers 503 and reloads'
+        Assert-True ($css -match 'HTTP/1.1 200') 'a static file that is there skips the check'
+        $moved = if ($up) { Get-Raw 'GET' '/house-theme.js' "localhost:$port4" '' $port4 } else { '' }
+        Assert-True ($moved -match 'HTTP/1.1 503' -and $moved -match 'restarting on the new code') 'a missing one, after HEAD moved, restarts the server'
         Assert-True ($proc4.WaitForExit(15000)) 'and the old server exits'
         $up = Wait-ServerUp $port4
         Assert-True $up 'its successor listens on the same port'
         $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
         Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($second.Substring(0, 8))</code>") 'and serves the new commit'
+        & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'third' 2>$null
+        $page = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
+        Assert-True ($page -match 'HTTP/1.1 503' -and $page -match 'Refresh: 3' -and $page -match 'restarting on the new code') 'a page asked for after HEAD moved answers 503 and reloads'
         $group4Done = $true
     } finally {
         if ($proc4 -and -not $proc4.HasExited) { Stop-Process -Id $proc4.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
