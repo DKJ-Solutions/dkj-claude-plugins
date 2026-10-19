@@ -273,6 +273,15 @@ A fixture release page.
 
 $HistoryMajors
 "@
+    # The file this repo's Get-ReleaseVersionPins names (#3133), so the verbatim seam has something to
+    # repoint: two pinned URLs, and one under another prefix that the cut must leave alone.
+    Write-Utf8 (Join-Path $root 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md') @"
+# A fixture pin page
+
+https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v$PluginVersion/a/house-style.css
+https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v$PluginVersion/a/house-theme.js
+https://raw.githubusercontent.com/DKJ-Solutions/other-repo/v0.1.0/a/file.css
+"@
     New-Item -ItemType Directory -Path (Join-Path $root 'dkj-policy\releases\audience\1.x') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $root 'dkj-policy\releases\changelog\1.x') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $root 'dkj-policy\releases\github\1.x') -Force | Out-Null
@@ -333,6 +342,14 @@ try {
     $v2 = (Get-Content -LiteralPath (Join-Path $root 'plugins\workflows\workflow-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
     Assert-Equal '1.4.1' $v1 'happy path: the team plugin was bumped to the patch version'
     Assert-Equal '1.4.1' $v2 'happy path: the workflow plugin moved with it -- lockstep, not per plugin'
+
+    # The version pins (#3133): every URL under the pinned prefix names the new tag, and nothing else moved.
+    $pinPage = Get-Content -LiteralPath (Join-Path $root 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md') -Raw
+    Assert-Equal 2 ([regex]::Matches($pinPage, 'dkj-claude-plugins/v1\.4\.1/')).Count 'happy path: both pinned URLs name the tag the cut made'
+    Assert-NotMatch 'dkj-claude-plugins/v1\.4\.0/' $pinPage 'happy path: no pinned URL is left on the old tag'
+    Assert-Match 'other-repo/v0\.1\.0/' $pinPage 'happy path: a URL under another prefix is left alone'
+    Assert-Says 'repinned: plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md -> v1.4.1 (2 URL(s))' $r.Out 'happy path: the run says what it repinned'
+    Assert-NotMatch '\?\? .*SKILL\.md|M .*SKILL\.md' (Get-GitOut -Root $root -GitArgs @('status', '--porcelain')) 'happy path: the repinned page is inside the release commit'
 
     # CHANGELOG down to its intro: the entry is gone, the intro survives verbatim.
     $changelog = Get-Content -LiteralPath (Join-Path $root 'CHANGELOG.md') -Raw
@@ -771,6 +788,21 @@ $cutSectH11 Pull Request
     $r16 = Invoke-Cut -Root $o14.Root -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests', '-SkipOriginCheck')
     Assert-Equal 0 $r16.Code '-SkipOriginCheck: the behind state cuts when the check is skipped deliberately'
     Assert-Says 'skipped (-SkipOriginCheck)' $r16.Out '-SkipOriginCheck: and the run says it skipped'
+
+    # --- 13. A version pin whose file is gone refuses the cut, before anything is written (#3133) -----
+    Write-Host ""
+    Write-Host "cut-release.ps1 -- a missing version-pin file refuses before the first write" -ForegroundColor Cyan
+    $root17 = New-CutFixture -Name 'pin-missing'
+    Remove-Item -LiteralPath (Join-Path $root17 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md')
+    Push-Location $root17
+    try { Invoke-NativeCapture -FilePath 'git' -Arguments @('commit', '--quiet', '-am', 'fixture: drop the pin page') | Out-Null }
+    finally { Pop-Location }
+    $r17 = Invoke-Cut -Root $root17 -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-True ($r17.Code -ne 0) 'pin missing: refused with a non-zero exit'
+    Assert-Says 'Get-ReleaseVersionPins names' $r17.Out 'pin missing: the refusal names the seam'
+    $v17 = (Get-Content -LiteralPath (Join-Path $root17 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
+    Assert-Equal '1.4.0' $v17 'pin missing: nothing was written'
+    Assert-Equal '' (Get-GitOut -Root $root17 -GitArgs @('status', '--porcelain')).Trim() 'pin missing: the tree is as clean as it was'
 
 } finally {
     if (Test-Path -LiteralPath $FixtureDir) {

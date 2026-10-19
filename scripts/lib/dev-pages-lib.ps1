@@ -91,13 +91,9 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<title>dkj-claude-plugins -- Repo hub</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
-    # The page layer: only names the house file does not define, with house tokens -- never a house class
-    # in a selector, which check-house-style refuses. A grid__head spans both columns of the .grid-2 it opens,
-    # as does a card that is a row of its own (grid__full, About this repo's); every h2 in one carries a
-    # short sub line, the house .card__sub. A card in such a row (grid__card) drops the house .card's
-    # margin-top, which came on top of the grid's own gap and doubled it (the owner's look; first asked
-    # for in DKJ-Solutions/dkj-brandbook#207, which the dkj-solutions plugin's house style has since replaced).
-    [void]$sb.AppendLine('<style>.grid__head, .grid__full { grid-column: 1 / -1; } .grid__head > h2 { margin: 0; } .grid__card { margin-top: 0; }</style>')
+    # No page layer of its own: the heading above a group of cards (.grid__head), a card that takes the whole
+    # row (.grid__full) and a card's margin inside a .grid-2 are the house style's own since #3133, so every
+    # h2 in a grid__head carries a short sub line, the house .card__sub, and nothing here restyles them.
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
     # Block 0, the breadcrumb bar: on the hub its trail is the one crumb.
@@ -126,7 +122,7 @@ function Format-RepoHubHtml {
     if ($row) {
         [void]$sb.AppendLine('<div class="grid-2">')
         [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2><p class="card__sub">Every page this dev server serves, and the general ones beside it</p></div>')
-        [void]$sb.AppendLine('<section class="card grid__card">')
+        [void]$sb.AppendLine('<section class="card">')
         [void]$sb.AppendLine('<div class="card__head"><h3>This repo</h3><p class="card__sub">Specific to this repo</p></div>')
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="This repo pages">')
         foreach ($p in $repoRows) {
@@ -144,7 +140,7 @@ function Format-RepoHubHtml {
     # both columns of a grid-2 row of its own, which gives head and card the same gap as the Pages row.
     [void]$sb.AppendLine('<div class="grid-2">')
     [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2><p class="card__sub">What this repo is, and the commit this hub is served from</p></div>')
-    [void]$sb.AppendLine('<section class="card grid__card grid__full">')
+    [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<dl class="facts">')
     [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
     [void]$sb.AppendLine('<div><dt>Trunk</dt><dd>main</dd></div>')

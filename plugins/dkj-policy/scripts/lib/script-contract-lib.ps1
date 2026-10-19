@@ -337,6 +337,10 @@ $script:ContractRecords = @(
        Adopt = 'decide'; AdoptWhy = 'THE case this whole axis exists for. It sits in the workflow half, so the roster/workflow split of #522 says it travels, and $true asserts the consuming repo publishes plugins -- which a storefront does not. Its fallback is COMPUTED (does .claude-plugin/marketplace.json exist), so a consumer that states nothing already gets the right answer, and a copied $true overrides a correct computation with a false claim';
        Optional = $true; Default = 'whether .claude-plugin/marketplace.json exists';
        Returns = '$true if this repo publishes plugins whose versions the cut must bump in lockstep; $false makes the newest vX.Y.Z tag the version record instead of the manifests' },
+    @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-ReleaseVersionPins'; Scripts = @('cut-release');
+       Adopt = 'decide'; AdoptWhy = "which files pin a URL at this repo's own release tag is a fact about this repo's files: the source's list names paths a consumer does not have, and the cut aborts on a pin whose file is missing. Empty, the default, is right for every repo that pins nothing (#3133)";
+       Optional = $true; Default = '@() -- no pins, nothing is rewritten';
+       Returns = "@{ Path; Prefix } per pinned file: Path repo-root-relative, Prefix the URL in front of the tag. The cut rewrites every '<Prefix>vX.Y.Z/' in that file to the tag it is cutting, in the release commit, and aborts before its first write when a file is missing or carries no such URL. Built for the house-style skill's consumer URLs, which can only name the tag of the release that ships them (#3133)" },
     # RETIRED, AUGUST 5, 2026: Get-ReleaseCategoryTitles. Display labels for the release-notes category
     # headings (Feat -> Features, Fix -> Fixes, ...), for a repo whose headings are in another language. The
     # release documents have no category headings any more -- they are ranked lists of changes, and each

@@ -42,27 +42,49 @@
       <p class="page-cta"><a class="btn btn--touch btn--primary" href="#">Open the product</a></p>
     </div>
 
-    <!-- 7. Pages: links to the repo's own pages (#200), optional. A card titled "Pages" around a nav of house
-         .menu-item links: label, an optional one-line description, a chevron. Not .tile: a tile shows a figure. -->
-    <section class="card">
-      <div class="card__head">
-        <h2 class="card__title">Pages</h2>
+    <!-- 7. Pages: links to the pages the dev server serves (#200, #206), optional. Each card holds a nav of house
+         .menu-item links: label, an optional one-line description, a chevron. Not .tile: a tile shows a figure.
+         Shown in its two-group form (This repo, General): the h2 stands above both cards in a .grid__head spanning
+         the columns, and each card is titled with an h3. A hub with one group only uses a single card, with
+         h2.card__title Pages inside it and no .grid__head. -->
+    <div class="grid-2">
+      <div class="grid__head">
+        <h2>Pages</h2>
+        <p class="card__sub">Every page this dev server serves</p>
       </div>
-      <nav class="menu-list" aria-label="Pages">
-        <a class="menu-item" href="#">
-          <span class="menu-item__label">Release history<span class="menu-item__sub">Every release, newest first</span></span>
-          <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-        <a class="menu-item" href="#">
-          <span class="menu-item__label">Roadmap<span class="menu-item__sub">What is planned and in what order</span></span>
-          <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-        <a class="menu-item" href="#">
-          <span class="menu-item__label">Preview other repo hubs</span>
-          <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </a>
-      </nav>
-    </section>
+      <section class="card">
+        <div class="card__head">
+          <h3>This repo</h3>
+          <p class="card__sub">Specific to this repo</p>
+        </div>
+        <nav class="menu-list" aria-label="This repo pages">
+          <a class="menu-item" href="#">
+            <span class="menu-item__label">Release history<span class="menu-item__sub">Every release, newest first</span></span>
+            <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="menu-item" href="#">
+            <span class="menu-item__label">Roadmap<span class="menu-item__sub">What is planned and in what order</span></span>
+            <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </nav>
+      </section>
+      <section class="card">
+        <div class="card__head">
+          <h3>General</h3>
+          <p class="card__sub">Not specific to this repo: every DKJ-Solutions repo has them</p>
+        </div>
+        <nav class="menu-list" aria-label="General pages">
+          <a class="menu-item" href="#">
+            <span class="menu-item__label">Issues</span>
+            <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="menu-item" href="#">
+            <span class="menu-item__label">Release notes</span>
+            <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </nav>
+      </section>
+    </div>
 
     <!-- 8. One stat tile per in-flight list. -->
     <div class="tiles">
@@ -128,24 +150,28 @@
     </section>
 
     <!-- 11. About this repo: a facts card. -->
-    <section class="card">
-      <div class="card__head">
-        <h2 class="card__title">About this repo</h2>
+    <!-- Its h2 and sub line stand above the card, in a .grid__head; the card spans the row (#206). -->
+    <div class="grid-2">
+      <div class="grid__head">
+        <h2>About this repo</h2>
+        <p class="card__sub">What this repo is</p>
       </div>
-      <dl class="facts">
-        <div><dt>Stack</dt><dd>React 19 + TypeScript + Vite</dd></div>
-        <div><dt>Trunk</dt><dd>main</dd></div>
-        <div><dt>Gate</dt><dd>scripts/lint/lint-web.ps1</dd></div>
-        <div><dt>Showcase</dt><dd>/showcase</dd></div>
-      </dl>
-    </section>
+      <section class="card grid__full">
+        <dl class="facts">
+          <div><dt>Stack</dt><dd>React 19 + TypeScript + Vite</dd></div>
+          <div><dt>Trunk</dt><dd>main</dd></div>
+          <div><dt>Gate</dt><dd>scripts/lint/lint-web.ps1</dd></div>
+          <div><dt>Showcase</dt><dd>/showcase</dd></div>
+        </dl>
+      </section>
+    </div>
 
     <!-- 12. The footer note: where the data comes from. -->
     <p class="footer-note">In flight is placeholder data in this reference page; a real page names its source here, for <a href="https://github.com/DKJ-Solutions/example-repo">DKJ-Solutions/example-repo</a>.</p>
   </main>
 
   <script>
-    DKJTheme.settings(document.getElementById('settings'), { label: 'Preview settings', theme: 'Theme', reset: 'Reset theme', light: 'Light', dark: 'Dark' });
+    DKJTheme.settings(document.getElementById('settings'), { label: 'Preview settings', theme: 'Theme', reset: 'Reset theme', light: 'Light', dark: 'Dark', width: 'Width', fluid: 'Fluid', phone: 'Phone', full: 'Full' });
   </script>
 </body>
 </html>
