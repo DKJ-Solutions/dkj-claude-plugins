@@ -32,7 +32,7 @@
   text-align: center;
 }
 /* The title is an <h6> (an <h3> in a data card), in --primary-8 like every h3-h6; a plain title stays a block. */
-.dkj-card-title { display: block; margin: 0; font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-10); }
+.dkj-card-title { display: block; margin: 0; font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-9); }
 /* A status Badge before the title text (#153), the house .card__title > .badge. */
 .dkj-card-title > .badge { margin-right: var(--spacing-2); }
 .dkj-card-title--icon { display: flex; align-items: center; justify-content: center; gap: var(--spacing-2); }

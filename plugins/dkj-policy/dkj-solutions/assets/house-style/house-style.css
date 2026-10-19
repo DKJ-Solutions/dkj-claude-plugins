@@ -62,8 +62,8 @@
      table head, a hover, a today row, the accent dialog); -7 the highlight: links (owner's decision, October 15,
      2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus outlines, sorted,
      pressed), native controls through accent-color, and the fills (switches, info badges), focus rings, meters and
-     text in the colour (values); -8 sub lines, notes and .muted; -9 h2 and -10 h3-h6 (an h2 in the h1's colour read
-     too much like it, and a grey h3 did not work; on -12 h1 is -6, h2 is -4 and h3-h6 are -3); -4, -6 and -11 no role
+     text in the colour (values); -8 sub lines, notes and .muted; -8 also h2 and -9 h3-h6 (owner, October 19, 2026; an h2 in the h1's colour read
+     too much like it, and a grey h3 did not work; on -12 h1 is -6, h2 is -5 and h3-h6 are -4); -6, -10 and -11 no role
      of their own yet (-6 is the light anchor the half runs to; lines took it until the owner moved them to -3, October 19, 2026); -12 the far end: every paragraph, and an inverted surface (the showcase's panel on dark).
      Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on -1 19.5:1, on -2 19.0:1 and on -3 16.5:1;
      a -3 line on a -2 card 1.02:1 (Oker) to 1.16:1; -7 on -1 4.6:1 and -1 on -7 4.6:1; -7 on -2 4.43:1 (Roest; below 4.5:1 also Magenta 4.46:1 and Lila
@@ -219,13 +219,13 @@ body > header, main > header { display: flex; justify-content: space-between; al
    pulled in slightly. h3-h6 stay in the body sans. */
 h1, h2 { font-family: var(--font-serif);
   font-weight: 600; letter-spacing: -0.01em; }
-/* h1 is -7, h2 is -9 and h3-h6 are -10, the dark half of the colour (owner's decision, October 19, 2026: an h2 in the
-   h1's colour read too much like it, and a grey h3 did not work). On a --primary-12 surface h1 takes -6, h2 -4 and
-   h3-h6 -3 instead, set where that surface is. :where() keeps them at
+/* h1 is -7, h2 is -8 and h3-h6 are -9, the dark half of the colour (owner's decision, October 19, 2026: an h2 in the
+   h1's colour read too much like it, and a grey h3 did not work). On a --primary-12 surface h1 takes -6, h2 -5 and
+   h3-h6 -4 instead, set where that surface is. :where() keeps them at
    zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
 :where(h1) { color: var(--primary-7); }
-:where(h2) { color: var(--primary-9); }
-:where(h3, h4, h5, h6) { color: var(--primary-10); }
+:where(h2) { color: var(--primary-8); }
+:where(h3, h4, h5, h6) { color: var(--primary-9); }
 h1 { font-size: var(--text-h1); margin: 0; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 /* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
@@ -272,11 +272,11 @@ p, p.meta { color: var(--primary-12); }
 .card { background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
 /* Data-card head (#141): <section class="card"><div class="card__head"><h3 class="card__title">Title</h3>
    <p class="card__sub">Sub line</p></div> a .table-wrap or .facts</section>. The head is left-aligned, with no rule between it
-   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --primary-10, never an h2:
+   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --primary-9, never an h2:
    an h2 never stands inside a card, it stands above the card(s) in a .grid__head (#3175). Flex keeps an .info-button on the
    title's centre line. */
 .card__head { text-align: left; }
-.card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h3); font-weight: 600; color: var(--primary-10); }
+.card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h3); font-weight: 600; color: var(--primary-9); }
 /* A status .badge before the title text (#153); the badge is decorative, so the .card__sub says the status too. */
 .card__title > .badge { margin-right: var(--spacing-2); }
 /* A card titled with a plain h3, where its h2 stands above a group of cards (#206): no margin of its own, so the

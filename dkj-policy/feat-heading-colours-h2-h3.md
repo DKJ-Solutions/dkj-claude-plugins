@@ -51,7 +51,7 @@ Dave, October 19, 2026, over five rounds on this branch. It started from the h2 
 - **Steps:** `-2` to `-5` in OKLCH between `-1` and `-6` along a quadratic curve (1/25, 4/25, 9/25, 16/25), so the first step off the page is subtle (Magenta and Roze a geometric curve, 0.025/0.079/0.196/0.450: pink shows more than it measures); `-8` to `-11` on the hue at full saturation, HSL
   lightness evenly between `-7` and `-12` (straight in OKLCH they turned grey).
 - **Roles:** page `-1`, cards `-2`, lines and tinted surfaces `-3` (they rode along on the core `-6` and read far too strong), stronger border `-5`, the colour `-7` (h1, links,
-  fills, focus, meters, states), sub lines `-8`, h2 `-9`, h3-h6 `-10`, text `-12`.
+  fills, focus, meters, states), sub lines and h2 `-8`, h3-h6 `-9`, text `-12`.
 
 #### Measured cost
 
@@ -84,6 +84,7 @@ scale still has to be put there by hand.
 - [x] seventh round (Dave: Magenta's first step still too big): Magenta and Roze take t^2.5, the others keep t^2
 - [x] eighth round (Dave: at t^2.5 Magenta's first step was too small and the second too big): Magenta and Roze take a geometric curve, each step 2.17 times the one before
 - [x] ninth round (Dave: the tile border was `-6` where he expected `-3`): every line and tinted surface moves to `-3`. A `-3` line on a card measures 1.02-1.16:1
+- [x] tenth round (Dave): h2 takes `-8` and h3-h6 (with the card and dialog titles) `-9`
 - [x] `house-theme.js`: each theme's picker dot is its new `-9`; the `house-style` skill pins both new checksums
 - [x] filed #3193: the README's detailed lightness tables disagree with the shipped grey values (it predates this branch)
 
@@ -113,4 +114,4 @@ saturated version of its hue that still reads on the page, and the cards and lin
 
 #### Pull Request
 
-The primary scale becomes twelve steps in two halves of six, anchored at the edges and the colour; h2 takes -9 and h3-h6 -10
+The primary scale becomes twelve steps in two halves of six, anchored at the edges and the colour; h2 takes -8 and h3-h6 -9

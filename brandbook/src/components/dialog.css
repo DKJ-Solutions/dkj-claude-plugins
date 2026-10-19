@@ -54,7 +54,7 @@ html:has(dialog:modal) { overflow: hidden; }
 .dkj-dialog-title-row .dkj-round-toggle { margin: calc(-1 * var(--spacing-2)) 0 calc(-1 * var(--spacing-2)) calc(-1 * var(--spacing-1-5)); }
 .dkj-dialog-title-row .dkj-round-toggle svg { transform: translateY(0.125rem); }
 /* The title is an <h6> (an <h3> as a card heading, an <h5> in a drawer), in the body sans and the house heading colour, --primary-8, like every h3-h6 (#114). */
-.dkj-dialog-title { display: block; margin: 0; min-width: 0; font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-10); overflow-wrap: anywhere; }
+.dkj-dialog-title { display: block; margin: 0; min-width: 0; font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-9); overflow-wrap: anywhere; }
 .dkj-dialog-title--card { font-size: var(--text-h3); font-weight: var(--dkj-fw-bold); line-height: var(--dkj-lh-tight); }
 .dkj-dialog-sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-base); color: var(--primary-8); }
 .dkj-dialog-text { margin: 0; line-height: 1.45; }
