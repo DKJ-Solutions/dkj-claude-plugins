@@ -38,7 +38,9 @@
     'live' means the range's change to the file is on the live target after this push: the push
     carries it, a sync mirrored it FROM live, or -- for a file the range deletes -- the deletion command
     removes it (#2641). 'hold' means it is not: a person held it back, or the range deletes it and no
-    deletion command was composed. '#' starts a comment line. Paths not in the
+    deletion command was composed. A file under a store's Shopify app root (Get-ShopifyAppRoot) is a line
+    too (#3176): 'live' once the `shopify app deploy` the preflight printed has run, which no theme push
+    or promotion does for it. '#' starts a comment line. Paths not in the
     record are no concern of the live target (scripts, docs, CI), which is also how the record answers
     "is this a storefront change": an entry that touched none of its paths did not change the store.
 
@@ -106,6 +108,13 @@ function Format-LivePushRecord {
                             nothing removes the old version, and it is still on live.
           not-a-theme-path  no line. It does not exist on a theme, so it cannot be live or held there.
 
+        AN APP FILE IS A LINE OF ITS OWN (#3176). Get-LivePushRows reads a file under the store's app root
+        as not-a-theme-path, and on a theme it is one; but it does reach the store, through the app deploy.
+        -AppPaths names those files, and each is 'live <path>' -- the same promise a theme-file line makes,
+        that the command printed beside the record carries it, and the same edit when a person does not run
+        that command: 'hold'. Without these lines an app-only change touched no path the record names, so
+        the cut and notify-live read it as live whether or not the deploy ran.
+
         THE HEADER SAYS WHAT TO DO WITH THE FILE, because the person who reads it is holding a push
         command and is about to decide what goes into it. It names the range, so a record left over
         from an earlier release is recognisable as one.
@@ -123,7 +132,8 @@ function Format-LivePushRecord {
         [string]$Range = '',
         [switch]$DeletionsCarried,
         [string]$PromotedSha = '',
-        [string]$DeployBranch = ''
+        [string]$DeployBranch = '',
+        [AllowNull()][AllowEmptyCollection()][string[]]$AppPaths = @()
     )
     $sha = ([string]$PromotedSha).Trim()
     $branch = ([string]$DeployBranch).Trim()
@@ -144,7 +154,11 @@ function Format-LivePushRecord {
     } else {
         $out.Add('# A file the range deletes is "hold": no deletion command was composed, so it is still on live.')
     }
-    $out.Add('# cut-release reads this file (-LivePushRecord) for the GitHub body and the audience note.')
+    $apps = @(@($AppPaths) | Where-Object { $_ -and ([string]$_).Trim() } | ForEach-Object { ([string]$_).Trim() })
+    if ($apps.Count -gt 0) {
+        $out.Add('# A file under the app root is "live" once the app deploy printed above has run; skip that deploy, and mark it "hold".')
+    }
+    $out.Add('# cut-release and notify-live read this file (-LivePushRecord): the GitHub body, the audience note, and who is told.')
     foreach ($r in @($Rows)) {
         if ($null -eq $r) { continue }
         $path = ([string]$r.Path).Trim()
@@ -156,6 +170,7 @@ function Format-LivePushRecord {
             default      { }
         }
     }
+    foreach ($p in $apps) { $out.Add("live $p") }
     return (($out -join "`n") + "`n")
 }
 

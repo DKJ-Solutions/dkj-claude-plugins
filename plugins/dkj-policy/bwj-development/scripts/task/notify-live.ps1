@@ -28,10 +28,17 @@
                       issue (Get-LiveMessageMarker), so a second run tells nobody twice.
 
     WHAT IT NEVER DOES: push, publish, cut, tag, move a card, complete a task, or write a label. Its one
-    Asana write is a comment, and its one GitHub write is the marker comment. A file held back from the
-    push is not something this script can see -- the live-push record is dkj-policy's and
-    dkj-subagents-shopify's, outside this plugin's folder -- so -SkipIssue holds an issue out by hand, and
-    the dry run is the list a person reads before -Post.
+    Asana write is a comment, and its one GitHub write is the marker comment.
+
+    THE LIVE-PUSH RECORD DECIDES WHAT IS HELD (#3176). -LivePushRecord is the file live-preflight wrote
+    and the cut read, and an issue is held -- not told -- when a PR that closed it changed a path the
+    record marks 'hold': a theme file held back from the push, or an app file whose `shopify app deploy`
+    was not run. Without the record nothing can see either, which is how an app-only change came to be
+    announced with the release before its deploy ran. The record's format and its "is this entry live"
+    rule are live-record-lib's, mirrored here byte-identical, so this script and the cut cannot read one
+    record two ways. A PR whose merge's files cannot be read is UNREAD, never live. Without the record the
+    run says so, and -SkipIssue is the hand hold-out it always was; the dry run is the list a person reads
+    before -Post.
 
     IT PRINTS NOTHING ANOTHER PERSON WROTE beyond an issue's number: a title, a body or an Asana error
     message is not printed, and a failed post reports its HTTP status alone -- the rule the closed
@@ -52,7 +59,11 @@
     Post the live message on every owed task. Without it nothing is written.
 
 .PARAMETER SkipIssue
-    Issue numbers held out by hand -- a change whose files were held back from the push.
+    Issue numbers held out by hand, beside or instead of -LivePushRecord.
+
+.PARAMETER LivePushRecord
+    The live-push record live-preflight wrote, as edited for what was held back. An issue whose PR changed
+    a 'hold' path is not told.
 
 .PARAMETER Repo
     owner/repo, instead of Get-RepoName or the checkout's own.
@@ -75,6 +86,7 @@ param(
     [string]$SinceTag = '',
     [switch]$Post,
     [int[]]$SkipIssue = @(),
+    [string]$LivePushRecord = '',
     [string]$Repo = '',
     [string]$AsanaPat = $env:ASANA_PAT,
     [string]$RootOverride = ''
@@ -86,10 +98,12 @@ Set-StrictMode -Version Latest
 # Captured before the repo's own config is dot-sourced below: repo-config.ps1 is the consumer's, and it
 # may bind any name it likes -- the guard prepare-release.ps1 keeps for the same reason.
 $VersionArg = $Version; $SinceArg = $SinceTag; $PostArg = [bool]$Post; $SkipArg = @($SkipIssue)
-$RepoArg = $Repo; $PatArg = $AsanaPat; $RootArg = $RootOverride
+$RepoArg = $Repo; $PatArg = $AsanaPat; $RootArg = $RootOverride; $RecordArg = $LivePushRecord
 
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\git-porcelain-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\live-push-rules.ps1')
+. (Join-Path $PSScriptRoot '..\lib\live-record-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\asana-task-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\golive-block-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\live-message-rules.ps1')
@@ -169,6 +183,21 @@ if (-not $since -or -not ($tags -contains $since)) {
 }
 Write-Host "[1/5] release -- $version, carrying $since..$version" -ForegroundColor Cyan
 
+# THE RECORD, READ BEFORE ANYTHING ELSE IS ASKED (#3176). A record that cannot be read is a refusal, not a
+# run without it: the person passed it to hold something back, and a run that ignored it would tell them.
+$record = $null
+if (([string]$RecordArg).Trim()) {
+    try {
+        $record = ConvertFrom-LivePushRecord -Text ([System.IO.File]::ReadAllText(([string]$RecordArg).Trim()))
+    } catch {
+        Write-Host "[ERROR] The live-push record could not be read ($($_.Exception.GetType().Name)) -- fix it or pass the right file. Nothing was written." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "      live-push record -- $(@($record.Live).Count) live, $(@($record.Hold).Count) held" -ForegroundColor Cyan
+} else {
+    Write-Host '      no -LivePushRecord: a file held back from the push, or an app deploy not run, is not seen -- hold its issue out with -SkipIssue' -ForegroundColor Yellow
+}
+
 # === 2/5 -- the pull requests ======================================================================
 $rangeShas = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
 $revs = Invoke-Native { git -C $repoRoot rev-list "$since..$version" }
@@ -181,17 +210,38 @@ foreach ($s in $revs.Lines) { if ($s.Trim()) { [void]$rangeShas.Add($s.Trim()) }
 
 $readFailures = 0
 $issueNumbers = New-Object 'System.Collections.Generic.List[int]'
+# Per issue, from the record: how many of its PRs' paths are held, or -1 where a PR's files could not be read.
+$heldCount = @{}
 $prsKept = 0
 foreach ($n in @(Get-ReleaseRangePullNumbers -Subjects $subjects.Lines)) {
-    $pr = Invoke-Native { gh pr view "$n" --repo $repoName --json number,state,mergeCommit,closingIssuesReferences }
+    $pr = Invoke-Native { gh pr view "$n" --repo $repoName --json number,state,mergeCommit,closingIssuesReferences,files,changedFiles }
     if ($pr.Code -ne 0) { continue }   # an issue's number, or a PR of another repo: not this release's PR
     try { $j = ($pr.Lines -join "`n") | ConvertFrom-Json } catch { $readFailures++; Write-Host "  PR #$n -- its reply did not parse" -ForegroundColor Yellow; continue }
     $oid = if ($j.mergeCommit) { [string]$j.mergeCommit.oid } else { '' }
     if ([string]$j.state -ne 'MERGED' -or -not $oid -or -not $rangeShas.Contains($oid)) { continue }
     $prsKept++
+    $prHeld = 0
+    if ($record) {
+        # The merge against its first parent, joined with gh's file list for the PR: the diff alone is only the
+        # last commit of a rebase-merge (#3190). Get-PullChangedPaths says when the two together are not whole.
+        # core.quotePath forced on, so a path above 0x7F is decoded here rather than by the console code page.
+        $diff = Invoke-Native { git -C $repoRoot -c core.quotePath=true diff --no-renames --name-only "$oid^1" $oid }
+        $parents = Invoke-Native { git -C $repoRoot rev-list --parents -n 1 $oid }
+        if ($diff.Code -ne 0 -or $parents.Code -ne 0) {
+            $prHeld = -1
+        } else {
+            $changed = Get-PullChangedPaths `
+                -DiffPaths @($diff.Lines | Where-Object { $_.Trim() } | ForEach-Object { Convert-GitQuotedPath -Path $_ }) `
+                -PullFiles @(@($j.files) | Where-Object { $_ } | ForEach-Object { [string]$_.path }) `
+                -ChangedFiles ([int]$j.changedFiles) `
+                -ParentCount (@((@($parents.Lines) | Select-Object -First 1) -split '\s+' | Where-Object { $_ }).Count - 1)
+            $prHeld = if ($changed.Complete) { @((Get-EntryLiveState -ChangedPaths $changed.Paths -Record $record).HeldPaths).Count } else { -1 }
+        }
+    }
     foreach ($r in @($j.closingIssuesReferences | Where-Object { $_ })) {
         $num = [int]$r.number
-        if (-not $issueNumbers.Contains($num)) { $issueNumbers.Add($num) }
+        if (-not $issueNumbers.Contains($num)) { $issueNumbers.Add($num); $heldCount[$num] = 0 }
+        if ($prHeld -lt 0 -or $heldCount[$num] -lt 0) { $heldCount[$num] = -1 } else { $heldCount[$num] += $prHeld }
     }
 }
 Write-Host "[2/5] pull requests -- $prsKept merged in the range, closing $($issueNumbers.Count) issue(s)" -ForegroundColor Cyan
@@ -201,6 +251,12 @@ Write-Host '[3/5] issues, [4/5] verdict' -ForegroundColor Cyan
 $owed = @()
 foreach ($num in $issueNumbers) {
     if ($SkipArg -contains $num) { Write-Host "  #$num  held     -SkipIssue" -ForegroundColor DarkGray; continue }
+    if ($heldCount[$num] -lt 0) {
+        $readFailures++
+        Write-Host "  #$num  UNREAD   a merge that closed it could not be read against the live-push record -- not told" -ForegroundColor Yellow
+        continue
+    }
+    if ($heldCount[$num] -gt 0) { Write-Host "  #$num  held     $($heldCount[$num]) of its file(s) are 'hold' in the live-push record" -ForegroundColor DarkGray; continue }
     $iv = Invoke-Native { gh issue view "$num" --repo $repoName --json state,stateReason }
     $state = Read-AsanaIssueBlockState -Owner $owner -Repo $name -Number $num -WorkingDirectory $repoRoot
     if ($iv.Code -ne 0 -or -not $state.Ok) {

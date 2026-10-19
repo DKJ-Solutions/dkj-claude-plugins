@@ -77,6 +77,36 @@ function Get-ReleaseRangePullNumbers {
     return @($seen)
 }
 
+function Get-PullChangedPaths {
+    <#
+        Pure: the paths one merged PR changed, for the live-push record (#3190), as @{ Paths; Complete }.
+        -DiffPaths is `git diff <merge>^1 <merge>`, -PullFiles and -ChangedFiles are gh's `files` and
+        `changedFiles` for the PR, -ParentCount is the merge commit's number of parents.
+
+        THE DIFF ALONE MISSES A REBASE-MERGE. It is the whole PR for a merge commit and for a squash, but a
+        rebase-merge's merge commit is the LAST rebased commit only, so a path an earlier commit of the PR
+        touched is not in it -- and a held path that is not seen tells the requester 'live'. gh's file list
+        is the PR's whole change whatever the method, but it is capped (100 files), so neither source alone
+        is the answer: the union is, and where gh's list is short of changedFiles and the merge is not a
+        two-parent merge commit, the paths are not Complete and the driver reads the PR as unread.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$DiffPaths,
+        [AllowNull()][AllowEmptyCollection()][string[]]$PullFiles,
+        [int]$ChangedFiles = 0,
+        [int]$ParentCount = 1
+    )
+    $set = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($p in @(@($DiffPaths) + @($PullFiles))) {
+        if (-not $p -or -not ([string]$p).Trim()) { continue }
+        $t = ([string]$p).Trim()
+        if (-not $set.Contains($t)) { $set.Add($t) }
+    }
+    $pullCount = @(@($PullFiles) | Where-Object { $_ -and ([string]$_).Trim() }).Count
+    $complete = ($ParentCount -ge 2) -or ($pullCount -ge $ChangedFiles)
+    return @{ Paths = @($set); Complete = [bool]$complete }
+}
+
 function Get-PreviousReleaseTag {
     <#
         Pure: the highest vX.Y.Z tag BELOW -Version, compared as versions (the reason
