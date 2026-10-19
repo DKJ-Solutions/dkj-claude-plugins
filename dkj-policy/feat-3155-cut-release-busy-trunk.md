@@ -39,21 +39,44 @@
 
 ### PLAN
 
+The owner chose the design on #3155: a retry whose proof is the main-push CI run for the new tip, not a
+quiet-trunk signal.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `gate-lib.ps1`: `ConvertTo-CommitCheckBucketsJson` (commit check-runs into the PR certificate's shape) and `Get-TrunkCatchUpDecision` (when a catch-up is allowed)
+- [x] `cut-release.ps1`: the after-gates origin check catches up over a behind-only trunk (certificate, wait, ff-only, child re-run with `-CatchUpCertifiedSha`/`-CatchUpRound`), and the gates skip only on the certified HEAD
+- [x] Plugin mirrors synced, and the `cut-release` skill page documents the catch-up (the `[skill-param]` lint found the two parameters undocumented)
 
 ### TEST
 
+- [x] `gate-lib.tests.ps1`: bucket mapping, every catch-up refusal, and the wiring in cut-release (288 pass)
+- [x] `cut-release-drive.tests.ps1`: a certified re-run cuts without its gates, spent rounds refuse with nothing written, and a first run before the gates does not catch up (101 pass)
+- [x] `native-capture.tests.ps1`: bounded-site count 97 -> 98, audited
+- [x] The real check-runs read against the current `origin/main` tip certifies `lint-en-tests`
+- [x] End to end in a throwaway clone with a `gh` shim: a commit landed on origin during the lint gate, the cut caught up, re-ran, skipped only the certified gates and cut on top of the landed commit (`-NoPush`)
+
 ### DEPLOY: feat/3155-cut-release-busy-trunk
 
-**Score:**
+A release cut no longer has to start over when a merge lands while its gates run. After the gates, a
+`main` that is only behind `origin/main` is caught up rather than refused when the CI run that the push
+to the trunk started has proved the new tip green: the cut waits for that run while it is still going,
+fast-forwards, and runs itself again on the new tip. That second run re-reads every pending entry and
+re-runs every content gate, and it skips only the lint and test gates CI just ran on that exact commit. A
+`main` that is ahead, an unnamed or red check, an unreadable run, or a trunk still moving after three
+rounds refuse as before (#2899), with the reason no catch-up was made. Measured at the v5.25.0 cut, two
+refusals in a row cost about 30 minutes and postponed the release.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer cutting a release in a repo whose trunk merges often can now finish the cut in one run,
+provided the repo names its test check and its slug, instead of retrying the whole gate until the trunk
+goes quiet.
+
+**Score:** 3
 
 #### Pull Request
 
 cut-release finishes on a busy trunk by fast-forwarding over merges certified by main-push CI
-
