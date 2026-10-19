@@ -39,21 +39,46 @@
 
 ### PLAN
 
+Measured October 19, 2026: the hub on port 4876 had been started at 19:16 the day before, before #3130
+moved the house style into the plugin and before #3122 taught the server to restart on a moved HEAD.
+It looked for `house-style.css` where its own code kept it, `ReadAllBytes` threw, and the browser got a
+dropped connection rather than a stylesheet. #3122 closes that for every server started since, except
+that a static file skips the restart check by design, so a file that moved still dropped the connection.
+
+The skip itself stays: a 503 handed to a `<link>` would leave the page it styles unstyled, and the
+reload of `/` already triggers the restart.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `serve-connector-dashboard.ps1`: a static file that is there is served before the check, as before;
+      a missing one falls through to the restart check, and is a plain-text 404 when HEAD has not moved
+- [x] Stopped the five pre-#3122 hub servers on ports 4871-4874 and restarted 4876 (machine state, not in
+      the diff)
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` group 4: the fixture now holds the stylesheet and not the theme
+      script; a missing file is a 404 before the move, a present one skips the check after it, a missing
+      one restarts the server, and the page's own 503 is asserted on a third move against the successor
+      -- 161 passed, 0 failed
+
 ### DEPLOY: fix/hub-static-after-restart-check
 
-**Score:**
+A hub server whose stylesheet or theme script has moved out from under it no longer drops the
+connection. A missing static file now falls through to the moved-HEAD check, so a server on older code
+restarts itself onto the checkout's, and where the checkout has not moved it answers a plain 404 naming
+the file. A file that is there is still served without the check, so a page is never left unstyled by a
+503.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the Repo hub server is this repo's own development tool and ships to no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
-the hub serves its static files after the restart check, and a missing one is a 404
+a hub server restarts when a static file it serves has moved, instead of dropping the connection
 
