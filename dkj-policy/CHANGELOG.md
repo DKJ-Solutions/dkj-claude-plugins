@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**2 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3144-prepare-release-jq-quotes · 20261019-105659Z
+
+`prepare-release` reads the head's check runs on Windows PowerShell 5.1 again (#3144). Its jq filter carried a double quote, which PowerShell 5.1 strips from a native argument, so gh refused the call and step 1 reported "gh missing, logged out, or offline" while reporting the trunk READY. The note now also tells a missing gh apart from a gh that exited non-zero.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store repo preparing a release from Windows PowerShell 5.1 now gets the trunk's CI state checked by `prepare-release`, so a red check on the head blocks the READY instead of passing with a soft note.
+
+**Score:** 2
+
+#### Pull Request
+
+prepare-release reads check runs on Windows PowerShell 5.1
+
+Plugins: bwj-development
+
+[PR #3150](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3150)
+
+---
 
 ### DEPLOY: feat/3133-house-style-repoint · 20261019-092405Z
 
