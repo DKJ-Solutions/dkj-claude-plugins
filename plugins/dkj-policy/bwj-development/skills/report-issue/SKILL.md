@@ -37,6 +37,9 @@ rather than by this page**: the reach-label gate in step 2 below. The full rule 
 - Read `Get-AsanaIssueFieldGid` and `Get-AsanaTypeFieldGid` from the same file. Both are optional and
   default to `$null` -- a board carrying neither the `Github Issue` nor the `Github Type` custom
   field leaves them unset, and step 2 skips whichever one is missing.
+- Read `Get-AsanaTypeOptionMap` from the same file, where `Get-AsanaTypeFieldGid` is answered -- the
+  option NAME each kind label is written as on that board. Optional, and `$null` by default, which
+  keeps the default names step 2 gives.
 - Read `Get-AsanaDefaultAssignee` from the same file too -- the user GID a task this procedure
   creates is assigned to. Optional, `$null` by default, and then step 2 assigns nobody.
 - Read **`Get-ReachLabel`** from the same file -- **the name GitHub stores for the reach label**, which
@@ -191,8 +194,16 @@ field silently; the board carries none and there is nothing to set.
 
 **Where `Get-AsanaTypeFieldGid` returns a GID, set that one on the same call too -- from the kind
 label step 1 chose, never from a fresh reading of the finding:** `bug` is `Bug`, `feature` is
-`Feature`, and `research` is `Task` (#3006). The board's field offers exactly those three options, so there is
-nothing to decide here: the answer is one step old and carrying it forward is the whole point. It is a **select** field, though, so the value is an option GID rather
+`Feature`, and `research` is `Task` (#3006). The BWJ board's field offers exactly those three options, so by default there is
+nothing to decide here (a board that names them otherwise is handled by the map below): the answer is one step old and carrying it forward is the whole point.
+
+**Where `Get-AsanaTypeOptionMap` returns a hashtable, its entry for the kind label is the option name
+instead** -- a board whose `Type` field names its options its own way
+([#3170](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3170)), e.g.
+`@{ bug = 'Dev (Feature / Bug)'; feature = 'Dev (Feature / Bug)' }`. It is read before the default
+names, and a kind the map leaves out falls back to its default name. Two kinds may share one option.
+
+It is a **select** field, though, so the value is an option GID rather
 than the word. Resolve it from **the project read the preflight already made** -- ask for the options
 there, in the same call that proved the board reachable, and carry both forward:
 
@@ -204,8 +215,9 @@ opt_fields: custom_field_settings.custom_field.gid,custom_field_settings.custom_
 **Name every subfield -- Asana's `opt_fields` takes no wildcard**, so `custom_field_settings.*`
 returns the options *absent* rather than an error, and the write then silently has nothing to send.
 Match the option whose `name` is the one step 1's label maps to, and send its `gid`: a
-**multi-select** field takes an **array** of option GIDs, a single-select the bare GID -- the BWJ
-board's is multi-select, so `["<option gid>"]`. **If that name matches no option on the board, write
+**multi-select** field takes an **array** of option GIDs, a single-select the bare GID -- the original BWJ
+board's is multi-select, so `["<option gid>"]`, but read the field's `resource_subtype` (`multi_enum` or
+`enum`) rather than assuming either. **If that name matches no option on the board, write
 nothing and say which option was missing** -- that is a board somebody has rebuilt or renamed, and
 guessing puts a wrong type on a card a colleague reads as authoritative.
 

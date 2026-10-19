@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**3 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3170-asana-type-option-map · 20261019-150059Z
+
+`report-issue` reads a new optional seam, `Get-AsanaTypeOptionMap`, that maps each kind label to the
+option name a board's `Type` field actually uses -- e.g.
+`@{ bug = 'Dev (Feature / Bug)'; feature = 'Dev (Feature / Bug)' }` -- before the default `Bug`,
+`Feature` and `Task`. A kind the map leaves out keeps its default, and the value shape follows the
+field's `resource_subtype` (#3170).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store whose Asana board names its `Type` options its own way gets every mirrored card typed
+again, by answering `Get-AsanaTypeOptionMap` in its `scripts/repo-config.ps1`, instead of a "option
+missing" note and a hand edit. Unanswered, nothing changes.
+
+**Score:** 3
+
+#### Pull Request
+
+report-issue lets a consumer map the kind labels to its own Asana Type option names
+
+Plugins: bwj-development
+
+[PR #3173](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3173)
+
+---
 
 ### DEPLOY: fix/3166-placeholder-lilac-default · 20261019-144946Z
 

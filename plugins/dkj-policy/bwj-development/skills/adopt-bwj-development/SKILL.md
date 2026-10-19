@@ -153,12 +153,19 @@ function Get-AsanaStageMap {
 # URL. Optional: $null (the default) means the board carries no such field and the step is skipped.
 function Get-AsanaIssueFieldGid { $null }
 
-# The GID of the board's 'Github Type' multi-select custom field, so report-issue can set it at task
+# The GID of the board's 'Github Type' custom field (multi-select on the BWJ board, single-select
+# elsewhere), so report-issue can set it at task
 # creation from the kind label step 1 already chose (bug, feature, or neither for Task -- #2750).
 # Optional in the same way: $null (the default)
 # means the board carries no such field. The field's OPTION GIDs are not configured -- report-issue
-# resolves Bug/Feature/Task by name from the project itself.
+# resolves Bug/Feature/Task by name (or via Get-AsanaTypeOptionMap) from the project itself.
 function Get-AsanaTypeFieldGid { $null }
+
+# The option NAME each kind label is written as on that 'Type' field, for a board whose options are
+# not called Bug, Feature and Task (#3170). Optional: $null (the default) keeps those three names, and
+# a kind the map leaves out keeps its own. Two kinds may map to one option.
+# Example: @{ bug = 'Dev (Feature / Bug)'; feature = 'Dev (Feature / Bug)' }
+function Get-AsanaTypeOptionMap { $null }
 
 # The Asana user GID a task report-issue CREATES is assigned to, so the card lands in that person's
 # My Tasks instead of only on the board. Optional: $null (the default) means the task is created
@@ -286,6 +293,14 @@ GID they do not have to be pinned, because they are resolvable at run time from 
 buys: rebuild an option and nothing breaks; **rename** one away from `Bug`, `Feature` or `Task` and
 the write is skipped with a note rather than guessing, because an unmatched name on a board that
 reads as authoritative is worse than a blank.
+
+**A board whose options were never called that is what `Get-AsanaTypeOptionMap` answers**
+([#3170](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3170)). It pins option NAMES, not
+GIDs, so the GIDs stay resolved at run time as above. Measured on smartwatchbanden's workload board,
+October 19, 2026: a single-select `Type` field offering `Dev (Feature / Bug)` among six team-specific
+options and none named `Bug`, `Feature` or `Task`, so without the map every write was the "option
+missing" note and five cards were typed by hand. Propose it only where the board you read in step 5
+names its options differently.
 
 ## 3 -- the one repo secret: `ASANA_PAT` (the two store repos only)
 
