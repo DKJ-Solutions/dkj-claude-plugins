@@ -302,8 +302,10 @@ out). Three more things follow it by default, in light and in dark (and a measur
     in lightness and chroma, in `-6`'s hue. The eye is most sensitive to the first tint off white or black, so the
     steps start small by the page and grow towards the colour: the card is just visibly lifted off the page (ΔE
     about 2), where a straight line made that first step far too big (owner, October 19, 2026).
-    Magenta and its dark counterpart Roze take a steeper curve, t^2.5: pink on white shows more than its measured
-    difference (ΔE 1.5 against Blauw's 1.9 at t^2), and their first step still read too big. `-8` to `-11` stay on the hue at full saturation, their HSL
+    Magenta and its dark counterpart Roze take a geometric curve: the first step 2.5% of the way, each next step
+    2.17 times the one before (0.025, 0.079, 0.196, 0.450). Pink on white shows more than its measured difference
+    (ΔE 1.5 against Blauw's 1.9 at t^2): at t^2 the first step read too big, and at t^2.5 the first too small and
+    the second too big, which no power curve can fix, because a power curve moves both together. `-8` to `-11` stay on the hue at full saturation, their HSL
     lightness evenly between `-7` and `-12`, so the dark half keeps its colour (run straight in OKLCH it turned grey).
 
   **A role takes the same step in both modes** (owner's decision, October 15, 2026): never `light-dark()` between
@@ -317,7 +319,7 @@ out). Three more things follow it by default, in light and in dark (and a measur
   because `-6` is chosen against `-12`.
 - **Measured** (WCAG relative luminance, worst theme, October 19, 2026): `-12` on `-1` 19.5:1, on `-2` 19.0:1
   and on `-6` 4.6:1. `-7` on `-1` 4.6:1 and `-1` on `-7` 4.6:1; `-8`, the sub lines, on a card 5.9:1. Just below
-  4.5:1: `-7` on a card (`-2`) in Roest (4.43:1), Magenta (4.49:1) and Lila (4.49:1).
+  4.5:1: `-7` on a card (`-2`) in Roest (4.43:1), Magenta (4.46:1) and Lila (4.49:1).
 - **The page and the cards are tinted.** On light the page is the whitest layer and a card sits a shade off it;
   on dark the card is a shade lighter than the page. Either way the page is the ground end (owner's decision,
   October 14, 2026: it used to be the other way round on light).

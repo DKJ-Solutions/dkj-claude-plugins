@@ -51,8 +51,10 @@
      -2 to -5 run from -1 to -6 in OKLCH along a quadratic curve, at 1/25, 4/25, 9/25 and 16/25 of the way in L and C
      and in -6's hue: the eye is most sensitive to the first tint off white or black, so the steps start small by the
      page and grow towards the colour (owner, October 19, 2026: linear made -1 to -2 far too big). Magenta and its
-     dark counterpart Roze take a steeper curve, t^2.5 (0.0179, 0.101, 0.279, 0.572 of the way): pink on white shows
-     more than its measured difference, and at t^2 their first step still read too big (owner, October 19, 2026). -8 to -11 stay on
+     dark counterpart Roze take a geometric curve instead: the first step 2.5% of the way and each next step 2.17 times
+     the one before (0.025, 0.079, 0.196, 0.450). Pink on white shows more than its measured difference: at t^2 their
+     first step read too big, and at t^2.5 the first too small and the second too big, which no power curve can fix
+     (owner, October 19, 2026). -8 to -11 stay on
      the hue at full saturation, their HSL lightness evenly between -7 and -12, so the dark half keeps its colour.
      A role takes the same step in both modes, never light-dark() between two steps (owner's decision, October 15, 2026).
      -1 the page, and the text on a -7 fill; -2 the cards (tiles, tooltips); -5 a stronger border (an open card, a
@@ -64,7 +66,7 @@
      too much like it, and a grey h3 did not work; on -12 h1 is -6, h2 is -4 and h3-h6 are -3); -3 and -11 no role
      yet; -12 the far end: every paragraph, and an inverted surface (the showcase's panel on dark).
      Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on -1 19.5:1, on -2 19.0:1 and on -6
-     4.6:1; -7 on -1 4.6:1 and -1 on -7 4.6:1; -7 on -2 4.43:1 (Roest; below 4.5:1 also Magenta and Lila, both
+     4.6:1; -7 on -1 4.6:1 and -1 on -7 4.6:1; -7 on -2 4.43:1 (Roest; below 4.5:1 also Magenta 4.46:1 and Lila
      4.49:1); -8 on -2 5.9:1. */
   --primary-1: #fdfdff; --primary-2: #f6f7ff; --primary-3: #e2e6ff; --primary-4: #c1caff; --primary-5: #95a0ff; --primary-6: #6462ff;
   --primary-7: #0400ff; --primary-8: #0300d0; --primary-9: #0300a1; --primary-10: #020071; --primary-11: #010042; --primary-12: #020511;
@@ -155,13 +157,13 @@
    two whose primary sits next to the warning colour move the warning away from it. No red and
    no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
    pink, lilac, sky, cyan, yellow, orange (dark). */
-:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --primary-1: #fffdfe; --primary-2: #fffafd; --primary-3: #ffedf6; --primary-4: #ffcfe8; --primary-5: #ff9ad2; --primary-6: #ff02b7; --primary-7: #dc009d; --primary-8: #b30080; --primary-9: #8a0062; --primary-10: #610045; --primary-11: #380028; --primary-12: #0d0208; }
+:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --primary-1: #fffdfe; --primary-2: #fff9fc; --primary-3: #fff0f8; --primary-4: #ffddee; --primary-5: #ffb1db; --primary-6: #ff02b7; --primary-7: #dc009d; --primary-8: #b30080; --primary-9: #8a0062; --primary-10: #610045; --primary-11: #380028; --primary-12: #0d0208; }
 :root[data-theme="purple"], .theme-swatch[data-id="purple"] { --primary-1: #fefdff; --primary-2: #faf7ff; --primary-3: #ede3ff; --primary-4: #d9c2ff; --primary-5: #bf91ff; --primary-6: #a141ff; --primary-7: #8100ff; --primary-8: #6900d0; --primary-9: #5100a1; --primary-10: #390071; --primary-11: #210042; --primary-12: #07040f; }
 :root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fdfdff; --primary-2: #f6f7ff; --primary-3: #e2e6ff; --primary-4: #c1caff; --primary-5: #95a0ff; --primary-6: #6462ff; --primary-7: #0400ff; --primary-8: #0300d0; --primary-9: #0300a1; --primary-10: #020071; --primary-11: #010042; --primary-12: #020511; }
 :root[data-theme="teal"], .theme-swatch[data-id="teal"] { --primary-1: #f9ffff; --primary-2: #f5feff; --primary-3: #e3fcff; --primary-4: #c4f8ff; --primary-5: #91f3ff; --primary-6: #00ebff; --primary-7: #00818c; --primary-8: #006972; --primary-9: #005158; --primary-10: #00393e; --primary-11: #002124; --primary-12: #00070a; }
 :root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --primary-1: #fffdfa; --primary-2: #fefcf4; --primary-3: #fefae0; --primary-4: #fef4be; --primary-5: #feec89; --primary-6: #ffe003; --primary-7: #847400; --primary-8: #6b5e00; --primary-9: #524800; --primary-10: #3a3300; --primary-11: #211d00; --primary-12: #080600; }
 :root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffdfc; --primary-2: #fff8f5; --primary-3: #ffeadf; --primary-4: #ffd2ba; --primary-5: #ffaf81; --primary-6: #ff7a00; --primary-7: #ba5900; --primary-8: #984900; --primary-9: #753800; --primary-10: #532800; --primary-11: #301700; --primary-12: #0e0300; --warning-3: #b88a00; }
-:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #0d0509; --primary-2: #110509; --primary-3: #1f0811; --primary-4: #400e23; --primary-5: #7d1245; --primary-6: #e0007c; --primary-7: #ff018e; --primary-8: #ff33a4; --primary-9: #ff65ba; --primary-10: #ff96d0; --primary-11: #ffc8e7; --primary-12: #fffafc; }
+:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #0d0509; --primary-2: #12060a; --primary-3: #1b070f; --primary-4: #300b1b; --primary-5: #631137; --primary-6: #e0007c; --primary-7: #ff018e; --primary-8: #ff33a4; --primary-9: #ff65ba; --primary-10: #ff96d0; --primary-11: #ffc8e7; --primary-12: #fffafc; }
 :root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #08060e; --primary-2: #0b0816; --primary-3: #170d2e; --primary-4: #2d135a; --primary-5: #4f169e; --primary-6: #7f00ff; --primary-7: #a143ff; --primary-8: #b368ff; --primary-9: #c68dff; --primary-10: #d8b1ff; --primary-11: #ebd6ff; --primary-12: #fcfbff; }
 :root[data-theme="sky"], .theme-swatch[data-id="sky"] { --primary-1: #06060f; --primary-2: #040917; --primary-3: #030e2f; --primary-4: #02155b; --primary-5: #001d9a; --primary-6: #0000ff; --primary-7: #6363ff; --primary-8: #8181ff; --primary-9: #a0a0ff; --primary-10: #bebeff; --primary-11: #ddddff; --primary-12: #fbfbff; }
 :root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --primary-1: #01090b; --primary-2: #010d0f; --primary-3: #02191c; --primary-4: #032f34; --primary-5: #035159; --primary-6: #00808c; --primary-7: #00eaff; --primary-8: #31eeff; --primary-9: #62f2ff; --primary-10: #93f6ff; --primary-11: #c4faff; --primary-12: #f7fdfd; }
