@@ -39,6 +39,13 @@
     state file exists anywhere. A previous page with no data block (the hand-built first version) renders
     without deltas, and the script says so.
 
+    THE DASHBOARD SNAPSHOT (#3126). With -Snapshot <json>, render also writes the same data object it
+    embedded -- deltas included -- to that path, plus a `source` block naming the Artifact (-ArtifactUrl),
+    its title and today's date. A repo whose dev server shows the last full measurement keeps it at
+    scripts/dashboard/session-start-snapshot.json, and before this nothing rewrote that file: the Artifact
+    moved on while the page went on showing the measurement it was first copied from. The snapshot is
+    written after the page and never in place of it, so a failure there leaves the page standing.
+
     MODE 3, -ExtractPrevious: -Previous <html> -OutFile <json>. Writes only the NUMERIC history of a
     previously published page (asOf, item ids with tokens, document ids with bytes, action ids with the done
     flag). A published page is data from outside the session; this is the way to read its history without
@@ -79,6 +86,14 @@
 .PARAMETER Previous
     Render mode: the previously published page, to read the history out of. Optional.
 
+.PARAMETER Snapshot
+    Render mode: also write the rendered data, with a `source` block, to this JSON file -- the dev server's
+    session-start snapshot (scripts/dashboard/session-start-snapshot.json). Optional.
+
+.PARAMETER ArtifactUrl
+    Render mode, with -Snapshot: the published Artifact's claude.ai link, for the snapshot's `source` block.
+    Without it the block names no Artifact, which is the first run's state until the page is published.
+
 .PARAMETER RepoRoot
     The repo to measure. Defaults to CLAUDE_PROJECT_DIR in a consumer, otherwise the git root.
 
@@ -104,6 +119,8 @@ param(
     [string]$Template,
     [string]$Out,
     [string]$Previous,
+    [string]$Snapshot,
+    [string]$ArtifactUrl,
     [string]$RepoRoot,
     [string[]]$Plugin,
     [string]$Root
@@ -190,6 +207,11 @@ if ($Render) {
         foreach ($pair in @(@('-Data', $Data), @('-Template', $Template))) {
             if (-not (Test-Path -LiteralPath $pair[1] -PathType Leaf)) { throw "$($pair[0]) file not found: $($pair[1])" }
         }
+        if ($ArtifactUrl -and -not $Snapshot) { throw '-ArtifactUrl only goes with -Snapshot.' }
+        # The same shape the dev page accepts as a link (Test-ArtifactUrl): anything else would be dropped there.
+        if ($ArtifactUrl -and $ArtifactUrl -cnotmatch '^https://claude\.ai/(artifact/[A-Za-z0-9]+|code/artifact/[0-9a-f-]+)\z') {
+            throw "-ArtifactUrl is not a claude.ai Artifact link: $ArtifactUrl"
+        }
 
         # EVERY INPUT IS READ INTO MEMORY BEFORE -Out IS TOUCHED, and a pre-existing -Out is then deleted:
         # a render that fails half way must not leave last run's page standing where the caller is about to
@@ -229,6 +251,21 @@ if ($Render) {
         $page = Merge-SessionStartTemplate -Template $tpl -Json $json -PageTitle $title
         Write-TextFile -Path $Out -Content $page
         Write-Line 'OK' ("page written to {0} ({1} bytes)." -f $Out, $utf8.GetByteCount($page))
+
+        if ($Snapshot) {
+            try {
+                $source = [ordered]@{}
+                if ($ArtifactUrl) { $source.artifact = $ArtifactUrl }
+                $source.title = $title
+                $source.copied = (Get-Date).ToString('yyyy-MM-dd')
+                $dataObj | Add-Member -NotePropertyName 'source' -NotePropertyValue ([pscustomobject]$source) -Force
+                Write-TextFile -Path $Snapshot -Content (ConvertTo-Json -InputObject $dataObj -Depth 20)
+                Write-Line 'OK' "snapshot written to $Snapshot."
+                if (-not $ArtifactUrl) { Write-Line 'INFO' 'the snapshot names no Artifact: render again with -ArtifactUrl once the page is published.' }
+            } catch {
+                Write-Line 'ERROR' "snapshot not written: $($_.Exception.Message). The page above stands."
+            }
+        }
     } catch {
         Write-Line 'ERROR' "render failed: $($_.Exception.Message)"
         # Never leave a stale page behind, but never delete an input either.

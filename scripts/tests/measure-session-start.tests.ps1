@@ -368,6 +368,24 @@ try {
     Assert-Equal 1500 $blk3.Data.documents.items[0].previousBytes 'third generation: previous is the second page, not the first'
     Assert-Equal 0 @($blk3.Data.documents.removed).Count 'third generation: nothing removed against the second page'
 
+    # #3126: -Snapshot writes the rendered data, deltas included, with a source block, for the dev page
+    $snap = Join-Path $Fixture 'r\snap\session-start-snapshot.json'
+    $rsn = Invoke-Render -ScriptArgs @('-Data', $data2, '-Template', $RealTpl, '-Out', (Join-Path $Fixture 'r\o-snap.html'), '-Previous', $out1, '-Snapshot', $snap, '-ArtifactUrl', 'https://claude.ai/artifact/abc123')
+    Assert-True ($rsn.Text -match '\[OK\] snapshot written') 'render with -Snapshot reports the snapshot written (#3126)'
+    $snapObj = ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($snap, $Utf8NoBom))
+    Assert-Equal 400 $snapObj.items[0].previousTokens 'the snapshot carries the deltas the page carries'
+    Assert-Equal 'https://claude.ai/artifact/abc123' $snapObj.source.artifact 'and a source block naming the Artifact'
+    Assert-Equal ((Get-Date).ToString('yyyy-MM-dd')) $snapObj.source.copied 'dated today'
+    $rsn2 = Invoke-Render -ScriptArgs @('-Data', $data2, '-Template', $RealTpl, '-Out', (Join-Path $Fixture 'r\o-snap2.html'), '-Snapshot', $snap)
+    Assert-True ($rsn2.Text -match 'names no Artifact') 'without -ArtifactUrl the snapshot is written and the missing link is named'
+    $snapObj2 = ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($snap, $Utf8NoBom))
+    Assert-True ($null -eq ($snapObj2.source.PSObject.Properties | Where-Object { $_.Name -eq 'artifact' })) 'and its source block carries no artifact field'
+    $rsn3 = Invoke-Render -ScriptArgs @('-Data', $data2, '-Template', $RealTpl, '-Out', (Join-Path $Fixture 'r\o-snap3.html'), '-Snapshot', $snap, '-ArtifactUrl', 'https://example.com/x')
+    Assert-True ($rsn3.Text -match 'not a claude\.ai Artifact link') 'a non-Artifact link is refused before anything is written'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $Fixture 'r\o-snap3.html'))) 'and no page is written either'
+    $rsn4 = Invoke-Render -ScriptArgs @('-Data', $data2, '-Template', $RealTpl, '-Out', (Join-Path $Fixture 'r\o-snap4.html'), '-ArtifactUrl', 'https://claude.ai/artifact/abc123')
+    Assert-True ($rsn4.Text -match 'only goes with -Snapshot') '-ArtifactUrl without -Snapshot is refused'
+
     # -Previous variants
     $outNoBlock = Join-Path $Fixture 'r\o-noblock.html'
     $handBuilt = New-Text 'r/hand.html' '<html><title>hand built</title></html>'

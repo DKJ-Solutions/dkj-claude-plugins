@@ -132,7 +132,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
   -Out <scratch>/index.html -Previous <scratch>/previous.html
 ```
 
-`-Previous` is the page you downloaded in step 2; leave it off on the first run. Step 3 and this render
+`-Previous` is the page you downloaded in step 2; leave it off on the first run.
+
+**Where the repo keeps `scripts/dashboard/session-start-snapshot.json`**, the dev server's copy of the
+last full measurement, add `-Snapshot scripts/dashboard/session-start-snapshot.json -ArtifactUrl <the
+artifact's link>` to the same render. It writes the data the page embeds, deltas included, plus the
+`source` block the dev page links. Nothing else rewrites that file, so a render without it leaves the
+dev page showing the measurement before this one
+([#3126](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3126)). On a first run the link
+exists only after the publish: render once more with `-ArtifactUrl` then. The snapshot is a file in the
+tree, so it lands through a branch and a pull request like any other change. Step 3 and this render
 both read that page only when its data names this repo; otherwise they print an `[ERROR]` saying whose
 history it is, and you publish to this repo's own title instead of over that page. **Before publishing,
 check that the render printed no `[ERROR]` line and that `index.html` exists**: a failed render deletes a
@@ -225,6 +234,8 @@ early. Its two strings are the `scoreHeading` and `scoreText` labels.
 | `-Out <path>` | Render mode: where to write the finished page. |
 | `-ExtractPrevious` | Instead of collecting or rendering: write only the numeric history of `-Previous` (ids, tokens, bytes, `done`, `asOf`) to `-OutFile`. No prose from the page comes out. |
 | `-Previous <path>` | The previously published page, to read the history out of (with `-Render` or `-ExtractPrevious`). It is read only when its data names this repo (#2736). A page without a data block, or with another repo's or none, renders without deltas, and the script says so. |
+| `-Snapshot <path>` | Render mode: also write the rendered data, with a `source` block, to this JSON file (the dev server's session-start snapshot). |
+| `-ArtifactUrl <url>` | Render mode, with `-Snapshot`: the published Artifact's claude.ai link, for the `source` block. Anything but a claude.ai Artifact link is refused. |
 | `-RepoRoot <path>` | The repo to measure. Default: `CLAUDE_PROJECT_DIR` in a consumer, otherwise the git root of the working directory. |
 | `-Plugin <name...>` | Collect mode: limit the plugin listing. Default: every plugin enabled for this repo. |
 | `-Root <path>` | Collect mode: the root document of the always-on path. Default: `CLAUDE.md` in the repo root. |
