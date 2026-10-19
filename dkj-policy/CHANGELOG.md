@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**12 / 15 minor entries** <!-- pending-tally -->
+**13 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3190-live-record-whole-pr-diff · 20261019-190616Z
+
+The change here is only in the bwj-development plugin's script and its tests.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+In a BWJ store repo, `notify-live -LivePushRecord` now sees a held file that an earlier commit of a
+rebase-merged PR touched, and does not tell that issue's requester their work is live. A PR whose file
+list gh truncates is reported as UNREAD instead of guessed. This prevents a failure that has not happened
+yet: a "Rebase and merge" through the GitHub UI telling a requester "live" while their file was held back.
+
+**Score:** 1
+
+#### Pull Request
+
+notify-live -LivePushRecord: read a PR's whole diff, so a rebase-merged PR's earlier commits count
+
+Plugins: bwj-development
+
+[PR #3195](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3195)
+
+---
 
 ### DEPLOY: feat/3176-app-deploy-in-live-record · 20261019-185315Z
 
