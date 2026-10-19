@@ -73,6 +73,38 @@ function Send-LoopbackResponse {
     $Stream.Flush()
 }
 
+function Copy-LoopbackUpstream {
+    <#
+        Relays one request to the loopback server on -Port and writes its whole answer, byte for byte, to
+        -Stream: status, headers and body as that server sent them. A hub uses it to serve another server's
+        pages from its own origin, so the browser keeps one localStorage -- one theme choice -- for both
+        (#3168). -Target is the caller's own fixed path, never the browser's raw request target. The answer
+        is read in full before a byte is written, so $false (nothing answered, or the read failed or ran past
+        -TimeoutMs) leaves -Stream untouched for the caller's own error answer.
+    #>
+    param($Stream, [int]$Port, [string]$Method, [string]$Target, [int]$TimeoutMs = 30000)
+    $c = New-Object System.Net.Sockets.TcpClient
+    try {
+        $c.ReceiveTimeout = $TimeoutMs
+        $c.SendTimeout = $TimeoutMs
+        $c.Connect('127.0.0.1', $Port)
+        $up = $c.GetStream()
+        $req = [System.Text.Encoding]::ASCII.GetBytes("$Method $Target HTTP/1.1`r`nHost: localhost:$Port`r`nConnection: close`r`n`r`n")
+        $up.Write($req, 0, $req.Length)
+        $answer = New-Object System.IO.MemoryStream
+        $up.CopyTo($answer)
+        if ($answer.Length -eq 0) { return $false }
+        $bytes = $answer.ToArray()
+        $Stream.Write($bytes, 0, $bytes.Length)
+        $Stream.Flush()
+        return $true
+    } catch {
+        return $false
+    } finally {
+        $c.Close()
+    }
+}
+
 function Test-LoopbackHost {
     <#
         True when the request's Host header names this server on loopback. A page elsewhere that rebinds

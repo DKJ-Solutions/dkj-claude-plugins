@@ -8,15 +8,20 @@
     dkj-solutions plugin's assets/house-style/ in this tree with no Node dependency (#3132). The rules of the
     hub and of each page are in scripts/lib/dev-pages-lib.ps1.
 
-    THE GENERAL PAGES ARE NOT SERVED HERE (#3119): Artifacts, Issues, Release notes and SessionStart belong to
-    every DKJ-Solutions repo, so the dkj-solutions plugin serves them from a server of its own
-    (scripts/pages/serve-general-pages.ps1), which the dev-preview hook starts beside this one. This server
-    only links it. The hook writes both servers' urls to a state file in %TEMP%; the hub reads it on every
-    request and draws its General card from it, asking the server named there who it is (its /whoami, the
-    hash of this root) for at most ~500 ms and showing the "not running" form when nothing answers, or the
-    wrong checkout does. A request for /artifacts, /issues, /release-notes or /sessionstart is answered with
-    a 303 to the same path on that server when it answers as this checkout's, and with a short 404 text
-    naming the general pages server when it does not.
+    THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues, Release
+    notes and SessionStart belong to every DKJ-Solutions repo, so the dkj-solutions plugin builds them in a
+    server of its own (scripts/pages/serve-general-pages.ps1), which the dev-preview hook starts beside this
+    one. The hook writes both servers' urls to a state file in %TEMP%; the hub reads it on every request,
+    asking the server named there who it is (its /whoami, the hash of this root) for at most ~500 ms. When
+    it answers as this checkout's, a request for /artifacts, /issues, /release-notes or /sessionstart -- and
+    /refresh?page=issues or =sessionstart -- is relayed to it and its answer sent back as it came
+    (Copy-LoopbackUpstream), and the General card links those paths on this origin. A short 404 text naming
+    the general pages server answers when it does not, and a 502 when it stops answering mid-request.
+    WHY A RELAY AND NOT A 303 (#3168): the two servers are two origins, and house-theme.js keeps the theme
+    and the width in localStorage, which is per origin, so a choice made on the hub did not exist on the
+    general pages and back. Served from one origin, under one data-theme-key ('general-pages', the key the
+    plugin's pages already carry in every repo), one choice holds on every page. The general pages' "Repo
+    hub" crumb is '/hub', which this server answers with a 303 to '/'.
 
 .DESCRIPTION
     Normally started by the dkj-solutions dev-preview SessionStart hook, through this repo's
@@ -102,6 +107,13 @@ $static = @{
 }
 # The routes that moved to the general pages server (#3119): each is sent on, or answered with a 404 text.
 $generalRoutes = @('/artifacts', '/issues', '/release-notes', '/sessionstart')
+
+function Get-GeneralPagesPort {
+    <# The general pages server's port when the state file names one that answers as this checkout's, else 0. #>
+    $pages = Get-GeneralPagesUrl -Root $root -TimeoutMs 500
+    if ($pages -cmatch '^http://localhost:([0-9]{4,5})/?\z') { return [int]$Matches[1] }
+    return 0
+}
 
 function Invoke-DashboardGit {
     param([string]$Path, [string[]]$GitArgs)
@@ -314,6 +326,13 @@ try {
                 continue
             }
             if ($path -eq '/refresh') {
+                # A general page's own refresh is the general pages server's, relayed (#3168): its 303 names a
+                # path, which the browser then asks of this origin.
+                $generalPage = if ([string]$target -match '[?&]page=(sessionstart|issues)(&|$)') { $Matches[1] } else { '' }
+                if ($generalPage) {
+                    $gp = Get-GeneralPagesPort
+                    if ($gp -and (Copy-LoopbackUpstream -Stream $stream -Port $gp -Method $method -Target "/refresh?page=$generalPage")) { continue }
+                }
                 # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for. ?page= names
                 # where to go back to, from a fixed list, so the redirect never leaves this server.
                 $page = if ([string]$target -match '[?&]page=(connectors)(&|$)') { $Matches[1] } else { '' }
@@ -356,13 +375,21 @@ try {
                 continue
             }
             if ($generalRoutes -contains $path) {
-                # Moved to the plugin's general pages server (#3119): sent on when the state file names it.
-                $pages = Get-GeneralPagesUrl -Root $root -TimeoutMs 500
-                if ($pages) {
-                    Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $pages + $path } -Method $method
+                # Built by the plugin's general pages server (#3119) and relayed from it, so the page is on this
+                # origin and shares its theme choice (#3168).
+                $gp = Get-GeneralPagesPort
+                if ($gp) {
+                    if (-not (Copy-LoopbackUpstream -Stream $stream -Port $gp -Method $method -Target $path)) {
+                        Send-LoopbackResponse $stream 502 'Bad Gateway' 'text/plain; charset=utf-8' ($utf8.GetBytes('The dkj-solutions general pages server did not answer this request. Reload the page in a moment.')) -Method $method
+                    }
                 } else {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("This page is served by the dkj-solutions general pages server, which is not running for this repo: the dev-preview hook starts it at the next session start.")) -Method $method
                 }
+                continue
+            }
+            if ($path -eq '/hub') {
+                # The general pages' "Repo hub" crumb, now that they are served from this origin (#3168).
+                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/' } -Method $method
                 continue
             }
             Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method

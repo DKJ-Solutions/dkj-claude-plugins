@@ -280,6 +280,10 @@ function Format-ReleaseRunbook {
         which the runbook says belongs to a person. No theme PATH is printed in a command in this mode, so
         the paste-safety refusal of the push list does not apply; the verification pull still names the
         files and keeps that refusal. The order stays promote-then-cut, as #2998 decided.
+
+        THE APP DEPLOY (#3174). With -AppFiles under a printable -AppRoot, the runbook gains a step 2b
+        with the `shopify app deploy` command (Format-ShopifyAppDeployCommand, in the mirrored live-push-rules),
+        in either mode: no push or promotion carries an app's files. A person runs it, as the push.
     #>
     param(
         [string]$Store = '',
@@ -290,7 +294,9 @@ function Format-ReleaseRunbook {
         [string]$ReleaseDate = '',
         [AllowNull()][AllowEmptyCollection()]$Obligations = @(),
         [string]$DeployBranch = '',
-        [string]$Trunk = 'main'
+        [string]$Trunk = 'main',
+        [string]$AppRoot = '',
+        [AllowNull()][AllowEmptyCollection()][string[]]$AppFiles = @()
     )
 
     $connected = [bool]([string]$DeployBranch).Trim()
@@ -350,7 +356,21 @@ function Format-ReleaseRunbook {
         } elseif (-not $haveTarget) {
             $out += '   (not composed -- no store domain or no live theme id is known to this run)'
         } else {
-            $out += '   (nothing to push -- no theme file in the range; this release is code and docs only)'
+            $out += "   (nothing to push -- no theme file in the range$(if (@($AppFiles | Where-Object { $_ }).Count -eq 0) { '; this release is code and docs only' }))"
+        }
+        $out += ''
+    }
+
+    # THE APP DEPLOY (#3174), beside step 2 because it is the other half of going live. Printed only.
+    $apps = @(@($AppFiles) | Where-Object { $_ })
+    if ($apps.Count -gt 0) {
+        $out += "2b. The app deploy -- $($apps.Count) file(s) under the app root changed, and no $(if ($connected) { 'promotion' } else { 'theme push' }) carries them:"
+        if (Test-ShopifyAppRoot -AppRoot $AppRoot) {
+            $out += "   $(Format-ShopifyAppDeployCommand -AppRoot $AppRoot)"
+            $out += '   It releases a new version of the app to the store, so a person runs it, from the repo root. A theme'
+            $out += '   that places a block this deploy adds needs the deploy first; live-preflight prints it again on the day.'
+        } else {
+            $out += '   (not composed -- Get-ShopifyAppRoot does not name a printable relative folder; live-preflight refuses it)'
         }
         $out += ''
     }

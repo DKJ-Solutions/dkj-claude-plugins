@@ -11,7 +11,7 @@
     an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
     outside the scope root, and no check-connectors.ps1 at all -- and the four general routes that moved to
     the dkj-solutions general pages server (#3119): the hub's General card before and after a state file
-    names a server that answers, and the 303 or 404 each moved route gets.
+    names a server that answers, and the relayed answer or the 404 each of those routes gets (#3168).
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -280,6 +280,10 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
 } else {
     $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
     $probe.Start(); $port = $probe.LocalEndpoint.Port; $probe.Stop()
+    # This server reads the REAL checkout's state file, so on a machine whose hook started this checkout's
+    # general pages server it would relay to it (#3168). A port nobody answers on keeps it out of the run.
+    $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
+    $probe.Start(); $env:DKJ_GENERAL_PAGES_PORTS = [string]$probe.LocalEndpoint.Port; $probe.Stop()
     $proc = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
         '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port)
     try {
@@ -428,15 +432,24 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$GeneralServer`"", '-Port', $genPort3, '-RepoRootOverride', "`"$src`"")
             try {
                 Assert-True (Wait-ServerUp $genPort3) 'the fixture''s general pages server listens'
-                foreach ($moved in '/artifacts', '/issues', '/release-notes', '/sessionstart') {
-                    $r = if ($up) { Get-Raw 'GET' $moved "localhost:$port3" '' $port3 } else { '' }
-                    Assert-True ($r -match 'HTTP/1.1 303' -and $r -match ('Location: http://localhost:' + $genPort3 + $moved + '\r')) "$moved is sent on to the same path on the general pages server that answers as this checkout's"
-                }
+                # SERVED FROM THIS ORIGIN (#3168): the general server builds the page, this server relays its answer
+                # as it came -- so the browser stays on one origin, and one theme choice holds on every page.
+                $r = if ($up) { Get-Raw 'GET' '/artifacts' "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Artifacts</h1>' -and $r -match 'data-theme-key="general-pages"' -and $r -notmatch 'Location:') '/artifacts is relayed from the general pages server, on this origin, under the shared theme key'
+                $r = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'Not built yet') 'and its answer is relayed as it came, a 404 included'
+                $len = if ($r -match 'Content-Length: ([0-9]+)\r') { [int]$Matches[1] } else { -1 }
+                $r = if ($up) { Get-Raw 'HEAD' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ($r -match "Content-Length: $len\r" -and $r.EndsWith("`r`n`r`n")) 'a relayed HEAD keeps the real Content-Length and carries no body'
+                $r = if ($up) { Get-Raw 'GET' '/refresh?page=issues' "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /issues\r') 'a general page''s refresh is relayed too, and its 303 names a path on this origin'
+                $r = if ($up) { Get-Raw 'GET' '/hub' "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /\r') 'and the general pages'' "Repo hub" crumb, /hub, is answered here with the hub'
                 # THE BROWSER'S OWN HEADERS (#3119): ports do not count toward "site", so the hub's link, and the 303 hop to the
                 # general server, arrive same-site -- a top-level navigation. A fetch or a cross-site request does not get in.
                 $nav = "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: navigate`r`nSec-Fetch-Dest: document`r`n"
-                $r = Get-Raw 'GET' '/issues' "localhost:$port3" $nav $port3
-                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match ('Location: http://localhost:' + $genPort3 + '/issues\r')) 'a same-site navigation to a moved route on this server is sent on, not refused'
+                $r = Get-Raw 'GET' '/artifacts' "localhost:$port3" $nav $port3
+                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Artifacts</h1>') 'a same-site navigation to a relayed route on this server is served, not refused'
                 $r = Get-Raw 'GET' '/' "localhost:$port3" $nav $port3
                 Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Repo hub</h1>') 'and the hub itself, reached by the crumb back from the general pages, is served'
                 $r = Get-Raw 'GET' '/connectors' "localhost:$port3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: cors`r`n" $port3
@@ -450,7 +463,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 $r = Get-Raw 'GET' '/artifacts' "localhost:$genPort3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: no-cors`r`n" $genPort3
                 Assert-True ($r -match 'HTTP/1.1 403') 'while a same-site subresource request to it is refused'
                 $hubUp = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($hubUp -match ('<a class="menu-item" href="http://localhost:' + $genPort3 + '/issues">') -and $hubUp -match ('href="http://localhost:' + $genPort3 + '/release-notes"') -and $hubUp -notmatch 'is not running') 'the General card links the pages on the server the state file names, when it answers as this checkout''s'
+                Assert-True ($hubUp -match '<a class="menu-item" href="/issues">' -and $hubUp -match 'href="/release-notes"' -and $hubUp -notmatch 'href="http://localhost' -and $hubUp -notmatch 'is not running') 'the General card links the pages on this origin, when the server the state file names answers as this checkout''s (#3168)'
             } finally {
                 if (-not $gen3.HasExited) { Stop-Process -Id $gen3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
                 $gen3.WaitForExit(5000) | Out-Null
