@@ -4,6 +4,7 @@
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [5.25.0](audience/5.x/5.25.0.md) | 2026-10-19 | Minor | Minor release |
 | [5.24.0](audience/5.x/5.24.0.md) | 2026-10-19 | Minor | Minor release |
 | [5.23.0](audience/5.x/5.23.0.md) | 2026-10-17 | Minor | The house style moves to dkj-brandbook v0.2.0, dev pages get a breadcrumb bar, and release notes stay local |
 | [5.22.0](audience/5.x/5.22.0.md) | 2026-10-17 | Minor | Minor release |
