@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**7 / 10 minor entries** <!-- pending-tally -->
+**8 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3181-research-warns-on-merged-pr · 20261019-165907Z
+
+`build-golive-block.ps1 -Research -Post` now warns when a merged pull request closes or references the
+issue: the research form tells the requester "Nothing has changed", which is then likely false, and the
+warning names the go-live form with `-LiveSince` and `-Measure` instead. It is a warning, not a refusal
+(#3181).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session about to close a BWJ ticket with a research message after a change already went live is told
+so before the requester reads "Nothing has changed".
+
+**Score:** 2
+
+#### Pull Request
+
+build-golive-block -Research warns when a merged pull request closes or references the issue
+
+Plugins: bwj-development
+
+[PR #3186](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3186)
+
+---
 
 ### DEPLOY: feat/3179-golive-measure-form · 20261019-163434Z
 
