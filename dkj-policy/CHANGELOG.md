@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3174-release-day-app-deploy · 20261019-152957Z
+
+A store repo that also ships a Shopify app can name its folder with a new optional seam,
+`Get-ShopifyAppRoot` (e.g. `extensions`). `live-preflight` then lists the release's files under it,
+reports them as their own step, treats an app-only release as a note instead of "nothing to push", and
+ends a green run with `shopify app deploy --path <folder>`; `prepare-release` puts the same command in
+the runbook as step 2b. The command is printed for a person to run and never run (#3174).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store with a Shopify app beside its theme gets its app changes onto release day: answer
+`Get-ShopifyAppRoot` in `scripts/repo-config.ps1`, and the preflight and the runbook print the
+`shopify app deploy` the owner runs, so a merged `extensions/` change no longer waits with no route live.
+Unanswered, nothing changes.
+
+**Score:** 3
+
+#### Pull Request
+
+The release-day skills list a store's app changes and print the shopify app deploy for the owner
+
+Plugins: bwj-development, dkj-subagents-shopify
+
+[PR #3178](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3178)
+
+---
 
 ### DEPLOY: feat/3168-hub-proxies-general-pages · 20261019-150948Z
 
