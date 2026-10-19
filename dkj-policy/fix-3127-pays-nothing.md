@@ -39,19 +39,28 @@
 
 ### PLAN
 
+#3127: the dkj-solutions description in the marketplace manifest and in the plugin manifest still said a repo stating no Get-DevPreview "pays nothing". Verified against dev-preview-sessionstart.ps1: since #3047 such a repo gets the placeholder (4880-4889), and since #3119 the general pages beside it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace the clause in .claude-plugin/marketplace.json and plugins/dkj-policy/dkj-solutions/.claude-plugin/plugin.json, identically
 
 ### TEST
 
+- [x] Both files still parse as JSON; the archived 5.19.0 notes keep their wording as history
+
 ### DEPLOY: fix/3127-pays-nothing
 
-**Score:**
+The dkj-solutions description no longer says a repo that states no `Get-DevPreview` pays nothing: it gets the plugin's placeholder preview on ports 4880-4889, with the general pages beside it (#3127). It prevents a reader from concluding the hook does nothing in a repo without the
+seam, when it starts two servers there.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+The plugin's description, as a consumer reads it in the plugin listing, now matches what the dev-preview hook does in a repo without the seam.
+
+**Score:** 1
 
 #### Pull Request
 
