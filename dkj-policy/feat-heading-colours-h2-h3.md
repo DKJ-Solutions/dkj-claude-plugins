@@ -86,6 +86,7 @@ scale still has to be put there by hand.
 - [x] ninth round (Dave: the tile border was `-6` where he expected `-3`): every line and tinted surface moves to `-3`. A `-3` line on a card measures 1.02-1.16:1
 - [x] tenth round (Dave): h2 takes `-8` and h3-h6 (with the card and dialog titles) `-9`
 - [x] eleventh round (Dave: `-1`→`-2` a little bigger, `-2`→`-3` much bigger, on Magenta): Magenta and Roze back on the shared t² curve; their exception had been judged against the `-6` border
+- [x] twelfth round (Dave: the eyebrow should stand back from `-7`): `.eyebrow` and `.dkj-eyebrow` take `-11`, chosen from a menu because every lighter step reads under 3:1 in several themes
 - [x] `house-theme.js`: each theme's picker dot is its new `-9`; the `house-style` skill pins both new checksums
 - [x] filed #3193: the README's detailed lightness tables disagree with the shipped grey values (it predates this branch)
 

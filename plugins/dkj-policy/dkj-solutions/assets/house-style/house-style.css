@@ -60,7 +60,7 @@
      2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus outlines, sorted,
      pressed), native controls through accent-color, and the fills (switches, info badges), focus rings, meters and
      text in the colour (values); -8 sub lines, notes and .muted; -8 also h2 and -9 h3-h6 (owner, October 19, 2026; an h2 in the h1's colour read
-     too much like it, and a grey h3 did not work; on -12 h1 is -6, h2 is -5 and h3-h6 are -4); -6, -10 and -11 no role
+     too much like it, and a grey h3 did not work; on -12 h1 is -6, h2 is -5 and h3-h6 are -4); -11 the eyebrow; -6 and -10 no role
      of their own yet (-6 is the light anchor the half runs to; lines took it until the owner moved them to -3, October 19, 2026); -12 the far end: every paragraph, and an inverted surface (the showcase's panel on dark).
      Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on -1 19.5:1, on -2 19.0:1 and on -3 16.5:1;
      a -3 line on a -2 card 1.02:1 (Oker) to 1.16:1; -7 on -1 4.6:1 and -1 on -7 4.6:1; -7 on -2 4.40:1 (Magenta; below 4.5:1 also Roest 4.43:1 and Lila
@@ -245,9 +245,10 @@ h6 { font-size: var(--text-h6); margin: 0 0 var(--spacing-1); font-weight: 600; 
    sets its own. */
 p, p.meta { color: var(--primary-12); }
 /* Eyebrow: a small uppercase line above a page title, the Repo hub's <owner>/<repo> (#141). Put it on a <p>
-   (the class beats the paragraph colour). The colour is --primary-7, the greyed middle of the scale, as the approved
-   dashboard draws it; semibold, with the same 0.04em tracking as the settings panel's uppercase labels. */
-.eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-7); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
+   (the class beats the paragraph colour). The colour is --primary-11, a step off the text, not the colour: it stands
+   back so the h1 in --primary-7 carries the page (owner, October 19, 2026; a lighter step reads under 3:1 in several
+   themes). Semibold, with the same 0.04em tracking as the settings panel's uppercase labels. */
+.eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-11); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
 /* Lead: the one paragraph under a page title that says what the page is for (#141). On a <p>, in the paragraph
    colour, at the large running size, held to a readable measure. */
 .lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: 1.35; color: var(--primary-12); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */
