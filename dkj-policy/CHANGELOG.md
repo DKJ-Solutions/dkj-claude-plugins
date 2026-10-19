@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3155-cut-release-busy-trunk · 20261019-121133Z
+
+A release cut no longer has to start over when a merge lands while its gates run. After the gates, a
+`main` that is only behind `origin/main` is caught up rather than refused when the CI run that the push
+to the trunk started has proved the new tip green: the cut waits for that run while it is still going,
+fast-forwards, and runs itself again on the new tip. That second run re-reads every pending entry and
+re-runs every content gate, and it skips only the lint and test gates CI just ran on that exact commit. A
+`main` that is ahead, an unnamed or red check, an unreadable run, or a trunk still moving after three
+rounds refuse as before (#2899), with the reason no catch-up was made. Measured at the v5.25.0 cut, two
+refusals in a row cost about 30 minutes and postponed the release.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A maintainer cutting a release in a repo whose trunk merges often can now finish the cut in one run,
+provided the repo names its test check and its slug, instead of retrying the whole gate until the trunk
+goes quiet.
+
+**Score:** 3
+
+#### Pull Request
+
+cut-release finishes on a busy trunk by fast-forwarding over merges certified by main-push CI
+
+Plugins: dkj-policy
+
+[PR #3158](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3158)
+
+---
 
 ### DEPLOY: fix/3149-repo-hub-reads-this-repo · 20261019-113956Z
 
