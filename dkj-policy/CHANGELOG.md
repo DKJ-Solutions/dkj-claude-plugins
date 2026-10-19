@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**4 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3168-hub-proxies-general-pages · 20261019-150948Z
+
+The repo hub now serves Artifacts, Issues, Release notes and SessionStart from its own origin: it relays
+each from the dkj-solutions general pages server instead of redirecting to that server's port (#3168). The
+hub's pages also take the general pages' theme key, `general-pages`. A theme or width picked on any page
+now holds on all of them; before, the hub and the general pages were two origins with two keys, so a choice
+made on one did not exist on the other, and moving between them read as two different hubs. The General
+card links the pages on the hub's own origin, and the pages' "Repo hub" crumb (`/hub`) is answered by the
+hub. A theme picked on the hub before this change is not carried over once.
+
+**Score:** 3 -- the maintainer sees one theme hold across the hub and every general page, the moment they click between them.
+
+#### What makes this deploy extra special
+
+The plugin's `loopback-server-lib.ps1` gains `Copy-LoopbackUpstream`, and `Format-GeneralPagesCardHtml`
+gains `-SameOrigin`: a repo whose own hub is a PowerShell loopback server can relay the general pages the
+same way. Nothing changes for a repo that does not.
+
+**Score:** 1 -- nothing changes for a consumer until its own hub relays; the failure it prevents is the split theme the owner saw here.
+
+#### Pull Request
+
+Repo hub serves the general pages from its own origin, with one shared theme key
+
+Plugins: dkj-solutions
+
+[PR #3172](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3172)
+
+---
 
 ### DEPLOY: feat/3170-asana-type-option-map · 20261019-150059Z
 
