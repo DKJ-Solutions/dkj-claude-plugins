@@ -66,7 +66,7 @@ Inside this repo the rule is text in the bwj-development page. Nothing reads it.
 In a BWJ store repo, a dev session stops taking the post-live acceptance measurement of a fix whose
 result is a number (PageSpeed, conversion, ranking). It closes the issue instead, with a closed message
 telling the requester how to measure and against which targets. In smartwatchbanden that measurement
-was picked up four times and stalled on PageSpeed quota and missing browser tooling.
+was picked up four times, and three of those stalled on PageSpeed quota and missing browser tooling.
 
 **Score:** 3
 

@@ -844,6 +844,41 @@ comments the workflow could not read (it reads them through REST, `gh api .../is
 its run log then says the read failed, with gh's exit code and error, rather than that no block was on
 the issue (#2875).
 
+#### A result that is a number -- the requester re-measures it, not a dev session
+
+**The second of the five rules under *What the block asks of the requester* holds for a result
+nobody can see: checking a live result against its acceptance belongs to the requester** (Maikel, as
+the requester, October 19, 2026, inbound
+[#3177](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3177)). Some tickets do not end in
+something to look at. They end in a number the requester can measure again: a PageSpeed or LCP target
+after a performance fix, a conversion rate after a CRO change, a ranking after an SEO change.
+
+- **A dev session does not run the post-live acceptance measurement, and does not file one as a
+  follow-up for itself.** The targets go in the issue while the work is built, and the work is finished
+  once it is live and the block is on the task.
+- **The issue closes as completed, as any other does, and the closed message carries the handover**:
+  how to measure (tool, URLs per market, settings, what to read off), the targets to hold it against,
+  the last measurement where the session has one, and when a measurement means something (field data
+  needs its 28 days after the live date). The task stays open with the requester, under the fourth of
+  those rules. It is not parked on `awaiting-review-client`, because nothing is left for the issue to
+  wait on.
+- **A miss the requester reports is a new finding**, researched with the issue still closed and filed or
+  reopened under the third rule like any other rejection.
+
+**The closed message has no form of its own for this yet.** The go-live form assumes a change you can
+see on the storefront, and `-Research` says nothing in the store changed, while here the store did
+change and the effect cannot be seen. A third form is
+[#3179](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3179). Until it lands, the go-live
+form carries it: `[changed]` says the effect is invisible on the storefront and can be measured, and
+`[where]` holds the how-to-measure and the targets.
+
+**Measured in `BWJ-Development/smartwatchbanden`, October 13 to 19, 2026.** A follow-up holding the
+post-live acceptance measurements of a hero-preload fix was picked up four times by dev sessions. Three
+pickups stalled on tooling a session does not reliably have: the keyless PageSpeed API answered
+`429 Quota exceeded`, no browser was connected, and WebPageTest redirected to a site that needs a
+permission. The fourth measured through a connected browser. The requester then ruled the measurement
+was theirs, and an owner made it BWJ-wide rather than a per-repo seam.
+
 ### 5. (Retired October 5, 2026, back October 12, 2026) The Asana prio score comes back as a label
 
 The run that reads the board's **`Prio-Score`** field and sets one of `prio-4` / `prio-3` / `prio-2` /
