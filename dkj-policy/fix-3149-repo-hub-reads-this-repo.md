@@ -49,6 +49,8 @@ The hub's in-flight panel, its Issues and Release notes links, its eyebrow and i
 `DKJ-Solutions/dkj-claude-plugins`. The branch stops for the owner's look: run `npm run dev` in `brandbook/`
 and open the Repo hub.
 
+Approved by the owner on October 19, 2026 ("gezien en akkoord").
+
 ### CREATE
 
 - [x] `RepoDashboard.tsx`: `REPO` is `DKJ-Solutions/dkj-claude-plugins`
