@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**6 / 7 minor entries** <!-- pending-tally -->
+**6 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3153-repo-hub-gate-fact · 20261019-122354Z
+
+The Repo hub's "About this repo" card names the brand book's real gate, `npm run gate` in `brandbook/`, instead of a `lint-web.ps1` script that exists only in the old `dkj-brandbook` repo.
+
+**Score:** 1 -- a wrong fact on this repo's own dev-server page, read by its maintainers.
+
+#### What makes this deploy extra special
+
+The Repo hub is this repo's own dev-server page; nothing a plugin user installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Repo hub names the brand book's real gate, npm run gate
+
+[PR #3159](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3159)
+
+---
 
 ### DEPLOY: feat/3155-cut-release-busy-trunk · 20261019-121133Z
 
