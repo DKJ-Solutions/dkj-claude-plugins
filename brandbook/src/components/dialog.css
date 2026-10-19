@@ -16,25 +16,26 @@ html:has(dialog:modal) { overflow: hidden; }
   text-align: left;
   color: var(--primary-12);
   background: var(--primary-2);
-  border: 1px solid var(--primary-4);
+  border: 1px solid var(--primary-6);
   border-radius: var(--dkj-radius-xl);
 }
 .dkj-dialog::backdrop { background: var(--primary-1); opacity: 0.45; }
 
 /* Tints: the dialog takes the tint on its own surface and border, and the info dialog's children re-declare the
    house colour tokens (the exception in house-style/README.md rule 3), so every box inside follows.
-   The accent dialog takes the theme's tinted surface (--primary-4) as its own, so its text, title and links are
-   --primary-9 (the colour itself, --primary-6, is too close to -4 to read); the info dialog keeps the card (--primary-2) with a --cat-1 border. --primary-6 is re-declared on the children, not on the dialog,
+   The accent dialog takes the theme's tinted surface (--primary-6) as its own, and its title and links stay the
+   colour, --primary-7. The info dialog keeps the card (--primary-2) with a --cat-1 border; --primary-7 is re-declared
+   on the children, not on the dialog,
    so the dialog's own border still takes the outer colour. */
 .dkj-dialog--accent {
-  --primary-2: var(--primary-4);
+  --primary-2: var(--primary-6);
   border-color: var(--primary-5);
 }
-.dkj-dialog--accent .dkj-dialog-title, .dkj-dialog--accent a:any-link { color: var(--primary-9); }
+.dkj-dialog--accent .dkj-dialog-title, .dkj-dialog--accent a:any-link { color: var(--primary-7); }
 .dkj-dialog--info {
   border-color: var(--cat-1);
 }
-.dkj-dialog--info > * { --primary-6: var(--cat-1); }
+.dkj-dialog--info > * { --primary-7: var(--cat-1); }
 
 .dkj-dialog-body { position: relative; padding: var(--spacing-4); }
 
@@ -52,10 +53,10 @@ html:has(dialog:modal) { overflow: hidden; }
 .dkj-dialog-title-row { display: flex; align-items: center; min-width: 0; }
 .dkj-dialog-title-row .dkj-round-toggle { margin: calc(-1 * var(--spacing-2)) 0 calc(-1 * var(--spacing-2)) calc(-1 * var(--spacing-1-5)); }
 .dkj-dialog-title-row .dkj-round-toggle svg { transform: translateY(0.125rem); }
-/* The title is an <h6> (an <h3> as a card heading, an <h5> in a drawer), in the body sans and the house heading colour, --primary-7, like every h3-h6 (#114). */
-.dkj-dialog-title { display: block; margin: 0; min-width: 0; font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-11); overflow-wrap: anywhere; }
+/* The title is an <h6> (an <h3> as a card heading, an <h5> in a drawer), in the body sans and the house heading colour, --primary-8, like every h3-h6 (#114). */
+.dkj-dialog-title { display: block; margin: 0; min-width: 0; font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-10); overflow-wrap: anywhere; }
 .dkj-dialog-title--card { font-size: var(--text-h3); font-weight: var(--dkj-fw-bold); line-height: var(--dkj-lh-tight); }
-.dkj-dialog-sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-base); color: var(--primary-7); }
+.dkj-dialog-sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-base); color: var(--primary-8); }
 .dkj-dialog-text { margin: 0; line-height: 1.45; }
 
 /* Close / save / cancel: no visible border on close; save and cancel show a 36px square inside the 44px tap area. */
@@ -75,7 +76,7 @@ html:has(dialog:modal) { overflow: hidden; }
   border-radius: var(--dkj-radius-md);
   cursor: pointer;
 }
-.dkj-dialog-action:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: var(--dkj-focus-offset); }
+.dkj-dialog-action:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-7); outline-offset: var(--dkj-focus-offset); }
 .dkj-dialog-action svg { position: relative; }
 .dkj-dialog-action--save { color: var(--primary-1); }
 .dkj-dialog-action--cancel { right: calc(var(--spacing-4) + var(--dkj-tap) - 2px); color: var(--negative-5); }
@@ -86,7 +87,7 @@ html:has(dialog:modal) { overflow: hidden; }
   border: 1px solid;
   border-radius: var(--dkj-radius-sm);
 }
-.dkj-dialog-action--save::before { background: var(--primary-6); border-color: var(--primary-6); }
+.dkj-dialog-action--save::before { background: var(--primary-7); border-color: var(--primary-7); }
 .dkj-dialog-action--cancel::before { border-color: var(--negative-5); }
 
 .dkj-dialog-label { display: block; margin: var(--spacing-6) 0 var(--spacing-2); font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-12); }
@@ -117,7 +118,7 @@ html:has(dialog:modal) { overflow: hidden; }
   min-height: 0;
   margin: calc(-1 * var(--spacing-4)) calc(-1 * var(--spacing-4)) 0;
   padding: 0 calc(var(--spacing-4) + var(--dkj-tap) + var(--spacing-2)) 0 var(--spacing-4);
-  border-bottom: 1px solid var(--primary-4);
+  border-bottom: 1px solid var(--primary-6);
 }
 .dkj-dialog--drawer .dkj-dialog-title { font-size: var(--text-h5); font-weight: var(--dkj-fw-bold); }
 .dkj-dialog--drawer .dkj-dialog-action { top: calc((var(--dkj-topbar-h) - var(--dkj-tap)) / 2 + env(safe-area-inset-top)); }

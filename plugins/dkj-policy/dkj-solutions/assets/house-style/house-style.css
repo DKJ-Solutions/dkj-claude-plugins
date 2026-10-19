@@ -18,12 +18,11 @@
        dark, both with those house defaults.
      The dark token block therefore appears twice; keep both in sync.
 
-   How far a theme reaches: every use of --primary-6 (a grey of the colour; links and text in the colour are -9:
-   links, titles, values) (the pressed .seg,
+   How far a theme reaches: every use of --primary-7 (the colour: links, titles, values, fills) (the pressed .seg,
    .badge--info, .meter--info, the settings toggle, focus rings), the text caret and the selection;
-   .btn--primary (a filled main action, owner's decision, October 15, 2026, #109) and native checkboxes, radios, sliders and progress bars take --primary-9 through accent-color. Beyond that, by default: the page, the
+   .btn--primary (a filled main action, owner's decision, October 15, 2026, #109) and native checkboxes, radios, sliders and progress bars take --primary-7 through accent-color. Beyond that, by default: the page, the
    cards and tiles carry a tint of the primary (--primary-1, --primary-2), and every line and tinted surface
-   is --primary-4, with --primary-12 as the text on it. There are no untinted neutrals: text is --primary-12, and --primary-9 is the highlight (h1, a state, a value that stands out) (owner's decisions, October 14 and 15, 2026; h2 is --primary-10 and h3-h6 --primary-11 since October 19, 2026). Status, direction and categorical colours are never tinted. The
+   is --primary-6, with --primary-12 as the text on it. There are no untinted neutrals: text is --primary-12, and --primary-7 is the highlight (h1, a state, a value that stands out) (owner's decisions, October 14 and 15, 2026; h2 is --primary-9 and h3-h6 --primary-10 since October 19, 2026). Status, direction and categorical colours are never tinted. The
    --accent modifiers (header, table) carry it further where an app opts in.
 
    Categorical colours: --cat-1 .. --cat-3 are series slots. Pick a slot per
@@ -37,35 +36,34 @@
 :root {
   color-scheme: light;
 
-  /* the theme's twelve steps in three groups of four (owner's decision, October 19, 2026, replacing the nine of
-     October 14): -1 to -4 the light steps of the colour, -5 to -8 the greys (a faint tint of it, light to dark on
-     light and dark to light on dark), -9 to -12 the dark steps of the colour. Fixed values per theme. Blauw here;
-     each [data-theme] below sets its own twelve.
-     Four anchors per theme (owner's decision, October 19, 2026), all in OKLCH:
-     -1 and -12 sit against the edge of white and black: on light -1 L 0.995 C 0.006 and -12 L 0.12 C 0.03, on dark
-     -1 L 0.13 C 0.02 and -12 L 0.99 C 0.006, each in its old hue.
-     -9 is the theme's colour where it reads best on the ground: the most saturated colour (HSL saturation 100%) of
-     the theme's HSL hue that reaches 4.55:1 on -1. -4 is the same where it reads best on the far end, at 4.55:1 on
-     -12. On light that makes -9 the colour that reads best on white and -4 the one on black; on dark the reverse.
-     The hue is the HSL hue of the owner's original theme colour (Blauw and Hemelsblauw 240), held in HSL
-     because at a constant OKLCH hue a saturated blue turns violet. Lila takes Paars's 270, its light counterpart's:
-     at its own 254 the saturated -4 read as blue (owner, October 19, 2026). 4.55 rather than 4.5 leaves room for rounding.
-     -10 and -11 stay on that hue at full saturation, their HSL lightness evenly between -9 and -12, so the dark
-     steps keep their colour; -2 and -3 run evenly from -1 to -4 in OKLCH (linear in L, C and hue).
-     The greys keep their constants: on light -5 L 0.70, -6 L 0.47 C 0.1135 at most 0.486 relative taken at 0.6,
-     -7 L 0.39 in -6's hue at half its base chroma, -8 L 0.31 in -7's hue and chroma; on dark -5 L 0.38, -6 L 0.538
-     C 0.105 at most 0.49 relative taken at 0.6, -7 L 0.70, -8 L 0.80. -6 has a little more colour than the other three.
+  /* the theme's twelve steps in two groups of six (owner's decision, October 19, 2026, replacing the nine of
+     October 14): -1 to -6 the light half of the colour and -7 to -12 the dark half, with no greys. -6 and -7 are the
+     core, the colour at its most recognisable. Fixed values per theme. Blauw here; each [data-theme] below sets its
+     own twelve. Four anchors per theme:
+     -1 and -12 sit against the edge of white and black (OKLCH): on light -1 L 0.995 C 0.006 and -12 L 0.12 C 0.03, on
+     dark -1 L 0.13 C 0.02 and -12 L 0.99 C 0.006.
+     -7 is the theme's colour where it reads best on the ground: the most saturated colour (HSL saturation 100%) of
+     the theme's HSL hue that reaches 4.55:1 on -1. -6 is the same where it reads best on the far end, at 4.55:1 on
+     -12. On light that makes -7 the colour that reads best on white and -6 the one on black; on dark the reverse.
+     The hue is the HSL hue of the owner's original theme colour (Blauw and Hemelsblauw 240), held in HSL because at a
+     constant OKLCH hue a saturated blue turns violet. Lila takes Paars's 270, its light counterpart's: at its own 254
+     the saturated -6 read as blue. 4.55 rather than 4.5 leaves room for rounding.
+     -2 to -5 run evenly from -1 to -6 in OKLCH (linear in L, C and hue); -8 to -11 stay on the hue at full
+     saturation, their HSL lightness evenly between -7 and -12, so the dark half keeps its colour.
      A role takes the same step in both modes, never light-dark() between two steps (owner's decision, October 15, 2026).
-     -1 the page, and the text on a -6 fill; -2 the cards (tiles, tooltips); -4 every line (borders, row
-     dividers, meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a today row, the
-     accent dialog); -6 the fills (switches, info badges), focus rings, meters and text in
-     the colour (values); -3, -5 and -8 no role yet; -7 sub lines, notes and .muted; -9 the highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus outlines, sorted, pressed) and native controls through accent-color; -10 h2 and -11 h3-h6 (owner's decision, October 19, 2026: an h2 in the h1's colour read too much like it, and a grey h3 did not work; on -12 h1 is -4, h2 is -3 and h3-h6 are -2); -12 the far end: every paragraph, and an inverted
-     surface (the showcase's panel on dark). Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on
-     -1 19.5:1, on -2 13.1:1 and on -4 4.5:1; -9 on -1 4.5:1 (Magenta, Petrol, Roest, Hemelsblauw) and on -2 3.2:1
-     (Magenta); -1 on -9 4.5:1; -6 on the card 4.4:1 on light (Blauw) and 2.9:1 on dark (Roze, Cyaan, Geel, Oranje);
-     -1 on -6 6.7:1 on light and 3.9:1 on dark. */
-  --primary-1: #fdfdff; --primary-2: #caccff; --primary-3: #969aff; --primary-4: #6462ff; --primary-5: #9a9db0; --primary-6: #57596e;
-  --primary-7: #424354; --primary-8: #2e2f3f; --primary-9: #0400ff; --primary-10: #0300b0; --primary-11: #020062; --primary-12: #020511;
+     -1 the page, and the text on a -7 fill; -2 the cards (tiles, tooltips); -5 a stronger border (an open card, a
+     selected box); -6 every line (borders, row dividers, meter track, gridlines) and the tinted surfaces (an accent
+     table head, a hover, a today row, the accent dialog); -7 the highlight: links (owner's decision, October 15,
+     2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus outlines, sorted,
+     pressed), native controls through accent-color, and the fills (switches, info badges), focus rings, meters and
+     text in the colour (values); -8 sub lines, notes and .muted; -9 h2 and -10 h3-h6 (an h2 in the h1's colour read
+     too much like it, and a grey h3 did not work; on -12 h1 is -6, h2 is -4 and h3-h6 are -3); -3 and -11 no role
+     yet; -12 the far end: every paragraph, and an inverted surface (the showcase's panel on dark).
+     Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on -1 19.5:1, on -2 15.6:1 and on -6
+     4.6:1; -7 on -1 4.6:1 and -1 on -7 4.6:1; -7 on -2 3.7:1 (Magenta; below 4.5:1 also in Roest, Lila,
+     Hemelsblauw, Petrol and Oker); -8 on -2 5.2:1. */
+  --primary-1: #fdfdff; --primary-2: #dfdfff; --primary-3: #c0c2ff; --primary-4: #a0a4ff; --primary-5: #8185ff; --primary-6: #6462ff;
+  --primary-7: #0400ff; --primary-8: #0300d0; --primary-9: #0300a1; --primary-10: #020071; --primary-11: #010042; --primary-12: #020511;
 
   /* categorical palette (series slots) */
   --cat-1: #2574d1;          /* dark enough for --primary-1 text on it at 4.5:1 in every light theme (4.51:1, worst Roest; #92) */
@@ -121,8 +119,8 @@
   --column-narrow: 512px;
 
   /* native controls (checkbox, radio, range, progress) and the text caret take the theme */
-  accent-color: var(--primary-9);
-  caret-color: var(--primary-6);
+  accent-color: var(--primary-7);
+  caret-color: var(--primary-7);
 }
 
 /* ---- Tokens: dark, following the OS unless the page forces a theme -------- */
@@ -133,7 +131,7 @@
     color-scheme: dark;
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
     --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-    --primary-1: #01090b; --primary-2: #022c32; --primary-3: #03545d; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #52f1ff; --primary-11: #a3f7ff; --primary-12: #f7fdfd;
+    --primary-1: #01090b; --primary-2: #021d21; --primary-3: #03343a; --primary-4: #044c54; --primary-5: #03656f; --primary-6: #00808c; --primary-7: #00eaff; --primary-8: #31eeff; --primary-9: #62f2ff; --primary-10: #93f6ff; --primary-11: #c4faff; --primary-12: #f7fdfd;
   }
 }
 
@@ -144,7 +142,7 @@
   color-scheme: dark;
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
   --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-  --primary-1: #01090b; --primary-2: #022c32; --primary-3: #03545d; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #52f1ff; --primary-11: #a3f7ff; --primary-12: #f7fdfd;
+  --primary-1: #01090b; --primary-2: #021d21; --primary-3: #03343a; --primary-4: #044c54; --primary-5: #03656f; --primary-6: #00808c; --primary-7: #00eaff; --primary-8: #31eeff; --primary-9: #62f2ff; --primary-10: #93f6ff; --primary-11: #c4faff; --primary-12: #f7fdfd;
 }
 
 /* ---- Themes: the primary colour ------------------------------------------ */
@@ -153,18 +151,18 @@
    two whose primary sits next to the warning colour move the warning away from it. No red and
    no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
    pink, lilac, sky, cyan, yellow, orange (dark). */
-:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --primary-1: #fffdfe; --primary-2: #ffc6e4; --primary-3: #ff86cd; --primary-4: #ff02b7; --primary-5: #aa99a2; --primary-6: #68555f; --primary-7: #4f4049; --primary-8: #392b34; --primary-9: #dc009d; --primary-10: #98006c; --primary-11: #53003c; --primary-12: #0d0208; }
-:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --primary-1: #fefdff; --primary-2: #e0c5ff; --primary-3: #c18aff; --primary-4: #a141ff; --primary-5: #a09caf; --primary-6: #5d576c; --primary-7: #474353; --primary-8: #312e3d; --primary-9: #8100ff; --primary-10: #5900b0; --primary-11: #310062; --primary-12: #07040f; }
-:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fdfdff; --primary-2: #caccff; --primary-3: #969aff; --primary-4: #6462ff; --primary-5: #9a9db0; --primary-6: #57596e; --primary-7: #424354; --primary-8: #2e2f3f; --primary-9: #0400ff; --primary-10: #0300b0; --primary-11: #020062; --primary-12: #020511; }
-:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --primary-1: #f9ffff; --primary-2: #c6fafc; --primary-3: #88f3fc; --primary-4: #00ebff; --primary-5: #98a0a1; --primary-6: #535c5e; --primary-7: #3f4647; --primary-8: #2b3233; --primary-9: #00818c; --primary-10: #005961; --primary-11: #003135; --primary-12: #00070a; }
-:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --primary-1: #fffdfa; --primary-2: #fff2d8; --primary-3: #ffe8a3; --primary-4: #ffe003; --primary-5: #a09f96; --primary-6: #5c5c52; --primary-7: #47463e; --primary-8: #323129; --primary-9: #847400; --primary-10: #5b4f00; --primary-11: #312b00; --primary-12: #080600; }
-:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffdfc; --primary-2: #ffd6c0; --primary-3: #ffab7c; --primary-4: #ff7a00; --primary-5: #a69c96; --primary-6: #635852; --primary-7: #4b443e; --primary-8: #362f29; --primary-9: #ba5900; --primary-10: #813e00; --primary-11: #472200; --primary-12: #0e0300; --warning-3: #b88a00; }
-:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #0d0509; --primary-2: #491030; --primary-3: #901358; --primary-4: #e0007c; --primary-5: #4d3d45; --primary-6: #7c6771; --primary-7: #ac98a2; --primary-8: #ccb7c1; --primary-9: #ff018e; --primary-10: #ff54b3; --primary-11: #ffa7d8; --primary-12: #fffafc; }
-:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #08060e; --primary-2: #2b1253; --primary-3: #5414a4; --primary-4: #7f00ff; --primary-5: #43404f; --primary-6: #6f6b7f; --primary-7: #9f9cae; --primary-8: #bebbce; --primary-9: #a143ff; --primary-10: #c080ff; --primary-11: #debeff; --primary-12: #fcfbff; }
-:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --primary-1: #06060f; --primary-2: #150f54; --primary-3: #1d0ca6; --primary-4: #0000ff; --primary-5: #3f4150; --primary-6: #6b6c80; --primary-7: #9c9daf; --primary-8: #bbbccf; --primary-9: #6363ff; --primary-10: #9696ff; --primary-11: #c8c8ff; --primary-12: #fbfbff; }
-:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --primary-1: #01090b; --primary-2: #022c32; --primary-3: #03545d; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #52f1ff; --primary-11: #a3f7ff; --primary-12: #f7fdfd; }
-:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --primary-1: #0a0701; --primary-2: #302604; --primary-3: #5d4904; --primary-4: #8f6f00; --primary-5: #45423a; --primary-6: #726e64; --primary-7: #a19f95; --primary-8: #c0beb4; --primary-9: #ffc702; --primary-10: #ffd953; --primary-11: #ffeba4; --primary-12: #fdfcf7; --warning-3: #f08a24; }
-:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --primary-1: #0d0502; --primary-2: #431c03; --primary-3: #813400; --primary-4: #c74c00; --primary-5: #4a403a; --primary-6: #796b64; --primary-7: #a89c95; --primary-8: #c7bbb4; --primary-9: #ff6100; --primary-10: #ff9553; --primary-11: #ffc8a6; --primary-12: #fffbf9; }
+:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --primary-1: #fffdfe; --primary-2: #ffddee; --primary-3: #ffbadf; --primary-4: #ff94d1; --primary-5: #ff67c4; --primary-6: #ff02b7; --primary-7: #dc009d; --primary-8: #b30080; --primary-9: #8a0062; --primary-10: #610045; --primary-11: #380028; --primary-12: #0d0208; }
+:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --primary-1: #fefdff; --primary-2: #ecdbff; --primary-3: #dab9ff; --primary-4: #c796ff; --primary-5: #b471ff; --primary-6: #a141ff; --primary-7: #8100ff; --primary-8: #6900d0; --primary-9: #5100a1; --primary-10: #390071; --primary-11: #210042; --primary-12: #07040f; }
+:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fdfdff; --primary-2: #dfdfff; --primary-3: #c0c2ff; --primary-4: #a0a4ff; --primary-5: #8185ff; --primary-6: #6462ff; --primary-7: #0400ff; --primary-8: #0300d0; --primary-9: #0300a1; --primary-10: #020071; --primary-11: #010042; --primary-12: #020511; }
+:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --primary-1: #f9ffff; --primary-2: #dbfcfd; --primary-3: #baf9fc; --primary-4: #96f5fc; --primary-5: #69f0fd; --primary-6: #00ebff; --primary-7: #00818c; --primary-8: #006972; --primary-9: #005158; --primary-10: #00393e; --primary-11: #002124; --primary-12: #00070a; }
+:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --primary-1: #fffdfa; --primary-2: #fff6e7; --primary-3: #fff0cf; --primary-4: #ffeab0; --primary-5: #ffe582; --primary-6: #ffe003; --primary-7: #847400; --primary-8: #6b5e00; --primary-9: #524800; --primary-10: #3a3300; --primary-11: #211d00; --primary-12: #080600; }
+:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffdfc; --primary-2: #ffe6d9; --primary-3: #ffcdb3; --primary-4: #ffb48b; --primary-5: #ff995c; --primary-6: #ff7a00; --primary-7: #ba5900; --primary-8: #984900; --primary-9: #753800; --primary-10: #532800; --primary-11: #301700; --primary-12: #0e0300; --warning-3: #b88a00; }
+:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #0d0509; --primary-2: #2f0c20; --primary-3: #561238; --primary-4: #811450; --primary-5: #af1067; --primary-6: #e0007c; --primary-7: #ff018e; --primary-8: #ff33a4; --primary-9: #ff65ba; --primary-10: #ff96d0; --primary-11: #ffc8e7; --primary-12: #fffafc; }
+:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #08060e; --primary-2: #1c0e36; --primary-3: #331362; --primary-4: #4c1593; --primary-5: #6511c8; --primary-6: #7f00ff; --primary-7: #a143ff; --primary-8: #b368ff; --primary-9: #c68dff; --primary-10: #d8b1ff; --primary-11: #ebd6ff; --primary-12: #fcfbff; }
+:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --primary-1: #06060f; --primary-2: #0f0c37; --primary-3: #180f64; --primary-4: #1d0d95; --primary-5: #1b07c9; --primary-6: #0000ff; --primary-7: #6363ff; --primary-8: #8181ff; --primary-9: #a0a0ff; --primary-10: #bebeff; --primary-11: #ddddff; --primary-12: #fbfbff; }
+:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --primary-1: #01090b; --primary-2: #021d21; --primary-3: #03343a; --primary-4: #044c54; --primary-5: #03656f; --primary-6: #00808c; --primary-7: #00eaff; --primary-8: #31eeff; --primary-9: #62f2ff; --primary-10: #93f6ff; --primary-11: #c4faff; --primary-12: #f7fdfd; }
+:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --primary-1: #0a0701; --primary-2: #201902; --primary-3: #392d03; --primary-4: #544203; --primary-5: #715802; --primary-6: #8f6f00; --primary-7: #ffc702; --primary-8: #ffd233; --primary-9: #ffdd63; --primary-10: #ffe794; --primary-11: #fff2c4; --primary-12: #fdfcf7; --warning-3: #f08a24; }
+:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --primary-1: #0d0502; --primary-2: #2c1203; --primary-3: #4e2002; --primary-4: #742f00; --primary-5: #9c3e00; --primary-6: #c74c00; --primary-7: #ff6100; --primary-8: #ff8032; --primary-9: #ff9f64; --primary-10: #ffbe95; --primary-11: #ffdcc7; --primary-12: #fffbf9; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }
@@ -215,13 +213,13 @@ body > header, main > header { display: flex; justify-content: space-between; al
    pulled in slightly. h3-h6 stay in the body sans. */
 h1, h2 { font-family: var(--font-serif);
   font-weight: 600; letter-spacing: -0.01em; }
-/* h1 is -9, h2 is -10 and h3-h6 are -11, the dark steps of the colour (owner's decision, October 19, 2026: an h2 in the
-   h1's colour read too much like it, and a grey h3 did not work). On a --primary-12 surface h1 takes -4, h2 -3 and
-   h3-h6 -2 instead, set where that surface is. :where() keeps them at
+/* h1 is -7, h2 is -9 and h3-h6 are -10, the dark half of the colour (owner's decision, October 19, 2026: an h2 in the
+   h1's colour read too much like it, and a grey h3 did not work). On a --primary-12 surface h1 takes -6, h2 -4 and
+   h3-h6 -3 instead, set where that surface is. :where() keeps them at
    zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
-:where(h1) { color: var(--primary-9); }
-:where(h2) { color: var(--primary-10); }
-:where(h3, h4, h5, h6) { color: var(--primary-11); }
+:where(h1) { color: var(--primary-7); }
+:where(h2) { color: var(--primary-9); }
+:where(h3, h4, h5, h6) { color: var(--primary-10); }
 h1 { font-size: var(--text-h1); margin: 0; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 /* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
@@ -233,20 +231,20 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 h4 { font-size: var(--text-h4); margin: 0 0 var(--spacing-2); font-weight: 600; }
 h5 { font-size: var(--text-h5); margin: 0 0 var(--spacing-1-5); font-weight: 600; }
 h6 { font-size: var(--text-h6); margin: 0 0 var(--spacing-1); font-weight: 600; }
-.sub { color: var(--primary-7); font-size: var(--text-sm); margin: 0 0 var(--spacing-4); }   /* line under a heading */
-.muted { color: var(--primary-7); font-size: var(--text-sm); }
-.meta { font-size: var(--text-sm); color: var(--primary-10); white-space: nowrap; }
-.note { font-size: var(--text-sm); color: var(--primary-7); margin-top: var(--spacing-1); }
-.footer-note { color: var(--primary-7); font-size: var(--text-sm); margin-top: var(--spacing-6); }
-/* Sub lines (.sub, .dialog__sub) , notes (.note, .footer-note) and .muted are --primary-7, on a <p> too (owner's decision,
+.sub { color: var(--primary-8); font-size: var(--text-sm); margin: 0 0 var(--spacing-4); }   /* line under a heading */
+.muted { color: var(--primary-8); font-size: var(--text-sm); }
+.meta { font-size: var(--text-sm); color: var(--primary-9); white-space: nowrap; }
+.note { font-size: var(--text-sm); color: var(--primary-8); margin-top: var(--spacing-1); }
+.footer-note { color: var(--primary-8); font-size: var(--text-sm); margin-top: var(--spacing-6); }
+/* Sub lines (.sub, .dialog__sub) , notes (.note, .footer-note) and .muted are --primary-8, on a <p> too (owner's decision,
    October 15, 2026). Any other paragraph is --primary-12, the far end (owner's decision, October 14, 2026): .meta on a <p> takes
    it too, while the same class on a span or a div stays -7. A <p> in a status colour, or on a --primary-12 surface,
    sets its own. */
 p, p.meta { color: var(--primary-12); }
 /* Eyebrow: a small uppercase line above a page title, the Repo hub's <owner>/<repo> (#141). Put it on a <p>
-   (the class beats the paragraph colour). The colour is --primary-6, the greyed middle of the scale, as the approved
+   (the class beats the paragraph colour). The colour is --primary-7, the greyed middle of the scale, as the approved
    dashboard draws it; semibold, with the same 0.04em tracking as the settings panel's uppercase labels. */
-.eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-6); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
+.eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-7); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
 /* Lead: the one paragraph under a page title that says what the page is for (#141). On a <p>, in the paragraph
    colour, at the large running size, held to a readable measure. */
 .lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: 1.35; color: var(--primary-12); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */
@@ -256,53 +254,53 @@ p, p.meta { color: var(--primary-12); }
 .delta--down, .neg { color: var(--negative-5); }
 
 /* ---- Links and selection ---------------------------------------------------- */
-/* A link (an <a> with an href) takes the theme's colour as text (--primary-9, owner's decision, October 15, 2026), visited or not: it reaches 6:1
+/* A link (an <a> with an href) takes the theme's colour as text (--primary-7, owner's decision, October 15, 2026), visited or not: it reaches 6:1
    on the tinted page and surface in every theme. :where() keeps each rule at zero specificity, so any class on an
    <a> (a .btn, a .menu-item, an app's own) wins over it without an override. */
-:where(a:any-link) { color: var(--primary-9); text-decoration-thickness: 1px; text-underline-offset: 0.15em; }
+:where(a:any-link) { color: var(--primary-7); text-decoration-thickness: 1px; text-underline-offset: 0.15em; }
 :where(a:any-link:hover) { text-decoration-thickness: 2px; }
-:where(a:any-link:focus-visible) { outline: 2px solid var(--primary-6); outline-offset: 2px; border-radius: 2px; }
-::selection { background: var(--primary-4); }
+:where(a:any-link:focus-visible) { outline: 2px solid var(--primary-7); outline-offset: 2px; border-radius: 2px; }
+::selection { background: var(--primary-6); }
 
 /* ---- Surfaces ------------------------------------------------------------- */
-.card { background: var(--primary-2); border: 1px solid var(--primary-4); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
+.card { background: var(--primary-2); border: 1px solid var(--primary-6); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
 /* Data-card head (#141): <section class="card"><div class="card__head"><h3 class="card__title">Title</h3>
    <p class="card__sub">Sub line</p></div> a .table-wrap or .facts</section>. The head is left-aligned, with no rule between it
-   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --primary-11, never an h2:
+   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --primary-10, never an h2:
    an h2 never stands inside a card, it stands above the card(s) in a .grid__head (#3175). Flex keeps an .info-button on the
    title's centre line. */
 .card__head { text-align: left; }
-.card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h3); font-weight: 600; color: var(--primary-11); }
+.card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h3); font-weight: 600; color: var(--primary-10); }
 /* A status .badge before the title text (#153); the badge is decorative, so the .card__sub says the status too. */
 .card__title > .badge { margin-right: var(--spacing-2); }
 /* A card titled with a plain h3, where its h2 stands above a group of cards (#206): no margin of its own, so the
    .card__sub sits --spacing-1 under it as under a .card__title, which is the same h3 with room for a badge. */
 .card__head > h3 { margin: 0; }
-.card__sub { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--primary-7); }
+.card__sub { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--primary-8); }
 .card > .card__head + * { margin-top: var(--spacing-4); }   /* (0,2,0): beats a body's own margin: 0, such as .facts */
 .hero { display: flex; flex-wrap: wrap; gap: var(--spacing-6) var(--spacing-12); align-items: flex-end; }   /* use with .card */
 .hero .value { font-size: var(--text-h0); font-weight: 600; line-height: 1.1; color: var(--primary-12); }
-.tile { background: var(--primary-2); border: 1px solid var(--primary-4); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
+.tile { background: var(--primary-2); border: 1px solid var(--primary-6); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
 .tile .label { color: var(--primary-12); font-size: var(--text-sm); }
 .tile .v { font-size: var(--text-h4); font-weight: 600; margin-top: var(--spacing-0-5); }
-.mini-card { border: 1px solid var(--primary-4); border-radius: 10px; padding: var(--spacing-3) var(--spacing-3-5); }
+.mini-card { border: 1px solid var(--primary-6); border-radius: 10px; padding: var(--spacing-3) var(--spacing-3-5); }
 .mini-card--highlight { border-color: var(--warning-3); }
 .mini-card__label { font-size: var(--text-sm); color: var(--primary-12); }
 .mini-card__value { font-size: var(--text-lg); font-weight: 600; margin: var(--spacing-0-5) 0 var(--spacing-2); font-variant-numeric: tabular-nums; }
-.notice { background: var(--warning-1); border: 1px solid var(--primary-4); border-radius: 12px; padding: var(--spacing-3) var(--spacing-4); margin-top: var(--spacing-4); }
+.notice { background: var(--warning-1); border: 1px solid var(--primary-6); border-radius: 12px; padding: var(--spacing-3) var(--spacing-4); margin-top: var(--spacing-4); }
 /* Message line: one plain line for a state, a loading line or a warning that data could not be read (#141). A <p>,
    in the paragraph colour at the running size; --warn is the warning in text, --warning-5, semibold. A link in it is
    an ordinary house link. For a boxed message use .notice. */
 .msg { margin: 0; font-size: var(--text-base); color: var(--primary-12); }
 .msg--warn { color: var(--warning-5); font-weight: 600; }
-.item { border-top: 1px solid var(--primary-4); padding: var(--spacing-2-5) 0; }
+.item { border-top: 1px solid var(--primary-6); padding: var(--spacing-2-5) 0; }
 .item b { display: block; font-size: var(--text-sm); margin-bottom: var(--spacing-0-5); }
 .item p { margin: 0; font-size: var(--text-sm); color: var(--primary-12); }
 
 /* ---- Tables --------------------------------------------------------------- */
 .table-wrap { overflow-x: auto; }
 .table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
-.table th, .table td { padding: var(--spacing-2) var(--spacing-2-5); text-align: right; border-bottom: 1px solid var(--primary-4); white-space: nowrap; }
+.table th, .table td { padding: var(--spacing-2) var(--spacing-2-5); text-align: right; border-bottom: 1px solid var(--primary-6); white-space: nowrap; }
 .table th { color: var(--primary-12); font-weight: 600; }
 .table th:first-child, .table td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 .table td { font-variant-numeric: tabular-nums; }
@@ -315,25 +313,25 @@ p, p.meta { color: var(--primary-12); }
    Idle: two faint chevrons, brighter on hover. Active: only the current direction, in full ink. */
 .table th .sort { position: relative; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; border-radius: 3px; }
 .table th .sort::before { content: ""; position: absolute; left: -4px; right: -4px; top: 50%; height: var(--tap); transform: translateY(-50%); }   /* a 44px-high hit area around the label */
-.table th .sort::after { content: ""; position: absolute; left: 0; right: 0; bottom: -5px; height: 2px; border-radius: 1px; background: var(--primary-9); opacity: 0; transition: opacity .15s; }
-.table th .sort:hover, .table th .sort:focus-visible { color: var(--primary-9); }
+.table th .sort::after { content: ""; position: absolute; left: 0; right: 0; bottom: -5px; height: 2px; border-radius: 1px; background: var(--primary-7); opacity: 0; transition: opacity .15s; }
+.table th .sort:hover, .table th .sort:focus-visible { color: var(--primary-7); }
 .table th .sort:hover::after, .table th .sort:focus-visible::after { opacity: .3; }
-.table th .sort:focus-visible { outline: 2px solid var(--primary-9); outline-offset: 4px; }
-.table th[aria-sort="ascending"] .sort, .table th[aria-sort="descending"] .sort { color: var(--primary-9); }
+.table th .sort:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 4px; }
+.table th[aria-sort="ascending"] .sort, .table th[aria-sort="descending"] .sort { color: var(--primary-7); }
 .table th[aria-sort="ascending"] .sort::after, .table th[aria-sort="descending"] .sort::after { opacity: 1; }
 .table th .arrow { position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 3px; width: 8px; height: 12px; line-height: 0; pointer-events: none; }
-.table th .arrow svg { display: block; width: 8px; height: 12px; fill: none; stroke: var(--primary-9); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.table th .arrow svg { display: block; width: 8px; height: 12px; fill: none; stroke: var(--primary-7); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .table th .arrow path { opacity: .5; transition: opacity .15s, stroke .15s; }
-.table th .sort:hover .arrow path, .table th .sort:focus-visible .arrow path { opacity: 1; stroke: var(--primary-9); }
+.table th .sort:hover .arrow path, .table th .sort:focus-visible .arrow path { opacity: 1; stroke: var(--primary-7); }
 .table th[aria-sort="ascending"] .arrow .d, .table th[aria-sort="descending"] .arrow .u { opacity: 0; }
-.table th[aria-sort="ascending"] .arrow .u, .table th[aria-sort="descending"] .arrow .d { opacity: 1; stroke: var(--primary-9); stroke-width: 2; }
+.table th[aria-sort="ascending"] .arrow .u, .table th[aria-sort="descending"] .arrow .d { opacity: 1; stroke: var(--primary-7); stroke-width: 2; }
 @media (prefers-reduced-motion: reduce) { .table th .sort::after, .table th .arrow path { transition: none; } }
 
 /* Facts list (#141): <dl class="facts"><div><dt>Term</dt><dd>Value</dd></div>...</dl>. A term on the left in the text
-   colour, its value on the right in semibold and tabular figures, a --primary-4 rule under every row. Put it in a
+   colour, its value on the right in semibold and tabular figures, a --primary-6 rule under every row. Put it in a
    .card whose .card__head sits above it. */
 .facts { margin: 0; font-variant-numeric: tabular-nums; }
-.facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--spacing-4); padding: var(--spacing-1-5) 0; border-bottom: 1px solid var(--primary-4); }
+.facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--spacing-4); padding: var(--spacing-1-5) 0; border-bottom: 1px solid var(--primary-6); }
 .facts dt { min-width: 0; color: var(--primary-12); }
 .facts dd { margin: 0; white-space: nowrap; font-weight: 600; text-align: right; }
 
@@ -352,14 +350,14 @@ p, p.meta { color: var(--primary-12); }
 .chart svg .val { fill: var(--primary-12); font-variant-numeric: tabular-nums; }
 .chart .bar:hover, .chart .bar:focus-visible { opacity: 0.8; }
 .chart .bar:focus { outline: none; }
-.chart .bar:focus-visible { stroke: var(--primary-9); stroke-width: 2px; }   /* an SVG shape takes no reliable outline, so focus is a stroke */
+.chart .bar:focus-visible { stroke: var(--primary-7); stroke-width: 2px; }   /* an SVG shape takes no reliable outline, so focus is a stroke */
 
 /* ---- Meter ---------------------------------------------------------------- */
 /* Fill colour via --m: <span style="--m: var(--positive-3)"> or a .meter--* class on the meter. */
-.meter { height: 6px; border-radius: 3px; background: var(--primary-4); overflow: hidden; }
+.meter { height: 6px; border-radius: 3px; background: var(--primary-6); overflow: hidden; }
 .meter span { display: block; height: 100%; border-radius: 3px; background: var(--m); }
 .meter--good { --m: var(--positive-3); } .meter--warn { --m: var(--warning-3); }
-.meter--bad { --m: var(--negative-3); }   .meter--info { --m: var(--primary-6); }
+.meter--bad { --m: var(--negative-3); }   .meter--info { --m: var(--primary-7); }
 
 /* ---- Badge ---------------------------------------------------------------- */
 .badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%;
@@ -367,8 +365,8 @@ p, p.meta { color: var(--primary-12); }
 .badge--good    { --b: var(--positive-3); }
 .badge--warn    { --b: var(--warning-3); }
 .badge--bad     { --b: var(--negative-3); }
-.badge--info    { --b: var(--primary-6); color: var(--primary-1); }
-.badge--neutral { --b: var(--primary-4); color: var(--primary-12); }
+.badge--info    { --b: var(--primary-7); color: var(--primary-1); }
+.badge--neutral { --b: var(--primary-6); color: var(--primary-12); }
 .badge--sm { width: 18px; height: 18px; font-size: var(--text-xs); }
 .badge-row { display: flex; align-items: center; gap: var(--spacing-1-5); font-size: var(--text-sm); margin-top: var(--spacing-2); }
 /* A list of badged items (#155): a <ul> of .badge-row <li>s, so a screen reader hears it as a list and its length.
@@ -378,25 +376,25 @@ p, p.meta { color: var(--primary-12); }
 .badge-list > .badge-row:first-child { margin-top: 0; }
 
 /* ---- Buttons -------------------------------------------------------------- */
-.btn { background: none; border: 1px solid var(--primary-4); color: var(--primary-12); border-radius: 8px;
+.btn { background: none; border: 1px solid var(--primary-6); color: var(--primary-12); border-radius: 8px;
   padding: var(--spacing-1) var(--spacing-2-5); font: inherit; font-size: var(--text-sm); cursor: pointer; text-decoration: none; }   /* none: a .btn on an <a> (a link that looks like a button) draws no underline */
 /* Segmented switch: <span class="seg" role="group"><button aria-pressed="true">A</button><button aria-pressed="false">B</button></span>. */
-.seg { display: inline-flex; border: 1px solid var(--primary-4); border-radius: 8px; overflow: hidden; vertical-align: middle; }
+.seg { display: inline-flex; border: 1px solid var(--primary-6); border-radius: 8px; overflow: hidden; vertical-align: middle; }
 .seg button { background: none; border: 0; color: var(--primary-12); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: var(--text-sm); cursor: pointer; }
-.seg button + button { border-left: 1px solid var(--primary-4); }
-.seg button[aria-pressed="true"] { background: var(--primary-6); color: var(--primary-1); }
-.seg button:focus-visible { outline: 2px solid var(--primary-9); outline-offset: -2px; }   /* inset: .seg clips its overflow; ink shows on the page and on the primary */
+.seg button + button { border-left: 1px solid var(--primary-6); }
+.seg button[aria-pressed="true"] { background: var(--primary-7); color: var(--primary-1); }
+.seg button:focus-visible { outline: 2px solid var(--primary-7); outline-offset: -2px; }   /* inset: .seg clips its overflow; ink shows on the page and on the primary */
 /* The round "?" button that opens an explanation tooltip. */
 .info-button { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
-  margin-left: 5px; padding: 0; border-radius: 50%; border: 1px solid var(--primary-4); background: none;
+  margin-left: 5px; padding: 0; border-radius: 50%; border: 1px solid var(--primary-6); background: none;
   color: var(--primary-12); font: 600 var(--text-xs)/1 system-ui, sans-serif; cursor: help; vertical-align: 1px; position: relative; }
 .info-button::after { content: ""; position: absolute; inset: -14px; }  /* a 44px hit target around the 16px mark */
-.info-button:hover, .info-button:focus-visible, .info-button[aria-expanded="true"] { border-color: var(--primary-9); color: var(--primary-9); }
-.info-button:focus-visible { outline: 2px solid var(--primary-6); outline-offset: 2px; }
+.info-button:hover, .info-button:focus-visible, .info-button[aria-expanded="true"] { border-color: var(--primary-7); color: var(--primary-7); }
+.info-button:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 2px; }
 
 /* ---- Tooltip -------------------------------------------------------------- */
 .tooltip { position: fixed; pointer-events: none; background: var(--primary-2); color: var(--primary-12);
-  border: 1px solid var(--primary-4); border-radius: 8px; padding: var(--spacing-2) var(--spacing-2-5); font-size: var(--text-sm);
+  border: 1px solid var(--primary-6); border-radius: 8px; padding: var(--spacing-2) var(--spacing-2-5); font-size: var(--text-sm);
   box-shadow: var(--shadow-pop); display: none; max-width: 280px; z-index: 10; }
 .tooltip b { display: block; margin-bottom: var(--spacing-0-5); }
 .tooltip--explain { max-width: 320px; line-height: 1.45; }
@@ -412,27 +410,27 @@ p, p.meta { color: var(--primary-12); }
 .more summary::after { content: " \25BE"; }
 .more[open] summary::after { content: " \25B4"; }
 .more[open] summary { margin-bottom: var(--spacing-1); }
-.more summary:focus-visible { outline: 2px solid var(--primary-6); outline-offset: 2px; border-radius: 4px; }
+.more summary:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 2px; border-radius: 4px; }
 /* A full-width "read more" button under a block; the extra detail opens ABOVE it, so the toggle
    moves down with the text it reveals. Set aria-expanded from the script. */
 .moretoggle { display: flex; justify-content: center; align-items: center; gap: var(--spacing-1); width: 100%; min-height: var(--tap); cursor: pointer; text-align: center; padding: var(--spacing-2) var(--spacing-4); background: none; border: 0;
-  border-top: 1px solid var(--primary-4); font: 600 var(--text-sm)/1.4 system-ui, sans-serif; color: var(--primary-12); }
+  border-top: 1px solid var(--primary-6); font: 600 var(--text-sm)/1.4 system-ui, sans-serif; color: var(--primary-12); }
 .moretoggle::after { content: " \25BE"; }
 .moretoggle[aria-expanded="true"]::after { content: " \25B4"; }
-.moretoggle:focus-visible { outline: 2px solid var(--primary-9); outline-offset: -2px; }
+.moretoggle:focus-visible { outline: 2px solid var(--primary-7); outline-offset: -2px; }
 
 /* ---- Primary button -------------------------------------------------------- */
-.btn--primary { background: var(--primary-9); border-color: var(--primary-9); color: var(--primary-1); font-weight: 600; }
-.btn--primary:focus-visible { outline: 2px solid var(--primary-6); outline-offset: 2px; }
+.btn--primary { background: var(--primary-7); border-color: var(--primary-7); color: var(--primary-1); font-weight: 600; }
+.btn--primary:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 2px; }
 /* Disabled: one rule for every .btn variant, so an app never adds its own on this reserved class. */
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ---- Theme accents (opt-in) ------------------------------------------------- */
 /* Carry the theme beyond the primary controls, on the surfaces a page is built from. Add one to a
-   house element; an app that does not keeps the base look. Text stays --primary-9, on a tinted
-   surface (--primary-4) too. */
-.header--accent { padding-bottom: var(--spacing-3); border-bottom: 2px solid var(--primary-6); }   /* on the page header */
-.table--accent th { background: var(--primary-4); color: var(--primary-12); }
+   house element; an app that does not keeps the base look. Text stays --primary-7, on a tinted
+   surface (--primary-6) too. */
+.header--accent { padding-bottom: var(--spacing-3); border-bottom: 2px solid var(--primary-7); }   /* on the page header */
+.table--accent th { background: var(--primary-6); color: var(--primary-12); }
 
 /* ---- Theme picker (drawn by house-theme.js: DKJTheme.picker(el)) ------------ */
 /* Two rows of round swatches, light and dark; each swatch is the theme's page colour with its
@@ -441,14 +439,14 @@ p, p.meta { color: var(--primary-12); }
 .theme-picker__row { display: grid; grid-template-columns: 64px 1fr; gap: var(--spacing-4); align-items: center; }
 .theme-picker__label { font-size: var(--text-sm); font-weight: 600; color: var(--primary-12); }
 .theme-picker__swatches { display: flex; gap: var(--spacing-2); flex-wrap: wrap; }
-.theme-swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--primary-4); cursor: pointer; display: grid; place-items: center; }
+.theme-swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--primary-6); cursor: pointer; display: grid; place-items: center; }
 /* Each swatch previews its own theme, whichever theme is current: the theme blocks above also match
    .theme-swatch[data-id="<id>"], so inside a swatch every --primary-* is that theme's own. The swatch is its
-   page (--primary-1) and the dot its colour (--primary-9). */
+   page (--primary-1) and the dot its colour (--primary-7). */
 .theme-swatch { background: var(--primary-1); }
-.theme-swatch i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--primary-9); }
-.theme-swatch[aria-pressed="true"] { outline: 2px solid var(--primary-9); outline-offset: 2px; }   /* the chosen theme */
-.theme-swatch:focus-visible { outline: 2px dashed var(--primary-6); outline-offset: 4px; }       /* keyboard focus: a different ring */
+.theme-swatch i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--primary-7); }
+.theme-swatch[aria-pressed="true"] { outline: 2px solid var(--primary-7); outline-offset: 2px; }   /* the chosen theme */
+.theme-swatch:focus-visible { outline: 2px dashed var(--primary-7); outline-offset: 4px; }       /* keyboard focus: a different ring */
 
 /* ---- Settings button (drawn by house-theme.js: DKJTheme.settings(el)) ------- */
 /* A round toggle that opens a panel with the theme picker, the page width, a reset and the app's own controls
@@ -457,20 +455,20 @@ p, p.meta { color: var(--primary-12); }
 .theme-settings { position: relative; display: inline-block; }
 .theme-settings--floating { position: fixed; top: var(--spacing-3); right: var(--spacing-3); z-index: 20; }
 .theme-settings__toggle { display: inline-flex; align-items: center; justify-content: center; width: var(--tap); height: var(--tap);
-  padding: 0; color: var(--primary-12); background: var(--primary-2); border: 1px solid var(--primary-4); border-radius: 50%;
+  padding: 0; color: var(--primary-12); background: var(--primary-2); border: 1px solid var(--primary-6); border-radius: 50%;
   box-shadow: var(--shadow-pop); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-.theme-settings__toggle:hover { background: var(--primary-4); color: var(--primary-9); }
-.theme-settings__toggle[aria-expanded="true"] { color: var(--primary-9); border-color: var(--primary-9); }   /* open: a state, so the highlight */
-.theme-settings__toggle:focus-visible { outline: 2px solid var(--primary-6); outline-offset: 2px; }
+.theme-settings__toggle:hover { background: var(--primary-6); color: var(--primary-7); }
+.theme-settings__toggle[aria-expanded="true"] { color: var(--primary-7); border-color: var(--primary-7); }   /* open: a state, so the highlight */
+.theme-settings__toggle:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 2px; }
 .theme-settings__close, .theme-settings__toggle[aria-expanded="true"] .theme-settings__open { display: none; }
 .theme-settings__toggle[aria-expanded="true"] .theme-settings__close { display: block; }
 .theme-settings__panel { position: absolute; top: calc(100% + var(--spacing-2)); right: 0; z-index: 20; display: grid; gap: var(--spacing-4);
   width: max-content; max-width: calc(100vw - 2 * var(--spacing-4)); max-height: calc(100dvh - var(--tap) - 2 * var(--spacing-5));
-  overflow-y: auto; padding: var(--spacing-4); text-align: left; background: var(--primary-2); border: 1px solid var(--primary-4);
+  overflow-y: auto; padding: var(--spacing-4); text-align: left; background: var(--primary-2); border: 1px solid var(--primary-6);
   border-radius: 12px; box-shadow: var(--shadow-pop); }
 .theme-settings__panel[hidden] { display: none; }
-.theme-settings__title { margin: 0; font-size: var(--text-lg); font-weight: 600; color: var(--primary-9); }   /* the highlight, as an h2 */
-.theme-settings__group { display: grid; gap: var(--spacing-2); padding-top: var(--spacing-4); border-top: 1px solid var(--primary-4); }
+.theme-settings__title { margin: 0; font-size: var(--text-lg); font-weight: 600; color: var(--primary-7); }   /* the highlight, as an h2 */
+.theme-settings__group { display: grid; gap: var(--spacing-2); padding-top: var(--spacing-4); border-top: 1px solid var(--primary-6); }
 .theme-settings__label { font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-12); }
 .theme-settings__foot { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-4); }
 .theme-settings__extra:empty { display: none; }
@@ -481,8 +479,8 @@ p, p.meta { color: var(--primary-12); }
    App components: the generic, mobile-first parts of an app shell (lifted from MesoWise).
    A form field, touch buttons, a dialog, a side drawer, a top bar and a menu list. Domain
    components stay in the app. Touch targets are at least --tap (44px) high. Every colour
-   pairing below is an existing token pair (--primary-9 on --primary-1 or --primary-2,
-   --negative-5 on --primary-2, --primary-1 on --primary-6) and holds 4.5:1 in every theme.
+   pairing below is an existing token pair (--primary-7 on --primary-1 or --primary-2,
+   --negative-5 on --primary-2, --primary-1 on --primary-7) and holds 4.5:1 in every theme.
    ========================================================================== */
 
 /* ---- Narrow column --------------------------------------------------------- */
@@ -507,13 +505,13 @@ p, p.meta { color: var(--primary-12); }
 .field > span { display: block; font-size: var(--text-base); color: var(--primary-12); margin-bottom: var(--spacing-1); }
 .field input, .field select { display: block; width: 100%; min-height: var(--control-h);
   font: inherit; font-size: 16px;   /* literal: iOS zooms in on focus below 16px, a platform constraint, not a type step */
-  padding: var(--spacing-2) var(--spacing-3); border: 1px solid var(--primary-4); border-radius: 8px;
+  padding: var(--spacing-2) var(--spacing-3); border: 1px solid var(--primary-6); border-radius: 8px;
   background: var(--primary-1); color: var(--primary-12); }
 /* A select draws its own chevron, in the muted colour, with room to the edge. */
 .field select { -webkit-appearance: none; appearance: none; padding-right: var(--spacing-10); text-overflow: ellipsis;
-  background-image: linear-gradient(45deg, transparent 50%, var(--primary-9) 50%), linear-gradient(135deg, var(--primary-9) 50%, transparent 50%);
+  background-image: linear-gradient(45deg, transparent 50%, var(--primary-7) 50%), linear-gradient(135deg, var(--primary-7) 50%, transparent 50%);
   background-position: right 18px center, right 13px center; background-size: 5px 5px; background-repeat: no-repeat; }
-.field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--primary-6); outline-offset: 2px; }
+.field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 2px; }
 .field__error { margin: var(--spacing-1) 0 0; font-size: var(--text-base); color: var(--negative-5); }
 .field__error:empty { display: none; }
 
@@ -523,17 +521,17 @@ p, p.meta { color: var(--primary-12); }
 .btn--touch { display: inline-flex; align-items: center; justify-content: center; min-height: var(--tap);
   padding: var(--spacing-2-5) var(--spacing-4); font-size: var(--text-base); font-weight: 600; color: var(--primary-12);
   background: var(--primary-2); -webkit-tap-highlight-color: transparent; }
-.btn--touch.btn--primary { background: var(--primary-9); border-color: var(--primary-9); color: var(--primary-1); }
-.btn--touch:focus-visible { outline: 2px solid var(--primary-6); outline-offset: 2px; }
+.btn--touch.btn--primary { background: var(--primary-7); border-color: var(--primary-7); color: var(--primary-1); }
+.btn--touch:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 2px; }
 .btn--block { width: 100%; }
 
 /* ---- Icon button and action row --------------------------------------------- */
 /* A filled icon button: an svg that takes the text colour, as tall as a touch target; it grows
    to the width of its row where .action-row stretches it. --ghost is the quiet one (menu button). */
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; min-width: var(--tap); height: var(--tap); padding: 0;
-  border: 0; border-radius: 8px; background: var(--primary-9); color: var(--primary-1); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  border: 0; border-radius: 8px; background: var(--primary-7); color: var(--primary-1); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .icon-btn svg { flex: none; }
-.icon-btn:focus-visible { outline: 2px solid var(--primary-6); outline-offset: 2px; }
+.icon-btn:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 2px; }
 .icon-btn--ghost { background: transparent; color: var(--primary-12); }
 /* A row of icon buttons that share the full width. */
 .action-row { display: flex; gap: var(--spacing-2-5); width: 100%; }
@@ -544,7 +542,7 @@ p, p.meta { color: var(--primary-12); }
    on top of a dialog sets --dialog-scale smaller. The page behind stands still while one is open. */
 .dialog { width: calc(min(100vw, var(--column-narrow)) * var(--dialog-scale, 0.95)); max-width: none; max-height: calc(100% - var(--spacing-8));
   margin: auto; padding: 0; overflow-y: auto; overscroll-behavior: contain; text-align: left;
-  color: var(--primary-12); background: var(--primary-2); border: 1px solid var(--primary-4); border-radius: 16px; }
+  color: var(--primary-12); background: var(--primary-2); border: 1px solid var(--primary-6); border-radius: 16px; }
 .dialog::backdrop { background: var(--primary-1); opacity: 0.45; }
 html:has(dialog:modal) { overflow: hidden; }
 /* The padding sits in the body, so a tap on empty space in the dialog never counts as a tap outside it. */
@@ -553,18 +551,18 @@ html:has(dialog:modal) { overflow: hidden; }
    one-line title sits level with it. */
 .dialog__head { display: flex; align-items: center; min-height: var(--tap); padding-right: calc(var(--tap) + var(--spacing-2)); margin-bottom: var(--spacing-4); }
 .dialog__title { margin: 0; min-width: 0; font-size: var(--text-h6); font-weight: 600; overflow-wrap: anywhere; }
-.dialog__sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-sm); color: var(--primary-7); }
+.dialog__sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-sm); color: var(--primary-8); }
 /* The close button, top right, with no visible border. Variants: --save (a filled plate, the
    check that saves), --cancel (an outlined plate to the left of save, the undo arrow), --back
    (on the left instead, for a second panel). The plates are 36px, the tap area stays 44px, and
    the two tap areas overlap by 2px so the plates stand 6px apart. */
 .dialog__close { position: absolute; top: var(--spacing-4); right: var(--spacing-4); display: flex; align-items: center; justify-content: center;
   width: var(--tap); height: var(--tap); padding: 0; color: var(--primary-12); background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.dialog__close:focus-visible { outline: 2px solid var(--primary-6); outline-offset: 2px; }
+.dialog__close:focus-visible { outline: 2px solid var(--primary-7); outline-offset: 2px; }
 .dialog__close svg { position: relative; }   /* above the plate */
 .dialog__close--save::before, .dialog__close--cancel::before { content: ""; position: absolute; inset: var(--spacing-1); border: 1px solid; border-radius: var(--spacing-1-5); }
 .dialog__close--save { color: var(--primary-1); }
-.dialog__close--save::before { background: var(--primary-6); border-color: var(--primary-6); }
+.dialog__close--save::before { background: var(--primary-7); border-color: var(--primary-7); }
 .dialog__close--cancel { right: calc(var(--spacing-4) + var(--tap) - 2px); color: var(--negative-5); }
 .dialog__close--cancel::before { border-color: var(--negative-5); }
 .dialog__close--back { right: auto; left: var(--spacing-4); }
@@ -581,7 +579,7 @@ html:has(dialog:modal) { overflow: hidden; }
 .dialog--drawer .dialog__body { display: flex; flex-direction: column; min-height: 100%; box-sizing: border-box;
   padding-top: calc(var(--spacing-4) + env(safe-area-inset-top)); padding-bottom: calc(var(--spacing-4) + env(safe-area-inset-bottom)); }
 .dialog--drawer .dialog__head { box-sizing: border-box; height: var(--topbar-h); min-height: 0; margin: calc(-1 * var(--spacing-4)) calc(-1 * var(--spacing-4)) 0;
-  padding: 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)) 0 var(--spacing-4); border-bottom: 1px solid var(--primary-4); }
+  padding: 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)) 0 var(--spacing-4); border-bottom: 1px solid var(--primary-6); }
 .dialog--drawer .dialog__head--two { padding-right: calc(var(--spacing-4) + 2 * var(--tap) + var(--spacing-4)); }
 .dialog--drawer .dialog__head--back { padding: 0 var(--spacing-4) 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)); }
 .dialog--drawer .dialog__title { font-size: var(--text-h5); font-weight: 700; }   /* as the name in the top bar */
@@ -595,7 +593,7 @@ html:has(dialog:modal) { overflow: hidden; }
 /* <header class="topbar"><div class="topbar__inner"><div class="topbar__brand">...</div> a .icon-btn--ghost</div></header>.
    Always at the top, in the surface colour, over the full width; its content lines up with
    the narrow column. A field scrolled into view stays below it. */
-.topbar { display: block; position: sticky; top: 0; z-index: 2; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-4); }
+.topbar { display: block; position: sticky; top: 0; z-index: 2; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-6); }
 .topbar__inner { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: var(--column-narrow); height: var(--topbar-h);
   margin: 0 auto; padding: 0 var(--spacing-1) 0 var(--spacing-4); }
 .topbar__brand { display: flex; align-items: center; gap: var(--spacing-3); min-width: 0; }
@@ -614,10 +612,10 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    column (.container). */
 .breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
-.breadcrumbs a { color: var(--primary-9); text-underline-offset: 2px; }
-.breadcrumbs__sep { color: var(--primary-6); }
+.breadcrumbs a { color: var(--primary-7); text-underline-offset: 2px; }
+.breadcrumbs__sep { color: var(--primary-7); }
 .breadcrumbs [aria-current='page'] { color: var(--primary-12); font-weight: 600; }
-.breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-4); }
+.breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-6); }
 .breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
 /* Under the bar: an anchor lands below it, and the floating settings button moves down by its height. */
 html:has(.breadcrumbs-bar) { scroll-padding-top: var(--tap); }
@@ -628,7 +626,7 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
    <span class="menu-row__value">..</span> an .icon-btn</li></ul>. A line between rows, not above or below. */
 .menu-list { margin: 0; padding: 0; list-style: none; }
 .menu-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--spacing-3); min-height: var(--tap); padding: var(--spacing-2); }
-.menu-row + .menu-row { border-top: 1px solid var(--primary-4); }
+.menu-row + .menu-row { border-top: 1px solid var(--primary-6); }
 .menu-row__label { font-size: var(--text-h6); font-weight: 600; }
 .menu-row__value { min-width: 0; font-size: var(--text-h6); text-align: right; overflow-wrap: anywhere; }
 /* A button at the end of the row is control-h tall and its centre sits under a close button's. */
@@ -637,15 +635,15 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
    <button class="menu-item"><svg class="menu-item__icon"/><span class="menu-item__label">..</span><svg class="menu-item__chevron"/></button> */
 .menu-item { display: flex; align-items: center; gap: var(--spacing-3); width: 100%; min-height: var(--tap); margin: 0; padding: var(--spacing-2);
   border: 0; border-radius: 8px; background: none; font: inherit; text-align: left; text-decoration: none; color: var(--primary-12); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.menu-item + .menu-item { border-top: 1px solid var(--primary-4); border-top-left-radius: 0; border-top-right-radius: 0; }
-.menu-item:focus-visible { outline: 2px solid var(--primary-6); outline-offset: -2px; }   /* inset, so the ring is not cut off by the panel */
+.menu-item + .menu-item { border-top: 1px solid var(--primary-6); border-top-left-radius: 0; border-top-right-radius: 0; }
+.menu-item:focus-visible { outline: 2px solid var(--primary-7); outline-offset: -2px; }   /* inset, so the ring is not cut off by the panel */
 .menu-item__icon, .menu-item__chevron { flex: none; }
 .menu-item__label { flex: 1; min-width: 0; }
 .menu-item__chevron { color: var(--primary-12); }
 /* A navigation row that is a link (#200): <nav class="menu-list"><a class="menu-item" href>..</a><a class="menu-item"..>,
    optionally with a one-line description under the label: <span class="menu-item__label">Label<span class="menu-item__sub">..</span></span>. */
-.menu-item__sub { display: block; font-size: var(--text-sm); font-weight: 400; color: var(--primary-7); }
-a.menu-item:hover { background: var(--primary-4); }
+.menu-item__sub { display: block; font-size: var(--text-sm); font-weight: 400; color: var(--primary-8); }
+a.menu-item:hover { background: var(--primary-6); }
 
 /* ---- Screen readers only --------------------------------------------------------- */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

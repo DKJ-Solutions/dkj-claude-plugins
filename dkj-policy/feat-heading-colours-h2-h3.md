@@ -39,19 +39,24 @@
 
 ### PLAN
 
-Dave, October 19, 2026: the h2 looked too much like the h1 (both `--primary-7`). The first pass gave h2 `-8` and h3
-the grey `-6`. Dave then rejected the grey: a grey h3 does not work, and `-9` is reserved for body text. So the
-scale grows from nine steps to twelve, in three groups of four: `-1` to `-4` the light steps of the colour, `-5` to `-8`
-the greys (a faint tint, light to dark), `-9` to `-12` the dark steps. Dave chose the strict 4/4/4 numbering from a
-menu: old -1 -2 -3 -4 -5 -6 -7 -8 -9 become -1 -2 -4 -5 -6 -7 -9 -10 -12, and -3, -8 and -11 are new. Headings: h1 `-9`,
-h2 `-10`, h3-h6 `-11`. On a `-12` surface they are h1 `-4`, h2 `-3` and h3-h6 `-2`.
+Dave, October 19, 2026, over five rounds on this branch. It started from the h2 reading too much like the h1 (both
+`--primary-7` on the nine-step scale) and ended with a new scale:
 
-#### The anchors (Dave, October 19, 2026, second round)
+- **Twelve steps in two halves of six, no greys:** `-1` to `-6` the light half and `-7` to `-12` the dark half; `-6`
+  and `-7` are the core, the colour at its most recognisable.
+- **Four anchors:** `-1` and `-12` against the edge of white and black; `-7` the most saturated colour of the theme's
+  HSL hue at 4.55:1 on `-1`, and `-6` the same at 4.55:1 on `-12`. The hue is the HSL hue of the owner's original
+  colour, held in HSL because a constant OKLCH hue turned Hemelsblauw violet. Lila takes Paars's 270, because at 254
+  its saturated core read blue.
+- **Even steps:** `-2` to `-5` in OKLCH between `-1` and `-6`; `-8` to `-11` on the hue at full saturation, HSL
+  lightness evenly between `-7` and `-12` (straight in OKLCH they turned grey).
+- **Roles:** page `-1`, cards `-2`, stronger border `-5`, lines and tinted surfaces `-6`, the colour `-7` (h1, links,
+  fills, focus, meters, states), sub lines `-8`, h2 `-9`, h3-h6 `-10`, text `-12`.
 
-`-1` and `-12` sit against the edge of white and black. `-4` and `-9` are the theme's colour where it reads best on
-black or white: `-9` is the most saturated colour of the hue at 4.55:1 on `-1`, and `-4` the same against `-12`.
-`-2`/`-3` and `-10`/`-11` run evenly between them, and the greys stay. The cost, measured: the cards are tinted much
-more, so `-9` on a card drops below 4.5:1 in eight themes (Magenta 3.2:1), and on dark `-6` on a card drops to 2.9:1.
+#### Measured cost
+
+Links (`-7`) on a card (`-2`) stay below 4.5:1 in six themes: Magenta 3.7:1, Roest 3.9:1, Lila 4.1:1,
+Hemelsblauw 4.2:1, Petrol 4.3:1, Oker 4.4:1. That is the owner's call after the look.
 
 #### A visible result
 
@@ -59,8 +64,8 @@ This changes what every page looks like, so the branch stops for the owner's loo
 
 #### Not reachable from here
 
-The README names the Figma library *DKJ-Solutions Theme's - LIBRARY* as the mirror of the theme values. The three
-new steps still have to be added there, by hand.
+The README names the Figma library *DKJ-Solutions Theme's - LIBRARY* as the mirror of the theme values; the new
+scale still has to be put there by hand.
 
 ### CREATE
 
@@ -74,6 +79,7 @@ new steps still have to be added there, by hand.
 - [x] the anchors: every theme's `-1` to `-4` and `-9` to `-12` recomputed. The rule and the measured contrasts are in the stylesheet comment and the README, which drops the old per-step tables
 - [x] third round (Dave: Hemelsblauw's `-9` was nearly as purple as Lila's, and `-10`/`-11` showed little blue): `-4` and `-9` now hold the HSL hue of the owner's original theme colour at full saturation, and `-10`/`-11` stay on that hue at full saturation with only their HSL lightness stepping evenly to `-12`
 - [x] fourth round (Dave: Lila's `-4` read nearly as blue as Hemelsblauw): Lila takes hue 270, its light counterpart Paars's, instead of its own 254
+- [x] fifth round (Dave: the steps were too big, especially `-1` to `-2`; drop the greys): two halves of six with the anchors unchanged, every use renumbered again, the scale comment and README rewritten, and #3193 closed as obsolete
 - [x] `house-theme.js`: each theme's picker dot is its new `-9`; the `house-style` skill pins both new checksums
 - [x] filed #3193: the README's detailed lightness tables disagree with the shipped grey values (it predates this branch)
 
@@ -103,4 +109,4 @@ saturated version of its hue that still reads on the page, and the cards and lin
 
 #### Pull Request
 
-The primary scale grows to twelve steps (4 light, 4 grey, 4 dark); h2 takes -10 and h3-h6 the new -11
+The primary scale becomes twelve steps in two halves of six, anchored at the edges and the colour; h2 takes -9 and h3-h6 -10

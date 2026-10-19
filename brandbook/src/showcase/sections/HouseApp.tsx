@@ -146,7 +146,7 @@ export function HouseDialogsDemo() {
 
 export function HouseTopBarDemo() {
   return (
-    <div style={{ border: '1px solid var(--primary-4)', borderRadius: 'var(--dkj-radius-lg)', overflow: 'hidden', background: 'var(--primary-1)' }}>
+    <div style={{ border: '1px solid var(--primary-6)', borderRadius: 'var(--dkj-radius-lg)', overflow: 'hidden', background: 'var(--primary-1)' }}>
       <header className="topbar">
         <div className="topbar__inner">
           <div className="topbar__brand">
@@ -170,7 +170,7 @@ export function HouseSettingsDemo() {
     window.DKJTheme.settings(ref.current)
   }, [])
   return (
-    <div style={{ border: '1px solid var(--primary-4)', borderRadius: 'var(--dkj-radius-lg)', background: 'var(--primary-1)' }}>
+    <div style={{ border: '1px solid var(--primary-6)', borderRadius: 'var(--dkj-radius-lg)', background: 'var(--primary-1)' }}>
       <header className="topbar">
         <div className="topbar__inner">
           <div className="topbar__brand">
