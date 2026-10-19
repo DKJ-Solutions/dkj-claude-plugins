@@ -1188,6 +1188,67 @@ exit __EXIT__
         Pop-Location
     }
 
+    # --- 19. A trunk tip's CI run, judged by the PR certificate's own function (issue #3155) ---------
+    Write-Host ''
+    Write-Host 'ConvertTo-CommitCheckBucketsJson / Get-TrunkCatchUpDecision -- the cut catches up over a busy trunk' -ForegroundColor Cyan
+    $tipSha = 'c' * 40
+    $runs = {
+        param([object[]]$Pairs)
+        $list = @($Pairs | ForEach-Object {
+            $slug = if ($_.Count -gt 3) { $_[3] } else { 'github-actions' }
+            [pscustomobject]@{ name = $_[0]; status = $_[1]; conclusion = $_[2]; app = [pscustomobject]@{ slug = $slug } }
+        })
+        ConvertTo-Json -InputObject ([pscustomobject]@{ total_count = $list.Count; check_runs = $list }) -Depth 4 -Compress
+    }
+    $greenTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(,@('lint-en-tests', 'completed', 'success')) )
+    Assert-Equal '[{"name":"lint-en-tests","bucket":"pass"}]' $greenTip 'a completed success is pass -- and a one-run payload stays an ARRAY on 5.1'
+    Assert-True (Get-CiTestCertificate -HeadSha $tipSha -PrHeadSha $tipSha -RequiredChecksJson $greenTip -CheckName $named).Certified 'and the PR certificate grants it on the trunk tip'
+
+    $runningTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(@('lint', 'completed', 'success'), @('lint-en-tests', 'in_progress', $null)))
+    $runningCert = Get-CiTestCertificate -HeadSha $tipSha -PrHeadSha $tipSha -RequiredChecksJson $runningTip -CheckName $named
+    Assert-True ((-not $runningCert.Certified) -and $runningCert.InFlight) 'a run not yet completed is pending, so the cut WAITS for it rather than refusing'
+
+    foreach ($c in @('failure', 'cancelled', 'timed_out', 'action_required', 'a-conclusion-nobody-has-heard-of')) {
+        $redTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(,@('lint-en-tests', 'completed', $c)))
+        $redCert = Get-CiTestCertificate -HeadSha $tipSha -PrHeadSha $tipSha -RequiredChecksJson $redTip -CheckName $named
+        Assert-True ((-not $redCert.Certified) -and (-not $redCert.InFlight)) "conclusion '$c' refuses and does not wait"
+    }
+    $skippedTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(,@('lint-en-tests', 'completed', 'skipped')))
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $tipSha -PrHeadSha $tipSha -RequiredChecksJson $skippedTip -CheckName $named).Certified) 'a SKIPPED run of the named check certifies nothing'
+    $spoofTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(,@('lint-en-tests', 'completed', 'success', 'some-other-app')))
+    Assert-Equal '[]' $spoofTip 'a green run under the same name from ANOTHER app is dropped -- only GitHub Actions can certify'
+    $maskTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(@('lint-en-tests', 'completed', 'failure'), @('lint-en-tests', 'completed', 'success', 'some-other-app')))
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $tipSha -PrHeadSha $tipSha -RequiredChecksJson $maskTip -CheckName $named).Certified) 'and it cannot mask a red Actions run either'
+    Assert-Equal '[]' (ConvertTo-CommitCheckBucketsJson -CheckRunsJson '{"total_count":0,"check_runs":[]}') 'no runs yet is an empty list -- "not registered", which refuses'
+    Assert-Equal '' (ConvertTo-CommitCheckBucketsJson -CheckRunsJson 'not json') 'an unparseable payload is "could not be read"'
+    Assert-Equal '' (ConvertTo-CommitCheckBucketsJson -CheckRunsJson '') 'and so is an empty one'
+
+    $decide = {
+        param([hashtable]$Over)
+        $a = @{ Moment = 'after the gates'; BehindCount = 2; AheadCount = 0; Round = 0; MaxRounds = 3; CheckName = 'lint-en-tests'; RepoName = 'o/r' }
+        foreach ($k in $Over.Keys) { $a[$k] = $Over[$k] }
+        Get-TrunkCatchUpDecision @a
+    }
+    Assert-True (& $decide @{}).Allowed 'behind-only after the gates, with a named check and a repo: caught up over'
+    Assert-True (-not (& $decide @{ AheadCount = 1 }).Allowed) 'AHEAD is never caught up over (#2899 stands)'
+    Assert-True (-not (& $decide @{ BehindCount = 0 }).Allowed) 'nothing behind is nothing to catch up over'
+    Assert-True (-not (& $decide @{ Moment = 'before the gates' }).Allowed) 'before the gates on a first run: refused -- running the gates on the new tree is the stronger proof'
+    Assert-True (& $decide @{ Moment = 'before the gates'; InCatchUpRun = $true }).Allowed 'but inside a catch-up re-run, the same moment is caught up over'
+    Assert-True (-not (& $decide @{ Round = 3 }).Allowed) 'past the round bound the cut stops rather than waiting on another CI run'
+    Assert-True ((& $decide @{ Round = 3 }).Reason -match 'not settling') 'and says the trunk is not settling'
+    Assert-True (-not (& $decide @{ CheckName = '' }).Allowed) 'no named check: no catch-up, the pre-#3155 behaviour'
+    Assert-True (-not (& $decide @{ RepoName = '' }).Allowed) 'no repo slug: no catch-up either'
+
+    # THE WIRING IN cut-release: the catch-up sits inside the #2899 refusal, the gates skip only on the
+    # certified commit, and the re-run is a child process.
+    $cutSrc = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\cut-release.ps1'))
+    Assert-True ($cutSrc -match 'Get-TrunkCatchUpDecision -Moment \$Moment') 'cut-release asks the decision from inside the origin check'
+    Assert-True ($cutSrc -match "if \(-not \`$SkipLint -and -not \`$catchUpCertified\)") 'the lint gate is skipped only on a certified catch-up'
+    Assert-True ($cutSrc -match "if \(-not \`$SkipTests -and -not \`$catchUpCertified\)") 'and so is the test gate'
+    Assert-True ($cutSrc -match "catchUpCertified = \(\`$catchUpHead -eq \`$CatchUpCertifiedSha\.Trim\(\)\)") 'and certified means HEAD IS the commit CI proved'
+    Assert-True ($cutSrc -match '& powershell @childArgs') 'the re-run is a child process, not a nested script call'
+    Assert-True ($cutSrc -match "merge', '--ff-only'") 'and the catch-up only ever fast-forwards'
+
 } finally {
     if (Test-Path -LiteralPath $FixtureRoot) {
         Remove-Item -Recurse -Force -LiteralPath $FixtureRoot -ErrorAction SilentlyContinue

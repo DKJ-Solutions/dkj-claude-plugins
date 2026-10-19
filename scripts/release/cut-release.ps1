@@ -75,7 +75,8 @@
 
     Steps (all on main):
       1. Guardrails: clean main, MAIN IS EXACTLY ORIGIN/MAIN (fetched and checked before the gates and
-         again after them, #2899; -SkipOriginCheck overrules), no unfolded entry files in the root, THE BASELINE AGREEING WITH THE
+         again after them, #2899; -SkipOriginCheck overrules; behind-only after the gates is caught up
+         over when the main-push CI run certifies the new tip, #3155), no unfolded entry files in the root, THE BASELINE AGREEING WITH THE
          RELEASE OVERVIEW'S NEWEST ROW (-Type overrules by stating the type outright), THE BUMP EARNED BY
          THE PENDING TIERS (the bump follows the highest tier pending -- tier 0 only is a patch, tier 1 or
          higher earns a minor, a major needs enough minors behind it -- Test-ReleaseBumpEarned;
@@ -168,6 +169,25 @@
     unless local main is exactly origin/main, once before the gates and again after them, before the first
     write. Use it only where origin cannot be reached and you have verified the trunk by other means. A repo
     with no 'origin' remote skips the check on its own and says so.
+
+    AFTER THE GATES, A TRUNK THAT IS ONLY BEHIND IS CAUGHT UP RATHER THAN REFUSED (issue #3155). Where the
+    commits that landed during the gates are certified green by the CI run their push to the trunk started
+    (the check Get-CiTestCheckName names, read for the new origin/main tip, waited for while it is still
+    running), the cut fast-forwards to that tip and runs itself again with -CatchUpCertifiedSha, so every
+    content check reads the new trunk and only the lint and test gates -- which CI just ran on that exact
+    commit -- are not run a second time. Anything else still refuses exactly as before: a trunk AHEAD of
+    origin, no named check, a red or unreadable CI run, or a trunk that keeps moving past
+    $script:CutCatchUpMaxRounds rounds.
+
+.PARAMETER CatchUpCertifiedSha
+    Set by the cut's own catch-up re-run (issue #3155); not for typing by hand. The origin/main tip whose
+    main-push CI run was read green before the fast-forward. While HEAD is that commit, the lint and test
+    gates are reported as certified by CI and not run; on any other HEAD they run as usual. It carries no
+    more authority than -SkipLint -SkipTests, which an operator can already pass.
+
+.PARAMETER CatchUpRound
+    Set by the catch-up re-run alongside -CatchUpCertifiedSha: how many rounds have run so far, so a trunk
+    that keeps moving ends in a refusal instead of an unbounded series of CI waits.
 
 .PARAMETER SkipLint
     Deliberately skip the lint gate (escape valve).
@@ -281,9 +301,15 @@ param(
     [int]$MaxParallel = 0,
     # What the live push carried, and the stated absence of it. See .PARAMETER LivePushRecord.
     [string]$LivePushRecord = '',
-    [switch]$NoLivePushRecord
+    [switch]$NoLivePushRecord,
+    # The catch-up re-run's own state (#3155). See .PARAMETER CatchUpCertifiedSha.
+    [string]$CatchUpCertifiedSha = '',
+    [int]$CatchUpRound = 0
 )
 $ErrorActionPreference = 'Stop'
+# Copied here, at script scope, because the catch-up re-run (#3155) rebuilds this command line from inside
+# a function, where $PSBoundParameters would be that function's own.
+$script:CutBoundParameters = @{} + $PSBoundParameters
 
 # THE REFUSAL VERDICT THAT SURVIVES ITS CALLER (issue #2283). A chain-ending script already prints the close-out
 # receipt when it FINISHES (#1884); this is the other half -- one unmistakable last line when it refuses. The
@@ -359,6 +385,9 @@ if ($absent.Count -gt 0) {
 # load, not write a GitHub body that calls everything live.
 . (Join-Path $PSScriptRoot '..\lib\live-record-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\git-porcelain-lib.ps1')
+# The CI certificate and its wait (#1715, #2317), and the catch-up decision built on them (#3155): the
+# second origin check reads the main-push CI run through the same judging function open-pr uses.
+. (Join-Path $PSScriptRoot '..\lib\gate-lib.ps1')
 # Get-InstallRecord / Test-PluginInstalledHere, for the self-consumption reminder at the foot of this
 # script (#1445). It reads the install administration to decide whether a `plugin update` command is
 # runnable in THIS repo at all -- a question `.claude/settings.json` cannot answer. Dot-sourced here for
@@ -674,8 +703,138 @@ function Assert-TrunkMatchesOrigin([string]$Moment) {
         if ($ahead.Count -gt 10) { $lines += "  ... and $($ahead.Count - 10) more" }
     }
     $remedy = if ($ahead.Count -eq 0) { "Run 'git merge --ff-only origin/main' and cut again." } else { "Reconcile main with origin/main first (push or drop the local commits), then cut again." }
-    Write-Error ("origin check ($Moment): local main is not origin/main -- release aborted, nothing written.`n" + ($lines -join "`n") + "`n" + $remedy)
+
+    # THE CATCH-UP (#3155): where main is only behind and the gates have been paid for, ask whether the
+    # main-push CI run has already proved the new tip, instead of sending the operator round the whole
+    # gate again. A refusal here keeps the #2899 message below, with the reason no catch-up was made.
+    $ciCheckName = if (Test-FunctionDefined 'Get-CiTestCheckName') { [string](Get-CiTestCheckName) } else { '' }
+    $catchUpRepo = [string](Get-SeamValue -Name 'Get-RepoName' -Default '')
+    $catchUp = Get-TrunkCatchUpDecision -Moment $Moment -BehindCount $behind.Count -AheadCount $ahead.Count `
+                                        -Round $CatchUpRound -MaxRounds $script:CutCatchUpMaxRounds `
+                                        -CheckName $ciCheckName -RepoName $catchUpRepo `
+                                        -InCatchUpRun:([bool]$CatchUpCertifiedSha)
+    $catchUpNote = ''
+    if ($catchUp.Allowed) {
+        $catchUpNote = Invoke-TrunkCatchUp -Moment $Moment -CheckName $ciCheckName -RepoName $catchUpRepo -Lines $lines
+    } elseif ($Moment -eq 'after the gates' -or $CatchUpCertifiedSha) {
+        $catchUpNote = $catchUp.Reason
+    }
+    $why = if ($catchUpNote) { "`nNo catch-up (#3155): $catchUpNote." } else { '' }
+    Write-Error ("origin check ($Moment): local main is not origin/main -- release aborted, nothing written.`n" + ($lines -join "`n") + $why + "`n" + $remedy)
     exit 1
+}
+
+# How many times one cut may catch up over a moving trunk before it stops (#3155). Each round waits for one
+# main-push CI run, so this is also the bound on how many of those a cut sits through.
+$script:CutCatchUpMaxRounds = 3
+# How many extra reads the catch-up spends on a check that has not REGISTERED yet on the new tip, one per
+# CiCertificateWaitPollSeconds -- the seconds between a merge and its push run appearing (#3155).
+$script:CutCatchUpRegistrationReads = 4
+
+function Invoke-TrunkCatchUp {
+    <#
+        Read the main-push CI run for origin/main's tip, wait for it while it is still running, and -- only
+        on a green certificate -- fast-forward to that tip and run this cut again on it (#3155). It returns
+        only to REFUSE, with the reason as its string; on success the re-run's exit code ends this process.
+
+        WHY A RE-RUN AND NOT A CONTINUATION. Everything between the two origin checks -- the pending
+        entries, the tier gate, the significance gate, the retractions, the version arithmetic -- was read
+        from the tree before the fast-forward, and the commits it brings carry entries of their own. A fresh
+        process reads all of it again from the new tree; carrying on in this one would cut from facts about
+        the old one. Only the lint and test gates are not run again, because the certificate is CI having
+        run them on this exact commit, on a clean checkout.
+
+        A CHILD PROCESS, NOT `& $PSCommandPath`: a nested script call sees this run's variables wherever the
+        child reads one before it sets it, which in a script this size is a defect nobody would see.
+    #>
+    param([string]$Moment, [string]$CheckName, [string]$RepoName, [string[]]$Lines)
+
+    $tipCap = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', 'refs/remotes/origin/main') -DiscardStderr
+    $tip = (@($tipCap.Output) -join '').Trim()
+    if ($tipCap.ExitCode -ne 0 -or $tip -notmatch '^[0-9a-f]{40}$') { return 'origin/main''s tip could not be read' }
+
+    # The command line the re-run gets: this run's own parameters, minus the catch-up state, which is
+    # replaced. Checked BEFORE anything moves, because Windows PowerShell 5.1 cannot hand a child an
+    # argument carrying a quote faithfully (Get-NativeArgumentDefect, #1966), and a re-run whose -Title
+    # arrived different would cut a different release than the one asked for.
+    $childArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+    foreach ($k in @($script:CutBoundParameters.Keys | Sort-Object)) {
+        if ($k -in @('CatchUpCertifiedSha', 'CatchUpRound')) { continue }
+        $v = $script:CutBoundParameters[$k]
+        if ($v -is [System.Management.Automation.SwitchParameter]) {
+            if ($v.IsPresent) { $childArgs += "-$k" }
+            continue
+        }
+        if ("$v" -eq '') { continue }
+        if (Get-NativeArgumentDefect -Value "$v") {
+            return ("-{0}'s value cannot be handed to a re-run faithfully (a quote, or whitespace before a trailing backslash)" -f $k)
+        }
+        $childArgs += @("-$k", "$v")
+    }
+    $childArgs += @('-CatchUpCertifiedSha', $tip, '-CatchUpRound', "$($CatchUpRound + 1)")
+
+    $short = $tip.Substring(0, 8)
+    Write-Host "origin check ($Moment): main is behind origin/main by commits that landed during the gates --" -ForegroundColor Yellow
+    $Lines | Select-Object -Skip 1 | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
+    Write-Host "  asking the main-push CI run whether '$(Get-DisplayRef -Ref $CheckName)' has proved $short instead (#3155)." -ForegroundColor Cyan
+
+    # Per page 100: the API's default 30 can leave the named check off the first page of a busy commit,
+    # and absent is a refusal, so a short page would refuse a green run.
+    $readChecks = {
+        $rcCap = Invoke-NativeCapture -FilePath 'gh' -Arguments @('api', "repos/$RepoName/commits/$tip/check-runs?per_page=100") -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        if (-not (Test-NativeExitMeasured -Capture $rcCap) -or $rcCap.ExitCode -ne 0) { return $null }
+        [pscustomobject]@{ PrHeadSha = $tip; RequiredChecksJson = (ConvertTo-CommitCheckBucketsJson -CheckRunsJson (@($rcCap.Output) -join "`n")) }
+    }
+    $first = & $readChecks
+    if ($null -eq $first) { return ("the CI run for {0} could not be read (gh api)" -f $short) }
+    $cert = Get-CiTestCertificate -HeadSha $tip -PrHeadSha $first.PrHeadSha -RequiredChecksJson $first.RequiredChecksJson -CheckName $CheckName
+
+    # A REGISTRATION GRACE, because the race this exists for lands here too (code review of #3155): a merge
+    # seconds before this read has a push run that has not registered its check yet, and "not registered"
+    # is a refusal by design -- it cannot be told apart from a check this commit will never get. So a
+    # few reads, bounded, while the named check is ABSENT; anything it then says is judged as before.
+    $wantedName = Get-DisplayRef -Ref $CheckName
+    $isAbsent = {
+        param($Reading)
+        if ($null -eq $Reading -or -not $Reading.RequiredChecksJson) { return $true }
+        try { $recs = @(@($Reading.RequiredChecksJson | ConvertFrom-Json) | Where-Object { $_ -and $_.PSObject.Properties['name'] }) } catch { return $true }
+        return (@($recs | Where-Object { (Get-DisplayRef -Ref ([string]$_.name)) -eq $wantedName }).Count -eq 0)
+    }
+    $graceLeft = $script:CutCatchUpRegistrationReads
+    while (-not $cert.Certified -and -not $cert.InFlight -and $graceLeft -gt 0 -and (& $isAbsent $first)) {
+        Write-Host "  '$wantedName' has not registered on $short yet -- reading again in $($script:CiCertificateWaitPollSeconds)s ($graceLeft left)." -ForegroundColor DarkGray
+        Start-Sleep -Seconds $script:CiCertificateWaitPollSeconds
+        $graceLeft--
+        $next = & $readChecks
+        if ($null -eq $next) { continue }
+        $first = $next
+        $cert = Get-CiTestCertificate -HeadSha $tip -PrHeadSha $first.PrHeadSha -RequiredChecksJson $first.RequiredChecksJson -CheckName $CheckName
+    }
+    if (-not $cert.Certified -and $cert.InFlight) {
+        Write-Host "  $($cert.Note) -- waiting for it, up to $([int]($script:CiCertificateWaitSeconds / 60)) min, one read every $($script:CiCertificateWaitPollSeconds)s." -ForegroundColor Cyan
+        $cert = Wait-CiTestCertificate -HeadSha $tip -CheckName $CheckName -Reader $readChecks `
+                                       -MaxLaps ([Math]::Ceiling($script:CiCertificateWaitSeconds / [double]$script:CiCertificateWaitPollSeconds)) `
+                                       -TimeoutSeconds $script:CiCertificateWaitSeconds `
+                                       -Sleeper { Start-Sleep -Seconds $script:CiCertificateWaitPollSeconds } `
+                                       -OnLap { param($lap, $elapsed) Write-Host ("  still running -- read {0}, {1}s elapsed." -f $lap, [int]$elapsed) -ForegroundColor DarkGray }
+    }
+    if (-not $cert.Certified) { return ("the main-push CI run did not certify {0}: {1}" -f $short, $cert.Note) }
+    Write-Host "  $($cert.Note) -- fast-forwarding main and cutting again on it." -ForegroundColor Green
+
+    $ff = Invoke-NativeCapture -FilePath 'git' -Arguments @('merge', '--ff-only', '--quiet', $tip)
+    if ($ff.ExitCode -ne 0) {
+        $ff.Output | ForEach-Object { Write-Host $_ }
+        return ("'git merge --ff-only {0}' failed (exit {1})" -f $short, $ff.ExitCode)
+    }
+
+    Write-Host ""
+    Write-Host "==== cut-release, catch-up round $($CatchUpRound + 1) of at most $script:CutCatchUpMaxRounds, on $short" -ForegroundColor Cyan
+    # Out-Host, because this function's output is captured by its caller: unpiped, the whole child cut
+    # would arrive in that variable at the end instead of on the console as it runs (code review, #3155).
+    # $LASTEXITCODE survives the pipe. Whatever the child does, main is now origin/main's certified tip --
+    # a fast-forward, nothing committed -- which is the state the #2899 remedy would have asked for anyway.
+    & powershell @childArgs | Out-Host
+    exit $LASTEXITCODE
 }
 Assert-TrunkMatchesOrigin -Moment 'before the gates'
 
@@ -1126,7 +1285,23 @@ $advice
 # A MISSING SCRIPT IS A HARD STOP rather than a warning, which is the second half of the repair. A
 # gate that switches itself off on a condition the operator did not choose is not a gate; -SkipLint is
 # how you choose it, and choosing it is recorded in the command instead of in output that scrolls past.
-if (-not $SkipLint) {
+#
+# A CATCH-UP RE-RUN (#3155) SKIPS BOTH GATES ONLY ON THE COMMIT CI CERTIFIED. The parent read the main-push
+# run for that tip green before it fast-forwarded, and that run is the lint and the suites on a clean
+# checkout of exactly this tree. On any other HEAD -- a commit added since, by anyone -- the gates run.
+$catchUpCertified = $false
+if ($CatchUpCertifiedSha) {
+    $catchUpHead = (@((Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', 'HEAD') -DiscardStderr).Output) -join '').Trim()
+    $catchUpCertified = ($catchUpHead -eq $CatchUpCertifiedSha.Trim())
+    if ($catchUpCertified) {
+        # "As handed in", because this run did not read the certificate itself: the catch-up's parent did,
+        # and a value typed by hand would print the same line (security review, #3155).
+        Write-Host "lint + test gates: certified by the main-push CI run for $($catchUpHead.Substring(0, 8)), as handed in by -CatchUpCertifiedSha (catch-up round $CatchUpRound, #3155) -- not run again." -ForegroundColor Green
+    } else {
+        Write-Host "lint + test gates: HEAD is not the commit the catch-up certified ($(Get-DisplayRef -Ref $CatchUpCertifiedSha)), so both run." -ForegroundColor Yellow
+    }
+}
+if (-not $SkipLint -and -not $catchUpCertified) {
     $lintRel  = Get-SeamValue -Name 'Get-LintScript' -Default 'scripts\lint\check-plugin-integrity.ps1'
     $lintPath = Join-Path $repoRoot $lintRel
     if (-not (Test-Path -LiteralPath $lintPath)) {
@@ -1159,7 +1334,7 @@ if (-not $SkipLint) {
 #
 # Shares Invoke-TestSuiteGate with open-pr.ps1 rather than repeating its loop -- one owner, so the two
 # gates cannot drift into checking different things.
-if (-not $SkipTests) {
+if (-not $SkipTests -and -not $catchUpCertified) {
     if (-not (Invoke-TestSuiteGate -TestsDir (Join-Path $repoRoot 'scripts\tests') -Context 'the release' -MaxParallel $MaxParallel)) {
         Write-Error "test gate found failing suites -- release aborted, nothing written. Fix the tests, or run with -SkipTests to cut without them."
         exit 1

@@ -788,6 +788,37 @@ $cutSectH11 Pull Request
     $r16 = Invoke-Cut -Root $o14.Root -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests', '-SkipOriginCheck')
     Assert-Equal 0 $r16.Code '-SkipOriginCheck: the behind state cuts when the check is skipped deliberately'
     Assert-Says 'skipped (-SkipOriginCheck)' $r16.Out '-SkipOriginCheck: and the run says it skipped'
+    # Behind BEFORE the gates on a first run is still the plain #2899 refusal: nothing has been paid yet.
+    Assert-True (-not (Test-Says -Text $r14.Out -Phrase 'catch-up round')) 'origin behind before the gates: no catch-up is attempted on a first run (#3155)'
+
+    # --- 12b. The catch-up re-run (#3155) ----------------------------------------------------------
+    # The re-run's half is driven here; the parent's half reads a real CI run, which a fixture cannot
+    # have, and is pinned by gate-lib.tests.ps1's pure asserts and its wiring asserts instead.
+    # On the certified commit the lint and test gates are not run: this fixture HAS no lint script, so a
+    # gate that ran anyway would refuse the cut -- which is what makes the exit code the proof.
+    $o18 = New-OriginFixture -Name 'catchup-certified'
+    $head18 = (Get-GitOut -Root $o18.Root -GitArgs @('rev-parse', 'HEAD')).Trim()
+    $r18 = Invoke-Cut -Root $o18.Root -Arguments @('-Bump', 'patch', '-NoPush', '-CatchUpCertifiedSha', $head18, '-CatchUpRound', '1')
+    Assert-Equal 0 $r18.Code 'catch-up re-run on the certified commit: the cut goes through without running the gates'
+    Assert-Says 'certified by the main-push CI run' $r18.Out 'catch-up re-run: and says the gates were certified, not skipped silently'
+    # A trunk that keeps moving ends in a refusal once the rounds are spent, with nothing written.
+    $o19 = New-OriginFixture -Name 'catchup-exhausted'
+    $other19 = Join-Path $FixtureDir 'catchup-exhausted-other'
+    Invoke-NativeCapture -FilePath 'git' -Arguments @('clone', '--quiet', $o19.Bare, $other19) | Out-Null
+    Push-Location $other19
+    try {
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('config', 'user.email', 'fixture@example.invalid') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('config', 'user.name', 'Fixture') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('config', 'commit.gpgsign', 'false') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('commit', '--quiet', '--allow-empty', '-m', 'fold: merged-during-the-catch-up') | Out-Null
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('push', '--quiet', 'origin', 'main') | Out-Null
+    } finally { Pop-Location }
+    $r19 = Invoke-Cut -Root $o19.Root -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests', '-CatchUpCertifiedSha', ('d' * 40), '-CatchUpRound', '3')
+    Assert-True ($r19.Code -ne 0) 'catch-up rounds spent: refused with a non-zero exit'
+    Assert-Says 'not settling' $r19.Out 'catch-up rounds spent: the refusal says the trunk is not settling'
+    $v19 = (Get-Content -LiteralPath (Join-Path $o19.Root 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
+    Assert-Equal '1.4.0' $v19 'catch-up rounds spent: nothing was written'
+    Assert-Equal '' (Get-GitOut -Root $o19.Root -GitArgs @('tag','--list')).Trim() 'catch-up rounds spent: and no tag was created'
 
     # --- 13. A version pin whose file is gone refuses the cut, before anything is written (#3133) -----
     Write-Host ""
