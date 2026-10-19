@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**9 / 25 minor entries** <!-- pending-tally -->
+**10 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3127-pays-nothing · 20261019-063549Z
+
+The dkj-solutions description no longer says a repo that states no `Get-DevPreview` pays nothing: it gets the plugin's placeholder preview on ports 4880-4889, with the general pages beside it (#3127). It prevents a reader from concluding the hook does nothing in a repo without the
+seam, when it starts two servers there.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+The plugin's description, as a consumer reads it in the plugin listing, now matches what the dev-preview hook does in a repo without the seam.
+
+**Score:** 1
+
+#### Pull Request
+
+dkj-solutions description: a repo without Get-DevPreview gets the placeholder, not nothing
+
+Plugins: dkj-solutions
+
+[PR #3141](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3141)
+
+---
 
 ### DEPLOY: feat/3132-brandbook-hub-page · 20261019-062526Z
 
