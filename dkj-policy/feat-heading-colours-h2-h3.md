@@ -46,6 +46,13 @@ the greys (a faint tint, light to dark), `-9` to `-12` the dark steps. Dave chos
 menu: old -1 -2 -3 -4 -5 -6 -7 -8 -9 become -1 -2 -4 -5 -6 -7 -9 -10 -12, and -3, -8 and -11 are new. Headings: h1 `-9`,
 h2 `-10`, h3-h6 `-11`. On a `-12` surface they are h1 `-4`, h2 `-3` and h3-h6 `-2`.
 
+#### The anchors (Dave, October 19, 2026, second round)
+
+`-1` and `-12` sit against the edge of white and black. `-4` and `-9` are the theme's colour where it reads best on
+black or white: `-9` is the most saturated colour of the hue at 4.55:1 on `-1`, and `-4` the same against `-12`.
+`-2`/`-3` and `-10`/`-11` run evenly between them, and the greys stay. The cost, measured: the cards are tinted much
+more, so `-9` on a card drops below 4.5:1 in eight themes (Magenta 3.2:1), and on dark `-6` on a card drops to 2.9:1.
+
 #### A visible result
 
 This changes what every page looks like, so the branch stops for the owner's look before it merges.
@@ -64,6 +71,8 @@ new steps still have to be added there, by hand.
 - [x] `README.md`: the current rules renumbered, the lightness tables given the three new rows, and a nine-to-twelve migration table added for consuming apps. The historical migration tables keep their old numbers
 - [x] `dev-pages-lib.ps1` reads and draws twelve steps per theme
 - [x] `house-style` skill: the new sha256 of `house-style.css`
+- [x] the anchors: every theme's `-1` to `-4` and `-9` to `-12` recomputed. The rule and the measured contrasts are in the stylesheet comment and the README, which drops the old per-step tables
+- [x] `house-theme.js`: each theme's picker dot is its new `-9`; the `house-style` skill pins both new checksums
 - [x] filed #3193: the README's detailed lightness tables disagree with the shipped grey values (it predates this branch)
 
 ### TEST
@@ -85,6 +94,8 @@ table shows twelve columns.
 Every DKJ-Solutions app that takes this release has to renumber its own `--primary-*` uses. The names stay valid,
 so a missed one fails silently and just shows the wrong colour. The README's migration table gives the order. The
 headings change by themselves: h2 moves off the h1's colour to `-10`, and h3-h6 take the new dark step `-11`.
+The colours themselves change too: `-1` and `-12` are almost white and black, the theme's colour (`-9`) is the most
+saturated version of its hue that still reads on the page, and the cards and lines carry clearly more colour.
 
 **Score:** 5
 

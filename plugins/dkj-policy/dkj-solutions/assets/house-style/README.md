@@ -292,71 +292,33 @@ out). Three more things follow it by default, in light and in dark (and a measur
 
 - **Every theme writes out its own twelve values.** `--primary-1` … `--primary-12` are fixed hex values in each
   theme's block, not mixes (owner's decision, October 14, 2026: the percentages were too hard to follow).
-- **On dark `-5` to `-8` are the greys, and `-9` to `-12` carry the colour.** Dark
-  follows the light rule mirrored (owner's decision, October 15, 2026): each step has one OKLCH lightness and one
-  chroma in all six dark themes, capped by relative chroma where a hue holds less, and only the hue differs.
-
-  | Step | OKLCH lightness | Chroma |
-  |---|---|---|
-  | `-1` | 0.19 | 0.035 |
-  | `-2` | 0.21 | 0.045 |
-  | `-3` | 0.265 | halfway between `-2` and `-4`, in `-4`'s hue (October 19, 2026) |
-  | `-4` | 0.32 | 0.08, at most 0.6 relative |
-  | `-5` | 0.458 | a quarter of `-6`'s base chroma, in its hue (October 15, 2026: a step darker, extra grey; October 17, 2026: halved again, greyer) |
-  | `-6` | 0.538 | 0.105, at most 0.49 relative (the owner's Oranje `#8f6249`; at most the chroma of the owner's Hemelsblauw `#4c4c8d`): its base chroma, taken at 0.3 (October 15, 2026: greyer, at 0.6; October 17, 2026: halved again) |
-  | `-7` | 0.618 | a quarter of `-6`'s base chroma, in its hue (October 15, 2026: a step lighter, extra grey; October 17, 2026: halved again, greyer) |
-  | `-8` | 0.80 | `-7`'s chroma, in its hue (October 19, 2026) |
-  | `-9` | 0.80 | 0.99 relative |
-  | `-10` | 0.90 | 0.83 relative |
-  | `-11` | 0.94 | halfway between `-10` and `-12`, in `-10`'s hue (October 19, 2026) |
-  | `-12` | 0.981 | 0.008 |
-
-  Hemelsblauw sits on `#0000ff`'s HSL hue 240, like Blauw.
+- **Four anchors per theme, and even steps between them** (owner's decision, October 19, 2026). In OKLCH:
+  - `-1` and `-12` sit against the edge of white and black. On light, `-1` is L 0.995 C 0.006 and `-12` is
+    L 0.12 C 0.03; on dark, `-1` is L 0.13 C 0.02 and `-12` is L 0.99 C 0.006.
+  - `-9` is the theme's colour where it reads best on the ground: the most saturated colour of the theme's hue
+    that reaches 4.55:1 on `-1`. `-4` is the same colour where it reads best on the far end: the most saturated
+    one that reaches 4.55:1 on `-12`. On a light theme that makes `-9` the colour that reads best on white and
+    `-4` the one that reads best on black; on a dark theme the reverse, so Lila's `-9` is the lilac that reads best
+    on black. Which of the two is the more vivid depends on the hue: a yellow is at its most saturated when it is
+    light, a blue when it is dark.
+  - `-2` and `-3` run evenly from `-1` to `-4`, and `-10` and `-11` from `-9` to `-12`, linear in lightness,
+    chroma and hue.
+  - The greys `-5` to `-8` keep their own constants, which are in the light token comment of `house-style.css`
+    ([#3193](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3193) asks which grey values are meant).
 
   **A role takes the same step in both modes** (owner's decision, October 15, 2026): never `light-dark()` between
   two `--primary-*` steps, and no dark-only rule that picks another step. Text in the theme's colour (values),
-  focus rings, lines and meters are `-6` everywhere, and the text on a `-6` fill is `-1`. On
-  dark that reads at about 3.3:1 (`-1` on `-6` 3.51:1, `-6` on the card 3.38:1, both Roze), which the owner accepted.
-  The picker's dot is `-9` in every theme, on its theme's `-1` (October 17, 2026). The scale runs from the ground (`-1` page, `-2` card:
-  lightest on light, darkest on dark) to the far end (`-11`, `-12`: darkest on light, whitest on dark). `-6` carries the fills
-  in both modes, and the focus rings, with `--primary-1` as text on a fill. **On light every
-  theme behaves the same and only the hue differs** (owner's decision, October 15, 2026): each step has one OKLCH
-  lightness and one chroma in all six, capped at a share of what the hue can hold (relative chroma) where the hue
-  holds less.
-
-  | Step | OKLCH lightness | Chroma | From the owner's example |
-  |---|---|---|---|
-  | `-1` | 0.989 | 0.0053 | Petrol `#faffff`, at the lightest lightness every hue holds |
-  | `-2` | 0.972 | 0.0136 | Petrol `#f2ffff`, the same way |
-  | `-3` | 0.91 | halfway between `-2` and `-4`, in `-4`'s hue | October 19, 2026 |
-  | `-4` | 0.848 | 0.066, at most 0.45 relative | Petrol `#9adae2` |
-  | `-5` | 0.55 | a quarter of `-6`'s base chroma, in its hue | October 15, 2026: a step lighter than `-6`, extra grey; October 17, 2026: halved again |
-  | `-6` | 0.47 | 0.1135, at most 0.486 relative: its base chroma, taken at 0.3 (October 15, 2026: greyer, at 0.6; October 17, 2026: halved again) | Paars `#5d458b`, Magenta `#954c7a`, Blauw `#49498d` |
-  | `-7` | 0.39 | a quarter of `-6`'s base chroma, in its hue | October 15, 2026: a step darker than `-6`, extra grey; October 17, 2026: halved again |
-  | `-8` | 0.31 | `-7`'s chroma, in its hue | October 19, 2026 |
-  | `-9` | 0.369 | 0.99 relative | Blauw `#0707bf` |
-  | `-10` | 0.289 | 0.83 relative | Blauw `#181873` |
-  | `-11` | 0.21 | halfway between `-10` and `-12`, in `-10`'s hue | October 19, 2026 |
-  | `-12` | 0.131 | 0.99 relative | Blauw `#00002b` |
-
-  Each step keeps its hue; Blauw's sit on `#0000ff`'s HSL hue 240, from 264 to 286 in OKLCH as their chroma
-  falls, because at a constant OKLCH hue that blue leans to cyan.
+  focus rings and meters are `-6` everywhere, and the text on a `-6` fill is `-1`. The picker's dot is `-9` in
+  every theme, on its theme's `-1` (October 17, 2026). The scale runs from the ground (`-1` page, `-2` card:
+  lightest on light, darkest on dark) to the far end (`-11`, `-12`: darkest on light, whitest on dark).
 - **A tinted surface takes `-12`.** `--primary-4` is every line and also the surface of the `.table--accent`
   head, the hover of a joined choice and of the settings toggle, a near or today date row, a date row's hover,
-  the accent dialog and an InfoRows box. The text on it is `--primary-12`, like all text, and not the colour
-  (the colour is too close to `-4` on light to read).
-- **How the values were made.** Each step has one OKLCH lightness and one chroma in all six light themes, and
-  one pair in all six dark themes, so the themes differ only in hue (owner's decisions, October 15, 2026). Where
-  a hue cannot hold that chroma, the step takes a fixed share of what it can hold (relative chroma). The constants
-  are in the light token comment of `house-style.css`; the lightness of each step:
-
-  | | -1 | -2 | -3 | -4 | -5 | -6 | -7 | -8 | -9 | -10 | -11 | -12 |
-  |---|---|---|---|---|---|---|---|---|---|---|---|---|
-  | light | 0.989 | 0.972 | 0.91 | 0.848 | 0.70 | 0.47 | 0.39 | 0.31 | 0.369 | 0.289 | 0.21 | 0.131 |
-  | dark | 0.19 | 0.21 | 0.265 | 0.32 | 0.38 | 0.538 | 0.70 | 0.80 | 0.80 | 0.90 | 0.94 | 0.981 |
-
-  `-1` to `-4` are the light steps, `-5` to `-8` the greys and `-9` to `-12` the dark steps of the colour. Blauw and Hemelsblauw sit on `#0000ff`'s HSL
-  hue 240.
+  the accent dialog and an InfoRows box. The text on it is `--primary-12`, like all text, at 4.5:1 or better
+  because `-4` is chosen against `-12`.
+- **Measured** (WCAG relative luminance, worst theme, October 19, 2026): `-12` on `-1` 19.5:1, on `-2` 13.1:1
+  and on `-4` 4.5:1. `-9` on `-1` 4.5:1 and `-1` on `-9` 4.5:1. Below 4.5:1: `-9` on a card (`-2`) in eight
+  themes (lowest Magenta, 3.2:1), and `-6` on a card on dark (2.9:1; 3.38:1 before October 19, which the owner had
+  accepted).
 - **The page and the cards are tinted.** On light the page is the whitest layer and a card sits a shade off it;
   on dark the card is a shade lighter than the page. Either way the page is the ground end (owner's decision,
   October 14, 2026: it used to be the other way round on light).
@@ -366,14 +328,9 @@ out). Three more things follow it by default, in light and in dark (and a measur
 - **Links are the theme's colour**, as `--primary-9` (owner's decision, October 15, 2026: the step that carries the colour, where `-6` is a grey). **`h1` is `--primary-9`, `h2` is `--primary-10` and `h3`–`h6` are `--primary-11`**, the dark steps of the colour;
   on a `--primary-12` surface `h1` is `--primary-4`, `h2` is `--primary-3` and `h3`–`h6` are `--primary-2` (owner's decision, October 19, 2026,
   replacing October 14's `h1`/`h2` in one step and `h3`–`h6` in the next: the `h2` read too much like the `h1`, and a grey `h3` did not work).
-- **Measured** (WCAG relative luminance, worst theme, October 15, 2026): `--primary-12`, all text, reaches
-  17.4:1 or better on the page and 11.9:1 or better on `--primary-4`. `--primary-9`, the highlight, reaches 9.42:1
-  or better on the page and the card on light (Petrol) and 9.02:1 on dark (Roze), 6.53:1 or better on
-  `--primary-4`, and 6.42:1 or better on a warning, negative or positive background (Roze on dark). `--primary-6`
-  reaches 6.25:1 on the card on light (Oker) and 3.38:1 on dark (Roze); `--primary-1` on a `--primary-6` fill
-  6.54:1 on light (Oker) and 3.51:1 on dark (Roze), which the owner accepted. Status, direction and categorical
-  colours (`--positive-3`, `--negative-3`, `--warning-3`, `--cat-*`, `--positive-5`, `--negative-5`) are never
-  tinted.
+- **Status, direction and categorical colours** (`--positive-3`, `--negative-3`, `--warning-3`, `--cat-*`,
+  `--positive-5`, `--negative-5`) are never tinted. The measured contrasts of the primary steps are under the four
+  anchors above.
 
 **What this changes for an app that takes the update:** every page turns a light shade of its theme, and
 the headings take its tint (through `:where()`, so a heading inside a coloured container, or one the app colours itself, keeps that colour). An app that hard-codes a grey next to a house surface will show the seam.

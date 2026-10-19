@@ -39,36 +39,30 @@
 
   /* the theme's twelve steps in three groups of four (owner's decision, October 19, 2026, replacing the nine of
      October 14): -1 to -4 the light steps of the colour, -5 to -8 the greys (a faint tint of it, light to dark on
-     light and dark to light on dark), -9 to -12 the dark steps of the colour. Fixed values per theme. The three
-     steps October 19 added are derived per theme in OKLCH from the steps beside them: -3 halfway between -2 and -4
-     in -4's hue, -8 at L 0.31 (dark: 0.80) in -7's hue and chroma, -11 halfway between -10 and -12 in -10's hue.
-     The rest keep their values from the nine-step scale, renumbered. On light every theme
-     behaves the same and only the hue differs (owner's decision, October 15, 2026): each step has one OKLCH
-     lightness and one chroma in all six, capped at a share of what the hue can hold (relative chroma) where the hue
-     holds less. -1 L 0.989 C 0.0053, -2 L 0.972 C 0.0136 (the owner's Petrol #faffff and #f2ffff, at the lightest
-     lightness every hue holds); -4 L 0.848 C 0.066, at most 0.45 relative (Petrol #9adae2); -5 L 0.70 (October 15, 2026: a big step towards the ground, keeping its hue and chroma) and -7 L 0.39 in -6's hue at half its base chroma (October 15, 2026: the greys a step either side, extra grey); -6 L 0.47 C 0.1135, at
-     most 0.486 relative (the owner's Paars #5d458b, Magenta #954c7a, Blauw #49498d), its base chroma, taken at 0.6 (October 15, 2026: greyer); -9 L 0.369 at 0.99, -10 L 0.289
-     at 0.83 and -12 L 0.131 at 0.99 relative (the owner's Blauw #0707bf, #181873, #00002b). Each step keeps its hue,
-     and Blauw's sit on #0000ff's HSL hue 240, from 264 to 286 in OKLCH as their chroma falls. Dark follows the same rule,
-     mirrored (owner's decision, October 15, 2026): -1 L 0.19 C 0.035, -2 L 0.21 C 0.045, -4 L 0.32 C 0.08 at most
-     0.6 relative, -5 L 0.38 (October 15, 2026: a big step towards the ground, as on light) and -7 L 0.70 (October 15, 2026: a big step lighter, keeping its hue and chroma; 6.58:1 or better on -2), -6 L 0.538 C 0.105 at most 0.49 relative (the owner's Oranje #8f6249, at most the chroma of the owner's
-     Hemelsblauw #4c4c8d) its base chroma, taken at 0.6, -9 L 0.80 at 0.99, -10 L 0.90 at 0.83 relative, -12 L
-     0.981 C 0.008. -5 to -8 are the greys, -6 with a little more colour than the other three, and -9 to -12 carry
-     the colour. A role takes the same step in both modes, never light-dark() between two steps (owner's
-     decision, October 15, 2026): on dark that puts -1 on a -6 fill, and -6 text and rings on -1 and -2, at about
-     3.3:1 (owner accepted). Hemelsblauw sits on #0000ff's HSL hue 240 like Blauw. -1 and -2 are the ground end (lightest
-     on light, darkest on dark), -11 and -12 the far end (darkest on light, whitest on dark). Blauw here; each [data-theme]
-     below sets its own twelve.
+     light and dark to light on dark), -9 to -12 the dark steps of the colour. Fixed values per theme. Blauw here;
+     each [data-theme] below sets its own twelve.
+     Four anchors per theme (owner's decision, October 19, 2026), all in OKLCH:
+     -1 and -12 sit against the edge of white and black: on light -1 L 0.995 C 0.006 and -12 L 0.12 C 0.03, on dark
+     -1 L 0.13 C 0.02 and -12 L 0.99 C 0.006, each in its old hue.
+     -9 is the theme's colour where it reads best on the ground: the most saturated colour of the theme's hue that
+     reaches 4.55:1 on -1. -4 is the same colour where it reads best on the far end: the most saturated that reaches
+     4.55:1 on -12. On light that makes -9 the colour that reads best on white and -4 the one on black; on dark the
+     reverse. 4.55 rather than 4.5 leaves room for rounding to a hex value.
+     -2 and -3 run evenly from -1 to -4, and -10 and -11 from -9 to -12 (linear in L, C and hue).
+     The greys keep their constants: on light -5 L 0.70, -6 L 0.47 C 0.1135 at most 0.486 relative taken at 0.6,
+     -7 L 0.39 in -6's hue at half its base chroma, -8 L 0.31 in -7's hue and chroma; on dark -5 L 0.38, -6 L 0.538
+     C 0.105 at most 0.49 relative taken at 0.6, -7 L 0.70, -8 L 0.80. -6 has a little more colour than the other three.
+     A role takes the same step in both modes, never light-dark() between two steps (owner's decision, October 15, 2026).
      -1 the page, and the text on a -6 fill; -2 the cards (tiles, tooltips); -4 every line (borders, row
      dividers, meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a today row, the
      accent dialog); -6 the fills (switches, info badges), focus rings, meters and text in
      the colour (values); -3, -5 and -8 no role yet; -7 sub lines, notes and .muted; -9 the highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus outlines, sorted, pressed) and native controls through accent-color; -10 h2 and -11 h3-h6 (owner's decision, October 19, 2026: an h2 in the h1's colour read too much like it, and a grey h3 did not work; on -12 h1 is -4, h2 is -3 and h3-h6 are -2); -12 the far end: every paragraph, and an inverted
-     surface (the showcase's panel on dark). Measured (WCAG relative luminance) worst cases: -6 on the card 6.25:1
-     on light (Oker), -1 on -6 6.54:1 on light (Oker) and 3.51:1 on dark (Roze), -6 on the card 3.38:1 on dark (Roze), -9 on -4 6.53:1 on light (Petrol);
-     -9, the highlight, on -1 and -2 at 9.42:1 or better on light (Petrol) and 9.02:1 on dark (Roze), and 6.42:1 or better
-     on a status background (Roze on dark). */
-  --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #dfdff2; --primary-4: #cacae4; --primary-5: #9a9db0; --primary-6: #57596e;
-  --primary-7: #424354; --primary-8: #2e2f3f; --primary-9: #0704c0; --primary-10: #181675; --primary-11: #0c094b; --primary-12: #000325;
+     surface (the showcase's panel on dark). Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on
+     -1 19.5:1, on -2 13.1:1 and on -4 4.5:1; -9 on -1 4.5:1 (Magenta, Petrol, Roest, Hemelsblauw) and on -2 3.2:1
+     (Magenta); -1 on -9 4.5:1; -6 on the card 4.4:1 on light (Blauw) and 2.9:1 on dark (Roze, Cyaan, Geel, Oranje);
+     -1 on -6 6.7:1 on light and 3.9:1 on dark. */
+  --primary-1: #fdfdff; --primary-2: #c6ccff; --primary-3: #869dff; --primary-4: #366bff; --primary-5: #9a9db0; --primary-6: #57596e;
+  --primary-7: #424354; --primary-8: #2e2f3f; --primary-9: #0d00ff; --primary-10: #0214a6; --primary-11: #011156; --primary-12: #020511;
 
   /* categorical palette (series slots) */
   --cat-1: #2574d1;          /* dark enough for --primary-1 text on it at 4.5:1 in every light theme (4.51:1, worst Roest; #92) */
@@ -136,7 +130,7 @@
     color-scheme: dark;
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
     --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-    --primary-1: #00181a; --primary-2: #001d20; --primary-3: #0d2a2c; --primary-4: #1d383a; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #0fd6e8; --primary-10: #97eff9; --primary-11: #c8f5fb; --primary-12: #f3fbfb;
+    --primary-1: #01090a; --primary-2: #022d30; --primary-3: #02555c; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00ebff; --primary-10: #88f3fc; --primary-11: #c4f9fb; --primary-12: #f7fdfd;
   }
 }
 
@@ -147,7 +141,7 @@
   color-scheme: dark;
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
   --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-  --primary-1: #00181a; --primary-2: #001d20; --primary-3: #0d2a2c; --primary-4: #1d383a; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #0fd6e8; --primary-10: #97eff9; --primary-11: #c8f5fb; --primary-12: #f3fbfb;
+  --primary-1: #01090a; --primary-2: #022d30; --primary-3: #02555c; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00ebff; --primary-10: #88f3fc; --primary-11: #c4f9fb; --primary-12: #f7fdfd;
 }
 
 /* ---- Themes: the primary colour ------------------------------------------ */
@@ -156,18 +150,18 @@
    two whose primary sits next to the warning colour move the warning away from it. No red and
    no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
    pink, lilac, sky, cyan, yellow, orange (dark). */
-:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --primary-1: #fefafc; --primary-2: #fdf2f8; --primary-3: #f1d9e6; --primary-4: #e5c1d4; --primary-5: #aa99a2; --primary-6: #68555f; --primary-7: #4f4049; --primary-8: #392b34; --primary-9: #720252; --primary-10: #4b0e37; --primary-11: #2f0421; --primary-12: #15000d; }
-:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --primary-1: #fcfbff; --primary-2: #f6f4fe; --primary-3: #e2def1; --primary-4: #cfc9e4; --primary-5: #a09caf; --primary-6: #5d576c; --primary-7: #474353; --primary-8: #312e3d; --primary-9: #4f0399; --primary-10: #331263; --primary-11: #1e0640; --primary-12: #0c0020; }
-:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fbfbff; --primary-2: #f5f5ff; --primary-3: #dfdff2; --primary-4: #cacae4; --primary-5: #9a9db0; --primary-6: #57596e; --primary-7: #424354; --primary-8: #2e2f3f; --primary-9: #0704c0; --primary-10: #181675; --primary-11: #0c094b; --primary-12: #000325; }
-:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --primary-1: #f8fdfd; --primary-2: #ecf9f9; --primary-3: #c4eaee; --primary-4: #9adae2; --primary-5: #98a0a1; --primary-6: #535c5e; --primary-7: #3f4647; --primary-8: #2b3233; --primary-9: #02494f; --primary-10: #0d3135; --primary-11: #031d20; --primary-12: #000a0c; }
-:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --primary-1: #fcfbf8; --primary-2: #f8f6ec; --primary-3: #e7e3c5; --primary-4: #d7cf9d; --primary-5: #a09f96; --primary-6: #5c5c52; --primary-7: #47463e; --primary-8: #323129; --primary-9: #494001; --primary-10: #312c0a; --primary-11: #1c1903; --primary-12: #0a0700; }
-:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffaf8; --primary-2: #fef4ee; --primary-3: #f2ddd1; --primary-4: #e5c6b4; --primary-5: #a69c96; --primary-6: #635852; --primary-7: #4b443e; --primary-8: #362f29; --primary-9: #633001; --primary-10: #41220a; --primary-11: #281202; --primary-12: #110400; --warning-3: #b88a00; }
-:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #1e0d18; --primary-2: #260f1e; --primary-3: #39172e; --primary-4: #4d203f; --primary-5: #4d3d45; --primary-6: #7c6771; --primary-7: #ac98a2; --primary-8: #ccb7c1; --primary-9: #fe97d0; --primary-10: #fad0e5; --primary-11: #fce4f0; --primary-12: #fef7f9; }
-:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #161021; --primary-2: #1b132a; --primary-3: #2a1d3f; --primary-4: #392855; --primary-5: #43404f; --primary-6: #6f6b7f; --primary-7: #9f9cae; --primary-8: #bebbce; --primary-9: #c2affe; --primary-10: #e0d9f9; --primary-11: #ede9fb; --primary-12: #faf8fd; }
-:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --primary-1: #121223; --primary-2: #15152c; --primary-3: #202042; --primary-4: #2c2c5a; --primary-5: #3f4150; --primary-6: #6b6c80; --primary-7: #9c9daf; --primary-8: #bbbccf; --primary-9: #b5b5fe; --primary-10: #dbdbf9; --primary-11: #e9e9fc; --primary-12: #f8f8fe; }
-:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --primary-1: #00181a; --primary-2: #001d20; --primary-3: #0d2a2c; --primary-4: #1d383a; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #0fd6e8; --primary-10: #97eff9; --primary-11: #c8f5fb; --primary-12: #f3fbfb; }
-:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --primary-1: #1a1302; --primary-2: #1f1800; --primary-3: #2d240c; --primary-4: #3a321b; --primary-5: #45423a; --primary-6: #726e64; --primary-7: #a19f95; --primary-8: #c0beb4; --primary-9: #e8b70c; --primary-10: #f9db90; --primary-11: #faeac3; --primary-12: #fbf9f3; --warning-3: #f08a24; }
-:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --primary-1: #200f05; --primary-2: #281105; --primary-3: #371e0e; --primary-4: #472b1a; --primary-5: #4a403a; --primary-6: #796b64; --primary-7: #a89c95; --primary-8: #c7bbb4; --primary-9: #fea56e; --primary-10: #fad6c1; --primary-11: #fce7da; --primary-12: #fef7f5; }
+:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --primary-1: #fffdfe; --primary-2: #ffc6e5; --primary-3: #ff87ce; --primary-4: #ff01bb; --primary-5: #aa99a2; --primary-6: #68555f; --primary-7: #4f4049; --primary-8: #392b34; --primary-9: #dc00a1; --primary-10: #8e0c69; --primary-11: #480935; --primary-12: #0d0208; }
+:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --primary-1: #fefdff; --primary-2: #d7c8ff; --primary-3: #b390ff; --primary-4: #934bff; --primary-5: #a09caf; --primary-6: #5d576c; --primary-7: #474353; --primary-8: #312e3d; --primary-9: #8701ff; --primary-10: #5810a5; --primary-11: #2c0d54; --primary-12: #07040f; }
+:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fdfdff; --primary-2: #c6ccff; --primary-3: #869dff; --primary-4: #366bff; --primary-5: #9a9db0; --primary-6: #57596e; --primary-7: #424354; --primary-8: #2e2f3f; --primary-9: #0d00ff; --primary-10: #0214a6; --primary-11: #011156; --primary-12: #020511; }
+:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --primary-1: #f9ffff; --primary-2: #c6fafd; --primary-3: #89f5fd; --primary-4: #01edff; --primary-5: #98a0a1; --primary-6: #535c5e; --primary-7: #3f4647; --primary-8: #2b3233; --primary-9: #00828c; --primary-10: #00545c; --primary-11: #002b30; --primary-12: #000709; }
+:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --primary-1: #fffdf9; --primary-2: #fff4cd; --primary-3: #ffec93; --primary-4: #ffe300; --primary-5: #a09f96; --primary-6: #5c5c52; --primary-7: #47463e; --primary-8: #323129; --primary-9: #847500; --primary-10: #574b00; --primary-11: #2d2500; --primary-12: #080600; }
+:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffdfc; --primary-2: #ffd8c5; --primary-3: #ffb183; --primary-4: #ff8500; --primary-5: #a69c96; --primary-6: #635852; --primary-7: #4b443e; --primary-8: #362f29; --primary-9: #b65d00; --primary-10: #783b01; --primary-11: #3f1c01; --primary-12: #0e0300; --warning-3: #b88a00; }
+:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #0d0509; --primary-2: #481036; --primary-3: #8d1267; --primary-4: #da009b; --primary-5: #4d3d45; --primary-6: #7c6771; --primary-7: #ac98a2; --primary-8: #ccb7c1; --primary-9: #ff00b5; --primary-10: #ff87c3; --primary-11: #ffc5db; --primary-12: #fffafc; }
+:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #08060e; --primary-2: #2d1152; --primary-3: #5713a4; --primary-4: #8200ff; --primary-5: #43404f; --primary-6: #6f6b7f; --primary-7: #9f9cae; --primary-8: #bebbce; --primary-9: #904fff; --primary-10: #b58fff; --primary-11: #dac5ff; --primary-12: #fcfbff; }
+:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --primary-1: #06060f; --primary-2: #1f1355; --primary-3: #3e16a6; --primary-4: #6100ff; --primary-5: #3f4150; --primary-6: #6b6c80; --primary-7: #9c9daf; --primary-8: #bbbccf; --primary-9: #755cff; --primary-10: #9d97ff; --primary-11: #cbcaff; --primary-12: #fbfbff; }
+:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --primary-1: #01090a; --primary-2: #022d30; --primary-3: #02555c; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00ebff; --primary-10: #88f3fc; --primary-11: #c4f9fb; --primary-12: #f7fdfd; }
+:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --primary-1: #0a0701; --primary-2: #312604; --primary-3: #5e4904; --primary-4: #907000; --primary-5: #45423a; --primary-6: #726e64; --primary-7: #a19f95; --primary-8: #c0beb4; --primary-9: #ffc900; --primary-10: #fedc7e; --primary-11: #fdecbe; --primary-12: #fdfcf7; --warning-3: #f08a24; }
+:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --primary-1: #0d0502; --primary-2: #3f1e06; --primary-3: #793a07; --primary-4: #b95900; --primary-5: #4a403a; --primary-6: #796b64; --primary-7: #a89c95; --primary-8: #c7bbb4; --primary-9: #ff7d00; --primary-10: #ffab82; --primary-11: #ffd4c4; --primary-12: #fffbf9; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }
