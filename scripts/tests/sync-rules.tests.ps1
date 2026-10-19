@@ -755,6 +755,11 @@ sync-main.tests.ps1 goes from 20 to 32 asserts. One earns its place twice: the
     # moved; the question is now per path, so "untouched" is only an answer where a base EXISTS to be
     # untouched since.
     Assert-Equal 'keep-trunk' (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs $true).Action  'verdict/M+ours: the trunk has moved on, so it wins'
+    # #3146: the trunk's newest touch is its agreement point, so live went BACK -- a third party's revert.
+    Assert-Equal 'take-live'  (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs $true -PathAgreementKnown $true -MainTouchedSinceFloor $false).Action 'verdict/M+ours+trunk-stationary: a revert on live is taken, not held back'
+    Assert-Equal 'keep-trunk' (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs $true -PathAgreementKnown $true -MainTouchedSinceFloor $true).Action  'verdict/M+ours+trunk-moved: the trunk still wins'
+    Assert-Equal 'keep-trunk' (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs $true -PathAgreementKnown $false).Action 'verdict/M+ours+no-agreement: nothing proves live moved, so the trunk wins'
+    Assert-Equal 'keep-trunk' (Get-SyncFileVerdict -Status 'A' -LiveContentIsOurs $true -PathAgreementKnown $true -MainTouchedSinceFloor $false).Action 'verdict/A+ours+trunk-stationary: a deletion is still never undone'
     Assert-Equal 'take-live'  (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs $false -PathAgreementKnown $true).Action 'verdict/M+foreign: a third party''s edit to a path untouched since ITS OWN base is taken'
     Assert-Equal 'conflict'   (Get-SyncFileVerdict -Status 'M' -LiveContentIsOurs $false -MainTouchedSinceFloor $true -PathAgreementKnown $true).Action 'verdict/M+both: both sides moved, so neither is taken'
     Assert-Equal 'keep-trunk' (Get-SyncFileVerdict -Status 'A' -LiveContentIsOurs $true).Action  'verdict/A+ours: a deliberate deletion is not undone'
