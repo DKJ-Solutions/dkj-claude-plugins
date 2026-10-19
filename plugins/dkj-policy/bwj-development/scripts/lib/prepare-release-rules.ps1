@@ -281,8 +281,8 @@ function Format-ReleaseRunbook {
         the paste-safety refusal of the push list does not apply; the verification pull still names the
         files and keeps that refusal. The order stays promote-then-cut, as #2998 decided.
 
-        THE APP DEPLOY (#3174). With -AppFiles under a printable -AppRoot, step 2 gains the
-        `shopify app deploy` command (Format-ShopifyAppDeployCommand, in the mirrored live-push-rules),
+        THE APP DEPLOY (#3174). With -AppFiles under a printable -AppRoot, the runbook gains a step 2b
+        with the `shopify app deploy` command (Format-ShopifyAppDeployCommand, in the mirrored live-push-rules),
         in either mode: no push or promotion carries an app's files. A person runs it, as the push.
     #>
     param(

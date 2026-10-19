@@ -541,7 +541,8 @@ if (-not $sinceTag) {
         if ($connected -and $pushFiles.Count -eq 0 -and $deleteFiles.Count -eq 0) {
             # A NOTE, NOT A REFUSAL: what the promotion carries is measured against the deploy branch at
             # step 6, and a range with no theme file can still follow a release that was never promoted.
-            Add-Step -Name 'push list' -State 'warn' -Detail "nothing in $sinceTag..HEAD is a theme file, so this release changes nothing on live by itself. Step 6 measures what the promotion carries."
+            $appText = if ($appFiles.Count -gt 0) { ' The app deploy printed at the end is this release''s own live step.' } else { '' }
+            Add-Step -Name 'push list' -State 'warn' -Detail "nothing in $sinceTag..HEAD is a theme file, so this release changes no theme by itself. Step 6 measures what the promotion carries.$appText"
         } elseif ($connected) {
             $delText = if ($deleteFiles.Count -gt 0) { " and $($deleteFiles.Count) deleted" } else { '' }
             Add-Step -Name 'push list' -State 'pass' -Detail "$($pushFiles.Count) theme file(s) changed$delText in the range, out of $($changed.Count) -- they go live with the promotion."
@@ -909,6 +910,9 @@ if ($connected) {
     # Reported above.
 } elseif ($unsafeAtCommand.Count -gt 0) {
     Add-Step -Name 'command' -State 'skip' -Detail "not composed: $($unsafeAtCommand.Count) path(s) in the push list are not safe to paste, and the push-list step names them."
+} elseif (-not $pushCommand -and -not $deleteCommand -and $appFiles.Count -gt 0) {
+    # AN APP-ONLY RELEASE (#3174): no theme command, and that is the measured answer rather than a gap.
+    Add-Step -Name 'command' -State 'pass' -Detail 'no theme file to push, so no push command -- the app deploy is printed at the end.'
 } elseif (-not $pushCommand -and -not $deleteCommand) {
     Add-Step -Name 'command' -State 'skip' -Detail 'no push list, so no command was composed. A theme push without --only pushes the WHOLE theme, which is never printed from here.'
 } else {
@@ -997,8 +1001,10 @@ if ($appCommand) {
     Write-Host ''
     Write-Host "The app deploy -- $($appFiles.Count) file(s) under '$appRoot/', for a person to run from the repo root:" -ForegroundColor Cyan
     Write-Host "  $appCommand"
+    $beside = if ($connected) { 'the promotion' } else { 'the push' }
     Write-Host '  It releases a new version of the app to the store. A theme that places a block this deploy' -ForegroundColor Yellow
-    Write-Host '  adds needs the deploy first; otherwise its order beside the push is yours.' -ForegroundColor Yellow
+    Write-Host "  adds needs the deploy first; otherwise its order beside $beside is yours." -ForegroundColor Yellow
+    # NO LIVE-PUSH RECORD NAMES THE APP DEPLOY YET (#3176): the cut and notify-live cannot tell whether it ran.
 }
 
 if ($pushCommand -or $deleteCommand -or $promotionCommand) {

@@ -808,6 +808,12 @@ function Get-LiveWriteBackStep {
 # those files and print the command. Nothing here runs it: an app deploy is outward-facing exactly as a
 # live push is, so it is a person's act.
 
+function ConvertTo-ShopifyAppRootText {
+    <# The root as the three functions below compare and print it: trimmed, forward slashes, no trailing one. #>
+    param([AllowNull()][AllowEmptyString()][string]$AppRoot)
+    return (([string]$AppRoot).Trim() -replace '\\', '/').TrimEnd('/')
+}
+
 function Test-ShopifyAppRoot {
     <#
         Whether -AppRoot may be printed inside a command a person pastes: a RELATIVE path of the ref
@@ -816,7 +822,7 @@ function Test-ShopifyAppRoot {
         reason the push list's paths are checked before they are printed (#2514).
     #>
     param([AllowNull()][AllowEmptyString()][string]$AppRoot)
-    $r = (([string]$AppRoot).Trim() -replace '\\', '/').TrimEnd('/')
+    $r = ConvertTo-ShopifyAppRootText -AppRoot $AppRoot
     if (-not $r) { return $false }
     if ($r -cnotmatch $script:LivePromotionRefPattern) { return $false }
     foreach ($seg in ($r -split '/')) { if (-not $seg -or $seg -eq '.' -or $seg -eq '..') { return $false } }
@@ -835,7 +841,7 @@ function Get-ShopifyAppDeployPaths {
         [AllowNull()][AllowEmptyString()][string]$AppRoot
     )
     if (-not (Test-ShopifyAppRoot -AppRoot $AppRoot)) { return @() }
-    $prefix = ((([string]$AppRoot).Trim() -replace '\\', '/').TrimEnd('/')) + '/'
+    $prefix = (ConvertTo-ShopifyAppRootText -AppRoot $AppRoot) + '/'
     $out = @()
     foreach ($p in @($ChangedPaths)) {
         if ($null -eq $p) { continue }
@@ -858,6 +864,5 @@ function Format-ShopifyAppDeployCommand {
     if (-not (Test-ShopifyAppRoot -AppRoot $AppRoot)) {
         throw 'Format-ShopifyAppDeployCommand: the app root is not safe to print in a command; check it with Test-ShopifyAppRoot first.'
     }
-    $r = (([string]$AppRoot).Trim() -replace '\\', '/').TrimEnd('/')
-    return "shopify app deploy --path $r"
+    return "shopify app deploy --path $(ConvertTo-ShopifyAppRootText -AppRoot $AppRoot)"
 }

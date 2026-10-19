@@ -37,8 +37,8 @@ function, checkout UI blocks; `extensions` in smartwatchbanden), those files are
 the push nor a promotion takes them live. They go live only through `shopify app deploy`. So, in either
 mode:
 
-- **Step 3** lists the range's files under that folder as `app`, and reports them as their own `app
-  deploy` step. A folder that is not a relative path of letters, digits, `.`, `_`, `/` and `-` without a
+- **Step 3** lists the range's files under that folder as `app`, and reports them as an extra `app
+  deploy` check inside step 3. A folder that is not a relative path of letters, digits, `.`, `_`, `/` and `-` without a
   `..` segment refuses, because no command could be printed around it.
 - **A release whose only change is the app** is a note rather than "nothing to push".
 - **A green run ends with** `shopify app deploy --path <folder>`, run from the repo root. Like the push, it
@@ -146,12 +146,12 @@ held, goes through the same control-character strip.
 |---|---|---|
 | 1 | **trunk** -- clean, on the trunk, level with `origin` | anything else. A live push ships what is *merged*. |
 | 2 | **gates** -- the repo's own lint and tests | one of them fails. |
-| 3 | **push list** -- derived from the range | nothing in the range lives on a theme, or a theme path is not safe to paste (failure 3 above). |
+| 3 | **push list** -- derived from the range | nothing in the range lives on a theme and no app file changed, or a theme path is not safe to paste (failure 3 above). Where `Get-ShopifyAppRoot` is named, it also carries an `app deploy` check, which refuses an app root that cannot be printed. |
 | 4 | **version** -- what the pending entries owe, and the target | never; it reports. |
 | 5 | **live theme** -- by configured **id** and by the **role** the store reports | the two disagree, or the id is not in the list. |
 | 6 | **drift** -- the check, with the list as an array, and again with the deletions | the check says the live files about to be overwritten are not what this repo thinks. On the deletions alone it withholds the deletion command instead. |
 | 7 | **backup** -- one verified copy of live | the backup cannot be proven complete. |
-| 8 | **the push command, and the deletion command** -- both without the marker | never; with no list there is simply no command. |
+| 8 | **the push command, the deletion command and, where `Get-ShopifyAppRoot` is named, the app deploy command** -- all without the marker | never; with no list there is simply no command. |
 | 9 | **aftercare** -- what the sweep would take | never; the sweep's dry run is its default and no `-Execute` is passed. |
 
 **The order is cost-ordered and that was asked for.** The backup polls until the copy is provably
