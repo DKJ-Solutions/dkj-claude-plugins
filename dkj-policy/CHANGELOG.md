@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**3 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3145-reconciliation-owed · 20261019-110552Z
+
+A merged `sync-main -ReconcileBase` branch no longer leaves a path that reads as safe to push while the trunk still lacks live's third-party content. `live-preflight` now refuses a push-list path whose newest commit is still the reconciliation base, `prepare-release` flags it days ahead, and `sync-main`'s closing text says the content commit is required before any live push. A person who decides the trunk's version should win passes `-AcceptOwedReconciliation`.
+
+**Score:** 1 -- the maintainer of this repo sees nothing change here.
+
+#### What makes this deploy extra special
+
+A Shopify store that reconciled a sync conflict with `-ReconcileBase` is now stopped before a live push that would have silently reverted what a third party changed on live -- measured in a store, where it would have undone a raised shipping threshold and a `noindex`.
+
+**Score:** 3
+
+#### Pull Request
+
+A merged reconciliation base reads as safe to push until the content is reconciled
+
+Plugins: bwj-development, dkj-subagents-shopify
+
+[PR #3151](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3151)
+
+---
 
 ### DEPLOY: fix/3144-prepare-release-jq-quotes · 20261019-105659Z
 
