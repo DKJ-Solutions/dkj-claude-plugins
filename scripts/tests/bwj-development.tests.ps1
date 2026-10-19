@@ -659,7 +659,9 @@ Assert-True ($glCoSearch -gt $goLiveDriver.IndexOf('if ($PostArg -or $OutFileArg
 Assert-True ($goLiveDriver -match 'Get-AsanaTaskCoClaimants -Gid \$asanaRef\.Gid -Number \(\[int\]\$issueNumber\)') 'the co-claimants are judged by that rule, this issue excluded'
 $glCoRefuse = $goLiveDriver.IndexOf('if (-not $ForceArg -and $coClaimText) {')
 Assert-True ($glCoRefuse -gt $goLiveDriver.IndexOf('if (-not $PostArg) {') -and $glCoRefuse -lt $goLiveDriver.IndexOf('gh issue comment $issueNumber')) 'a shared task refuses the post, unless -Force, before the comment'
-Assert-True ($goLiveDriver -notmatch 'coClaimUnread\)\s*\{[^}]*exit 1') 'and a search that could not answer only warns'
+Assert-True ($goLiveDriver -match '\$coClaimText = if \(\$coClaimants\.Count -gt 0\)') 'the refusal text comes from co-claimants found, so a search that could not answer cannot refuse'
+Assert-Equal 1 ([regex]::Matches($goLiveDriver, 'if \(-not \$ForceArg -and \$coClaimText\)').Count) 'and the text is refused in one place only'
+Assert-True ($goLiveDriver -notmatch '(?m)^.*\$coClaimUnread.*exit') 'nothing on the unread path exits'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
 # to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path

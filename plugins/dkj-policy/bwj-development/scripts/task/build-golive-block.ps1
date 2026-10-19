@@ -550,6 +550,8 @@ $coClaimants = @()
 $coClaimUnread = $false
 if ($asanaRef -and $asanaLink -eq 'linked') {
     # The GID is digits only (Resolve-AsanaTaskRef matches nothing else), so it is safe on a command line.
+    # A SAFETY NET, NOT A PROOF: GitHub's in:body index can lag and the read stops at 20, so a clean answer
+    # means no co-claimant was found, never that none exists.
     $peerRun = $null
     try { $peerRun = Invoke-Native { gh issue list --repo $StoreRepo --state open --search "$($asanaRef.Gid) in:body" --json number,body --limit 20 } } catch { $peerRun = $null }
     $peers = $null
