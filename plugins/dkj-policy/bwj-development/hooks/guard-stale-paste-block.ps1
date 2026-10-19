@@ -22,7 +22,8 @@
     too: an issue whose body links one Asana task (Resolve-AsanaTaskRef, the workflow's own matcher)
     must carry a block posted after its last reopen -- a result block, or the research block
     build-golive-block.ps1 -Research writes for a ticket that changed nothing on the store, or the
-    measurement block -Measure writes for a result that is a number (#3179). 'none' and
+    measurement block -Measure writes for a result that is a number (#3179), or the by-hand record
+    -ByHand writes where the closed message was posted on the task by hand (#3183). 'none' and
     'stale' are refused, with both commands on the refusal; an issue linking no task, or several, is let
     through, because the closed message posts nothing for it. The same read serves both guards: the one
     GraphQL call also returns the issue body. The same fail-open applies, and the workflow is the
@@ -224,6 +225,7 @@ if ($close) {
             "    a result to look at:         build-golive-block.ps1 -Issue $first$repoHint -Link <result url> -ProseFile <prose> -Post  (add -Force while no PR names the issue)",
             "    research, a test, a decision: build-golive-block.ps1 -Issue $first$repoHint -Research -ProseFile <the outcome under [outcome]> -Post",
             "    a number to measure again:   build-golive-block.ps1 -Issue $first$repoHint -Measure -ProseFile <[measure] and [targets]> -Post",
+            "    message posted by hand:      build-golive-block.ps1 -Issue $first$repoHint -ByHand -Story <story gid> -Post  (the workflow then posts nothing)",
             "  Nothing was done and nothing found? Close it as not planned instead: gh issue close $closeHint --reason `"not planned`"."
         ) -join "`n")
         exit 2

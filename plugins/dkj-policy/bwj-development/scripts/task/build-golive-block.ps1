@@ -98,6 +98,16 @@
     follow-up has no pull request of its own), and carries Get-AsanaMeasureBlockMarker, so the closed
     message writes the measurement form and its ask.
 
+    AND A CLOSED MESSAGE POSTED BY HAND IS RECORDED, NOT WORKED AROUND: -ByHand (#3183, October 19,
+    2026). Where the requester approved a hand-written closed message -- a form the automation does not
+    have yet -- and somebody posted it on the task, closing the issue would make asana-closed-message
+    post its own beside it. Measured in smartwatchbanden: the only route was to post a block to pass the
+    close guard, defuse every Asana link in the issue body around the close, and restore it after.
+    -ByHand writes Format-GoLiveByHandBlock instead: a one-line record ('Closed message posted by hand
+    on <date>', with -Story's gid where given) carrying Get-AsanaHandBlockMarker, which the close guard
+    accepts as this round's block and the closed message reads as 'post nothing'. It refuses every
+    other form's parameters and -ProseFile, and skips the pull-request check like -Research.
+
     A RESULT BLOCK WITHOUT -LiveSince CARRIES Get-AsanaReleaseBlockMarker (#3069): it names a planned
     release day, so its result is visible only once that release is out, and the closed line -- in the
     block and in the closed message -- says so under the intro.
@@ -180,6 +190,17 @@
     and refuses the other forms' sections, -Research, and -Link, -Path, -Version, -LiveSince, -From and
     -ReleaseDay. -Post skips the pull-request check, as for -Research.
 
+.PARAMETER ByHand
+    Write the by-hand record (#3183) for an issue whose closed message was posted on the Asana task by
+    hand: the closed message then posts nothing at the close, and the close guard accepts the record as
+    this round's block. Post it AFTER the hand-written message is on the task. Refuses -Research,
+    -Measure, -ProseFile, and -Link, -Path, -Version, -LiveSince, -From and -ReleaseDay. -Post skips the
+    pull-request check, as for -Research; every other check stays.
+
+.PARAMETER Story
+    With -ByHand only: the gid of the Asana story (the comment) that carries the hand-written message,
+    digits only. Written into the record so a later reader can find it on the task. Optional.
+
 .PARAMETER OutFile
     Also write the whole comment to this path as UTF-8 -- the faithful copy for a page that embeds the
     block, where the console printout may have lost characters to its code page.
@@ -225,6 +246,8 @@ param(
     [string]$ProseFile,
     [switch]$Research,
     [switch]$Measure,
+    [switch]$ByHand,
+    [string]$Story,
     [string]$OutFile,
     [switch]$Post,
     [switch]$Force,
@@ -249,6 +272,8 @@ $LanguageArg = $Language
 $ProseArg    = $ProseFile
 $ResearchArg = [bool]$Research
 $MeasureArg  = [bool]$Measure
+$ByHandArg   = [bool]$ByHand
+$StoryArg    = $Story
 # THE GO-LIVE PARAMETERS A RESEARCH BLOCK REFUSES (#3004): each describes a result on the store, and a
 # research ticket has none, so a value passed for one is a sign the wrong form was asked for.
 # A foreach statement, not Where-Object: a scriptblock has a $PSBoundParameters of its own.
@@ -364,7 +389,27 @@ if ($ProseArg) {
 # block: [outcome] has no place in a result block, and a research block carries nothing but [outcome].
 # The measurement form (#3179) is the third, and it carries [measure], [targets], [baseline] and [when] only.
 $measureProse = @(@('Measure', 'Targets', 'Baseline', 'MeasureWhen') | Where-Object { @($prose[$_]).Count -gt 0 })
-if ($MeasureArg) {
+# THE BY-HAND RECORD (#3183) CARRIES NO PROSE AT ALL: the message it records is already on the task, so a
+# section written for it would reach nobody.
+if ($StoryArg -and -not $ByHandArg) {
+    Write-Host "[ERROR] -Story names the Asana story of a closed message posted by hand, which only -ByHand records. Nothing written." -ForegroundColor Red
+    exit 1
+}
+if ($ByHandArg) {
+    if ($ResearchArg -or $MeasureArg) {
+        Write-Host "[ERROR] -ByHand records a closed message posted by hand; -Research and -Measure write one for the workflow to post. Pass one. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    if ($ResearchConflicts.Count -gt 0 -or $ProseArg) {
+        $extra = @($ResearchConflicts) + @(if ($ProseArg) { 'ProseFile' })
+        Write-Host "[ERROR] -ByHand writes a one-line record, and the message itself is already on the task, so -$($extra -join ', -') has nothing to describe. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    if ($StoryArg -and $StoryArg -notmatch '\A[0-9]+\z') {
+        Write-Host "[ERROR] -Story '$(ConvertTo-ConsoleStrippedText -Text $StoryArg)' is not an Asana story gid (digits only). Nothing written." -ForegroundColor Red
+        exit 1
+    }
+} elseif ($MeasureArg) {
     if ($ResearchArg) {
         Write-Host "[ERROR] -Measure and -Research are two different forms: a number the requester measures again, or an outcome where nothing changed. Pass one. Nothing written." -ForegroundColor Red
         exit 1
@@ -410,7 +455,7 @@ Write-Host "== build-golive-block $targetRef ==" -ForegroundColor Cyan
 # A RESEARCH BLOCK HAS NO GO-LIVE HALF (#3004): nothing changed on the store, so there is no day it goes
 # live, no version and no page to list, and none of the three is worked out or printed. Nor has a
 # measurement block (#3179): what it reports is a number, not a release day or a page.
-if (-not $ResearchArg -and -not $MeasureArg) {
+if (-not $ResearchArg -and -not $MeasureArg -and -not $ByHandArg) {
     # --- The date ---------------------------------------------------------------------------------------
     # ALREADY LIVE IS A FACT THE SESSION STATES, NOT ONE THIS SCRIPT DERIVES (#2943). The next release day is
     # computed strictly after today, so an issue closing after its release -- or after a separate live push --
@@ -493,6 +538,8 @@ if (-not $ResearchArg -and -not $MeasureArg) {
     } else {
         Write-Host "  live urls: none -- no -Path given" -ForegroundColor DarkGray
     }
+} elseif ($ByHandArg) {
+    Write-Host "  by hand  : the closed message is already on the task -- the workflow posts nothing at the close (-ByHand)" -ForegroundColor DarkGray
 } elseif ($MeasureArg) {
     Write-Host "  measure  : the requester measures it -- no release day, version or live URLs (-Measure)" -ForegroundColor DarkGray
 } else {
@@ -576,7 +623,10 @@ if ($asanaRef -and $asanaLink -eq 'linked') {
 }
 
 # --- The block ----------------------------------------------------------------------------------------
-if ($MeasureArg) {
+if ($ByHandArg) {
+    $block = Format-GoLiveByHandBlock -Marker (Get-AsanaPasteBlockMarker) -HandMarker (Get-AsanaHandBlockMarker) `
+        -Date (Get-Date) -Story $StoryArg
+} elseif ($MeasureArg) {
     $block = Format-GoLiveMeasureBlock -Marker (Get-AsanaPasteBlockMarker) -MeasureMarker (Get-AsanaMeasureBlockMarker) `
         -IssueRef $targetRef -Measure $prose.Measure -Targets $prose.Targets -Baseline $prose.Baseline -When $prose.MeasureWhen `
         -Language $LanguageArg -AsanaLink $asanaLink
@@ -630,7 +680,7 @@ if ($OutFileArg) {
     }
 }
 
-$resultForm = -not $ResearchArg -and -not $MeasureArg
+$resultForm = -not $ResearchArg -and -not $MeasureArg -and -not $ByHandArg
 if ($resultForm -and @($prose.Changed).Count -eq 0) {
     Write-Host "[WARNING] No [changed] section in -ProseFile, so the block does not say what changed -- the" -ForegroundColor Yellow
     Write-Host "          first thing its reader looks for. That prose is the session's to write, not the script's." -ForegroundColor Yellow
@@ -697,6 +747,7 @@ if (-not $ForceArg -and $coClaimText) {
 # A RESEARCH BLOCK SKIPS IT (#3004): a ticket that changed nothing has no pull request to wait for, and its
 # block says 'nothing has changed' rather than naming a release day. A MEASUREMENT BLOCK SKIPS IT TOO
 # (#3179): it follows a change that has already shipped, often under another issue, so it has none of its own.
+# NOR DOES A BY-HAND RECORD (#3183): it describes a message, not the work, so it is true with or without one.
 function Read-GoLiveLandingState {
     <# 'merged', 'open', 'none' or 'unread': the pull requests that close or reference the issue, by
        Get-GoLivePostReadiness. One read, shared by the result form's refusal and -Research's warning. #>
@@ -770,7 +821,9 @@ if ($postCode -ne 0) {
     exit 1
 }
 Write-Host "[OK] Block posted on $targetRef." -ForegroundColor Green
-if ($asanaLink -eq 'linked') {
+if ($ByHandArg) {
+    Write-Host "     Now close the issue as completed. The closed message reads this record and posts nothing -- the hand-written message on the task is the one the requester gets." -ForegroundColor DarkGray
+} elseif ($asanaLink -eq 'linked') {
     Write-Host "     Now close the issue as completed. The closed message carries the block into the Asana task -- no paste needed." -ForegroundColor DarkGray
 } elseif ($asanaLink -eq 'unchecked') {
     Write-Host "     Now close the issue as completed. Its Asana link could not be checked -- confirm the body carries the asana-task marker first." -ForegroundColor DarkGray

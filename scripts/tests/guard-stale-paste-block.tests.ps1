@@ -414,6 +414,17 @@ if ($built) {
     Assert-Equal 0 $r.Code 'a research block on the issue lets the close through'
     Assert-Equal '' $r.Err.Trim() 'silently'
 
+    # #3183: the by-hand record is a block, so it lets the close through -- and the refusal names it as a fix.
+    $byHand = "<!-- asana-paste-block -->`n<!-- asana-paste-block-kind: by-hand -->`n`nFraming.`n`n---`nClosed message posted by hand on 2026-10-19.`n`n---"
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body $linked -Comments @(, @($byHand, '2026-10-14T10:00:00Z')))
+    $r = Invoke-Hook $close
+    Assert-Equal 0 $r.Code 'a by-hand record on the issue lets the close through (#3183)'
+    Reset-Fake
+    Set-Fake 'issue-943.out' (New-State -Body $linked -Comments @(, @('talk', '2026-10-14T10:00:00Z')))
+    $r = Invoke-Hook $close
+    Assert-True ($r.Err -match 'build-golive-block\.ps1 -Issue 943 -ByHand') 'and the refusal names -ByHand among the fixes'
+
     Reset-Fake
     Set-Fake 'issue-943.out' (New-State -Body $linked -Reopen '2026-10-02T10:00:00Z' -Comments @(, @($stBlock, '2026-10-01T10:00:00Z')))
     $r = Invoke-Hook $close

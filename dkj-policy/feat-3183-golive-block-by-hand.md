@@ -39,19 +39,44 @@
 
 ### PLAN
 
+Inbound #3183 from smartwatchbanden: a closed message posted on the Asana task by hand had no sanctioned
+opt-out, so the session posted a block to pass the close guard and unlinked the issue body around the
+close. Verified against the tree: no marker, label or parameter existed. The repair is the proposal's own:
+a fourth block kind, `-ByHand`, that the close guard already accepts because it is a block, and that
+`asana-closed-message` reads as "post nothing".
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-AsanaHandBlockMarker` in `asana-task-lib.ps1`, copied into `templates/asana-closed-message.ps1`
+- [x] `Format-GoLiveByHandBlock` in `golive-block-rules.ps1`: a one-line record between the rules
+- [x] `build-golive-block.ps1 -ByHand [-Story <gid>]`: refuses the other forms' input, skips the PR check
+- [x] `asana-closed-message.ps1` posts nothing for this round's trusted by-hand record
+- [x] the close guard names `-ByHand` among its fixes; notify-live gives the skip its own reason
+- [x] docs: the `golive-block` skill and `WORKFLOW-portable.md`
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: formatter, driver refusals, closed-message end to end (fresh, stale,
+  untrusted), live-message skip, marker copy equality -- 775 asserts green
+- [x] `guard-stale-paste-block.tests.ps1`: a by-hand record lets the close through, the refusal names
+  `-ByHand` -- 156 asserts green
+
 ### DEPLOY: feat/3183-golive-block-by-hand
 
-**Score:**
+`build-golive-block.ps1 -ByHand [-Story <gid>]` records on the issue that its closed message was posted on
+the Asana task by hand. The close guard accepts that record as this round's block, and the
+`asana-closed-message` workflow posts nothing beside the hand-written message. A record from before the
+last reopen, or from an untrusted author, silences nothing. The guard's refusal names `-ByHand` among its
+fixes (#3183).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A hand-approved closed message no longer needs the issue body edited around the close to keep the
+workflow from posting a second message beside it.
+
+**Score:** 2
 
 #### Pull Request
 

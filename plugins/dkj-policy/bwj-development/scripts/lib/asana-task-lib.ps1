@@ -158,6 +158,18 @@ function Get-AsanaMeasureBlockMarker {
     return '<!-- asana-paste-block-kind: measure -->'
 }
 
+function Get-AsanaHandBlockMarker {
+    <#
+        The second marker build-golive-block.ps1 -ByHand puts on a block that records a closed message
+        POSTED BY HAND on the Asana task (#3183): the requester approved a message in a form the
+        automation does not have, and the workflow must not post its own beside it. Pure. The closed
+        message reads it and posts nothing; the close guard accepts the block like any other, so the
+        guard's intent -- the requester always gets a message -- holds, and the hand route is visible on
+        the issue. A copy of it lives in templates/asana-closed-message.ps1.
+    #>
+    return '<!-- asana-paste-block-kind: by-hand -->'
+}
+
 function Get-AsanaReleaseBlockMarker {
     <#
         The second marker build-golive-block.ps1 puts on a result block that names a PLANNED release day
