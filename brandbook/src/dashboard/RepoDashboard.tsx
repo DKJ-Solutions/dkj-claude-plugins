@@ -18,7 +18,8 @@ import './dashboard.css'
  * and a button to the product, the brand book showcase, which has a route of its own.
  * In-flight data is read live from the GitHub API: the repo is public, so no token is needed (60 requests an hour).
  */
-const REPO = 'DKJ-Solutions/dkj-brandbook'
+// This repo since the brand book moved here (#3130); dkj-brandbook is being archived, so reading it froze the panel (#3149).
+const REPO = 'DKJ-Solutions/dkj-claude-plugins'
 const TRUNK = 'main'
 const API = `https://api.github.com/repos/${REPO}`
 
