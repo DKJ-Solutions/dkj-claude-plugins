@@ -67,7 +67,7 @@ foreach ($rel in @('README.md', 'WORKFLOW-portable.md', 'SYNC-LOG-portable.md', 
                    'scripts\lib\golive-block-rules.ps1', 'scripts\task\build-golive-block.ps1',
                    'skills\prepare-release\SKILL.md', 'scripts\lib\prepare-release-rules.ps1',
                    'scripts\task\prepare-release.ps1',
-                   'skills\notify-live\SKILL.md', 'scripts\lib\live-message-rules.ps1',
+                   'skills\notify-live\SKILL.md', 'scripts\lib\live-message-rules.ps1', 'scripts\lib\live-record-lib.ps1',
                    'scripts\task\notify-live.ps1',
                    'scripts\lib\asana-task-lib.ps1')) {
     Assert-True (Test-Path -LiteralPath (Join-Path $PluginRoot $rel)) "ships $rel"
@@ -1163,6 +1163,37 @@ Assert-True ($nlDriver -match 'if \(\$PostArg -and \$owed\.Count -gt 0\)') 'the 
 $nlRun = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PluginRoot 'scripts\task\notify-live.ps1') 2>&1) | ForEach-Object { "$_" }) -join "`n"
 Assert-Equal 1 $LASTEXITCODE 'run in the plugin''s own source repo, the driver refuses'
 Assert-True $nlRun.Contains('publishes plugins') '...and says why'
+
+# THE LIVE-PUSH RECORD (#3176): read with the mirrored live-record-lib, and a held path holds the issue
+# before its verdict is asked. The fixture repo's subjects name no PR, so the run asks gh nothing.
+Assert-True ($nlDriver -match "live-record-lib\.ps1") 'the driver reads the record with the mirrored live-record-lib'
+Assert-True ($nlDriver.IndexOf('$heldCount[$num] -gt 0') -ge 0 -and $nlDriver.IndexOf('$heldCount[$num] -gt 0') -lt $nlDriver.IndexOf('Get-LiveMessageVerdict -Issue')) 'a held issue is held before its verdict is asked'
+$nlRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-notify-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    New-Item -ItemType Directory -Path $nlRoot -Force | Out-Null
+    Invoke-FixtureGitIn $nlRoot init -q
+    Invoke-FixtureGitIn $nlRoot -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q --allow-empty -m one
+    Invoke-FixtureGitIn $nlRoot tag v1.0.0
+    Invoke-FixtureGitIn $nlRoot -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q --allow-empty -m two
+    Invoke-FixtureGitIn $nlRoot tag v1.1.0
+    $nlRecord = Join-Path $nlRoot 'record.txt'
+    $nlDriverPath = Join-Path $PluginRoot 'scripts\task\notify-live.ps1'
+
+    [System.IO.File]::WriteAllText($nlRecord, "live extensions/a.js`nhold sections/b.liquid`n")
+    $nlGood = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $nlDriverPath -RootOverride $nlRoot -Repo 'fixture/nl-3176' -LivePushRecord $nlRecord 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-Equal 0 $LASTEXITCODE 'a readable record with nothing in the range runs to the end'
+    Assert-True $nlGood.Contains('live-push record -- 1 live, 1 held') '...and says what it read'
+
+    [System.IO.File]::WriteAllText($nlRecord, "hodl sections/b.liquid`n")
+    $nlBad = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $nlDriverPath -RootOverride $nlRoot -Repo 'fixture/nl-3176' -LivePushRecord $nlRecord 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-Equal 1 $LASTEXITCODE 'a record with a line it cannot read refuses rather than running without it'
+    Assert-True $nlBad.Contains('The live-push record could not be read') '...and says so'
+
+    $nlNone = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $nlDriverPath -RootOverride $nlRoot -Repo 'fixture/nl-3176' 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-True $nlNone.Contains('no -LivePushRecord') 'without a record the run says what it cannot see'
+} finally {
+    if (Test-Path -LiteralPath $nlRoot) { Remove-Item -LiteralPath $nlRoot -Recurse -Force -ErrorAction SilentlyContinue }
+}
 
 # --- the preview step's carrier (#2655) ---------------------------------------------------------
 # PREVIEW-portable.md names the step's exact words, and the adopt skill proposes the seam that makes

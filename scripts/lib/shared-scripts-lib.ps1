@@ -1387,6 +1387,16 @@ function Get-SharedScriptPairs {
             LibOnly = $true
         },
         @{
+            # A THIRD READER (#3176, October 19, 2026): bwj-development's notify-live, which holds an issue
+            # whose PR changed a path the record marks 'hold' -- a theme file held back, or an app file whose
+            # deploy did not run. Mirrored rather than reached across, on live-push-rules-bwj's reason, and
+            # rather than re-parsed, on this file's own: one format, one "is this entry live" rule.
+            Name    = 'live-record-lib-bwj'
+            Source  = 'scripts\lib\live-record-lib.ps1'
+            Plugin = 'bwj-development'
+            LibOnly = $true
+        },
+        @{
             # Issue #1069, August 29, 2026. Mirrored because BOTH its callers are: ship-pr.ps1 asks it
             # whether another worktree holds the trunk (before the merge, and again when handing the trunk
             # back afterwards), and prune-merged.ps1 asks it which worktree to name when its fast-forward

@@ -44,6 +44,9 @@ mode:
 - **A green run ends with** `shopify app deploy --path <folder>`, run from the repo root. Like the push, it
   is **printed and never run**: it releases a new app version to the store, so it waits for the owner's
   word. A theme that places a block this deploy adds needs the deploy first.
+- **The live-push record lists those files as `live` lines** (#3176), written even when the app is the
+  release's only change. If you do not run the deploy, change them to `hold`, and the cut and
+  `notify-live` treat the change as not live yet.
 
 Unanswered, nothing about the run changes.
 
@@ -222,16 +225,19 @@ command:** `live sections/header.liquid` or `hold snippets/product-info.liquid`.
 row is `live` when the deletion command was printed, since that command removes it. It is `hold` when
 the drift check withheld the command, because then the old version stays on live. A
 `not-a-theme-path` row gets no line at all -- it does not exist on a theme, so it cannot be live or held
-there. The format and the parser are one definition, in `scripts/lib/live-record-lib.ps1`, which this
-plugin and `dkj-policy` both carry as a byte-identical mirror.
+there. A file under `Get-ShopifyAppRoot` is the exception that does get a line: `live`, because the app
+deploy printed beside the record carries it (#3176). The format and the parser are one definition, in
+`scripts/lib/live-record-lib.ps1`, which this plugin, `dkj-policy` and `bwj-development` all carry as a
+byte-identical mirror.
 
 **Held a file back AFTER this ran? Edit the record, not the push command.** The decision to hold a file
 lands after the preflight prints its verdict, and no script sees it unless somebody writes it down -- this
 run prints the record's path precisely so there is somewhere to write it. Change that line's `live` to
-`hold`, then hand the file to the cut:
+`hold`, then hand the file to the cut, and to `notify-live` after it:
 
 ```powershell
 cut-release.ps1 ... -LivePushRecord "<path this run printed>"
+notify-live.ps1 ... -LivePushRecord "<path this run printed>"
 ```
 
 **A failed write warns rather than refuses.** The push itself is still right; only the cut's two documents
