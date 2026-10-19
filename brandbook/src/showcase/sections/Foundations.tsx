@@ -6,7 +6,7 @@ import { useThemeId } from '../theme'
 
 /** House colour tokens (house-style/house-style.css), grouped by what a theme switch changes, as in house-style/README.md. */
 const HOUSE_COLORS = {
-  'changes with every theme': ['primary-1', 'primary-2', 'primary-3', 'primary-4', 'primary-5', 'primary-6', 'primary-7', 'primary-8', 'primary-9'],
+  'changes with every theme': ['primary-1', 'primary-2', 'primary-3', 'primary-4', 'primary-5', 'primary-6', 'primary-7', 'primary-8', 'primary-9', 'primary-10', 'primary-11', 'primary-12'],
   'changes only between light and dark -- categories': ['cat-1', 'cat-2', 'cat-3'],
   'changes only between light and dark -- status colours': [
     'negative-1', 'negative-3', 'negative-5', 'positive-1', 'positive-3', 'positive-5', 'warning-1', 'warning-3', 'warning-5',
@@ -41,7 +41,7 @@ type Swatch = { name: string; value: string | undefined; declared: string | unde
 
 /**
  * A custom property as WRITTEN on the root -- the computed value has every var() substituted, which turns
- * "var(--primary-5) 7%, var(--primary-2)" into nested hexes nobody can read. The last matching declaration wins:
+ * "var(--primary-6) 7%, var(--primary-2)" into nested hexes nobody can read. The last matching declaration wins:
  * the theme rules come after the base rule, and a media block counts only while it matches.
  */
 function readDeclared(names: string[]): Record<string, string> {
@@ -84,8 +84,8 @@ function resolveHex(value: string): string | undefined {
 const unvar = (s: string) => s.replace(/var\((--[\w-]+)\)/g, '$1')
 
 /**
- * A declared color-mix() as a recipe in token names: "color-mix(in srgb, var(--primary-5) 7%, var(--primary-2))"
- * reads ["--primary-2", "+ 7% --primary-5"] -- the base, then how much of which colour goes through it. A share
+ * A declared color-mix() as a recipe in token names: "color-mix(in srgb, var(--primary-6) 7%, var(--primary-2))"
+ * reads ["--primary-2", "+ 7% --primary-6"] -- the base, then how much of which colour goes through it. A share
  * that is itself a token (--surface-tint) shows its value. undefined when it is neither a mix nor an alias.
  */
 function mixRecipe(declared: string): string[] | undefined {
@@ -179,7 +179,7 @@ export function Foundations() {
           {TEXT_SIZES.map((f) => (
             <div key={f} className="dkj-scale-row">
               <code>{f}</code>
-              <span style={{ fontSize: `var(${f})`, color: 'var(--primary-9)', lineHeight: 'var(--dkj-lh-tight)' }}>The quick label 1,234</span>
+              <span style={{ fontSize: `var(${f})`, color: 'var(--primary-12)', lineHeight: 'var(--dkj-lh-tight)' }}>The quick label 1,234</span>
             </div>
           ))}
         </div>
@@ -189,7 +189,7 @@ export function Foundations() {
           {WEIGHTS.map((w) => (
             <div key={w} className="dkj-scale-row">
               <code>--dkj-fw-{w}</code>
-              <span style={{ fontSize: 'var(--text-lg)', fontWeight: `var(--dkj-fw-${w})`, color: 'var(--primary-9)' }}>The quick label 1,234</span>
+              <span style={{ fontSize: 'var(--text-lg)', fontWeight: `var(--dkj-fw-${w})`, color: 'var(--primary-12)' }}>The quick label 1,234</span>
             </div>
           ))}
           {LINE_HEIGHTS.map((l) => (
@@ -208,7 +208,7 @@ export function Foundations() {
           ))}
           <div className="dkj-scale-row">
             <code>--dkj-font-mono</code>
-            <span style={{ fontFamily: 'var(--dkj-font-mono)', color: 'var(--primary-9)' }}>const tap = '44px' -- 0123456789</span>
+            <span style={{ fontFamily: 'var(--dkj-font-mono)', color: 'var(--primary-12)' }}>const tap = '44px' -- 0123456789</span>
           </div>
         </div>
       </Demo>
@@ -282,7 +282,7 @@ export function Foundations() {
         <Readouts names={MOTION} values={values} />
       </Demo>
       <Demo label="Icons (stroke set, currentColor)">
-        <div className="dkj-demo-row" style={{ color: 'var(--primary-9)' }}>
+        <div className="dkj-demo-row" style={{ color: 'var(--primary-12)' }}>
           {ICON_NAMES.map((n) => (
             <span key={n} title={n} style={{ display: 'grid', justifyItems: 'center', gap: 'var(--spacing-1)', width: '4rem', fontSize: 'var(--text-xs)' }}>
               <Icon name={n} size={24} />

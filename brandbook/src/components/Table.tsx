@@ -292,7 +292,7 @@ export type CalcItem =
 
 /**
  * CalcTable -- a calculation written downwards: what it is left, the operator and the number right-aligned so the
- * digits line up, a thin rule between factors. Boxes (a --primary-4 border) group the factors that belong together
+ * digits line up, a thin rule between factors. Boxes (a --primary-5 border) group the factors that belong together
  * and share the outer columns via subgrid. The result sits below without a label, large and in the accent.
  */
 export function CalcTable({ items, result }: { items: readonly CalcItem[]; result: string }) {

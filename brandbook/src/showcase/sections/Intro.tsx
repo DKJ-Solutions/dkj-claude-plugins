@@ -41,8 +41,8 @@ export function Intro() {
           Body text (--text-base) is what most of an app is set in, with <a href="#tokens">a link in the theme colour</a>,{' '}
           <strong>a bold word</strong> and <code>inline code</code>.
         </p>
-        <p className="sub">A .sub line under a heading (--text-sm, --primary-9).</p>
-        <p className="muted">A .muted note (--text-sm; --primary-6, on a paragraph too).</p>
+        <p className="sub">A .sub line under a heading (--text-sm, --primary-12).</p>
+        <p className="muted">A .muted note (--text-sm; --primary-7, on a paragraph too).</p>
       </div>
     </header>
   )

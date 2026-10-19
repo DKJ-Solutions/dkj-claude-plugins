@@ -39,16 +39,16 @@
   gap: var(--spacing-2);
   padding: var(--spacing-2);
   text-align: center;
-  color: var(--primary-9);
+  color: var(--primary-12);
 }
 .dkj-figure__glyph { flex: none; }
-.dkj-figure__label { font-size: var(--text-sm); color: var(--primary-9); overflow-wrap: break-word; }
+.dkj-figure__label { font-size: var(--text-sm); color: var(--primary-12); overflow-wrap: break-word; }
 
 .dkj-figure__caption {
   margin-top: var(--spacing-2);
   font-size: var(--text-sm);
   line-height: var(--dkj-lh-snug);
-  color: var(--primary-8);
+  color: var(--primary-10);
   text-align: left;
   overflow-wrap: break-word;
 }

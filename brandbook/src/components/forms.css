@@ -2,7 +2,7 @@
 
 /* ---------- Field ---------- */
 .dkj-field { display: block; }
-.dkj-field-label { display: block; margin-bottom: var(--spacing-1); font-size: var(--text-base); color: var(--primary-9); }
+.dkj-field-label { display: block; margin-bottom: var(--spacing-1); font-size: var(--text-base); color: var(--primary-12); }
 .dkj-input {
   width: 100%;
   font: inherit;
@@ -11,10 +11,10 @@
   border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
   background: var(--primary-1);
-  color: var(--primary-9);
+  color: var(--primary-12);
 }
 .dkj-input:focus-visible, .dkj-input[data-demo-state='focus'] {
-  outline: var(--dkj-focus-w) solid var(--primary-5);
+  outline: var(--dkj-focus-w) solid var(--primary-6);
   outline-offset: var(--dkj-focus-offset);
 }
 .dkj-input:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -23,8 +23,8 @@
   appearance: none;
   padding-right: 2.5rem;
   background-image:
-    linear-gradient(45deg, transparent 50%, var(--primary-7) 50%),
-    linear-gradient(135deg, var(--primary-7) 50%, transparent 50%);
+    linear-gradient(45deg, transparent 50%, var(--primary-9) 50%),
+    linear-gradient(135deg, var(--primary-9) 50%, transparent 50%);
   background-position: right 1.125rem center, right 0.8125rem center;
   background-size: 0.3125rem 0.3125rem;
   background-repeat: no-repeat;
@@ -53,13 +53,13 @@
   min-height: var(--dkj-tap);
   font-size: var(--text-base);
   font-weight: var(--dkj-fw-semibold);
-  color: var(--primary-9);
+  color: var(--primary-12);
   cursor: pointer;
 }
-.dkj-check input { flex: none; width: 1.5rem; height: 1.5rem; margin: var(--spacing-2-5) 0 0; accent-color: var(--primary-5); }
-.dkj-check input:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-5); outline-offset: var(--dkj-focus-offset); }
+.dkj-check input { flex: none; width: 1.5rem; height: 1.5rem; margin: var(--spacing-2-5) 0 0; accent-color: var(--primary-6); }
+.dkj-check input:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: var(--dkj-focus-offset); }
 .dkj-check span { padding: var(--spacing-2) 0; }
-.dkj-check small { display: block; margin-top: var(--spacing-0-5); font-size: var(--text-sm); font-weight: var(--dkj-fw-regular); color: var(--primary-9); }
+.dkj-check small { display: block; margin-top: var(--spacing-0-5); font-size: var(--text-sm); font-weight: var(--dkj-fw-regular); color: var(--primary-12); }
 
 /* ---------- Stepper ---------- */
 .dkj-stepper { display: grid; grid-template-columns: var(--dkj-tap) 3.5rem var(--dkj-tap); gap: var(--spacing-1); }
@@ -70,7 +70,7 @@
   font: inherit;
   font-size: var(--text-h4);
   line-height: var(--dkj-lh-none);
-  color: var(--primary-9);
+  color: var(--primary-12);
   background: var(--primary-2);
   border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
@@ -87,7 +87,7 @@
   font-size: var(--text-lg);
   text-align: center;
   font-variant-numeric: tabular-nums;
-  color: var(--primary-9);
+  color: var(--primary-12);
   background: var(--primary-1);
   border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
@@ -101,10 +101,10 @@
 .dkj-stepper button:active,
 .dkj-stepper button[data-demo-state='active'] {
   background: var(--primary-3);
-  border-color: var(--primary-5);
+  border-color: var(--primary-6);
 }
 .dkj-stepper button:focus-visible, .dkj-stepper input:focus-visible {
-  outline: var(--dkj-focus-w) solid var(--primary-5);
+  outline: var(--dkj-focus-w) solid var(--primary-6);
   outline-offset: var(--dkj-focus-offset);
 }
 
@@ -112,7 +112,7 @@
 .dkj-combo { display: grid; grid-template-columns: minmax(0, 1fr); }
 .dkj-combo-input, .dkj-combo-picked { grid-row: 1; grid-column: 1; min-height: var(--dkj-tap); }
 .dkj-combo-input--under { opacity: 0; pointer-events: none; }
-.dkj-combo-input:focus-visible { border-color: var(--primary-5); }
+.dkj-combo-input:focus-visible { border-color: var(--primary-6); }
 .dkj-combo-picked {
   z-index: 1;
   min-width: 0;
@@ -123,13 +123,13 @@
   font-weight: var(--dkj-fw-semibold);
   line-height: var(--dkj-lh-tight);
   overflow-wrap: anywhere;
-  color: var(--primary-9);
+  color: var(--primary-12);
   background: var(--primary-1);
   border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
   cursor: pointer;
 }
-.dkj-combo-picked:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-5); outline-offset: var(--dkj-focus-offset); }
+.dkj-combo-picked:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: var(--dkj-focus-offset); }
 /* A magnifier on the right while there is something to tap; gone once typing starts. */
 .dkj-combo-input:not(:focus), .dkj-combo-picked { padding-right: 2.5rem; }
 .dkj-combo-glass {
@@ -139,7 +139,7 @@
   justify-self: end;
   align-self: center;
   margin-right: var(--spacing-3);
-  color: var(--primary-9);
+  color: var(--primary-12);
   pointer-events: none;
 }
 .dkj-combo-input:focus ~ .dkj-combo-glass { display: none; }
@@ -164,22 +164,22 @@
   overflow-wrap: anywhere;
   cursor: pointer;
 }
-.dkj-combo-name { color: var(--primary-9); }
-.dkj-combo-meta { font-size: var(--text-sm); color: var(--primary-9); }
+.dkj-combo-name { color: var(--primary-12); }
+.dkj-combo-meta { font-size: var(--text-sm); color: var(--primary-12); }
 /* Active (hover, touch or keyboard via aria-activedescendant): a tint plus a bar on the left. */
 .dkj-combo-list li.is-active {
   background: var(--primary-3);
-  box-shadow: inset 3px 0 0 var(--primary-5);
+  box-shadow: inset 3px 0 0 var(--primary-6);
 }
 .dkj-combo-list li.is-active .dkj-combo-name { font-weight: var(--dkj-fw-semibold); }
-.dkj-combo-list li.is-active .dkj-combo-meta { color: var(--primary-7); }
-.dkj-combo-list li.is-own { flex-direction: row; align-items: center; justify-content: flex-start; gap: var(--spacing-2); border: 1px dashed var(--primary-7); }
-.dkj-combo-list li.is-own::before { content: '+'; flex: none; font-weight: var(--dkj-fw-bold); color: var(--primary-5); }
+.dkj-combo-list li.is-active .dkj-combo-meta { color: var(--primary-9); }
+.dkj-combo-list li.is-own { flex-direction: row; align-items: center; justify-content: flex-start; gap: var(--spacing-2); border: 1px dashed var(--primary-9); }
+.dkj-combo-list li.is-own::before { content: '+'; flex: none; font-weight: var(--dkj-fw-bold); color: var(--primary-6); }
 .dkj-combo-list li.is-more {
   min-height: 0;
   padding-top: var(--spacing-1);
   padding-bottom: var(--spacing-1);
-  color: var(--primary-9);
+  color: var(--primary-12);
   font-size: var(--text-base);
   cursor: default;
 }
@@ -204,16 +204,16 @@
   font-size: var(--text-h6);
   font-weight: var(--dkj-fw-semibold);
   line-height: var(--dkj-lh-tight);
-  color: var(--primary-9);
+  color: var(--primary-12);
 }
 .dkj-value-num--regular { font-weight: var(--dkj-fw-regular); }
 .dkj-value-num--lg { font-size: var(--text-h4); }
 .dkj-value-num--negative { color: var(--negative-5); }
 .dkj-value-num--positive { color: var(--positive-5); }
-.dkj-value-was { font-size: var(--text-sm); font-weight: var(--dkj-fw-regular); color: var(--primary-9); }
-.dkj-value-unit { font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); color: var(--primary-9); }
+.dkj-value-was { font-size: var(--text-sm); font-weight: var(--dkj-fw-regular); color: var(--primary-12); }
+.dkj-value-unit { font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); color: var(--primary-12); }
 .dkj-value--changed {
-  border: 2px solid var(--primary-5);
+  border: 2px solid var(--primary-6);
   background: var(--primary-3);
 }
 .dkj-value--flush { padding-left: 0; padding-right: 0; }
@@ -228,8 +228,8 @@
   border-bottom: 1px solid var(--primary-3);
 }
 .dkj-rows > .dkj-row:last-child { border-bottom: 0; }
-.dkj-row-name { min-width: 0; font-size: var(--text-base); color: var(--primary-9); overflow-wrap: anywhere; }
-.dkj-row-sub { display: block; font-size: var(--text-sm); color: var(--primary-6); font-variant-numeric: tabular-nums; }
+.dkj-row-name { min-width: 0; font-size: var(--text-base); color: var(--primary-12); overflow-wrap: anywhere; }
+.dkj-row-sub { display: block; font-size: var(--text-sm); color: var(--primary-7); font-variant-numeric: tabular-nums; }
 /* With a help column, every row keeps it free so the values stay in line. */
 .dkj-row--help { grid-template-columns: minmax(0, 1fr) auto 2.25rem var(--dkj-control-h); }
 .dkj-rows--help > .dkj-row:not(.dkj-row--formula) { grid-template-columns: minmax(0, 1fr) auto 2.25rem var(--dkj-control-h); }
@@ -243,18 +243,18 @@
 }
 .dkj-row--formula .dkj-value { min-width: 0; padding: var(--spacing-1); }
 .dkj-row--formula > .dkj-iconbtn { justify-self: end; }
-.dkj-row-op { text-align: center; font-weight: var(--dkj-fw-semibold); color: var(--primary-9); }
+.dkj-row-op { text-align: center; font-weight: var(--dkj-fw-semibold); color: var(--primary-12); }
 .dkj-row--head {
   padding-bottom: 0;
   border-bottom: 0;
   font-size: var(--text-sm);
   font-weight: var(--dkj-fw-semibold);
-  color: var(--primary-9);
+  color: var(--primary-12);
   text-align: center;
 }
 
 /* A value the app changed for you flashes once in the accent. */
-@keyframes dkj-flash { from { background: var(--primary-5); color: var(--primary-1); } }
+@keyframes dkj-flash { from { background: var(--primary-6); color: var(--primary-1); } }
 .dkj-flash { animation: dkj-flash var(--dkj-duration-flash) var(--dkj-ease-out); }
 @media (prefers-reduced-motion: reduce) {
   .dkj-flash { animation: none; }

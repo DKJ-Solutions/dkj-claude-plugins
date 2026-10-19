@@ -38,18 +38,18 @@
    ========================================================================== */
 (function () {
   var THEMES = [
-    { id: 'magenta', name: 'Magenta',     mode: 'light', hex: '#720252' },
-    { id: 'purple',  name: 'Paars',       mode: 'light', hex: '#4f0399' },
-    { id: 'blue',    name: 'Blauw',       mode: 'light', hex: '#0704c0' },
-    { id: 'teal',    name: 'Petrol',      mode: 'light', hex: '#02494f' },
-    { id: 'ochre',   name: 'Oker',        mode: 'light', hex: '#494001' },
-    { id: 'rust',    name: 'Roest',       mode: 'light', hex: '#633001' },
-    { id: 'pink',    name: 'Roze',        mode: 'dark',  hex: '#fe97d0' },
-    { id: 'lilac',   name: 'Lila',        mode: 'dark',  hex: '#c2affe' },
-    { id: 'sky',     name: 'Hemelsblauw', mode: 'dark',  hex: '#b5b5fe' },
-    { id: 'cyan',    name: 'Cyaan',       mode: 'dark',  hex: '#0fd6e8' },
-    { id: 'yellow',  name: 'Geel',        mode: 'dark',  hex: '#e8b70c' },
-    { id: 'orange',  name: 'Oranje',      mode: 'dark',  hex: '#fea56e' }
+    { id: 'magenta', name: 'Magenta',     mode: 'light', hex: '#dc009d' },
+    { id: 'purple',  name: 'Paars',       mode: 'light', hex: '#8100ff' },
+    { id: 'blue',    name: 'Blauw',       mode: 'light', hex: '#0400ff' },
+    { id: 'teal',    name: 'Petrol',      mode: 'light', hex: '#00818c' },
+    { id: 'ochre',   name: 'Oker',        mode: 'light', hex: '#847400' },
+    { id: 'rust',    name: 'Roest',       mode: 'light', hex: '#ba5900' },
+    { id: 'pink',    name: 'Roze',        mode: 'dark',  hex: '#ff018e' },
+    { id: 'lilac',   name: 'Lila',        mode: 'dark',  hex: '#a143ff' },
+    { id: 'sky',     name: 'Hemelsblauw', mode: 'dark',  hex: '#6363ff' },
+    { id: 'cyan',    name: 'Cyaan',       mode: 'dark',  hex: '#00eaff' },
+    { id: 'yellow',  name: 'Geel',        mode: 'dark',  hex: '#ffc702' },
+    { id: 'orange',  name: 'Oranje',      mode: 'dark',  hex: '#ff6100' }
   ];
   var HOUSE_DEFAULT = { light: 'blue', dark: 'cyan' };
   var root = document.documentElement;
