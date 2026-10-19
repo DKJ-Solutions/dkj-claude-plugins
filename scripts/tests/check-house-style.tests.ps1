@@ -122,7 +122,7 @@ Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-comp`n  .card 
 $h = @(Find-HouseStyleClassHit -Text "x { }`n/* a`n b */`n.card { }" -Classes $gridClasses)
 Assert-Equal 4 $h[0].Line 'a blanked comment keeps the line number of the rule after it'
 
-# --- check 4: no h2 inside a card (#3175) ----------------------------------------------------------
+# The heading check, check 4 (#3175): no h2 inside a card.
 Assert-Equal 'heads h2' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<div class="card__head"><h2 class="card__title">Issues</h2></div>')) 'an h2 card title is one finding, not two'
 Assert-Equal 'heads h2' (Get-HitNames (Find-HouseStyleHeadingHit -Text "<div class=`"card__head`">`n  <h2>Issues</h2>")) 'a bare h2 opening a card head'
 Assert-Equal 'heads h2' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<H2 className="dkj-card-title x">T</H2>')) 'the brand book''s card title, in JSX, any case'
