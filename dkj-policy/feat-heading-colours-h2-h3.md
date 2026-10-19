@@ -39,19 +39,22 @@
 
 ### PLAN
 
-Dave, October 19, 2026, over five rounds on this branch. It started from the h2 reading too much like the h1 (both
+Dave, October 19, 2026, over many rounds on this branch. It started from the h2 reading too much like the h1 (both
 `--primary-7` on the nine-step scale) and ended with a new scale:
 
-- **Twelve steps in two halves of six, no greys:** `-1` to `-6` the light half and `-7` to `-12` the dark half; `-6`
-  and `-7` are the core, the colour at its most recognisable.
-- **Four anchors:** `-1` and `-12` against the edge of white and black; `-7` the most saturated colour of the theme's
-  HSL hue at 4.55:1 on `-1`, and `-6` the same at 4.55:1 on `-12`. The hue is the HSL hue of the owner's original
+- **Twelve steps in three groups of four:** `-1` to `-4` the light steps of the colour, `-5` to `-8` the greys,
+  `-9` to `-12` the dark steps. The greys were dropped for a day (two halves of six) and came back, because they
+  give the roles room.
+- **Four anchors:** `-1` and `-12` against the edge of white and black; `-9` the most saturated colour of the theme's
+  HSL hue at 4.55:1 on `-1`, and `-4` the same at 4.55:1 on `-12`. The hue is the HSL hue of the owner's original
   colour, held in HSL because a constant OKLCH hue turned Hemelsblauw violet. Lila takes Paars's 270, because at 254
   its saturated core read blue.
-- **Steps:** `-2` to `-5` in OKLCH between `-1` and `-6` along a quadratic curve (1/25, 4/25, 9/25, 16/25), so the first step off the page is subtle; `-8` to `-11` on the hue at full saturation, HSL
-  lightness evenly between `-7` and `-12` (straight in OKLCH they turned grey).
-- **Roles:** page `-1`, cards `-2`, lines and tinted surfaces `-3` (they rode along on the core `-6` and read far too strong), stronger border `-5`, the colour `-7` (h1, links,
-  fills, focus, meters, states), sub lines and h2 `-8`, h3-h6 `-9`, text `-12`.
+- **Steps:** `-2` and `-3` at 4% and 16% of the way from `-1` to `-4` (a quadratic curve, after a linear one made the
+  first step far too big); `-10` and `-11` on the hue at full saturation, 20% and 40% of the way to `-12`; the greys
+  at their old lightness in `-9`'s hue.
+- **Roles:** page `-1`, cards `-2`, lines and tinted surfaces `-3` (they had ridden along on the light anchor and read
+  far too strong), stronger border `-5`, fills `-6`, sub lines `-7`, eyebrow `-8`, the colour `-9` (h1, links,
+  states), h2 `-10`, h3-h6 `-11`, text `-12`.
 
 #### Measured cost
 
@@ -87,6 +90,7 @@ scale still has to be put there by hand.
 - [x] tenth round (Dave): h2 takes `-8` and h3-h6 (with the card and dialog titles) `-9`
 - [x] eleventh round (Dave: `-1`→`-2` a little bigger, `-2`→`-3` much bigger, on Magenta): Magenta and Roze back on the shared t² curve; their exception had been judged against the `-6` border
 - [x] twelfth round (Dave: the eyebrow should stand back from `-7`): `.eyebrow` and `.dkj-eyebrow` take `-11`, chosen from a menu because every lighter step reads under 3:1 in several themes
+- [x] thirteenth round (Dave: bring the greys back): the 4/4/4 scale again with the anchors on `-1`, `-4`, `-9`, `-12`; the approved cards, lines, h2 and h3 keep their values; the role references come back from the last grey version with lines on `-3` and the eyebrow on `-8`
 - [x] `house-theme.js`: each theme's picker dot is its new `-9`; the `house-style` skill pins both new checksums
 - [x] filed #3193: the README's detailed lightness tables disagree with the shipped grey values (it predates this branch)
 
@@ -110,10 +114,10 @@ Every DKJ-Solutions app that takes this release has to renumber its own `--prima
 so a missed one fails silently and just shows the wrong colour. The README's migration table gives the order. The
 headings change by themselves: h2 moves off the h1's colour to `-10`, and h3-h6 take the new dark step `-11`.
 The colours themselves change too: `-1` and `-12` are almost white and black, the theme's colour (`-9`) is the most
-saturated version of its hue that still reads on the page, and the cards and lines carry clearly more colour.
+saturated version of its hue that still reads on the page, and the cards and lines take a subtle tint of it.
 
 **Score:** 5
 
 #### Pull Request
 
-The primary scale becomes twelve steps in two halves of six, anchored at the edges and the colour; h2 takes -8 and h3-h6 -9
+The primary scale grows to twelve steps (4 light, 4 grey, 4 dark), anchored at the edges and the colour; h2 takes -10 and h3-h6 -11

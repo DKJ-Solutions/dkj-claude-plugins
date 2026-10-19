@@ -6,7 +6,7 @@ import { useThemeId } from '../theme'
 
 /** House colour tokens (house-style/house-style.css), grouped by what a theme switch changes, as in house-style/README.md. */
 const HOUSE_COLORS = {
-  'changes with every theme': ['primary-1', 'primary-2', 'primary-3', 'primary-6', 'primary-5', 'primary-7', 'primary-8', 'primary-8', 'primary-7', 'primary-9', 'primary-10', 'primary-12'],
+  'changes with every theme': ['primary-1', 'primary-2', 'primary-3', 'primary-4', 'primary-5', 'primary-6', 'primary-7', 'primary-8', 'primary-9', 'primary-10', 'primary-11', 'primary-12'],
   'changes only between light and dark -- categories': ['cat-1', 'cat-2', 'cat-3'],
   'changes only between light and dark -- status colours': [
     'negative-1', 'negative-3', 'negative-5', 'positive-1', 'positive-3', 'positive-5', 'warning-1', 'warning-3', 'warning-5',
@@ -41,7 +41,7 @@ type Swatch = { name: string; value: string | undefined; declared: string | unde
 
 /**
  * A custom property as WRITTEN on the root -- the computed value has every var() substituted, which turns
- * "var(--primary-7) 7%, var(--primary-2)" into nested hexes nobody can read. The last matching declaration wins:
+ * "var(--primary-6) 7%, var(--primary-2)" into nested hexes nobody can read. The last matching declaration wins:
  * the theme rules come after the base rule, and a media block counts only while it matches.
  */
 function readDeclared(names: string[]): Record<string, string> {
@@ -84,8 +84,8 @@ function resolveHex(value: string): string | undefined {
 const unvar = (s: string) => s.replace(/var\((--[\w-]+)\)/g, '$1')
 
 /**
- * A declared color-mix() as a recipe in token names: "color-mix(in srgb, var(--primary-7) 7%, var(--primary-2))"
- * reads ["--primary-2", "+ 7% --primary-7"] -- the base, then how much of which colour goes through it. A share
+ * A declared color-mix() as a recipe in token names: "color-mix(in srgb, var(--primary-6) 7%, var(--primary-2))"
+ * reads ["--primary-2", "+ 7% --primary-6"] -- the base, then how much of which colour goes through it. A share
  * that is itself a token (--surface-tint) shows its value. undefined when it is neither a mix nor an alias.
  */
 function mixRecipe(declared: string): string[] | undefined {

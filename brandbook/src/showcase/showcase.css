@@ -28,7 +28,7 @@
   /* The panel's own colours, so it reads as part of the panel it opens and closes. */
   color: var(--primary-1);
   background: var(--primary-12);
-  border: 1px solid var(--primary-9);
+  border: 1px solid var(--primary-10);
   border-radius: 50%;
   box-shadow: var(--shadow-pop);
   cursor: pointer;
@@ -38,8 +38,8 @@
 }
 .dkj-shell--open .dkj-panel-toggle { left: 230px; }
 .dkj-panel-toggle:hover, .dkj-panel-toggle:focus-visible, .dkj-shell:has(.dkj-contents:hover) .dkj-panel-toggle { opacity: 1; }
-.dkj-panel-toggle:hover { background: var(--primary-9); }
-.dkj-panel-toggle:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-7); outline-offset: 2px; }
+.dkj-panel-toggle:hover { background: var(--primary-10); }
+.dkj-panel-toggle:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: 2px; }
 @media (hover: none) { .dkj-panel-toggle { opacity: 1; } }
 /* The panel: sticky over the full height of the screen; a long list scrolls inside it, and the inner box keeps its
    width, so nothing reflows while it slides. Its colours mirror the page's, by the scale itself: the panel is
@@ -57,10 +57,10 @@
 }
 /* The closed strip: a click opens the panel, and it lightens under the pointer, as a link in the panel does. */
 .dkj-shell:not(.dkj-shell--open) .dkj-contents { cursor: pointer; }
-.dkj-shell:not(.dkj-shell--open) .dkj-contents:hover { background: var(--primary-9); }
+.dkj-shell:not(.dkj-shell--open) .dkj-contents:hover { background: var(--primary-10); }
 .dkj-contents-inner { width: 230px; height: 100%; box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; padding: var(--spacing-5) var(--spacing-4);
-  /* Its scrollbar is the panel's too: a --primary-8 thumb on the panel's own --primary-12, so it is not read as <main>'s. */
-  scrollbar-color: var(--primary-8) var(--primary-12); }
+  /* Its scrollbar is the panel's too: a --primary-7 thumb on the panel's own --primary-12, so it is not read as <main>'s. */
+  scrollbar-color: var(--primary-7) var(--primary-12); }
 /* The panel's heading ("Contents"): an <h2>, so it keeps the house h2 size and face; only its colour follows the panel. */
 .dkj-contents-title { margin: 0; color: var(--primary-3); }
 .dkj-contents-sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-base); color: var(--primary-3); }
@@ -87,11 +87,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.dkj-nav a:hover { background: var(--primary-9); }
+.dkj-nav a:hover { background: var(--primary-10); }
 .dkj-nav a:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-3); outline-offset: var(--dkj-focus-offset-inset); }
-/* The current page: a --primary-7 fill, the same step in both modes. Its focus ring takes --primary-1, because the
+/* The current page: a --primary-6 fill, the same step in both modes. Its focus ring takes --primary-1, because the
    usual ring would vanish on the current fill. */
-.dkj-nav a[aria-current='page'], .dkj-nav a[aria-current='page']:hover { background: var(--primary-7); color: var(--primary-1); font-weight: var(--dkj-fw-semibold); }
+.dkj-nav a[aria-current='page'], .dkj-nav a[aria-current='page']:hover { background: var(--primary-6); color: var(--primary-1); font-weight: var(--dkj-fw-semibold); }
 .dkj-nav a[aria-current='page']:focus-visible { outline-color: var(--primary-1); }
 
 /* <main>: the house style gives it a centred 1080px column; the showcase fills the full width. */
@@ -122,7 +122,7 @@
 
 /* The intro: page title, hero card and type specimen at the top of the content. */
 .dkj-intro { margin-bottom: var(--spacing-8); scroll-margin-top: 5rem; }
-.dkj-eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-11); }
+.dkj-eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-8); }
 .dkj-lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: var(--dkj-lh-snug); color: var(--primary-12); }
 .dkj-specimen { display: grid; gap: var(--spacing-3); }
 .dkj-specimen > * { margin: 0; }
@@ -135,7 +135,7 @@
 .dkj-demos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr)); gap: var(--spacing-4); }
 .dkj-demo { margin: 0; min-width: 0; }
 .dkj-demo--wide { grid-column: 1 / -1; }
-.dkj-demo figcaption { margin-bottom: var(--spacing-1-5); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-9); }
+.dkj-demo figcaption { margin-bottom: var(--spacing-1-5); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-10); }
 .dkj-demo-stage { display: flex; flex-direction: column; gap: var(--spacing-3); padding: var(--spacing-4); border: 1px dashed var(--primary-3); border-radius: var(--dkj-radius-lg); }
 .dkj-demo-stage--surface { background: var(--primary-2); border-style: solid; }
 .dkj-demo-row { display: flex; flex-wrap: wrap; gap: var(--spacing-2); align-items: center; }
@@ -170,7 +170,7 @@
 .dkj-swatch-recipe > span { white-space: nowrap; }
 .dkj-scale { display: grid; gap: var(--spacing-2); }
 .dkj-scale-row { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: var(--spacing-3); align-items: center; font-size: var(--text-sm); color: var(--primary-12); }
-.dkj-bar { max-width: 100%; height: 0.75rem; background: var(--primary-7); border-radius: var(--dkj-radius-xs); }
+.dkj-bar { max-width: 100%; height: 0.75rem; background: var(--primary-6); border-radius: var(--dkj-radius-xs); }
 .dkj-lh-sample { max-width: 16rem; font-size: var(--text-base); color: var(--primary-12); }
 .dkj-tracking-sample { font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); text-transform: uppercase; color: var(--primary-12); }
 .dkj-readouts { display: grid; gap: var(--spacing-0-5); margin: 0; font-size: var(--text-sm); color: var(--primary-12); }
@@ -187,7 +187,7 @@
   background: var(--primary-1);
   border-radius: var(--dkj-radius-md);
 }
-.dkj-focus-sample { outline: var(--dkj-focus-w) solid var(--primary-7); }
+.dkj-focus-sample { outline: var(--dkj-focus-w) solid var(--primary-6); }
 .dkj-shadow-sample { background: var(--primary-2); box-shadow: var(--shadow-pop); }
 /* Motion: each dot crosses its track in its own duration when the panel is hovered or focused. */
 .dkj-motion-track { position: relative; height: 0.75rem; max-width: 16rem; background: var(--primary-3); border-radius: var(--dkj-radius-pill); }
@@ -197,15 +197,15 @@
   left: 0;
   width: 0.75rem;
   height: 0.75rem;
-  background: var(--primary-7);
+  background: var(--primary-6);
   border-radius: var(--dkj-radius-pill);
   transition-property: left;
   transition-timing-function: var(--dkj-ease-out);
 }
 .dkj-motion:hover .dkj-motion-dot, .dkj-motion:focus-visible .dkj-motion-dot { left: calc(100% - 0.75rem); }
-.dkj-motion:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-7); outline-offset: var(--dkj-focus-offset); }
+.dkj-motion:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: var(--dkj-focus-offset); }
 @media (prefers-reduced-motion: reduce) { .dkj-motion-dot { transition: none; } }
-.dkj-radius { width: 3rem; height: 3rem; background: var(--primary-3); border: 1px solid var(--primary-7); }
+.dkj-radius { width: 3rem; height: 3rem; background: var(--primary-3); border: 1px solid var(--primary-6); }
 
 @media (max-width: 52rem) {
   .dkj-main { padding: var(--spacing-4) var(--spacing-4) var(--spacing-8); }
@@ -226,28 +226,28 @@
 
 /* "Used in" line under a component */
 .dkj-used-in { margin: 0 0 var(--spacing-1-5); }
-.dkj-used-in a { color: var(--primary-7); }
+.dkj-used-in a { color: var(--primary-9); }
 
 /* Apps overview */
 .dkj-app { grid-column: 1 / -1; display: grid; gap: var(--spacing-4); padding: var(--spacing-4); border: 1px solid var(--primary-3); border-radius: var(--dkj-radius-lg); background: var(--primary-2); scroll-margin-top: 5rem; }
 .dkj-app-name { margin: 0; }
 .dkj-app-desc { margin: var(--spacing-1) 0 var(--spacing-2); max-width: 46rem; color: var(--primary-12); }
 .dkj-app-meta { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); margin: 0; font-size: var(--text-sm); color: var(--primary-12); }
-.dkj-app-meta a { color: var(--primary-7); }
+.dkj-app-meta a { color: var(--primary-9); }
 .dkj-kind { margin: 0 0 var(--spacing-2); }
 .dkj-views { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr)); gap: var(--spacing-3); margin: 0; padding: 0; list-style: none; }
 .dkj-view { display: grid; gap: var(--spacing-1-5); align-content: start; padding: var(--spacing-3); border: 1px solid var(--primary-3); border-radius: var(--dkj-radius-md); background: var(--primary-3); }   /* the theme's tint, a step deeper than the page and the app card around it */
 .dkj-view h5, .dkj-view-title { margin: 0; }
-.dkj-view p strong { color: var(--primary-7); }
+.dkj-view p strong { color: var(--primary-9); }
 .dkj-view p { margin: 0; font-size: var(--text-sm); color: var(--primary-12); }
 .dkj-view-components { display: flex; flex-wrap: wrap; gap: var(--spacing-1); }
 .dkj-view-components a { padding: var(--spacing-0-5) var(--spacing-2); font-size: var(--text-sm); color: var(--primary-12); text-decoration: none; border: 1px solid var(--primary-3); border-radius: var(--dkj-radius-pill); background: var(--primary-2); }
-.dkj-view-components a:hover { background: var(--primary-3); color: var(--primary-7); }
-.dkj-view-components a:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-7); outline-offset: var(--dkj-focus-offset); }
+.dkj-view-components a:hover { background: var(--primary-3); color: var(--primary-9); }
+.dkj-view-components a:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: var(--dkj-focus-offset); }
 
 /* Repo previews (#preview/<repo>): a recreated app in a frame, on the page colour, sized by the page width in the settings panel. */
 .dkj-preview-back { margin: 0 0 var(--spacing-3); font-size: var(--text-sm); }
-.dkj-preview-back a { color: var(--primary-7); }
+.dkj-preview-back a { color: var(--primary-9); }
 .dkj-preview-meta { margin-bottom: var(--spacing-4); }
 .dkj-preview-frame { border: 1px solid var(--primary-3); border-radius: var(--dkj-radius-lg); overflow: hidden; background: var(--primary-1); }
 .dkj-preview-app--padded { padding: var(--spacing-5) var(--spacing-4) var(--spacing-6); }

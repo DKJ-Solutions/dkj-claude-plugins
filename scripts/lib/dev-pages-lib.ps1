@@ -426,7 +426,7 @@ function Format-BrandbookPageHtml {
 
     $style = $script:DevBarStyle + "`n" +
         '.bb-chip { display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--primary-3); vertical-align: middle; }' + "`n" +
-        '.bb-space { display: inline-block; height: 8px; border-radius: 2px; background: var(--primary-7); vertical-align: middle; }' + "`n" +
+        '.bb-space { display: inline-block; height: 8px; border-radius: 2px; background: var(--primary-6); vertical-align: middle; }' + "`n" +
         '.bb-type { line-height: 1; color: var(--primary-12); }' + "`n" +
         '.bb-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }' + "`n" +
         '.table td.bb-classes { white-space: normal; line-height: 1.8; }'
