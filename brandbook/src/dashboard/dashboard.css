@@ -1,0 +1,11 @@
+/* The Repo hub: the house <main> column, its blocks stacked with one gap. */
+.dkj-dashboard { display: grid; gap: var(--spacing-5); align-content: start; }
+.dkj-dashboard .dkj-intro { margin-bottom: 0; }
+/* An in-page anchor lands with room above it, clear of the sticky settings button (#156); the showcase's offset. */
+.dkj-dashboard [id] { scroll-margin-top: 5rem; }
+.dkj-dashboard-cta { margin: var(--spacing-4) 0 0; }
+
+/* A repo's default theme in the repos table: the house swatch (it carries its own theme's colours), shrunk to a dot. */
+.dkj-theme-label { display: inline-flex; align-items: center; gap: var(--spacing-2); white-space: nowrap; }
+.dkj-theme-label__swatch { width: 20px; height: 20px; cursor: default; }
+.dkj-theme-label__swatch i { width: 10px; height: 10px; }

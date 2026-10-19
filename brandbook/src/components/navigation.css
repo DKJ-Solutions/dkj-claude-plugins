@@ -1,0 +1,107 @@
+/* Top bar, menu rows, download button, step header, info rows, page header. Origin: see src/components/sources.ts. */
+
+/* ---------- TopBar ---------- */
+.dkj-topbar { position: sticky; top: 0; z-index: 2; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }
+.dkj-topbar-inner {
+  max-width: var(--dkj-column-w);
+  height: var(--dkj-topbar-h);
+  margin: 0 auto;
+  padding: 0 var(--spacing-1) 0 var(--spacing-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.dkj-topbar-brand { display: flex; align-items: center; gap: var(--spacing-3); min-width: 0; }
+.dkj-topbar-name { flex: none; font-size: var(--text-lg); font-weight: var(--dkj-fw-bold); }
+.dkj-topbar-tagline { min-width: 0; font-size: var(--text-sm); line-height: 1.25; color: var(--primary-9); }
+
+/* ---------- Menu ---------- */
+.dkj-drawer-content { display: flex; flex-direction: column; flex: 1; }
+.dkj-menu-list { margin: 0; padding: 0; list-style: none; }
+.dkj-menu-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--spacing-3);
+  min-height: var(--dkj-tap);
+  padding: var(--spacing-2);
+}
+.dkj-menu-row + .dkj-menu-row { border-top: 1px solid var(--primary-3); }
+.dkj-menu-label { font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); }
+.dkj-menu-value { min-width: 0; font-size: var(--text-h6); text-align: right; overflow-wrap: anywhere; }
+/* The pencils sit centred under the close button (44px tap area). */
+.dkj-menu-row .dkj-iconbtn { margin-right: calc((var(--dkj-tap) - var(--dkj-control-h)) / 2); }
+
+.dkj-drawer-footer { margin-top: auto; padding-top: var(--spacing-6); }
+.dkj-drawer-footer > .dkj-msg { margin-top: var(--spacing-3); }
+
+/* ---------- StepHeader ---------- */
+.dkj-stephead { display: grid; grid-template-columns: 5.5rem minmax(0, 1fr) 5.5rem; align-items: center; gap: var(--spacing-2); }
+.dkj-stephead .dkj-btn { width: 100%; margin: 0; }
+/* Large, and trimmed to the cap height so the box's centre is the letters' centre. */
+.dkj-stephead-value {
+  margin: 0;
+  padding: var(--spacing-3) 0;
+  font-size: var(--text-h0);
+  font-weight: var(--dkj-fw-bold);
+  line-height: var(--dkj-lh-none);
+  text-align: center;
+  text-box: trim-both cap alphabetic;
+}
+
+/* ---------- InfoRows ---------- */
+.dkj-inforows:not(.dkj-inforows--info) .dkj-inforow-box { background: var(--primary-3); color: var(--primary-9); }   /* text on a tinted surface (--primary-3) is --primary-9 */
+.dkj-inforows:not(.dkj-inforows--info) .dkj-inforow-box .dkj-info-dot { fill: var(--primary-3); }
+.dkj-inforows:not(.dkj-inforows--info) .dkj-inforow-box .dkj-info-stem { stroke: var(--primary-3); }
+.dkj-inforows--info .dkj-inforow-box { background: var(--primary-2); box-shadow: inset 0 0 0 1px var(--cat-1); }
+.dkj-inforows-head { margin: 0 0 var(--spacing-1-5); font-size: var(--text-base); font-weight: var(--dkj-fw-semibold); color: var(--primary-9); }
+.dkj-inforows-list { display: flex; flex-direction: column; gap: var(--spacing-1-5); }
+.dkj-inforow { display: flex; align-items: center; gap: var(--spacing-1-5); }
+.dkj-inforow-box {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: calc(1.5rem + 2 * var(--spacing-2));
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-2);
+  border-radius: var(--dkj-radius-md);
+}
+.dkj-inforow-box .dkj-round-toggle { margin: calc(-1 * var(--spacing-2-5)) calc(-1 * var(--spacing-2-5)) calc(-1 * var(--spacing-2-5)) auto; }
+.dkj-inforow-named {
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: var(--dkj-tap);
+  margin: calc(-1 * var(--spacing-2-5)) calc(-1 * var(--spacing-2));
+  padding: 0 var(--spacing-2);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font: inherit;
+  text-align: left;
+  color: var(--primary-9);
+  background: transparent;
+  border: 0;
+  border-radius: var(--dkj-radius-md);
+  cursor: pointer;
+}
+.dkj-inforow-named > svg { flex: none; }
+.dkj-inforow-named:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-5); outline-offset: var(--dkj-focus-offset-inset); }
+.dkj-inforow-value { min-width: 0; font-size: var(--text-h6); line-height: 1.5rem; font-weight: var(--dkj-fw-semibold); color: var(--primary-7); overflow-wrap: anywhere; }
+.dkj-inforow-value--placeholder { font-weight: var(--dkj-fw-regular); color: var(--primary-9); }
+
+/* ---------- PageHeader ---------- */
+/* The house rule for `main > header` and its .controls row, for a header that is not a direct child of main. */
+.dkj-page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-3); }
+
+/* ---------- Breadcrumbs ---------- */
+/* One line; the slash is muted, the ancestors are links, the current page is the strongest. */
+.dkj-breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
+.dkj-breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
+.dkj-breadcrumbs a { color: var(--primary-7); text-underline-offset: 2px; }
+.dkj-breadcrumbs-sep { color: var(--primary-5); }
+.dkj-breadcrumbs [aria-current='page'] { color: var(--primary-9); font-weight: var(--dkj-fw-semibold); }
+/* The bar: full screen width on a tinted background, sticky at the top and one --tap high, the trail aligned with the
+   house page column (.container). A trail longer than the screen scrolls sideways, so the height never changes. */
+.dkj-breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }
+.dkj-breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
+html:has(.dkj-breadcrumbs-bar) { scroll-padding-top: var(--tap); }

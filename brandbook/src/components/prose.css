@@ -1,0 +1,96 @@
+/* Prose: a rendered long-form body. Styles plain descendant elements inside .dkj-prose.
+   A brand-book original (no source repo; see src/components/sources.ts). */
+.dkj-prose {
+  --prose-h1: var(--text-h3);
+  --prose-h2: var(--text-h5);
+  --prose-h3: var(--text-h6);
+  --prose-h4: var(--text-base);
+  max-width: 70ch;
+  font-size: var(--text-base);
+  line-height: var(--dkj-lh-prose);
+  color: var(--primary-9);
+}
+.dkj-prose--sm {
+  --prose-h1: var(--text-h5);
+  --prose-h2: var(--text-h6);
+  --prose-h3: var(--text-base);
+  --prose-h4: var(--text-sm);
+  font-size: var(--text-sm);
+}
+.dkj-prose--fill { max-width: none; }
+
+/* Rhythm: one rule, no margin on the first or last child. */
+.dkj-prose > * { margin: 0; }
+.dkj-prose > * + * { margin-top: var(--spacing-3); }
+.dkj-prose > :first-child { margin-top: 0; }
+
+/* Headings: one step down the house scale (the page has its own h1). Scoped reset of the house heading margins. */
+.dkj-prose :is(h1, h2, h3, h4) { margin: 0; display: block; font-weight: var(--dkj-fw-semibold); line-height: var(--dkj-lh-snug); }
+.dkj-prose h1 { font-size: var(--prose-h1); }
+.dkj-prose h2 { font-size: var(--prose-h2); }
+.dkj-prose h3 { font-size: var(--prose-h3); }
+.dkj-prose h4 { font-size: var(--prose-h4); color: var(--primary-9); }
+.dkj-prose h3, .dkj-prose h4 { font-family: inherit; }
+.dkj-prose > * + h1, .dkj-prose > * + h2 { margin-top: var(--spacing-6); }
+.dkj-prose > * + h3, .dkj-prose > * + h4 { margin-top: var(--spacing-5); }
+.dkj-prose > :is(h1, h2, h3, h4) + * { margin-top: var(--spacing-2); }
+
+.dkj-prose p { overflow-wrap: break-word; }
+.dkj-prose strong { font-weight: var(--dkj-fw-semibold); color: var(--primary-7); }
+.dkj-prose em { font-style: italic; }
+
+/* Lists */
+.dkj-prose :is(ul, ol) { padding-left: var(--spacing-6); }
+.dkj-prose li + li { margin-top: var(--spacing-1); }
+.dkj-prose li::marker { color: var(--primary-7); }
+.dkj-prose li :is(ul, ol) { margin-top: var(--spacing-1); }
+.dkj-prose li:has(> input[type='checkbox']) { list-style: none; display: flex; flex-wrap: wrap; gap: var(--spacing-2); margin-left: calc(-1 * var(--spacing-6)); }
+.dkj-prose li:has(> input[type='checkbox']) > :is(ul, ol) { flex-basis: 100%; }
+.dkj-prose li > input[type='checkbox'] { flex: none; width: 1rem; height: 1rem; margin: 0; accent-color: var(--primary-5); transform: translateY(0.3em); }
+
+/* Code */
+.dkj-prose :is(code, pre) { font-family: var(--dkj-font-mono); }
+.dkj-prose code {
+  font-size: 0.9em;
+  padding: 0.1em 0.35em;
+  border-radius: var(--dkj-radius-xs);
+  background: var(--primary-3);
+}
+.dkj-prose pre {
+  font-size: var(--text-sm);
+  padding: var(--spacing-3) var(--spacing-4);
+  border: 1px solid var(--primary-3);
+  border-radius: var(--dkj-radius-md);
+  background: var(--primary-3);
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+.dkj-prose pre code { padding: 0; border-radius: 0; background: none; font-size: inherit; }
+
+/* Table: the house table's visual language, but text: left-aligned and wrapping. */
+.dkj-prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.dkj-prose :is(th, td) { padding: var(--spacing-2) var(--spacing-2-5); text-align: left; border-bottom: 1px solid var(--primary-3); }
+.dkj-prose th { color: var(--primary-9); font-weight: var(--dkj-fw-semibold); }
+.dkj-prose :is(th, td)[align='right'] { text-align: right; }
+
+/* Blockquote, links, rule, images */
+.dkj-prose blockquote { margin-inline: 0; padding-left: var(--spacing-4); border-left: 3px solid var(--primary-3); color: var(--primary-9); font-style: normal; }
+.dkj-prose a { color: var(--primary-7); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
+.dkj-prose a:hover { text-decoration-thickness: 2px; }
+.dkj-prose hr { border: 0; border-top: 1px solid var(--primary-3); margin-block: var(--spacing-6); }
+.dkj-prose > hr + * { margin-top: 0; }
+.dkj-prose img { max-width: 100%; height: auto; border-radius: var(--dkj-radius-sm); }
+
+/* A scrolling pre or table must be reachable by keyboard (tabindex="0"); it gets the shared focus ring. */
+.dkj-prose :is(a, pre, table):focus-visible {
+  outline: var(--dkj-focus-w) solid var(--primary-5);
+  outline-offset: var(--dkj-focus-offset);
+}
