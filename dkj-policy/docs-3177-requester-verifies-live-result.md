@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Inbound #3177: in BWJ ticket handling, the requester checks a live result against its acceptance,
+not a dev session. The requester's refinement (a closed issue, not one parked on
+`awaiting-review-client`) and the owner's ruling (BWJ-wide, no per-repo seam) are both on the thread.
+The closed-message form that makes it concrete is #3179, which is not in scope here.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `bwj-development/WORKFLOW-portable.md` chapter 4: a new section, *A result that is a number*,
+  placed after the go-live half so the existing sections stay whole. It also says what to use until
+  #3179 lands.
 
 ### TEST
 
+- [x] Copy edit (Edith) on the diff.
+- [x] Lint and test gates through `open-pr`.
+
 ### DEPLOY: docs/3177-requester-verifies-live-result
 
-**Score:**
+Inside this repo the rule is text in the bwj-development page. Nothing reads it.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+In a BWJ store repo, a dev session stops taking the post-live acceptance measurement of a fix whose
+result is a number (PageSpeed, conversion, ranking). It closes the issue instead, with a closed message
+telling the requester how to measure and against which targets. In smartwatchbanden that measurement
+was picked up four times and stalled on PageSpeed quota and missing browser tooling.
+
+**Score:** 3
 
 #### Pull Request
 
