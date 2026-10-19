@@ -72,3 +72,4 @@ was picked up four times, and three of those stalled on PageSpeed quota and miss
 
 #### Pull Request
 
+BWJ ticket handling: the requester re-measures a live result, not a dev session
