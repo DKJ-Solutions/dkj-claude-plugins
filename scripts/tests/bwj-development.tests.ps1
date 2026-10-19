@@ -67,7 +67,7 @@ foreach ($rel in @('README.md', 'WORKFLOW-portable.md', 'SYNC-LOG-portable.md', 
                    'scripts\lib\golive-block-rules.ps1', 'scripts\task\build-golive-block.ps1',
                    'skills\prepare-release\SKILL.md', 'scripts\lib\prepare-release-rules.ps1',
                    'scripts\task\prepare-release.ps1',
-                   'skills\notify-live\SKILL.md', 'scripts\lib\live-message-rules.ps1',
+                   'skills\notify-live\SKILL.md', 'scripts\lib\live-message-rules.ps1', 'scripts\lib\live-record-lib.ps1',
                    'scripts\task\notify-live.ps1',
                    'scripts\lib\asana-task-lib.ps1')) {
     Assert-True (Test-Path -LiteralPath (Join-Path $PluginRoot $rel)) "ships $rel"
@@ -1110,6 +1110,16 @@ Assert-Equal 'v2.9.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.4
 Assert-Equal 'v2.44.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.45.0') -Version 'v2.45.0') 'the highest tag below wins'
 Assert-Equal '' (Get-PreviousReleaseTag -Tags @('v1.0.0') -Version 'v1.0.0') 'the first release has no range start'
 
+# A REBASE-MERGE'S EARLIER COMMITS (#3190): the merge's own diff is only its last commit, so gh's file list joins it.
+$nlRebase = Get-PullChangedPaths -DiffPaths @('extensions/a.js') -PullFiles @('sections/b.liquid', 'extensions/a.js') -ChangedFiles 2 -ParentCount 1
+Assert-Equal 'extensions/a.js,sections/b.liquid' ($nlRebase.Paths -join ',') 'a path only an earlier commit of a rebase-merged PR touched is seen, and none twice'
+Assert-True $nlRebase.Complete '...and gh''s whole list makes the answer complete'
+Assert-True (-not (Get-PullChangedPaths -DiffPaths @('a') -PullFiles @('a', 'b') -ChangedFiles 140 -ParentCount 1).Complete) 'a capped gh list on a one-parent merge is not complete -- the driver reads that PR as unread'
+Assert-True (Get-PullChangedPaths -DiffPaths @('a') -PullFiles @('a') -ChangedFiles 140 -ParentCount 2).Complete 'while a two-parent merge commit''s diff is the whole PR, capped list or not'
+Assert-Equal 0 @((Get-PullChangedPaths -DiffPaths @() -PullFiles @() -ChangedFiles 0).Paths).Count 'an empty PR changes nothing'
+$nlDriverText = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\notify-live.ps1'))
+Assert-True ($nlDriverText -match 'closingIssuesReferences,files,changedFiles' -and $nlDriverText.Contains('Get-PullChangedPaths')) 'the driver asks gh for the PR''s files in the same call, and joins them through the rule'
+
 $nlDash = [string][char]0x2014
 function New-NlBlockComment {
     param([string[]]$Kinds = @(), [string]$CreatedAt = '2026-10-10T10:00:00Z', [string]$Heading = 'WAT WE VAN JE VRAGEN')
@@ -1163,6 +1173,37 @@ Assert-True ($nlDriver -match 'if \(\$PostArg -and \$owed\.Count -gt 0\)') 'the 
 $nlRun = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PluginRoot 'scripts\task\notify-live.ps1') 2>&1) | ForEach-Object { "$_" }) -join "`n"
 Assert-Equal 1 $LASTEXITCODE 'run in the plugin''s own source repo, the driver refuses'
 Assert-True $nlRun.Contains('publishes plugins') '...and says why'
+
+# THE LIVE-PUSH RECORD (#3176): read with the mirrored live-record-lib, and a held path holds the issue
+# before its verdict is asked. The fixture repo's subjects name no PR, so the run asks gh nothing.
+Assert-True ($nlDriver -match "live-record-lib\.ps1") 'the driver reads the record with the mirrored live-record-lib'
+Assert-True ($nlDriver.IndexOf('$heldCount[$num] -gt 0') -ge 0 -and $nlDriver.IndexOf('$heldCount[$num] -gt 0') -lt $nlDriver.IndexOf('Get-LiveMessageVerdict -Issue')) 'a held issue is held before its verdict is asked'
+$nlRoot = Join-Path ([System.IO.Path]::GetTempPath()) "bwj-notify-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    New-Item -ItemType Directory -Path $nlRoot -Force | Out-Null
+    Invoke-FixtureGitIn $nlRoot init -q
+    Invoke-FixtureGitIn $nlRoot -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q --allow-empty -m one
+    Invoke-FixtureGitIn $nlRoot tag v1.0.0
+    Invoke-FixtureGitIn $nlRoot -c user.name=t -c user.email=t@example.invalid -c commit.gpgsign=false commit -q --allow-empty -m two
+    Invoke-FixtureGitIn $nlRoot tag v1.1.0
+    $nlRecord = Join-Path $nlRoot 'record.txt'
+    $nlDriverPath = Join-Path $PluginRoot 'scripts\task\notify-live.ps1'
+
+    [System.IO.File]::WriteAllText($nlRecord, "live extensions/a.js`nhold sections/b.liquid`n")
+    $nlGood = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $nlDriverPath -RootOverride $nlRoot -Repo 'fixture/nl-3176' -LivePushRecord $nlRecord 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-Equal 0 $LASTEXITCODE 'a readable record with nothing in the range runs to the end'
+    Assert-True $nlGood.Contains('live-push record -- 1 live, 1 held') '...and says what it read'
+
+    [System.IO.File]::WriteAllText($nlRecord, "hodl sections/b.liquid`n")
+    $nlBad = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $nlDriverPath -RootOverride $nlRoot -Repo 'fixture/nl-3176' -LivePushRecord $nlRecord 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-Equal 1 $LASTEXITCODE 'a record with a line it cannot read refuses rather than running without it'
+    Assert-True $nlBad.Contains('The live-push record could not be read') '...and says so'
+
+    $nlNone = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $nlDriverPath -RootOverride $nlRoot -Repo 'fixture/nl-3176' 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-True $nlNone.Contains('no -LivePushRecord') 'without a record the run says what it cannot see'
+} finally {
+    if (Test-Path -LiteralPath $nlRoot) { Remove-Item -LiteralPath $nlRoot -Recurse -Force -ErrorAction SilentlyContinue }
+}
 
 # --- the preview step's carrier (#2655) ---------------------------------------------------------
 # PREVIEW-portable.md names the step's exact words, and the adopt skill proposes the seam that makes

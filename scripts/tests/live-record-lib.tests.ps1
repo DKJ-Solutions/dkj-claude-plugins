@@ -78,7 +78,7 @@ $expectedLines = @(
     '# One line per theme file in the range: "live <path>" means its change is on the live theme after this push,',
     '# "hold <path>" means it is not. If you hold a file back from the push, change its "live" to "hold".',
     '# A file the range deletes is "hold": no deletion command was composed, so it is still on live.',
-    '# cut-release reads this file (-LivePushRecord) for the GitHub body and the audience note.',
+    '# cut-release and notify-live read this file (-LivePushRecord): the GitHub body, the audience note, and who is told.',
     'live sections/header.liquid',
     'live sections/media-with-text.liquid',
     'hold locales/es.json'
@@ -105,6 +105,22 @@ $emptyRecord = Format-LivePushRecord
 Assert-Equal 5 (@(($emptyRecord -split "`n") | Where-Object { $_ })).Count 'no rows at all still produces the five header lines and nothing else'
 Assert-True $emptyRecord.EndsWith("`n") 'and ends in exactly one newline'
 Assert-Equal 5 (@(($emptyRecord -split "`n") | Where-Object { $_ })).Count 'and a null -Rows reads the same as no rows' # (default parameter)
+
+# AN APP FILE IS A 'live' LINE OF ITS OWN (#3176), after the theme lines, under a header line that says
+# what holding it means. Its row is not-a-theme-path and still writes nothing: the line comes from -AppPaths.
+$appRows = @($rows) + @([pscustomobject]@{ Path = 'extensions/cart/src/run.js'; Kind = 'not-a-theme-path' })
+$appRecord = Format-LivePushRecord -Rows $appRows -Range 'v1.3.0..HEAD' -AppPaths @('extensions/cart/src/run.js', ' ', $null)
+$appLines = @(($appRecord -split "`n") | Where-Object { $_ -match '^(live|hold) ' })
+Assert-Equal 'live extensions/cart/src/run.js' $appLines[-1] 'an app path is a live line, after the theme lines'
+Assert-Equal 4 $appLines.Count '...once, and a blank or null app path writes nothing'
+Assert-True $appRecord.Contains('# A file under the app root is "live" once the app deploy printed above has run; skip that deploy, and mark it "hold".') 'the header says what holding an app line means'
+Assert-True (-not $record.Contains('app root')) '...and only where an app path was given'
+$appHeld = ConvertFrom-LivePushRecord ($appRecord -replace '(?m)^live extensions/', 'hold extensions/')
+$appState = Get-EntryLiveState -ChangedPaths @('extensions/cart/src/run.js', 'README.md') -Record $appHeld
+Assert-Equal 'not-live' $appState.State 'an app-only entry whose deploy was held reads as not live'
+Assert-True $appState.Storefront '...and as a storefront change, which it is'
+$appOnly = Format-LivePushRecord -Range 'v1.3.0..HEAD' -AppPaths @('extensions/a.js')
+Assert-Equal 'live' (Get-EntryLiveState -ChangedPaths @('extensions/a.js') -Record (ConvertFrom-LivePushRecord $appOnly)).State 'an app-only record with no theme rows parses, and its line reads as live'
 
 # A NULL ROW AND A BLANK PATH ARE BOTH SKIPPED, silently -- neither is a theme file to report on.
 $skipRows = @($null, [pscustomobject]@{ Path = ''; Kind = 'theme-file' }, [pscustomobject]@{ Path = '  '; Kind = 'theme-file' }, [pscustomobject]@{ Path = 'assets/x.css'; Kind = 'theme-file' })

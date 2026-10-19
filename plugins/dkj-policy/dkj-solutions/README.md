@@ -153,12 +153,13 @@ the same four pages without touching its server.
 |---|---|---|
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
-| `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out | A plain 404 text saying it is not built |
+| `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `dkj-policy`'s `build-release-notes-page.ps1` in a child process (bounded at 60 s), found the way `/sessionstart` finds its lib: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |
 | `/sessionstart` | The always-on path, measured in a child process (bounded at 60 s) by `always-on-budget-lib.ps1`, found in the repo's own `scripts/lib`, else in the plugin's source tree, else in the highest `dkj-policy` version in the plugin cache; kept for a minute | The reason it could not measure, on the page |
 
-**Two things to know about what these pages read and who can read them.** `/sessionstart` runs a child
-process that first dot-sources the repo's own `scripts/repo-config.ps1`, and the repo's own
-`scripts/lib/always-on-budget-lib.ps1` where it has one: the same trust the dev-preview hook already gives
+**Two things to know about what these pages read and who can read them.** `/sessionstart` and
+`/release-notes` run a child process that first dot-sources the repo's own `scripts/repo-config.ps1`, and
+the repo's own `scripts/lib/always-on-budget-lib.ps1` or `scripts/release/build-release-notes-page.ps1`
+where it has one: the same trust the dev-preview hook already gives
 `scripts/repo-config.ps1`, so enable the plugin only in repos you own. And the pages are **unauthenticated on
 loopback**: any process on the machine can read them, so a private repo's issue titles are readable by
 every local process, not only by the browser of whoever started the session.

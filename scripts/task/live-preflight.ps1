@@ -1004,10 +1004,11 @@ if ($appCommand) {
     $beside = if ($connected) { 'the promotion' } else { 'the push' }
     Write-Host '  It releases a new version of the app to the store. A theme that places a block this deploy' -ForegroundColor Yellow
     Write-Host "  adds needs the deploy first; otherwise its order beside $beside is yours." -ForegroundColor Yellow
-    # NO LIVE-PUSH RECORD NAMES THE APP DEPLOY YET (#3176): the cut and notify-live cannot tell whether it ran.
 }
 
-if ($pushCommand -or $deleteCommand -or $promotionCommand) {
+# AN APP DEPLOY WRITES THE RECORD TOO (#3176): its files are 'live' lines, so an app-only release has a
+# record to hold back, and the cut and notify-live read whether the deploy ran from the same file.
+if ($pushCommand -or $deleteCommand -or $promotionCommand -or $appCommand) {
     # THE LIVE-PUSH RECORD (#2570/#2586), written only once the push is allowed, because it describes a
     # push somebody is about to make. It goes to the temp directory rather than the tree: the cut refuses
     # a dirty trunk, and a record committed into the release would describe a push that happened after it.
@@ -1027,22 +1028,27 @@ if ($pushCommand -or $deleteCommand -or $promotionCommand) {
     # A GUID in the name, as every temp path a shipping script composes carries one: two checkouts with the
     # same folder name at the same commit would otherwise write one record over the other's edits.
     $recordPath = Join-Path ([System.IO.Path]::GetTempPath()) ("live-push-record-{0}-{1}-{2}.txt" -f (Split-Path -Leaf $repoRoot), $head, [guid]::NewGuid().ToString('N').Substring(0, 8))
+    $recordApps = if ($appCommand) { @($appFiles) } else { @() }
     try {
         if ($promotionCommand) {
             if (-not $headFull) { throw 'the trunk commit could not be read, so the promotion has no sha to name' }
-            $recordText = Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head" -DeletionsCarried -PromotedSha $headFull -DeployBranch $deployBranch
+            $recordText = Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head" -DeletionsCarried -PromotedSha $headFull -DeployBranch $deployBranch -AppPaths $recordApps
         } else {
-            $recordText = Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head" -DeletionsCarried:([bool]$deleteCommand)
+            $recordText = Format-LivePushRecord -Rows $rows -Range "$sinceTag..$head" -DeletionsCarried:([bool]$deleteCommand) -AppPaths $recordApps
         }
         [System.IO.File]::WriteAllText($recordPath, $recordText, (New-Object System.Text.UTF8Encoding($false)))
         Write-Host ''
-        Write-Host 'The live-push record, for the cut:' -ForegroundColor Cyan
+        Write-Host 'The live-push record, for the cut and notify-live:' -ForegroundColor Cyan
         Write-Host "  $recordPath"
         if (-not $promotionCommand) {
             Write-Host '  If you hold a file back from a command above, change its "live" to "hold" in that file.' -ForegroundColor Yellow
         }
-        Write-Host '  Then pass it to the cut, so the GitHub body and the audience note list only what is live:'
+        if ($appCommand) {
+            Write-Host '  If you do not run the app deploy above, change its files'' "live" to "hold" in that file.' -ForegroundColor Yellow
+        }
+        Write-Host '  Then pass it to the cut and to notify-live, so they list and tell only what is live:'
         Write-Host "    cut-release.ps1 ... -LivePushRecord `"$recordPath`""
+        Write-Host "    notify-live.ps1 ... -LivePushRecord `"$recordPath`""
     } catch {
         Write-Warning "the live-push record could not be written to $recordPath ($(Format-SafeProseToken -Value $_.Exception.Message)). The cut can still run, but without it every merged entry reads as live."
     }

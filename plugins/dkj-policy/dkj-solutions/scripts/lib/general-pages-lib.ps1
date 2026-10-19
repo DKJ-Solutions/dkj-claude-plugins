@@ -256,22 +256,24 @@ function Get-DkjPolicyCacheDir {
     return Join-Path (Split-Path -Parent (Split-Path -Parent $plugin)) 'dkj-policy'
 }
 
-function Get-AlwaysOnBudgetLibCandidates {
+function Get-DkjPolicyScriptCandidates {
     <#
-        Where the SessionStart page may find always-on-budget-lib.ps1, in the order it is tried: the repo's
-        own copy (a repo that carries the workflow); the source layout, where the plugin sits in
-        plugins/dkj-policy/<plugin> and dkj-policy's scripts are its sibling; and the cache layout, where
-        the plugin is cache/<marketplace>/<plugin>/<version> and dkj-policy is cache/<marketplace>/dkj-policy/
-        <version>. -PolicyVersions are the version folder names found under the cache's dkj-policy folder
-        (the caller lists them, under Get-DkjPolicyCacheDir; this function only picks the highest). The lib dot-sources its two
-        neighbours from its own folder, so they resolve wherever it is found.
+        Where a page may find one of dkj-policy's scripts (-RelativePath, from dkj-policy's root), in the
+        order it is tried: the repo's own copy (a repo that carries the workflow); the source layout, where
+        the plugin sits in plugins/dkj-policy/<plugin> and dkj-policy's scripts are its sibling; and the
+        cache layout, where the plugin is cache/<marketplace>/<plugin>/<version> and dkj-policy is
+        cache/<marketplace>/dkj-policy/<version>. -PolicyVersions are the version folder names found under
+        the cache's dkj-policy folder (the caller lists them, under Get-DkjPolicyCacheDir; this function
+        only picks the highest). A script found this way dot-sources its neighbours from its own folder, so
+        they resolve wherever it is found.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$RepoRoot,
         [Parameter(Mandatory = $true)][string]$PluginRoot,
+        [Parameter(Mandatory = $true)][string]$RelativePath,
         [AllowEmptyCollection()][string[]]$PolicyVersions = @()
     )
-    $rel = 'scripts\lib\always-on-budget-lib.ps1'
+    $rel = $RelativePath
     $plugin = $PluginRoot.TrimEnd('\', '/')
     $list = @(
         (Join-Path $RepoRoot $rel),
@@ -282,6 +284,37 @@ function Get-AlwaysOnBudgetLibCandidates {
         $list += (Join-Path (Join-Path (Get-DkjPolicyCacheDir -PluginRoot $plugin) $top) $rel)
     }
     return $list
+}
+
+function Get-AlwaysOnBudgetLibCandidates {
+    <# Where the SessionStart page may find always-on-budget-lib.ps1: Get-DkjPolicyScriptCandidates for that lib. #>
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [Parameter(Mandatory = $true)][string]$PluginRoot,
+        [AllowEmptyCollection()][string[]]$PolicyVersions = @()
+    )
+    return Get-DkjPolicyScriptCandidates -RepoRoot $RepoRoot -PluginRoot $PluginRoot -RelativePath 'scripts\lib\always-on-budget-lib.ps1' -PolicyVersions $PolicyVersions
+}
+
+function Get-ReleaseNotesPageNeed {
+    <#
+        Whether /release-notes has to build its page first (#3189): 'absent' where there is no page, 'stale'
+        where a release document under -ReleasesDir changed after it was built, else ''. The page is a
+        gitignored snapshot that nothing else builds -- not a fresh clone, not a second machine, not a cut --
+        so the server that links it is the one place that can keep it there and current.
+
+        -PageTime is the page's last write ($null: absent); -NewestInputTime is the newest last write of the
+        files under the releases folder outside the page folder ($null: none). That folder holds the history
+        and the notes in a repo laid out the way this server reads the page; a file there that is neither
+        costs one rebuild of about a second, which is cheaper than knowing the repo's seams here.
+    #>
+    param(
+        [AllowNull()][Nullable[datetime]]$PageTime,
+        [AllowNull()][Nullable[datetime]]$NewestInputTime
+    )
+    if ($null -eq $PageTime) { return 'absent' }
+    if ($null -ne $NewestInputTime -and $NewestInputTime -gt $PageTime) { return 'stale' }
+    return ''
 }
 
 function Test-ArtifactUrl {

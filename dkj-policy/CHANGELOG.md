@@ -2,7 +2,85 @@
 
 ## [Unreleased]
 
-**11 / 14 minor entries** <!-- pending-tally -->
+**14 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3189-build-release-notes-on-demand · 20261019-191555Z
+
+The Repo hub's Release notes link here works on a fresh clone. The general pages server builds the gitignored
+page itself when it is missing or older than a release document, so nobody has to run
+`build-release-notes-page.ps1` by hand any more (#3189).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a DKJ-Solutions repo with `dkj-solutions` enabled, the hub's Release notes card opens the notes instead
+of a 404, and shows the latest release without a manual rebuild. Where the page cannot be built, the 404
+now says why.
+
+**Score:** 2
+
+#### Pull Request
+
+Repo hub's Release notes link 404s: the general pages server builds the page on demand
+
+Plugins: dkj-solutions
+
+[PR #3192](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3192)
+
+---
+
+### DEPLOY: fix/3190-live-record-whole-pr-diff · 20261019-190616Z
+
+The change here is only in the bwj-development plugin's script and its tests.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+In a BWJ store repo, `notify-live -LivePushRecord` now sees a held file that an earlier commit of a
+rebase-merged PR touched, and does not tell that issue's requester their work is live. A PR whose file
+list gh truncates is reported as UNREAD instead of guessed. This prevents a failure that has not happened
+yet: a "Rebase and merge" through the GitHub UI telling a requester "live" while their file was held back.
+
+**Score:** 1
+
+#### Pull Request
+
+notify-live -LivePushRecord: read a PR's whole diff, so a rebase-merged PR's earlier commits count
+
+Plugins: bwj-development
+
+[PR #3195](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3195)
+
+---
+
+### DEPLOY: feat/3176-app-deploy-in-live-record · 20261019-185315Z
+
+live-preflight writes one `live <path>` line per file under `Get-ShopifyAppRoot` into the live-push
+record, and writes the record for an app-only release too. A deploy that is not run is marked `hold` by
+hand, like a held theme file. `notify-live -LivePushRecord <path>` reads the same record through a
+mirrored `live-record-lib`. It holds an issue whose PR changed a `hold` path, and it refuses a record it
+cannot parse. prepare-release's step 7 tells you to pass the record (#3176).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store that ships a Shopify app no longer has an app-only change announced as live to its requester,
+or listed as landed by the cut, before `shopify app deploy` has run. Pass the record to notify-live.
+
+**Score:** 3
+
+#### Pull Request
+
+notify-live treats an app-only change as live before the shopify app deploy has run
+
+Plugins: bwj-development, dkj-policy, dkj-subagents-shopify
+
+[PR #3191](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3191)
+
+---
 
 ### DEPLOY: feat/3183-golive-block-by-hand · 20261019-182305Z
 

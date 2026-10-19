@@ -421,6 +421,16 @@ Assert-Equal 'C:\r\mkt\plugins\dkj-policy\scripts\lib\always-on-budget-lib.ps1' 
 Assert-Equal 2 $cands.Count 'and no cache candidate where no dkj-policy version is known'
 $cands = @(Get-AlwaysOnBudgetLibCandidates -RepoRoot 'C:\r\repo' -PluginRoot 'C:\cache\mkt\dkj-solutions\5.23.0\' -PolicyVersions @('5.9.0', '5.22.0'))
 Assert-Equal 'C:\cache\mkt\dkj-policy\5.22.0\scripts\lib\always-on-budget-lib.ps1' $cands[2] 'then the cache layout, in the highest dkj-policy version'
+$cands = @(Get-DkjPolicyScriptCandidates -RepoRoot 'C:\r\repo' -PluginRoot 'C:\cache\mkt\dkj-solutions\5.23.0' -RelativePath 'scripts\release\build-release-notes-page.ps1' -PolicyVersions @('5.22.0'))
+Assert-Equal 'C:\r\repo\scripts\release\build-release-notes-page.ps1' $cands[0] 'the release-notes builder is looked for the same way: the repo''s own copy first (#3189)'
+Assert-Equal 'C:\cache\mkt\dkj-policy\5.22.0\scripts\release\build-release-notes-page.ps1' $cands[2] 'and last in the highest dkj-policy version in the cache'
+Write-Host '-- when /release-notes builds its page first (#3189)' -ForegroundColor Cyan
+$built = [datetime]'2026-10-19 10:00'
+Assert-Equal 'absent' (Get-ReleaseNotesPageNeed -PageTime $null -NewestInputTime $built) 'no page is built'
+Assert-Equal 'absent' (Get-ReleaseNotesPageNeed -PageTime $null -NewestInputTime $null) 'even where there is nothing to build it from: the build says why'
+Assert-Equal 'stale' (Get-ReleaseNotesPageNeed -PageTime $built -NewestInputTime $built.AddMinutes(1)) 'a page older than a release document is rebuilt'
+Assert-Equal '' (Get-ReleaseNotesPageNeed -PageTime $built -NewestInputTime $built) 'one as new as the newest document is served as it is'
+Assert-Equal '' (Get-ReleaseNotesPageNeed -PageTime $built -NewestInputTime $null) 'and so is a page with no document beside it'
 
 
 Write-Host '-- the Specialists model' -ForegroundColor Cyan
