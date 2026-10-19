@@ -254,6 +254,17 @@ Assert-True (Test-DevPreviewPlaceholderCrossSite 'same-site') 'and keeps the one
 Assert-Equal @('C:\r\mkt\dkj-policy') @(Get-DkjPolicyCacheDir -PluginRoot 'C:\r\mkt\dkj-solutions\5.23.0\') 'dkj-policy''s version folders sit beside the plugin''s own in the cache'
 Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/a b' -Pages '') -Root $stateRoot).Hub 'nor one with a space in its path'
 
+# A HEAD answers like the GET would, real Content-Length included, and carries no body (#3161).
+$respBody = [System.Text.Encoding]::ASCII.GetBytes('Not found.')
+$getStream = New-Object System.IO.MemoryStream
+Send-LoopbackResponse $getStream 404 'Not Found' 'text/plain' $respBody -Method 'GET'
+$headStream = New-Object System.IO.MemoryStream
+Send-LoopbackResponse $headStream 404 'Not Found' 'text/plain' $respBody -Method 'HEAD'
+$getText = [System.Text.Encoding]::ASCII.GetString($getStream.ToArray())
+$headText = [System.Text.Encoding]::ASCII.GetString($headStream.ToArray())
+Assert-True ($getText.EndsWith("`r`n`r`nNot found.")) 'a GET carries its body'
+Assert-Equal $getText.Substring(0, $getText.Length - $respBody.Length) $headText 'a HEAD sends the same head, Content-Length included, and no body'
+
 Write-Host '-- group 2: the hook, end to end' -ForegroundColor Cyan
 
 function New-Repo {

@@ -285,13 +285,15 @@ function Read-DashboardRequest {
 }
 
 function Send-DashboardResponse {
-    param($Stream, [int]$Status, [string]$Reason, [string]$Type, [byte[]]$Body, [hashtable]$Headers = @{})
+    # A HEAD gets the same headers as a GET, the real Content-Length included, and no body (RFC 9110,
+    # #3161) -- dropped here once rather than by each route.
+    param($Stream, [int]$Status, [string]$Reason, [string]$Type, [byte[]]$Body, [hashtable]$Headers = @{}, [string]$Method = 'GET')
     $head = "HTTP/1.1 $Status $Reason`r`nContent-Type: $Type`r`nContent-Length: $($Body.Length)`r`n" +
         "Cache-Control: no-store`r`nX-Content-Type-Options: nosniff`r`nConnection: close`r`n"
     foreach ($k in $Headers.Keys) { $head += "$k`: $($Headers[$k])`r`n" }
     $bytes = [System.Text.Encoding]::ASCII.GetBytes($head + "`r`n")
     $Stream.Write($bytes, 0, $bytes.Length)
-    if ($Body.Length) { $Stream.Write($Body, 0, $Body.Length) }
+    if ($Body.Length -and $Method -ne 'HEAD') { $Stream.Write($Body, 0, $Body.Length) }
     $Stream.Flush()
 }
 
@@ -320,15 +322,15 @@ try {
             $path = ([string]$target -split '\?')[0]
 
             if (-not (Test-DashboardHost -HostHeader $hostHeader -Port $Port)) {
-                Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.'))
+                Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: this server answers only to localhost.')) -Method $method
                 continue
             }
             if (Test-DashboardCrossSite -SecFetchSite $request.SecFetchSite -SecFetchMode $request.SecFetchMode -Method $method) {
-                Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.'))
+                Send-DashboardResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.')) -Method $method
                 continue
             }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
-                Send-DashboardResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' }
+                Send-DashboardResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' } -Method $method
                 continue
             }
             # A static file skips the restart check while it is there: a 503 handed to a <link> would leave the
@@ -337,15 +339,15 @@ try {
             # and is a 404 below when the checkout has not moved, never a dropped connection.
             if ($static.ContainsKey($path) -and (Test-Path -LiteralPath $static[$path].File -PathType Leaf)) {
                 $s = $static[$path]
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { [System.IO.File]::ReadAllBytes($s.File) }
-                Send-DashboardResponse $stream 200 'OK' $s.Type $body
+                $body = [System.IO.File]::ReadAllBytes($s.File)
+                Send-DashboardResponse $stream 200 'OK' $s.Type $body -Method $method
                 continue
             }
             if ($loadedSha) {
                 $live = Invoke-DashboardGit $root @('rev-parse', 'HEAD')
                 if ($live -and [string]$live[0] -ne $loadedSha) {
                     $text = "This server was started on $($loadedSha.Substring(0, 8)); the checkout is now at $(([string]$live[0]).Substring(0, 8)). It is restarting on the new code -- this page reloads in a few seconds."
-                    Send-DashboardResponse $stream 503 'Service Unavailable' 'text/plain; charset=utf-8' ($utf8.GetBytes($text)) @{ 'Retry-After' = '3'; Refresh = '3' }
+                    Send-DashboardResponse $stream 503 'Service Unavailable' 'text/plain; charset=utf-8' ($utf8.GetBytes($text)) @{ 'Retry-After' = '3'; Refresh = '3' } -Method $method
                     $restart = $true
                     break
                 }
@@ -360,54 +362,54 @@ try {
                 # where to go back to, from a fixed list, so the redirect never leaves this server.
                 $page = if ([string]$target -match '[?&]page=(connectors)(&|$)') { $Matches[1] } else { '' }
                 if ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
-                Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" }
+                Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" } -Method $method
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
                 $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                $body = $utf8.GetBytes($html)
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
             if ($path -eq '/connectors') {
                 if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $CacheSeconds) { $cache = Get-DashboardModel }
                 $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                $body = $utf8.GetBytes($html)
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
             if ($path -eq '/test-gate') {
                 $tg = Get-TestGateModel
                 $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                $body = $utf8.GetBytes($html)
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
             if ($path -eq '/specialists') {
                 $sp = Get-SpecialistsModel
                 $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                $body = $utf8.GetBytes($html)
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
             if ($path -eq '/brandbook') {
                 $bb = Get-BrandbookModel
                 $html = Format-BrandbookPageHtml -Model $bb.Model -ReadError $bb.Error -AppPresent $bb.AppPresent
-                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
-                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                $body = $utf8.GetBytes($html)
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
             if ($generalRoutes -contains $path) {
                 # Moved to the plugin's general pages server (#3119): sent on when the state file names it.
                 $pages = Get-GeneralPagesUrl -Root $root -TimeoutMs 500
                 if ($pages) {
-                    Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $pages + $path }
+                    Send-DashboardResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $pages + $path } -Method $method
                 } else {
-                    Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("This page is served by the dkj-solutions general pages server, which is not running for this repo: the dev-preview hook starts it at the next session start."))
+                    Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("This page is served by the dkj-solutions general pages server, which is not running for this repo: the dev-preview hook starts it at the next session start.")) -Method $method
                 }
                 continue
             }
-            Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.'))
+            Send-DashboardResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
         } catch {
             # A dropped or silent connection ends that request, never the server.
         } finally {
