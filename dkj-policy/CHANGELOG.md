@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**9 / 24 minor entries** <!-- pending-tally -->
+**9 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3132-brandbook-hub-page · 20261019-062526Z
+
+The Repo hub of this repo gains a **Brandbook** page at `/brandbook`, step 3 of
+[#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130): the twelve themes with their
+nine steps each, every light token with a sample drawn in the picked theme, a few live specimens and
+every house class by its stylesheet section. It is read from the plugin's `assets/house-style/` on every
+request, so it shows the tree rather than the installed release, and it points at `npm run dev` in
+`brandbook/` once [#3131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3131) has moved the
+full app in.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Repo hub is this source repo's own dev server; no consumer receives it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Repo hub: a native /brandbook page
+
+Plugins: dkj-solutions
+
+[PR #3140](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3140)
+
+---
 
 ### DEPLOY: feat/3126-session-start-snapshot · 20261019-061609Z
 
