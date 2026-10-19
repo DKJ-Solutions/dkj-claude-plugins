@@ -342,7 +342,7 @@ Write-Host '-- the release-notes page, as the dev server serves it (#3108)' -For
 $tpl = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\release-notes-page-template.html'))
 $rn = Format-ReleaseNotesDevPage -Html $tpl
 Assert-True ($rn -ne $tpl) 'the template has the shape the dressing needs'
-Assert-True ($rn -match '<html lang="en" data-theme-light="teal" data-theme-dark="sky" data-theme-key="general-pages">') 'it takes the theme key every other page of the general server uses'
+Assert-True ($rn -match '<html lang="en" data-theme-default="lilac" data-theme-key="general-pages">') 'it takes the theme key and the lilac default every other page of the general server uses (#3162)'
 Assert-True ((Format-ReleaseNotesDevPage -Html $tpl -ThemeKey 'k"x' -HubHref '/') -match 'data-theme-key="k&quot;x"' -and (Format-ReleaseNotesDevPage -Html $tpl -HubHref '/') -match '<li><a href="/">Repo hub</a></li>') 'a caller may name the theme key and the hub crumb''s target, both escaped'
 $tplStyleEnd = $rn.IndexOf('</style>')
 $houseAt = $rn.IndexOf('<link rel="stylesheet" href="/house-style.css">')
