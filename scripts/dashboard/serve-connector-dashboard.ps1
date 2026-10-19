@@ -3,8 +3,10 @@
     Serve this repo's dev server on http://localhost:<Port>/ -- the Repo hub on '/', which links the
     pages below it (#3097): /connectors, every repo registered under connectors/ with its plugins, its
     local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /specialists, every
-    specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; and /test-gate,
-    the per-suite CI durations. The rules of the hub and the test-gate page are in scripts/lib/dev-pages-lib.ps1.
+    specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; /test-gate,
+    the per-suite CI durations; and /brandbook, the house style's themes, tokens and components, read from the
+    dkj-solutions plugin's assets/house-style/ in this tree with no Node dependency (#3132). The rules of the
+    hub and of each page are in scripts/lib/dev-pages-lib.ps1.
 
     THE GENERAL PAGES ARE NOT SERVED HERE (#3119): Artifacts, Issues, Release notes and SessionStart belong to
     every DKJ-Solutions repo, so the dkj-solutions plugin serves them from a server of its own
@@ -232,6 +234,23 @@ function Get-SpecialistsModel {
     return @{ Rows = $rows; Error = ($errs -join ', '); CharsPerToken = $factor }
 }
 
+function Get-BrandbookModel {
+    <#
+        The two house-style files the hub already serves, read on every request (about 70 KB), and whether
+        brandbook/ holds the full brand book app (#3131). A file that cannot be read is named in the Error.
+    #>
+    $texts = @{ Css = ''; Js = '' }; $errs = @()
+    foreach ($k in 'Css', 'Js') {
+        $f = if ($k -eq 'Css') { $static['/house-style.css'].File } else { $static['/house-theme.js'].File }
+        try { $texts[$k] = [System.IO.File]::ReadAllText($f, $utf8) } catch { $errs += "$([System.IO.Path]::GetFileName($f)) is not readable" }
+    }
+    return @{
+        Model      = (ConvertFrom-HouseStyleAssets -Css $texts.Css -Js $texts.Js)
+        Error      = ($errs -join ', ')
+        AppPresent = (Test-Path -LiteralPath (Join-Path $root 'brandbook\package.json') -PathType Leaf)
+    }
+}
+
 function Read-DashboardRequest {
     <#
         The request line and the two headers the server reads, or $null. ONE deadline for the whole head
@@ -358,6 +377,13 @@ try {
             if ($path -eq '/specialists') {
                 $sp = Get-SpecialistsModel
                 $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken
+                $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
+                Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
+                continue
+            }
+            if ($path -eq '/brandbook') {
+                $bb = Get-BrandbookModel
+                $html = Format-BrandbookPageHtml -Model $bb.Model -ReadError $bb.Error -AppPresent $bb.AppPresent
                 $body = if ($method -eq 'HEAD') { [byte[]]@() } else { $utf8.GetBytes($html) }
                 Send-DashboardResponse $stream 200 'OK' 'text/html; charset=utf-8' $body
                 continue

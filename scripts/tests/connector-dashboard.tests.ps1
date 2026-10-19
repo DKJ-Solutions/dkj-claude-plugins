@@ -322,6 +322,8 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-Equal 403 (Get-Status 'GET' '/house-style.css' "evil.example:$port") 'a foreign Host is refused'
             Assert-Equal 405 (Get-Status 'POST' '/' "localhost:$port") 'a POST is refused'
             Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
+            $bb = Get-Raw 'GET' '/brandbook' "localhost:$port"
+            Assert-True ($bb -match 'HTTP/1.1 200' -and $bb -match '<h1>Brandbook</h1>' -and $bb -notmatch 'could not be read') '/brandbook reads the plugin''s house style from this tree (#3132)'
             Assert-Equal 303 (Get-Status 'GET' '/refresh' "localhost:$port") '/refresh redirects to the page'
             Assert-True ((Get-Raw 'GET' '/refresh?page=connectors' "localhost:$port") -match 'Location: /connectors\r') '/refresh?page= goes back to the page that asked'
             Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a page that moved to the general pages server (#3119) is no page of this one''s'
@@ -451,6 +453,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ($page -match 'HTTP/1.1 200' -and $page -match '<h1>Connectors</h1>' -and $page -match '<a href="/">Repo hub</a>') '/connectors serves the overview as a page under the Repo hub'
             $tg = if ($up) { Get-Raw 'GET' '/test-gate' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($tg -match 'HTTP/1.1 200' -and $tg -match 'the file is not there') '/test-gate reports a missing suite-durations.json, rather than failing'
+            # The fixture's assets/house-style/ is empty, so /brandbook takes its failure path, and is still served.
+            $bbf = if ($up) { Get-Raw 'GET' '/brandbook' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($bbf -match 'HTTP/1.1 200' -and $bbf -match 'The house style could not be read: house-style.css is not readable, house-theme.js is not readable') '/brandbook names the house-style files it could not read, rather than failing'
         } finally {
             if (-not $proc3.HasExited) { Stop-Process -Id $proc3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
         }

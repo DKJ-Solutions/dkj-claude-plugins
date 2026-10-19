@@ -1477,6 +1477,8 @@ function Get-HouseStyleAllowlist {
         @{ Path = 'scripts/tests/release-notes-page.tests.ps1'; Reason = 'fixtures of the release-notes page above' }
         @{ Path = 'plugins/dkj-policy/dkj-solutions/scripts/lib/general-pages-lib.ps1'; Name = '--ink'; Reason = 'the release-notes template''s own token, which Format-ReleaseNotesDevPage points AT a house token (#3108, moved to the plugin in #3119)' }
         @{ Path = 'scripts/tests/check-house-style.tests.ps1';  Reason = "the gate's own suite: every name in it is a fixture" }
+        @{ Path = 'scripts/lib/dev-pages-lib.ps1'; Name = '.theme-swatch'; Reason = 'the Brandbook page''s pattern that READS the house stylesheet''s theme blocks (#3132), not a rule of its own' }
+        @{ Path = 'scripts/tests/dev-pages.tests.ps1'; Reason = 'fixtures of the Brandbook page: a small house stylesheet it reads (#3132)' }
         # The brandbook app (#3131): five deliberate extensions it brought from dkj-brandbook, which never ran this gate.
         @{ Path = 'brandbook/src/components/dialog.css'; Name = '--primary-2'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
         @{ Path = 'brandbook/src/components/dialog.css'; Name = '--primary-5'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
