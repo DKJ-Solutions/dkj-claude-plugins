@@ -1034,6 +1034,16 @@ where one task became #401 and #402 by hand and neither issue could reach its re
 linked from two open issues
 ([#2928](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2928)).
 
+**A follow-up or sub-issue does not take its umbrella's task link**
+([#3182](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3182)). The closed message says
+*"this Asana task is now in review"*, which is a statement about the **task**, and it is posted per
+**issue**. So the task's closed message belongs to the issue that owns the task, normally the umbrella.
+A follow-up or sub-issue names the umbrella by its number, or the task as a plain mention, never with the
+`<!-- asana-task: -->` marker, the `| **Asana** |` header row or the task URL as its only link. Measured on
+smartwatchbanden#919, a follow-up of umbrella #911: it was linked to #911's task at the close, and the
+requester was told the task was in review while #911 was still open. `build-golive-block` now refuses
+the post while another open issue links the same task, and names it; `-Force` posts regardless.
+
 **That issue carries the reach label, by construction** -- a colleague asked for it and follows the
 card, which is the whole of what the label answers (section 2). Measured in `xoxowildhearts`: #402,
 linked to a colleague's task in `2. In Progress`, carried no reach label for four days, so

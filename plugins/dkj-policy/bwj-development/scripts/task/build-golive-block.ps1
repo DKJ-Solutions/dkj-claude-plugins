@@ -191,7 +191,8 @@
 .PARAMETER Force
     Post even though a paste-ready block already appears to be on the issue FOR THIS ROUND (one from
     before the issue's last reopen does not count, #2968), a store-admin prerequisite
-    on it is still unticked (#2885), its body links no single Asana task (#2918), or a check could not
+    on it is still unticked (#2885), its body links no single Asana task (#2918), another open issue links
+    the same task (#3182), or a check could not
     read the issue.
 
 .PARAMETER RootOverride
@@ -259,6 +260,8 @@ $RootArg     = $RootOverride
 
 . (Join-Path $PSScriptRoot '..\lib\asana-task-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\golive-block-rules.ps1')
+# Get-AsanaTaskCoClaimants, the pickup hook's own one-task-one-issue rule (#2928), asked again at the close (#3182).
+. (Join-Path $PSScriptRoot '..\lib\asana-pickup-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
 $repoRoot = Resolve-BwjRepoRoot -Override $RootArg
@@ -537,8 +540,33 @@ if ($PostArg -or $OutFileArg) {
 $asanaLink = 'linked'
 if ($prereqUnread) { $asanaLink = 'unchecked' }
 if ($asanaRef -and @('none', 'ambiguous') -contains $asanaRef.Source) { $asanaLink = $asanaRef.Source }
+# ANOTHER OPEN ISSUE LINKING THE SAME TASK (#3182). The closed message says 'this Asana task is now in
+# review', a statement about the TASK, posted per ISSUE -- so a follow-up or sub-issue linked to its
+# umbrella's task tells the requester the task is in review while the umbrella is still open. Measured on
+# smartwatchbanden#919 (umbrella #911): the requester caught it, and the message was removed by hand. The
+# pickup hook asks the same question (#2928), but a link added at the close never passes a pickup. A search
+# that cannot answer is a warning only, as in that hook: it is the second question, not the link itself.
+$coClaimants = @()
+$coClaimUnread = $false
+if ($asanaRef -and $asanaLink -eq 'linked') {
+    # The GID is digits only (Resolve-AsanaTaskRef matches nothing else), so it is safe on a command line.
+    # A SAFETY NET, NOT A PROOF: GitHub's in:body index can lag and the read stops at 20, so a clean answer
+    # means no co-claimant was found, never that none exists.
+    $peerRun = $null
+    try { $peerRun = Invoke-Native { gh issue list --repo $StoreRepo --state open --search "$($asanaRef.Gid) in:body" --json number,body --limit 20 } } catch { $peerRun = $null }
+    $peers = $null
+    if ($peerRun -and $peerRun.Code -eq 0) { try { $peers = @(($peerRun.Output -join "`n") | ConvertFrom-Json) } catch { $peers = $null } }
+    if ($null -eq $peers) { $coClaimUnread = $true }
+    else { $coClaimants = @(Get-AsanaTaskCoClaimants -Gid $asanaRef.Gid -Number ([int]$issueNumber) -Issues $peers) }
+}
+$coClaimText = if ($coClaimants.Count -gt 0) {
+    "Asana task $($asanaRef.Gid) is also linked from open issue(s) $(@($coClaimants | ForEach-Object { "#$_" }) -join ', '). Closing $targetRef tells the requester the task is now in review while that issue is still open. The closed message belongs to the issue that owns the task: post the block there, or take this issue's link off (WORKFLOW-portable, one GitHub issue per Asana ticket)"
+} else { '' }
+
 if ($asanaRef -and $asanaLink -eq 'linked') {
     Write-Host "  asana    : task $($asanaRef.Gid) (found by $($asanaRef.Source)) -- the closed message will carry the block" -ForegroundColor DarkGray
+    if ($coClaimants.Count -gt 0) { Write-Host "  asana    : ALSO linked from open $(@($coClaimants | ForEach-Object { "#$_" }) -join ', ')" -ForegroundColor Yellow }
+    if ($coClaimUnread) { Write-Host "  asana    : could not search the open issues -- whether another one links task $($asanaRef.Gid) was not checked" -ForegroundColor Yellow }
 } elseif ($asanaRef) {
     Write-Host "  asana    : $($asanaRef.Source.ToUpper()) -- the closed message will carry nothing into Asana" -ForegroundColor Yellow
 } elseif ($prereqUnread) {
@@ -597,6 +625,9 @@ if ($OutFileArg) {
         Write-Host "[WARNING] $targetRef will carry nothing into Asana when it closes: $asanaRemedy," -ForegroundColor Yellow
         Write-Host "          or decide the issue is GitHub-only. -Post refuses until then." -ForegroundColor Yellow
     }
+    if ($coClaimText) {
+        Write-Host "[WARNING] $coClaimText. -Post refuses until then." -ForegroundColor Yellow
+    }
 }
 
 $resultForm = -not $ResearchArg -and -not $MeasureArg
@@ -645,6 +676,14 @@ if (-not $ForceArg -and ($prereqUnread -or $prereqOpen.Count -gt 0)) {
 if (-not $ForceArg -and $asanaLink -ne 'linked') {
     Write-Host "[ERROR] $targetRef will carry nothing into Asana when it closes: $asanaRemedy," -ForegroundColor Red
     Write-Host "        then run this again. Nothing posted. Re-run with -Force for an issue that is GitHub-only." -ForegroundColor Red
+    exit 1
+}
+
+# A TASK ANOTHER OPEN ISSUE ALSO LINKS REFUSES THE POST (#3182), for the reason the link check above does:
+# this is the last tool before the close. -Force is for a deliberate close of this issue all the same.
+if (-not $ForceArg -and $coClaimText) {
+    Write-Host "[ERROR] $coClaimText." -ForegroundColor Red
+    Write-Host "        Nothing posted. Re-run with -Force to post regardless." -ForegroundColor Red
     exit 1
 }
 
