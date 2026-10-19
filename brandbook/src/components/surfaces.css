@@ -12,11 +12,11 @@
 .dkj-card--flush { padding: 0; overflow: hidden; }
 .dkj-card--open { border-color: var(--primary-4); }
 .dkj-card--invalid { border-color: var(--negative-3); }
-/* Data variant: the head is left-aligned, its title an <h2> at --text-h2,
-   with a muted subline, and there is no rule between head and body. */
+/* Data variant: the head is left-aligned, its title an <h3> at --text-h3 (never an h2, which stands above the card in a
+   CardGroup, #3175), with a muted subline, and there is no rule between head and body. */
 .dkj-card--data { padding: var(--spacing-5); }
 .dkj-card--data .dkj-card-head { gap: 0; padding: 0; text-align: left; }
-.dkj-card--data > .dkj-card-head > .dkj-card-title { display: flex; align-items: center; justify-content: flex-start; font-size: var(--text-h2); }
+.dkj-card--data > .dkj-card-head > .dkj-card-title { display: flex; align-items: center; justify-content: flex-start; font-size: var(--text-h3); }
 .dkj-card-head > h3 { margin: 0; }   /* a plain h3 title (CardHead level={3}): the sub line supplies the space under it, as in the house .card__head > h3 */
 .dkj-card-sub { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--primary-6); }
 .dkj-card--data .dkj-card-head ~ * { margin-top: var(--spacing-4); }
@@ -31,7 +31,7 @@
   padding: var(--spacing-4);
   text-align: center;
 }
-/* The title is an <h6> (an <h2> in a data card), in the house serif and the theme's colour, --primary-5; a plain title stays a block. */
+/* The title is an <h6> (an <h3> in a data card), in --primary-8; a plain title stays a block. */
 .dkj-card-title { display: block; margin: 0; font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-8); }
 /* A status Badge before the title text (#153), the house .card__title > .badge. */
 .dkj-card-title > .badge { margin-right: var(--spacing-2); }

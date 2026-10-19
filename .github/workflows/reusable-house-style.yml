@@ -1,7 +1,7 @@
 # The house-style gate AS A CONSUMER RUNS IT -- a reusable workflow (`on: workflow_call`), called from a
 # few-line .github/workflows/house-style.yml in a DKJ-Solutions repo with a UI (issue #3035). Every vendored
 # house-style.css / house-theme.js is the copy the house-style skill pins, and the repo's own layer
-# redefines no house token or class and uses no retired token name.
+# redefines no house token or class, uses no retired token name and puts no h2 inside a card.
 #
 # The caller, as the house-style skill gives it:
 #

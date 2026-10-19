@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3175-h2-above-cards · 20261019-161745Z
+
+An `h2` never stands inside a card any more: it stands above the card or cards it heads, in a `.grid-2`
+with a `.grid__head`, and a card's own title is an `h3` (`.card__title` now renders at `--text-h3`). A
+headed group takes extra room above it in the page column, so the `h2`s visibly group the cards. The
+`check-house-style` gate gains a fourth check, `heading`, that reports an `h2` inside a card (#3175).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app whose cards carry an `h2` title fails the house-style CI gate from the merge on,
+because the reusable gate runs its checks from `main`: move each `h2` and its sub line into a `.grid__head`
+above the card and add `.grid__full` to the card, as the house-style README's "An h2 never stands inside a
+card" lays out. That form already works with the current release. Once the release is taken, a
+`.card__title` renders at the `h3` size in the sans instead of the `h2` size in the serif.
+
+**Score:** 3
+
+#### Pull Request
+
+House style: an h2 never stands inside a card
+
+Plugins: dkj-solutions
+
+[PR #3180](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3180)
+
+---
 
 ### DEPLOY: feat/3174-release-day-app-deploy · 20261019-152957Z
 

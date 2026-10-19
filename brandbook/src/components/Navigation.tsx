@@ -231,12 +231,13 @@ export function PageLinks({ pages, generalPages = [], title = 'Pages' }: { pages
   if (groups.length === 0) return null
   if (groups.length === 1) {
     return (
-      <Card variant="data">
-        <CardHead title={title} />
-        <CardBody>
-          <PageRows pages={groups[0].rows} label={title} />
-        </CardBody>
-      </Card>
+      <CardGroup title={title} subtitle="Every page this dev server serves">
+        <Card variant="data" className="grid__full">
+          <CardBody>
+            <PageRows pages={groups[0].rows} label={title} />
+          </CardBody>
+        </Card>
+      </CardGroup>
     )
   }
   return (
