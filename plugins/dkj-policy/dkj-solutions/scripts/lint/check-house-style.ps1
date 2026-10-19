@@ -21,9 +21,15 @@
 
 .PARAMETER RepoRoot
     The checkout to check. Defaults to CLAUDE_PROJECT_DIR, then the working directory.
+
+.PARAMETER SkillPath
+    The skill page to read the pin from. Defaults to the page beside this script. The reusable workflow
+    passes the page AS IT READS AT THE TAG IT PINS (#3148): on main, between a merge that changes a house
+    file and the cut, the page names the previous tag beside the new checksums, so a consumer's copy of
+    the released file failed a gate run from main.
 #>
 [CmdletBinding()]
-param([string]$RepoRoot)
+param([string]$RepoRoot, [string]$SkillPath)
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '../lib/house-style-rules.ps1')
@@ -33,7 +39,7 @@ $root = [System.IO.Path]::GetFullPath($root).TrimEnd('\', '/')
 
 Write-Host "== check-house-style -- $root =="
 
-$skillPath = Join-Path $PSScriptRoot '../../skills/house-style/SKILL.md'
+$skillPath = if ($SkillPath) { $SkillPath } else { Join-Path $PSScriptRoot '../../skills/house-style/SKILL.md' }
 if (-not (Test-Path -LiteralPath $skillPath -PathType Leaf)) {
     Write-Host "[ERROR] the house-style skill page is not beside this script ($skillPath) -- reinstall or update the dkj-solutions plugin." -ForegroundColor Red
     exit 2

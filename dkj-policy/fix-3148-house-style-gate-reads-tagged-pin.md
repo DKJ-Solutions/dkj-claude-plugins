@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#3148: between a merge that changes a house file and the cut, the skill page on `main` names the previous tag
+beside the new checksums. The reason was verified before the repair: `reusable-house-style.yml` runs from `main`
+and read the pin from that page, so the skill's sentence "no consumer reads this page from `main`" was false.
+Of the issue's two directions this takes a third, which needs no change to the cut: the gate reads the page **at
+the tag the page names**, where the tag and the checksums agree by construction.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `check-house-style.ps1 -SkillPath`: the page to read the pin from, defaulting to the one beside the gate
+- [x] `reusable-house-style.yml`: read the tag from the page, sparse-check-out the page at that tag, pass it in
+- [x] The skill page's "between the merge and the cut" paragraph says what the gate actually reads
+- [x] `check-house-style.tests.ps1`: `-SkillPath` is honoured, and the workflow takes the tagged page. Also
+      repaired: two statements glued on one line meant the "a repo-config.ps1 that throws" case never wrote its
+      config, so that assert passed on the previous fixture's exit 2
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: 77 passed, 0 failed
+- [x] Replayed the workflow's steps by hand against the files `v5.24.0` serves: the gate exits 1 against the
+      page on `main` (the reported defect) and 0 against the page at `v5.24.0`
+
 ### DEPLOY: fix/3148-house-style-gate-reads-tagged-pin
 
-**Score:**
+The reusable house-style gate now reads its pinned checksums from the skill page as it stands at the tag that page names, not from `main` (#3148). Between a merge that changed a house file and the next cut, the page on `main` named the previous tag beside the new checksums, so a consumer vendoring exactly the released file failed the gate. `check-house-style.ps1` takes `-SkillPath` for this. The suite's "repo-config.ps1 that throws" case now really writes that config: it had passed on the previous fixture's exit code.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo calling `reusable-house-style.yml@main` no longer goes red after a house-style change is merged here and before it is released. Its vendored copy is held to the release it can actually fetch, and nothing changes on its side.
+
+**Score:** 3
 
 #### Pull Request
 

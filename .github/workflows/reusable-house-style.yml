@@ -19,8 +19,9 @@
 # reason neither checkout below keeps its credentials.
 #
 # WHY A CHECKOUT OF THIS REPO AND NOT A VENDORED SCRIPT: one definition of the gate, as with the
-# branch-entry and always-on gates. And the pinned checksums are read from the skill page in that same
-# checkout, so a change of the skill's pin reaches every caller with no change on its side.
+# branch-entry and always-on gates. And the pinned checksums are read from the skill page -- at the tag
+# that page pins, see below -- so a change of the skill's pin reaches every caller with no change on its
+# side.
 #
 # `scripts-ref` DEFAULTS TO main, for the reason reusable-branch-entry.yml states: a pinned gate keeps
 # enforcing the tag it was pinned at, while the copies it checks follow the skill.
@@ -61,10 +62,36 @@ jobs:
         shell: bash
         run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
 
+      # THE PIN IS READ AT THE TAG IT NAMES, NOT AT scripts-ref (#3148). Between a merge that changes a
+      # house file and the cut, the page on main names the previous tag beside the NEW checksums, so a
+      # consumer holding the file that tag serves failed this gate. The page at that tag is coherent by
+      # construction: the cut writes its own tag into it, and the tagged tree holds the files hashed there.
+      - name: Read the tag the skill page pins
+        id: pin
+        shell: pwsh
+        run: |
+          . .workflow-scripts/plugins/dkj-policy/dkj-solutions/scripts/lib/house-style-rules.ps1
+          $page = Get-Content -Raw -LiteralPath .workflow-scripts/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md
+          $tag = (Get-HouseStylePin -SkillText $page).Tag
+          if ("$tag" -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
+            Write-Host "::error::the house-style skill page names no release tag of this repo ('$tag'), so there is no pinned page to check against"
+            exit 2
+          }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Fetch the skill page at that tag
+        uses: actions/checkout@v5
+        with:
+          repository: DKJ-Solutions/dkj-claude-plugins
+          ref: ${{ steps.pin.outputs.tag }}
+          path: .workflow-pin
+          sparse-checkout: plugins/dkj-policy/dkj-solutions/skills/house-style
+          persist-credentials: false
+
       - name: The house style holds
         shell: pwsh
         env:
           CLAUDE_PROJECT_DIR: ${{ github.workspace }}
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/dkj-solutions/scripts/lint/check-house-style.ps1
+          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/dkj-solutions/scripts/lint/check-house-style.ps1 -SkillPath .workflow-pin/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md
           exit $LASTEXITCODE
