@@ -73,7 +73,7 @@ disagree you follow it and say so.
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-info-client,awaiting-decision-dev,awaiting-decision-client,awaiting-review-dev,awaiting-review-client,awaiting-pull,awaiting-pull-external,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-recurrences-first,awaiting-recurrences,awaiting-first-recurrence,awaiting-more-recurrences,awaiting-more-info,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier,awaiting-owner-act,awaiting-event
 ```
 
-It prints every open issue as `free`, `mine`, `held`, `branch` or `skipped` with the reason, and names
+It prints every open issue as `free`, `mine`, `held`, `branch`, `stale-park` or `skipped` with the reason, and names
 the lowest free number. `-SkipLabel` is the labels that park an issue with somebody else; `-SkipIssue`
 holds numbers out by hand. The last eleven are former names -- `needs-info` then `awaiting-more-info` became `awaiting-info-client` (#2917, October 12, 2026), `needs-decision` and then `awaiting-decision` became `awaiting-decision-dev`,
 `awaiting-recurrence` then `awaiting-first-recurrence` became `awaiting-recurrences-first`, `dossier` then `record` then `awaiting-more-recurrences` became
@@ -89,6 +89,14 @@ while 9 had a live branch
 author, before you claim one. **And `free` still means only what this step can see** -- no marker and no
 branch named with the number; a branch named for the subject is caught at the claim, by its
 title-overlap scan.
+
+**`stale-park` means an `awaiting-pull` issue whose wait has cleared**
+([#3136](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3136)). Nothing lifts that label at
+the merge, so `-Candidates` reads the `waiting on` clause of the parking comment and asks the tracker
+about every `#<n>` and branch in it. Measured October 19, 2026: two issues stayed `skipped` after both
+their blockers had merged. When all of them have landed, unpark the issue with the two lines the run
+prints, and it is free for this same sweep. A parking comment that names no number or branch is read as
+before, and its reason says so.
 
 **Choosing and claiming are two steps on purpose.** Between them you still have to ask whether the
 issue is this repo's work at all. A tracker carrying an issue means the work is TRACKED here, not that
@@ -109,6 +117,9 @@ next release (`awaiting-release`, which the cut lists), another issue's pull req
 gh issue edit <n> --add-label <awaiting-label>
 gh issue comment <n> --body "Parked by a sweep: waiting on <what>."
 ```
+
+For `awaiting-pull`, `<what>` names the blocker as `#<n>` or a branch, before any explanation (`waiting
+on #123's pull request -- ...`): that clause is what `stale-park` reads.
 
 Where an installed extension closes an act-only issue instead of parking it (`bwj-development` does,
 #3062), that extension's close applies in place of `awaiting-action-dev`, under that extension's own
