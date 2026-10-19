@@ -29,7 +29,7 @@
                      .dkj-card-title) and an h2 opening a card head (.card__head, .dkj-card-head). Not
                      seen, which is the grep's price: an h2 put together across a string concatenation, a
                      `>` inside an attribute before the class, an unquoted class, and a comment or a
-                     wrapper between the card head and its h2. Each repetition is bounded (400), so a
+                     wrapper between the card head and its h2. Each run is bounded (400) and possessive, so a
                      hostile file costs linear time rather than quadratic.
 
     PATTERN GREP, NOT A PARSE. Checks 2 to 4 match patterns rather than parse CSS or SCSS: no runtime
@@ -297,17 +297,18 @@ function Find-HouseStyleHeadingHit {
     if ($Text.IndexOf('<h2', [System.StringComparison]::OrdinalIgnoreCase) -lt 0) { return }
     $map = New-HouseStyleLineMap -Text $Text
     $seen = New-Object System.Collections.Generic.HashSet[int]
-    $patterns = @(
-        # <h2 class="card__title">, <h2 className="dkj-card-title ...">
-        '(?i)<h2\b[^>]{0,400}?\bclass(?:Name)?\s*=\s*[''"{][^>]{0,400}?(?<![\w-])(?:card__title|dkj-card-title)(?![\w-])',
-        # <div class="card__head"><h2>, whitespace between allowed
-        '(?i)(?<![\w-])(?:card__head|dkj-card-head)(?![\w-])[^<>]{0,400}>\s*(?<h><h2\b)'
-    )
-    foreach ($pat in $patterns) {
-        foreach ($m in [regex]::Matches($Text, $pat)) {
-            $at = if ($m.Groups['h'].Success) { $m.Groups['h'].Index } else { $m.Index }
-            if ($seen.Add($at)) { @{ Name = 'h2'; Kind = 'heads'; Line = (Get-HouseStyleLineNumber -Map $map -Index $at) } }
-        }
+    # Each pattern takes one bounded, possessive run per start and nothing nested, so a hostile file (a run of
+    # `<h2 class="x ` with no `>`) costs linear time; the class is then tested on the tag text alone.
+    $class = [regex]'(?i)\bclass(?:Name)?\s*=\s*[''"{][^''"}]{0,400}(?<![\w-])(?:card__title|dkj-card-title)(?![\w-])'
+    $hits = New-Object System.Collections.Generic.List[int]
+    # <h2 class="card__title">, <h2 className="dkj-card-title ...">
+    foreach ($m in [regex]::Matches($Text, '(?i)<h2\b(?>[^>]{0,400})')) { if ($class.IsMatch($m.Value)) { $hits.Add($m.Index) } }
+    # <div class="card__head"><h2>, whitespace between allowed
+    foreach ($m in [regex]::Matches($Text, '(?i)(?<![\w-])(?:card__head|dkj-card-head)(?![\w-])(?>[^<>]{0,400})>(?>\s*)<h2\b')) {
+        $hits.Add($m.Index + $m.Length - 3)
+    }
+    foreach ($at in $hits) {
+        if ($seen.Add($at)) { @{ Name = 'h2'; Kind = 'heads'; Line = (Get-HouseStyleLineNumber -Map $map -Index $at) } }
     }
 }
 

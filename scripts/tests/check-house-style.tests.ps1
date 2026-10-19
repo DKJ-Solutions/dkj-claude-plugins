@@ -133,6 +133,10 @@ Assert-Equal '' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<div class="card
 Assert-Equal '' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<div class="card__head"><p>x</p></div><h2>Next group</h2>')) 'an h2 after a card head is not inside it'
 $h = @(Find-HouseStyleHeadingHit -Text "a`nb`n<div class=`"card__head`"><h2>T</h2>")
 Assert-Equal 3 $h[0].Line 'a heading hit carries its line number'
+# A hostile file -- tag starts with no `>` after them -- took minutes before the runs were bounded and possessive.
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+$null = @(Find-HouseStyleHeadingHit -Text (('<h2 class="x ' * 20000) + ('<div class="card__head x ' * 10000)))
+Assert-True ($sw.Elapsed.TotalSeconds -lt 5) "the heading check stays linear on a hostile file ($([Math]::Round($sw.Elapsed.TotalSeconds, 2))s)"
 
 
 Write-Host '-- group 1e: the allowlist and the quoted path' -ForegroundColor Cyan
