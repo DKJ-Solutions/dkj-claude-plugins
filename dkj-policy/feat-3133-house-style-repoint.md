@@ -58,7 +58,7 @@ The pin can only name a tag that carries the bytes its checksums name, and once 
 
 - [x] cut-release-drive: the happy path repins both URLs, leaves another prefix alone, and commits the page; a missing pin file refuses with nothing written (94 asserts)
 - [x] check-house-style 74, dev-pages 229, script-contract 421, cut-release-guardrail 128, shared-scripts 1162, config-blueprint: all green
-- [ ] The owner's look at the hub (a visible result)
+- [x] The owner's look at the hub (a visible result): seen and approved (Dave, October 19, 2026)
 
 ### DEPLOY: feat/3133-house-style-repoint
 
