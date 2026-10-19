@@ -39,21 +39,39 @@
 
 ### PLAN
 
+#3161: the repo hub answered a `HEAD` on its non-200 routes with a body, and on its 200 routes with
+`Content-Length: 0`. The plugin's `Send-LoopbackResponse` (general pages and placeholder servers) is the
+same function with the same flaw, so it is repaired in the same move.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Send-DashboardResponse` and `Send-LoopbackResponse` take `-Method` and drop the body on `HEAD`,
+  keeping the real `Content-Length`; every call site passes it, and the per-route blanking is gone
+- [x] `connector-dashboard.tests.ps1`: the HEAD assert pinned `Content-Length: 0`; it now asserts the real
+  length and no body, plus a 404 and a refused 403
+- [x] `dev-preview-sessionstart.tests.ps1`: a HEAD gets exactly the GET's head and no body
 
 ### TEST
 
+- [x] Both suites green locally (161 and 178 passed)
+
 ### DEPLOY: fix/3161-hub-head-no-body
 
-**Score:**
+The repo hub and the plugin's general pages and placeholder servers now answer a `HEAD` the way RFC 9110
+asks on every route: the same headers a `GET` would get, with the real `Content-Length`, and no body
+(#3161). Before, the 403, 405, 404 and restart-503 routes sent their body to a `HEAD`, and the 200 routes
+sent `Content-Length: 0`. The body is now dropped once, in the response function, instead of by each route.
+Nothing visible changes: browsers do not send `HEAD` for a page load.
+
+**Score:** 1 -- prevents a client that probes with `HEAD` from reading a body it did not ask for or a wrong size; that has not happened.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- nothing a user of the plugin notices: the servers are local dev pages, and browsers load them with `GET`.
+
+**Score:** N/A
 
 #### Pull Request
 
-Repo hub answers HEAD without a body on every route
+Local dev servers answer HEAD with the real Content-Length and no body on every route
 
