@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Dave, October 19, 2026: the h2 looked too much like the h1 (both `--primary-7`). From now on h1 stays
+`--primary-7`, h2 takes `--primary-8` and h3 takes `--primary-6`. h4-h6 follow h3, as they always have
+as one group. The inverted surface (`--primary-9`) mirrors that: h1 `-3`, h2 `-2`, h3-h6 `-4`.
+
+#### A visible result
+
+This changes what every page looks like, so the branch stops for the owner's look before it merges.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: `:where(h1)` -7, `:where(h2)` -8, `:where(h3-h6)` -6, `.card__title` -6; the token-role comments follow
+- [x] `README.md`: the primary row and the heading rule name the new steps
+- [x] brandbook `.dkj-card-title` and `.dkj-dialog-title` (h3-h6 titles) take -6
+- [x] `house-style` skill: the new sha256 of `house-style.css`
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: 88 passed, 0 failed (red until the checksum followed)
+
 ### DEPLOY: feat/heading-colours-h2-h3
 
-**Score:**
+Inside this repo the brandbook's card and dialog titles follow the new h3-h6 colour.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions app that takes the next release sees its h2s in `--primary-8` and its h3-h6 in
+`--primary-6`, so the h2 no longer reads like the h1. Nothing to migrate: an app that colours a heading
+itself keeps its own colour, because the house rule sits in `:where()`.
+
+**Score:** 3
 
 #### Pull Request
 

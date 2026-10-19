@@ -23,7 +23,7 @@
    .badge--info, .meter--info, the settings toggle, focus rings), the text caret and the selection;
    .btn--primary (a filled main action, owner's decision, October 15, 2026, #109) and native checkboxes, radios, sliders and progress bars take --primary-7 through accent-color. Beyond that, by default: the page, the
    cards and tiles carry a tint of the primary (--primary-1, --primary-2), and every line and tinted surface
-   is --primary-3, with --primary-9 as the text on it. There are no untinted neutrals: text is --primary-9, and --primary-7 is the highlight (h1, h2, a state, a value that stands out) (owner's decisions, October 14 and 15, 2026). Status, direction and categorical colours are never tinted. The
+   is --primary-3, with --primary-9 as the text on it. There are no untinted neutrals: text is --primary-9, and --primary-7 is the highlight (h1, a state, a value that stands out) (owner's decisions, October 14 and 15, 2026; h2 is --primary-8 and h3-h6 --primary-6 since October 19, 2026). Status, direction and categorical colours are never tinted. The
    --accent modifiers (header, table) carry it further where an app opts in.
 
    Categorical colours: --cat-1 .. --cat-3 are series slots. Pick a slot per
@@ -57,7 +57,7 @@
      -1 the page, and the text on a -5 fill; -2 the cards (tiles, tooltips); -3 every line (borders, row
      dividers, meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a today row, the
      accent dialog); -5 the fills (switches, info badges), focus rings, meters and text in
-     the colour (values); -4 no role yet; -6 sub lines, notes and .muted; -7 the highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1 and h2, the states (hover, focus outlines, sorted, pressed) and native controls through accent-color; -8 h3-h6 (owner's decision, October 14, 2026; on -9 h1 and h2 are -3 and h3-h6 are -2); -9 the far end: every paragraph, and an inverted
+     the colour (values); -4 no role yet; -6 sub lines, notes, .muted and h3-h6; -7 the highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus outlines, sorted, pressed) and native controls through accent-color; -8 h2 (owner's decision, October 19, 2026: h1 -7, h2 -8, h3-h6 -6, so the h2 no longer reads as the h1; on -9 h1 is -3, h2 is -2 and h3-h6 are -4); -9 the far end: every paragraph, and an inverted
      surface (the showcase's panel on dark). Measured (WCAG relative luminance) worst cases: -5 on the card 6.25:1
      on light (Oker), -1 on -5 6.54:1 on light (Oker) and 3.51:1 on dark (Roze), -5 on the card 3.38:1 on dark (Roze), -7 on -3 6.53:1 on light (Petrol);
      -7, the highlight, on -1 and -2 at 9.42:1 or better on light (Petrol) and 9.02:1 on dark (Roze), and 6.42:1 or better
@@ -213,11 +213,12 @@ body > header, main > header { display: flex; justify-content: space-between; al
    pulled in slightly. h3-h6 stay in the body sans. */
 h1, h2 { font-family: var(--font-serif);
   font-weight: 600; letter-spacing: -0.01em; }
-/* h1 and h2 are -7, h3-h6 are -8 (owner's decision, October 14, 2026). On a --primary-9 surface h1 and h2 take
-   -3 and h3-h6 take -2 instead, set where that surface is. :where() keeps them at
+/* h1 is -7, h2 is -8 and h3-h6 are -6 (owner's decision, October 19, 2026: an h2 in -7 read too much like the h1). On a
+   --primary-9 surface h1 takes -3, h2 -2 and h3-h6 -4 instead, set where that surface is. :where() keeps them at
    zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
-:where(h1, h2) { color: var(--primary-7); }
-:where(h3, h4, h5, h6) { color: var(--primary-8); }
+:where(h1) { color: var(--primary-7); }
+:where(h2) { color: var(--primary-8); }
+:where(h3, h4, h5, h6) { color: var(--primary-6); }
 h1 { font-size: var(--text-h1); margin: 0; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 /* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
@@ -264,11 +265,11 @@ p, p.meta { color: var(--primary-9); }
 .card { background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
 /* Data-card head (#141): <section class="card"><div class="card__head"><h3 class="card__title">Title</h3>
    <p class="card__sub">Sub line</p></div> a .table-wrap or .facts</section>. The head is left-aligned, with no rule between it
-   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --primary-8, never an h2:
+   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --primary-6, never an h2:
    an h2 never stands inside a card, it stands above the card(s) in a .grid__head (#3175). Flex keeps an .info-button on the
    title's centre line. */
 .card__head { text-align: left; }
-.card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h3); font-weight: 600; color: var(--primary-8); }
+.card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h3); font-weight: 600; color: var(--primary-6); }
 /* A status .badge before the title text (#153); the badge is decorative, so the .card__sub says the status too. */
 .card__title > .badge { margin-right: var(--spacing-2); }
 /* A card titled with a plain h3, where its h2 stands above a group of cards (#206): no margin of its own, so the
