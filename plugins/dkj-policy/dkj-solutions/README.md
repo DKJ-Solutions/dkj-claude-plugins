@@ -214,8 +214,10 @@ session start ([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
 The plugin is enabled here since October 13, 2026
 ([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)), for the dev-preview hook:
 this repo's `Get-DevPreview` starts its `Repo hub`, whose own pages are the **connector dashboard** (every
-repo registered under `connectors/` and what `check-connectors.ps1` reports for it) and the test-gate
-durations, served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1` with the plugin's
+repo registered under `connectors/` and what `check-connectors.ps1` reports for it), the specialists and
+their context cost, the test-gate durations and the **Brandbook** (the house style's themes, tokens and
+components, read from `assets/house-style/`,
+[#3132](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3132)), served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1` with the plugin's
 own copy of the house style. The release notes, the SessionStart measurements, the Artifacts and the Issues are the
 general pages above, which the hub's General card links, and `dev-pages-lib.ps1` reads the plugin's
 `general-pages-lib.ps1` from this tree. That server

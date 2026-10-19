@@ -2,7 +2,58 @@
 
 ## [Unreleased]
 
-**9 / 24 minor entries** <!-- pending-tally -->
+**10 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3127-pays-nothing · 20261019-063549Z
+
+The dkj-solutions description no longer says a repo that states no `Get-DevPreview` pays nothing: it gets the plugin's placeholder preview on ports 4880-4889, with the general pages beside it (#3127). It prevents a reader from concluding the hook does nothing in a repo without the
+seam, when it starts two servers there.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+The plugin's description, as a consumer reads it in the plugin listing, now matches what the dev-preview hook does in a repo without the seam.
+
+**Score:** 1
+
+#### Pull Request
+
+dkj-solutions description: a repo without Get-DevPreview gets the placeholder, not nothing
+
+Plugins: dkj-solutions
+
+[PR #3141](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3141)
+
+---
+
+### DEPLOY: feat/3132-brandbook-hub-page · 20261019-062526Z
+
+The Repo hub of this repo gains a **Brandbook** page at `/brandbook`, step 3 of
+[#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130): the twelve themes with their
+nine steps each, every light token with a sample drawn in the picked theme, a few live specimens and
+every house class by its stylesheet section. It is read from the plugin's `assets/house-style/` on every
+request, so it shows the tree rather than the installed release, and it points at `npm run dev` in
+`brandbook/` once [#3131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3131) has moved the
+full app in.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Repo hub is this source repo's own dev server; no consumer receives it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Repo hub: a native /brandbook page
+
+Plugins: dkj-solutions
+
+[PR #3140](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3140)
+
+---
 
 ### DEPLOY: feat/3126-session-start-snapshot · 20261019-061609Z
 
