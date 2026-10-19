@@ -380,11 +380,17 @@ try {
         [System.IO.File]::WriteAllText((Join-Path $noConfig 'scripts\dashboard\artifacts.json'), '{ "artifacts": [ { "title": "Fixture page", "url": "https://claude.ai/artifact/Fx1", "kind": "page", "created": "2026-10-01" } ] }')
         Assert-True ((& $getRaw $genPort '/artifacts') -match 'href="https://claude.ai/artifact/Fx1"[^>]*>Fixture page</a>') 'and lists the repo''s own register, read on every request'
         $r2 = & $getRaw $genPort '/release-notes'
-        Assert-True ($r2 -match 'HTTP/1.1 404' -and $r2 -match 'Not built yet') '/release-notes is a 404 text where the page is not built'
+        Assert-True ($r2 -match 'HTTP/1.1 404' -and $r2 -match 'Not built yet' -and $r2 -match 'could not build it \(the build exited 1: [^)]*release history is missing') '/release-notes builds a page that is absent, and where it cannot, is a 404 text naming why (#3189)'
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig 'dkj-policy\releases\page') | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $noConfig 'dkj-policy\releases\page\release-notes.html'), '<html lang="en"><head><style>a{}</style></head><body>shaped notes</body></html>')
         $r2 = & $getRaw $genPort '/release-notes'
         Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match 'shaped notes' -and $r2 -match '<li><a href="/hub">Repo hub</a></li>' -and $r2 -match 'href="/house-style.css"') 'and dressed in the house style once it is, its Repo hub crumb on /hub'
+        $newerNote = Join-Path $noConfig 'dkj-policy\releases\notes\9.9.9.md'
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $newerNote) | Out-Null
+        [System.IO.File]::WriteAllText($newerNote, '# 9.9.9')
+        (Get-Item -LiteralPath $newerNote).LastWriteTimeUtc = (Get-Date).ToUniversalTime().AddMinutes(5)
+        $r2 = & $getRaw $genPort '/release-notes'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match 'shaped notes') 'and a page a newer release document makes stale, which then fails to rebuild, is still served as it was'
         Assert-True ((& $getRaw $genPort '/house-style.css') -match 'HTTP/1.1 200' -and (& $getRaw $genPort '/house-theme.js') -match 'HTTP/1.1 200') 'the general server serves the plugin''s house style'
         $r2 = & $getRaw $genPort '/sessionstart'
         Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>SessionStart</h1>') '/sessionstart answers, with a model or with the reason it has none, never a failed request'

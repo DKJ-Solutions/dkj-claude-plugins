@@ -16,8 +16,10 @@
                       for --repo <owner/name> parsed from the origin remote when that is on github.com, else
                       for the repo gh finds from the working directory. Kept for -IssuesCacheSeconds; a failed
                       read for 30 s only. A gh that fails or is missing is a warning on the page, never a blank.
-      /release-notes  dkj-policy/releases/page/release-notes.html, dressed in the house style on the way out;
-                      a 404 text where the page is not built.
+      /release-notes  dkj-policy/releases/page/release-notes.html, dressed in the house style on the way out.
+                      Built first, by dkj-policy's build-release-notes-page.ps1 (found the way the always-on lib
+                      is), where it is absent or older than a file under dkj-policy/releases (#3189): the page is
+                      a gitignored snapshot nothing else builds. A 404 text naming why where it cannot be built.
       /sessionstart   (also: scripts/dashboard/session-start-snapshot.json, where the repo keeps one -- the last
                       full session-start measurement, shown below the live table; absent, nothing is added)
                       the always-on path, measured in a CHILD process by always-on-budget-lib.ps1, found in
@@ -138,7 +140,7 @@ function Invoke-BoundedProcess {
             return @{ Output = ''; ExitCode = $null; TimedOut = $true }
         }
         $p.WaitForExit()
-        return @{ Output = [string]$out.Result; ExitCode = $p.ExitCode; TimedOut = $false }
+        return @{ Output = [string]$out.Result; Error = [string]$err.Result; ExitCode = $p.ExitCode; TimedOut = $false }
     } finally {
         $p.Dispose()
     }
@@ -218,14 +220,61 @@ function Get-IssuesModel {
     return @{ Model = $model; Error = $err; GeneratedAt = $started.ToString('yyyy-MM-dd HH:mm:ss'); Seconds = ((Get-Date) - $started).TotalSeconds; At = Get-Date }
 }
 
-function Resolve-AlwaysOnBudgetLib {
-    <# The always-on-budget-lib.ps1 this server measures with, or '': the first of Get-AlwaysOnBudgetLibCandidates that exists. #>
+function Resolve-DkjPolicyScript {
+    <# The dkj-policy script at -RelativePath this server runs, or '': the first of Get-DkjPolicyScriptCandidates that exists. #>
+    param([Parameter(Mandatory = $true)][string]$RelativePath)
     $cacheDir = Get-DkjPolicyCacheDir -PluginRoot $pluginRoot
     $versions = @(if (Test-Path -LiteralPath $cacheDir -PathType Container) { Get-ChildItem -LiteralPath $cacheDir -Directory | ForEach-Object { $_.Name } })
-    foreach ($c in @(Get-AlwaysOnBudgetLibCandidates -RepoRoot $root -PluginRoot $pluginRoot -PolicyVersions $versions)) {
+    foreach ($c in @(Get-DkjPolicyScriptCandidates -RepoRoot $root -PluginRoot $pluginRoot -RelativePath $RelativePath -PolicyVersions $versions)) {
         if (Test-Path -LiteralPath $c -PathType Leaf) { return $c }
     }
     return ''
+}
+
+function Resolve-AlwaysOnBudgetLib {
+    <# The always-on-budget-lib.ps1 this server measures with, or ''. #>
+    return Resolve-DkjPolicyScript -RelativePath 'scripts\lib\always-on-budget-lib.ps1'
+}
+
+$script:rnFailure = $null
+function Update-ReleaseNotesPage {
+    <#
+        Builds the release-notes page where Get-ReleaseNotesPageNeed says it is absent or stale (#3189), with
+        dkj-policy's own build-release-notes-page.ps1 in a CHILD process, bounded at 60 s: it dot-sources the
+        repo's scripts/repo-config.ps1, whose functions must not land in this server's scope. Returns '' when
+        the page on disk is current or was just built, else why it could not be built. A failed build is kept
+        for 30 s, so a page that cannot build does not re-run it on every request; an older page stays served.
+    #>
+    $releasesDir = Split-Path -Parent (Split-Path -Parent $releaseNotesFile)
+    $pageDir = Split-Path -Parent $releaseNotesFile
+    $pageTime = if (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf) { (Get-Item -LiteralPath $releaseNotesFile).LastWriteTimeUtc } else { $null }
+    $newest = $null
+    if (Test-Path -LiteralPath $releasesDir -PathType Container) {
+        $prefix = $pageDir.TrimEnd('\') + '\'
+        $newest = Get-ChildItem -LiteralPath $releasesDir -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { -not $_.FullName.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } |
+            ForEach-Object { $_.LastWriteTimeUtc } | Sort-Object -Descending | Select-Object -First 1
+    }
+    if (-not (Get-ReleaseNotesPageNeed -PageTime $pageTime -NewestInputTime $newest)) { return '' }
+    if ($script:rnFailure -and ((Get-Date) - $script:rnFailure.At).TotalSeconds -lt 30) { return $script:rnFailure.Error }
+
+    $err = ''
+    $builder = Resolve-DkjPolicyScript -RelativePath 'scripts\release\build-release-notes-page.ps1'
+    if (-not $builder) {
+        $err = 'build-release-notes-page.ps1 was not found in the repo, the plugin''s source tree or the plugin cache'
+    } else {
+        try {
+            $run = Invoke-BoundedProcess -FilePath (Join-Path $PSHOME 'powershell.exe') -TimeoutSeconds 60 -WorkingDirectory $root -Arguments @(
+                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $builder, '-RootOverride', $root, '-OutFile', $releaseNotesFile)
+            if ($run.TimedOut) { $err = 'the build did not finish within 60 s' }
+            elseif ($run.ExitCode -ne 0) {
+                $last = @("$($run.Error)`n$($run.Output)" -split "`r?`n" | Where-Object { $_.Trim() }) | Select-Object -First 1
+                $err = "the build exited $($run.ExitCode)" + $(if ($last) { ': ' + ($last.Trim() -replace '\s+', ' ') } else { '' })
+            }
+        } catch { $err = (([string]$_.Exception.Message) -replace '\s+', ' ') }
+    }
+    $script:rnFailure = if ($err) { @{ Error = $err; At = Get-Date } } else { $null }
+    return $err
 }
 
 function Get-SessionStartModel {
@@ -374,8 +423,9 @@ try {
                 $snap = Get-SessionStartSnapshot
                 $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -RepoName (Get-RepoIdentity).Name -Snapshot $snap.Data -SnapshotError $snap.Error
             } elseif ($path -eq '/release-notes') {
+                $buildError = Update-ReleaseNotesPage
                 if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not built yet: this repo has no dkj-policy/releases/page/release-notes.html. The dkj-policy plugin builds it with scripts/release/build-release-notes-page.ps1.')) -Method $method
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("Not built yet: this repo has no dkj-policy/releases/page/release-notes.html, and this server could not build it ($buildError).")) -Method $method
                     continue
                 }
                 $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8))

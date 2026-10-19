@@ -39,19 +39,45 @@
 
 ### PLAN
 
+#### Issue #3189
+
+The general pages server served `/release-notes` only from a gitignored snapshot that nothing built, so the
+hub's link was a 404 on every fresh clone and second machine, and the page went stale after each release.
+The cause was verified in `serve-general-pages.ps1` before the repair. The issue proposed two repairs; this
+branch takes the first one, building on demand, because the page builds in about a second.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `general-pages-lib.ps1`: `Get-DkjPolicyScriptCandidates` (the always-on lib's lookup, generalised;
+  `Get-AlwaysOnBudgetLibCandidates` is now a thin wrapper) and the pure rule `Get-ReleaseNotesPageNeed`
+- [x] `serve-general-pages.ps1`: `Update-ReleaseNotesPage` builds the page in a bounded child process where
+  it is absent or older than a file under `dkj-policy/releases`. A failed build is held for 30 s, an older
+  page stays served, and the 404 names why
+- [x] README table row and trust paragraph updated
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the candidate list and the need rule (239 passed)
+- [x] `dev-preview-sessionstart.tests.ps1`: the live server names why an absent page cannot be built, and
+  keeps serving a stale page whose rebuild fails (182 passed)
+- [x] Live check in this repo: page moved aside, server started, `/release-notes` answered 200 with 800 KB
+  and the page was back on disk
+
 ### DEPLOY: fix/3189-build-release-notes-on-demand
 
-**Score:**
+The Repo hub's Release notes link here works on a fresh clone. The general pages server builds the gitignored
+page itself when it is missing or older than a release document, so nobody has to run
+`build-release-notes-page.ps1` by hand any more (#3189).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a DKJ-Solutions repo with `dkj-solutions` enabled, the hub's Release notes card opens the notes instead
+of a 404, and shows the latest release without a manual rebuild. Where the page cannot be built, the 404
+now says why.
+
+**Score:** 2
 
 #### Pull Request
 
