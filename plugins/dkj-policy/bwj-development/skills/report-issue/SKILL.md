@@ -194,8 +194,8 @@ field silently; the board carries none and there is nothing to set.
 
 **Where `Get-AsanaTypeFieldGid` returns a GID, set that one on the same call too -- from the kind
 label step 1 chose, never from a fresh reading of the finding:** `bug` is `Bug`, `feature` is
-`Feature`, and `research` is `Task` (#3006). The board's field offers exactly those three options, so there is
-nothing to decide here: the answer is one step old and carrying it forward is the whole point.
+`Feature`, and `research` is `Task` (#3006). The BWJ board's field offers exactly those three options, so by default there is
+nothing to decide here (a board that names them otherwise is handled by the map below): the answer is one step old and carrying it forward is the whole point.
 
 **Where `Get-AsanaTypeOptionMap` returns a hashtable, its entry for the kind label is the option name
 instead** -- a board whose `Type` field names its options its own way
@@ -215,8 +215,8 @@ opt_fields: custom_field_settings.custom_field.gid,custom_field_settings.custom_
 **Name every subfield -- Asana's `opt_fields` takes no wildcard**, so `custom_field_settings.*`
 returns the options *absent* rather than an error, and the write then silently has nothing to send.
 Match the option whose `name` is the one step 1's label maps to, and send its `gid`: a
-**multi-select** field takes an **array** of option GIDs, a single-select the bare GID -- the BWJ
-board's is multi-select, so `["<option gid>"]`; read the field's `resource_subtype` (`multi_enum` or
+**multi-select** field takes an **array** of option GIDs, a single-select the bare GID -- the original BWJ
+board's is multi-select, so `["<option gid>"]`, but read the field's `resource_subtype` (`multi_enum` or
 `enum`) rather than assuming either. **If that name matches no option on the board, write
 nothing and say which option was missing** -- that is a board somebody has rebuilt or renamed, and
 guessing puts a wrong type on a card a colleague reads as authoritative.

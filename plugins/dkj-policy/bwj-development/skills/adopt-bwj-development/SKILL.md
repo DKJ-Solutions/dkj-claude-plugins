@@ -153,11 +153,12 @@ function Get-AsanaStageMap {
 # URL. Optional: $null (the default) means the board carries no such field and the step is skipped.
 function Get-AsanaIssueFieldGid { $null }
 
-# The GID of the board's 'Github Type' multi-select custom field, so report-issue can set it at task
+# The GID of the board's 'Github Type' custom field (multi-select on the BWJ board, single-select
+# elsewhere), so report-issue can set it at task
 # creation from the kind label step 1 already chose (bug, feature, or neither for Task -- #2750).
 # Optional in the same way: $null (the default)
 # means the board carries no such field. The field's OPTION GIDs are not configured -- report-issue
-# resolves Bug/Feature/Task by name from the project itself.
+# resolves Bug/Feature/Task by name (or via Get-AsanaTypeOptionMap) from the project itself.
 function Get-AsanaTypeFieldGid { $null }
 
 # The option NAME each kind label is written as on that 'Type' field, for a board whose options are
