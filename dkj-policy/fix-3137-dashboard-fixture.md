@@ -39,19 +39,29 @@
 
 ### PLAN
 
+#3137: groups 3 and 4 of connector-dashboard.tests.ps1 printed their headers and no assert, and the suite read green. Reproduced on main: Copy-Item into `scripts\dashboard`, which neither fixture creates, raises an IOException. That is statement-terminating even under 'Continue', so it ends the whole top-level if and the script carries on with the next group.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Create `scripts\dashboard` in both fixtures
+- [x] A completion flag per group, set as the try block's last statement and asserted after the group, so an aborted group is a FAIL instead of silence
 
 ### TEST
 
+- [x] With only the flags in, the suite reads 121 passed, 2 failed (both flags red against the bug)
+- [x] With the fixture fixed: 159 passed, 0 failed, the 36 asserts that had never run included
+
 ### DEPLOY: fix/3137-dashboard-fixture
 
-**Score:**
+connector-dashboard.tests.ps1 runs its groups 3 and 4 again: the fixtures never created `scripts\dashboard`, so a Copy-Item ended each group before its server started, and the suite read green with none of their asserts run (#3137). Each group now also asserts that it ran to its end, so a fixture step that aborts one fails the suite instead of going quiet.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a test suite in this repo only; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
