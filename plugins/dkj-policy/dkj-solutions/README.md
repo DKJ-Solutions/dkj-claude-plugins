@@ -163,8 +163,12 @@ process that first dot-sources the repo's own `scripts/repo-config.ps1`, and the
 loopback**: any process on the machine can read them, so a private repo's issue titles are readable by
 every local process, not only by the browser of whoever started the session.
 
-`/hub` (and `/`) send the visitor on to the repo's own hub, and every page's first crumb is that link. The
-pages carry the repo's name, `owner/name` from the `origin` remote, else the folder's. Each issue links to
+`/hub` (and `/`) send the visitor on to the repo's own hub, and every page's first crumb is that link. A hub
+may instead **relay** these pages from its own origin with `Copy-LoopbackUpstream` (in
+`scripts/lib/loopback-server-lib.ps1`) and link them by bare path (`Format-GeneralPagesCardHtml -SameOrigin`),
+answering `/hub` itself. The pages then share the hub's `localStorage`, and with it the theme and width
+choice under their key, `general-pages`. The source repo's own hub does this
+([#3168](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3168)). The pages carry the repo's name, `owner/name` from the `origin` remote, else the folder's. Each issue links to
 the `url` `gh` returned for it, and only when that is a GitHub issue link.
 
 **How the two servers find each other: one state file per checkout**,
