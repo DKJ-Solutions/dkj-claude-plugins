@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**9 / 12 minor entries** <!-- pending-tally -->
+**10 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3177-requester-verifies-live-result · 20261019-181059Z
+
+Inside this repo the rule is text in the bwj-development page. Nothing reads it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+In a BWJ store repo, a dev session stops taking the post-live acceptance measurement of a fix whose
+result is a number (PageSpeed, conversion, ranking). It closes the issue instead, with a closed message
+telling the requester how to measure and against which targets. In smartwatchbanden that measurement
+was picked up four times, and three of those stalled on PageSpeed quota and missing browser tooling.
+
+**Score:** 3
+
+#### Pull Request
+
+BWJ ticket handling: the requester re-measures a live result, not a dev session
+
+Plugins: bwj-development
+
+[PR #3184](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3184)
+
+---
 
 ### DEPLOY: feat/3182-golive-refuses-shared-task · 20261019-174252Z
 
