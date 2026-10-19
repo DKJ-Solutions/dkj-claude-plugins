@@ -401,6 +401,9 @@ function Format-ReleaseRunbook {
     # keeps a hand step from being forgotten (Maikel's choice on #3070).
     $out += "7. Tell the requesters -- the ``notify-live`` skill$(if ($TargetVersion) { ", -Version v$TargetVersion" }): a dry run, then -Post. It tells the"
     $out += '   Asana task of every issue this release carried, and was told "visible with the release", that it is live.'
+    # The record the cut read (#3176), so an issue whose files were held -- or whose app deploy did not run
+    # -- is not told either.
+    $out += '   Pass it the same -LivePushRecord the cut read: an issue whose files are "hold" there is not told.'
     $out += ''
     $out += '8. Backup -- the `theme-lifecycle` skill, backup-live-theme, at the moment THEME-LIFECYCLE-portable.md names.'
     $out += ''

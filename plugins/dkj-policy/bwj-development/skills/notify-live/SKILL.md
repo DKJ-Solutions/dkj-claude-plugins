@@ -44,9 +44,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 5. **The post** -- with `-Post` only: one comment per owed task, then a marker comment on the GitHub
    issue, so a second run tells nobody twice.
 
-**Read the dry run before `-Post`.** It names every issue and why it is owed or skipped, and prints the
-message the first one would receive. A change whose files were held back from the push is something this
-script cannot see, so hold that issue out with `-SkipIssue`.
+**Pass it the live-push record the cut read** (`-LivePushRecord`, #3176). An issue whose PR changed a path
+the record marks `hold` is held and not told. That covers a theme file held back from the push, and an app
+file whose `shopify app deploy` was not run. Without the record the script cannot see either, and an
+app-only change would be announced with the release before its deploy ran. A record it cannot parse
+refuses the run, and a merge whose files cannot be read leaves its issue unread rather than told.
+
+**Read the dry run before `-Post`.** It names every issue and why it is owed, held or skipped, and prints
+the message the first one would receive. Without a record, hold an issue out by hand with `-SkipIssue`.
 
 ## The message
 
@@ -62,7 +67,8 @@ block was written in. Only the state word is bold.
 | `-Version <vX.Y.Z>` | the release that went live. Defaults to the highest `vX.Y.Z` tag |
 | `-SinceTag <vX.Y.Z>` | the tag the range starts at, instead of the highest one below `-Version` |
 | `-Post` | send the messages. Without it nothing is written |
-| `-SkipIssue <n>[,<n>]` | hold issues out by hand -- a change whose files were held back from the push |
+| `-LivePushRecord <path>` | the live-push record live-preflight wrote, as edited; an issue with a `hold` path is not told |
+| `-SkipIssue <n>[,<n>]` | hold issues out by hand, beside or instead of the record |
 | `-Repo <owner/repo>` | instead of `Get-RepoName` or the checkout's own |
 | `-AsanaPat <token>` | instead of `ASANA_PAT` |
 | `-RootOverride <path>` | the repo root, when the run does not start inside the checkout |
@@ -75,8 +81,9 @@ not be read is named and not told, never guessed at.
 - **It writes nothing but the two comments.** No push, cut, tag, card move, task completion or label.
 - **It prints nothing another person wrote** beyond an issue number. A failed post reports its HTTP
   status alone, the rule the closed message keeps.
-- **It does not read the live-push record.** That record belongs to `dkj-policy` and
-  `dkj-subagents-shopify`, outside this plugin's folder, which is why `-SkipIssue` exists.
+- **It does not write the live-push record or decide its format.** live-preflight writes it, and its
+  parser is `live-record-lib`, mirrored into this plugin byte-identical, so this script and the cut read
+  one record the same way.
 
 ## Requirements in the consumer
 
