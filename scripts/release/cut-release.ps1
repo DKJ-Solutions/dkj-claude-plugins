@@ -727,6 +727,9 @@ function Assert-TrunkMatchesOrigin([string]$Moment) {
 # How many times one cut may catch up over a moving trunk before it stops (#3155). Each round waits for one
 # main-push CI run, so this is also the bound on how many of those a cut sits through.
 $script:CutCatchUpMaxRounds = 3
+# How many extra reads the catch-up spends on a check that has not REGISTERED yet on the new tip, one per
+# CiCertificateWaitPollSeconds -- the seconds between a merge and its push run appearing (#3155).
+$script:CutCatchUpRegistrationReads = 4
 
 function Invoke-TrunkCatchUp {
     <#
@@ -785,6 +788,28 @@ function Invoke-TrunkCatchUp {
     $first = & $readChecks
     if ($null -eq $first) { return ("the CI run for {0} could not be read (gh api)" -f $short) }
     $cert = Get-CiTestCertificate -HeadSha $tip -PrHeadSha $first.PrHeadSha -RequiredChecksJson $first.RequiredChecksJson -CheckName $CheckName
+
+    # A REGISTRATION GRACE, because the race this exists for lands here too (code review of #3155): a merge
+    # seconds before this read has a push run that has not registered its check yet, and "not registered"
+    # is a refusal by design -- it cannot be told apart from a check this commit will never get. So a
+    # few reads, bounded, while the named check is ABSENT; anything it then says is judged as before.
+    $wantedName = Get-DisplayRef -Ref $CheckName
+    $isAbsent = {
+        param($Reading)
+        if ($null -eq $Reading -or -not $Reading.RequiredChecksJson) { return $true }
+        try { $recs = @(@($Reading.RequiredChecksJson | ConvertFrom-Json) | Where-Object { $_ -and $_.PSObject.Properties['name'] }) } catch { return $true }
+        return (@($recs | Where-Object { (Get-DisplayRef -Ref ([string]$_.name)) -eq $wantedName }).Count -eq 0)
+    }
+    $graceLeft = $script:CutCatchUpRegistrationReads
+    while (-not $cert.Certified -and -not $cert.InFlight -and $graceLeft -gt 0 -and (& $isAbsent $first)) {
+        Write-Host "  '$wantedName' has not registered on $short yet -- reading again in $($script:CiCertificateWaitPollSeconds)s ($graceLeft left)." -ForegroundColor DarkGray
+        Start-Sleep -Seconds $script:CiCertificateWaitPollSeconds
+        $graceLeft--
+        $next = & $readChecks
+        if ($null -eq $next) { continue }
+        $first = $next
+        $cert = Get-CiTestCertificate -HeadSha $tip -PrHeadSha $first.PrHeadSha -RequiredChecksJson $first.RequiredChecksJson -CheckName $CheckName
+    }
     if (-not $cert.Certified -and $cert.InFlight) {
         Write-Host "  $($cert.Note) -- waiting for it, up to $([int]($script:CiCertificateWaitSeconds / 60)) min, one read every $($script:CiCertificateWaitPollSeconds)s." -ForegroundColor Cyan
         $cert = Wait-CiTestCertificate -HeadSha $tip -CheckName $CheckName -Reader $readChecks `
@@ -804,7 +829,11 @@ function Invoke-TrunkCatchUp {
 
     Write-Host ""
     Write-Host "==== cut-release, catch-up round $($CatchUpRound + 1) of at most $script:CutCatchUpMaxRounds, on $short" -ForegroundColor Cyan
-    & powershell @childArgs
+    # Out-Host, because this function's output is captured by its caller: unpiped, the whole child cut
+    # would arrive in that variable at the end instead of on the console as it runs (code review, #3155).
+    # $LASTEXITCODE survives the pipe. Whatever the child does, main is now origin/main's certified tip --
+    # a fast-forward, nothing committed -- which is the state the #2899 remedy would have asked for anyway.
+    & powershell @childArgs | Out-Host
     exit $LASTEXITCODE
 }
 Assert-TrunkMatchesOrigin -Moment 'before the gates'
@@ -1265,7 +1294,9 @@ if ($CatchUpCertifiedSha) {
     $catchUpHead = (@((Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', 'HEAD') -DiscardStderr).Output) -join '').Trim()
     $catchUpCertified = ($catchUpHead -eq $CatchUpCertifiedSha.Trim())
     if ($catchUpCertified) {
-        Write-Host "lint + test gates: certified by the main-push CI run for $($catchUpHead.Substring(0, 8)) (catch-up round $CatchUpRound, #3155) -- not run again." -ForegroundColor Green
+        # "As handed in", because this run did not read the certificate itself: the catch-up's parent did,
+        # and a value typed by hand would print the same line (security review, #3155).
+        Write-Host "lint + test gates: certified by the main-push CI run for $($catchUpHead.Substring(0, 8)), as handed in by -CatchUpCertifiedSha (catch-up round $CatchUpRound, #3155) -- not run again." -ForegroundColor Green
     } else {
         Write-Host "lint + test gates: HEAD is not the commit the catch-up certified ($(Get-DisplayRef -Ref $CatchUpCertifiedSha)), so both run." -ForegroundColor Yellow
     }

@@ -988,6 +988,13 @@ function ConvertTo-CommitCheckBucketsJson {
         'skipping', and every other conclusion -- failure, cancelled, timed_out, action_required,
         stale -- is 'fail'. Only 'pass' certifies and only 'pending' waits, so a conclusion this mapping
         has never heard of lands on the refusing side, which is the safe one.
+
+        ONLY GITHUB ACTIONS' OWN RUNS ARE KEPT (security review of #3155). The PR path trusts a check by
+        name because the ruleset pins that context; a commit's raw check-runs list has no such pin, so any
+        app with checks:write could post a green run under the same name and stand the cut's gates down.
+        A run whose app is not 'github-actions' is dropped before judging, so it can neither certify nor
+        mask a red Actions run. A repo whose test check is posted by another app gets no catch-up, which
+        is the pre-#3155 behaviour.
     #>
     param([AllowEmptyString()][AllowNull()][string]$CheckRunsJson)
 
@@ -996,7 +1003,10 @@ function ConvertTo-CommitCheckBucketsJson {
     if (-not $parsed -or -not $parsed.PSObject.Properties['check_runs']) { return '' }
 
     # Assign first, wrap second -- the 5.1 one-object pipeline trap Get-CiTestCertificate names.
-    $runs = @(@($parsed.check_runs) | Where-Object { $_ -and $_.PSObject.Properties['name'] })
+    $runs = @(@($parsed.check_runs) | Where-Object {
+        $_ -and $_.PSObject.Properties['name'] -and $_.PSObject.Properties['app'] -and $_.app -and
+        $_.app.PSObject.Properties['slug'] -and ([string]$_.app.slug) -ceq 'github-actions'
+    })
     $records = @($runs | ForEach-Object {
         $status = if ($_.PSObject.Properties['status']) { ([string]$_.status).ToLowerInvariant() } else { '' }
         $conclusion = if ($_.PSObject.Properties['conclusion']) { ([string]$_.conclusion).ToLowerInvariant() } else { '' }

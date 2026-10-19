@@ -47,6 +47,7 @@ quiet-trunk signal.
 - [x] `gate-lib.ps1`: `ConvertTo-CommitCheckBucketsJson` (commit check-runs into the PR certificate's shape) and `Get-TrunkCatchUpDecision` (when a catch-up is allowed)
 - [x] `cut-release.ps1`: the after-gates origin check catches up over a behind-only trunk (certificate, wait, ff-only, child re-run with `-CatchUpCertifiedSha`/`-CatchUpRound`), and the gates skip only on the certified HEAD
 - [x] Plugin mirrors synced, and the `cut-release` skill page documents the catch-up (the `[skill-param]` lint found the two parameters undocumented)
+- [x] Review findings taken: only GitHub Actions' own check-runs count (security), a short registration grace for a push run not yet registered, the child cut streams through `Out-Host`, and the gate line says the certificate was handed in (code review)
 
 ### TEST
 

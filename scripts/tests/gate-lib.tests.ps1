@@ -1194,7 +1194,10 @@ exit __EXIT__
     $tipSha = 'c' * 40
     $runs = {
         param([object[]]$Pairs)
-        $list = @($Pairs | ForEach-Object { [pscustomobject]@{ name = $_[0]; status = $_[1]; conclusion = $_[2] } })
+        $list = @($Pairs | ForEach-Object {
+            $slug = if ($_.Count -gt 3) { $_[3] } else { 'github-actions' }
+            [pscustomobject]@{ name = $_[0]; status = $_[1]; conclusion = $_[2]; app = [pscustomobject]@{ slug = $slug } }
+        })
         ConvertTo-Json -InputObject ([pscustomobject]@{ total_count = $list.Count; check_runs = $list }) -Depth 4 -Compress
     }
     $greenTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(,@('lint-en-tests', 'completed', 'success')) )
@@ -1212,6 +1215,10 @@ exit __EXIT__
     }
     $skippedTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(,@('lint-en-tests', 'completed', 'skipped')))
     Assert-True (-not (Get-CiTestCertificate -HeadSha $tipSha -PrHeadSha $tipSha -RequiredChecksJson $skippedTip -CheckName $named).Certified) 'a SKIPPED run of the named check certifies nothing'
+    $spoofTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(,@('lint-en-tests', 'completed', 'success', 'some-other-app')))
+    Assert-Equal '[]' $spoofTip 'a green run under the same name from ANOTHER app is dropped -- only GitHub Actions can certify'
+    $maskTip = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(@('lint-en-tests', 'completed', 'failure'), @('lint-en-tests', 'completed', 'success', 'some-other-app')))
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $tipSha -PrHeadSha $tipSha -RequiredChecksJson $maskTip -CheckName $named).Certified) 'and it cannot mask a red Actions run either'
     Assert-Equal '[]' (ConvertTo-CommitCheckBucketsJson -CheckRunsJson '{"total_count":0,"check_runs":[]}') 'no runs yet is an empty list -- "not registered", which refuses'
     Assert-Equal '' (ConvertTo-CommitCheckBucketsJson -CheckRunsJson 'not json') 'an unparseable payload is "could not be read"'
     Assert-Equal '' (ConvertTo-CommitCheckBucketsJson -CheckRunsJson '') 'and so is an empty one'
