@@ -3,7 +3,9 @@
     What the plugin's two small servers (scripts/preview/serve-placeholder.ps1 and
     scripts/pages/serve-general-pages.ps1) share: reading one request head off a TcpClient, writing one
     response, and the two refusals every request meets first (a Host that is not loopback, a browser
-    request from another site). One copy, so a fix to either rule lands in both servers (#3119).
+    request from another site). One copy, so a fix to either rule lands in both servers (#3119). The
+    source repo's own hub (scripts/dashboard/serve-connector-dashboard.ps1) loads it from the plugin tree
+    too, rather than keeping a copy of its own (#3163).
 
 .DESCRIPTION
     The reader and the writer touch only the client's stream, which the caller hands in; the two tests

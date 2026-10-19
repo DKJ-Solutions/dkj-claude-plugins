@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#3163: the repo hub kept its own copies of the request reader, the response writer and the Host and
+cross-site refusals that the plugin's `loopback-server-lib.ps1` ships, so #3161 had to repair the same
+defect twice. The hub already loads `general-pages-state.ps1` from the plugin tree, so it can load this
+lib the same way.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `serve-connector-dashboard.ps1` dot-sources `loopback-server-lib.ps1` and drops `Read-DashboardRequest`,
+  `Send-DashboardResponse` and `$MaxHeadBytes`; `connector-dashboard-lib.ps1` drops `Test-DashboardHost`
+  and `Test-DashboardCrossSite`
+- [x] The static-file 404 that landed after #3161 now passes `-Method` too
+- [x] `connector-dashboard.tests.ps1` asserts the Host and cross-site rules against the shared functions
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` green locally (163 passed), its fixture server included
+
 ### DEPLOY: fix/3163-hub-uses-loopback-lib
 
-**Score:**
+The repo hub server now loads the plugin's `loopback-server-lib.ps1` for reading a request, writing a
+response and the Host and cross-site refusals, instead of keeping its own copy of each (#3163). #3161
+had to repair the same `HEAD` defect in both copies. A fix to any of those rules now reaches the hub and
+the plugin's two servers at once. The static-file 404 added after #3161 also stops sending a body to a
+`HEAD`.
+
+**Score:** 1 -- prevents a fix to a loopback rule landing in one server and not the other; #3161 nearly did.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the hub is this repo's own server; the plugin's lib only gains a line in its synopsis.
+
+**Score:** N/A
 
 #### Pull Request
 
