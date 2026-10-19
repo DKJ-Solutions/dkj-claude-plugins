@@ -1,0 +1,57 @@
+/* Figure: a framed image with a fixed aspect ratio, an optional caption and a placeholder state.
+   A brand-book original (no source repo; see src/components/sources.ts). */
+.dkj-figure { margin: 0; min-width: 0; }
+
+.dkj-figure__frame {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid var(--primary-3);
+  border-radius: var(--dkj-radius-lg);
+  background: var(--primary-3);
+}
+.dkj-figure--r-16-9 .dkj-figure__frame { aspect-ratio: 16 / 9; }
+.dkj-figure--r-4-3 .dkj-figure__frame { aspect-ratio: 4 / 3; }
+.dkj-figure--r-3-2 .dkj-figure__frame { aspect-ratio: 3 / 2; }
+.dkj-figure--r-1-1 .dkj-figure__frame { aspect-ratio: 1 / 1; }
+.dkj-figure--r-3-4 .dkj-figure__frame { aspect-ratio: 3 / 4; }
+.dkj-figure--r-9-16 .dkj-figure__frame { aspect-ratio: 9 / 16; }
+
+.dkj-figure__frame > img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.dkj-figure--contain .dkj-figure__frame > img { object-fit: contain; }
+
+.dkj-figure__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2);
+  text-align: center;
+  color: var(--primary-9);
+}
+.dkj-figure__glyph { flex: none; }
+.dkj-figure__label { font-size: var(--text-sm); color: var(--primary-9); overflow-wrap: break-word; }
+
+.dkj-figure__caption {
+  margin-top: var(--spacing-2);
+  font-size: var(--text-sm);
+  line-height: var(--dkj-lh-snug);
+  color: var(--primary-8);
+  text-align: left;
+  overflow-wrap: break-word;
+}
+
+/* Inside Prose: the frame already rounds and clips, so the bare-image rule (.dkj-prose img) steps aside. */
+.dkj-prose .dkj-figure__frame > img { border-radius: 0; height: 100%; }

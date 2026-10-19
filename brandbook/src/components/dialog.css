@@ -1,0 +1,128 @@
+/* Dialog and drawer. Origin: see src/components/sources.ts. */
+
+/* While a modal is open the page behind it stays still. */
+html:has(dialog:modal) { overflow: hidden; }
+
+.dkj-dialog {
+  width: calc(min(100vw, var(--dkj-column-w)) * var(--dkj-popup-scale));
+  /* Each stacked dialog is --dkj-popup-step of the one below it. */
+  width: calc(min(100vw, var(--dkj-column-w)) * var(--dkj-popup-scale) * pow(var(--dkj-popup-step), var(--dkj-depth, 0)));
+  max-width: none;
+  max-height: calc(100% - 2rem);
+  margin: auto;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  text-align: left;
+  color: var(--primary-9);
+  background: var(--primary-2);
+  border: 1px solid var(--primary-3);
+  border-radius: var(--dkj-radius-xl);
+}
+.dkj-dialog::backdrop { background: var(--primary-1); opacity: 0.45; }
+
+/* Tints: the dialog takes the tint on its own surface and border, and the info dialog's children re-declare the
+   house colour tokens (the exception in house-style/README.md rule 3), so every box inside follows.
+   The accent dialog takes the theme's tinted surface (--primary-3) as its own, so its text, title and links are
+   --primary-7 (the colour itself, --primary-5, is too close to -3 to read); the info dialog keeps the card (--primary-2) with a --cat-1 border. --primary-5 is re-declared on the children, not on the dialog,
+   so the dialog's own border still takes the outer colour. */
+.dkj-dialog--accent {
+  --primary-2: var(--primary-3);
+  border-color: var(--primary-4);
+}
+.dkj-dialog--accent .dkj-dialog-title, .dkj-dialog--accent a:any-link { color: var(--primary-7); }
+.dkj-dialog--info {
+  border-color: var(--cat-1);
+}
+.dkj-dialog--info > * { --primary-5: var(--cat-1); }
+
+.dkj-dialog-body { position: relative; padding: var(--spacing-4); }
+
+/* The head keeps the right side free for the close button and is at least as tall, so a one-line title centres beside it. */
+.dkj-dialog-head {
+  display: flex;
+  align-items: center;
+  min-height: var(--dkj-tap);
+  padding-right: calc(var(--dkj-tap) + var(--spacing-2));
+  margin-bottom: var(--spacing-4);
+}
+.dkj-dialog-head--two { padding-right: calc(2 * var(--dkj-tap) + var(--spacing-4)); }
+.dkj-dialog-titles { min-width: 0; }
+.dkj-dialog-titles > .dkj-tag { margin-bottom: var(--spacing-1); }
+.dkj-dialog-title-row { display: flex; align-items: center; min-width: 0; }
+.dkj-dialog-title-row .dkj-round-toggle { margin: calc(-1 * var(--spacing-2)) 0 calc(-1 * var(--spacing-2)) calc(-1 * var(--spacing-1-5)); }
+.dkj-dialog-title-row .dkj-round-toggle svg { transform: translateY(0.125rem); }
+/* The title is an <h6> (an <h3> as a card heading, an <h5> in a drawer), in the body sans and the house heading colour, --primary-8, like every h3-h6 (#114). */
+.dkj-dialog-title { display: block; margin: 0; min-width: 0; font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-8); overflow-wrap: anywhere; }
+.dkj-dialog-title--card { font-size: var(--text-h3); font-weight: var(--dkj-fw-bold); line-height: var(--dkj-lh-tight); }
+.dkj-dialog-sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-base); color: var(--primary-6); }
+.dkj-dialog-text { margin: 0; line-height: 1.45; }
+
+/* Close / save / cancel: no visible border on close; save and cancel show a 36px square inside the 44px tap area. */
+.dkj-dialog-action {
+  position: absolute;
+  top: var(--spacing-4);
+  right: var(--spacing-4);
+  width: var(--dkj-tap);
+  height: var(--dkj-tap);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-9);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--dkj-radius-md);
+  cursor: pointer;
+}
+.dkj-dialog-action:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-5); outline-offset: var(--dkj-focus-offset); }
+.dkj-dialog-action svg { position: relative; }
+.dkj-dialog-action--save { color: var(--primary-1); }
+.dkj-dialog-action--cancel { right: calc(var(--spacing-4) + var(--dkj-tap) - 2px); color: var(--negative-5); }
+.dkj-dialog-action--save::before, .dkj-dialog-action--cancel::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid;
+  border-radius: var(--dkj-radius-sm);
+}
+.dkj-dialog-action--save::before { background: var(--primary-5); border-color: var(--primary-5); }
+.dkj-dialog-action--cancel::before { border-color: var(--negative-5); }
+
+.dkj-dialog-label { display: block; margin: var(--spacing-6) 0 var(--spacing-2); font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-9); }
+.dkj-dialog-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-2); margin-top: var(--spacing-6); min-height: var(--dkj-tap); }
+
+/* ---------- Drawer ---------- */
+.dkj-dialog--drawer {
+  width: min(var(--dkj-drawer-w), calc(100% - 3rem));
+  height: 100%;
+  max-height: 100%;
+  margin: 0 0 0 auto;
+  border-width: 0 0 0 1px;
+  border-radius: var(--dkj-radius-xl) 0 0 var(--dkj-radius-xl);
+  touch-action: pan-y;
+  animation: dkj-drawer-in var(--dkj-duration-panel) var(--dkj-ease-out);
+}
+.dkj-dialog--drawer::backdrop { animation: dkj-backdrop-in var(--dkj-duration-panel) var(--dkj-ease-out); }
+.dkj-dialog--drawer .dkj-dialog-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding-top: calc(var(--spacing-4) + env(safe-area-inset-top));
+  padding-bottom: calc(var(--spacing-4) + env(safe-area-inset-bottom));
+}
+/* The drawer head is as tall as the top bar, with a full-width rule under it and the close button centred in it. */
+.dkj-dialog--drawer .dkj-dialog-head {
+  height: var(--dkj-topbar-h);
+  min-height: 0;
+  margin: calc(-1 * var(--spacing-4)) calc(-1 * var(--spacing-4)) 0;
+  padding: 0 calc(var(--spacing-4) + var(--dkj-tap) + var(--spacing-2)) 0 var(--spacing-4);
+  border-bottom: 1px solid var(--primary-3);
+}
+.dkj-dialog--drawer .dkj-dialog-title { font-size: var(--text-h5); font-weight: var(--dkj-fw-bold); }
+.dkj-dialog--drawer .dkj-dialog-action { top: calc((var(--dkj-topbar-h) - var(--dkj-tap)) / 2 + env(safe-area-inset-top)); }
+@keyframes dkj-drawer-in { from { transform: translateX(100%); } }
+@keyframes dkj-backdrop-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .dkj-dialog--drawer, .dkj-dialog--drawer::backdrop { animation: none; }
+}

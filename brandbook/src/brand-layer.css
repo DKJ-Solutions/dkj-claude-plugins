@@ -1,0 +1,64 @@
+/*
+ * DKJ-Solutions brand book -- the repo layer on top of the house style.
+ *
+ * Load AFTER house-style/house-style.css. The house file is the one token source: every colour, every
+ * spacing step and the type scale come from it. This file only adds what the house style has no
+ * equivalent for (radius, weights, control sizes, focus ring, motion, layout). It adds no colour: the
+ * components use the house colour tokens directly, so they follow all twelve themes in light and dark.
+ *
+ * Rule (house-style/README.md): extend, never override. Every name here starts with --dkj-, a prefix
+ * the house file does not use, and no house token or house class is redefined.
+ */
+:root {
+  /* ---- Radius (the house file writes radii as literals; the components share these) ---- */
+  --dkj-radius-xs: 0.25rem;       /* compact buttons */
+  --dkj-radius-sm: 0.375rem;      /* list items, inner squares */
+  --dkj-radius-md: 0.5rem;        /* controls: inputs, buttons, boxes */
+  --dkj-radius-md-plus: 0.625rem; /* calculation boxes, answer box */
+  --dkj-radius-lg: 0.75rem;       /* cards, panels, banners */
+  --dkj-radius-xl: 1rem;          /* dialogs, drawer */
+  --dkj-radius-pill: 999px;       /* chips, tags, round toggles */
+
+  /* ---- Type: only what the house scale (--text-*) cannot express ---- */
+  --dkj-fw-regular: 400;
+  --dkj-fw-medium: 500;
+  --dkj-fw-semibold: 600;
+  --dkj-fw-bold: 700;
+  --dkj-lh-none: 1;
+  --dkj-lh-tight: 1.2;
+  --dkj-lh-snug: 1.35;
+  --dkj-lh-prose: 1.55;          /* long text: looser than the house body 1.45 */
+  --dkj-font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace; /* code */
+  --dkj-tracking-caps: 0.03em;   /* uppercase labels (.dkj-panel-label) */
+  --dkj-tracking-label: 0.04em;  /* uppercase section and column labels */
+  --dkj-tracking-tag: 0.06em;    /* pill tags */
+
+  /* ---- Controls and tap targets ---- */
+  --dkj-tap: 44px;             /* minimum tap target, also where the visual is smaller */
+  --dkj-control-h: 38px;       /* a value box and the pencil beside it: one height */
+  --dkj-control-lg: 52px;      /* stepper in a dialog */
+  --dkj-control-compact: 36px; /* compact buttons (tap area stays 44px) */
+  --dkj-control-dense: 30px;   /* the joined segmented capsule: the house .controls row height (tap area stays 44px) */
+  --dkj-inline-toggle: 16px;   /* the inline "?" circle inside a label or heading (tap area stays 44px) */
+
+  /* ---- Layout ---- */
+  --dkj-column-w: 32rem;       /* the app column, phone-first */
+  --dkj-topbar-h: 3.5rem;
+  --dkj-drawer-w: 22rem;
+  --dkj-popup-scale: 0.95;     /* first dialog: 95% of the column */
+  --dkj-popup-step: 0.93;      /* each stacked dialog: 93% of the one below */
+  --dkj-datecol: 10ch;         /* DateRow: the fixed date column (fits "09:00-10:30" at 12px), so titles align down the list */
+
+  /* ---- Focus ring (colour: --primary-5) ---- */
+  --dkj-focus-w: 2px;
+  --dkj-focus-offset: 2px;
+  --dkj-focus-offset-inset: -4px; /* round toggles: the ring sits inside the 44px tap area */
+
+  /* ---- Motion ---- */
+  --dkj-duration-fast: 100ms;   /* press */
+  --dkj-duration-base: 150ms;   /* hover border */
+  --dkj-duration-slow: 200ms;   /* card border */
+  --dkj-duration-panel: 220ms;  /* drawer and backdrop in */
+  --dkj-duration-flash: 1.2s;   /* value changed by the app */
+  --dkj-ease-out: ease-out;
+}
