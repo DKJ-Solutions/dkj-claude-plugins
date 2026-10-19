@@ -39,19 +39,33 @@
 
 ### PLAN
 
+Inbound #3144: on Windows PowerShell 5.1, `prepare-release` step 1 never read the head's check runs. Reproduced here
+from PowerShell 5.1 before the repair: the quoted filter reached gh as three arguments (`accepts 1 arg(s), received 3`).
+The other quoted jq filters in the tree were checked: `check-consumer-siblings` passes `-TimeoutSeconds`, which takes
+the quoting `-Utf8` arm, and `asana-closed-message` is a CI-runner template, so neither shares the defect.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Drop the double quotes from the check-run jq filter (`@tsv` already renders a null conclusion empty), and say
+      in the note whether gh is missing or exited non-zero, with the call to re-run
+- [x] A static assert in `bwj-development.tests.ps1`: no jq filter the driver hands gh carries a double quote
 
 ### TEST
 
+- [x] The new filter returns the check runs from PowerShell 5.1 (exit 0); the assert's regex matches the old driver
+      and not the new one
+
 ### DEPLOY: fix/3144-prepare-release-jq-quotes
 
-**Score:**
+`prepare-release` reads the head's check runs on Windows PowerShell 5.1 again (#3144). Its jq filter carried a double quote, which PowerShell 5.1 strips from a native argument, so gh refused the call and step 1 reported "gh missing, logged out, or offline" while reporting the trunk READY. The note now also tells a missing gh apart from a gh that exited non-zero.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store repo preparing a release from Windows PowerShell 5.1 now gets the trunk's CI state checked by `prepare-release`, so a red check on the head blocks the READY instead of passing with a soft note.
+
+**Score:** 2
 
 #### Pull Request
 
