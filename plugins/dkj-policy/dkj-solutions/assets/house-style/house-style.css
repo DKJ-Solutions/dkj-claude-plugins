@@ -55,13 +55,15 @@
      the first tint off white or black, so the card is only just lifted off the page and the line a step further.
      -10 and -11 stay on the hue at full saturation, 20% and 40% of the way from -9 to -12 in HSL lightness, so the
      dark steps keep their colour.
-     The greys: on light -5 L 0.70, -6 L 0.47, -7 L 0.39, -8 L 0.31; on dark -5 L 0.38, -6 L 0.538, -7 L 0.70, -8 L
-     0.80; each in -9's OKLCH hue at a low chroma, -6 with a little more colour than the other three.
+     The greys are the muted family: what may recede into the background (owner, October 19, 2026). In both modes -5
+     recedes the most and -8 the least: on light -5 L 0.70, -6 L 0.47, -7 L 0.39, -8 L 0.31; on dark -5 L 0.38, -6
+     L 0.538, -7 L 0.70, -8 L 0.80; each in -9's OKLCH hue at a low chroma, -6 with a little more colour. -5 is too
+     faint for text (2.0:1 to 2.7:1 on the page), -6 is the furthest a muted text may recede.
      A role takes the same step in both modes, never light-dark() between two steps (owner's decision, October 15, 2026).
      -1 the page, and the text on a -6 fill; -2 the cards (tiles, tooltips); -3 every line (borders, row dividers,
      meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a today row, the accent dialog);
      -5 a stronger border (an open card, a selected box); -6 the fills (switches, info badges), focus rings, meters
-     and text in the colour (values); -7 sub lines, notes and .muted; -8 the eyebrow; -9 the highlight: links (owner's
+     and text in the colour (values); -6 also the eyebrow; -7 sub lines, notes and .muted; -8 no role of its own yet; -9 the highlight: links (owner's
      decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus
      outlines, sorted, pressed) and native controls through accent-color; -10 h2 and -11 h3-h6 (an h2 in the h1's
      colour read too much like it, and a grey h3 did not work; on -12 h1 is -4, h2 is -3 and h3-h6 are -2); -4 no
@@ -69,7 +71,7 @@
      Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on -1 19.5:1, on -2 19.0:1 and on -3
      16.5:1; -9 on -1 4.6:1 and -1 on -9 4.6:1; -9 on -2 4.40:1 (Magenta; below 4.5:1 also Roest and Lila, 4.43:1
      and 4.49:1); -10 on -2 5.9:1, -11 on -2 7.4:1; -6 on the card 6.4:1 on light and 3.8:1 on dark (Roze), -1 on -6
-     6.6:1 on light and 3.9:1 on dark; -7 on the card 7.3:1; -8 on the page 10.7:1; a -3 line on a -2 card 1.02:1
+     6.6:1 on light and 3.9:1 on dark; -7 on the card 7.3:1; -6, the eyebrow, on the page 6.6:1 on light and 3.9:1 on dark; a -3 line on a -2 card 1.02:1
      (Oker) to 1.16:1. */
   --primary-1: #fdfdff; --primary-2: #f6f7ff; --primary-3: #e2e6ff; --primary-4: #6462ff; --primary-5: #969fb0; --primary-6: #515b6e;
   --primary-7: #3d4554; --primary-8: #29313f; --primary-9: #0400ff; --primary-10: #0300d0; --primary-11: #0300a1; --primary-12: #020511;
@@ -251,9 +253,9 @@ h6 { font-size: var(--text-h6); margin: 0 0 var(--spacing-1); font-weight: 600; 
    sets its own. */
 p, p.meta { color: var(--primary-12); }
 /* Eyebrow: a small uppercase line above a page title, the Repo hub's <owner>/<repo> (#141). Put it on a <p>
-   (the class beats the paragraph colour). The colour is --primary-8, the darkest grey: a step off the text and not the
-   colour, so it stands back behind the h1 in --primary-9 (owner, October 19, 2026); semibold, with the same 0.04em tracking as the settings panel's uppercase labels. */
-.eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-8); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
+   (the class beats the paragraph colour). The colour is --primary-6, a muted grey: the grey that recedes furthest while
+   still reading as text (6.6:1 on light, 3.9:1 on dark), so it stands back behind the h1 (owner, October 19, 2026); semibold, with the same 0.04em tracking as the settings panel's uppercase labels. */
+.eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--primary-6); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
 /* Lead: the one paragraph under a page title that says what the page is for (#141). On a <p>, in the paragraph
    colour, at the large running size, held to a readable measure. */
 .lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: 1.35; color: var(--primary-12); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */

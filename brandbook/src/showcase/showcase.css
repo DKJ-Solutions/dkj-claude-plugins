@@ -122,7 +122,7 @@
 
 /* The intro: page title, hero card and type specimen at the top of the content. */
 .dkj-intro { margin-bottom: var(--spacing-8); scroll-margin-top: 5rem; }
-.dkj-eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-8); }
+.dkj-eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); letter-spacing: var(--dkj-tracking-label); text-transform: uppercase; color: var(--primary-6); }
 .dkj-lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: var(--dkj-lh-snug); color: var(--primary-12); }
 .dkj-specimen { display: grid; gap: var(--spacing-3); }
 .dkj-specimen > * { margin: 0; }

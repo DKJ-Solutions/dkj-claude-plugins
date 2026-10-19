@@ -52,8 +52,9 @@ Dave, October 19, 2026, over many rounds on this branch. It started from the h2 
 - **Steps:** `-2` and `-3` at 4% and 16% of the way from `-1` to `-4` (a quadratic curve, after a linear one made the
   first step far too big); `-10` and `-11` on the hue at full saturation, 20% and 40% of the way to `-12`; the greys
   at their old lightness in `-9`'s hue.
+- **The greys are the muted family**, for what may recede; `-5` recedes the most, `-8` the least.
 - **Roles:** page `-1`, cards `-2`, lines and tinted surfaces `-3` (they had ridden along on the light anchor and read
-  far too strong), stronger border `-5`, fills `-6`, sub lines `-7`, eyebrow `-8`, the colour `-9` (h1, links,
+  far too strong), stronger border `-5`, fills and the eyebrow `-6`, sub lines `-7`, the colour `-9` (h1, links,
   states), h2 `-10`, h3-h6 `-11`, text `-12`.
 
 #### Measured cost
@@ -91,6 +92,7 @@ scale still has to be put there by hand.
 - [x] eleventh round (Dave: `-1`→`-2` a little bigger, `-2`→`-3` much bigger, on Magenta): Magenta and Roze back on the shared t² curve; their exception had been judged against the `-6` border
 - [x] twelfth round (Dave: the eyebrow should stand back from `-7`): `.eyebrow` and `.dkj-eyebrow` take `-11`, chosen from a menu because every lighter step reads under 3:1 in several themes
 - [x] thirteenth round (Dave: bring the greys back): the 4/4/4 scale again with the anchors on `-1`, `-4`, `-9`, `-12`; the approved cards, lines, h2 and h3 keep their values; the role references come back from the last grey version with lines on `-3` and the eyebrow on `-8`
+- [x] fourteenth round (Dave: the greys are the muted elements, and the eyebrow should recede): the eyebrow takes `-6`, the furthest grey that still reads as text; the muted family is written down
 - [x] `house-theme.js`: each theme's picker dot is its new `-9`; the `house-style` skill pins both new checksums
 - [x] filed #3193: the README's detailed lightness tables disagree with the shipped grey values (it predates this branch)
 
