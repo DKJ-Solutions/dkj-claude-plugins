@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**9 / 22 minor entries** <!-- pending-tally -->
+**9 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3131-brandbook-app · 20261019-060522Z
+
+The brandbook app now lives in this repo at [`brandbook/`](../brandbook/README.md), step 2 of #3130:
+the Repo hub pattern and the component showcase, built and linted by `npm run gate` and by a new
+path-scoped [`brandbook`](../.github/workflows/brandbook.yml) workflow. It reads the house style from
+`plugins/dkj-policy/dkj-solutions/assets/house-style/` where it lives, so there is one copy, and it sits
+outside `plugins/`, so no consumer installs it. Five deliberate extensions it carries are answered in
+`Get-HouseStyleAllowlist`. Until #3133 ports the post-v0.4.0 house rules, its grid headings render
+without them.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Move the brandbook React app into brandbook/ at the repo root
+
+[PR #3138](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3138)
+
+---
 
 ### DEPLOY: feat/3130-brandbook-into-dkj-solutions · 20261018-214742Z
 
