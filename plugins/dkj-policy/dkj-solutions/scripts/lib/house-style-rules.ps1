@@ -119,7 +119,7 @@ function Get-HouseStylePin {
         $m = [regex]::Match($line, '^\|\s*`(?<file>house-style\.css|house-theme\.js)`\s*\|\s*`(?<url>[^`]+)`\s*\|\s*`(?<sha>[0-9a-f]{64})`\s*\|')
         if (-not $m.Success) { continue }
         $hashes[$m.Groups['file'].Value] = $m.Groups['sha'].Value
-        $t = [regex]::Match($m.Groups['url'].Value, '/dkj-brandbook/(?<tag>[^/]+)/house-style/')
+        $t = [regex]::Match($m.Groups['url'].Value, '/dkj-claude-plugins/(?<tag>[^/]+)/plugins/dkj-policy/dkj-solutions/assets/house-style/')
         if ($t.Success) { $tag = $t.Groups['tag'].Value }
     }
     foreach ($name in (Get-HouseStyleCopyNames)) { if (-not $hashes.ContainsKey($name)) { return $null } }

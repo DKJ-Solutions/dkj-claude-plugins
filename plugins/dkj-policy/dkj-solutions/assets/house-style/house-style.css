@@ -186,6 +186,16 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .page-column [id] { scroll-margin-top: 5rem; }
 .page-cta { margin: var(--spacing-4) 0 0; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); }
+/* The grid's gap is the spacing between its rows, so a direct .card, .tiles or .notice gives up its own top
+   margin here too, as in .page-column (#207). */
+.grid-2 > .card, .grid-2 > .tiles, .grid-2 > .notice { margin-top: 0; }
+/* A block's heading above its card(s), not inside them (#206): <div class="grid-2"><div class="grid__head"><h2>Title</h2>
+   <p class="card__sub">Sub line</p></div> then the card(s)</div>. The head spans every column, as does a .grid__full child
+   (a card that takes the whole row). The h2 gives up its bottom margin and the .card__sub supplies the --spacing-1 under it,
+   as in .card__head; the grid's own gap is the space between head and cards. Left-aligned, like .card__head. */
+.grid__head, .grid__full { grid-column: 1 / -1; }
+.grid__head { text-align: left; }
+.grid__head > h2 { margin: 0; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--spacing-3); margin-top: var(--spacing-4); }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: var(--spacing-4); }
 .mini-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--spacing-2-5); margin-top: var(--spacing-3); }
@@ -256,6 +266,9 @@ p, p.meta { color: var(--primary-9); }
 .card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h2); font-weight: 600; color: var(--primary-8); }
 /* A status .badge before the title text (#153); the badge is decorative, so the .card__sub says the status too. */
 .card__title > .badge { margin-right: var(--spacing-2); }
+/* A card titled with a plain h3, where its h2 stands above a group of cards (#206): no margin of its own, so the
+   .card__sub sits --spacing-1 under it as under a .card__title. */
+.card__head > h3 { margin: 0; }
 .card__sub { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--primary-6); }
 .card > .card__head + * { margin-top: var(--spacing-4); }   /* (0,2,0): beats a body's own margin: 0, such as .facts */
 .hero { display: flex; flex-wrap: wrap; gap: var(--spacing-6) var(--spacing-12); align-items: flex-end; }   /* use with .card */

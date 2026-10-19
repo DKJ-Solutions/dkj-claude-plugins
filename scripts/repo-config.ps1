@@ -737,6 +737,21 @@ function Get-ReleasePluginTier {
     return $script:ReleasePluginTier
 }
 
+# The URLs cut-release repoints at the tag it is cutting (#3133). The house-style skill pins its consumer
+# URLs at this repo's own release tag, and the only tag carrying the bytes its checksum table names is the
+# one of the release that ships them -- a number that does not exist until the cut decides it. So the cut
+# writes it, in the release commit beside the plugin.json bumps. The owner chose this over pinning by hand
+# (Dave, October 19, 2026, on #3133).
+$script:ReleaseVersionPins = @(
+    @{ Path = 'plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md'
+       Prefix = 'https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/' }
+)
+
+function Get-ReleaseVersionPins {
+    <# The files whose '<Prefix>vX.Y.Z/' URLs cut-release rewrites to the tag it cuts. #>
+    return $script:ReleaseVersionPins
+}
+
 # --- RETIRED, AUGUST 5, 2026: Get-ReleaseCategoryTitles -------------------------------------------
 #
 # Display labels for the release-notes category headings, keyed on the branch types: Feat -> Features,

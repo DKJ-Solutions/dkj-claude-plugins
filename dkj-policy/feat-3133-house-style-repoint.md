@@ -39,19 +39,40 @@
 
 ### PLAN
 
+#3133, step 4 of #3130: point the house-style consumer URLs at this repo and port the three dkj-brandbook changes made after v0.4.0 (#205, #207, #206/#210). The `awaiting-release` label was stale: v5.24.0 carries `assets/house-style/`, so it was removed at pickup.
+
+#### The tag decision (Dave, October 19, 2026)
+
+The pin can only name a tag that carries the bytes its checksums name, and once the files ship inside this repo that is always the release that ships the change, whose number the cut decides. The owner chose "the cut rewrites it": a new optional seam, `Get-ReleaseVersionPins`, names the file and URL prefix, and `cut-release.ps1` rewrites every `<prefix>vX.Y.Z/` in it to the tag it cuts, in the release commit. That adds the skill page to what the release commit touches, beside the `plugin.json` bumps.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Port the post-v0.4.0 brandbook diff onto `assets/house-style/` (README, `house-style.css`, `patterns/repo-dashboard.html`), byte-identical to dkj-brandbook `main`
+- [x] `Get-ReleaseVersionPins` seam: contract record (and mirror), this repo's answer in `repo-config.ps1`, blueprint regenerated
+- [x] `cut-release.ps1` (and mirror) reads and checks the pins before its first write, and rewrites them beside the version bump
+- [x] Pin parser reads `dkj-claude-plugins/<tag>/plugins/dkj-policy/dkj-solutions/assets/house-style/`
+- [x] Skill: new URLs and checksums, the cut-rewrites-the-tag wording, the "commit b1f1a69" line dropped; README's URL paragraph repointed
+- [x] Hub: its own `<style>` and the `grid__card` class dropped, now that the house style carries `.grid__head`, `.grid__full` and the `.grid-2 > .card` margin
 
 ### TEST
 
+- [x] cut-release-drive: the happy path repins both URLs, leaves another prefix alone, and commits the page; a missing pin file refuses with nothing written (94 asserts)
+- [x] check-house-style 74, dev-pages 229, script-contract 421, cut-release-guardrail 128, shared-scripts 1162, config-blueprint: all green
+- [ ] The owner's look at the hub (a visible result)
+
 ### DEPLOY: feat/3133-house-style-repoint
 
-**Score:**
+The house style's consumer URLs now point at this repo's own release tag, and the release cut writes that tag in, so the skill page always pins the release that ships it (#3133). The three dkj-brandbook changes made after v0.4.0 are ported: a heading above a group of cards (`.grid__head`), a card that takes the whole row (`.grid__full`), and a card in a `.grid-2` without a doubled top margin. The Repo hub drops its own copies of those rules. `cut-release` takes an optional seam, `Get-ReleaseVersionPins`, for any file that pins a URL at the repo's own tag.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app fetching the house style now reads it from `DKJ-Solutions/dkj-claude-plugins` at the plugin's release tag instead of from `dkj-brandbook`, with new checksums, and gets three new layout classes for a heading above its cards. A consumer vendoring a copy takes the new one, and `check-house-style` reports the old copy until it does.
+
+**Score:** 3
 
 #### Pull Request
+
+house-style: consumer URLs pin this repo's release tag, written by the cut, and the post-v0.4.0 brandbook rules are ported
 

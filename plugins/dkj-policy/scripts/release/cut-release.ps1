@@ -398,6 +398,20 @@ Assert-WorkflowIsolatedSeamPath -RepoRoot $repoRoot -RelativePath $historyRelPat
 $pluginTier    = Get-SeamValue -Name 'Get-ReleasePluginTier' `
     -Default (Test-Path -LiteralPath (Join-Path $repoRoot '.claude-plugin\marketplace.json'))
 
+# The version pins the cut repoints at the new tag (#3133), each @{ Path; Prefix }. Read and checked HERE,
+# before anything is written, because a bad entry found at the bump would abort a cut that has already
+# written to the trunk. Empty by default: a repo that names no pin is untouched.
+$versionPins = @(foreach ($pin in @(Get-SeamValue -Name 'Get-ReleaseVersionPins' -Default @())) {
+    if (-not $pin) { continue }
+    if (-not $pin.Path -or -not $pin.Prefix) { Write-Error "Get-ReleaseVersionPins: every entry needs a Path and a Prefix -- release aborted."; exit 1 }
+    $pinAbs = Join-Path $repoRoot ($pin.Path -replace '/', '\')
+    if (-not (Test-Path -LiteralPath $pinAbs)) { Write-Error "Get-ReleaseVersionPins names '$($pin.Path)', which does not exist -- release aborted."; exit 1 }
+    $pattern = [regex]::Escape($pin.Prefix) + 'v\d+\.\d+\.\d+/'
+    $hits = [regex]::Matches([System.IO.File]::ReadAllText($pinAbs, [System.Text.Encoding]::UTF8), $pattern).Count
+    if ($hits -eq 0) { Write-Error "Get-ReleaseVersionPins: '$($pin.Path)' carries no '$($pin.Prefix)vX.Y.Z/' -- release aborted."; exit 1 }
+    [pscustomobject]@{ Path = $pin.Path; Prefix = $pin.Prefix; Abs = $pinAbs; Pattern = $pattern; Hits = $hits }
+})
+
 # The consumer tier (#417 phase 2). Empty by default, which is the tier switched OFF -- what this
 # script did for its whole life as a workshop-only file, so nothing changes for a consumer.
 #
@@ -1601,6 +1615,19 @@ foreach ($p in $manifests) {
     $bumped = [regex]::Replace($raw, '("version"\s*:\s*")\d+\.\d+\.\d+(")', "`${1}$new`$2", 1)
     Write-Utf8NoBom -Path $p.ManifestPath -Content $bumped
     Write-Host "  bumped: $($p.Name)/.claude-plugin/plugin.json -> $new" -ForegroundColor DarkGray
+}
+
+# --- Repoint the version pins the repo names (#3133) -------------------------------------------------
+# A document that pins a URL at THIS repo's own release tag can only name the tag of the release that
+# ships it, and that number does not exist until this run decides it. So the cut writes it: each pin is a
+# file and the URL prefix in front of the tag, and every '<Prefix>vX.Y.Z/' in that file becomes
+# '<Prefix>v<new>/'. OPTIONAL and empty by default, so a repo that names no pin is untouched. The files
+# land in the release commit like the plugin.json bumps beside them -- the same version, a second place.
+# The pins were read and checked before the first write (beside the other seams), so nothing here can abort.
+foreach ($pin in $versionPins) {
+    $raw = [System.IO.File]::ReadAllText($pin.Abs, [System.Text.Encoding]::UTF8)
+    Write-Utf8NoBom -Path $pin.Abs -Content ([regex]::Replace($raw, $pin.Pattern, ($pin.Prefix + "v$new/").Replace('$', '$$')))
+    Write-Host "  repinned: $($pin.Path) -> v$new ($($pin.Hits) URL(s))" -ForegroundColor DarkGray
 }
 
 # The follow-up documents this script deliberately does NOT write, printed once at the end whether or

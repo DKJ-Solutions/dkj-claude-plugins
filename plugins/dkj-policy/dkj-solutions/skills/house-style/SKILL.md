@@ -18,23 +18,22 @@ BWJ-Development has its own styling, and this skill says nothing about it.
 
 ## Where the files are
 
-`DKJ-Solutions/dkj-claude-plugins` and `DKJ-Solutions/dkj-brandbook` are both public, so these read
-without auth. **Until the first release of this repo carries the files, the consumer URL still reads from
-the `dkj-brandbook` repo's `v0.4.0` tag**, whose `house-style.css` and `house-theme.js` hold the same
-bytes as the canonical copies in this plugin (that is what is verified) and are repointed at this repo's
-own tag after that release ([#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)).
-**The consumer URLs are pinned to the release tag `v0.4.0`, never to `main`**: `main` moves, and `house-theme.js` is executable wherever it is inlined, so a fetch from
-`main` would carry an unreleased push into every app's next copy
-([#2954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2954)).
+`DKJ-Solutions/dkj-claude-plugins` is public, so these read without auth. **The consumer URLs are pinned
+to this repo's release tag, never to `main`**: `main` moves, and `house-theme.js` is executable wherever
+it is inlined, so a fetch from `main` would carry an unreleased push into every app's next copy
+([#2954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2954)). **The tag below is the
+release this page shipped in**: the release cut rewrites it to the tag it is cutting
+([#3133](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3133)), so the page you are reading
+always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.4.0/house-style/house-style.css` | `51a0ded7e3ef6b921ce8826a851a938b660f53000ffcdbe690fe6ad20f8ac070` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-brandbook/v0.4.0/house-style/house-theme.js` | `a1ba3dd4b0eff918b7ef53dddae4e23b838fb4ca616ad27ce6b42936a1561267` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.24.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `13eb8d2a0814a435f99203af844e8a5107bbc2b7887d2d5ae973e973e4dbfe33` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.24.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js` | `a1ba3dd4b0eff918b7ef53dddae4e23b838fb4ca616ad27ce6b42936a1561267` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
-[`assets/house-style/README.md`](../../assets/house-style/README.md) in this plugin, the version of the
-rules that matches that tag, which points at commit `b1f1a69fa4e42087981ea8938c2cbf6a099d077d`.
+[`assets/house-style/README.md`](../../assets/house-style/README.md) in this plugin. It ships in the same
+release as this page, so it describes the files that tag serves.
 
 **Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
 and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
@@ -148,7 +147,9 @@ without the table following. So a change to a house file lands together with the
 where a token is retired, with the new names in `Get-HouseStyleRetiredTokens` in
 `scripts/lib/house-style-rules.ps1`.
 
-**A merged change reaches the apps only once it is released and this page follows it.** The house style
-no longer has a version of its own: it ships with the plugin and follows its lockstep release. The
-consumer URL above is repointed at this repo's tag once a release carries the files
-([#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)).
+**A merged change reaches the apps only once it is released.** The house style has no version of its
+own: it ships with the plugin and follows its lockstep release. The cut repoints the consumer URLs above
+at the tag it cuts (`Get-ReleaseVersionPins` in this repo's `scripts/repo-config.ps1`), so a change lands
+with its new checksums and nothing else. Between the merge and the cut, the page on `main` names the
+previous tag beside the new checksums, and a fetch from it would mismatch. That is expected: no consumer
+reads this page from `main`.

@@ -313,6 +313,17 @@
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
+                        "function":  "Get-ReleaseVersionPins",
+                        "adopt":  "decide",
+                        "adoptWhy":  "which files pin a URL at this repo\u0027s own release tag is a fact about this repo\u0027s files: the source\u0027s list names paths a consumer does not have, and the cut aborts on a pin whose file is missing. Empty, the default, is right for every repo that pins nothing (#3133)",
+                        "optional":  true,
+                        "default":  "@() -- no pins, nothing is rewritten",
+                        "returns":  "@{ Path; Prefix } per pinned file: Path repo-root-relative, Prefix the URL in front of the tag. The cut rewrites every \u0027\u003cPrefix\u003evX.Y.Z/\u0027 in that file to the tag it is cutting, in the release commit, and aborts before its first write when a file is missing or carries no such URL. Built for the house-style skill\u0027s consumer URLs, which can only name the tag of the release that ships them (#3133)",
+                        "declared":  true,
+                        "text":  "# The URLs cut-release repoints at the tag it is cutting (#3133). The house-style skill pins its consumer\n# URLs at this repo\u0027s own release tag, and the only tag carrying the bytes its checksum table names is the\n# one of the release that ships them -- a number that does not exist until the cut decides it. So the cut\n# writes it, in the release commit beside the plugin.json bumps. The owner chose this over pinning by hand\n# (Dave, October 19, 2026, on #3133).\n$script:ReleaseVersionPins = @(\n    @{ Path = \u0027plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md\u0027\n       Prefix = \u0027https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/\u0027 }\n)\n\nfunction Get-ReleaseVersionPins {\n    \u003c# The files whose \u0027\u003cPrefix\u003evX.Y.Z/\u0027 URLs cut-release rewrites to the tag it cuts. #\u003e\n    return $script:ReleaseVersionPins\n}"
+                    },
+                    {
+                        "lib":  "scripts\\repo-config.ps1",
                         "function":  "Get-ReleaseConsumerBumps",
                         "adopt":  "decide",
                         "adoptWhy":  "it declares that this repo wants a stakeholder-facing document at all, and for which bumps. Whether there is an audience outside the developers is a fact about the organisation around the repo, which no script can read from the tree",

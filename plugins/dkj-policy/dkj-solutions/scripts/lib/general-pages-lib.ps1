@@ -158,7 +158,7 @@ function Format-GeneralPagesCardHtml {
     if ($PagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') { $base = $PagesUrl.TrimEnd('/') }
     $title = if ($InRow) { '<h3>General</h3>' } else { '<h2 class="card__title">General pages</h2>' }
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.AppendLine($(if ($InRow) { '<section class="card grid__card">' } else { '<section class="card">' }))
+    [void]$sb.AppendLine('<section class="card">')
     [void]$sb.AppendLine('<div class="card__head">' + $title + '<p class="card__sub">Not specific to this repo: every DKJ-Solutions repo has them</p></div>')
     if ($base) {
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="General pages">')
