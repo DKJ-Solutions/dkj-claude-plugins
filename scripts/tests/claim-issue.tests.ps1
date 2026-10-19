@@ -1622,6 +1622,22 @@ Assert-True ($c2[0].Reason -match "^label 'awaiting-pull'; TWO PARKING LABELS") 
 $c1 = @(Get-SweepCandidates -Json '[{"number":6,"title":"t","labels":[{"name":"awaiting-pull"}],"comments":[]}]' -SkipLabel @('awaiting-pull'))
 Assert-True ($c1[0].Reason -eq "label 'awaiting-pull'") 'one parking label keeps the reason exactly as it was'
 
+# #3136: what an awaiting-pull issue waits on, read out of its parking comment -- the three measured shapes
+$w = { param([string[]]$Bodies) Get-ParkingWaitReferences -Comments @($Bodies | ForEach-Object { [pscustomobject]@{ body = $_ } }) }
+$r3126 = & $w @("Parked by a sweep: waiting on feat/sessionstart-snapshot, which is parked unmerged for the owner's look (no PR yet). The file this issue's repair writes, scripts/dashboard/session-start-snapshot.json, exists only there.")
+Assert-True (($r3126.Branches -join ',') -eq 'feat/sessionstart-snapshot' -and $r3126.Issues.Count -eq 0) 'a branch is read out of the clause, and the path after the sentence end is not (#3126)'
+$r3127 = & $w @("Parked by a sweep: waiting on #3119's pull request -- the repair names the general pages server.", 'Unparked: the awaited branch merged as #3128. Stale label tracked in #3136.')
+Assert-True (($r3127.Issues -join ',') -eq '3119' -and $r3127.Branches.Count -eq 0) 'a number is read, and an Unparked comment citing an open issue is not a parking comment (#3127)'
+$r3130 = & $w @('Parked by a sweep: waiting on the pull requests of its step issues #3131, #3132, #3133 and #3134 (step 1, the copy into `assets/house-style/`, has landed).')
+Assert-True (($r3130.Issues -join ',') -eq '3131,3132,3133,3134' -and $r3130.Branches.Count -eq 0) 'a list is read whole, and the parenthesis after it is not (#3130)'
+$rLast = & $w @('Parked by a sweep: waiting on #1.', 'Parked by a sweep: waiting on #2.')
+Assert-True (($rLast.Issues -join ',') -eq '2') 'the last parking comment is the one that counts'
+$rNone = & $w @('Parked by a sweep: waiting on the owner to look.', 'just a comment')
+Assert-True ($rNone.Issues.Count -eq 0 -and $rNone.Branches.Count -eq 0) 'a parking comment naming nothing yields nothing'
+Assert-True ((Get-ParkingWaitReferences -Comments @()).Issues.Count -eq 0) 'and so do no comments'
+$cand = Get-Content -LiteralPath (Join-Path $repoRoot 'scripts\task\claim-issue.ps1') -Raw
+Assert-True ($cand -match "Verdict = 'stale-park'" -and $cand -match '--remove-label awaiting-pull') '-Candidates reads a cleared park as stale-park and prints the unpark line'
+
 Assert-True ($parkArm -match 'Format-ParkingLabelConflict -Labels \$parkingLabels') 'the single-issue route reads the pair inside the parking arm, from the matches already in hand'
 
 Write-Host ''

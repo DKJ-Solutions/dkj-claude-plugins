@@ -127,7 +127,8 @@
 
 .PARAMETER Candidates
     List which open issues a sweep may pick up -- free, this tag's already, held by another tag, or
-    skipped with the reason. Takes no issue number and WRITES NOTHING: choosing is a separate step from
+    skipped with the reason, or 'stale-park' for an awaiting-pull issue whose blocker has landed (#3136).
+    Takes no issue number and WRITES NOTHING: choosing is a separate step from
     claiming, because between the two a session may still find the issue is not this repo's work.
 
 .PARAMETER Marker
@@ -596,6 +597,63 @@ if ($Candidates) {
 
     $sweepList = @(Get-SweepCandidates -Json (@($list.Output) -join "`n") -Tag $claimTag.Tag `
                                        -Marker $Marker -SkipLabel $SkipLabel -SkipIssue $skipIssueNumbers -Branches $remoteBranches)
+    # A PARK WHOSE WAIT HAS CLEARED (#3136). Nothing lifts 'awaiting-pull' when its blocker merges, so an
+    # issue parked on work that has since landed stayed 'skipped' by every sweep until a person noticed.
+    # This reads what the parking comment names and asks the tracker whether each has landed: a number
+    # closed (a pull request merged, not merely closed), a branch with a merged pull request. All landed
+    # reads 'stale-park'. Only 'awaiting-pull' is read: '-external' waits for a release, not a merge.
+    # Still nothing is written -- the sweep lifts the label, in the step the skill names.
+    $parkedPull = @($sweepList | Where-Object { $_.Verdict -eq 'skipped' -and $_.Reason -match "^label 'awaiting-pull'" })
+    if ($parkedPull.Count -gt 0) {
+        $issuesByNumber = @{}
+        # Assigned before the loop: Windows PowerShell's ConvertFrom-Json emits a JSON array as ONE object,
+        # and only a variable holding it enumerates it.
+        try {
+            $parsedIssues = ConvertFrom-Json -InputObject (@($list.Output) -join "`n")
+            foreach ($i in $parsedIssues) { if ($i) { $issuesByNumber[[int]$i.number] = $i } }
+        } catch { }
+        $landedCache = @{}
+        $isLanded = {
+            param([string]$Kind, [string]$Ref)
+            $key = "$Kind`:$Ref"
+            if ($landedCache.ContainsKey($key)) { return $landedCache[$key] }
+            $answer = $null
+            if ($Kind -eq 'issue') {
+                $slug = if ($repoName) { $repoName } else { '{owner}/{repo}' }
+                $q = Invoke-NativeCapture -FilePath 'gh' -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds `
+                    -Arguments @('api', "repos/$slug/issues/$Ref", '--jq', '[.state,(.pull_request|type),.pull_request.merged_at]|@tsv')
+                if ($q -and (Test-NativeExitMeasured -Capture $q) -and $q.ExitCode -eq 0) {
+                    # state, then 'object' for a pull request ('null' for an issue), then merged_at (empty unless merged)
+                    $parts = ((@($q.Output) -join '').TrimEnd("`r`n")) -split "`t"
+                    $answer = ($parts[0] -eq 'closed' -and ($parts[1] -ne 'object' -or ($parts.Count -gt 2 -and $parts[2])))
+                }
+            } else {
+                $q = Invoke-NativeCapture -FilePath 'gh' -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds `
+                    -Arguments (@('pr', 'list') + $repoArgs + @('--head', $Ref, '--state', 'merged', '--json', 'number', '--jq', 'length'))
+                if ($q -and (Test-NativeExitMeasured -Capture $q) -and $q.ExitCode -eq 0) {
+                    $answer = ([int]((@($q.Output) -join '').Trim()) -gt 0)
+                }
+            }
+            $landedCache[$key] = $answer
+            return $answer
+        }
+        foreach ($c in $parkedPull) {
+            $issueObj = $issuesByNumber[[int]$c.Number]
+            $comments = if ($issueObj -and $issueObj.PSObject.Properties['comments']) { @($issueObj.comments) } else { @() }
+            $refs = Get-ParkingWaitReferences -Comments $comments
+            $named = @(@($refs.Issues | ForEach-Object { @{ Kind = 'issue'; Ref = "$_"; Show = "#$_" } }) + @($refs.Branches | ForEach-Object { @{ Kind = 'branch'; Ref = $_; Show = $_ } }))
+            if ($named.Count -eq 0) {
+                $c.Reason = "$($c.Reason); its parking comment names no #<n> or branch, so whether the wait has cleared is not read"
+                continue
+            }
+            $pending = @($named | Where-Object { (& $isLanded $_.Kind $_.Ref) -ne $true } | ForEach-Object { $_.Show })
+            if ($pending.Count -eq 0) {
+                $c.Verdict = 'stale-park'
+                $c.Reason = "label 'awaiting-pull', but what it waits on has landed: $(@($named | ForEach-Object { $_.Show }) -join ', ')"
+            }
+        }
+    }
+
     if ($branchNote) { Write-Host "  [branch scan] $(Format-ForConsole -Text $branchNote)" -ForegroundColor Yellow }
     if ($sweepList.Count -eq 0) {
         Write-Host '[OK] no open issues on this tracker.' -ForegroundColor Green
@@ -609,6 +667,7 @@ if ($Candidates) {
             'mine'    { 'Cyan' }
             'held'    { 'DarkGray' }
             'branch'  { 'Yellow' }
+            'stale-park' { 'Yellow' }
             default   { 'DarkGray' }
         }
         Write-Host $line -ForegroundColor $colour
@@ -628,6 +687,13 @@ if ($Candidates) {
         # still on it is what the claim's parked-fix scan answers, with the author and age of every commit.
         Write-Host "     'branch' is not free: somebody pushed work for it without a claim marker. Read that branch" -ForegroundColor Yellow
         Write-Host '     (or ask its author) before claiming one of those.' -ForegroundColor Yellow
+    }
+    $stale = @($sweepList | Where-Object { $_.Verdict -eq 'stale-park' })
+    foreach ($s in $stale) {
+        # NAMED, NOT LIFTED: this mode writes nothing, so the unpark is the sweep's own step (#3136).
+        Write-Host "     #$($s.Number) waits on nothing any more -- unpark it, and it is free:" -ForegroundColor Yellow
+        Write-Host "       gh issue edit $($s.Number) --remove-label awaiting-pull" -ForegroundColor Yellow
+        Write-Host "       gh issue comment $($s.Number) --body `"Unparked: what it waited on has landed.`"" -ForegroundColor Yellow
     }
     if ($free.Count -gt 0) {
         # THE LOWEST NUMBER, NAMED RATHER THAN TAKEN. Oldest first is the only order six machines agree

@@ -292,7 +292,11 @@ never filed beside.
 cannot start until a different issue has merged is not free work, and `awaiting-decision-dev` (a person's
 answer) and `awaiting-recurrences-first` (evidence) say something else. Both pickup routes skip it by
 default, `claim-issue <n>` warns that the issue is parked, and the label comes off when the blocking pull
-request merges. Where the blocking issue is itself parked, the issue takes that issue's label instead,
+request merges. **Nothing lifts it at the merge, so the sweep does**
+([#3136](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3136)): the parking comment says
+`waiting on` and names the blocker as `#<n>` or a branch, and `claim-issue -Candidates` reads that
+clause and reports the issue as `stale-park` once every name in it has landed (a number closed, a pull
+request merged, a branch with a merged pull request). The sweep then lifts the label. Where the blocking issue is itself parked, the issue takes that issue's label instead,
 by the one-label rule above, and moves to `awaiting-pull` once that root wait clears. It is a new label, so no former name is matched for it.
 
 - **A blocker in another repo is `awaiting-pull-external`**

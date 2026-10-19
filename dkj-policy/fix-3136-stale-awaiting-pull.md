@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Issue #3136: `awaiting-pull` is defined as coming off at the merge, and nothing lifts it. Verified: no
+script removes the label, and `Get-SweepCandidates` skips on the label alone. Of the issue's two options
+this takes the read-only one, because it holds for every merge route (a UI merge included), where a
+lift inside `ship-pr` would only cover merges that `ship-pr` itself makes.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ParkingWaitReferences` (claim-issue-lib): the `#<n>` numbers and branches in the last parking comment's `waiting on` clause
+- [x] `claim-issue -Candidates`: an `awaiting-pull` issue whose references have all landed reads `stale-park`, with the unpark lines printed
+- [x] `sweep-issues` and `CONTRIBUTING-portable.md` say how the label now comes off, and how a parking comment names its blocker
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: the three measured comment shapes (#3126, #3127, #3130), last comment wins, nothing named (597 passed)
+- [x] live run: #3126 and #3127 parse to their landed blockers, #3130 to its four open step issues and stays `skipped`
+
 ### DEPLOY: fix/3136-stale-awaiting-pull
 
-**Score:**
+A sweep no longer leaves an `awaiting-pull` issue skipped after the issue it was waiting on has landed.
+`claim-issue -Candidates` reads the parking comment's `waiting on` clause and checks every `#<n>` and
+branch it names with the tracker. When all of them have landed (an issue closed, a pull request
+merged, or a branch with a merged pull request), the issue reads `stale-park` and the run prints the
+two lines that unpark it. The `sweep-issues` skill asks for parking comments to name the blocker in that
+form (#3136).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's sweep picks up an issue whose wait has cleared, where it used to skip that issue until
+somebody noticed. Older parking comments are read too, provided they name the blocker as `#<n>` or by
+branch.
+
+**Score:** 2
 
 #### Pull Request
 
