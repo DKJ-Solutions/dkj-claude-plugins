@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**9 / 23 minor entries** <!-- pending-tally -->
+**9 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3126-session-start-snapshot · 20261019-061609Z
+
+`measure-session-start -Render` can now write the dev server's session-start snapshot in the same run
+that renders the Artifact: `-Snapshot <json>` writes the data the page embeds, deltas included, with
+the `source` block the `/sessionstart` page links, and `-ArtifactUrl` names the Artifact in it. The
+skill's step 7 says to pass both where a repo keeps
+`scripts/dashboard/session-start-snapshot.json`, so the next measurement no longer leaves that page on
+the old one (#3126).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+No consuming repo keeps a session-start snapshot, and the two new parameters are optional, so a
+consumer's measurement runs as before.
+
+**Score:** N/A
+
+#### Pull Request
+
+measure-session-start writes the dashboard's session-start snapshot
+
+Plugins: dkj-policy
+
+[PR #3139](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3139)
+
+---
 
 ### DEPLOY: feat/3131-brandbook-app · 20261019-060522Z
 
