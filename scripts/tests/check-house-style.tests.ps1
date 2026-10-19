@@ -171,6 +171,13 @@ try {
     $r = Invoke-Child $Hook $clean 'RepoRootOverride'
     Assert-True ($r.Code -eq 0 -and $r.Out -match ('holds at ' + [regex]::Escape($pin.Tag))) 'the session check says the house style holds'
 
+    # -SkillPath (#3148): the reusable gate hands in the page as it reads at the pinned tag, and the gate
+    # must hold the copies to THAT table rather than to the page beside it.
+    $otherPage = Join-Path $Fixture 'SKILL-at-tag.md'
+    [System.IO.File]::WriteAllText($otherPage, ([System.IO.File]::ReadAllText($Skill) -replace [regex]::Escape($pin.Hashes['house-style.css']), ('0' * 64)))
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Gate -RepoRoot $clean -SkillPath $otherPage 2>&1 | Out-String
+    Assert-True ($LASTEXITCODE -eq 1 -and $out -match '\[pin\] web/house-style\.css') '-SkillPath: the copies are held to the page handed in, not to the one beside the gate'
+
     $drift = New-FixtureRepo 'drift'
     Add-PinnedCopy $drift
     Add-Content -LiteralPath (Join-Path $drift 'web\house-theme.js') -Value '// edited'
@@ -193,7 +200,8 @@ try {
     Assert-True ($r.Code -eq 1 -and $r.Out -match '3 answered by Get-HouseStyleAllowlist' -and $r.Out -match '\[pin\]') 'the allowlist answers checks 2 and 3, never a drifted copy'
     Set-Content -LiteralPath (Join-Path $drift 'scripts\repo-config.ps1') -Value "function Get-HouseStyleAllowlist { @(@{ Path = 'web/*' }) }" -Encoding ascii
     $r = Invoke-Child $Gate $drift 'RepoRoot'
-    Assert-Equal 2 $r.Code 'an allowlist entry without a Reason stops the gate'    Set-Content -LiteralPath (Join-Path $drift 'scripts\repo-config.ps1') -Value "throw 'broken config'" -Encoding ascii
+    Assert-Equal 2 $r.Code 'an allowlist entry without a Reason stops the gate'
+    Set-Content -LiteralPath (Join-Path $drift 'scripts\repo-config.ps1') -Value "throw 'broken config'" -Encoding ascii
     $r = Invoke-Child $Gate $drift 'RepoRoot'
     Assert-Equal 2 $r.Code 'a repo-config.ps1 that throws stops the gate with 2, not the 1 of a finding'
 
@@ -210,6 +218,11 @@ try {
 
 $r = Invoke-Child $Gate $RepoRoot 'RepoRoot'
 Assert-Equal 0 $r.Code 'this repo passes its own house-style gate'
+
+# The reusable workflow reads the pin at the tag the page names (#3148), not at the ref it runs from.
+$wf = [System.IO.File]::ReadAllText((Join-Path $RepoRoot '.github\workflows\reusable-house-style.yml'))
+Assert-True ($wf -match 'ref: \$\{\{ steps\.pin\.outputs\.tag \}\}') 'the reusable gate checks out the skill page at the pinned tag'
+Assert-True ($wf -match 'check-house-style\.ps1 -SkillPath \.workflow-pin/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL\.md') '...and hands that page to the gate'
 
 Write-Host ''
 # A broken fixture fails the run even when every assert passed (issue #1635).

@@ -151,5 +151,9 @@ where a token is retired, with the new names in `Get-HouseStyleRetiredTokens` in
 own: it ships with the plugin and follows its lockstep release. The cut repoints the consumer URLs above
 at the tag it cuts (`Get-ReleaseVersionPins` in this repo's `scripts/repo-config.ps1`), so a change lands
 with its new checksums and nothing else. Between the merge and the cut, the page on `main` names the
-previous tag beside the new checksums, and a fetch from it would mismatch. That is expected: no consumer
-reads this page from `main`.
+previous tag beside the new checksums, and a fetch from it would mismatch. **So the reusable gate, which runs
+from `main`, reads the table from this page as it stands at the tag the page names**
+([#3148](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3148)). That page is coherent by
+construction: the cut writes its own tag into it, and the tagged tree holds the very files those checksums
+were taken from. A session reads this
+page from the installed release, where it holds the same way.
