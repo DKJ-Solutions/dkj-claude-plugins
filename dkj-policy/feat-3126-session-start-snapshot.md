@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Issue #3126: nothing rewrites `scripts/dashboard/session-start-snapshot.json`, so the dev server's
+`/sessionstart` page keeps showing the measurement it was first copied from. Verified on `main`: the
+skill's step 7 renders and republishes the Artifact only, and the page reads `items`, `previous` and
+`source` out of that file (`Format-SessionStartSnapshotHtml`).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `measure-session-start.ps1 -Render` takes `-Snapshot <json>` and `-ArtifactUrl <url>`, both copies
+- [x] the skill's step 7 and parameter table name them
 
 ### TEST
 
+- [x] `measure-session-start.tests.ps1`: snapshot written with the deltas and the `source` block, the
+  missing link named, a non-Artifact link and `-ArtifactUrl` without `-Snapshot` refused (235 passed)
+
 ### DEPLOY: feat/3126-session-start-snapshot
 
-**Score:**
+`measure-session-start -Render` can now write the dev server's session-start snapshot in the same run
+that renders the Artifact: `-Snapshot <json>` writes the data the page embeds, deltas included, with
+the `source` block the `/sessionstart` page links, and `-ArtifactUrl` names the Artifact in it. The
+skill's step 7 says to pass both where a repo keeps
+`scripts/dashboard/session-start-snapshot.json`, so the next measurement no longer leaves that page on
+the old one (#3126).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+No consuming repo keeps a session-start snapshot, and the two new parameters are optional, so a
+consumer's measurement runs as before.
+
+**Score:** N/A
 
 #### Pull Request
 
