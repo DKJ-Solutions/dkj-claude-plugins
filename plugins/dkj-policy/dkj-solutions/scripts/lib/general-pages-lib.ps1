@@ -882,7 +882,8 @@ function Format-ReleaseNotesDevPage {
     $out = $bodyRx.Replace($out, { param($m) $m.Value + "`n" + $bar }, 1)
     $styleEnd = $out.IndexOf('</style>') + '</style>'.Length
     $out = $out.Substring(0, $styleEnd) + "`n" + $head + $out.Substring($styleEnd)
-    # The theme key is the server's, so a theme picked on one page holds on this one too.
-    $out = $htmlRx.Replace($out, ('<html lang="en" data-theme-light="teal" data-theme-dark="sky" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
+    # The theme key is the server's, so a theme picked on one page holds on this one too, and with no
+    # choice stored it falls back to the default every other dev page uses (#3162).
+    $out = $htmlRx.Replace($out, ('<html lang="en" data-theme-default="lilac" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
     return $out
 }

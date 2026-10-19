@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Issue #3162: `Format-ReleaseNotesDevPage` rewrote `<html>` with `data-theme-light="teal"
+data-theme-dark="sky"` and no `data-theme-default`, so the release-notes page fell back to Petrol or
+Hemelsblauw where every sibling page falls back to Lila. Verified in the tree before the repair. The
+cross-origin question (a choice made on the hub not carrying over) is out of scope, as the issue says.
+
+#### A visible result
+
+The fallback theme is something the owner judges by eye, so the branch is parked for that look rather
+than shipped.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `general-pages-lib.ps1`: the release-notes page takes `data-theme-default="lilac"`
+- [x] `dev-pages.tests.ps1`: the assert pins the new attribute
+- [x] Filed #3166 for the dev-preview placeholder, the one page still on teal/sky
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: 229 passed, 0 failed
+- [ ] The full gate via `open-pr.ps1 -GatesOnly`
+
 ### DEPLOY: fix/3162-release-notes-lilac-default
 
-**Score:**
+With no theme chosen yet, the Release notes page served by the general pages server now opens in
+Lila, the same default as the Repo hub and every other dev and general page, instead of Petrol or
+Hemelsblauw depending on the OS mode (#3162).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running the dkj-solutions general pages server sees the release-notes page open in the same
+default theme as its other pages. Cosmetic.
+
+**Score:** 1
 
 #### Pull Request
 
