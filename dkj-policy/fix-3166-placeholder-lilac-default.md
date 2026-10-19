@@ -39,21 +39,41 @@
 
 ### PLAN
 
-Give the Repo hub placeholder page data-theme-default=lilac instead of the teal/sky light/dark pair, matching its siblings.
+Issue #3166: `Format-DevPreviewPlaceholderHtml` wrote `<html>` with `data-theme-light="teal"
+data-theme-dark="sky"` and no `data-theme-default`, so the dev-preview placeholder page fell back to
+Petrol or Hemelsblauw where every sibling page falls back to Lila. Verified in the tree before the
+repair; no reason for the difference is written in the file or its history (#3119, #3130), so it takes
+the sibling default. The release-notes page, the other page on the pair, is repaired on its own branch
+(#3162).
+
+#### A visible result
+
+The fallback theme is something the owner judges by eye, so the branch is parked for that look rather
+than shipped.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dev-preview-placeholder.ps1`: the placeholder page takes `data-theme-default="lilac"`
+- [x] `dev-preview-sessionstart.tests.ps1`: an assert pins the new attribute
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: 179 passed, 0 failed
+
 ### DEPLOY: fix/3166-placeholder-lilac-default
 
-**Score:**
+With no theme chosen yet, the dev-preview placeholder page (the Repo hub a repo without a dev page of
+its own gets) now opens in Lila, the same default as every other dev and general page, instead of
+Petrol or Hemelsblauw depending on the OS mode (#3166).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running the dkj-solutions dev-preview hook sees its placeholder page open in the same
+default theme as its other pages. Cosmetic.
+
+**Score:** 1
 
 #### Pull Request
 
