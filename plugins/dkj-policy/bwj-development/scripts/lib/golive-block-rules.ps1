@@ -351,7 +351,8 @@ function ConvertFrom-GoLiveProse {
         arrives as one string and a paragraph's newlines do not survive the command line at all. The
         file is read as UTF-8, which the colleague's language needs.
 
-        THE FORMAT: a line '[changed]', '[where]', '[not-included]' or '[outcome]' opens a section; the
+        THE FORMAT: a line '[changed]', '[where]', '[not-included]', '[outcome]', '[measure]',
+        '[targets]', '[baseline]' or '[when]' opens a section; the
         lines under it, up to the next such line, are its text. Paragraphs are separated by a blank line
         and kept as written. Text above the first section line, and a section line this function does
         not know, are refused -- a misspelled heading that silently dropped a paragraph would ship a

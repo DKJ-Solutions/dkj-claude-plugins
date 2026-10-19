@@ -101,7 +101,7 @@ The prose file carries four sections in the task's language. `[measure]` and `[t
 |---|---|---|
 | `[measure]` | ZO MEET JE HET / HOW TO MEASURE | the tool, the URL(s) per market, the settings (mobile or desktop, connection), what to read off. A `- ` line stays a list item |
 | `[targets]` | DOELEN / TARGETS | the acceptance values |
-| `[baseline]` | LAATSTE METING / LAST MEASUREMENT | the values before and after, with their date, to compare against |
+| `[baseline]` | LAATSTE METING / LAST MEASUREMENT | the last measurement, with its date (and the value before the change), to compare against |
 | `[when]` | WANNEER JE MEET / WHEN TO MEASURE | e.g. that field data needs 28 days after the live date |
 
 It refuses `-Research`, `-Link`, `-Path`, `-Version`, `-LiveSince`, `-From` and `-ReleaseDay`, and
