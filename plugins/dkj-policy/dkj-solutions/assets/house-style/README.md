@@ -297,8 +297,9 @@ out). Three more things follow it by default, in light and in dark (and a measur
     L 0.12 C 0.03; on dark, `-1` is L 0.13 C 0.02 and `-12` is L 0.99 C 0.006.
   - `-9` is the theme's colour where it reads best on the ground: the most saturated colour (HSL saturation 100%)
     of the theme's HSL hue that reaches 4.55:1 on `-1`. The hue is the HSL hue of the owner's original theme colour
-    (Blauw and Hemelsblauw 240, Lila 254), held in HSL because at a constant OKLCH hue a saturated blue turns violet
-    and Hemelsblauw came out as purple as Lila. `-4` is the same colour where it reads best on the far end: the most saturated
+    (Blauw and Hemelsblauw 240), held in HSL because at a constant OKLCH hue a saturated blue turns violet
+    and Hemelsblauw came out as purple as Lila. Lila takes 270, the hue of its light counterpart Paars: at its own
+    254 a saturated `-4` read as blue (owner, October 19, 2026). `-4` is the same colour where it reads best on the far end: the most saturated
     one that reaches 4.55:1 on `-12`. On a light theme that makes `-9` the colour that reads best on white and
     `-4` the one that reads best on black; on a dark theme the reverse, so Lila's `-9` is the lilac that reads best
     on black. Which of the two is the more vivid depends on the hue: a yellow is at its most saturated when it is

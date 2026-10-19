@@ -47,8 +47,9 @@
      -9 is the theme's colour where it reads best on the ground: the most saturated colour (HSL saturation 100%) of
      the theme's HSL hue that reaches 4.55:1 on -1. -4 is the same where it reads best on the far end, at 4.55:1 on
      -12. On light that makes -9 the colour that reads best on white and -4 the one on black; on dark the reverse.
-     The hue is the HSL hue of the owner's original theme colour (Blauw and Hemelsblauw 240, Lila 254), held in HSL
-     because at a constant OKLCH hue a saturated blue turns violet. 4.55 rather than 4.5 leaves room for rounding.
+     The hue is the HSL hue of the owner's original theme colour (Blauw and Hemelsblauw 240), held in HSL
+     because at a constant OKLCH hue a saturated blue turns violet. Lila takes Paars's 270, its light counterpart's:
+     at its own 254 the saturated -4 read as blue (owner, October 19, 2026). 4.55 rather than 4.5 leaves room for rounding.
      -10 and -11 stay on that hue at full saturation, their HSL lightness evenly between -9 and -12, so the dark
      steps keep their colour; -2 and -3 run evenly from -1 to -4 in OKLCH (linear in L, C and hue).
      The greys keep their constants: on light -5 L 0.70, -6 L 0.47 C 0.1135 at most 0.486 relative taken at 0.6,
@@ -159,7 +160,7 @@
 :root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --primary-1: #fffdfa; --primary-2: #fff2d8; --primary-3: #ffe8a3; --primary-4: #ffe003; --primary-5: #a09f96; --primary-6: #5c5c52; --primary-7: #47463e; --primary-8: #323129; --primary-9: #847400; --primary-10: #5b4f00; --primary-11: #312b00; --primary-12: #080600; }
 :root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffdfc; --primary-2: #ffd6c0; --primary-3: #ffab7c; --primary-4: #ff7a00; --primary-5: #a69c96; --primary-6: #635852; --primary-7: #4b443e; --primary-8: #362f29; --primary-9: #ba5900; --primary-10: #813e00; --primary-11: #472200; --primary-12: #0e0300; --warning-3: #b88a00; }
 :root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #0d0509; --primary-2: #491030; --primary-3: #901358; --primary-4: #e0007c; --primary-5: #4d3d45; --primary-6: #7c6771; --primary-7: #ac98a2; --primary-8: #ccb7c1; --primary-9: #ff018e; --primary-10: #ff54b3; --primary-11: #ffa7d8; --primary-12: #fffafc; }
-:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #08060e; --primary-2: #220d51; --primary-3: #360aa3; --primary-4: #3d00ff; --primary-5: #43404f; --primary-6: #6f6b7f; --primary-7: #9f9cae; --primary-8: #bebbce; --primary-9: #8058ff; --primary-10: #a98eff; --primary-11: #d3c5ff; --primary-12: #fcfbff; }
+:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #08060e; --primary-2: #2b1253; --primary-3: #5414a4; --primary-4: #7f00ff; --primary-5: #43404f; --primary-6: #6f6b7f; --primary-7: #9f9cae; --primary-8: #bebbce; --primary-9: #a143ff; --primary-10: #c080ff; --primary-11: #debeff; --primary-12: #fcfbff; }
 :root[data-theme="sky"], .theme-swatch[data-id="sky"] { --primary-1: #06060f; --primary-2: #150f54; --primary-3: #1d0ca6; --primary-4: #0000ff; --primary-5: #3f4150; --primary-6: #6b6c80; --primary-7: #9c9daf; --primary-8: #bbbccf; --primary-9: #6363ff; --primary-10: #9696ff; --primary-11: #c8c8ff; --primary-12: #fbfbff; }
 :root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --primary-1: #01090b; --primary-2: #022c32; --primary-3: #03545d; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657171; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #52f1ff; --primary-11: #a3f7ff; --primary-12: #f7fdfd; }
 :root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --primary-1: #0a0701; --primary-2: #302604; --primary-3: #5d4904; --primary-4: #8f6f00; --primary-5: #45423a; --primary-6: #726e64; --primary-7: #a19f95; --primary-8: #c0beb4; --primary-9: #ffc702; --primary-10: #ffd953; --primary-11: #ffeba4; --primary-12: #fdfcf7; --warning-3: #f08a24; }
