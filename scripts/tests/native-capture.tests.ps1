@@ -2004,7 +2004,10 @@ foreach ($af in $auditFiles) {
 # 96 -> 95 (#3119): serve-connector-dashboard.ps1's $q is gone with the Issues page, which moved to the dkj-solutions
 # plugin's general pages server (scripts/pages/serve-general-pages.ps1). That server bounds its gh and git calls with
 # a process helper of its own, because the plugin depends on no lib of dkj-policy, so no site is added here.
-Assert-Equal 95 $boundedTotal 'the parser still counts 95 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 95 -> 97 (#3136): claim-issue.ps1's two stale-park reads in -Candidates, `gh api repos/<slug>/issues/<n>` and
+# `gh pr list --head <branch> --state merged`, at the shared network bound. Each asks Test-NativeExitMeasured,
+# and an unmeasured or failed read counts as NOT landed, so the issue stays skipped rather than read as free.
+Assert-Equal 97 $boundedTotal 'the parser still counts 97 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))

@@ -2832,6 +2832,54 @@ function Get-SweepCandidates {
     return @($out | Sort-Object -Property Number)
 }
 
+function Get-ParkingWaitReferences {
+    <#
+        .SYNOPSIS
+            What an `awaiting-pull` issue waits on, read out of its parking comment: the `#<n>` numbers and
+            the branch names in the clause after "waiting on".
+
+        .DESCRIPTION
+            THE LABEL NEVER CAME OFF BY ITSELF (#3136). `awaiting-pull` is defined as coming off when the
+            blocking pull request merges, and nothing made that happen: measured October 19, 2026, two
+            issues stayed skipped by every sweep after both their blockers had merged (#3126 on a branch,
+            #3127 on #3119's pull request). The parking comment is the only record of what is awaited, so
+            this reads it, and -Candidates asks the tracker whether each reference has landed.
+
+            THE LAST PARKING COMMENT, AND ONLY ITS "WAITING ON" CLAUSE. A comment counts when it says
+            "parked" and "waiting on" -- the form the sweep-issues skill prescribes. The clause ends at the
+            first sentence end, ' -- ' or opening parenthesis, because what follows is explanation: #3126's
+            comment goes on to cite a file path that is branch-shaped. Not at a comma: #3130 waits on
+            "#3131, #3132, #3133 and #3134", and a list cut at its first comma clears on one of four.
+
+        .PARAMETER Comments
+            The issue's comments as `gh issue list --json comments` returns them (objects with a body).
+
+        .OUTPUTS
+            @{ Issues = [int[]]; Branches = [string[]] } -- both empty when no parking comment names one.
+    #>
+    param([AllowNull()][object[]]$Comments = @())
+
+    $issues = New-Object System.Collections.Generic.List[int]
+    $branches = New-Object System.Collections.Generic.List[string]
+    $clause = ''
+    foreach ($c in @(@($Comments) | Where-Object { $_ })) {
+        $body = if ($c.PSObject.Properties['body']) { [string]$c.body } else { '' }
+        $m = [regex]::Match($body, '(?is)\bparked\b.*?\bwaiting on\b(?<w>.*)')
+        if ($m.Success) { $clause = $m.Groups['w'].Value }
+    }
+    if ($clause) {
+        $clause = ([regex]::Split($clause, '(?<=\S)[.;:]\s|\s--\s|\s\(|\r?\n'))[0]
+        foreach ($n in [regex]::Matches($clause, '#(\d+)')) {
+            $v = [int]$n.Groups[1].Value
+            if (-not $issues.Contains($v)) { $issues.Add($v) }
+        }
+        foreach ($b in [regex]::Matches($clause, '(?<![\w#/.-])[A-Za-z0-9][\w.-]*/[\w./-]*[\w-]')) {
+            if (-not $branches.Contains($b.Value)) { $branches.Add($b.Value) }
+        }
+    }
+    return @{ Issues = [int[]]@($issues); Branches = [string[]]@($branches) }
+}
+
 function Get-OwnTagClaims {
     <#
         .SYNOPSIS
