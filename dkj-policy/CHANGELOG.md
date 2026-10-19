@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**8 / 11 minor entries** <!-- pending-tally -->
+**9 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3182-golive-refuses-shared-task · 20261019-174252Z
+
+`build-golive-block.ps1 -Post` now refuses while another open issue links the same Asana task, and names
+that issue: the closed message says "this Asana task is now in review", and posted from a follow-up or
+sub-issue it would say so while the umbrella is still open. `-OutFile` warns, `-Force` posts regardless,
+and `WORKFLOW-portable.md` states that a follow-up or sub-issue does not take its umbrella's task link
+(#3182).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ requester no longer hears that their task is in review because a follow-up closed while the issue
+that actually answers their request is still open.
+
+**Score:** 2
+
+#### Pull Request
+
+build-golive-block refuses a post while another open issue links the same Asana task
+
+Plugins: bwj-development
+
+[PR #3187](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3187)
+
+---
 
 ### DEPLOY: feat/3181-research-warns-on-merged-pr · 20261019-165907Z
 
