@@ -53,6 +53,8 @@ a fourth block kind, `-ByHand`, that the close guard already accepts because it 
 - [x] `asana-closed-message.ps1` posts nothing for this round's trusted by-hand record
 - [x] the close guard names `-ByHand` among its fixes; notify-live gives the skip its own reason
 - [x] docs: the `golive-block` skill and `WORKFLOW-portable.md`
+- [x] review round: Victor (shared-task exemption, the `asana :` line, test order), Sebastian and Edith
+  (nothing blocking; Edith's `Plugins:` line is added by the ship tooling, so withdrawn)
 
 ### TEST
 
@@ -66,8 +68,8 @@ a fourth block kind, `-ByHand`, that the close guard already accepts because it 
 `build-golive-block.ps1 -ByHand [-Story <gid>]` records on the issue that its closed message was posted on
 the Asana task by hand. The close guard accepts that record as this round's block, and the
 `asana-closed-message` workflow posts nothing beside the hand-written message. A record from before the
-last reopen, or from an untrusted author, silences nothing. The guard's refusal names `-ByHand` among its
-fixes (#3183).
+last reopen, or from an untrusted author, silences nothing. `-ByHand` skips the pull-request and
+shared-task checks, and the guard's refusal names it among its fixes (#3183).
 
 **Score:** 2
 

@@ -134,8 +134,9 @@ with `-ByHand`.
 The record counts only for this round and only from a trusted author, like every other block. One
 posted before the issue's last reopen is held back, so the next close posts as usual. A comment from
 outside the repo cannot silence a close. The record refuses `-Research`, `-Measure`, `-ProseFile`,
-`-Link`, `-Path`, `-Version`, `-LiveSince`, `-From` and `-ReleaseDay`, and `-Post` skips the
-pull-request check, as for `-Research`.
+`-Link`, `-Path`, `-Version`, `-LiveSince`, `-From` and `-ReleaseDay`. `-Post` skips the
+pull-request check, as for `-Research`, and the shared-task check (#3182), because a record that makes
+the closed message post nothing says nothing about the task.
 
 ## A ticket without a storefront result -- `-Research`
 

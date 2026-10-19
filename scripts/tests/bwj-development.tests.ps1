@@ -590,6 +590,9 @@ Assert-True ($mbBlock -notmatch 'Nothing has changed|reopened anytime|WANNEER HE
 $mbMin = Format-GoLiveMeasureBlock -Marker 'm' -MeasureMarker 'k' -IssueRef 'o/r#1' -Measure @('a') -Targets @('b') -Language en
 Assert-True ($mbMin.Contains("`nHOW TO MEASURE`n`na`n`nTARGETS`n`nb`n`n---") -and $mbMin -notmatch 'LAST MEASUREMENT|WHEN TO MEASURE') 'English headings, and an optional section with nothing to say is not written'
 Assert-Throws { Format-GoLiveMeasureBlock -Marker 'm' -MeasureMarker 'k' -IssueRef 'o/r#1' -Measure @(' ') -Targets @('b') } 'a measurement block without how to measure is refused'
+Assert-Throws { Format-GoLiveMeasureBlock -Marker 'm' -MeasureMarker 'k' -IssueRef 'o/r#1' -Measure @('a') -Targets @() } 'and one without targets'
+Assert-True (Test-AsanaPasteBlockBody -Body $mbBlock) 'it is a block the closed message carries'
+Assert-True ((Get-PasteBlockSections -Body $rbBlock).StartsWith('OUTCOME')) 'and its carried sections start at the heading: the closed line is the message''s own'
 
 # THE BY-HAND RECORD (#3183): a closed message posted on the task by hand, recorded so the workflow posts nothing.
 $hbBlock = Format-GoLiveByHandBlock -Marker (Get-AsanaPasteBlockMarker) -HandMarker (Get-AsanaHandBlockMarker) -Date ([datetime]'2026-10-19') -Story '1219392256834173'
@@ -598,9 +601,6 @@ Assert-Equal 'Closed message posted by hand on 2026-10-19 (Asana story 121939225
 Assert-True (Test-AsanaPasteBlockBody -Body $hbBlock) 'and it is a block the close guard and the round logic accept as this round''s'
 Assert-True ((Format-GoLiveByHandBlock -Marker 'm' -HandMarker 'h' -Date ([datetime]'2026-10-19')).Contains("`nClosed message posted by hand on 2026-10-19.`n`n---")) 'without -Story the record names the day only, a blank line before the closing rule'
 Assert-Throws { Format-GoLiveByHandBlock -Marker 'm' -HandMarker 'h' -Date ([datetime]'2026-10-19') -Story '12a' } 'a story gid that is not digits is refused'
-Assert-Throws { Format-GoLiveMeasureBlock -Marker 'm' -MeasureMarker 'k' -IssueRef 'o/r#1' -Measure @('a') -Targets @() } 'and one without targets'
-Assert-True (Test-AsanaPasteBlockBody -Body $mbBlock) 'it is a block the closed message carries'
-Assert-True ((Get-PasteBlockSections -Body $rbBlock).StartsWith('OUTCOME')) 'and its carried sections start at the heading: the closed line is the message''s own'
 
 # A LINK THE REQUESTER CANNOT OPEN IS REFUSED (#2341): a claude.ai Artifact is private to its owner, and
 # the handover page is the reviewer's surface. Both published shapes, and nothing that merely resembles one.

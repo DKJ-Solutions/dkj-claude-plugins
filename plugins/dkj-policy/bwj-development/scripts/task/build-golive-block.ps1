@@ -195,7 +195,8 @@
     hand: the closed message then posts nothing at the close, and the close guard accepts the record as
     this round's block. Post it AFTER the hand-written message is on the task. Refuses -Research,
     -Measure, -ProseFile, and -Link, -Path, -Version, -LiveSince, -From and -ReleaseDay. -Post skips the
-    pull-request check, as for -Research; every other check stays.
+    pull-request check, as for -Research, and the shared-task check (#3182), since a closed message that
+    posts nothing says nothing about the task; every other check stays.
 
 .PARAMETER Story
     With -ByHand only: the gid of the Asana story (the comment) that carries the hand-written message,
@@ -595,7 +596,9 @@ if ($asanaRef -and @('none', 'ambiguous') -contains $asanaRef.Source) { $asanaLi
 # that cannot answer is a warning only, as in that hook: it is the second question, not the link itself.
 $coClaimants = @()
 $coClaimUnread = $false
-if ($asanaRef -and $asanaLink -eq 'linked') {
+# A BY-HAND RECORD IS EXEMPT (#3183): the closed message posts nothing for it, so it says nothing about the
+# task -- and a follow-up sharing its umbrella's task is exactly where a message gets written by hand.
+if ($asanaRef -and $asanaLink -eq 'linked' -and -not $ByHandArg) {
     # The GID is digits only (Resolve-AsanaTaskRef matches nothing else), so it is safe on a command line.
     # A SAFETY NET, NOT A PROOF: GitHub's in:body index can lag and the read stops at 20, so a clean answer
     # means no co-claimant was found, never that none exists.
@@ -611,7 +614,8 @@ $coClaimText = if ($coClaimants.Count -gt 0) {
 } else { '' }
 
 if ($asanaRef -and $asanaLink -eq 'linked') {
-    Write-Host "  asana    : task $($asanaRef.Gid) (found by $($asanaRef.Source)) -- the closed message will carry the block" -ForegroundColor DarkGray
+    $carries = if ($ByHandArg) { 'the closed message will read the by-hand record and post nothing' } else { 'the closed message will carry the block' }
+    Write-Host "  asana    : task $($asanaRef.Gid) (found by $($asanaRef.Source)) -- $carries" -ForegroundColor DarkGray
     if ($coClaimants.Count -gt 0) { Write-Host "  asana    : ALSO linked from open $(@($coClaimants | ForEach-Object { "#$_" }) -join ', ')" -ForegroundColor Yellow }
     if ($coClaimUnread) { Write-Host "  asana    : could not search the open issues -- whether another one links task $($asanaRef.Gid) was not checked" -ForegroundColor Yellow }
 } elseif ($asanaRef) {
