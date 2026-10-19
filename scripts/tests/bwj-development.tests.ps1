@@ -645,6 +645,11 @@ Assert-True ($goLiveDriver.IndexOf('$prereqUnread -or $prereqOpen.Count') -lt $g
 $glLandingCall = $goLiveDriver.IndexOf('Get-GoLivePostReadiness -Nodes')
 Assert-True ($glLandingCall -gt 0 -and $glLandingCall -lt $goLiveDriver.IndexOf('gh issue comment $issueNumber')) 'the pull-request check (#2930) runs before the comment is posted'
 Assert-True ($glLandingCall -gt $goLiveDriver.IndexOf('if (-not $PostArg) {')) 'and only on the post path, so -OutFile at the preview never asks it'
+# -Research WARNS ON A MERGED PULL REQUEST (#3181), by the same read, on the post path, before the comment.
+$glResWarn = $goLiveDriver.IndexOf('if ($ResearchArg -and (Read-GoLiveLandingState) -eq ''merged'')')
+Assert-True ($glResWarn -gt $goLiveDriver.IndexOf('if (-not $PostArg) {') -and $glResWarn -lt $goLiveDriver.IndexOf('gh issue comment $issueNumber')) '-Research reads the landing state on the post path, before the comment'
+Assert-True ($goLiveDriver.Substring($glResWarn, 600) -notmatch 'exit 1') 'and warns rather than refuses: only the session knows whether that PR changed the store'
+Assert-Equal 1 ([regex]::Matches($goLiveDriver, 'closedByPullRequestsReferences').Count) 'the landing query is written once, shared by both readers'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
 # to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path
@@ -677,6 +682,19 @@ try {
     Assert-True ($LASTEXITCODE -eq 1 -and ((@($glFutOut | ForEach-Object { "$_" }) -join "`n") -match 'after today')) 'a -LiveSince after today is refused'
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -LiveSince '2026-10-12' -From '2026-10-01' -RootOverride $glRoot 2>&1 | Out-Null
     Assert-Equal 1 $LASTEXITCODE '-LiveSince beside -From is refused'
+
+    # -Measure THROUGH -File (#3179): the block from the prose file, and its three refusals.
+    $glMeaProse = Join-Path $glRoot 'measure.md'
+    [System.IO.File]::WriteAllText($glMeaProse, "[measure]`nPSI, mobile.`n`n[targets]`nLCP under 2.5 s.`n", (New-Object System.Text.UTF8Encoding $false))
+    $glMeaOut = & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Measure -ProseFile $glMeaProse -Language en -RootOverride $glRoot 2>&1
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with -Measure exits 0'
+    Assert-True ((@($glMeaOut | ForEach-Object { "$_" }) -join "`n").Contains("HOW TO MEASURE`n`nPSI, mobile.`n`nTARGETS`n`nLCP under 2.5 s.")) 'and prints the measurement block'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Measure -ProseFile $glMeaProse -Link 'https://x.nl' -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-Measure beside -Link is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Measure -Research -ProseFile $glMeaProse -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-Measure beside -Research is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -ProseFile $glMeaProse -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE 'measurement prose without -Measure is refused'
 
     # BARE EVEN WHERE THE SEAM NAMES A LIVE ID (#2619). A URL pinned to it reads as a preview link to the
     # colleague the block is for, so the seam the control half of a preview pair reads is not read here.

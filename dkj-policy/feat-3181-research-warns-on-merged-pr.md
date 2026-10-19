@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#3181, split off from #3179's comment: `-Research` says "Nothing has changed" and never looks at whether
+a merged pull request closes or references the issue (smartwatchbanden#919). The issue left warn versus
+refuse open; this branch warns, because a PR can cite a research ticket without changing the store and
+only the session knows which, and a refusal would make `-Force` the ordinary path again (#2957's lesson).
+
+#### A visible result?
+
+No: a console warning in a script, proven by the suite.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `build-golive-block.ps1`: the landing read as one function (`Read-GoLiveLandingState`), shared by
+  the result form's refusal and the new `-Research` warning on the post path
+- [x] Docs: the driver's `-Research` help and the `golive-block` skill page
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: 750 pass -- the warning's place and that it does not exit, the query
+  written once, and `-Measure` through `-File` (the block and its three refusals)
+- [x] The full gate runs in `ship-pr`
+
 ### DEPLOY: feat/3181-research-warns-on-merged-pr
 
-**Score:**
+`build-golive-block.ps1 -Research -Post` now warns when a merged pull request closes or references the
+issue: the research form tells the requester "Nothing has changed", which is then likely false, and the
+warning names the go-live form with `-LiveSince` and `-Measure` instead. It is a warning, not a refusal
+(#3181).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A session about to close a BWJ ticket with a research message after a change already went live is told
+so before the requester reads "Nothing has changed".
+
+**Score:** 2
 
 #### Pull Request
 
