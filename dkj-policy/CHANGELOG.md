@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**10 / 26 minor entries** <!-- pending-tally -->
+**11 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3136-stale-awaiting-pull · 20261019-064944Z
+
+A sweep no longer leaves an `awaiting-pull` issue skipped after the issue it was waiting on has landed.
+`claim-issue -Candidates` reads the parking comment's `waiting on` clause and checks every `#<n>` and
+branch it names with the tracker. When all of them have landed (an issue closed, a pull request
+merged, or a branch with a merged pull request), the issue reads `stale-park` and the run prints the
+two lines that unpark it. The `sweep-issues` skill asks for parking comments to name the blocker in that
+form (#3136).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer's sweep picks up an issue whose wait has cleared, where it used to skip that issue until
+somebody noticed. Older parking comments are read too, provided they name the blocker as `#<n>` or by
+branch.
+
+**Score:** 2
+
+#### Pull Request
+
+Sweeps report an awaiting-pull issue whose blocker has landed as stale-park
+
+Plugins: dkj-policy
+
+[PR #3142](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3142)
+
+---
 
 ### DEPLOY: fix/3127-pays-nothing · 20261019-063549Z
 
