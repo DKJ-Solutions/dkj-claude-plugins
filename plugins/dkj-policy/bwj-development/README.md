@@ -353,6 +353,10 @@ skill needs to know which workspace and project a mirrored task lands in:
   `$null` -- the default -- is the common answer: most boards carry neither, and `report-issue`
   skips whichever is unset without saying anything. Where a board does carry one, leaving it unset is
   the state that costs something, because the field is then filled by hand or not at all.
+- `Get-AsanaTypeOptionMap` -- the option **name** each kind label is written as on that `Type` field,
+  for a board whose options are not called `Bug`, `Feature` and `Task`
+  ([#3170](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3170)). **Optional**, `$null` by
+  default, which keeps those three names; a kind the map leaves out keeps its own.
 - `Get-AsanaDefaultAssignee` -- the Asana user GID that a task `report-issue` **creates** is assigned
   to, so the card reaches that person's *My Tasks* rather than waiting unseen on the board
   ([#2877](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2877)). **Optional**, `$null` by
