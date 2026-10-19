@@ -4,7 +4,7 @@
 /* ---------- Card ---------- */
 .dkj-card {
   background: var(--primary-2);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-lg);
   padding: var(--spacing-4);
   transition: border-color var(--dkj-duration-slow) var(--dkj-ease-out);
@@ -39,7 +39,7 @@
 .dkj-card-icon { flex-shrink: 0; color: var(--primary-7); }
 .dkj-card-body { padding: var(--spacing-1) var(--spacing-4) var(--spacing-4); }
 /* The rule divides a head from the body, so a body with no head above it draws none (#108); :where() keeps the data card's border-top: 0 the stronger rule. */
-:where(.dkj-card-head) ~ .dkj-card-body { border-top: 1px solid var(--primary-6); }
+:where(.dkj-card-head) ~ .dkj-card-body { border-top: 1px solid var(--primary-3); }
 .dkj-card-body > :first-child { margin-top: var(--spacing-3-5); }
 
 /* ---------- TintedPanel ---------- */
@@ -47,7 +47,7 @@
   padding: var(--spacing-3);
   border: 1px solid var(--primary-5);
   border-radius: var(--dkj-radius-lg);
-  background: var(--primary-6);
+  background: var(--primary-3);
   color: var(--primary-12);
 }
 .dkj-panel--accent { border-color: var(--primary-7); }
@@ -82,17 +82,17 @@
   padding: var(--spacing-3) var(--spacing-4);
   line-height: var(--dkj-lh-snug);
   color: var(--primary-12);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-lg);
 }
 .dkj-banner--accent {
   font-size: var(--text-lg);
   text-align: center;
-  background: var(--primary-6);
+  background: var(--primary-3);
   border-color: var(--primary-5);
 }
 .dkj-banner--accent strong { color: var(--primary-7); white-space: nowrap; }
-/* Warn: the look of the house .notice (--warning-1, --primary-6, radius lg), built on tokens so it needs no reserved class. */
+/* Warn: the look of the house .notice (--warning-1, --primary-3, radius lg), built on tokens so it needs no reserved class. */
 .dkj-banner--warn { font-size: var(--text-base); background: var(--warning-1); }
 .dkj-banner-lead { display: inline-flex; align-items: center; gap: var(--spacing-1-5); font-weight: var(--dkj-fw-bold); }
 .dkj-banner--warn ul { margin: var(--spacing-1) 0 0; padding-left: var(--spacing-5); }
@@ -123,7 +123,7 @@
   display: inline-block;
   max-width: 100%;
   padding: var(--spacing-0-5) var(--spacing-3);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-pill);
   font-size: var(--text-base);
   font-weight: var(--dkj-fw-bold);

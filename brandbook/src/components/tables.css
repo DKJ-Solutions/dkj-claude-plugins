@@ -14,7 +14,7 @@
   align-items: baseline;
   gap: var(--spacing-4);
   padding: var(--spacing-1-5) 0;
-  border-bottom: 1px solid var(--primary-6);
+  border-bottom: 1px solid var(--primary-3);
 }
 .dkj-dl dt { min-width: 0; }
 .dkj-dl dd { margin: 0; white-space: nowrap; font-weight: var(--dkj-fw-semibold); text-align: right; }
@@ -47,7 +47,7 @@
 .dkj-bill th, .dkj-bill td { height: 2.25rem; padding: var(--spacing-0-5) 0 var(--spacing-0-5) var(--spacing-1); vertical-align: middle; text-align: left; }
 .dkj-bill tr > :first-child { padding-left: 0; }
 .dkj-bill .dkj-num { text-align: right; }
-.dkj-bill thead tr { border-bottom: 1px solid var(--primary-6); }
+.dkj-bill thead tr { border-bottom: 1px solid var(--primary-3); }
 .dkj-bill .dkj-bill-head > * {
   height: auto;
   padding-top: 0;
@@ -63,7 +63,7 @@
 .dkj-bill-head > :nth-last-child(2) { width: 5rem; }
 .dkj-bill-head > :last-child { width: calc(var(--dkj-control-h) + var(--spacing-1)); }
 .dkj-bill--qty .dkj-bill-head > :nth-child(3) { width: 2.5rem; }
-.dkj-bill tbody tr { border-bottom: 1px solid var(--primary-6); }
+.dkj-bill tbody tr { border-bottom: 1px solid var(--primary-3); }
 .dkj-bill tbody:last-of-type tr:last-child { border-bottom: 0; }
 .dkj-bill-slot { font-size: var(--text-base); font-weight: var(--dkj-fw-semibold); color: var(--primary-12); }
 .dkj-bill-name {
@@ -96,7 +96,7 @@
 
 /* ---------- ComparisonTable ---------- */
 .dkj-compare { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.dkj-compare th, .dkj-compare td { padding: var(--spacing-2) 0; border-bottom: 1px solid var(--primary-6); vertical-align: baseline; }
+.dkj-compare th, .dkj-compare td { padding: var(--spacing-2) 0; border-bottom: 1px solid var(--primary-3); vertical-align: baseline; }
 .dkj-compare tbody th { text-align: left; font-weight: var(--dkj-fw-regular); overflow-wrap: anywhere; }
 .dkj-compare td.dkj-num { padding-left: var(--spacing-2); }
 .dkj-compare thead th {
@@ -123,7 +123,7 @@
 /* ---------- CalcTable ---------- */
 .dkj-calc { display: grid; grid-template-columns: [what] minmax(0, 1fr) [op] auto [num] auto; font-variant-numeric: tabular-nums; }
 .dkj-calc-row, .dkj-calc-box { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; }
-.dkj-calc-row { align-items: baseline; border-bottom: 1px solid var(--primary-6); line-height: var(--dkj-lh-snug); }
+.dkj-calc-row { align-items: baseline; border-bottom: 1px solid var(--primary-3); line-height: var(--dkj-lh-snug); }
 .dkj-calc-row > * { padding: var(--spacing-2) 0; }
 .dkj-calc-row:has(+ .dkj-calc-result) { margin-bottom: var(--spacing-2); border-bottom: 0; }
 .dkj-calc-what { grid-column: what; padding-left: var(--spacing-3); font-size: var(--text-base); overflow-wrap: anywhere; }
@@ -154,7 +154,7 @@
   margin-top: var(--spacing-2);
   padding: var(--spacing-2) var(--spacing-3);
   border-radius: var(--dkj-radius-md-plus);
-  background: var(--primary-6);
+  background: var(--primary-3);
 }
 .dkj-answer-label { flex: 1; font-weight: var(--dkj-fw-semibold); }
 .dkj-answer-value { font-size: var(--text-lg); font-weight: var(--dkj-fw-bold); color: var(--primary-7); white-space: nowrap; font-variant-numeric: tabular-nums; }

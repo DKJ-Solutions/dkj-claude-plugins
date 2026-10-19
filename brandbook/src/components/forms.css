@@ -8,7 +8,7 @@
   font: inherit;
   font-size: var(--text-lg); /* at least 16px, so iOS does not zoom in on focus */
   padding: var(--spacing-2-5) var(--spacing-3);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
   background: var(--primary-1);
   color: var(--primary-12);
@@ -41,7 +41,7 @@
   line-height: var(--dkj-lh-tight);
   overflow-wrap: anywhere;
   background: var(--primary-1);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
 }
 
@@ -72,7 +72,7 @@
   line-height: var(--dkj-lh-none);
   color: var(--primary-12);
   background: var(--primary-2);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
   cursor: pointer;
   touch-action: manipulation;
@@ -89,7 +89,7 @@
   font-variant-numeric: tabular-nums;
   color: var(--primary-12);
   background: var(--primary-1);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
   -moz-appearance: textfield;
   appearance: textfield;
@@ -100,7 +100,7 @@
 .dkj-stepper button:disabled { opacity: 0.5; cursor: not-allowed; }
 .dkj-stepper button:active,
 .dkj-stepper button[data-demo-state='active'] {
-  background: var(--primary-6);
+  background: var(--primary-3);
   border-color: var(--primary-7);
 }
 .dkj-stepper button:focus-visible, .dkj-stepper input:focus-visible {
@@ -125,7 +125,7 @@
   overflow-wrap: anywhere;
   color: var(--primary-12);
   background: var(--primary-1);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
   cursor: pointer;
 }
@@ -149,7 +149,7 @@
   padding: var(--spacing-1);
   list-style: none;
   background: var(--primary-1);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
 }
 .dkj-combo-list li {
@@ -168,7 +168,7 @@
 .dkj-combo-meta { font-size: var(--text-sm); color: var(--primary-12); }
 /* Active (hover, touch or keyboard via aria-activedescendant): a tint plus a bar on the left. */
 .dkj-combo-list li.is-active {
-  background: var(--primary-6);
+  background: var(--primary-3);
   box-shadow: inset 3px 0 0 var(--primary-7);
 }
 .dkj-combo-list li.is-active .dkj-combo-name { font-weight: var(--dkj-fw-semibold); }
@@ -214,7 +214,7 @@
 .dkj-value-unit { font-size: var(--text-sm); font-weight: var(--dkj-fw-semibold); color: var(--primary-12); }
 .dkj-value--changed {
   border: 2px solid var(--primary-7);
-  background: var(--primary-6);
+  background: var(--primary-3);
 }
 .dkj-value--flush { padding-left: 0; padding-right: 0; }
 
@@ -225,7 +225,7 @@
   column-gap: var(--spacing-3);
   align-items: center;
   padding: var(--spacing-2) 0;
-  border-bottom: 1px solid var(--primary-6);
+  border-bottom: 1px solid var(--primary-3);
 }
 .dkj-rows > .dkj-row:last-child { border-bottom: 0; }
 .dkj-row-name { min-width: 0; font-size: var(--text-base); color: var(--primary-12); overflow-wrap: anywhere; }

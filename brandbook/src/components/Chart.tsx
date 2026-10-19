@@ -203,7 +203,7 @@ export function ColumnChart({
           <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="group" aria-label={label} onKeyDown={onKey}>
             {tk.map((v) => (
               <g key={v}>
-                <line x1={M.left} x2={M.left + pw} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--primary-7)' : 'var(--primary-6)'} strokeWidth={1} />
+                <line x1={M.left} x2={M.left + pw} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--primary-7)' : 'var(--primary-3)'} strokeWidth={1} />
                 <text x={M.left - 8} y={y(v) + 4} textAnchor="end">
                   {format(v)}
                 </text>
@@ -211,7 +211,7 @@ export function ColumnChart({
             ))}
             {guides.map((g) => (
               <g key={g.key}>
-                <line x1={g.x} x2={g.x} y1={M.top} y2={M.top + ph} stroke="var(--primary-6)" strokeWidth={1} />
+                <line x1={g.x} x2={g.x} y1={M.top} y2={M.top + ph} stroke="var(--primary-3)" strokeWidth={1} />
                 {g.text && (
                   <text className="axis-note" x={g.x + 4} y={M.top - 8}>
                     {g.text}
@@ -574,7 +574,7 @@ export function LineChart({
           <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="group" aria-label={label} onKeyDown={onKey}>
             {tk.map((v) => (
               <g key={v}>
-                <line x1={M.left} x2={M.left + pw} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--primary-7)' : 'var(--primary-6)'} strokeWidth={1} />
+                <line x1={M.left} x2={M.left + pw} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--primary-7)' : 'var(--primary-3)'} strokeWidth={1} />
                 <text x={M.left - 8} y={y(v) + 4} textAnchor="end">
                   {format(v)}
                 </text>
@@ -582,7 +582,7 @@ export function LineChart({
             ))}
             {guides.map((g) => (
               <g key={g.key}>
-                <line x1={g.x} x2={g.x} y1={M.top} y2={M.top + ph} stroke="var(--primary-6)" strokeWidth={1} />
+                <line x1={g.x} x2={g.x} y1={M.top} y2={M.top + ph} stroke="var(--primary-3)" strokeWidth={1} />
                 {g.text && (
                   <text className="axis-note" x={g.x + 4} y={M.top - 8}>
                     {g.text}

@@ -253,19 +253,19 @@ function Format-ConnectorDashboardHtml {
     # The page keeps the Repo hub's frame (breadcrumb bar, settings button, intro, page column; #3066), so
     # this layer styles only what is inside its cards, never the blocks the house style fixes.
     [void]$sb.AppendLine('<style>')
-    # The links take the house highlight (--primary-7), the tinted head and the lines --primary-6, and the notes --primary-8.
+    # The links take the house highlight (--primary-7), the tinted head and the lines --primary-3, and the notes --primary-8.
     [void]$sb.AppendLine('.cd-link { color: var(--primary-7); text-underline-offset: 2px; }')
-    [void]$sb.AppendLine('.cd-thead th { background: var(--primary-6); }')
+    [void]$sb.AppendLine('.cd-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.cd-table-gap { margin-top: var(--spacing-4); }')
     [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--primary-1); }')
     # Each group opens with a rule above its h3 (not the first, right under the h2) and its summary line under it.
-    [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-6) 0 var(--spacing-0-5); padding-top: var(--spacing-5); border-top: 1px solid var(--primary-6); }')
+    [void]$sb.AppendLine('.cd-subgroup { margin: var(--spacing-6) 0 var(--spacing-0-5); padding-top: var(--spacing-5); border-top: 1px solid var(--primary-3); }')
     [void]$sb.AppendLine('.cd-subgroup:first-child { margin-top: 0; padding-top: 0; border-top: 0; }')
     [void]$sb.AppendLine('.cd-group-summary { margin: 0 0 var(--spacing-1); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-repo h4 { margin: 0; font-size: var(--text-h5); }')
     [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
-    [void]$sb.AppendLine('.cd-signals li { display: flex; gap: var(--spacing-2); align-items: flex-start; padding: var(--spacing-1-5) 0; border-top: 1px solid var(--primary-6); font-size: var(--text-sm); }')
+    [void]$sb.AppendLine('.cd-signals li { display: flex; gap: var(--spacing-2); align-items: flex-start; padding: var(--spacing-1-5) 0; border-top: 1px solid var(--primary-3); font-size: var(--text-sm); }')
     [void]$sb.AppendLine('.cd-signals li .badge { margin-top: 1px; }')
     [void]$sb.AppendLine('.cd-signals code, .cd-plugins code { font-size: var(--text-xs); }')
     [void]$sb.AppendLine('.cd-plugins { display: flex; flex-wrap: wrap; gap: var(--spacing-1-5) var(--spacing-4); margin-top: var(--spacing-2); font-size: var(--text-sm); color: var(--primary-8); }')

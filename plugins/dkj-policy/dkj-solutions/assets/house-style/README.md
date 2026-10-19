@@ -46,11 +46,11 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
 
 | Group | Tokens | Meaning |
 |---|---|---|
-| Surfaces and lines | `--primary-1`, `--primary-2`, `--primary-6` | background (`-1`), cards (`-2`), every line: borders, row dividers, grid lines, the meter track (`-6`): fixed values per theme, `-6` the light core of the theme's colour ([below](#how-far-a-theme-reaches)) |
+| Surfaces and lines | `--primary-1`, `--primary-2`, `--primary-3` | background (`-1`), cards (`-2`), every line: borders, row dividers, grid lines, the meter track (`-3`): fixed values per theme, low in the light half of the theme's colour ([below](#how-far-a-theme-reaches)) |
 | Categorical | `--cat-1`, `--cat-2`, `--cat-3` | one series each. Never two meanings for one slot in a view |
 | Direction | `--positive-3` and `--negative-3` (also the gain and the loss in charts, so a direction chart can share a view with any series), `--positive-5`, `--negative-5` (numbers in text) | result and direction, never a category. `--positive-5`/`--negative-5` are the text versions of `--positive-3`/`--negative-3`, a step more contrast so a number reads as text: darker on light, lighter on dark |
 | Status | `--positive-3`, `--warning-3`, `--negative-3`, `--warning-5`, `--warning-1`, `--negative-1`, `--positive-1` | badges, meters, notices. `--warning-1`, `--negative-1` and `--positive-1` are the backgrounds of a warning, negative or positive message. The mark inside a status icon (check, cross, "!") is `--primary-1` |
-| Primary | `--primary-1` … `--primary-12` | twelve steps in two groups of six (owner's decision, October 19, 2026): `-1` to `-6` the light half of the colour and `-7` to `-12` the dark half, with no greys. `-6` and `-7` are the core, the colour at its most recognisable. `-1` is the page and the text on a `-7` fill; `-2` the cards; `-5` a stronger border (an open card, a selected box); `-6` every line and the tinted surfaces (an accent table head, a hover, the accent dialog). `--primary-7` is **the colour**: `h1`, links, the fill of `.btn--primary` (#109), the fills (switches, `.badge--info`, `.meter--info`, the pressed `.seg`), focus rings, meters, a state (hover, focus, pressed, sorted, active, today), `strong`, list markers, a value meant to stand out, the accent dialog's and the settings panel's title, and native controls through `accent-color`. `-8` is every sub line (`.sub`, `.dialog__sub`, a component's `-sub`) and every note (`.note`, `.footer-note`, `.muted`), on a `<p>` too. `-9` is `h2` and `-10` `h3`–`h6` (an `h2` in the `h1`'s colour read too much like it, and a grey `h3` did not work). `-3` and `-11` have no role yet. `--primary-12` is **all text**, paragraphs and everything else: labels, table heads, legends, quiet icons, and the text on a tinted surface; it is also an inverted surface, where `h1` takes `-6`, `h2` `-4` and `h3`–`h6` `-3`. Never a status or a number |
+| Primary | `--primary-1` … `--primary-12` | twelve steps in two groups of six (owner's decision, October 19, 2026): `-1` to `-6` the light half of the colour and `-7` to `-12` the dark half, with no greys. `-6` and `-7` are the core, the colour at its most recognisable. `-1` is the page and the text on a `-7` fill; `-2` the cards; `-5` a stronger border (an open card, a selected box); `-3` every line and the tinted surfaces (an accent table head, a hover, the accent dialog), moved off the core `-6` because a line in the core read far too strong (owner, October 19, 2026). `--primary-7` is **the colour**: `h1`, links, the fill of `.btn--primary` (#109), the fills (switches, `.badge--info`, `.meter--info`, the pressed `.seg`), focus rings, meters, a state (hover, focus, pressed, sorted, active, today), `strong`, list markers, a value meant to stand out, the accent dialog's and the settings panel's title, and native controls through `accent-color`. `-8` is every sub line (`.sub`, `.dialog__sub`, a component's `-sub`) and every note (`.note`, `.footer-note`, `.muted`), on a `<p>` too. `-9` is `h2` and `-10` `h3`–`h6` (an `h2` in the `h1`'s colour read too much like it, and a grey `h3` did not work). `-4`, `-6` and `-11` have no role of their own yet. `--primary-12` is **all text**, paragraphs and everything else: labels, table heads, legends, quiet icons, and the text on a tinted surface; it is also an inverted surface, where `h1` takes `-6`, `h2` `-4` and `h3`–`h6` `-3`. Never a status or a number |
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
 | Type | `--text-h0` … `--text-h6`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 48/40/32/24/22/18/16 for the headings, 18/14/12/11 for running text. `h1`–`h6` each take the token of their own level, body text is `--text-base`. The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` is the face of `h1` and `h2`, for a title that keeps it at another level |
@@ -130,7 +130,7 @@ colour.** An app on the nine-step scale renames in its own layer, in this order 
 | `--primary-7` (the highlight: `h1`, links, states, `accent-color`) | `--primary-7` (unchanged) |
 | `--primary-5` (the fills, focus rings, meters) | `--primary-7`: the fills are the colour now |
 | `--primary-4` (a grey, no role) | `--primary-5`, a stronger border |
-| `--primary-3` (every line, the tinted surfaces), **last** | `--primary-6` |
+| `--primary-3` (every line, the tinted surfaces), **last** | `--primary-3` (unchanged) |
 | `--primary-1`, `--primary-2` (the page, the cards) | unchanged |
 
 **Check after migrating:** list every use with `grep -rnE -- "--primary-[0-9]+" src` and read each hit against the
@@ -275,7 +275,7 @@ every theme. Now:
   subtree that sets its own `--primary-7` keeps the page's theme on its native controls.
 - **Opt-in**, one modifier on a house element: `.header--accent` puts a primary rule under the page
   header and `.table--accent` a
-  `--primary-6` table head, its text `--primary-12`, as all text. They are modifiers rather than defaults, so an app
+  `--primary-3` table head, its text `--primary-12`, as all text. They are modifiers rather than defaults, so an app
   that takes the update keeps its layout until it adds one.
   `.card--accent` and `.tile--accent` drew a primary rule across the top and draw nothing now (owner's
   decision, October 15, 2026); an app that still carries either class loses the rule and nothing else.
@@ -313,17 +313,17 @@ out). Three more things follow it by default, in light and in dark (and a measur
   ring, the meter and the text in the colour everywhere, and the text on a `-7` fill is `-1`. The picker's dot is
   `-7` in every theme, on its theme's `-1`. The scale runs from the ground (`-1` page, `-2` card: lightest on light,
   darkest on dark) to the far end (`-11`, `-12`: darkest on light, whitest on dark).
-- **A tinted surface takes `-12`.** `--primary-6` is every line and also the surface of the `.table--accent`
+- **A tinted surface takes `-12`.** `--primary-3` is every line and also the surface of the `.table--accent`
   head, the hover of a joined choice and of the settings toggle, a near or today date row, a date row's hover,
   the accent dialog and an InfoRows box. The text on it is `--primary-12`, like all text, at 4.5:1 or better
-  because `-6` is chosen against `-12`.
+  (16.5:1 or better).
 - **Measured** (WCAG relative luminance, worst theme, October 19, 2026): `-12` on `-1` 19.5:1, on `-2` 19.0:1
-  and on `-6` 4.6:1. `-7` on `-1` 4.6:1 and `-1` on `-7` 4.6:1; `-8`, the sub lines, on a card 5.9:1. Just below
+  and on `-3` 16.5:1. A `-3` line on a card is faint: 1.02:1 (Oker) to 1.16:1. `-7` on `-1` 4.6:1 and `-1` on `-7` 4.6:1; `-8`, the sub lines, on a card 5.9:1. Just below
   4.5:1: `-7` on a card (`-2`) in Roest (4.43:1), Magenta (4.46:1) and Lila (4.49:1).
 - **The page and the cards are tinted.** On light the page is the whitest layer and a card sits a shade off it;
   on dark the card is a shade lighter than the page. Either way the page is the ground end (owner's decision,
   October 14, 2026: it used to be the other way round on light).
-- **Lines are tinted.** `--primary-6` is every line: borders, row dividers, grid lines and the meter track
+- **Lines are tinted.** `--primary-3` is every line: borders, row dividers, grid lines and the meter track
   (a separate grid colour was dropped on October 14, 2026: it was too close to the border to tell apart).
 - **The theme picker previews it:** each swatch shows its own theme's page, with the primary as the dot.
 - **Links are the theme's colour**, as `--primary-7` (owner's decision, October 15, 2026). **`h1` is `--primary-7`, `h2` is `--primary-9` and `h3`–`h6` are `--primary-10`**, the dark half of the colour;

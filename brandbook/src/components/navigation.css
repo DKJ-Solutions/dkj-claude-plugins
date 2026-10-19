@@ -1,7 +1,7 @@
 /* Top bar, menu rows, download button, step header, info rows, page header. Origin: see src/components/sources.ts. */
 
 /* ---------- TopBar ---------- */
-.dkj-topbar { position: sticky; top: 0; z-index: 2; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-6); }
+.dkj-topbar { position: sticky; top: 0; z-index: 2; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }
 .dkj-topbar-inner {
   max-width: var(--dkj-column-w);
   height: var(--dkj-topbar-h);
@@ -26,7 +26,7 @@
   min-height: var(--dkj-tap);
   padding: var(--spacing-2);
 }
-.dkj-menu-row + .dkj-menu-row { border-top: 1px solid var(--primary-6); }
+.dkj-menu-row + .dkj-menu-row { border-top: 1px solid var(--primary-3); }
 .dkj-menu-label { font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); }
 .dkj-menu-value { min-width: 0; font-size: var(--text-h6); text-align: right; overflow-wrap: anywhere; }
 /* The pencils sit centred under the close button (44px tap area). */
@@ -50,9 +50,9 @@
 }
 
 /* ---------- InfoRows ---------- */
-.dkj-inforows:not(.dkj-inforows--info) .dkj-inforow-box { background: var(--primary-6); color: var(--primary-12); }   /* text on a tinted surface (--primary-6) is --primary-12 */
-.dkj-inforows:not(.dkj-inforows--info) .dkj-inforow-box .dkj-info-dot { fill: var(--primary-6); }
-.dkj-inforows:not(.dkj-inforows--info) .dkj-inforow-box .dkj-info-stem { stroke: var(--primary-6); }
+.dkj-inforows:not(.dkj-inforows--info) .dkj-inforow-box { background: var(--primary-3); color: var(--primary-12); }   /* text on a tinted surface (--primary-3) is --primary-12 */
+.dkj-inforows:not(.dkj-inforows--info) .dkj-inforow-box .dkj-info-dot { fill: var(--primary-3); }
+.dkj-inforows:not(.dkj-inforows--info) .dkj-inforow-box .dkj-info-stem { stroke: var(--primary-3); }
 .dkj-inforows--info .dkj-inforow-box { background: var(--primary-2); box-shadow: inset 0 0 0 1px var(--cat-1); }
 .dkj-inforows-head { margin: 0 0 var(--spacing-1-5); font-size: var(--text-base); font-weight: var(--dkj-fw-semibold); color: var(--primary-12); }
 .dkj-inforows-list { display: flex; flex-direction: column; gap: var(--spacing-1-5); }
@@ -102,6 +102,6 @@
 .dkj-breadcrumbs [aria-current='page'] { color: var(--primary-12); font-weight: var(--dkj-fw-semibold); }
 /* The bar: full screen width on a tinted background, sticky at the top and one --tap high, the trail aligned with the
    house page column (.container). A trail longer than the screen scrolls sideways, so the height never changes. */
-.dkj-breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-6); }
+.dkj-breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }
 .dkj-breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
 html:has(.dkj-breadcrumbs-bar) { scroll-padding-top: var(--tap); }

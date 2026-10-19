@@ -54,14 +54,14 @@
   font-size: 0.9em;
   padding: 0.1em 0.35em;
   border-radius: var(--dkj-radius-xs);
-  background: var(--primary-6);
+  background: var(--primary-3);
 }
 .dkj-prose pre {
   font-size: var(--text-sm);
   padding: var(--spacing-3) var(--spacing-4);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
-  background: var(--primary-6);
+  background: var(--primary-3);
   overflow-x: auto;
   white-space: pre;
   tab-size: 2;
@@ -77,15 +77,15 @@
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
-.dkj-prose :is(th, td) { padding: var(--spacing-2) var(--spacing-2-5); text-align: left; border-bottom: 1px solid var(--primary-6); }
+.dkj-prose :is(th, td) { padding: var(--spacing-2) var(--spacing-2-5); text-align: left; border-bottom: 1px solid var(--primary-3); }
 .dkj-prose th { color: var(--primary-12); font-weight: var(--dkj-fw-semibold); }
 .dkj-prose :is(th, td)[align='right'] { text-align: right; }
 
 /* Blockquote, links, rule, images */
-.dkj-prose blockquote { margin-inline: 0; padding-left: var(--spacing-4); border-left: 3px solid var(--primary-6); color: var(--primary-12); font-style: normal; }
+.dkj-prose blockquote { margin-inline: 0; padding-left: var(--spacing-4); border-left: 3px solid var(--primary-3); color: var(--primary-12); font-style: normal; }
 .dkj-prose a { color: var(--primary-7); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.2em; }
 .dkj-prose a:hover { text-decoration-thickness: 2px; }
-.dkj-prose hr { border: 0; border-top: 1px solid var(--primary-6); margin-block: var(--spacing-6); }
+.dkj-prose hr { border: 0; border-top: 1px solid var(--primary-3); margin-block: var(--spacing-6); }
 .dkj-prose > hr + * { margin-top: 0; }
 .dkj-prose img { max-width: 100%; height: auto; border-radius: var(--dkj-radius-sm); }
 

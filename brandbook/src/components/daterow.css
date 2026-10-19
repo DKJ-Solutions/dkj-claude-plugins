@@ -11,7 +11,7 @@
   align-items: start;
   min-height: var(--dkj-tap);
   padding: var(--spacing-2) var(--spacing-3);
-  border-top: 1px solid var(--primary-6);
+  border-top: 1px solid var(--primary-3);
 }
 .dkj-datelist > .dkj-daterow:first-child { border-top: 0; }
 
@@ -32,9 +32,9 @@
 .dkj-daterow-sub { font-size: var(--text-sm); color: var(--primary-8); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .dkj-daterow-trailing { margin-left: auto; font-size: var(--text-sm); color: var(--primary-12); overflow-wrap: anywhere; }
 
-/* near / today: bar + tint + bold, plus the word beside the date. On --primary-6 the text is --primary-12. */
+/* near / today: bar + tint + bold, plus the word beside the date. On --primary-3 the text is --primary-12. */
 .dkj-daterow--near,
-.dkj-daterow--today { background: var(--primary-6); box-shadow: inset 3px 0 0 var(--primary-7); }
+.dkj-daterow--today { background: var(--primary-3); box-shadow: inset 3px 0 0 var(--primary-7); }
 .dkj-daterow--near .dkj-daterow-when,
 .dkj-daterow--today .dkj-daterow-when { font-weight: var(--dkj-fw-bold); color: var(--primary-7); }
 
@@ -50,4 +50,4 @@
 .dkj-daterow-title a:focus-visible { outline: none; }
 .dkj-daterow-title a:focus-visible::after { outline: var(--dkj-focus-w) solid var(--primary-7); outline-offset: calc(-1 * var(--dkj-focus-w)); }
 .dkj-daterow--link { cursor: pointer; }
-.dkj-daterow--link:hover { background: var(--primary-6); }
+.dkj-daterow--link:hover { background: var(--primary-3); }

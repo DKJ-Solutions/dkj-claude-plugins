@@ -7,7 +7,7 @@ import './surfaces.css'
 
 /**
  * Banner -- a callout.
- * accent: a tinted line (--primary-6) with a --primary-5 border; <strong> inside it turns accent.
+ * accent: a tinted line (--primary-3) with a --primary-5 border; <strong> inside it turns accent.
  * warn: the house notice look (warn background, hairline border, radius lg): a bold lead line with a warning icon,
  * then the text and optionally a list.
  */

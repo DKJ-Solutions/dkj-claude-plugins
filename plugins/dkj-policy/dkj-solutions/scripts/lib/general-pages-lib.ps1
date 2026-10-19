@@ -98,7 +98,7 @@ function Format-GeneralPageHtml {
     # The page layer: only names the house file does not define (.dp-*).
     [void]$sb.AppendLine('<style>')
     [void]$sb.AppendLine('.dp-link { color: var(--primary-7); text-underline-offset: 2px; }')
-    [void]$sb.AppendLine('.dp-thead th { background: var(--primary-6); }')
+    [void]$sb.AppendLine('.dp-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.table td.dp-left, .table th.dp-left { text-align: left; }')
     if ($Style) { [void]$sb.AppendLine($Style) }
     [void]$sb.AppendLine('</style>')
@@ -199,8 +199,8 @@ function Format-DevTiles {
     return $sb.ToString()
 }
 
-# The share bar every table draws: a track in --primary-6 and a fill in the house highlight.
-$script:DevBarStyle = '.dp-bar { display: block; height: 8px; border-radius: 4px; background: var(--primary-6); min-width: 80px; }' + "`n" +
+# The share bar every table draws: a track in --primary-3 and a fill in the house highlight.
+$script:DevBarStyle = '.dp-bar { display: block; height: 8px; border-radius: 4px; background: var(--primary-3); min-width: 80px; }' + "`n" +
     '.dp-bar > span { display: block; height: 100%; border-radius: 4px; background: var(--primary-7); }'
 
 function Format-DevShareCell {
@@ -903,7 +903,7 @@ function Format-ReleaseNotesDevPage {
         '<style>'
         '/* The template''s tokens, read from the house ones (#3108). */'
         ':root { --bg: var(--primary-1); --panel: var(--primary-2); --ink: var(--primary-12); --ink-soft: var(--primary-9); --ink-faint: var(--primary-8);'
-        '  --line: var(--primary-6); --accent: var(--primary-7); --accent-soft: var(--primary-2); --code-bg: var(--primary-1); }'
+        '  --line: var(--primary-3); --accent: var(--primary-7); --accent-soft: var(--primary-2); --code-bg: var(--primary-1); }'
         'header.masthead h1 { font-family: var(--font-serif); font-weight: 600; color: var(--primary-7); }'
         '</style>'
     ) -join "`n"

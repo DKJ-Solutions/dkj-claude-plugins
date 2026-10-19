@@ -16,19 +16,19 @@ html:has(dialog:modal) { overflow: hidden; }
   text-align: left;
   color: var(--primary-12);
   background: var(--primary-2);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-xl);
 }
 .dkj-dialog::backdrop { background: var(--primary-1); opacity: 0.45; }
 
 /* Tints: the dialog takes the tint on its own surface and border, and the info dialog's children re-declare the
    house colour tokens (the exception in house-style/README.md rule 3), so every box inside follows.
-   The accent dialog takes the theme's tinted surface (--primary-6) as its own, and its title and links stay the
+   The accent dialog takes the theme's tinted surface (--primary-3) as its own, and its title and links stay the
    colour, --primary-7. The info dialog keeps the card (--primary-2) with a --cat-1 border; --primary-7 is re-declared
    on the children, not on the dialog,
    so the dialog's own border still takes the outer colour. */
 .dkj-dialog--accent {
-  --primary-2: var(--primary-6);
+  --primary-2: var(--primary-3);
   border-color: var(--primary-5);
 }
 .dkj-dialog--accent .dkj-dialog-title, .dkj-dialog--accent a:any-link { color: var(--primary-7); }
@@ -118,7 +118,7 @@ html:has(dialog:modal) { overflow: hidden; }
   min-height: 0;
   margin: calc(-1 * var(--spacing-4)) calc(-1 * var(--spacing-4)) 0;
   padding: 0 calc(var(--spacing-4) + var(--dkj-tap) + var(--spacing-2)) 0 var(--spacing-4);
-  border-bottom: 1px solid var(--primary-6);
+  border-bottom: 1px solid var(--primary-3);
 }
 .dkj-dialog--drawer .dkj-dialog-title { font-size: var(--text-h5); font-weight: var(--dkj-fw-bold); }
 .dkj-dialog--drawer .dkj-dialog-action { top: calc((var(--dkj-topbar-h) - var(--dkj-tap)) / 2 + env(safe-area-inset-top)); }

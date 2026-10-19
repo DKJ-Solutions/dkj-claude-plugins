@@ -21,7 +21,7 @@
   gap: var(--spacing-2-5);
   min-height: var(--dkj-tap);
   padding: var(--spacing-2-5) var(--spacing-4);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
   background: var(--primary-2);
   color: var(--primary-12);
@@ -44,8 +44,8 @@
   opacity: 1;
   cursor: default;
   color: var(--primary-12);
-  background: var(--primary-6);
-  border-color: var(--primary-6);
+  background: var(--primary-3);
+  border-color: var(--primary-3);
 }
 /* The default look answers a hover or a press with the accent border (the download button's behaviour, now every default button's).
    Choices in a segmented row or list carry their own pressed state and are left out. */
@@ -71,10 +71,10 @@
   font-weight: var(--dkj-fw-medium);
 }
 /* Accent outline (Button tone="accent"): accent text, the border and press of the Stepper beside it. */
-.dkj-btn--outline.dkj-btn--accent { color: var(--primary-7); border-color: var(--primary-6); }
+.dkj-btn--outline.dkj-btn--accent { color: var(--primary-7); border-color: var(--primary-3); }
 .dkj-btn--outline.dkj-btn--accent:active:not(:disabled):not([aria-disabled='true']),
 .dkj-btn--outline.dkj-btn--accent[data-demo-state='active'] {
-  background: var(--primary-6);
+  background: var(--primary-3);
   color: var(--primary-7);
   border-color: var(--primary-7);
 }
@@ -84,21 +84,21 @@
    so hover pairs a step with a lift of 1px; the press sinks back 1px and drops the shadow. One step per role in light and dark:
    - primary: the fill goes a step into the dark half, to -8 (darker on light, lighter on dark;
      --primary-1 stays at 6.5:1 or better on it in both modes), with --shadow-pop under the lift;
-   - outline: the tinted surface -6 (the house "hover" surface) behind the same text and border, lifted, no shadow; the accent outline keeps its own press;
+   - outline: the tinted surface -3 (the house "hover" surface) behind the same text and border, lifted, no shadow; the accent outline keeps its own press;
    - positive: the gradient settles on a flat --positive-5, darker on light and lighter on dark, with --shadow-pop under the lift. */
 .dkj-btn--primary:not(.dkj-choice)[data-demo-state='hover'] { background: var(--primary-8); border-color: var(--primary-8); box-shadow: var(--shadow-pop); transform: translateY(-1px); }
-.dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice)[data-demo-state='hover'] { background: var(--primary-6); transform: translateY(-1px); }
+.dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice)[data-demo-state='hover'] { background: var(--primary-3); transform: translateY(-1px); }
 .dkj-btn--positive:not(.dkj-choice)[data-demo-state='hover'] { background: linear-gradient(180deg, var(--positive-5), var(--positive-5)) border-box; box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 @media (hover: hover) {
   .dkj-btn--primary:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: var(--primary-8); border-color: var(--primary-8); box-shadow: var(--shadow-pop); transform: translateY(-1px); }
-  .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: var(--primary-6); transform: translateY(-1px); }
+  .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: var(--primary-3); transform: translateY(-1px); }
   .dkj-btn--positive:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: linear-gradient(180deg, var(--positive-5), var(--positive-5)) border-box; box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 }
 /* Press: after the hover rules so it wins; the same fill as the hover, sunk 1px, no shadow. */
 .dkj-btn--primary:not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
 .dkj-btn--primary:not(.dkj-choice)[data-demo-state='active'] { background: var(--primary-8); border-color: var(--primary-8); box-shadow: none; transform: translateY(1px); }
 .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
-.dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice)[data-demo-state='active'] { background: var(--primary-6); transform: translateY(1px); }
+.dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice)[data-demo-state='active'] { background: var(--primary-3); transform: translateY(1px); }
 .dkj-btn--positive:not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
 .dkj-btn--positive:not(.dkj-choice)[data-demo-state='active'] { background: linear-gradient(180deg, var(--positive-5), var(--positive-5)) border-box; box-shadow: none; transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {
@@ -148,7 +148,7 @@
   height: var(--dkj-control-h);
   color: var(--primary-12);
   background: var(--primary-1);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
 }
 .dkj-iconbtn--outline[aria-pressed='true'] { background: none; border-color: transparent; color: var(--primary-7); }
@@ -208,7 +208,7 @@
   line-height: var(--dkj-lh-none);
   color: var(--primary-12);
   background: var(--primary-1);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-pill);
   cursor: pointer;
   touch-action: manipulation;
@@ -234,7 +234,7 @@
   line-height: var(--dkj-lh-none);
   color: var(--primary-12);
   background: none;
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: 50%;
   cursor: help;
   touch-action: manipulation;
@@ -278,14 +278,14 @@
   text-align: left;
   color: var(--primary-12);
 }
-.dkj-choices--list .dkj-choice + .dkj-choice { border-top: 1px solid var(--primary-6); }
+.dkj-choices--list .dkj-choice + .dkj-choice { border-top: 1px solid var(--primary-3); }
 .dkj-choices--list .dkj-choice[aria-pressed='true'] { color: var(--primary-7); font-weight: var(--dkj-fw-semibold); }
 
 /* Joined: one capsule. The face is --dkj-control-dense high; ::after grows the tap area to 44px without moving anything.
    No overflow:hidden on the capsule (it would clip that area), so the end buttons round their own corners. */
 .dkj-choices--joined {
   display: inline-flex;
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-md);
   vertical-align: middle;
 }
@@ -303,12 +303,12 @@
   white-space: nowrap;
 }
 .dkj-choices--joined .dkj-choice::after { content: ''; position: absolute; inset: calc((var(--dkj-control-dense) - var(--dkj-tap)) / 2) 0; }
-.dkj-choices--joined .dkj-choice + .dkj-choice { border-left: 1px solid var(--primary-6); }
+.dkj-choices--joined .dkj-choice + .dkj-choice { border-left: 1px solid var(--primary-3); }
 .dkj-choices--joined .dkj-choice:first-child { border-radius: calc(var(--dkj-radius-md) - 1px) 0 0 calc(var(--dkj-radius-md) - 1px); }
 .dkj-choices--joined .dkj-choice:last-child { border-radius: 0 calc(var(--dkj-radius-md) - 1px) calc(var(--dkj-radius-md) - 1px) 0; }
 .dkj-choices--joined .dkj-choice:only-child { border-radius: calc(var(--dkj-radius-md) - 1px); }
 .dkj-choices--joined .dkj-choice[aria-pressed='true'] { background: var(--primary-7); color: var(--primary-1); font-weight: var(--dkj-fw-semibold); }
-.dkj-choices--joined .dkj-choice:hover:not([aria-pressed='true']) { background: var(--primary-6); color: var(--primary-7); }
+.dkj-choices--joined .dkj-choice:hover:not([aria-pressed='true']) { background: var(--primary-3); color: var(--primary-7); }
 /* The ring sits above the neighbouring button, which would otherwise paint over half of it. */
 .dkj-choices--joined .dkj-choice:focus-visible { z-index: 1; }
 
@@ -321,7 +321,7 @@
   gap: var(--spacing-1-5);
   min-height: var(--dkj-tap);
   padding: 0 var(--spacing-3);
-  border: 1px solid var(--primary-6);
+  border: 1px solid var(--primary-3);
   border-radius: var(--dkj-radius-pill);
   background: var(--primary-2);
   color: var(--primary-12);
