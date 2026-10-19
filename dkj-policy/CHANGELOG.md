@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**13 / 16 minor entries** <!-- pending-tally -->
+**14 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3189-build-release-notes-on-demand · 20261019-191555Z
+
+The Repo hub's Release notes link here works on a fresh clone. The general pages server builds the gitignored
+page itself when it is missing or older than a release document, so nobody has to run
+`build-release-notes-page.ps1` by hand any more (#3189).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a DKJ-Solutions repo with `dkj-solutions` enabled, the hub's Release notes card opens the notes instead
+of a 404, and shows the latest release without a manual rebuild. Where the page cannot be built, the 404
+now says why.
+
+**Score:** 2
+
+#### Pull Request
+
+Repo hub's Release notes link 404s: the general pages server builds the page on demand
+
+Plugins: dkj-solutions
+
+[PR #3192](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3192)
+
+---
 
 ### DEPLOY: fix/3190-live-record-whole-pr-diff · 20261019-190616Z
 
