@@ -258,9 +258,14 @@ $checkNote = ''
 if (-not $repoName -or -not $headSha) {
     $checkNote = 'check runs not read (no repo name or no head)'
 } else {
-    $runs = Invoke-Native { gh api "repos/$repoName/commits/$headSha/check-runs" --jq '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv' }
-    if ($runs.Code -ne 0) {
-        $checkNote = 'check runs could not be read (gh missing, logged out, or offline)'
+    # THE JQ FILTER CARRIES NO DOUBLE QUOTE, DELIBERATELY (inbound #3144). Windows PowerShell 5.1 strips an
+    # embedded '"' from a native argument, so '(.conclusion // "")' reached gh split into three arguments and
+    # every run on 5.1 read as "gh missing". @tsv already renders a null conclusion as an empty field.
+    $runs = Invoke-Native { gh api "repos/$repoName/commits/$headSha/check-runs" --jq '.check_runs[] | [.name, .status, .conclusion] | @tsv' }
+    if ($runs.Code -eq -1) {
+        $checkNote = 'check runs could not be read (gh is not installed, or not on PATH)'
+    } elseif ($runs.Code -ne 0) {
+        $checkNote = "check runs could not be read (gh exited $($runs.Code) -- logged out, offline, or refused; run 'gh api repos/$repoName/commits/$headSha/check-runs' to see why)"
     } elseif ($runs.Lines.Count -eq 0) {
         $problems += 'the head carries no check runs at all -- nothing has proved this trunk'
     } else {

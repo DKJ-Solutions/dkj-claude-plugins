@@ -982,6 +982,9 @@ Assert-True (-not ((Format-ReleaseRunbook -Obligations $prCtl) -join "`n").Conta
 $prDriver = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\prepare-release.ps1'))
 Assert-True ($prDriver -notmatch "(?m)^[^#]*\b(theme',\s*'(push|publish|delete|duplicate)|shopify theme (push|publish|delete))") 'the driver invokes no theme push, publish, delete or duplicate'
 Assert-True ($prDriver -notmatch 'Get-ShopifyLivePushMarker|LIVE-PUSH-AUTHORIZED') 'the driver never reads the authorisation marker'
+# Inbound #3144: Windows PowerShell 5.1 strips an embedded double quote from a native argument, so a quoted jq
+# filter reaches gh as several arguments and the check-run read failed on every 5.1 run.
+Assert-True ($prDriver -notmatch "(?m)^[^#]*(--jq|-q)'?,?\s+'[^']*""") 'no jq filter the driver hands gh carries a double quote'
 $prRun = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PluginRoot 'scripts\task\prepare-release.ps1') 2>&1
 Assert-Equal 1 $LASTEXITCODE 'run in the plugin''s own source repo, the driver refuses'
 Assert-True ((@($prRun | ForEach-Object { "$_" }) -join "`n").Contains('publishes plugins')) '...and says why'
