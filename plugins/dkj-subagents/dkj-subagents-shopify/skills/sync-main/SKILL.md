@@ -416,6 +416,14 @@ reconciliation is then ordinary work in an ordinary commit**, in any spelling, b
 no longer depends on what a subject line says. A *new* third-party edit after that is caught as a fresh
 conflict, exactly as it should be.
 
+**That reconciliation commit is required before any live push of those paths**
+([#3145](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3145)). The same provenance that
+settles the path makes live's bytes read as *ours*, so from the merge on the drift check calls the path
+safe while the trunk still lacks live's content. Measured at smartwatchbanden#958: a push at that point
+would have reverted a raised shipping threshold and a `noindex`. `live-preflight` refuses a push-list
+path whose newest commit is still the base, and `prepare-release` flags one. Where the trunk's version
+is meant to win, there is no commit to make, so `-AcceptOwedReconciliation` turns the refusal into a note.
+
 **Do not squash that branch.** A squash collapses both commits into one holding the trunk's content, so
 live's bytes never enter the history and the conflict comes straight back. It costs the repair and not
 the work -- the tree is identical either way -- and the run says so out loud when

@@ -404,6 +404,17 @@ if (-not $sinceTag) {
                 Add-Step -Name 'push list' -State 'ready' -Detail "$($pushFiles.Count) theme file(s) to push, $newCount of them new on the theme, out of $($changed.Count) changed."
             }
         }
+
+        # AN UNRECONCILED sync-main BASE, found days ahead (#3145). Step 5's drift check reads such a path
+        # as safe while the trunk still lacks live's content; live-preflight refuses it on the day, by the
+        # same lib rule, so the reconciliation commit is cheaper now than then.
+        if ($pushFiles.Count -gt 0) {
+            $recWalk = Invoke-Git @('log', '--no-merges', '--topo-order', '--no-renames', '--format=COMMIT%x09%H%x09%s', '--name-only', "$sinceTag..HEAD")
+            $owedRec = @(Get-ReconciliationOwedPaths -WalkLines @($recWalk.Lines | ForEach-Object { Convert-GitQuotedPath -Path $_ }) -Paths $pushFiles)
+            if ($owedRec.Count -gt 0) {
+                Add-Step -Name 'reconciliation' -State 'attention' -Detail "$($owedRec.Count) path(s) end on a sync-main reconciliation base nobody has reconciled since, so the drift check reads them as safe while the trunk lacks live's content: $(@($owedRec | ForEach-Object { ConvertTo-ConsoleStrippedText -Text $_ }) -join ', '). Reconcile them in an ordinary commit before the day; live-preflight refuses them."
+            }
+        }
     }
 }
 

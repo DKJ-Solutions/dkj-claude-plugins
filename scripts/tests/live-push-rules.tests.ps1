@@ -213,6 +213,25 @@ $owned = @(Get-SyncOwnedPaths -WalkLines $walk -SyncCommits @('syncA') | Sort-Ob
 Assert-Equal 'sections/b.liquid|sections/c.liquid' ($owned -join '|') 'only the paths no non-sync commit touched, with separators normalised'
 Assert-Equal 0 @(Get-SyncOwnedPaths -WalkLines $walk -SyncCommits @()).Count 'no sync commits, nothing sync-owned'
 
+# A RECONCILIATION BASE NOBODY HAS RECONCILED SINCE IS OWED (#3145). The base makes live's bytes read as
+# ours, so the drift check calls the path safe while the trunk still lacks live's content.
+$subj = Get-ReconciliationBaseSubjects
+$owedWalk = @(
+    "COMMIT`tf2`tfeat: unrelated", 'sections/settled.liquid',
+    "COMMIT`tr1`t$($subj.Restore) (no file changes)", 'layout/theme.liquid', 'sections/settled.liquid', 'sections\wk.liquid',
+    "COMMIT`tb1`t$($subj.Base) for 3 conflicted path(s)", 'layout/theme.liquid', 'sections/settled.liquid', 'sections/wk.liquid',
+    "COMMIT`tf1`tfeat: older work", 'layout/theme.liquid', 'sections/plain.liquid')
+$owed = @(Get-ReconciliationOwedPaths -WalkLines $owedWalk -Paths @('sections/plain.liquid', 'sections/wk.liquid', 'layout/theme.liquid', 'sections/settled.liquid', 'assets/x.css'))
+Assert-Equal 'sections/wk.liquid|layout/theme.liquid' ($owed -join '|') 'owed: newest commit is the restore; a later commit settles it; untouched and ordinary paths are not owed; input order and spelling kept'
+$baseOnly = @(Get-ReconciliationOwedPaths -WalkLines @("COMMIT`tb1`t$($subj.Base) for 1 conflicted path(s)", 'snippets/a.liquid') -Paths @('snippets/a.liquid'))
+Assert-Equal 1 $baseOnly.Count 'a base commit with nothing after it is owed too (a squash leaves only one of the two)'
+Assert-Equal 0 @(Get-ReconciliationOwedPaths -WalkLines @() -Paths @('snippets/a.liquid')).Count 'an empty walk owes nothing'
+$smSrc = [IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\task\sync-main.ps1'))
+Assert-True ($smSrc -match 'git commit --quiet -m "\$\(\$subjects\.Base\)' -and $smSrc -match 'git commit --quiet -m "\$\(\$subjects\.Restore\)') 'sync-main writes both commits from the shared subjects, so the reader cannot go blind'
+foreach ($drv in @(@{ Name = 'live-preflight'; Src = $pfSrc }, @{ Name = 'prepare-release'; Src = $prSrc })) {
+    Assert-True ($drv.Src -match 'Get-ReconciliationOwedPaths') "$($drv.Name) checks the push list for an owed reconciliation"
+}
+
 # UNDER A StrictMode CALLER, WITH NO DIRECTORIES PASSED (#2509). @() of a $null [string[]] stays $null in
 # Windows PowerShell 5.1, and '.Count' on it threw the first time a strict script called this.
 $strictRows = & { Set-StrictMode -Version Latest; @(Get-LivePushRows -ChangedPaths @('sections/a.liquid')) }

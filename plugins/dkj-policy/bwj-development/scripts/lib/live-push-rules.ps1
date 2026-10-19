@@ -299,6 +299,85 @@ function Get-SyncOwnedPaths {
     return @($bySync | Where-Object { -not $byUs.Contains($_) })
 }
 
+# THE TWO SUBJECTS sync-main's -ReconcileBase writes, defined here so the writer and the readers below
+# share one spelling (#3145). A reader matching a copy of these strings would go silently blind the day
+# the writer's wording changed, and blind is the direction that pushes over a third party's work.
+$script:ReconciliationBaseSubject    = 'sync: live verbatim as the reconciliation base'
+$script:ReconciliationRestoreSubject = 'fix: put the trunk content back over the reconciliation base'
+
+function Get-ReconciliationBaseSubjects {
+    <# The subject prefixes of the base commit and the restore commit, in that order. #>
+    return [pscustomobject]@{ Base = $script:ReconciliationBaseSubject; Restore = $script:ReconciliationRestoreSubject }
+}
+
+function Get-ReconciliationOwedPaths {
+    <#
+    .SYNOPSIS
+        Out of a push list, the paths whose newest commit is a reconciliation base that nobody has
+        reconciled since. Returns them in input order, exactly as they arrived; empty means none is owed.
+
+    .DESCRIPTION
+        INBOUND #3145, measured in a BWJ store (smartwatchbanden#958). -ReconcileBase puts live's exact
+        bytes into a conflicted path's history and the trunk's straight back on top, which is what makes
+        the path durable. But it also makes live's content "a version this repo has held before" -- the
+        very test the drift check and sync-main's keep-trunk verdict use to call live harmless. So from
+        that merge on, every reader reads the path as safe while the trunk still LACKS live's third-party
+        content: there it would have reverted a raised free-shipping threshold and a noindex. The one step
+        between that merge and the revert is the content reconciliation sync-main leaves to a person, and
+        until this function nothing checked that it had happened.
+
+        THE QUESTION IS PROVENANCE AGAIN, NOT CONTENT. A path is owed while the NEWEST non-merge commit in
+        the walk that touched it is the base or the restore commit: nothing has changed the path since the
+        base was written, so the reconciliation has not been done. Any later commit that changes the path
+        settles it, in any spelling -- the same promise sync-main's finish text makes. A person who decides
+        the trunk is right and live's edit should go has no commit to make, which is why the caller turns
+        this into a refusal a switch can accept rather than into something only a commit can clear.
+
+        -WalkLines IS `git log --no-merges --topo-order --format=COMMIT%x09%H%x09%s --name-only` OUTPUT over
+        the range, NEWEST FIRST, quoted paths already decoded. --topo-order because "newest" here means
+        "descends from", and a commit-date order can put a parent above its child on a skewed clock.
+        --no-merges because a merge of the base branch touches nothing the walk needs: its commits are
+        listed themselves. The caller runs git; this reads what came back, like Get-SyncOwnedPaths above.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$WalkLines,
+        [AllowNull()][AllowEmptyCollection()][string[]]$Paths
+    )
+
+    # THE FIRST COMMIT EACH PATH IS SEEN UNDER IS ITS NEWEST, and whether that one was a base commit is the
+    # whole answer -- so the walk records a verdict per path once and never overwrites it.
+    $newestIsBase = New-Object 'System.Collections.Generic.Dictionary[string,bool]' ([System.StringComparer]::OrdinalIgnoreCase)
+    $currentIsBase = $false
+    $inCommit = $false
+    foreach ($raw in @($WalkLines)) {
+        if ($null -eq $raw) { continue }
+        $line = ([string]$raw).Trim()
+        if (-not $line) { continue }
+        if ($line.StartsWith("COMMIT`t")) {
+            $f = $line -split "`t", 3
+            $subject = if ($f.Count -ge 3) { $f[2] } else { '' }
+            $currentIsBase = $subject.StartsWith($script:ReconciliationBaseSubject, [System.StringComparison]::Ordinal) -or
+                             $subject.StartsWith($script:ReconciliationRestoreSubject, [System.StringComparison]::Ordinal)
+            $inCommit = $true
+            continue
+        }
+        if (-not $inCommit) { continue }
+        $p = $line -replace '\\', '/'
+        if (-not $newestIsBase.ContainsKey($p)) { $newestIsBase[$p] = $currentIsBase }
+    }
+
+    $owed = @()
+    foreach ($raw in @($Paths)) {
+        if ($null -eq $raw) { continue }
+        $t = ([string]$raw).Trim()
+        if (-not $t) { continue }
+        $norm = $t -replace '\\', '/'
+        if ($newestIsBase.ContainsKey($norm) -and $newestIsBase[$norm]) { $owed += $t }
+    }
+    # Unwrapped on purpose, as Get-LivePushUnsafePaths below: every caller takes this as @(...).
+    return $owed
+}
+
 function Get-HighestReleaseTag {
     <#
     .SYNOPSIS

@@ -25,6 +25,7 @@ spell the plugin cache path out.
 | `-SkipGates` | do not re-run the repo's own lint and tests. For a second run where nothing has been committed since. |
 | `-SkipBackup` | do not take the backup. Only correct when a **verified** backup of this same live stand already exists. |
 | `-AcceptRejectedWriteBacks` | Git-connected mode only: turn a rejected push in the deploy branch's rule-suite log from a refusal into a note, **after** you have reconciled what it left on live. |
+| `-AcceptOwedReconciliation` | turn a push-list path that still ends on `sync-main`'s reconciliation base into a note rather than a refusal, **after** you have decided the trunk's version should replace live's there ([#3145](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3145)). Step 3 refuses such a path because the drift check reads it as safe while the trunk still lacks live's content. |
 
 **Where `Get-ShopifyLiveDeployBranch` names a branch, the live theme deploys from it** and steps 3, 6
 and 8 change -- see [the Git-connected mode](#the-git-connected-mode-2998-3009) below.

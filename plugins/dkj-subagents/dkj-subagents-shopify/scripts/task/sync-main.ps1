@@ -677,7 +677,10 @@ function Write-SyncReconciliationBase {
     # trunk and live are known to have agreed for these paths -- which is exactly what an agreement point
     # is. The commit the inbound report warns about carries the same spelling over content that was never
     # on live; the spelling was never the defect, the missing provenance was.
-    & git commit --quiet -m "sync: live verbatim as the reconciliation base for $($Conflict.Count) conflicted path(s)" -- @basePaths
+    # BOTH SUBJECTS COME FROM live-push-rules.ps1 (#3145), where live-preflight and prepare-release read
+    # them back to find a base nobody has reconciled since. One spelling, so the reader cannot go blind.
+    $subjects = Get-ReconciliationBaseSubjects
+    & git commit --quiet -m "$($subjects.Base) for $($Conflict.Count) conflicted path(s)" -- @basePaths
     if ($LASTEXITCODE -ne 0) {
         # THE SAME TWO FACTS AS THE RESTORE FAILURE BELOW, because the state is the same one: a branch
         # exists that nobody asked for, and the tree on it holds live's content. Naming only the restore
@@ -688,7 +691,7 @@ function Write-SyncReconciliationBase {
     }
 
     Invoke-SyncGitQuiet @(@('checkout', $trunkSha, '--') + $basePaths) | Out-Null
-    & git commit --quiet -m 'fix: put the trunk content back over the reconciliation base (no file changes)' -- @basePaths
+    & git commit --quiet -m "$($subjects.Restore) (no file changes)" -- @basePaths
     if ($LASTEXITCODE -ne 0) {
         # THE ONE STATE THIS FUNCTION MUST NOT LEAVE SILENTLY. One commit in, the branch holds live's
         # content for those paths, which is the wholesale overwrite the whole script exists to prevent --
@@ -751,6 +754,12 @@ function Write-SyncReconciliationBase {
     }
     Write-Host '  Then reconcile the content itself in an ordinary commit, in any spelling: the path is' -ForegroundColor Green
     Write-Host '  settled by provenance from here on, not by what a subject line says.' -ForegroundColor Green
+    # SAID IN RED BECAUSE THE MERGE MAKES EVERY DRIFT READER GO GREEN (#3145). Live's bytes are now
+    # "content this repo has held", so the drift check calls these paths safe while the trunk still
+    # lacks live's edit -- measured in a store, where the push would have reverted a raised threshold.
+    Write-Host '  THAT COMMIT IS REQUIRED BEFORE ANY LIVE PUSH OF THESE PATHS. After the merge the drift check' -ForegroundColor Red
+    Write-Host '  reads them as safe while the trunk still lacks live''s content, so a push would revert it.' -ForegroundColor Red
+    Write-Host '  live-preflight refuses a push over an unreconciled base, and prepare-release flags one.' -ForegroundColor Red
 }
 
 function Write-SyncPredecessorVerdict {
