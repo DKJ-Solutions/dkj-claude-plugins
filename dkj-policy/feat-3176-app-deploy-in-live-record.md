@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Design chosen by the owner in the sweep session (October 19, 2026): app files become ordinary `live`
+lines in the live-push record, a skipped deploy is marked `hold` by hand like a held theme file, and
+notify-live reads the same record through a mirrored live-record-lib.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] live-record-lib: `Format-LivePushRecord -AppPaths` writes one `live` line per app file, with a header line
+- [x] live-preflight: the record is written for an app deploy too, app-only included, and names notify-live
+- [x] notify-live: `-LivePushRecord`, an issue whose PR changed a `hold` path is held, an unreadable merge is UNREAD
+- [x] live-record-lib mirrored into bwj-development (`live-record-lib-bwj`), prepare-release's step 7 names the record
+- [x] the live-preflight and notify-live skill pages
 
 ### TEST
 
+- [x] live-record-lib.tests.ps1: app lines, header, held app-only entry is not-live and storefront (103 pass)
+- [x] bwj-development.tests.ps1: a fixture repo run reads a record, refuses a bad one, notes a missing one (783 pass)
+
 ### DEPLOY: feat/3176-app-deploy-in-live-record
 
-**Score:**
+live-preflight writes one `live <path>` line per file under `Get-ShopifyAppRoot` into the live-push
+record, and writes the record for an app-only release too. A deploy that is not run is marked `hold` by
+hand, like a held theme file. `notify-live -LivePushRecord <path>` reads the same record through a
+mirrored `live-record-lib`. It holds an issue whose PR changed a `hold` path, and it refuses a record it
+cannot parse. prepare-release's step 7 tells you to pass the record (#3176).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store that ships a Shopify app no longer has an app-only change announced as live to its requester,
+or listed as landed by the cut, before `shopify app deploy` has run. Pass the record to notify-live.
+
+**Score:** 3
 
 #### Pull Request
 
