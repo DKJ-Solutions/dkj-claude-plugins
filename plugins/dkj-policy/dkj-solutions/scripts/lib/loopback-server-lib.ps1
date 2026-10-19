@@ -3,7 +3,9 @@
     What the plugin's two small servers (scripts/preview/serve-placeholder.ps1 and
     scripts/pages/serve-general-pages.ps1) share: reading one request head off a TcpClient, writing one
     response, and the two refusals every request meets first (a Host that is not loopback, a browser
-    request from another site). One copy, so a fix to either rule lands in both servers (#3119).
+    request from another site). One copy, so a fix to either rule lands in both servers (#3119). The
+    source repo's own hub (scripts/dashboard/serve-connector-dashboard.ps1) loads it from the plugin tree
+    too, rather than keeping a copy of its own (#3163).
 
 .DESCRIPTION
     The reader and the writer touch only the client's stream, which the caller hands in; the two tests
@@ -56,14 +58,18 @@ function Read-LoopbackRequest {
 }
 
 function Send-LoopbackResponse {
-    <# One response, Connection: close. -Headers are extra header lines (the caller's own fixed values). #>
-    param($Stream, [int]$Status, [string]$Reason, [string]$Type, [byte[]]$Body, [hashtable]$Headers = @{})
+    <#
+        One response, Connection: close. -Headers are extra header lines (the caller's own fixed values).
+        A -Method HEAD gets the same headers as a GET, the real Content-Length included, and no body
+        (RFC 9110, #3161) -- dropped here once rather than by each route.
+    #>
+    param($Stream, [int]$Status, [string]$Reason, [string]$Type, [byte[]]$Body, [hashtable]$Headers = @{}, [string]$Method = 'GET')
     $head = "HTTP/1.1 $Status $Reason`r`nContent-Type: $Type`r`nContent-Length: $($Body.Length)`r`n" +
         "Cache-Control: no-store`r`nX-Content-Type-Options: nosniff`r`nConnection: close`r`n"
     foreach ($k in $Headers.Keys) { $head += "$k`: $($Headers[$k])`r`n" }
     $bytes = [System.Text.Encoding]::ASCII.GetBytes($head + "`r`n")
     $Stream.Write($bytes, 0, $bytes.Length)
-    if ($Body.Length) { $Stream.Write($Body, 0, $Body.Length) }
+    if ($Body.Length -and $Method -ne 'HEAD') { $Stream.Write($Body, 0, $Body.Length) }
     $Stream.Flush()
 }
 

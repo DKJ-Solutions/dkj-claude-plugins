@@ -24,6 +24,7 @@ $Server   = Join-Path $RepoRoot 'scripts\dashboard\serve-connector-dashboard.ps1
 $PluginLib = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib'
 $GeneralServer = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\pages\serve-general-pages.ps1'
 . (Join-Path $PluginLib 'general-pages-state.ps1')
+. (Join-Path $PluginLib 'loopback-server-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -176,26 +177,26 @@ Write-Host '-- group 1c: the checkout list and the Host guard' -ForegroundColor 
 
 Assert-Equal '../a' ((Get-ConnectorCheckoutCandidates '../a') -join ',') 'one path is a list of one'
 Assert-Equal '../a,../b' ((Get-ConnectorCheckoutCandidates @('../a', ' ', '../b')) -join ',') 'a list drops its blanks'
-Assert-True  (Test-DashboardHost 'localhost:4870' 4870) 'localhost on our port is served'
-Assert-True  (Test-DashboardHost '127.0.0.1:4870' 4870) '127.0.0.1 on our port is served'
-Assert-True  (Test-DashboardHost 'LocalHost:4870 ' 4870) 'the Host is compared case-insensitively and trimmed'
-Assert-True  (-not (Test-DashboardHost 'evil.example:4870' 4870)) 'a rebound foreign name is refused'
-Assert-True  (-not (Test-DashboardHost 'localhost:4871' 4870)) 'another port is refused'
-Assert-True  (-not (Test-DashboardHost '' 4870)) 'no Host is refused'
+Assert-True  (Test-LoopbackHost 'localhost:4870' 4870) 'localhost on our port is served'
+Assert-True  (Test-LoopbackHost '127.0.0.1:4870' 4870) '127.0.0.1 on our port is served'
+Assert-True  (Test-LoopbackHost 'LocalHost:4870 ' 4870) 'the Host is compared case-insensitively and trimmed'
+Assert-True  (-not (Test-LoopbackHost 'evil.example:4870' 4870)) 'a rebound foreign name is refused'
+Assert-True  (-not (Test-LoopbackHost 'localhost:4871' 4870)) 'another port is refused'
+Assert-True  (-not (Test-LoopbackHost '' 4870)) 'no Host is refused'
 
 Assert-True  (Test-DashboardCheckoutInScope 'C:\g\org\repo' 'C:\g') 'a sibling checkout under the scope root is in scope'
 Assert-True  (-not (Test-DashboardCheckoutInScope 'C:\other\repo' 'C:\g')) 'a path that climbs out of the scope root is not'
 Assert-True  (-not (Test-DashboardCheckoutInScope 'C:\g2\repo' 'C:\g')) 'a sibling of the scope root that shares its prefix is not'
 Assert-True  (-not (Test-DashboardCheckoutInScope 'C:\g' 'C:\g')) 'the scope root itself is not a checkout'
-Assert-True  (Test-DashboardCrossSite 'cross-site') 'a cross-site request is refused'
-Assert-True  (Test-DashboardCrossSite 'Same-Site') 'a same-site (other port or subdomain) request is refused'
-Assert-True  (-not (Test-DashboardCrossSite 'same-site' 'navigate' 'GET')) 'a same-site top-level GET navigation -- the crumb back from the general pages on another port -- is served (#3119)'
-Assert-True  (Test-DashboardCrossSite 'same-site' 'cors' 'GET') 'a same-site fetch is still refused'
-Assert-True  (Test-DashboardCrossSite 'same-site' 'navigate' 'POST') 'and so is a same-site navigation that is a POST'
-Assert-True  (Test-DashboardCrossSite 'cross-site' 'navigate' 'GET') 'a cross-site navigation is refused whatever its mode'
-Assert-True  (-not (Test-DashboardCrossSite 'same-origin')) 'the page itself is served'
-Assert-True  (-not (Test-DashboardCrossSite 'none')) 'a typed or bookmarked URL is served'
-Assert-True  (-not (Test-DashboardCrossSite '')) 'no header (curl) is served'
+Assert-True  (Test-LoopbackCrossSite 'cross-site') 'a cross-site request is refused'
+Assert-True  (Test-LoopbackCrossSite 'Same-Site') 'a same-site (other port or subdomain) request is refused'
+Assert-True  (-not (Test-LoopbackCrossSite 'same-site' 'navigate' 'GET')) 'a same-site top-level GET navigation -- the crumb back from the general pages on another port -- is served (#3119)'
+Assert-True  (Test-LoopbackCrossSite 'same-site' 'cors' 'GET') 'a same-site fetch is still refused'
+Assert-True  (Test-LoopbackCrossSite 'same-site' 'navigate' 'POST') 'and so is a same-site navigation that is a POST'
+Assert-True  (Test-LoopbackCrossSite 'cross-site' 'navigate' 'GET') 'a cross-site navigation is refused whatever its mode'
+Assert-True  (-not (Test-LoopbackCrossSite 'same-origin')) 'the page itself is served'
+Assert-True  (-not (Test-LoopbackCrossSite 'none')) 'a typed or bookmarked URL is served'
+Assert-True  (-not (Test-LoopbackCrossSite '')) 'no header (curl) is served'
 
 Write-Host '-- group 1d: the page escapes what it shows' -ForegroundColor Cyan
 
@@ -329,8 +330,14 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a page that moved to the general pages server (#3119) is no page of this one''s'
             Assert-True ((Get-Raw 'GET' '/refresh?page=//evil.example' "localhost:$port") -match 'Location: /\r') 'and to the index for a page outside its list'
             Assert-Equal 403 (Get-Status 'GET' '/refresh' "localhost:$port" "Sec-Fetch-Site: cross-site`r`n") 'a request another site makes is refused'
+            # A HEAD answers like the GET would, real Content-Length included, and carries no body (#3161).
+            $cssLength = (Get-Item -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css')).Length
             $headRaw = Get-Raw 'HEAD' '/house-style.css' "localhost:$port"
-            Assert-True ($headRaw -match 'Content-Length: 0' -and $headRaw.TrimEnd().EndsWith('close')) 'HEAD on a static file sends no body'
+            Assert-True ($headRaw -match "Content-Length: $cssLength\r" -and $headRaw.EndsWith("`r`n`r`n")) 'HEAD on a static file sends the real Content-Length and no body'
+            $head404 = Get-Raw 'HEAD' '/nope' "localhost:$port"
+            Assert-True ($head404 -match 'HTTP/1.1 404' -and $head404 -notmatch 'Content-Length: 0\r' -and $head404.EndsWith("`r`n`r`n")) 'HEAD on a non-200 route sends no body either'
+            $head403 = Get-Raw 'HEAD' '/' "evil.example:$port"
+            Assert-True ($head403 -match 'HTTP/1.1 403' -and $head403.EndsWith("`r`n`r`n")) 'nor does a refused HEAD'
             $silent = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $port)
             Assert-Equal 200 (Get-Status 'GET' '/house-theme.js' "localhost:$port") 'a connection that sends nothing does not stall the next one'
             $silent.Close()
