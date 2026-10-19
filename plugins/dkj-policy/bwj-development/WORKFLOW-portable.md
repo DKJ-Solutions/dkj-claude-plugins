@@ -440,6 +440,13 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   question:** did something visible change? Completed, with the go-live block. Nothing changed, but we
   learned something useful? Completed, with `-Research`. Nothing changed because information is
   missing? Not planned, with `awaiting-info-client` kept on (below) -- never completed.
+- **A result that is a number gets a measurement block** (#3179). A page-speed target, a conversion
+  rate or a ranking changed on the store, and nobody sees it on a page, so neither the go-live block nor
+  `-Research` fits. `build-golive-block.ps1 -Measure` writes how to measure and the targets (and,
+  optionally, the last measurement and when to measure) for the requester. The closed message says
+  *"Nothing changes visibly on the storefront. You can take a new measurement yourself, as described
+  below."* under the shared intro, and ends by asking whether the target is met. The form is in
+  [`golive-block`](skills/golive-block/SKILL.md).
 - **An issue stays open only while it will still change code in the repo** (Maikel, October 16, 2026,
   [#3059](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3059)): *"De enige github issues die
   open blijven staan, zijn issues die echt daadwerkelijk nog iets gaan aanpassen aan de code."* An issue

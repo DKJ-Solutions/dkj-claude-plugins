@@ -86,6 +86,18 @@
     and the requester rejected it. And the [outcome] names the NEW information and why it is valuable,
     not what was done or where to look.
 
+    AND A TICKET WHOSE RESULT IS A NUMBER GETS THE MEASUREMENT FORM: -Measure (#3179, Maikel, October 19,
+    2026). A page-speed target after a performance fix, a conversion rate, a ranking: the store changed,
+    and its effect is a number nobody sees. The go-live form points at a page where nothing visible
+    changed, and -Research says 'Nothing has changed', which is false -- measured on smartwatchbanden#919,
+    closed with -Research for want of this form. The requester measures, not a dev session (#3177), so
+    -Measure writes Format-GoLiveMeasureBlock: the shared intro, 'Nothing changes visibly on the
+    storefront. You can take a new measurement yourself, as described below.', then the prose file's
+    [measure] and [targets] (both required) and [baseline] and [when] (optional). It refuses the go-live
+    parameters and the other forms' sections, skips the pull-request check like -Research (a measurement
+    follow-up has no pull request of its own), and carries Get-AsanaMeasureBlockMarker, so the closed
+    message writes the measurement form and its ask.
+
     A RESULT BLOCK WITHOUT -LiveSince CARRIES Get-AsanaReleaseBlockMarker (#3069): it names a planned
     release day, so its result is visible only once that release is out, and the closed line -- in the
     block and in the closed message -- says so under the intro.
@@ -161,6 +173,12 @@
     -Path, -Version, -LiveSince, -From and -ReleaseDay. -Post skips the pull-request check, since such a
     ticket has none; every other check stays.
 
+.PARAMETER Measure
+    Write the measurement form (#3179) for a ticket whose result is a number the requester measures
+    again. Requires a -ProseFile with [measure] and [targets] sections ([baseline] and [when] optional),
+    and refuses the other forms' sections, -Research, and -Link, -Path, -Version, -LiveSince, -From and
+    -ReleaseDay. -Post skips the pull-request check, as for -Research.
+
 .PARAMETER OutFile
     Also write the whole comment to this path as UTF-8 -- the faithful copy for a page that embeds the
     block, where the console printout may have lost characters to its code page.
@@ -204,6 +222,7 @@ param(
     [ValidateSet('nl', 'en')][string]$Language = 'nl',
     [string]$ProseFile,
     [switch]$Research,
+    [switch]$Measure,
     [string]$OutFile,
     [switch]$Post,
     [switch]$Force,
@@ -227,6 +246,7 @@ $LiveSinceConflict = $PSBoundParameters.ContainsKey('LiveSince') -and ($PSBoundP
 $LanguageArg = $Language
 $ProseArg    = $ProseFile
 $ResearchArg = [bool]$Research
+$MeasureArg  = [bool]$Measure
 # THE GO-LIVE PARAMETERS A RESEARCH BLOCK REFUSES (#3004): each describes a result on the store, and a
 # research ticket has none, so a value passed for one is a sign the wrong form was asked for.
 # A foreach statement, not Where-Object: a scriptblock has a $PSBoundParameters of its own.
@@ -321,7 +341,7 @@ if ((Test-PrivateResultLink -Link $LinkArg) -and -not $AllowPrivateLink) {
 # --- The session's prose ----------------------------------------------------------------------------
 # READ AS UTF-8 AND REFUSED WHOLE ON A FORMAT ERROR: a section line the parser does not know would
 # otherwise drop the paragraph under it, and the block would ship without the part the session wrote.
-$prose = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @() }
+$prose = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @(); Measure = @(); Targets = @(); Baseline = @(); MeasureWhen = @() }
 if ($ProseArg) {
     if (-not (Test-Path -LiteralPath $ProseArg -PathType Leaf)) {
         Write-Host "[ERROR] -ProseFile '$ProseArg' does not exist. Nothing written." -ForegroundColor Red
@@ -338,7 +358,30 @@ if ($ProseArg) {
 # --- Which form: a result to look at, or an outcome (#3004, #3017) -------------------------------------------
 # EACH FORM REFUSES THE OTHER'S PROSE, so a section the session wrote is never silently left out of the
 # block: [outcome] has no place in a result block, and a research block carries nothing but [outcome].
-if ($ResearchArg) {
+# The measurement form (#3179) is the third, and it carries [measure], [targets], [baseline] and [when] only.
+$measureProse = @(@('Measure', 'Targets', 'Baseline', 'MeasureWhen') | Where-Object { @($prose[$_]).Count -gt 0 })
+if ($MeasureArg) {
+    if ($ResearchArg) {
+        Write-Host "[ERROR] -Measure and -Research are two different forms: a number the requester measures again, or an outcome where nothing changed. Pass one. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    if ($ResearchConflicts.Count -gt 0) {
+        Write-Host "[ERROR] -Measure writes a block about a number, not a page to look at, so -$($ResearchConflicts -join ', -') has nothing to describe. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    $otherProse = @(@('Changed', 'WhereToLook', 'NotIncluded', 'Outcome') | Where-Object { @($prose[$_]).Count -gt 0 })
+    if ($otherProse.Count -gt 0) {
+        Write-Host "[ERROR] -Measure carries [measure], [targets], [baseline] and [when] only; -ProseFile also has [changed], [where], [not-included] or [outcome]. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    if (@($prose.Measure).Count -eq 0 -or @($prose.Targets).Count -eq 0) {
+        Write-Host "[ERROR] -Measure needs a -ProseFile with a [measure] section (the tool, the URLs, the settings, what to read off) and a [targets] section (the acceptance values), written for the requester. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+} elseif ($measureProse.Count -gt 0) {
+    Write-Host "[ERROR] -ProseFile has a [measure], [targets], [baseline] or [when] section, which only a measurement block carries. Pass -Measure for a ticket whose result is a number the requester measures again. Nothing written." -ForegroundColor Red
+    exit 1
+} elseif ($ResearchArg) {
     if ($ResearchConflicts.Count -gt 0) {
         Write-Host "[ERROR] -Research writes a block for a ticket that changed nothing on the store, so -$($ResearchConflicts -join ', -') has nothing to describe. Nothing written." -ForegroundColor Red
         exit 1
@@ -361,8 +404,9 @@ Write-Host ""
 Write-Host "== build-golive-block $targetRef ==" -ForegroundColor Cyan
 
 # A RESEARCH BLOCK HAS NO GO-LIVE HALF (#3004): nothing changed on the store, so there is no day it goes
-# live, no version and no page to list, and none of the three is worked out or printed.
-if (-not $ResearchArg) {
+# live, no version and no page to list, and none of the three is worked out or printed. Nor has a
+# measurement block (#3179): what it reports is a number, not a release day or a page.
+if (-not $ResearchArg -and -not $MeasureArg) {
     # --- The date ---------------------------------------------------------------------------------------
     # ALREADY LIVE IS A FACT THE SESSION STATES, NOT ONE THIS SCRIPT DERIVES (#2943). The next release day is
     # computed strictly after today, so an issue closing after its release -- or after a separate live push --
@@ -445,6 +489,8 @@ if (-not $ResearchArg) {
     } else {
         Write-Host "  live urls: none -- no -Path given" -ForegroundColor DarkGray
     }
+} elseif ($MeasureArg) {
+    Write-Host "  measure  : the requester measures it -- no release day, version or live URLs (-Measure)" -ForegroundColor DarkGray
 } else {
     Write-Host "  research : nothing goes live -- no release day, version or live URLs (-Research)" -ForegroundColor DarkGray
 }
@@ -501,7 +547,11 @@ if ($asanaRef -and $asanaLink -eq 'linked') {
 }
 
 # --- The block ----------------------------------------------------------------------------------------
-if ($ResearchArg) {
+if ($MeasureArg) {
+    $block = Format-GoLiveMeasureBlock -Marker (Get-AsanaPasteBlockMarker) -MeasureMarker (Get-AsanaMeasureBlockMarker) `
+        -IssueRef $targetRef -Measure $prose.Measure -Targets $prose.Targets -Baseline $prose.Baseline -When $prose.MeasureWhen `
+        -Language $LanguageArg -AsanaLink $asanaLink
+} elseif ($ResearchArg) {
     $block = Format-GoLiveResearchBlock -Marker (Get-AsanaPasteBlockMarker) -ResearchMarker (Get-AsanaResearchBlockMarker) `
         -IssueRef $targetRef -Outcome $prose.Outcome -Language $LanguageArg -AsanaLink $asanaLink
 } else {
@@ -548,11 +598,12 @@ if ($OutFileArg) {
     }
 }
 
-if (-not $ResearchArg -and @($prose.Changed).Count -eq 0) {
+$resultForm = -not $ResearchArg -and -not $MeasureArg
+if ($resultForm -and @($prose.Changed).Count -eq 0) {
     Write-Host "[WARNING] No [changed] section in -ProseFile, so the block does not say what changed -- the" -ForegroundColor Yellow
     Write-Host "          first thing its reader looks for. That prose is the session's to write, not the script's." -ForegroundColor Yellow
 }
-if (-not $ResearchArg -and -not $LinkArg) {
+if ($resultForm -and -not $LinkArg) {
     Write-Host "[WARNING] No -Link given, so the block names no result to look at. It writes no" -ForegroundColor Yellow
     Write-Host "          placeholder on purpose -- pass -Link once you know where the result can be seen." -ForegroundColor Yellow
 }
@@ -604,8 +655,9 @@ if (-not $ForceArg -and $asanaLink -ne 'linked') {
 # this plugin's own rule, so its PR never closes it. Get-GoLiveLandingNodes reads both, same repo only.
 # An unreadable answer refuses too, for the reason the checks above do; -Force is the deliberate early post.
 # A RESEARCH BLOCK SKIPS IT (#3004): a ticket that changed nothing has no pull request to wait for, and its
-# block says 'nothing has changed' rather than naming a release day.
-if (-not $ForceArg -and -not $ResearchArg) {
+# block says 'nothing has changed' rather than naming a release day. A MEASUREMENT BLOCK SKIPS IT TOO
+# (#3179): it follows a change that has already shipped, often under another issue, so it has none of its own.
+if (-not $ForceArg -and $resultForm) {
     $landingState = 'unread'
     $repoParts = $StoreRepo -split '/', 2
     if ($repoParts.Count -eq 2) {

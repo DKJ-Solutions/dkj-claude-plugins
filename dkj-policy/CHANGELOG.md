@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**6 / 9 minor entries** <!-- pending-tally -->
+**7 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3179-golive-measure-form · 20261019-163434Z
+
+`build-golive-block.ps1` gains a third completed form, `-Measure`, for a ticket whose result is a number
+the requester measures again -- a page-speed target, a conversion rate, a ranking. From a prose file's
+`[measure]` and `[targets]` (and optional `[baseline]` and `[when]`) it writes how to measure and the
+targets, and the closed message opens with "Nothing changes visibly on the storefront. You can take a new
+measurement yourself, as described below." and ends by asking whether the target is met (#3179).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A BWJ store can close a measurement follow-up with a message that tells the requester how to measure it
+and against which targets, instead of a research message that says nothing changed or a go-live message
+that points at nothing. The colleague gets a clear "is the target met?" in the Asana task.
+
+**Score:** 3
+
+#### Pull Request
+
+golive-block gains a measurement form for a ticket whose result is a number the requester re-measures
+
+Plugins: bwj-development
+
+[PR #3185](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3185)
+
+---
 
 ### DEPLOY: feat/3175-h2-above-cards · 20261019-161745Z
 

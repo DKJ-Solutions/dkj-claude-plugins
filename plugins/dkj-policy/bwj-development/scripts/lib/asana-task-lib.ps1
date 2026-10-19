@@ -148,6 +148,16 @@ function Get-AsanaResearchBlockMarker {
     return '<!-- asana-paste-block-kind: research -->'
 }
 
+function Get-AsanaMeasureBlockMarker {
+    <#
+        The second marker build-golive-block.ps1 -Measure puts on a block whose result is a number the
+        requester measures again (#3179). Pure. The closed message reads it to write the measurement form
+        instead of the reopen line or the research form, and to close with the measurement ask. A copy
+        of it lives in templates/asana-closed-message.ps1.
+    #>
+    return '<!-- asana-paste-block-kind: measure -->'
+}
+
 function Get-AsanaReleaseBlockMarker {
     <#
         The second marker build-golive-block.ps1 puts on a result block that names a PLANNED release day
