@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**5 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3149-repo-hub-reads-this-repo · 20261019-113956Z
+
+The brand book's Repo hub reads its in-flight work (open pull requests, issues, branches) from `DKJ-Solutions/dkj-claude-plugins` instead of `DKJ-Solutions/dkj-brandbook`, and its links, eyebrow and footer name this repo (#3149). Once `dkj-brandbook` is archived, the panel would otherwise have shown a frozen state without saying so.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the hub is this repo's own dev-server page, which no consumer takes.
+
+**Score:** N/A
+
+#### Pull Request
+
+the Repo hub reads its in-flight work from this repo, not from dkj-brandbook
+
+[PR #3156](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3156)
+
+---
 
 ### DEPLOY: fix/3146-sync-revert-on-live · 20261019-112503Z
 
