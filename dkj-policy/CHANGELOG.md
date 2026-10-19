@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**0 / 3 patch entries** <!-- pending-tally -->
+**1 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3162-release-notes-lilac-default · 20261019-143532Z
+
+With no theme chosen yet, the Release notes page served by the general pages server now opens in
+Lila, the same default as the Repo hub and every other dev and general page, instead of Petrol or
+Hemelsblauw depending on the OS mode (#3162).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running the dkj-solutions general pages server sees the release-notes page open in the same
+default theme as its other pages. Cosmetic.
+
+**Score:** 1
+
+#### Pull Request
+
+Release notes dev page falls back to lilac like every other dev page
+
+Plugins: dkj-solutions
+
+[PR #3169](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3169)
+
+---
 
 ### DEPLOY: fix/3163-hub-uses-loopback-lib · 20261019-142111Z
 
