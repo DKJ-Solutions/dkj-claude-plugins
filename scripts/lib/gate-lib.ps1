@@ -969,6 +969,100 @@ function Wait-CiTestCertificate {
     }
 }
 
+function ConvertTo-CommitCheckBucketsJson {
+    <#
+        Turn `gh api repos/<slug>/commits/<sha>/check-runs` output into the `[{name, bucket}]` shape
+        Get-CiTestCertificate judges, so a commit with NO pull request -- a trunk tip, certified by the
+        CI run its push started -- is judged by the same function, on the same named check, as a PR head
+        is. Pure: JSON in, JSON out. Returns '' where the payload is empty or unparseable, which that
+        function already reads as "could not be read" and refuses.
+
+        WHY A COMMIT AND NOT A PR (issue #3155, October 19, 2026). cut-release's second origin check
+        (#2899) finds the trunk moved during the gates. The commits that moved it reached the trunk
+        through pull requests, but this repo's ruleset is not strict (#1325), so each PR's own check ran
+        against that PR's base and not against the combined trunk. The only run that has proved the tree
+        the cut would tag is the one the push to the trunk started, and that run hangs off the commit.
+
+        THE BUCKETS ARE gh pr checks' OWN WORDS, so the judging function needs no second vocabulary:
+        a run that has not completed is 'pending', a success is 'pass', a skipped or neutral run is
+        'skipping', and every other conclusion -- failure, cancelled, timed_out, action_required,
+        stale -- is 'fail'. Only 'pass' certifies and only 'pending' waits, so a conclusion this mapping
+        has never heard of lands on the refusing side, which is the safe one.
+    #>
+    param([AllowEmptyString()][AllowNull()][string]$CheckRunsJson)
+
+    if (-not $CheckRunsJson -or -not $CheckRunsJson.Trim()) { return '' }
+    try { $parsed = $CheckRunsJson | ConvertFrom-Json } catch { return '' }
+    if (-not $parsed -or -not $parsed.PSObject.Properties['check_runs']) { return '' }
+
+    # Assign first, wrap second -- the 5.1 one-object pipeline trap Get-CiTestCertificate names.
+    $runs = @(@($parsed.check_runs) | Where-Object { $_ -and $_.PSObject.Properties['name'] })
+    $records = @($runs | ForEach-Object {
+        $status = if ($_.PSObject.Properties['status']) { ([string]$_.status).ToLowerInvariant() } else { '' }
+        $conclusion = if ($_.PSObject.Properties['conclusion']) { ([string]$_.conclusion).ToLowerInvariant() } else { '' }
+        $bucket = if ($status -ne 'completed') { 'pending' }
+                  elseif ($conclusion -eq 'success') { 'pass' }
+                  elseif ($conclusion -eq 'skipped' -or $conclusion -eq 'neutral') { 'skipping' }
+                  else { 'fail' }
+        [pscustomobject]@{ name = [string]$_.name; bucket = $bucket }
+    })
+    # An empty array is still JSON a caller can hand on: the judging function reads it as "nothing has
+    # registered on this commit yet", which is exactly what an empty check_runs list means.
+    if ($records.Count -eq 0) { return '[]' }
+    return (ConvertTo-Json -InputObject $records -Compress -Depth 3)
+}
+
+function Get-TrunkCatchUpDecision {
+    <#
+        May cut-release fast-forward over the commits that landed on origin while its gates ran, instead
+        of refusing? Pure: the caller measures, this decides, so the suite can walk every branch without
+        a remote. Returns Allowed (bool) and Reason (string; set on every refusal, '' when allowed).
+
+        THE DECISION BEHIND IT (#3155, the owner's choice between two designs, October 19, 2026). A cut on
+        a trunk that merges every ~15 minutes lost the race twice in a row against a ~13-minute gate,
+        and every retry paid the whole gate again. The chosen design keeps #2899's protection and moves
+        what proves the new commits: not a second local gate, but the main-push CI run for the new
+        origin/main tip, after which the cut fast-forwards and re-runs itself with the gates certified
+        for exactly that commit.
+
+        WHAT IS NEVER CAUGHT UP OVER, whatever else holds:
+          - AHEAD of origin. A trunk commit no PR shipped would ride along with the release push, and no
+            CI run of origin's has seen it. That refusal is #2899's and stays word for word.
+          - BEFORE THE GATES ON A FIRST RUN. Nothing has been paid yet, so the refusal costs one
+            `git merge --ff-only`, and the cut then runs every gate against the tree it will tag -- the
+            stronger proof. Inside a catch-up re-run there is no local gate left to run, so there the
+            same catch-up is allowed at either moment.
+          - PAST THE ROUND BOUND. Each round waits for a CI run, so a trunk that never settles would
+            otherwise wait forever, one run at a time. The bound turns that into a refusal that says so.
+          - WITHOUT A NAMED CHECK OR A REPO. With no check name nothing can certify (the
+            Get-CiTestCertificate rule), and with no repo there is nothing to ask -- both are the
+            pre-#3155 behaviour, which is why a consumer that has stated neither sees no change.
+    #>
+    param(
+        [Parameter(Mandatory)][ValidateSet('before the gates', 'after the gates')][string]$Moment,
+        [int]$BehindCount,
+        [int]$AheadCount,
+        [int]$Round,
+        [int]$MaxRounds,
+        [string]$CheckName,
+        [string]$RepoName,
+        [switch]$InCatchUpRun
+    )
+
+    $refuse = { param([string]$Why) [pscustomobject]@{ Allowed = $false; Reason = $Why } }
+    if ($AheadCount -gt 0) { return (& $refuse 'main is AHEAD of origin/main, and no CI run of origin''s has seen those commits') }
+    if ($BehindCount -le 0) { return (& $refuse 'main is not behind origin/main -- there is nothing to catch up over') }
+    if ($Moment -eq 'before the gates' -and -not $InCatchUpRun) {
+        return (& $refuse 'the gates have not run yet, so fast-forwarding and running them against the new tree is the stronger proof')
+    }
+    if ($Round -ge $MaxRounds) {
+        return (& $refuse ("origin/main moved again after {0} catch-up round(s) -- the trunk is not settling, so this run stops rather than waiting on another CI run" -f $Round))
+    }
+    if (-not ([string]$CheckName).Trim()) { return (& $refuse 'this repo has not named the check that proves its test suites (Get-CiTestCheckName), so no CI run can certify the new commits') }
+    if (-not ([string]$RepoName).Trim()) { return (& $refuse 'this repo has not stated its GitHub slug (Get-RepoName), so the CI run for the new commits cannot be read') }
+    return [pscustomobject]@{ Allowed = $true; Reason = '' }
+}
+
 function Get-ReleaseNoteTreeRoots {
     <#
         The repo-root-relative directories the RELEASE-NOTES exception covers -- the hand-written note
