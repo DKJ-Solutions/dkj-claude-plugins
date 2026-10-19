@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**6 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3157-ci-certificate-raw-name-match · 20261019-123734Z
+
+The CI test certificate that lets `open-pr` skip a local suite run now matches the required check by
+its exact name, so a look-alike check name (a zero-width or plain space on an edge, or another case)
+can no longer stand the test gate down (#3157). The sanitised name is used only for printing. It
+prevents a failure that has not happened: a check this repo never named certifying a commit, reachable
+today only by somebody with write access adding a workflow job.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: a consumer's gate behaves exactly as before for every real check name.
+
+**Score:** N/A
+
+#### Pull Request
+
+the CI test certificate matches the check name exactly, not after sanitising
+
+Plugins: dkj-policy
+
+[PR #3160](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3160)
+
+---
 
 ### DEPLOY: fix/3153-repo-hub-gate-fact · 20261019-122354Z
 
