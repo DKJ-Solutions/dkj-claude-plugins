@@ -1110,6 +1110,16 @@ Assert-Equal 'v2.9.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.4
 Assert-Equal 'v2.44.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.45.0') -Version 'v2.45.0') 'the highest tag below wins'
 Assert-Equal '' (Get-PreviousReleaseTag -Tags @('v1.0.0') -Version 'v1.0.0') 'the first release has no range start'
 
+# A REBASE-MERGE'S EARLIER COMMITS (#3190): the merge's own diff is only its last commit, so gh's file list joins it.
+$nlRebase = Get-PullChangedPaths -DiffPaths @('extensions/a.js') -PullFiles @('sections/b.liquid', 'extensions/a.js') -ChangedFiles 2 -ParentCount 1
+Assert-Equal 'extensions/a.js,sections/b.liquid' ($nlRebase.Paths -join ',') 'a path only an earlier commit of a rebase-merged PR touched is seen, and none twice'
+Assert-True $nlRebase.Complete '...and gh''s whole list makes the answer complete'
+Assert-True (-not (Get-PullChangedPaths -DiffPaths @('a') -PullFiles @('a', 'b') -ChangedFiles 140 -ParentCount 1).Complete) 'a capped gh list on a one-parent merge is not complete -- the driver reads that PR as unread'
+Assert-True (Get-PullChangedPaths -DiffPaths @('a') -PullFiles @('a') -ChangedFiles 140 -ParentCount 2).Complete 'while a two-parent merge commit''s diff is the whole PR, capped list or not'
+Assert-Equal 0 @((Get-PullChangedPaths -DiffPaths @() -PullFiles @() -ChangedFiles 0).Paths).Count 'an empty PR changes nothing'
+$nlDriverText = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\notify-live.ps1'))
+Assert-True ($nlDriverText -match 'closingIssuesReferences,files,changedFiles' -and $nlDriverText.Contains('Get-PullChangedPaths')) 'the driver asks gh for the PR''s files in the same call, and joins them through the rule'
+
 $nlDash = [string][char]0x2014
 function New-NlBlockComment {
     param([string[]]$Kinds = @(), [string]$CreatedAt = '2026-10-10T10:00:00Z', [string]$Heading = 'WAT WE VAN JE VRAGEN')

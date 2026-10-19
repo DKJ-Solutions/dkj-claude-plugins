@@ -214,7 +214,7 @@ $issueNumbers = New-Object 'System.Collections.Generic.List[int]'
 $heldCount = @{}
 $prsKept = 0
 foreach ($n in @(Get-ReleaseRangePullNumbers -Subjects $subjects.Lines)) {
-    $pr = Invoke-Native { gh pr view "$n" --repo $repoName --json number,state,mergeCommit,closingIssuesReferences }
+    $pr = Invoke-Native { gh pr view "$n" --repo $repoName --json number,state,mergeCommit,closingIssuesReferences,files,changedFiles }
     if ($pr.Code -ne 0) { continue }   # an issue's number, or a PR of another repo: not this release's PR
     try { $j = ($pr.Lines -join "`n") | ConvertFrom-Json } catch { $readFailures++; Write-Host "  PR #$n -- its reply did not parse" -ForegroundColor Yellow; continue }
     $oid = if ($j.mergeCommit) { [string]$j.mergeCommit.oid } else { '' }
@@ -222,14 +222,20 @@ foreach ($n in @(Get-ReleaseRangePullNumbers -Subjects $subjects.Lines)) {
     $prsKept++
     $prHeld = 0
     if ($record) {
-        # The merge against its first parent is the PR's own change, whether it landed as a merge or a squash.
+        # The merge against its first parent, joined with gh's file list for the PR: the diff alone is only the
+        # last commit of a rebase-merge (#3190). Get-PullChangedPaths says when the two together are not whole.
         # core.quotePath forced on, so a path above 0x7F is decoded here rather than by the console code page.
         $diff = Invoke-Native { git -C $repoRoot -c core.quotePath=true diff --no-renames --name-only "$oid^1" $oid }
-        if ($diff.Code -ne 0) {
+        $parents = Invoke-Native { git -C $repoRoot rev-list --parents -n 1 $oid }
+        if ($diff.Code -ne 0 -or $parents.Code -ne 0) {
             $prHeld = -1
         } else {
-            $paths = @($diff.Lines | Where-Object { $_.Trim() } | ForEach-Object { Convert-GitQuotedPath -Path $_ })
-            $prHeld = @((Get-EntryLiveState -ChangedPaths $paths -Record $record).HeldPaths).Count
+            $changed = Get-PullChangedPaths `
+                -DiffPaths @($diff.Lines | Where-Object { $_.Trim() } | ForEach-Object { Convert-GitQuotedPath -Path $_ }) `
+                -PullFiles @(@($j.files) | Where-Object { $_ } | ForEach-Object { [string]$_.path }) `
+                -ChangedFiles ([int]$j.changedFiles) `
+                -ParentCount (@((@($parents.Lines) | Select-Object -First 1) -split '\s+' | Where-Object { $_ }).Count - 1)
+            $prHeld = if ($changed.Complete) { @((Get-EntryLiveState -ChangedPaths $changed.Paths -Record $record).HeldPaths).Count } else { -1 }
         }
     }
     foreach ($r in @($j.closingIssuesReferences | Where-Object { $_ })) {

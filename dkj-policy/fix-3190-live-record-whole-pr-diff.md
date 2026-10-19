@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#### Issue #3190
+
+`notify-live -LivePushRecord` read a PR's paths as `git diff <merge>^1 <merge>`. For a rebase-merge, that
+diff is only the last rebased commit. I verified this against the code that landed with #3191.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `live-message-rules.ps1`: `Get-PullChangedPaths` joins the merge's diff with gh's `files`. It
+  reports the paths as not complete where gh's list is short of `changedFiles` (gh caps the list) and the
+  merge is not a two-parent merge commit
+- [x] `notify-live.ps1`: asks for `files,changedFiles` in the same `gh pr view` call, reads the merge's
+  parent count, and reads an incomplete PR as UNREAD (the issue is not told)
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the union, the capped one-parent case, the two-parent case, an empty PR,
+  and the driver wiring (789 passed)
+
 ### DEPLOY: fix/3190-live-record-whole-pr-diff
 
-**Score:**
+The change here is only in the bwj-development plugin's script and its tests.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+In a BWJ store repo, `notify-live -LivePushRecord` now sees a held file that an earlier commit of a
+rebase-merged PR touched, and does not tell that issue's requester their work is live. A PR whose file
+list gh truncates is reported as UNREAD instead of guessed. This prevents a failure that has not happened
+yet: a "Rebase and merge" through the GitHub UI telling a requester "live" while their file was held back.
+
+**Score:** 1
 
 #### Pull Request
 
