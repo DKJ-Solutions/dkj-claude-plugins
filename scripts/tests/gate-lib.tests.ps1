@@ -990,6 +990,33 @@ exit __EXIT__
     $c18s = Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $hostile -CheckName $named
     Assert-Equal 0 ([regex]::Matches($c18s.Note, '[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Mn}\p{Me}]').Count) 'no control, format, line/paragraph separator or combining-mark character survives into the note'
 
+    # --- 18t. COMPARED RAW, NOT AFTER SANITISING (issue #3157) ---------------------------------------
+    # A zero-width or plain space on either EDGE of a name strips and trims to the declared name, so a
+    # sanitised comparison certified a check this repo never named. Every look-alike below was measured
+    # to compare equal before the repair; each must now refuse, and say why.
+    $zw = [string][char]0x200B
+    $lookAlikes = [ordered]@{
+        'a leading zero-width space'  = $zw + 'lint-en-tests'
+        'a trailing zero-width space' = 'lint-en-tests' + $zw
+        'a trailing plain space'      = 'lint-en-tests '
+        'a different case'            = 'Lint-En-Tests'
+    }
+    foreach ($case in $lookAlikes.GetEnumerator()) {
+        $json = '[{"name":"' + $case.Value + '","bucket":"pass"}]'
+        $c18t = Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $json -CheckName $named
+        Assert-True (-not $c18t.Certified) "a green look-alike with $($case.Key) does NOT certify"
+        Assert-True (-not $c18t.InFlight) "and is not in flight either ($($case.Key))"
+    }
+    $edgeJson = '[{"name":"lint-en-tests' + $zw + '","bucket":"pass"}]'
+    Assert-True ((Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $edgeJson -CheckName $named).Note -match 'look-alike') 'the refusal names a look-alike as such, since it prints as the missing check'
+    # The real check beside a look-alike still certifies: the exact record decides.
+    $withTwin = '[{"name":"lint-en-tests' + $zw + '","bucket":"fail"},{"name":"lint-en-tests","bucket":"pass"}]'
+    Assert-True (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $withTwin -CheckName $named).Certified 'the exact check certifies, whatever a look-alike beside it reports'
+    # And the declared side: a seam value that does not print as itself is refused, not matched through.
+    $c18d = Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $green -CheckName ($named + ' ')
+    Assert-True (-not $c18d.Certified) 'a declared name with an edge space is a misdeclaration and certifies nothing'
+    Assert-True ($c18d.Note -match 'does not print as itself') 'and the refusal says so'
+
     # 19. And the wiring: gate-lib honours the certificate, open-pr computes one, and neither records
     # it as local gate evidence. Shape asserts -- running open-pr for real would run the gate this
     # branch exists to skip.
