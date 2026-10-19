@@ -353,7 +353,7 @@ the headings take its tint (through `:where()`, so a heading inside a coloured c
 
 **The complete list of reserved names**, so a repo layer knows what not to redefine:
 the page header (`body > header`, `main > header`, with `.header--accent`) and its `.controls` row, `main`/`.container`,
-`.hero`, `.tiles`/`.tile` (with `--accent`), `.card` (with `--accent`, and the head parts `__head`, `__title`, `__sub`, with a `.badge` before the title text, or a plain `h3` where a heading stands above a group of cards), `.grid-2` (with `.grid__head` and `.grid__full`), `.table-wrap`/`.table` (with `--accent`, `.row-total`, and
+`.hero`, `.tiles`/`.tile` (with `--accent`), `.card` (with `--accent`, and the head parts `__head`, `__title` (an `h3`), `__sub`, with a `.badge` before the title text, or a plain `h3`), `.grid-2` (with `.grid__head`, which holds a group's `h2`, and `.grid__full`), `.table-wrap`/`.table` (with `--accent`, `.row-total`, and
 sortable headers via `.sort`/`.arrow` on `aria-sort`), `.seg` (a segmented switch), `.legend`/`.legend__item` (with
 `--line`), `.swatch`, `.badge` (with `--good`, `--warn`, `--bad`, `--info`, `--neutral`, `--sm`),
 `.badge-row`, `.badge-list` (a `<ul>` of `.badge-row` items), `.meter` (with `--good`, `--warn`, `--bad`, `--info`), `.mini-cards`/`.mini-card` (with
@@ -410,6 +410,33 @@ level-up colours, the equipment lists, the stat lines, the chips and the downloa
 
 ## Page patterns
 
+### An h2 never stands inside a card
+
+**A hard rule** (Maikel, October 19, 2026,
+[#3175](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3175)): **an `h2` always stands above the
+card or cards it heads, never inside one.** The `h2`s are what group a page: one `h2` with its sub line, the
+cards that belong to it, then the next `h2`. A heading inside a card's border reads as that card's label and
+groups nothing.
+
+- **The form:** a `.grid-2` whose first child is a `.grid__head` (the `h2`, then a `p.card__sub`), then the
+  cards. Two cards sit side by side; a card with `.grid__full` takes the whole row, so stacked cards each carry
+  it. With React, the brand book's `CardGroup`.
+- **A card's own title is an `h3`**: `.card__head` > `h3.card__title` (room for a `.badge` before the text) or a
+  plain `h3`, then an optional `.card__sub`. A card that is the only one under its `h2` needs no title of its
+  own. With React, `CardHead` in a `Card variant="data"` renders an `h3`.
+- **Related cards share one `h2`.** Where several cards answer one question (three ways of counting the same
+  issues, the in-flight lists), they stand under one `h2` with an `h3` each, rather than an `h2` each.
+- **The spacing does the grouping.** In a `.page-column`, a `.grid-2` with a `.grid__head` takes an extra
+  `--spacing-5` above it, so an `h2` sits clearly closer to its own cards (`--spacing-4`) than to the group
+  before it.
+- **The gate holds it:** `check-house-style`'s fourth check, `heading`, reports an `h2` carrying
+  `.card__title` (or the brand book's `.dkj-card-title`) and an `h2` opening a `.card__head`
+  (or `.dkj-card-head`).
+
+**What this changes for an app that takes the update:** a card titled with `h2.card__title` fails the gate.
+Move the `h2` and its sub line into a `.grid__head` above the card, and add `.grid__full` to the card. A
+`.card__title` now renders at `--text-h3`, in the sans, where it was `--text-h2` in the serif.
+
 ### Every page: the breadcrumb bar
 
 **Every page a DKJ-Solutions dev server serves opens with a breadcrumb bar** (owner's request, October 17,
@@ -460,11 +487,11 @@ implementation is this repo's own [`RepoDashboard.tsx`](https://github.com/DKJ-S
 | 4 | `h1`: **Repo hub** | `<h1>` | `h1` | fixed, word for word |
 | 5 | Lead: one paragraph on what the repo is for | `<p className="dkj-lead">` | `.lead` | the repo's own text |
 | 6 | A primary button to the product | `Button variant="primary"` | `.btn.btn--touch.btn--primary`, in a `<p class="page-cta">` | product repos only, with the repo's own label. The product has its own route and is never the page on `/` |
-| 7 | **Pages**: links to the repo's own pages, one row per page (below the table). With general pages too, two groups, **This repo** and **General**, under one `h2` | `PageLinks` (a `Card variant="data"` around a `<nav>` of house `.menu-item` link rows; two cards under one heading when there are two groups) | `.card` with `.card__head`; the list is a `<nav class="menu-list">` of `<a class="menu-item">` rows, each with `.menu-item__label`, optionally `.menu-item__sub`, and `.menu-item__chevron`. Two groups: a `.grid-2` with a `.grid__head` (the `h2` and its `.card__sub`) above two cards titled with an `h3` | optional: any repo with a page of its own besides `/` and the product, or with general pages. Fixed titles and form; the repo's own pages and their group |
+| 7 | **Pages**: links to the repo's own pages, one row per page (below the table). With general pages too, two groups, **This repo** and **General**, under one `h2` | `PageLinks` (a `CardGroup` around one `Card variant="data"` holding a `<nav>` of house `.menu-item` link rows, or two cards when there are two groups) | a `.grid-2` with a `.grid__head` (the `h2` and its `.card__sub`) above the card(s); the list is a `<nav class="menu-list">` of `<a class="menu-item">` rows, each with `.menu-item__label`, optionally `.menu-item__sub`, and `.menu-item__chevron`. One group: one `.card.grid__full` with no title of its own. Two groups: two cards titled with an `h3` | optional: any repo with a page of its own besides `/` and the product, or with general pages. Fixed titles and form; the repo's own pages and their group |
 | 8 | One stat tile per in-flight list, counting it | `StatTiles` / `StatTile` | `.tiles` / `.tile`, with `.label` and `.v` | the repo's own lists. A count not read yet shows `--` |
 | 9 | A loading line, or a warning that the lists could not be read | `Message live="status"` (loading) / `Message tone="warn" live="alert"` (error) | `.msg` with `role="status"` / `.msg.msg--warn` with `role="alert"` | fixed. The role makes a screen reader announce the line when it appears |
-| 10 | One data card per in-flight list, in the tiles' order | `Card variant="data"` with `CardHead` (title, sub line) and `DataTable` | `.card` around `.table-wrap` / `.table`; the card head is `.card__head` with `.card__title` (an `h2`) and `.card__sub` | the repo's own lists |
-| 11 | **About this repo**: a facts card, its `h2` and sub line above it | `Card variant="data"` with `DefinitionList variant="facts"`, under a `grid__head` | a `.grid-2` with a `.grid__head` (`h2` + `.card__sub`) and the `.card.grid__full` holding the facts list `.facts` (a `<dl>`) | fixed title; the sub line and the facts are the repo's own |
+| 10 | **In flight**: one data card per in-flight list, in the tiles' order, under one `h2` | `InFlightCards`: a `CardGroup` around one `Card variant="data" className="grid__full"` per list, each with `CardHead` (title, sub line) and `DataTable` | a `.grid-2` with a `.grid__head` (`h2` + `.card__sub`), then one `.card.grid__full` per list around `.table-wrap` / `.table`; the card head is `.card__head` with `.card__title` (an `h3`) and `.card__sub` | fixed title; the lists and the sub line are the repo's own |
+| 11 | **About this repo**: a facts card, its `h2` and sub line above it | `Card variant="data"` with `DefinitionList variant="facts"`, in a `CardGroup` | a `.grid-2` with a `.grid__head` (`h2` + `.card__sub`) and the `.card.grid__full` holding the facts list `.facts` (a `<dl>`) | fixed title; the sub line and the facts are the repo's own |
 | 12 | A footer note naming where the data comes from | `FooterNote` | `.footer-note` | the repo's own source |
 
 **The Pages block (7)**, added in [#200](https://github.com/DKJ-Solutions/dkj-brandbook/issues/200). Four decisions, each with its reason:
@@ -472,13 +499,13 @@ implementation is this repo's own [`RepoDashboard.tsx`](https://github.com/DKJ-S
 - **Where: block 7, directly under the intro and above the stat tiles.** The hub's job is to get you to the
   page you want, so the way on comes before the status, and it does not depend on the lists having loaded,
   so it never moves or waits while they are read.
-- **What it looks like: a card titled "Pages" (with one group of pages; two groups are below) holding a navigation list, the house `.menu-item` row as an
+- **What it looks like: a card under the `h2` "Pages" (with one group of pages; two groups are below) holding a navigation list, the house `.menu-item` row as an
   `<a>`** (label, optional one-line description beneath it, a chevron at the end; a line between rows). The
   `.menu-item` is already the house's "this goes somewhere" row, so nothing is invented but the description
   line (`.menu-item__sub`, the muted `--text-sm` line, as `.card__sub`). A row is a full-width, `--tap`-high
   link that tints on hover; a `.tile` is a figure that does not respond, so the two cannot be mistaken for
-  each other, which is the separation the action buttons already have from the tiles. A single card's title
-  is an `h2` at its own `--text-h2`.
+  each other, which is the separation the action buttons already have from the tiles. The `h2` stands above
+  the card, never inside it ([above](#an-h2-never-stands-inside-a-card)).
 - **Fixed or optional: optional, with a fixed form.** A repo with no page of its own besides `/` and the
   product leaves it out; a repo with at least one more page carries it, and its rows are the repo's own
   (label in the app's language, short, the page's own name as the breadcrumb uses it; the description is one
@@ -496,12 +523,13 @@ repo serves some pages that are not its own (Issues, Release notes), so a repo w
 side by side, under one `h2` that stands above them**: **This repo** (sub line "Specific to this repo") and
 **General** (sub line "Not specific to this repo: every DKJ-Solutions repo has them"), each titled with a
 plain `h3`. The `h2` is **Pages** with the sub line "Every page this dev server serves". **Only one group
-with pages, whichever group it is, stays one card as above:** `h2.card__title` Pages inside the card, with no
-`.grid__head`. Block 11 takes the heading form of the two groups: its `h2` and a sub line stand above the facts
-card; the sub line is the repo's own, one line on what its facts are (for example "What this repo is"). So
-**every `h2` that stands above its cards carries a sub line**, and the single Pages card keeps none.
+with pages, whichever group it is, keeps the same heading:** the `h2` Pages and its sub line above one
+`.card.grid__full`, which has no title of its own (#3175; until then that card carried `h2.card__title` inside
+it). Blocks 10 and 11 take the same heading form: the `h2` and a sub line stand above the cards; block 11's
+sub line is the repo's own, one line on what its facts are (for example "What this repo is"). So **every `h2`
+stands above its cards and carries a sub line.**
 
-Without React, one card is `.card` > `.card__head` (`h2.card__title`) + `nav.menu-list[aria-label="Pages"]` >
+Without React, one group is a `.grid-2` > `.grid__head` (`h2` + `p.card__sub`) + `.card.grid__full` > `nav.menu-list[aria-label="Pages"]` >
 one `a.menu-item[href]` per page (direct siblings, so the house rule `.menu-item + .menu-item` draws the line
 between rows) > `span.menu-item__label` (the label, then optionally `span.menu-item__sub`) + the
 `.menu-item__chevron` svg; [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) carries it. A

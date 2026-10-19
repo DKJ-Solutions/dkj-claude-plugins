@@ -67,7 +67,7 @@ $findings = @($result.Findings)
 $onlyMissing = ($findings.Count -eq 1 -and $findings[0].Check -eq 'missing' -and -not @($result.Copies).Count)
 
 if (-not $findings.Count) {
-    Write-Output "${name}: the house style holds at $($result.Tag) -- $(@($result.Copies).Count) pinned copy/copies, no redefined house token or class, no retired token name."
+    Write-Output "${name}: the house style holds at $($result.Tag) -- $(@($result.Copies).Count) pinned copy/copies, no redefined house token or class, no retired token name, no h2 inside a card."
     exit 0
 }
 if ($onlyMissing) {

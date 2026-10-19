@@ -319,8 +319,9 @@ function Format-ConnectorDashboardHtml {
         })
 
     # The overview (headed Connected repos): one card, one table per group, the group named in its first column head.
-    [void]$sb.AppendLine('<section class="card" id="overview">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Connected repos</h2><p class="card__sub">By owner, worst first</p></div>')
+    [void]$sb.AppendLine('<div class="grid-2" id="overview">')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>Connected repos</h2><p class="card__sub">By owner, worst first</p></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<div>')
     foreach ($g in $groups) {
         $members = $g.Members
@@ -339,11 +340,13 @@ function Format-ConnectorDashboardHtml {
     }
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
 
     # The per-repo details, a card of their own beside Connected repos, headed Issues: an h2, an h3 per group, and a house
     # mini-card per repo (a card inside a card). The overview links down to it, so its head carries the way back.
-    [void]$sb.AppendLine('<section class="card" id="issues">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Issues</h2><p class="card__sub">What the check reports per repo</p><a class="btn" href="#overview">Back to overview</a></div>')
+    [void]$sb.AppendLine('<div class="grid-2" id="issues">')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>Issues</h2><p class="card__sub">What the check reports per repo</p><a class="btn" href="#overview">Back to overview</a></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<div>')
     foreach ($g in $groups) {
         $members = $g.Members
@@ -392,6 +395,7 @@ function Format-ConnectorDashboardHtml {
     }
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
 
     # Where the data comes from, with the way to read it again.
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }

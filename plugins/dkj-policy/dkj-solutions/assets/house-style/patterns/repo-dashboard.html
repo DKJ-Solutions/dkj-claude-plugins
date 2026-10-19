@@ -45,8 +45,8 @@
     <!-- 7. Pages: links to the pages the dev server serves (#200, #206), optional. Each card holds a nav of house
          .menu-item links: label, an optional one-line description, a chevron. Not .tile: a tile shows a figure.
          Shown in its two-group form (This repo, General): the h2 stands above both cards in a .grid__head spanning
-         the columns, and each card is titled with an h3. A hub with one group only uses a single card, with
-         h2.card__title Pages inside it and no .grid__head. -->
+         the columns, and each card is titled with an h3. A hub with one group only keeps the same .grid__head,
+         with the one card spanning the row (.grid__full) and no title of its own: an h2 never stands inside a card. -->
     <div class="grid-2">
       <div class="grid__head">
         <h2>Pages</h2>
@@ -98,56 +98,63 @@
          screen reader announces the line when it appears. -->
     <p class="msg msg--warn" role="alert">What is in flight could not be read: this is the placeholder state of the reference page.</p>
 
-    <!-- 10. One data card per in-flight list, in the tiles' order. -->
-    <section class="card">
-      <div class="card__head">
-        <h2 class="card__title">Pull requests</h2>
-        <p class="card__sub">Open, newest first</p>
+    <!-- 10. One data card per in-flight list, in the tiles' order, under one h2 that stands above them (#3175):
+         each card spans the row and is titled with an h3.card__title. -->
+    <div class="grid-2">
+      <div class="grid__head">
+        <h2>In flight</h2>
+        <p class="card__sub">Every list this repo has open</p>
       </div>
-      <div class="table-wrap" role="region" aria-label="Open pull requests" tabindex="0">
-        <table class="table">
-          <thead><tr><th scope="col">Pull request</th><th scope="col">Number</th><th scope="col">Opened</th></tr></thead>
-          <tbody>
-            <tr><td><a href="#">Add the facts list</a><div class="muted">feat/12-facts-list</div></td><td>#14</td><td>15 Oct</td></tr>
-            <tr><td><a href="#">Fix the table head</a><div class="muted">fix/9-table-head (draft)</div></td><td>#13</td><td>12 Oct</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <section class="card grid__full">
+        <div class="card__head">
+          <h3 class="card__title">Pull requests</h3>
+          <p class="card__sub">Open, newest first</p>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Open pull requests" tabindex="0">
+          <table class="table">
+            <thead><tr><th scope="col">Pull request</th><th scope="col">Number</th><th scope="col">Opened</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#">Add the facts list</a><div class="muted">feat/12-facts-list</div></td><td>#14</td><td>15 Oct</td></tr>
+              <tr><td><a href="#">Fix the table head</a><div class="muted">fix/9-table-head (draft)</div></td><td>#13</td><td>12 Oct</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <section class="card">
-      <div class="card__head">
-        <h2 class="card__title">Issues</h2>
-        <p class="card__sub">Open, by priority</p>
-      </div>
-      <div class="table-wrap" role="region" aria-label="Open issues" tabindex="0">
-        <table class="table">
-          <thead><tr><th scope="col">Issue</th><th scope="col">Number</th><th scope="col">Priority</th></tr></thead>
-          <tbody>
-            <tr><td><a href="#">The facts list has no stylesheet class</a><div class="muted">Claimed by example-user</div></td><td>#12</td><td>1</td></tr>
-            <tr><td><a href="#">The table head is too tall</a><div class="muted">Unclaimed</div></td><td>#9</td><td>2</td></tr>
-            <tr><td><a href="#">Write the release notes</a><div class="muted">Unclaimed</div></td><td>#10</td><td>--</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <section class="card grid__full">
+        <div class="card__head">
+          <h3 class="card__title">Issues</h3>
+          <p class="card__sub">Open, by priority</p>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Open issues" tabindex="0">
+          <table class="table">
+            <thead><tr><th scope="col">Issue</th><th scope="col">Number</th><th scope="col">Priority</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#">The facts list has no stylesheet class</a><div class="muted">Claimed by example-user</div></td><td>#12</td><td>1</td></tr>
+              <tr><td><a href="#">The table head is too tall</a><div class="muted">Unclaimed</div></td><td>#9</td><td>2</td></tr>
+              <tr><td><a href="#">Write the release notes</a><div class="muted">Unclaimed</div></td><td>#10</td><td>--</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <section class="card">
-      <div class="card__head">
-        <h2 class="card__title">Branches</h2>
-        <p class="card__sub">Every branch off main, with its pull request where one is open</p>
-      </div>
-      <div class="table-wrap" role="region" aria-label="Branches off main" tabindex="0">
-        <table class="table">
-          <thead><tr><th scope="col">Branch</th><th scope="col">Pull request</th></tr></thead>
-          <tbody>
-            <tr><td><a href="#">feat/12-facts-list</a></td><td>#14</td></tr>
-            <tr><td><a href="#">fix/9-table-head</a></td><td>#13</td></tr>
-            <tr><td><a href="#">docs/11-release-notes</a></td><td>none yet</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <section class="card grid__full">
+        <div class="card__head">
+          <h3 class="card__title">Branches</h3>
+          <p class="card__sub">Every branch off main, with its pull request where one is open</p>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Branches off main" tabindex="0">
+          <table class="table">
+            <thead><tr><th scope="col">Branch</th><th scope="col">Pull request</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#">feat/12-facts-list</a></td><td>#14</td></tr>
+              <tr><td><a href="#">fix/9-table-head</a></td><td>#13</td></tr>
+              <tr><td><a href="#">docs/11-release-notes</a></td><td>none yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
 
     <!-- 11. About this repo: a facts card. -->
     <!-- Its h2 and sub line stand above the card, in a .grid__head; the card spans the row (#206). -->
