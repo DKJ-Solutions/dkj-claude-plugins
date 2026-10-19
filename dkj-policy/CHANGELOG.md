@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**1 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3166-placeholder-lilac-default · 20261019-144946Z
+
+With no theme chosen yet, the dev-preview placeholder page (the Repo hub a repo without a dev page of
+its own gets) now opens in Lila, the same default as every other dev and general page, instead of
+Petrol or Hemelsblauw depending on the OS mode (#3166).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running the dkj-solutions dev-preview hook sees its placeholder page open in the same
+default theme as its other pages. Cosmetic.
+
+**Score:** 1
+
+#### Pull Request
+
+The dev-preview placeholder page falls back to lilac like every other dev page
+
+Plugins: dkj-solutions
+
+[PR #3171](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3171)
+
+---
 
 ### DEPLOY: fix/3162-release-notes-lilac-default · 20261019-143532Z
 
