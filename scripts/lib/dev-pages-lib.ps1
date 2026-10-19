@@ -116,7 +116,7 @@ function Format-RepoHubHtml {
     # draws the line between them. The General card is the plugin's, the same in every hub
     # (Format-GeneralPagesCardHtml): it links the general pages server at -GeneralPagesUrl, or says it is not
     # running. It is always drawn; the repo's own card is drawn when there is a page for it, and one card
-    # alone is block 7 as the form gives it, its title the h2.
+    # alone is block 7 as the form gives it: its h2 still stands above the card, never inside it (#3175).
     $repoRows = @($Pages)
     $row = $repoRows.Count -gt 0
     if ($row) {
@@ -211,8 +211,9 @@ function Format-TestGatePageHtml {
         [void]$body.AppendLine('<p class="msg" role="status">Not recorded yet, so the gate charges each the largest recorded value: ' +
             ((@($Model.Missing) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ', ') + '.</p>')
     }
-    [void]$body.AppendLine('<section class="card" id="suites">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Suites</h2><p class="card__sub">Mean CI duration per suite, slowest first</p></div>')
+    [void]$body.AppendLine('<div class="grid-2" id="suites">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Suites</h2><p class="card__sub">Mean CI duration per suite, slowest first</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     if ($suites.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Suite</th><th>Seconds</th><th class="dp-left">Against the slowest</th><th>Share of the sum</th></tr></thead><tbody>')
         foreach ($s in $suites) {
@@ -225,8 +226,10 @@ function Format-TestGatePageHtml {
         [void]$body.AppendLine('<p class="note">No suite durations are recorded.</p>')
     }
     [void]$body.AppendLine('</section>')
-    [void]$body.AppendLine('<section class="card" id="recorded">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Where it was measured</h2></div>')
+    [void]$body.AppendLine('</div>')
+    [void]$body.AppendLine('<div class="grid-2" id="recorded">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Where it was measured</h2></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     [void]$body.AppendLine('<dl class="facts">')
     [void]$body.AppendLine('<div><dt>Recorded</dt><dd>' + $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('<div><dt>Machine</dt><dd>' + $(if ($Model.Machine) { & $e $Model.Machine } else { '--' }) + '</dd></div>')
@@ -236,6 +239,7 @@ function Format-TestGatePageHtml {
     [void]$body.AppendLine('<div><dt>CI runs</dt><dd>' + $(if ($runs) { $runs } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('</dl>')
     [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
     return Format-DevPageHtml -Title 'Test gate' -Style $script:DevBarStyle -Body $body.ToString() `
         -Lead 'What each test suite costs on CI, as the gate packs its shards from it. Measured on CI runners, never on a workstation: a local reading does not convert.' `
         -FooterNote 'Read from <code>scripts/tests/suite-durations.json</code>. Refreshed by <code>scripts/maintenance/record-suite-durations.ps1</code>; the <code>measure-suites</code> skill compares two sets of runs.'
@@ -338,8 +342,9 @@ function Format-BrandbookPageHtml {
         [void]$body.AppendLine('<p class="msg" role="status">The full brand book app, with its showcase, moves into <code>brandbook/</code> with <a class="dp-link" href="https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3131">#3131</a>; from then on <code>npm run dev</code> there serves it.</p>')
     }
 
-    [void]$body.AppendLine('<section class="card" id="themes">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Themes</h2><p class="card__sub">The twelve the user picks from under Settings, each with its nine steps, from the ground end to the far end</p></div>')
+    [void]$body.AppendLine('<div class="grid-2" id="themes">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Themes</h2><p class="card__sub">The twelve the user picks from under Settings, each with its nine steps, from the ground end to the far end</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     if ($themes.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Theme</th><th class="dp-left">Mode</th>' +
             ((1..9 | ForEach-Object { '<th class="dp-left">-' + $_ + '</th>' }) -join '') + '</tr></thead><tbody>')
@@ -357,9 +362,11 @@ function Format-BrandbookPageHtml {
         [void]$body.AppendLine('<p class="note">No theme was found in house-theme.js.</p>')
     }
     [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
 
-    [void]$body.AppendLine('<section class="card" id="tokens">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Tokens</h2><p class="card__sub">The value is the light default, Blauw; the sample is drawn in the theme picked under Settings</p></div>')
+    [void]$body.AppendLine('<div class="grid-2" id="tokens">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Tokens</h2><p class="card__sub">The value is the light default, Blauw; the sample is drawn in the theme picked under Settings</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     if ($tokens.Count) {
         foreach ($g in 'Theme steps', 'Categorical', 'Status', 'Type', 'Spacing', 'App shell') {
             $rows = @($tokens | Where-Object { $_.Group -eq $g })
@@ -382,9 +389,11 @@ function Format-BrandbookPageHtml {
         [void]$body.AppendLine('<p class="note">No token was found in house-style.css.</p>')
     }
     [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
 
-    [void]$body.AppendLine('<section class="card" id="specimens">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Specimens</h2><p class="card__sub">A few house components, drawn by the stylesheet itself</p></div>')
+    [void]$body.AppendLine('<div class="grid-2" id="specimens">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Specimens</h2><p class="card__sub">A few house components, drawn by the stylesheet itself</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     [void]$body.AppendLine('<div class="bb-row"><button type="button" class="btn">Button</button><button type="button" class="btn btn--primary">Primary</button><button type="button" class="btn" disabled>Disabled</button>' +
         '<span class="seg" role="group" aria-label="A segmented switch"><button type="button" aria-pressed="true">Day</button><button type="button" aria-pressed="false">Week</button><button type="button" aria-pressed="false">Month</button></span></div>')
     [void]$body.AppendLine('<ul class="badge-list">')
@@ -397,9 +406,11 @@ function Format-BrandbookPageHtml {
     }
     [void]$body.AppendLine('<p class="msg msg--warn">A <code>.msg--warn</code> line: a warning in text.</p>')
     [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
 
-    [void]$body.AppendLine('<section class="card" id="components">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Components</h2><p class="card__sub">Every class the stylesheet defines, by its section. A repo''s own layer never restyles one of these</p></div>')
+    [void]$body.AppendLine('<div class="grid-2" id="components">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Components</h2><p class="card__sub">Every class the stylesheet defines, by its section. A repo''s own layer never restyles one of these</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     if ($sections.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Section</th><th class="dp-left">Classes</th></tr></thead><tbody>')
         foreach ($s in $sections) {
@@ -410,6 +421,7 @@ function Format-BrandbookPageHtml {
         [void]$body.AppendLine('<p class="note">No component section was found in house-style.css.</p>')
     }
     [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
 
     $style = $script:DevBarStyle + "`n" +
         '.bb-chip { display: inline-block; width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--primary-3); vertical-align: middle; }' + "`n" +
@@ -525,8 +537,9 @@ function Format-SpecialistsPageHtml {
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The specialists could not all be read: ' + (& $e $ReadError) + '.</p>')
     }
-    [void]$body.AppendLine('<section class="card" id="specialists">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Context per specialist</h2><p class="card__sub">Estimated tokens, largest full read first. The bar is the full read against the largest one</p></div>')
+    [void]$body.AppendLine('<div class="grid-2" id="specialists">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Context per specialist</h2><p class="card__sub">Estimated tokens, largest full read first. The bar is the full read against the largest one</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     if ($rows.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Specialist</th><th class="dp-left">Plugin</th><th>Listing</th><th>Definition</th><th>Manual</th><th>Lens</th><th>Full read</th><th class="dp-left">Against the largest</th></tr></thead><tbody>')
         foreach ($r in $rows) {
@@ -550,8 +563,10 @@ function Format-SpecialistsPageHtml {
         [void]$body.AppendLine('<p class="note">No specialist was found.</p>')
     }
     [void]$body.AppendLine('</section>')
-    [void]$body.AppendLine('<section class="card" id="when">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">When each part loads</h2></div>')
+    [void]$body.AppendLine('</div>')
+    [void]$body.AppendLine('<div class="grid-2" id="when">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>When each part loads</h2></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     [void]$body.AppendLine('<dl class="facts">')
     [void]$body.AppendLine('<div><dt>Listing</dt><dd>A subagent''s description. Every session of a repo that enables its plugin carries it, whether the specialist is called or not. A persona has none.</dd></div>')
     [void]$body.AppendLine('<div><dt>Definition</dt><dd>The file without its frontmatter: a subagent''s system prompt each time it is spawned, or a persona''s body when it is read. The orchestrator''s persona is imported on every turn.</dd></div>')
@@ -560,6 +575,7 @@ function Format-SpecialistsPageHtml {
     [void]$body.AppendLine('<div><dt>Full read</dt><dd>All four together: what a specialist costs when everything about it is in context.</dd></div>')
     [void]$body.AppendLine('</dl>')
     [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
     $factor = $CharsPerToken.ToString('0.00', $inv)
     return Format-DevPageHtml -Title 'Specialists' -Style $script:DevBarStyle -Body $body.ToString() `
         -Lead 'Every specialist the dkj-subagents plugins ship, and how much context each one brings along: what every session pays for it, what it costs when it is called, and what its manual and lens add.' `

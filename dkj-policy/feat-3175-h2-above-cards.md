@@ -39,19 +39,47 @@
 
 ### PLAN
 
+Maikel, October 19, 2026: a hard rule that an `h2` never stands inside a card and always stands above it,
+so the `h2` headers group the cards visually (#3175). The form already existed for two blocks (#206: a
+`.grid-2` with a `.grid__head`); this makes it the only form and holds it with the gate.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The rule in `assets/house-style/README.md` (a section of its own under "Page patterns", blocks 7, 10
+  and 11 of the Repo hub) and in the `house-style` skill, with the new checksum of `house-style.css`.
+- [x] `house-style.css`: `.card__title` is an `h3` at `--text-h3`; a headed group in the page column takes an
+  extra `--spacing-5` above it, so an `h2` sits closer to its own cards than to the group before it.
+- [x] `patterns/repo-dashboard.html`: the in-flight cards stand under one `h2` "In flight", each titled with an `h3`.
+- [x] The brand book: `CardHead` in a data card renders an `h3`; `InFlightCards`, `PageLinks` (one group)
+  and the "DKJ-Solutions repos" card stand in a `CardGroup`.
+- [x] Every dev-server and general page: each in-card `h2` moved above its card; the Issues page's three
+  closed breakdowns and the placeholder's two setup cards share one `h2` each.
+- [x] `check-house-style` check 4, `heading`: an `h2.card__title` or an `h2` opening a `.card__head` is a finding.
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1` (unit tests for the heading check, the gate's fixture, and this repo
+  passing its own gate), `dev-pages`, `connector-dashboard` and `dev-preview-sessionstart` suites: green.
+- [x] The brand book gate (`npm run gate`: lint, CSS checks, build): green.
+
 ### DEPLOY: feat/3175-h2-above-cards
 
-**Score:**
+An `h2` never stands inside a card any more: it stands above the card or cards it heads, in a `.grid-2`
+with a `.grid__head`, and a card's own title is an `h3` (`.card__title` now renders at `--text-h3`). A
+headed group takes extra room above it in the page column, so the `h2`s visibly group the cards. The
+`check-house-style` gate gains a fourth check, `heading`, that reports an `h2` inside a card (#3175).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app whose cards carry an `h2` title fails the house-style CI gate from the merge on,
+because the reusable gate runs its checks from `main`: move each `h2` and its sub line into a `.grid__head`
+above the card and add `.grid__full` to the card, as the house-style README's "An h2 never stands inside a
+card" lays out. That form already works with the current release. Once the release is taken, a
+`.card__title` renders at the `h3` size in the sans instead of the `h2` size in the serif.
+
+**Score:** 3
 
 #### Pull Request
 

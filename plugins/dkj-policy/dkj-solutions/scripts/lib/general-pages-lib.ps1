@@ -145,8 +145,9 @@ function Format-GeneralPagesCardHtml {
         url ('http://localhost:4890'), or empty when the hub does not know a server that answers: then the
         card says the server is not running and starts at the next session start. -InRow is $true where the
         card stands beside another on the house .grid-2 (its title an h3, under the row's own h2), and
-        $false where it stands alone (its title the h2). A url that is not a plain loopback base is treated
-        as none, so a state file cannot point a hub's links elsewhere.
+        $false where it stands alone: then it brings its own .grid-2 with the h2 above the card, because an
+        h2 never stands inside a card (#3175). A url that is not a plain loopback base is treated as none,
+        so a state file cannot point a hub's links elsewhere.
     #>
     param(
         [AllowEmptyString()][string]$PagesUrl = '',
@@ -156,10 +157,16 @@ function Format-GeneralPagesCardHtml {
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $base = ''
     if ($PagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') { $base = $PagesUrl.TrimEnd('/') }
-    $title = if ($InRow) { '<h3>General</h3>' } else { '<h2 class="card__title">General pages</h2>' }
+    $headSub = '<p class="card__sub">Not specific to this repo: every DKJ-Solutions repo has them</p>'
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.AppendLine('<section class="card">')
-    [void]$sb.AppendLine('<div class="card__head">' + $title + '<p class="card__sub">Not specific to this repo: every DKJ-Solutions repo has them</p></div>')
+    if ($InRow) {
+        [void]$sb.AppendLine('<section class="card">')
+        [void]$sb.AppendLine('<div class="card__head"><h3>General</h3>' + $headSub + '</div>')
+    } else {
+        [void]$sb.AppendLine('<div class="grid-2">')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>General pages</h2>' + $headSub + '</div>')
+        [void]$sb.AppendLine('<section class="card grid__full">')
+    }
     if ($base) {
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="General pages">')
         foreach ($p in @($Pages)) {
@@ -171,6 +178,7 @@ function Format-GeneralPagesCardHtml {
         [void]$sb.AppendLine('<p class="msg" role="status">The general pages server is not running. It starts at the next session start, and these pages are linked here from then on.</p>')
     }
     [void]$sb.AppendLine('</section>')
+    if (-not $InRow) { [void]$sb.AppendLine('</div>') }
     return $sb.ToString()
 }
 
@@ -343,8 +351,9 @@ function Format-ArtifactsPageHtml {
         [void]$body.AppendLine('<p class="msg msg--warn" role="status">Not a claude.ai Artifact link, so shown without one: ' +
             (($unlinked | ForEach-Object { '<code>' + (& $e $_.Title) + '</code>' }) -join ', ') + '.</p>')
     }
-    [void]$body.AppendLine('<section class="card" id="artifacts">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Artifacts</h2><p class="card__sub">Newest first. Each opens on claude.ai, for an account it is shared with</p></div>')
+    [void]$body.AppendLine('<div class="grid-2" id="artifacts">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Artifacts</h2><p class="card__sub">Newest first. Each opens on claude.ai, for an account it is shared with</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     if ($rows.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Artifact</th><th class="dp-left">Kind</th><th class="dp-left">Created</th><th class="dp-left">Last published</th></tr></thead><tbody>')
         foreach ($a in $rows) {
@@ -360,13 +369,16 @@ function Format-ArtifactsPageHtml {
         [void]$body.AppendLine('<p class="note">No Artifact is recorded.</p>')
     }
     [void]$body.AppendLine('</section>')
-    [void]$body.AppendLine('<section class="card" id="recorded">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Where the list comes from</h2></div>')
+    [void]$body.AppendLine('</div>')
+    [void]$body.AppendLine('<div class="grid-2" id="recorded">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Where the list comes from</h2></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     [void]$body.AppendLine('<dl class="facts">')
     [void]$body.AppendLine('<div><dt>Recorded</dt><dd>' + $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('<div><dt>Method</dt><dd>' + $(if ($Model.Method) { & $e $Model.Method } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('</dl>')
     [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
     return Format-GeneralPageHtml -Title 'Artifacts' -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName `
         -Lead 'Every claude.ai Artifact a session in this repo has published: pages, decks and documents. An Artifact is private to the account that made it until it is shared, so a link may not open for everyone.' `
         -FooterNote 'Read from the repo''s <code>scripts/dashboard/artifacts.json</code>, on every request. The register is the repo''s own to keep; where it is absent the page says so.'
@@ -494,12 +506,15 @@ function ConvertFrom-IssueList {
 }
 
 function Format-IssueGroupCard {
-    <# One card of the closed-in-the-window breakdown: -Groups is a list of @{ Name; Count }. #>
-    param([string]$Title, [AllowEmptyCollection()][object[]]$Groups, [int]$Total)
+    <#
+        One card of the closed-in-the-window breakdown: -Groups is a list of @{ Name; Count }. The cards stand
+        under one h2 of their own, so each is titled with an h3 (#3175); -Full spans the row.
+    #>
+    param([string]$Title, [AllowEmptyCollection()][object[]]$Groups, [int]$Total, [switch]$Full)
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.AppendLine('<section class="card">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">' + (& $e $Title) + '</h2></div>')
+    [void]$sb.AppendLine($(if ($Full) { '<section class="card grid__full">' } else { '<section class="card">' }))
+    [void]$sb.AppendLine('<div class="card__head"><h3 class="card__title">' + (& $e $Title) + '</h3></div>')
     if (@($Groups).Count) {
         $max = [double](@($Groups)[0].Count)
         [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">' + (& $e $Title) + '</th><th>Issues</th><th class="dp-left">Against the largest</th><th>Share</th></tr></thead><tbody>')
@@ -543,8 +558,9 @@ function Format-IssuesPageHtml {
 
     if ($Model) {
         # The open issues: where they stand, then each one.
-        [void]$body.AppendLine('<section class="card" id="open">')
-        [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Open issues</h2><p class="card__sub">Free is work nobody holds, parked waits on an awaiting-* label, claimed has an assignee</p></div>')
+        [void]$body.AppendLine('<div class="grid-2" id="open">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>Open issues</h2><p class="card__sub">Free is work nobody holds, parked waits on an awaiting-* label, claimed has an assignee</p></div>')
+        [void]$body.AppendLine('<section class="card grid__full">')
         if ($open.Count) {
             [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Priority</th><th>Free</th><th>Parked</th><th>Claimed</th><th>Total</th></tr></thead><tbody>')
             foreach ($p in $Model.Matrix.Keys) {
@@ -571,14 +587,16 @@ function Format-IssuesPageHtml {
             [void]$body.AppendLine('<p class="msg" role="status">No open issue: everything filed has been closed.</p>')
         }
         [void]$body.AppendLine('</section>')
+        [void]$body.AppendLine('</div>')
 
         # The flow: opened against closed, per week of the window.
         $weeks = @($Model.Weeks)
         $peak = [double](@($weeks | ForEach-Object { $_.Opened; $_.Closed } | Measure-Object -Maximum).Maximum)
         $bar = { param($n) $w = if ($peak -gt 0) { [Math]::Min(100.0, 100.0 * $n / $peak) } else { 0.0 }
             '<span class="dp-bar" aria-hidden="true"><span style="width: ' + $w.ToString('0.##', $inv) + '%"></span></span>' }
-        [void]$body.AppendLine('<section class="card" id="flow">')
-        [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Opened and closed</h2><p class="card__sub">Per week of the last ' + $days + ' days, oldest first</p></div>')
+        [void]$body.AppendLine('<div class="grid-2" id="flow">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>Opened and closed</h2><p class="card__sub">Per week of the last ' + $days + ' days, oldest first</p></div>')
+        [void]$body.AppendLine('<section class="card grid__full">')
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Week</th><th>Opened</th><th class="dp-left"></th><th>Closed</th><th class="dp-left"></th><th>Net</th></tr></thead><tbody>')
         foreach ($w in $weeks) {
             $net = $w.Opened - $w.Closed
@@ -588,13 +606,15 @@ function Format-IssuesPageHtml {
         }
         [void]$body.AppendLine('</tbody></table></div>')
         [void]$body.AppendLine('</section>')
+        [void]$body.AppendLine('</div>')
 
-        # What was closed in the window, three ways.
-        [void]$body.AppendLine('<div class="grid-2">')
+        # What was closed in the window, three ways: three cards under one h2.
+        [void]$body.AppendLine('<div class="grid-2" id="closed">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>Closed</h2><p class="card__sub">What was closed in the last ' + $days + ' days, three ways</p></div>')
         [void]$body.Append((Format-IssueGroupCard -Title 'Kind' -Groups $Model.ClosedBy.Kind -Total $Model.Closed))
         [void]$body.Append((Format-IssueGroupCard -Title 'Priority' -Groups $Model.ClosedBy.Prio -Total $Model.Closed))
+        [void]$body.Append((Format-IssueGroupCard -Title 'Closed as' -Groups $Model.ClosedBy.Reason -Total $Model.Closed -Full))
         [void]$body.AppendLine('</div>')
-        [void]$body.Append((Format-IssueGroupCard -Title 'Closed as' -Groups $Model.ClosedBy.Reason -Total $Model.Closed))
     }
 
     $when = if ($GeneratedAt) {
@@ -667,10 +687,11 @@ function Format-SessionStartSnapshotHtml {
     $prevScore = if ($prev -and $prev.totalTokens) { Get-SessionStartScore ([double]$prev.noneTokens) ([double]$prev.totalTokens) } else { $null }
     $pct = { param($v) if ($all -gt 0) { ' (' + [Math]::Round(100.0 * $v / $all) + '%)' } else { '' } }
 
-    [void]$sb.AppendLine('<section class="card" id="last-measurement">')
+    [void]$sb.AppendLine('<div class="grid-2" id="last-measurement">')
     $h = $Snapshot.header
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">The last full measurement</h2><p class="card__sub">' +
+    [void]$sb.AppendLine('<div class="grid__head"><h2>The last full measurement</h2><p class="card__sub">' +
         (& $e $(if ($h) { $h.eyebrow } else { $Snapshot.asOf })) + '</p></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
     if ($h -and $h.lede) { [void]$sb.AppendLine('<p>' + (& $md $h.lede) + '</p>') }
     $scoreText = if ($null -ne $score) { "$score / 100" + $(if ($null -ne $prevScore -and $prevScore -ne $score) { ' (was ' + $prevScore + ')' } else { '' }) } else { '--' }
     [void]$sb.Append((Format-DevTiles @(
@@ -680,9 +701,11 @@ function Format-SessionStartSnapshotHtml {
         @{ L = 'No influence (tokens)'; V = ('~' + (Format-DevNumber $sum.none) + (& $pct $sum.none)) })))
     [void]$sb.AppendLine('<p class="note">The score is the share of the start that Claude Code itself brings, against everything this repo and this account add on top. Only a start that adds nothing scores 100.</p>')
     [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
 
-    [void]$sb.AppendLine('<section class="card" id="layers">')
-    [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">Every layer, by influence</h2><p class="card__sub">Direct is changed in this repo through a branch and a PR, a setting on the machine or in claude.ai; no influence ships with Claude Code itself</p></div>')
+    [void]$sb.AppendLine('<div class="grid-2" id="layers">')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>Every layer, by influence</h2><p class="card__sub">Direct is changed in this repo through a branch and a PR, a setting on the machine or in claude.ai; no influence ships with Claude Code itself</p></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
     if ($items.Count) {
         $sorted = @($items | Sort-Object @{ Expression = { @('direct', 'setting', 'none').IndexOf([string]$_.influence) } }, @{ Expression = { [double]$_.tokens }; Descending = $true })
         $largest = [double](($items | ForEach-Object { [double]$_.tokens } | Measure-Object -Maximum).Maximum)
@@ -703,13 +726,15 @@ function Format-SessionStartSnapshotHtml {
         [void]$sb.AppendLine('<p class="note">The snapshot holds no layers.</p>')
     }
     [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
 
     $acts = if ($Snapshot.actions -is [array]) { @($Snapshot.actions) } elseif ($Snapshot.actions) { @($Snapshot.actions.items) } else { @() }
     $acts = @($acts | Where-Object { $_ })
     if ($acts.Count) {
         $lede = if ($Snapshot.actions -isnot [array] -and $Snapshot.actions.lede) { $Snapshot.actions.lede } else { 'Ranked by tokens saved per session. Done is already done.' }
-        [void]$sb.AppendLine('<section class="card" id="actions">')
-        [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">What you can do, biggest gain first</h2><p class="card__sub">' + (& $md $lede) + '</p></div>')
+        [void]$sb.AppendLine('<div class="grid-2" id="actions">')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>What you can do, biggest gain first</h2><p class="card__sub">' + (& $md $lede) + '</p></div>')
+        [void]$sb.AppendLine('<section class="card grid__full">')
         [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th>Gain (tokens)</th><th class="dp-left">Action</th><th class="dp-left">Status</th></tr></thead><tbody>')
         foreach ($a in @(@($acts | Where-Object { -not $_.done }) + @($acts | Where-Object { $_.done }))) {
             $gain = if ($null -ne $a.save) { & $e $a.save } elseif ($null -ne $a.tokens) { '~' + (Format-DevNumber $a.tokens) } else { '--' }
@@ -721,22 +746,26 @@ function Format-SessionStartSnapshotHtml {
         }
         [void]$sb.AppendLine('</tbody></table></div>')
         [void]$sb.AppendLine('</section>')
+        [void]$sb.AppendLine('</div>')
     }
 
     $none = @(if ($Snapshot.none) { @($Snapshot.none.items) | Where-Object { $_ } })
     if ($none.Count) {
-        [void]$sb.AppendLine('<section class="card" id="no-influence">')
-        [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">What you cannot change</h2><p class="card__sub">Claude Code ships this itself, in every repo</p></div>')
+        [void]$sb.AppendLine('<div class="grid-2" id="no-influence">')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>What you cannot change</h2><p class="card__sub">Claude Code ships this itself, in every repo</p></div>')
+        [void]$sb.AppendLine('<section class="card grid__full">')
         [void]$sb.AppendLine('<dl class="facts">')
         foreach ($n in $none) { [void]$sb.AppendLine('<div><dt>' + (& $e $n.title) + '</dt><dd>' + (& $md $n.text) + '</dd></div>') }
         [void]$sb.AppendLine('</dl>')
         [void]$sb.AppendLine('</section>')
+        [void]$sb.AppendLine('</div>')
     }
 
     $adv = $Snapshot.advice
     if ($adv) {
-        [void]$sb.AppendLine('<section class="card" id="advice">')
-        [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">' + (& $e $(if ($adv.heading) { $adv.heading } else { 'Advice' })) + '</h2><p class="card__sub">Advice</p></div>')
+        [void]$sb.AppendLine('<div class="grid-2" id="advice">')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>' + (& $e $(if ($adv.heading) { $adv.heading } else { 'Advice' })) + '</h2><p class="card__sub">Advice</p></div>')
+        [void]$sb.AppendLine('<section class="card grid__full">')
         if ($adv.lede) { [void]$sb.AppendLine('<p>' + (& $md $adv.lede) + '</p>') }
         $steps = @(@($adv.steps) | Where-Object { $_ })
         if ($steps.Count) {
@@ -748,11 +777,13 @@ function Format-SessionStartSnapshotHtml {
             [void]$sb.AppendLine('<p class="msg" role="note"><strong>' + (& $e $(if ($adv.dont.label) { $adv.dont.label } else { 'Do not' })) + ':</strong> ' + (& $md $adv.dont.text) + '</p>')
         }
         [void]$sb.AppendLine('</section>')
+        [void]$sb.AppendLine('</div>')
     }
 
     if ($Snapshot.footer) {
-        [void]$sb.AppendLine('<section class="card" id="method">')
-        [void]$sb.AppendLine('<div class="card__head"><h2 class="card__title">How it was measured</h2></div>')
+        [void]$sb.AppendLine('<div class="grid-2" id="method">')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>How it was measured</h2></div>')
+        [void]$sb.AppendLine('<section class="card grid__full">')
         [void]$sb.AppendLine('<p class="note">' + (& $md $Snapshot.footer) + '</p>')
         $src = $Snapshot.source
         if ($src -and (Test-ArtifactUrl ([string]$src.artifact))) {
@@ -760,6 +791,7 @@ function Format-SessionStartSnapshotHtml {
                 (& $e $src.title) + '</a>' + $(if ($src.copied) { ' on ' + (& $e $src.copied) } else { '' }) + '.</p>')
         }
         [void]$sb.AppendLine('</section>')
+        [void]$sb.AppendLine('</div>')
     }
     return $sb.ToString()
 }
@@ -800,8 +832,9 @@ function Format-SessionStartPageHtml {
         [void]$body.AppendLine('<p class="msg" role="status">Not counted, because neither this machine nor the baseline has a size for it: ' +
             (($unmeasured | ForEach-Object { '<code>' + (& $e $_.Display) + '</code>' }) -join ', ') + '.</p>')
     }
-    [void]$body.AppendLine('<section class="card" id="documents">')
-    [void]$body.AppendLine('<div class="card__head"><h2 class="card__title">Always-on documents</h2><p class="card__sub"><code>CLAUDE.md</code> and every file it imports, largest first</p></div>')
+    [void]$body.AppendLine('<div class="grid-2" id="documents">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Always-on documents</h2><p class="card__sub"><code>CLAUDE.md</code> and every file it imports, largest first</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
     $counted = @($docs | Where-Object { $_.Source -ne 'unmeasured' })
     if ($counted.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Document</th><th>Bytes</th><th class="dp-left">Share of the path</th><th>Share</th><th class="dp-left">Measured</th></tr></thead><tbody>')
@@ -815,6 +848,7 @@ function Format-SessionStartPageHtml {
         [void]$body.AppendLine('<p class="note">No always-on document was measured.</p>')
     }
     [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
     [void]$body.Append((Format-SessionStartSnapshotHtml -Snapshot $Snapshot -ReadError $SnapshotError))
     $when = if ($Model -and $Model.GeneratedAt) {
         $secs = if ($null -ne $Model.Seconds) { ' in ' + ([double]$Model.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }

@@ -192,6 +192,8 @@ Assert-True ($html -notmatch '<header') 'and its intro is no <header>, which the
 Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-theme-key="dev-preview-placeholder">') 'with no stored theme it falls back to lilac, like every other dev page (#3166)'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
 Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1') 'and says how to state a preview of its own'
+Assert-True ($html -match '<h2>Set up a preview</h2>' -and $html -match '<h3 class="card__title">Add a preview of your own</h3>' -and $html -match '<h3 class="card__title">Open it in VS Code</h3>') 'the two setup cards share one h2, each titled with an h3 (#3175)'
+Assert-True (([regex]::Matches($html, '<h2>')).Count -eq ([regex]::Matches($html, '<div class="grid__head"><h2>')).Count) 'and every h2 stands in a grid__head, above its cards'
 Assert-True ($html -match '<title>dkj-thumbnail-generator -- Repo hub</title>' -and $html -notmatch 'Name\s+=') 'its title carries the term, and its example states no Name (#3064)'
 $html = Format-DevPreviewPlaceholderHtml -RepoName '<script>x</script>'
 Assert-True ($html -notmatch '<script>x' -and $html -match '&lt;script&gt;x') 'a folder name is HTML-escaped before it reaches the page'
@@ -399,7 +401,7 @@ try {
         # The placeholder hub now links the server that answers: its General card, from the state file.
         try {
             $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$phPort/" -TimeoutSec 15
-            Assert-True ($page.Content -match "href=`"http://localhost:$genPort/issues`"" -and $page.Content -match '<h2 class="card__title">General pages</h2>') 'the placeholder hub''s General card links the four pages on the general server'
+            Assert-True ($page.Content -match "href=`"http://localhost:$genPort/issues`"" -and $page.Content -match '<div class="grid__head"><h2>General pages</h2>') 'the placeholder hub''s General card links the four pages on the general server'
         } catch { Assert-True $false "the placeholder hub answers over HTTP ($($_.Exception.Message))" }
 
         # A second checkout finds the port taken by another's server: no pages url, and the state says so.

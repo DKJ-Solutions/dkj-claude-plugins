@@ -238,16 +238,16 @@ $iB = $grouped.IndexOf('id="group-bwj"'); $iD = $grouped.IndexOf('id="group-dkj"
 Assert-True ($iB -ge 0 -and $iB -lt $iD -and $iD -lt $iO) 'the groups come BWJ, DKJ, Other -- owner order beats status order'
 Assert-True ($iO -lt $grouped.IndexOf('id="repo-someone-x"')) 'a repo sits under its own group heading'
 Assert-True ($grouped -match '<h1>Connectors</h1>' -and $grouped -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>') 'the h1 is Connectors, and the eyebrow this repo''s slug (#3066, #3097)'
-Assert-Equal 1 ([regex]::Matches($grouped, '<h2 class="card__title">Connected repos</h2>')).Count 'the overview stays one h2 card, headed Connected repos'
+Assert-Equal 1 ([regex]::Matches($grouped, '<div class="grid-2" id="overview">\r?\n<div class="grid__head"><h2>Connected repos</h2>')).Count 'the overview stays one card, its h2 Connected repos above it (#3175)'
 $oB = $grouped.IndexOf('id="overview-bwj"'); $oD = $grouped.IndexOf('id="overview-dkj"'); $oO = $grouped.IndexOf('id="overview-other"')
-Assert-True ($grouped.IndexOf('<h2 class="card__title">Connected repos</h2>') -lt $oB -and $oB -lt $oD -and $oD -lt $oO -and $oO -lt $iB) 'inside Connected repos a table per group, BWJ, DKJ, Other, before the Status cards'
+Assert-True ($grouped.IndexOf('<h2>Connected repos</h2>') -lt $oB -and $oB -lt $oD -and $oD -lt $oO -and $oO -lt $iB) 'inside Connected repos a table per group, BWJ, DKJ, Other, before the Status cards'
 Assert-True ($grouped -notmatch '<h3[^>]*id="overview-' -and $grouped -match '<th>BWJ repos</th>' -and $grouped -match '<th>DKJ repos</th>' -and $grouped -match '<th>Other repos</th>' -and $grouped -notmatch '<th>Repo</th>') 'no h3 over the tables: each table names its group in its first column head'
 $tables = [regex]::Matches($grouped, '<table class="table cd-overview"[^>]*><colgroup>(.*?)</colgroup>')
 Assert-True ($tables.Count -eq 3 -and @($tables | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique).Count -eq 1) 'every group''s table carries the same fixed column set, so the columns line up'
 Assert-True ($grouped -match '\.cd-overview \{ table-layout: fixed;') 'the overview tables use a fixed layout'
-$iS = $grouped.IndexOf('<section class="card" id="issues">')
+$iS = $grouped.IndexOf('<div class="grid-2" id="issues">')
 Assert-True ($oO -lt $iS -and $iS -lt $iB -and $grouped -match '<h3 class="cd-subgroup" id="group-bwj">' -and $grouped -match '<h4>Someone/x</h4>') 'the details sit beside Connected repos: an h2 Issues, an h3 per group, the repo name an h4'
-Assert-True (([regex]::Matches($grouped, 'class="card"')).Count -eq 2 -and ([regex]::Matches($grouped, '<section class="mini-card cd-repo-card"')).Count -eq 3) 'Connected repos and Issues are a card each, and each repo a house mini-card inside Issues'
+Assert-True (([regex]::Matches($grouped, 'class="card grid__full"')).Count -eq 2 -and $grouped -notmatch 'card__head.{0,2}<h2' -and ([regex]::Matches($grouped, '<section class="mini-card cd-repo-card"')).Count -eq 3) 'Connected repos and Issues are a card each, and each repo a house mini-card inside Issues'
 Assert-True ($html -notmatch 'id="group-bwj"' -and $html -match 'id="group-other"') 'an empty group is left out'
 Assert-Equal '3 repos &#183; 1 needs action &#183; 2 in sync' (Format-DashboardGroupSummary @(@{ Status = 'good' }, @{ Status = 'bad' }, @{ Status = 'good' })) 'a group summary counts its repos, then each status worst first'
 Assert-Equal '1 repo &#183; 1 not on this machine' (Format-DashboardGroupSummary @(@{ Status = 'skip' })) 'one repo is singular'
