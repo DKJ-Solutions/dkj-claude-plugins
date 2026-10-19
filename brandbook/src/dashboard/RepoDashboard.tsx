@@ -120,7 +120,8 @@ export function RepoDashboard() {
                 items={[
                   { term: 'Stack', value: 'React 19 + TypeScript + Vite' },
                   { term: 'Trunk', value: TRUNK },
-                  { term: 'Gate', value: 'scripts/lint/lint-web.ps1' },
+                  // The brand book's own gate here, not the lint-web.ps1 of the dkj-brandbook repo it came from (#3153).
+                  { term: 'Gate', value: 'npm run gate (in brandbook/)' },
                   { term: 'Showcase', value: SHOWCASE_PATH },
                 ]}
               />
