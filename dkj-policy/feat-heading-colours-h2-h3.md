@@ -72,6 +72,7 @@ new steps still have to be added there, by hand.
 - [x] `dev-pages-lib.ps1` reads and draws twelve steps per theme
 - [x] `house-style` skill: the new sha256 of `house-style.css`
 - [x] the anchors: every theme's `-1` to `-4` and `-9` to `-12` recomputed. The rule and the measured contrasts are in the stylesheet comment and the README, which drops the old per-step tables
+- [x] third round (Dave: Hemelsblauw's `-9` was nearly as purple as Lila's, and `-10`/`-11` showed little blue): `-4` and `-9` now hold the HSL hue of the owner's original theme colour at full saturation, and `-10`/`-11` stay on that hue at full saturation with only their HSL lightness stepping evenly to `-12`
 - [x] `house-theme.js`: each theme's picker dot is its new `-9`; the `house-style` skill pins both new checksums
 - [x] filed #3193: the README's detailed lightness tables disagree with the shipped grey values (it predates this branch)
 

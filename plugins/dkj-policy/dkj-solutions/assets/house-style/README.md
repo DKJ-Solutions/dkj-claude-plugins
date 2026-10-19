@@ -295,14 +295,17 @@ out). Three more things follow it by default, in light and in dark (and a measur
 - **Four anchors per theme, and even steps between them** (owner's decision, October 19, 2026). In OKLCH:
   - `-1` and `-12` sit against the edge of white and black. On light, `-1` is L 0.995 C 0.006 and `-12` is
     L 0.12 C 0.03; on dark, `-1` is L 0.13 C 0.02 and `-12` is L 0.99 C 0.006.
-  - `-9` is the theme's colour where it reads best on the ground: the most saturated colour of the theme's hue
-    that reaches 4.55:1 on `-1`. `-4` is the same colour where it reads best on the far end: the most saturated
+  - `-9` is the theme's colour where it reads best on the ground: the most saturated colour (HSL saturation 100%)
+    of the theme's HSL hue that reaches 4.55:1 on `-1`. The hue is the HSL hue of the owner's original theme colour
+    (Blauw and Hemelsblauw 240, Lila 254), held in HSL because at a constant OKLCH hue a saturated blue turns violet
+    and Hemelsblauw came out as purple as Lila. `-4` is the same colour where it reads best on the far end: the most saturated
     one that reaches 4.55:1 on `-12`. On a light theme that makes `-9` the colour that reads best on white and
     `-4` the one that reads best on black; on a dark theme the reverse, so Lila's `-9` is the lilac that reads best
     on black. Which of the two is the more vivid depends on the hue: a yellow is at its most saturated when it is
     light, a blue when it is dark.
-  - `-2` and `-3` run evenly from `-1` to `-4`, and `-10` and `-11` from `-9` to `-12`, linear in lightness,
-    chroma and hue.
+  - `-10` and `-11` stay on that hue at full saturation, their HSL lightness evenly between `-9` and `-12`, so the
+    dark steps keep their colour (run straight in OKLCH they turned grey). `-2` and `-3` run evenly from `-1` to
+    `-4` in OKLCH, linear in lightness, chroma and hue.
   - The greys `-5` to `-8` keep their own constants, which are in the light token comment of `house-style.css`
     ([#3193](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3193) asks which grey values are meant).
 
