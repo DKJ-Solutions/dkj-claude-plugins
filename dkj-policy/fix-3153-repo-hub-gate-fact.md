@@ -57,6 +57,8 @@ The Repo hub's "About this repo" card names the brand book's real gate, `npm run
 
 #### What makes this deploy extra special
 
+The Repo hub is this repo's own dev-server page; nothing a plugin user installs changes.
+
 **Score:** N/A
 
 #### Pull Request
