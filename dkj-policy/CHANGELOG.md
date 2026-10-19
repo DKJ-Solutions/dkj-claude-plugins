@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**3 / 3 minor entries** <!-- pending-tally -->
+**4 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3148-house-style-gate-reads-tagged-pin · 20261019-111414Z
+
+The reusable house-style gate now reads its pinned checksums from the skill page as it stands at the tag that page names, not from `main` (#3148). Between a merge that changed a house file and the next cut, the page on `main` named the previous tag beside the new checksums, so a consumer vendoring exactly the released file failed the gate. `check-house-style.ps1` takes `-SkillPath` for this. The suite's "repo-config.ps1 that throws" case now really writes that config: it had passed on the previous fixture's exit code.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo calling `reusable-house-style.yml@main` no longer goes red after a house-style change is merged here and before it is released. Its vendored copy is held to the release it can actually fetch, and nothing changes on its side.
+
+**Score:** 3
+
+#### Pull Request
+
+the reusable house-style gate reads its checksums at the tag the skill page pins
+
+Plugins: dkj-solutions
+
+[PR #3152](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3152)
+
+---
 
 ### DEPLOY: fix/3145-reconciliation-owed · 20261019-110552Z
 
