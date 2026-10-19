@@ -267,6 +267,9 @@ function Get-GoLiveBlockText {
     $closedLive     = 'It can be reopened anytime when something is still not working as expected.'
     $closedRelease  = 'It becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.'
     $closedResearch = 'Nothing has changed. Read the outcome below.'
+    # THE MEASUREMENT FORM'S LINE (#3179): the store DID change, only the effect is a number nobody sees, so
+    # it neither says nothing changed nor invites a look. The same words the closed message composes.
+    $closedMeasure = 'Nothing changes visibly on the storefront. You can take a new measurement yourself, as described below.'
     # THE RESEARCH BLOCK'S HEADING IS FIXED AND ENGLISH ON EVERY BOARD (#3017), like the closed line above
     # it, so it is the same in both languages; only the bullets under it carry the task's own words.
     $outcome = 'OUTCOME'
@@ -278,7 +281,12 @@ function Get-GoLiveBlockText {
             ClosedLive   = $closedLive
             ClosedRelease = $closedRelease
             ClosedResearch = $closedResearch
+            ClosedMeasure = $closedMeasure
             Outcome      = $outcome
+            Measure      = 'HOW TO MEASURE'
+            Targets      = 'TARGETS'
+            Baseline     = 'LAST MEASUREMENT'
+            MeasureWhen  = 'WHEN TO MEASURE'
             Changed     = 'WHAT IS DIFFERENT NOW'
             Where        = 'WHERE TO LOOK'
             When         = 'WHEN IT GOES LIVE'
@@ -304,7 +312,12 @@ function Get-GoLiveBlockText {
         ClosedLive   = $closedLive
         ClosedRelease = $closedRelease
         ClosedResearch = $closedResearch
+        ClosedMeasure = $closedMeasure
         Outcome      = $outcome
+        Measure      = 'ZO MEET JE HET'
+        Targets      = 'DOELEN'
+        Baseline     = 'LAATSTE METING'
+        MeasureWhen  = 'WANNEER JE MEET'
         Changed     = 'WAT ER NU ANDERS IS'
         Where        = 'TE BEKIJKEN OP'
         When         = 'WANNEER HET LIVE KOMT'
@@ -344,13 +357,16 @@ function ConvertFrom-GoLiveProse {
         not know, are refused -- a misspelled heading that silently dropped a paragraph would ship a
         block missing the part the session wrote. '[outcome]' is the research block's one section
         (#3017). It was '[found]' until then (#3004), and that name is still read into the same
-        section, so a prose file written for the old form is not refused. Which sections a block may
+        section, so a prose file written for the old form is not refused. '[measure]', '[targets]',
+        '[baseline]' and '[when]' are the measurement block's (#3179). Which sections a block may
         carry is the driver's question, not this parser's.
     #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
 
-    $known   = @{ 'changed' = 'Changed'; 'where' = 'WhereToLook'; 'not-included' = 'NotIncluded'; 'outcome' = 'Outcome'; 'found' = 'Outcome' }
-    $buckets = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @() }
+    $known   = @{ 'changed' = 'Changed'; 'where' = 'WhereToLook'; 'not-included' = 'NotIncluded'; 'outcome' = 'Outcome'; 'found' = 'Outcome'
+                  'measure' = 'Measure'; 'targets' = 'Targets'; 'baseline' = 'Baseline'; 'when' = 'MeasureWhen' }
+    $buckets = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @(); Measure = @(); Targets = @(); Baseline = @(); MeasureWhen = @() }
+    $knownList = '[changed], [where], [not-included], [outcome], [measure], [targets], [baseline], [when]'
     $current = $null
     $lineNo  = 0
     foreach ($line in ($Text -split "`r?`n")) {
@@ -361,7 +377,7 @@ function ConvertFrom-GoLiveProse {
         if ($line -cmatch '^\s*\[([a-z][a-z-]*)\]\s*$') {
             $name = $Matches[1]
             if (-not $known.ContainsKey($name)) {
-                throw "Prose line ${lineNo}: unknown section '[$name]'. Known: [changed], [where], [not-included], [outcome]."
+                throw "Prose line ${lineNo}: unknown section '[$name]'. Known: $knownList."
             }
             $current = $known[$name]
             continue
@@ -372,7 +388,7 @@ function ConvertFrom-GoLiveProse {
         if ($line -match '^\s*---\s*$') { throw "Prose line ${lineNo}: a bare '---' line is the block's own rule and would cut the pasted block short." }
         if ($line.Contains('<!--')) { throw "Prose line ${lineNo}: an HTML comment would arrive in the Asana task as visible text." }
         if (-not $current) {
-            if ($line.Trim()) { throw "Prose line ${lineNo}: text before the first section line ([changed], [where], [not-included] or [outcome])." }
+            if ($line.Trim()) { throw "Prose line ${lineNo}: text before the first section line ($knownList)." }
             continue
         }
         $buckets[$current] += $line
@@ -516,21 +532,23 @@ function Format-GoLiveClosedLine {
         Pure: the closed line, in Markdown -- the intro with the issue name as a link and the verb bold
         (#2700), and on the next line, with no blank line between, the line that tells the forms apart
         (#3069): the reopen invitation, or with -AfterRelease the same said of a result that becomes
-        visible with the release, or with -Research that nothing changed.
+        visible with the release, or with -Research that nothing changed, or with -Measure (#3179) that
+        nothing changes visibly and the requester can measure it themselves.
         -IssueRef is 'owner/repo#<n>'; a bare number has no repo to link to and is refused.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [hashtable]$Text,
         [switch]$AfterRelease,
-        [switch]$Research
+        [switch]$Research,
+        [switch]$Measure
     )
     if ($IssueRef -notmatch '^([^\s#/]+/[^\s#/]+)#(\d+)$') {
         throw "IssueRef '$IssueRef' is not 'owner/repo#<n>', so the closed line has no issue to link."
     }
     $url = "https://github.com/$($Matches[1])/issues/$($Matches[2])"
     $t = if ($Text) { $Text } else { Get-GoLiveBlockText }
-    $second = if ($Research) { $t.ClosedResearch } elseif ($AfterRelease) { $t.ClosedRelease } else { $t.ClosedLive }
+    $second = if ($Measure) { $t.ClosedMeasure } elseif ($Research) { $t.ClosedResearch } elseif ($AfterRelease) { $t.ClosedRelease } else { $t.ClosedLive }
     return (($t.Closed -f $IssueRef, $url) + "`n" + $second)
 }
 
@@ -727,6 +745,75 @@ function Format-GoLiveResearchBlock {
     # The bullets follow the heading with no blank line, one per line, so GitHub renders one list and the
     # closed message turns the run into one <ul> (#3017).
     foreach ($b in $bullets) { $lines += "- $b" }
+    # The blank line before the closing rule is load-bearing, as in Format-GoLiveBlock (#2701).
+    $lines += ''
+    $lines += '---'
+    return ($lines -join "`n")
+}
+
+function Format-GoLiveMeasureBlock {
+    <#
+        Pure: the whole GitHub comment for a ticket whose result is a NUMBER the requester can measure
+        again -- a page-speed target after a performance fix, a conversion rate, a ranking (#3179,
+        Maikel, October 19, 2026). The header, the shared completed intro, and under it 'Nothing changes
+        visibly on the storefront. You can take a new measurement yourself, as described below.', then
+        up to four sections in the task's language: how to measure (required), the targets (required),
+        the last measurement, and when to measure.
+
+        NEITHER OF THE OTHER TWO FORMS FITS, AND NEITHER IS A STAND-IN. The go-live form points at a page
+        where nothing visible changed, and the research form says 'Nothing has changed', which is false:
+        the store did change, only its effect is invisible. Measured on smartwatchbanden#919, closed with
+        -Research for want of this form, whose message the requester removed by hand (#3069).
+
+        THE REQUESTER MEASURES, NOT A DEV SESSION (#3177): the block tells them how, against which
+        targets, and with what to compare. The closing ask ('Is the target met? ...') names the board's
+        own done section, which only the closed message can read, so that message composes it, exactly
+        as for the research form. -MeasureMarker sits beside the marker so the closed message can tell
+        this block from the other two; both are passed IN, for the reason Format-GoLiveBlock gives.
+
+        A '- ' line inside a section stays a list item, so steps can be numbered by the session as it
+        likes and the closed message renders the run as one list.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Marker,
+        [Parameter(Mandatory = $true)][string]$MeasureMarker,
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Measure,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Targets,
+        [AllowEmptyCollection()][string[]]$Baseline = @(),
+        [AllowEmptyCollection()][string[]]$When = @(),
+        [ValidateSet('nl', 'en')][string]$Language = 'nl',
+        [ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked'
+    )
+
+    $how  = @(@($Measure) | Where-Object { $_ -and $_.Trim() })
+    $goal = @(@($Targets) | Where-Object { $_ -and $_.Trim() })
+    if ($how.Count -eq 0)  { throw 'A measurement block needs how to measure: -Measure is empty.' }
+    if ($goal.Count -eq 0) { throw 'A measurement block needs its targets: -Targets is empty.' }
+    $t = Get-GoLiveBlockText -Language $Language
+
+    $lines = @(
+        $Marker,
+        $MeasureMarker,
+        '',
+        (Get-GoLiveBlockLead -AsanaLink $AsanaLink),
+        '',
+        '---',
+        $t.Header,
+        '',
+        (Format-GoLiveClosedLine -IssueRef $IssueRef -Text $t -Measure)
+    )
+    foreach ($s in @(
+        @{ Heading = $t.Measure;     Paras = $how },
+        @{ Heading = $t.Targets;     Paras = $goal },
+        @{ Heading = $t.Baseline;    Paras = @(@($Baseline) | Where-Object { $_ -and $_.Trim() }) },
+        @{ Heading = $t.MeasureWhen; Paras = @(@($When) | Where-Object { $_ -and $_.Trim() }) }
+    )) {
+        if (@($s.Paras).Count -eq 0) { continue }
+        $lines += ''
+        $lines += $s.Heading
+        foreach ($p in $s.Paras) { $lines += ''; $lines += $p }
+    }
     # The blank line before the closing rule is load-bearing, as in Format-GoLiveBlock (#2701).
     $lines += ''
     $lines += '---'

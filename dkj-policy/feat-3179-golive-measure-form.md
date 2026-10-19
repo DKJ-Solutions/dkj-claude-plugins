@@ -39,19 +39,51 @@
 
 ### PLAN
 
+Inbound #3179 from smartwatchbanden: a ticket whose result is a number the requester re-measures fits
+neither completed form -- the go-live form points at a page where nothing visible changed, and
+`-Research` says "Nothing has changed", which is false (smartwatchbanden#919, where it was used as a
+stand-in and the requester removed the message by hand). Verified in the tree: the two forms and their
+markers are the only ones `build-golive-block.ps1` and `asana-closed-message.ps1` know. Built first
+because #3177's rule (the requester verifies, not a dev session; owner decided BWJ-wide) names this form.
+The comment's `-Research` warning is filed as #3181.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `golive-block-rules.ps1`: the measurement line and headings (nl/en), the four prose sections,
+  `Format-GoLiveClosedLine -Measure`, `Format-GoLiveMeasureBlock`
+- [x] `asana-task-lib.ps1` + the template's copy: `Get-AsanaMeasureBlockMarker`
+- [x] `asana-closed-message.ps1`: the measurement second line, `Get-ClosedMessageMeasureAsk`, the form in
+  `New-ClosedMessageHtml`, detected first in the main flow, with the done section
+- [x] `build-golive-block.ps1 -Measure`: its refusals, no go-live half, no pull-request check
+- [x] `guard-stale-paste-block.ps1`: the hint names `-Measure`; `live-message-rules.ps1` names the block
+- [x] Docs: `golive-block` skill page, `WORKFLOW-portable.md`
+- [x] Filed #3181 for the `-Research` warning
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: 742 pass (block shape and order, optional sections, refusals, the
+  closed message's form, ask and precedence, the marker copy held equal)
+- [x] The driver run print-only: the block, and its three refusals (`-Link`, measure prose without
+  `-Measure`, `-Measure` with `-Research`)
+- [x] The full gate runs in `ship-pr`
+
 ### DEPLOY: feat/3179-golive-measure-form
 
-**Score:**
+`build-golive-block.ps1` gains a third completed form, `-Measure`, for a ticket whose result is a number
+the requester measures again -- a page-speed target, a conversion rate, a ranking. From a prose file's
+`[measure]` and `[targets]` (and optional `[baseline]` and `[when]`) it writes how to measure and the
+targets, and the closed message opens with "Nothing changes visibly on the storefront. You can take a new
+measurement yourself, as described below." and ends by asking whether the target is met (#3179).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store can close a measurement follow-up with a message that tells the requester how to measure it
+and against which targets, instead of a research message that says nothing changed or a go-live message
+that points at nothing. The colleague gets a clear "is the target met?" in the Asana task.
+
+**Score:** 3
 
 #### Pull Request
 
