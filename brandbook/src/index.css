@@ -1,0 +1,7 @@
+/* Global base. The page's background, text colour and font come from the house style (its `body` rule),
+   which main.tsx loads first; nothing here restates them. */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* Double-tap never zooms; pinch zoom keeps working. */
+html { touch-action: manipulation; }
+

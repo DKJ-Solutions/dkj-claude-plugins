@@ -39,19 +39,46 @@
 
 ### PLAN
 
+Step 2 of the #3130 plan (#3131): the dkj-brandbook Vite/React/TS app into `brandbook/` at the repo
+root, reading the one house-style copy in the dkj-solutions plugin. Treated as a ship rather than a
+visible park: the plan marks steps 3 and 4 as visible results and gives this one a gate-shaped done
+condition (build and web lint, locally and in CI). The three post-v0.4.0 house rules the app uses
+(`.grid__head`, `.grid__full`, `.card__head > h3`) are not in the plugin copy yet; porting them is
+#3133's, which is a visible step.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Copy the app's tracked files (src, public, index.html, configs, lock, `.nvmrc`, `.gitignore`, the three `.mjs` checks) from dkj-brandbook `main` at c3cefff
+- [x] Point `src/main.tsx`, `vite.config.ts` (plus `server.fs.allow`) and the checks (`scripts/lint/house-path.mjs`) at `plugins/dkj-policy/dkj-solutions/assets/house-style/`
+- [x] The gate as `npm run gate` instead of `lint-web.ps1`, so the app adds no `.ps1` to the script layer and no skill is owed
+- [x] `.github/workflows/brandbook.yml`: path-scoped, so not a required check
+- [x] Confidentiality pass over `src/` (previews included): public DKJ-Solutions URLs only, no addresses or names
+- [x] check-house-style: drop the `.sr-only` duplicate from `src/index.css`, allowlist the five deliberate extensions in `Get-HouseStyleAllowlist`
+- [x] `brandbook/README.md`
 
 ### TEST
 
+- [x] `npm ci` + `npm run gate` green from `brandbook/` (eslint 0 errors, the two pre-existing warnings; CSS syntax, vars, colours OK; build OK)
+- [x] Dev server serves the house stylesheet from outside the app root (HTTP 200 through `/@fs/`)
+- [x] check-house-style: `[OK] the house style holds at v0.4.0`
+
 ### DEPLOY: feat/3131-brandbook-app
 
-**Score:**
+The brandbook app now lives in this repo at [`brandbook/`](../brandbook/README.md), step 2 of #3130:
+the Repo hub pattern and the component showcase, built and linted by `npm run gate` and by a new
+path-scoped [`brandbook`](../.github/workflows/brandbook.yml) workflow. It reads the house style from
+`plugins/dkj-policy/dkj-solutions/assets/house-style/` where it lives, so there is one copy, and it sits
+outside `plugins/`, so no consumer installs it. Five deliberate extensions it carries are answered in
+`Get-HouseStyleAllowlist`. Until #3133 ports the post-v0.4.0 house rules, its grid headings render
+without them.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
