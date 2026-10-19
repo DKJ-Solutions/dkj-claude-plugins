@@ -674,7 +674,9 @@ function Get-CiTestCertificate {
         integration can build one out of branch- or PR-derived text; an ANSI or OSC escape in it
         repaints the terminal it lands in, and a zero-width run makes the printed line read as
         something other than what it says -- in the one line whose job is to say what stood down a
-        gate. ref-print-lib.ps1 is dot-sourced at the top of THIS file rather than asked of the
+        gate. It is used for PRINTING ONLY: the match itself is made on the raw name (#3157), since a
+        sanitised comparison let a name with a zero-width or space edge certify as the declared one.
+        ref-print-lib.ps1 is dot-sourced at the top of THIS file rather than asked of the
         caller, which is what remote-ahead-lib and entry-scaffold-lib do with the same function and
         for the reason their notes give: it is a leaf with no dependencies, so loading it here cannot
         produce the two-answers problem the header's caller contract exists to avoid. Not degraded
@@ -740,6 +742,12 @@ function Get-CiTestCertificate {
 
     $wanted = Get-DisplayRef -Ref $CheckName
     if (-not $wanted) { return (& $refuse 'this repo has not named the check that proves its test suites (Get-CiTestCheckName)') }
+    # The match below is made on the RAW name (#3157), so a declared name that does not print as itself
+    # would match one string and print another. Refused rather than matched through: a seam value with an
+    # edge space or a format character is a misdeclaration, and the gate then runs exactly as before.
+    if ($wanted -cne $CheckName) {
+        return (& $refuse ("the declared check name does not print as itself (it reads as '{0}') -- Get-CiTestCheckName should return the plain name" -f $wanted))
+    }
 
     $head = ([string]$HeadSha).Trim()
     $prHead = ([string]$PrHeadSha).Trim()
@@ -763,12 +771,19 @@ function Get-CiTestCertificate {
         return (& $refuse ("'{0}' has not registered on this commit yet -- no required check has" -f $wanted))
     }
 
-    # SANITISED BEFORE IT IS COMPARED, not only before it is printed. The comparison has to be made on
-    # the same string the reader is shown, or a name carrying a zero-width character could match here
-    # and print as something else -- or, worse, fail to match while the printed line says it should.
-    $named = @($records | Where-Object { (Get-DisplayRef -Ref ([string]$_.name)) -eq $wanted })
+    # COMPARED RAW, PRINTED SANITISED (#3157). Comparing after Get-DisplayRef let a look-alike certify:
+    # 'lint-en-tests' with a zero-width or plain space on either edge strips and trims to the declared
+    # name, so a check this repo never named could stand the gate down. The exact, case-sensitive match
+    # decides; the sanitised form is only what a reader is shown. A record that merely PRINTS as the
+    # declared name is called out by name in the refusal, because its line would otherwise read as the
+    # very check it says is missing.
+    $named = @($records | Where-Object { [string]$_.name -ceq $CheckName })
     if ($named.Count -eq 0) {
         $present = @(@($records | ForEach-Object { Get-DisplayRef -Ref ([string]$_.name) }) | Sort-Object -Unique)
+        $lookAlike = @($records | Where-Object { (Get-DisplayRef -Ref ([string]$_.name)) -eq $wanted })
+        if ($lookAlike.Count -gt 0) {
+            return (& $refuse ("a required check prints as '{0}' but is not that name character for character -- a look-alike does not certify" -f $wanted))
+        }
         return (& $refuse ("'{0}' is not among this trunk's required checks on this commit (found: {1})" -f $wanted, ($present -join ', ')))
     }
 

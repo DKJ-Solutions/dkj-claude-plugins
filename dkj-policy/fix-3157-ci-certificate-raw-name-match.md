@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#3157: `Get-CiTestCertificate` matched the required check's name after `Get-DisplayRef`, so a name
+with a zero-width or plain space on an edge compared equal to the declared one. Verified in the code
+(`scripts/lib/gate-lib.ps1`, the `$named` filter) before repairing: the match is made on the raw name
+(`-ceq`), `Get-DisplayRef` is kept for printing only, and a declared name that does not print as itself
+is refused instead of matched through.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-CiTestCertificate` matches the raw name case-sensitively; a record that only prints as the
+  declared name is refused as a look-alike; a declared name that does not print as itself is refused
+- [x] the docstring says the sanitiser is for printing only, and why
+- [x] the plugin mirror `plugins/dkj-policy/scripts/lib/gate-lib.ps1` kept byte-identical
 
 ### TEST
 
+- [x] `gate-lib.tests.ps1` case 18t: four green look-alikes (leading/trailing zero-width space,
+  trailing space, other case) refuse and are not in flight; the refusal names a look-alike; the exact
+  check certifies beside a red look-alike; a declared name with an edge space refuses -- 273 pass, 0 fail
+- [x] `check-plugin-integrity.ps1` -- 0 errors
+
 ### DEPLOY: fix/3157-ci-certificate-raw-name-match
 
-**Score:**
+The CI test certificate that lets `open-pr` skip a local suite run now matches the required check by
+its exact name, so a look-alike check name (a zero-width or plain space on an edge, or another case)
+can no longer stand the test gate down (#3157). The sanitised name is used only for printing. It
+prevents a failure that has not happened: a check this repo never named certifying a commit, reachable
+today only by somebody with write access adding a workflow job.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a consumer's gate behaves exactly as before for every real check name.
+
+**Score:** N/A
 
 #### Pull Request
+
+the CI test certificate matches the check name exactly, not after sanitising
 
