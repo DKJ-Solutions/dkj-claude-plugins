@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**10 / 13 minor entries** <!-- pending-tally -->
+**11 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3183-golive-block-by-hand · 20261019-182305Z
+
+`build-golive-block.ps1 -ByHand [-Story <gid>]` records on the issue that its closed message was posted on
+the Asana task by hand. The close guard accepts that record as this round's block, and the
+`asana-closed-message` workflow posts nothing beside the hand-written message. A record from before the
+last reopen, or from an untrusted author, silences nothing. `-ByHand` skips the pull-request and
+shared-task checks, and the guard's refusal names it among its fixes (#3183).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A hand-approved closed message no longer needs the issue body edited around the close to keep the
+workflow from posting a second message beside it.
+
+**Score:** 2
+
+#### Pull Request
+
+build-golive-block -ByHand: a sanctioned opt-out for a closed message posted by hand
+
+Plugins: bwj-development
+
+[PR #3188](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3188)
+
+---
 
 ### DEPLOY: docs/3177-requester-verifies-live-result · 20261019-181059Z
 
