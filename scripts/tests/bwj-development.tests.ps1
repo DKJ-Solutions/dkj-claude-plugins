@@ -648,7 +648,8 @@ Assert-True ($glLandingCall -gt $goLiveDriver.IndexOf('if (-not $PostArg) {')) '
 # -Research WARNS ON A MERGED PULL REQUEST (#3181), by the same read, on the post path, before the comment.
 $glResWarn = $goLiveDriver.IndexOf('if ($ResearchArg -and (Read-GoLiveLandingState) -eq ''merged'')')
 Assert-True ($glResWarn -gt $goLiveDriver.IndexOf('if (-not $PostArg) {') -and $glResWarn -lt $goLiveDriver.IndexOf('gh issue comment $issueNumber')) '-Research reads the landing state on the post path, before the comment'
-Assert-True ($goLiveDriver.Substring($glResWarn, 600) -notmatch 'exit 1') 'and warns rather than refuses: only the session knows whether that PR changed the store'
+$glResEnd = $goLiveDriver.IndexOf('if (-not $ForceArg -and $resultForm)', $glResWarn)
+Assert-True ($glResEnd -gt $glResWarn -and $goLiveDriver.Substring($glResWarn, $glResEnd - $glResWarn) -notmatch 'exit 1') 'and warns rather than refuses: only the session knows whether that PR changed the store'
 Assert-Equal 1 ([regex]::Matches($goLiveDriver, 'closedByPullRequestsReferences').Count) 'the landing query is written once, shared by both readers'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
