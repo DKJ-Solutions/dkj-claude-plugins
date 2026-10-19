@@ -41,8 +41,9 @@
 function Format-DevPageHtml {
     <#
         The whole page around -Body, for this repo's own pages (the Test gate): the plugin's page shell with
-        this repo's eyebrow and title, its theme key (the index page's, so a theme picked on one page holds
-        on every page of this server) and the Repo hub crumb on '/'.
+        this repo's eyebrow and title, its theme key (the general pages' own, so a theme picked on one page
+        holds on every page this server serves, the general pages it relays included, #3168) and the Repo
+        hub crumb on '/'.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -50,7 +51,7 @@ function Format-DevPageHtml {
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Body,
         [AllowEmptyString()][string]$Style = '',
         [AllowEmptyString()][string]$FooterNote = '',
-        [string]$ThemeKey = 'connector-dashboard'
+        [string]$ThemeKey = 'general-pages'
     )
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
         -Eyebrow 'DKJ-Solutions/dkj-claude-plugins' -SiteName 'dkj-claude-plugins' -HubHref '/'
@@ -84,7 +85,7 @@ function Format-RepoHubHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
-    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-theme-key="connector-dashboard">')
+    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-theme-key="general-pages">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
@@ -132,7 +133,7 @@ function Format-RepoHubHtml {
         [void]$sb.AppendLine('</nav>')
         [void]$sb.AppendLine('</section>')
     }
-    [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row))
+    [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin))
     if ($row) { [void]$sb.AppendLine('</div>') }
 
     # Block 11: About this repo, the fixed title, with this repo's own facts. Its h2 stands outside the

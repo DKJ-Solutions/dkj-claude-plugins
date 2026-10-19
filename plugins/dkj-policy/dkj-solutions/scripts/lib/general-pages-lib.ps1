@@ -68,7 +68,8 @@ function Format-GeneralPageHtml {
         The whole page around -Body. -Title is the page's own name: the last crumb, the h1 and the
         <title> (after -SiteName). -Eyebrow is the line over the h1, the repo's name. -HubHref is where
         the first crumb, "Repo hub", goes: '/hub' on the general server, which sends the visitor on to the
-        repo's own hub. -Style is the page's own layer, names the house file does not define. -Lead and
+        repo's own hub -- or, where a hub relays these pages from its own origin, '/hub' on that hub, which
+        answers it itself (#3168). -Style is the page's own layer, names the house file does not define. -Lead and
         -FooterNote are markup the caller has escaped.
     #>
     param(
@@ -146,16 +147,20 @@ function Format-GeneralPagesCardHtml {
         card says the server is not running and starts at the next session start. -InRow is $true where the
         card stands beside another on the house .grid-2 (its title an h3, under the row's own h2), and
         $false where it stands alone (its title the h2). A url that is not a plain loopback base is treated
-        as none, so a state file cannot point a hub's links elsewhere.
+        as none, so a state file cannot point a hub's links elsewhere. -SameOrigin is for a hub that relays
+        the general pages from its own origin (#3168): the card then links each page by its bare path, so
+        the visitor stays on the hub's origin and its theme choice.
     #>
     param(
         [AllowEmptyString()][string]$PagesUrl = '',
         [bool]$InRow = $true,
-        [object[]]$Pages = @(Get-GeneralPages)
+        [object[]]$Pages = @(Get-GeneralPages),
+        [switch]$SameOrigin
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $base = ''
     if ($PagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') { $base = $PagesUrl.TrimEnd('/') }
+    $linkBase = if ($SameOrigin) { '' } else { $base }
     $title = if ($InRow) { '<h3>General</h3>' } else { '<h2 class="card__title">General pages</h2>' }
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<section class="card">')
@@ -164,7 +169,7 @@ function Format-GeneralPagesCardHtml {
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="General pages">')
         foreach ($p in @($Pages)) {
             $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e ($base + $p.Href)) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
+            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e ($linkBase + $p.Href)) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
         }
         [void]$sb.AppendLine('</nav>')
     } else {
