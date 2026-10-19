@@ -191,6 +191,14 @@ how the first one survived.
 moved* means there are two sets of changes to merge, and *nothing is known to have agreed* means the
 path has never been reconciled at all.
 
+**And the base is asked for live content that reads as *ours* too**
+([#3146](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3146)). "A version this repo has
+held before" means *older than the trunk* only while the trunk has moved. Where the trunk's newest commit
+on a path is the sync that took it, the trunk holds what live held then, so live now holding an earlier
+version means a third party reverted it on live. That path is taken, not held back -- measured in
+BWJ-Development/xoxowildhearts on two header-group files that a later push would have overwritten
+without anybody seeing it.
+
 ## Why it stops before the merge
 
 The whole point of the step is a moment where somebody **looks** at what third parties changed on live

@@ -39,19 +39,28 @@
 
 ### PLAN
 
+Inbound #3146, verified on pickup: `Get-SyncFileVerdict` answered keep-trunk for every M path whose live content reads as ours, without asking the path's base. Where the trunk's newest touch is the sync that took it, the trunk holds live's bytes as of then, so an earlier version on live now is a third party's revert.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-SyncFileVerdict`: M + ours + known agreement point + trunk stationary -> take-live; `sync-main` asks the base for M paths that read as ours
+- [x] `sync-main` skill page: the new cell
 
 ### TEST
 
+- [x] `sync-rules.tests.ps1` 205/0 (four new verdict cells), `sync-main.tests.ps1` 174/0
+
 ### DEPLOY: fix/3146-sync-revert-on-live
 
-**Score:**
+`sync-main` now takes a theme file that a third party reverted on live to an earlier version, where the trunk's newest commit on that path is the sync that took it. It used to hold that file back as "live holds a version this repo has had before", and the next push overwrote the revert unseen.
+
+**Score:** 1 -- nothing changes for the maintainer of this repo.
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify store's sync now captures a third party's revert on live instead of silently holding it back for the next release to overwrite -- measured in a store on two header-group files.
+
+**Score:** 3
 
 #### Pull Request
 

@@ -1507,7 +1507,10 @@ try {
             # also what keeps the extra 'git log' off every path that is already settled by provenance.
             $pathBase = $null
             $touched  = $false
-            if (-not $ours) {
+            # AND FOR AN 'M' WHOSE CONTENT IS OURS (inbound #3146): there the base decides whether "ours"
+            # means stale or a third party's revert to an earlier version. Two more 'git log's per such
+            # path, which is the price of not holding a revert back silently.
+            if (-not $ours -or $f.Status -eq 'M') {
                 $pathBase = Get-SyncPathReferencePoint -Path $f.Path -Ref 'HEAD' -Pattern $pattern
                 if ($pathBase) { $touched = Test-MainTouchedSince -Since $pathBase -Path $f.Path }
             }

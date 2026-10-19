@@ -671,7 +671,7 @@ function Get-SyncFileVerdict {
         trunk does not, 'D' the trunk has it and live does not.
 
                                           live content is OURS          live content is FOREIGN
-          M  both have it, differs        keep-trunk                    take-live, or conflict *
+          M  both have it, differs        keep-trunk, or take-live **   take-live, or conflict *
           A  only live has it             keep-trunk (no resurrection)  take-live
           D  only the trunk has it        keep-trunk (never delete)     keep-trunk (never delete)
 
@@ -697,6 +697,10 @@ function Get-SyncFileVerdict {
             is inbound #1535, and without it the answer here was 'take-live' -- which is how six paths
             in a consumer were verdicted as third-party drift while the trunk held a strict superset of
             live.
+
+          ** take-live only where the path's agreement point is known AND the trunk has not touched the
+          path since it (inbound #3146): the trunk then holds live's bytes as of that sync, so live
+          holding an EARLIER version of ours means a third party reverted it, not that live is stale.
 
           The old note here said "a wrong floor now costs extra conflict reports instead of silent data
           loss". That was true of a floor that is too OLD and false of one that is too RECENT, and a
@@ -728,6 +732,15 @@ function Get-SyncFileVerdict {
     if ($LiveContentIsOurs) {
         if ($Status -eq 'A') {
             return [pscustomobject]@{ Action = 'keep-trunk'; Reason = 'the trunk deleted this file and live holds our old copy, so it is not resurrected' }
+        }
+        # "OURS" MEANS "OLDER THAN THE TRUNK" ONLY WHILE THE TRUNK HAS MOVED (inbound #3146). Where the
+        # trunk's newest touch on this path IS its agreement point, the trunk holds what live held then,
+        # so a difference now can only be live moving -- to an earlier version, which reads as ours and
+        # was held back silently: a third party's revert, overwritten by the next push. Measured in
+        # BWJ-Development/xoxowildhearts on two header-group files whose last commit was sync 63731bd.
+        # The caller answers both inputs only where it has looked; the defaults keep the old answer.
+        if ($PathAgreementKnown -and -not $MainTouchedSinceFloor) {
+            return [pscustomobject]@{ Action = 'take-live'; Reason = 'live went back to an earlier version of this path after the last sync took it, and the trunk has not changed it since -- a third party reverted it on live' }
         }
         return [pscustomobject]@{ Action = 'keep-trunk'; Reason = 'live holds a version this repo has had before; the trunk has moved on since' }
     }
