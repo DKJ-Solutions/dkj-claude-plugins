@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#3149: the Repo hub in `brandbook/` read its open pull requests, issues and branches from
+`DKJ-Solutions/dkj-brandbook`, which is to be archived (#3134). Point it at this repo. The hub's "About this
+repo" facts still describe the old repo too. That is a separate subject, filed as #3153.
+
+#### Visible result
+
+The hub's in-flight panel, its Issues and Release notes links, its eyebrow and its footer now name
+`DKJ-Solutions/dkj-claude-plugins`. The branch stops for the owner's look: run `npm run dev` in `brandbook/`
+and open the Repo hub.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `RepoDashboard.tsx`: `REPO` is `DKJ-Solutions/dkj-claude-plugins`
 
 ### TEST
 
+- [x] The gates, run by hand before the park (`open-pr -GatesOnly`), because a parked branch opens no pull request
+
 ### DEPLOY: fix/3149-repo-hub-reads-this-repo
 
-**Score:**
+The brand book's Repo hub reads its in-flight work (open pull requests, issues, branches) from `DKJ-Solutions/dkj-claude-plugins` instead of `DKJ-Solutions/dkj-brandbook`, and its links, eyebrow and footer name this repo (#3149). Once `dkj-brandbook` is archived, the panel would otherwise have shown a frozen state without saying so.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the hub is this repo's own dev-server page, which no consumer takes.
+
+**Score:** N/A
 
 #### Pull Request
 
