@@ -39,19 +39,25 @@
 
 ### PLAN
 
+#3153: the Repo hub's "About this repo" card names `scripts/lint/lint-web.ps1`, which exists nowhere in this repo; the facts block came over from `dkj-brandbook` in #3131. The brand book's gate here is `npm run gate` in `brandbook/package.json`. A visible result, so it parks for the owner's look.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `RepoDashboard.tsx`: the Gate fact names `npm run gate (in brandbook/)`
 
 ### TEST
 
+- [x] `open-pr -GatesOnly` before the park
+
 ### DEPLOY: fix/3153-repo-hub-gate-fact
 
-**Score:**
+The Repo hub's "About this repo" card names the brand book's real gate, `npm run gate` in `brandbook/`, instead of a `lint-web.ps1` script that exists only in the old `dkj-brandbook` repo.
+
+**Score:** 1 -- a wrong fact on this repo's own dev-server page, read by its maintainers.
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 
