@@ -363,8 +363,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     $src = Join-Path $fixture 'org\src'
     $noup = Join-Path $fixture 'org\noup'
     $outside = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-outside-$PID-$([guid]::NewGuid().ToString('n'))"
+    $group3Done = $false
     try {
-        New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'plugins\dkj-policy\dkj-solutions\assets\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard'),(Join-Path $src 'plugins\dkj-policy\dkj-solutions\assets\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $src 'scripts\lib\')
         # dev-pages-lib reads the plugin's lib from the plugin tree beside scripts/, and the server its state reader.
@@ -459,13 +460,19 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         } finally {
             if (-not $proc3.HasExited) { Stop-Process -Id $proc3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
         }
+        $group3Done = $true
     } finally {
         Remove-Item Env:\DKJ_GENERAL_PAGES_PORTS -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath $fixture, $outside -Recurse -Force -ErrorAction SilentlyContinue
     }
 } else {
+    $group3Done = $null
     Write-Host '  [SKIP] group 3 needs Windows PowerShell, git and group 2' -ForegroundColor Yellow
 }
+# A STATEMENT-TERMINATING ERROR ENDS THE GROUP IN SILENCE (#3137). An IOException from a fixture step (Copy-Item
+# into a directory the fixture never made) aborts the whole top-level `if` even under 'Continue', the script goes
+# on with the next statement, and the suite read green with not one of the group's asserts run.
+if ($null -ne $group3Done) { Assert-True $group3Done 'group 3 ran to its end -- no fixture step aborted it (#3137)' }
 
 Write-Host '-- group 4: a server whose checkout moved restarts itself on the new commit (#3122)' -ForegroundColor Cyan
 
@@ -474,8 +481,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     # server kept serving the old pages while its "Source at" line read the new commit live.
     $fixture4 = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-move-$PID-$([guid]::NewGuid().ToString('n'))"
     $port4 = $null
+    $group4Done = $false
     try {
-        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\assets\house-style') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard'),(Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\assets\house-style') | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\scripts\lib') | Out-Null
@@ -505,6 +513,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         Assert-True $up 'its successor listens on the same port'
         $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
         Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($second.Substring(0, 8))</code>") 'and serves the new commit'
+        $group4Done = $true
     } finally {
         if ($proc4 -and -not $proc4.HasExited) { Stop-Process -Id $proc4.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
         # The successor is detached; it is found by the port it holds.
@@ -518,8 +527,10 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         if ($port4) { Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Filter "serve-connector-dashboard-$port4-*.log" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue }
     }
 } else {
+    $group4Done = $null
     Write-Host '  [SKIP] group 4 needs Windows PowerShell, git and group 2' -ForegroundColor Yellow
 }
+if ($null -ne $group4Done) { Assert-True $group4Done 'group 4 ran to its end -- no fixture step aborted it (#3137)' }
 
 Write-Host ''
 Write-Host "connector-dashboard: $script:pass passed, $script:fail failed"
