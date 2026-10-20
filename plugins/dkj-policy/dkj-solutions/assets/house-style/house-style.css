@@ -60,13 +60,13 @@
      paper-2, paper-3 and paper-4 sit 4%, 16% and 36% of the way from paper-1 to the light anchor in OKLCH (L and C,
      in the anchor's hue): the eye is most sensitive to the first tint off white or black, so the card is only just
      lifted off the page, the line a step further and the stronger border a step beyond that.
-     ink-2 and ink-6 sit a third and two thirds of the way from ink-1 to ink-7 in OKLab, so ink-1, ink-2, ink-6 and
-     ink-7 are three equal steps of the colour (owner, October 20, 2026: the jump to the far end was three times the
-     others). That puts ink-2 (h2) a little further from the page than ink-3, the lightest grey.
-     The greys are what may recede into the background (owner, October 19, 2026): ink-3 recedes the most and ink-5
-     the least, on light ink-3 L 0.47, ink-4 L 0.39, ink-5 L 0.31; on dark ink-3 L 0.538, ink-4 L 0.70, ink-5 L 0.80;
-     each in ink-1's OKLCH hue at a low chroma, ink-3 with a little more colour. ink-3 is the furthest a muted text
-     may recede.
+     ink-1 to ink-7 are six equal steps in OKLab lightness, in order (owner, October 20, 2026: "zet op volgorde van
+     1 naar 7"): ink-2 and ink-6 sit a sixth and five sixths of the way from ink-1 to ink-7 in OKLab, so they keep
+     the colour; the greys ink-3, ink-4 and ink-5 sit at two, three and four sixths of that lightness, in ink-1's
+     OKLCH hue at a low chroma (ink-3 with a little more colour). The greys are what may recede into the background
+     (owner, October 19, 2026), ink-3 the most and ink-5 the least; they recede by colour, not by contrast. On a dark
+     theme ink-1 is already near white, so the greys sit close to the text: the owner chose the order over the
+     distance (a grey against ink-7 is 1.30:1 at the worst, on dark).
      A role takes the same step in both modes, never light-dark() between two steps (owner's decision, October 15, 2026).
      paper-1 the page, and the text on an ink-1 or ink-3 fill; paper-2 the cards (tiles, tooltips); paper-3 every
      line (borders, row dividers, meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a
@@ -79,11 +79,10 @@
      fills (switches, info badges), focus rings, meters and text in the colour (values).
      Measured (WCAG relative luminance, October 19 and 20, 2026) worst cases: ink-7 on paper-1 19.5:1, on paper-2
      19.0:1 and on paper-3 16.5:1; ink-1 on paper-1 4.6:1 and paper-1 on ink-1 4.6:1; ink-1 on paper-2 4.40:1
-     (Magenta; below 4.5:1 also Roest and Lila, 4.43:1 and 4.49:1); ink-2 on paper-2 7.8:1, ink-6 on paper-2 12.6:1;
-     ink-3 on the card 6.4:1 on light and 3.8:1 on dark (Roze), paper-1 on ink-3 6.6:1 on light and 3.9:1 on dark;
-     ink-4 on the card 7.3:1; ink-3, the eyebrow, on the page 6.6:1 on light and 3.9:1 on dark; a paper-3 line on a
-     paper-2 card 1.02:1 (Oker) to 1.16:1, a paper-4 border on it 1.08:1 (Oker) to 1.52:1. */
-  --paper-1: #fdfdff; --paper-2: #f6f7ff; --paper-3: #e2e6ff; --paper-4: #c0c9ff; --ink-1: #0400ff; --ink-2: #0113a6; --ink-3: #515b6e; --ink-4: #3d4554; --ink-5: #29313f; --ink-6: #011056; --ink-7: #020511;
+     (Magenta; below 4.5:1 also Roest and Lila, 4.43:1 and 4.49:1); on paper-2 ink-2 6.0:1, ink-3 7.6:1, ink-4
+     10.3:1, ink-5 12.8:1, ink-6 15.7:1; paper-1 on an ink-3 fill 7.9:1; a paper-3 line on a paper-2 card 1.02:1
+     (Oker) to 1.16:1, a paper-4 border on it 1.08:1 (Oker) to 1.52:1. */
+  --paper-1: #fdfdff; --paper-2: #f6f7ff; --paper-3: #e2e6ff; --paper-4: #c0c9ff; --ink-1: #0400ff; --ink-2: #020ed2; --ink-3: #30384a; --ink-4: #232a38; --ink-5: #161d2a; --ink-6: #020b32; --ink-7: #020511;
 
   /* categorical palette (series slots) */
   --cat-1: #2574d1;          /* dark enough for --paper-1 text on it at 4.5:1 in every light theme (4.51:1, worst Roest; #92) */
@@ -153,7 +152,7 @@
     color-scheme: dark;
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
     --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-    --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #88f1ff; --ink-3: #657172; --ink-4: #96a1a2; --ink-5: #b5c0c1; --ink-6: #c4f8fe; --ink-7: #f7fdfd;
+    --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #5feeff; --ink-3: #d4e1e3; --ink-4: #dce8ea; --ink-5: #e4eff1; --ink-6: #defbfe; --ink-7: #f7fdfd;
   }
 }
 
@@ -164,7 +163,7 @@
   color-scheme: dark;
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
   --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-  --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #88f1ff; --ink-3: #657172; --ink-4: #96a1a2; --ink-5: #b5c0c1; --ink-6: #c4f8fe; --ink-7: #f7fdfd;
+  --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #5feeff; --ink-3: #d4e1e3; --ink-4: #dce8ea; --ink-5: #e4eff1; --ink-6: #defbfe; --ink-7: #f7fdfd;
 }
 
 /* ---- Themes: the theme's colour --------------------------------------------- */
@@ -173,18 +172,18 @@
    two whose primary sits next to the warning colour move the warning away from it. No red and
    no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
    pink, lilac, sky, cyan, yellow, orange (dark). */
-:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --paper-1: #fffdfe; --paper-2: #fff7fb; --paper-3: #ffe3f1; --paper-4: #ffbbe5; --ink-1: #dc009d; --ink-2: #8f0966; --ink-3: #68555f; --ink-4: #504048; --ink-5: #3a2b33; --ink-6: #490833; --ink-7: #0d0208; }
-:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --paper-1: #fefdff; --paper-2: #faf7ff; --paper-3: #ede3ff; --paper-4: #dac1ff; --ink-1: #8100ff; --ink-2: #5311a5; --ink-3: #5c576d; --ink-4: #464353; --ink-5: #312e3d; --ink-6: #2a0e54; --ink-7: #07040f; }
-:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --paper-1: #fdfdff; --paper-2: #f6f7ff; --paper-3: #e2e6ff; --paper-4: #c0c9ff; --ink-1: #0400ff; --ink-2: #0113a6; --ink-3: #515b6e; --ink-4: #3d4554; --ink-5: #29313f; --ink-6: #011056; --ink-7: #020511; }
-:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --paper-1: #f9ffff; --paper-2: #f5feff; --paper-3: #e3fcff; --paper-4: #c1f9ff; --ink-1: #00818c; --ink-2: #00545c; --ink-3: #535c5d; --ink-4: #3f4647; --ink-5: #2b3233; --ink-6: #002a30; --ink-7: #00070a; }
-:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --paper-1: #fffdfa; --paper-2: #fefcf4; --paper-3: #fefae0; --paper-4: #fef4be; --ink-1: #847400; --ink-2: #564b00; --ink-3: #5d5c52; --ink-4: #47463e; --ink-5: #323129; --ink-6: #2c2600; --ink-7: #080600; }
-:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --paper-1: #fffdfc; --paper-2: #fff8f5; --paper-3: #ffeadf; --paper-4: #ffd1b4; --ink-1: #ba5900; --ink-2: #7a3800; --ink-3: #635852; --ink-4: #4c443f; --ink-5: #372f2a; --ink-6: #401a00; --ink-7: #0e0300; --warning-3: #b88a00; }
-:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --paper-1: #0d0509; --paper-2: #14060b; --paper-3: #2a0a17; --paper-4: #50102c; --ink-1: #ff018e; --ink-2: #ff7bb1; --ink-3: #7d676e; --ink-4: #ae989e; --ink-5: #ceb7bd; --ink-6: #ffbdd6; --ink-7: #fffafc; }
-:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --paper-1: #08060e; --paper-2: #0b0816; --paper-3: #170d2e; --paper-4: #2d135a; --ink-1: #a143ff; --ink-2: #bd8aff; --ink-3: #716a7e; --ink-4: #a19bad; --ink-5: #c1bacd; --ink-6: #dcc4ff; --ink-7: #fcfbff; }
-:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --paper-1: #06060f; --paper-2: #040917; --paper-3: #030e2f; --paper-4: #02155b; --ink-1: #6363ff; --ink-2: #8f9bff; --ink-3: #696d80; --ink-4: #9a9eaf; --ink-5: #b9bdcf; --ink-6: #c3ccff; --ink-7: #fbfbff; }
-:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #88f1ff; --ink-3: #657172; --ink-4: #96a1a2; --ink-5: #b5c0c1; --ink-6: #c4f8fe; --ink-7: #f7fdfd; }
-:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --paper-1: #0a0701; --paper-2: #0f0a01; --paper-3: #1c1502; --paper-4: #352803; --ink-1: #ffc702; --ink-2: #ffda7e; --ink-3: #726e64; --ink-4: #a29e95; --ink-5: #c1bdb4; --ink-6: #feecbe; --ink-7: #fdfcf7; --warning-3: #f08a24; }
-:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --paper-1: #0d0502; --paper-2: #130703; --paper-3: #260e05; --paper-4: #481c07; --ink-1: #ff6100; --ink-2: #ff9a70; --ink-3: #796b65; --ink-4: #a99b96; --ink-5: #c8bab5; --ink-6: #ffccb5; --ink-7: #fffbf9; }
+:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --paper-1: #fffdfe; --paper-2: #fff7fb; --paper-3: #ffe3f1; --paper-4: #ffbbe5; --ink-1: #dc009d; --ink-2: #b50781; --ink-3: #5e4b55; --ink-4: #46373f; --ink-5: #32232b; --ink-6: #29051c; --ink-7: #0d0208; }
+:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --paper-1: #fefdff; --paper-2: #faf7ff; --paper-3: #ede3ff; --paper-4: #dac1ff; --ink-1: #8100ff; --ink-2: #6a0cd1; --ink-3: #474358; --ink-4: #353241; --ink-5: #24212f; --ink-6: #170930; --ink-7: #07040f; }
+:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --paper-1: #fdfdff; --paper-2: #f6f7ff; --paper-3: #e2e6ff; --paper-4: #c0c9ff; --ink-1: #0400ff; --ink-2: #020ed2; --ink-3: #30384a; --ink-4: #232a38; --ink-5: #161d2a; --ink-6: #020b32; --ink-7: #020511; }
+:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --paper-1: #f9ffff; --paper-2: #f5feff; --paper-3: #e3fcff; --paper-4: #c1f9ff; --ink-1: #00818c; --ink-2: #006a74; --ink-3: #434b4c; --ink-4: #313839; --ink-5: #1f2627; --ink-6: #00181c; --ink-7: #00070a; }
+:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --paper-1: #fffdfa; --paper-2: #fefcf4; --paper-3: #fefae0; --paper-4: #fef4be; --ink-1: #847400; --ink-2: #6d5f00; --ink-3: #4d4b42; --ink-4: #393830; --ink-5: #27261e; --ink-6: #191500; --ink-7: #080600; }
+:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --paper-1: #fffdfc; --paper-2: #fff8f5; --paper-3: #ffeadf; --paper-4: #ffd1b4; --ink-1: #ba5900; --ink-2: #9a4800; --ink-3: #564b45; --ink-4: #403833; --ink-5: #2d2520; --ink-6: #260d00; --ink-7: #0e0300; --warning-3: #b88a00; }
+:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --paper-1: #0d0509; --paper-2: #14060b; --paper-3: #2a0a17; --paper-4: #50102c; --ink-1: #ff018e; --ink-2: #ff53a0; --ink-3: #c3abb2; --ink-4: #d4bdc4; --ink-5: #e7cfd6; --ink-6: #ffdce9; --ink-7: #fffafc; }
+:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --paper-1: #08060e; --paper-2: #0b0816; --paper-3: #170d2e; --paper-4: #2d135a; --ink-1: #a143ff; --ink-2: #af6aff; --ink-3: #aca4ba; --ink-4: #c0b9cc; --ink-5: #d4cee1; --ink-6: #ece0ff; --ink-7: #fcfbff; }
+:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --paper-1: #06060f; --paper-2: #040917; --paper-3: #030e2f; --paper-4: #02155b; --ink-1: #6363ff; --ink-2: #7880ff; --ink-3: #a1a5b9; --ink-4: #b6bacb; --ink-5: #cbcfe1; --ink-6: #dee4ff; --ink-7: #fbfbff; }
+:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #5feeff; --ink-3: #d4e1e3; --ink-4: #dce8ea; --ink-5: #e4eff1; --ink-6: #defbfe; --ink-7: #f7fdfd; }
+:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --paper-1: #0a0701; --paper-2: #0f0a01; --paper-3: #1c1502; --paper-4: #352803; --ink-1: #ffc702; --ink-2: #ffd156; --ink-3: #e2ded3; --ink-4: #e9e5dc; --ink-5: #f1ede3; --ink-6: #fef4db; --ink-7: #fdfcf7; --warning-3: #f08a24; }
+:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --paper-1: #0d0502; --paper-2: #130703; --paper-3: #260e05; --paper-4: #481c07; --ink-1: #ff6100; --ink-2: #ff7f48; --ink-3: #c7b7b1; --ink-4: #d6c7c2; --ink-5: #e6d7d2; --ink-6: #ffe4d7; --ink-7: #fffbf9; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }

@@ -45,7 +45,9 @@ on the text, paper the colours behind it, and `--primary-*` no longer exists aft
 the owner chose: they become ink, and the stronger border `-5` becomes a paper tint (`paper-4`). `-4`, the light
 anchor, had no CSS role and is no token any more. After looking, the owner kept paper and reordered ink: the
 muted greys are `ink-3` to `ink-5`, so on a light theme `ink-7` is the darkest (Dave: "maak ink-3,4 en 5 de muted
-tokens").
+tokens"). Then, asked why that order read oddly: "zet op volgorde van 1 naar 7" -- the four colour steps
+kept their own lightness and the greys theirs, so `ink-3` was lighter than `ink-2`. Shown that a strict order puts
+the greys near white on a dark theme, the owner chose equal steps 1 to 7 anyway.
 
 ### CREATE
 
@@ -53,6 +55,7 @@ tokens").
 - [x] README: Paper and Ink rows replace the Primary rows, the theme-reach section restated in paper and ink, a rename table for apps; the dialog exception named the tokens it really re-declares (`--paper-2`, `--ink-3`, was `-5`/`-2`)
 - [x] `house-style-rules.ps1`: `--primary-1` to `--primary-12` retired, so the gate reports a leftover in a consumer; `--ink-2` taken off the retired list, it is live again
 - [x] The brand book app, the hub pages, the repo's dev pages, `repo-config.ps1` and the two suites follow the rename; the showcase lists paper and ink as two groups
+- [x] `ink-1` to `ink-7` recomputed as six equal steps in OKLab lightness in every block (`ink-2`/`ink-6` the colour at 1/6 and 5/6, the greys at 2/6 to 4/6 in `ink-1`'s hue); contrasts re-measured (every ink at 4.4:1 or more on a card, a grey against `ink-7` 1.30:1 at the worst)
 - [x] The stylesheet checksum re-pinned in the `house-style` skill
 
 ### TEST
@@ -66,8 +69,10 @@ tokens").
 The house colour splits into two groups. **Paper** (`--paper-1` to `--paper-4`) is what sits behind the text, in
 very small steps: the page, the cards, every line and the tinted surfaces, and a stronger border. **Ink**
 (`--ink-1` to `--ink-7`) is what sits on it, in large steps: the highlight and `h1`, `h2`, then the three greys
-(the eyebrow and fills, sub lines and notes, the breadcrumb), then `h3`-`h5` and all text, the darkest on light. `--primary-*` is gone.
-Every role keeps its colour except the stronger border, which turns from a grey into a tint a step past the line.
+(the eyebrow and fills, sub lines and notes, the breadcrumb), then `h3`-`h5` and all text: seven equal steps in lightness, `ink-7` the darkest on light. `--primary-*` is gone.
+The paper roles keep their colours except the stronger border, now a tint a step past the line; the ink steps take
+new values, evenly spaced, so `h2` and `h3`-`h5` shift slightly and the muted greys read darker on light and
+lighter on dark.
 The house-style gate reports every `--primary-*` left behind as a retired token.
 
 **Score:** 4

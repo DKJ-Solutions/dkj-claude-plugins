@@ -50,7 +50,7 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
 | Categorical | `--cat-1`, `--cat-2`, `--cat-3` | one series each. Never two meanings for one slot in a view |
 | Direction | `--positive-3` and `--negative-3` (also the gain and the loss in charts, so a direction chart can share a view with any series), `--positive-5`, `--negative-5` (numbers in text) | result and direction, never a category. `--positive-5`/`--negative-5` are the text versions of `--positive-3`/`--negative-3`, a step more contrast so a number reads as text: darker on light, lighter on dark |
 | Status | `--positive-3`, `--warning-3`, `--negative-3`, `--warning-5`, `--warning-1`, `--negative-1`, `--positive-1` | badges, meters, notices. `--warning-1`, `--negative-1` and `--positive-1` are the backgrounds of a warning, negative or positive message. The mark inside a status icon (check, cross, "!") is `--paper-1` |
-| Ink | `--ink-1` … `--ink-7` | what sits **on** the paper, in large steps, from the highlight to the far end with the greys in the middle, so on light `ink-7` is the darkest (owner's decisions, October 20, 2026). `ink-1`, `ink-2`, `ink-6` and `ink-7` are the colour itself, three equal steps in OKLab: `ink-1` is **the highlight**, kept for `h1`, the fill of `.btn--primary` (a filled main action, like the filled icon button; #109), a state (hover, focus, pressed, sorted, active, today), `strong`, list markers, links, a value meant to stand out, the accent dialog's title and the settings panel's title, and native controls through `accent-color`; `ink-2` is `h2` and `.meta`; `ink-6` is `h3`–`h5` (owner's decision, October 19, 2026: an `h2` in the h1's colour read too much like it, and a grey `h3` did not work); `ink-7` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and an inverted surface. `ink-3` to `ink-5` are the greys, the muted family for what may recede (owner, October 19, 2026), from the most receding to the least: `ink-3`, a little more coloured than the other two and the furthest a muted text may go, the eyebrow, the pressed `.seg` button, `.badge--info`, `.meter--info`, focus rings, meters and the `--accent` modifiers ([below](#how-far-a-theme-reaches)); `ink-4` every sub line (`.sub`, `.dialog__sub`, a component's `-sub`), every note (`.note`, `.footer-note`, `.muted`, on a `<p>` too) and the tile label; `ink-5` the breadcrumb's current page. Never a status or a number |
+| Ink | `--ink-1` … `--ink-7` | what sits **on** the paper, in large steps, from the highlight to the far end with the greys in the middle, so on light `ink-7` is the darkest (owner's decisions, October 20, 2026). The seven are six equal steps in OKLab lightness, in order 1 to 7 (owner, October 20, 2026); `ink-1`, `ink-2`, `ink-6` and `ink-7` are the colour itself: `ink-1` is **the highlight**, kept for `h1`, the fill of `.btn--primary` (a filled main action, like the filled icon button; #109), a state (hover, focus, pressed, sorted, active, today), `strong`, list markers, links, a value meant to stand out, the accent dialog's title and the settings panel's title, and native controls through `accent-color`; `ink-2` is `h2` and `.meta`; `ink-6` is `h3`–`h5` (owner's decision, October 19, 2026: an `h2` in the h1's colour read too much like it, and a grey `h3` did not work); `ink-7` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and an inverted surface. `ink-3` to `ink-5` are the greys, the muted family for what may recede (owner, October 19, 2026), from the most receding to the least: `ink-3`, a little more coloured than the other two and the furthest a muted text may go, the eyebrow, the pressed `.seg` button, `.badge--info`, `.meter--info`, focus rings, meters and the `--accent` modifiers ([below](#how-far-a-theme-reaches)); `ink-4` every sub line (`.sub`, `.dialog__sub`, a component's `-sub`), every note (`.note`, `.footer-note`, `.muted`, on a `<p>` too) and the tile label; `ink-5` the breadcrumb's current page. Never a status or a number |
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
 | Type | `--text-h1` … `--text-h5`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 48/32/22/18/16 for the headings, 18/14/12/11 for running text. `h1`–`h5` each take the token of their own level, body text is `--text-base`. There is no `--text-h0`: it was retired and `h1` took its 48px, because at 40px `h1` stood too close to `h2` (owner's decision, October 20, 2026); the hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` is the face of `h1` and `h2`, for a title that keeps it at another level |
@@ -139,9 +139,11 @@ table; a missed rename shows the wrong colour rather than an error.
 
 **The primary scale split into paper and ink on October 20, 2026** (owner's decision): the colours behind
 the text are paper, in very small steps, and the colours on it are ink, in large steps. `--primary-*` no longer
-exists. Every role keeps its colour except the stronger border, which turns from a grey into a tint a step
-beyond the line: `--paper-4` sits 36% of the way from the page to the light anchor, as `-2` and `-3` sit at 4% and
-16%. `--primary-4`, the light anchor, had no role and is no token any more. An app that takes this update renames
+exists. The paper roles keep their colours except the stronger border, which turns from a grey into a tint a
+step beyond the line: `--paper-4` sits 36% of the way from the page to the light anchor, as `-2` and `-3` sit at 4%
+and 16%. The ink steps take **new values**: seven equal steps in lightness from the highlight to the far end, so
+`h2` and `h3`–`h5` shift slightly and the muted greys read darker on light and lighter on dark. `--primary-4`, the
+light anchor, had no role and is no token any more. An app that takes this update renames
 in its own layer; the names do not overlap, so the order does not matter:
 
 | Was | Now |
@@ -358,12 +360,14 @@ out). Three more things follow it by default, in light and in dark (and a measur
     the card is only just lifted off the page, the line a step further and the stronger border a step beyond that
     (owner, October 19, 2026: evenly spaced, the first step read far too big; October 20: paper takes very small
     steps, ink large ones).
-  - `ink-2` and `ink-6` sit a third and two thirds of the way from `ink-1` to `ink-7` in OKLab, so the four colour
-    steps are three equal steps (owner, October 20, 2026: the jump to the far end was three times the others). On
-    light that puts `ink-2` (`h2`) a little darker than `ink-3`, the lightest grey.
+  - `ink-1` to `ink-7` are six equal steps in OKLab lightness, in order (owner, October 20, 2026: "zet op volgorde
+    van 1 naar 7"). `ink-2` and `ink-6` sit a sixth and five sixths of the way from `ink-1` to `ink-7` in OKLab, so
+    they keep the colour.
   - The greys `ink-3` to `ink-5` are the muted family: `ink-3` recedes the most, `ink-5` the least, in both modes.
-    They sit at fixed lightness (light 0.47, 0.39, 0.31; dark 0.538, 0.70, 0.80) in `ink-1`'s OKLCH hue at a low
-    chroma, `ink-3` with a little more colour. They were dropped for a day and came back: they give the roles room
+    They sit at two, three and four sixths of the way in lightness, in `ink-1`'s OKLCH hue at a low chroma, `ink-3`
+    with a little more colour, so they recede by colour rather than by contrast. On a dark theme `ink-1` is already
+    near white, so the greys sit close to the text (1.30:1 against `ink-7` at the worst): the owner chose the order
+    over the distance. They were dropped for a day and came back: they give the roles room
     the colour steps alone did not (owner, October 19, 2026).
 
   **A role takes the same step in both modes** (owner's decision, October 15, 2026): never `light-dark()` between
@@ -376,11 +380,10 @@ out). Three more things follow it by default, in light and in dark (and a measur
   `.table--accent` head, the hover of a joined choice and of the settings toggle, a near or today date row, a date
   row's hover, the accent dialog and an InfoRows box. The text on it is `--ink-7`, like all text (16.5:1 or better).
 - **Measured** (WCAG relative luminance, worst theme, October 19 and 20, 2026): `ink-7` on `paper-1` 19.5:1, on
-  `paper-2` 19.0:1 and on `paper-3` 16.5:1. `ink-1` on `paper-1` 4.6:1 and `paper-1` on `ink-1` 4.6:1; `ink-2` and
-  `ink-6` on a card 7.8:1 and 12.6:1; `ink-4`, the sub lines, on a card 7.3:1; `ink-3`, the eyebrow, on the page
-  6.6:1 on light and 3.9:1 on dark. Below 4.5:1: `ink-1` on a card in Magenta (4.40:1), Roest (4.43:1) and Lila
-  (4.49:1); `ink-3` on a card on dark (3.8:1) and `paper-1` on an `ink-3` fill on dark (3.9:1), about the 3.3:1 the
-  owner accepted on October 15. A `paper-3` line on a card is faint: 1.02:1 (Oker) to 1.16:1; a `paper-4` border
+  `paper-2` 19.0:1 and on `paper-3` 16.5:1. `ink-1` on `paper-1` 4.6:1 and `paper-1` on `ink-1` 4.6:1; on a card
+  `ink-2` 6.0:1, `ink-3` (the eyebrow) 7.6:1, `ink-4` (the sub lines) 10.3:1, `ink-5` 12.8:1 and `ink-6` 15.7:1;
+  `paper-1` on an `ink-3` fill 7.9:1. Below 4.5:1: `ink-1` on a card in Magenta (4.40:1), Roest (4.43:1) and Lila
+  (4.49:1). A `paper-3` line on a card is faint: 1.02:1 (Oker) to 1.16:1; a `paper-4` border
   on it 1.08:1 (Oker) to 1.52:1, faintest where the light anchor itself is near white.
 - **The page and the cards are tinted.** On light the page is the whitest layer and a card sits a shade off it;
   on dark the card is a shade lighter than the page. Either way the page is the ground end (owner's decision,
