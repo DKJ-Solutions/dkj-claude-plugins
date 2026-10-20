@@ -358,8 +358,9 @@ function Format-SpecialistsPageHtml {
     if ($rows.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Specialist</th><th class="dp-left">Plugin</th><th>Listing</th><th>Definition</th><th>Manual</th><th>Lens</th><th>Full read</th><th class="dp-left">Against the largest</th></tr></thead><tbody>')
         foreach ($r in $rows) {
-            $badges = '<span class="badge badge--sm badge--neutral">' + (& $e $r.Form) + '</span>'
-            if ($r.AlwaysOn) { $badges += ' <span class="badge badge--sm">always-on</span>' }
+            # Muted text, not .badge: the house badge is an 18px circle for one character, and a word in it
+            # spills over the text beside it.
+            $badges = '<span class="note">&middot; ' + (& $e $r.Form) + $(if ($r.AlwaysOn) { ' &middot; always-on' } else { '' }) + '</span>'
             $plugin = (& $e ($r.Plugin -replace '^dkj-subagents-', '')) + $(if ($r.Enabled) { '' } else { ' <span class="note">(off here)</span>' })
             $w = $(if ($max -gt 0) { [Math]::Min(100.0, 100.0 * [double]$r.TotalBytes / $max) } else { 0.0 }).ToString('0.##', $inv)
             $label = (& $e $r.Name) + $(if ($r.Emoji) { ' ' + (& $e $r.Emoji) } else { '' })
