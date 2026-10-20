@@ -39,19 +39,36 @@
 
 ### PLAN
 
+The owner (Dave, October 20, 2026): the jump from `--primary-11` to `--primary-12` is too big -- make the
+steps from `-9` to `-12` run more evenly.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: in every theme and both default blocks, `-10` and `-11` recomputed as a third and two thirds of the way from `-9` to `-12` in OKLab (before: the last step was about 3.5x the other two, e.g. blue 0.078 / 0.082 / 0.278; after: three equal steps, blue 0.146 / 0.145 / 0.145); the measured-contrast comment updated (`-10` on `-2` worst 7.8:1, `-11` 12.6:1)
+- [x] README: the primary row states how `-10` and `-11` are placed
+- [x] The stylesheet checksum re-pinned in the `house-style` skill
 
 ### TEST
 
+- [x] `npm run gate` in `brandbook/` green; `check-house-style.ps1` OK
+- [ ] The owner has looked at the hub and the brand book
+
 ### DEPLOY: feat/even-primary-dark-steps
 
-**Score:**
+The dark steps of the house primary run evenly: `--primary-10` and `--primary-11` now sit a third and two thirds
+of the way from `--primary-9` to `--primary-12` in OKLab, in all twelve themes, so `h1` to `h2` to `h3` to body text
+is three equal steps instead of two small ones and one large jump. On light themes `h2` and `h3` read darker, on dark
+themes lighter; every contrast stays well above 4.5:1.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions app that takes this release sees its `h2` and `h3`-`h5` colours shift a step towards body text.
+No token is renamed, so nothing has to be migrated.
+
+**Score:** 2
 
 #### Pull Request
 
+Space the primary dark steps -9 to -12 evenly
