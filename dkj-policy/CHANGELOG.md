@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**18 / 26 minor entries** <!-- pending-tally -->
+**18 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3198-general-pages-in-dkj-policy · 20261020-101433Z
+
+Every repo that runs `dkj-policy` now gets a Repo hub at session start, with the General pages linked
+from it: Artifacts, Issues, Release notes and SessionStart. That includes the BWJ-Development repos,
+which never enable `dkj-solutions`. Until now the dev-preview hook, the placeholder page and the general
+pages server shipped with `dkj-solutions`, so a repo without that plugin got no Repo hub at all. They now
+ship with `dkj-policy` and are documented in its
+[`hub/README.md`](../plugins/dkj-policy/hub/README.md), the `Get-DevPreview` seam included. A BWJ repo
+therefore starts a placeholder server on a port from 4880 to 4889 and a general pages server on one from
+4890 to 4899 at every session start, unless it states a preview of its own. The pages keep the
+DKJ-Solutions house style in every repo, because they are the plugin's own screens. The DKJ-Solutions card
+and its Brandbook page stay in `dkj-solutions` and appear only in a repo that enables it.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo sees nothing change: the same hub, cards and pages, now served by `dkj-policy`. That
+holds when both plugins are updated together, as `update-plugins` does: an older `dkj-solutions` beside
+this `dkj-policy` would still carry its own copy of the hook.
+
+**Score:** N/A
+#### Pull Request
+
+The General pages and the Repo hub machinery move to dkj-policy
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3215](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3215)
+
+---
 
 ### DEPLOY: docs/3205-slim-workflow-bullets-in-sysadmin-lens · 20261020-100247Z
 
