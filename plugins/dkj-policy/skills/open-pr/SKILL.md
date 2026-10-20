@@ -109,10 +109,11 @@ The script:
    [The link gate](#the-link-gate-do-the-entrys-links-survive-the-fold) below.
    And last the **label gate**: the label this PR would be given has to exist in your repository. See
    [The label gate](#the-label-gate-does-the-label-your-seam-names-still-exist) below.
-   **This list is the order they actually run in, and it is not the whole set** — the run also carries an
-   entry gate, a backing gate and a title gate, each of which refuses and none of which has a section on
-   this page yet. Their refusals name themselves, so a message you meet here and cannot find above is one
-   of those three rather than something undocumented in the script.
+   **This list is the order they actually run in, and it is not the whole set** — the run also carries
+   [the entry gate](#the-entry-gate-is-there-an-entry-at-all), described below, and a backing gate and a
+   title gate, each of which refuses and neither of which has a section on this page yet. Their refusals
+   name themselves, so a message you meet here and cannot find above is one of those three rather than
+   something undocumented in the script.
 4. **Commits your development document**, if it differs from `HEAD` — that one file and nothing else.
    See [The document commit](#the-document-commit-what-the-pr-says-is-what-the-branch-carries) below.
 5. Runs the **repo's own lint gate** (via `Get-LintScript` from `repo-config`) and then **all

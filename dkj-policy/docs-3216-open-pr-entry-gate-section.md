@@ -41,17 +41,23 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Drop the entry gate from the open-pr page's "no section yet" sentence and link it to its section
 
 ### TEST
 
 ### DEPLOY: docs/3216-open-pr-entry-gate-section
 
-**Score:**
+The `open-pr` skill page no longer says its entry gate has no section on the page: the list of the extra
+gates now links to "The entry gate: is there an entry at all?", and names only the backing gate and the
+title gate as still undocumented there.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A wording fix on one skill page.
+
+**Score:** N/A
 
 #### Pull Request
 
