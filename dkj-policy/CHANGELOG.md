@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**23 / 36 minor entries** <!-- pending-tally -->
+**24 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/drop-h3-shift-headings · 20261020-143643Z
+
+The house heading scale loses its 24px `h3` and every level below it moves up one: `h3` is 22px, `h4` 18px,
+`h5` 16px, and there is no `h6` or `--text-h6` any more, so `h3` now stands clearly below the 32px `h2`. The
+brand book's components follow: a plain card or dialog title is an `h5`, a drawer title, an alert title and a
+question title an `h4`. `--text-h6` is a retired token, so the house-style gate reports a use left behind.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app that takes this release sees its headings change: an `h3` renders at 22px instead of
+24px, and `--text-h4` and `--text-h5` keep their names but render one step smaller. An app moves each use one
+level up in its own layer (`--text-h4` → `--text-h3`, then `--text-h5` → `--text-h4`, then `--text-h6` →
+`--text-h5`); the table is in the house style's README.
+
+**Score:** 4
+
+#### Pull Request
+
+Drop the 24px h3 and shift h4-h6 up one level, so h6 no longer exists
+
+Plugins: dkj-solutions
+
+[PR #3228](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3228)
+
+---
 
 ### DEPLOY: feat/3223-affected-suites-local-gate · 20261020-141501Z
 
