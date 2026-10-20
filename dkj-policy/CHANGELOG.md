@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**17 / 24 minor entries** <!-- pending-tally -->
+**18 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3212-sync-main-short-mirror-path · 20261020-094457Z
+
+`sync-main` now reads every live file at its own path whichever way `-MirrorPath` is spelled. A mirror given
+in 8.3 short form (as `%TEMP%` hands out on some machines) or with a `..` segment made every live file read
+as content this repo had never held, under a mangled path such as `t/old/assets/...`, and every trunk file
+as missing on live. Measured in a dry run (1,809 differing paths where the long form gave 37); a real run
+with the same argument would have committed the whole mirror under those paths as third-party drift. The
+default mirror, which the script creates itself, was not affected.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A Shopify consumer that passes `-MirrorPath` gets a correct comparison where it got a wrong one; one who
+never passes it notices nothing.
+
+**Score:** 2
+
+#### Pull Request
+
+sync-main: a short-form -MirrorPath mis-cuts every relative path
+
+Plugins: dkj-subagents-shopify
+
+[PR #3213](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3213)
+
+---
 
 ### DEPLOY: docs/3204-slim-gate-history-in-sysadmin-lens · 20261020-093316Z
 
