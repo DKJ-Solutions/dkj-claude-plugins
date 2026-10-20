@@ -75,5 +75,3 @@ this repo's lens held: the trap, that Windows PowerShell 5.1 writes a BOM, is st
 
 Sylvester's lens: tighten the 'Repo-specific rules' gotchas to one rule plus a pointer each
 
-Plugins: dkj-subagents-alpha
-
