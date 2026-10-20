@@ -39,19 +39,33 @@
 
 ### PLAN
 
+- [x] Measure the lens and pick the largest history section (#3204, one of five issues #3204-#3208)
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace the gate-check decision log with an index table, one row per check, declined rules kept as rows
+- [x] Keep every externally linked anchor resolving; point triage-inbound at #1802 itself
 
 ### TEST
 
+- [x] Lens measured: 389,387 B -> 289,268 B; inbound anchors grepped
+- [x] Copy edit (Edith) on the diff
+
 ### DEPLOY: docs/3204-slim-gate-history-in-sysadmin-lens
 
-**Score:**
+Sylvester's repo lens drops its 111 KB gate-check decision log for a ~13 KB index: one row per check or
+declined rule, naming the issue that decided it and the one-line reason. The full reasoning stays in
+those issues and in the file's git history. The lens goes from 389 KB to 289 KB, so a Sylvester
+dispatch that reads it pays roughly 32k tokens less. Every anchor linked from outside the section still
+resolves. First of five slimming steps (#3204-#3208).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
