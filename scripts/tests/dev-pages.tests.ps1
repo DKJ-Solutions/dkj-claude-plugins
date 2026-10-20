@@ -153,6 +153,17 @@ Assert-Equal 0 @($real.Themes | Where-Object { @($_.Steps | Where-Object { $_ })
 Assert-True (@($real.Tokens | Where-Object { $_.Name -eq '--primary-9' }).Count -eq 1 -and @($real.Tokens).Count -ge 60) 'its light tokens are read'
 Assert-True (@($real.Sections | Where-Object { $_.Title -eq 'Buttons' -and $_.Classes -contains 'btn' }).Count -eq 1 -and @($real.Sections | Where-Object { $_.Title -like 'Menu list*' -and $_.Classes -contains 'menu-item' }).Count -eq 1) 'and its component sections, with their classes'
 
+Write-Host '-- the Brandbook: the brandbook/ app''s build, served under /brandbook/' -ForegroundColor Cyan
+Assert-Equal 'index.html' (ConvertTo-BrandbookRelPath -Path '/brandbook/') 'the base is the app''s page'
+Assert-Equal 'assets/index-abc.js' (ConvertTo-BrandbookRelPath -Path '/brandbook/assets/index-abc.js') 'a file is named relative to dist/'
+Assert-Equal 'dashboards/etf' (ConvertTo-BrandbookRelPath -Path '/brandbook/dashboards/etf/') 'a route''s trailing slash goes'
+Assert-True ($null -eq (ConvertTo-BrandbookRelPath -Path '/brandbook') -and $null -eq (ConvertTo-BrandbookRelPath -Path '/connectors')) 'a path outside the base is not the brand book''s'
+Assert-Equal 0 @('/brandbook/../x', '/brandbook/a/../../x', '/brandbook/%2e%2e/x', '/brandbook/a\..\x', '/brandbook/C:/x', '/brandbook//x', '/brandbook/./x' |
+    Where-Object { $null -ne (ConvertTo-BrandbookRelPath -Path $_) }).Count 'a path that could climb out of dist/ is refused, encoded or not'
+Assert-Equal 'text/javascript; charset=utf-8|text/css; charset=utf-8|image/svg+xml|application/octet-stream' (('a.js', 'b.css', 'c.svg', 'd.map' | ForEach-Object { Get-BrandbookContentType -RelPath $_ }) -join '|') 'each file is sent with its type'
+$bs = Format-BrandbookStatusHtml -Message 'Not <built>' -Detail 'line <1>'
+Assert-True ($bs -match '<h1>Brandbook</h1>' -and $bs -match '<a href="/">Repo hub</a>' -and $bs -match 'role="alert">Not &lt;built&gt;' -and $bs -match '<pre class="note">line &lt;1&gt;</pre>') 'the status page is a page under the Repo hub, and escapes what it is handed'
+
 Write-Host '-- the test-gate model' -ForegroundColor Cyan
 $json = '{ "seconds": { "a.tests.ps1": 10, "b.tests.ps1": 30, "gone.tests.ps1": 5 }, "recordedFrom": { "runs": ["111", "222"], "date": "2026-10-07", "machine": "m", "method": "mean" } }' | ConvertFrom-Json
 $m = ConvertFrom-SuiteDurations -Durations $json -SuiteFiles @('a.tests.ps1', 'b.tests.ps1', 'new.tests.ps1')

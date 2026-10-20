@@ -24,6 +24,9 @@ function houseTheme(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  // The Repo hub (scripts/dashboard/serve-connector-dashboard.ps1) serves the build under /brandbook/; the dev server
+  // uses the same base, so a link means the same thing in both.
+  base: '/brandbook/',
   plugins: [react(), houseTheme()],
   // The dev server serves only the app root by default; house-style.css is imported from outside it.
   server: { fs: { allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(houseDir)] } },

@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Icon, ICON_NAMES } from '../../components/Icon'
 import { Demo, Section } from '../Showcase'
 import { HouseThemeReachDemo } from './HouseApp'
+import { ThemesDemo } from './HouseStyle'
 import { useThemeId } from '../theme'
 
 /** House colour tokens (house-style/house-style.css), grouped by what a theme switch changes, as in house-style/README.md. */
@@ -129,6 +130,66 @@ function SwatchGrid({ items }: { items: Swatch[] }) {
   )
 }
 
+const HEADINGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const
+type HeadingLevel = (typeof HEADINGS)[number]
+type HeadingFacts = { face: string; stack: string; size: string; weight: string; token: string; hex: string }
+
+/**
+ * Every heading level as the house style renders it, with its face, size, weight and colour read off the
+ * rendered element -- so a theme click, or a change to house-style.css, shows up here without an edit. The
+ * colour is named by the --primary-* step it matches, not looked up in a table.
+ */
+function HeadingOverview({ theme }: { theme: string }) {
+  const refs = useRef<Partial<Record<HeadingLevel, HTMLHeadingElement | null>>>({})
+  const [facts, setFacts] = useState<Partial<Record<HeadingLevel, HeadingFacts>>>({})
+  useEffect(() => {
+    const root = getComputedStyle(document.documentElement)
+    const serif = root.getPropertyValue('--font-serif').trim().replace(/\s+/g, ' ')
+    const steps = Array.from({ length: 12 }, (_, i) => `--primary-${i + 1}`)
+    const stepHex = steps.map((t) => [t, resolveHex(root.getPropertyValue(t).trim())] as const)
+    const sizes = ['--text-h1', '--text-h2', '--text-h3', '--text-h4', '--text-h5', '--text-h6']
+    const next: Partial<Record<HeadingLevel, HeadingFacts>> = {}
+    for (const level of HEADINGS) {
+      const el = refs.current[level]
+      if (!el) continue
+      const cs = getComputedStyle(el)
+      const stack = cs.fontFamily.replace(/\s+/g, ' ')
+      const hex = resolveHex(cs.color) ?? cs.color
+      const size = sizes.find((t) => root.getPropertyValue(t).trim() === cs.fontSize)
+      // Quotes and spacing differ between the declared token and the computed stack; the family names do not.
+      const bare = (v: string) => v.replace(/["'\s]/g, '')
+      next[level] = {
+        face: bare(stack) === bare(serif) ? 'serif (--font-serif)' : 'sans (the body face)',
+        stack,
+        size: size ? `${size} (${cs.fontSize})` : cs.fontSize,
+        weight: cs.fontWeight,
+        token: stepHex.find(([, h]) => h === hex)?.[0] ?? '(no --primary-* step)',
+        hex,
+      }
+    }
+    setFacts(next)
+  }, [theme])
+  return (
+    <div className="dkj-headings">
+      {HEADINGS.map((level) => {
+        const Tag = level
+        const f = facts[level]
+        return (
+          <div key={level} className="dkj-heading-row">
+            <Tag ref={(el: HTMLHeadingElement | null) => { refs.current[level] = el }}>Heading {level.slice(1)}</Tag>
+            {f && (
+              <p className="dkj-heading-meta" title={f.stack}>
+                {f.face} &middot; <span className="dkj-heading-chip" style={{ background: f.hex }} />
+                <code>{f.token}</code> {f.hex} &middot; <code>{f.size}</code>, {f.weight}
+              </p>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function Readouts({ names, values }: { names: readonly string[]; values: Record<string, string> }) {
   return (
     <dl className="dkj-readouts">
@@ -171,6 +232,9 @@ export function Foundations() {
           <SwatchGrid items={names.map((n) => ({ name: `--${n}`, value: values[`--${n}`], declared: declared[`--${n}`] }))} />
         </Demo>
       ))}
+      <Demo label="Themes -- the twelve a user picks from, each with its own twelve steps, from the ground end to the far end" wide>
+        <ThemesDemo />
+      </Demo>
       <Demo label="Theme reach -- links, native controls, selection, and the opt-in --accent modifiers" wide>
         <HouseThemeReachDemo />
       </Demo>
@@ -183,6 +247,9 @@ export function Foundations() {
             </div>
           ))}
         </div>
+      </Demo>
+      <Demo label="Headings -- h1 to h6: font family, colour, size and weight, read live" wide>
+        <HeadingOverview theme={theme} />
       </Demo>
       <Demo label="Type -- weights, line heights, tracking and mono (--dkj-*)" wide>
         <div className="dkj-scale">
