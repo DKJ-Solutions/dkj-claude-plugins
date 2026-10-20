@@ -8,6 +8,11 @@
     shows the house style's tokens, themes and every component. The rules of the hub and of each page are in
     scripts/lib/dev-pages-lib.ps1.
 
+    /brandbook IS LISTED IN THE HUB'S DKJ-Solutions CARD and is the plugin's general page in every other
+    DKJ-Solutions repo (scripts/lib/general-pages-lib.ps1), read from the house-style files. Here it is answered,
+    not relayed, and with the brand book itself rather than that page: this repo holds the brandbook/ React app,
+    the one brand book (owner's decision, October 20, 2026).
+
     ONE BRAND BOOK. The hub had a PowerShell page of its own at /brandbook (#3132) beside the brandbook/ app
     (#3131): two brand books. The app is the one that stays, and the hub serves its build (brandbook/dist,
     built for the base /brandbook/). A request for the brand book's page first checks whether the build is

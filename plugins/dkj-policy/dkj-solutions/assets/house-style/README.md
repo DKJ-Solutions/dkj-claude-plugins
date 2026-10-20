@@ -515,8 +515,11 @@ implementation is this repo's own [`RepoDashboard.tsx`](https://github.com/DKJ-S
 [dkj-claude-plugins#3121](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3121)). Every DKJ-Solutions
 repo serves some pages that are not its own (Issues, Release notes), so a repo with both carries **two cards
 side by side, under one `h2` that stands above them**: **This repo** (sub line "Specific to this repo") and
-**General** (sub line "Not specific to this repo: every DKJ-Solutions repo has them"), each titled with a
-plain `h3`. The `h2` is **Pages** with the sub line "Every page this dev server serves". **Only one group
+**General** (sub line "Not specific to this repo: every repo has them"), each titled with a
+plain `h3`. **A third group, DKJ-Solutions** (sub line "Shared by every DKJ-Solutions repo: the house style
+they are all built from"), follows General (the owner's split, October 20, 2026): General is what every repo
+has, whichever organisation it belongs to, and DKJ-Solutions is what only the DKJ-Solutions repos share,
+the Brandbook first. On the `.grid-2` the third card opens the next row. The `h2` is **Pages** with the sub line "Every page this dev server serves". **Only one group
 with pages, whichever group it is, keeps the same heading:** the `h2` Pages and its sub line above one
 `.card.grid__full`, which has no title of its own (#3175; until then that card carried `h2.card__title` inside
 it). Blocks 10 and 11 take the same heading form: the `h2` and a sub line stand above the cards; block 11's

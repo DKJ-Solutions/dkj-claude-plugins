@@ -2,7 +2,76 @@
 
 ## [Unreleased]
 
-**16 / 19 minor entries** <!-- pending-tally -->
+**17 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/compact-specialists-table · 20261020-085419Z
+
+The Specialists page on the dev server gives each specialist one line in its context table instead of three: the title now follows the name and number inline, and the form and always-on badges sit beside the plugin name.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the dev server's pages are this repo's own maintenance tooling, and no consumer runs them.
+
+**Score:** N/A
+
+#### Pull Request
+
+Specialists page: one line per specialist in the context table
+
+[PR #3203](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3203)
+
+---
+
+### DEPLOY: fix/3200-dashboard-test-successor-leak · 20261020-083158Z
+
+A run of `connector-dashboard.tests.ps1` no longer leaves a dashboard server running in the background or a fixture
+directory in `%TEMP%`. Group 4 waits for the server's last successor to listen before it stops it, and asserts that
+step as well (#3200).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+connector-dashboard.tests group 4 stops its detached successor server
+
+[PR #3201](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3201)
+
+---
+
+### DEPLOY: feat/brandbook-general-page · 20261020-075701Z
+
+The Brandbook page moves out of this repo's own server into the dkj-solutions plugin's general pages server,
+and the Repo hub gets a third card for it, **DKJ-Solutions**, after **This repo** and **General**. General
+keeps the pages every repo has; DKJ-Solutions holds what only the DKJ-Solutions repos share, the house style
+first. This repo's hub still answers `/brandbook` itself, from the tree, so a house-style change is seen here
+before it is released.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions repo's Repo hub gets the Brandbook, the house style's themes, tokens and components, in a
+new DKJ-Solutions card, where until now only this repo had the page.
+
+**Score:** 3
+
+#### Pull Request
+
+The Repo hub gets a DKJ-Solutions card, and the Brandbook moves into it
+
+Plugins: dkj-solutions
+
+[PR #3199](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3199)
+
+---
 
 ### DEPLOY: feat/hub-width-full · 20261020-073112Z
 

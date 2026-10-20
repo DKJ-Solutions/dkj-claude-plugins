@@ -1,17 +1,19 @@
 <#
 .SYNOPSIS
     Serve the GENERAL pages of a DKJ-Solutions repo's Repo hub (#3119) on http://localhost:<Port>/ --
-    /artifacts, /issues, /release-notes and /sessionstart -- from the repo this server was started in.
+    /artifacts, /brandbook, /issues, /release-notes and /sessionstart -- from the repo this server was started in.
 
 .DESCRIPTION
     Started by hooks/dev-preview-sessionstart.ps1 beside the repo's own dev server, under a cmd.exe that
     changes into the repo root first, so the working directory IS the repo and that cmd.exe's command line
     is what lets the hook recognise this server as the checkout's own next time, exactly as for the
-    placeholder. A repo whose own server is not PowerShell (Vite, Next.js) gets the same four pages this way,
+    placeholder. A repo whose own server is not PowerShell (Vite, Next.js) gets the same five pages this way,
     and its hub links here. The pages and their rules are in scripts/lib/general-pages-lib.ps1.
 
     WHAT EACH PAGE READS, from the repo, on every request unless it says otherwise:
       /artifacts      scripts/dashboard/artifacts.json -- absent, the page says the file is not there.
+      /brandbook      the plugin's own assets/house-style/ (house-style.css and house-theme.js), the copy this
+                      server runs from, and whether the repo's brandbook/package.json is there (the full app).
       /issues         `gh issue list`, three calls (the open issues; created and closed in the last 28 days),
                       for --repo <owner/name> parsed from the origin remote when that is on github.com, else
                       for the repo gh finds from the working directory. Kept for -IssuesCacheSeconds; a failed
@@ -413,6 +415,14 @@ try {
             if ($path -eq '/artifacts') {
                 $ar = Get-JsonFileModel (Join-Path $root 'scripts\dashboard\artifacts.json')
                 $html = Format-ArtifactsPageHtml -Model (ConvertFrom-ArtifactRegister -Register $ar.Json) -ReadError $ar.Error -RepoName (Get-RepoIdentity).Name
+            } elseif ($path -eq '/brandbook') {
+                $texts = @{ Css = ''; Js = '' }; $errs = @()
+                foreach ($k in 'Css', 'Js') {
+                    $f = if ($k -eq 'Css') { $static['/house-style.css'].File } else { $static['/house-theme.js'].File }
+                    try { $texts[$k] = [System.IO.File]::ReadAllText($f, $utf8) } catch { $errs += "$([System.IO.Path]::GetFileName($f)) is not readable" }
+                }
+                $html = Format-BrandbookPageHtml -Model (ConvertFrom-HouseStyleAssets -Css $texts.Css -Js $texts.Js) -ReadError ($errs -join ', ') `
+                    -AppPresent (Test-Path -LiteralPath (Join-Path $root 'brandbook\package.json') -PathType Leaf) -RepoName (Get-RepoIdentity).Name
             } elseif ($path -eq '/issues') {
                 # A failed read is kept for 30 s only, so a passing gh hiccup does not show for five minutes.
                 $isAge = if ($isCache) { ((Get-Date) - $isCache.At).TotalSeconds } else { 0 }

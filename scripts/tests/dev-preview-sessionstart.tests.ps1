@@ -379,6 +379,8 @@ try {
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig 'scripts\dashboard') | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $noConfig 'scripts\dashboard\artifacts.json'), '{ "artifacts": [ { "title": "Fixture page", "url": "https://claude.ai/artifact/Fx1", "kind": "page", "created": "2026-10-01" } ] }')
         Assert-True ((& $getRaw $genPort '/artifacts') -match 'href="https://claude.ai/artifact/Fx1"[^>]*>Fixture page</a>') 'and lists the repo''s own register, read on every request'
+        $r2 = & $getRaw $genPort '/brandbook'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Brandbook</h1>' -and $r2 -notmatch 'could not be read' -and $r2 -notmatch 'brand book app' -and $r2 -match '<p class="eyebrow">no-config</p>') '/brandbook reads the house style from the plugin the server runs from, in a repo with no brandbook/ of its own'
         $r2 = & $getRaw $genPort '/release-notes'
         Assert-True ($r2 -match 'HTTP/1.1 404' -and $r2 -match 'Not built yet' -and $r2 -match 'could not build it \(the build exited 1: [^)]*release history is missing') '/release-notes builds a page that is absent, and where it cannot, is a 404 text naming why (#3189)'
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig 'dkj-policy\releases\page') | Out-Null

@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
     The Repo hub on '/' of this repo's dev server and its own pages: the test-gate page (the per-suite CI
-    durations, #3097), the Specialists page, and the Brandbook's status page (the brand book itself is the
-    brandbook/ app's build, which the server serves under /brandbook/). No I/O -- the server
+    durations, #3097), the Specialists page, and what /brandbook/ needs to serve the brandbook/ app's build (its
+    paths, its content types and its status page). No I/O -- the server
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
@@ -14,7 +14,9 @@
     every DKJ-Solutions repo has -- are no longer built here (#3119): the dkj-solutions plugin ships them as
     a server of its own, and the hub's second card, General, links that server, through the plugin's
     shared Format-GeneralPagesCardHtml, so a page that is this repo's own is never read as one every repo
-    has. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and
+    has. The Brandbook went the same way: the house style is every DKJ-Solutions repo's, so it is the
+    plugin's page, in the hub's third card, DKJ-Solutions. This server still answers /brandbook itself,
+    from this tree, so a house-style change shows here before it is released. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and
     the tile and bar helpers the Test gate page shares with those pages, so nothing is written twice.
 
     ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
@@ -64,7 +66,6 @@ function Get-RepoHubPages {
         general pages are the plugin's (Get-GeneralPages), on a server of their own.
     #>
     @(
-        @{ Href = '/brandbook';   Label = 'Brandbook';   Sub = 'The house style: its tokens, its twelve themes and every component, built from brandbook/ in this checkout' },
         @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
         @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs' },
         @{ Href = '/test-gate';   Label = 'Test gate';   Sub = 'What each test suite costs on CI' }
@@ -116,13 +117,15 @@ function Format-RepoHubHtml {
     # each card's title is an h3, the house's own. One menu-item row per page, direct siblings so the house
     # draws the line between them. The General card is the plugin's, the same in every hub
     # (Format-GeneralPagesCardHtml): it links the general pages server at -GeneralPagesUrl, or says it is not
-    # running. It is always drawn; the repo's own card is drawn when there is a page for it, and one card
+    # running. The DKJ-Solutions card (Format-DkjSolutionsPagesCardHtml) follows it, the same card with the
+    # pages only DKJ-Solutions repos share, so on a wide screen it opens the row below. Both are always
+    # drawn; the repo's own card is drawn when there is a page for it, and one card
     # alone is block 7 as the form gives it: its h2 still stands above the card, never inside it (#3175).
     $repoRows = @($Pages)
     $row = $repoRows.Count -gt 0
     if ($row) {
         [void]$sb.AppendLine('<div class="grid-2">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2><p class="card__sub">Every page this dev server serves, and the general ones beside it</p></div>')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2><p class="card__sub">Every page this dev server serves, and the shared ones beside it</p></div>')
         [void]$sb.AppendLine('<section class="card">')
         [void]$sb.AppendLine('<div class="card__head"><h3>This repo</h3><p class="card__sub">Specific to this repo</p></div>')
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="This repo pages">')
@@ -134,6 +137,7 @@ function Format-RepoHubHtml {
         [void]$sb.AppendLine('</section>')
     }
     [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin))
+    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin))
     if ($row) { [void]$sb.AppendLine('</div>') }
 
     # Block 11: About this repo, the fixed title, with this repo's own facts. Its h2 stands outside the
@@ -406,14 +410,17 @@ function Format-SpecialistsPageHtml {
     if ($rows.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Specialist</th><th class="dp-left">Plugin</th><th>Listing</th><th>Definition</th><th>Manual</th><th>Lens</th><th>Full read</th><th class="dp-left">Against the largest</th></tr></thead><tbody>')
         foreach ($r in $rows) {
-            $badges = '<span class="badge badge--sm badge--neutral">' + (& $e $r.Form) + '</span>'
-            if ($r.AlwaysOn) { $badges += ' <span class="badge badge--sm">always-on</span>' }
+            # Muted text, not .badge: the house badge is an 18px circle for one character, and a word in it
+            # spills over the text beside it.
+            $badges = '<span class="note">&middot; ' + (& $e $r.Form) + $(if ($r.AlwaysOn) { ' &middot; always-on' } else { '' }) + '</span>'
             $plugin = (& $e ($r.Plugin -replace '^dkj-subagents-', '')) + $(if ($r.Enabled) { '' } else { ' <span class="note">(off here)</span>' })
             $w = $(if ($max -gt 0) { [Math]::Min(100.0, 100.0 * [double]$r.TotalBytes / $max) } else { 0.0 }).ToString('0.##', $inv)
             $label = (& $e $r.Name) + $(if ($r.Emoji) { ' ' + (& $e $r.Emoji) } else { '' })
-            [void]$body.AppendLine('<tr><td class="dp-left"><strong>' + $label + '</strong> <span class="note">#' + (& $e $r.Number) + '</span>' +
-                $(if ($r.Title) { '<p class="note">' + (& $e $r.Title) + '</p>' } else { '' }) + '<p>' + $badges + '</p></td>' +
-                '<td class="dp-left">' + $plugin + '</td>' +
+            # One line per specialist: the title follows the name inline and the badges sit with the plugin,
+            # where a block-level title and badge row gave every specialist three lines.
+            [void]$body.AppendLine('<tr><td class="dp-left"><strong>' + $label + '</strong> <span class="note">#' + (& $e $r.Number) +
+                $(if ($r.Title) { ' &middot; ' + (& $e $r.Title) } else { '' }) + '</span></td>' +
+                '<td class="dp-left">' + $plugin + ' ' + $badges + '</td>' +
                 '<td class="num" title="' + (Format-DevNumber $r.ListingBytes) + ' B">' + (& $tok $r.ListingBytes) + '</td>' +
                 '<td class="num" title="' + (Format-DevNumber $r.DefinitionBytes) + ' B">' + (& $tok $r.DefinitionBytes) + '</td>' +
                 '<td class="num" title="' + (Format-DevNumber $r.ManualBytes) + ' B">' + (& $tok $r.ManualBytes) + '</td>' +

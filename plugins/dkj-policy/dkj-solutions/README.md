@@ -149,9 +149,15 @@ checkout**, and a second origin: a theme picked on the repo's hub is picked agai
 It is a PowerShell server whatever the repo's own server is, which is why a repo on Vite or Next.js gets
 the same four pages without touching its server.
 
+**It serves a fifth, the Brandbook, which is not a general page but a DKJ-Solutions one** (the owner's
+split, October 20, 2026). The house style belongs to every DKJ-Solutions repo and to no other, so the page
+is not one repo's own; but "General" means what *every* repo has, whichever organisation it belongs to, so it
+is not general either. A hub therefore lists it in a third card, **DKJ-Solutions**, after General.
+
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
+| `/brandbook` | The house style's themes, tokens and components, read from this plugin's own `assets/house-style/` (the copy the server runs from), on every request; where the repo has a `brandbook/package.json`, a line naming `npm run dev` there | A file that cannot be read is a warning on the page |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
 | `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `dkj-policy`'s `build-release-notes-page.ps1` in a child process (bounded at 60 s), found the way `/sessionstart` finds its lib: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |
 | `/sessionstart` | The always-on path, measured in a child process (bounded at 60 s) by `always-on-budget-lib.ps1`, found in the repo's own `scripts/lib`, else in the plugin's source tree, else in the highest `dkj-policy` version in the plugin cache; kept for a minute | The reason it could not measure, on the page |
@@ -180,9 +186,9 @@ when `root` names its own checkout and each url is a plain `http://localhost:<po
 never a way to send a hub's links elsewhere: `pages` is believed only on a port of 4890-4899. **An open port
 does not say whose server it is** (two checkouts race for the same ports, and a stale file can name a port
 another checkout has taken), so the server answers `/whoami` with the hash of the root it was started in,
-and a hub links it only when that is its own root's hash. **A hub links the pages in a "General" card**: the
-repo's own hub reads the file and asks `/whoami` on every request, as does the placeholder's. Where the file
-is absent, or nothing answers as this checkout's within 500 ms, the card says the general pages server is not
+and a hub links it only when that is its own root's hash. **A hub links the pages in two cards, "General" and
+"DKJ-Solutions"** (`Format-GeneralPagesCardHtml`, `Format-DkjSolutionsPagesCardHtml`): the repo's own hub reads the file and asks `/whoami` on every request, as does the placeholder's. Where the file
+is absent, or nothing answers as this checkout's within 500 ms, each card says the general pages server is not
 running and starts at the next session start. A hook that ends before there is a hub (the repo's ports all
 taken, a `Requires` path missing) **removes the state file** rather than leave last session's.
 A repo's own server that cannot dot-source PowerShell (Vite, Next.js) reads the same file in its own
@@ -220,12 +226,13 @@ The plugin is enabled here since October 13, 2026
 ([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)), for the dev-preview hook:
 this repo's `Get-DevPreview` starts its `Repo hub`, whose own pages are the **connector dashboard** (every
 repo registered under `connectors/` and what `check-connectors.ps1` reports for it), the specialists and
-their context cost, the test-gate durations and the **Brandbook** (the house style's themes, tokens and
-components, read from `assets/house-style/`,
-[#3132](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3132)), served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1` with the plugin's
+their context cost and the test-gate durations, served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1` with the plugin's
 own copy of the house style. The release notes, the SessionStart measurements, the Artifacts and the Issues are the
 general pages above, which the hub's General card links, and `dev-pages-lib.ps1` reads the plugin's
-`general-pages-lib.ps1` from this tree. That server
+`general-pages-lib.ps1` from this tree. The **Brandbook**
+([#3132](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3132)) is the plugin's page in the
+DKJ-Solutions card, but this repo's server answers `/brandbook` itself rather than relaying it, from
+`assets/house-style/` in this tree, so a house-style change shows here before it is released. That server
 uses a `TcpListener` rather than an `HttpListener`: under the latter the socket belongs to `http.sys`
 (PID 4), and the hook could never recognise the server as this checkout's.
 
