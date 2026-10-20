@@ -111,7 +111,8 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The page layer: only names the house file does not define (.dp-*).
     [void]$sb.AppendLine('<style>')
-    [void]$sb.AppendLine('.dp-link { color: var(--primary-11); text-underline-offset: 2px; }')
+    [void]$sb.AppendLine('.dp-link { color: var(--primary-11); text-decoration: none; text-underline-offset: 2px; }')
+    [void]$sb.AppendLine('.dp-link:hover, .dp-link:focus-visible { text-decoration: underline; }')
     [void]$sb.AppendLine('.dp-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.table td.dp-left, .table th.dp-left { text-align: left; }')
     if ($Style) { [void]$sb.AppendLine($Style) }

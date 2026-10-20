@@ -51,7 +51,7 @@ deriving groups from file names).
 - [x] `ConvertFrom-SuiteDurations` takes `-Groups`: per group its recorded and unmeasured suites and total, plus the ungrouped and unknown names
 - [x] `Format-TestGatePageHtml`: a group overview, one section per group, a not-grouped section, and the old single table when the groups file cannot be read
 - [x] `Get-TestGateModel` reads `suite-groups.json` beside `suite-durations.json`
-- [x] `.dp-link` takes `--primary-11` instead of `--primary-9`: Maikel found the links hard to read on the page
+- [x] `.dp-link` takes `--primary-11` instead of `--primary-9` and loses its underline except on hover and keyboard focus: Maikel found the links hard to read on the page
 
 ### TEST
 
@@ -67,7 +67,8 @@ pages, the BWJ and Shopify plugins and the shared libs -- with each group's suit
 and says in its lead that no suite is optional: every one runs on every PR. The grouping lives in
 `scripts/tests/suite-groups.json`, and `dev-pages.tests.ps1` fails when a suite on disk is in no group,
 so a new suite is grouped in the PR that adds it. The links on the hub's pages (`.dp-link`) take
-`--primary-11` instead of `--primary-9`, which read poorly as link text.
+`--primary-11` instead of `--primary-9`, which read poorly as link text, and are underlined only on hover
+and keyboard focus.
 
 **Score:** 2
 
