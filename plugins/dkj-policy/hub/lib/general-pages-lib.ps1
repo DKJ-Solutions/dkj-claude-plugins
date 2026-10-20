@@ -57,13 +57,14 @@ function Format-DevNumber {
 }
 
 function Format-DevSeconds {
-    <# Seconds as one decimal under a minute, else m:ss -- 7.6 -> '7.6s', 1402 -> '23:22'. #>
+    <# Seconds as one decimal under a minute, m:ss under an hour, else h:mm:ss -- 7.6 -> '7.6s', 1402 -> '23:22', 5927 -> '1:38:47'. #>
     param([AllowNull()]$Seconds)
     if ($null -eq $Seconds) { return '--' }
     $s = [double]$Seconds
     if ($s -lt 60) { return $s.ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' }
     $whole = [int][Math]::Round($s)
-    return ('{0}:{1:00}' -f [int][Math]::Floor($whole / 60), ($whole % 60))
+    if ($whole -lt 3600) { return ('{0}:{1:00}' -f [int][Math]::Floor($whole / 60), ($whole % 60)) }
+    return ('{0}:{1:00}:{2:00}' -f [int][Math]::Floor($whole / 3600), [int][Math]::Floor(($whole % 3600) / 60), ($whole % 60))
 }
 
 function Format-DevDuration {
@@ -111,7 +112,8 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The page layer: only names the house file does not define (.dp-*).
     [void]$sb.AppendLine('<style>')
-    [void]$sb.AppendLine('.dp-link { color: var(--primary-9); text-underline-offset: 2px; }')
+    [void]$sb.AppendLine('.dp-link { color: var(--primary-11); text-decoration: none; text-underline-offset: 2px; }')
+    [void]$sb.AppendLine('.dp-link:hover, .dp-link:focus-visible { text-decoration: underline; }')
     [void]$sb.AppendLine('.dp-thead th { background: var(--primary-3); }')
     [void]$sb.AppendLine('.table td.dp-left, .table th.dp-left { text-align: left; }')
     if ($Style) { [void]$sb.AppendLine($Style) }

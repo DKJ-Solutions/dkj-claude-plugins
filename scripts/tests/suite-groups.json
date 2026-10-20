@@ -1,0 +1,314 @@
+{
+    "note":  [
+                 "Which workflow step each test suite guards -- the grouping of the dev server's /test-gate page.",
+                 "It is a READING AID, never a selection: the required CI check runs every suite here on every PR,",
+                 "whichever group it is in, and a merge or fold push to main skips them all or none. A group",
+                 "says what breaks when its suites go red, not when they run.",
+                 "Every *.tests.ps1 here is in exactly one group, in workflow order, and dev-pages.tests.ps1 holds",
+                 "the file to that: a new suite goes into the group whose step it guards, in the same PR."
+             ],
+    "groups":  [
+                   {
+                       "key":  "branch",
+                       "title":  "Starting and parking a branch",
+                       "guards":  "claim-issue, new-branch, worktree-lane and the parking that keeps a branch on origin until it has a PR",
+                       "suites":  [
+                                      "branch-document-path.tests.ps1",
+                                      "branch-info.tests.ps1",
+                                      "claim-issue.tests.ps1",
+                                      "new-branch.tests.ps1",
+                                      "new-branch-base.tests.ps1",
+                                      "new-branch-document.tests.ps1",
+                                      "park-branch.tests.ps1",
+                                      "park-commit.tests.ps1",
+                                      "park-cycle.tests.ps1",
+                                      "remote-ahead-lib.tests.ps1",
+                                      "worktree-lane.tests.ps1",
+                                      "worktree-lib.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "The new-branch suites build a throwaway git repo for each scenario, which is why this is one of the heaviest groups.",
+                                    "Run one suite alone with powershell -NoProfile -File scripts/tests/<name>.tests.ps1 before suspecting the whole gate."
+                                ],
+                       "split":  "new-branch on its own (its three suites carry most of the time), the parking (park-branch, park-commit, park-cycle), and claiming and worktree lanes."
+                   },
+                   {
+                       "key":  "pr",
+                       "title":  "Opening, shipping and merging a PR",
+                       "guards":  "open-pr and ship-pr: the branch-entry gate, the PR body, the resolves gate, the gate evidence and the merge",
+                       "suites":  [
+                                      "affected-suites.tests.ps1",
+                                      "backing-gate.tests.ps1",
+                                      "branch-entry-gate.tests.ps1",
+                                      "entry-scaffold.tests.ps1",
+                                      "forward-lane-lib.tests.ps1",
+                                      "gate-lib.tests.ps1",
+                                      "machine-local-gate.tests.ps1",
+                                      "merge-on-green-lib.tests.ps1",
+                                      "pr-body.tests.ps1",
+                                      "pr-issues.tests.ps1",
+                                      "pr-overlap-lib.tests.ps1",
+                                      "ship-pr-trusted-root.tests.ps1",
+                                      "trusted-tree-seam.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "open-pr runs locally only the suites the branch's changes can affect, plus every suite that walks the live tree, and leaves the whole pool to the required CI check; -AllSuites runs every one (#3223).", "ship-pr may skip its local re-run when CI has already certified the same commit."
+                                ]
+                   },
+                   {
+                       "key":  "fold",
+                       "title":  "After the merge: the fold",
+                       "guards":  "fold-changelog-entry and the CI runners that fold and verify the resolved issues after a merge",
+                       "suites":  [
+                                      "ci-fold-lib.tests.ps1",
+                                      "fold-changelog.tests.ps1",
+                                      "unfolded-entry-gate.tests.ps1",
+                                      "verify-pushed-merges.tests.ps1",
+                                      "verify-resolved-issues.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "The code these suites guard runs after the merge, on main, where no PR gate stands in front of it. A red here is worth reading closely."
+                                ]
+                   },
+                   {
+                       "key":  "release",
+                       "title":  "The release cut",
+                       "guards":  "cut-release and the release documents: the version bump, the tag, the release notes and the reach of each entry",
+                       "suites":  [
+                                      "cut-release-drive.tests.ps1",
+                                      "cut-release-guardrail.tests.ps1",
+                                      "internal-note.tests.ps1",
+                                      "publish-to-business.tests.ps1",
+                                      "reach-label.tests.ps1",
+                                      "release-lib.tests.ps1",
+                                      "release-note-form.tests.ps1",
+                                      "release-notes-page.tests.ps1",
+                                      "upload-release-asset.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "cut-release-drive drives the real cut-release.ps1 against a throwaway repo; it never bumps or tags this one."
+                                ]
+                   },
+                   {
+                       "key":  "lint",
+                       "title":  "The lint gate",
+                       "guards":  "check-plugin-integrity and the sync checks open-pr runs before the suites: links, roster, manifests, shared scripts, the always-on budget",
+                       "suites":  [
+                                      "always-on-budget.tests.ps1",
+                                      "check-house-style.tests.ps1",
+                                      "check-plugin-integrity-branch-document.tests.ps1",
+                                      "check-plugin-integrity-commands.tests.ps1",
+                                      "check-plugin-integrity-docs.tests.ps1",
+                                      "check-plugin-integrity-entries.tests.ps1",
+                                      "check-plugin-integrity-figures.tests.ps1",
+                                      "check-plugin-integrity-fixture-guard.tests.ps1",
+                                      "check-plugin-integrity-invocations.tests.ps1",
+                                      "check-plugin-integrity-links.tests.ps1",
+                                      "check-plugin-integrity-plugin-links.tests.ps1",
+                                      "check-plugin-integrity-plugin-spans.tests.ps1",
+                                      "check-plugin-integrity-roster.tests.ps1",
+                                      "check-plugin-integrity-script-rules.tests.ps1",
+                                      "check-plugin-integrity-scripts.tests.ps1",
+                                      "check-plugin-integrity-script-set.tests.ps1",
+                                      "check-plugin-integrity-skill-spans.tests.ps1",
+                                      "fix-mojibake.tests.ps1",
+                                      "param-binding-strictness.tests.ps1",
+                                      "roster-sync.tests.ps1",
+                                      "script-contract.tests.ps1",
+                                      "shared-scripts.tests.ps1",
+                                      "subagent-shared.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "These suites test the lint; the lint itself runs in its own CI job. A red check-plugin-integrity-* suite means a check changed, not that the tree broke it.",
+                                    "This is the heaviest group, about a third of the sum."
+                                ],
+                       "split":  "check-plugin-integrity on its own (its 15 suites), and the other gates beside it: the always-on budget, the roster, the script contract, the shared scripts, the house style, mojibake and parameter binding."
+                   },
+                   {
+                       "key":  "ci",
+                       "title":  "CI and the test gate itself",
+                       "guards":  "the CI workflows, the shards, the suite runner and its fixtures, and the scheduled checks on the repo's settings and stranded PRs",
+                       "suites":  [
+                                      "ci-merge-skip-lib.tests.ps1",
+                                      "ci-shard.tests.ps1",
+                                      "fixture-git-lib.tests.ps1",
+                                      "fixture-lib-deps.tests.ps1",
+                                      "fixture-script-lib.tests.ps1",
+                                      "merge-queue-prereq.tests.ps1",
+                                      "repo-settings-gate.tests.ps1",
+                                      "stranded-sweep-gate.tests.ps1",
+                                      "suite-durations-lib.tests.ps1",
+                                      "test-suite-gate.tests.ps1",
+                                      "unshipped-pr-gate.tests.ps1",
+                                      "workflow-concurrency.tests.ps1",
+                                      "workflow-timeouts.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "A suite red under the gate and green alone is evidence about the run first: re-run it alone before hunting the failure.",
+                                    "Durations come from CI logs via scripts/maintenance/record-suite-durations.ps1, never from a workstation."
+                                ],
+                       "split":  "the suite runner and its fixtures (test-suite-gate, ci-shard, suite-durations-lib, the three fixture libs), and the CI workflows with their scheduled checks (workflow-concurrency, workflow-timeouts, merge-queue-prereq, ci-merge-skip-lib, repo-settings, stranded and unshipped PRs)."
+                   },
+                   {
+                       "key":  "hooks",
+                       "title":  "Session hooks and the close-out",
+                       "guards":  "what runs without anyone asking: the SessionStart checks, the PreToolUse guards, the Stop hooks and the close-out receipt",
+                       "suites":  [
+                                      "background-run-lib.tests.ps1",
+                                      "claude-home-gate.tests.ps1",
+                                      "closeout-gate.tests.ps1",
+                                      "closeout-lib.tests.ps1",
+                                      "command-guard-lib.tests.ps1",
+                                      "connector-sessioncheck.tests.ps1",
+                                      "consumer-prose-gate.tests.ps1",
+                                      "cycle-autopark.tests.ps1",
+                                      "git-identity-gate.tests.ps1",
+                                      "guard-working-copy.tests.ps1",
+                                      "hook-check-lib.tests.ps1",
+                                      "hook-fail-closed.tests.ps1",
+                                      "hook-stdin-guard.tests.ps1",
+                                      "release-freshness-sessioncheck.tests.ps1",
+                                      "session-cache-lib.tests.ps1",
+                                      "working-copy-guard-lib.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "A session runs the installed plugin copy, not this tree, so a hook change reaches a session here only after a release."
+                                ],
+                       "split":  "the SessionStart checks (claude-home, connector, consumer-prose, git-identity, release-freshness); the tool-use guards (command-guard-lib, guard-working-copy, background-run-lib, hook-fail-closed); the Stop hooks and the close-out (cycle-autopark, closeout-gate, closeout-lib); and the hook plumbing (hook-check-lib, hook-stdin-guard, session-cache-lib)."
+                   },
+                   {
+                       "key":  "adopt",
+                       "title":  "Adoption in a consumer repo",
+                       "guards":  "what a consuming repo installs: the adopt skills, the bootstrap and teardown, the config blueprint and the templates it is handed",
+                       "suites":  [
+                                      "adopt-ci-floor.tests.ps1",
+                                      "adopt-statusline.tests.ps1",
+                                      "adopt-triage-labels.tests.ps1",
+                                      "adopt-workflow-folder.tests.ps1",
+                                      "bootstrap-drift.tests.ps1",
+                                      "config-blueprint.tests.ps1",
+                                      "orchestrator-skill.tests.ps1",
+                                      "pin-parity.tests.ps1",
+                                      "sync-roster.tests.ps1",
+                                      "teardown.tests.ps1",
+                                      "teardown-protocol.tests.ps1",
+                                      "template-selfcontained.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "What these suites guard reaches a consumer by two channels: plugin code after a release, the CI runners scaffolded into it at once, since they track main."
+                                ]
+                   },
+                   {
+                       "key":  "tools",
+                       "title":  "Machine upkeep and measuring",
+                       "guards":  "the tools a session runs on request: tidy-machine, prune-merged, the plugin updates, the connector and sibling checks, and the measure skills",
+                       "suites":  [
+                                      "check-consumer-siblings.tests.ps1",
+                                      "closeout-measure.tests.ps1",
+                                      "connectors.tests.ps1",
+                                      "fanout-lib.tests.ps1",
+                                      "find-specialist-mentions.tests.ps1",
+                                      "measure-always-on.tests.ps1",
+                                      "measure-session-start.tests.ps1",
+                                      "measure-skill.tests.ps1",
+                                      "plugin-versions.tests.ps1",
+                                      "policy-drift-report.tests.ps1",
+                                      "prune-merged.tests.ps1",
+                                      "sibling-divergence.tests.ps1",
+                                      "tidy-lib.tests.ps1",
+                                      "update-plugins.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "Most of these run only when somebody asks for them, so a regression here goes unnoticed in daily work until the suite catches it."
+                                ],
+                       "split":  "the measure skills (measure-always-on, measure-session-start, measure-skill, closeout-measure); machine upkeep (tidy-lib, prune-merged, plugin-versions, update-plugins); and the cross-repo checks (connectors, the sibling checks, policy-drift, find-specialist-mentions, fanout)."
+                   },
+                   {
+                       "key":  "pages",
+                       "title":  "The dev server pages",
+                       "guards":  "the Repo hub and its pages, the server that serves them, the hook that starts it and the live issue dashboard",
+                       "suites":  [
+                                      "connector-dashboard.tests.ps1",
+                                      "dev-pages.tests.ps1",
+                                      "dev-preview-sessionstart.tests.ps1",
+                                      "issue-dashboard.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "The hub restarts itself when HEAD moves, so a commit shows on the page within seconds; a page that looks stale is usually mid-restart."
+                                ]
+                   },
+                   {
+                       "key":  "bwj",
+                       "title":  "The BWJ extension",
+                       "guards":  "bwj-development: its hooks, the market URLs, the pages worker and the shared test harness it ships",
+                       "suites":  [
+                                      "asana-link-pickupcheck.tests.ps1",
+                                      "backlog-page-build.tests.ps1",
+                                      "bwj-development.tests.ps1",
+                                      "bwj-extension-import.tests.ps1",
+                                      "bwj-market-urls.tests.ps1",
+                                      "bwj-page-publish.tests.ps1",
+                                      "bwj-test-lib.tests.ps1",
+                                      "closed-message-sessioncheck.tests.ps1",
+                                      "guard-asana-mirror.tests.ps1",
+                                      "guard-stale-paste-block.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "bwj-development is not enabled in this repo, but its suites still run on every PR here, because this repo is its source."
+                                ]
+                   },
+                   {
+                       "key":  "shopify",
+                       "title":  "The Shopify team",
+                       "guards":  "dkj-subagents-shopify: the pre-task sync, the live-theme guard and backups, theme pushes and the live-push rules",
+                       "suites":  [
+                                      "adopt-shopify-floor.tests.ps1",
+                                      "guard-live-theme.tests.ps1",
+                                      "live-push-rules.tests.ps1",
+                                      "live-record-lib.tests.ps1",
+                                      "merged-pr-lib.tests.ps1",
+                                      "push-preview.tests.ps1",
+                                      "shopify-cli.tests.ps1",
+                                      "shopify-floor-sessioncheck.tests.ps1",
+                                      "sync-main.tests.ps1",
+                                      "sync-rules.tests.ps1",
+                                      "theme-archive-rules.tests.ps1",
+                                      "theme-lifecycle-rules.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "dkj-subagents-shopify is not enabled in this repo, but its suites still run on every PR here, because this repo is its source."
+                                ]
+                   },
+                   {
+                       "key":  "shared",
+                       "title":  "Shared building blocks",
+                       "guards":  "the libs nearly every script loads: console output and escaping, git and native-command capture, the repo root and config, the seams",
+                       "suites":  [
+                                      "check-report-lib.tests.ps1",
+                                      "command-probe-lib.tests.ps1",
+                                      "consumer-check-lib.tests.ps1",
+                                      "consumer-lens-paths.tests.ps1",
+                                      "document-newline.tests.ps1",
+                                      "exception-message-guard.tests.ps1",
+                                      "fence-lib.tests.ps1",
+                                      "fetch-attempt.tests.ps1",
+                                      "git-porcelain-lib.tests.ps1",
+                                      "hash-hex-lib.tests.ps1",
+                                      "native-capture.tests.ps1",
+                                      "native-not-started-wording.tests.ps1",
+                                      "ordering-passthrough.tests.ps1",
+                                      "ref-print-lib.tests.ps1",
+                                      "repo-config.tests.ps1",
+                                      "repo-root-lib.tests.ps1",
+                                      "run-progress.tests.ps1",
+                                      "seam-lib.tests.ps1",
+                                      "source-repo-guard.tests.ps1",
+                                      "write-target-lib.tests.ps1"
+                                  ],
+                       "tips":  [
+                                    "native-capture-lib.ps1 also ships as plugin mirrors in dkj-policy and dkj-subagents-shopify; change the copy in scripts/lib and keep the mirrors identical."
+                                ],
+                       "split":  "console output and escaping (check-report-lib, ref-print-lib, the exception and wording guards, run-progress); git and native-command capture (git-porcelain-lib, native-capture, fetch-attempt, command-probe-lib); and the repo root, config and seams (repo-config, repo-root-lib, seam-lib, source-repo-guard and the consumer libs)."
+                   }
+               ]
+}

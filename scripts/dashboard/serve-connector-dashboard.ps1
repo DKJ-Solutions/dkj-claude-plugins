@@ -4,7 +4,8 @@
     pages below it (#3097): /connectors, every repo registered under connectors/ with its plugins, its
     local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /specialists, every
     specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; /test-gate,
-    the per-suite CI durations; and /brandbook/, the brand book: the build of the brandbook/ React app, which
+    the per-suite CI durations, grouped by the workflow step each suite guards (scripts/tests/suite-groups.json);
+    and /brandbook/, the brand book: the build of the brandbook/ React app, which
     shows the house style's tokens, themes and every component. The rules of the hub and of each page are in
     scripts/lib/dev-pages-lib.ps1.
 
@@ -219,15 +220,20 @@ function Get-DashboardModel {
 }
 
 function Get-TestGateModel {
-    <# scripts/tests/suite-durations.json and the suite files beside it, read on every request: one small file. #>
+    <# scripts/tests/suite-durations.json, suite-groups.json and the suite files beside them, read on every request: two small files. #>
     $testsDir = Join-Path $root 'scripts\tests'
     $files = @(Get-ChildItem -LiteralPath $testsDir -Filter '*.tests.ps1' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
-    $json = $null; $err = ''
-    $path = Join-Path $testsDir 'suite-durations.json'
-    if (Test-Path -LiteralPath $path -PathType Leaf) {
-        try { $json = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $err = 'it is not valid JSON' }
-    } else { $err = 'the file is not there' }
-    return @{ Model = (ConvertFrom-SuiteDurations -Durations $json -SuiteFiles $files); Error = $err }
+    $read = {
+        param($Name)
+        $p = Join-Path $testsDir $Name
+        if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { return @{ Json = $null; Error = 'the file is not there' } }
+        try { return @{ Json = (Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json); Error = '' } } catch { return @{ Json = $null; Error = 'it is not valid JSON' } }
+    }
+    $d = & $read 'suite-durations.json'
+    $g = & $read 'suite-groups.json'
+    $groups = if ($g.Json) { $g.Json.groups } else { $null }
+    if (-not $g.Error -and -not @($groups | Where-Object { $_ }).Count) { $g.Error = 'it holds no groups' }
+    return @{ Model = (ConvertFrom-SuiteDurations -Durations $d.Json -SuiteFiles $files -Groups $groups); Error = $d.Error; GroupsError = $g.Error }
 }
 
 function Get-SpecialistsModel {
@@ -389,7 +395,7 @@ try {
             }
             if ($path -eq '/test-gate') {
                 $tg = Get-TestGateModel
-                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error
+                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
