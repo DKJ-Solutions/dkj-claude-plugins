@@ -176,7 +176,7 @@ function ConvertFrom-SuiteDurations {
         Groups; Ungrouped; Unknown }.
 
         -Groups is the parsed groups array of suite-groups.json, $null when that file is missing or unreadable.
-        Groups is then one @{ Key; Title; Guards; Suites; Unmeasured; Total } per group, in the file's order,
+        Groups is then one @{ Key; Title; Guards; Tips; Suites; Unmeasured; Total } per group, in the file's order,
         each holding its recorded suites slowest first and, in Unmeasured, its suites on disk with no recorded
         duration yet; Ungrouped names every suite on disk or recorded that no group holds, and Unknown every
         name a group holds that is not on disk. With no -Groups all three are empty.
@@ -203,6 +203,7 @@ function ConvertFrom-SuiteDurations {
             Key      = [string]$g.key
             Title    = [string]$g.title
             Guards   = [string]$g.guards
+            Tips     = @(@($g.tips) | Where-Object { $_ } | ForEach-Object { [string]$_ })
             Suites   = $in
             Unmeasured = @(@($SuiteFiles) | Where-Object { $_ -and $members.ContainsKey($_) -and -not $recorded.ContainsKey($_) } | Sort-Object)
             Total  = [double](($in | ForEach-Object { $_.Seconds } | Measure-Object -Sum).Sum)
@@ -286,11 +287,21 @@ function Format-TestGatePageHtml {
         return '<tfoot><tr class="row-total dp-total"><td class="dp-left">Total <span class="note">' + $what + ', run one after another; CI runs them in parallel</span></td>' + $mid +
             '<td class="num">' + (Format-DevSeconds $Sum) + '</td><td class="dp-left"></td><td>' + $pct + '%</td></tr></tfoot>'
     }
+    # The points to note under a section's h2, at the top of its card: nothing when there are none.
+    $tipsBlock = {
+        param($Tips)
+        $items = @(@($Tips) | Where-Object { $_ })
+        if (-not $items.Count) { return '' }
+        return '<h3>Points to note</h3><ul class="dp-tips">' + (($items | ForEach-Object { '<li>' + (& $e $_) + '</li>' }) -join '') + '</ul>'
+    }
     $groups = @($Model.Groups)
     if ($groups.Count -and $suites.Count) {
         [void]$body.AppendLine('<div class="grid-2" id="groups">')
         [void]$body.AppendLine('<div class="grid__head"><h2>Groups</h2><p class="card__sub">What each group of suites guards. Every suite runs on every PR, whichever group it is in</p></div>')
         [void]$body.AppendLine('<section class="card grid__full">')
+        [void]$body.AppendLine((& $tipsBlock @(
+            'The seconds are summed as if every suite ran one after another. CI splits the suites over four shards that run side by side, and a shard has taken roughly 6 to 13 minutes.',
+            'A group''s name jumps to its own table below.')))
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Group</th><th>Suites</th><th>Seconds</th><th class="dp-left">Against the slowest group</th><th>Share of the sum</th></tr></thead><tbody>')
         $heaviest = ($groups | ForEach-Object { $_.Total } | Measure-Object -Maximum).Maximum
         foreach ($g in $groups) {
@@ -306,6 +317,7 @@ function Format-TestGatePageHtml {
             [void]$body.AppendLine('<div class="grid-2" id="group-' + (& $e $g.Key) + '">')
             [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $g.Title) + '</h2><p class="card__sub">Guards ' + (& $e $g.Guards) + '</p></div>')
             [void]$body.AppendLine('<section class="card grid__full">')
+            [void]$body.AppendLine((& $tipsBlock $g.Tips))
             if (@($g.Suites).Count + @($g.Unmeasured).Count) { [void]$body.AppendLine((& $suiteTable $g.Suites $g.Unmeasured)) }
             else { [void]$body.AppendLine('<p class="note">No suite of this group is on disk.</p>') }
             [void]$body.AppendLine('</section>')
@@ -317,6 +329,7 @@ function Format-TestGatePageHtml {
             [void]$body.AppendLine('<div class="grid-2" id="ungrouped">')
             [void]$body.AppendLine('<div class="grid__head"><h2>Not grouped</h2><p class="card__sub">Suites no group holds yet</p></div>')
             [void]$body.AppendLine('<section class="card grid__full">')
+            [void]$body.AppendLine((& $tipsBlock @('Add each one to the group whose workflow step it guards, in scripts/tests/suite-groups.json. dev-pages.tests.ps1 stays red until you do.')))
             [void]$body.AppendLine((& $suiteTable $loose $looseUnmeasured))
             [void]$body.AppendLine('</section>')
             [void]$body.AppendLine('</div>')
@@ -325,6 +338,7 @@ function Format-TestGatePageHtml {
         [void]$body.AppendLine('<div class="grid-2" id="suites">')
         [void]$body.AppendLine('<div class="grid__head"><h2>Suites</h2><p class="card__sub">Mean CI duration per suite, slowest first</p></div>')
         [void]$body.AppendLine('<section class="card grid__full">')
+        [void]$body.AppendLine((& $tipsBlock @('Without scripts/tests/suite-groups.json the suites are listed in one table; every one of them still runs on every PR.')))
         if ($suites.Count) { [void]$body.AppendLine((& $suiteTable $suites)) }
         else { [void]$body.AppendLine('<p class="note">No suite durations are recorded.</p>') }
         [void]$body.AppendLine('</section>')
@@ -333,6 +347,9 @@ function Format-TestGatePageHtml {
     [void]$body.AppendLine('<div class="grid-2" id="recorded">')
     [void]$body.AppendLine('<div class="grid__head"><h2>Where it was measured</h2></div>')
     [void]$body.AppendLine('<section class="card grid__full">')
+    [void]$body.AppendLine((& $tipsBlock @(
+        'A suite not recorded yet is charged the largest recorded duration when the gate packs its shards, so a new suite starts early rather than last.',
+        'Refresh with scripts/maintenance/record-suite-durations.ps1 once a suite has been added or has grown.')))
     [void]$body.AppendLine('<dl class="facts">')
     [void]$body.AppendLine('<div><dt>Recorded</dt><dd>' + $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('<div><dt>Machine</dt><dd>' + $(if ($Model.Machine) { & $e $Model.Machine } else { '--' }) + '</dd></div>')

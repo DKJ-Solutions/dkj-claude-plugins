@@ -142,7 +142,7 @@ Assert-True ($hp -match '&lt;x&gt;.tests.ps1' -and $hp -notmatch '<x>') 'a suite
 Assert-True ($hp -notmatch 'onclick') 'a run id that is not a number is not linked'
 
 Write-Host '-- the test-gate groups' -ForegroundColor Cyan
-$groupsJson = '[ { "key": "one", "title": "Step <one>", "guards": "the first step", "suites": ["a.tests.ps1", "new.tests.ps1", "away.tests.ps1"] }, { "key": "two", "title": "Step two", "guards": "the second", "suites": ["b.tests.ps1"] } ]' | ConvertFrom-Json
+$groupsJson = '[ { "key": "one", "title": "Step <one>", "guards": "the first step", "tips": ["Mind <this>", "And that"], "suites": ["a.tests.ps1", "new.tests.ps1", "away.tests.ps1"] }, { "key": "two", "title": "Step two", "guards": "the second", "suites": ["b.tests.ps1"] } ]' | ConvertFrom-Json
 $gm = ConvertFrom-SuiteDurations -Durations $json -SuiteFiles @('a.tests.ps1', 'b.tests.ps1', 'new.tests.ps1') -Groups $groupsJson
 Assert-Equal 'one,two' (($gm.Groups | ForEach-Object { $_.Key }) -join ',') 'the groups keep the file''s order, not their cost'
 Assert-Equal 'a.tests.ps1' (($gm.Groups[0].Suites | ForEach-Object { $_.Name }) -join ',') 'a group holds its recorded suites only'
@@ -164,6 +164,9 @@ Assert-True ($gp -match '<tfoot><tr class="row-total dp-total"><td class="dp-lef
 Assert-True ($gp -match '>Total <span class="note">2 suites, run one after another; CI runs them in parallel</span></td><td class="num">10.0s</td><td class="dp-left"></td><td>22.2%</td></tr></tfoot>') 'each group''s table closes on its own sum, counting its unmeasured suites'
 Assert-True ($gp -match '\.dp-total td \{ border-top: 2px solid var\(--primary-5\); \}') 'the total row stands under a heavier rule than the rows above it'
 Assert-Equal ([regex]::Matches($gp, '<table').Count) ([regex]::Matches($gp, '<tfoot>').Count) 'every table on the page has a total'
+Assert-True ($gp -match 'id="group-one">\r?\n<div class="grid__head"><h2>[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>Points to note</h3><ul class="dp-tips"><li>Mind &lt;this&gt;</li><li>And that</li></ul>') 'a group''s tips open its card, under its h2, escaped'
+Assert-True ($gp -notmatch 'id="group-two">\r?\n<div class="grid__head"><h2>[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>') 'a group with no tips has no h3'
+Assert-True ($gp -match 'id="groups">\r?\n[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>Points to note</h3>' -and $gp -match 'id="recorded">\r?\n[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>Points to note</h3>' -and $gp -match 'id="ungrouped">\r?\n[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>Points to note</h3>') 'the groups, not-grouped and measured sections carry their own points to note'
 $gf = Format-TestGatePageHtml -Model $m -GroupsError 'the file is not there'
 Assert-True ($gf -match 'suite-groups.json could not be read: the file is not there, so the suites are listed ungrouped' -and $gf -match 'id="suites"') 'without the groups file the page falls back to one table, and says why'
 
@@ -180,6 +183,7 @@ Assert-True ($twice.Count -eq 0) ('and in one group only' + $(if ($twice.Count) 
 $gone = @($grouped | Where-Object { $onDisk -notcontains $_ })
 Assert-True ($gone.Count -eq 0) ('and no group names a suite that is not on disk' + $(if ($gone.Count) { ': ' + ($gone -join ', ') } else { '' }))
 Assert-True (@($realGroups | Where-Object { -not ($_.key -match '^[a-z-]+$' -and $_.title -and $_.guards) }).Count -eq 0) 'every group has a key, a title and what it guards'
+Assert-True (@($realGroups | Where-Object { -not @(@($_.tips) | Where-Object { $_ }).Count }).Count -eq 0) 'and at least one point to note'
 
 Write-Host '-- the SessionStart page' -ForegroundColor Cyan
 $ssModel = @{

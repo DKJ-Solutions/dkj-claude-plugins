@@ -25,7 +25,11 @@
                                       "remote-ahead-lib.tests.ps1",
                                       "worktree-lane.tests.ps1",
                                       "worktree-lib.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "The new-branch suites build a throwaway git repo for each scenario, which is why this is one of the heaviest groups.",
+                                    "Run one suite alone with powershell -NoProfile -File scripts/tests/<name>.tests.ps1 before suspecting the whole gate."
+                                ]
                    },
                    {
                        "key":  "pr",
@@ -44,7 +48,10 @@
                                       "pr-overlap-lib.tests.ps1",
                                       "ship-pr-trusted-root.tests.ps1",
                                       "trusted-tree-seam.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "open-pr runs the whole gate locally; ship-pr may skip its local re-run when CI has already certified the same commit."
+                                ]
                    },
                    {
                        "key":  "fold",
@@ -56,7 +63,10 @@
                                       "unfolded-entry-gate.tests.ps1",
                                       "verify-pushed-merges.tests.ps1",
                                       "verify-resolved-issues.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "The code these suites guard runs after the merge, on main, where no PR gate stands in front of it. A red here is worth reading closely."
+                                ]
                    },
                    {
                        "key":  "release",
@@ -72,7 +82,10 @@
                                       "release-note-form.tests.ps1",
                                       "release-notes-page.tests.ps1",
                                       "upload-release-asset.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "cut-release-drive drives the real cut-release.ps1 against a throwaway repo; it never bumps or tags this one."
+                                ]
                    },
                    {
                        "key":  "lint",
@@ -102,7 +115,11 @@
                                       "script-contract.tests.ps1",
                                       "shared-scripts.tests.ps1",
                                       "subagent-shared.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "These suites test the lint; the lint itself runs in its own CI job. A red check-plugin-integrity-* suite means a check changed, not that the tree broke it.",
+                                    "This is the heaviest group, about a third of the sum."
+                                ]
                    },
                    {
                        "key":  "ci",
@@ -122,7 +139,11 @@
                                       "unshipped-pr-gate.tests.ps1",
                                       "workflow-concurrency.tests.ps1",
                                       "workflow-timeouts.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "A suite red under the gate and green alone is evidence about the run first: re-run it alone before hunting the failure.",
+                                    "Durations come from CI logs via scripts/maintenance/record-suite-durations.ps1, never from a workstation."
+                                ]
                    },
                    {
                        "key":  "hooks",
@@ -145,7 +166,10 @@
                                       "release-freshness-sessioncheck.tests.ps1",
                                       "session-cache-lib.tests.ps1",
                                       "working-copy-guard-lib.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "A session runs the installed plugin copy, not this tree, so a hook change reaches a session here only after a release."
+                                ]
                    },
                    {
                        "key":  "adopt",
@@ -164,7 +188,10 @@
                                       "teardown.tests.ps1",
                                       "teardown-protocol.tests.ps1",
                                       "template-selfcontained.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "What these suites guard reaches a consumer by two channels: plugin code after a release, the CI runners scaffolded into it at once, since they track main."
+                                ]
                    },
                    {
                        "key":  "tools",
@@ -185,7 +212,10 @@
                                       "sibling-divergence.tests.ps1",
                                       "tidy-lib.tests.ps1",
                                       "update-plugins.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "Most of these run only when somebody asks for them, so a regression here goes unnoticed in daily work until the suite catches it."
+                                ]
                    },
                    {
                        "key":  "pages",
@@ -196,7 +226,10 @@
                                       "dev-pages.tests.ps1",
                                       "dev-preview-sessionstart.tests.ps1",
                                       "issue-dashboard.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "The hub restarts itself when HEAD moves, so a commit shows on the page within seconds; a page that looks stale is usually mid-restart."
+                                ]
                    },
                    {
                        "key":  "bwj",
@@ -213,7 +246,10 @@
                                       "closed-message-sessioncheck.tests.ps1",
                                       "guard-asana-mirror.tests.ps1",
                                       "guard-stale-paste-block.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "bwj-development is not enabled in this repo, but its suites still run on every PR here, because this repo is its source."
+                                ]
                    },
                    {
                        "key":  "shopify",
@@ -232,7 +268,10 @@
                                       "sync-rules.tests.ps1",
                                       "theme-archive-rules.tests.ps1",
                                       "theme-lifecycle-rules.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "dkj-subagents-shopify is not enabled in this repo, but its suites still run on every PR here, because this repo is its source."
+                                ]
                    },
                    {
                        "key":  "shared",
@@ -259,7 +298,10 @@
                                       "seam-lib.tests.ps1",
                                       "source-repo-guard.tests.ps1",
                                       "write-target-lib.tests.ps1"
-                                  ]
+                                  ],
+                       "tips":  [
+                                    "native-capture-lib.ps1 also ships as plugin mirrors in dkj-policy and dkj-subagents-shopify; change the copy in scripts/lib and keep the mirrors identical."
+                                ]
                    }
                ]
 }
