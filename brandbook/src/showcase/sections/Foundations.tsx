@@ -177,11 +177,10 @@ function HeadingOverview({ theme }: { theme: string }) {
           <div key={level} className="dkj-heading-row">
             <Tag ref={(el: HTMLHeadingElement | null) => { refs.current[level] = el }}>Heading {level.slice(1)}</Tag>
             {f && (
-              <dl className="dkj-readouts">
-                <div><dt>Font family</dt><dd>{f.face} -- <span className="dkj-heading-stack">{f.stack}</span></dd></div>
-                <div><dt>Colour</dt><dd><span className="dkj-heading-chip" style={{ background: f.hex }} /><code>{f.token}</code> {f.hex}</dd></div>
-                <div><dt>Size and weight</dt><dd><code>{f.size}</code>, {f.weight}</dd></div>
-              </dl>
+              <p className="dkj-heading-meta" title={f.stack}>
+                {f.face} &middot; <span className="dkj-heading-chip" style={{ background: f.hex }} />
+                <code>{f.token}</code> {f.hex} &middot; <code>{f.size}</code>, {f.weight}
+              </p>
             )}
           </div>
         )
