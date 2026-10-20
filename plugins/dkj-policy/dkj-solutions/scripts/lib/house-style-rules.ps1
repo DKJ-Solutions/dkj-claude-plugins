@@ -54,9 +54,10 @@
 
     THE RETIRED NAMES are every token an earlier released tag defined (house-style-v1, -v2) and every
     name in the `Was` column of the rename tables in house-style/README.md at the pinned tag, minus
-    every name that tag's stylesheet defines again (`--primary-3` was renamed and is live with a new
-    meaning). The rename tables alone miss `--gain`, which v1 and v2 defined and v3 dropped without a
-    row. They are listed here rather than fetched, so the gate needs no network; a change to the
+    every name that tag's stylesheet defines again (`--ink-2` was retired and is live again as an ink
+    step since October 20, 2026, when the twelve `--primary-*` steps split into paper and ink and were
+    retired themselves). The rename tables alone miss `--gain`, which v1 and v2 defined and v3 dropped
+    without a row. They are listed here rather than fetched, so the gate needs no network; a change to the
     canonical copy in assets/house-style/ that retires a name updates this list in the same change
     (#3130), and the suite holds the list to that copy so a live name can never be listed as retired.
 
@@ -70,8 +71,10 @@ function Get-HouseStyleRetiredTokens {
     <# The token names the house style retired, as of the tag the skill pins (v0.4.0). #>
     return [string[]]@(
         '--axis', '--bad', '--border', '--border-base', '--down', '--gain', '--good', '--grid', '--grid-base',
-        '--ink', '--ink-2', '--loss', '--muted', '--neutral-1', '--neutral-2', '--neutral-3', '--neutral-4',
-        '--neutral-5', '--on-primary', '--on-warn', '--page', '--page-base', '--primary', '--primary-ink',
+        '--ink', '--loss', '--muted', '--neutral-1', '--neutral-2', '--neutral-3', '--neutral-4',
+        '--neutral-5', '--on-primary', '--on-warn', '--page', '--page-base', '--primary', '--primary-1', '--primary-2',
+        '--primary-3', '--primary-4', '--primary-5', '--primary-6', '--primary-7', '--primary-8', '--primary-9',
+        '--primary-10', '--primary-11', '--primary-12', '--primary-ink',
         '--primary-soft', '--status-mark', '--surface', '--surface-base', '--text-h0', '--text-h6', '--up', '--warn', '--warn-bg'
     )
 }

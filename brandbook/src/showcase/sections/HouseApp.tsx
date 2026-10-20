@@ -97,7 +97,7 @@ export function HouseDialogsDemo() {
               <h5 className="dialog__title" id="house-dialog-plain">
                 Dialog title
               </h5>
-              <p className="dialog__sub">A subtitle in --primary-12</p>
+              <p className="dialog__sub">A subtitle in --ink-4</p>
             </div>
           </div>
           <button type="button" className="dialog__close" aria-label="Close" onClick={() => plain.current?.close()}>
@@ -146,7 +146,7 @@ export function HouseDialogsDemo() {
 
 export function HouseTopBarDemo() {
   return (
-    <div style={{ border: '1px solid var(--primary-3)', borderRadius: 'var(--dkj-radius-lg)', overflow: 'hidden', background: 'var(--primary-1)' }}>
+    <div style={{ border: '1px solid var(--paper-3)', borderRadius: 'var(--dkj-radius-lg)', overflow: 'hidden', background: 'var(--paper-1)' }}>
       <header className="topbar">
         <div className="topbar__inner">
           <div className="topbar__brand">
@@ -170,7 +170,7 @@ export function HouseSettingsDemo() {
     window.DKJTheme.settings(ref.current)
   }, [])
   return (
-    <div style={{ border: '1px solid var(--primary-3)', borderRadius: 'var(--dkj-radius-lg)', background: 'var(--primary-1)' }}>
+    <div style={{ border: '1px solid var(--paper-3)', borderRadius: 'var(--dkj-radius-lg)', background: 'var(--paper-1)' }}>
       <header className="topbar">
         <div className="topbar__inner">
           <div className="topbar__brand">
@@ -298,7 +298,7 @@ export function HouseThemeReachDemo() {
         <span className="meta">.header--accent</span>
       </header>
       <p>
-        A <a href="#tokens">plain link</a> takes the primary, visited or not. Select this text: the selection does too.
+        A <a href="#tokens">plain link</a> takes the theme's ink, --ink-1, visited or not. Select this text: the selection does too.
       </p>
       <div className="dkj-demo-row">
         <label>

@@ -134,7 +134,7 @@ export function Overlays() {
 
       <Section id="TopBar" title="TopBar" intro="Sticky, in the surface colour, aligned with the app column. The menu opens a Drawer with menu rows, a list choice, a disclosure and a download button pinned to the bottom.">
         <Demo label="TopBar + drawer" wide surface={false}>
-          <div style={{ border: '1px solid var(--primary-3)', borderRadius: 'var(--dkj-radius-lg)', overflow: 'hidden', background: 'var(--primary-1)' }}>
+          <div style={{ border: '1px solid var(--paper-3)', borderRadius: 'var(--dkj-radius-lg)', overflow: 'hidden', background: 'var(--paper-1)' }}>
             <TopBar name="Appname" tagline="A short tagline that says what the app does." menu={<DrawerMenu />} />
             <div style={{ height: '6rem' }} />
           </div>

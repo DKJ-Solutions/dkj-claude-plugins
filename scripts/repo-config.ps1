@@ -1512,8 +1512,8 @@ function Get-HouseStyleAllowlist {
         @{ Path = 'scripts/tests/dev-pages.tests.ps1'; Name = 'h2'; Reason = 'the hub''s own suite asserts that no card carries an h2, so it spells the shape it refuses' }
         @{ Path = 'plugins/dkj-policy/dkj-solutions/assets/brandbook/*'; Reason = 'the brand book app''s build, which the cut ships into the plugin (#3210): the house stylesheet bundled with the app''s own layer, minified, not a layer of its own' }
         # The brandbook app (#3131): five deliberate extensions it brought from dkj-brandbook, which never ran this gate.
-        @{ Path = 'brandbook/src/components/dialog.css'; Name = '--primary-2'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
-        @{ Path = 'brandbook/src/components/dialog.css'; Name = '--primary-6'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
+        @{ Path = 'brandbook/src/components/dialog.css'; Name = '--paper-2'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
+        @{ Path = 'brandbook/src/components/dialog.css'; Name = '--ink-7'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
         @{ Path = 'brandbook/src/components/metrics.css'; Name = '.v'; Reason = 'a .dkj-v--warn modifier on the house class, not a restyle of it' }
         @{ Path = 'brandbook/src/components/metrics.css'; Name = '.badge'; Reason = 'a .dkj-badge--series modifier on the house class, not a restyle of it' }
         @{ Path = 'brandbook/src/showcase/showcase.css'; Name = '.tooltip'; Reason = 'a .dkj-tooltip-static modifier that draws the house tooltip open for the showcase' }

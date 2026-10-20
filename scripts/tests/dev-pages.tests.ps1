@@ -162,7 +162,7 @@ Assert-True ($gp -match 'Grouped but no longer on disk: <code>away.tests.ps1</co
 Assert-True ($gp -notmatch 'id="suites"') 'and the ungrouped single table is gone'
 Assert-True ($gp -match '<tfoot><tr class="row-total dp-total"><td class="dp-left">Total <span class="note">all groups, run one after another; CI runs them in parallel</span></td><td class="num">3</td><td class="num">40.0s</td><td class="dp-left"></td><td>88.9%</td></tr></tfoot>') 'the groups table closes on the sum of every group, its count, and its share of the whole'
 Assert-True ($gp -match '>Total <span class="note">2 suites, run one after another; CI runs them in parallel</span></td><td class="num">10.0s</td><td class="dp-left"></td><td>22.2%</td></tr></tfoot>') 'each group''s table closes on its own sum, counting its unmeasured suites'
-Assert-True ($gp -match '\.dp-total td \{ border-top: 2px solid var\(--primary-5\); \}') 'the total row stands under a heavier rule than the rows above it'
+Assert-True ($gp -match '\.dp-total td \{ border-top: 2px solid var\(--paper-4\); \}') 'the total row stands under a heavier rule than the rows above it'
 Assert-Equal ([regex]::Matches($gp, '<table').Count) ([regex]::Matches($gp, '<tfoot>').Count) 'every table on the page has a total'
 # A section's notes close it, below its card: what sits between a section's id and the next section's.
 $sectionOf = { param($Id) $i = $gp.IndexOf('id="' + $Id + '"'); $n = $gp.IndexOf('<div class="grid-2"', $i + 1); if ($n -lt 0) { $n = $gp.Length }; $gp.Substring($i, $n - $i) }
@@ -360,7 +360,7 @@ Assert-True ((Format-ReleaseNotesDevPage -Html $tpl -ThemeKey 'k"x' -HubHref '/'
 $tplStyleEnd = $rn.IndexOf('</style>')
 $houseAt = $rn.IndexOf('<link rel="stylesheet" href="/house-style.css">')
 Assert-True ($houseAt -gt $tplStyleEnd -and $tplStyleEnd -gt 0) 'the house stylesheet loads after the template''s own style, so the house body wins'
-Assert-True ($rn.IndexOf('--panel: var(--primary-2)') -gt $houseAt) 'and the template''s tokens are pointed at house tokens after it'
+Assert-True ($rn.IndexOf('--panel: var(--paper-2)') -gt $houseAt) 'and the template''s tokens are pointed at house tokens after it'
 Assert-True ($rn.IndexOf('<script src="/house-theme.js"></script>') -lt $rn.IndexOf('<body')) 'the theme script loads in the head'
 $bodyAt = $rn.IndexOf('<body>')
 $barAt = $rn.IndexOf('<div class="breadcrumbs-bar">')

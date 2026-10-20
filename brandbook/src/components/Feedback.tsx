@@ -7,7 +7,7 @@ import './surfaces.css'
 
 /**
  * Banner -- a callout.
- * accent: a tinted line (--primary-3) with a --primary-5 border; <strong> inside it turns accent.
+ * accent: a tinted line (--paper-3) with a --paper-4 border; <strong> inside it turns accent.
  * warn: the house notice look (warn background, hairline border, radius lg): a bold lead line with a warning icon,
  * then the text and optionally a list.
  */
@@ -75,7 +75,7 @@ export function Chip({ tone, children }: { tone: 'yes' | 'no' | 'todo' | 'unknow
 
 /**
  * TitleTag -- a small uppercase pill label on its own line above a title. info: the info-accent.
- * warn: the warning fill with --primary-12 text on it.
+ * warn: the warning fill with --ink-4 text on it.
  */
 export function TitleTag({ tone = 'accent', children }: { tone?: 'accent' | 'info' | 'warn'; children: ReactNode }) {
   return <span className={cx('dkj-tag', tone !== 'accent' && `dkj-tag--${tone}`)}>{children}</span>

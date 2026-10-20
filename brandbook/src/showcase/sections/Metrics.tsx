@@ -245,7 +245,7 @@ export function Metrics() {
         </Demo>
       </Section>
 
-      <Section id="Badge" title="Badge" intro="A small round status mark with a glyph. The colour is a status token (--positive-3, --warning-3, --negative-3, the primary, --cat-1), the glyph is --primary-1, and the status is also written next to it: the glyph alone is decorative.">
+      <Section id="Badge" title="Badge" intro="A small round status mark with a glyph. The colour is a status token (--positive-3, --warning-3, --negative-3, the primary, --cat-1), the glyph is --paper-1, and the status is also written next to it: the glyph alone is decorative.">
         <Demo label="Tones, 20px">
           <div className="dkj-demo-row">
             <Badge tone="good">✓</Badge>

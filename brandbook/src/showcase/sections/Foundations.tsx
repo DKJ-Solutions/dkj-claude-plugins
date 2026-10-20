@@ -2,12 +2,13 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { Icon, ICON_NAMES } from '../../components/Icon'
 import { Demo, Section } from '../Showcase'
 import { HouseThemeReachDemo } from './HouseApp'
-import { ThemesDemo } from './HouseStyle'
+import { INK_STEPS, PAPER_STEPS, THEME_STEPS, ThemesDemo } from './HouseStyle'
 import { useThemeId } from '../theme'
 
 /** House colour tokens (house-style/house-style.css), grouped by what a theme switch changes, as in house-style/README.md. */
 const HOUSE_COLORS = {
-  'changes with every theme': ['primary-1', 'primary-2', 'primary-3', 'primary-4', 'primary-5', 'primary-6', 'primary-7', 'primary-8', 'primary-9', 'primary-10', 'primary-11', 'primary-12'],
+  'paper, behind the text -- changes with every theme': PAPER_STEPS,
+  'ink, on the paper -- changes with every theme': INK_STEPS,
   'changes only between light and dark -- categories': ['cat-1', 'cat-2', 'cat-3'],
   'changes only between light and dark -- status colours': [
     'negative-1', 'negative-3', 'negative-5', 'positive-1', 'positive-3', 'positive-5', 'warning-1', 'warning-3', 'warning-5',
@@ -42,7 +43,7 @@ type Swatch = { name: string; value: string | undefined; declared: string | unde
 
 /**
  * A custom property as WRITTEN on the root -- the computed value has every var() substituted, which turns
- * "var(--primary-6) 7%, var(--primary-2)" into nested hexes nobody can read. The last matching declaration wins:
+ * "var(--ink-7) 7%, var(--paper-2)" into nested hexes nobody can read. The last matching declaration wins:
  * the theme rules come after the base rule, and a media block counts only while it matches.
  */
 function readDeclared(names: string[]): Record<string, string> {
@@ -85,12 +86,12 @@ function resolveHex(value: string): string | undefined {
 const unvar = (s: string) => s.replace(/var\((--[\w-]+)\)/g, '$1')
 
 /**
- * A declared color-mix() as a recipe in token names: "color-mix(in srgb, var(--primary-6) 7%, var(--primary-2))"
- * reads ["--primary-2", "+ 7% --primary-6"] -- the base, then how much of which colour goes through it. A share
+ * A declared color-mix() as a recipe in token names: "color-mix(in srgb, var(--ink-7) 7%, var(--paper-2))"
+ * reads ["--paper-2", "+ 7% --ink-7"] -- the base, then how much of which colour goes through it. A share
  * that is itself a token (--surface-tint) shows its value. undefined when it is neither a mix nor an alias.
  */
 function mixRecipe(declared: string): string[] | undefined {
-  // An alias (--x: var(--primary-2)) names the token it stands for.
+  // An alias (--x: var(--paper-2)) names the token it stands for.
   const alias = /^var\((--[\w-]+)\)$/.exec(declared)
   if (alias) return [`= ${alias[1]}`]
   const m = /^color-mix\(in srgb,\s*(.+?)\s+([\d.]+%|var\(--[\w-]+\)),\s*(.+)\)$/.exec(declared)
@@ -137,7 +138,7 @@ type HeadingFacts = { face: string; stack: string; size: string; weight: string;
 /**
  * Every heading level as the house style renders it, with its face, size, weight and colour read off the
  * rendered element -- so a theme click, or a change to house-style.css, shows up here without an edit. The
- * colour is named by the --primary-* step it matches, not looked up in a table.
+ * colour is named by the paper or ink step it matches, not looked up in a table.
  */
 function HeadingOverview({ theme }: { theme: string }) {
   const refs = useRef<Partial<Record<HeadingLevel, HTMLHeadingElement | null>>>({})
@@ -145,7 +146,7 @@ function HeadingOverview({ theme }: { theme: string }) {
   useEffect(() => {
     const root = getComputedStyle(document.documentElement)
     const serif = root.getPropertyValue('--font-serif').trim().replace(/\s+/g, ' ')
-    const steps = Array.from({ length: 12 }, (_, i) => `--primary-${i + 1}`)
+    const steps = THEME_STEPS.map((s) => `--${s}`)
     const stepHex = steps.map((t) => [t, resolveHex(root.getPropertyValue(t).trim())] as const)
     const sizes = ['--text-h1', '--text-h2', '--text-h3', '--text-h4', '--text-h5']
     const next: Partial<Record<HeadingLevel, HeadingFacts>> = {}
@@ -163,7 +164,7 @@ function HeadingOverview({ theme }: { theme: string }) {
         stack,
         size: size ? `${size} (${cs.fontSize})` : cs.fontSize,
         weight: cs.fontWeight,
-        token: stepHex.find(([, h]) => h === hex)?.[0] ?? '(no --primary-* step)',
+        token: stepHex.find(([, h]) => h === hex)?.[0] ?? '(no paper or ink step)',
         hex,
       }
     }
@@ -232,7 +233,7 @@ export function Foundations() {
           <SwatchGrid items={names.map((n) => ({ name: `--${n}`, value: values[`--${n}`], declared: declared[`--${n}`] }))} />
         </Demo>
       ))}
-      <Demo label="Themes -- the twelve a user picks from, each with its own twelve steps, from the ground end to the far end" wide>
+      <Demo label="Themes -- the twelve a user picks from, each with its own four paper and seven ink steps" wide>
         <ThemesDemo />
       </Demo>
       <Demo label="Theme reach -- links, native controls, selection, and the opt-in --accent modifiers" wide>
@@ -243,7 +244,7 @@ export function Foundations() {
           {TEXT_SIZES.map((f) => (
             <div key={f} className="dkj-scale-row">
               <code>{f}</code>
-              <span style={{ fontSize: `var(${f})`, color: 'var(--primary-12)', lineHeight: 'var(--dkj-lh-tight)' }}>The quick label 1,234</span>
+              <span style={{ fontSize: `var(${f})`, color: 'var(--ink-4)', lineHeight: 'var(--dkj-lh-tight)' }}>The quick label 1,234</span>
             </div>
           ))}
         </div>
@@ -256,7 +257,7 @@ export function Foundations() {
           {WEIGHTS.map((w) => (
             <div key={w} className="dkj-scale-row">
               <code>--dkj-fw-{w}</code>
-              <span style={{ fontSize: 'var(--text-lg)', fontWeight: `var(--dkj-fw-${w})`, color: 'var(--primary-12)' }}>The quick label 1,234</span>
+              <span style={{ fontSize: 'var(--text-lg)', fontWeight: `var(--dkj-fw-${w})`, color: 'var(--ink-4)' }}>The quick label 1,234</span>
             </div>
           ))}
           {LINE_HEIGHTS.map((l) => (
@@ -275,7 +276,7 @@ export function Foundations() {
           ))}
           <div className="dkj-scale-row">
             <code>--dkj-font-mono</code>
-            <span style={{ fontFamily: 'var(--dkj-font-mono)', color: 'var(--primary-12)' }}>const tap = '44px' -- 0123456789</span>
+            <span style={{ fontFamily: 'var(--dkj-font-mono)', color: 'var(--ink-4)' }}>const tap = '44px' -- 0123456789</span>
           </div>
         </div>
       </Demo>
@@ -349,7 +350,7 @@ export function Foundations() {
         <Readouts names={MOTION} values={values} />
       </Demo>
       <Demo label="Icons (stroke set, currentColor)">
-        <div className="dkj-demo-row" style={{ color: 'var(--primary-12)' }}>
+        <div className="dkj-demo-row" style={{ color: 'var(--ink-4)' }}>
           {ICON_NAMES.map((n) => (
             <span key={n} title={n} style={{ display: 'grid', justifyItems: 'center', gap: 'var(--spacing-1)', width: '4rem', fontSize: 'var(--text-xs)' }}>
               <Icon name={n} size={24} />
