@@ -16,163 +16,98 @@ infrastructure.
 ### What Sylvester owns here
 
 - **`plugins/dkj-policy/hooks/guard-working-copy.ps1`** — the second `PreToolUse` guard in this
-  marketplace, and the one that answers
-  [#1669](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1669): a dispatched subagent
-  may not run the git commands that discard the checkout it was dispatched into. Its judgement is
-  `scripts/lib/working-copy-guard-lib.ps1` and its false-positive machinery
-  `scripts/lib/command-guard-lib.ps1`, both mirrored into the plugin.
-
-  **Three things about it are worth knowing before touching it, and each was measured rather than
-  argued.** First, **the gate is `agent_id`, never `agent_type`** — Claude Code's shipped hook-input
-  schema documents the second as present on the main thread of an `--agent` session, so keying on it
-  would refuse the orchestrator in exactly that configuration. Second, **the cost is per tool call and
-  not per session**, which makes it a different animal from the seven SessionStart checks below: 8089
-  of the 9084 `Bash`/`PowerShell` calls in this project's transcripts are the main thread's, and they
-  pay the hook while never being judged by it. That is why the `agent_id` question is asked as a
-  string test on the raw payload *before* any lib is dot-sourced — 675 ms to 437 ms on that 89%, of
-  which ~397 ms is the bare `powershell` launch a command hook cannot avoid. Third, **the
-  false-positive rate is 0 of those 995 subagent calls**, and the one refusal that had to be
-  answered was a test engineer working in its own fixture repo under `/tmp` — which is why the
-  judgement takes a project root at all, and why `.claude/worktrees/agent-<id>` is carved out of it:
-  an agent granted worktree isolation owns that tree, and the harness puts it *inside* the repo.
-
-  **The corpus is reproducible and is not in the tree.** Dispatched-subagent turns are not in the
-  session transcript: they live in `~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl`
-  and carry `isSidechain: true` plus `agentId`, which is the same distinction the guard gates on. A
-  measurement that walks only `*.jsonl` at the top of the project directory reads **zero** subagent
-  calls and looks complete while answering the wrong question.
+  marketplace (#1669): a dispatched subagent may not run the git commands that discard the checkout it
+  was dispatched into. Its judgement is `scripts/lib/working-copy-guard-lib.ps1` and its
+  false-positive machinery `scripts/lib/command-guard-lib.ps1`, both mirrored into the plugin. Before
+  changing it, know:
+  - **The gate is `agent_id`, never `agent_type`**: the latter is present on the main thread of an
+    `--agent` session, so keying on it would refuse the orchestrator there.
+  - **The cost is per tool call, not per session.** The main thread pays the hook and is never judged by
+    it, so the `agent_id` question is a string test on the raw payload *before* any lib is dot-sourced.
+  - **The judgement takes a project root**, and `.claude/worktrees/agent-<id>` is carved out of it: an
+    agent granted worktree isolation owns that tree and the harness puts it inside the repo (the one
+    false positive measured was a test engineer in its own fixture repo under `/tmp`).
+  - **Measuring subagent calls**: their turns live in
+    `~/.claude/projects/<project>/<session>/subagents/agent-<id>.jsonl` (`isSidechain: true` plus
+    `agentId`), not in the session transcript. A walk of only the top-level `*.jsonl` reads zero subagent
+    calls and looks complete.
+  - **Decided in:** [#1669](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1669). The
+    measured figures are in this file's history.
 - **The `statusLine` in [`.claude/settings.json`](../../settings.json), and the progress mechanism behind
   it** — `scripts/task/show-progress.ps1` renders, `scripts/lib/run-progress-lib.ps1` is what a
-  long-running script publishes to, and the three producers wired up so far are the test gate (both lane
-  events in `Invoke-TestSuiteGate`), `ship-pr`'s CI wait
-  ([#2101](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2101), September 18, 2026) and the
-  lint gate ([#2173](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2173), September 20,
-  2026), which publishes from `Invoke-WorkflowGates` around its child call — **a label and a start, no
-  counts and so no bar**, because `check-plugin-integrity.ps1` has no total number of checks to publish
-  and a fraction of its uneven checks would sit still for most of the 78 seconds. It publishes only at
-  gate depth 1: the same `DKJ_TEST_GATE_DEPTH` that marks a nested gate keeps every suite's fixture lint
-  from repainting the test gate's bar.
-  **A run this repo does not own still publishes nothing** — a backgrounded `npm test`, a `gh run watch`,
-  a dispatched subagent — so the bar covers the long waits of this workflow rather than everything a
-  session backgrounds; the gap, and the `PreToolUse` shape that would close it, are parked as
-  [#2104](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2104).
-
-  **Why a published record rather than a printed line, which is the whole reason this exists.** A run
-  this session backgrounds prints to nobody: a `Bash` call made with `run_in_background` streams no
-  stdout to any surface a person can see, in the terminal CLI and in the VS Code extension alike, and
-  the output is only retrievable afterwards. So `Format-GateProgressLine` (#1717) and `ship-pr`'s watch
-  were both written for a reader who, in the one case they were needed for, is not there. The statusline
-  is the one surface that keeps rendering while that is true, and **`refreshInterval` is not optional
-  decoration**: Claude Code's own documentation says the event-driven triggers "can go quiet when the
-  main session is idle", which is exactly the state a backgrounded run leaves a session in. There is no
-  native progress UI to hook instead and no marker a script can emit that becomes one — measured on
-  2.1.276 against the shipped docs.
-
-  **Four decisions in it are worth knowing before touching it.** First, **liveness is the writer's
-  process, never the record's age** — a healthy `gh pr checks --watch` publishes once and then blocks
-  for twelve minutes, and #1941's gate sat for 141 minutes printing nothing, so an age test would hide
-  precisely the run a reader most wants to see. The record carries the run's START and the renderer
-  derives the elapsed, which is what keeps the readout moving across a producer that is blocked. Second,
-  **the pid is paired with that process's start time**, so a pid the OS has handed on cannot resurrect a
-  finished run's bar. Third, **the glyphs are ASCII** — a block-character bar would have to survive
-  PowerShell 5.1's stdout encoder, whose only repair is the console-wide `[Console]::OutputEncoding`
-  that [`language-layers.md`](../../rules/language-layers.md) forbids outright, and mojibake in the one
-  line that is always on screen is not a cosmetic defect. Fourth, **no bar without counts and no ETA
-  ever**: a fraction nobody measured is an invention, which is #1717's own argument carried over intact.
-
-  **What it costs, measured:** 206 ms per refresh on DAVE-KOK-BWJ, nearly all of it the bare `powershell`
-  launch a command statusline cannot avoid — the same floor the `PreToolUse` guard above pays. At the
-  2-second interval set here that is about a tenth of one core while a session is open. The script reads
-  the branch out of `.git/HEAD` as a **file** rather than calling git for exactly that reason, and at
-  this cadence it never throws and always exits 0: a failure here is not an error report, it is a broken
-  status line repeated forever.
-
-  **`refreshInterval` is in SECONDS, and for its first day it was set in milliseconds**
-  ([#2163](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2163), September 19, 2026). The
-  value was `2000`, which Claude Code reads as 33 minutes, so the timer this section calls "not optional
-  decoration" never fired inside any real run and the bar redrew only on the event-driven triggers — a
-  message sent, a turn ending. Measured on a backgrounded gate: `34 / 118` while about 114 suites had
-  finished, then `113` the instant the operator typed, with nothing in the run having changed. The
-  cost figures above were per-refresh and stay true; what was never true was the cadence they were
-  multiplied by. The documentation states the unit and a minimum of `1`
-  (<https://code.claude.com/docs/en/statusline>, the `refreshInterval` field), and **this file's own
-  "2,000 ms" was the second place the wrong unit was written down**, so a reader trusting either one
-  would have re-derived it. `adopt-statusline.tests.ps1` now pins the unit itself, not only the value:
-  it refuses a figure above 60, which nothing sensible in seconds ever is.
-
-  **The dot-source into `native-capture-lib.ps1` is guarded, and that is what keeps that file
-  byte-identical to its two mirrors.** `run-progress-lib.ps1` is not mirrored into the plugins, so in a
-  consumer the `Test-Path` fails and the gate behaves exactly as it did. Shipping the bar to consumers is
-  therefore one more mirrored file plus an `adopt-dkj-policy` seam for the settings entry, not another
-  edit to the gate — parked as
-  [#2103](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2103).
+  long-running script publishes to. The producers are the test gate (both lane events in
+  `Invoke-TestSuiteGate`), `ship-pr`'s CI wait
+  ([#2101](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2101)) and the lint gate
+  ([#2173](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2173)), which publishes from
+  `Invoke-WorkflowGates` around its child call: a label and a start, **no counts and so no bar**, because
+  `check-plugin-integrity.ps1` has no total to publish. Before changing it, know:
+  - **A published record, not a printed line**: a run a session backgrounds (`run_in_background`) prints
+    to nobody, and the statusline is the one surface that keeps rendering. A run this repo does not own (a
+    backgrounded `npm test`, `gh run watch`, a subagent) publishes nothing; parked as
+    [#2104](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2104).
+  - **`refreshInterval` is in SECONDS** and is not optional: the event-driven triggers go quiet while a
+    session is idle. Set as `2000` it read as 33 minutes and the timer never fired
+    ([#2163](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2163));
+    `adopt-statusline.tests.ps1` refuses a figure above 60. The unit is stated at
+    <https://code.claude.com/docs/en/statusline>.
+  - **Liveness is the writer's process, never the record's age** (a healthy `gh pr checks --watch`
+    publishes once, then blocks for minutes). The record carries the run's START and the renderer derives
+    the elapsed; the pid is paired with the process's start time so a recycled pid cannot resurrect a
+    finished run's bar.
+  - **The glyphs are ASCII**: a block-character bar would need the console-wide
+    `[Console]::OutputEncoding` that [`language-layers.md`](../../rules/language-layers.md) forbids.
+  - **No bar without counts, and no ETA ever** — a fraction nobody measured is an invention (#1717).
+  - **It publishes only at gate depth 1** (`DKJ_TEST_GATE_DEPTH`), so a suite's fixture lint does not
+    repaint the test gate's bar.
+  - **The script never throws and always exits 0**, and reads the branch out of `.git/HEAD` as a file: at
+    a 2-second cadence a failure is a broken status line repeated forever, and each refresh already pays
+    the bare `powershell` launch (~200 ms).
+  - **The dot-source into `native-capture-lib.ps1` is guarded** (`Test-Path`), which keeps that file
+    byte-identical to its two mirrors: `run-progress-lib.ps1` is not mirrored, so a consumer's gate
+    behaves as before. Shipping the bar to consumers is parked as
+    [#2103](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2103).
+  - **Decided in:** #1717, #2101, #2103, #2104, #2163, #2173. The measurements are in this file's history.
 - **`scripts/lint/check-plugin-integrity.ps1`** — the PR lint gate: validates `marketplace.json` +
   every `plugin.json` and the agent-def/manual frontmatter (`name`/`id`/`group` + filename match),
   scans for dead links (in `README.md`, `CHANGELOG.md`, the manuals, `SKILL.md`s, and `releases/**`),
   checks that every `scripts/**/*.ps1` parses without errors (catching syntax errors in the
   orchestration that would only break at runtime), and guards (check 7) that every shared-block
-  region in an agent def still equals its source in `subagent-shared/`. **Check 28 reads that same
-  scan set a second time for `@`-imports** (August 26, 2026, issue #874), because an import is a
-  different syntax and the link scan matched none of it. It is worth separating from its sibling by
-  what being wrong costs: a dead link costs a reader one click, a dead import costs the session **the
-  whole document** — Claude Code drops one it cannot resolve without erroring, and this repo's
-  always-on path is assembled entirely out of three of them, so the layer that vanishes is the one
-  carrying the safety rules or the roster. It reuses `measure-context-lib.ps1`'s parser rather than
-  restating the three resolution rules, so the gate and `measure-always-on.ps1` cannot drift on what an
-  import means; a target outside the repo is counted, never refused, because a `~/`-relative import
-  points into the marketplace clone and CI is a machine without one. **Checks 9 and 17 were retired on
-  August 8, 2026** with the documents they guarded — the per-plugin `RELEASE.md` card and
-  `CHANGELOG.md`. Both were the right repair for a real defect (a version stated twice, and a
-  write-once intro that drifted), and both dissolved rather than being weakened: with the second copy
-  gone there is nothing left to hold against the first. **The general shape is worth keeping: a check
-  that compares two statements of one fact is made unnecessary by deleting one of them, and that is a
-  better outcome than a better check.** **Check 11 is the one that guards a
-  doc against reality rather than against itself:** every printed `claude plugin
-  install`/`update`/`uninstall` — recognised by its `@`-target, which is what separates an instruction
-  from prose discussing the command — must carry `--scope project`, and `install`/`update` must name
-  the marketplace refresh nearby. Both fail *silently* when missing, which is why three adoption
-  rounds in a row found this same class and four doc fixes only ever closed the instances. History
-  (`CHANGELOG.md`, `releases/**`, root entry files) is excluded permanently: it records
-  what was true then. Since #315 the scope rule is **verb-specific** — `uninstall` also accepts
-  `--scope local`, because that is the only command that removes a record a session start left at that
-  scope, and a gate demanding `project` there would have rejected the correct instruction and enforced the
-  assumption round v8 disproved. **Check 12 is check 11's sibling, the same idea one level up:** a fenced
-  block that reads `installed_plugins.json` *in code* must select `projectPath`, `scope`, `version` **and**
-  `gitCommitSha`. It came out of round v8, whose three findings (#313/#314/#315) read as unrelated and were
-  one class — the family's own verification query printed a green that could not distinguish the release
-  from `main` after it, one record from two, or `project` from `local`. Closing those three by hand would
-  have been the fourth round in a row to close *instances* of a class that kept coming back. Both checks
-  answer the same **mention vs. use** question with a positional discriminator (check 11 the `@`-target,
-  check 12 "does the block actually parse the file"), which makes this the third instance of that reasoning
-  in this file. **Check 18 guards the shared source against its own documentation:** every parameter of a
-  mirrored entry point must be named in the skill that documents it, because a consumer has only the mirror
-  and that page — so a parameter the page never names does not exist for them, escape valves included. It
-  is a repair with a measured cause (August 4, 2026): the `fold-changelog` skill told consumers to commit
-  the fold *by hand* for two days after the script gained `-Commit`/`-Push`, since that improvement was
-  written into this repo's lens. Four more surfaced immediately, `-Bump` and `-NoPush` among them — the
-  latter being the only step where a human sees the assembled release before it is public. Two design notes
-  worth keeping: the mapping and the per-parameter exemptions are declared **in the registry beside the
-  registration**, the same reasoning `LibOnly` already carries, so a newly shared script cannot fall out of
-  the check silently; and parameters are read via the **PowerShell parser**, because the regex first used
-  for it missed a `[Parameter(...)]`-attributed parameter and would have given the gate the exact blind
-  spot it exists to close. An entry point declaring *no* skill is reported in the coverage line rather than
-  as an error — `ship-pr`, `fix-mojibake`, `verify-resolved-issues` and `check-script-contract` are in that
-  state today, and the first three are real gaps rather than deliberate ones. This is the safety guard that
-  [Derek #05](specialist-05-05-lens.md)'s `open-pr.ps1` runs before every push — and that `cut-release.ps1`
-  runs before a release. **Check 23, `[plugin-kind]`, added August 9, 2026, and its reason was replaced on
-  August 26, 2026 rather than left standing:** every published plugin must be `team-*` under
-  `plugins/dkj-subagents/` or a way of working by name, and a name carrying neither shape is an
-  error rather than a style note. Since
-  [#1467](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1467) only `*-policy` /
-  `*-policy-*` still carry a directory rule on the workflow side — `plugins/dkj-policy/`, the government,
-  with the prime ministry at its root and each ministry a level inside it; `workflow-*`,
-  `contributing-*` and `*-codex` are accepted by name and held to no location. It used to have teeth because the core team's `workflow-sessioncheck`
-  hook decided what counted as a workflow by that prefix alone — that hook was retired with
-  `workflow-default` under [#886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/886), so the
-  borrowed justification is gone. **What replaced it is internal to the check and stronger for it:** the
-  directory half is *derived* from the name, so a plugin matching neither prefix falls through both
-  branches and has its location held against nothing at all. An unprefixed name does not read untidily —
-  it switches the check off for itself, silently.
+  region in an agent def still equals its source in `subagent-shared/`. It is the safety guard that
+  [Derek #05](specialist-05-05-lens.md)'s `open-pr.ps1` runs before every push and that `cut-release.ps1`
+  runs before a release. The checks worth knowing by number:
+  - **Check 28 reads the same scan set a second time for `@`-imports** (#874): a dead link costs a reader
+    one click, a dead import costs the session **the whole document** (Claude Code drops it without
+    erroring). It reuses `measure-context-lib.ps1`'s parser, so the gate and `measure-always-on.ps1`
+    cannot drift on what an import means; a target outside the repo is counted, never refused (a
+    `~/`-relative import points into the marketplace clone, which CI does not have).
+  - **Checks 9 and 17 are retired** (August 8, 2026) with the documents they guarded, the per-plugin
+    `RELEASE.md` card and `CHANGELOG.md`'s intro. The shape to keep: a check that compares two statements
+    of one fact is made unnecessary by deleting one of them.
+  - **Check 11 guards a doc against reality**: every printed `claude plugin install`/`update`/`uninstall`
+    (recognised by its `@`-target, which separates an instruction from prose about the command) must carry
+    `--scope project`, and `install`/`update` must name the marketplace refresh nearby. History
+    (`CHANGELOG.md`, `releases/**`, root entry files) is excluded permanently. The scope rule is
+    **verb-specific** (#315): `uninstall` also accepts `--scope local`, the only command that removes a
+    record a session start left at that scope.
+  - **Check 12**: a fenced block that reads `installed_plugins.json` *in code* must select `projectPath`,
+    `scope`, `version` **and** `gitCommitSha` (#313, #314, #315). Checks 11 and 12 answer the same
+    **mention vs. use** question with a positional discriminator.
+  - **Check 18 guards the shared source against its own documentation**: every parameter of a mirrored
+    entry point must be named in the skill that documents it, since a consumer has only the mirror and
+    that page. The mapping and the per-parameter exemptions are declared **in the registry beside the
+    registration**, so a newly shared script cannot fall out silently; parameters are read via the
+    **PowerShell parser**, because a regex missed `[Parameter(...)]`-attributed ones. An entry point
+    declaring *no* skill is reported in the coverage line, not as an error.
+  - **Check 23, `[plugin-kind]`**: every published plugin must be `team-*` under `plugins/dkj-subagents/`
+    or a way of working by name. Only `*-policy` / `*-policy-*` carry a directory rule on the workflow
+    side (`plugins/dkj-policy/`, see
+    [#1467](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1467)); `workflow-*`,
+    `contributing-*` and `*-codex` are accepted by name and held to no location. The directory half is
+    *derived* from the name, so **an unprefixed name switches the check off for itself, silently**. Its
+    older reason, the retired `workflow-sessioncheck` hook
+    ([#886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/886)), no longer holds.
+  - **Decided in:** #315, #874, #886, #1467. The rounds and measurements behind 11, 12 and 18 are in this
+    file's history.
 - **`.github/workflows/ci.yml`** — the CI gate on GitHub: runs the lint gate and all test suites
   (`scripts/tests/*.tests.ps1`) on every PR, every push to `main` and every `merge_group` event, as the
   required check `lint-en-tests`. Before changing it, know:
@@ -299,123 +234,82 @@ infrastructure.
     titled-annotation contract). Measurements are in this file's history.
 
 - **`.github/workflows/unfolded-entry.yml` + `scripts/lint/check-unfolded-entry.ps1`** — the
-  skipped-fold gate (issue #1270). The workflow runs the check on every `push` to `main`; the check is
-  mirrored into the workflow plugin and also driven by `unfolded-entry-sessioncheck.ps1`. Advisory, not
-  in `main-ci-gate` (a required check cannot gate a push anyway). The reasoning is in
-  [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244) and #1270; the detector is
-  `Get-UnfoldedTrunkEntry` in `entry-scaffold-lib.ps1`, one definition for both callers. It runs from CI
-  and from the SessionStart hook because neither reaches the whole population alone, and neither calls
-  `gh`. Its one false positive is the ship window (`ship-pr` pushes the merge commit, then seconds later
-  the fold commit), which **this workflow's own** `cancel-in-progress: true` swallows; `ci.yml` keys every
-  push on its own commit since #1294 and swallows nothing.
-
-  **Since [#1585](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1585) the check tells a
-  SKIPPED fold from a checkout that is merely BEHIND**, and that distinction is invisible from the working
-  copy alone: a stale checkout still has the document on disk and still has a `CHANGELOG.md` without the
-  entry, so the detector reported a fold that `fold-on-merge.yml` had already pushed. The extra question
-  costs no network — `Get-TrunkGap -NoFetch` names `refs/remotes/origin/<trunk>`, and each leftover is then
-  asked whether **its branch's entry is already in `CHANGELOG.md` on that ref**, via `Test-BranchFoldedOnRef`
-  in `entry-scaffold-lib.ps1`.
-
-  **It asked the OTHER half of the fold commit until
-  [#1601](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1601), and that half was
-  guessable rather than decisive.** The fold removes the document and adds the entry in one commit, so
-  #1585 asked the cheap half — `git cat-file -e origin/<trunk>:<rel>`, is the document gone upstream — and
-  fenced off absence's other causes with a gap gate: ask only when the gap is non-zero. **A gap is not a
-  direction.** `HEAD..origin/<trunk>` is non-zero in a **diverged** checkout too, and there a document
-  committed locally and never pushed is also absent on origin — so a fold that was still owed was reported
-  as already landed, with `git pull --ff-only` as the remedy, a pull that cannot fast-forward. Filed from a
-  pre-merge review as inferred rather than measured; reproduced on a fixture one commit ahead and one behind
-  before the repair. The entry's presence has exactly one cause whichever way a checkout has drifted, so the
-  gate is **gone rather than widened** — it was sufficient and never necessary — and the gap is still
-  measured, for the wording alone.
-
-  **The match lives in the lib and not in the check, deliberately**: `Get-FoldedEntryForBranch` is this
-  tree's one definition of a folded heading, and a regex in the check would be free to disagree with it —
-  the drift `Get-UnfoldedTrunkEntry` exists to prevent for the sibling question. That is exactly why #1585
-  named the state instead of guarding it: doing it properly meant a lib function, which was more than that
-  repair was. **`Test-BranchFoldedOnRef` returns `$null` for a question it could not ask**, and the check
-  reads that as *not folded* rather than as *folded* — an unanswerable question leaves the `[ERROR]`
-  standing.
-
-  **Nothing in CI changed, and the reason is no longer the gate**: on a push to `main` the pushed commit
-  **is** `origin/<trunk>`, its `CHANGELOG.md` does not carry the entry, and the leftover is reported exactly
-  as before — so `fold-on-merge.yml`'s `'\[ERROR\] the trunk carries'` match is still the exact headline the
-  stranded case prints.
+  skipped-fold gate (#1270). The workflow runs the check on every `push` to `main`; the check is mirrored
+  into the workflow plugin and also driven by `unfolded-entry-sessioncheck.ps1`. Advisory, not in
+  `main-ci-gate` (a required check cannot gate a push anyway). Before changing it, know:
+  - **One detector, two callers**: `Get-UnfoldedTrunkEntry` in `entry-scaffold-lib.ps1`. It runs from CI
+    and from the SessionStart hook because neither reaches the whole population alone, and neither calls
+    `gh`.
+  - **Its one false positive is the ship window** (`ship-pr` pushes the merge commit, then seconds later
+    the fold commit), which **this workflow's own** `cancel-in-progress: true` swallows; `ci.yml` keys
+    every push on its own commit (#1294) and swallows nothing.
+  - **It tells a SKIPPED fold from a checkout merely BEHIND** (#1585), with no network:
+    `Get-TrunkGap -NoFetch` names `refs/remotes/origin/<trunk>`, and each leftover is asked whether **its
+    branch's entry is already in `CHANGELOG.md` on that ref** (`Test-BranchFoldedOnRef`). It asks about
+    the entry's presence, never the document's absence: **a gap is not a direction**, so a diverged
+    checkout would read an unpushed document as a landed fold (#1601). The gap is measured for the wording
+    alone.
+  - **The match lives in the lib**: `Get-FoldedEntryForBranch` is the one definition of a folded heading,
+    so a regex in the check cannot disagree with it.
+  - **`Test-BranchFoldedOnRef` returns `$null` for a question it could not ask**, and the check reads that
+    as *not folded*: an unanswerable question leaves the `[ERROR]` standing.
+  - **In CI the pushed commit *is* `origin/<trunk>`**, so `fold-on-merge.yml`'s
+    `'\[ERROR\] the trunk carries'` match is still the exact headline the stranded case prints.
+  - **Decided in:**
+    [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244),
+    [#1270](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1270),
+    [#1294](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1294),
+    [#1585](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1585),
+    [#1601](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1601). Measurements are in this
+    file's history.
 - **`.github/workflows/fold-on-merge.yml` + `FOLD_PUSH_TOKEN`** — the fold that survives a merge the
   shipping session never sees (a queue merge or a UI merge), by running the same fold this repo
   otherwise only runs from `ship-pr.ps1`'s own next step, on every `push` to `main` (issue #1493, PR
   #1507). It re-uses `check-unfolded-entry.ps1`'s own detector and adds no second one; the workflow's
-  own header comment carries the full mechanism and is the more detailed of the two.
-
-  **It pushes as an org owner, not as the GitHub Actions app, and that is structural rather than a
-  setting nobody flipped.** The default `GITHUB_TOKEN` authenticates as that app (integration_id
-  15368), which is not on `main-ci-gate`'s bypass list and cannot be added to it: the app is owned and
-  administered by `anthropics`, merely installed on this org, so there is no private key here it
-  could authenticate as. The bypass list already carries `OrganizationAdmin` with
-  `bypass_mode: always` (see the `ci.yml` bullet above), so the checkout step wires
-  in `secrets.FOLD_PUSH_TOKEN` instead — a fine-grained personal access token, created by an org owner,
-  scoped to **this repository only** and to **`Contents: Read and write` only** — and that identity
-  clears the ruleset with no ruleset change at all.
-
-  **It is a standing credential with an expiry, and nothing in this repo renews it.** The org caps a
-  fine-grained PAT's lifetime at 366 days, so the token lapses on its own schedule whatever this repo
-  does. When it does, the job keeps folding but its `git push` starts failing again — the same rejected
-  shape #1499 measured, where the ruleset names both `lint-en-tests` and the merge-queue rule together,
-  so read the run's own last lines rather than assume which of the two it is — and nothing else
-  announces the expiry; there is no reminder ahead of it. Renewal is manual: **an org owner of
-  `DKJ-Solutions`** (measured September 3, 2026: DaveKJohn, davekokbwj, maikel-bwj) **creates a new
-  fine-grained PAT with the identical scope — this repository only,
-  `Contents: Read and write` only — and overwrites the secret**,
-  `gh secret set FOLD_PUSH_TOKEN --repo DKJ-Solutions/dkj-claude-plugins`. Today that renewal is
-  tribal knowledge held by whoever created the token (Dave); this paragraph is what keeps it from
-  staying that way if the 366 days run out while he is not the one reading a red run.
+  own header comment carries the full mechanism and is the more detailed of the two. Before changing it,
+  know:
+  - **It pushes as an org owner, not as the GitHub Actions app, and that is structural.** The default
+    `GITHUB_TOKEN` is that app (integration_id 15368), which is not on `main-ci-gate`'s bypass list and
+    cannot be added (it is owned by `anthropics`, only installed here). The list carries
+    `OrganizationAdmin`, so the checkout step uses `secrets.FOLD_PUSH_TOKEN`: a fine-grained PAT created
+    by an org owner, scoped to **this repository only** and **`Contents: Read and write` only**.
+  - **It is a standing credential with an expiry, and nothing renews it.** The org caps a fine-grained
+    PAT at 366 days; when it lapses the job keeps folding but its `git push` fails, in the same rejected
+    shape #1499 measured (the ruleset names `lint-en-tests` and the merge-queue rule together, so read
+    the run's own last lines), and nothing announces it ahead of time.
+  - **Renewal is manual**: **an org owner of `DKJ-Solutions`** creates a new fine-grained PAT with the
+    identical scope and overwrites the secret:
+    `gh secret set FOLD_PUSH_TOKEN --repo DKJ-Solutions/dkj-claude-plugins`.
+  - **Decided in:** [#1493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1493),
+    [PR #1507](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1507),
+    [#1499](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1499).
 - **`.github/workflows/verify-resolved.yml` + `scripts/release/verify-pushed-merges.ps1`** — the
   resolves gate's second half surviving the same merge (issue
-  [#1511](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1511), September 6, 2026), one
-  step further down `ship-pr.ps1` than the fold above. `verify-resolved-issues.ps1` is that script's
-  step 6 and ran only from the shipping session, right after its own `gh pr merge` returned; since
-  [#1506](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1506) enqueues instead of
-  merging, that step never runs. **What was lost is narrower than it sounds and is worth stating
-  exactly**: GitHub honours the body's closing keywords on a queue merge like any other — measured on
-  PR #1509, where #1506 closed on the merge and a later `-ReportOnly` run reported `every declared issue
-  was already closed by the merge` — so what went missing is the *verification*, plus the repair when a
-  keyword misses. That repair is the case the script was built for: eight issues across PRs #341–#343
-  stayed open because those bodies carried plain mentions.
-
-  **It repairs rather than only reporting, and that is a decision rather than a consequence** (Dave,
-  September 6, 2026, answering the question #1511 raised in as many words). Report-only was the cheaper
-  option and does not close the gap: `verify-resolved-issues.ps1` exits 0 whatever it finds, so a
-  still-open issue would be one yellow line inside a green run, and the repair would stay the manual
-  step the enqueue arm already prints. So `issues: write` is granted — the first such grant in this
-  repo's workflows.
-
-  **It is its own workflow rather than a step in `fold-on-merge.yml`, and that is what makes the grant
-  narrow.** #1511 named that workflow as the obvious home and flagged the cost in the same breath:
-  `issues: write` beside a job that checks out with `FOLD_PUSH_TOKEN` puts a year-long standing
-  credential and issue-write in one job, and `actions/checkout`'s `persist-credentials: true` leaves
-  that PAT in the workspace for every step. Here they never meet — this job checks out with the default
-  hour-lived `GITHUB_TOKEN`, with `persist-credentials: false` because it never pushes. Widening the PAT
-  instead would have been the other way to reach a repair, and the worse one: `Contents: Read and write`
-  is where its scope stops today, and adding Issues to it would have made the standing token the one
-  that closes issues.
-
-  **The second reason for its own file is coverage, not permissions.** `fold-on-merge.yml` acts only
-  when a leftover entry is found, because an entry is what a fold needs; this check has to run for every
-  merge, including one carrying no changelog entry and one whose entry an earlier run already folded
-  away. So it resolves its PRs from the **push** — `compare/{before}...{sha}` for the commits, then
-  `commits/{sha}/pulls` for each — and reads the whole range rather than the head commit, because a
-  merge queue can land a batch of PRs in one push. Neither call needs git history, which matters: the
-  runner checks out at depth 1.
-
-  **Two defects were live on its first smoke test, both exiting 0 in a way that read as working**, and
-  `scripts/tests/verify-pushed-merges.tests.ps1` pins each by name. A `return ,@($shas)` guard combined
-  with `@()` at the call site wrapped the result in a second array, so a six-commit range printed
-  `examining 1 commit` — only the count said so. And a double-quoted jq filter does not survive the
-  native-argument round trip on Windows: `.[] | "\(.number)\t..."` reaches `gh` as three arguments and
-  it answers `accepts 1 arg(s), received 3`, with nothing about quoting in it. The bracket-plus-`@tsv`
-  form says the same thing in characters that survive, and a suite assert reads the *recorded arguments*
-  for a quote rather than the behaviour, since a fake `gh` would answer either form happily.
+  [#1511](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1511)), one step further down
+  `ship-pr.ps1` than the fold above. `verify-resolved-issues.ps1` is that script's step 6 and ran only
+  from the shipping session; since
+  [#1506](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1506) enqueues instead of merging,
+  that step never runs. GitHub still honours closing keywords on a queue merge, so what went missing is
+  the *verification* and the repair when a keyword misses. Before changing it, know:
+  - **It repairs rather than only reporting** (Dave's decision on #1511): `verify-resolved-issues.ps1`
+    exits 0 whatever it finds, so report-only would leave a still-open issue as one yellow line in a green
+    run. So `issues: write` is granted, the first such grant in this repo's workflows.
+  - **It is its own workflow, not a step in `fold-on-merge.yml`, to keep that grant narrow**: `issues:
+    write` beside a job that checks out with `FOLD_PUSH_TOKEN` would put a year-long credential and
+    issue-write in one job. This job checks out with the default `GITHUB_TOKEN` and
+    `persist-credentials: false`. Never widen the PAT to Issues instead.
+  - **The second reason is coverage**: `fold-on-merge.yml` acts only when a leftover entry exists, this
+    check must run for every merge. It resolves its PRs from the **push** (`compare/{before}...{sha}`,
+    then `commits/{sha}/pulls`) and reads the whole range, because a queue can land a batch in one push;
+    neither call needs history, and the runner checks out at depth 1.
+  - **Two defects once exited 0 looking like success**, and
+    `scripts/tests/verify-pushed-merges.tests.ps1` pins each by name: a `return ,@($shas)` guard plus `@()`
+    at the call site double-wrapped the array (a six-commit range printed `examining 1 commit`), and a
+    double-quoted jq filter does not survive the native-argument round trip on Windows (use the
+    bracket-plus-`@tsv` form; the suite reads the *recorded arguments*, since a fake `gh` answers either).
+  - **Decided in:** [#1506](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1506),
+    [#1511](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1511). Measurements are in this
+    file's history.
 
 - **`.github/workflows/repo-settings.yml` + `scripts/lint/check-repo-settings.ps1`** — the one runner
   here whose subject is **not** this tree: daily (06:30 UTC, plus `workflow_dispatch`) it reads **GitHub**
@@ -534,75 +428,48 @@ infrastructure.
     file's history.
 
 - **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
-  in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),
-  September 22, 2026). Until that issue no job in `.github/workflows/` declared one, so a wedged job ran
-  to GitHub's **six-hour** default. Measured: run 35728958033's `suites (2)` sat `in_progress` for 38
-  minutes on a commit whose other three shards were green in ~6 minutes each and whose shard 2 ran all
-  29 of its own suites locally in 344s; the cancel request itself took ~8 minutes to land.
-
-  **The failure mode is not a red check, and that is the whole reason this is worth a guard.**
-  `lint-en-tests` `needs:` the shards, so it never registered at all — and a required check that never
-  registers reads as *still running* to `ship-pr`, to the ruleset and to a person looking at the PR.
-  `ship-pr` spent its entire 1800s registration wait and refused correctly, with the right diagnosis and
-  nothing behind it; the branch still needed somebody to go and cancel the job by hand.
-
-  **`$script:GateSuiteTimeoutSeconds` cannot cover this, and it is not the same repair.** That bound is
-  1800s *per suite* inside the gate process and it reaps a wedged child **with an attribution** — #1941
-  records it doing exactly that, three times, on a local machine. At 38 minutes it should have fired and
-  did not, so whatever wedged sat **below** the level a bound inside the process can reach. That is the
-  one class a runner-level cap exists for, and it is why this is a different layer from
-  #1941/#2233/#2255/#2263 rather than a fifth argument about the same constant.
-
-  **The numbers are read off run history, and the one on `suites` is picked against `ship-pr` rather
-  than against the suites.** Over the 19 most recent successful runs the shards measure (1) max 9.2m,
-  (2) max 13.4m, (3) max 7.4m, (4) max 8.5m — so any cap in the twenties is ~2x the worst ever observed.
-  What decides the upper end is that `ship-pr`'s registration wait is **also** 1800s
-  (`$maxRequiredWaitSec`): a cap of 30 or more times the job out at the same moment the shipping session
-  gives up, so the session learns nothing and the incident repeats *with a cap in place*. At **25** the
-  shard goes red, the summary concludes seconds later, and `ship-pr` — still listening — reads a failed
-  required check with a job log naming which shard. `lint` is 10, the summary 5, every short runner 10,
-  and the two agent jobs 60, because their runtime is the model's work rather than a script of ours.
-
-  **And the consumer half is the one no gate here could ever see.** Every runner this workflow scaffolds
-  carries a cap too — `adopt-ci-floor.ps1`'s four, `adopt-workflow-folder.ps1`'s two,
-  `adopt-shopify-floor.ps1`'s theme check, and (until October 5, 2026, when the template was retired)
-  the `asana-mirror.yml` template — because a wedge there
-  blocks a *consumer's* required check with nobody watching at all. The skeleton `ci.yml` is deliberately
-  the loosest of them at 30, and says in its own comment that it is the one number you re-size when you
-  replace the placeholder step with real work. [`scripts/tests/workflow-timeouts.tests.ps1`](../../../scripts/tests/workflow-timeouts.tests.ps1)
-  holds all four properties, including the `suites`-versus-`$maxRequiredWaitSec` inequality, which it
-  derives from both files rather than hard-coding either.
+  in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296)).
+  Every job in `.github/workflows/` declares one; before #2296 a wedged job ran to GitHub's six-hour
+  default. Before changing a number, know:
+  - **A wedge is not a red check.** `lint-en-tests` `needs:` the shards, so it never registers, and a
+    required check that never registers reads as *still running* to `ship-pr`, the ruleset and a person.
+  - **`$script:GateSuiteTimeoutSeconds` cannot cover it**: that bound is 1800s *per suite* inside the gate
+    process; what wedged sat below the level it can reach. That is why this is a different layer from
+    #1941/#2233/#2255/#2263.
+  - **The `suites` cap is picked against `ship-pr`, not against the suites**: its registration wait
+    (`$maxRequiredWaitSec`) is also 1800s, so a cap of 30 or more times the job out when the session gives
+    up. At **25** the shard goes red and `ship-pr`, still listening, reads a failed required check. The
+    others: `lint` 10, the summary 5, every short runner 10, the two agent jobs 60 (the model's runtime).
+  - **The consumer half is invisible from here**: every runner this workflow scaffolds
+    (`adopt-ci-floor.ps1`'s four, `adopt-workflow-folder.ps1`'s two, `adopt-shopify-floor.ps1`'s theme
+    check) carries a cap, because a wedge blocks a *consumer's* required check unwatched. The skeleton
+    `ci.yml` is the loosest at 30 and says in its own comment that it is the number to re-size.
+    [`scripts/tests/workflow-timeouts.tests.ps1`](../../../scripts/tests/workflow-timeouts.tests.ps1)
+    holds the properties, including the `suites`-versus-`$maxRequiredWaitSec` inequality, derived from
+    both files rather than hard-coded.
+  - **Decided in:** #1941, #2233, #2255, #2263, #2296. The run-history figures are in this file's history.
 
 - **`scripts/lint/check-git-identity.ps1`** — the split-identity check (issue
-  [#1315](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1315), September 3, 2026): does
-  this checkout commit as the same account it acts as on the tracker? The claim rule's `@me` resolves
-  through the GitHub API, so it writes whichever account `gh` holds, and nothing compared that against
-  `git config user.name`. Measured on DAVE-KOK-BWJ, where `gh` is `DaveKJohn` and `git` is `davekokbwj`:
-  the documented idiom put the wrong account on #1314, and the cross-device tell in
-  [Derek's lens](specialist-05-05-lens.md#branch--repo-hygiene) — a branch whose commits name a different
-  account than the checkout — fires there **by construction**, so it reads "built elsewhere" off a branch
-  that never moved.
-
-  **It has ONE caller and deliberately no CI half**, which is where it differs from every other check on
-  this page: the finding is a fact about the *machine*, not about the tree, and a runner authenticates as
-  a bot and commits as one — a mismatch by design that would fire on every push. The moment that matters
-  is a session's start, just before it claims an issue and begins committing, so
-  `git-identity-sessioncheck.ps1` (workflow plugin) is the whole delivery. It is in no gate and never
-  will be.
-
-  **Two design points that look arbitrary and are not.** It compares *names*, not emails, although GitHub
-  attributes a commit by email — because `gh api user` returns a null email for an account with no public
-  one and `gh api user/emails` needs the `user` scope, which this family's tokens do not carry; widening a
-  token scope to print an advisory line is the wrong trade, and `gh auth status` reads the active account
-  from the keyring with no network at all. And it fires **only when `user.name` is a valid GitHub username
-  by GitHub's own rule** — 39 characters, single hyphens, none at either end. That guard is the whole
-  reason the check is shippable: `user.name` is free text and usually holds a person's name, so an
-  unconditional comparison would fire forever in every consumer that spells its name normally, which is
-  precisely the shape of the stale-path check
-  [declined further down this page](#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026)
-  at 124 findings all false. The three accounts in this family are all login-shaped, so the measured case
-  is still caught. `git-identity-gate.tests.ps1` walks both edges of that rule, and passes both identities
-  in explicitly — a suite that read the machine's own would assert something different on every checkout.
+  [#1315](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1315)): does this checkout commit as
+  the same account it acts as on the tracker? The claim rule's `@me` resolves through the GitHub API, so
+  it writes whichever account `gh` holds, and nothing compared that against `git config user.name`. Where
+  they differ, the cross-device tell in
+  [Derek's lens](specialist-05-05-lens.md#branch--repo-hygiene) fires **by construction**. Before changing
+  it, know:
+  - **ONE caller, deliberately no CI half, in no gate and never will be**: the finding is a fact about the
+    *machine*, and a runner authenticates and commits as a bot, a mismatch by design.
+    `git-identity-sessioncheck.ps1` (workflow plugin) at session start, before a claim, is the whole
+    delivery.
+  - **It compares *names*, not emails**: `gh api user` returns a null email without a public one and
+    `user/emails` needs the `user` scope, which this family's tokens do not carry. `gh auth status` reads
+    the active account from the keyring with no network.
+  - **It fires only when `user.name` is a valid GitHub username by GitHub's own rule** (39 characters,
+    single hyphens, none at either end). `user.name` is free text, so an unconditional comparison would
+    fire forever in every consumer that spells a person's name; that is the shape of the stale-path check
+    [declined further down this page](#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026).
+  - **`git-identity-gate.tests.ps1` walks both edges** of that rule and passes both identities in
+    explicitly: a suite reading the machine's own would assert something different per checkout.
+  - **Decided in:** #1315. The measured case is in this file's history.
 - **`scripts/lint/check-consumer-prose.ps1`** — the consumer-prose check: **two detectors over one
   corpus, read once** (merged from two scripts and two hooks, #1421), delivered at session start by
   `consumer-prose-sessioncheck.ps1` (workflow plugin). One flags a consumer's always-on prose that still
@@ -642,14 +509,11 @@ infrastructure.
 - **`scripts/lint/check-consumer-drift.ps1`** — the read-only drift check against a consuming repo
   (`MISSING`/`IDENTICAL`/`DRIFTED`).
 - **`scripts/lib/plugin-tree-lib.ps1`** — the one answer to *which plugins does this repo publish, and
-  where does each one's folder sit*, read from `.claude-plugin/marketplace.json`. Five scripts used to
-  answer that themselves, each by encoding the layout: a hand-written list of four directories in the
-  drift check, a `^plugins/<name>/` regex with an exception for the one sibling that is not a plugin, a
-  path-segment index in the shared-scripts registry, three `Split-Path`s upward from a `plugin.json`,
-  and a `Join-Path <plugins root> <name>`. None of those is a fact about plugins; they are facts about
-  one layout, and this tree has moved twice. Dependency-free on purpose: one caller runs at
-  SessionStart (`check-connectors.ps1`, via `connector-sessioncheck`) and another is the fold, which
-  runs straight after a merge on the trunk. Mirrored, because `release-lib.ps1` dot-sources it.
+  where does each one's folder sit*, read from `.claude-plugin/marketplace.json`. A script must not
+  encode the layout itself: that is a fact about one layout, and this tree has moved twice
+  ([how](#how-the-plugin-tree-got-its-current-address)). Dependency-free on purpose: one caller runs at
+  SessionStart (`check-connectors.ps1`, via `connector-sessioncheck`) and another is the fold. Mirrored,
+  because `release-lib.ps1` dot-sources it.
 - **`scripts/lib/branch-info.ps1`** — the prefix→label→changelog-type table (shared with the
   release scripts). Deliberately no `release` prefix: a release does not go via a branch/PR but
   directly on `main`.
@@ -659,52 +523,31 @@ infrastructure.
   every branch of it offline; the one impure part — asking GitHub which issues are open — stays in
   `open-pr.ps1`. Shared/mirrored, since `open-pr.ps1` dot-sources it. The rule it enforces and the
   incident behind it are [Derek #05](specialist-05-05-lens.md#opening-a-pull-request)'s.
-  **Two traps that cost real debugging while building this lib**, both measured and both now pinned by
-  asserts:
-  - **`powershell -File` cannot bind an `[int[]]`.** `-Resolves 332,340` arrives as the string
-    `'332,340'` and is cast to the single number **332340** — the comma read as a *thousands
-    separator*. No error, just a wrong issue. Hence a `[string]` parameter parsed by
-    `ConvertTo-IssueNumberList`, and hence the fixture passes it over that same `-File` hop.
-  - **`@(… | ConvertFrom-Json)` does not flatten a JSON array in PowerShell 5.1.** 5.1 emits the
-    parsed array as *one* pipeline object, so `@()` collects a single element that IS the array, and
-    `$_.number` then does member enumeration and hands `[int]` an `Object[]` that throws. Assign
-    first, then wrap: `$parsed = … | ConvertFrom-Json; @(@($parsed) | …)`. That throw was swallowed by
-    a `catch` that degrades the gate to "cannot check" — so the gate silently never blocked **while
-    every pure unit test stayed green**. Only the wiring fixture caught it, which is the general
-    lesson: a pure decision table proves the decision, never that it is reached.
+  **Two PowerShell traps cost real debugging in this lib**, both pinned by asserts:
+  - **`powershell -File` cannot bind an `[int[]]`.** `-Resolves 332,340` arrives as `'332,340'` and is
+    cast to the single number **332340**, with no error. Hence a `[string]` parameter parsed by
+    `ConvertTo-IssueNumberList`, and the fixture passes it over that same `-File` hop.
+  - **`@(… | ConvertFrom-Json)` does not flatten a JSON array in PowerShell 5.1**: `@()` collects one
+    element that IS the array, and `$_.number` then hands `[int]` an `Object[]` that throws. Assign first,
+    then wrap: `$parsed = … | ConvertFrom-Json; @(@($parsed) | …)`. The throw was swallowed by a `catch`
+    that degrades the gate to "cannot check", so the gate silently never blocked **while every pure unit
+    test stayed green**: a pure decision table proves the decision, never that it is reached.
 
-    **IT HAS NOW FIRED TWICE, IN TWO UNRELATED SCRIPTS, SO TREAT IT AS A CLASS RATHER THAN AS THIS LIB'S
-    INCIDENT** (August 14, 2026). The open-issues block of `session-status.ps1` — the reporter behind
-    `/lock` and `/handover`, removed with them by #957 — carried the same one-liner and
-    printed `#System.Object[]  System.Object[]` for three open issues — in this repo *and* in every
-    consumer's mirror, since both those skills told a consumer to run it. Grep for
-    `@(` immediately followed by a command piping into `ConvertFrom-Json` before adding another.
-    **Two things that measurement added, neither of which the original write-up had:**
-    - **At exactly ONE record the broken form is correct**, because member enumeration over a
-      one-element array yields that element's own value. So the defect is invisible at 0 or 1 and only
-      shows at 2+ — which is how it survived in a repo that usually had one open issue or none. A test
-      that covers the populated case with a single record proves nothing; use three.
-    - **`.Count` is `1` whether the array holds zero items or thirty**, so an `if ($x.Count -eq 0)`
-      guard behind this pattern is **unreachable**, and the empty case falls into the populated branch.
-      Here that printed a bare `#` with two empty fields. Fix and test *both* branches: the visible
-      symptom is the populated case, the silent one is the empty case.
-- **Two lessons that outlived the file they were measured in.** `scripts/task/session-status.ps1` — the
-  reporter behind `/lock` and `/handover` — was removed with both skills on August 27, 2026
-  ([#957](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/957), Dave). Its open-issues block
-  had been repaired on **August 14, 2026**, and that repair cost two lessons beyond the
-  `ConvertFrom-Json` trap above. Neither is about the deleted script, so both are kept:
+    **It is a class, not this lib's incident** — it also fired in the open-issues block of the since-removed
+    `session-status.ps1` ([#957](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/957)). Grep for
+    `@(` immediately followed by a command piping into `ConvertFrom-Json` before adding another. Two
+    properties of it: **at exactly ONE record the broken form is correct** (member enumeration over a
+    one-element array yields the element), so it shows only at 2+ and a test needs three records; and
+    **`.Count` is `1` whether the array holds zero items or thirty**, so an `if ($x.Count -eq 0)` guard
+    behind it is unreachable. Test *both* the populated and the empty branch.
+- **Two lessons that outlived `session-status.ps1`** (removed with `/lock` and `/handover` in #957):
   - **A `2>$null` on a native command makes its `catch` unreachable, so check `$LASTEXITCODE` instead.**
-    The older of the two defects: an unauthenticated or offline `gh` throws nothing and prints nothing,
-    so `ConvertFrom-Json` never ran, the pipeline yielded nothing, and the block reported **`none`** —
-    *"we could not ask"* printed as *"there are none"*. The wrong answer that looks like a right one, and
-    it had quietly disabled the degrade line that script's own docstring promised for **every** optional
-    source. The redirect is still correct (a stderr dump is not a status report); what it costs is the
-    throw, so the exit code is read explicitly and the `catch` kept only for a payload that arrives and
-    does not parse.
+    An unauthenticated or offline `gh` throws nothing and prints nothing, so the block reported `none`:
+    *"we could not ask"* printed as *"there are none"*. Keep the redirect, read the exit code explicitly,
+    and keep the `catch` only for a payload that arrives and does not parse.
   - **No `return` inside a reporter's section blocks.** They sit at **script scope**, where `return` exits
-    the whole script — so an early return in the middle of one silently drops every block below
-    it while still exiting `0`. Caught during the fix above, before it shipped: the degrade path is an
-    `else`, and an assert pinned that a block *after* the failing one still printed.
+    the whole script, silently dropping every block below it while still exiting `0`; the degrade path is
+    an `else`.
 - **`scripts/lib/release-lib.ps1`** — the pure release helpers (version bump, emptying `CHANGELOG.md` down
   to its intro, and the assembly of the changelog notes under `dkj-policy/releases/changelog/`)
   that [`cut-release.ps1`](../../../scripts/release/cut-release.ps1) dot-sources; deliberately
@@ -718,77 +561,53 @@ infrastructure.
   on drift. The pure expansion logic lives in the lib, so [Tycho #18](specialist-04-18-lens.md) can test
   it in isolation — mirroring the `release-lib` setup. **Never edit between the sentinels by hand.**
 - **`.claude/settings.json`** — this repo's harness config: the `extraKnownMarketplaces` (the
-  `github` source `DKJ-Solutions/claude-code-specialists`) and `enabledPlugins` with which the repo enables
-  its own `dkj-subagents-alpha` plugin (the core team).
+  `github` source `DKJ-Solutions/dkj-claude-plugins`) and `enabledPlugins`, which plugins this repo loads
+  ([which, and why](#the-plugins-enabled-here-and-what-that-costs)).
 - **The manifests** `.claude-plugin/marketplace.json` and every `<plugin>/.claude-plugin/plugin.json`
   (structure + `version`) — their *structure/config*; the descriptive *texts* he coordinates with
   [Tessa #16](specialist-06-16-lens.md).
 
 #### And therefore: here Sylvester is the author who runs `simplify`
 
-The **`simplify`** skill applies quality fixes — reuse, simplification, efficiency — and applying is the
-**author's** act, never the reviewer's: [Victor #19](specialist-06-19-lens.md) may report those same findings
-and is forbidden from applying them, which is why the portable layer gives the skill to
-[Cody #13](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-04-13-manual.md) rather than to a reviewer. Here
-the code is `scripts/**` and **those are Sylvester's**, so here he is that author: he runs the tidy pass
-over what he changed before the diff goes to review, and never over somebody else's change.
+The **`simplify`** skill applies quality fixes (reuse, simplification, efficiency), and applying is the
+**author's** act, never the reviewer's: [Victor #19](specialist-06-19-lens.md) may report those findings
+and may not apply them, which is why the portable layer gives the skill to
+[Cody #13](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-04-13-manual.md). Here
+the code is `scripts/**` and **those are Sylvester's**, so he runs the tidy pass over what he changed
+before the diff goes to review, and never over somebody else's change.
 
-**Why this line exists in his lens and not only in Chris's** — Sylvester does not read Chris's lens, so a
-routing line alone would name an owner who is never told. And why it is not in his *portable* playbook:
-his shipped scope is the **harness** (`.claude/`, settings, hooks, MCP, skills, marketplaces), while
-`scripts/**` is an extension this lens gives him. Writing the skill into his agent def would claim script
-authorship for him in consumers that never granted it.
+The line is in his lens, not only in Chris's routing table, because Sylvester does not read Chris's lens.
+It is not in his *portable* playbook because his shipped scope is the harness; `scripts/**` is an
+extension this lens gives him, and the agent def would claim script authorship in consumers that never
+granted it.
 
 ### The sibling check, and the one axis this repo's checks never looked along (September 11, 2026, #1869)
 
-Every check in `connectors/` ran **source → consumer**: `check-consumer-drift.ps1` compares a consumer's
-agent-def copies against this source, `check-connectors.ps1` asks whether a consumer's register record is
-true. [`check-consumer-siblings.ps1`](../../../scripts/sync/check-consumer-siblings.ps1) is the first that
-runs **consumer → consumer**, and the gap it closes is not a missing check so much as a missing *question*.
+Every other check in `connectors/` runs **source → consumer** (`check-consumer-drift.ps1` against agent-def
+copies, `check-connectors.ps1` against a consumer's register record).
+[`check-consumer-siblings.ps1`](../../../scripts/sync/check-consumer-siblings.ps1) is the one that runs
+**consumer → consumer**: *"shipped centrally"* and *"used centrally"* are different facts, and a session
+inside one consumer cannot see the sibling repo it never opens, whose names have drifted apart. Before
+changing it, know:
 
-**The measurement.** Of the 48 tooling paths the two BWJ stores share, 47 have diverged, and the one that
-has not is a verbatim template this marketplace ships. The load-bearing instance is `prune-merged.ps1`:
-inbound [#815](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/815) asked for it centrally,
-`dkj-policy` 4.21.0 shipped it, one store converged on August 28 and the other still carried its own
-120-line copy three weeks later. **The inbound route worked and nothing propagated the result to the
-second consumer** — so *"shipped centrally"* and *"used centrally"* are different facts, and no check here
-held both at once.
-
-**Why it could not be seen from inside a consumer, which is why it is a source-side script.** Their own
-rule asks *"does the plugin provide this?"* — a one-repo question. The sibling is a repo that session never
-opens, and by the time it would matter the **names have drifted apart**, so no grep finds the pair:
-`market-domains.ps1` against `market-urls.ps1`, both exporting `Get-MarketPreviewUrls`.
-
-**Three design decisions worth not re-litigating:**
-
-- **The grouping is declared (`siblingGroup`), never inferred.** Every consumer of this marketplace shares
-  `dkj-policy`, so a plugin-set inference groups `life-hub` with a Shopify store and reports a
-  personal-life repo as missing a theme-archive mechanism. The reasoning is in
-  [the register's page](../../../connectors/README.md#the-manifest-format); the assert that keeps it that
-  way is case 4 of [`sibling-divergence.tests.ps1`](../../../scripts/tests/sibling-divergence.tests.ps1),
-  and it is the one a later "just group by plugin set" change would delete first.
+- **The grouping is declared (`siblingGroup`), never inferred.** Every consumer shares `dkj-policy`, so a
+  plugin-set inference would group a personal-life repo with a Shopify store. The reasoning is in
+  [the register's page](../../../connectors/README.md#the-manifest-format); case 4 of
+  [`sibling-divergence.tests.ps1`](../../../scripts/tests/sibling-divergence.tests.ps1) holds it, and it
+  is the assert a later "just group by plugin set" change would delete first.
 - **The exclusions are the difference between a report and a wall.** Lenses, `SPECIALISTS.md`, the seam,
-  `.claude/memory/` and the GitHub boilerplate are repo-specific **by design** — agreement there would be
-  the defect. They remove 27 of the 48, leaving 21 actionable. **The test suites are deliberately kept
-  in**, and that assert exists because excluding them is the plausible next move: they are noisy, and they
-  are also mechanism.
-- **One read route per group, always.** A blob sha (the `gh` route) and a content hash (the disk route) are
-  not comparable, so a group whose members cannot all be read the same way is reported unreadable rather
-  than compared. A mixed vocabulary would report *every* path as drifted — a false alarm shaped exactly
-  like the finding the check exists to make, which is the worst possible failure for a detector nobody is
-  obliged to believe.
-
-**`Test-GitHubOwnerNameSlug` moved to `check-report-lib.ps1` in the same branch**, from inside
-`check-connectors.ps1`. Its own docstring had already argued the case — it was factored out *within* that
-script so two call sites could hold one field to one bound rather than keep "a second, silently drifting
-copy of the regexes" — and a third caller outside the file is that argument one step further on. The rule
-this follows is the repo's own: a semantic decision gets one source (#309).
-
-**It reports and never prevents, and that was Dave's call** on September 11, 2026, choosing the
-detector-first shape over moving ownership immediately. `-FailOnFinding` exists; nothing passes it. The
-converging — which of `dkj-policy` and `bwj-development` should own `test-lib.ps1`, `lint-brain.ps1` and the
-market/theme mechanisms — is the follow-up, and it is an ownership decision rather than a repair a script
-can make.
+  `.claude/memory/` and the GitHub boilerplate are repo-specific **by design**. **The test suites are
+  deliberately kept in**: excluding them is the plausible next move, and they are also mechanism.
+- **One read route per group, always.** A blob sha (the `gh` route) and a content hash (the disk route)
+  are not comparable, so a group that cannot be read one way is reported unreadable rather than compared;
+  a mixed vocabulary would report every path as drifted.
+- **It reports and never prevents** (Dave's call on #1869): `-FailOnFinding` exists and nothing passes it.
+  Which plugin should own a shared mechanism is an ownership decision, not a repair a script can make.
+- **`Test-GitHubOwnerNameSlug` lives in `check-report-lib.ps1`**, not `check-connectors.ps1`: a semantic
+  decision gets one source (#309).
+- **Decided in:** [#1869](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1869), #309,
+  [#815](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/815). The 48-path measurement is in
+  this file's history.
 
 #### The ruling that followed, and the first thing moved under it (September 11, 2026, #1881)
 
@@ -799,35 +618,25 @@ price it accepts and the second question a store has to ask before building anyt
 because they are read in a store repo rather than here. What belongs in this lens is the part that is
 this repo's:
 
-- **The ruling widened a plugin that said it carried no mechanism.** `bwj-development`'s README opened with
-  *"policy, never mechanism"*, written when its only non-prose payload was `templates/`, which a consumer
-  **copies**. A lib a consumer **dot-sources** is a second kind of payload, so the line was widened rather
-  than quietly broken — the distinction that survives is copy-vs-dot-source, not prose-vs-code.
+- **The line "policy, never mechanism" was widened**, not broken: the distinction that survives in
+  `bwj-development` is copy-vs-dot-source (a consumer **copies** `templates/`, **dot-sources** a lib), not
+  prose-vs-code.
 - **The first increment is [`scripts/tests/test-lib.ps1`](../../../plugins/dkj-policy/bwj-development/scripts/tests/test-lib.ps1)**,
-  and it was chosen because it is the case where merging is a *decision* rather than a diff: each store's
-  copy was ahead of the other. One had `ConvertTo-CapturedText` and `Add-SuiteFault`, both born from a
-  **false green in the gate these suites are read by**; the other had `Assert-PluginLoadedForProject`, born
-  from a plugin administration pointing at a folder that no longer existed; and the second was still in the
-  language the first had been translated out of a month earlier. What ships is the superset, in English.
-- **It has a suite here even though nothing here uses it** —
-  [`bwj-test-lib.tests.ps1`](../../../scripts/tests/bwj-test-lib.tests.ps1). Shipping it without one would
-  put the file straight back in the position #1881 was filed about: a mechanism with no owner watching it,
-  one edit away from drifting again, this time *inside* the plugin where no consumer-to-consumer check can
-  see it. The suite holds three things, each a way the convergence comes undone: the superset, the
-  behaviour of the two false-green mechanisms, and the language.
-- **The suite runs the lib in a CHILD PROCESS, and that is load-bearing rather than stylistic.** The lib
-  sets `$script:Pass`/`$script:Fail` and defines `Assert-True` in the scope of whoever dot-sources it, and
-  PowerShell names are case-insensitive — so dot-sourcing it into a suite here would silently replace that
-  suite's own counters and its own `Assert-True` with the ones under test, and a broken lib could report
-  itself green.
-- **One class the ruling does not cover, found while reading for it:** `dkj-subagents-shopify` already ships
-  `push-preview.ps1`, `sync-main.ps1`, `preview-theme.ps1` and `sync-rules.ps1`, and one store still carries
-  its own full copy of three of them. That is an **adoption gap**, not an ownership question — and no check
-  here reports it, because `check-consumer-drift.ps1` compares agent defs and personas only, while the
-  sibling check compares consumer to consumer and never against what the marketplace already ships. Filed
-  as [#1885](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1885); the remaining convergence
-  candidates, each with its verdict under the ruling, are
-  [#1886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1886).
+  the superset of the two stores' diverged copies, in English.
+- **It has a suite here though nothing here uses it**:
+  [`bwj-test-lib.tests.ps1`](../../../scripts/tests/bwj-test-lib.tests.ps1), because a mechanism with no
+  owner watching it drifts again, this time inside the plugin where no consumer-to-consumer check can see
+  it. It holds the superset, the behaviour of the two false-green mechanisms (`ConvertTo-CapturedText`,
+  `Add-SuiteFault`), and the language.
+- **The suite runs the lib in a CHILD PROCESS, and that is load-bearing.** The lib sets
+  `$script:Pass`/`$script:Fail` and defines `Assert-True` in the scope of whoever dot-sources it, so
+  dot-sourcing it into a suite would replace that suite's own counters and `Assert-True` with the ones
+  under test, and a broken lib could report itself green.
+- **The ruling does not cover an adoption gap**: `dkj-subagents-shopify` already ships
+  `push-preview.ps1`, `sync-main.ps1`, `preview-theme.ps1` and `sync-rules.ps1`, and no check reports a
+  consumer carrying its own copy (`check-consumer-drift.ps1` compares agent defs and personas only).
+  Filed as [#1885](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1885); the other convergence
+  candidates are [#1886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1886).
 
 ### Repo-specific rules
 
@@ -1192,71 +1001,53 @@ Moved here from `.claude/rules/this-repo.md` under
 [#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the rule keeps the one-line
 fact of which plugins are enabled, and this is the harness consequence behind it.
 
-**Three of the seven are enabled: the core team, `dkj-policy` and `dkj-solutions`.** The last since
-October 13, 2026 (Maikel, [#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)),
-for its dev-preview hook, which since
-[#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198) is `dkj-policy`'s; it stays enabled
-for the house style, its session check and the hub's DKJ-Solutions card. The hook starts the connector dashboard
-(`scripts/dashboard/serve-connector-dashboard.ps1`) through this repo's `Get-DevPreview` at session start, and the general pages server beside it (Artifacts, Issues, Release notes, SessionStart; [#3119](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3119)), the second port per checkout, and the root `CLAUDE.md` imports the
-extension, as the constitution requires of an installed one. The three add-on teams are set to
-`false` since September 30, 2026, and the BWJ extension (then `dkj-policy-bwj`) since October 1 (both Dave). From September 8 to
-September 30 all six were on, for validation (see below). **`false`, not absent, and that is
-load-bearing**: the harness and every check here read the settings chain user file →
-`.claude/settings.json` → `settings.local.json`, and the last layer that names a plugin wins
-(`Get-EnabledPlugins`, `scripts/lib/check-report-lib.ps1`). A machine's own `~/.claude/settings.json` can
-enable any of them, and a deleted key would let it through. Each change removed the plugins' blocks from
-[`connectors/dkj-claude-plugins.json`](../../../connectors/dkj-claude-plugins.json), because
-`connectors.tests.ps1`'s self-manifest case fails on a registered plugin that is not enabled. The first
-also removed the add-on teams' 11 empty lenses and roster rows, which would otherwise print an
-`[ORPHANS]` line at every session start. The second removed the root `CLAUDE.md`'s `@`-import of the
-bwj extension, because the constitution has a repo import that extension only where it is installed.
+**Three of the seven are enabled: the core team, `dkj-policy` and `dkj-solutions`.** `dkj-solutions` came
+in on October 13, 2026 (Maikel, [#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976))
+for its dev-preview hook, which is `dkj-policy`'s since
+[#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198); it stays for the house style,
+its session check and the hub's DKJ-Solutions card. The hook starts the connector dashboard
+(`scripts/dashboard/serve-connector-dashboard.ps1`) through this repo's `Get-DevPreview`, and the general
+pages server beside it
+([#3119](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3119)). The root `CLAUDE.md` imports
+the extension, as the constitution requires of an installed one. The three add-on teams are `false` since
+September 30, 2026, and the BWJ extension (then `dkj-policy-bwj`) since October 1 (both Dave); from
+September 8 all six had been on, for validation. Before changing this, know:
 
-**`figma@claude-plugins-official` is set to `false` here too** (Dave, October 1, 2026), although it is
-none of the six. It is enabled in the machine's own `~/.claude/settings.json`, so it loaded into every
-session here: 14 skill descriptions, 2,150 tokens measured by `measure-session-start`, and no frontend
-for them to work on. This needs the same `false`-not-absent rule as the six. It is not registered in the
-connector manifest, so no block had to go. **The key is not redundant, even though nothing in this repo
-enables figma**: it was once removed as redundant (commit `c747cb88`, October 2), and the user layer
-switched figma back on in every session until it was restored (Maikel, October 13, 2026,
-[#2978](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2978)).
-
-**Only three of the seven describe this repo outright.** The core team and `dkj-policy` have real
-work here, and `dkj-solutions` its house style; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a
-personal-life repo. Three of `bwj-development`'s four chapters are about a Shopify store too. **Its
-ticket-handling chapter admits this repo as a third permitted target** at `report-issue`'s and
-`adopt-bwj-development`'s own gate (then `adopt-dkj-policy-bwj`; Dave, September 14, 2026, commit `b9b2a65a`; the per-chapter reach
-closed [#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982)). That permission stays
-in the plugin source. **This repo does not use it since October 1**, when the plugin was switched off
-here, and an issue here is filed with a plain `gh issue create`, carrying the `prio-N` label and, where
-it applies, `minor` ([Chris's lens](specialist-01-01-lens.md)). `adopt-bwj-development` was never run
-here, so no Asana seam had to be removed (the `asana-mirror` workflow itself was retired in the plugin
-on October 5, 2026). To use that chapter again, set
-the plugin to `true`, restore the import and the connector block, and run `adopt-bwj-development`.
-
-**Why they were on, and why they are off.** From September 8 the three add-on teams were enabled so that
-the repo that ships a plugin is also a repo that loads it: an agent def, a manifest, a frontmatter or a
-hook that stops resolving then surfaced at this repo's own session start instead of in somebody else's.
-Validation was the whole reason. It cost every session here roughly 2.9k tokens (11 agent descriptions
-plus 6 Shopify skill descriptions, measured with `measure-skill` on September 30, 2026) for three teams
-with no work here, and Dave switched them off that day. **What is given up is that early warning**: a
-broken add-on plugin now surfaces in a consumer that runs it, or in this repo's own gates, which read the
-plugin trees directly rather than through a session. To validate one again, set it to `true`, run
-`sync-roster` for its rows and lenses, and re-add its block to the connector record.
-
-**What enabling them cost while they were on, so a re-enable does not read the noise as breakage.** Two
-things came with it; one stood and one was answered. First, every specialist an enabled plugin ships
-needs a roster row and a repo lens, which for the three teams meant eleven lenses kept empty on purpose.
-Second, `dkj-subagents-shopify`'s floor check asks which theme is live, and a repo with no
-store has no truthful answer, so it reported an `[ERROR]` at every session start until
-[#1570](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1570) gave the check a third
-state to be told that in. **This repo declares `Get-ShopifyRepoHasNoStore` in
-[`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) because it has no store, and the check
-honours that since #1570** ([#1579](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1579))
-— but still **do not silence it by seeding a theme id**, which would arm a guard over a revenue-serving
-theme on a number nobody verified. The two are not the same act and the seam exists to keep them apart:
-the declaration says there is no store, an id says there is one and names it. The seam is verified
-against #1570's own hook rather than against the cached copy: with it the check is silent, without it the
-`[ERROR]` returns.
+- **`false`, not absent, and that is load-bearing**: the harness and every check read the settings chain
+  user file → `.claude/settings.json` → `settings.local.json`, the last layer naming a plugin wins
+  (`Get-EnabledPlugins`, `scripts/lib/check-report-lib.ps1`), and a machine's own `~/.claude/settings.json`
+  can enable any of them if the key is deleted.
+- **`figma@claude-plugins-official` is `false` here too** (Dave, October 1, 2026) under the same rule: the
+  machine's user file enables it, and it would load 14 skill descriptions (2,150 tokens) into every session
+  with no frontend to work on. The key is not redundant: removing it as redundant switched figma back on
+  everywhere until it was restored
+  ([#2978](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2978)).
+- **What switching a plugin off removes**: its blocks in
+  [`connectors/dkj-claude-plugins.json`](../../../connectors/dkj-claude-plugins.json) (`connectors.tests.ps1`'s
+  self-manifest case fails on a registered plugin that is not enabled), the add-on teams' 11 empty lenses
+  and roster rows (else an `[ORPHANS]` line at every session start), and the root `CLAUDE.md`'s import of
+  the BWJ extension.
+- **Only the core team, `dkj-policy` and `dkj-solutions` describe this repo**; the add-on teams have no
+  work here (not a webshop, a Shopify store or a personal-life repo). `bwj-development`'s ticket-handling
+  chapter admits this repo as a permitted target (Dave, September 14, 2026; per-chapter reach closed
+  [#1982](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1982)), and that stays in the plugin
+  source, but this repo does not use it: an issue here is filed with a plain `gh issue create`, carrying
+  `prio-N` and, where it applies, `minor` ([Chris's lens](specialist-01-01-lens.md)).
+  `adopt-bwj-development` was never run here. To use the chapter again, set the plugin to `true`, restore
+  the import and the connector block, and run `adopt-bwj-development`.
+- **What is given up is the early warning.** The add-on teams were on so that a broken agent def,
+  manifest, frontmatter or hook surfaced at this repo's own session start; it cost every session ~2.9k
+  tokens for three teams with no work here. A broken add-on plugin now surfaces in a consumer that runs
+  it, or in this repo's own gates, which read the plugin trees directly. To validate one again, set it to
+  `true`, run `sync-roster` for its rows and lenses, and re-add its block to the connector record.
+- **A re-enable should not read two known costs as breakage.** Every specialist an enabled plugin ships
+  needs a roster row and a lens (eleven kept empty on purpose). And `dkj-subagents-shopify`'s floor check
+  asks which theme is live: **this repo declares `Get-ShopifyRepoHasNoStore` in
+  [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) because it has no store**, which the check
+  honours since [#1570](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1570)
+  ([#1579](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1579)). **Never silence it by seeding
+  a theme id**: the declaration says there is no store, an id says there is one and names it, and would arm
+  a guard over a theme nobody verified.
 
 ### Repo citation — the two renames behind the one owner name
 
@@ -1265,52 +1056,37 @@ Moved here from `.claude/rules/this-repo.md` under
 itself — cite this repo as `DKJ-Solutions/dkj-claude-plugins` — and this is the history and the
 machinery behind it.
 
-**Two renames sit behind that one line, and they retired different halves of it on different days** —
-which is why both old spellings still appear in the tree and why neither may ever be recreated:
+**Two renames sit behind that one line, and they retired different halves of it**, which is why both old
+spellings still appear in the tree and why neither may ever be recreated:
 
 - **The owner**, September 2, 2026: transferred from the personal account `DaveKJohn` into the
-  `DKJ-Solutions` organisation, so `DaveKJohn/…` resolves only through a redirect.
-- **The name**, September 10, 2026: `claude-code-specialists` became `dkj-claude-plugins` (fase 3 of
-  [#1769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1769)), so
+  `DKJ-Solutions` organisation; `DaveKJohn/…` resolves only through a redirect.
+- **The name**, September 10, 2026: `claude-code-specialists` became `dkj-claude-plugins`
+  ([#1769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1769)); the old
   `DKJ-Solutions/claude-code-specialists` resolves only through a redirect too.
 
-Both redirects are **transfer redirects this repo does not control**, and each holds just as long as
-nothing is created at its old path — which is why neither `DaveKJohn/claude-code-specialists` nor
-`DKJ-Solutions/claude-code-specialists` may ever be recreated (the canonical-channel note in
-[`README.md`](../../../plugins/ADOPTION.md#consumption)). The machine layer states the current answer once, in
-`scripts/repo-config.ps1`, and a fresh marketplace install uses it.
+Both are **transfer redirects this repo does not control**, and each holds only while nothing is created
+at its old path (the canonical-channel note in [`README.md`](../../../plugins/ADOPTION.md#consumption)). The machine
+layer states the current answer once, in `scripts/repo-config.ps1`. Before changing anything here, know:
 
-**And the retired NAME is data the tooling reads, not only prose to correct.** Three of this workflow's
-CI runners are scaffolded into a consumer and check this repository out by name, so every consumer
-scaffolded before September 10 still names `claude-code-specialists` — the runner keeps working on the
-redirect, while the guard over it matches on the name half and would see nothing. So
-`Get-RetiredRepoNames` in [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) states the
-retired names and `check-connectors.ps1` matches them alongside the current one. **The list only
-grows.**
-
-**Existing citations are corrected when a file is edited for other reasons, not swept.** Both spellings
-resolve today, so nothing is broken and the dead-link gate is right not to flag the mix; the cost is that
-new writing copies whichever example sits nearest, and the tree held 133 `.md` files on the old owner
-against 28 on the new when this was measured
-([#1526](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1526)). The same holds for the
-~830 slug citations the second rename left: a sweep buys prose consistency at the price of a diff nobody
-can review. The one layer left exactly as written is the archived release history under
-`dkj-policy/releases/**`, the same carve-out
-[`language-layers.md`](../../rules/language-layers.md) makes. **What was NOT left to drift is every place
-the name is read rather than displayed**: `Get-RepoName`, the `repository:` line the consumer
-scaffolders write, the matcher that finds it again, and the marketplace source in
-`.claude/settings.json`. **The test is whether something RESOLVES the name or merely prints it** — a
-citation may lag, a lookup may not.
-
-**A checkout's own `origin` remote is this same citation in a place the tree cannot reach.** It is
-per-checkout git config, not tracked, so no gate sees it. A checkout cloned before the transfer still
-pushes to `https://github.com/DKJ-Solutions/dkj-claude-plugins.git` and lands only because GitHub
-answers `remote: This repository moved`; every push of the `v4.32.0` cut did exactly that
-([#1562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1562)). Repoint such a checkout
-in one command — `git remote set-url origin https://github.com/DKJ-Solutions/dkj-claude-plugins.git` —
-and the redirect stops being load-bearing there. A checkout can be behind on either half or both, and
-the one command repairs all three states, because it writes the whole URL rather than patching a part of
-it.
+- **The retired NAME is data the tooling reads.** Three of this workflow's CI runners are scaffolded into
+  a consumer and check this repository out by name, so a consumer scaffolded before September 10 still
+  names the old slug and the guard over it would see nothing. `Get-RetiredRepoNames` in
+  [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) states the retired names and
+  `check-connectors.ps1` matches them alongside the current one. **The list only grows.**
+- **Existing citations are corrected when a file is edited for other reasons, not swept**
+  ([#1526](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1526)): both spellings resolve, and a
+  sweep is a diff nobody can review. The archived release history under `dkj-policy/releases/**` stays as
+  written, the carve-out [`language-layers.md`](../../rules/language-layers.md) makes too.
+- **Every place the name is read rather than displayed must be current**: `Get-RepoName`, the
+  `repository:` line the consumer scaffolders write, the matcher that finds it, and the marketplace source
+  in `.claude/settings.json`. The test is whether something RESOLVES the name or merely prints it: a
+  citation may lag, a lookup may not.
+- **A checkout's own `origin` remote is this citation where no gate can see it** (per-checkout git config).
+  One cloned before the transfer pushes only because GitHub answers `remote: This repository moved`
+  ([#1562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1562)). The one command repairs
+  every state, because it writes the whole URL:
+  `git remote set-url origin https://github.com/DKJ-Solutions/dkj-claude-plugins.git`.
 
 ### How the plugin tree got its current address
 
@@ -1319,39 +1095,28 @@ Moved here from `.claude/rules/this-repo.md` under
 [`README.md`](#repo-layout).
 
 Since August 3, 2026 the plugins sit **one** level down in `plugins/<plugin>/` instead of two in
-`claude-code-plugins/claude-specialists/<plugin>/`: that second level existed to hold several product
-families side by side, which the
-[one-product rule](specialist-06-16-lens.md#one-product-one-repository) retired. `connectors/` moved **to the
-root** in the same movement, deliberately — it is the consumer register read by `scripts/sync/`, not
-plugin payload, and must not travel along in the plugin cache. `agent-shared/` (as it was named then)
-stayed **inside** `plugins/` for the mirror-image reason: it *is* plugin source.
-
-**On August 17, 2026 it moved one level further in, to `plugins/dkj-teams/agent-shared/`** (Dave): every
-file carrying a shared block is a team's, so sitting beside `teams/` and `workflows/` claimed a reach the
-folder does not have. **Nothing in the tooling had to learn the new address** — every script that asks
-which plugins exist reads `marketplace.json` through
-[`plugin-tree-lib.ps1`](../../../scripts/lib/plugin-tree-lib.ps1), so a directory in no marketplace is not
-a plugin wherever it sits. **On September 9, 2026 the team-side rename carried it to its current home at
-`plugins/dkj-subagents/subagent-shared/`**, under
-[#1698](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1698). The workflow folder
-`dkj-policy/` was `contributing-davekjohn/` until September 5, 2026 (#1437).
+`claude-code-plugins/claude-specialists/<plugin>/`; the
+[one-product rule](specialist-06-16-lens.md#one-product-one-repository) retired the second level. `connectors/`
+moved **to the root** in the same movement, deliberately: it is the consumer register read by
+`scripts/sync/`, not plugin payload, and must not travel in the plugin cache. The shared-block source
+stayed **inside** `plugins/` because it *is* plugin source, and was moved twice: to
+`plugins/dkj-teams/agent-shared/` (August 17, 2026), then to its current home
+`plugins/dkj-subagents/subagent-shared/` under
+[#1698](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1698). **No tooling had to learn an
+address**: every script that asks which plugins exist reads `marketplace.json` through
+[`plugin-tree-lib.ps1`](../../../scripts/lib/plugin-tree-lib.ps1). The workflow folder `dkj-policy/` was
+`contributing-davekjohn/` until September 5, 2026 (#1437).
 
 ### Why `Get-RosterIgnoredIds` is empty
 
 Behind *"Adopting a specialist that arrives with a plugin update is the default and needs no
 approval"* in [`SPECIALISTS.md`](../SPECIALISTS.md#the-team-roster--routing).
 
-Five of the six specialists who rarely have work here were left off the roster and registered in
-`Get-RosterIgnoredIds` instead (Bianca joined them briefly on July 28, 2026). That list turned out
-never to have been a decision: it was introduced by the same commit that built the roster check,
-pre-populated to keep that new check quiet, and justified in the code as *"a documented choice in
-`CLAUDE.md`"* while `SPECIALISTS.md` only ever said those specialists had no lens **yet**. Dave, asked
-about it on July 28, 2026, did not recognise the list as his — so the six were adopted and the list is
-empty.
-
-The shape is worth keeping separately from the outcome: a check was made quiet by a list, and the list
-then cited a document that did not say what it was cited for. Neither half is visible from the other,
-which is why the entry survived until somebody asked whose decision it was.
+`Get-RosterIgnoredIds` is **empty**, and it is reserved for a deliberate, self-authored exception. It once
+held the specialists who rarely have work here, but it turned out never to have been a decision: it was
+pre-populated to keep the new roster check quiet and cited a `CLAUDE.md` choice that did not exist. Dave
+did not recognise the list as his (July 28, 2026), so those specialists were adopted. The shape to avoid:
+a check made quiet by a list that cites a document which does not say what it is cited for.
 
 ### The scripts directory is the source
 

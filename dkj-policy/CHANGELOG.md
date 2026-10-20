@@ -2,7 +2,54 @@
 
 ## [Unreleased]
 
-**18 / 29 minor entries** <!-- pending-tally -->
+**18 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3207-trim-small-sections-in-sysadmin-lens · 20261020-110222Z
+
+The remaining bullets in "What Sylvester owns here" and the smaller history sections of Sylvester's
+repo lens (the sibling check, the enabled plugins, the repo renames, the tree address, the empty roster
+ignore list) keep their live rules and the issues that decided them, and drop the dated measurements.
+Every heading other files link to is unchanged. The lens goes from about 191 KB to 169 KB. Fourth of
+five slimming steps (#3204-#3208).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Sylvester's lens: the remaining owns-here bullets and small history sections are trimmed
+
+[PR #3219](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3219)
+
+---
+
+### DEPLOY: feat/3202-repo-hub-specimen · 20261020-105419Z
+
+The brand book no longer carries a second Repo hub. Its page at `/brandbook/repo-hub` is now a specimen of the Repo
+hub pattern. It shows an invented example repo, says so at the top, and links this repo's real hub on the dev server's
+`/`. It reads nothing from GitHub and claims to be no repo's hub. The showcase gains a Repo hub section under Apps that
+opens the pattern and the hub previews, and the breadcrumbs of both lead back through the brand book.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The brand book sits outside `plugins/` and is installed by no consumer, so nobody who takes a release sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The brand book's Repo hub page is a specimen of the layout, not a second hub
+
+[PR #3220](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3220)
+
+---
 
 ### DEPLOY: docs/3216-open-pr-entry-gate-section · 20261020-104106Z
 

@@ -8,6 +8,7 @@ import { Toolbar } from './showcase/Showcase'
 import { Intro } from './showcase/sections/Intro'
 import { RepoPreview } from './showcase/previews/RepoPreview'
 import { Apps } from './showcase/sections/Apps'
+import { RepoHub } from './showcase/sections/RepoHub'
 import { Actions } from './showcase/sections/Actions'
 import { Data } from './showcase/sections/Data'
 import { Forms } from './showcase/sections/Forms'
@@ -27,10 +28,10 @@ const NAV = [
   { group: 'Forms & rows', items: ['Field', 'Checkbox', 'Stepper', 'SearchCombobox', 'ValueBox', 'StatRow', 'FormulaRow', 'DateRow'] },
   { group: 'Overlays & navigation', items: ['Dialog', 'Tooltip', 'Drawer', 'TopBar', 'PageHeader', 'Breadcrumbs', 'PageLinks', 'MenuRow', 'StepHeader', 'InfoRow'] },
   { group: 'Data', items: ['DefinitionList', 'DataTable', 'BillTable', 'ComparisonTable', 'CalcTable', 'AnswerBox'] },
-  { group: 'Apps', items: ['apps', 'overlap'] },
+  { group: 'Apps', items: ['apps', 'repo-hub', 'overlap'] },
 ] as const
 
-const LABELS: Record<string, string> = { apps: 'Overview', overlap: 'Overlap', tokens: 'Tokens', classes: 'House classes' }
+const LABELS: Record<string, string> = { apps: 'Overview', 'repo-hub': 'Repo hub', overlap: 'Overlap', tokens: 'Tokens', classes: 'House classes' }
 
 
 /** The repo whose preview the hash asks for, or null for the brand book itself. */
@@ -175,6 +176,7 @@ export default function App() {
                 <Overlays />
                 <Data />
                 <Apps />
+                <RepoHub />
                 <Overlap />
               </>
             )}
