@@ -446,13 +446,21 @@ its own.
   the house style already does that for the floating settings button and for in-page anchors.
 - **The trail:** it always starts at **Repo hub**, linking to `/`. Each further crumb is one level
   down: the product (under its own name), then a page inside it. The last crumb is the current page,
-  unlinked, with `aria-current="page"`. On the Repo hub itself the trail is that one crumb: the bar is
+  unlinked, with `aria-current="page"`. The trail is in the muted greys (owner, October 20, 2026): the chevron
+  between crumbs `--primary-6`, the ancestor links `--primary-7`, the current page `--primary-8`, every crumb at weight
+  400; a link shows its underline only under the pointer. On the Repo hub itself the trail is that one crumb: the bar is
   still there, so it sits in the same place on every page.
 - **The labels** are the pages' own names, short, in the app's language. A crumb names a page, never a
   section on a page: an in-page anchor is not a level.
 - **Without React:** `.breadcrumbs-bar` > `.container` > `nav.breadcrumbs[aria-label="Breadcrumb"]` > `ol`,
-  one `li` per crumb, and a `<span class="breadcrumbs__sep" aria-hidden="true">/</span>` at the start of every
-  `li` but the first. [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) carries it. With React,
+  one `li` per crumb, and a `<span class="breadcrumbs__sep" aria-hidden="true">` holding the chevron at the start
+  of every `li` but the first (the stylesheet sizes it to `1.25rem` and thickens it with a stroke):
+
+  ```html
+  <svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg>
+  ```
+
+  [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) carries it. With React,
   the brand book's `Breadcrumbs` component with `bar` renders the same.
 
 **What this changes for an app that takes the update:** nothing that exists, only an addition. A page
