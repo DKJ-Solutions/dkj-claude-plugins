@@ -287,21 +287,19 @@ function Format-TestGatePageHtml {
         return '<tfoot><tr class="row-total dp-total"><td class="dp-left">Total <span class="note">' + $what + ', run one after another; CI runs them in parallel</span></td>' + $mid +
             '<td class="num">' + (Format-DevSeconds $Sum) + '</td><td class="dp-left"></td><td>' + $pct + '%</td></tr></tfoot>'
     }
-    # The points to note under a section's h2, at the top of its card: nothing when there are none.
+    # A section's points to note, closing the section below its card as a full grid row of their own:
+    # nothing when there are none.
     $tipsBlock = {
         param($Tips)
         $items = @(@($Tips) | Where-Object { $_ })
         if (-not $items.Count) { return '' }
-        return '<h3>Points to note</h3><ul class="dp-tips">' + (($items | ForEach-Object { '<li>' + (& $e $_) + '</li>' }) -join '') + '</ul>'
+        return '<div class="grid__full dp-tips"><h3>Points to note</h3><ul>' + (($items | ForEach-Object { '<li>' + (& $e $_) + '</li>' }) -join '') + '</ul></div>'
     }
     $groups = @($Model.Groups)
     if ($groups.Count -and $suites.Count) {
         [void]$body.AppendLine('<div class="grid-2" id="groups">')
         [void]$body.AppendLine('<div class="grid__head"><h2>Groups</h2><p class="card__sub">What each group of suites guards. Every suite runs on every PR, whichever group it is in</p></div>')
         [void]$body.AppendLine('<section class="card grid__full">')
-        [void]$body.AppendLine((& $tipsBlock @(
-            'The seconds are summed as if every suite ran one after another. CI splits the suites over four shards that run side by side, and a shard has taken roughly 6 to 13 minutes.',
-            'A group''s name jumps to its own table below.')))
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Group</th><th>Suites</th><th>Seconds</th><th class="dp-left">Against the slowest group</th><th>Share of the sum</th></tr></thead><tbody>')
         $heaviest = ($groups | ForEach-Object { $_.Total } | Measure-Object -Maximum).Maximum
         foreach ($g in $groups) {
@@ -312,15 +310,18 @@ function Format-TestGatePageHtml {
         $allSum = [double](($groups | ForEach-Object { $_.Total } | Measure-Object -Sum).Sum)
         [void]$body.AppendLine('</tbody>' + (& $totalRow $allSum $allCount 3) + '</table></div>')
         [void]$body.AppendLine('</section>')
+        [void]$body.AppendLine((& $tipsBlock @(
+            'The seconds are summed as if every suite ran one after another. CI splits the suites over four shards that run side by side, and a shard has taken roughly 6 to 13 minutes.',
+            'A group''s name jumps to its own table below.')))
         [void]$body.AppendLine('</div>')
         foreach ($g in $groups) {
             [void]$body.AppendLine('<div class="grid-2" id="group-' + (& $e $g.Key) + '">')
             [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $g.Title) + '</h2><p class="card__sub">Guards ' + (& $e $g.Guards) + '</p></div>')
             [void]$body.AppendLine('<section class="card grid__full">')
-            [void]$body.AppendLine((& $tipsBlock $g.Tips))
             if (@($g.Suites).Count + @($g.Unmeasured).Count) { [void]$body.AppendLine((& $suiteTable $g.Suites $g.Unmeasured)) }
             else { [void]$body.AppendLine('<p class="note">No suite of this group is on disk.</p>') }
             [void]$body.AppendLine('</section>')
+            [void]$body.AppendLine((& $tipsBlock $g.Tips))
             [void]$body.AppendLine('</div>')
         }
         $loose = @($suites | Where-Object { @($Model.Ungrouped) -contains $_.Name })
@@ -329,27 +330,24 @@ function Format-TestGatePageHtml {
             [void]$body.AppendLine('<div class="grid-2" id="ungrouped">')
             [void]$body.AppendLine('<div class="grid__head"><h2>Not grouped</h2><p class="card__sub">Suites no group holds yet</p></div>')
             [void]$body.AppendLine('<section class="card grid__full">')
-            [void]$body.AppendLine((& $tipsBlock @('Add each one to the group whose workflow step it guards, in scripts/tests/suite-groups.json. dev-pages.tests.ps1 stays red until you do.')))
             [void]$body.AppendLine((& $suiteTable $loose $looseUnmeasured))
             [void]$body.AppendLine('</section>')
+            [void]$body.AppendLine((& $tipsBlock @('Add each one to the group whose workflow step it guards, in scripts/tests/suite-groups.json. dev-pages.tests.ps1 stays red until you do.')))
             [void]$body.AppendLine('</div>')
         }
     } else {
         [void]$body.AppendLine('<div class="grid-2" id="suites">')
         [void]$body.AppendLine('<div class="grid__head"><h2>Suites</h2><p class="card__sub">Mean CI duration per suite, slowest first</p></div>')
         [void]$body.AppendLine('<section class="card grid__full">')
-        [void]$body.AppendLine((& $tipsBlock @('Without scripts/tests/suite-groups.json the suites are listed in one table; every one of them still runs on every PR.')))
         if ($suites.Count) { [void]$body.AppendLine((& $suiteTable $suites)) }
         else { [void]$body.AppendLine('<p class="note">No suite durations are recorded.</p>') }
         [void]$body.AppendLine('</section>')
+        [void]$body.AppendLine((& $tipsBlock @('Without scripts/tests/suite-groups.json the suites are listed in one table; every one of them still runs on every PR.')))
         [void]$body.AppendLine('</div>')
     }
     [void]$body.AppendLine('<div class="grid-2" id="recorded">')
     [void]$body.AppendLine('<div class="grid__head"><h2>Where it was measured</h2></div>')
     [void]$body.AppendLine('<section class="card grid__full">')
-    [void]$body.AppendLine((& $tipsBlock @(
-        'A suite not recorded yet is charged the largest recorded duration when the gate packs its shards, so a new suite starts early rather than last.',
-        'Refresh with scripts/maintenance/record-suite-durations.ps1 once a suite has been added or has grown.')))
     [void]$body.AppendLine('<dl class="facts">')
     [void]$body.AppendLine('<div><dt>Recorded</dt><dd>' + $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('<div><dt>Machine</dt><dd>' + $(if ($Model.Machine) { & $e $Model.Machine } else { '--' }) + '</dd></div>')
@@ -359,6 +357,9 @@ function Format-TestGatePageHtml {
     [void]$body.AppendLine('<div><dt>CI runs</dt><dd>' + $(if ($runs) { $runs } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('</dl>')
     [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine((& $tipsBlock @(
+        'A suite not recorded yet is charged the largest recorded duration when the gate packs its shards, so a new suite starts early rather than last.',
+        'Refresh with scripts/maintenance/record-suite-durations.ps1 once a suite has been added or has grown.')))
     [void]$body.AppendLine('</div>')
     # The house's .row-total sets the weight; the rule above it, heavier than a row's own, is this page's.
     $style = $script:DevBarStyle + "`n" + '.dp-total td { border-top: 2px solid var(--primary-5); }'

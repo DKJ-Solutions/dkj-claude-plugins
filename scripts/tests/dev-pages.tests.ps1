@@ -164,9 +164,13 @@ Assert-True ($gp -match '<tfoot><tr class="row-total dp-total"><td class="dp-lef
 Assert-True ($gp -match '>Total <span class="note">2 suites, run one after another; CI runs them in parallel</span></td><td class="num">10.0s</td><td class="dp-left"></td><td>22.2%</td></tr></tfoot>') 'each group''s table closes on its own sum, counting its unmeasured suites'
 Assert-True ($gp -match '\.dp-total td \{ border-top: 2px solid var\(--primary-5\); \}') 'the total row stands under a heavier rule than the rows above it'
 Assert-Equal ([regex]::Matches($gp, '<table').Count) ([regex]::Matches($gp, '<tfoot>').Count) 'every table on the page has a total'
-Assert-True ($gp -match 'id="group-one">\r?\n<div class="grid__head"><h2>[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>Points to note</h3><ul class="dp-tips"><li>Mind &lt;this&gt;</li><li>And that</li></ul>') 'a group''s tips open its card, under its h2, escaped'
-Assert-True ($gp -notmatch 'id="group-two">\r?\n<div class="grid__head"><h2>[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>') 'a group with no tips has no h3'
-Assert-True ($gp -match 'id="groups">\r?\n[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>Points to note</h3>' -and $gp -match 'id="recorded">\r?\n[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>Points to note</h3>' -and $gp -match 'id="ungrouped">\r?\n[^\r\n]+\r?\n<section class="card grid__full">\r?\n<h3>Points to note</h3>') 'the groups, not-grouped and measured sections carry their own points to note'
+# A section's notes close it, below its card: what sits between a section's id and the next section's.
+$sectionOf = { param($Id) $i = $gp.IndexOf('id="' + $Id + '"'); $n = $gp.IndexOf('<div class="grid-2"', $i + 1); if ($n -lt 0) { $n = $gp.Length }; $gp.Substring($i, $n - $i) }
+$one = & $sectionOf 'group-one'
+Assert-True ($one -match '</section>\r?\n<div class="grid__full dp-tips"><h3>Points to note</h3><ul><li>Mind &lt;this&gt;</li><li>And that</li></ul></div>\r?\n</div>') 'a group''s notes close its section, below the card and outside the table, escaped'
+Assert-True ($one.IndexOf('</table>') -lt $one.IndexOf('Points to note')) 'so they come after its table'
+Assert-True ((& $sectionOf 'group-two') -notmatch '<h3>') 'a group with no tips has no notes'
+Assert-True (@('groups', 'ungrouped', 'recorded' | Where-Object { (& $sectionOf $_) -notmatch '</section>\r?\n<div class="grid__full dp-tips"><h3>Points to note</h3>' }).Count -eq 0) 'the groups, not-grouped and measured sections close on their own notes'
 $gf = Format-TestGatePageHtml -Model $m -GroupsError 'the file is not there'
 Assert-True ($gf -match 'suite-groups.json could not be read: the file is not there, so the suites are listed ungrouped' -and $gf -match 'id="suites"') 'without the groups file the page falls back to one table, and says why'
 
