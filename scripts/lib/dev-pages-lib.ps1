@@ -281,10 +281,10 @@ function Format-TestGatePageHtml {
     $totalRow = {
         param([double]$Sum, [int]$Count, [int]$Pad)
         $pct = if ($Model.Total -gt 0) { (100.0 * $Sum / $Model.Total).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) } else { '0.0' }
-        $mid = if ($Pad -gt 2) { '<td class="num"><strong>' + $Count + '</strong></td>' } else { '' }
+        $mid = if ($Pad -gt 2) { '<td class="num">' + $Count + '</td>' } else { '' }
         $what = if ($Pad -gt 2) { 'all groups' } else { "$Count suites" }
-        return '<tfoot><tr><td class="dp-left"><strong>Total</strong> <span class="note">' + $what + ', run one after another; CI runs them in parallel</span></td>' + $mid +
-            '<td class="num"><strong>' + (Format-DevSeconds $Sum) + '</strong></td><td class="dp-left"></td><td><strong>' + $pct + '%</strong></td></tr></tfoot>'
+        return '<tfoot><tr class="row-total dp-total"><td class="dp-left">Total <span class="note">' + $what + ', run one after another; CI runs them in parallel</span></td>' + $mid +
+            '<td class="num">' + (Format-DevSeconds $Sum) + '</td><td class="dp-left"></td><td>' + $pct + '%</td></tr></tfoot>'
     }
     $groups = @($Model.Groups)
     if ($groups.Count -and $suites.Count) {
@@ -343,7 +343,9 @@ function Format-TestGatePageHtml {
     [void]$body.AppendLine('</dl>')
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine('</div>')
-    return Format-DevPageHtml -Title 'Test gate' -Style $script:DevBarStyle -Body $body.ToString() `
+    # The house's .row-total sets the weight; the rule above it, heavier than a row's own, is this page's.
+    $style = $script:DevBarStyle + "`n" + '.dp-total td { border-top: 2px solid var(--primary-12); }'
+    return Format-DevPageHtml -Title 'Test gate' -Style $style -Body $body.ToString() `
         -Lead 'What each test suite costs on CI, grouped by the workflow step it guards. No suite is optional: the gate runs every one on every PR, and a group says what breaks when its suites go red, not when they run. Measured on CI runners, never on a workstation: a local reading does not convert.' `
         -FooterNote 'Read from <code>scripts/tests/suite-durations.json</code>, grouped by <code>scripts/tests/suite-groups.json</code>. Refreshed by <code>scripts/maintenance/record-suite-durations.ps1</code>; the <code>measure-suites</code> skill compares two sets of runs.'
 }
