@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#3202, decided by the owner on October 20, 2026: `RepoDashboard` stays as a **pattern specimen**. It gets no live
+GitHub data and no "this repo" or "single source" claims, and it is placed in the showcase. `/brandbook/dashboards`
+stays. A visible result, so the branch parks for the owner's eye with no PR.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `RepoDashboard.tsx`: rebuilt on `PlaceholderDashboard` with an invented `example-repo`. The GitHub fetch, the
+  repo table and the brand claims are gone, and a note at the top names it a specimen and links the real hub on `/`.
+- [x] The showcase gains a **Repo hub** section under Apps (nav item and section), linking the pattern and the hub
+  previews.
+- [x] Breadcrumbs on the pattern and the previews now read Brand book > Repo hub pattern > Hub previews.
 
 ### TEST
 
+- [x] `npm run gate` in `brandbook/` green (eslint, the CSS checks, `tsc -b`, `vite build`); the hub serves the new
+  build at `/brandbook/repo-hub`.
+- [~] Judged by eye: that is the owner's look, which this branch is parked for.
+
 ### DEPLOY: feat/3202-repo-hub-specimen
 
-**Score:**
+The brand book no longer carries a second Repo hub. Its page at `/brandbook/repo-hub` is now a specimen of the Repo
+hub pattern. It shows an invented example repo, says so at the top, and links this repo's real hub on the dev server's
+`/`. It reads nothing from GitHub and claims to be no repo's hub. The showcase gains a Repo hub section under Apps that
+opens the pattern and the hub previews, and the breadcrumbs of both lead back through the brand book.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The brand book sits outside `plugins/` and is installed by no consumer, so nobody who takes a release sees it.
+
+**Score:** N/A
 
 #### Pull Request
 
