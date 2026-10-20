@@ -29,7 +29,8 @@
                        "tips":  [
                                     "The new-branch suites build a throwaway git repo for each scenario, which is why this is one of the heaviest groups.",
                                     "Run one suite alone with powershell -NoProfile -File scripts/tests/<name>.tests.ps1 before suspecting the whole gate."
-                                ]
+                                ],
+                       "split":  "new-branch on its own (its three suites carry most of the time), the parking (park-branch, park-commit, park-cycle), and claiming and worktree lanes."
                    },
                    {
                        "key":  "pr",
@@ -119,7 +120,8 @@
                        "tips":  [
                                     "These suites test the lint; the lint itself runs in its own CI job. A red check-plugin-integrity-* suite means a check changed, not that the tree broke it.",
                                     "This is the heaviest group, about a third of the sum."
-                                ]
+                                ],
+                       "split":  "check-plugin-integrity on its own (its 15 suites), and the other gates beside it: the always-on budget, the roster, the script contract, the shared scripts, the house style, mojibake and parameter binding."
                    },
                    {
                        "key":  "ci",
@@ -143,7 +145,8 @@
                        "tips":  [
                                     "A suite red under the gate and green alone is evidence about the run first: re-run it alone before hunting the failure.",
                                     "Durations come from CI logs via scripts/maintenance/record-suite-durations.ps1, never from a workstation."
-                                ]
+                                ],
+                       "split":  "the suite runner and its fixtures (test-suite-gate, ci-shard, suite-durations-lib, the three fixture libs), and the CI workflows with their scheduled checks (workflow-concurrency, workflow-timeouts, merge-queue-prereq, ci-merge-skip-lib, repo-settings, stranded and unshipped PRs)."
                    },
                    {
                        "key":  "hooks",
@@ -169,7 +172,8 @@
                                   ],
                        "tips":  [
                                     "A session runs the installed plugin copy, not this tree, so a hook change reaches a session here only after a release."
-                                ]
+                                ],
+                       "split":  "the SessionStart checks (claude-home, connector, consumer-prose, git-identity, release-freshness); the tool-use guards (command-guard-lib, guard-working-copy, background-run-lib, hook-fail-closed); the Stop hooks and the close-out (cycle-autopark, closeout-gate, closeout-lib); and the hook plumbing (hook-check-lib, hook-stdin-guard, session-cache-lib)."
                    },
                    {
                        "key":  "adopt",
@@ -215,7 +219,8 @@
                                   ],
                        "tips":  [
                                     "Most of these run only when somebody asks for them, so a regression here goes unnoticed in daily work until the suite catches it."
-                                ]
+                                ],
+                       "split":  "the measure skills (measure-always-on, measure-session-start, measure-skill, closeout-measure); machine upkeep (tidy-lib, prune-merged, plugin-versions, update-plugins); and the cross-repo checks (connectors, the sibling checks, policy-drift, find-specialist-mentions, fanout)."
                    },
                    {
                        "key":  "pages",
@@ -301,7 +306,8 @@
                                   ],
                        "tips":  [
                                     "native-capture-lib.ps1 also ships as plugin mirrors in dkj-policy and dkj-subagents-shopify; change the copy in scripts/lib and keep the mirrors identical."
-                                ]
+                                ],
+                       "split":  "console output and escaping (check-report-lib, ref-print-lib, the exception and wording guards, run-progress); git and native-command capture (git-porcelain-lib, native-capture, fetch-attempt, command-probe-lib); and the repo root, config and seams (repo-config, repo-root-lib, seam-lib, source-repo-guard and the consumer libs)."
                    }
                ]
 }

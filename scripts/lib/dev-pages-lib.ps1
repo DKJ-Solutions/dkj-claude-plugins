@@ -176,7 +176,7 @@ function ConvertFrom-SuiteDurations {
         Groups; Ungrouped; Unknown }.
 
         -Groups is the parsed groups array of suite-groups.json, $null when that file is missing or unreadable.
-        Groups is then one @{ Key; Title; Guards; Tips; Suites; Unmeasured; Total } per group, in the file's order,
+        Groups is then one @{ Key; Title; Guards; Tips; Split; Suites; Unmeasured; Total } per group, in the file's order,
         each holding its recorded suites slowest first and, in Unmeasured, its suites on disk with no recorded
         duration yet; Ungrouped names every suite on disk or recorded that no group holds, and Unknown every
         name a group holds that is not on disk. With no -Groups all three are empty.
@@ -204,6 +204,7 @@ function ConvertFrom-SuiteDurations {
             Title    = [string]$g.title
             Guards   = [string]$g.guards
             Tips     = @(@($g.tips) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+            Split    = [string]$g.split
             Suites   = $in
             Unmeasured = @(@($SuiteFiles) | Where-Object { $_ -and $members.ContainsKey($_) -and -not $recorded.ContainsKey($_) } | Sort-Object)
             Total  = [double](($in | ForEach-Object { $_.Seconds } | Measure-Object -Sum).Sum)
@@ -310,9 +311,15 @@ function Format-TestGatePageHtml {
         $allSum = [double](($groups | ForEach-Object { $_.Total } | Measure-Object -Sum).Sum)
         [void]$body.AppendLine('</tbody>' + (& $totalRow $allSum $allCount 3) + '</table></div>')
         [void]$body.AppendLine('</section>')
+        # The split candidates are the groups suite-groups.json gives a split for, largest first: which ones
+        # is a judgement written into that file, and the counts beside them are measured here.
+        $candidates = @($groups | Where-Object { $_.Split } | Sort-Object @{ Expression = { $_.Total }; Descending = $true } | ForEach-Object {
+                $_.Title + ' (' + (@($_.Suites).Count + @($_.Unmeasured).Count) + ' suites, ' +
+                $(if ($Model.Total -gt 0) { (100.0 * $_.Total / $Model.Total).ToString('0', [Globalization.CultureInfo]::InvariantCulture) } else { '0' }) + '%)' })
         [void]$body.AppendLine((& $tipsBlock @(
             'The seconds are summed as if every suite ran one after another. CI splits the suites over four shards that run side by side, and a shard has taken roughly 6 to 13 minutes.',
-            'A group''s name jumps to its own table below.')))
+            'A group''s name jumps to its own table below.',
+            $(if ($candidates.Count) { 'Candidates to split, largest first: ' + ($candidates -join '; ') + '. Each one''s own notes say how. A split changes only how this page reads, never what runs.' }))))
         [void]$body.AppendLine('</div>')
         foreach ($g in $groups) {
             [void]$body.AppendLine('<div class="grid-2" id="group-' + (& $e $g.Key) + '">')
@@ -321,7 +328,7 @@ function Format-TestGatePageHtml {
             if (@($g.Suites).Count + @($g.Unmeasured).Count) { [void]$body.AppendLine((& $suiteTable $g.Suites $g.Unmeasured)) }
             else { [void]$body.AppendLine('<p class="note">No suite of this group is on disk.</p>') }
             [void]$body.AppendLine('</section>')
-            [void]$body.AppendLine((& $tipsBlock $g.Tips))
+            [void]$body.AppendLine((& $tipsBlock (@($g.Tips) + @($(if ($g.Split) { 'Could be split into ' + $g.Split })))))
             [void]$body.AppendLine('</div>')
         }
         $loose = @($suites | Where-Object { @($Model.Ungrouped) -contains $_.Name })

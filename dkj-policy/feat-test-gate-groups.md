@@ -51,6 +51,7 @@ deriving groups from file names).
 - [x] `ConvertFrom-SuiteDurations` takes `-Groups`: per group its recorded and unmeasured suites and total, plus the ungrouped and unknown names
 - [x] `Format-TestGatePageHtml`: a group overview, one section per group, a not-grouped section, and the old single table when the groups file cannot be read
 - [x] Every section closes on an h3 "Points to note" below its card, outside the table: per group from its `tips` in `suite-groups.json`, verified against the tree; the overview, not-grouped and measured sections carry their own
+- [x] Split advice: the six large groups (14 or more suites, or 10% or more of the sum) carry a hand-written `split` in `suite-groups.json`, shown in their notes; the overview's notes name them largest first with their measured size
 - [x] Every table closes on a total row: its suites' seconds summed, labelled as run one after another, since CI runs them in parallel
 - [x] `Get-TestGateModel` reads `suite-groups.json` beside `suite-durations.json`
 - [x] `.dp-link` takes `--primary-11` instead of `--primary-9` and loses its underline except on hover and keyboard focus: Maikel found the links hard to read on the page
