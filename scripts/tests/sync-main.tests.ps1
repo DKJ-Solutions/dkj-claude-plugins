@@ -698,6 +698,12 @@ try {
     $status = & git -C $quiet status --porcelain
     Assert-True (-not (@($status | Where-Object { $_ }).Count)) 'quiet: and the tree is left clean, not half-written'
 
+    # THE SAME MIRROR, SPELLED DIFFERENTLY, IS THE SAME MIRROR (inbound #3212). Measured with an 8.3
+    # '-MirrorPath', which a runner may not have; a '..' segment is the same class on every volume -- the
+    # walk's FullName resolves it, the argument keeps it -- and it cut 'sections/...' to 'ions/...'.
+    $r = Invoke-Sync -Dir $quiet -Mirror (Join-Path $quietMirror 'sections\..')
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'No third-party drift') 'quiet/spelling: a -MirrorPath spelled unlike its own walk still reads every file at its own path'
+
     # --- A gitignored path is not the sync's business ----------------------------------------------
     # config/settings_data.json is the case this exists for: a repo that ignores the live theme's settings
     # would otherwise see it arrive as a brand-new foreign file on every single run and capture it forever.

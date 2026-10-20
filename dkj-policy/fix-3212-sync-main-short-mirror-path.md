@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound #3212, verified in the tree: `sync-main.ps1` cut `$mirror.Length` characters off each file's
+`FullName`, and `FullName` is the walk's own spelling (long form, `..` resolved), not the argument's.
+Reproduced here with a `..` segment: `sections/sub/a.liquid` came out as `ions/sub/a.liquid`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `sync-main.ps1` (and its shopify-plugin mirror): the relative path comes from
+  `Get-ChildItem -Name`, relative to the directory walked, so no spelling of the root reaches the key.
 
 ### TEST
 
+- [x] `sync-main.tests.ps1`: the quiet run again with the mirror spelled `<mirror>\sections\..`, which
+  must still read as no drift. 175/175 green locally.
+
 ### DEPLOY: fix/3212-sync-main-short-mirror-path
 
-**Score:**
+`sync-main` now reads every live file at its own path whichever way `-MirrorPath` is spelled. A mirror given
+in 8.3 short form (as `%TEMP%` hands out on some machines) or with a `..` segment made every live file read
+as content this repo had never held, under a mangled path such as `t/old/assets/...`, and every trunk file
+as missing on live. Measured in a dry run (1,809 differing paths where the long form gave 37); a real run
+with the same argument would have committed the whole mirror under those paths as third-party drift. The
+default mirror, which the script creates itself, was not affected.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify consumer that passes `-MirrorPath` gets a correct comparison where it got a wrong one; one who
+never passes it notices nothing.
+
+**Score:** 2
 
 #### Pull Request
 

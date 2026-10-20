@@ -1420,13 +1420,18 @@ try {
         $headBlobs[(Convert-GitQuotedPath -Path $line.Substring($tab + 1))] = $meta[2]
     }
 
+    # THE RELATIVE PATH COMES FROM '-Name', NOT FROM CUTTING '$mirror' OFF EACH FullName (inbound #3212,
+    # October 20, 2026). FullName is the walk's own spelling of the path -- long form, '..' resolved --
+    # while '$mirror' keeps the spelling it was given. An 8.3 '-MirrorPath' ('DAVEK_~2' for
+    # 'davek_l94ub6e') made the two prefixes differ in length, so the cut landed inside the path: every
+    # live file read as 't/old/assets/...', foreign, and every trunk file as missing on live. '-Name'
+    # answers relative to the directory walked, so no spelling of the root can reach the key.
     $mirrorPaths = @{}
     foreach ($d in $ThemeDirs) {
         $dir = Join-Path $mirror $d
         if (-not (Test-Path -LiteralPath $dir)) { continue }
-        foreach ($f in (Get-ChildItem -LiteralPath $dir -Recurse -File)) {
-            $rel = $f.FullName.Substring($mirror.Length).TrimStart('\', '/') -replace '\\', '/'
-            $mirrorPaths[$rel] = $f.FullName
+        foreach ($name in (Get-ChildItem -LiteralPath $dir -Recurse -File -Name)) {
+            $mirrorPaths[$d + '/' + ($name -replace '\\', '/')] = Join-Path $dir $name
         }
     }
     Write-Host "      live: $($mirrorPaths.Count) file(s) across the theme director(ies) present"
