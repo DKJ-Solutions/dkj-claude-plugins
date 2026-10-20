@@ -63,7 +63,7 @@
      -1 the page, and the text on a -6 fill; -2 the cards (tiles, tooltips); -3 every line (borders, row dividers,
      meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a today row, the accent dialog);
      -5 a stronger border (an open card, a selected box); -6 the fills (switches, info badges), focus rings, meters
-     and text in the colour (values); -6 also the eyebrow; -7 sub lines, notes, .muted, the tile label and the breadcrumb's current page; -8 no role of its own yet; -9 the highlight: links (owner's
+     and text in the colour (values); -6 also the eyebrow; -7 sub lines, notes, .muted, the tile label and the breadcrumb links; -8 the breadcrumb's current page; -9 the highlight: links (owner's
      decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus
      outlines, sorted, pressed) and native controls through accent-color; -10 h2 and -11 h3-h6 (an h2 in the h1's
      colour read too much like it, and a grey h3 did not work; on -12 h1 is -4, h2 is -3 and h3-h6 are -2); -4 no
@@ -616,17 +616,17 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>
    <li><a href="/">Repo hub</a></li><li><span class="breadcrumbs__sep" aria-hidden="true">/</span>
    <span aria-current="page">Current page</span></li></ol></nav></div></div>.
-   The slash and the current page are muted greys (the page --primary-7 and semibold, owner, October 20, 2026), the
-   ancestors are links.
+   The whole trail is in the muted greys (owner, October 20, 2026): the slash --primary-6, the ancestor links
+   --primary-7, the current page --primary-8 and semibold, so it recedes the least.
    The bar spans the full width on the surface tint and sticks to the top of the screen, so it is always visible. It is
    one --tap high and one line: a trail longer than the screen scrolls sideways inside the bar rather than wrapping, so
    the height stays fixed and whatever else sticks to the top sits right under it. Its trail lines up with the page
    column (.container). */
 .breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
-.breadcrumbs a { color: var(--primary-9); text-underline-offset: 2px; }
+.breadcrumbs a { color: var(--primary-7); text-underline-offset: 2px; }
 .breadcrumbs__sep { color: var(--primary-6); }
-.breadcrumbs [aria-current='page'] { color: var(--primary-7); font-weight: 600; }
+.breadcrumbs [aria-current='page'] { color: var(--primary-8); font-weight: 600; }
 .breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }
 .breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
 /* Under the bar: an anchor lands below it, and the floating settings button moves down by its height. */

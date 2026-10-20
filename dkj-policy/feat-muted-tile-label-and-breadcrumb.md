@@ -42,6 +42,7 @@
 ### CREATE
 
 - [x] `house-style.css`: `.tile .label` and `.breadcrumbs [aria-current='page']` from `--primary-12` to `--primary-7`; role comment and breadcrumb comment updated
+- [x] Owner's second pass: breadcrumb links `--primary-9` to `--primary-7`, current page to `--primary-8`
 - [x] Brand book: `.dkj-breadcrumbs [aria-current='page']` and the showcase intro follow; house-style README's breadcrumb trail bullet names the colour
 
 ### TEST
@@ -50,9 +51,11 @@
 
 ### DEPLOY: feat/muted-tile-label-and-breadcrumb
 
-A stat tile's label and the breadcrumb's current page now take the muted grey `--primary-7` (as `.muted`, sub
-lines and notes) instead of the paragraph colour `--primary-12`, so the tile's figure and the trail's links lead
-(owner, October 20, 2026). The current page stays semibold. The brand book's own breadcrumbs follow.
+A stat tile's label now takes the muted grey `--primary-7` (as `.muted`, sub lines and notes) instead of the
+paragraph colour `--primary-12`, so the figure leads. The breadcrumb trail moves wholly into the muted greys: the
+ancestor links `--primary-7` instead of the theme colour `--primary-9`, the current page `--primary-8` (semibold)
+instead of `--primary-12`, the slash unchanged at `--primary-6` (owner, October 20, 2026). The brand book's own
+breadcrumbs follow.
 
 **Score:** 2
 
