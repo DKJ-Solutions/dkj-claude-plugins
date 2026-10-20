@@ -52,7 +52,7 @@ before any PR.
 ### TEST
 
 - [x] No `--text-h0` left in the tree outside released history (`git grep`)
-- [ ] Owner's look at the brand book and a house-style page
+- [x] Owner's look at the brand book and a house-style page (Dave, October 20, 2026: "gezien en akkoord")
 
 ### DEPLOY: fix/h1-takes-h0-size
 
