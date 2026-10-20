@@ -272,7 +272,19 @@ function Format-TestGatePageHtml {
         foreach ($n in @($Unmeasured)) {
             $t += '<tr><td class="dp-left"><code>' + (& $e $n) + '</code> <span class="badge badge--sm badge--neutral">not recorded yet</span></td><td class="num">--</td><td class="dp-left"></td><td>--</td></tr>' + "`n"
         }
-        return $t + '</tbody></table></div>'
+        $sum = [double]((@($Rows) | ForEach-Object { $_.Seconds } | Measure-Object -Sum).Sum)
+        return $t + '</tbody>' + (& $totalRow $sum (@($Rows).Count + @($Unmeasured).Count) 2) + '</table></div>'
+    }
+    # The closing row of a table: the sum of its seconds, one after another, which is not what CI waits --
+    # the gate spreads the suites over shards and lanes -- so the label says so. -Pad is the count of
+    # columns between the label and the seconds.
+    $totalRow = {
+        param([double]$Sum, [int]$Count, [int]$Pad)
+        $pct = if ($Model.Total -gt 0) { (100.0 * $Sum / $Model.Total).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) } else { '0.0' }
+        $mid = if ($Pad -gt 2) { '<td class="num"><strong>' + $Count + '</strong></td>' } else { '' }
+        $what = if ($Pad -gt 2) { 'all groups' } else { "$Count suites" }
+        return '<tfoot><tr><td class="dp-left"><strong>Total</strong> <span class="note">' + $what + ', run one after another; CI runs them in parallel</span></td>' + $mid +
+            '<td class="num"><strong>' + (Format-DevSeconds $Sum) + '</strong></td><td class="dp-left"></td><td><strong>' + $pct + '%</strong></td></tr></tfoot>'
     }
     $groups = @($Model.Groups)
     if ($groups.Count -and $suites.Count) {
@@ -285,7 +297,9 @@ function Format-TestGatePageHtml {
             [void]$body.AppendLine('<tr><td class="dp-left"><a class="dp-link" href="#group-' + (& $e $g.Key) + '">' + (& $e $g.Title) + '</a><br><span class="note">' + (& $e $g.Guards) +
                 '</span></td><td class="num">' + (@($g.Suites).Count + @($g.Unmeasured).Count) + '</td><td class="num">' + (Format-DevSeconds $g.Total) + '</td>' + (Format-DevShareCell $g.Total $Model.Total $heaviest) + '</tr>')
         }
-        [void]$body.AppendLine('</tbody></table></div>')
+        $allCount = ($groups | ForEach-Object { @($_.Suites).Count + @($_.Unmeasured).Count } | Measure-Object -Sum).Sum
+        $allSum = [double](($groups | ForEach-Object { $_.Total } | Measure-Object -Sum).Sum)
+        [void]$body.AppendLine('</tbody>' + (& $totalRow $allSum $allCount 3) + '</table></div>')
         [void]$body.AppendLine('</section>')
         [void]$body.AppendLine('</div>')
         foreach ($g in $groups) {
