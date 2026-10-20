@@ -344,7 +344,7 @@ function Format-TestGatePageHtml {
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine('</div>')
     # The house's .row-total sets the weight; the rule above it, heavier than a row's own, is this page's.
-    $style = $script:DevBarStyle + "`n" + '.dp-total td { border-top: 2px solid var(--primary-12); }'
+    $style = $script:DevBarStyle + "`n" + '.dp-total td { border-top: 2px solid var(--primary-5); }'
     return Format-DevPageHtml -Title 'Test gate' -Style $style -Body $body.ToString() `
         -Lead 'What each test suite costs on CI, grouped by the workflow step it guards. No suite is optional: the gate runs every one on every PR, and a group says what breaks when its suites go red, not when they run. Measured on CI runners, never on a workstation: a local reading does not convert.' `
         -FooterNote 'Read from <code>scripts/tests/suite-durations.json</code>, grouped by <code>scripts/tests/suite-groups.json</code>. Refreshed by <code>scripts/maintenance/record-suite-durations.ps1</code>; the <code>measure-suites</code> skill compares two sets of runs.'

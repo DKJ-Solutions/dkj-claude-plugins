@@ -162,7 +162,7 @@ Assert-True ($gp -match 'Grouped but no longer on disk: <code>away.tests.ps1</co
 Assert-True ($gp -notmatch 'id="suites"') 'and the ungrouped single table is gone'
 Assert-True ($gp -match '<tfoot><tr class="row-total dp-total"><td class="dp-left">Total <span class="note">all groups, run one after another; CI runs them in parallel</span></td><td class="num">3</td><td class="num">40.0s</td><td class="dp-left"></td><td>88.9%</td></tr></tfoot>') 'the groups table closes on the sum of every group, its count, and its share of the whole'
 Assert-True ($gp -match '>Total <span class="note">2 suites, run one after another; CI runs them in parallel</span></td><td class="num">10.0s</td><td class="dp-left"></td><td>22.2%</td></tr></tfoot>') 'each group''s table closes on its own sum, counting its unmeasured suites'
-Assert-True ($gp -match '\.dp-total td \{ border-top: 2px solid var\(--primary-12\); \}') 'the total row stands under a heavier rule than the rows above it'
+Assert-True ($gp -match '\.dp-total td \{ border-top: 2px solid var\(--primary-5\); \}') 'the total row stands under a heavier rule than the rows above it'
 Assert-Equal ([regex]::Matches($gp, '<table').Count) ([regex]::Matches($gp, '<tfoot>').Count) 'every table on the page has a total'
 $gf = Format-TestGatePageHtml -Model $m -GroupsError 'the file is not there'
 Assert-True ($gf -match 'suite-groups.json could not be read: the file is not there, so the suites are listed ungrouped' -and $gf -match 'id="suites"') 'without the groups file the page falls back to one table, and says why'
