@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**18 / 31 minor entries** <!-- pending-tally -->
+**19 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3208-tighten-repo-specific-rules · 20261020-111819Z
+
+The `Repo-specific rules` section of Sylvester's lens is one rule per line with the issue that measured
+it, grouped as editing files, PowerShell in `scripts/**`, checks and gates, the suite pool, plugins and
+the marketplace, and the session. The dated reasoning stays with the issues it cites, and rules the
+portable manual already carries are pointed at rather than repeated: about 36 KB off a lens a session
+reads whenever Sylvester has work here.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Sylvester's portable manual no longer sends a consumer to a `Set-Content -Encoding utf8` rule that only
+this repo's lens held: the trap, that Windows PowerShell 5.1 writes a BOM, is stated where it is cited.
+
+**Score:** 1
+
+#### Pull Request
+
+Sylvester's lens: tighten the 'Repo-specific rules' gotchas to one rule plus a pointer each
+
+Plugins: dkj-subagents-alpha
+
+[PR #3221](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3221)
+
+---
 
 ### DEPLOY: docs/3207-trim-small-sections-in-sysadmin-lens · 20261020-110222Z
 
