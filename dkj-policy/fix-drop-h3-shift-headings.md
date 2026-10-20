@@ -53,7 +53,7 @@ shift everything up, and afterwards there is no h6.
 ### TEST
 
 - [x] `npm run gate` in `brandbook/` green; `check-house-style`, `connector-dashboard` and `dev-pages` suites green; `check-house-style.ps1` OK
-- [ ] The owner has looked at the hub and the brand book
+- [x] The owner has looked at the hub and the brand book (Dave: "gezien en akkoord")
 
 ### DEPLOY: fix/drop-h3-shift-headings
 
