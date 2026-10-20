@@ -402,8 +402,11 @@ try {
     # proves nothing about it being reached. Retargeted at gate-lib.ps1's own function body on
     # August 30, 2026 (issue #1156), same reasoning as case 12 above.
     Assert-Equal 1 ([regex]::Matches($gatesFuncBody, 'Get-GateHeadMoveCount').Count) 'Invoke-WorkflowGates reads the reflog depth once, beside the fingerprint'
-    Assert-Equal 4 ([regex]::Matches($gatesFuncBody, 'Get-GateTreeMovedNote -RepoRoot \$RepoRoot').Count) 'both gates ask, on both verdicts'
-    Assert-Equal 2 ([regex]::Matches($gatesFuncBody, 'Get-GateTreeMovedNote[^\r\n]*-Failed').Count) 'and only the two red paths ask as a failure'
+    # FIVE AND THREE SINCE #3223: the selected test run has a red path of its own, and a tree that moved
+    # under a partial run makes its red as untrustworthy as a full one's. Its green asks nothing, because
+    # it records nothing -- the note exists to decide whether a pass may be filed.
+    Assert-Equal 5 ([regex]::Matches($gatesFuncBody, 'Get-GateTreeMovedNote -RepoRoot \$RepoRoot').Count) 'both gates ask, on both verdicts, and the selected run on its red'
+    Assert-Equal 3 ([regex]::Matches($gatesFuncBody, 'Get-GateTreeMovedNote[^\r\n]*-Failed').Count) 'and only the three red paths ask as a failure'
     Assert-True ($gatesFuncBody.IndexOf('Get-GateHeadMoveCount') -lt $gatesFuncBody.IndexOf('if (-not $SkipLint)')) 'the depth is read before the first gate, not after it'
     # THE PASS PATH IS THE ONE WITH TEETH: a green over a moved tree must not be filed as evidence,
     # or the next run skips a gate on a tree nothing ever judged.
