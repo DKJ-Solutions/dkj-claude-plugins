@@ -454,7 +454,7 @@ its own.
   section on a page: an in-page anchor is not a level.
 - **Without React:** `.breadcrumbs-bar` > `.container` > `nav.breadcrumbs[aria-label="Breadcrumb"]` > `ol`,
   one `li` per crumb, and a `<span class="breadcrumbs__sep" aria-hidden="true">` holding the chevron at the start
-  of every `li` but the first (the stylesheet sizes it to `1rem`):
+  of every `li` but the first (the stylesheet sizes it to `1.25rem` and thickens it with a stroke):
 
   ```html
   <svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg>

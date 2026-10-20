@@ -101,7 +101,8 @@
 .dkj-breadcrumbs a { color: var(--primary-7); text-decoration: none; text-underline-offset: 2px; }
 .dkj-breadcrumbs a:hover { text-decoration: underline; }
 .dkj-breadcrumbs-sep { display: inline-flex; color: var(--primary-6); }
-.dkj-breadcrumbs-sep svg { width: 1rem; height: 1rem; }
+.dkj-breadcrumbs-sep svg { width: 1.25rem; height: 1.25rem; }
+.dkj-breadcrumbs-sep path { stroke: currentColor; stroke-width: 0.75; stroke-linejoin: round; }   /* thickens the filled chevron */
 .dkj-breadcrumbs [aria-current='page'] { color: var(--primary-8); font-weight: var(--dkj-fw-regular); }
 /* The bar: full screen width on a tinted background, sticky at the top and one --tap high, the trail aligned with the
    house page column (.container). A trail longer than the screen scrolls sideways, so the height never changes. */
