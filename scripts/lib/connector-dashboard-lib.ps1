@@ -29,6 +29,9 @@
     STATUS, worst first: 'bad' (an [ERROR]), 'warn' (an [INFO]), 'skip' (the checkout is not on this
     machine, so nothing was checked) and 'good'. A skipped repo is not called healthy: nothing was read.
 
+    ONE FUNCTION HERE TOUCHES THE DISK: Resolve-ConnectorCheckout asks whether a candidate folder exists,
+    because the server and scripts/dashboard/repo-session.ps1 (#3231) must resolve a checkout the same way.
+
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED. Manifest fields and git subjects come from other
     repositories, so they are text, never markup.
 
@@ -168,6 +171,67 @@ function Test-DashboardCheckoutInScope {
     return $f.StartsWith($r + '\', [StringComparison]::OrdinalIgnoreCase)
 }
 
+function Resolve-ConnectorCheckout {
+    <#
+        The first of a manifest's localCheckout candidates that is a folder on this machine, as a full path, or
+        $null. The manifest is data from a public repo and git runs in the folder it names, so a candidate is
+        held to check-connectors' own bound: relative to -Root, and resolving under -ScopeRoot.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Root, [AllowNull()]$LocalCheckout, [Parameter(Mandatory = $true)][string]$ScopeRoot)
+    foreach ($cand in @(Get-ConnectorCheckoutCandidates $LocalCheckout)) {
+        if ([System.IO.Path]::IsPathRooted($cand)) { continue }
+        $full = [System.IO.Path]::GetFullPath((Join-Path $Root $cand))
+        if (-not (Test-DashboardCheckoutInScope -Full $full -ScopeRoot $ScopeRoot)) { continue }
+        if (Test-Path -LiteralPath $full -PathType Container) { return $full }
+    }
+    return $null
+}
+
+function Resolve-ConnectorRepo {
+    <#
+        The registered repos a person means by -Name (#3231): the full 'owner/name', the name alone, the name
+        without its 'dkj-' prefix, or the manifest's file name -- compared without case and without
+        punctuation, so 'lifehub', 'life-hub' and 'dkj-lifehub' all name DKJ-Solutions/dkj-lifehub. Where no
+        name matches whole, a name that CONTAINS it does. -Connectors are @{ Repo; File }; returns every match,
+        so a caller can refuse an ambiguous one rather than guess.
+    #>
+    param([AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors, [Parameter(Mandatory = $true)][string]$Name)
+    $norm = { param($s) ((([string]$s).ToLowerInvariant() -replace '\.json$', '') -replace '[^a-z0-9]', '') }
+    $want = & $norm $Name
+    if (-not $want) { return @() }
+    $keys = {
+        param($c)
+        $short = ([string]$c.Repo -split '/')[-1]
+        @((& $norm $c.Repo), (& $norm $short), (& $norm ($short -replace '^dkj-', '')), (& $norm $c.File)) | Where-Object { $_ }
+    }
+    $all = @($Connectors | Where-Object { $_ })
+    $exact = @($all | Where-Object { @(& $keys $_) -contains $want })
+    if ($exact.Count) { return $exact }
+    return @($all | Where-Object { @(& $keys $_ | Where-Object { $_.Contains($want) }).Count })
+}
+
+function ConvertTo-PowerShellLiteral {
+    <#
+        -Value as a single-quoted PowerShell string. PowerShell reads the typographic quotes U+2018 to U+201B as
+        single quotes too, so each of them is doubled as well -- a Dutch prompt with "dossier's" written with a
+        curly apostrophe would otherwise end the string there and run the rest as code.
+    #>
+    param([AllowEmptyString()][Parameter(Mandatory = $true)][string]$Value)
+    $quotes = "['" + [char]0x2018 + [char]0x2019 + [char]0x201A + [char]0x201B + ']'
+    return "'" + ([regex]::Replace($Value, $quotes, { param($m) $m.Value + $m.Value })) + "'"
+}
+
+function Format-RepoSessionCommand {
+    <#
+        The PowerShell line that opens Claude Code in one checkout (#3231), with -Prompt as its first message
+        when one is given. The hub shows it to copy; open-repo-session.ps1 runs it in a window of its own.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path, [AllowEmptyString()][string]$Prompt = '')
+    $line = 'Set-Location -LiteralPath ' + (ConvertTo-PowerShellLiteral $Path) + '; claude'
+    if ($Prompt) { $line += ' ' + (ConvertTo-PowerShellLiteral $Prompt) }
+    return $line
+}
+
 function Get-ConnectorOwnerGroup {
     <#
         The group a repo is shown under, by the owner in its 'owner/name' slug: 'bwj' (BWJ-Development),
@@ -222,7 +286,7 @@ function Format-ConnectorDashboardHtml {
     <#
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
         (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
-        or $null); Notes }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
+        or $null); Notes; Path (the resolved checkout, or $null) }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
         It is the Connectors page under the Repo hub on '/' (#3097): a two-crumb trail and its own h1. The
         facts card belongs to the hub, so this page ends on its footer note.
     #>
@@ -270,6 +334,8 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-signals code, .cd-plugins code { font-size: var(--text-xs); }')
     [void]$sb.AppendLine('.cd-plugins { display: flex; flex-wrap: wrap; gap: var(--spacing-1-5) var(--spacing-4); margin-top: var(--spacing-2); font-size: var(--text-sm); color: var(--primary-7); }')
     [void]$sb.AppendLine('.cd-notes { white-space: pre-wrap; font-size: var(--text-xs); color: var(--primary-7); max-height: 320px; overflow: auto; }')
+    [void]$sb.AppendLine('.cd-session { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1-5) var(--spacing-2); margin-top: var(--spacing-2); }')
+    [void]$sb.AppendLine('.cd-session code { font-size: var(--text-xs); overflow-wrap: anywhere; }')
     [void]$sb.AppendLine('.cd-status { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }')
     [void]$sb.AppendLine('.table td.cd-left, .table th.cd-left { text-align: left; }')
     # Fixed layout, so each group's table takes these widths rather than sizing to its own content; the min-width keeps them readable, scrolling inside .table-wrap on a narrow screen.
@@ -362,6 +428,14 @@ function Format-ConnectorDashboardHtml {
             $ghUrl = 'https://github.com/' + (& $e $c.Repo)
             [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
                 ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
+            if ($c.Path) {
+                # The command that opens Claude Code in this checkout (#3231), to copy: the server starts nothing.
+                $cmd = Format-RepoSessionCommand -Path ([string]$c.Path)
+                $short = ([string]$c.Repo -split '/')[-1]
+                [void]$sb.AppendLine('<div class="cd-session"><span class="meta">Open a session there:</span> <code>' + (& $e $cmd) + '</code>' +
+                    ' <button type="button" class="btn" data-copy="' + (& $e $cmd) + '">Copy</button>' +
+                    '<span class="meta">or ask a session here: <code>repo-session ' + (& $e $short) + ' -Open</code></span></div>')
+            }
             if ($c.Git -and $c.Git.Subject) {
                 [void]$sb.AppendLine('<p class="meta" style="white-space: normal">Last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) + '</p>')
             }
@@ -401,6 +475,8 @@ function Format-ConnectorDashboardHtml {
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     [void]$sb.AppendLine('<p class="footer-note">Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=connectors">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
+    # The Copy buttons: the command goes to the clipboard, and the button says so for a moment.
+    [void]$sb.AppendLine('<script>document.addEventListener("click", function (ev) { var b = ev.target.closest("[data-copy]"); if (!b || !navigator.clipboard) return; navigator.clipboard.writeText(b.getAttribute("data-copy")).then(function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1500); }); });</script>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')
     [void]$sb.AppendLine('</html>')

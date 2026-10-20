@@ -190,15 +190,9 @@ function Get-DashboardModel {
         $repo = [string]$m.repo
         if (-not $repo) { continue }
         $candidates = @(Get-ConnectorCheckoutCandidates $m.localCheckout)
-        $resolved = $null
-        foreach ($cand in $candidates) {
-            # The manifest is data from a public repo and git runs in the folder it names, so the path is
-            # held to check-connectors' own bound: relative, and resolving under the scope root.
-            if ([System.IO.Path]::IsPathRooted($cand)) { continue }
-            $full = [System.IO.Path]::GetFullPath((Join-Path $root $cand))
-            if (-not (Test-DashboardCheckoutInScope -Full $full -ScopeRoot $scopeRoot)) { continue }
-            if (Test-Path -LiteralPath $full -PathType Container) { $resolved = $full; break }
-        }
+        # The manifest is data from a public repo and git runs in the folder it names, so the path is held to
+        # check-connectors' own bound -- the one resolver repo-session.ps1 uses too (#3231).
+        $resolved = Resolve-ConnectorCheckout -Root $root -LocalCheckout $m.localCheckout -ScopeRoot $scopeRoot
         $signals = if ($parsed.Contains($repo)) { @($parsed[$repo].Signals) } else { @() }
         $plugins = @(@($m.plugins) | Where-Object { $_ } | ForEach-Object { @{ Id = [string]$_.id; Extensions = @($_.extensions) } })
         $connectors += @{
@@ -207,6 +201,7 @@ function Get-DashboardModel {
             File       = $f.Name
             Checkout   = $candidates
             Present    = [bool]$resolved
+            Path       = $resolved
             Plugins    = $plugins
             Signals    = $signals
             Drift      = if ($parsed.Contains($repo)) { $parsed[$repo].Drift } else { $null }

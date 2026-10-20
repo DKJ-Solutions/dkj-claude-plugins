@@ -583,6 +583,66 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
 }
 if ($null -ne $group4Done) { Assert-True $group4Done 'group 4 ran to its end -- no fixture step aborted it (#3137)' }
 
+# --- Repo sessions (#3231): which repo a loose name means, and the command that opens Claude Code there ---
+Write-Host "`n[Repo sessions: name resolution and the session command]"
+$regs = @(
+    @{ Repo = 'DKJ-Solutions/dkj-lifehub'; File = 'life-hub.json' },
+    @{ Repo = 'DKJ-Solutions/dkj-thumbnail-generator'; File = 'thumbnail-generator.json' },
+    @{ Repo = 'DKJ-Solutions/dkj-recipes'; File = 'recipes.json' },
+    @{ Repo = 'DKJ-Solutions/dkj-music-library'; File = 'music-library.json' }
+)
+foreach ($n in 'lifehub', 'life-hub', 'dkj-lifehub', 'DKJ-Solutions/dkj-lifehub', 'LIFEHUB', 'life-hub.json') {
+    $hit = @(Resolve-ConnectorRepo -Connectors $regs -Name $n)
+    Assert-True ($hit.Count -eq 1 -and $hit[0].Repo -eq 'DKJ-Solutions/dkj-lifehub') "'$n' names dkj-lifehub"
+}
+$hit = @(Resolve-ConnectorRepo -Connectors $regs -Name 'thumb')
+Assert-True ($hit.Count -eq 1 -and $hit[0].Repo -eq 'DKJ-Solutions/dkj-thumbnail-generator') 'a part of a name names the one repo containing it'
+Assert-True (@(Resolve-ConnectorRepo -Connectors $regs -Name 'r').Count -ge 2)'an ambiguous part returns every match, so the caller can refuse it'
+Assert-Equal 0 (@(Resolve-ConnectorRepo -Connectors $regs -Name 'nothing-like-it').Count) 'an unknown name matches nothing'
+Assert-Equal 0 (@(Resolve-ConnectorRepo -Connectors $regs -Name '--').Count) 'a name of punctuation alone matches nothing'
+
+Assert-Equal "'a''b'" (ConvertTo-PowerShellLiteral "a'b") 'a straight single quote is doubled'
+$curly = 'dossier' + [char]0x2019 + 's'
+Assert-Equal ("'dossier" + [char]0x2019 + [char]0x2019 + "s'") (ConvertTo-PowerShellLiteral $curly) 'a typographic single quote is doubled too'
+# The decisive check: what PowerShell itself reads back from the literal is the original text.
+foreach ($v in "it's", $curly, ([char]0x2018 + 'x' + [char]0x201B), '$(Remove-Item x); `n', '') {
+    $back = Invoke-Expression (ConvertTo-PowerShellLiteral $v)
+    Assert-Equal $v $back "PowerShell reads the literal of '$v' back unchanged"
+}
+Assert-Equal "Set-Location -LiteralPath 'C:\x\dkj-lifehub'; claude" (Format-RepoSessionCommand -Path 'C:\x\dkj-lifehub') 'the command without a prompt'
+Assert-Equal "Set-Location -LiteralPath 'C:\x\o''b'; claude 'start it''s dossier'" (Format-RepoSessionCommand -Path "C:\x\o'b" -Prompt "start it's dossier") 'the command quotes the path and the prompt'
+
+# repo-session.ps1 against a fixture tree: the register resolves, a missing checkout is refused, -WhatIf runs nothing.
+$rsRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('repo-session-' + [guid]::NewGuid().ToString('n'))
+$rsHub = Join-Path $rsRoot 'org\hub'
+New-Item -ItemType Directory -Force -Path (Join-Path $rsHub 'connectors'), (Join-Path $rsHub 'scripts\lib'), (Join-Path $rsRoot 'org\dkj-lifehub') | Out-Null
+Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') -Destination (Join-Path $rsHub 'scripts\lib')
+Set-Content -LiteralPath (Join-Path $rsHub 'connectors\life-hub.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/dkj-lifehub", "visibility": "private", "localCheckout": ["../dkj-lifehub", "../life-hub"] }'
+Set-Content -LiteralPath (Join-Path $rsHub 'connectors\recipes.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/dkj-recipes", "visibility": "private", "localCheckout": "../dkj-recipes" }'
+Set-Content -LiteralPath (Join-Path $rsHub 'connectors\escape.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/escape", "visibility": "public", "localCheckout": "../../../../.." }'
+$rsScript = Join-Path $RepoRoot 'scripts\dashboard\repo-session.ps1'
+$run = { param([string[]]$a) $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $rsScript @a -RepoRootOverride $rsHub 2>&1 | ForEach-Object { [string]$_ }; @{ Out = ($o -join "`n"); Code = $LASTEXITCODE } }
+try {
+    $r = & $run @('lifehub', '-Open', '-WhatIf', '-Prompt', 'Start a dossier')
+    $expected = Format-RepoSessionCommand -Path ([System.IO.Path]::GetFullPath((Join-Path $rsRoot 'org\dkj-lifehub'))) -Prompt 'Start a dossier'
+    Assert-True ($r.Code -eq 0 -and $r.Out.Trim() -eq $expected) '-WhatIf prints the command for the checkout the register resolves, and starts nothing'
+    $r = & $run @('recipes', '-IssueLimit', '0')
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'no checkout on this machine') 'a repo with no checkout is refused'
+    $r = & $run @('escape', '-IssueLimit', '0')
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'no checkout on this machine') 'a localCheckout outside the scope root is never resolved'
+    $r = & $run @('dkj', '-IssueLimit', '0')
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'more than one') 'an ambiguous name is refused with the candidates'
+    # Written as \" because Windows PowerShell 5.1 drops a bare double quote on the way to the child process.
+    $r = & $run @('lifehub', '-Open', '-WhatIf', '-Prompt', 'say \"hi\"')
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'double quote') 'a prompt with a double quote is refused'
+    $r = & $run @('lifehub', '-IssueLimit', '0')
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'not a git checkout' -and $r.Out -match 'gh issue create --repo DKJ-Solutions/dkj-lifehub') 'the status names the checkout and where an issue for it is filed'
+    $r = & $run @('-List')
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'dkj-recipes\s+private\s+\(not checked out') '-List names a repo with no checkout as such'
+} finally {
+    Remove-Item -LiteralPath $rsRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host ''
 Write-Host "connector-dashboard: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }

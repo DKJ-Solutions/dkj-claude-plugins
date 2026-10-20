@@ -39,11 +39,33 @@
 
 ### PLAN
 
+#3231: the owner wants this repo to be the DKJ hub -- look into the other repos from here and start work in
+one (a new dossier in the lifehub) without first starting that repo by hand. Assessed first: work done in
+another repo FROM a session here would run under this repo's rules and could carry a private repo's content
+into this public one. So the hub looks in and hands the work over, by opening Claude Code in that checkout.
+
+The hub server stays GET-only and starts no process: a page that could launch a Claude session with a
+prompt would be a cross-site route into whatever mode that session runs in. It shows the command to copy.
+
+#### Visible result
+
+The `/connectors` page gains a line per checked-out repo, so this branch stops for the owner's look.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/connector-dashboard-lib.ps1`: `Resolve-ConnectorCheckout` (the server's inline resolver,
+      moved here so both callers share it), `Resolve-ConnectorRepo`, `ConvertTo-PowerShellLiteral` and
+      `Format-RepoSessionCommand`; the `/connectors` mini-card shows the session command with a Copy button.
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1` uses `Resolve-ConnectorCheckout` and hands the
+      resolved path to the page.
+- [x] `scripts/dashboard/repo-session.ps1`: `-List`, the status of one repo, and `-Open [-Prompt] [-WhatIf]`.
+- [x] `.claude/skills/repo-session/SKILL.md`: the repo-local skill, beside `harvest-artifacts`.
 
 ### TEST
+
+- [x] `connector-dashboard.tests.ps1`: name resolution, the literal PowerShell reads back unchanged (the
+      typographic quotes included), the command, and the script against a fixture tree -- 194 pass.
+- [x] Run against this machine: `-List`, `lifehub`, and `lifehub -Open -WhatIf` resolve `dkj-lifehub`.
 
 ### DEPLOY: feat/3231-hub-repo-sessions
 
