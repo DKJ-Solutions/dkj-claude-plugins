@@ -46,7 +46,7 @@
 ### TEST
 
 - [x] `dev-pages.tests.ps1` green (243 passed)
-- [ ] Owner has looked at http://localhost:4872/specialists and approves the compact layout
+- [x] Owner has looked at http://localhost:4872/specialists and approves the compact layout
 
 ### DEPLOY: fix/compact-specialists-table
 
