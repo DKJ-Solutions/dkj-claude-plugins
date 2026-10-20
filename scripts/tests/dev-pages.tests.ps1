@@ -93,7 +93,7 @@ Assert-Equal 'dashboards/etf' (ConvertTo-BrandbookRelPath -Path '/brandbook/dash
 Assert-True ($null -eq (ConvertTo-BrandbookRelPath -Path '/brandbook') -and $null -eq (ConvertTo-BrandbookRelPath -Path '/connectors')) 'a path outside the base is not the brand book''s'
 Assert-Equal 0 @('/brandbook/../x', '/brandbook/a/../../x', '/brandbook/%2e%2e/x', '/brandbook/a\..\x', '/brandbook/C:/x', '/brandbook//x', '/brandbook/./x' |
     Where-Object { $null -ne (ConvertTo-BrandbookRelPath -Path $_) }).Count 'a path that could climb out of dist/ is refused, encoded or not'
-$bbDir = Join-Path ([System.IO.Path]::GetTempPath()) "dev-pages-bb-$PID"
+$bbDir = Join-Path ([System.IO.Path]::GetTempPath()) "dev-pages-bb-$PID-$([guid]::NewGuid().ToString('n'))"
 New-Item -ItemType Directory -Path (Join-Path $bbDir 'assets') -Force | Out-Null
 Set-Content -LiteralPath (Join-Path $bbDir 'index.html') -Value '<div id="root"></div>'
 Set-Content -LiteralPath (Join-Path $bbDir 'assets\a.js') -Value 'x'
