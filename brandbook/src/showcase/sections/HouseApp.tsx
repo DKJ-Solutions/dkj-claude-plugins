@@ -97,7 +97,7 @@ export function HouseDialogsDemo() {
               <h5 className="dialog__title" id="house-dialog-plain">
                 Dialog title
               </h5>
-              <p className="dialog__sub">A subtitle in --ink-4</p>
+              <p className="dialog__sub">A subtitle in --ink-7</p>
             </div>
           </div>
           <button type="button" className="dialog__close" aria-label="Close" onClick={() => plain.current?.close()}>

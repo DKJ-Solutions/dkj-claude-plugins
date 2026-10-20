@@ -180,7 +180,7 @@ function Invoke-Child([string]$Script, [string]$Dir, [string]$ParamName) {
 try {
     $clean = New-FixtureRepo 'clean'
     Add-PinnedCopy $clean
-    Set-Content -LiteralPath (Join-Path $clean 'web\app.css') -Value ':root { --my-accent: var(--ink-1); } .my-card { color: var(--ink-4); }' -Encoding ascii
+    Set-Content -LiteralPath (Join-Path $clean 'web\app.css') -Value ':root { --my-accent: var(--ink-1); } .my-card { color: var(--ink-7); }' -Encoding ascii
     Invoke-FixtureGitIn $clean add -A
     $r = Invoke-Child $Gate $clean 'RepoRoot'
     Assert-Equal 0 $r.Code 'a clean repo passes the gate'

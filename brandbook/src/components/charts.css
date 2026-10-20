@@ -2,7 +2,7 @@
 /* The column under the pointer or the keyboard: the house hover look, on the drawn column rather than the hit area. */
 .dkj-chart-col--active { opacity: 0.8; }
 /* A muted second line under a label, in the tooltip and the table. */
-.dkj-chart-detail { display: block; font-size: var(--text-xs); color: var(--ink-4); }
+.dkj-chart-detail { display: block; font-size: var(--text-xs); color: var(--ink-7); }
 /* The bar under the pointer or the keyboard: the same house hover look, on the drawn bar. */
 .dkj-chart-bar--active { opacity: 0.8; }
 /* A series row in the line chart's tooltip: a swatch in the series colour, its name, the figure at the end. */

@@ -112,7 +112,7 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The page layer: only names the house file does not define (.dp-*).
     [void]$sb.AppendLine('<style>')
-    [void]$sb.AppendLine('.dp-link { color: var(--ink-3); text-decoration: none; text-underline-offset: 2px; }')
+    [void]$sb.AppendLine('.dp-link { color: var(--ink-6); text-decoration: none; text-underline-offset: 2px; }')
     [void]$sb.AppendLine('.dp-link:hover, .dp-link:focus-visible { text-decoration: underline; }')
     [void]$sb.AppendLine('.dp-thead th { background: var(--paper-3); }')
     [void]$sb.AppendLine('.table td.dp-left, .table th.dp-left { text-align: left; }')
@@ -937,7 +937,7 @@ function Format-ReleaseNotesDevPage {
         '<script src="/house-theme.js"></script>'
         '<style>'
         '/* The template''s tokens, read from the house ones (#3108). */'
-        ':root { --bg: var(--paper-1); --panel: var(--paper-2); --ink: var(--ink-4); --ink-soft: var(--ink-2); --ink-faint: var(--ink-6);'
+        ':root { --bg: var(--paper-1); --panel: var(--paper-2); --ink: var(--ink-7); --ink-soft: var(--ink-2); --ink-faint: var(--ink-4);'
         '  --line: var(--paper-3); --accent: var(--ink-1); --accent-soft: var(--paper-2); --code-bg: var(--paper-1); }'
         'header.masthead h1 { font-family: var(--font-serif); font-weight: 600; color: var(--ink-1); }'
         '</style>'

@@ -18,13 +18,13 @@
        dark, both with those house defaults.
      The dark token block therefore appears twice; keep both in sync.
 
-   How far a theme reaches: every use of --ink-7 (a grey of the colour: the pressed .seg, .badge--info,
+   How far a theme reaches: every use of --ink-3 (a grey of the colour: the pressed .seg, .badge--info,
    .meter--info, the settings toggle, focus rings), the text caret and the selection; --ink-1, the colour itself,
    for links, titles and values, .btn--primary (a filled main action, owner's decision, October 15, 2026, #109) and
    native checkboxes, radios, sliders and progress bars through accent-color. Beyond that, by default: the page,
    the cards and tiles stand on the paper (--paper-1, --paper-2), every line and tinted surface is --paper-3, and
-   the text on them is ink. There are no untinted neutrals: text is --ink-4, and --ink-1 is the highlight (h1, a
-   state, a value that stands out) (owner's decisions, October 14 and 15, 2026; h2 is --ink-2 and h3-h5 --ink-3).
+   the text on them is ink. There are no untinted neutrals: text is --ink-7, and --ink-1 is the highlight (h1, a
+   state, a value that stands out) (owner's decisions, October 14 and 15, 2026; h2 is --ink-2 and h3-h5 --ink-6).
    Status, direction and categorical colours are never tinted. The
    --accent modifiers (header, table) carry it further where an app opts in.
 
@@ -42,45 +42,48 @@
   /* the theme's colour in two groups, paper and ink (owner's decision, October 20, 2026, replacing the twelve
      --primary steps of October 19). Paper is what sits BEHIND the text: the page, the cards, the lines, in very
      small steps, each only just darker (on dark: lighter) than the one before, so paper-1 is the faintest tint of
-     the colour and paper-4 a little further. Ink is what sits ON the paper: the text, in large steps, ink-1 to
-     ink-4 the colour itself from the highlight to the far end, ink-5 to ink-7 the greys (the muted family, a faint
-     tint of it). Fixed values per theme. Blauw here; each [data-theme] below sets its own eleven. The steps of each
-     group run away from the page, so a higher number never means "darker" in both modes.
-     Four anchors per theme, in OKLCH (paper-1, ink-1, ink-4, and a light anchor that is no token):
-     paper-1 and ink-4 sit against the edge of white and black: on light paper-1 L 0.995 C 0.006 and ink-4 L 0.12
-     C 0.03, on dark paper-1 L 0.13 C 0.02 and ink-4 L 0.99 C 0.006.
+     the colour and paper-4 a little further. Ink is what sits ON the paper: the text, in large steps, from
+     the highlight to the far end, with the greys in the middle (owner, October 20, 2026): ink-1 and ink-2 the
+     colour (h1, h2), ink-3 to ink-5 the greys (the muted family, a faint tint of it), ink-6 and ink-7 the colour
+     again (h3-h5, all text), so on light ink-7 is the darkest and on dark the lightest. Fixed values per theme.
+     Blauw here; each [data-theme] below sets its own eleven. The steps of each group run away from the page, so a
+     higher number never means "darker" in both modes.
+     Four anchors per theme, in OKLCH (paper-1, ink-1, ink-7, and a light anchor that is no token):
+     paper-1 and ink-7 sit against the edge of white and black: on light paper-1 L 0.995 C 0.006 and ink-7 L 0.12
+     C 0.03, on dark paper-1 L 0.13 C 0.02 and ink-7 L 0.99 C 0.006.
      ink-1 is the theme's colour where it reads best on the ground: the most saturated colour (HSL saturation 100%)
      of the theme's HSL hue that reaches 4.55:1 on paper-1. The light anchor is the same where it reads best on the
-     far end, at 4.55:1 on ink-4; it was --primary-4, had no role of its own, and is now only what the paper steps
+     far end, at 4.55:1 on ink-7; it was --primary-4, had no role of its own, and is now only what the paper steps
      are measured towards. The hue is the HSL hue of the owner's original theme colour (Blauw and Hemelsblauw 240),
      held in HSL because at a constant OKLCH hue a saturated blue turns violet. Lila takes Paars's 270, its light
      counterpart's: at its own 254 the saturated anchor read as blue. 4.55 rather than 4.5 leaves room for rounding.
      paper-2, paper-3 and paper-4 sit 4%, 16% and 36% of the way from paper-1 to the light anchor in OKLCH (L and C,
      in the anchor's hue): the eye is most sensitive to the first tint off white or black, so the card is only just
      lifted off the page, the line a step further and the stronger border a step beyond that.
-     ink-2 and ink-3 sit a third and two thirds of the way from ink-1 to ink-4 in OKLab, so ink-1 to ink-4 is three
-     equal steps (owner, October 20, 2026: the jump to the far end was three times the others).
-     The greys are what may recede into the background (owner, October 19, 2026): ink-5 recedes the least and ink-7
-     the most, on light ink-5 L 0.31, ink-6 L 0.39, ink-7 L 0.47; on dark ink-5 L 0.80, ink-6 L 0.70, ink-7 L 0.538;
-     each in ink-1's OKLCH hue at a low chroma, ink-7 with a little more colour. ink-7 is the furthest a muted text
+     ink-2 and ink-6 sit a third and two thirds of the way from ink-1 to ink-7 in OKLab, so ink-1, ink-2, ink-6 and
+     ink-7 are three equal steps of the colour (owner, October 20, 2026: the jump to the far end was three times the
+     others). That puts ink-2 (h2) a little further from the page than ink-3, the lightest grey.
+     The greys are what may recede into the background (owner, October 19, 2026): ink-3 recedes the most and ink-5
+     the least, on light ink-3 L 0.47, ink-4 L 0.39, ink-5 L 0.31; on dark ink-3 L 0.538, ink-4 L 0.70, ink-5 L 0.80;
+     each in ink-1's OKLCH hue at a low chroma, ink-3 with a little more colour. ink-3 is the furthest a muted text
      may recede.
      A role takes the same step in both modes, never light-dark() between two steps (owner's decision, October 15, 2026).
-     paper-1 the page, and the text on an ink-1 or ink-7 fill; paper-2 the cards (tiles, tooltips); paper-3 every
+     paper-1 the page, and the text on an ink-1 or ink-3 fill; paper-2 the cards (tiles, tooltips); paper-3 every
      line (borders, row dividers, meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a
      today row, the accent dialog); paper-4 a stronger border (an open card, a selected box). ink-1 the highlight:
      links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1, the states
-     (hover, focus outlines, sorted, pressed) and native controls through accent-color; ink-2 h2 and ink-3 h3-h5 (an
-     h2 in the h1's colour read too much like it, and a grey h3 did not work); ink-4 the far end: every paragraph,
+     (hover, focus outlines, sorted, pressed) and native controls through accent-color; ink-2 h2 and ink-6 h3-h5 (an
+     h2 in the h1's colour read too much like it, and a grey h3 did not work); ink-7 the far end: every paragraph,
      and an inverted surface (the showcase's panel), where the paper steps are the text; ink-5 the breadcrumb's
-     current page; ink-6 sub lines, notes, .muted, the tile label and the breadcrumb links; ink-7 the eyebrow, the
+     current page; ink-4 sub lines, notes, .muted, the tile label and the breadcrumb links; ink-3 the eyebrow, the
      fills (switches, info badges), focus rings, meters and text in the colour (values).
-     Measured (WCAG relative luminance, October 19 and 20, 2026) worst cases: ink-4 on paper-1 19.5:1, on paper-2
+     Measured (WCAG relative luminance, October 19 and 20, 2026) worst cases: ink-7 on paper-1 19.5:1, on paper-2
      19.0:1 and on paper-3 16.5:1; ink-1 on paper-1 4.6:1 and paper-1 on ink-1 4.6:1; ink-1 on paper-2 4.40:1
-     (Magenta; below 4.5:1 also Roest and Lila, 4.43:1 and 4.49:1); ink-2 on paper-2 7.8:1, ink-3 on paper-2 12.6:1;
-     ink-7 on the card 6.4:1 on light and 3.8:1 on dark (Roze), paper-1 on ink-7 6.6:1 on light and 3.9:1 on dark;
-     ink-6 on the card 7.3:1; ink-7, the eyebrow, on the page 6.6:1 on light and 3.9:1 on dark; a paper-3 line on a
+     (Magenta; below 4.5:1 also Roest and Lila, 4.43:1 and 4.49:1); ink-2 on paper-2 7.8:1, ink-6 on paper-2 12.6:1;
+     ink-3 on the card 6.4:1 on light and 3.8:1 on dark (Roze), paper-1 on ink-3 6.6:1 on light and 3.9:1 on dark;
+     ink-4 on the card 7.3:1; ink-3, the eyebrow, on the page 6.6:1 on light and 3.9:1 on dark; a paper-3 line on a
      paper-2 card 1.02:1 (Oker) to 1.16:1, a paper-4 border on it 1.08:1 (Oker) to 1.52:1. */
-  --paper-1: #fdfdff; --paper-2: #f6f7ff; --paper-3: #e2e6ff; --paper-4: #c0c9ff; --ink-1: #0400ff; --ink-2: #0113a6; --ink-3: #011056; --ink-4: #020511; --ink-5: #29313f; --ink-6: #3d4554; --ink-7: #515b6e;
+  --paper-1: #fdfdff; --paper-2: #f6f7ff; --paper-3: #e2e6ff; --paper-4: #c0c9ff; --ink-1: #0400ff; --ink-2: #0113a6; --ink-3: #515b6e; --ink-4: #3d4554; --ink-5: #29313f; --ink-6: #011056; --ink-7: #020511;
 
   /* categorical palette (series slots) */
   --cat-1: #2574d1;          /* dark enough for --paper-1 text on it at 4.5:1 in every light theme (4.51:1, worst Roest; #92) */
@@ -139,7 +142,7 @@
 
   /* native controls (checkbox, radio, range, progress) and the text caret take the theme */
   accent-color: var(--ink-1);
-  caret-color: var(--ink-7);
+  caret-color: var(--ink-3);
 }
 
 /* ---- Tokens: dark, following the OS unless the page forces a theme -------- */
@@ -150,7 +153,7 @@
     color-scheme: dark;
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
     --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-    --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #88f1ff; --ink-3: #c4f8fe; --ink-4: #f7fdfd; --ink-5: #b5c0c1; --ink-6: #96a1a2; --ink-7: #657172;
+    --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #88f1ff; --ink-3: #657172; --ink-4: #96a1a2; --ink-5: #b5c0c1; --ink-6: #c4f8fe; --ink-7: #f7fdfd;
   }
 }
 
@@ -161,7 +164,7 @@
   color-scheme: dark;
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
   --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-  --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #88f1ff; --ink-3: #c4f8fe; --ink-4: #f7fdfd; --ink-5: #b5c0c1; --ink-6: #96a1a2; --ink-7: #657172;
+  --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #88f1ff; --ink-3: #657172; --ink-4: #96a1a2; --ink-5: #b5c0c1; --ink-6: #c4f8fe; --ink-7: #f7fdfd;
 }
 
 /* ---- Themes: the theme's colour --------------------------------------------- */
@@ -170,22 +173,22 @@
    two whose primary sits next to the warning colour move the warning away from it. No red and
    no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
    pink, lilac, sky, cyan, yellow, orange (dark). */
-:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --paper-1: #fffdfe; --paper-2: #fff7fb; --paper-3: #ffe3f1; --paper-4: #ffbbe5; --ink-1: #dc009d; --ink-2: #8f0966; --ink-3: #490833; --ink-4: #0d0208; --ink-5: #3a2b33; --ink-6: #504048; --ink-7: #68555f; }
-:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --paper-1: #fefdff; --paper-2: #faf7ff; --paper-3: #ede3ff; --paper-4: #dac1ff; --ink-1: #8100ff; --ink-2: #5311a5; --ink-3: #2a0e54; --ink-4: #07040f; --ink-5: #312e3d; --ink-6: #464353; --ink-7: #5c576d; }
-:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --paper-1: #fdfdff; --paper-2: #f6f7ff; --paper-3: #e2e6ff; --paper-4: #c0c9ff; --ink-1: #0400ff; --ink-2: #0113a6; --ink-3: #011056; --ink-4: #020511; --ink-5: #29313f; --ink-6: #3d4554; --ink-7: #515b6e; }
-:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --paper-1: #f9ffff; --paper-2: #f5feff; --paper-3: #e3fcff; --paper-4: #c1f9ff; --ink-1: #00818c; --ink-2: #00545c; --ink-3: #002a30; --ink-4: #00070a; --ink-5: #2b3233; --ink-6: #3f4647; --ink-7: #535c5d; }
-:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --paper-1: #fffdfa; --paper-2: #fefcf4; --paper-3: #fefae0; --paper-4: #fef4be; --ink-1: #847400; --ink-2: #564b00; --ink-3: #2c2600; --ink-4: #080600; --ink-5: #323129; --ink-6: #47463e; --ink-7: #5d5c52; }
-:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --paper-1: #fffdfc; --paper-2: #fff8f5; --paper-3: #ffeadf; --paper-4: #ffd1b4; --ink-1: #ba5900; --ink-2: #7a3800; --ink-3: #401a00; --ink-4: #0e0300; --ink-5: #372f2a; --ink-6: #4c443f; --ink-7: #635852; --warning-3: #b88a00; }
-:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --paper-1: #0d0509; --paper-2: #14060b; --paper-3: #2a0a17; --paper-4: #50102c; --ink-1: #ff018e; --ink-2: #ff7bb1; --ink-3: #ffbdd6; --ink-4: #fffafc; --ink-5: #ceb7bd; --ink-6: #ae989e; --ink-7: #7d676e; }
-:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --paper-1: #08060e; --paper-2: #0b0816; --paper-3: #170d2e; --paper-4: #2d135a; --ink-1: #a143ff; --ink-2: #bd8aff; --ink-3: #dcc4ff; --ink-4: #fcfbff; --ink-5: #c1bacd; --ink-6: #a19bad; --ink-7: #716a7e; }
-:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --paper-1: #06060f; --paper-2: #040917; --paper-3: #030e2f; --paper-4: #02155b; --ink-1: #6363ff; --ink-2: #8f9bff; --ink-3: #c3ccff; --ink-4: #fbfbff; --ink-5: #b9bdcf; --ink-6: #9a9eaf; --ink-7: #696d80; }
-:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #88f1ff; --ink-3: #c4f8fe; --ink-4: #f7fdfd; --ink-5: #b5c0c1; --ink-6: #96a1a2; --ink-7: #657172; }
-:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --paper-1: #0a0701; --paper-2: #0f0a01; --paper-3: #1c1502; --paper-4: #352803; --ink-1: #ffc702; --ink-2: #ffda7e; --ink-3: #feecbe; --ink-4: #fdfcf7; --ink-5: #c1bdb4; --ink-6: #a29e95; --ink-7: #726e64; --warning-3: #f08a24; }
-:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --paper-1: #0d0502; --paper-2: #130703; --paper-3: #260e05; --paper-4: #481c07; --ink-1: #ff6100; --ink-2: #ff9a70; --ink-3: #ffccb5; --ink-4: #fffbf9; --ink-5: #c8bab5; --ink-6: #a99b96; --ink-7: #796b65; }
+:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --paper-1: #fffdfe; --paper-2: #fff7fb; --paper-3: #ffe3f1; --paper-4: #ffbbe5; --ink-1: #dc009d; --ink-2: #8f0966; --ink-3: #68555f; --ink-4: #504048; --ink-5: #3a2b33; --ink-6: #490833; --ink-7: #0d0208; }
+:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --paper-1: #fefdff; --paper-2: #faf7ff; --paper-3: #ede3ff; --paper-4: #dac1ff; --ink-1: #8100ff; --ink-2: #5311a5; --ink-3: #5c576d; --ink-4: #464353; --ink-5: #312e3d; --ink-6: #2a0e54; --ink-7: #07040f; }
+:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --paper-1: #fdfdff; --paper-2: #f6f7ff; --paper-3: #e2e6ff; --paper-4: #c0c9ff; --ink-1: #0400ff; --ink-2: #0113a6; --ink-3: #515b6e; --ink-4: #3d4554; --ink-5: #29313f; --ink-6: #011056; --ink-7: #020511; }
+:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --paper-1: #f9ffff; --paper-2: #f5feff; --paper-3: #e3fcff; --paper-4: #c1f9ff; --ink-1: #00818c; --ink-2: #00545c; --ink-3: #535c5d; --ink-4: #3f4647; --ink-5: #2b3233; --ink-6: #002a30; --ink-7: #00070a; }
+:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --paper-1: #fffdfa; --paper-2: #fefcf4; --paper-3: #fefae0; --paper-4: #fef4be; --ink-1: #847400; --ink-2: #564b00; --ink-3: #5d5c52; --ink-4: #47463e; --ink-5: #323129; --ink-6: #2c2600; --ink-7: #080600; }
+:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --paper-1: #fffdfc; --paper-2: #fff8f5; --paper-3: #ffeadf; --paper-4: #ffd1b4; --ink-1: #ba5900; --ink-2: #7a3800; --ink-3: #635852; --ink-4: #4c443f; --ink-5: #372f2a; --ink-6: #401a00; --ink-7: #0e0300; --warning-3: #b88a00; }
+:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --paper-1: #0d0509; --paper-2: #14060b; --paper-3: #2a0a17; --paper-4: #50102c; --ink-1: #ff018e; --ink-2: #ff7bb1; --ink-3: #7d676e; --ink-4: #ae989e; --ink-5: #ceb7bd; --ink-6: #ffbdd6; --ink-7: #fffafc; }
+:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --paper-1: #08060e; --paper-2: #0b0816; --paper-3: #170d2e; --paper-4: #2d135a; --ink-1: #a143ff; --ink-2: #bd8aff; --ink-3: #716a7e; --ink-4: #a19bad; --ink-5: #c1bacd; --ink-6: #dcc4ff; --ink-7: #fcfbff; }
+:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --paper-1: #06060f; --paper-2: #040917; --paper-3: #030e2f; --paper-4: #02155b; --ink-1: #6363ff; --ink-2: #8f9bff; --ink-3: #696d80; --ink-4: #9a9eaf; --ink-5: #b9bdcf; --ink-6: #c3ccff; --ink-7: #fbfbff; }
+:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --paper-1: #01090b; --paper-2: #010d0f; --paper-3: #02191c; --paper-4: #032f34; --ink-1: #00eaff; --ink-2: #88f1ff; --ink-3: #657172; --ink-4: #96a1a2; --ink-5: #b5c0c1; --ink-6: #c4f8fe; --ink-7: #f7fdfd; }
+:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --paper-1: #0a0701; --paper-2: #0f0a01; --paper-3: #1c1502; --paper-4: #352803; --ink-1: #ffc702; --ink-2: #ffda7e; --ink-3: #726e64; --ink-4: #a29e95; --ink-5: #c1bdb4; --ink-6: #feecbe; --ink-7: #fdfcf7; --warning-3: #f08a24; }
+:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --paper-1: #0d0502; --paper-2: #130703; --paper-3: #260e05; --paper-4: #481c07; --ink-1: #ff6100; --ink-2: #ff9a70; --ink-3: #796b65; --ink-4: #a99b96; --ink-5: #c8bab5; --ink-6: #ffccb5; --ink-7: #fffbf9; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--paper-1); color: var(--ink-4);
+body { margin: 0; background: var(--paper-1); color: var(--ink-7);
   font: var(--text-base)/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
 
 /* ---- Layout -------------------------------------------------------------- */
@@ -232,13 +235,13 @@ body > header, main > header { display: flex; justify-content: space-between; al
    pulled in slightly. h3-h5 stay in the body sans. */
 h1, h2 { font-family: var(--font-serif);
   font-weight: 600; letter-spacing: -0.01em; }
-/* h1 is --ink-1, h2 --ink-2 and h3-h5 --ink-3, the colour's ink steps (owner's decision, October 19, 2026: an h2 in
-   the h1's colour read too much like it, and a grey h3 did not work). On an --ink-4 surface the paper is the ink:
+/* h1 is --ink-1, h2 --ink-2 and h3-h5 --ink-6, the colour's ink steps (owner's decision, October 19, 2026: an h2 in
+   the h1's colour read too much like it, and a grey h3 did not work). On an --ink-7 surface the paper is the ink:
    h1 and h2 take --paper-3 and h3-h5 --paper-2, set where that surface is. :where() keeps them at
    zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
 :where(h1) { color: var(--ink-1); }
 :where(h2) { color: var(--ink-2); }
-:where(h3, h4, h5) { color: var(--ink-3); }
+:where(h3, h4, h5) { color: var(--ink-6); }
 h1 { font-size: var(--text-h1); margin: 0; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 /* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
@@ -249,23 +252,23 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 /* h4 and h5 take the token of their own level too, in the body sans like h3. There is no h6 (October 20, 2026). */
 h4 { font-size: var(--text-h4); margin: 0 0 var(--spacing-1-5); font-weight: 600; }
 h5 { font-size: var(--text-h5); margin: 0 0 var(--spacing-1); font-weight: 600; }
-.sub { color: var(--ink-6); font-size: var(--text-sm); margin: 0 0 var(--spacing-4); }   /* line under a heading */
-.muted { color: var(--ink-6); font-size: var(--text-sm); }
+.sub { color: var(--ink-4); font-size: var(--text-sm); margin: 0 0 var(--spacing-4); }   /* line under a heading */
+.muted { color: var(--ink-4); font-size: var(--text-sm); }
 .meta { font-size: var(--text-sm); color: var(--ink-2); white-space: nowrap; }
-.note { font-size: var(--text-sm); color: var(--ink-6); margin-top: var(--spacing-1); }
-.footer-note { color: var(--ink-6); font-size: var(--text-sm); margin-top: var(--spacing-6); }
-/* Sub lines (.sub, .dialog__sub) , notes (.note, .footer-note) and .muted are --ink-6, on a <p> too (owner's decision,
-   October 15, 2026). Any other paragraph is --ink-4, the far end (owner's decision, October 14, 2026): .meta on a <p> takes
-   it too, while the same class on a span or a div stays --ink-2. A <p> in a status colour, or on an --ink-4 surface,
+.note { font-size: var(--text-sm); color: var(--ink-4); margin-top: var(--spacing-1); }
+.footer-note { color: var(--ink-4); font-size: var(--text-sm); margin-top: var(--spacing-6); }
+/* Sub lines (.sub, .dialog__sub) , notes (.note, .footer-note) and .muted are --ink-4, on a <p> too (owner's decision,
+   October 15, 2026). Any other paragraph is --ink-7, the far end (owner's decision, October 14, 2026): .meta on a <p> takes
+   it too, while the same class on a span or a div stays --ink-2. A <p> in a status colour, or on an --ink-7 surface,
    sets its own. */
-p, p.meta { color: var(--ink-4); }
+p, p.meta { color: var(--ink-7); }
 /* Eyebrow: a small uppercase line above a page title, the Repo hub's <owner>/<repo> (#141). Put it on a <p>
-   (the class beats the paragraph colour). The colour is --ink-7, a muted grey: the grey that recedes furthest while
+   (the class beats the paragraph colour). The colour is --ink-3, a muted grey: the grey that recedes furthest while
    still reading as text (6.6:1 on light, 3.9:1 on dark), so it stands back behind the h1 (owner, October 19, 2026); semibold, with the same 0.04em tracking as the settings panel's uppercase labels. */
-.eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-7); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
+.eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
 /* Lead: the one paragraph under a page title that says what the page is for (#141). On a <p>, in the paragraph
    colour, at the large running size, held to a readable measure. */
-.lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: 1.35; color: var(--ink-4); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */
+.lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: 1.35; color: var(--ink-7); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */
 .num { font-variant-numeric: tabular-nums; }                        /* aligned digits */
 .delta { font-weight: 600; }
 .delta--up, .pos { color: var(--positive-5); }
@@ -277,49 +280,49 @@ p, p.meta { color: var(--ink-4); }
    <a> (a .btn, a .menu-item, an app's own) wins over it without an override. */
 :where(a:any-link) { color: var(--ink-1); text-decoration-thickness: 1px; text-underline-offset: 0.15em; }
 :where(a:any-link:hover) { text-decoration-thickness: 2px; }
-:where(a:any-link:focus-visible) { outline: 2px solid var(--ink-7); outline-offset: 2px; border-radius: 2px; }
+:where(a:any-link:focus-visible) { outline: 2px solid var(--ink-3); outline-offset: 2px; border-radius: 2px; }
 ::selection { background: var(--paper-3); }
 
 /* ---- Surfaces ------------------------------------------------------------- */
 .card { background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
 /* Data-card head (#141): <section class="card"><div class="card__head"><h3 class="card__title">Title</h3>
    <p class="card__sub">Sub line</p></div> a .table-wrap or .facts</section>. The head is left-aligned, with no rule between it
-   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --ink-3, never an h2:
+   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --ink-6, never an h2:
    an h2 never stands inside a card, it stands above the card(s) in a .grid__head (#3175). Flex keeps an .info-button on the
    title's centre line. */
 .card__head { text-align: left; }
-.card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h3); font-weight: 600; color: var(--ink-3); }
+.card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h3); font-weight: 600; color: var(--ink-6); }
 /* A status .badge before the title text (#153); the badge is decorative, so the .card__sub says the status too. */
 .card__title > .badge { margin-right: var(--spacing-2); }
 /* A card titled with a plain h3, where its h2 stands above a group of cards (#206): no margin of its own, so the
    .card__sub sits --spacing-1 under it as under a .card__title, which is the same h3 with room for a badge. */
 .card__head > h3 { margin: 0; }
-.card__sub { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--ink-6); }
+.card__sub { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--ink-4); }
 .card > .card__head + * { margin-top: var(--spacing-4); }   /* (0,2,0): beats a body's own margin: 0, such as .facts */
 .hero { display: flex; flex-wrap: wrap; gap: var(--spacing-6) var(--spacing-12); align-items: flex-end; }   /* use with .card */
-.hero .value { font-size: var(--text-h1); font-weight: 600; line-height: 1.1; color: var(--ink-4); }
+.hero .value { font-size: var(--text-h1); font-weight: 600; line-height: 1.1; color: var(--ink-7); }
 .tile { background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
-.tile .label { color: var(--ink-6); font-size: var(--text-sm); }   /* a muted grey, as .muted: the figure leads (owner, October 20, 2026) */
+.tile .label { color: var(--ink-4); font-size: var(--text-sm); }   /* a muted grey, as .muted: the figure leads (owner, October 20, 2026) */
 .tile .v { font-size: var(--text-h3); font-weight: 600; margin-top: var(--spacing-0-5); }
 .mini-card { border: 1px solid var(--paper-3); border-radius: 10px; padding: var(--spacing-3) var(--spacing-3-5); }
 .mini-card--highlight { border-color: var(--warning-3); }
-.mini-card__label { font-size: var(--text-sm); color: var(--ink-4); }
+.mini-card__label { font-size: var(--text-sm); color: var(--ink-7); }
 .mini-card__value { font-size: var(--text-lg); font-weight: 600; margin: var(--spacing-0-5) 0 var(--spacing-2); font-variant-numeric: tabular-nums; }
 .notice { background: var(--warning-1); border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-3) var(--spacing-4); margin-top: var(--spacing-4); }
 /* Message line: one plain line for a state, a loading line or a warning that data could not be read (#141). A <p>,
    in the paragraph colour at the running size; --warn is the warning in text, --warning-5, semibold. A link in it is
    an ordinary house link. For a boxed message use .notice. */
-.msg { margin: 0; font-size: var(--text-base); color: var(--ink-4); }
+.msg { margin: 0; font-size: var(--text-base); color: var(--ink-7); }
 .msg--warn { color: var(--warning-5); font-weight: 600; }
 .item { border-top: 1px solid var(--paper-3); padding: var(--spacing-2-5) 0; }
 .item b { display: block; font-size: var(--text-sm); margin-bottom: var(--spacing-0-5); }
-.item p { margin: 0; font-size: var(--text-sm); color: var(--ink-4); }
+.item p { margin: 0; font-size: var(--text-sm); color: var(--ink-7); }
 
 /* ---- Tables --------------------------------------------------------------- */
 .table-wrap { overflow-x: auto; }
 .table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
 .table th, .table td { padding: var(--spacing-2) var(--spacing-2-5); text-align: right; border-bottom: 1px solid var(--paper-3); white-space: nowrap; }
-.table th { color: var(--ink-4); font-weight: 600; }
+.table th { color: var(--ink-7); font-weight: 600; }
 .table th:first-child, .table td:first-child { text-align: left; white-space: normal; min-width: 180px; }
 .table td { font-variant-numeric: tabular-nums; }
 .table .row-total td { font-weight: 600; border-bottom: none; }
@@ -350,12 +353,12 @@ p, p.meta { color: var(--ink-4); }
    .card whose .card__head sits above it. */
 .facts { margin: 0; font-variant-numeric: tabular-nums; }
 .facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--spacing-4); padding: var(--spacing-1-5) 0; border-bottom: 1px solid var(--paper-3); }
-.facts dt { min-width: 0; color: var(--ink-4); }
+.facts dt { min-width: 0; color: var(--ink-7); }
 .facts dd { margin: 0; white-space: nowrap; font-weight: 600; text-align: right; }
 
 /* ---- Legend and swatches -------------------------------------------------- */
 /* Set the colour per item with style="--c: var(--cat-1)". */
-.legend { display: flex; gap: var(--spacing-4); flex-wrap: wrap; font-size: var(--text-sm); color: var(--ink-4); margin: var(--spacing-1) 0 var(--spacing-3); }
+.legend { display: flex; gap: var(--spacing-4); flex-wrap: wrap; font-size: var(--text-sm); color: var(--ink-7); margin: var(--spacing-1) 0 var(--spacing-3); }
 .legend__item::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px;
   background: var(--c); margin-right: var(--spacing-1-5); vertical-align: -1px; }
 .legend__item--line::before { height: 2px; border-radius: 1px; vertical-align: 3px; width: 14px; }
@@ -363,9 +366,9 @@ p, p.meta { color: var(--ink-4); }
 
 /* ---- Charts (inline SVG inside .chart) ------------------------------------ */
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.chart svg text { fill: var(--ink-4); font-size: var(--text-sm); }
-.chart svg .axis-note { fill: var(--ink-4); font-size: var(--text-xs); }
-.chart svg .val { fill: var(--ink-4); font-variant-numeric: tabular-nums; }
+.chart svg text { fill: var(--ink-7); font-size: var(--text-sm); }
+.chart svg .axis-note { fill: var(--ink-7); font-size: var(--text-xs); }
+.chart svg .val { fill: var(--ink-7); font-variant-numeric: tabular-nums; }
 .chart .bar:hover, .chart .bar:focus-visible { opacity: 0.8; }
 .chart .bar:focus { outline: none; }
 .chart .bar:focus-visible { stroke: var(--ink-1); stroke-width: 2px; }   /* an SVG shape takes no reliable outline, so focus is a stroke */
@@ -375,7 +378,7 @@ p, p.meta { color: var(--ink-4); }
 .meter { height: 6px; border-radius: 3px; background: var(--paper-3); overflow: hidden; }
 .meter span { display: block; height: 100%; border-radius: 3px; background: var(--m); }
 .meter--good { --m: var(--positive-3); } .meter--warn { --m: var(--warning-3); }
-.meter--bad { --m: var(--negative-3); }   .meter--info { --m: var(--ink-7); }
+.meter--bad { --m: var(--negative-3); }   .meter--info { --m: var(--ink-3); }
 
 /* ---- Badge ---------------------------------------------------------------- */
 .badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%;
@@ -383,8 +386,8 @@ p, p.meta { color: var(--ink-4); }
 .badge--good    { --b: var(--positive-3); }
 .badge--warn    { --b: var(--warning-3); }
 .badge--bad     { --b: var(--negative-3); }
-.badge--info    { --b: var(--ink-7); color: var(--paper-1); }
-.badge--neutral { --b: var(--paper-3); color: var(--ink-4); }
+.badge--info    { --b: var(--ink-3); color: var(--paper-1); }
+.badge--neutral { --b: var(--paper-3); color: var(--ink-7); }
 .badge--sm { width: 18px; height: 18px; font-size: var(--text-xs); }
 .badge-row { display: flex; align-items: center; gap: var(--spacing-1-5); font-size: var(--text-sm); margin-top: var(--spacing-2); }
 /* A list of badged items (#155): a <ul> of .badge-row <li>s, so a screen reader hears it as a list and its length.
@@ -394,24 +397,24 @@ p, p.meta { color: var(--ink-4); }
 .badge-list > .badge-row:first-child { margin-top: 0; }
 
 /* ---- Buttons -------------------------------------------------------------- */
-.btn { background: none; border: 1px solid var(--paper-3); color: var(--ink-4); border-radius: 8px;
+.btn { background: none; border: 1px solid var(--paper-3); color: var(--ink-7); border-radius: 8px;
   padding: var(--spacing-1) var(--spacing-2-5); font: inherit; font-size: var(--text-sm); cursor: pointer; text-decoration: none; }   /* none: a .btn on an <a> (a link that looks like a button) draws no underline */
 /* Segmented switch: <span class="seg" role="group"><button aria-pressed="true">A</button><button aria-pressed="false">B</button></span>. */
 .seg { display: inline-flex; border: 1px solid var(--paper-3); border-radius: 8px; overflow: hidden; vertical-align: middle; }
-.seg button { background: none; border: 0; color: var(--ink-4); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.seg button { background: none; border: 0; color: var(--ink-7); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: var(--text-sm); cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--paper-3); }
-.seg button[aria-pressed="true"] { background: var(--ink-7); color: var(--paper-1); }
+.seg button[aria-pressed="true"] { background: var(--ink-3); color: var(--paper-1); }
 .seg button:focus-visible { outline: 2px solid var(--ink-1); outline-offset: -2px; }   /* inset: .seg clips its overflow; ink shows on the page and on the primary */
 /* The round "?" button that opens an explanation tooltip. */
 .info-button { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
   margin-left: 5px; padding: 0; border-radius: 50%; border: 1px solid var(--paper-3); background: none;
-  color: var(--ink-4); font: 600 var(--text-xs)/1 system-ui, sans-serif; cursor: help; vertical-align: 1px; position: relative; }
+  color: var(--ink-7); font: 600 var(--text-xs)/1 system-ui, sans-serif; cursor: help; vertical-align: 1px; position: relative; }
 .info-button::after { content: ""; position: absolute; inset: -14px; }  /* a 44px hit target around the 16px mark */
 .info-button:hover, .info-button:focus-visible, .info-button[aria-expanded="true"] { border-color: var(--ink-1); color: var(--ink-1); }
-.info-button:focus-visible { outline: 2px solid var(--ink-7); outline-offset: 2px; }
+.info-button:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
 
 /* ---- Tooltip -------------------------------------------------------------- */
-.tooltip { position: fixed; pointer-events: none; background: var(--paper-2); color: var(--ink-4);
+.tooltip { position: fixed; pointer-events: none; background: var(--paper-2); color: var(--ink-7);
   border: 1px solid var(--paper-3); border-radius: 8px; padding: var(--spacing-2) var(--spacing-2-5); font-size: var(--text-sm);
   box-shadow: var(--shadow-pop); display: none; max-width: 280px; z-index: 10; }
 .tooltip b { display: block; margin-bottom: var(--spacing-0-5); }
@@ -423,23 +426,23 @@ p, p.meta { color: var(--ink-4); }
 
 /* ---- Disclosure (details/summary) ------------------------------------------ */
 .more { margin-top: var(--spacing-2); }
-.more summary { cursor: pointer; font-size: var(--text-sm); font-weight: 600; color: var(--ink-4); list-style: none; }
+.more summary { cursor: pointer; font-size: var(--text-sm); font-weight: 600; color: var(--ink-7); list-style: none; }
 .more summary::-webkit-details-marker { display: none; }
 .more summary::after { content: " \25BE"; }
 .more[open] summary::after { content: " \25B4"; }
 .more[open] summary { margin-bottom: var(--spacing-1); }
-.more summary:focus-visible { outline: 2px solid var(--ink-7); outline-offset: 2px; border-radius: 4px; }
+.more summary:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; border-radius: 4px; }
 /* A full-width "read more" button under a block; the extra detail opens ABOVE it, so the toggle
    moves down with the text it reveals. Set aria-expanded from the script. */
 .moretoggle { display: flex; justify-content: center; align-items: center; gap: var(--spacing-1); width: 100%; min-height: var(--tap); cursor: pointer; text-align: center; padding: var(--spacing-2) var(--spacing-4); background: none; border: 0;
-  border-top: 1px solid var(--paper-3); font: 600 var(--text-sm)/1.4 system-ui, sans-serif; color: var(--ink-4); }
+  border-top: 1px solid var(--paper-3); font: 600 var(--text-sm)/1.4 system-ui, sans-serif; color: var(--ink-7); }
 .moretoggle::after { content: " \25BE"; }
 .moretoggle[aria-expanded="true"]::after { content: " \25B4"; }
 .moretoggle:focus-visible { outline: 2px solid var(--ink-1); outline-offset: -2px; }
 
 /* ---- Primary button -------------------------------------------------------- */
 .btn--primary { background: var(--ink-1); border-color: var(--ink-1); color: var(--paper-1); font-weight: 600; }
-.btn--primary:focus-visible { outline: 2px solid var(--ink-7); outline-offset: 2px; }
+.btn--primary:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
 /* Disabled: one rule for every .btn variant, so an app never adds its own on this reserved class. */
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
@@ -447,15 +450,15 @@ p, p.meta { color: var(--ink-4); }
 /* Carry the theme beyond the primary controls, on the surfaces a page is built from. Add one to a
    house element; an app that does not keeps the base look. Text stays --ink-1, on a tinted
    surface (--paper-3) too. */
-.header--accent { padding-bottom: var(--spacing-3); border-bottom: 2px solid var(--ink-7); }   /* on the page header */
-.table--accent th { background: var(--paper-3); color: var(--ink-4); }
+.header--accent { padding-bottom: var(--spacing-3); border-bottom: 2px solid var(--ink-3); }   /* on the page header */
+.table--accent th { background: var(--paper-3); color: var(--ink-7); }
 
 /* ---- Theme picker (drawn by house-theme.js: DKJTheme.picker(el)) ------------ */
 /* Two rows of round swatches, light and dark; each swatch is the theme's page colour with its
    primary as a dot, so the choice shows both halves of the theme. */
 .theme-picker { display: grid; gap: var(--spacing-3); }
 .theme-picker__row { display: grid; grid-template-columns: 64px 1fr; gap: var(--spacing-4); align-items: center; }
-.theme-picker__label { font-size: var(--text-sm); font-weight: 600; color: var(--ink-4); }
+.theme-picker__label { font-size: var(--text-sm); font-weight: 600; color: var(--ink-7); }
 .theme-picker__swatches { display: flex; gap: var(--spacing-2); flex-wrap: wrap; }
 .theme-swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--paper-3); cursor: pointer; display: grid; place-items: center; }
 /* Each swatch previews its own theme, whichever theme is current: the theme blocks above also match
@@ -464,7 +467,7 @@ p, p.meta { color: var(--ink-4); }
 .theme-swatch { background: var(--paper-1); }
 .theme-swatch i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--ink-1); }
 .theme-swatch[aria-pressed="true"] { outline: 2px solid var(--ink-1); outline-offset: 2px; }   /* the chosen theme */
-.theme-swatch:focus-visible { outline: 2px dashed var(--ink-7); outline-offset: 4px; }       /* keyboard focus: a different ring */
+.theme-swatch:focus-visible { outline: 2px dashed var(--ink-3); outline-offset: 4px; }       /* keyboard focus: a different ring */
 
 /* ---- Settings button (drawn by house-theme.js: DKJTheme.settings(el)) ------- */
 /* A round toggle that opens a panel with the theme picker, the page width, a reset and the app's own controls
@@ -473,11 +476,11 @@ p, p.meta { color: var(--ink-4); }
 .theme-settings { position: relative; display: inline-block; }
 .theme-settings--floating { position: fixed; top: var(--spacing-3); right: var(--spacing-3); z-index: 20; }
 .theme-settings__toggle { display: inline-flex; align-items: center; justify-content: center; width: var(--tap); height: var(--tap);
-  padding: 0; color: var(--ink-4); background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 50%;
+  padding: 0; color: var(--ink-7); background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 50%;
   box-shadow: var(--shadow-pop); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .theme-settings__toggle:hover { background: var(--paper-3); color: var(--ink-1); }
 .theme-settings__toggle[aria-expanded="true"] { color: var(--ink-1); border-color: var(--ink-1); }   /* open: a state, so the highlight */
-.theme-settings__toggle:focus-visible { outline: 2px solid var(--ink-7); outline-offset: 2px; }
+.theme-settings__toggle:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
 .theme-settings__close, .theme-settings__toggle[aria-expanded="true"] .theme-settings__open { display: none; }
 .theme-settings__toggle[aria-expanded="true"] .theme-settings__close { display: block; }
 .theme-settings__panel { position: absolute; top: calc(100% + var(--spacing-2)); right: 0; z-index: 20; display: grid; gap: var(--spacing-4);
@@ -487,7 +490,7 @@ p, p.meta { color: var(--ink-4); }
 .theme-settings__panel[hidden] { display: none; }
 .theme-settings__title { margin: 0; font-size: var(--text-lg); font-weight: 600; color: var(--ink-1); }   /* the highlight, as an h2 */
 .theme-settings__group { display: grid; gap: var(--spacing-2); padding-top: var(--spacing-4); border-top: 1px solid var(--paper-3); }
-.theme-settings__label { font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-4); }
+.theme-settings__label { font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-7); }
 .theme-settings__foot { display: flex; flex-wrap: wrap; align-items: end; gap: var(--spacing-4); }
 .theme-settings__extra:empty { display: none; }
 .theme-settings__reset { margin-left: auto; }
@@ -498,7 +501,7 @@ p, p.meta { color: var(--ink-4); }
    A form field, touch buttons, a dialog, a side drawer, a top bar and a menu list. Domain
    components stay in the app. Touch targets are at least --tap (44px) high. Every colour
    pairing below is an existing token pair (--ink-1 on --paper-1 or --paper-2,
-   --negative-5 on --paper-2, --paper-1 on --ink-7) and holds 4.5:1 in every theme.
+   --negative-5 on --paper-2, --paper-1 on --ink-3) and holds 4.5:1 in every theme.
    ========================================================================== */
 
 /* ---- Narrow column --------------------------------------------------------- */
@@ -520,16 +523,16 @@ p, p.meta { color: var(--ink-4); }
    under the control and is hidden while empty: <p class="field__error" role="alert"></p>. */
 .field { display: block; margin-bottom: var(--spacing-3-5); }
 .field:last-child { margin-bottom: 0; }
-.field > span { display: block; font-size: var(--text-base); color: var(--ink-4); margin-bottom: var(--spacing-1); }
+.field > span { display: block; font-size: var(--text-base); color: var(--ink-7); margin-bottom: var(--spacing-1); }
 .field input, .field select { display: block; width: 100%; min-height: var(--control-h);
   font: inherit; font-size: 16px;   /* literal: iOS zooms in on focus below 16px, a platform constraint, not a type step */
   padding: var(--spacing-2) var(--spacing-3); border: 1px solid var(--paper-3); border-radius: 8px;
-  background: var(--paper-1); color: var(--ink-4); }
+  background: var(--paper-1); color: var(--ink-7); }
 /* A select draws its own chevron, in the muted colour, with room to the edge. */
 .field select { -webkit-appearance: none; appearance: none; padding-right: var(--spacing-10); text-overflow: ellipsis;
   background-image: linear-gradient(45deg, transparent 50%, var(--ink-1) 50%), linear-gradient(135deg, var(--ink-1) 50%, transparent 50%);
   background-position: right 18px center, right 13px center; background-size: 5px 5px; background-repeat: no-repeat; }
-.field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--ink-7); outline-offset: 2px; }
+.field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
 .field__error { margin: var(--spacing-1) 0 0; font-size: var(--text-base); color: var(--negative-5); }
 .field__error:empty { display: none; }
 
@@ -537,10 +540,10 @@ p, p.meta { color: var(--ink-4); }
 /* .btn--touch makes a .btn a touch target; .btn--block makes it full width. Both combine with
    .btn--primary (restated below, because this block comes after it). */
 .btn--touch { display: inline-flex; align-items: center; justify-content: center; min-height: var(--tap);
-  padding: var(--spacing-2-5) var(--spacing-4); font-size: var(--text-base); font-weight: 600; color: var(--ink-4);
+  padding: var(--spacing-2-5) var(--spacing-4); font-size: var(--text-base); font-weight: 600; color: var(--ink-7);
   background: var(--paper-2); -webkit-tap-highlight-color: transparent; }
 .btn--touch.btn--primary { background: var(--ink-1); border-color: var(--ink-1); color: var(--paper-1); }
-.btn--touch:focus-visible { outline: 2px solid var(--ink-7); outline-offset: 2px; }
+.btn--touch:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
 .btn--block { width: 100%; }
 
 /* ---- Icon button and action row --------------------------------------------- */
@@ -549,8 +552,8 @@ p, p.meta { color: var(--ink-4); }
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; min-width: var(--tap); height: var(--tap); padding: 0;
   border: 0; border-radius: 8px; background: var(--ink-1); color: var(--paper-1); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .icon-btn svg { flex: none; }
-.icon-btn:focus-visible { outline: 2px solid var(--ink-7); outline-offset: 2px; }
-.icon-btn--ghost { background: transparent; color: var(--ink-4); }
+.icon-btn:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
+.icon-btn--ghost { background: transparent; color: var(--ink-7); }
 /* A row of icon buttons that share the full width. */
 .action-row { display: flex; gap: var(--spacing-2-5); width: 100%; }
 .action-row > * { flex: 1; min-width: 0; }
@@ -560,7 +563,7 @@ p, p.meta { color: var(--ink-4); }
    on top of a dialog sets --dialog-scale smaller. The page behind stands still while one is open. */
 .dialog { width: calc(min(100vw, var(--column-narrow)) * var(--dialog-scale, 0.95)); max-width: none; max-height: calc(100% - var(--spacing-8));
   margin: auto; padding: 0; overflow-y: auto; overscroll-behavior: contain; text-align: left;
-  color: var(--ink-4); background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 16px; }
+  color: var(--ink-7); background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 16px; }
 .dialog::backdrop { background: var(--paper-1); opacity: 0.45; }
 html:has(dialog:modal) { overflow: hidden; }
 /* The padding sits in the body, so a tap on empty space in the dialog never counts as a tap outside it. */
@@ -569,18 +572,18 @@ html:has(dialog:modal) { overflow: hidden; }
    one-line title sits level with it. */
 .dialog__head { display: flex; align-items: center; min-height: var(--tap); padding-right: calc(var(--tap) + var(--spacing-2)); margin-bottom: var(--spacing-4); }
 .dialog__title { margin: 0; min-width: 0; font-size: var(--text-h5); font-weight: 600; overflow-wrap: anywhere; }
-.dialog__sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-sm); color: var(--ink-6); }
+.dialog__sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-sm); color: var(--ink-4); }
 /* The close button, top right, with no visible border. Variants: --save (a filled plate, the
    check that saves), --cancel (an outlined plate to the left of save, the undo arrow), --back
    (on the left instead, for a second panel). The plates are 36px, the tap area stays 44px, and
    the two tap areas overlap by 2px so the plates stand 6px apart. */
 .dialog__close { position: absolute; top: var(--spacing-4); right: var(--spacing-4); display: flex; align-items: center; justify-content: center;
-  width: var(--tap); height: var(--tap); padding: 0; color: var(--ink-4); background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.dialog__close:focus-visible { outline: 2px solid var(--ink-7); outline-offset: 2px; }
+  width: var(--tap); height: var(--tap); padding: 0; color: var(--ink-7); background: transparent; border: 1px solid transparent; border-radius: 8px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.dialog__close:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 2px; }
 .dialog__close svg { position: relative; }   /* above the plate */
 .dialog__close--save::before, .dialog__close--cancel::before { content: ""; position: absolute; inset: var(--spacing-1); border: 1px solid; border-radius: var(--spacing-1-5); }
 .dialog__close--save { color: var(--paper-1); }
-.dialog__close--save::before { background: var(--ink-7); border-color: var(--ink-7); }
+.dialog__close--save::before { background: var(--ink-3); border-color: var(--ink-3); }
 .dialog__close--cancel { right: calc(var(--spacing-4) + var(--tap) - 2px); color: var(--negative-5); }
 .dialog__close--cancel::before { border-color: var(--negative-5); }
 .dialog__close--back { right: auto; left: var(--spacing-4); }
@@ -623,8 +626,8 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>
    <li><a href="/">Repo hub</a></li><li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24">
    (the chevron path, in the house-style README)</svg></span><span aria-current="page">Current page</span></li></ol></nav></div></div>.
-   The whole trail is in the muted greys (owner, October 20, 2026): the chevron --ink-7, the ancestor links
-   --ink-6, the current page --ink-5, so it recedes the least; every crumb at weight 400. A link shows its
+   The whole trail is in the muted greys (owner, October 20, 2026): the chevron --ink-3, the ancestor links
+   --ink-4, the current page --ink-5, so it recedes the least; every crumb at weight 400. A link shows its
    underline only under the pointer.
    The bar spans the full width on the surface tint and sticks to the top of the screen, so it is always visible. It is
    one --tap high and one line: a trail longer than the screen scrolls sideways inside the bar rather than wrapping, so
@@ -632,9 +635,9 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    column (.container). */
 .breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
-.breadcrumbs a { color: var(--ink-6); text-decoration: none; text-underline-offset: 4px; }
+.breadcrumbs a { color: var(--ink-4); text-decoration: none; text-underline-offset: 4px; }
 .breadcrumbs a:hover { text-decoration: underline; }
-.breadcrumbs__sep { display: inline-flex; color: var(--ink-7); }
+.breadcrumbs__sep { display: inline-flex; color: var(--ink-3); }
 .breadcrumbs__sep svg { width: 1.25rem; height: 1.25rem; }
 .breadcrumbs__sep path { stroke: currentColor; stroke-width: 0.75; stroke-linejoin: round; }   /* thickens the filled chevron */
 .breadcrumbs [aria-current='page'] { color: var(--ink-5); font-weight: 400; }
@@ -657,15 +660,15 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 /* A navigation row: a full-width button with icon, label and chevron; a line between items.
    <button class="menu-item"><svg class="menu-item__icon"/><span class="menu-item__label">..</span><svg class="menu-item__chevron"/></button> */
 .menu-item { display: flex; align-items: center; gap: var(--spacing-3); width: 100%; min-height: var(--tap); margin: 0; padding: var(--spacing-2);
-  border: 0; border-radius: 8px; background: none; font: inherit; text-align: left; text-decoration: none; color: var(--ink-4); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  border: 0; border-radius: 8px; background: none; font: inherit; text-align: left; text-decoration: none; color: var(--ink-7); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .menu-item + .menu-item { border-top: 1px solid var(--paper-3); border-top-left-radius: 0; border-top-right-radius: 0; }
-.menu-item:focus-visible { outline: 2px solid var(--ink-7); outline-offset: -2px; }   /* inset, so the ring is not cut off by the panel */
+.menu-item:focus-visible { outline: 2px solid var(--ink-3); outline-offset: -2px; }   /* inset, so the ring is not cut off by the panel */
 .menu-item__icon, .menu-item__chevron { flex: none; }
 .menu-item__label { flex: 1; min-width: 0; }
-.menu-item__chevron { color: var(--ink-4); }
+.menu-item__chevron { color: var(--ink-7); }
 /* A navigation row that is a link (#200): <nav class="menu-list"><a class="menu-item" href>..</a><a class="menu-item"..>,
    optionally with a one-line description under the label: <span class="menu-item__label">Label<span class="menu-item__sub">..</span></span>. */
-.menu-item__sub { display: block; font-size: var(--text-sm); font-weight: 400; color: var(--ink-6); }
+.menu-item__sub { display: block; font-size: var(--text-sm); font-weight: 400; color: var(--ink-4); }
 a.menu-item:hover { background: var(--paper-3); }
 
 /* ---- Screen readers only --------------------------------------------------------- */

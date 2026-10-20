@@ -24,17 +24,17 @@
   font-weight: var(--dkj-fw-semibold);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: var(--ink-4);
+  color: var(--ink-7);
 }
 .dkj-daterow-main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--spacing-1) var(--spacing-3); min-width: 0; }
 .dkj-daterow-body { display: flex; flex-direction: column; flex: 1 1 10rem; min-width: 0; }
-.dkj-daterow-title { font-size: var(--text-base); color: var(--ink-4); overflow-wrap: anywhere; }
-.dkj-daterow-sub { font-size: var(--text-sm); color: var(--ink-6); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.dkj-daterow-trailing { margin-left: auto; font-size: var(--text-sm); color: var(--ink-4); overflow-wrap: anywhere; }
+.dkj-daterow-title { font-size: var(--text-base); color: var(--ink-7); overflow-wrap: anywhere; }
+.dkj-daterow-sub { font-size: var(--text-sm); color: var(--ink-4); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dkj-daterow-trailing { margin-left: auto; font-size: var(--text-sm); color: var(--ink-7); overflow-wrap: anywhere; }
 
-/* near / today: bar + tint + bold, plus the word beside the date. On --paper-3 the text is --ink-4. */
+/* near / today: bar + tint + bold, plus the word beside the date. On --paper-3 the text is --ink-7. */
 .dkj-daterow--near,
-.dkj-daterow--today { background: var(--paper-3); box-shadow: inset 3px 0 0 var(--ink-7); }
+.dkj-daterow--today { background: var(--paper-3); box-shadow: inset 3px 0 0 var(--ink-3); }
 .dkj-daterow--near .dkj-daterow-when,
 .dkj-daterow--today .dkj-daterow-when { font-weight: var(--dkj-fw-bold); color: var(--ink-1); }
 
@@ -48,6 +48,6 @@
 .dkj-daterow-title a { color: inherit; text-decoration: underline; text-underline-offset: 0.15em; }
 .dkj-daterow-title a::after { content: ''; position: absolute; inset: 0; }
 .dkj-daterow-title a:focus-visible { outline: none; }
-.dkj-daterow-title a:focus-visible::after { outline: var(--dkj-focus-w) solid var(--ink-7); outline-offset: calc(-1 * var(--dkj-focus-w)); }
+.dkj-daterow-title a:focus-visible::after { outline: var(--dkj-focus-w) solid var(--ink-3); outline-offset: calc(-1 * var(--dkj-focus-w)); }
 .dkj-daterow--link { cursor: pointer; }
 .dkj-daterow--link:hover { background: var(--paper-3); }

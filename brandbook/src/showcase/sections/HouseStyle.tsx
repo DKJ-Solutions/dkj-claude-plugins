@@ -4,7 +4,7 @@ import { Demo, Section } from '../Showcase'
 
 /** A theme's own steps as house-style.css defines them: paper sits behind the text, in small steps; ink sits on it. */
 export const PAPER_STEPS = ['paper-1', 'paper-2', 'paper-3', 'paper-4'] as const
-export const INK_STEPS = ['ink-1', 'ink-2', 'ink-3', 'ink-4', 'ink-5', 'ink-6', 'ink-7'] as const
+export const INK_STEPS = ['ink-1', 'ink-2', 'ink-6', 'ink-7', 'ink-5', 'ink-4', 'ink-3'] as const
 export const THEME_STEPS = [...PAPER_STEPS, ...INK_STEPS] as const
 
 /** The light and dark house defaults, read from house-theme.js's HOUSE_DEFAULT (the API does not expose them). */

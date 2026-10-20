@@ -43,7 +43,7 @@ type Swatch = { name: string; value: string | undefined; declared: string | unde
 
 /**
  * A custom property as WRITTEN on the root -- the computed value has every var() substituted, which turns
- * "var(--ink-7) 7%, var(--paper-2)" into nested hexes nobody can read. The last matching declaration wins:
+ * "var(--ink-3) 7%, var(--paper-2)" into nested hexes nobody can read. The last matching declaration wins:
  * the theme rules come after the base rule, and a media block counts only while it matches.
  */
 function readDeclared(names: string[]): Record<string, string> {
@@ -86,8 +86,8 @@ function resolveHex(value: string): string | undefined {
 const unvar = (s: string) => s.replace(/var\((--[\w-]+)\)/g, '$1')
 
 /**
- * A declared color-mix() as a recipe in token names: "color-mix(in srgb, var(--ink-7) 7%, var(--paper-2))"
- * reads ["--paper-2", "+ 7% --ink-7"] -- the base, then how much of which colour goes through it. A share
+ * A declared color-mix() as a recipe in token names: "color-mix(in srgb, var(--ink-3) 7%, var(--paper-2))"
+ * reads ["--paper-2", "+ 7% --ink-3"] -- the base, then how much of which colour goes through it. A share
  * that is itself a token (--surface-tint) shows its value. undefined when it is neither a mix nor an alias.
  */
 function mixRecipe(declared: string): string[] | undefined {
@@ -244,7 +244,7 @@ export function Foundations() {
           {TEXT_SIZES.map((f) => (
             <div key={f} className="dkj-scale-row">
               <code>{f}</code>
-              <span style={{ fontSize: `var(${f})`, color: 'var(--ink-4)', lineHeight: 'var(--dkj-lh-tight)' }}>The quick label 1,234</span>
+              <span style={{ fontSize: `var(${f})`, color: 'var(--ink-7)', lineHeight: 'var(--dkj-lh-tight)' }}>The quick label 1,234</span>
             </div>
           ))}
         </div>
@@ -257,7 +257,7 @@ export function Foundations() {
           {WEIGHTS.map((w) => (
             <div key={w} className="dkj-scale-row">
               <code>--dkj-fw-{w}</code>
-              <span style={{ fontSize: 'var(--text-lg)', fontWeight: `var(--dkj-fw-${w})`, color: 'var(--ink-4)' }}>The quick label 1,234</span>
+              <span style={{ fontSize: 'var(--text-lg)', fontWeight: `var(--dkj-fw-${w})`, color: 'var(--ink-7)' }}>The quick label 1,234</span>
             </div>
           ))}
           {LINE_HEIGHTS.map((l) => (
@@ -276,7 +276,7 @@ export function Foundations() {
           ))}
           <div className="dkj-scale-row">
             <code>--dkj-font-mono</code>
-            <span style={{ fontFamily: 'var(--dkj-font-mono)', color: 'var(--ink-4)' }}>const tap = '44px' -- 0123456789</span>
+            <span style={{ fontFamily: 'var(--dkj-font-mono)', color: 'var(--ink-7)' }}>const tap = '44px' -- 0123456789</span>
           </div>
         </div>
       </Demo>
@@ -350,7 +350,7 @@ export function Foundations() {
         <Readouts names={MOTION} values={values} />
       </Demo>
       <Demo label="Icons (stroke set, currentColor)">
-        <div className="dkj-demo-row" style={{ color: 'var(--ink-4)' }}>
+        <div className="dkj-demo-row" style={{ color: 'var(--ink-7)' }}>
           {ICON_NAMES.map((n) => (
             <span key={n} title={n} style={{ display: 'grid', justifyItems: 'center', gap: 'var(--spacing-1)', width: '4rem', fontSize: 'var(--text-xs)' }}>
               <Icon name={n} size={24} />
