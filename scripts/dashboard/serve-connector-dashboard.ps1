@@ -6,7 +6,9 @@
     specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; /test-gate,
     the per-suite CI durations; and /brandbook, the house style's themes, tokens and components, read from the
     dkj-solutions plugin's assets/house-style/ in this tree with no Node dependency (#3132). The rules of the
-    hub and of each page are in scripts/lib/dev-pages-lib.ps1.
+    hub and of each page are in scripts/lib/dev-pages-lib.ps1, but for the Brandbook: that is the plugin's
+    page (scripts/lib/general-pages-lib.ps1), listed in the hub's DKJ-Solutions card, and answered here
+    rather than relayed only so that it reads this tree instead of the installed release.
 
     THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues, Release
     notes and SessionStart belong to every DKJ-Solutions repo, so the dkj-solutions plugin builds them in a
@@ -369,7 +371,10 @@ try {
             }
             if ($path -eq '/brandbook') {
                 $bb = Get-BrandbookModel
-                $html = Format-BrandbookPageHtml -Model $bb.Model -ReadError $bb.Error -AppPresent $bb.AppPresent
+                # The plugin's general page (in the hub's DKJ-Solutions card), served here from this tree rather
+                # than relayed, so a house-style change shows before it is released.
+                $html = Format-BrandbookPageHtml -Model $bb.Model -ReadError $bb.Error -AppPresent $bb.AppPresent -RepoName 'DKJ-Solutions/dkj-claude-plugins' `
+                    -Source '<code>plugins/dkj-policy/dkj-solutions/assets/house-style/</code> in this tree'
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
