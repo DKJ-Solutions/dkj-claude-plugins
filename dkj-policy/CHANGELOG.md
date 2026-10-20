@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**18 / 27 minor entries** <!-- pending-tally -->
+**18 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3206-dedupe-branch-doc-in-sysadmin-lens · 20261020-102742Z
+
+The branch-document, gate and `dkj-policy/` folder sections of Sylvester's repo lens stop repeating
+`DEVELOPMENT-portable.md`, `CONTRIBUTING-portable.md` and the open-pr, ship-pr and check-branch-entry
+skills. Each now points to the portable section that states the rule and keeps only what is this
+repo's own: its seam values, the gates only the source repo runs, and its own measurements. The lens
+goes from about 216 KB to 190 KB. Third of five slimming steps (#3204-#3208).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Sylvester's lens: the branch-document and gate material points at the portable pages instead of repeating them
+
+[PR #3217](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3217)
+
+---
 
 ### DEPLOY: feat/3198-general-pages-in-dkj-policy · 20261020-101433Z
 
