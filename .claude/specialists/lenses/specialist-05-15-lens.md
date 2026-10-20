@@ -17,7 +17,7 @@ infrastructure.
 
 - **`plugins/dkj-policy/hooks/guard-working-copy.ps1`** — the second `PreToolUse` guard in this
   marketplace, and the one that answers
-  [#1669](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1669): a dispatched subagent
+  [#1669](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1669): a dispatched subagent
   may not run the git commands that discard the checkout it was dispatched into. Its judgement is
   `scripts/lib/working-copy-guard-lib.ps1` and its false-positive machinery
   `scripts/lib/command-guard-lib.ps1`, both mirrored into the plugin.
@@ -163,705 +163,153 @@ infrastructure.
   August 26, 2026 rather than left standing:** every published plugin must be `team-*` under
   `plugins/dkj-subagents/` or a way of working by name, and a name carrying neither shape is an
   error rather than a style note. Since
-  [#1467](https://github.com/DaveKJohn/claude-code-specialists/issues/1467) only `*-policy` /
+  [#1467](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1467) only `*-policy` /
   `*-policy-*` still carry a directory rule on the workflow side — `plugins/dkj-policy/`, the government,
   with the prime ministry at its root and each ministry a level inside it; `workflow-*`,
   `contributing-*` and `*-codex` are accepted by name and held to no location. It used to have teeth because the core team's `workflow-sessioncheck`
   hook decided what counted as a workflow by that prefix alone — that hook was retired with
-  `workflow-default` under [#886](https://github.com/DaveKJohn/claude-code-specialists/issues/886), so the
+  `workflow-default` under [#886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/886), so the
   borrowed justification is gone. **What replaced it is internal to the check and stronger for it:** the
   directory half is *derived* from the name, so a plugin matching neither prefix falls through both
   branches and has its location held against nothing at all. An unprefixed name does not read untidily —
   it switches the check off for itself, silently.
-- **`.github/workflows/ci.yml`** — the CI gate on GitHub: runs the same lint gate + all test suites
-  (`scripts/tests/*.tests.ps1`) on every PR and every push to `main`, so the guard also applies to
-  work that comes about outside `open-pr.ps1`.
-
-  **AND "THE SAME GATE" IS NOT "THE SAME ANSWER", BECAUSE THE TWO RUN ON DIFFERENT TREES**
-  (measured September 9, 2026, on this lens's own branch). The local gate runs on **your branch**; CI
-  runs on the **merge** of your branch with the trunk. The suite list is a glob, so a suite the trunk
-  gained while your branch was open **does not exist locally** — the local gate cannot run it, reports
-  green, and CI then runs it against your change and fails. Measured exactly here: `feat/1726-…` passed
-  all 86 suites locally twice, and `lint-en-tests` went red on
-  `command-probe-lib.tests.ps1` — a rule (#1729, *no `Get-Command` function probe*) that landed on `main`
-  hours earlier and that the new script broke three times over. After `git merge origin/main` the same
-  command reported **87** suites, and the count is the only thing that said anything was different.
-
-  **Read the count, then: a local gate pass is evidence about your branch and NOT a prediction about CI.**
-  This is not what ship-pr's staleness guard is for — that dates a CI certificate against commits the
-  trunk gained *after* the run (#1292), and it fires at the merge, which is well after the red run has
-  already happened. The cheap habit is the fix: `git fetch` and merge the trunk **before** the gates, so
-  the tree you prove is the tree CI will build. **"The same" is literal since August 7, 2026** — the step
-  dot-sources `native-capture-lib.ps1` and calls `Invoke-TestSuiteGate`, the one function `open-pr.ps1`
-  and `cut-release.ps1` also call. It held its own inline `foreach` until then, which is how a gate
-  improvement can land in both local callers and miss the only one that actually blocks a merge; the
-  asserts that keep it from coming back are in `cut-release-guardrail.tests.ps1`. It passes
-  `-MaxParallel ([Environment]::ProcessorCount)` deliberately: the lib's default holds two cores back so a
-  developer's machine stays usable, and on a four-core runner nobody is sitting at, that reservation would
-  cost half the box.
-
-  **AND SINCE [#1443](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1443) CI is no longer
-  the only caller that can choose** (September 5, 2026). `open-pr.ps1` and `ship-pr.ps1` take the same
-  `-MaxParallel` and hand it down through `Invoke-WorkflowGates`, which had been the missing hop: the
-  parameter existed at the bottom of the chain and at the top of CI's, and nowhere in between. Measured on
-  this machine — 18 cores, so 16 lanes — the default passed once at 716s and was then **killed twice by
-  the harness for running out of memory**, where `-MaxParallel 4` passed in 888s. The reservation formula
-  reasons about cores; what ran out was memory. **The default is unchanged**, deliberately: one machine is
-  not a measurement of the formula, and what #1443 was actually about is that the only way past a gate
-  that would not finish was `-SkipTests` — a skip and a smaller run leaving the same trace afterwards.
-  The consumer-facing half is in the `open-pr` skill page, which is where a session reads it.
-
-  **EVERY PUSH TO `main` IS ITS OWN CONCURRENCY GROUP, and before
-  [#1294](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1294) half of them were never
-  gated at all.** The block used to key one group on `github.ref`, i.e. one group for the whole trunk,
-  and leaned on `cancel-in-progress: ${{ github.event_name == 'pull_request' }}` to keep the fold commit
-  from cancelling the merge commit's run. It did not, and could not — the portable half of why is a hard
-  rule in [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules):
-  the field governs the *in-progress* run, while a group also drops a **pending** one when a third
-  arrives. **What made it bite here is this repo's own trunk rhythm**, which is the repo-specific half:
-  `ship-pr` pushes twice per branch 6s apart, a run takes ~15 minutes, and `windows-latest` queues for
-  seconds — so the merge commit's run had not started when the fold displaced it. Measured
-  September 3, 2026 over the last 28 `merge:` commits: **14 `success`, 14 `cancelled`**, the cancelled
-  ones with zero jobs allocated. And it was never only folds displacing merges — `0ab47d2d`, `2c54de74`
-  and `e0175372` went down in one chain, so on a busy day only the **last push of each ~15-minute
-  window** ran. The tip was always gated; nothing between it and the previous tip was, which is why that
-  day's two `failure` runs on `main` named no commit. The repair keys pushes on `github.sha` and leaves
-  the PR half exactly as #932 measured it. **It costs runner minutes on purpose** — 27 runs where 13 ran
-  — and whether the *fold* commit needs a full run of its own is deliberately left open
-  ([#1300](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1300)).
-
-  Since July 15, 2026, the repo ruleset
-  **`main-ci-gate`** (renamed from `main-ci-poort` by Dave on July 26, 2026; found at GitHub →
-  Settings → Rules) enforces that gate as a **required status check**: a PR to `main` only merges
-  on a green `lint-en-tests` job. The bypass list is what keeps the direct fold/release commits on
-  `main` possible, and it is not a convenience: a required status check **cannot** be satisfied by a
-  direct push, because the check has to be green before the push is accepted and a push is what would
-  trigger it. Until September 2, 2026 it held *Repository admin + the Write role, "Always allow"*. The
-  Write entry was there because the work account `davekokbwj` **then** held write rights and not admin —
-  that pairing is what identified the role at all (the August 14 reading further down this bullet) — and
-  the caveat attached to it was that a Write bypass is safe only while there are no external
-  collaborators.
-
-  **BOTH HALVES OF THAT SENTENCE ARE NOW DATED, AND THE ROLE TABLE IS THE PART TO READ**
-  ([#1284](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1284)). Measured
-  September 3, 2026, after the move into the `DKJ-Solutions` org:
-
-  ```
-  $ gh api orgs/DKJ-Solutions/memberships/<user> --jq .role   -> DaveKJohn, davekokbwj, maikel-bwj: all admin
-  $ gh api repos/DKJ-Solutions/claude-code-specialists/collaborators?affiliation=outside   -> empty
-  $ gh api repos/DKJ-Solutions/claude-code-specialists/rulesets/19008062
-      bypass_actors  [ {OrganizationAdmin, always}, {RepositoryRole 5, always} ]
-  ```
-
-  All three accounts are **org owners**, which is why each also reads `role_name: admin` on this repo, and
-  the restored list carries **no Write role**. Two consequences, the first being the one a reader takes
-  from the old sentence and gets wrong: **a direct push that succeeds from `davekokbwj` proves the admin
-  bypass works and says nothing about the Write role.** That is precisely the mis-attribution the #1244
-  thread had to retract, and this lens is the document that retraction cites as its pre-transfer baseline.
-  The second: the external-collaborator caveat no longer guards what it was written to guard, because the
-  bypass now rests on **org ownership** rather than a repo role — a wider grant, since an org owner
-  bypasses on every repo in the org, and one that nothing on this repo's settings page shows.
-
-  **AND THE RULE LIST GAINED A FOURTH ENTRY ON SEPTEMBER 6, 2026 — `merge_queue`, which refuses a direct
-  push on its own** ([#1499](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1499)). The
-  bypass list is unchanged; what changed is how many rules a non-bypassed actor has to get past. Measured
-  the same way, on the same ruleset id:
-
-  ```
-  $ gh api repos/DKJ-Solutions/claude-code-specialists/rulesets/19008062 --jq '[.rules[].type]'
-      ["deletion","non_fast_forward","required_status_checks","merge_queue"]
-  ```
-
-  **Why this is worth a row rather than a silent update to the list above.** Every record in this lens
-  names `required_status_checks` as *the* rule the direct-on-`main` exceptions have to be bypassed for,
-  and that was a complete answer while it was the only one that refused a push. It is not any more: the
-  `fold-on-merge` workflow's rejected push (run 34020828593, 2026-09-06 08:04) came back naming **both**
-  rules, one line each —
-
-  ```
-  remote: - Required status check "lint-en-tests" is expected.
-  remote: - Changes must be made through the merge queue
-  ```
-
-  — so a reader holding the three-rule list reads the second line as an unexplained extra and starts
-  hunting for a second cause. **The bypass answers both in one move**, because a bypass actor bypasses the
-  ruleset rather than a rule, so nothing about the remedy changes. What changes is the diagnosis, and that
-  is the half a session actually reads a red run with.
-
-  **AND THE FOURTH ENTRY IS GONE AGAIN — THE LIST IS BACK TO THREE** (measured September 9, 2026,
-  [#1720](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1720)). The same command on the
-  same ruleset id:
-
-  ```
-  $ gh api repos/DKJ-Solutions/claude-code-specialists/rulesets/19008062 --jq '[.rules[].type]'
-      ["deletion","non_fast_forward","required_status_checks"]
-  ```
-
-  So the three-rule list above is the live one again, `required_status_checks` is once more the only rule
-  a direct push has to be bypassed for, and a rejected push reports **one** line rather than two. The
-  September 6 block stays exactly where it is: it is what a reader needs the day a run from that window is
-  being read back, and deleting it would leave run 34020828593's two-line refusal unexplained. **Read this
-  pair as the shape of the whole section** — each block is what was true on its date, and the newest one is
-  the answer to "what does the ruleset hold *now*".
-
-  **AND THE ONE THING TO CHECK BEFORE TRUSTING ANY OF THEM: a ruleset is GitHub-side state, so nothing in
-  this tree changes when it changes.** No commit records it, no gate reads it, and no session is told. That
-  is why every block here carries the command rather than only its output — the record is a dated
-  measurement, not a fact the repo maintains, and the way to know which block is current is to run the
-  command again. The removal above has no date of its own for exactly that reason — September 9 is when it
-  was *measured*, not when it happened, and nobody can now say which. That gap is why the always-on
-  sentence in [`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation) went on
-  handing out the wrong answer for a stretch nobody can now put a length on (#1720).
-
-  **EVERY SENTENCE ABOVE STILL HOLDS, AND SINCE SEPTEMBER 9, 2026 SOMETHING ACTS ON IT**
-  ([#1726](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1726)):
-  `.github/workflows/repo-settings.yml` runs `check-repo-settings.ps1` daily against
-  `Get-ExpectedRepoSettings`, so a change to this ruleset now produces a dated red run within 24 hours
-  instead of nothing at all. **It does not make these blocks maintained facts, and reading them as such
-  is the one mis-reading to avoid** — each is still what was true on its date, and the way to know
-  which is current is still to run the command. What the detector adds is narrower and is the half that
-  was missing: it says *when* a block stopped being current, which is precisely what the `merge_queue`
-  removal above has no answer for. Its own bullet is further down, under
-  [what Sylvester owns here](#what-sylvester-owns-here); the three-rule list above is one of the seven
-  facts it now compares, so a fourth entry appearing is reported rather than discovered.
-
-  **AND THE BYPASS THAT ANSWERS BOTH CANNOT BE GRANTED TO THE ACTOR THAT NEEDS IT** (September 6, 2026,
-  [#1506](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1506)). The paragraph above is
-  right that a bypass actor bypasses the *ruleset* rather than a rule, so one grant would answer both
-  refusals. What it leaves open — and what `fold-on-merge.yml`'s own header then recorded as a plan — is
-  *which* actor. The workflow pushes with the default `GITHUB_TOKEN`, i.e. as the GitHub Actions app
-  (`integration_id` 15368, the id `lint-en-tests` already reports under, confirmed against
-  `gh api apps/github-actions`). Adding it:
-
-  ```
-  PUT repos/DKJ-Solutions/claude-code-specialists/rulesets/19008062
-  422 Validation Failed
-  Actor GitHub Actions integration must be part of the ruleset source or owner organization
-  ```
-
-  An `Integration` bypass actor has to be an app **installed on the org**, and GitHub Actions is not an
-  installable app — `gh api orgs/DKJ-Solutions/installations` lists exactly one, `claude` (app_id
-  1236702). So that route does not exist, and the plan was never a measurement. **Bypass is by actor, and
-  both bypassing actors are people** (`OrganizationAdmin`, `RepositoryRole 5`), so the only way a workflow
-  pushes to this trunk is with a token belonging to one of them. That is what
-  [#1507](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1507) landed, the same day and
-  from a second session: `actions/checkout` authenticates with `FOLD_PUSH_TOKEN`, an org owner's
-  fine-grained PAT, and the fold's `git push` reuses that credential.
-
-  **Read the split it makes, because it is the part worth copying.** Only the PUSH gets the standing
-  token. The fold step still reads with the job-scoped `GITHUB_TOKEN`, which expires in about an hour and
-  is useless outside its own run, and the workflow's `permissions:` are down to `contents: read` because
-  the default token is no longer the pusher. The checkout is pinned to a commit SHA rather than a tag for
-  the same reason: the step that handles a 366-day standing write token is the one where a retagged
-  action would be worth someone's while. None of that was tested when it landed; the asserts are in
-  `merge-queue-prereq.tests.ps1`, added by #1506, and each one covers a property that fails silently.
-
-  **The generalisation worth keeping, because it will come up again:** a workflow that must write past a
-  ruleset cannot be granted the exception itself. Either it borrows a person's token, or the rule stops
-  applying to the branch it writes to. There is no third door, and reaching for one costs a round trip
-  through a 422 every time.
-
-  **Inferred, not measured: why the roles changed** — an elevation, or the transfer's own member mapping.
-  `orgs/DKJ-Solutions/audit-log` needs `admin:org` and answers 404 from a session, so the cause is not
-  readable here. The roles themselves are, and nothing above depends on the cause.
-
-  **THAT LIST WAS EMPTY FOR ONE DAY, AND THE TRANSFER WAS WHY** (September 2–3, 2026,
-  [#1244](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1244)). Moving the repo into
-  the `DKJ-Solutions` org carried the ruleset across **intact** — active, `~DEFAULT_BRANCH`,
-  `deletion` + `non_fast_forward` + `required_status_checks` on `lint-en-tests` — and dropped only its
-  bypass list: `bypass_actors: null`, `current_user_can_bypass: never`, which meant nobody could push to
-  `main` directly, `DaveKJohn` as repo admin included. All three direct-on-`main` exceptions were dead
-  until Dave restored it on September 3 at Settings → Rules → `main-ci-gate` → Bypass list.
-
-  **The paragraph is kept rather than deleted, because the failure is a property of the ruleset and not
-  of that one move.** The bypass list is the only thing standing between a green `main-ci-gate` and three
-  exceptions that cannot satisfy it, and nothing in GitHub's UI says so — a transfer, an org policy, or
-  somebody tidying the list all produce the identical symptom. What identifies it is the push's own
-  answer: `GH013 ... Required status check "lint-en-tests" is expected` when the list is empty,
-  `Bypassed rule violations for refs/heads/main` when it is not. Read that line rather than the ruleset
-  page; it is the one measurement that distinguishes the two states without admin rights.
-
-  **It does not stop at the three exceptions — it blocks MERGES too, by a chain reaction**, and that is
-  the part worth reading before anybody concludes the damage is bounded. A PR still merges; its fold
-  cannot push; so the merged branch's development document **stays on `origin/main`**. The trunk then
-  carries a live branch document that should have been deleted, and while the fold stays blocked they
-  accumulate.
-
-  **The second half of this chain reaction is fixed as of September 3, 2026, and the sentence that used
-  to be here is dated rather than swept.** It read: *"That path is fixed by design — the design's safety
-  argument being that the fold removes it at the merge — so ... every open branch has its own file at that
-  same path, and every subsequent PR conflicts on it."* That was true, and it was the shared-path design's
-  defect rather than this ruleset's: the conflict happened on **every** merge, blocked fold or not, and a
-  conflicting PR gets no check suite at all, so it could never go green and never merge
-  ([#1255](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1255)). The document is named
-  per branch now, so two branches never write the same path and a leftover on the trunk collides with
-  nobody. **What this ruleset still costs is the leftover itself** — an unfolded entry sitting on `main`
-  with nothing saying so — which was the half #1244 owned and the per-branch rename did not repair.
-
-  **That half is no longer silent as of September 3, 2026**
-  ([#1270](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1270)). `check-unfolded-entry.ps1`
-  reports a written per-branch document on the trunk whose declared branch is not the
-  one under HEAD — the invariant being that the fold removes it at the merge, so on `main` there should be
-  none. It runs from two places, because neither reaches the whole population on its own: a CI workflow
-  (`.github/workflows/unfolded-entry.yml`, `push` to `main`, **not** in `main-ci-gate` — the same
-  Dave's-call reasoning as `branch-entry.yml`, and a required check cannot gate a push anyway) catches it
-  regardless of who merged or how, and a SessionStart hook (`unfolded-entry-sessioncheck.ps1`, workflow
-  plugin) tells the next specialists session at start rather than leaving it to Chris's manual
-  `verify-stand-against-repo` check. Neither calls `gh`: a written entry on the trunk is folded or it is a
-  defect, whatever the branch's PR state, and the fold is local. The one false positive it can raise is the
-  ship window — `ship-pr` pushes the merge commit and then, seconds later, the fold commit — which **this
-  workflow's own** `cancel-in-progress: true` swallows and a session reads as a finding that resolves
-  itself. Read *this* workflow's, not `ci.yml`'s: since
-  [#1294](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1294) `ci.yml` keys every push to
-  the trunk on its own commit, so it swallows nothing. The
-  detector is `Get-UnfoldedTrunkEntry` in `entry-scaffold-lib.ps1`, one definition for both callers.
-
-  **#1244 IS OPEN AGAIN, AND WHAT REOPENED IT IS THE MIS-READING DIRECTLY ABOVE** — so the cost is still
-  being paid, and the response to it is the part to get right. It *was* closed on September 3, 2026 on the
-  strength of a fold commit that pushed cleanly; that commit carried `davekokbwj` as author because that is
-  the git identity on the machine it was made on, while the **pusher** was `DaveKJohn` (admin). A commit's
-  author does not name its pusher and
-  `gh api "repos/DKJ-Solutions/claude-code-specialists/activity?ref=refs/heads/main"` does — read that
-  before concluding anything about which role got past the gate. The mechanism half therefore runs on as
-  [#1278](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1278). Both leftovers #1244
-  stranded (#1253 and #1261) *did* fold unchanged the moment the list came back, and that half is
-  untouched by the reopening — it is the evidence for the rule: a blocked fold is **waited out, not
-  committed locally**.
-
-  **What settles #1278 is a reading no admin session can take** — `current_user_can_bypass` on the ruleset,
-  from the account that will actually push. It reads `always` from this one because it is an org owner, and
-  that says nothing about any other account. Measured September 3, 2026, all three accounts are now org
-  owners and the list bypasses `OrganizationAdmin`, so on the face of it the gap #1278 reports is closed;
-  **that is an inference from the role table, not the measurement**, and the account itself has to confirm
-  it. Committing it makes a `main` commit that exists on one machine, and `main` is what every
-  other machine syncs — measured September 3, 2026, where a held fold met the same fold landing from
-  elsewhere and produced a duplicate entry and an unmerged `CHANGELOG.md` with no `MERGE_HEAD` to abort.
-  The trunk leftover is visible and cheap; the duplicate commit is neither. Rendall's lens carries the
-  fold-side statement of this. `check-unfolded-entry.ps1` above is what makes "visible" literal.
-
-  **The hazard that made it urgent is worth keeping, because it is what a reader would otherwise
-  rediscover.** Resolving that conflict in favour of the incoming branch **destroys an unfolded DEPLOY
-  entry**, the only copy of that change's changelog text — and *keep mine* is exactly what a session hits
-  this reaches for. Measured on PR #1249, where the trunk's conflicting file turned out to belong to
-  PR #1250 and `deleted by us` meant *"our fold deleted a different document at the same path"*. It was
-  untangled by keeping theirs, running #1250's pending fold, and letting both held folds ride out through
-  the open PR. Per-branch names remove the situation rather than the hazard's teeth: there is no longer a
-  resolution in which one branch's document can stand in for another's.
-
-  **The generalisable half, beside the one below it: a setting that is present and active is not proof
-  that the thing you depend on inside it survived.** [#1239](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1239)
-  made *"does `main-ci-gate` still exist"* the post-transfer check, and it existed — enforcement, target,
-  rules and required check all unchanged. What does not survive a transfer is the **sub-field**, and a
-  ruleset reporting `active` reads as a clean bill of health while the one array the fold model runs on
-  is gone. So check the field you actually rely on, not the object that contains it.
-
-  **AND ON SEPTEMBER 3, 2026 A DIFFERENT SUB-FIELD OF THAT RULESET WAS MOVED AND MOVED BACK THE
-  SAME DAY — `strict`, ON FOR ABOUT 45 MINUTES**
-  ([#1325](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1325)). The stale-CI
-  certificate gate in `ship-pr.ps1` step 3b
-  ([PR #1316](https://github.com/DKJ-Solutions/claude-code-specialists/pull/1316)) detects a real
-  race it cannot win on this trunk — `lint-en-tests` runs ~13m47s–16m09s while `main` gains a merge
-  every ~15–25 min, with ~44% of branches behind at the merge — so re-running CI to refresh the
-  certificate is a chase the operator keeps losing. The first verdict (~14:45 UTC) rejected every
-  script-side change and turned three knobs with `gh api`: ruleset `main-ci-gate` →
-  `required_status_checks` rule `strict_required_status_checks_policy` `false` → `true`, and repo
-  `DKJ-Solutions/claude-code-specialists` `allow_auto_merge` + `allow_update_branch` both `false` →
-  `true` (~15:10). #1325 was closed as "option 1 applied". Research on the thread (~15:29) showed
-  the option is measurably worse; #1325 was reopened on Dave's instruction (~15:34) and all three
-  fields reverted to `false` (~15:55). Readback confirms all three `false`.
-
-  **Why it does not converge — the load-bearing fact.** GitHub performs **no server-side base-sync
-  of a PR branch** outside a merge queue. `allow_update_branch` ("Always suggest updating pull
-  request branches") only shows a UI button to a human with write access — it acts on nothing.
-  Auto-merge flips the merge switch only once *every* requirement, **including "up to date"**, is
-  already satisfied; it never syncs the base itself. So `strict` converts the ~44% behind-at-merge
-  rate into a hard, repeating, server-side block with **no automatic resolution and no valve** —
-  `-SkipStaleCheck` lives in `ship-pr.ps1` and cannot touch a refusal that is now GitHub's.
-  Confirmed live in the 45-minute window: PR #1316 itself had to be landed with
-  `gh pr merge --admin` while `strict` was on. Sources are cited on #1325.
-
-  **Strict-off with auto-merge on is not a fallback**, which is why `allow_auto_merge` was reverted
-  too and not only `strict`: without the "up to date" requirement, auto-merge would merge on a
-  stale-but-green certificate, unattended — reintroducing exactly
-  [#1292](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1292)'s defect, which
-  step 3b exists to catch. #1292 (the red-trunk mechanism issue) stays open and assigned in its own
-  right; the keep-`strict`-or-adopt-a-merge-queue decision is where #1325 now sits.
-
-  **The strongest fix is a GitHub merge queue**, which tests each PR against the projected merge
-  (target-branch tip + the PRs already queued), so staleness is gone by construction. It **is**
-  available to this repo (public + org-owned; the earlier "Enterprise only" reading was wrong).
-  `ship-pr.ps1` step 3b is unchanged: its detection is correct and it stays the mechanism and the
-  portable net for consumers, whom a repo-settings change never reaches, with `-SkipStaleCheck` the
-  valve for a known-harmless window. **The generalisable half: a repo-settings "fix" for the
-  staleness race that is not a merge queue does not converge** — `strict` + `allow_auto_merge` +
-  `allow_update_branch` look like the unattended loop, but the base never moves under the PR on its
-  own, so all they add is the block.
-
-  **THAT "the earlier reading was wrong" CORRECTION WAS RIGHT ABOUT THIS REPO AND WRONG AS A RULE, and
-  the difference cost a policy** (September 7, 2026, [#1546](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1546)).
-  GitHub's terms are: merge queue on a **private** repo only under Enterprise Cloud, and otherwise only
-  on a **public** repo owned by an organization. This repo is public on plan `free`, so it qualifies
-  through the *public* clause — the Enterprise reading was wrong **here** and is exactly right for a
-  private consumer. Re-measured: `DKJ-Solutions` plan `free` + this repo `public` (eligible);
-  `BWJ-Development` plan `team` + its repo `private` (the "Require merge queue" checkbox is not
-  rendered at all — GitHub hides it rather than disabling it, which is why it reads as a UI mystery).
-  So step 3b is not the "portable net" beneath a policy any more; **it is the policy**, and the queue is
-  one option for the repos that can have one.
-
-  **The lesson is about where a capability check is performed, not about queues.** The claim was
-  verified in the one repo whose own answer could not reveal the constraint, and a capability that is
-  *present* announces nothing about why. `adopt-ci-floor` then carried the generalisation outward as
-  a closable `[gap]`, so a consumer built the whole floor before meeting a checkbox that does not exist
-  ([#1540](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1540)). Where a finding will
-  travel to a consumer, measure it on the axis the consumer differs on — here `private`/`public` and the
-  org plan — before writing it down as a rule.
-
-  **BOTH PREREQUISITES ARE NOW IN THE TREE, AND THE SWITCH IS STILL DAVE'S** (September 3, 2026,
-  #1325). Enabling the queue is a repo-settings change; making the repo survive one is not, and the
-  two things that had to be true first are both the same shape — **inert today, catastrophic on the
-  day the queue is switched on, and silent in between**. Both are pinned by
-  [`scripts/tests/merge-queue-prereq.tests.ps1`](../../../scripts/tests/merge-queue-prereq.tests.ps1),
-  because nothing in this repo's behaviour today would notice either being removed:
-  1. **`.github/workflows/ci.yml` now triggers on `merge_group`.** A required workflow without it
-     never runs for a queue entry, so `lint-en-tests` never reports and GitHub's own warning is that
-     the merge fails — a **total merge outage on `main`**, not a degradation. The suites run in full
-     for a queue entry: the #1300 fold-commit shortcut is gated on the `push` event, so it does not
-     reach one, and it must not — a queue entry *is* the projected merge being certified. The
-     concurrency key needed no change: its `|| github.sha` arm already gives each entry its own group.
-  2. **`ship-pr.ps1` reads the PR's state after `gh pr merge` instead of trusting the exit code.**
-     `gh pr merge --help` states it outright — under a queue the PR is *"added to the merge queue"*,
-     and gh exits **0** having enqueued. Step 5 folds onto the trunk on the strength of that exit
-     code, so an ordinary ship would have written a fold commit for a PR that had not landed: the
-     changelog entry on `main` ahead of its own merge, with nothing in the run saying so. **This one
-     is also right with no queue anywhere** — "merged" had been an inference from an exit code, on
-     the one script that writes to the trunk. A state that cannot be *read* is deliberately **not** a
-     refusal (same shape as the DEPLOY lock): only a state positively read as non-`MERGED` refuses,
-     because turning a network blip into a refusal between the merge and the fold would manufacture
-     the trapped-entry state (#1270) the fold exists to prevent. The refusal hands the wait back
-     rather than guessing a timeout — waiting a queue out is a separate decision, not taken here.
-
-  **The generalisable half of the prerequisites, beside the one above: a settings switch that is
-  somebody else's to flip does not make the code it will break somebody else's problem.** The queue
-  decision sat on #1325 for a day as "Dave's", and both defects that would have fired on the first
-  merge after it were in the tree the whole time, reachable and fixable without touching a setting.
-
-  **AND THE ANSWER IS NO — THE QUEUE'S CASE WAS DISCHARGED, NOT REJECTED** (Dave, September 3, 2026,
-  [#1355](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1355), the decision split out
-  of #1325 so it would not be buried in a closed thread). No merge queue is switched on for `main`, and
-  the three settings above stay `false`. **What settled it was the same day's CI sharding**
-  ([#1351](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1351)): the stale-certificate
-  event went from **31.9% at ~13 min** to **12.3% at ~5 min**, which is an expected **~37 seconds per
-  merge**. The queue's throughput objection had *also* been discharged by the same change — ~4 merges/hour
-  serial at 15-minute CI, against an observed trunk cadence of 2.4–4/hour, became ~12/hour — so this is a
-  no on price rather than on feasibility. Against ~37 seconds a yes buys a repo-settings change, a step-3b
-  rebuild that is dead code until the day of the flip, and a GitHub-side mechanism in the middle of a chain
-  `ship-pr.ps1` currently owns end to end.
-
-  **The generalisable half: an option whose case rests on a measured cost has to be re-argued the day that
-  cost is measured away, and the argument does not survive on its own momentum.** The queue was the
-  standing answer for a week because the number behind it was 31.9% at ~13 min. Nothing about the queue
-  changed on September 3; the problem it was sized against shrank by a factor of nearly seven in expected
-  cost — 31.9% × ~13 min is ~4.1 minutes per merge, against 12.3% × ~5 min for ~0.6 — and an option
-  carried forward without re-reading its own premise would have been built anyway.
-
-  **The third prerequisite is therefore recorded and deliberately NOT built** — the one #1355 exists to
-  keep out of a closed thread. `ship-pr.ps1` step 3b (`:885`) refuses before `gh pr merge` (`:1268`) is
-  ever reached, and nothing in `scripts/**` detects a queue: under one the staleness predicate still fires
-  at its normal rate, and the refusal is then **wrong**, because enqueueing *is* the converging remedy. The
-  queue subsumes the predicate while the predicate blocks the path to the queue, and the operator's only
-  way through would be `-SkipStaleCheck` on every ship. It stays unbuilt on this repo's
-  no-pre-emptive-fixes rule, and it is written here so a future yes inherits it rather than rediscovering
-  it at the first refusal. Its shape is still open: skip 3b when a queue is detected on the base branch,
-  drop the predicate here entirely (the queue is strictly stronger), or gate it on the flipped setting.
-
-  **And two things a future flip should not learn the hard way**, both read from `gh pr merge --help` on
-  the day of the decision. *"When targeting a branch that requires a merge queue, no merge strategy is
-  required"* — **not required is not rejected**, so whether `$mergeMethod`'s `--merge` (`ship-pr.ps1:304`)
-  is accepted against a queue-backed branch is still unestablished, and is the first thing to check on the
-  first ship after a flip. And the sentence beside it — *"If required checks have not yet passed,
-  auto-merge will be enabled"* — means a yes is plausibly **two** settings, because `allow_auto_merge` is
-  `false` here. `ship-pr` waits for green and should land on the straight-enqueue branch instead, so this
-  is the path the happy case never exercises, which is exactly why it is written down.
-
-  **What would reopen it:** the fire rate climbing back above ~25%, or CI cost past ~10 minutes. Until
-  then the queue is a priced-and-declined option, not an open question.
-
-  **WHERE A DECISION IS ARGUED IN THAT FILE: DIRECTLY ABOVE THE KEY IT DECIDES** (September 22, 2026,
-  [#2314](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2314)). `ci.yml` is ~80% comment, and
-  that is the property this repo wants — a decision argued where it lives. What it had grown alongside it
-  is a **shared append point**: the comment run above `jobs:` belonged to no key, so a paragraph about
-  *any* job landed there, and git cannot merge two appends at one anchor. Two branches obeying the
-  convention correctly therefore conflicted **pairwise, by construction**.
-
-  **Measured, and the cost is not where it looks.** Three CI branches in one afternoon each appended to
-  that banner and each inserted a key under `runs-on:` in the `suites` job — #2296 (`timeout-minutes`),
-  #2303 (a job-scoped `permissions:` block) and #2304. `ship-pr` on #2300 found it at forward lap 3, as
-  `PUT .../pulls/2300/update-branch -> 422 merge conflict between base and head`, after roughly forty
-  minutes of CI waits across three laps. **Resolving it took about five minutes** — both sides were purely
-  additive and both were kept verbatim. The conflict was cheap; finding it was not.
-
-  **This is [#1255](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1255) one file over**, which
-  is what settles that it is a shape rather than an accident: a single fixed `dkj-policy/development.md`
-  made every merge to the trunk conflict every *other* open PR, the answer was one document per branch, and
-  the reasoning is quoted in `CLAUDE.md` to this day. A banner is that same shared anchor wearing a
-  different name.
-
-  **The answer is per-anchor placement, chosen by Dave over two alternatives that were priced.** Every
-  paragraph moves to sit above the one key, step or job it argues, so a new decision brings a **new**
-  anchor rather than another paragraph on an existing block. It strengthens *argue it where it lives*
-  rather than trading it away, which is why it beat the candidate the issue itself named — a one-line
-  pointer per decision with the argument moved into this lens — and a third option, one file per decision
-  under `.github/workflows/ci-decisions/`. Both of those buy conflict-freedom by moving the reasoning away
-  from the line it explains, and that property is the whole reason the file is ~80% comment.
-
-  **Nothing was rewritten: 301 comment lines, of which twelve changed, and every one of those twelve was a
-  cross-reference that the move made false** — *"see the banner above `jobs:`"* pointing at a paragraph now
-  sitting on the same key, and *"the shortcut below"* where the shortcut had become the paragraph above.
-  The move was verified by diffing the sorted comment bodies before and after rather than by reading the
-  diff, because a 156-line reshuffle is exactly the diff a reviewer cannot read.
-
-  **AND THAT METHOD HAS ONE BLIND SPOT, WHICH IT FOUND THE HARD WAY.** A sorted-comment-body diff proves
-  no line was **lost** and is structurally silent about a line that was **kept when it should have gone** —
-  a superseded clause left standing beside its replacement is an addition on one side and nothing at all on
-  the other, so it never appears in the comparison. Measured on this branch: the old *"See the banner above
-  `jobs:` for why the"* survived directly above its own replacement, leaving a stuttered clause and a
-  continuation pointing nowhere, and the verification reported clean. It was [Edith #17](specialist-06-17-lens.md)
-  reading the diff in place who caught it — so the sorted comparison answers *"is anything missing"* and a
-  human read of the new position answers *"does it still parse"*, and a relocation of this size needs both.
-
-  **What stays above `jobs:` is what is true of the FILE** — why there are three jobs (#1351), and that
-  every job declares a timeout at all (#2296). The per-job *numbers* moved to the keys they cap. The run
-  went 87 lines → 32, and `ci-shard.tests.ps1` now holds it to a **40**-line ceiling: the post-change
-  reading plus one paragraph of headroom, still under half of what it had reached. The ceiling is paired
-  with an assert that the convention is stated in the file's own head, because a ceiling that fires without
-  saying what to do instead sends the next author to raise the ceiling — the one repair that reopens the
-  class.
-
-  **The half the issue did not name, and the reason writing the convention down is part of the repair
-  rather than a note beside it:** #2296 had already half-adopted the answer. It wrote a two-line pointer
-  above `timeout-minutes:` in the `suites` job **and** a 31-line banner above `jobs:` — so the convention
-  was not merely unstated, it was stated by example in both directions at once, and a later author copying
-  whichever sat nearest had even odds of recreating the anchor.
-
-  **What this does NOT fix, deliberately:** two branches adding different keys under one `runs-on:` still
-  collide. That half is irreducible, took thirty seconds to resolve, and engineering it away would cost
-  more than it saves.
+- **`.github/workflows/ci.yml`** — the CI gate on GitHub: runs the lint gate and all test suites
+  (`scripts/tests/*.tests.ps1`) on every PR, every push to `main` and every `merge_group` event, as the
+  required check `lint-en-tests`. Before changing it, know:
+  - **"The same gate" is not "the same answer".** The local gate runs on your branch, CI on the *merge*
+    of your branch with the trunk, and the suite list is a glob — so a suite the trunk gained meanwhile
+    does not exist locally. Read the suite count; `git fetch` and merge the trunk **before** the gates.
+  - **One gate function.** The step calls `Invoke-TestSuiteGate` (`native-capture-lib.ps1`), the same one
+    `open-pr.ps1` and `cut-release.ps1` call; asserts in `cut-release-guardrail.tests.ps1` keep an inline
+    copy from returning. It passes `-MaxParallel ([Environment]::ProcessorCount)` deliberately (a
+    four-core runner nobody sits at should not hold half its cores back). `open-pr`/`ship-pr` take the
+    same parameter; the default is unchanged (#1443).
+  - **Concurrency.** Pushes to `main` key their group on `github.sha`, PRs as before — never one group
+    per ref, which cancelled merge-commit runs behind fold commits (#1294). It costs runner minutes on
+    purpose; whether the fold commit needs a full run is left open (#1300).
+  - **`merge_group` trigger** is pinned by `merge-queue-prereq.tests.ps1`: without it a merge queue would
+    be a total merge outage. The fold-commit shortcut is gated on `push`, so queue entries run in full.
+  - **Decisions are argued in comments directly above the key they decide** (~80% of the file is
+    comment). No shared banner above `jobs:` — it is a shared append point that conflicts pairwise (#2314);
+    `ci-shard.tests.ps1` holds the run above `jobs:` to a 40-line ceiling. Two branches adding different
+    keys under one `runs-on:` still collide; that is accepted.
+  - **The ruleset `main-ci-gate`** (GitHub → Settings → Rules) makes `lint-en-tests` required. It is
+    GitHub-side state: nothing in the tree records it, `repo-settings.yml` compares it daily
+    (see its bullet below). Rules: `deletion`, `non_fast_forward`, `required_status_checks`; `strict` stays
+    `false`, and so do `allow_auto_merge` and `allow_update_branch`.
+  - **Bypass is by actor and both bypass actors are people** (`OrganizationAdmin`, `RepositoryRole 5`).
+    GitHub Actions cannot be added (422), so a workflow that pushes to `main` borrows an org owner's token
+    (`FOLD_PUSH_TOKEN`, only for the push; #1506, #1507). A transfer can drop `bypass_actors` while the
+    ruleset still reads `active` (#1244, #1239): check the sub-field
+    (`gh api repos/DKJ-Solutions/dkj-claude-plugins/rulesets/19008062 --jq .bypass_actors`), and read the push's own answer
+    (`GH013 ... is expected` = list empty, `Bypassed rule violations` = list works). A commit's author does
+    not name its pusher; `gh api "repos/DKJ-Solutions/dkj-claude-plugins/activity?ref=refs/heads/main"` does
+    (#1278). A blocked fold is waited out, never committed locally (#1244). A direct push that works from
+    an account proves the admin bypass, not a Write role; the bypass rests on org ownership, which covers
+    every repo in the org and shows on no settings page here (#1284).
+  - **A conflict on a branch document: never resolve it in favour of the incoming side** — it destroys an
+    unfolded DEPLOY entry, the only copy of that changelog text (PR #1249 / #1250). Per-branch document
+    names removed the situation (#1255); an unfolded entry left on the trunk is reported by
+    `check-unfolded-entry.ps1` (#1270, its own bullet below).
+  - **`ship-pr.ps1` reads the PR's state after `gh pr merge`** rather than trusting the exit code (a queue
+    exits 0 having only enqueued; #1325). An unreadable state is deliberately not a refusal.
+  - **Declined: a per-decision pointer plus an argument in this lens, or one file per decision under
+    `.github/workflows/ci-decisions/`** (#2314) — both buy conflict-freedom by moving the reasoning away
+    from the line it explains.
+  - **Declined: `strict` + auto-merge + update-branch** (#1325) — GitHub does no server-side base sync
+    outside a merge queue, so they only add a block with no valve. **Declined: a merge queue** (#1355) —
+    the sharding of #1351 cut the stale-certificate cost to ~37 s per merge; reopen if the fire rate passes
+    ~25% or CI passes ~10 minutes. If it is ever switched on, `ship-pr.ps1` step 3b refuses before the
+    queue is reached (recorded, deliberately unbuilt), whether `--merge` is accepted under a queue is
+    unestablished, and `allow_auto_merge` probably needs flipping too. A queue is unavailable to a private
+    repo outside Enterprise Cloud (#1546).
+  - **Decided in:**
+    [#932](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/932),
+    [#1239](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1239),
+    [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244),
+    [#1255](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1255),
+    [#1278](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1278),
+    [#1284](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1284),
+    [#1292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1292),
+    [#1294](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1294),
+    [#1300](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1300),
+    [#1325](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1325),
+    [#1351](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1351),
+    [#1355](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1355),
+    [#1443](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1443),
+    [#1499](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1499),
+    [#1506](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1506),
+    [#1507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1507),
+    [#1540](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1540),
+    [#1546](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1546),
+    [#1720](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1720),
+    [#1726](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1726),
+    [#2314](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2314). The dated measurements are in
+    this file's history (`git log -p -- .claude/specialists/lenses/specialist-05-15-lens.md`).
 
 - **`.github/workflows/claude.yml` + `.github/workflows/claude-code-review.yml`** — the two Claude Code
-  workflows, added August 14, 2026 via
-  [PR #658](https://github.com/DaveKJohn/claude-code-specialists/pull/658). The first answers an
-  `@claude` mention in a comment; the second reviews every PR under the job id `claude-review`, which is
-  **advisory** — the ruleset names `lint-en-tests` and nothing else. Four hardening decisions sit in
-  those files and each one reads as arbitrary without its reason, so they are recorded here:
-  - **Both `uses:` are pinned by commit SHA**, not by the moving `v4`/`v1` tags. This repo is a public
-    plugin source: whoever can move a tag reaches every consumer through its CI.
-  - **`claude.yml` runs on a read-only tool allowlist**, because upstream's configuration doc states the
-    default set covers *"reading, committing, editing files"*. Without it, an `@claude` mention could
-    produce a branch and a commit that passed no gate here. The three `mcp__github_ci__*` tools are named
-    explicitly: the `actions: read` permission exists to enable exactly them, and an allowlist omitting
-    them would switch that capability off in silence. **Do not "restore" Edit/Write/Bash to make
+  workflows: the first answers an `@claude` mention in a comment, the second reviews every PR under the
+  job id `claude-review`, which is **advisory** (the ruleset names `lint-en-tests` and nothing else).
+  Before changing either, know:
+  - **Both `uses:` are pinned by commit SHA**, not by the moving tags: this is a public plugin source, and
+    whoever can move a tag reaches every consumer through its CI.
+  - **`claude.yml` runs on a read-only tool allowlist**, including the three `mcp__github_ci__*` tools the
+    `actions: read` permission exists to enable. **Do not "restore" Edit/Write/Bash to make
     `@claude fix this` work** — that it only answers is the decision, not a defect.
-  - **The `issues: [opened, assigned]` trigger is deliberately absent** from the upstream template's set.
-    The action's write-access gate governs who *triggers*, never who *wrote* the text a run then reads,
-    and this repo publishes two inbound issue templates — external prose is a designed-for input here.
-  - **The `permissions:` block is NOT the boundary, and both files say so.** `id-token: write` lets the
-    action mint a GitHub App token documented as Contents/Pull Requests/Issues at read **and** write; the
-    read-only scopes bound `GITHUB_TOKEN` alone. Audit either file by its scopes and you conclude the
-    opposite of what is true.
-
-  **The plugin marketplace is unpinned, and that was checked rather than skipped.** `plugin_marketplaces`
-  takes *"Git URLs to install from"* and neither the action's own `action.yml` nor `docs/usage.md`
-  documents a ref, tag or commit syntax — so no syntax was invented, per the
-  [#566](https://github.com/DaveKJohn/claude-code-specialists/issues/566) rule about a proposal naming a
-  mechanism that does not exist. The remedy if it ever matters is to drop the plugin and write the review
-  prompt inline, not to guess at a `#<sha>`.
-
-  **The App is NOT in `main-ci-gate`'s bypass list, and the method is the part worth keeping** (August
-  14, 2026). The question decides whether that App token can reach the trunk past the required check, and
-  the REST endpoints all refuse: `bypass_actors` is returned to admins only, and the work account
-  `davekokbwj` **then held** `admin: false, maintain: false, push: true` (it holds admin today — the role
-  table on the `ci.yml` bullet above). It was answered anyway, from three measurements that survive a
-  redacted field.
-
-  **All three readings below are from before the transfer and none of them reproduces today** — the list
-  was emptied by the transfer and refilled on September 3 with a *different* pair, so `bypass_actors` no
-  longer resolves to Repository admin + Write, `current_user_can_bypass` no longer discriminates from this
-  account (it is an org owner now, so it reads `always` whatever the roles say), and `updated_at` is the
-  restore's stamp rather than July 26's. The conclusion still holds — the current pair is
-  `OrganizationAdmin` + a repository role, and neither is an App — and **the method is what this entry is
-  for**: it is how a question about a field you cannot read gets answered instead of guessed at.
-  - **GraphQL redacts the entries but not the array.** `repository.rulesets.bypassActors` came back as
-    `nodes: [null, null]` — the contents are hidden from a non-admin, the **count** is not. Exactly two
-    actors.
-  - **`current_user_can_bypass: "always"`** on the REST ruleset, for an account that at the time held
-    nothing but `push`, means the **Write role** is one of the two — it was the only thing that account
-    had which could grant bypass. **The inference is only as good as the role it rests on**, which is why
-    the same reading proves nothing once that account holds admin.
-  - **`updated_at` dates the list.** The ruleset was last modified `2026-07-26T20:58`, and the Claude App
-    arrived `2026-08-14T08:46`. A list untouched for nineteen days cannot name an actor that did not
-    exist when it was written. The July 26 field-by-field re-check recorded in
-    [`language-layers.md`](../../rules/language-layers.md) names both actors as *Repository admin + the
-    Write role*, which matches the count of two and leaves no room for a third.
-
-  GitHub's own documentation closes the implicit route: roles and GitHub Apps are **separate** bypass
-  categories, so an App gets nothing from the Write role being listed. **The generalisable half: when an
-  API hides a field, check whether a sibling representation leaks its shape (a count, a length, a
-  timestamp) — three partial reads answered a question no single endpoint would.**
-
-  **What this bounds.** The App cannot push to `main`, delete it, or force-push. It *can* create a branch
-  and open a PR — which then merges only on a green `lint-en-tests`, like everyone else's. So the residual
-  is the ordinary route, and the read-only allowlist above closes the other end. The knob this turned on
-  was the **Write-role bypass** and its external-collaborator condition; since September 3, 2026 there is
-  no Write role in the list and the bypass rests on org ownership instead, so the knob to watch is **who
-  is an owner of `DKJ-Solutions`** — see the role table on the `ci.yml` bullet above.
-
-  **A RED `claude-review` HAS ALWAYS NAMED ITS OWN REASON, AND NOBODY WAS READING IT** — issue
-  [#1103](https://github.com/DaveKJohn/claude-code-specialists/issues/1103), August 29, 2026. The
-  **Why the review failed** step in that workflow prints `api_error_status`, writes it as a titled
-  annotation and repeats it in the job summary, and has done so since
-  [#966](https://github.com/DaveKJohn/claude-code-specialists/issues/966). The same class of report kept
-  arriving anyway — eight threads about this check red on every PR, every one of them since #966 the same
-  quota state, and #966 itself filed against a log already reading `429` and concluding that a secret
-  needed rotating. #1103 was filed with *"the actual cause: not measured"*, pointing at the marketplace
-  step, which is where the run happened to be when the error surfaced and not where it came from.
-
-  **The diagnosis was reachable and the reader was not, so the repair moved the sentence rather than
-  writing another one.** `ship-pr.ps1` now reads the failing check's annotations on the path where the
-  merge PROCEEDS and prints what that workflow said about itself, beside the warning naming the check
-  (`Get-FailedCheckRunRefs` + `Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`). The selection
-  rule is **a failure annotation carrying a title**: the Actions runner writes its own with an empty one
-  (*"Process completed with exit code 1"*), while `::error title=X::Y` is a sentence an author left for
-  exactly this reader — so it needs no maintenance and works in a consumer repo whose workflows this repo
-  has never seen, where a rule keyed on the name `claude-review` would report nothing at all. Only the
-  **not-required** failures are asked about: a required one is a refusal, and its gate runs locally where
-  the reader meets the reason first-hand.
-
-  **And the check STAYS RED on a 429** — that decision is unchanged and recorded in the workflow itself. A
-  green tick would hide that this PR got no review, which is exactly what #966 asked not to be silent.
-  What was wrong was the legibility, not the colour.
-
-  **AND THE RELAYED SENTENCE IS ONLY AS GOOD AS ITS AUTHOR** — issue
-  [#1112](https://github.com/DaveKJohn/claude-code-specialists/issues/1112), the day after. The relay works
-  and is the right shape; what was wrong was the sentence going through it. That headline told the reader the
-  reason line names *"when it comes back"*, and on August 29, 2026 run `33267175141` failed at 18:02 UTC
-  reading *"resets Aug 31, 7am (UTC)"* while runs `33268549172` and `33269512129` reviewed successfully at
-  18:43 and 18:55 the same evening — roughly **2.5 days early**, both of them real 1–3 minute reviews rather
-  than the nine-second workflow-validation skip.
-
-  **The repair went into the workflow, not into `Get-AuthoredFailureNote`, and that is the reusable part.**
-  The relay is generic on purpose: it repeats what an author wrote and cannot know which authors are reliable,
-  so a caveat added there would caveat every workflow in every consuming repo — including the ones whose
-  timings are exact. An over-claiming sentence is repaired where it is written. The lib now says so in the
-  comment beside its 500-character bound, which had itself asserted the reset time was *"the only actionable
-  word in the whole note"*.
-
-  **The standing rule that comment block now carries**, after three corrections from measurement —
-  [#974](https://github.com/DaveKJohn/claude-code-specialists/issues/974) (a tally of red runs, wrong by ~3x
-  when typed), [#1055](https://github.com/DaveKJohn/claude-code-specialists/issues/1055) (session versus
-  weekly window) and #1112 (the reset time): **the headline states only what the STATUS proves, and everything
-  the `result` STRING says is attributed to upstream rather than asserted.** The status proves the account is
-  out of quota and that a re-run adds none; it proves nothing about when the quota returns. *Why* it returned
-  early was deliberately not investigated — a rolling window, a session window clearing, an account change are
-  all plausible and none was measured — and the headline reports the discrepancy rather than a mechanism.
-
-  **AND THE SENTENCE HAS TO FIT THE PIPE THAT CARRIES IT** —
-  [#1116](https://github.com/DaveKJohn/claude-code-specialists/issues/1116), and it sits beside the three
-  above rather than among them: they corrected what the headline CLAIMS, this one asked how much of it
-  SURVIVES. Two caps bound the same string and neither owner can see the other: this workflow caps the
-  reason it appends at 300, `Get-AuthoredFailureNote` caps the whole message it relays at 500, and the
-  296-character headline puts the sum at 597. Because the relay cannot see where the headline stops, the
-  half it drops is the **tail of the reason** — where *"resets Aug 31, 7am (UTC)"* lives.
-
-  **Both numbers were left exactly where they were, and that is the finding.** The obvious repair —
-  lower the workflow's 300 so the sum fits — was built and then withdrawn on its own arithmetic:
-  `500 - 296 - 1 = 203` is what the operator's console shows **whichever end owns the cut**, so capping
-  here hands that reader the same 203 characters, drops the `...` that marks the loss, and costs the
-  GitHub annotation — read in the checks UI, where no 500-character bound applies — up to 97 characters
-  it currently keeps. Cutting from the *front* in the relay is the only change that would give the
-  console more, and it is not free either: the relay carries workflows it has never seen, and for one
-  whose message is all content and no preamble the front is the part worth keeping.
-
-  **What the coupling lacked was an owner, not a tighter number**, so `scripts/tests/pr-issues.tests.ps1`
-  now pins all three figures the arithmetic rests on — the relay's 500, the workflow's 300, and every
-  literal headline's length — and mutation-testing confirms each movement goes red naming the right one.
-  The headline is the one most likely to move: it is prose, and #974, #1055 and #1112 each rewrote it.
-
-  **The sampling that decided it, since #1116 explicitly asked for one before a repair.** All 54 red runs
-  available on August 29, 2026, carrying 45 titled failure annotations: every one a 429, upstream's
-  `result` first line **51 to 55** characters against 203 of room, longest message actually emitted
-  **341**. A reason must reach 204 characters — nearly four times the longest ever seen — before a reader
-  loses a word. **The same pass caught the comment defending the 500 citing run `33267175141` as a 460-character
-  note when it is 400** (title 55 + separator 4 + message 341). A comment that names a run id is inviting
-  that check, which is the argument for naming one.
-
-  **The transferable half: an overlap between two bounds is not automatically a defect, and the change
-  that removes the overlap is not automatically the fix.** Here it would have moved the loss from a marked
-  truncation in one reader's view to an unmarked one in another's, and delivered the same text to the
-  reader it was meant to help.
-  **AND THE RELAY IS ONLY AS GOOD AS THE WORKFLOW HAVING SPOKEN AT ALL** — issue
-  [#1245](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1245), September 2, 2026, and it is
-  the first entry in this narrative about a failure the diagnostic step never *saw*. Every measurement
-  above describes a run the SDK lived long enough to report on. The **Why the review failed** step is
-  gated on `execution_file != ''`, so when the action dies before the SDK is reached that step is
-  **skipped**, the workflow writes no titled annotation, and `Get-AuthoredFailureNote` — correctly —
-  selects nothing. The operator meets a red tick with a blank reason line: the #966 silence again, in the
-  one class all of the 429 work could not reach.
-
-  **Measured rather than reasoned about.** Run `33663986438` (PR #1249): step *Run Claude Code Review*
-  `failure` after 16s, step *Why the review failed* `skipped`, and the job's annotations were a Node-20
-  warning plus two **untitled** failures — *"Process completed with exit code 1"* and *"Action failed with
-  error: Claude Code is not installed on this repository"*. The reason was in the API the whole time, in
-  the one field the relay does not read. The cause was #1245's own subject: the Claude Code GitHub App did
-  not follow the transfer into `DKJ-Solutions`, so the app-token exchange returned 401.
-
-  **The repair is the second diagnostic step, and its placement is the #1112 rule applied again.** The
-  tempting change is to let the relay fall back to an untitled annotation — and it is the wrong one, for
-  the reason its own asserts already state: it would relay *"Process completed with exit code 1"* in every
-  consuming repo, which is the reassuring-looking note that says nothing. A workflow that wants to be heard
-  writes a title. So the workflow now has the **complementary** gate, `execution_file == ''`, and
-  `pr-issues.tests.ps1` pins that both halves of `failure()` exist — a class cannot fall between them
-  again.
-
-  **What that second sentence may CLAIM is the interesting constraint**, and it is the standing rule of
-  that file rather than a new one. It states only what an **empty output** proves: the SDK produced no
-  result, so the failure is in the setup around it and not in the diff, and no `api_error_status` exists —
-  a 429 or 529 arrives *with* a result message and is therefore the other step's business. It does **not**
-  name the cause, because it cannot: the cause is in the runner's untitled annotation and in the step log,
-  and the step can read neither. Naming today's cause in the sentence would be #966's mistake with the sign
-  flipped — an assertion the run never proved — so the app installation is cited in the job summary as *the
-  measured instance*, not as the diagnosis. The asserts pin that too: the headline may not mention 429,
-  529, quota or a reset.
-
-  **And the escape went in even though every character of that headline is a literal**, which is the
-  #1118 lesson taken at face value rather than re-learned. On literals `${headline//%/%25}` is a no-op —
-  but #1118 was precisely the branch nobody escaped because nobody had interpolated into it *yet*, and it
-  was then the only branch without the guard. So the test pins the emission-site **count** rather than a
-  `-ge`: a new site raises the number deliberately, and cannot slip in unescaped.
-
-  **The transferable half, and it is #1245's own sentence: after a transfer, verify the CAPABILITY, not
-  the artefact that represents it.** The post-transfer checklist checked that the Actions secret survived,
-  and it had — so the check came back clean while both workflows depending on it were dead anyway, because
-  the dependency that broke was one layer further out than the check reached. Its sibling
-  [#1244](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1244) is the same shape on the same
-  day: `main-ci-gate` present and active while the bypass list it depended on was gone. **Both failure
-  modes are silent by design** — one check is advisory, the other's absence only shows when somebody tries
-  to use it — which is why *"the artefact is still there"* is the one form of verification a transfer
-  defeats.
-
-  **What is NOT in this repo's gift**, stated because the temptation is to close the loop: the app install
-  is an **account-level** action on the `DKJ-Solutions` organisation, like the spend limit #1164 turned out
-  to need. A session can make the failure legible and cannot make it stop. The consumer-facing half — that
-  no shipped *page* states the titled-annotation contract, only the code enforcing it — is
-  [#1251](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1251), deliberately not folded in
-  here.
+  - **The `issues: [opened, assigned]` trigger is deliberately absent.** The action gates who triggers,
+    never who wrote the text it then reads, and this repo publishes inbound issue templates, so external
+    prose is a designed-for input.
+  - **The `permissions:` block is not the boundary.** `id-token: write` lets the action mint an App token
+    with read **and** write; the read-only scopes bound `GITHUB_TOKEN` alone. Never audit by scopes.
+  - **The plugin marketplace is unpinned on purpose**: no documented ref syntax exists, and none is to be
+    guessed (#566). If it ever matters, drop the plugin and write the review prompt inline.
+  - **The App is not a bypass actor** of `main-ci-gate` (both actors are people; see the `ci.yml` bullet),
+    so it can open a PR but not push to `main`. The knob to watch is who owns the `DKJ-Solutions` org.
+  - **`claude-review` stays red on a 429**: a green tick would hide that the PR got no review (#966). The
+    headline states only what the *status* proves; anything the `result` string says is attributed to
+    upstream (#974, #1055, #1112). An over-claiming sentence is repaired in the workflow that wrote it,
+    never in the generic relay `Get-AuthoredFailureNote` (`pr-issues-lib.ps1`), which `ship-pr.ps1` uses to
+    print a failing check's titled annotation (#1103). The relay selects only a **titled** failure
+    annotation.
+  - **Two diagnostic steps, complementary gates**: *Why the review failed* on `execution_file != ''`, and
+    a second on `execution_file == ''` (the action died before the SDK; #1245). The second may claim only
+    what an empty output proves and may not mention 429, 529, quota or a reset. Every emission site keeps
+    the `${headline//%/%25}` escape (#1118). `pr-issues.tests.ps1` pins both gates, the emission-site
+    count, and the three lengths the 500/300/headline arithmetic rests on (#1116).
+  - **After a repo transfer verify the capability, not the artefact**: the Claude Code GitHub App is an
+    account-level install on the org, and the Actions secret surviving proved nothing (#1245; the spend
+    limit is the same shape, #1164). A session can make the failure legible, not stop it.
+  - **Declined:** letting the relay fall back to untitled annotations (#1245) — it would relay "Process
+    completed with exit code 1" in every consumer. **Declined:** lowering the workflow's 300-character
+    reason cap so the sum fits the relay's 500 (#1116) — the operator's console shows the same 203
+    characters whichever end cuts.
+  - **Decided in:** [PR #658](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/658),
+    [#566](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/566),
+    [#966](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/966),
+    [#974](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/974),
+    [#1055](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1055),
+    [#1103](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1103),
+    [#1112](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1112),
+    [#1116](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1116),
+    [#1118](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1118),
+    [#1164](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1164),
+    [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244),
+    [#1245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1245),
+    [#1251](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1251) (no shipped page states the
+    titled-annotation contract). Measurements are in this file's history.
 
 - **`.github/workflows/unfolded-entry.yml` + `scripts/lint/check-unfolded-entry.ps1`** — the
   skipped-fold gate (issue #1270). The workflow runs the check on every `push` to `main`; the check is
   mirrored into the workflow plugin and also driven by `unfolded-entry-sessioncheck.ps1`. Advisory, not
-  in `main-ci-gate`. The full reasoning is in the `#1244` chain-reaction passage on the `ci.yml` bullet
-  above; the detector is `Get-UnfoldedTrunkEntry` in `entry-scaffold-lib.ps1`.
+  in `main-ci-gate` (a required check cannot gate a push anyway). The reasoning is in
+  [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244) and #1270; the detector is
+  `Get-UnfoldedTrunkEntry` in `entry-scaffold-lib.ps1`, one definition for both callers. It runs from CI
+  and from the SessionStart hook because neither reaches the whole population alone, and neither calls
+  `gh`. Its one false positive is the ship window (`ship-pr` pushes the merge commit, then seconds later
+  the fold commit), which **this workflow's own** `cancel-in-progress: true` swallows; `ci.yml` keys every
+  push on its own commit since #1294 and swallows nothing.
 
-  **Since [#1585](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1585) the check tells a
+  **Since [#1585](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1585) the check tells a
   SKIPPED fold from a checkout that is merely BEHIND**, and that distinction is invisible from the working
   copy alone: a stale checkout still has the document on disk and still has a `CHANGELOG.md` without the
   entry, so the detector reported a fold that `fold-on-merge.yml` had already pushed. The extra question
@@ -870,7 +318,7 @@ infrastructure.
   in `entry-scaffold-lib.ps1`.
 
   **It asked the OTHER half of the fold commit until
-  [#1601](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1601), and that half was
+  [#1601](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1601), and that half was
   guessable rather than decisive.** The fold removes the document and adds the entry in one commit, so
   #1585 asked the cheap half — `git cat-file -e origin/<trunk>:<rel>`, is the document gone upstream — and
   fenced off absence's other causes with a gap gate: ask only when the gap is non-zero. **A gap is not a
@@ -905,7 +353,7 @@ infrastructure.
   15368), which is not on `main-ci-gate`'s bypass list and cannot be added to it: the app is owned and
   administered by `anthropics`, merely installed on this org, so there is no private key here it
   could authenticate as. The bypass list already carries `OrganizationAdmin` with
-  `bypass_mode: always` (see the role table on the `ci.yml` bullet above), so the checkout step wires
+  `bypass_mode: always` (see the `ci.yml` bullet above), so the checkout step wires
   in `secrets.FOLD_PUSH_TOKEN` instead — a fine-grained personal access token, created by an org owner,
   scoped to **this repository only** and to **`Contents: Read and write` only** — and that identity
   clears the ruleset with no ruleset change at all.
@@ -916,18 +364,18 @@ infrastructure.
   shape #1499 measured, where the ruleset names both `lint-en-tests` and the merge-queue rule together,
   so read the run's own last lines rather than assume which of the two it is — and nothing else
   announces the expiry; there is no reminder ahead of it. Renewal is manual: **an org owner of
-  `DKJ-Solutions`** (today DaveKJohn, davekokbwj, maikel-bwj — the same role table) **creates a new
+  `DKJ-Solutions`** (measured September 3, 2026: DaveKJohn, davekokbwj, maikel-bwj) **creates a new
   fine-grained PAT with the identical scope — this repository only,
   `Contents: Read and write` only — and overwrites the secret**,
-  `gh secret set FOLD_PUSH_TOKEN --repo DKJ-Solutions/claude-code-specialists`. Today that renewal is
+  `gh secret set FOLD_PUSH_TOKEN --repo DKJ-Solutions/dkj-claude-plugins`. Today that renewal is
   tribal knowledge held by whoever created the token (Dave); this paragraph is what keeps it from
   staying that way if the 366 days run out while he is not the one reading a red run.
 - **`.github/workflows/verify-resolved.yml` + `scripts/release/verify-pushed-merges.ps1`** — the
   resolves gate's second half surviving the same merge (issue
-  [#1511](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1511), September 6, 2026), one
+  [#1511](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1511), September 6, 2026), one
   step further down `ship-pr.ps1` than the fold above. `verify-resolved-issues.ps1` is that script's
   step 6 and ran only from the shipping session, right after its own `gh pr merge` returned; since
-  [#1506](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1506) enqueues instead of
+  [#1506](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1506) enqueues instead of
   merging, that step never runs. **What was lost is narrower than it sounds and is worth stating
   exactly**: GitHub honours the body's closing keywords on a queue merge like any other — measured on
   PR #1509, where #1506 closed on the merge and a later `-ReportOnly` run reported `every declared issue
@@ -970,350 +418,120 @@ infrastructure.
   for a quote rather than the behaviour, since a fake `gh` would answer either form happily.
 
 - **`.github/workflows/repo-settings.yml` + `scripts/lint/check-repo-settings.ps1`** — the one runner
-  here whose subject is **not** this tree (issue
-  [#1726](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1726), September 9, 2026). Every
-  other check on this page reads the repo or a machine-local record; this one reads **GitHub**, and
-  compares it against `Get-ExpectedRepoSettings` in
+  here whose subject is **not** this tree: daily (06:30 UTC, plus `workflow_dispatch`) it reads **GitHub**
+  and compares it against `Get-ExpectedRepoSettings` in
   [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) — seven declared facts, each carrying the
-  document in this tree that states it and the date that statement was last measured.
+  document in this tree that states it and the date it was last measured. Before changing it, know:
+  - **Scheduled, not a SessionStart hook**, because a scheduled run leaves a *dated* record (#1720);
+    `workflow_dispatch` also survives GitHub suspending a schedule after 60 days of inactivity (#1726).
+  - **Not in `main-ci-gate`**: a check whose subject is the ruleset, required by that ruleset, is
+    self-referential and would stop the trunk over a switch only the owner can flip. **It writes nothing
+    to GitHub, ever** (settings are the owner's surface; `adopt-ci-floor.ps1` follows the same rule, #1972),
+    holds `contents: read` and borrows no standing credential.
+  - **`bypass_actors` reads as unreadable in CI** (admins only), which is a third verdict `[?]`, not a pass
+    and not a failure: compare that one field by running the script locally. Everything else comes from
+    `repos/<repo>/rules/branches/main` and the repo object, not `rulesets/<id>` (no admin, no id to go
+    stale, and it reports the rules *effective* on the trunk).
+  - **An undeclared field is not checked.** `scripts/tests/repo-settings-gate.tests.ps1` holds the
+    declaration to shape, not values: every `Field` is one the check can read, every record carries its
+    `Recorded`, `Where` and `Why`.
+  - **It cannot cover the session about to cause the drift** (`allow_auto_merge` was enabled live against a
+    record declaring `false`, #2265). So: read the declaration before proposing a GitHub-side setting change
+    (hard rule in [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules),
+    #1843), and `ship-pr.ps1`'s CI-wait invitation is *derived* from `Get-ExpectedRepoSettings`, never
+    asserted, so a consumer declaring nothing gets no line.
 
-  **The gap it closes is the one the ruleset bullet above states in prose and could not act on**:
-  *"a ruleset is GitHub-side state, so nothing in this tree changes when it changes."* That sentence is
-  still exactly right, and it is now the only half that was ever missing — a detector.
-
-  **THREE DRIFTS IN EIGHT DAYS, which is why this was built rather than written down.** #1726 was filed
-  arguing for doing nothing, on this repo's own no-pre-emptive-fixes rule and the words *"one occurrence
-  is not a rate"* — and that premise did not survive the tree. `bypass_actors` emptied by the transfer
-  (#1244): every direct-on-`main` exception dead, every fold blocked, found by a failing push a day
-  later. `merge_queue` added and removed with no trace (#1499, #1720). And `allow_auto_merge` live
-  `true` against four records here saying `false`
-  ([#1730](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1730)) — **found by this check's
-  own first run**, while that premise was being checked. Two of the three had mechanical consequences,
-  not merely a session reading a wrong sentence.
-
-  **SCHEDULED, NOT A SessionStart HOOK, and the reason is the date** (Dave's call on #1726's menu). A
-  hook reaches a drift sooner and costs a `gh api` round trip at every session start. What decided it is
-  the half a hook cannot do at all: a scheduled run leaves a **dated** record. #1720's own complaint is
-  that the removal has no date anywhere, *"because September 9 is when it was measured, not when it
-  happened"* — a hook reports to whoever happens to open a session, and if nobody does, nothing is
-  written down. Daily at 06:30 UTC bounds every future answer to 24 hours; `workflow_dispatch` is how
-  the answer is had on the day a setting is changed on purpose, and the one trigger that survives
-  GitHub suspending a schedule after 60 days of repo inactivity.
-
-  **NOT in `main-ci-gate`**, like `unfolded-entry.yml` and `branch-entry.yml` — the two that state that
-  reasoning for themselves — and for a sharper version of it: a
-  check whose subject *is* the ruleset, required *by* that ruleset, would be self-referential — and it
-  would stop the trunk over a switch only the owner can flip, so a drift would block every merge instead of
-  reporting one. **And it writes nothing to GitHub**, ever: repo settings are the owner's surface, the same
-  rule `adopt-ci-floor.ps1` follows when it composes its required-check ruleset command and refuses to
-  run it ([#1972](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1972)) — its merge-queue
-  instruction stays a UI pointer instead, since that switch is scheduling policy nobody here has
-  chosen. It holds `contents: read` and borrows no standing credential, which is the whole difference
-  from `fold-on-merge.yml` two bullets up.
-
-  **ONE FIELD READS AS UNREADABLE IN CI, AND THAT IS A THIRD VERDICT RATHER THAN A PASS.**
-  `bypass_actors` is returned to repo administrators only, so the job-scoped `GITHUB_TOKEN` cannot see
-  the one field whose emptying was #1244 — collapsing that into "matches" would make the check silent
-  about the drift with the worst consequences. So it prints `[?]`, says why, and does not fail the run;
-  run the script locally to compare that one. Everything else comes from
-  `repos/<repo>/rules/branches/main` and the repo object, both readable with `contents: read` — and the
-  branch endpoint is deliberately preferred over `rulesets/<id>` for the rest: no admin, no id to go
-  stale when a ruleset is re-created, and it reports the rules **effective** on the trunk, which is what
-  every document here is actually about.
-
-  **What it costs to add a fact, and what it costs not to.** An unstated field is not checked, so
-  nothing in the declaration can go stale for a fact nobody chose to declare — but the converse is that
-  a load-bearing setting nobody declares stays exactly as invisible as all seven of these were before
-  September 9. `scripts/tests/repo-settings-gate.tests.ps1` holds the declaration to shape rather than
-  to values (68 asserts, re-counted September 22, 2026 — this figure read 46 against an actual 64,
-  having been left behind by asserts added after it was written): every `Field` must be one the check
-  knows how to read, and every record must carry its `Recorded`, `Where` and `Why`, because a `Field`
-  typo is this check's own failure mode arriving from the inside — a declared fact silently ceasing to
-  be watched.
-
-  **AND THE ONE MOMENT IT STRUCTURALLY CANNOT COVER IS THE SESSION THAT IS ABOUT TO CAUSE THE DRIFT**
-  ([#2265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2265), September 22, 2026).
-  Measured while landing #2255: `ship-pr` was waiting on `lint-en-tests` for PR #2262 with three of the
-  four CI shards still queued on GitHub runners, and the session offered enabling `allow_auto_merge` as
-  the way to stop waiting. It was enabled and auto-merge was armed — against the record above declaring
-  it `false`, whose reason is that *with strict off, "up to date" is not a merge requirement, so
-  auto-merge lands a stale-but-green certificate unattended* — with `origin/main` nine commits ahead of
-  that branch at that very moment, which is that reason live rather than theoretical, and with step 3b
-  blind to it because an auto-merge happens without a shipping session (#1730). Both the setting and the
-  armed auto-merge were reverted in the same session; the check reads 7 of 7 `[OK]` again, re-measured
-  September 22, 2026, so nothing persisted.
-
-  **The schedule is not the defect and #1726 is not reversed.** Dave's call there was about detecting
-  drift *somebody else* caused, where a dated daily record is exactly the right instrument. This is the
-  other shape: the session is the one about to cause it, and at that moment these seven declared facts
-  are the most relevant thing in the repo and the least visible — machine-readable, about a second
-  away, and pointed at by nothing in a session. So the repair is two **pointers** and not a third
-  runner; the session-side guard #1726 weighed and declined stays declined.
-  - **The portable half** is a hard rule in
-    [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules):
-    read the declaration before proposing a GitHub-side setting change, because the check's earliest
-    catch is *after* the change and after whatever the change let through. It travels, because a
-    consumer's GitHub-side state drifts the same way and `check-repo-settings.ps1` is theirs too
-    (#1843).
-  - **The local half is at the measured moment**, in `ship-pr.ps1`'s CI-wait invitation — the block that
-    already answers *"this wait is long, what do I do about it"* now also answers *"not that"*: it says
-    how many GitHub-side settings this repo declares, names auto-merge among them where that field is
-    one of them, and points at the check. **Derived from `Get-ExpectedRepoSettings`, never asserted**,
-    so a consumer who declares nothing gets no line at all — the same rule that keeps step 3 from naming
-    a check (*"naming one here would be a claim about the consumer's CI that this script cannot keep"*),
-    applied to a repo's settings.
-
-  **BOTH RUNNERS ABOVE NOW HAVE A CONSUMER-SHAPED TWIN, AND NOTHING HOLDS THE TWO IN SYNC** (issue
-  [#1516](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1516), September 6, 2026).
-  The queue became this workflow's policy for every repo running it, and a queue reaches a consumer as
-  a *policy* rather than as a release: the setting is theirs to flip, and neither runner is plugin
-  payload — a plugin install writes nothing into a repo. So
-  [`scripts/task/adopt-ci-floor.ps1`](../../../scripts/task/adopt-ci-floor.ps1) carries derived
-  copies of both, as generated line arrays, and places them on `-Apply`. They differ from the originals
-  in exactly two structural ways: they reach their scripts through a checked-out `.workflow-scripts`
-  clone of the plugin tree instead of through this repo's in-repo paths, and they set
-  `CLAUDE_PROJECT_DIR` so those mirrored scripts judge the consumer's tree. Everything else — the
-  `FOLD_PUSH_TOKEN` checkout, the `contents: read` block, the two-outcome check step, the
-  `issues: write` split — is the same decision, restated.
-
-  **That restatement is the drift risk, and it is stated here rather than gated because no gate fits.**
-  A byte comparison would be wrong (the two paths genuinely differ), and a property gate would be a
-  third statement of the same rules. What holds today is
-  [`scripts/tests/adopt-ci-floor.tests.ps1`](../../../scripts/tests/adopt-ci-floor.tests.ps1),
-  which pins the properties that would break a consumer silently — the plugin paths, the
-  `CLAUDE_PROJECT_DIR`, and the credential split in both directions. **So: change either workflow on
-  this page and read that script in the same movement.** The script itself refuses to run here, which
-  is right and is also why nobody editing these two files is reminded of it by the tooling.
-
-  **FOUR CORRECTIONS LANDED TOGETHER, ALL MEASURED IN A BWJ CONSUMER ON 2026-09-07** (inbound
-  [#1539](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1539),
-  [#1542](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1542),
-  [#1543](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1543),
-  [#1544](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1544)), and all four applied
-  to both this repo's own two workflows and the `adopt-ci-floor.ps1` twins:
-  - **#1542 — the merge stamp is UTC.** `Format-EntryMergeStamp` rendered it with `.ToLocalTime()`,
-    which was a display string until #1280 made `Get-EntryInsertOffset` derive the entry's *insert
-    position* from it. A sort key cannot be local time: a repo that folds from both a UTC GitHub runner
-    and a maintainer's laptop then writes stamps offset by the maintainer's UTC offset, dropping entries
-    out of the chronological TIER 0 order #1280 fixed. `.ToUniversalTime()` in `entry-scaffold-lib.ps1`
-    and the `FallbackNow` in `fold-changelog-entry.ps1`. Stamps written before this stay local; the
-    insert walk stops at the first older stamp, so the skew is bounded to neighbours across that
-    boundary until they age out at the next cut.
-  - **#1543 — the fold runner checks out the trunk tip, not the event SHA.** `actions/checkout` on a
-    `push` defaults to `github.sha`; in a queueless consumer `ship-pr` folds locally and pushes on top
-    within seconds, so the slower runner read a tree one commit behind origin and the fold's trunk-gap
-    guard (#1405) refused — a false red on every `ship-pr` merge. `ref: main` (here) / `ref: <trunk>`
-    (the template) makes the job read "does the trunk carry a leftover NOW", which is the question it
-    exists for. `verify-resolved` keeps the event SHA — it resolves *this push's* PRs and has no
-    trunk-gap guard.
-  - **#1586 — and `ref: main` did NOT make the trunk-gap guard unreachable, which is what #1543's repair
-    claimed and what both workflow headers said until this was measured.** The ref is read **once**, at
-    the checkout; the guard measures the same trunk again from inside the fold, about eleven seconds
-    later. So a second merge landing in that gap still trips it — run `34206684361`, 2026-09-08: the
-    checkout took `e8ca4cb7` (`merge: … (#1576)`) at 08:50:31, so the leftover was genuinely on the trunk
-    and correctly found, and by 08:50:42 the shipping session had pushed *that branch's own fold*, leaving
-    this checkout 1 behind. The guard was right, the trunk ended correct, and the job went red for a state
-    that no longer existed. **The repair is the stand-down, not a fetch:** the fold's trunk-freshness
-    refusal now exits **2** — the only thing in that script that does — and the job exits 0 on that code
-    alone, because the push that moved the trunk queues its own run of the same job behind this one
-    (that is #1544's group, above, doing load-bearing work) and the guard fires in a **pre-pass**, so
-    nothing was written. **`git fetch` + `--ff-only` before the fold was the candidate and was declined**:
-    it narrows the window from ~11s to ~1s without closing it, leaving the job red *rarely*, which is
-    worse than predictably red and is still the fourth self-healing meaning #1539's triage exists to keep
-    out. The list below therefore stays **three**: a stand-down is this job declining to answer a question
-    a successor run is already queued to answer, not a way of failing.
-
-    **AND THE SAME RACE RUN THE OTHER WAY LANDS ON `ship-pr`, WITH A CODE OF ITS OWN** (issue
-    [#1792](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1792), measured here on
-    2026-09-10, shipping PR #1789). With the queue retired (#1720) both runners fold on the ordinary
-    path, so the loser is sometimes the **session** — and the two losses were never equally cheap: a red
-    CI job is read once and closed, while `ship-pr`'s `-ne 0` ended a *correct* ship by reporting a
-    failure and leaving the session's local `main` diverged 1/1, which `CLAUDE.md` reserves every obvious
-    way out of (`reset --hard`, a rebase on a shared branch) to the owner. The fold's redundant-commit verdict
-    now exits **3** — its second and last code of its own — and `ship-pr` reads it as a stood-down
-    success, carries on through steps 5b/6, and prints in a step 5c the two commands that realign this
-    checkout: a `backup/fold-<branch>` ref, then `reset --keep origin/main` (trunk checked out here) or
-    `branch -f main origin/main` (nothing holds it). **`2` and `3` are not merged**, because after `2`
-    nothing was written and after `3` a commit is on the local trunk — and neither script repairs it, so
-    conflating them would either invent a leftover or hide one. **Both codes have one testable end each
-    in `fold-changelog.tests.ps1`**: `exit 3` from exactly one place, and `ship-pr.ps1`'s own reading
-    pinned as source text, because that orchestrator has no suite of its own and `-ne 0` is precisely
-    what stayed the tested behaviour on the caller side through #1586.
-  - **#1544 — the concurrency group is constant per trunk.** Keyed on `github.sha` it was its own group
-    every run and serialised nothing, so two trunk pushes close together raced — and this job *pushes*.
-    `github.ref` keeps `cancel-in-progress: false` (no *running* fold dropped) and adds queueing (no
-    race). Same change to `verify-resolved.yml`. **That field never protected a *pending* run**, and
-    #2813 measured the cost: a skipped fold-only push displaced a merge's pending run in both files, so
-    a fold-only push now takes a per-commit group of its own (the measurement is in `fold-on-merge.yml`'s header).
-  - **#1539 — the red-run triage names three causes, not two.** An absent or under-scoped
-    `FOLD_PUSH_TOKEN` fails `actions/checkout` and leaves every later step `skipped`, with no fold step
-    to read — the cause a consumer meets first, on adoption day, and the one to rule out first. The
-    workflow headers, `adopt-dkj-policy`'s SKILL, and `adopt-ci-floor.ps1`'s own console note now say
-    so; a fine-grained PAT lists repositories one by one, so a repo *created* rather than transferred
-    (an org move with no GitHub transfer) falls outside an existing token's selection silently.
+  - **The fold and verify-resolved runners have a consumer-shaped twin** (#1516):
+    [`scripts/task/adopt-ci-floor.ps1`](../../../scripts/task/adopt-ci-floor.ps1) carries derived copies of
+    both as generated line arrays. They differ in exactly two ways (the `.workflow-scripts` plugin clone
+    path, and `CLAUDE_PROJECT_DIR`); nothing else may. Nothing gates the two in sync, so **change either
+    workflow and read `scripts/tests/adopt-ci-floor.tests.ps1` in the same movement**; the script itself
+    refuses to run here, so the tooling will not remind you.
+  - **Live rules of those two runners** (four corrections from a consumer, applied to both this repo's
+    files and the twins: #1539, #1542, #1543, #1544):
+    the merge stamp is **UTC**, because it is a sort key (#1542); the fold runner checks out
+    `ref: main`, not the event SHA (#1543), but the ref is read once, so the trunk-gap guard can still trip
+    — that refusal exits **2** and the job exits 0 on that code alone (#1586); the redundant-commit verdict
+    exits **3**, which `ship-pr.ps1` reads as a stood-down success and follows with step 5c's realign
+    commands (#1792) — `2` and `3` are never merged; the concurrency group is constant per trunk with
+    `cancel-in-progress: false`, and a fold-only push takes a per-commit group (#1544, #2813); the red-run
+    triage names **three** causes, and an absent or under-scoped `FOLD_PUSH_TOKEN` is the one to rule out
+    first (#1539) — a fine-grained PAT lists repositories one by one, so a repo *created* rather than
+    transferred falls outside an existing token's selection silently.
+  - **Declined: `git fetch` + `--ff-only` before the fold** (#1586) — it narrows the race without closing
+    it, leaving the job red rarely, which is worse than predictably red. **Declined: a session-side
+    guard** (#1726) — the two pointers under "It cannot cover the session" are the repair.
+  - **Decided in:**
+    [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244),
+    [#1499](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1499),
+    [#1516](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1516),
+    [#1539](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1539),
+    [#1542](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1542),
+    [#1543](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1543),
+    [#1544](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1544),
+    [#1586](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1586),
+    [#1720](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1720),
+    [#1726](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1726),
+    [#1730](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1730),
+    [#1792](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1792),
+    [#1843](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1843),
+    [#1972](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1972),
+    [#2265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2265),
+    [#2813](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2813). Measurements are in this
+    file's history.
 
 - **`.github/workflows/merge-on-green.yml` + `scripts/ci/pick-merge-on-green.ps1` + `scripts/lib/merge-on-green-lib.ps1`**
-  — the merge that survives the *session*, where the two runners above survive the *merger*
-  ([#2319](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2319), September 23, 2026).
-  `ship-pr` refusing on a red required check leaves the merge owed to three things at once: a session
-  still alive, a person who notices CI turned green, and a checkout standing on the branch. Measured on
-  PR #2316: `gh run rerun --failed` turned every check green and nothing merged it, because the run that
-  had been watching exited at step 3 — and re-running `ship-pr` then refused *again*, on a checkout its
-  own step 2b (#1073) had put on the trunk.
-
-  **IT RUNS `ship-pr.ps1`; IT DOES NOT RE-DERIVE A SINGLE GATE.** #2319 proposed a runner that merges
-  "only when the required check is green on the exact head and the staleness count is zero" — and that
-  second predicate is step 3b, with the step-list gate and the DEPLOY lock two more the issue's list
-  leaves out. So the job checks the branch out and runs the script that holds all of them, which also
-  means it folds (step 5) and verifies the resolves (step 6) exactly as a live session would. Every
-  later repair to `ship-pr` reaches this runner with no edit here. The same restraint
-  `ci-merge-skip-lib.ps1` shows one file over, taken one step further: that one re-asks step 3b's
-  question from CI by calling the identical pure functions; this one does not ask it twice at all.
-
-  **THE ARMING LABEL IS THE AUTHORISATION, AND `ship-pr` IS ITS ONLY WRITER.** The constitution
-  `CLAUDE.md` imports holds two
-  kinds of PR back for the owner's own word — a visible result, and anything irreversible or outward-facing —
-  and a runner merging every green PR would merge those too. `merge-when-green` is set once the PR is
-  open and before `ship-pr` starts waiting on CI (#2393; until then only when its CI verdict
-  refused, which left a ship that died mid-watch or refused at step 3b unarmed), so it is a record
-  that a session had *already begun shipping*, which is precisely what those two exceptions
-  withhold. A PR kept back for the owner never had `ship-pr` run on it. The label creates itself on first use
-  rather than needing an adoption step, because
-  `gh pr edit --add-label` fails outright on a label the repo does not have and this script travels to
-  every consumer.
-
-  **THE MERGE IS MADE BY `FOLD_PUSH_TOKEN`, AND THAT IS NOT A CONVENIENCE.** A push *caused by* the
-  job-scoped `GITHUB_TOKEN` starts no workflow runs — the fact `verify-resolved.yml`'s header already
-  records from the other side. So a `GITHUB_TOKEN` merge would land the PR and silence `ci.yml` on the
-  trunk, `fold-on-merge.yml` and `verify-resolved.yml` all three: the unobserved-merge state those two
-  runners exist to close, reintroduced by the mechanism meant to help. The cost is that the secret needs
-  `Pull requests: write` added to it, which is the owner's act and not a branch's; until it is made this job
-  fails loudly with a 403 on the merge and can never merge without folding.
-
-  **IT IS THE PRINCIPLED ANSWER TO THE TEMPTATION #2265 MEASURED**, and it does not reverse that
-  record. `repo.allow_auto_merge` stays `false`: GitHub's own auto-merge cannot perform step 3b, so with
-  `strict` off it lands a stale-but-green certificate unattended, which is #1292 exactly. What #2265
-  measured was a session reaching for that switch to stop waiting. This runner gives that impulse
-  somewhere legitimate to go — the wait ends without a person in it, *and* the staleness check is kept
-  rather than skipped.
-
-  **IT SHIPS WITH `-SkipLint -SkipTests`, AND OMITTING THAT PAIR WOULD BE THE EXPENSIVE MISTAKE.**
-  `ship-pr`'s step 1 calls `open-pr.ps1` even for a pull request that is already open — it skips only
-  the `gh pr create` and still runs the gates and the push (#457's repair, deliberately made in
-  `open-pr` rather than in the orchestrator). So a runner that just ran `ship-pr.ps1` would re-run the
-  whole local suite pool, ~43 minutes (#2317), inside a job whose cap is 45. Skipping it is not a gate
-  bypassed: the sweep picked this pull request *because* the required check is green on its own head,
-  and that check **is** this same gate, run on GitHub, on this same commit — the certificate is what the
-  merge is allowed on, not the local copy.
-
-  **A SWEEP, NOT AN EVENT-DERIVED PR.** Three triggers wake one sweep — a CI `workflow_run`, a
-  30-minute schedule, `workflow_dispatch` — and none of them is read for *which* PR is owed a merge;
-  `pick-merge-on-green.ps1` reads the tracker instead. The schedule is what makes it durable: #2319's own
-  incident was repaired with `gh run rerun --failed`, and whether a partial re-run re-emits
-  `workflow_run` is not a contract worth resting this on. The concurrency group is a **constant** with
-  `cancel-in-progress: false`, which is the opposite choice from the two push-triggered runners and for a
-  reason they do not have — those answer a question about one push, while two concurrent sweeps would
-  race to ship the *same* PR. One PR per sweep, lowest number first; the merge is itself a push to the
-  trunk, so the next sweep is already queued behind it and the backlog drains by construction.
-
-  **`workflow_run` RUNS THE DEFAULT BRANCH'S COPY OF THIS FILE**, whatever branch the CI run was for —
-  so this workflow cannot be proved on its own pull request, and its first live proof is its own first
-  sweep after the merge. Read alongside `check-repo-settings.ps1`'s own `[?]` verdict above: both are
-  places where the honest answer is *this cannot be checked from here*.
-
-  **AND `workflow_run` IS THE TRIGGER THAT RUNS WITH SECRETS FOR A FORK'S PULL REQUEST**, which is its
-  standard hazard and the reason this job reads **nothing** out of the event. Everything it acts on comes
-  from the tracker: an open pull request carrying a label only `ship-pr` writes, whose head is a branch of
-  *this* repository — `pick-merge-on-green.ps1` refuses a cross-repository one outright rather than letting
-  it fail at the checkout. This repo is public, so a fork's pull request can start the job and reach none of
-  its decisions. Both guards are asked because neither is load-bearing alone: today the label is out of a
-  stranger's reach, and "is the head ref in this repo" does not depend on that staying true.
-
-  **THE THIRD PRECONDITION IS REMOVED IN `ship-pr` ITSELF.** #1620 turned the on-the-trunk refusal from
-  a rule into a diagnosis; it still handed a person a command the script had already worked out. Now,
-  on **exactly one** candidate, a **clean** tree and a name `ref-print-lib.ps1` would already put on a
-  command line, it performs the checkout and carries on. The widening is over which branch gets *read*,
-  never over what may merge — a parked branch is still refused by the step-list gate a few steps down.
-  **It is a test gap and named as one**: the block reads HEAD, the tracker and the working tree and
-  drives `git checkout`, so there is no pure function to hand a payload to;
-  `scripts/tests/merge-on-green-lib.tests.ps1` holds the three conditions structurally and asserts the
-  #1620 refusal survived, which is not the same as covering the behaviour.
-
-  **ITS CONSUMER TWIN IS `adopt-ci-floor.ps1`'s FOURTH RUNNER**
-  ([#2329](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2329)). `ship-pr.ps1` is a shared
-  script, so a consumer got the labelling and the sentence promising a sweep a release before it got
-  the sweep — the same order `fold-on-merge.yml` landed in, built here under #1493 and derived
-  afterwards. The derived copy reaches `pick-merge-on-green.ps1` and `ship-pr.ps1` out of the plugin
-  checkout and runs both against the consumer's workspace via `CLAUDE_PROJECT_DIR`. **That needed one
-  repair to the picker, not only a template**: it resolved its root as `$PSScriptRoot\..\..`, which in a
-  consumer is the checkout of *this* tree, so its `Get-RepoName` read would have come off this repo's
-  own `repo-config.ps1` and swept this repo's pull requests from a consumer's runner. It now resolves
-  dual-context like every other mirrored script, and is mirrored itself. Its `workflow_run` list is read off the consumer's own pull_request workflows' top-level
-  `name:`, and left out rather than guessed where none declares one.
-
-  **AND SINCE #2437 THIS REPO'S OWN COPY SHIPS FROM A TRUSTED TRUNK, NOT FROM THE PR BRANCH.** Until
-  then this runner checked `main` out once with `FOLD_PUSH_TOKEN` persisted into the workspace, then
-  `git checkout <branch>` **in that same workspace** — so `ship-pr.ps1` and everything it dot-sources ran
-  as the branch's own PowerShell, in a process holding a standing write credential
-  ([#2338](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2338), measured: ~80% of merged
-  PRs here touch `scripts/`, `.github/`, `.workflow-scripts/` or a plugin's `scripts/`, so
-  `Get-MergeOnGreenExecutedPathHit` refused the sweep on almost every ship). The design (Sebastian #23's
-  review, four conditions, all built before anything shipped):
-
-  - **Two checkouts, two `.git` directories, `persist-credentials: false` on both.** `trusted-main` (the
-    trunk) and `pr-branch` (the picked PR's head) share nothing but the runner's disk. `ship-pr.ps1` —
-    and every sibling lib it loads via `$PSScriptRoot` — runs from `trusted-main`; `CLAUDE_PROJECT_DIR`
-    points `$repoRoot` at `pr-branch`, so the merge, the step-list gate, the DEPLOY lock and the branch's
-    own push still act on that tree's actual commit.
-  - **`ship-pr.ps1`'s new `-TrustedRoot` parameter** (forwarded to `open-pr.ps1` as `-SeamRoot`)
-    repoints the *one* thing `$PSScriptRoot` cannot supply for free: the two REPO-OWNED seams
-    (`scripts/repo-config.ps1`, `scripts/lib/branch-info.ps1`) both scripts read from `$repoRoot` rather
-    than from beside themselves, because a repo's own name and its own branch-prefix table are not
-    portable code. **Named limitation, not silently accepted**: a PR editing either seam ships under the
-    TRUNK's answer to it, not its own — a staleness cost, never a safety one, and
-    `Get-MergeOnGreenExecutedPathHit` still refuses such a PR to the sweep for exactly this reason.
-  - **`-TrustedRoot`/`-SeamRoot` structurally force `-SkipLint`/`-SkipTests`** rather than merely
-    documenting "always pass both together with this" — `gate-lib.ps1`'s `Invoke-WorkflowGates` runs the
-    lint script and every suite from `$RepoRoot` (the branch tree), which is exactly what trusted-tree
-    mode exists to stop trusting, so a future edit to the workflow dropping the flag pair can no longer
-    reopen the hole silently.
-  - **No `git worktree add` in trusted-tree mode.** `$repoRoot` (the branch checkout) is never given a
-    token, so it cannot push a fold commit either — `$TrustedRoot` already stands on `main` and carries
-    the credential, so the fold step uses it directly (bringing it up to date with the same
-    fetch-plus-ff-only-merge every other fold arm already runs) instead of spinning up a worktree off a
-    repo that could never push it. `Remove-ShipFoldWorktree`'s new `-NotOwned` switch keeps this run from
-    ever deleting a tree it did not create.
-  - **The push credential is ephemeral, not persisted, and applied uniformly.** Neither checkout writes
-    `FOLD_PUSH_TOKEN` into its own `.git/config`; the Ship-it step instead sets git's documented
-    `GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n`/`GIT_CONFIG_COUNT` environment triplet, which authenticates
-    every git call the step's process tree makes — both directories, in-memory only, gone when the step
-    ends. **This is a deliberate departure from Sebastian's own literal wording** ("token-bearing
-    checkout only for the trusted main tree"), named in the workflow's own comment rather than silently
-    substituted, because his design still leaves the raw token on `trusted-main`'s disk for the step's
-    duration (his own residual-exposure #3) — one credential applied the same way to both trees removes
-    that residue everywhere instead of only where his wording named. **Unproven by anything but a live
-    run**: `workflow_run` runs the default branch's own copy of this file, so #2437 cannot be proved on
-    its own pull request, and the two-checkout layout plus this exact credential mechanism is verified
-    for the first time by this workflow's first sweep after the PR that built it merges.
-  - `Get-MergeOnGreenExecutedPathHit`'s rule shrank from four path prefixes to an enumerated two-file
-    list (the seams above, exact match); the merge-on-green-lib and stranded-sweep-gate suites assert
-    the shrink positively (every OTHER path that used to refuse is now eligible) rather than only
-    asserting what still refuses.
-  - **The scaffolded consumer template (`adopt-ci-floor.ps1`'s fourth runner) got the same shape later,
-    under its own issue** ([#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449)):
-    a different file, every adopted consumer as blast radius, and #2333's SHA pin to reconcile with.
-    Until then it checked the consumer's trunk out once with the token persisted, nested the plugin tree
-    inside that workspace in `.git/info/exclude`, and switched it to the picked branch in place. That
-    ran the consumer's own seams beside the token, and #2437's shrink briefly let a branch overwrite the
-    trusted plugin copy (#2553). It now uses **three** sibling checkouts: the pinned `.workflow-scripts`
-    plugin tree (the code), a token-free `trusted-main` (the seams via `-TrustedRoot`, and the fold) and
-    a token-free `pr-branch`, with the same ephemeral credential. Sebastian's review on #2449 set three
-    conditions. The runner's own header argues the one-credential trade. The test pins the literal
-    `trusted-main` as the picker's `CLAUDE_PROJECT_DIR`, because pointed at the plugin tree it would
-    read *this* repo's `repo-config.ps1`. And a re-run of `adopt-ci-floor` names an existing runner of
-    the old shape, since the scaffolder never rewrites one. For that last reason the `.workflow-scripts/`
-    refusal in `Get-MergeOnGreenExecutedPathHit` is permanent: the lib cannot see which shape a given
-    consumer runs.
+  — the merge that survives the *session* (the two runners above survive the *merger*): a sweep that
+  picks one open PR carrying the label `merge-when-green` and runs `ship-pr.ps1` on it, so a PR whose CI
+  turned green after the shipping session ended still merges. Before changing it, know:
+  - **It runs `ship-pr.ps1` and re-derives no gate** (step 3b, the step-list gate, the DEPLOY lock, the
+    fold and the resolves check all come with the script). Never add a gate predicate to the workflow.
+  - **The arming label is the authorisation and `ship-pr` is its only writer**: it is set once the PR is
+    open and before the CI wait (#2393), so it records that a session had *already begun shipping*, which
+    is what the visible-result and irreversible exceptions withhold. A PR kept back for the owner never has
+    it. The label creates itself on first use (`gh pr edit --add-label` fails on a missing label).
+  - **The merge is made with `FOLD_PUSH_TOKEN`**: a push caused by the job-scoped `GITHUB_TOKEN` starts no
+    workflow runs, which would silence `ci.yml`, `fold-on-merge.yml` and `verify-resolved.yml` on the trunk.
+    The secret therefore needs `Pull requests: write`, the owner's act; until then the job fails loudly
+    with a 403.
+  - **`repo.allow_auto_merge` stays `false`** (#2265, #1292); this runner is the legitimate place for the
+    impulse to stop waiting, and it keeps the step-3b staleness check.
+  - **It ships with `-SkipLint -SkipTests`.** Omitting them re-runs the whole local suite pool (~43 min,
+    #2317) inside a 45-minute cap. The green required check on the same head *is* that gate.
+  - **A sweep, not an event-derived PR**: three triggers (`workflow_run`, a 30-minute schedule,
+    `workflow_dispatch`) wake it and none is read for *which* PR; `pick-merge-on-green.ps1` reads the
+    tracker, one PR per sweep, lowest number first. The concurrency group is a **constant** with
+    `cancel-in-progress: false` (two sweeps would race to ship the same PR).
+  - **`workflow_run` runs the default branch's copy** of the file, so it cannot be proved on its own PR,
+    **and runs with secrets for a fork's PR**, so the job reads nothing out of the event and the picker
+    refuses a cross-repository head outright.
+  - **The trusted-tree shape (#2437, from #2338)**: two checkouts, `trusted-main` and `pr-branch`, both
+    `persist-credentials: false`; `ship-pr.ps1` runs from `trusted-main`, with `CLAUDE_PROJECT_DIR` on
+    `pr-branch`. `-TrustedRoot` (forwarded as `-SeamRoot`) forces `-SkipLint`/`-SkipTests` structurally,
+    uses no worktree, and the push credential is the `GIT_CONFIG_KEY_n`/`_VALUE_n`/`_COUNT` env triplet,
+    in memory only. A PR editing the two repo-owned seams ships under the trunk's answer to them;
+    `Get-MergeOnGreenExecutedPathHit` refuses exactly those two files, and `.workflow-scripts/`
+    permanently. `ship-pr` itself checks out the one candidate branch from a clean trunk (#1620); that
+    block is a named test gap, held structurally by `merge-on-green-lib.tests.ps1`.
+  - **Its consumer twin is `adopt-ci-floor.ps1`'s fourth runner** (#2329, #2449): three sibling
+    checkouts (pinned `.workflow-scripts`, token-free `trusted-main`, token-free `pr-branch`); the picker
+    resolves its root dual-context, and the test pins `trusted-main` as its `CLAUDE_PROJECT_DIR`. A re-run
+    of the scaffolder never rewrites an existing runner of the old shape (#2553).
+  - **Declined:** a runner that merges on "required check green and staleness zero" by itself (#2319) — it
+    would skip gates `ship-pr` holds. **Declined:** a `GITHUB_TOKEN` merge (silences the trunk's runs).
+  - **Decided in:**
+    [#2319](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2319),
+    [#2393](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2393),
+    [#2317](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2317),
+    [#2265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2265),
+    [#1292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1292),
+    [#1620](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1620),
+    [#2338](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2338),
+    [#2437](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2437),
+    [#2329](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2329),
+    [#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449),
+    [#2553](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2553). Measurements are in this
+    file's history.
 
 - **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
   in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),
@@ -1356,7 +574,7 @@ infrastructure.
   derives from both files rather than hard-coding either.
 
 - **`scripts/lint/check-git-identity.ps1`** — the split-identity check (issue
-  [#1315](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1315), September 3, 2026): does
+  [#1315](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1315), September 3, 2026): does
   this checkout commit as the same account it acts as on the tracker? The claim rule's `@me` resolves
   through the GitHub API, so it writes whichever account `gh` holds, and nothing compared that against
   `git config user.name`. Measured on DAVE-KOK-BWJ, where `gh` is `DaveKJohn` and `git` is `davekokbwj`:
@@ -1386,127 +604,41 @@ infrastructure.
   is still caught. `git-identity-gate.tests.ps1` walks both edges of that rule, and passes both identities
   in explicitly — a suite that read the machine's own would assert something different on every checkout.
 - **`scripts/lint/check-consumer-prose.ps1`** — the consumer-prose check: **two detectors over one
-  corpus, read once**, merged from two scripts and two hooks by issue
-  [#1421](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1421) (September 5, 2026). Both
-  halves are the narrow literal greps the declined prose-contract framework recorded as the proportionate
-  alternative; each keeps its own detector function, its own measurement and its own report block, and
-  what merged is the plumbing around them — the process, the root resolution, the skip, the lib loads and
-  the always-on walk.
-
-  **What the merge cost a consumer: nothing, and that is why it happened now rather than later.** #1421
-  deferred it on the ground that it renames a consumer-facing hook one release after introducing it.
-  Checked before building, and the reason had expired: **neither hook had ever been released** — both
-  landed after the `v4.29.0` tag and both sat in `CHANGELOG.md`'s `[Unreleased]` section, so
-  `consumer-prose-sessioncheck` is the first name any consumer ever sees. **That check is the general
-  lesson here**: a deferral's reasoning is a fact about a moment, and the moment it names is the one thing
-  a standing issue cannot re-measure for itself.
-
-  **Measured, on a consumer fixture carrying both defects, three passes each** (this machine,
-  September 5, 2026): `retired-doc-name-sessioncheck` 492 / 492 / 493 ms plus
-  `supremacy-declaration-sessioncheck` 498 / 494 / 503 ms = **990 ms for the pair**, against
-  **541 / 527 / 530 ms** for the merged hook reporting the same two blocks — **~457 ms saved per session
-  start**, in every consumer, indefinitely. That is slightly *above* the ~350-450 ms #1421 inferred from
-  the component costs, which is worth recording because that issue was honest that no merged version had
-  been built to measure. A bare `powershell -NoProfile` hook launch that finds no check script is
-  **~155 ms** here, which fixes the shape of it: one of the two outer launches goes, one of the two nested
-  spawns goes, one of the two dot-source-plus-walk passes goes. **It is not the largest item on that
-  bill** — measured in the same batch as #1421, all 7 SessionStart hooks came to ~6.8 s here, of which
-  `connector-sessioncheck` alone was ~4.9 s (~72%).
-
-  **The first half — the retired-name detector** (issue
-  [#1389](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1389), September 4, 2026):
-  does a consumer's own always-on prose still name a *retired* name of the branch's development
-  document? The first of the two narrow literal greps the declined prose-contract framework recorded
-  ([below on this page](#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026)),
-  and its whole licence is that sentence — the detector is `Get-RetiredDocNameMention` in
-  `entry-scaffold-lib.ps1`, the names come from `Get-BranchFileLegacyNames`, and nothing here reads what
-  a sentence *means*.
-
-  **Three things separate it from the framework that was declined**, and all three are asserted rather
-  than described. The names are **derived**, so the next rename adds this token by the same row it always
-  adds and there is no second list to leave at seven names. The corpus is stated as an **inclusion**
-  list — the always-on closure plus the workflow folder's own permanent pages, minus its changelog,
-  because a folded entry correctly names the file of its day and a check that read it would be born red
-  on its own past. And it **skips the publishing repo**, on the source-repo guard's own condition 2, for
-  the reason #1380's first pass measured the hard way: this repo's pages narrate the rename history on
-  purpose, so without the skip the source reads as consumer drift.
-
-  **Its stated gap, so nobody rediscovers it as a bug.** `development-<slug>.md` (pre-#1335) is *not* a
-  token: a prose page names the shape, and matching a shape needs a wildcard, which is the step toward
-  fuzzy the decline rules out. `development-cycle.md` is a real literal and is covered, so the
-  `development-` era is not wholly absent — but a consumer restating only the shape is missed, and that
-  is what the precision costs.
-
-  **The second half — the supremacy-declaration detector** (issue
-  [#1415](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1415), September 4, 2026):
-  does a consumer's own always-on prose declare *its* `CLAUDE.md` the winner over
-  `dkj-policy/CONTRIBUTING.md`, inverting `LAW-THIRD-RANK-ORDER`? The **second** of the two
-  narrow literal greps the declined framework recorded, and the one that entry measures every candidate
-  as **structurally blind** to: a pointer test flags only sections that cite nothing, so
-  cites-then-contradicts can live nowhere but among the findings it suppresses.
-
-  **The two share their corpus, and that was true before the merge** — it is the point of
-  `Get-ConsumerProseDocuments` in `entry-scaffold-lib.ps1`: which documents a consumer-prose check may
-  read is one question with one answer, and each of its exclusions (the changelog, `releases/`,
-  plugin-shipped payload, a per-branch document) is load-bearing for a measured reason. Two copies would
-  drift on the day a third exclusion is found, and the copy that missed it would report what the other
-  correctly ignores. **Sharing the corpus is what left the runtime duplication visible**: the pair had one
-  definition of *which* documents and two of everything else, which is exactly the residue #1421 removed.
-
-  **The detector is ADJACENCY, not co-occurrence, and that departs from the sentence this page
-  recorded** — measured, with the numbers, [further down](#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026).
-  Short version: the recorded three-term test scores 0 findings and 0 recall on its own target, because
-  the real sentence names the contributing page by a Dutch prose noun rather than by its filename;
-  requiring `CLAUDE.md` and `wins`/`wint` to sit *beside* each other scores 3 raw / 2 reported / 2 true /
-  100%, and reads **direction**, which is the whole defect — *"this page wins"* is the rank order stated
-  correctly and a term list cannot tell the two apart.
-
-  **Its one suppression rests on one instance, and is written down as such** rather than presented as a
-  principle: a hit wholly inside a `"…"` span is skipped, the instance being a consumer quoting the
-  closing line of a page it retired. Kept because precision is 67% without it and 100% with it; the
-  suite pins it from both sides, including that an unrelated quotation elsewhere on the line does *not*
-  suppress a real finding.
-
-  **ONE CALLER, no CI half, and the publishing-repo skip** — three answers that now hold for the merged
-  script as a whole. Where `check-git-identity` has no CI half because a runner is a bot by design, this
-  one has none because there is nothing for a CI leg to check: in the only repo whose CI this repo
-  controls, the check skips. So `consumer-prose-sessioncheck.ps1` (workflow plugin) is not a convenience
-  on top of another route — it *is* the route, which is the whole point of #1389 and #1415 alike.
-
-  **The skip means something different per detector, and one script must say so rather than inherit it.**
-  For the retired-name half it is a **repair** — this repo narrates the rename history on purpose and
-  would read as consumer drift without it. For the supremacy half it is only a **guard**: measured at zero
-  hits here on the day it was written, because every supremacy sentence this repo carries names the
-  plugin's page as the winner and adjacency reads that correctly. It is kept for sibling consistency and
-  because this is the repo where such sentences get written about consumers.
-
-  **BOTH DETECTORS ALWAYS RUN — the first finding does not short-circuit the second.** A check that
-  stopped at the first block would hand a session start the worse half of the two-hook arrangement (one
-  defect reported, the other hidden) without the saving that motivated merging them, so
-  `consumer-prose-gate.tests.ps1` pins it from three sides: a tree with only the rename produces one
-  block, a tree with only the inversion produces the other, and a tree with both produces exactly two
-  `[ERROR]` markers from one invocation.
-
-  **The pre-merge per-hook figures, kept because they are what the saving is measured against** (5 runs
-  each, median, this machine, September 4, 2026): `retired-doc-name-sessioncheck` **365 ms** through the
-  hook in this repo where it skips, against **544 ms** for `unfolded-entry-sessioncheck` beside it;
-  `supremacy-declaration-sessioncheck` **728 ms** through the hook here, its check alone **387 ms** where
-  it skips and **1,484 ms** against a consumer with findings — against **1,312 ms** for the sibling on
-  that same consumer in that same run, so the paragraph joining cost roughly **13%** over a detector that
-  still read physical lines. That was the price of the wrapping false negative being closed, and it was
-  worth it.
-
-  **The re-measurement is itself the lesson.** The supremacy figures were first taken before review found
-  the wrapping defect, and the repair makes the check do strictly more work per document — so the
-  paragraph would have shipped as a current, dated fact about code that no longer existed. Caught by the
-  copy edit, not by any gate: **a measurement taken before the last repair is stale, and nothing goes red
-  when it is.**
-
-  **Compare the pair, never the figure.** Every absolute on this page runs roughly double or half its
-  neighbour depending on nothing but how busy the box was — which is why the #1421 before/after above was
-  taken as six runs in one sitting on one fixture rather than by subtracting two dated numbers. Same load
-  sensitivity [#1401](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1401)
-  closed by making a duration assert compare against its queue instead of a fixed ceiling.
+  corpus, read once** (merged from two scripts and two hooks, #1421), delivered at session start by
+  `consumer-prose-sessioncheck.ps1` (workflow plugin). One flags a consumer's always-on prose that still
+  names a *retired* name of the branch's development document (#1389); the other flags prose declaring the
+  consumer's own `CLAUDE.md` the winner over `dkj-policy/CONTRIBUTING.md`, inverting the rank order
+  (#1415). Both are the narrow literal greps the declined prose-contract framework recorded as the
+  proportionate alternative. Before changing it, know:
+  - **Both detectors always run**; the first finding never short-circuits the second.
+    `consumer-prose-gate.tests.ps1` pins it (only the rename: one block; only the inversion: the other;
+    both: exactly two `[ERROR]` markers from one invocation).
+  - **One caller, no CI half, and it skips the publishing repo** (the source-repo guard's condition 2).
+    The skip is a *repair* for the retired-name half (this repo narrates the rename history on purpose) and
+    only a *guard* for the supremacy half (zero hits here).
+  - **The corpus has one definition**, `Get-ConsumerProseDocuments` in `entry-scaffold-lib.ps1`: the
+    always-on closure plus the workflow folder's permanent pages, minus the changelog, `releases/`,
+    plugin-shipped payload and a per-branch document. Each exclusion is load-bearing; a new one goes there,
+    never into a second copy.
+  - **Retired names are derived** (`Get-RetiredDocNameMention`, names from `Get-BranchFileLegacyNames`), so
+    there is no second list to maintain. Stated gap: the `development-<slug>.md` *shape* is not a token
+    and is not matched, because matching a shape needs a wildcard (#1389).
+  - **The supremacy detector reads ADJACENCY, not co-occurrence**: `CLAUDE.md` beside `wins`/`wint`. The
+    three-term test scored 0 recall because the real sentence names the contributing page by a prose noun,
+    and only adjacency reads *direction* (#1415). Its one suppression, a hit wholly inside a `"…"` span,
+    rests on one instance and is pinned from both sides by the suite. Paragraph joining stays, because it
+    closed a wrapping false negative.
+  - **Measure a pair, never a figure**: durations run double or half depending on box load, so a duration
+    assert compares against its queue rather than a fixed ceiling (#1401).
+  - **Declined:** a prose-contract framework or any wildcard/fuzzy matching (see
+    [the gate-checks index](#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026)).
+  - **Decided in:**
+    [#1380](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1380),
+    [#1389](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1389),
+    [#1401](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1401),
+    [#1415](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1415),
+    [#1421](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1421). The measurements (the
+    ~457 ms saved per session start by the merge, the per-hook figures) are in this file's history.
 - **`scripts/lint/check-consumer-drift.ps1`** — the read-only drift check against a consuming repo
   (`MISSING`/`IDENTICAL`/`DRIFTED`).
 - **`scripts/lib/plugin-tree-lib.ps1`** — the one answer to *which plugins does this repo publish, and
@@ -1558,7 +690,7 @@ infrastructure.
       symptom is the populated case, the silent one is the empty case.
 - **Two lessons that outlived the file they were measured in.** `scripts/task/session-status.ps1` — the
   reporter behind `/lock` and `/handover` — was removed with both skills on August 27, 2026
-  ([#957](https://github.com/DaveKJohn/claude-code-specialists/issues/957), Dave). Its open-issues block
+  ([#957](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/957), Dave). Its open-issues block
   had been repaired on **August 14, 2026**, and that repair cost two lessons beyond the
   `ConvertFrom-Json` trap above. Neither is about the deleted script, so both are kept:
   - **A `2>$null` on a native command makes its `catch` unreachable, so check `$LASTEXITCODE` instead.**
@@ -1760,7 +892,7 @@ this repo's:
 - **The test gate is bound by its SLOWEST SINGLE SUITE, not by their sum — so the next second saved is
   bought inside one file.** Measured August 7, 2026 on the same machine within one session, all 27 suites
   green every time: **510s one at a time, against 128–263s parallel over six runs (median 159s)**
-  ([#512](https://github.com/DaveKJohn/claude-code-specialists/issues/512)). **That spread is the mechanism,
+  ([#512](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/512)). **That spread is the mechanism,
   not noise** — a sum averages its own variance out, a maximum does the opposite, so a gate bound by its
   slowest suite is inherently less predictable than one bound by the total. Quote the range rather than the
   best run: the first parallel measurement taken was the 128s one, and on its own it would have promised a
@@ -1778,7 +910,7 @@ this repo's:
   fails with 30 siblings competing for the disk.
 
   **THE LAST CLAIM IN THAT PARAGRAPH WAS WRONG, AND IT IS KEPT ABOVE SO THE CORRECTION HAS SOMETHING TO
-  CORRECT** (August 16, 2026, [#714](https://github.com/DaveKJohn/claude-code-specialists/issues/714)).
+  CORRECT** (August 16, 2026, [#714](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/714)).
   "It cannot be parallelised the way the gate was" reasoned from the wrong unit: the scenarios do all
   mutate one directory in sequence, but the gate schedules **files**, not scenarios — so the suite could
   be given the idle lanes by becoming four files, each with its own fixture, without touching the
@@ -1810,7 +942,7 @@ this repo's:
   its own.** *Re-run a red suite alone before believing its assert* was written for a hand-rolled runner;
   the reds of August 16 (`bootstrap-drift`, `fix-mojibake`, post-split pool) and the **11 of 54** reported
   out of the `v4.22.0` cut in
-  [#1033](https://github.com/DaveKJohn/claude-code-specialists/issues/1033) both came out of
+  [#1033](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1033) both came out of
   `Invoke-TestSuiteGate` itself. Neither reproduces: five full runs on that tree were all green, and the
   release's 443s "green" figure turns out to be a **2x-load** reading rather than the gate's cost — the
   numbers are in [Nolan #25](specialist-06-25-lens.md#a-gate-verdict-that-moves-is-a-load-reading--n5-and-the-caller-is-not-a-variable-august-28-2026).
@@ -1845,7 +977,7 @@ this repo's:
   behind.** The clone is what a document named by an absolute `@`-import reads — the orchestrator's
   body, in every repo here — and it advances only on
   `claude plugin marketplace update dkj-claude-plugins`. Measured August 23, 2026
-  ([#845](https://github.com/DaveKJohn/claude-code-specialists/issues/845)): after four PRs merged and
+  ([#845](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/845)): after four PRs merged and
   pushed, the clone still stood on the previous day's `3e46b3de` while `main` was at `86f1a6c8` — the
   cached manual missing a section added that morning, the cached shared block missing a rule added that
   afternoon — and **every check reported OK**. `/plugin` had nothing to do, and
@@ -1886,7 +1018,7 @@ this repo's:
 
   **The measurement check 11's comment relies on had never reached this boundary. It has now, and the
   answer is worse than the guess** (September 10, 2026, Claude Code 2.1.267, on a second machine of Dave's,
-  [#1812](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1812)). What check 11 records,
+  [#1812](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1812)). What check 11 records,
   correctly and with a date, is that a bare project-scoped `update` advanced the clone during the run
   (July 31, 2026, CLI 2.1.220, 3.0.3 → 3.0.4) — taken while the **version number was changing**.
   Identical version, new content, nothing moved was the untested case. Measured, in this order:
@@ -1914,7 +1046,7 @@ this repo's:
   the same run: `claude plugin details dkj-policy` reported `Skills (17)` while the clone's copy of the
   same 4.33.0 carried 18 — so that command prices the payload, not the clone — and a checkout enabling
   `dkj-subagents-alpha/-ecomm/-shopify` with no install record for its own path loaded none of them,
-  which is [#1802](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1802) seen from the
+  which is [#1802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1802) seen from the
   other end.
 
   **Neither account in the tree was complete, and that is why #1810 could not be designed.** This lens
@@ -1940,7 +1072,7 @@ this repo's:
   report gives is checked before it is repaired, and here
   the since-retired `UNINSTALL.md` had already established that the
   cache directory follows the marketplace and not the install
-  ([#339](https://github.com/DaveKJohn/claude-code-specialists/issues/339)). What was genuinely open
+  ([#339](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/339)). What was genuinely open
   was the per-plugin case, and that is what was run. That is the gap
   [lane 12 of `tidy-machine.ps1`](../../../scripts/maintenance/tidy-machine.ps1) reports — and reports
   only, because there is no plugin-cache verb to hand over and a recursive delete under a user's home
@@ -2150,11 +1282,11 @@ this repo's:
   captured content.
 - **`claude plugin marketplace remove` rewrites the *project* `settings.json` of the working directory you
   run it from — not only the scope the marketplace was declared in.** Measured on July 29, 2026 while
-  cleaning up the two throwaway plugins of the [#215](https://github.com/DaveKJohn/claude-code-specialists/issues/215)
+  cleaning up the two throwaway plugins of the [#215](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/215)
   experiment: it emptied the test consumer's `enabledPlugins` **and** `extraKnownMarketplaces`. So run it
   from a throwaway directory, never from a repo whose `.claude/settings.json` you want to keep. The full
   account, including how the damage was spotted, is in
-  [PR #256](https://github.com/DaveKJohn/claude-code-specialists/pull/256)'s changelog entry.
+  [PR #256](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/256)'s changelog entry.
   **And the lookup lesson that came with it:** the first version of this bullet declared the mechanism
   unrecorded and left it at an operating rule, because it went looking in the lenses and the manuals. It
   was on record all along — in that PR's entry, folded into `CHANGELOG.md` one commit earlier. Before
@@ -2163,7 +1295,7 @@ this repo's:
 - **And the quieter sibling of that: every `claude plugin install`/`uninstall --scope project` rewrites
   this repo's tracked `.claude/settings.json` and strips the blank lines that group
   `permissions.allow`.** Measured September 10, 2026 over nine such commands
-  ([#1774](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1774)): `enabledPlugins` came
+  ([#1774](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1774)): `enabledPlugins` came
   back byte-identical, and the three blank lines separating the git / gh / scripts / release blocks of a
   60-entry allowlist were gone. The mechanism is the CLI's own settings writer — a JSON parse and
   re-serialise — so it is not this repo's code and there is nothing here to fix. The portable rule, with
@@ -2357,7 +1489,7 @@ paragraph stopped contradicting it.
 `~/.claude/plugins/cache/`, named by the `installPath` of this checkout's install record and frozen at
 the moment that record was last written — the clone is the catalogue, and the source that copy was
 extracted from. Measured September 10, 2026
-([#1812](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1812)): a
+([#1812](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1812)): a
 `claude plugin marketplace update` advanced the clone by 104 commits and left every payload
 byte-identical, and both `plugin update` and `plugin install` then declined on the **version string**
 alone. So a change that lands without a version bump reaches no session at all, and an agent def you
@@ -2383,7 +1515,7 @@ argued by name in [`adopt-dkj-policy`'s skill page](../../../plugins/dkj-policy/
 a pinned gate goes on enforcing the shape it was pinned at, and since the entry's own path has moved
 twice, a stale pin does not fail loudly — it refuses branches that *do* carry an entry at the current
 path. That reasoning stands, and
-[#1805](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1805) sharpened it by naming the
+[#1805](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1805) sharpened it by naming the
 half it had never weighed: tracking the tip protects a consumer from a stale convention and exposes them
 to a moved *script*. The writing rule that came out of it — **name the two channels together or name
 neither** — holds wherever either is stated, because a release doctrine stated alone is read as covering
@@ -2477,10 +1609,10 @@ things came with it; one stood and one was answered. First, every specialist an 
 needs a roster row and a repo lens, which for the three teams meant eleven lenses kept empty on purpose.
 Second, `dkj-subagents-shopify`'s floor check asks which theme is live, and a repo with no
 store has no truthful answer, so it reported an `[ERROR]` at every session start until
-[#1570](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1570) gave the check a third
+[#1570](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1570) gave the check a third
 state to be told that in. **This repo declares `Get-ShopifyRepoHasNoStore` in
 [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) because it has no store, and the check
-honours that since #1570** ([#1579](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1579))
+honours that since #1570** ([#1579](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1579))
 — but still **do not silence it by seeding a theme id**, which would arm a guard over a revenue-serving
 theme on a number nobody verified. The two are not the same act and the seam exists to keep them apart:
 the declaration says there is no store, an id says there is one and names it. The seam is verified
@@ -2500,7 +1632,7 @@ which is why both old spellings still appear in the tree and why neither may eve
 - **The owner**, September 2, 2026: transferred from the personal account `DaveKJohn` into the
   `DKJ-Solutions` organisation, so `DaveKJohn/…` resolves only through a redirect.
 - **The name**, September 10, 2026: `claude-code-specialists` became `dkj-claude-plugins` (fase 3 of
-  [#1769](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1769)), so
+  [#1769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1769)), so
   `DKJ-Solutions/claude-code-specialists` resolves only through a redirect too.
 
 Both redirects are **transfer redirects this repo does not control**, and each holds just as long as
@@ -2521,7 +1653,7 @@ grows.**
 resolve today, so nothing is broken and the dead-link gate is right not to flag the mix; the cost is that
 new writing copies whichever example sits nearest, and the tree held 133 `.md` files on the old owner
 against 28 on the new when this was measured
-([#1526](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1526)). The same holds for the
+([#1526](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1526)). The same holds for the
 ~830 slug citations the second rename left: a sweep buys prose consistency at the price of a diff nobody
 can review. The one layer left exactly as written is the archived release history under
 `dkj-policy/releases/**`, the same carve-out
@@ -2533,9 +1665,9 @@ citation may lag, a lookup may not.
 
 **A checkout's own `origin` remote is this same citation in a place the tree cannot reach.** It is
 per-checkout git config, not tracked, so no gate sees it. A checkout cloned before the transfer still
-pushes to `https://github.com/DaveKJohn/claude-code-specialists.git` and lands only because GitHub
+pushes to `https://github.com/DKJ-Solutions/dkj-claude-plugins.git` and lands only because GitHub
 answers `remote: This repository moved`; every push of the `v4.32.0` cut did exactly that
-([#1562](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1562)). Repoint such a checkout
+([#1562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1562)). Repoint such a checkout
 in one command — `git remote set-url origin https://github.com/DKJ-Solutions/dkj-claude-plugins.git` —
 and the redirect stops being load-bearing there. A checkout can be behind on either half or both, and
 the one command repairs all three states, because it writes the whole URL rather than patching a part of
@@ -2562,7 +1694,7 @@ which plugins exist reads `marketplace.json` through
 [`plugin-tree-lib.ps1`](../../../scripts/lib/plugin-tree-lib.ps1), so a directory in no marketplace is not
 a plugin wherever it sits. **On September 9, 2026 the team-side rename carried it to its current home at
 `plugins/dkj-subagents/subagent-shared/`**, under
-[#1698](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1698). The workflow folder
+[#1698](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1698). The workflow folder
 `dkj-policy/` was `contributing-davekjohn/` until September 5, 2026 (#1437).
 
 ### Why `Get-RosterIgnoredIds` is empty
@@ -2607,7 +1739,7 @@ the shared scripts read.
   [`source-repo-guard.tests.ps1`](../../../scripts/tests/source-repo-guard.tests.ps1)**, so adding one is
   argued in a file that fails when it is wrong; that suite also derives the entry points from the
   registry and fails on any that lacks the guard, reading the parsed syntax rather than the text
-  ([#1321](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1321)) — a whole-file match
+  ([#1321](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1321)) — a whole-file match
   on the lib's name could not tell loading the guard from a comment explaining its absence.
   **Why it needs saying, measured August 12, 2026 against mirror `4.5.0`:** every skill page prints
   `${CLAUDE_PLUGIN_ROOT}/scripts/…`, which the harness expands to your own cache before you read it, so
@@ -2630,7 +1762,7 @@ the shared scripts read.
 path segment. A fixed leaf is a name somebody else can reach first: `New-Item -ItemType Directory
 -Force` and `[System.IO.File]::WriteAllText` follow a symlink or junction, so a pre-planted link
 redirects the write, and a later recursive delete there becomes a delete primitive elsewhere. Measured
-September 8, 2026 ([#1659](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1659)):
+September 8, 2026 ([#1659](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1659)):
 **seven** sites composed `<label>-$PID` by hand. A guid removes the target instead of checking for one —
 a reparse-point check has a window, and cannot apply to the temp root at all, since on macOS `/tmp` *is*
 a symlink. `native-capture.tests.ps1` enforces this over `scripts/**` outside `tests/`; the suites have
@@ -2638,7 +1770,7 @@ their own equally strict rule, in [Tycho's lens](specialist-04-18-lens.md#a-suit
 
 #### A leftover under the temp directory is an aborted run
 
-Measured September 8, 2026 ([#1668](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1668))
+Measured September 8, 2026 ([#1668](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1668))
 over twelve days of gate runs: 107 `fold-test-*` and 96 `new-branch-test-*` entries were standing, and
 **both suites leaked zero** when run to completion — every leftover was registered after a suite's last
 completed sweep, the signature of an interrupted run. The fix that would reach them is a sweep by name
@@ -2781,7 +1913,7 @@ same page.
 #### What does NOT go into the phases as a step
 
 **The repo's standing gates are NOT written as steps** (issue
-[#1060](https://github.com/DaveKJohn/claude-code-specialists/issues/1060), August 29, 2026). TEST carries
+[#1060](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1060), August 29, 2026). TEST carries
 what proves *this branch*; the lint gate, the test gate and the link gate fire on their own at the push and
 refuse on their own, so a step reading *"all suites green"* duplicates a gate rather than adding one. And the
 duplicate is not free: `open-pr` **refuses to push while any step above DEPLOY is open**, so such a step can
@@ -2806,7 +1938,7 @@ material came from, so a link that resolved there resolved in the changelog too.
 correctly on the branch and is dead once it lands, and `open-pr`'s link gate refuses it. This is what
 `<branch>.md`'s own header boilerplate means by *"Relative links in that text resolve FROM THIS DIRECTORY."*
 (It was root-relative until issue
-[#1041](https://github.com/DaveKJohn/claude-code-specialists/issues/1041), which moved the gate's base to the
+[#1041](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1041), which moved the gate's base to the
 changelog's own directory when `CHANGELOG.md` moved off the repo root.)
 
 **This repo's audience tier — the seam table below answers it, and the answer is what shapes the entry:
@@ -2850,7 +1982,7 @@ label that had been renamed or retired killed the create *after* every gate had 
 gates. It refuses rather than falling back to a default label, because a repo whose own workflow gates on the
 label would otherwise go green on a label that says nothing; the refusal names the label, the prefix, the
 seam file and the labels that do exist. Measured in a consumer on September 1, 2026 (inbound
-[#1221](https://github.com/DaveKJohn/claude-code-specialists/issues/1221)), where two labels were deleted
+[#1221](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1221)), where two labels were deleted
 org-wide because the issue **type** now carries that classification — the seam table was correct the day
 before. Full mechanics on the
 [`open-pr` skill page](../../../plugins/dkj-policy/skills/open-pr/SKILL.md#the-label-gate-does-the-label-your-seam-names-still-exist).
@@ -2858,7 +1990,7 @@ before. Full mechanics on the
 #### Before any gate, one thing that is not a gate: the document commit
 
 **`open-pr.ps1` COMMITS the development document if it differs from `HEAD`**
-([#1269](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1269), September 3, 2026).
+([#1269](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1269), September 3, 2026).
 Every gate below reads the working tree; the push ships `HEAD`; and the fold, the DEPLOY lock and the CI
 check all read the committed copy. Measured on PR #1267: the run passed every gate against a filled-in
 working copy, pushed the empty scaffold, published the filled-in body, and CI failed on arrival. It commits
@@ -2869,7 +2001,7 @@ the
 
 #### the entry gate, on whether there is an entry at all
 
-**September 8, 2026 ([#1632](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1632)).** Before
+**September 8, 2026 ([#1632](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1632)).** Before
 any of the gates below reads the entry, `open-pr.ps1` asks whether there *is* one:
 `Test-DevelopmentEntryMissing` refuses a `dkj-policy/<branch>.md` whose DEPLOY section is gone.
 
@@ -2884,7 +2016,7 @@ which is why this is a second predicate beside it and not a stricter version of 
 
 **How a document reaches that state is not a deliberate deletion.** It is an edit that anchors on the first
 phase heading as a plain string and truncates the file there. In a document scaffolded before
-[#1654](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1654) that string occurs **twice** —
+[#1654](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1654) that string occurs **twice** —
 once as the real heading, and once inside the guidance blockquote describing it, which comes first — so the
 cut lands on the wrong one and the body glues onto a sentence cut in half. Two documents shipped that way
 (#1632 and #1644) before the gate existed. The guidance names that heading by position now, so a document
@@ -2940,7 +2072,7 @@ is worse than no gate. **A branch with no step list at all is not refused**: tha
 and refusing it would make the mechanism ceremony.
 
 **At the merge, this gate and the DEPLOY lock below read the branch's own commit — `refs/heads/<branch>` — and
-not the checkout** (issue [#970](https://github.com/DaveKJohn/claude-code-specialists/issues/970),
+not the checkout** (issue [#970](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/970),
 August 27, 2026). `ship-pr` waits on CI, 10m57s on the run that measured this, and a session that backgrounds
 the ship and starts the next piece of work has moved `HEAD` by the time the gates look. Measured then: the gate
 refused PR #969 over `- [ ] TODO: the first step of this branch`, the scaffold TODO of a branch created *during*
@@ -2963,7 +2095,7 @@ its own message has always asked for.
 
 #### the backing gate, on whether anything is behind the plan
 
-**Dave, issue [#1026](https://github.com/DaveKJohn/claude-code-specialists/issues/1026),
+**Dave, issue [#1026](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1026),
 August 28, 2026.** The step-list gate above asks whether the plan is *finished*. It cannot ask whether
 anything was actually built, and nor can the three gates beside it: **all four read this document, and none
 reads the diff**. So `open-pr.ps1` asks the second question — a plan reading as finished with **nothing
@@ -2974,7 +2106,7 @@ never committed. The branch's whole diff was `<branch>.md`; the fold then *remov
 delivered a changelog entry and no content at all. Every gate was green.
 
 **The measurement is not new — its delivery is.** `park-cycle`'s backing note
-([#960](https://github.com/DaveKJohn/claude-code-specialists/issues/960), repaired by #976) had already named
+([#960](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/960), repaired by #976) had already named
 the count, named the state and given the instruction that would have prevented the merge. It wrote it into a
 **commit body**, which is exactly right for the reader that note exists for — a session on a second device
 picking the branch up from origin — and invisible to the session that is holding the uncommitted file and
@@ -3001,7 +2133,7 @@ refused here; what was missing was only the line that stops a green result from 
 
 #### the DEPLOY lock, on the section the PR published
 
-**Dave, issue [#884](https://github.com/DaveKJohn/claude-code-specialists/issues/884), August 25, 2026.** The
+**Dave, issue [#884](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/884), August 25, 2026.** The
 DEPLOY section travels four times — this document, the PR body,
 [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), the developer release notes — and it has to be the same
 thing at every stop. So it is **fixed at the moment the PR opens**: `ship-pr.ps1` refuses the merge when the
@@ -3032,7 +2164,7 @@ a stray checkout's document would be approving the fold of a section it never re
 #### the shape gate, on the document around the entry
 
 **September 8, 2026**
-([#1650](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1650)). Two rules Dave enforced by
+([#1650](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1650)). Two rules Dave enforced by
 reading on August 26, 2026 — **four `###` headings and never a fifth**, and **nothing branch-specific above
 `### PLAN`**, both stated in the section above — were checked in exactly one place: the CI gate below, which
 *reports* rather than refuses. So none of the gates above ever saw them, and nothing refused a malformed
@@ -3075,7 +2207,7 @@ merge. And the CI half still reports rather than refuses, which is the design st
 #### the CI gate, because the gates above are local
 
 **August 20, 2026** (inbound
-[#789](https://github.com/DaveKJohn/claude-code-specialists/issues/789)). The gates above live in
+[#789](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/789)). The gates above live in
 `open-pr` and `ship-pr`, so every one of them is escapable by not using them: a branch pushed by hand, or a PR
 opened in the GitHub UI, meets none of them. The convention was therefore enforced by whoever remembered the
 scripts — and a convention that enforces nothing rots quietly, which matters here because `CHANGELOG.md` is
@@ -3127,7 +2259,7 @@ repo reads before a single assignment is given.
 
 **The finding is that measurement alone had already failed.** `measure-always-on.ps1` has reported this
 figure since August 2026 and reaches no verdict by design
-([#861](https://github.com/DaveKJohn/claude-code-specialists/issues/861)) — and all four measurable repos
+([#861](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/861)) — and all four measurable repos
 went over 100,000 B anyway: 199,253 B, 150,202 B, 117,014 B, and this repo at **109,385 B**, the smallest of
 them. A report that is portable, correct and ignored is the whole argument for a bound.
 
@@ -3289,7 +2421,7 @@ shows stale notes.
 - The cycle as a portable page, with the seams named:
   [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) — and the reason the
   split exists at all is
-  [inbound #566](https://github.com/DaveKJohn/claude-code-specialists/issues/566), from a consumer who tried
+  [inbound #566](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/566), from a consumer who tried
   to adopt this repo's own page and measured why it could not be done.
 
 In short: the **how** (managing the harness, scripts, config, safety guards) is portable; the **what**
