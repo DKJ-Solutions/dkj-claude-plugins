@@ -3,7 +3,7 @@ import { Message } from '../components/Feedback'
 import { Breadcrumbs } from '../components/Navigation'
 import { DataTable } from '../components/Table'
 import { useRepoDefaultTheme } from '../showcase/theme'
-import { DASHBOARD_PATH, DASHBOARDS_PATH, dashboardPreviewPath } from '../routes'
+import { DASHBOARD_PATH, DASHBOARDS_PATH, SHOWCASE_PATH, dashboardPreviewPath } from '../routes'
 import { DashboardMain } from './DashboardShell'
 import { PREVIEWS } from './previews'
 import './dashboard.css'
@@ -15,12 +15,12 @@ import './dashboard.css'
 export function DashboardIndex() {
   return (
     <>
-      <Breadcrumbs bar items={[{ label: 'Repo hub', href: DASHBOARD_PATH }, { label: 'Hub previews' }]} />
+      <Breadcrumbs bar items={[{ label: 'Brand book', href: SHOWCASE_PATH }, { label: 'Repo hub pattern', href: DASHBOARD_PATH }, { label: 'Hub previews' }]} />
       <DashboardMain>
         <div className="dkj-intro">
           <h1>Repo hub previews</h1>
           <p className="dkj-lead">
-            Other repos' Repo hubs in this repo's hub shape, to see where the shape does not fit yet. Placeholder data only.
+            Other repos' Repo hubs drawn in the Repo hub pattern, to see where the pattern does not fit yet. Placeholder data only.
           </p>
         </div>
         <Card variant="data">
@@ -52,7 +52,7 @@ export function DashboardPreviewPage({ id }: { id: string }) {
     <>
       <Breadcrumbs
         bar
-        items={[{ label: 'Repo hub', href: DASHBOARD_PATH }, { label: 'Hub previews', href: DASHBOARDS_PATH }, { label: preview?.label ?? id }]}
+        items={[{ label: 'Brand book', href: SHOWCASE_PATH }, { label: 'Repo hub pattern', href: DASHBOARD_PATH }, { label: 'Hub previews', href: DASHBOARDS_PATH }, { label: preview?.label ?? id }]}
       />
       <DashboardMain>
         {preview ? (
