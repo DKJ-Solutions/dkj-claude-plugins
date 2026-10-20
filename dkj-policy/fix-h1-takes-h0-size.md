@@ -48,6 +48,7 @@ before any PR.
 - [x] `house-style.css`: drop `--text-h0`, set `--text-h1` to 48px, move `.hero .value` to `--text-h1`, note the departure from the Figma scale in the comment
 - [x] `assets/house-style/README.md`: the type row names `--text-h1` … `--text-h6` and 48/32/24/22/18/16, with the reason
 - [x] `brandbook/`: every `--text-h0` use (hero value, step head, the token list, the doc comments) repointed to `--text-h1`
+- [x] The house-style skill's `house-style.css` sha256 updated to the new bytes, and `--text-h0` added to `Get-HouseStyleRetiredTokens`, so a consumer still reading it is flagged
 
 ### TEST
 
