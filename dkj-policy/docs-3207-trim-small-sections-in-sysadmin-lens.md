@@ -39,19 +39,33 @@
 
 ### PLAN
 
+- [x] Fourth of five slimming steps (#3204-#3208): the remaining owns-here bullets and the small history sections
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Cut the remaining bullets to what-it-does / before-changing-it / decided-in; reduce the sibling, plugins-enabled, citation, tree-address and roster-ignored sections to their live facts
+- [x] Every heading kept; each linking sentence elsewhere checked against the new text
 
 ### TEST
 
+- [x] Lens measured: ~191 KB -> 169,102 B
+- [x] Copy edit (Edith) on the diff
+
 ### DEPLOY: docs/3207-trim-small-sections-in-sysadmin-lens
 
-**Score:**
+The remaining bullets in "What Sylvester owns here" and the smaller history sections of Sylvester's
+repo lens (the sibling check, the enabled plugins, the repo renames, the tree address, the empty roster
+ignore list) keep their live rules and the issues that decided them, and drop the dated measurements.
+Every heading other files link to is unchanged. The lens goes from about 191 KB to 169 KB. Fourth of
+five slimming steps (#3204-#3208).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
