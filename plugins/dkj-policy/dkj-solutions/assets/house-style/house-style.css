@@ -23,7 +23,7 @@
    .badge--info, .meter--info, the settings toggle, focus rings), the text caret and the selection;
    .btn--primary (a filled main action, owner's decision, October 15, 2026, #109) and native checkboxes, radios, sliders and progress bars take --primary-9 through accent-color. Beyond that, by default: the page, the
    cards and tiles carry a tint of the primary (--primary-1, --primary-2), and every line and tinted surface
-   is --primary-3, with --primary-12 as the text on it. There are no untinted neutrals: text is --primary-12, and --primary-9 is the highlight (h1, a state, a value that stands out) (owner's decisions, October 14 and 15, 2026; h2 is --primary-10 and h3-h6 --primary-11 since October 19, 2026). Status, direction and categorical colours are never tinted. The
+   is --primary-3, with --primary-12 as the text on it. There are no untinted neutrals: text is --primary-12, and --primary-9 is the highlight (h1, a state, a value that stands out) (owner's decisions, October 14 and 15, 2026; h2 is --primary-10 and h3-h5 --primary-11 since October 19, 2026). Status, direction and categorical colours are never tinted. The
    --accent modifiers (header, table) carry it further where an app opts in.
 
    Categorical colours: --cat-1 .. --cat-3 are series slots. Pick a slot per
@@ -65,8 +65,8 @@
      -5 a stronger border (an open card, a selected box); -6 the fills (switches, info badges), focus rings, meters
      and text in the colour (values); -6 also the eyebrow; -7 sub lines, notes, .muted, the tile label and the breadcrumb links; -8 the breadcrumb's current page; -9 the highlight: links (owner's
      decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus
-     outlines, sorted, pressed) and native controls through accent-color; -10 h2 and -11 h3-h6 (an h2 in the h1's
-     colour read too much like it, and a grey h3 did not work; on -12 h1 is -4, h2 is -3 and h3-h6 are -2); -4 no
+     outlines, sorted, pressed) and native controls through accent-color; -10 h2 and -11 h3-h5 (an h2 in the h1's
+     colour read too much like it, and a grey h3 did not work; on -12 h1 is -4, h2 is -3 and h3-h5 are -2); -4 no
      role of its own yet; -12 the far end: every paragraph, and an inverted surface (the showcase's panel on dark).
      Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on -1 19.5:1, on -2 19.0:1 and on -3
      16.5:1; -9 on -1 4.6:1 and -1 on -9 4.6:1; -9 on -2 4.40:1 (Magenta; below 4.5:1 also Roest and Lila, 4.43:1
@@ -113,11 +113,12 @@
   --spacing-64: 256px; --spacing-72: 288px; --spacing-80: 320px; --spacing-96: 384px;
 
   /* type scale: the Figma library's text variables (same file and collection as the spacing
-     scale), with one deliberate departure: the library's h0 is retired and h1 takes its 48px, so
-     h1 stands clearly above h2. Headings take the heading token of their own level; body text is
-     --text-base. Same in both modes. */
-  --text-h1: 48px; --text-h2: 32px; --text-h3: 24px;
-  --text-h4: 22px; --text-h5: 18px; --text-h6: 16px;
+     scale), with two deliberate departures: the library's h0 is retired and h1 takes its 48px, so
+     h1 stands clearly above h2; and the library's 24px h3 is retired and every level below moved
+     up one, so h3 stands clearly below h2 and there is no h6 (owner's decision, October 20, 2026).
+     Headings take the heading token of their own level; body text is --text-base. Same in both modes. */
+  --text-h1: 48px; --text-h2: 32px; --text-h3: 22px;
+  --text-h4: 18px; --text-h5: 16px;
   --text-lg: 18px; --text-base: 14px; --text-sm: 12px; --text-xs: 11px;
   /* the serif h1 and h2 are set in; a component whose title keeps that face at another level takes it from here */
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
@@ -222,16 +223,16 @@ body > header, main > header { display: flex; justify-content: space-between; al
 /* Headings set in a serif so they stand off from the sans body text. System fonts only (no
    external requests): Iowan Old Style (macOS/iOS), Palatino Linotype (Windows), Georgia,
    Noto Serif (Android/Linux). Their bold is heavier than the sans 600, so the tracking is
-   pulled in slightly. h3-h6 stay in the body sans. */
+   pulled in slightly. h3-h5 stay in the body sans. */
 h1, h2 { font-family: var(--font-serif);
   font-weight: 600; letter-spacing: -0.01em; }
-/* h1 is -9, h2 is -10 and h3-h6 are -11, the dark steps of the colour (owner's decision, October 19, 2026: an h2 in the
+/* h1 is -9, h2 is -10 and h3-h5 are -11, the dark steps of the colour (owner's decision, October 19, 2026: an h2 in the
    h1's colour read too much like it, and a grey h3 did not work). On a --primary-12 surface h1 takes -4, h2 -3 and
-   h3-h6 -2 instead, set where that surface is. :where() keeps them at
+   h3-h5 -2 instead, set where that surface is. :where() keeps them at
    zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
 :where(h1) { color: var(--primary-9); }
 :where(h2) { color: var(--primary-10); }
-:where(h3, h4, h5, h6) { color: var(--primary-11); }
+:where(h3, h4, h5) { color: var(--primary-11); }
 h1 { font-size: var(--text-h1); margin: 0; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 /* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
@@ -239,10 +240,9 @@ h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 h2 { display: flex; align-items: center; }
 h2 .info-button { top: 1px; }
 h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; }
-/* h4-h6 take the token of their own level too, in the body sans like h3. */
-h4 { font-size: var(--text-h4); margin: 0 0 var(--spacing-2); font-weight: 600; }
-h5 { font-size: var(--text-h5); margin: 0 0 var(--spacing-1-5); font-weight: 600; }
-h6 { font-size: var(--text-h6); margin: 0 0 var(--spacing-1); font-weight: 600; }
+/* h4 and h5 take the token of their own level too, in the body sans like h3. There is no h6 (October 20, 2026). */
+h4 { font-size: var(--text-h4); margin: 0 0 var(--spacing-1-5); font-weight: 600; }
+h5 { font-size: var(--text-h5); margin: 0 0 var(--spacing-1); font-weight: 600; }
 .sub { color: var(--primary-7); font-size: var(--text-sm); margin: 0 0 var(--spacing-4); }   /* line under a heading */
 .muted { color: var(--primary-7); font-size: var(--text-sm); }
 .meta { font-size: var(--text-sm); color: var(--primary-10); white-space: nowrap; }
@@ -294,7 +294,7 @@ p, p.meta { color: var(--primary-12); }
 .hero .value { font-size: var(--text-h1); font-weight: 600; line-height: 1.1; color: var(--primary-12); }
 .tile { background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
 .tile .label { color: var(--primary-7); font-size: var(--text-sm); }   /* a muted grey, as .muted: the figure leads (owner, October 20, 2026) */
-.tile .v { font-size: var(--text-h4); font-weight: 600; margin-top: var(--spacing-0-5); }
+.tile .v { font-size: var(--text-h3); font-weight: 600; margin-top: var(--spacing-0-5); }
 .mini-card { border: 1px solid var(--primary-3); border-radius: 10px; padding: var(--spacing-3) var(--spacing-3-5); }
 .mini-card--highlight { border-color: var(--warning-3); }
 .mini-card__label { font-size: var(--text-sm); color: var(--primary-12); }
@@ -562,7 +562,7 @@ html:has(dialog:modal) { overflow: hidden; }
 /* The head keeps the right edge free for the close button and is at least as tall, so a
    one-line title sits level with it. */
 .dialog__head { display: flex; align-items: center; min-height: var(--tap); padding-right: calc(var(--tap) + var(--spacing-2)); margin-bottom: var(--spacing-4); }
-.dialog__title { margin: 0; min-width: 0; font-size: var(--text-h6); font-weight: 600; overflow-wrap: anywhere; }
+.dialog__title { margin: 0; min-width: 0; font-size: var(--text-h5); font-weight: 600; overflow-wrap: anywhere; }
 .dialog__sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-sm); color: var(--primary-7); }
 /* The close button, top right, with no visible border. Variants: --save (a filled plate, the
    check that saves), --cancel (an outlined plate to the left of save, the undo arrow), --back
@@ -594,7 +594,7 @@ html:has(dialog:modal) { overflow: hidden; }
   padding: 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)) 0 var(--spacing-4); border-bottom: 1px solid var(--primary-3); }
 .dialog--drawer .dialog__head--two { padding-right: calc(var(--spacing-4) + 2 * var(--tap) + var(--spacing-4)); }
 .dialog--drawer .dialog__head--back { padding: 0 var(--spacing-4) 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)); }
-.dialog--drawer .dialog__title { font-size: var(--text-h5); font-weight: 700; }   /* as the name in the top bar */
+.dialog--drawer .dialog__title { font-size: var(--text-h4); font-weight: 700; }   /* as the name in the top bar */
 .dialog--drawer .dialog__close { top: calc((var(--topbar-h) - var(--tap)) / 2 + env(safe-area-inset-top)); }
 .dialog--drawer::backdrop { animation: house-backdrop-in 220ms ease-out; }
 @keyframes house-drawer-in { from { transform: translateX(100%); } }
@@ -644,8 +644,8 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 .menu-list { margin: 0; padding: 0; list-style: none; }
 .menu-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--spacing-3); min-height: var(--tap); padding: var(--spacing-2); }
 .menu-row + .menu-row { border-top: 1px solid var(--primary-3); }
-.menu-row__label { font-size: var(--text-h6); font-weight: 600; }
-.menu-row__value { min-width: 0; font-size: var(--text-h6); text-align: right; overflow-wrap: anywhere; }
+.menu-row__label { font-size: var(--text-h5); font-weight: 600; }
+.menu-row__value { min-width: 0; font-size: var(--text-h5); text-align: right; overflow-wrap: anywhere; }
 /* A button at the end of the row is control-h tall and its centre sits under a close button's. */
 .menu-row .icon-btn { height: var(--control-h); margin-right: calc((var(--tap) - var(--control-h)) / 2); }
 /* A navigation row: a full-width button with icon, label and chevron; a line between items.

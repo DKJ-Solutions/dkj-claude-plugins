@@ -33,9 +33,8 @@ export function Intro() {
         <h1>Heading 1 -- the page title</h1>
         <h2>Heading 2 -- a section</h2>
         <h3>Heading 3 -- a block inside a section</h3>
-        <h4>Heading 4 -- a part of a block</h4>
-        <h5>Heading 5 -- an alert or question title</h5>
-        <h6>Heading 6 -- a card or dialog title</h6>
+        <h4>Heading 4 -- a part of a block, or an alert or question title</h4>
+        <h5>Heading 5 -- a card or dialog title</h5>
         <p className="dkj-specimen-lg">Large text (--text-lg) for a lead or a figure beside the hero value.</p>
         <p>
           Body text (--text-base) is what most of an app is set in, with <a href="#tokens">a link in the theme colour</a>,{' '}

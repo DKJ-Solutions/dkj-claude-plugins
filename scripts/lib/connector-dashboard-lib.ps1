@@ -263,7 +263,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-subgroup:first-child { margin-top: 0; padding-top: 0; border-top: 0; }')
     [void]$sb.AppendLine('.cd-group-summary { margin: 0 0 var(--spacing-1); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
-    [void]$sb.AppendLine('.cd-repo h4 { margin: 0; font-size: var(--text-h5); }')
+    [void]$sb.AppendLine('.cd-repo h4 { margin: 0; font-size: var(--text-h4); }')
     [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
     [void]$sb.AppendLine('.cd-signals li { display: flex; gap: var(--spacing-2); align-items: flex-start; padding: var(--spacing-1-5) 0; border-top: 1px solid var(--primary-3); font-size: var(--text-sm); }')
     [void]$sb.AppendLine('.cd-signals li .badge { margin-top: 1px; }')

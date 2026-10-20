@@ -27,8 +27,8 @@
   padding: var(--spacing-2);
 }
 .dkj-menu-row + .dkj-menu-row { border-top: 1px solid var(--primary-3); }
-.dkj-menu-label { font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); }
-.dkj-menu-value { min-width: 0; font-size: var(--text-h6); text-align: right; overflow-wrap: anywhere; }
+.dkj-menu-label { font-size: var(--text-h5); font-weight: var(--dkj-fw-semibold); }
+.dkj-menu-value { min-width: 0; font-size: var(--text-h5); text-align: right; overflow-wrap: anywhere; }
 /* The pencils sit centred under the close button (44px tap area). */
 .dkj-menu-row .dkj-iconbtn { margin-right: calc((var(--dkj-tap) - var(--dkj-control-h)) / 2); }
 
@@ -86,7 +86,7 @@
 }
 .dkj-inforow-named > svg { flex: none; }
 .dkj-inforow-named:focus-visible { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: var(--dkj-focus-offset-inset); }
-.dkj-inforow-value { min-width: 0; font-size: var(--text-h6); line-height: 1.5rem; font-weight: var(--dkj-fw-semibold); color: var(--primary-9); overflow-wrap: anywhere; }
+.dkj-inforow-value { min-width: 0; font-size: var(--text-h5); line-height: 1.5rem; font-weight: var(--dkj-fw-semibold); color: var(--primary-9); overflow-wrap: anywhere; }
 .dkj-inforow-value--placeholder { font-weight: var(--dkj-fw-regular); color: var(--primary-12); }
 
 /* ---------- PageHeader ---------- */
