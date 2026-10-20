@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**18 / 28 minor entries** <!-- pending-tally -->
+**18 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3216-open-pr-entry-gate-section · 20261020-104106Z
+
+The `open-pr` skill page no longer says its entry gate has no section on the page: the list of the extra
+gates now links to "The entry gate: is there an entry at all?", and names only the backing gate and the
+title gate as still undocumented there.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A wording fix on one skill page.
+
+**Score:** N/A
+
+#### Pull Request
+
+The open-pr skill page points at its entry gate section
+
+Plugins: dkj-policy
+
+[PR #3218](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3218)
+
+---
 
 ### DEPLOY: docs/3206-dedupe-branch-doc-in-sysadmin-lens · 20261020-102742Z
 
