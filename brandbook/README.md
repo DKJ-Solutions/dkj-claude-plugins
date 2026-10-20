@@ -1,7 +1,7 @@
 # brandbook
 
-The DKJ-Solutions brand book app: the Repo hub pattern, the showcase of every house component with its
-variants and states, a theme and mode switcher, and a 360px phone width. Moved here from
+The DKJ-Solutions brand book app: the showcase of every house token, theme, class and component with its
+variants and states, a theme and mode switcher, a 360px phone width, and the Repo hub pattern. Moved here from
 `DKJ-Solutions/dkj-brandbook` ([#3131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3131),
 step 2 of [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)).
 
@@ -11,11 +11,23 @@ of its own: it reads the one copy in
 where it lives (`src/main.tsx` imports the stylesheet, `vite.config.ts` inlines the theme script, and
 `scripts/lint/house-path.mjs` names it for the checks). A change to the house style is made there, not here.
 
-## Run it
+## Where to see it: the Repo hub, at `/brandbook/`
+
+**This is the one brand book.** The Repo hub (`scripts/dashboard/serve-connector-dashboard.ps1`, started at
+session start) serves this app's build at `http://localhost:<hub port>/brandbook/`; the hub's own PowerShell
+Brandbook page it replaces is gone, and its themes table and class list live here now. Before it serves the page,
+the hub rebuilds the app when anything it is built from is newer than `dist/` -- `src/`, `public/`, the config, or
+the house style -- running `npm ci` first when `node_modules` is missing. So the hub always shows the tree; the
+first visit after a change waits a few seconds for the build.
+
+The app is built for the base `/brandbook/` (`vite.config.ts`): the showcase is its index, the Repo hub pattern is
+`/brandbook/repo-hub` and the hub previews are `/brandbook/dashboards`. The "Repo hub" crumb goes to the real hub on `/`.
+
+## Work on it
 
 ```bash
 npm ci
-npm run dev       # the Repo hub at http://localhost:5173/, the showcase at /showcase
+npm run dev       # hot reload while you work, at http://localhost:5173/brandbook/
 npm run gate      # the PR gate: eslint, CSS syntax, custom properties, colour tokens, build
 ```
 

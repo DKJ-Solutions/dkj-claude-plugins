@@ -3,7 +3,7 @@ import { cx } from './components/cx'
 import { Icon } from './components/Icon'
 import { Breadcrumbs } from './components/Navigation'
 import { REPOS } from './repos'
-import { DASHBOARD_PATH, SHOWCASE_PATH } from './routes'
+import { HUB_PATH, SHOWCASE_PATH } from './routes'
 import { Toolbar } from './showcase/Showcase'
 import { Intro } from './showcase/sections/Intro'
 import { RepoPreview } from './showcase/previews/RepoPreview'
@@ -12,6 +12,7 @@ import { Actions } from './showcase/sections/Actions'
 import { Data } from './showcase/sections/Data'
 import { Forms } from './showcase/sections/Forms'
 import { Foundations } from './showcase/sections/Foundations'
+import { HouseClasses } from './showcase/sections/HouseStyle'
 import { Metrics } from './showcase/sections/Metrics'
 import { Overlap } from './showcase/sections/Overlap'
 import { Overlays } from './showcase/sections/Overlays'
@@ -19,7 +20,7 @@ import { Surfaces } from './showcase/sections/Surfaces'
 
 /** The navigation mirrors the section order below; each id is a component id in src/components/sources.ts. */
 const NAV = [
-  { group: 'Foundations', items: ['tokens'] },
+  { group: 'Foundations', items: ['tokens', 'classes'] },
   { group: 'Actions', items: ['Button', 'SegmentedChoice', 'FilterChips', 'IconButton', 'RoundToggle'] },
   { group: 'Surfaces & content', items: ['Card', 'TintedPanel', 'Banner', 'Alert', 'Message', 'Chip', 'TitleTag', 'Help', 'Disclosure', 'ReadMoreToggle', 'GroupHeading', 'QuestionBlock', 'Amount', 'Prose', 'Figure', 'FooterNote'] },
   { group: 'Metrics', items: ['StatTile', 'HeroValue', 'Delta', 'Legend', 'ColumnChart', 'BarChart', 'LineChart', 'MiniCard', 'Meter', 'Badge'] },
@@ -29,7 +30,7 @@ const NAV = [
   { group: 'Apps', items: ['apps', 'overlap'] },
 ] as const
 
-const LABELS: Record<string, string> = { apps: 'Overview', overlap: 'Overlap', tokens: 'Tokens' }
+const LABELS: Record<string, string> = { apps: 'Overview', overlap: 'Overlap', tokens: 'Tokens', classes: 'House classes' }
 
 
 /** The repo whose preview the hash asks for, or null for the brand book itself. */
@@ -153,7 +154,7 @@ export default function App() {
         <Breadcrumbs
           bar
           items={[
-            { label: 'Repo hub', href: DASHBOARD_PATH },
+            { label: 'Repo hub', href: HUB_PATH },
             ...(previewRepo ? [{ label: 'Brand book', href: SHOWCASE_PATH }, { label: previewRepo }] : [{ label: 'Brand book' }]),
           ]}
         />
@@ -166,6 +167,7 @@ export default function App() {
               <>
                 <Intro />
                 <Foundations />
+                <HouseClasses />
                 <Actions />
                 <Surfaces />
                 <Metrics />

@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
     The Repo hub on '/' of this repo's dev server and its own pages: the test-gate page (the per-suite CI
-    durations, #3097) and the Specialists page. No I/O -- the server (scripts/dashboard/serve-connector-dashboard.ps1)
-    measures and reads, and hands the results in, so every rule here is tested without a server.
+    durations, #3097), the Specialists page, and what /brandbook/ needs to serve the brandbook/ app's build (its
+    paths, its content types and its status page). No I/O -- the server
+    (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
     THE HUB TAKES THE ONE FORM THE BRAND BOOK LAYS DOWN (house style v0.3.0, "The Repo hub"): the bar
@@ -247,6 +248,57 @@ function Format-TestGatePageHtml {
     return Format-DevPageHtml -Title 'Test gate' -Style $script:DevBarStyle -Body $body.ToString() `
         -Lead 'What each test suite costs on CI, as the gate packs its shards from it. Measured on CI runners, never on a workstation: a local reading does not convert.' `
         -FooterNote 'Read from <code>scripts/tests/suite-durations.json</code>. Refreshed by <code>scripts/maintenance/record-suite-durations.ps1</code>; the <code>measure-suites</code> skill compares two sets of runs.'
+}
+
+function ConvertTo-BrandbookRelPath {
+    <#
+        The file under brandbook/dist that a request for -Path asks for, relative and with forward slashes, or
+        $null when the path is not the brand book's or is not safe to join to a directory. '/brandbook/' is
+        'index.html'. The server checks that the file is there; a path without one that names no file (no dot in
+        its last segment) is one of the app's own routes, and the server answers it with index.html too.
+
+        ONE BRAND BOOK, BUILT FROM brandbook/ AND SERVED HERE. The hub's own PowerShell page (#3132) and
+        the React app (#3131) were two brand books; the app is the one that stays, and the hub serves its build
+        under /brandbook/, which is the base vite.config.ts builds it for. Nothing is decoded: the build's file
+        names are plain ASCII, so a '%', a backslash, a colon or a '..' segment is refused rather than read.
+    #>
+    param([AllowEmptyString()][string]$Path = '')
+    if (-not $Path.StartsWith('/brandbook/')) { return $null }
+    # A route may end in a slash (/brandbook/dashboards/); a file never does.
+    $rel = $Path.Substring('/brandbook/'.Length).TrimEnd('/')
+    if ($rel -eq '') { return 'index.html' }
+    if ($rel -match '[%\\:]' -or $rel.StartsWith('/') -or @($rel -split '/' | Where-Object { $_ -eq '..' -or $_ -eq '.' -or $_ -eq '' }).Count) { return $null }
+    return $rel
+}
+
+function Get-BrandbookContentType {
+    <# The Content-Type for a file of the brand book's build, by its extension; an unknown one is served as bytes. #>
+    param([Parameter(Mandatory = $true)][string]$RelPath)
+    switch -Regex ($RelPath) {
+        '\.html$' { return 'text/html; charset=utf-8' }
+        '\.js$' { return 'text/javascript; charset=utf-8' }
+        '\.css$' { return 'text/css; charset=utf-8' }
+        '\.svg$' { return 'image/svg+xml' }
+        '\.png$' { return 'image/png' }
+        '\.(jpg|jpeg)$' { return 'image/jpeg' }
+        '\.woff2$' { return 'font/woff2' }
+        '\.json$' { return 'application/json; charset=utf-8' }
+        default { return 'application/octet-stream' }
+    }
+}
+
+function Format-BrandbookStatusHtml {
+    <#
+        The page /brandbook answers with when there is no build to serve: brandbook/ is missing, the build
+        is switched off, or it failed. -Message says which, -Detail carries the build's last output lines.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Message, [AllowEmptyString()][string]$Detail = '')
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $body = '<p class="msg msg--warn" role="alert">' + (& $e $Message) + '</p>'
+    if ($Detail) { $body += "`n" + '<pre class="note">' + (& $e $Detail) + '</pre>' }
+    return Format-DevPageHtml -Title 'Brandbook' -Style $script:DevBarStyle -Body $body `
+        -Lead 'The DKJ-Solutions brand book: the house style''s tokens, themes and components, built from brandbook/ in this checkout.' `
+        -FooterNote 'Built with <code>npm run build</code> in <code>brandbook/</code>; the hub rebuilds it when its sources or the house style change.'
 }
 
 function ConvertTo-SpecialistRow {
