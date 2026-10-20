@@ -475,8 +475,16 @@ function Format-ConnectorDashboardHtml {
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     [void]$sb.AppendLine('<p class="footer-note">Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=connectors">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
-    # The Copy buttons: the command goes to the clipboard, and the button says so for a moment.
-    [void]$sb.AppendLine('<script>document.addEventListener("click", function (ev) { var b = ev.target.closest("[data-copy]"); if (!b || !navigator.clipboard) return; navigator.clipboard.writeText(b.getAttribute("data-copy")).then(function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1500); }); });</script>')
+    # The Copy buttons. The clipboard API first; then execCommand on a hidden textarea, because VS Code's Simple
+    # Browser serves the page in an iframe without clipboard-write, where the API is refused (the owner's own
+    # browser, #3231); and where both fail, the command beside the button is selected for Ctrl+C.
+    [void]$sb.AppendLine('<script>(function () {')
+    [void]$sb.AppendLine('function label(b, t) { b.textContent = t; setTimeout(function () { b.textContent = "Copy"; }, 2000); }')
+    [void]$sb.AppendLine('function fallback(b, text) { var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; } document.body.removeChild(ta);')
+    [void]$sb.AppendLine('  if (ok) { label(b, "Copied"); return; } var code = b.parentNode.querySelector("code"); if (code) { var r = document.createRange(); r.selectNodeContents(code); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); } label(b, "Press Ctrl+C"); }')
+    [void]$sb.AppendLine('document.addEventListener("click", function (ev) { var b = ev.target.closest("[data-copy]"); if (!b) return; var text = b.getAttribute("data-copy");')
+    [void]$sb.AppendLine('  if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(function () { label(b, "Copied"); }, function () { fallback(b, text); }); } else { fallback(b, text); } });')
+    [void]$sb.AppendLine('})();</script>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')
     [void]$sb.AppendLine('</html>')

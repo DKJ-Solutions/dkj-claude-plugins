@@ -70,6 +70,9 @@ The `/connectors` page gains a line per checked-out repo, so this branch stops f
       characters are refused, the wt title is used only when it is a plain name, and two prose mismatches
       are corrected. Left as is: the manifest loop the script and the server each run (the resolver they
       share is the part that must agree).
+- [x] The Copy button works in VS Code's Simple Browser, the owner's browser: there the page is an iframe
+      without clipboard-write, so it falls back to `execCommand('copy')`, and where that fails too it selects
+      the command for Ctrl+C.
 - [x] Run against this machine: `-List`, `lifehub`, and `lifehub -Open -WhatIf` resolve `dkj-lifehub`.
 
 ### DEPLOY: feat/3231-hub-repo-sessions
