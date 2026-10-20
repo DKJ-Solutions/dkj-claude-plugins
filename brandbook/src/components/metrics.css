@@ -3,7 +3,7 @@
    adds what they do not hold, under --dkj-* / .dkj-* names. */
 
 /* ---------- HeroValue ---------- */
-.dkj-hero-value { font-size: var(--text-h0); font-weight: var(--dkj-fw-semibold); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.dkj-hero-value { font-size: var(--text-h1); font-weight: var(--dkj-fw-semibold); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .dkj-hero-value--lg { font-size: var(--text-h4); line-height: var(--dkj-lh-snug); }
 
 /* ---------- StatTile: the warn tone, beside the house .pos / .neg ---------- */

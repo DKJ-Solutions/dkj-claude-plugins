@@ -16,7 +16,7 @@ const HOUSE_COLORS = {
 
 
 const TEXT_SIZES = [
-  '--text-h0', '--text-h1', '--text-h2', '--text-h3', '--text-h4', '--text-h5', '--text-h6',
+  '--text-h1', '--text-h2', '--text-h3', '--text-h4', '--text-h5', '--text-h6',
   '--text-lg', '--text-base', '--text-sm', '--text-xs',
 ] as const
 const WEIGHTS = ['regular', 'medium', 'semibold', 'bold'] as const
