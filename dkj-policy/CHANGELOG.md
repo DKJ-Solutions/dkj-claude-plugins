@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**18 / 25 minor entries** <!-- pending-tally -->
+**18 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3205-slim-workflow-bullets-in-sysadmin-lens · 20261020-100247Z
+
+The five largest workflow bullets in Sylvester's repo lens (`ci.yml`, the two Claude workflows,
+`repo-settings.yml`, the merge-on-green bundle and `check-consumer-prose.ps1`) now say what each file
+does, what to know before changing it, which alternatives were declined, and which issues decided it.
+The dated measurements behind them stay in those issues and in the file's git history. The lens goes
+from 289 KB to about 216 KB. Second of five slimming steps (#3204-#3208).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Sylvester's lens: the workflow bullets keep what each file does, not its history
+
+[PR #3214](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3214)
+
+---
 
 ### DEPLOY: fix/3212-sync-main-short-mirror-path · 20261020-094457Z
 
