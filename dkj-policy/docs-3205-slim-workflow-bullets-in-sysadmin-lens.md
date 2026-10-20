@@ -39,19 +39,33 @@
 
 ### PLAN
 
+- [x] Second of five slimming steps (#3204-#3208): the five largest workflow bullets in "What Sylvester owns here"
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Cut the ci.yml, claude.yml/claude-code-review.yml, repo-settings.yml, merge-on-green and check-consumer-prose bullets to purpose, "before changing it" and "decided in"
+- [x] Repair the pointers the cut broke (unfolded-entry and fold-on-merge bullets, Rendall's lens); keep the ruleset re-read command
 
 ### TEST
 
+- [x] Lens measured: 289,268 B -> ~216 KB; no anchor lived inside the cut text
+- [x] Copy edit (Edith) on the diff
+
 ### DEPLOY: docs/3205-slim-workflow-bullets-in-sysadmin-lens
 
-**Score:**
+The five largest workflow bullets in Sylvester's repo lens (`ci.yml`, the two Claude workflows,
+`repo-settings.yml`, the merge-on-green bundle and `check-consumer-prose.ps1`) now say what each file
+does, what to know before changing it, which alternatives were declined, and which issues decided it.
+The dated measurements behind them stay in those issues and in the file's git history. The lens goes
+from 289 KB to about 216 KB. Second of five slimming steps (#3204-#3208).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
