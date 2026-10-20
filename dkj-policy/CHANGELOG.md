@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**17 / 20 minor entries** <!-- pending-tally -->
+**17 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3200-dashboard-test-successor-leak · 20261020-083158Z
+
+A run of `connector-dashboard.tests.ps1` no longer leaves a dashboard server running in the background or a fixture
+directory in `%TEMP%`. Group 4 waits for the server's last successor to listen before it stops it, and asserts that
+step as well (#3200).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+connector-dashboard.tests group 4 stops its detached successor server
+
+[PR #3201](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3201)
+
+---
 
 ### DEPLOY: feat/brandbook-general-page · 20261020-075701Z
 
