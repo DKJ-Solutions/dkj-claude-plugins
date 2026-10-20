@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**17 / 23 minor entries** <!-- pending-tally -->
+**17 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3204-slim-gate-history-in-sysadmin-lens · 20261020-093316Z
+
+Sylvester's repo lens drops its 111 KB gate-check decision log for a ~13 KB index: one row per check or
+declined rule, naming the issue that decided it and the one-line reason. The full reasoning stays in
+those issues and in the file's git history. The lens goes from 389 KB to 289 KB, so a Sylvester
+dispatch that reads it pays roughly 32k tokens less. Every anchor linked from outside the section still
+resolves. First of five slimming steps (#3204-#3208).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Sylvester's lens: the gate-check decision log becomes a one-row-per-check table
+
+[PR #3211](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3211)
+
+---
 
 ### DEPLOY: feat/brandbook-heading-overview · 20261020-092123Z
 
