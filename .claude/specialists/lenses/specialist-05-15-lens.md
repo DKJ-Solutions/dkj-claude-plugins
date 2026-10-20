@@ -831,496 +831,133 @@ this repo's:
 
 ### Repo-specific rules
 
-- **NEVER ROUND-TRIP A MARKDOWN FILE THROUGH POWERSHELL TO EDIT IT — USE THE EDITOR'S OWN EDIT.**
-  Measured twice in one session, August 15, 2026, both times on a lens. `Get-Content -Raw` reads with the
-  **ANSI codepage** in Windows PowerShell 5.1, so every em dash, `·` and emoji in a repo whose documents
-  are full of them comes back as mojibake; writing that back produced **127 corrupted sequences** in
-  `specialist-06-25-lens.md` in a single command. The second failure is quieter and has no lint behind it: a
-  **double-quoted** PowerShell string eats backticks as escapes, so a line containing `` `v1.0.0` ``
-  silently became a **vertical tab** plus `1.0.0` — valid UTF-8, invisible in a diff, and past every
-  check here.
-  - **The repair for the first is already built**:
-    [`fix-mojibake.ps1`](../../../scripts/maintenance/fix-mojibake.ps1) peels the inverse round trip and
-    repaired all 127 in one run. Verify by diff afterwards — `111 insertions(+), 0 deletions(-)` is what
-    proves nothing else moved.
-  - **The second has no gate, deliberately not proposed as one.** A vertical tab is legal in markdown and
-    a rule against control characters would be a check written for one careless afternoon. The answer is
-    not to write the file that way: use the harness `Edit` tool, or single-quoted strings and
-    `[System.IO.File]::ReadAllText/WriteAllText` with an explicit
-    `New-Object System.Text.UTF8Encoding($false)` when a script genuinely must do it.
-  - **Why it belongs here rather than in the language rule.** This is not a language-layer question — it
-    is the mechanism by which any specialist edits any document in this repo, and it fires hardest on the
-    files that carry the most prose. It cost nothing both times only because the lint's mojibake check
-    caught the loud half within minutes.
-- **The shared-scripts registry spans TWO plugins since August 8, 2026, and the plugin is read off the
-  mirror path rather than declared.** `Get-SharedScriptPairs` maps each source to a mirror in either
-  `plugins/dkj-subagents/dkj-subagents-alpha/` (the core: `check-roster-sync`, `check-report-lib`) or
-  `plugins/dkj-policy/` (everything branch- and release-shaped). Three things to
-  know before touching it:
-  - **`SkillRel` is derived from `MirrorRel`, not stored.** Check 18 and `shared-scripts.tests.ps1`
-    both used to look for a script's documenting page at a hardcoded `plugins\teams\team-alpha\skills\…`,
-    and the moment nine entry points moved, the gate reported every one of their existing skills as a
-    typo. A second field naming the plugin would have been free to disagree with the path beside it;
-    deriving it means a script that moves takes its page lookup with it.
-  - **`check-report-lib` is registered TWICE on purpose** — one source, two mirrors — because
-    `check-roster-sync` stayed in the core while `check-script-contract` went to the workflow. The
-    alternative, a mirror reaching into the other plugin's cache, was rejected on sight: separately
-    versioned, separately installed, so a version mismatch breaks it silently. **A duplicate entry
-    needs a distinct `Name`**: the suite looks pairs up with `Where-Object { $_.Name -eq … }` in
-    eleven places and would get an array back.
-  - **The thing that parked this work for days was a MENTION read as a USE — the fifth instance in
-    this file.** The note that stopped it said `check-report-lib` and `native-capture-lib` each had
-    readers in both halves. Neither did: `open-pr`/`fold-changelog-entry` name the first only in a
-    comment, and `check-report-lib` names the second to say it *needs none of* its EAP dance. Both
-    rows dissolved on being read. The assert that now refuses any mirror dot-sourcing a lib from the
-    other plugin is in `shared-scripts.tests.ps1` — write the check that would have caught the
-    misreading, not just the fix.
-- **A scaffold with nothing to fill in is invisible to a placeholder test.** The same split gave a
-  core-only consumer a `repo-config.ps1` holding just the roster pair — complete as generated, so no
-  `VUL-IN` value anywhere. `specialists-teardown` classifies by placeholder VALUE (the #333 lesson),
-  so it read that file as authored and would have kept it forever, making adoption exactly as
-  irreversible as that skill promises it is not. The second recognised shape keys on "still exactly
-  what the bootstrap wrote", which is conservative in the right direction: every way an owner can
-  touch that file ADDS something. **General rule: when a generator gains a mode that emits no
-  placeholder, check every consumer that classifies its output by one.**
-- **The agent-def frontmatter and the `plugin.json` `version` land here first**, never in a consuming
-  repo — those pull them in. An agent-def config change is Sylvester's side; the agent-def *text* is
-  Tessa's side.
-- **The lint gate may never become quieter than the risks.** As the repo grows (more plugins, more
-  complex manifests), Sylvester extends the checks — with [Tycho #18](specialist-04-18-lens.md) building
-  tests alongside.
-- **The test gate is bound by its SLOWEST SINGLE SUITE, not by their sum — so the next second saved is
-  bought inside one file.** Measured August 7, 2026 on the same machine within one session, all 27 suites
-  green every time: **510s one at a time, against 128–263s parallel over six runs (median 159s)**
-  ([#512](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/512)). **That spread is the mechanism,
-  not noise** — a sum averages its own variance out, a maximum does the opposite, so a gate bound by its
-  slowest suite is inherently less predictable than one bound by the total. Quote the range rather than the
-  best run: the first parallel measurement taken was the 128s one, and on its own it would have promised a
-  4× improvement the gate delivers only sometimes. **CI gains less, and for a stated reason:** its runner
-  has four cores against this machine's eighteen, so the throttle is four wide and the `lint-en-tests` job
-  went from about eleven minutes to **7m2s**. What made that safe rather than
-  lucky was checked before it was built, not after: no suite writes into the repo tree (every `$RepoRoot`
-  reference is a read, or a `Copy-Item` *out of* it into a fixture), and no two suites share a fixture path
-  — the fixed-name ones each own their name, the rest key on `$PID`. **Re-check both before adding a suite
-  that touches either.** The remaining half of #512 is now the whole critical path:
-  `check-plugin-integrity.tests.ps1` spends its ~154s on **86** `Invoke-Integrity` calls, each a fresh
-  `powershell` start (~0.18s) plus a full lint over its fixture (~1.6s) — real work, not waste, and it
-  cannot be parallelised the way the gate was, because all 86 scenarios mutate **one** fixture directory in
-  sequence. `-MaxParallel 1` is the valve, and it is worth reaching for before believing a suite that only
-  fails with 30 siblings competing for the disk.
+**One rule per line, with the issue or PR that measured it — the narrative lives there, not here**
+([#3208](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3208)). The generic PowerShell
+traps that already ship are in
+[the portable manual's trap list](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#fourteen-powershell-traps-that-produce-well-formed-wrong-output)
+and are only pointed at below.
 
-  **THE LAST CLAIM IN THAT PARAGRAPH WAS WRONG, AND IT IS KEPT ABOVE SO THE CORRECTION HAS SOMETHING TO
-  CORRECT** (August 16, 2026, [#714](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/714)).
-  "It cannot be parallelised the way the gate was" reasoned from the wrong unit: the scenarios do all
-  mutate one directory in sequence, but the gate schedules **files**, not scenarios — so the suite could
-  be given the idle lanes by becoming four files, each with its own fixture, without touching the
-  sequence inside any of them. It now is: `check-plugin-integrity-{links,commands,entries,docs}.tests.ps1`
-  over a shared `check-plugin-integrity-fixture.ps1`, same 110 invocations, **~51s across four lanes
-  instead of ~160s in one**, asserts unchanged at 234. By then the paragraph above had been measured
-  again and was worse than it read: the gate's total EQUALLED this suite to a tenth of a second, four runs
-  out of four, with 15 of 16 lanes idle for its last 70-86 seconds. **The generalisation worth keeping:
-  when a gate's cost is one file, ask whether the work has to be one file before asking whether it has to
-  be done.** The convention for the four is in [Tycho #18](specialist-04-18-lens.md#the-lint-gate-suite-is-more-than-one-file-august-16-2026-split-again-september-22-2026).
-- **Do not hand-roll a second parallel runner — and re-run a red suite alone before believing its assert.**
-  Measured August 12, 2026: a `Start-Job` fan-out over all **31** suites reported **6** failures —
-  `subagent-shared`, `bootstrap-drift`, `config-blueprint`, `fix-mojibake`, `roster-sync`,
-  `verify-resolved-issues` — two of them asserting *"lint gate green on the repo"* in as many words, which
-  reads like a finding about the repo rather than about the runner. **Every one of the six passes when run
-  alone**, and `open-pr` then ran all 31 green in **218s**. What the six share is that they scan the **live
-  repo**: three (`subagent-shared`, `bootstrap-drift`, `fix-mojibake`) by invoking the lint gate over it, the
-  other three by running their own repo-wide scanner — `build-config-blueprint.ps1`,
-  `check-roster-sync.ps1`, `verify-resolved-issues.ps1`. So 31 at once collide over one tree, which is the
-  same collision the paragraph above describes, in its strongest form to date. **Read that list before
-  adding a suite that touches the tree**, and note that the shared condition is the tree rather than the
-  gate — keying the lesson on the lint gate alone would exempt half the affected suites. The lesson is
-  **not** "never run the suites in parallel": `open-pr` parallelises
-  them, is the tested runner, and was checked against exactly the two conditions above before it did — no
-  suite writes into the tree, no two share a fixture path. A hand-rolled runner is checked against neither,
-  so its red is evidence about the runner, not about the suite.
+#### Editing files
 
-  **And the tested runner has now done it too, three times — so the second half of that lesson stands on
-  its own.** *Re-run a red suite alone before believing its assert* was written for a hand-rolled runner;
-  the reds of August 16 (`bootstrap-drift`, `fix-mojibake`, post-split pool) and the **11 of 54** reported
-  out of the `v4.22.0` cut in
-  [#1033](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1033) both came out of
-  `Invoke-TestSuiteGate` itself. Neither reproduces: five full runs on that tree were all green, and the
-  release's 443s "green" figure turns out to be a **2x-load** reading rather than the gate's cost — the
-  numbers are in [Nolan #25](specialist-06-25-lens.md#a-gate-verdict-that-moves-is-a-load-reading--n5-and-the-caller-is-not-a-variable-august-28-2026).
-  Six of those eleven scan the live tree and five do not, so the collision above explains part of it and
-  nothing explains the rest. Do not read a lone red from the pool as a finding about the tree until it has
-  been run alone.
-- **A count in these documents is either DATED or LIVE, and the two are maintained in opposite directions.**
-  The 27 above is a dated measurement and stays 27 — the 510s-vs-159s figure beside it means nothing when
-  paired with any other count. The 30 in the paragraph above is live advice about what to try next, so it
-  tracks the tree. Where a sentence is dated **and** the count carries none of its argument, the count is *removed*
-  rather than refreshed: that is why [`CLAUDE.md`](../../rules/this-repo.md)'s *"`open-pr` runs the lint and every
-  test suite"* now states no number under its August 7 stamp. It read `26` there for five days — wrong on the
-  day it was written, since there were 27, and wronger every suite since. **And a bare `26` is still correct
-  in two other senses**: the lint's own checks (`CHANGELOG.md`) and the agent-def count
-  ([`plugins/dkj-subagents/README.md`](../../../plugins/dkj-subagents/README.md), [Ravi's lens](specialist-06-24-lens.md#why-each-circle-is-the-width-it-is)). Establish
-  which noun a `26` governs before touching it; a find-and-replace here breaks correct statements to repair
-  one.
-- **Renaming or moving this checkout unlinks its own plugin install — plan the re-install into the same
-  move.** Because this repo consumes itself, it is a consumer like any other, and the install record is
-  keyed on `projectPath`. Measured August 3, 2026: after the directory was renamed from
-  `davekjohns-workshop` to `claude-code-specialists`, `.claude/settings.json` still enabled
-  `specialists@claude-code-specialists` correctly while the machine's only record named the old folder,
-  so the session loaded no subagent, skill or hook at all. Recognize it by a **deliberate** run of
-  [`check-roster-sync.ps1`](../../../scripts/sync/check-roster-sync.ps1) reporting
-  `[NOT-INSTALLED-HERE]` — the session-start hook cannot report it, because that hook ships in the
-  plugin that did not load. The repair is `claude plugin marketplace update dkj-claude-plugins`
-  followed by `claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project` from the new
-  root, after which a leftover record naming the old folder is expected and inert. The mechanism, the
-  other two ways a record goes missing, and why that leftover is not a stray duplicate were in the
-  family's root `INSTALL.md`, retired on September 24, 2026; its release notes carry them.
-- **The marketplace clone follows a REFRESH, not a push — and no version check can tell you it is
-  behind.** The clone is what a document named by an absolute `@`-import reads — the orchestrator's
-  body, in every repo here — and it advances only on
-  `claude plugin marketplace update dkj-claude-plugins`. Measured August 23, 2026
-  ([#845](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/845)): after four PRs merged and
-  pushed, the clone still stood on the previous day's `3e46b3de` while `main` was at `86f1a6c8` — the
-  cached manual missing a section added that morning, the cached shared block missing a rule added that
-  afternoon — and **every check reported OK**. `/plugin` had nothing to do, and
-  [`check-connectors.ps1`](../../../scripts/sync/check-connectors.ps1) reported `[OK] machine record is
-  on the source version (v4.18.0)`. Both compare **version strings**, and between two releases the
-  version is unchanged by definition, so a clone any number of commits behind `main` is
-  indistinguishable from a current one. This is the failure check 11 in
-  [`check-plugin-integrity.ps1`](../../../scripts/lint/check-plugin-integrity.ps1) already names in its
-  own comment — *"a stale cache reports success with a plausible version number"* — reaching the source
-  repo rather than a consumer. The repair is that one refresh, which moved the clone immediately.
+- **Never round-trip a Markdown file through PowerShell to edit it — use `Edit`.** In 5.1
+  `Get-Content -Raw` reads with the ANSI codepage, so every em dash and emoji comes back as mojibake
+  (127 sequences in one write, August 15, 2026);
+  [`fix-mojibake.ps1`](../../../scripts/maintenance/fix-mojibake.ps1) repairs it, and the diff proves
+  nothing else moved. Where a script genuinely must write, use `[System.IO.File]::WriteAllText` with
+  `New-Object System.Text.UTF8Encoding($false)`. The backtick half is in the manual's trap list.
+- **Undo a temporary change to a tracked file with `git checkout -- <path>`, never by writing the
+  captured content back with `Set-Content -Encoding utf8`**, which in 5.1 adds a BOM and leaves a diff.
+- **After `claude plugin install`/`uninstall --scope project`, run `git checkout -- .claude/settings.json`
+  and read `git status` before staging** — the CLI's settings writer strips the blank lines that group
+  `permissions.allow` ([#1774](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1774)). The rule,
+  and why it has no gate, is in
+  [the manual's hard rules](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules);
+  it bites here often because this repo administers its own plugins.
+- **Run `claude plugin marketplace remove` from a throwaway directory**, never from a repo whose
+  `.claude/settings.json` you want to keep: it empties that directory's `enabledPlugins` and
+  `extraKnownMarketplaces` ([PR #256](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/256)). Its
+  machine-wide reach over install records is in the manual's hard rules.
 
-  **Detection is deliberately left as it is, and that is the answer rather than a postponement**
-  (Dave, August 24, 2026). Having `check-connectors.ps1` compare **commits** instead of versions was on
-  the table and was declined on mechanism: its version verdicts are per **consumer checkout**, and a
-  consumer's clone is *supposed* to follow the releases rather than `main`, so between two cuts a commit
-  comparison would report a gap on every consumer where nothing is wrong — the same shape as the
-  stale-path check this repo declined at 124 findings all false. Nothing was damaged here either: a
-  session read payload a few hours older than `main` carried, which for content merged the same day is
-  the ordinary state. What was wrong was the **expectation** — [`CLAUDE.md`](../../rules/this-repo.md) promised
-  the "last pushed" version — and that sentence is what the repair changed.
+#### PowerShell in `scripts/**`
 
-  **The same property makes this the one channel on which a file RENAMED here reaches a consumer with no
-  version behind it** (September 19, 2026,
-  [#2128](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2128)). A consumer's
-  `SPECIALISTS.md` names the orchestrator's body by absolute literal path, `bootstrap.ps1` never rewrites
-  that line once written, and the clone it resolves against tracks `main` — so a rename on `main` kills
-  the import on their next refresh, with no release and no bump in between.
+- **Capture a native command's output in full, read `$LASTEXITCODE`, then filter.** `& git … |
+  Select-Object -First N` tears the pipeline down and kills the child, so the exit code is
+  timing-dependent (#94–#96) and the run can stop silently half-done; `-Last N` drains and is safe. When
+  setup runs before a measurement, check its exit code and abort rather than measure past it.
+- **Wrap a native call whose stderr is normal chatter in `$ErrorActionPreference = 'Continue'` and judge
+  `$LASTEXITCODE`** — `git push`/`fetch`, `git add`'s CRLF warning, `gh` notices. Under `Stop`, 5.1
+  makes that stderr terminating even on exit 0 (`open-pr.ps1`'s push; `cut-release.ps1` at v1.12.0).
+  Query commands (`git rev-parse`, `git status`) stay under `Stop`.
+- **Never name a local after a `$script:` variable a dot-sourced lib owns** — the trap is in the manual;
+  here, prove a seam with a test that sets a *non-default* value, since the default passes either way
+  (#178).
+- **Dot-source a consumer's `branch-info.ps1` or `repo-config.ps1` in a child scope with
+  `Set-StrictMode -Off`** (`& { Set-StrictMode -Off; . $lib; Get-Command … }`). Both libs are written for
+  no strict mode, and loading them under it turns an older consumer's loose top-level code into a false
+  `[ERROR]` at every session start (#148, #149).
+- **Wrap at the call site — `$r = @(Get-Thing …)` — whenever you index or slice.** `return @($x)` of one
+  item unrolls to a scalar, so `$r[0]` is its first character and the `.Count` guard still passes.
+- **Verify a `Write-Host` script as a child process** (`& powershell -File …`, `Invoke-Ps` in
+  `connectors.tests.ps1`), the way the hook consumes it — in-process, `Write-Host` never enters the
+  pipeline and a negative assert passes vacuously.
+- **Run a suite from the tree it judges** — `Push-Location <worktree>` or `git -C`, because
+  `git rev-parse --show-toplevel` answers for the process's directory, not the script's. With the rule
+  above: confirm the vantage point before believing either a green or a red.
+- **Mask fenced code blocks before pairing inline backticks — reuse `Get-FenceMaskedText`** in
+  [`check-plugin-integrity.ps1`](../../../scripts/lint/check-plugin-integrity.ps1), and judge one
+  command's own arguments, not the whole span.
 
-  **And a dead `@`-import is SILENT, which had been asserted since #874 but never measured.** Measured
-  here in an isolated checkout, because upstream documents none of it: the rest of the file **loads
-  normally** — a broken import is not fatal — and **nothing is reported**, not on stdout, not on stderr,
-  not under `--debug`. The consumer loses the whole imported document and the session carries on as
-  though it were there. **One detail of check 28's own wording was wrong and is corrected**: it said
-  Claude Code *drops* the import, and the line is not dropped — the raw `@path` survives in context as
-  inert text. That is worse rather than merely different, because a reader inspecting the assembled
-  context sees the line and concludes the import happened. Nothing else about check 28 changes; the half
-  it exists for is now measured rather than asserted.
+#### Checks and gates
 
-  **The measurement check 11's comment relies on had never reached this boundary. It has now, and the
-  answer is worse than the guess** (September 10, 2026, Claude Code 2.1.267, on a second machine of Dave's,
-  [#1812](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1812)). What check 11 records,
-  correctly and with a date, is that a bare project-scoped `update` advanced the clone during the run
-  (July 31, 2026, CLI 2.1.220, 3.0.3 → 3.0.4) — taken while the **version number was changing**.
-  Identical version, new content, nothing moved was the untested case. Measured, in this order:
+- **Key a check's evidence on a position only real use produces, never on the string merely appearing in
+  the file** — a docstring, a path, a link or quoted prose contains it too (MENTION vs USE: #227, #235,
+  the `specialists-teardown` near-delete of a filled `repo-config.ps1`, the `01-01` import path that
+  passed as a roster row). For a script that deletes, resolve every doubt toward keeping.
+- **A gate scans where text is *authored*, not only where it ends up** — root changelog entry files were
+  outside the scan set and failed only at fold, on `main` (#234).
+- **A scaffold with no placeholder is invisible to a placeholder test** — when a generator gains such a
+  mode, check every consumer that classifies its output by placeholder.
+- **A check's finding wording is a consumed interface** — `sync-roster.ps1` parses
+  `check-roster-sync.ps1`'s lines (#204). Grep for parsers before rewording, and read a red
+  `sync-roster.tests.ps1` on a wording change as the coupling reporting itself.
+- **A finding that is real but not broken gets a non-counting marker** — a bracketed token via
+  `Write-Host`, matched by the hook outside `$signals`, with its own verdict line: `[ORPHANS]` (#204),
+  `[UNREGISTERED]` (#208), `[INVENTORY]` (#220), `[BOOTSTRAP]` (#225), `[RECORD-SHAPE]` (#314). Anything
+  that could indicate tampering stays an `[ERROR]`.
+- **A rule that depends on somebody remembering a follow-up step needs something that reports the
+  omission**, not a sharper sentence (#220).
+- **Compute a repo-wide verdict after the loop that gathers its evidence, not where it is cheapest**
+  (#225), and add the guard case in the same commit.
+- **Verify a diagnosability fix against the real register, not a fixture** (#203).
+- **The lint gate may never become quieter than the risks** — Sylvester extends it as the repo grows,
+  with [Tycho #18](specialist-04-18-lens.md) building the tests.
 
-  - `claude plugin marketplace update claude-code-specialists` advanced the clone **104 commits**,
-    `0711d417` → `37f72f76`. Every extracted payload was left byte-identical — no new tree, no
-    changed mtime — and `installed_plugins.json` came back byte-identical too.
-  - `claude plugin update dkj-policy --scope project` then answered *"already at the latest version
-    (4.33.0)"* and extracted nothing, with the clone's payload for 4.33.0 by then carrying a skill
-    (`tidy-machine`) the installed payload does not.
-  - `claude plugin install dkj-policy@claude-code-specialists --scope project` answered *"already
-    installed"* and extracted nothing either.
+#### The suite pool
 
-  **So both documented commands decide on the version STRING, and a payload that changed without a
-  bump is unreachable by either.** Not "a few hours older than `main`", as the August 24 reading had
-  it — arbitrarily old, until the next cut. That reading was taken on the clone, which is the copy the
-  refresh does move, and nobody looked at the copy underneath it.
+- **The test gate is bound by its slowest single file, so a file that is the cost is split into files
+  with their own fixtures** (#512, #714) — the convention is in
+  [Tycho #18](specialist-04-18-lens.md#the-lint-gate-suite-is-more-than-one-file-august-16-2026-split-again-september-22-2026).
+- **Before adding a suite, re-check what the parallel gate rests on**: no suite writes into the repo
+  tree, and no two share a fixture path.
+- **Do not hand-roll a second parallel runner, and re-run a red suite alone before believing its
+  assert** — suites that scan the live tree collide in a pool, and `Invoke-TestSuiteGate` itself has
+  produced unreproducible reds (#1033; the load numbers are in
+  [Nolan #25](specialist-06-25-lens.md#a-gate-verdict-that-moves-is-a-load-reading--n5-and-the-caller-is-not-a-variable-august-28-2026)).
+  `-MaxParallel 1` is the valve.
+- **A count is either dated or live**: a dated one stays as measured, or is removed when it carries no
+  argument; a live one tracks the tree. Establish which noun a number governs before a find-and-replace.
 
-  **The copy underneath it is the one a session loads, and this is the measurement that settles it.** A
-  record in `installed_plugins.json` carries an `installPath`, always into
-  `~/.claude/plugins/cache/<marketplace>/<plugin>/<version-or-sha>/`, and the running process writes a
-  lease at `<installPath>/.in_use/<pid>` holding `{"pid":…,"procStartFt":…}` for the life of the
-  session. Measured live: pid 51988 (`claude`, started 19:51:42) held one in `dkj-policy/4.33.0` and
-  `bwj-development/4.33.0` and in no other tree, and the clone held none. Two corroborations, both from
-  the same run: `claude plugin details dkj-policy` reported `Skills (17)` while the clone's copy of the
-  same 4.33.0 carried 18 — so that command prices the payload, not the clone — and a checkout enabling
-  `dkj-subagents-alpha/-ecomm/-shopify` with no install record for its own path loaded none of them,
-  which is [#1802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1802) seen from the
-  other end.
+#### Plugins and the marketplace
 
-  **Neither account in the tree was complete, and that is why #1810 could not be designed.** This lens
-  said the clone is what a session reads; #1802 said a dead consumer survives because its *cache*
-  survives. Both are half of one mechanism: **plugin components — skills, hooks, agent defs, the
-  plugin's own scripts — load from the payload, and a document named by an absolute `@`-import loads
-  from wherever that path points**, which in this family is the clone. That is the whole of it, and it
-  is why a refresh visibly repaired #845's `@`-imported document while leaving every hook and skill on
-  the same bytes as before.
+- **The agent-def frontmatter and the `plugin.json` `version` land here first** — agent-def config is
+  Sylvester's, the text Tessa's.
+- **`Get-SharedScriptPairs` spans two plugins and reads the plugin off `MirrorRel`; `SkillRel` is
+  derived, never stored.** A duplicate registration (`check-report-lib`: one source, two mirrors) needs a
+  distinct `Name`, and no mirror dot-sources a lib from the other plugin — `shared-scripts.tests.ps1`
+  asserts it.
+- **Renaming or moving this checkout unlinks its own install.** A deliberate `check-roster-sync.ps1` run
+  prints `[NOT-INSTALLED-HERE]` (the hook cannot — it did not load); repair with
+  `claude plugin marketplace update dkj-claude-plugins`, then
+  `claude plugin install <plugin>@dkj-claude-plugins --scope project` from the new root.
+- **A session loads the extracted payload; only an absolute `@`-import reads the clone** — the account
+  is in [Updating the plugins](#updating-the-plugins--in-every-other-checkout-of-this-repo) (#845,
+  #1812). Between two releases no command hands a session new plugin content, because `plugin update`
+  and `plugin install` both decide on the version string; comparing commits instead of versions is declined because a consumer's clone is meant to
+  follow releases (Dave, August 24, 2026). Three consequences:
+  - A file **renamed** on `main` kills a consumer's absolute `@`-import on their next refresh, with no
+    release in between (#2128).
+  - A dead `@`-import is **silent**: the rest loads, nothing is reported, and the raw `@path` stays in
+    context as inert text — check 28 exists for it.
+  - The payload is **marked, never reaped** — `.orphaned_at`, and `uninstall` leaves it too (#339);
+    [lane 12 of `tidy-machine.ps1`](../../../scripts/maintenance/tidy-machine.ps1) reports it and
+    deletes nothing (#1659).
 
-  **What follows for a fleet, since that was the question underneath.** One `marketplace update` per
-  machine moves nothing that a plugin ships; the unit that moves a payload is a **release**, and it has
-  to be pulled per checkout, on every machine, with the version bump as its only trigger. Between two
-  cuts there is no command in the CLI that will hand a session new plugin content — measured above,
-  three times.
+#### In the session
 
-  **And the payload is never reaped, only marked.** The harness writes `.orphaned_at` (Unix
-  milliseconds) into a tree no record points at and stamps `~/.claude/plugins/.last_inuse_sweep`, but
-  on this machine 30 of 41 trees carried that mark — 22.2 MB of 32.6 MB — the oldest six days old, and
-  every one was still on disk. `claude plugin uninstall` was measured on
-  `dkj-team-lifehub@claude-code-specialists`: the record went, the payload stayed. **That last one
-  refines rather than discovers, and the report that asked for it had it as untested** — the reason a
-  report gives is checked before it is repaired, and here
-  the since-retired `UNINSTALL.md` had already established that the
-  cache directory follows the marketplace and not the install
-  ([#339](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/339)). What was genuinely open
-  was the per-plugin case, and that is what was run. That is the gap
-  [lane 12 of `tidy-machine.ps1`](../../../scripts/maintenance/tidy-machine.ps1) reports — and reports
-  only, because there is no plugin-cache verb to hand over and a recursive delete under a user's home
-  is the primitive #1659 exists to prevent.
-- **Always read `$LASTEXITCODE` before you pipe a native command through a cmdlet.** A construct like
-  `& git … | Select-Object -First 1` cuts the upstream (git) short as soon as the first item is in;
-  if the process has not yet exited cleanly at that point, it ends with a non-zero exit code —
-  purely timing-dependent. Whoever reads `$LASTEXITCODE` afterwards therefore gets a flaky value and
-  builds a non-deterministically red CI. The rule: capture the full output first, record
-  `$code = $LASTEXITCODE` immediately, and only then filter (`Select-Object`, `Where-Object`, …) on
-  the fixed array. It took three PRs on the git derivation in `bootstrap.ps1` (`Get-DerivedRepoName`) — #94
-  (regex coverage), #95 (`insteadOf` rewriting), and #96 — before this pitfall was recognized as the
-  root cause; the rule applies to every `scripts/**/*.ps1` that calls a native command.
-- **A native command's stderr under `$ErrorActionPreference = 'Stop'` becomes a *terminating*
-  error — even when the command exits 0.** `git push` writes its `remote:` progress to stderr, so
-  under `Stop` PowerShell 5.1 aborts the script on the push before the `$LASTEXITCODE` check can run
-  (this bit `open-pr.ps1`'s push step). Sibling of the rule above: don't lean
-  on stderr-as-failure. Run the call with `$ErrorActionPreference = 'Continue'` around it, capture
-  `2>&1` (or `2>$null` when you only want stdout, e.g. `gh ... --json`), record `$LASTEXITCODE`,
-  restore the preference, and only then judge. Applies to every native call whose stderr is normal
-  chatter — `git push`/`git fetch` (`remote:`), **`git add` (the autocrlf LF↔CRLF warning — this
-  broke `cut-release.ps1` while cutting v1.12.0)**, `gh` (auth/update notices), … Query commands
-  (`git rev-parse`, `git status`) write results to stdout and only real errors to stderr, so `Stop`
-  is correct there — don't wrap those. Swept across all release scripts after the v1.12.0 break.
-- **Never name a local variable after a `$script:` variable a dot-sourced repo lib owns.** PowerShell
-  variable names are case-insensitive, and at script top-level the local scope *is* the script scope
-  — so `$changelogHeading = '<default>'` in a script that has dot-sourced `repo-config.ps1`
-  overwrites that file's `$script:ChangelogHeading` **before** the `Get-…` accessor is ever called.
-  The accessor then dutifully returns the default, and the configured value silently disappears: no
-  error, no warning, just the fallback everywhere. This bit the `Get-ChangelogHeading` work for
-  inbound #178; the fix is a distinct local name (`$foldHeading`). Sibling of the `$RepoRoot`/
-  `$repoRoot` collision already documented at the top of `fold-changelog-entry.ps1`. Rule: when you
-  read an optional repo-config value into a local, give the local a name that is not the backing
-  variable's — and prove it with a test that sets a *non-default* value, since a test using the
-  default passes either way.
-- **Never dot-source a consumer's repo-owned lib under `Set-StrictMode`.** A check or hook that
-  dot-sources `scripts/lib/branch-info.ps1` or `scripts/repo-config.ps1` to probe it (e.g.
-  `check-script-contract.ps1`, `check-roster-sync.ps1`) must load it in a child scope with
-  `Set-StrictMode -Off` (`& { Set-StrictMode -Off; . $lib; ... }`), because the real workflow scripts
-  that consume those libs (`open-pr.ps1`, `new-branch.ps1`, `fold-changelog-entry.ps1`, …) never
-  enable StrictMode, and both libs are explicitly written on that no-strict-mode assumption. Probe the
-  functions (`Get-Command`) inside that same block so the dot-sourced definitions stay visible while
-  nothing leaks into the check's own strict scope. Load under strict mode instead, and a consumer copy
-  carrying harmless pre-strict-mode loose top-level code (an `if` on an unset variable, say) throws on
-  the dot-source — a false `[ERROR]`, or under `$ErrorActionPreference = 'Stop'` a full crash — at
-  every session start, for exactly the older consumer repos these checks exist to serve. A genuine
-  load failure (a real syntax error) should degrade to a sane default or a reported `[ERROR]`, not
-  abort the check. Recognized while building the script-contract check for inbound #147 (#148) and
-  immediately found in its sibling `check-roster-sync.ps1` (#149).
-- **Mask fenced code blocks before you pair inline backticks — a fence silently shifts every span
-  after it.** A `` `[^`]+` `` pattern cannot open a span on the first two backticks of a ``` `` ``` run,
-  opens one on the third, and closes it on the *first* backtick of the closing fence; from there every
-  real inline span in the file pairs one position out. Nothing errors, so a scan built on those spans
-  reads the wrong text and reports a plausible answer. Measured on July 31, 2026 while building check
-  11: a command whose flag sat on the next line of its own span came back looking **flagless**, i.e.
-  the gate under-reported rather than raising. `Get-FenceMaskedText` in
-  [`check-plugin-integrity.ps1`](../../../scripts/lint/check-plugin-integrity.ps1) already solves this
-  and keeps offsets and newline positions identical, so a span found in the mask indexes straight back
-  into the real text — reuse it rather than writing a second fence walker. Sibling rule for the same
-  scan: judge one command's own arguments, not the whole span, or two commands in one span let the
-  second borrow the first one's flags (Victor, same build).
-- **`return @($x)` does not return an array when `$x` is one item — and indexing the result then yields
-  a character.** PowerShell unrolls a single-element array on return, so a helper written as
-  `return @(...)` hands back a bare `[string]`; `$result[0]` is then its first *letter*, and
-  `$result.Count` is `1` either way, so the length guard that was supposed to protect the index passes.
-  Measured the same day in `teardown-protocol.tests.ps1`, where a check-ignore line's first field read
-  as `.` instead of `.gitignore:2:`. Rule: wrap at the **call site** too — `$r = @(Get-Thing ...)` —
-  whenever you are going to index or slice, and do not rely on `@()` inside the function. Same family
-  as the two rules above: the wrong answer arrives as a plausible value instead of an error, which is
-  the failure mode this repo's gates exist to catch and therefore the one its own tooling must not
-  have.
-- **A check's `[ERROR]` text is a consumed interface, not just prose.** `skills/sync-roster/sync-roster.ps1`
-  does not re-implement detection — it *parses* `check-roster-sync.ps1`'s finding lines with a regex
-  (`\[ERROR\]\s+(?:agent|persona) '(?<id>\d{2}-\d{2})' \(...\) has no (roster row|repo-lens)`). So
-  rewording or widening a finding silently changes what the recovery skill can act on. Inbound #204
-  hit exactly that: extending the check to persona-only specialists made it emit
-  `persona '01-01' ... has no roster row`, which the then-`agent`-only pattern did not match — while
-  both the check's own report *and* the session hook point the reader at that skill to stage the
-  catch-up. Left alone it would have shipped advice that looks helpful and does nothing, for precisely
-  the findings the change introduced. The rule: when you touch a finding's wording or scope, grep for
-  who parses it before you touch the message. The integration tests in
-  `scripts/tests/sync-roster.tests.ps1` drive the REAL check (not a stub) for exactly this reason, so
-  they do fail on a wording change — treat that failure as the coupling reporting itself, not as a
-  test to patch.
-- **Verify a diagnosability fix against real data, not against the diff.** A report that "names the
-  thing" reads correct in review and can still be useless in practice. The #203 fix made
-  `check-connectors` label each finding with its connector — provably right, fully tested, and still
-  producing two word-for-word identical lines when run against this repo's own register, because that
-  consumer registers *two* plugins and both were behind on one outdated install. The distinguishing
-  `-- plugin:` header was the very thing the hook filters away. Only running it surfaced that; the
-  label now carries `<repo> / <plugin-id>`. For any change whose whole purpose is "make the output
-  actionable", run it against the real register/repo before calling it done — a fixture proves the
-  mechanism, not the usefulness.
-- **A documented rule is not a mechanism, and a silent signal is not a signal.** The connectors README
-  had carried "after a refresh, also update the manifest" for days when a deliberate run of
-  `check-connectors.ps1` found eleven inventory-drift findings at once — six in this repo's own
-  register, where the lenses had landed with PR #212 and the inventory was never updated alongside. The
-  rule was on the books and had been followed exactly zero times, because the finding is an `[INFO]` and
-  the session hook surfaces only `[ERROR]`: nothing ever reported the omission, so nothing ever
-  prompted anyone. Writing the rule down more firmly would have changed nothing. What changed it was the
-  non-counting `[INVENTORY]` marker (July 29, 2026) — the third instance of the
-  `[UNREGISTERED]`/`[ORPHANS]` shape. **When a rule depends on someone remembering a follow-up step, ask
-  what would report the omission; if the answer is "a deliberate run nobody has a reason to make",
-  the rule needs a mechanism, not a sharper sentence.**
-- **`Write-Host` output is invisible to a same-process pipeline, so an in-process assertion about it
-  silently passes.** While verifying the `[INVENTORY]` marker by hand, `$out = .\check-connectors.ps1;
-  @($out | Where-Object { $_ -cmatch '\[INVENTORY\]' }).Count` returned 0 for the case that *should*
-  emit it — the line was plainly visible on the console, but `Write-Host` writes to the host and never
-  enters the pipeline. Both the positive and the negative case therefore "passed", which is the
-  dangerous half: a scoping test that can only ever read 0 proves nothing. The checks use `Write-Host`
-  throughout (deliberately — it carries `-ForegroundColor`), and the hook only captures it because it
-  runs the check as a **child process**, whose stdout *is* captured. So: verify these scripts the way
-  the hook consumes them, via `& powershell -File …`, and treat a negative assertion that cannot
-  distinguish "absent" from "uncapturable" as no assertion at all. The suite in
-  `scripts/tests/connectors.tests.ps1` already does this correctly through `Invoke-Ps`.
-- **Run a suite from the tree it is meant to judge — `$PSScriptRoot` follows the file, the working
-  directory does not.** `roster-sync.tests.ps1` asserts that the git-root fallback lands on the repo the
-  test runs inside. Invoked by absolute path out of a linked worktree while the shell's CWD was still
-  the main checkout, it failed on exactly that assertion: `git rev-parse --show-toplevel` answers for
-  the *process's* directory, not for the script's. 125 pass, 1 fail — a red suite caused entirely by
-  where it was launched from, and the temptation is to read it as a real regression in the branch under
-  test. `Push-Location <worktree>` around the run (or `git -C`) is the whole fix. **Sibling of the
-  `Write-Host` trap above, and the same underlying mistake: verifying from the wrong vantage point.**
-  One produced a false pass, this one a false failure — so the rule is not "distrust green" or
-  "distrust red" but: before believing either verdict, confirm the check was observed from the same
-  place its real consumer observes it. Both instances happened on July 29, 2026, within one session.
-- **The non-counting marker is a standing pattern now, not a series of exceptions.** Five instances:
-  `[ORPHANS]` (inbound #204), `[UNREGISTERED]` (#208), `[INVENTORY]` (#220), `[BOOTSTRAP]` (#225) and
-  `[RECORD-SHAPE]` (#314/#315 — reached for rather than invented, which is this bullet working as intended).
-  Each solves the same problem — a finding that is **real, actionable, and about the repo the session is
-  in**, but that would be wrong as an `[ERROR]` because nothing is broken and a red line plus exit 1
-  would be a lie. Each is also the answer to a specific failure: an `[INFO]` the session hook suppresses
-  is, from the reader's seat, indistinguishable from no finding at all. **The recipe:** emit a dedicated
-  bracketed token with `Write-Host` (never through `Write-Failure`/`Write-Info`, so the summary count
-  and the exit code stay untouched), have the hook match it with its own `-cmatch` outside the
-  `$signals` list, and give it **its own verdict line** rather than folding it under an existing one —
-  `[BOOTSTRAP]` arrives on an exit-0 run, so without that branch it would have fallen through to
-  "roster in sync", which for a repo with no roster is a flat untruth. When a fifth case appears, reach
-  for this shape before inventing a new one, and ask the classification question first: if the finding
-  could indicate tampering or a genuine breach it must be an `[ERROR]`, per the connectors README rule.
-- **A repo-wide verdict must be computed where the evidence is complete, not where it is convenient.**
-  The first `[BOOTSTRAP]` implementation short-circuited *before* the plugin-resolution loop, since that
-  is where the predicate (no lenses, no roster rows) is cheapest to evaluate. It shipped a regression
-  immediately: a repo whose plugin is enabled but **not present in the cache** was told to run
-  `specialists-init`, when the real cause was that the plugin is not installed on that machine at all —
-  two states that look identical from outside the loop and need opposite advice. The fix was to let the
-  loop run, suppress only the two findings the marker replaces, count them, and emit the marker
-  afterwards; everything else the check knows (not-in-cache, orphans, off-path lenses) still reports.
-  `roster-sync.tests.ps1` caught this within one run, which is the argument for adding the guard case in
-  the same commit as the feature rather than after it.
-- **`Select-Object -First N` kills a child process mid-run; `-Last N` cannot.** The `$LASTEXITCODE`
-  rule above says not to pipe a native command through a cmdlet — this is the sharpest instance and
-  the discriminator that makes it predictable. `-First N` tears the pipeline down the moment N items
-  are in, and the still-running upstream process dies with it; `-Last N` has to drain the entire
-  stream to know what the last N are, so it is harmless. Measured on July 29, 2026 while measuring the
-  fresh-consumer install: piping `bootstrap.ps1` into `-First 1` created **zero** lenses and reported
-  nothing wrong, and into `-First 20` it wrote 19 lenses and exited **255** — while `-Last 25` on the
-  identical command completed normally with exit 0. Both truncations look like display choices in the
-  diff. The consequence was worse than a crash: the harness went on to measure an *unbootstrapped*
-  repo and label the numbers "after bootstrap", and the first explanation reached for was a bug in
-  `Get-DerivedRepoName` — a real hypothesis, tested across three git states (no repo / repo without
-  remote / repo with remote), all exit 0. **So: capture a child process's output into a variable in
-  full, then slice the variable — and when setup runs before a measurement, check its exit code and
-  abort rather than measuring past it.**
-- **MENTION vs USE — the day's recurring defect, and the rule that covers all three.** Three separate
-  checks were satisfied by text that merely *named* the thing they look for, rather than *using* it:
-  `check-roster-sync` counted an `@`-import path as a roster row because the path contains the id
-  (#227); the lint gate's check 10 read a marker quoted in changelog prose as a real enumeration, on
-  `main`, where no PR gate could see it (#235); and `specialists-teardown` classified a fully configured
-  `repo-config.ps1` as an unfilled scaffold because the scaffold's own **docstring** still says "fill in
-  the remaining VUL-IN values" — which is the *normal* state of a filled-in scaffold, not an edge case.
-  That third one would have **deleted** the file `open-pr`, `fold-changelog`, `new-branch` and
-  `check-roster-sync` all depend on, and only a dry run against a real consumer
-  (`davekokbwj/smartwatchbanden`, July 29, 2026) surfaced it — every fixture had scaffolds that were
-  either untouched or rewritten, never the real-world middle state.
-  **The rule: when a check's evidence is "this string appears in the file", ask what else in that file
-  legitimately contains it — docstrings, prose, links, paths — and key on the string in a POSITION that
-  only real use produces.** A placeholder in an assignment's *value*, an unfilled slot *heading*, an
-  empty table. And for a script that deletes, resolve every remaining doubt toward keeping: a false
-  keep leaves clutter, a false remove destroys someone's work.
-- **A gate can only fail on the files it scans — and a *transient* file is where that goes wrong.** The
-  lint gate's scan set (`$linkFiles`, feeding both check 4's link scan and check 10's skill spans) listed
-  every permanent doc but not the root changelog **entry** files. So an entry's text was invisible while
-  the PR was open and became visible only at **fold** time — directly on `main`, in one of the two
-  sanctioned direct-on-`main` actions, past every PR gate. The error then surfaced at the next full gate
-  run, `cut-release.ps1`, which is why v2.13.0 was blocked by a changelog sentence. Note the shape: no
-  check was wrong, the *timing* was — the gate's verdict was "green so far", not "green" (#234, closed
-  July 29, 2026 by adding root entry files to the set, keyed on the entry format's `###` heading, so a
-  permanent root doc with its `#` heading never joins). **The rule: when a gate checks file A and some
-  other step copies text into A, the gate must also check where that text was authored.** Ask which file
-  the content was *written* in, not which file it ends up in.
-- **A check that scans a file for a token can be satisfied by a *path* containing that token.**
-  `check-roster-sync` looks for each `<group>-<id>` in the roster file, and the bootstrap wrote
-  `@.claude/plugins/claude-specialists/dkj-subagents-alpha/01-01-extension.md` into `CLAUDE.md` (the pre-seam
-  lens path of the time; since #253 it writes the one seam line instead). That import
-  line contains `01-01`, so Chris counts as rostered without a roster row ever existing — measured
-  July 29, 2026: 18 ids reported missing after a bootstrap, not 19, with `01-01` the one silently
-  passing. It is the worst possible id to lose, because a persona appears in no always-on listing at
-  all and the roster row is the *only* thing that makes him exist for a session. Same class as the
-  roster token-boundary fix in v2.6.0, so treat that fix as incomplete rather than done: **when a
-  check's evidence is "the token appears in the file", ask what else in that file legitimately
-  contains the token — a path, a link, a changelog line — before trusting a pass.**
-- **Restoring a file with `Set-Content -Encoding utf8` is not a restore.** PowerShell 5.1's `utf8`
-  means *with BOM*, so writing a captured `$orig` back leaves a byte-level diff (`M-oM-;M-?{`) on a
-  file that was BOM-less — a "clean" restore that shows up as a modified file. When a probe needs to
-  mutate a tracked file temporarily, undo it with `git checkout -- <path>` rather than rewriting the
-  captured content.
-- **`claude plugin marketplace remove` rewrites the *project* `settings.json` of the working directory you
-  run it from — not only the scope the marketplace was declared in.** Measured on July 29, 2026 while
-  cleaning up the two throwaway plugins of the [#215](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/215)
-  experiment: it emptied the test consumer's `enabledPlugins` **and** `extraKnownMarketplaces`. So run it
-  from a throwaway directory, never from a repo whose `.claude/settings.json` you want to keep. The full
-  account, including how the damage was spotted, is in
-  [PR #256](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/256)'s changelog entry.
-  **And the lookup lesson that came with it:** the first version of this bullet declared the mechanism
-  unrecorded and left it at an operating rule, because it went looking in the lenses and the manuals. It
-  was on record all along — in that PR's entry, folded into `CHANGELOG.md` one commit earlier. Before
-  writing "this was never captured", grep `CHANGELOG.md` and `releases/**` too: an entry body is where
-  this repo's findings land *first*, and a lens is usually the second home, not the first.
-- **And the quieter sibling of that: every `claude plugin install`/`uninstall --scope project` rewrites
-  this repo's tracked `.claude/settings.json` and strips the blank lines that group
-  `permissions.allow`.** Measured September 10, 2026 over nine such commands
-  ([#1774](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1774)): `enabledPlugins` came
-  back byte-identical, and the three blank lines separating the git / gh / scripts / release blocks of a
-  60-entry allowlist were gone. The mechanism is the CLI's own settings writer — a JSON parse and
-  re-serialise — so it is not this repo's code and there is nothing here to fix. The portable rule, with
-  the remedy and the reason a gate is the wrong answer, is in
-  [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules);
-  what is local is why it is met so often and what it costs here:
-  - **This repo consumes its own marketplace and names all six plugins in `enabledPlugins`** (two
-    `true`, four `false`), so plugin administration is
-    routine maintenance rather than a one-off — the rename of #1698 alone needed nine commands.
-  - **The grouping is deliberate authorship**, and it is what is lost: four labelled blocks in a
-    60-entry list, gone in one command, quietly.
-  - **The trunk rule makes the stray diff worse than untidy.** Nothing here may be committed directly on
-    `main`, so a session that ends with an unintended modification to a tracked file has to recognise it
-    as the CLI's and not its own. `git checkout -- .claude/settings.json` after plugin administration,
-    and read `git status` before staging.
-  - **Deliberately no check.** A gate refusing a whitespace-only diff on one file is the same shape as
-    the control-character rule declined above — a rule written for one careless afternoon — and seeding
-    an ungrouped list to make the file round-trip-stable would pay for it with the readability the
-    blocks exist for.
-- **When a tool refuses with "auto mode cannot determine the safety", retry it — do not route around it
-  via the Bash tool.** A recurring platform fault on July 29, 2026 made PowerShell and Edit calls refuse
-  intermittently; it comes and goes, and a plain retry clears it. That the Bash tool can usually do the
-  same work is exactly the trap, because it makes the workaround feel like resourcefulness: reaching for
-  it converts a transient refusal into a deliberate bypass of the safety decision that produced the
-  refusal. The refusal is not the obstacle to route around — it is the mechanism working. Wait it out.
+- **A refusal reading "auto mode cannot determine the safety" is retried, not routed around through
+  another tool** — it is transient, and the detour turns a refusal into a bypass.
+- **Before writing "this was never recorded", grep `CHANGELOG.md` and `dkj-policy/releases/**` too** —
+  an entry is where a finding lands first.
 - This repo is **public**: config never contains secrets.
 
 ### Repo layout

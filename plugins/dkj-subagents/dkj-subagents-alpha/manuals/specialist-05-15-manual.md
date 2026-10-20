@@ -62,8 +62,9 @@ and safe hook construction.
   **Two consequences, and the second is the one that costs something.** A session that did plugin
   administration ends holding an unintended diff, which it has to know to undo:
   `git checkout -- <the settings file>` is the whole remedy, and it is the right one because
-  re-serialising the captured content is what caused the diff in the first place (see the
-  `Set-Content -Encoding utf8` rule for the sibling trap). And a `git add -A` in the same sitting
+  re-serialising the captured content is what caused the diff in the first place — the sibling trap is
+  writing a captured file back with `Set-Content -Encoding utf8`, which in Windows PowerShell 5.1 adds a
+  BOM to a file that had none. And a `git add -A` in the same sitting
   commits the reflow silently: it is valid JSON, functionally identical, and passes every check there
   is. So **check the working copy after plugin administration, before staging anything**.
   **Do not answer this with a gate, and do not answer it by flattening the file either.** A check that

@@ -42,11 +42,11 @@
 Rewrite the ~30 narrative gotchas under `Repo-specific rules` in Sylvester's lens as one rule plus a
 pointer each, grouped by subject; point at the portable manual where it already states the trap, and
 at `Updating the plugins` for the clone-versus-payload account. #3207 (Maikel) edits the same file above
-this section, so this branch stays inside lines 834-1324.
+this section, so this branch stays inside the section's own lines.
 
 ### CREATE
 
-- [x] Rewrite the section (490 lines to 126; the lens from 190,703 B to 154,873 B).
+- [x] Rewrite the section (about 494 lines to 131; the lens from 190,703 B to 154,873 B).
 - [x] Point at the manual for the settings-writer, backtick, `$script:`-collision and `marketplace remove` traps instead of restating them.
 - [x] The manual's settings-writer rule cited "the `Set-Content -Encoding utf8` rule", which only this lens carried: state that trap inline there.
 
