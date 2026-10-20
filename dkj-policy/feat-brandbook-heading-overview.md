@@ -42,7 +42,11 @@
 ### CREATE
 
 - [x] Brand book Tokens section: a Headings demo, h1 to h6 rendered by the house style, each with its font family, colour token and hex, size token and weight read off the rendered element
-- [x] `npm run gate` green
+- [x] Headings demo reshaped into a plain list, Heading 1 to Heading 6, one line of facts under each (owner's ask)
+- [x] One brand book (owner's ask): the hub's PowerShell /brandbook page is retired; its themes table and class list move into the React app (`HouseStyle.tsx`), which is built for the base `/brandbook/`
+- [x] The hub serves `brandbook/dist` under `/brandbook/` and rebuilds it when its sources or the house style are newer (`Update-BrandbookBuild`; `-NoBrandbookBuild` for the tests)
+- [x] Suites updated (`dev-pages`, `connector-dashboard`), stale house-style exemptions dropped, `brandbook/README.md` rewritten
+- [x] `npm run gate`, `check-house-style`, `check-plugin-integrity` and the three touched suites green; a hub on a spare port built and served the app end to end
 
 ### TEST
 
@@ -50,10 +54,15 @@
 
 ### DEPLOY: feat/brandbook-heading-overview
 
-The brand book's Tokens section gains a Headings overview: h1 to h6 as the house style renders them, each with
-its font family (the serif `--font-serif` for h1 and h2, the body sans for h3 to h6), the `--primary-*` step its
-colour resolves to with the hex, and its size token and weight. Every value is read off the rendered heading, so a
-theme switch or a later change to `house-style.css` shows up without an edit to the brand book.
+There is one brand book now, on the Repo hub at `/brandbook/`. Before this there were two: the hub's own PowerShell
+Brandbook page and the `brandbook/` React app on its Vite port. The hub now serves the React app's build and rebuilds
+it whenever `brandbook/` or the house style has changed, so it always shows the tree. The PowerShell page is gone. Its
+themes table (each of the twelve themes with its own twelve steps and the house defaults) and its list of every
+house class by section are now in the app, under Foundations. The app's Tokens section also gains a Headings list,
+Heading 1 to Heading 6 as the house style renders them, each with its font family (the serif `--font-serif` for h1
+and h2, the body sans for h3 to h6), the `--primary-*` step and hex its colour resolves to, and its size and weight,
+all read off the rendered heading. The app's routes moved under `/brandbook/`: the showcase is its index, the Repo hub
+pattern is `/brandbook/repo-hub`. Whether that second hub page should stay is #3202.
 
 **Score:** 2
 

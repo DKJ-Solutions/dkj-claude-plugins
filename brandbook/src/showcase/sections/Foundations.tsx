@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { Icon, ICON_NAMES } from '../../components/Icon'
 import { Demo, Section } from '../Showcase'
 import { HouseThemeReachDemo } from './HouseApp'
+import { ThemesDemo } from './HouseStyle'
 import { useThemeId } from '../theme'
 
 /** House colour tokens (house-style/house-style.css), grouped by what a theme switch changes, as in house-style/README.md. */
@@ -231,6 +232,9 @@ export function Foundations() {
           <SwatchGrid items={names.map((n) => ({ name: `--${n}`, value: values[`--${n}`], declared: declared[`--${n}`] }))} />
         </Demo>
       ))}
+      <Demo label="Themes -- the twelve a user picks from, each with its own twelve steps, from the ground end to the far end" wide>
+        <ThemesDemo />
+      </Demo>
       <Demo label="Theme reach -- links, native controls, selection, and the opt-in --accent modifiers" wide>
         <HouseThemeReachDemo />
       </Demo>
