@@ -164,7 +164,7 @@ export function PageHeader({ title, asOf, children }: { title: string; asOf?: st
 
 /**
  * Breadcrumbs -- where this page sits: each ancestor a link, the current page last and unlinked (aria-current), a muted
- * slash between them, on one line. As a `bar` it spans the full screen width on a tinted background and sticks to the top.
+ * chevron between them, on one line. As a `bar` it spans the full screen width on a tinted background and sticks to the top.
  */
 export function Breadcrumbs({ items, bar = false }: { items: readonly { label: string; href?: string }[]; bar?: boolean }) {
   const trail = (
@@ -176,7 +176,14 @@ export function Breadcrumbs({ items, bar = false }: { items: readonly { label: s
             <li key={i}>
               {i > 0 && (
                 <span className="dkj-breadcrumbs-sep" aria-hidden="true">
-                  /
+                  <svg viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      fillRule="evenodd"
+                      d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0"
+                      clipRule="evenodd"
+                    />
+                  </svg>
                 </span>
               )}
               {current || !item.href ? <span aria-current={current ? 'page' : undefined}>{item.label}</span> : <a href={item.href}>{item.label}</a>}
