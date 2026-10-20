@@ -30,6 +30,10 @@
     measure-suites skill). A suite in scripts/tests that the file does not name is counted, because the
     gate charges it the largest recorded value.
 
+    THE DKJ REPOS PAGE (#3231) is this hub's own, listed in the DKJ-Solutions card after the plugin's pages
+    (Get-RepoHubDkjPages): every DKJ-Solutions repo on GitHub, its checkout beside this repo, and the command
+    that opens Claude Code there. Find-DkjCheckouts is the one function in this file that reads the disk.
+
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED, through connector-dashboard-lib's ConvertTo-DashboardText
     here and the plugin lib's own escape there (the two are the same five replacements).
 
@@ -139,7 +143,7 @@ function Format-RepoHubHtml {
         [void]$sb.AppendLine('</section>')
     }
     [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin))
-    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin))
+    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin -LocalPages @(Get-RepoHubDkjPages)))
     if ($row) { [void]$sb.AppendLine('</div>') }
 
     # Block 11: About this repo, the fixed title, with this repo's own facts. Its h2 stands outside the
@@ -540,3 +544,195 @@ function Format-SpecialistsPageHtml {
         -FooterNote ('Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.')
 }
 
+function Get-RepoHubDkjPages {
+    <#
+        The DKJ-Solutions pages only this hub has, listed in the hub's DKJ-Solutions card after the plugin's own
+        (#3231): this server answers them, so they are linked whether or not the general pages server runs.
+    #>
+    @(
+        @{ Href = '/dkj-repos'; Label = 'DKJ repos'; Sub = 'Every DKJ-Solutions repo: its checkout on this machine, its open issues, and a session to open there' }
+    )
+}
+
+function Find-DkjCheckouts {
+    <#
+        Every checkout of an -Owner repo directly under -ParentDir (#3231): a folder whose .git is a DIRECTORY
+        and whose origin is github.com/<Owner>/<name>. A worktree's .git is a file, so a lane of a repo never
+        stands in for its checkout. Returns @{ Repo; Path; Branch; Dirty } per checkout; Branch is '' where git
+        does not answer, Dirty the count of uncommitted paths. THIS FUNCTION READS THE DISK AND RUNS GIT, the one
+        that does in this file, because the server and repo-session.ps1 must find a checkout the same way.
+    #>
+    param([Parameter(Mandatory = $true)][string]$ParentDir, [string]$Owner = 'DKJ-Solutions')
+    $git = {
+        param([string]$Path, [string[]]$GitArgs)
+        # 'Continue' and the catch: under 'Stop', Windows PowerShell 5.1 turns a native command's stderr into a
+        # terminating error even with 2>$null.
+        $ErrorActionPreference = 'Continue'
+        # The folders are found by a scan, not named by anybody, so git reads nothing from them that could run
+        # code (core.fsmonitor) and writes nothing (--no-optional-locks: status would refresh the index).
+        try { $out = & git --no-optional-locks -c core.fsmonitor=false -C $Path @GitArgs 2>$null } catch { return $null }
+        if ($LASTEXITCODE -ne 0) { return $null }
+        return , @($out)
+    }
+    $found = @()
+    foreach ($d in @(Get-ChildItem -LiteralPath $ParentDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        if (-not (Test-Path -LiteralPath (Join-Path $d.FullName '.git') -PathType Container)) { continue }
+        $url = & $git $d.FullName @('remote', 'get-url', 'origin')
+        if (-not $url) { continue }
+        $repo = ConvertFrom-GitRemoteUrl ([string]$url[0])
+        if (-not $repo -or ($repo -split '/')[0] -ne $Owner) { continue }
+        $branch = & $git $d.FullName @('rev-parse', '--abbrev-ref', 'HEAD')
+        $status = & $git $d.FullName @('status', '--porcelain')
+        $found += @{ Repo = $repo; Path = $d.FullName; Branch = $(if ($branch) { [string]$branch[0] } else { '' }); Dirty = @($status | Where-Object { $_ }).Count }
+    }
+    return $found
+}
+
+function Get-DkjRepoQuery {
+    <#
+        The one GraphQL query the DKJ repos page asks: every repo of the organisation named by the variable
+        $owner (gh api graphql -f owner=...), newest push first, with its open issue and pull request counts.
+        The name goes as a variable, not inline: the query then holds no double quote, which Windows PowerShell
+        5.1 would split on its way to gh.
+    #>
+    return 'query($owner: String!) { organization(login: $owner) { repositories(first: 100, orderBy: {field: PUSHED_AT, direction: DESC}) { nodes { name nameWithOwner url description visibility isArchived pushedAt issues(states: OPEN) { totalCount } pullRequests(states: OPEN) { totalCount } } } } }'
+}
+
+function ConvertFrom-DkjRepoQuery {
+    <#
+        Get-DkjRepoQuery's answer, as text, into @{ Repos; Archived; Error }: Repos the live repos in the order
+        GitHub gave them, each @{ Repo; Name; Url; Description; Visibility; PushedAt; Issues; Pulls }; Archived
+        the 'owner/name' of each one left out. An answer that is not that shape is an Error, never an empty organisation.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Json)
+    $none = @{ Repos = @(); Archived = @(); Error = '' }
+    if (-not $Json) { $none.Error = 'gh gave no answer'; return $none }
+    try { $doc = $Json | ConvertFrom-Json } catch { $none.Error = 'the answer is not JSON'; return $none }
+    if ($doc.errors) { $none.Error = 'GitHub answered with an error: ' + ([string]@($doc.errors)[0].message); return $none }
+    $nodes = $doc.data.organization.repositories.nodes
+    if ($null -eq $nodes) { $none.Error = 'the answer holds no repository list'; return $none }
+    $repos = @(); $archived = @()
+    foreach ($n in @($nodes)) {
+        if (-not $n) { continue }
+        if ($n.isArchived) { $archived += [string]$n.nameWithOwner; continue }
+        $repos += @{
+            Repo = [string]$n.nameWithOwner; Name = [string]$n.name; Url = [string]$n.url; Description = [string]$n.description
+            Visibility = ([string]$n.visibility).ToLowerInvariant(); PushedAt = [string]$n.pushedAt
+            Issues = [int]$n.issues.totalCount; Pulls = [int]$n.pullRequests.totalCount
+        }
+    }
+    return @{ Repos = $repos; Archived = $archived; Error = '' }
+}
+
+function Get-CopyButtonScript {
+    <#
+        The script behind every [data-copy] button. The clipboard API first; then execCommand on a hidden
+        textarea, because VS Code's Simple Browser serves the page in an iframe without clipboard-write, where
+        the API is refused (the owner's own browser, #3231); and where both fail, the first <code> beside the
+        button is selected for Ctrl+C.
+    #>
+    return '<script>(function () {' + "`n" +
+        'function label(b, t) { b.textContent = t; setTimeout(function () { b.textContent = "Copy"; }, 2000); }' + "`n" +
+        'function fallback(b, text) { var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; } document.body.removeChild(ta);' + "`n" +
+        '  if (ok) { label(b, "Copied"); return; } var code = b.parentNode.querySelector("code"); if (code) { var r = document.createRange(); r.selectNodeContents(code); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); } label(b, "Press Ctrl+C"); }' + "`n" +
+        'document.addEventListener("click", function (ev) { var b = ev.target.closest("[data-copy]"); if (!b) return; var text = b.getAttribute("data-copy");' + "`n" +
+        '  if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(function () { label(b, "Copied"); }, function () { fallback(b, text); }); } else { fallback(b, text); } });' + "`n" +
+        '})();</script>'
+}
+
+function Format-DkjReposPageHtml {
+    <#
+        The DKJ repos page (#3231). -Query is ConvertFrom-DkjRepoQuery's result; -Checkouts is Find-DkjCheckouts'
+        list; -Meta is @{ GeneratedAt; Seconds }. A checkout whose repo GitHub did not list (the query failed,
+        a repo outside the first hundred, or an archived one, marked so) still gets its row, so the page never
+        hides a folder on disk.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$Query,
+        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Checkouts,
+        [Parameter(Mandatory = $true)][hashtable]$Meta
+    )
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $byRepo = @{}
+    foreach ($c in @($Checkouts | Where-Object { $_ })) { if (-not $byRepo.ContainsKey($c.Repo)) { $byRepo[$c.Repo] = $c } }
+    $rows = @(@($Query.Repos) | Where-Object { $_ })
+    $listed = @{}; foreach ($r in $rows) { $listed[$r.Repo] = $true }
+    foreach ($c in @($byRepo.Values | Sort-Object { $_.Repo })) {
+        if (-not $listed.ContainsKey($c.Repo)) {
+            $vis = if (@($Query.Archived) -contains $c.Repo) { 'archived' } else { '' }
+            $rows += @{ Repo = $c.Repo; Name = ($c.Repo -split '/')[-1]; Url = 'https://github.com/' + $c.Repo; Description = ''; Visibility = $vis; PushedAt = ''; Issues = $null; Pulls = $null }
+        }
+    }
+    $sum = { param($k) $t = 0; foreach ($r in $rows) { if ($null -ne $r[$k]) { $t += [int]$r[$k] } }; $t }
+
+    $body = New-Object System.Text.StringBuilder
+    [void]$body.Append((Format-DevTiles @(
+        @{ L = 'Repos'; V = $rows.Count },
+        @{ L = 'Checked out here'; V = $byRepo.Count },
+        @{ L = 'Open issues'; V = (& $sum 'Issues') },
+        @{ L = 'Open pull requests'; V = (& $sum 'Pulls') })))
+    if ($Query.Error) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (& $e $Query.Error) + '. The checkouts on this machine are shown without their issues.</p>')
+    }
+
+    [void]$body.AppendLine('<div class="grid-2" id="repos">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Repos</h2><p class="card__sub">Newest push first</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
+    [void]$body.AppendLine('<div class="table-wrap"><table class="table dr-table"><thead class="dr-thead"><tr><th class="dr-left">Repo</th><th>Visibility</th><th>Issues</th><th>Pull requests</th><th class="dr-left">Checkout here</th><th>Last push</th></tr></thead><tbody>')
+    foreach ($r in $rows) {
+        # The link is built from the repo's owner/name, never taken from the answer's url field (Sebastian, #3231).
+        $url = 'https://github.com/' + (& $e $r.Repo)
+        $desc = if ($r.Description) { '<span class="dr-desc">' + (& $e $r.Description) + '</span>' } else { '' }
+        $count = { param($n, $path) if ($null -eq $n) { '--' } elseif ($n -gt 0) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a>' } else { '0' } }
+        $c = $byRepo[$r.Repo]
+        $where = if (-not $c) { '<span class="note">not here</span>' }
+                 else {
+                     $state = if ($c.Dirty) { [string]$c.Dirty + ' uncommitted' } else { 'clean' }
+                     '<code>' + (& $e $c.Branch) + '</code> <span class="note">' + $state + '</span>'
+                 }
+        $pushed = if ($r.PushedAt -match '^(\d{4}-\d{2}-\d{2})') { $Matches[1] } else { '--' }
+        [void]$body.AppendLine('<tr><td class="dr-left"><a class="dr-link" href="' + $url + '">' + (& $e $r.Name) + '</a>' + $desc + '</td>' +
+            '<td>' + $(if ($r.Visibility) { & $e $r.Visibility } else { '--' }) + '</td>' +
+            '<td class="num">' + (& $count $r.Issues '/issues') + '</td><td class="num">' + (& $count $r.Pulls '/pulls') + '</td>' +
+            '<td class="dr-left">' + $where + '</td><td>' + $pushed + '</td></tr>')
+    }
+    [void]$body.AppendLine('</tbody></table></div>')
+    $nArch = @(@($Query.Archived) | Where-Object { $_ -and -not $byRepo.ContainsKey($_) }).Count
+    if ($nArch) { [void]$body.AppendLine('<p class="note">' + $nArch + ' archived repo' + $(if ($nArch -ne 1) { 's are' } else { ' is' }) + ' left out.</p>') }
+    [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
+
+    # The sessions: one row per checkout, the command to copy. The server starts nothing (#3231).
+    [void]$body.AppendLine('<div class="grid-2" id="sessions">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Open a session</h2><p class="card__sub">Claude Code in that checkout, under that repo''s own rules. Paste the command in a terminal, or ask a session here: "open a session in lifehub"</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
+    if ($byRepo.Count) {
+        [void]$body.AppendLine('<ul class="dr-sessions">')
+        foreach ($c in @($byRepo.Values | Sort-Object { $_.Repo })) {
+            $cmd = Format-RepoSessionCommand -Path ([string]$c.Path)
+            [void]$body.AppendLine('<li><strong>' + (& $e (($c.Repo -split '/')[-1])) + '</strong><code>' + (& $e $cmd) + '</code><button type="button" class="btn" data-copy="' + (& $e $cmd) + '">Copy</button></li>')
+        }
+        [void]$body.AppendLine('</ul>')
+    } else {
+        [void]$body.AppendLine('<p class="note">No DKJ-Solutions checkout was found beside this repo.</p>')
+    }
+    [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
+    [void]$body.AppendLine((Get-CopyButtonScript))
+
+    $style = @(
+        '.dr-link { color: var(--primary-9); text-underline-offset: 2px; }',
+        '.dr-thead th { background: var(--primary-3); }',
+        '.table td.dr-left, .table th.dr-left { text-align: left; }',
+        '.dr-desc { display: block; font-size: var(--text-xs); color: var(--primary-7); }',
+        '.dr-sessions { list-style: none; padding: 0; margin: 0; }',
+        '.dr-sessions li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1-5) var(--spacing-3); padding: var(--spacing-2) 0; border-top: 1px solid var(--primary-3); }',
+        '.dr-sessions li:first-child { border-top: 0; }',
+        '.dr-sessions strong { min-width: 12ch; }',
+        '.dr-sessions code { flex: 1 1 24ch; font-size: var(--text-xs); overflow-wrap: anywhere; }'
+    ) -join "`n"
+    $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
+    return Format-DevPageHtml -Title 'DKJ repos' -Style $style -Body $body.ToString() `
+        -Lead 'Every DKJ-Solutions repo on GitHub, where it is checked out on this machine, and a Claude Code session to open there. Work in a repo runs in that repo, and an issue for it is filed there.' `
+        -FooterNote ('Read from GitHub (one <code>gh api graphql</code> call) and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="dr-link" href="/refresh?page=dkj-repos">read again</a>). Nothing here is written to this repo.')
+}

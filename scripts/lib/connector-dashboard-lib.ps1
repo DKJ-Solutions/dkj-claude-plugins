@@ -29,6 +29,9 @@
     STATUS, worst first: 'bad' (an [ERROR]), 'warn' (an [INFO]), 'skip' (the checkout is not on this
     machine, so nothing was checked) and 'good'. A skipped repo is not called healthy: nothing was read.
 
+    ONE FUNCTION HERE TOUCHES THE DISK: Resolve-ConnectorCheckout asks whether a candidate folder exists,
+    because the server and scripts/dashboard/repo-session.ps1 (#3231) must resolve a checkout the same way.
+
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED. Manifest fields and git subjects come from other
     repositories, so they are text, never markup.
 
@@ -166,6 +169,67 @@ function Test-DashboardCheckoutInScope {
     $r = $ScopeRoot.Replace('/', '\').TrimEnd('\')
     if (-not $r) { return $false }
     return $f.StartsWith($r + '\', [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Resolve-ConnectorCheckout {
+    <#
+        The first of a manifest's localCheckout candidates that is a folder on this machine, as a full path, or
+        $null. The manifest is data from a public repo and git runs in the folder it names, so a candidate is
+        held to check-connectors' own bound: relative to -Root, and resolving under -ScopeRoot.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Root, [AllowNull()]$LocalCheckout, [Parameter(Mandatory = $true)][string]$ScopeRoot)
+    foreach ($cand in @(Get-ConnectorCheckoutCandidates $LocalCheckout)) {
+        if ([System.IO.Path]::IsPathRooted($cand)) { continue }
+        $full = [System.IO.Path]::GetFullPath((Join-Path $Root $cand))
+        if (-not (Test-DashboardCheckoutInScope -Full $full -ScopeRoot $ScopeRoot)) { continue }
+        if (Test-Path -LiteralPath $full -PathType Container) { return $full }
+    }
+    return $null
+}
+
+function Resolve-ConnectorRepo {
+    <#
+        The registered repos a person means by -Name (#3231): the full 'owner/name', the name alone, the name
+        without its 'dkj-' prefix, or the manifest's file name -- compared without case and without
+        punctuation, so 'lifehub', 'life-hub' and 'dkj-lifehub' all name DKJ-Solutions/dkj-lifehub. Where no
+        name matches whole, a name that CONTAINS it does. -Connectors are @{ Repo; File }; returns every match,
+        so a caller can refuse an ambiguous one rather than guess.
+    #>
+    param([AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors, [Parameter(Mandatory = $true)][string]$Name)
+    $norm = { param($s) ((([string]$s).ToLowerInvariant() -replace '\.json$', '') -replace '[^a-z0-9]', '') }
+    $want = & $norm $Name
+    if (-not $want) { return @() }
+    $keys = {
+        param($c)
+        $short = ([string]$c.Repo -split '/')[-1]
+        @((& $norm $c.Repo), (& $norm $short), (& $norm ($short -replace '^dkj-', '')), (& $norm $c.File)) | Where-Object { $_ }
+    }
+    $all = @($Connectors | Where-Object { $_ })
+    $exact = @($all | Where-Object { @(& $keys $_) -contains $want })
+    if ($exact.Count) { return $exact }
+    return @($all | Where-Object { @(& $keys $_ | Where-Object { $_.Contains($want) }).Count })
+}
+
+function ConvertTo-PowerShellLiteral {
+    <#
+        -Value as a single-quoted PowerShell string. PowerShell reads the typographic quotes U+2018 to U+201B as
+        single quotes too, so each of them is doubled as well -- a Dutch prompt with "dossier's" written with a
+        curly apostrophe would otherwise end the string there and run the rest as code.
+    #>
+    param([AllowEmptyString()][Parameter(Mandatory = $true)][string]$Value)
+    $quotes = "['" + [char]0x2018 + [char]0x2019 + [char]0x201A + [char]0x201B + ']'
+    return "'" + ([regex]::Replace($Value, $quotes, { param($m) $m.Value + $m.Value })) + "'"
+}
+
+function Format-RepoSessionCommand {
+    <#
+        The PowerShell line that opens Claude Code in one checkout (#3231), with -Prompt as its first message
+        when one is given. The DKJ repos page shows it to copy; repo-session.ps1 runs it in a window of its own.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path, [AllowEmptyString()][string]$Prompt = '')
+    $line = 'Set-Location -LiteralPath ' + (ConvertTo-PowerShellLiteral $Path) + '; claude'
+    if ($Prompt) { $line += ' ' + (ConvertTo-PowerShellLiteral $Prompt) }
+    return $line
 }
 
 function Get-ConnectorOwnerGroup {
