@@ -242,7 +242,7 @@ function Format-ConnectorDashboardHtml {
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
-    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-theme-key="general-pages">')
+    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')

@@ -189,7 +189,7 @@ Assert-True ($html -match '<p class="eyebrow">dkj-thumbnail-generator</p>') 'the
 Assert-True ($html -match '<h1>Repo hub</h1>' -and $html -match '<main class="page-column">' -and $html -match 'About this repo</h2>') 'and takes the Repo hub form: the fixed h1, the page column, the facts card (#3066)'
 Assert-True ($html -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo hub</span></li>') 'the breadcrumb bar opens <body>, its trail the one crumb Repo hub (#3090)'
 Assert-True ($html -notmatch '<header') 'and its intro is no <header>, which the house style lays out as a flex row'
-Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-theme-key="dev-preview-placeholder">') 'with no stored theme it falls back to lilac, like every other dev page (#3166)'
+Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="dev-preview-placeholder">') 'with no stored theme it falls back to lilac, like every other dev page (#3166)'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
 Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1') 'and says how to state a preview of its own'
 Assert-True ($html -match '<h2>Set up a preview</h2>' -and $html -match '<h3 class="card__title">Add a preview of your own</h3>' -and $html -match '<h3 class="card__title">Open it in VS Code</h3>') 'the two setup cards share one h2, each titled with an h3 (#3175)'

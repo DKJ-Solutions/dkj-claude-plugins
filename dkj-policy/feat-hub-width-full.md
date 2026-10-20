@@ -41,17 +41,26 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `data-width-default="full"` on the `<html>` line of every page the hub server renders: the general pages, the release-notes page, the dev pages, the connector dashboard and the dev-preview placeholder
+- [x] The two asserts that pin those `<html>` lines follow
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` and `dev-preview-sessionstart.tests.ps1` green
+- [ ] The owner has looked at the hub on a fresh device: Full is selected with no stored choice
+
 ### DEPLOY: feat/hub-width-full
 
-**Score:**
+Every page the repo hub serves now opens in full page width when nobody has picked a width yet, where it
+used to fall back to the house script's fluid column. A width picked in the settings panel still wins.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A developer opening the repo hub for the first time gets the whole screen for its tables and cards.
+
+**Score:** 2
 
 #### Pull Request
 
