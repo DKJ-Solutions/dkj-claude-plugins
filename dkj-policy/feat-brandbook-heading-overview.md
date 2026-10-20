@@ -41,17 +41,27 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Brand book Tokens section: a Headings demo, h1 to h6 rendered by the house style, each with its font family, colour token and hex, size token and weight read off the rendered element
+- [x] `npm run gate` green
 
 ### TEST
 
+- [ ] The owner has looked at the Headings demo in the brand book (visible result)
+
 ### DEPLOY: feat/brandbook-heading-overview
 
-**Score:**
+The brand book's Tokens section gains a Headings overview: h1 to h6 as the house style renders them, each with
+its font family (the serif `--font-serif` for h1 and h2, the body sans for h3 to h6), the `--primary-*` step its
+colour resolves to with the hex, and its size token and weight. Every value is read off the rendered heading, so a
+theme switch or a later change to `house-style.css` shows up without an edit to the brand book.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The brand book sits outside `plugins/` and is installed by no consumer, so nobody who takes a release sees it.
+
+**Score:** N/A
 
 #### Pull Request
 
