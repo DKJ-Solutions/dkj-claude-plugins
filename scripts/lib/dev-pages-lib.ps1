@@ -172,9 +172,16 @@ function ConvertFrom-SuiteDurations {
         The test-gate model from the parsed suite-durations.json (-Durations, $null when the file is
         missing or unreadable) and the suite file names in scripts/tests (-SuiteFiles). Returns
         @{ Suites (list of @{ Name; Seconds }, slowest first); Total; Missing (names on disk the file does
-        not record); Stale (names the file records that are no longer on disk); Runs; Date; Machine; Method }.
+        not record); Stale (names the file records that are no longer on disk); Runs; Date; Machine; Method;
+        Groups; Ungrouped; Unknown }.
+
+        -Groups is the parsed groups array of suite-groups.json, $null when that file is missing or unreadable.
+        Groups is then one @{ Key; Title; Guards; Suites; Unmeasured; Total } per group, in the file's order,
+        each holding its recorded suites slowest first and, in Unmeasured, its suites on disk with no recorded
+        duration yet; Ungrouped names every suite on disk or recorded that no group holds, and Unknown every
+        name a group holds that is not on disk. With no -Groups all three are empty.
     #>
-    param($Durations, [AllowEmptyCollection()][string[]]$SuiteFiles = @())
+    param($Durations, [AllowEmptyCollection()][string[]]$SuiteFiles = @(), $Groups = $null)
     $suites = @()
     if ($Durations -and $Durations.seconds) {
         foreach ($p in $Durations.seconds.PSObject.Properties) {
@@ -187,7 +194,25 @@ function ConvertFrom-SuiteDurations {
     $onDisk = @{}
     foreach ($f in @($SuiteFiles)) { if ($f) { $onDisk[$f] = $true } }
     $from = if ($Durations) { $Durations.recordedFrom } else { $null }
+    $groupRows = @(); $grouped = @{}
+    foreach ($g in @($Groups | Where-Object { $_ })) {
+        $members = @{}
+        foreach ($n in @($g.suites | Where-Object { $_ })) { $members[[string]$n] = $true; $grouped[[string]$n] = $true }
+        $in = @($suites | Where-Object { $members.ContainsKey($_.Name) })
+        $groupRows += @{
+            Key      = [string]$g.key
+            Title    = [string]$g.title
+            Guards   = [string]$g.guards
+            Suites   = $in
+            Unmeasured = @(@($SuiteFiles) | Where-Object { $_ -and $members.ContainsKey($_) -and -not $recorded.ContainsKey($_) } | Sort-Object)
+            Total  = [double](($in | ForEach-Object { $_.Seconds } | Measure-Object -Sum).Sum)
+        }
+    }
+    $known = @(@($SuiteFiles | Where-Object { $_ }) + @($suites | ForEach-Object { $_.Name })) | Sort-Object -Unique
     return @{
+        Groups    = $groupRows
+        Ungrouped = @(if ($groupRows.Count) { $known | Where-Object { -not $grouped.ContainsKey($_) } })
+        Unknown   = @(if ($onDisk.Count) { $grouped.Keys | Where-Object { -not $onDisk.ContainsKey($_) } | Sort-Object })
         Suites  = $suites
         Total   = [double](($suites | ForEach-Object { $_.Seconds } | Measure-Object -Sum).Sum)
         Missing = @(@($SuiteFiles) | Where-Object { $_ -and -not $recorded.ContainsKey($_) } | Sort-Object)
@@ -200,8 +225,12 @@ function ConvertFrom-SuiteDurations {
 }
 
 function Format-TestGatePageHtml {
-    <# The test-gate page from ConvertFrom-SuiteDurations' model. -ReadError is set when the file could not be read. #>
-    param([Parameter(Mandatory = $true)][hashtable]$Model, [AllowEmptyString()][string]$ReadError = '')
+    <#
+        The test-gate page from ConvertFrom-SuiteDurations' model. -ReadError is set when suite-durations.json
+        could not be read, -GroupsError when suite-groups.json could not be; without groups the page lists the
+        suites in one table, slowest first, as it did before the groups existed.
+    #>
+    param([Parameter(Mandatory = $true)][hashtable]$Model, [AllowEmptyString()][string]$ReadError = '', [AllowEmptyString()][string]$GroupsError = '')
     $e = { param($v) ConvertTo-DashboardText $v }
     $suites = @($Model.Suites)
     $slowest = if ($suites.Count) { $suites[0] } else { $null }
@@ -218,22 +247,75 @@ function Format-TestGatePageHtml {
         [void]$body.AppendLine('<p class="msg" role="status">Not recorded yet, so the gate charges each the largest recorded value: ' +
             ((@($Model.Missing) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ', ') + '.</p>')
     }
-    [void]$body.AppendLine('<div class="grid-2" id="suites">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>Suites</h2><p class="card__sub">Mean CI duration per suite, slowest first</p></div>')
-    [void]$body.AppendLine('<section class="card grid__full">')
-    if ($suites.Count) {
-        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Suite</th><th>Seconds</th><th class="dp-left">Against the slowest</th><th>Share of the sum</th></tr></thead><tbody>')
-        foreach ($s in $suites) {
+    if ($GroupsError) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">scripts/tests/suite-groups.json could not be read: ' + (& $e $GroupsError) + ', so the suites are listed ungrouped.</p>')
+    }
+    if (@($Model.Ungrouped).Count) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">In no group of scripts/tests/suite-groups.json: ' +
+            ((@($Model.Ungrouped) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ', ') + '.</p>')
+    }
+    if (@($Model.Unknown).Count) {
+        [void]$body.AppendLine('<p class="msg" role="status">Grouped but no longer on disk: ' +
+            ((@($Model.Unknown) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ', ') + '.</p>')
+    }
+    # One suite table: the same columns for the ungrouped list and for each group, each bar drawn against
+    # the slowest suite of all and each share of the whole sum, so two groups' rows read on one scale.
+    # A group's suites with no recorded duration close its table, so a group lists every suite it holds.
+    $suiteTable = {
+        param($Rows, $Unmeasured = @())
+        $t = '<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Suite</th><th>Seconds</th><th class="dp-left">Against the slowest</th><th>Share of the sum</th></tr></thead><tbody>' + "`n"
+        foreach ($s in @($Rows)) {
             $stale = if (@($Model.Stale) -contains $s.Name) { ' <span class="badge badge--sm badge--neutral">no longer on disk</span>' } else { '' }
-            [void]$body.AppendLine('<tr><td class="dp-left"><code>' + (& $e $s.Name) + '</code>' + $stale + '</td><td class="num">' +
-                ([double]$s.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + '</td>' + (Format-DevShareCell $s.Seconds $Model.Total $slowest.Seconds) + '</tr>')
+            $t += '<tr><td class="dp-left"><code>' + (& $e $s.Name) + '</code>' + $stale + '</td><td class="num">' +
+                ([double]$s.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + '</td>' + (Format-DevShareCell $s.Seconds $Model.Total $slowest.Seconds) + '</tr>' + "`n"
+        }
+        foreach ($n in @($Unmeasured)) {
+            $t += '<tr><td class="dp-left"><code>' + (& $e $n) + '</code> <span class="badge badge--sm badge--neutral">not recorded yet</span></td><td class="num">--</td><td class="dp-left"></td><td>--</td></tr>' + "`n"
+        }
+        return $t + '</tbody></table></div>'
+    }
+    $groups = @($Model.Groups)
+    if ($groups.Count -and $suites.Count) {
+        [void]$body.AppendLine('<div class="grid-2" id="groups">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>Groups</h2><p class="card__sub">What each group of suites guards. Every suite runs on every PR, whichever group it is in</p></div>')
+        [void]$body.AppendLine('<section class="card grid__full">')
+        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Group</th><th>Suites</th><th>Seconds</th><th class="dp-left">Against the slowest group</th><th>Share of the sum</th></tr></thead><tbody>')
+        $heaviest = ($groups | ForEach-Object { $_.Total } | Measure-Object -Maximum).Maximum
+        foreach ($g in $groups) {
+            [void]$body.AppendLine('<tr><td class="dp-left"><a class="dp-link" href="#group-' + (& $e $g.Key) + '">' + (& $e $g.Title) + '</a><br><span class="note">' + (& $e $g.Guards) +
+                '</span></td><td class="num">' + (@($g.Suites).Count + @($g.Unmeasured).Count) + '</td><td class="num">' + (Format-DevSeconds $g.Total) + '</td>' + (Format-DevShareCell $g.Total $Model.Total $heaviest) + '</tr>')
         }
         [void]$body.AppendLine('</tbody></table></div>')
+        [void]$body.AppendLine('</section>')
+        [void]$body.AppendLine('</div>')
+        foreach ($g in $groups) {
+            [void]$body.AppendLine('<div class="grid-2" id="group-' + (& $e $g.Key) + '">')
+            [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $g.Title) + '</h2><p class="card__sub">Guards ' + (& $e $g.Guards) + '</p></div>')
+            [void]$body.AppendLine('<section class="card grid__full">')
+            if (@($g.Suites).Count + @($g.Unmeasured).Count) { [void]$body.AppendLine((& $suiteTable $g.Suites $g.Unmeasured)) }
+            else { [void]$body.AppendLine('<p class="note">No suite of this group is on disk.</p>') }
+            [void]$body.AppendLine('</section>')
+            [void]$body.AppendLine('</div>')
+        }
+        $loose = @($suites | Where-Object { @($Model.Ungrouped) -contains $_.Name })
+        $looseUnmeasured = @(@($Model.Ungrouped) | Where-Object { @($Model.Missing) -contains $_ })
+        if ($loose.Count + $looseUnmeasured.Count) {
+            [void]$body.AppendLine('<div class="grid-2" id="ungrouped">')
+            [void]$body.AppendLine('<div class="grid__head"><h2>Not grouped</h2><p class="card__sub">Suites no group holds yet</p></div>')
+            [void]$body.AppendLine('<section class="card grid__full">')
+            [void]$body.AppendLine((& $suiteTable $loose $looseUnmeasured))
+            [void]$body.AppendLine('</section>')
+            [void]$body.AppendLine('</div>')
+        }
     } else {
-        [void]$body.AppendLine('<p class="note">No suite durations are recorded.</p>')
+        [void]$body.AppendLine('<div class="grid-2" id="suites">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>Suites</h2><p class="card__sub">Mean CI duration per suite, slowest first</p></div>')
+        [void]$body.AppendLine('<section class="card grid__full">')
+        if ($suites.Count) { [void]$body.AppendLine((& $suiteTable $suites)) }
+        else { [void]$body.AppendLine('<p class="note">No suite durations are recorded.</p>') }
+        [void]$body.AppendLine('</section>')
+        [void]$body.AppendLine('</div>')
     }
-    [void]$body.AppendLine('</section>')
-    [void]$body.AppendLine('</div>')
     [void]$body.AppendLine('<div class="grid-2" id="recorded">')
     [void]$body.AppendLine('<div class="grid__head"><h2>Where it was measured</h2></div>')
     [void]$body.AppendLine('<section class="card grid__full">')
@@ -248,8 +330,8 @@ function Format-TestGatePageHtml {
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine('</div>')
     return Format-DevPageHtml -Title 'Test gate' -Style $script:DevBarStyle -Body $body.ToString() `
-        -Lead 'What each test suite costs on CI, as the gate packs its shards from it. Measured on CI runners, never on a workstation: a local reading does not convert.' `
-        -FooterNote 'Read from <code>scripts/tests/suite-durations.json</code>. Refreshed by <code>scripts/maintenance/record-suite-durations.ps1</code>; the <code>measure-suites</code> skill compares two sets of runs.'
+        -Lead 'What each test suite costs on CI, grouped by the workflow step it guards. No suite is optional: the gate runs every one on every PR, and a group says what breaks when its suites go red, not when they run. Measured on CI runners, never on a workstation: a local reading does not convert.' `
+        -FooterNote 'Read from <code>scripts/tests/suite-durations.json</code>, grouped by <code>scripts/tests/suite-groups.json</code>. Refreshed by <code>scripts/maintenance/record-suite-durations.ps1</code>; the <code>measure-suites</code> skill compares two sets of runs.'
 }
 
 function Format-BrandbookStatusHtml {

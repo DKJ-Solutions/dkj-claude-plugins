@@ -56,7 +56,7 @@ deriving groups from file names).
 
 - [x] `dev-pages.tests.ps1`: the group model, the page, the fallback, and a tree assert that every suite on disk is in exactly one group
 - [x] `dev-pages` and `connector-dashboard` suites green locally
-- [ ] Victor and Edith reviewed the diff
+- [x] Victor and Edith reviewed the diff; their findings are applied (the merge-push wording in the note, two suites regrouped, a groups file with no groups warns, an ungrouped unmeasured suite is listed)
 
 ### DEPLOY: feat/test-gate-groups
 
