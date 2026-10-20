@@ -2,7 +2,61 @@
 
 ## [Unreleased]
 
-**19 / 32 minor entries** <!-- pending-tally -->
+**21 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/h1-takes-h0-size · 20261020-130925Z
+
+The house style's `h1` now renders at 48px instead of 40px, so it stands clearly above `h2` (32px).
+The `--text-h0` token is gone: `h1` took its size, and the hero figure (`.hero .value`), which was the
+one thing set at `h0`, is now set at `--text-h1`, so it looks exactly as before. The brand book follows.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions page that takes the new copy shows a larger `h1`. A repo's own domain layer that
+reads `var(--text-h0)` loses that size and must switch to `var(--text-h1)`.
+
+**Score:** 3
+
+#### Pull Request
+
+Give h1 the display size and retire the h0 token
+
+Plugins: dkj-solutions
+
+[PR #3224](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3224)
+
+---
+
+### DEPLOY: feat/muted-tile-label-and-breadcrumb · 20261020-125303Z
+
+A stat tile's label now takes the muted grey `--primary-7` (as `.muted`, sub lines and notes) instead of the
+paragraph colour `--primary-12`, so the figure leads. The breadcrumb trail moves wholly into the muted greys: the
+ancestor links `--primary-7`, underlined only under the pointer, instead of the underlined theme colour
+`--primary-9`, the current page `--primary-8` at weight 400 instead of `--primary-12` semibold, and a chevron in
+`--primary-6` instead of the slash between crumbs (owner, October 20, 2026). The pages this repo's dev servers
+render (the connector dashboard and the hub's general pages) draw the chevron. The brand book's own
+breadcrumbs follow.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions page with stat tiles or a breadcrumb bar shows the labels and the current page in grey once
+it takes the new house style; nothing to migrate.
+
+**Score:** 2
+
+#### Pull Request
+
+Muted grey for the tile label and the breadcrumb's current page
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3222](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3222)
+
+---
 
 ### DEPLOY: docs/3208-tighten-repo-specific-rules · 20261020-111819Z
 

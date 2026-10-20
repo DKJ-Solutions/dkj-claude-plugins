@@ -86,7 +86,7 @@ export function Metrics() {
         </Demo>
       </Section>
 
-      <Section id="HeroValue" title="HeroValue" intro="The one big figure of a page: a muted label over a value in the house display size, h0. The secondary figure beside it is the lg size, usually a Delta.">
+      <Section id="HeroValue" title="HeroValue" intro="The one big figure of a page: a muted label over a value in the house display size, h1. The secondary figure beside it is the lg size, usually a Delta.">
         <Demo label="Total and result" wide surface={false}>
           <Card variant="data">
             <HeroRow>

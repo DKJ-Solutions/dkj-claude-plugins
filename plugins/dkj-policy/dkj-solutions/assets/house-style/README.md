@@ -53,7 +53,7 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
 | Primary | `--primary-3` … `--primary-12` | twelve steps in three groups of four (owner's decision, October 19, 2026): `-1` to `-4` the light steps of the colour, `-5` to `-8` the greys (a faint tint of it, running from light to dark on light and from dark to light on dark), `-9` to `-12` the dark steps of the colour. `-3` is every line and the tinted surfaces, `-5` a stronger border (an open card, a selected box); `-4` and `-8` have no role of their own yet. The greys are the muted family, for what may recede into the background (owner, October 19, 2026): `-5` recedes the most and `-8` the least, and `-6` is the furthest a muted text may go, so the eyebrow takes it. Of the greys `-6` is a little more coloured than the other three. `-6` is the pressed `.seg` button, `.badge--info`, `.meter--info`, and the `--accent` modifiers ([below](#how-far-a-theme-reaches)); `--primary-1` is the text on it. `-7` is every sub line (`.sub`, `.dialog__sub`, a component's `-sub`) and every note (`.note`, `.footer-note`, `.muted`), on a `<p>` too (owner's decision, October 15, 2026). `--primary-12` is **all text**, paragraphs and everything else: labels, table heads, legends, quiet icons, and the text on a tinted surface; `--primary-9` is **the highlight**, kept for `h1`, the fill of `.btn--primary` (a filled main action, like the filled icon button; owner's decision, October 15, 2026, #109), a state (hover, focus, pressed, sorted, active, today), `strong`, list markers, links, a value meant to stand out, the accent dialog's title and the settings panel's title, and native controls through `accent-color` (owner's decision, October 15, 2026: as all text `-9` was no longer an accent, and `-12` was chosen over `-10`). `--primary-3` is also the tinted surface (an accent table head, a hover, the accent dialog): lines took the light anchor `-4` until it read far too strong (owner, October 19, 2026). `--primary-10` is `h2` and `--primary-11` is `h3`–`h6` (owner's decision, October 19, 2026: an `h2` in `-9` read too much like the `h1`, and a grey `h3` did not work); `--primary-12` is the far end: **every paragraph** (`<p>`, `.meta` on it included; sub lines, notes and `.muted` excepted), and an inverted surface, where `h1` takes `--primary-4`, `h2` `--primary-3` and `h3`–`h6` `--primary-2`. Never a status or a number |
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
-| Type | `--text-h0` … `--text-h6`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 48/40/32/24/22/18/16 for the headings, 18/14/12/11 for running text. `h1`–`h6` each take the token of their own level, body text is `--text-base`. The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` is the face of `h1` and `h2`, for a title that keeps it at another level |
+| Type | `--text-h1` … `--text-h6`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 48/32/24/22/18/16 for the headings, 18/14/12/11 for running text. `h1`–`h6` each take the token of their own level, body text is `--text-base`. There is no `--text-h0`: it was retired and `h1` took its 48px, because at 40px `h1` stood too close to `h2` (owner's decision, October 20, 2026); the hero figure is set at `--text-h1`. The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` is the face of `h1` and `h2`, for a title that keeps it at another level |
 | App shell | `--control-h`, `--tap`, `--topbar-h`, `--column-narrow` | sizes for a mobile-first app, same in both modes: 38px for a value field and the button beside it, 44px as the smallest touch target, 56px for the top bar, 512px for the narrow app column |
 
 `--gain` was removed (October 14, 2026). A gain in a chart is `--positive-3` (owner's decision, October 15, 2026, #131); before that it was `--cat-1`.
@@ -446,13 +446,21 @@ its own.
   the house style already does that for the floating settings button and for in-page anchors.
 - **The trail:** it always starts at **Repo hub**, linking to `/`. Each further crumb is one level
   down: the product (under its own name), then a page inside it. The last crumb is the current page,
-  unlinked, with `aria-current="page"`. On the Repo hub itself the trail is that one crumb: the bar is
+  unlinked, with `aria-current="page"`. The trail is in the muted greys (owner, October 20, 2026): the chevron
+  between crumbs `--primary-6`, the ancestor links `--primary-7`, the current page `--primary-8`, every crumb at weight
+  400; a link shows its underline only under the pointer. On the Repo hub itself the trail is that one crumb: the bar is
   still there, so it sits in the same place on every page.
 - **The labels** are the pages' own names, short, in the app's language. A crumb names a page, never a
   section on a page: an in-page anchor is not a level.
 - **Without React:** `.breadcrumbs-bar` > `.container` > `nav.breadcrumbs[aria-label="Breadcrumb"]` > `ol`,
-  one `li` per crumb, and a `<span class="breadcrumbs__sep" aria-hidden="true">/</span>` at the start of every
-  `li` but the first. [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) carries it. With React,
+  one `li` per crumb, and a `<span class="breadcrumbs__sep" aria-hidden="true">` holding the chevron at the start
+  of every `li` but the first (the stylesheet sizes it to `1.25rem` and thickens it with a stroke):
+
+  ```html
+  <svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg>
+  ```
+
+  [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) carries it. With React,
   the brand book's `Breadcrumbs` component with `bar` renders the same.
 
 **What this changes for an app that takes the update:** nothing that exists, only an addition. A page

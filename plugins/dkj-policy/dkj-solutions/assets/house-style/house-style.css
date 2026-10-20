@@ -63,7 +63,7 @@
      -1 the page, and the text on a -6 fill; -2 the cards (tiles, tooltips); -3 every line (borders, row dividers,
      meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a today row, the accent dialog);
      -5 a stronger border (an open card, a selected box); -6 the fills (switches, info badges), focus rings, meters
-     and text in the colour (values); -6 also the eyebrow; -7 sub lines, notes and .muted; -8 no role of its own yet; -9 the highlight: links (owner's
+     and text in the colour (values); -6 also the eyebrow; -7 sub lines, notes, .muted, the tile label and the breadcrumb links; -8 the breadcrumb's current page; -9 the highlight: links (owner's
      decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1, the states (hover, focus
      outlines, sorted, pressed) and native controls through accent-color; -10 h2 and -11 h3-h6 (an h2 in the h1's
      colour read too much like it, and a grey h3 did not work; on -12 h1 is -4, h2 is -3 and h3-h6 are -2); -4 no
@@ -113,9 +113,10 @@
   --spacing-64: 256px; --spacing-72: 288px; --spacing-80: 320px; --spacing-96: 384px;
 
   /* type scale: the Figma library's text variables (same file and collection as the spacing
-     scale), names and values exactly as defined there. Headings take the heading token of their
-     own level; body text is --text-base. Same in both modes. */
-  --text-h0: 48px; --text-h1: 40px; --text-h2: 32px; --text-h3: 24px;
+     scale), with one deliberate departure: the library's h0 is retired and h1 takes its 48px, so
+     h1 stands clearly above h2. Headings take the heading token of their own level; body text is
+     --text-base. Same in both modes. */
+  --text-h1: 48px; --text-h2: 32px; --text-h3: 24px;
   --text-h4: 22px; --text-h5: 18px; --text-h6: 16px;
   --text-lg: 18px; --text-base: 14px; --text-sm: 12px; --text-xs: 11px;
   /* the serif h1 and h2 are set in; a component whose title keeps that face at another level takes it from here */
@@ -290,9 +291,9 @@ p, p.meta { color: var(--primary-12); }
 .card__sub { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--primary-7); }
 .card > .card__head + * { margin-top: var(--spacing-4); }   /* (0,2,0): beats a body's own margin: 0, such as .facts */
 .hero { display: flex; flex-wrap: wrap; gap: var(--spacing-6) var(--spacing-12); align-items: flex-end; }   /* use with .card */
-.hero .value { font-size: var(--text-h0); font-weight: 600; line-height: 1.1; color: var(--primary-12); }
+.hero .value { font-size: var(--text-h1); font-weight: 600; line-height: 1.1; color: var(--primary-12); }
 .tile { background: var(--primary-2); border: 1px solid var(--primary-3); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
-.tile .label { color: var(--primary-12); font-size: var(--text-sm); }
+.tile .label { color: var(--primary-7); font-size: var(--text-sm); }   /* a muted grey, as .muted: the figure leads (owner, October 20, 2026) */
 .tile .v { font-size: var(--text-h4); font-weight: 600; margin-top: var(--spacing-0-5); }
 .mini-card { border: 1px solid var(--primary-3); border-radius: 10px; padding: var(--spacing-3) var(--spacing-3-5); }
 .mini-card--highlight { border-color: var(--warning-3); }
@@ -614,18 +615,23 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
 /* ---- Breadcrumbs ---------------------------------------------------------------- */
 /* Where the page sits, on every page a dev server serves: the first thing in <body>, above <main>.
    <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>
-   <li><a href="/">Repo hub</a></li><li><span class="breadcrumbs__sep" aria-hidden="true">/</span>
-   <span aria-current="page">Current page</span></li></ol></nav></div></div>.
-   The slash is muted, the ancestors are links, the current page is the strongest.
+   <li><a href="/">Repo hub</a></li><li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24">
+   (the chevron path, in the house-style README)</svg></span><span aria-current="page">Current page</span></li></ol></nav></div></div>.
+   The whole trail is in the muted greys (owner, October 20, 2026): the chevron --primary-6, the ancestor links
+   --primary-7, the current page --primary-8, so it recedes the least; every crumb at weight 400. A link shows its
+   underline only under the pointer.
    The bar spans the full width on the surface tint and sticks to the top of the screen, so it is always visible. It is
    one --tap high and one line: a trail longer than the screen scrolls sideways inside the bar rather than wrapping, so
    the height stays fixed and whatever else sticks to the top sits right under it. Its trail lines up with the page
    column (.container). */
 .breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
-.breadcrumbs a { color: var(--primary-9); text-underline-offset: 2px; }
-.breadcrumbs__sep { color: var(--primary-6); }
-.breadcrumbs [aria-current='page'] { color: var(--primary-12); font-weight: 600; }
+.breadcrumbs a { color: var(--primary-7); text-decoration: none; text-underline-offset: 4px; }
+.breadcrumbs a:hover { text-decoration: underline; }
+.breadcrumbs__sep { display: inline-flex; color: var(--primary-6); }
+.breadcrumbs__sep svg { width: 1.25rem; height: 1.25rem; }
+.breadcrumbs__sep path { stroke: currentColor; stroke-width: 0.75; stroke-linejoin: round; }   /* thickens the filled chevron */
+.breadcrumbs [aria-current='page'] { color: var(--primary-8); font-weight: 400; }
 .breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }
 .breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
 /* Under the bar: an anchor lands below it, and the floating settings button moves down by its height. */

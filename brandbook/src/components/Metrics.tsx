@@ -35,7 +35,7 @@ export function HeroRow({ children }: { children: ReactNode }) {
 
 /**
  * HeroValue -- the one big figure of a page: a small muted label (with an optional info slot) over a value in the
- * house display size (--text-h0). size="lg" is the secondary figure beside it
+ * house display size (--text-h1). size="lg" is the secondary figure beside it
  * (--text-h4), usually a Delta.
  */
 export function HeroValue({ label, info, size = 'display', children }: { label: string; info?: ReactNode; size?: 'display' | 'lg'; children: ReactNode }) {

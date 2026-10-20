@@ -120,7 +120,7 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<body>')
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
     [void]$sb.AppendLine('<li><a href="' + (& $e $HubHref) + '">Repo hub</a></li>')
-    [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true">/</span><span aria-current="page">' + (& $e $Title) + '</span></li>')
+    [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">' + (& $e $Title) + '</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')
     [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
     [void]$sb.AppendLine('<main class="page-column">')
@@ -943,7 +943,7 @@ function Format-ReleaseNotesDevPage {
     $bar = @(
         '<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>'
         ('<li><a href="' + (& $e $HubHref) + '">Repo hub</a></li>')
-        '<li><span class="breadcrumbs__sep" aria-hidden="true">/</span><span aria-current="page">Release notes</span></li>'
+        '<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">Release notes</span></li>'
         '</ol></nav></div></div>'
         '<div id="settings" class="theme-settings--floating"></div>'
     ) -join "`n"
