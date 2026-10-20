@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**22 / 35 minor entries** <!-- pending-tally -->
+**23 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3223-affected-suites-local-gate · 20261020-141501Z
+
+`open-pr`'s local test gate now runs only the suites a branch's changes can affect, plus every suite that
+walks the live tree, and leaves the whole pool to the required CI check (#3223, the owner's decision of
+October 20, 2026). A suite is selected when a changed path is the suite, a script it runs (followed
+transitively), or a file one of those names, read off the scripts' syntax trees. Every suite runs, and
+the line says why, when the repo names no required CI check, the changes cannot be read, a path is
+non-ASCII, the selection throws, or the change touches the selector, the gate or the CI behind them. A selected run records no gate evidence, so it
+never lets a later run skip the rest. `-AllSuites` on `open-pr` and `ship-pr` runs every suite. The
+release cut and `-GatesOnly` still gate the whole pool. Measured here, a narrow change runs 27-60% of the
+pool's suite-seconds: a CSS token change went from 162 suites to 43.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+In a repo whose required CI check runs every suite, `open-pr` and `ship-pr` gate a branch with only the
+suites its changes reach, so a small change pushes in a fraction of the time. A repo that names no
+required check (`Get-CiTestCheckName`) still runs every suite, and `-AllSuites` runs them all on request.
+
+**Score:** 3
+
+#### Pull Request
+
+open-pr's local test gate runs only the suites a branch's changes can affect
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #3227](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3227)
+
+---
 
 ### DEPLOY: feat/3210-ship-brandbook-build · 20261020-131815Z
 
