@@ -94,11 +94,14 @@
 .dkj-page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-3); }
 
 /* ---------- Breadcrumbs ---------- */
-/* One line, in the muted greys at weight 400 and with no underline: the slash -6, the ancestor links -7, the current page -8. */
+/* One line, in the muted greys at weight 400: the chevron -6, the ancestor links -7 (underlined only under the pointer),
+   the current page -8. */
 .dkj-breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .dkj-breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
-.dkj-breadcrumbs a { color: var(--primary-7); text-decoration: none; }
-.dkj-breadcrumbs-sep { color: var(--primary-6); }
+.dkj-breadcrumbs a { color: var(--primary-7); text-decoration: none; text-underline-offset: 2px; }
+.dkj-breadcrumbs a:hover { text-decoration: underline; }
+.dkj-breadcrumbs-sep { display: inline-flex; color: var(--primary-6); }
+.dkj-breadcrumbs-sep svg { width: 1rem; height: 1rem; }
 .dkj-breadcrumbs [aria-current='page'] { color: var(--primary-8); font-weight: var(--dkj-fw-regular); }
 /* The bar: full screen width on a tinted background, sticky at the top and one --tap high, the trail aligned with the
    house page column (.container). A trail longer than the screen scrolls sideways, so the height never changes. */

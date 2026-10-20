@@ -45,18 +45,23 @@
 - [x] Owner's second pass: breadcrumb links `--primary-9` to `--primary-7`, current page to `--primary-8`
 - [x] Owner's third pass: the current page's weight 600 to 400
 - [x] Owner's fourth pass: no underline on the breadcrumb links, hover included
+- [x] Owner's fifth pass: a chevron SVG replaces the slash separator (the connector dashboard, the hub's general pages, the brand book's `Breadcrumbs`, their tests); the link underline shows on hover only
 - [x] Brand book: `.dkj-breadcrumbs [aria-current='page']` and the showcase intro follow; house-style README's breadcrumb trail bullet names the colour
 
 ### TEST
 
 - [x] No other copy pins either colour (grep over the tree)
+- [x] `house-style` skill: the `house-style.css` sha256 repinned to the branch's final stylesheet
+- [x] `connector-dashboard`, `dev-pages`, `dev-preview-sessionstart` suites green
 
 ### DEPLOY: feat/muted-tile-label-and-breadcrumb
 
 A stat tile's label now takes the muted grey `--primary-7` (as `.muted`, sub lines and notes) instead of the
 paragraph colour `--primary-12`, so the figure leads. The breadcrumb trail moves wholly into the muted greys: the
-ancestor links `--primary-7` without an underline instead of the underlined theme colour `--primary-9`, the current page `--primary-8` at weight 400
-instead of `--primary-12` semibold, the slash unchanged at `--primary-6` (owner, October 20, 2026). The brand book's own
+ancestor links `--primary-7`, underlined only under the pointer, instead of the underlined theme colour
+`--primary-9`, the current page `--primary-8` at weight 400 instead of `--primary-12` semibold, and a chevron in
+`--primary-6` instead of the slash between crumbs (owner, October 20, 2026). The pages this repo's dev servers
+render (the connector dashboard and the hub's general pages) draw the chevron. The brand book's own
 breadcrumbs follow.
 
 **Score:** 2
