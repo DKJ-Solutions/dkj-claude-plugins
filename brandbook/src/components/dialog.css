@@ -52,8 +52,8 @@ html:has(dialog:modal) { overflow: hidden; }
 .dkj-dialog-title-row { display: flex; align-items: center; min-width: 0; }
 .dkj-dialog-title-row .dkj-round-toggle { margin: calc(-1 * var(--spacing-2)) 0 calc(-1 * var(--spacing-2)) calc(-1 * var(--spacing-1-5)); }
 .dkj-dialog-title-row .dkj-round-toggle svg { transform: translateY(0.125rem); }
-/* The title is an <h6> (an <h3> as a card heading, an <h5> in a drawer), in the body sans and the house heading colour, --primary-7, like every h3-h6 (#114). */
-.dkj-dialog-title { display: block; margin: 0; min-width: 0; font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-11); overflow-wrap: anywhere; }
+/* The title is an <h5> (an <h3> as a card heading, an <h4> in a drawer), in the body sans and the house heading colour, --primary-7, like every h3-h5 (#114). */
+.dkj-dialog-title { display: block; margin: 0; min-width: 0; font-size: var(--text-h5); font-weight: var(--dkj-fw-semibold); color: var(--primary-11); overflow-wrap: anywhere; }
 .dkj-dialog-title--card { font-size: var(--text-h3); font-weight: var(--dkj-fw-bold); line-height: var(--dkj-lh-tight); }
 .dkj-dialog-sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-base); color: var(--primary-7); }
 .dkj-dialog-text { margin: 0; line-height: 1.45; }
@@ -89,7 +89,7 @@ html:has(dialog:modal) { overflow: hidden; }
 .dkj-dialog-action--save::before { background: var(--primary-6); border-color: var(--primary-6); }
 .dkj-dialog-action--cancel::before { border-color: var(--negative-5); }
 
-.dkj-dialog-label { display: block; margin: var(--spacing-6) 0 var(--spacing-2); font-size: var(--text-h6); font-weight: var(--dkj-fw-semibold); color: var(--primary-12); }
+.dkj-dialog-label { display: block; margin: var(--spacing-6) 0 var(--spacing-2); font-size: var(--text-h5); font-weight: var(--dkj-fw-semibold); color: var(--primary-12); }
 .dkj-dialog-actions { display: flex; flex-wrap: wrap; gap: var(--spacing-2); margin-top: var(--spacing-6); min-height: var(--dkj-tap); }
 
 /* ---------- Drawer ---------- */
@@ -119,7 +119,7 @@ html:has(dialog:modal) { overflow: hidden; }
   padding: 0 calc(var(--spacing-4) + var(--dkj-tap) + var(--spacing-2)) 0 var(--spacing-4);
   border-bottom: 1px solid var(--primary-3);
 }
-.dkj-dialog--drawer .dkj-dialog-title { font-size: var(--text-h5); font-weight: var(--dkj-fw-bold); }
+.dkj-dialog--drawer .dkj-dialog-title { font-size: var(--text-h4); font-weight: var(--dkj-fw-bold); }
 .dkj-dialog--drawer .dkj-dialog-action { top: calc((var(--dkj-topbar-h) - var(--dkj-tap)) / 2 + env(safe-area-inset-top)); }
 @keyframes dkj-drawer-in { from { transform: translateX(100%); } }
 @keyframes dkj-backdrop-in { from { opacity: 0; } }

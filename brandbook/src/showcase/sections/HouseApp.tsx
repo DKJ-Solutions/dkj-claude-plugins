@@ -94,9 +94,9 @@ export function HouseDialogsDemo() {
         <div className="dialog__body">
           <div className="dialog__head">
             <div>
-              <h6 className="dialog__title" id="house-dialog-plain">
+              <h5 className="dialog__title" id="house-dialog-plain">
                 Dialog title
-              </h6>
+              </h5>
               <p className="dialog__sub">A subtitle in --primary-12</p>
             </div>
           </div>
@@ -110,9 +110,9 @@ export function HouseDialogsDemo() {
       <dialog ref={edit} className="dialog" aria-labelledby="house-dialog-edit" onClick={closeOnBackdrop}>
         <div className="dialog__body">
           <div className="dialog__head dialog__head--two">
-            <h6 className="dialog__title" id="house-dialog-edit">
+            <h5 className="dialog__title" id="house-dialog-edit">
               Edit a value
-            </h6>
+            </h5>
           </div>
           <button type="button" className="dialog__close dialog__close--cancel" aria-label="Cancel" onClick={() => edit.current?.close()}>
             <Icon name="undo" />
@@ -130,9 +130,9 @@ export function HouseDialogsDemo() {
       <dialog ref={drawer} className="dialog dialog--drawer" aria-labelledby="house-dialog-drawer" onClick={closeOnBackdrop}>
         <div className="dialog__body">
           <div className="dialog__head">
-            <h5 className="dialog__title" id="house-dialog-drawer">
+            <h4 className="dialog__title" id="house-dialog-drawer">
               Menu
-            </h5>
+            </h4>
           </div>
           <button type="button" className="dialog__close" aria-label="Close" onClick={() => drawer.current?.close()}>
             <Icon name="close" />

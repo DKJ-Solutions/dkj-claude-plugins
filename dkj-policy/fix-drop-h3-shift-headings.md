@@ -39,19 +39,39 @@
 
 ### PLAN
 
+The owner (Dave, October 20, 2026): the gap between h2 and h3 is too small -- remove the current h3 entirely,
+shift everything up, and afterwards there is no h6.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: `--text-h3` 22px, `--text-h4` 18px, `--text-h5` 16px, no `--text-h6`; the `h6` rule and its colour gone; every use moved one level up
+- [x] `--text-h6` added to `Get-HouseStyleRetiredTokens`, the checksum re-pinned in the `house-style` skill
+- [x] README: the type row, the heading colours, the dialog title, and a migration table for the shift
+- [x] Brandbook: tokens one level up, and the elements whose level was picked for its size (card, dialog, alert, question and calc titles) one level up; nested showcase outlines keep their nesting
+- [x] Connector dashboard: a repo name stays 18px, now as `--text-h4`
 
 ### TEST
 
+- [x] `npm run gate` in `brandbook/` green; `check-house-style`, `connector-dashboard` and `dev-pages` suites green; `check-house-style.ps1` OK
+- [ ] The owner has looked at the hub and the brand book
+
 ### DEPLOY: fix/drop-h3-shift-headings
 
-**Score:**
+The house heading scale loses its 24px `h3` and every level below it moves up one: `h3` is 22px, `h4` 18px,
+`h5` 16px, and there is no `h6` or `--text-h6` any more, so `h3` now stands clearly below the 32px `h2`. The
+brand book's components follow: a plain card or dialog title is an `h5`, a drawer title, an alert title and a
+question title an `h4`. `--text-h6` is a retired token, so the house-style gate reports a use left behind.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions app that takes this release sees its headings change: an `h3` renders at 22px instead of
+24px, and `--text-h4` and `--text-h5` keep their names but render one step smaller. An app moves each use one
+level up in its own layer (`--text-h4` → `--text-h3`, then `--text-h5` → `--text-h4`, then `--text-h6` →
+`--text-h5`); the table is in the house style's README.
+
+**Score:** 4
 
 #### Pull Request
 

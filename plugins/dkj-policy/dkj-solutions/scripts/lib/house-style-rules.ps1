@@ -72,7 +72,7 @@ function Get-HouseStyleRetiredTokens {
         '--axis', '--bad', '--border', '--border-base', '--down', '--gain', '--good', '--grid', '--grid-base',
         '--ink', '--ink-2', '--loss', '--muted', '--neutral-1', '--neutral-2', '--neutral-3', '--neutral-4',
         '--neutral-5', '--on-primary', '--on-warn', '--page', '--page-base', '--primary', '--primary-ink',
-        '--primary-soft', '--status-mark', '--surface', '--surface-base', '--text-h0', '--up', '--warn', '--warn-bg'
+        '--primary-soft', '--status-mark', '--surface', '--surface-base', '--text-h0', '--text-h6', '--up', '--warn', '--warn-bg'
     )
 }
 

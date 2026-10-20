@@ -254,7 +254,7 @@ Assert-Equal '3 repos &#183; 1 needs action &#183; 2 in sync' (Format-DashboardG
 Assert-Equal '1 repo &#183; 1 not on this machine' (Format-DashboardGroupSummary @(@{ Status = 'skip' })) 'one repo is singular'
 Assert-Equal '2 repos &#183; 2 need action' (Format-DashboardGroupSummary @(@{ Status = 'bad' }, @{ Status = 'bad' })) 'and several agree with their verb'
 Assert-True ($grouped -match '<h3 class="cd-subgroup" id="group-bwj">BWJ repos</h3>\r?\n<p class="sub cd-group-summary">1 repo &#183; 1 in sync</p>') 'every Issues group heading is followed by its own summary line'
-Assert-True ($html -match '\.cd-repo h4 \{ margin: 0; font-size: var\(--text-h5\); \}') 'a repo name sits a size below its group heading, so the h3 reads as the bigger one'
+Assert-True ($html -match '\.cd-repo h4 \{ margin: 0; font-size: var\(--text-h4\); \}') 'a repo name sits a size below its group heading, so the h3 reads as the bigger one'
 Assert-True ($html -notmatch '<th>Errors</th>' -and $html -notmatch '<th>Notes</th>' -and ([regex]::Match($html, '<colgroup>.*?</colgroup>').Value -split '<col ').Count -eq 6) 'the overview has no Errors or Notes column: five columns, five widths'
 Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' -and $html -notmatch 'behind') 'the overview has no Main or Checkout column, and nothing measures a trunk against origin'
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }

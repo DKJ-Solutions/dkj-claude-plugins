@@ -2,8 +2,8 @@
    A brand-book original (no source repo; see src/components/sources.ts). */
 .dkj-prose {
   --prose-h1: var(--text-h3);
-  --prose-h2: var(--text-h5);
-  --prose-h3: var(--text-h6);
+  --prose-h2: var(--text-h4);
+  --prose-h3: var(--text-h5);
   --prose-h4: var(--text-base);
   max-width: 70ch;
   font-size: var(--text-base);
@@ -11,8 +11,8 @@
   color: var(--primary-12);
 }
 .dkj-prose--sm {
-  --prose-h1: var(--text-h5);
-  --prose-h2: var(--text-h6);
+  --prose-h1: var(--text-h4);
+  --prose-h2: var(--text-h5);
   --prose-h3: var(--text-base);
   --prose-h4: var(--text-sm);
   font-size: var(--text-sm);

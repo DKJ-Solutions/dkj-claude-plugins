@@ -38,7 +38,7 @@ export function Card({
 
 /**
  * CardHead -- a centred title (optionally with an accent icon), and below it the card's actions over the full width.
- * The title is an <h6> (--text-h6), or an <h3> (--text-h3) in a data card: a heading takes the token of its own level.
+ * The title is an <h5> (--text-h5), or an <h3> (--text-h3) in a data card: a heading takes the token of its own level.
  * Never an <h2>: an h2 never stands inside a card, it stands above the card(s) in a CardGroup (#3175).
  * subtitle: a muted line under the title. info: a slot after the title text, for an inline RoundToggle.
  * badge: a status Badge before the title text (#153). The Badge is decorative, so say the status in the subtitle too.
@@ -63,7 +63,7 @@ export function CardHead({
 }) {
   const variant = useContext(CardVariant)
   const plainH3 = level === 3
-  const Title = plainH3 || variant === 'data' ? 'h3' : 'h6'
+  const Title = plainH3 || variant === 'data' ? 'h3' : 'h5'
   return (
     <div className="dkj-card-head">
       <Title className={plainH3 ? undefined : cx('dkj-card-title', icon && 'dkj-card-title--icon')}>
