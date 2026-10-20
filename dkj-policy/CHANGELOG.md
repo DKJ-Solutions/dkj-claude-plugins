@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**15 / 18 minor entries** <!-- pending-tally -->
+**16 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/hub-width-full · 20261020-073112Z
+
+Every page the repo hub serves now opens in full page width when nobody has picked a width yet, where it
+used to fall back to the house script's fluid column. A width picked in the settings panel still wins.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A developer opening the repo hub for the first time gets the whole screen for its tables and cards.
+
+**Score:** 2
+
+#### Pull Request
+
+The repo hub opens in full page width by default
+
+Plugins: dkj-solutions
+
+[PR #3197](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3197)
+
+---
 
 ### DEPLOY: feat/heading-colours-h2-h3 · 20261019-195835Z
 
