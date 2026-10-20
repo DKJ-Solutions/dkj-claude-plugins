@@ -466,6 +466,24 @@
     SO THE FLAG IS FOR THE CASE THE MECHANISM CANNOT SEE: a session that wants the local verdict in its
     own hands -- chasing a suite that is red under the pool and green standalone, say, where CI's answer
     is precisely the one that will not help. It costs the saving and changes nothing else.
+
+.PARAMETER AllSuites
+    Run every test suite locally instead of only the ones this branch's changes can affect.
+
+    THE SELECTION IS THE DEFAULT (issue #3223, the owner's decision of October 20, 2026). Measured on
+    the run that filed it: 162 suites in 620s for a CSS token and six brand-book lines, where the two
+    suites that read the changed files were the ones that mattered. So the test gate maps the branch's
+    changed paths to the suites that reach them (Get-AffectedSuiteSelection in gate-lib.ps1) and runs
+    those, plus every suite that walks the live tree. The required CI check still runs every suite
+    before the merge, which is what makes a partial local run safe to default to.
+
+    IT FALLS BACK TO EVERY SUITE, AND SAYS WHY, whenever the mapping is not proven: no required CI
+    check named, no trunk to compare with, nothing changed, a non-ASCII path, a selection that
+    throws, or a change to the selector, the gate or the CI behind them (repo-config.ps1, a workflow). A selected run records no gate evidence, so it never lets a later run skip the
+    suites it did not run.
+
+    THE SWITCH IS FOR A RUN THAT WANTS THE WHOLE LOCAL VERDICT -- before a change whose reach the
+    static map cannot see, or to reproduce a red CI suite here.
 .EXAMPLE
     ./scripts/release/open-pr.ps1
 
@@ -496,6 +514,8 @@ param(
     [int]$MaxParallel = 0,
     # Run the suites instead of waiting for an in-flight CI certificate. See .PARAMETER NoCiWait.
     [switch]$NoCiWait,
+    # Run every suite, not only the ones this branch's changes can affect. See .PARAMETER AllSuites.
+    [switch]$AllSuites,
     # Load scripts/repo-config.ps1 + scripts/lib/branch-info.ps1 from HERE instead of $repoRoot -- built
     # for ship-pr.ps1's -TrustedRoot (issue #2437). See .PARAMETER SeamRoot.
     [string]$SeamRoot = ''
@@ -2494,7 +2514,10 @@ if ($existingPr -and -not $SkipTests) {
         Write-Host "test gate: no CI certificate for this commit -- $($cert.Note). The suites run below." -ForegroundColor DarkGray
     }
 }
-if (-not (Invoke-WorkflowGates -RepoRoot $repoRoot -SkipLint:$SkipLint -SkipTests:$SkipTests -MaxParallel $MaxParallel -Context 'the PR' -FailureConsequence 'branch not pushed, no PR opened' -TestsProvedByCi $testsProvedByCi)) {
+# THE SELECTION IS THE DEFAULT HERE AND NOWHERE ELSE (issue #3223): this is the one gate with a required
+# CI check behind it that runs every suite before the merge. -GatesOnly above and the release cut gate the
+# whole pool, because nothing runs after them.
+if (-not (Invoke-WorkflowGates -RepoRoot $repoRoot -SkipLint:$SkipLint -SkipTests:$SkipTests -MaxParallel $MaxParallel -Context 'the PR' -FailureConsequence 'branch not pushed, no PR opened' -TestsProvedByCi $testsProvedByCi -SelectSuites:(-not $AllSuites))) {
     exit 1
 }
 
