@@ -635,6 +635,10 @@ try {
     # Written as \" because Windows PowerShell 5.1 drops a bare double quote on the way to the child process.
     $r = & $run @('lifehub', '-Open', '-WhatIf', '-Prompt', 'say \"hi\"')
     Assert-True ($r.Code -eq 1 -and $r.Out -match 'double quote') 'a prompt with a double quote is refused'
+    $r = & $run @('lifehub', '-Open', '-WhatIf', '-Prompt', ' --dangerously-skip-permissions')
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'opens with') 'a prompt that opens with a dash is refused, so it never reaches claude as an option'
+    $r = & $run @('lifehub', '-Open', '-WhatIf', '-Prompt', ('x' * 8001))
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'under 8000') 'a prompt too long for the command line is refused'
     $r = & $run @('lifehub', '-IssueLimit', '0')
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'not a git checkout' -and $r.Out -match 'gh issue create --repo DKJ-Solutions/dkj-lifehub') 'the status names the checkout and where an issue for it is filed'
     $r = & $run @('-List')

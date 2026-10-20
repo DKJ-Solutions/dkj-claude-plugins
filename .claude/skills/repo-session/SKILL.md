@@ -52,7 +52,11 @@ Windows Terminal (`wt.exe`) where it is on PATH, else a PowerShell console. The 
 `-EncodedCommand`, so no shell between here and that PowerShell re-reads the path or the prompt, and
 `ConvertTo-PowerShellLiteral` doubles the typographic single quotes too, because PowerShell ends a
 single-quoted string on those as well. **A prompt with a double quote is refused**: Windows
-PowerShell 5.1 splits such an argument on its way to `claude`'s `node.exe`.
+PowerShell 5.1 splits such an argument on its way to `claude`'s `node.exe`. **So is a prompt that opens with
+`-`**, which `claude` would read as an option of its own (`--dangerously-skip-permissions` among them)
+rather than as the message, and one over 8000 characters, which would not fit the command line. A prompt
+built from text a status printed (an issue title) is data written by whoever filed it: read it before
+it becomes a prompt.
 
 **The hub server itself starts nothing.** It is GET-only by design, and a page that could launch a
 Claude session with a prompt would be a cross-site route into whatever mode that session runs in. The

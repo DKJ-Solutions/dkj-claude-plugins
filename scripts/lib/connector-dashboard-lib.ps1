@@ -224,7 +224,7 @@ function ConvertTo-PowerShellLiteral {
 function Format-RepoSessionCommand {
     <#
         The PowerShell line that opens Claude Code in one checkout (#3231), with -Prompt as its first message
-        when one is given. The hub shows it to copy; open-repo-session.ps1 runs it in a window of its own.
+        when one is given. The hub shows it to copy; repo-session.ps1 runs it in a window of its own.
     #>
     param([Parameter(Mandatory = $true)][string]$Path, [AllowEmptyString()][string]$Prompt = '')
     $line = 'Set-Location -LiteralPath ' + (ConvertTo-PowerShellLiteral $Path) + '; claude'

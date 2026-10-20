@@ -64,16 +64,30 @@ The `/connectors` page gains a line per checked-out repo, so this branch stops f
 ### TEST
 
 - [x] `connector-dashboard.tests.ps1`: name resolution, the literal PowerShell reads back unchanged (the
-      typographic quotes included), the command, and the script against a fixture tree -- 194 pass.
+      typographic quotes included), the command, and the script against a fixture tree -- 196 pass.
+- [x] Review: Victor, Sebastian and Edith, nothing blocking. Applied: a prompt opening with `-` (which
+      `claude` would read as an option, `--dangerously-skip-permissions` among them) and one over 8000
+      characters are refused, the wt title is used only when it is a plain name, and two prose mismatches
+      are corrected. Left as is: the manifest loop the script and the server each run (the resolver they
+      share is the part that must agree).
 - [x] Run against this machine: `-List`, `lifehub`, and `lifehub -Open -WhatIf` resolve `dkj-lifehub`.
 
 ### DEPLOY: feat/3231-hub-repo-sessions
 
-**Score:**
+The Repo hub now looks into every repo registered under `connectors/` and opens Claude Code in its checkout
+([#3231](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3231)). The new repo-local
+`repo-session` skill shows a repo's checkout, branch and open issues, and opens a session in that checkout
+in a window of its own, optionally with a first prompt. The `/connectors` page shows that command per
+checked-out repo, to copy. The work then runs under that repo's own rules, and an issue for it is filed
+there.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the hub and the skill are this repo's own, and no consumer takes them.
+
+**Score:** N/A
 
 #### Pull Request
 

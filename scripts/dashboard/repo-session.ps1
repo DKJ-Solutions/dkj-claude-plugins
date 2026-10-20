@@ -7,7 +7,7 @@
     folder and starting a session there by hand. Three modes:
 
         -List                     every registered repo, where its checkout is on this machine, and its branch
-        -Repo <name>              one repo: its checkout, branch, uncommitted files, last trunk commit and open
+        -Repo <name>              one repo: its checkout, branch, uncommitted files, last commit and open
                                   issues (read-only; the issues come from gh)
         -Repo <name> -Open        Claude Code in a window of its own, IN that checkout, with -Prompt as its first
                                   message when one is given; -WhatIf prints the command instead of running it
@@ -23,6 +23,9 @@
     The window is Windows Terminal where wt.exe is on PATH, else a PowerShell console. The command goes as
     -EncodedCommand, so no shell between here and that PowerShell re-reads the path or the prompt. A prompt with
     a double quote is refused: Windows PowerShell 5.1 splits such an argument on its way to claude's node.exe.
+    So is a prompt that opens with '-', which claude would read as an option of its own rather than as a
+    message -- '--dangerously-skip-permissions' among them (Sebastian's and Victor's review, #3231) -- and one
+    longer than 8000 characters, since the encoded command must fit Windows' command-line limit.
 
     Pure ASCII (repo convention for .ps1).
 
@@ -111,12 +114,24 @@ if ($Open) {
         Write-Output '[REFUSED] the prompt holds a double quote, which Windows PowerShell 5.1 splits on its way to claude. Write it without one.'
         exit 1
     }
+    if ($Prompt.TrimStart().StartsWith('-')) {
+        Write-Output '[REFUSED] the prompt opens with "-", which claude would read as an option rather than as your message. Start it with a word.'
+        exit 1
+    }
+    if ($Prompt.Length -gt 8000) {
+        Write-Output "[REFUSED] the prompt is $($Prompt.Length) characters; the encoded command must fit Windows' command-line limit, so keep it under 8000."
+        exit 1
+    }
     $command = Format-RepoSessionCommand -Path $c.Path -Prompt $Prompt
     if ($WhatIf) { Write-Output $command; exit 0 }
     $encoded = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($command))
     $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
     if ($wt) {
-        Start-Process -FilePath $wt.Source -ArgumentList @('new-tab', '--title', ($c.Repo -split '/')[-1], 'powershell', '-NoExit', '-EncodedCommand', $encoded) | Out-Null
+        # Start-Process joins these with spaces and quotes nothing, and wt reads a bare ';' as a new command, so
+        # the title -- manifest data -- is used only when it is a plain name.
+        $title = ($c.Repo -split '/')[-1]
+        if ($title -notmatch '^[A-Za-z0-9._-]+$') { $title = 'claude' }
+        Start-Process -FilePath $wt.Source -ArgumentList @('new-tab', '--title', $title, 'powershell', '-NoExit', '-EncodedCommand', $encoded) | Out-Null
     } else {
         Start-Process -FilePath 'powershell.exe' -WorkingDirectory $c.Path -ArgumentList @('-NoExit', '-EncodedCommand', $encoded) | Out-Null
     }
