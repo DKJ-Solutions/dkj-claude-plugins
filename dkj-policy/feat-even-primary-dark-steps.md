@@ -55,7 +55,7 @@ line as strong as `-4`, so each step is twice the one before instead.
 
 - [x] `npm run gate` in `brandbook/` green; `check-house-style.ps1` OK
 - [x] The owner has looked at the dark steps (Dave: "dat staat nu goed")
-- [ ] The owner has looked at the respaced light steps in the hub and the brand book
+- [x] The owner has looked at the respaced light steps in the hub and the brand book (Dave: "ja veel beter ship it")
 
 ### DEPLOY: feat/even-primary-dark-steps
 
