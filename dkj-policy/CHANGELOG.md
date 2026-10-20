@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**17 / 21 minor entries** <!-- pending-tally -->
+**17 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/compact-specialists-table · 20261020-085419Z
+
+The Specialists page on the dev server gives each specialist one line in its context table instead of three: the title now follows the name and number inline, and the form and always-on badges sit beside the plugin name.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the dev server's pages are this repo's own maintenance tooling, and no consumer runs them.
+
+**Score:** N/A
+
+#### Pull Request
+
+Specialists page: one line per specialist in the context table
+
+[PR #3203](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3203)
+
+---
 
 ### DEPLOY: fix/3200-dashboard-test-successor-leak · 20261020-083158Z
 
