@@ -70,13 +70,12 @@
      a third and two thirds of the way from -9 to -12 in OKLab, so -9 to -12 is three equal steps (owner, October 20,
      2026: the jump from -11 to -12 was three times the others); -4 no
      role of its own yet; -12 the far end: every paragraph, and an inverted surface (the showcase's panel on dark).
-     Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on -1 19.5:1, on -2 16.7:1 and on -3
-     11.5:1 (October 20, 2026); -9 on -1 4.6:1 and -1 on -9 4.6:1; -9 on -2 3.87:1 (Magenta; below 4.5:1 also Roest 4.06, Lila 4.26,
-     Hemelsblauw 4.33, Petrol 4.38 and Oker 4.47, since the light steps were respaced on October 20, 2026); -10 on -2 7.3:1, -11 on -2 11.9:1 (October 20, 2026); -6 on the card 5.6:1 on light and 3.6:1 on dark (Roze), -1 on -6
-     6.6:1 on light and 3.9:1 on dark; -7 on the card 6.8:1; -6, the eyebrow, on the page 6.6:1 on light and 3.9:1 on dark; a -3 line on a -2 card 1.08:1
-     (Oker) to 1.46:1 (Paars). -2 and -3 sit a seventh and three sevenths of the way from -1 to -4 in OKLab, so each
-     step from -1 to -4 is twice the one before (owner, October 20, 2026: -1 to -3 were too close, -3 to -4 too far). */
-  --primary-1: #fdfdff; --primary-2: #e4e8ff; --primary-3: #b5bfff; --primary-4: #6462ff; --primary-5: #969fb0; --primary-6: #515b6e;
+     Measured (WCAG relative luminance, October 19, 2026) worst cases: -12 on -1 19.5:1, on -2 19.0:1 and on -3
+     16.5:1; -9 on -1 4.6:1 and -1 on -9 4.6:1; -9 on -2 4.40:1 (Magenta; below 4.5:1 also Roest and Lila, 4.43:1
+     and 4.49:1); -10 on -2 7.8:1, -11 on -2 12.6:1 (October 20, 2026); -6 on the card 6.4:1 on light and 3.8:1 on dark (Roze), -1 on -6
+     6.6:1 on light and 3.9:1 on dark; -7 on the card 7.3:1; -6, the eyebrow, on the page 6.6:1 on light and 3.9:1 on dark; a -3 line on a -2 card 1.02:1
+     (Oker) to 1.16:1. */
+  --primary-1: #fdfdff; --primary-2: #f6f7ff; --primary-3: #e2e6ff; --primary-4: #6462ff; --primary-5: #969fb0; --primary-6: #515b6e;
   --primary-7: #3d4554; --primary-8: #29313f; --primary-9: #0400ff; --primary-10: #0113a6; --primary-11: #011056; --primary-12: #020511;
 
   /* categorical palette (series slots) */
@@ -147,7 +146,7 @@
     color-scheme: dark;
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
     --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-    --primary-1: #01090b; --primary-2: #02171a; --primary-3: #03373d; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657172; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #88f1ff; --primary-11: #c4f8fe; --primary-12: #f7fdfd;
+    --primary-1: #01090b; --primary-2: #010d0f; --primary-3: #02191c; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657172; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #88f1ff; --primary-11: #c4f8fe; --primary-12: #f7fdfd;
   }
 }
 
@@ -158,7 +157,7 @@
   color-scheme: dark;
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
   --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-  --primary-1: #01090b; --primary-2: #02171a; --primary-3: #03373d; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657172; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #88f1ff; --primary-11: #c4f8fe; --primary-12: #f7fdfd;
+  --primary-1: #01090b; --primary-2: #010d0f; --primary-3: #02191c; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657172; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #88f1ff; --primary-11: #c4f8fe; --primary-12: #f7fdfd;
 }
 
 /* ---- Themes: the primary colour ------------------------------------------ */
@@ -167,18 +166,18 @@
    two whose primary sits next to the warning colour move the warning away from it. No red and
    no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
    pink, lilac, sky, cyan, yellow, orange (dark). */
-:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --primary-1: #fffdfe; --primary-2: #ffe3f4; --primary-3: #ffaee0; --primary-4: #ff02b7; --primary-5: #aa99a2; --primary-6: #68555f; --primary-7: #504048; --primary-8: #3a2b33; --primary-9: #dc009d; --primary-10: #8f0966; --primary-11: #490833; --primary-12: #0d0208; }
-:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --primary-1: #fefdff; --primary-2: #f0e5ff; --primary-3: #d4b5ff; --primary-4: #a141ff; --primary-5: #a09caf; --primary-6: #5c576d; --primary-7: #464353; --primary-8: #312e3d; --primary-9: #8100ff; --primary-10: #5311a5; --primary-11: #2a0e54; --primary-12: #07040f; }
-:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fdfdff; --primary-2: #e4e8ff; --primary-3: #b5bfff; --primary-4: #6462ff; --primary-5: #969fb0; --primary-6: #515b6e; --primary-7: #3d4554; --primary-8: #29313f; --primary-9: #0400ff; --primary-10: #0113a6; --primary-11: #011056; --primary-12: #020511; }
-:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --primary-1: #f9ffff; --primary-2: #e4fdff; --primary-3: #b6f8ff; --primary-4: #00ebff; --primary-5: #98a0a1; --primary-6: #535c5d; --primary-7: #3f4647; --primary-8: #2b3233; --primary-9: #00818c; --primary-10: #00545c; --primary-11: #002a30; --primary-12: #00070a; }
-:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --primary-1: #fffdfa; --primary-2: #fffae3; --primary-3: #fff2b2; --primary-4: #ffe003; --primary-5: #a09f96; --primary-6: #5d5c52; --primary-7: #47463e; --primary-8: #323129; --primary-9: #847400; --primary-10: #564b00; --primary-11: #2c2600; --primary-12: #080600; }
-:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffdfc; --primary-2: #ffecdf; --primary-3: #ffc8a6; --primary-4: #ff7a00; --primary-5: #a69c96; --primary-6: #635852; --primary-7: #4c443f; --primary-8: #372f2a; --primary-9: #ba5900; --primary-10: #7a3800; --primary-11: #401a00; --primary-12: #0e0300; --warning-3: #b88a00; }
-:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #0d0509; --primary-2: #260a17; --primary-3: #5e1136; --primary-4: #e0007c; --primary-5: #4e3d42; --primary-6: #7d676e; --primary-7: #ae989e; --primary-8: #ceb7bd; --primary-9: #ff018e; --primary-10: #ff7bb1; --primary-11: #ffbdd6; --primary-12: #fffafc; }
-:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #08060e; --primary-2: #150c2a; --primary-3: #35146a; --primary-4: #7f00ff; --primary-5: #453f4e; --primary-6: #716a7e; --primary-7: #a19bad; --primary-8: #c1bacd; --primary-9: #a143ff; --primary-10: #bd8aff; --primary-11: #dcc4ff; --primary-12: #fcfbff; }
-:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --primary-1: #06060f; --primary-2: #060d2b; --primary-3: #05156b; --primary-4: #0000ff; --primary-5: #3e4150; --primary-6: #696d80; --primary-7: #9a9eaf; --primary-8: #b9bdcf; --primary-9: #6363ff; --primary-10: #8f9bff; --primary-11: #c3ccff; --primary-12: #fbfbff; }
-:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --primary-1: #01090b; --primary-2: #02171a; --primary-3: #03373d; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657172; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #88f1ff; --primary-11: #c4f8fe; --primary-12: #f7fdfd; }
-:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --primary-1: #0a0701; --primary-2: #1a1302; --primary-3: #3d2f03; --primary-4: #8f6f00; --primary-5: #45423a; --primary-6: #726e64; --primary-7: #a29e95; --primary-8: #c1bdb4; --primary-9: #ffc702; --primary-10: #ffda7e; --primary-11: #feecbe; --primary-12: #fdfcf7; --warning-3: #f08a24; }
-:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --primary-1: #0d0502; --primary-2: #230d04; --primary-3: #542106; --primary-4: #c74c00; --primary-5: #4b403b; --primary-6: #796b65; --primary-7: #a99b96; --primary-8: #c8bab5; --primary-9: #ff6100; --primary-10: #ff9a70; --primary-11: #ffccb5; --primary-12: #fffbf9; }
+:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --primary-1: #fffdfe; --primary-2: #fff7fb; --primary-3: #ffe3f1; --primary-4: #ff02b7; --primary-5: #aa99a2; --primary-6: #68555f; --primary-7: #504048; --primary-8: #3a2b33; --primary-9: #dc009d; --primary-10: #8f0966; --primary-11: #490833; --primary-12: #0d0208; }
+:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --primary-1: #fefdff; --primary-2: #faf7ff; --primary-3: #ede3ff; --primary-4: #a141ff; --primary-5: #a09caf; --primary-6: #5c576d; --primary-7: #464353; --primary-8: #312e3d; --primary-9: #8100ff; --primary-10: #5311a5; --primary-11: #2a0e54; --primary-12: #07040f; }
+:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --primary-1: #fdfdff; --primary-2: #f6f7ff; --primary-3: #e2e6ff; --primary-4: #6462ff; --primary-5: #969fb0; --primary-6: #515b6e; --primary-7: #3d4554; --primary-8: #29313f; --primary-9: #0400ff; --primary-10: #0113a6; --primary-11: #011056; --primary-12: #020511; }
+:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --primary-1: #f9ffff; --primary-2: #f5feff; --primary-3: #e3fcff; --primary-4: #00ebff; --primary-5: #98a0a1; --primary-6: #535c5d; --primary-7: #3f4647; --primary-8: #2b3233; --primary-9: #00818c; --primary-10: #00545c; --primary-11: #002a30; --primary-12: #00070a; }
+:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --primary-1: #fffdfa; --primary-2: #fefcf4; --primary-3: #fefae0; --primary-4: #ffe003; --primary-5: #a09f96; --primary-6: #5d5c52; --primary-7: #47463e; --primary-8: #323129; --primary-9: #847400; --primary-10: #564b00; --primary-11: #2c2600; --primary-12: #080600; }
+:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --primary-1: #fffdfc; --primary-2: #fff8f5; --primary-3: #ffeadf; --primary-4: #ff7a00; --primary-5: #a69c96; --primary-6: #635852; --primary-7: #4c443f; --primary-8: #372f2a; --primary-9: #ba5900; --primary-10: #7a3800; --primary-11: #401a00; --primary-12: #0e0300; --warning-3: #b88a00; }
+:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --primary-1: #0d0509; --primary-2: #14060b; --primary-3: #2a0a17; --primary-4: #e0007c; --primary-5: #4e3d42; --primary-6: #7d676e; --primary-7: #ae989e; --primary-8: #ceb7bd; --primary-9: #ff018e; --primary-10: #ff7bb1; --primary-11: #ffbdd6; --primary-12: #fffafc; }
+:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --primary-1: #08060e; --primary-2: #0b0816; --primary-3: #170d2e; --primary-4: #7f00ff; --primary-5: #453f4e; --primary-6: #716a7e; --primary-7: #a19bad; --primary-8: #c1bacd; --primary-9: #a143ff; --primary-10: #bd8aff; --primary-11: #dcc4ff; --primary-12: #fcfbff; }
+:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --primary-1: #06060f; --primary-2: #040917; --primary-3: #030e2f; --primary-4: #0000ff; --primary-5: #3e4150; --primary-6: #696d80; --primary-7: #9a9eaf; --primary-8: #b9bdcf; --primary-9: #6363ff; --primary-10: #8f9bff; --primary-11: #c3ccff; --primary-12: #fbfbff; }
+:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --primary-1: #01090b; --primary-2: #010d0f; --primary-3: #02191c; --primary-4: #00808c; --primary-5: #3c4445; --primary-6: #657172; --primary-7: #96a1a2; --primary-8: #b5c0c1; --primary-9: #00eaff; --primary-10: #88f1ff; --primary-11: #c4f8fe; --primary-12: #f7fdfd; }
+:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --primary-1: #0a0701; --primary-2: #0f0a01; --primary-3: #1c1502; --primary-4: #8f6f00; --primary-5: #45423a; --primary-6: #726e64; --primary-7: #a29e95; --primary-8: #c1bdb4; --primary-9: #ffc702; --primary-10: #ffda7e; --primary-11: #feecbe; --primary-12: #fdfcf7; --warning-3: #f08a24; }
+:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --primary-1: #0d0502; --primary-2: #130703; --primary-3: #260e05; --primary-4: #c74c00; --primary-5: #4b403b; --primary-6: #796b65; --primary-7: #a99b96; --primary-8: #c8bab5; --primary-9: #ff6100; --primary-10: #ff9a70; --primary-11: #ffccb5; --primary-12: #fffbf9; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }

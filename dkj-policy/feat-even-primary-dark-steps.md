@@ -42,41 +42,38 @@
 The owner (Dave, October 20, 2026): the jump from `--primary-11` to `--primary-12` is too big -- make the
 steps from `-9` to `-12` run more evenly. Then, after looking: `-1` to `-3` are much too close and `-3` to `-4`
 much too far -- make that transition more natural too. Fully equal steps there made the cards bright and every
-line as strong as `-4`, so each step is twice the one before instead.
+line as strong as `-4`, so each step was made twice the one before instead -- and on a look the owner kept
+the headers but not the backgrounds (Dave: "bij de headers is het beter maar niet de achtergrond"), so the light
+steps went back to what they were.
 
 ### CREATE
 
 - [x] `house-style.css`: in every theme and both default blocks, `-10` and `-11` recomputed as a third and two thirds of the way from `-9` to `-12` in OKLab (before: the last step was about 3.5x the other two, e.g. blue 0.078 / 0.082 / 0.278; after: three equal steps, blue 0.146 / 0.145 / 0.145); the measured-contrast comment updated (`-10` on `-2` worst 7.8:1, `-11` 12.6:1)
 - [x] README: the primary row states how `-10` and `-11` are placed
-- [x] `house-style.css`: `-2` and `-3` recomputed as a seventh and three sevenths of the way from `-1` to `-4` in OKLab, each step twice the one before (blue before 0.019 / 0.054 / 0.390, after 0.066 / 0.130 / 0.267); every measured contrast that depends on `-2` or `-3` re-measured, in the comment and the README
+- [~] `-2` and `-3` respaced as a doubling ramp from `-1` to `-4` -- dropped on the owner's look, reverted to the trunk's values
 - [x] The stylesheet checksum re-pinned in the `house-style` skill
 
 ### TEST
 
 - [x] `npm run gate` in `brandbook/` green; `check-house-style.ps1` OK
 - [x] The owner has looked at the dark steps (Dave: "dat staat nu goed")
-- [x] The owner has looked at the respaced light steps in the hub and the brand book (Dave: "ja veel beter ship it")
 
 ### DEPLOY: feat/even-primary-dark-steps
 
 The dark steps of the house primary run evenly: `--primary-10` and `--primary-11` now sit a third and two thirds
 of the way from `--primary-9` to `--primary-12` in OKLab, in all twelve themes, so `h1` to `h2` to `h3` to body text
 is three equal steps instead of two small ones and one large jump. On light themes `h2` and `h3` read darker, on dark
-themes lighter. The light steps follow the same idea: `--primary-2` and `--primary-3` sit a seventh and three
-sevenths of the way from `--primary-1` to `--primary-4`, each step twice the one before, so cards and lines stand
-visibly apart from the page and `-3` no longer jumps to `-4`. Cards are a shade more tinted, so `-9` on a card falls
-below 4.5:1 in six themes (Magenta 3.87:1 the lowest).
+themes lighter; every contrast stays well above 4.5:1.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-Every DKJ-Solutions app that takes this release sees its `h2` and `h3`-`h5` colours shift a step towards body text, its cards a shade
-more tinted and every line more visible.
+Every DKJ-Solutions app that takes this release sees its `h2` and `h3`-`h5` colours shift a step towards body text.
 No token is renamed, so nothing has to be migrated.
 
 **Score:** 2
 
 #### Pull Request
 
-Respace the primary light steps -1 to -4 and dark steps -9 to -12
+Space the primary dark steps -9 to -12 evenly
