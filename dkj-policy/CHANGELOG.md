@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**17 / 22 minor entries** <!-- pending-tally -->
+**17 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/brandbook-heading-overview · 20261020-092123Z
+
+There is one brand book now, on the Repo hub at `/brandbook/`. Before this there were two: the hub's own PowerShell
+Brandbook page and the `brandbook/` React app on its Vite port. The hub now serves the React app's build and rebuilds
+it whenever `brandbook/` or the house style has changed, so it always shows the tree. The `/brandbook` link in the
+hub's DKJ-Solutions card (#3199) therefore opens the app here, while other repos keep the plugin's general Brandbook
+page. That page's themes table (each of the twelve themes with its own twelve steps and the house defaults) and its
+list of every house class by section are now in the app too, under Foundations. The app's Tokens section also gains a Headings list,
+Heading 1 to Heading 6 as the house style renders them, each with its font family (the serif `--font-serif` for h1
+and h2, the body sans for h3 to h6), the `--primary-*` step and hex its colour resolves to, and its size and weight,
+all read off the rendered heading. The app's routes moved under `/brandbook/`: the showcase is its index, the Repo hub
+pattern is `/brandbook/repo-hub`. Whether that second hub page should stay is #3202.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The brand book sits outside `plugins/` and is installed by no consumer, so nobody who takes a release sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The brand book shows every heading with its font family and colour
+
+[PR #3209](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3209)
+
+---
 
 ### DEPLOY: fix/compact-specialists-table · 20261020-085419Z
 
