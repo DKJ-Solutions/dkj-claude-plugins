@@ -33,6 +33,8 @@ Assert-Equal '--' (Format-DevNumber $null) 'a value not read is --'
 Assert-Equal '7.6s' (Format-DevSeconds 7.6) 'under a minute: seconds with one decimal'
 Assert-Equal '23:22' (Format-DevSeconds 1402) 'from a minute: m:ss'
 Assert-Equal '59.6s' (Format-DevSeconds 59.6) 'just under a minute stays in seconds'
+Assert-Equal '1:38:47' (Format-DevSeconds 5927) 'from an hour: h:mm:ss, so a long sum does not read as minutes'
+Assert-Equal '59:59' (Format-DevSeconds 3599) 'and just under an hour stays m:ss'
 
 Write-Host '-- the page shell' -ForegroundColor Cyan
 $shell = Format-DevPageHtml -Title 'A <b>page' -Lead 'lead' -Body '<p>body</p>' -FooterNote 'note'

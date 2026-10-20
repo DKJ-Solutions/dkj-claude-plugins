@@ -57,13 +57,14 @@ function Format-DevNumber {
 }
 
 function Format-DevSeconds {
-    <# Seconds as one decimal under a minute, else m:ss -- 7.6 -> '7.6s', 1402 -> '23:22'. #>
+    <# Seconds as one decimal under a minute, m:ss under an hour, else h:mm:ss -- 7.6 -> '7.6s', 1402 -> '23:22', 5927 -> '1:38:47'. #>
     param([AllowNull()]$Seconds)
     if ($null -eq $Seconds) { return '--' }
     $s = [double]$Seconds
     if ($s -lt 60) { return $s.ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' }
     $whole = [int][Math]::Round($s)
-    return ('{0}:{1:00}' -f [int][Math]::Floor($whole / 60), ($whole % 60))
+    if ($whole -lt 3600) { return ('{0}:{1:00}' -f [int][Math]::Floor($whole / 60), ($whole % 60)) }
+    return ('{0}:{1:00}:{2:00}' -f [int][Math]::Floor($whole / 3600), [int][Math]::Floor(($whole % 3600) / 60), ($whole % 60))
 }
 
 function Format-DevDuration {
