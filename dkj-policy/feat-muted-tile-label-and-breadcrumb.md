@@ -47,6 +47,7 @@
 - [x] Owner's fourth pass: no underline on the breadcrumb links, hover included
 - [x] Owner's fifth pass: a chevron SVG replaces the slash separator (the connector dashboard, the hub's general pages, the brand book's `Breadcrumbs`, their tests); the link underline shows on hover only
 - [x] Owner's sixth pass: the chevron at 1.25rem, thickened with a 0.75 stroke
+- [x] Owner's seventh pass: the hover underline 4px below the text instead of 2px
 - [x] Brand book: `.dkj-breadcrumbs [aria-current='page']` and the showcase intro follow; house-style README's breadcrumb trail bullet names the colour
 
 ### TEST
