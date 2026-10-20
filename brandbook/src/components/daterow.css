@@ -11,7 +11,7 @@
   align-items: start;
   min-height: var(--dkj-tap);
   padding: var(--spacing-2) var(--spacing-3);
-  border-top: 1px solid var(--primary-3);
+  border-top: 1px solid var(--paper-3);
 }
 .dkj-datelist > .dkj-daterow:first-child { border-top: 0; }
 
@@ -24,19 +24,19 @@
   font-weight: var(--dkj-fw-semibold);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  color: var(--primary-12);
+  color: var(--ink-7);
 }
 .dkj-daterow-main { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--spacing-1) var(--spacing-3); min-width: 0; }
 .dkj-daterow-body { display: flex; flex-direction: column; flex: 1 1 10rem; min-width: 0; }
-.dkj-daterow-title { font-size: var(--text-base); color: var(--primary-12); overflow-wrap: anywhere; }
-.dkj-daterow-sub { font-size: var(--text-sm); color: var(--primary-7); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.dkj-daterow-trailing { margin-left: auto; font-size: var(--text-sm); color: var(--primary-12); overflow-wrap: anywhere; }
+.dkj-daterow-title { font-size: var(--text-base); color: var(--ink-7); overflow-wrap: anywhere; }
+.dkj-daterow-sub { font-size: var(--text-sm); color: var(--ink-4); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.dkj-daterow-trailing { margin-left: auto; font-size: var(--text-sm); color: var(--ink-7); overflow-wrap: anywhere; }
 
-/* near / today: bar + tint + bold, plus the word beside the date. On --primary-3 the text is --primary-12. */
+/* near / today: bar + tint + bold, plus the word beside the date. On --paper-3 the text is --ink-7. */
 .dkj-daterow--near,
-.dkj-daterow--today { background: var(--primary-3); box-shadow: inset 3px 0 0 var(--primary-6); }
+.dkj-daterow--today { background: var(--paper-3); box-shadow: inset 3px 0 0 var(--ink-3); }
 .dkj-daterow--near .dkj-daterow-when,
-.dkj-daterow--today .dkj-daterow-when { font-weight: var(--dkj-fw-bold); color: var(--primary-9); }
+.dkj-daterow--today .dkj-daterow-when { font-weight: var(--dkj-fw-bold); color: var(--ink-1); }
 
 /* invalid: red bar, warning icon, the reason in red text. */
 .dkj-daterow--invalid { box-shadow: inset 3px 0 0 var(--negative-3); }
@@ -48,6 +48,6 @@
 .dkj-daterow-title a { color: inherit; text-decoration: underline; text-underline-offset: 0.15em; }
 .dkj-daterow-title a::after { content: ''; position: absolute; inset: 0; }
 .dkj-daterow-title a:focus-visible { outline: none; }
-.dkj-daterow-title a:focus-visible::after { outline: var(--dkj-focus-w) solid var(--primary-6); outline-offset: calc(-1 * var(--dkj-focus-w)); }
+.dkj-daterow-title a:focus-visible::after { outline: var(--dkj-focus-w) solid var(--ink-3); outline-offset: calc(-1 * var(--dkj-focus-w)); }
 .dkj-daterow--link { cursor: pointer; }
-.dkj-daterow--link:hover { background: var(--primary-3); }
+.dkj-daterow--link:hover { background: var(--paper-3); }

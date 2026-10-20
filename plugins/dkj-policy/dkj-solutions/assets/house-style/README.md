@@ -36,7 +36,7 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
    app is fixed here, through an issue on this repo, so that every app gets the fix. A value that is wrong
    for one app is a new domain token in that app, not an override. Same rule as the constitution:
    extend, never override. One narrow exception: a component subtree may re-declare a house colour token
-   (`--primary-5`, `--primary-2`) so its contents follow a tint, as the info and accent dialogs do;
+   (`--paper-2`, `--ink-3`) so its contents follow a tint, as the info and accent dialogs do;
    the token is never changed for the page. Everything inside such a subtree inherits the re-declared value,
    so a tinted dialog nested inside an info dialog would tint from `--cat-1`; do not nest them.
 
@@ -46,11 +46,11 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
 
 | Group | Tokens | Meaning |
 |---|---|---|
-| Surfaces and lines | `--primary-1`, `--primary-2`, `--primary-3` | background (`-1`), cards (`-2`), every line: borders, row dividers, grid lines, the meter track (`-3`): fixed values per theme, a light tint of the theme's colour ([below](#how-far-a-theme-reaches)) |
+| Paper | `--paper-1` … `--paper-4` | what sits **behind** the text, in very small steps, each only just darker on light (lighter on dark) than the one before (owner's decision, October 20, 2026): the page (`paper-1`), cards and tiles (`paper-2`), every line and the tinted surfaces (`paper-3`: borders, row dividers, grid lines, the meter track, an accent table head, a hover, the accent dialog), a stronger border (`paper-4`: an open card, a selected box). Fixed values per theme, a tint of the theme's colour ([below](#how-far-a-theme-reaches)). `paper-1` is also the text on an `ink-1` or `ink-3` fill and the mark inside a status icon, and on an inverted (`ink-7`) surface the paper steps are the text |
 | Categorical | `--cat-1`, `--cat-2`, `--cat-3` | one series each. Never two meanings for one slot in a view |
 | Direction | `--positive-3` and `--negative-3` (also the gain and the loss in charts, so a direction chart can share a view with any series), `--positive-5`, `--negative-5` (numbers in text) | result and direction, never a category. `--positive-5`/`--negative-5` are the text versions of `--positive-3`/`--negative-3`, a step more contrast so a number reads as text: darker on light, lighter on dark |
-| Status | `--positive-3`, `--warning-3`, `--negative-3`, `--warning-5`, `--warning-1`, `--negative-1`, `--positive-1` | badges, meters, notices. `--warning-1`, `--negative-1` and `--positive-1` are the backgrounds of a warning, negative or positive message. The mark inside a status icon (check, cross, "!") is `--primary-1` |
-| Primary | `--primary-3` … `--primary-12` | twelve steps in three groups of four (owner's decision, October 19, 2026): `-1` to `-4` the light steps of the colour, `-5` to `-8` the greys (a faint tint of it, running from light to dark on light and from dark to light on dark), `-9` to `-12` the dark steps of the colour, `-10` and `-11` a third and two thirds of the way from `-9` to `-12` in OKLab so those are three equal steps (owner, October 20, 2026: the jump from `-11` to `-12` was three times the others). `-3` is every line and the tinted surfaces, `-5` a stronger border (an open card, a selected box); `-4` and `-8` have no role of their own yet. The greys are the muted family, for what may recede into the background (owner, October 19, 2026): `-5` recedes the most and `-8` the least, and `-6` is the furthest a muted text may go, so the eyebrow takes it. Of the greys `-6` is a little more coloured than the other three. `-6` is the pressed `.seg` button, `.badge--info`, `.meter--info`, and the `--accent` modifiers ([below](#how-far-a-theme-reaches)); `--primary-1` is the text on it. `-7` is every sub line (`.sub`, `.dialog__sub`, a component's `-sub`) and every note (`.note`, `.footer-note`, `.muted`), on a `<p>` too (owner's decision, October 15, 2026). `--primary-12` is **all text**, paragraphs and everything else: labels, table heads, legends, quiet icons, and the text on a tinted surface; `--primary-9` is **the highlight**, kept for `h1`, the fill of `.btn--primary` (a filled main action, like the filled icon button; owner's decision, October 15, 2026, #109), a state (hover, focus, pressed, sorted, active, today), `strong`, list markers, links, a value meant to stand out, the accent dialog's title and the settings panel's title, and native controls through `accent-color` (owner's decision, October 15, 2026: as all text `-9` was no longer an accent, and `-12` was chosen over `-10`). `--primary-3` is also the tinted surface (an accent table head, a hover, the accent dialog): lines took the light anchor `-4` until it read far too strong (owner, October 19, 2026). `--primary-10` is `h2` and `--primary-11` is `h3`–`h6` (owner's decision, October 19, 2026: an `h2` in `-9` read too much like the `h1`, and a grey `h3` did not work); `--primary-12` is the far end: **every paragraph** (`<p>`, `.meta` on it included; sub lines, notes and `.muted` excepted), and an inverted surface, where `h1` takes `--primary-4`, `h2` `--primary-3` and `h3`–`h6` `--primary-2`. Never a status or a number |
+| Status | `--positive-3`, `--warning-3`, `--negative-3`, `--warning-5`, `--warning-1`, `--negative-1`, `--positive-1` | badges, meters, notices. `--warning-1`, `--negative-1` and `--positive-1` are the backgrounds of a warning, negative or positive message. The mark inside a status icon (check, cross, "!") is `--paper-1` |
+| Ink | `--ink-1` … `--ink-7` | what sits **on** the paper, in large steps, from the highlight to the far end with the greys in the middle, so on light `ink-7` is the darkest (owner's decisions, October 20, 2026). The seven are evenly spaced in OKLab lightness, in order 1 to 7 (owner, October 20, 2026); `ink-1` and `ink-7` are the anchors and `ink-2` and `ink-6` blends between them that keep the colour: `ink-1` is **the highlight**, kept for `h1`, the fill of `.btn--primary` (a filled main action, like the filled icon button; #109), a state (hover, focus, pressed, sorted, active, today), `strong`, list markers, links, a value meant to stand out, the accent dialog's title and the settings panel's title, and native controls through `accent-color`; `ink-2` is `h2` and `.meta`; `ink-6` is `h3`–`h5` (owner's decision, October 19, 2026: an `h2` in the h1's colour read too much like it, and a grey `h3` did not work); `ink-7` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and an inverted surface. `ink-3` to `ink-5` are the greys, the muted family for what may recede (owner, October 19, 2026), from the most receding to the least: `ink-3`, a little more coloured than the other two and the furthest a muted text may go, the eyebrow, the pressed `.seg` button, `.badge--info`, `.meter--info`, focus rings, meters and the `--accent` modifiers ([below](#how-far-a-theme-reaches)); `ink-4` every sub line (`.sub`, `.dialog__sub`, a component's `-sub`), every note (`.note`, `.footer-note`, `.muted`, on a `<p>` too) and the tile label; `ink-5` the breadcrumb's current page. Never a status or a number |
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
 | Type | `--text-h1` … `--text-h5`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 48/32/22/18/16 for the headings, 18/14/12/11 for running text. `h1`–`h5` each take the token of their own level, body text is `--text-base`. There is no `--text-h0`: it was retired and `h1` took its 48px, because at 40px `h1` stood too close to `h2` (owner's decision, October 20, 2026); the hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` is the face of `h1` and `h2`, for a title that keeps it at another level |
@@ -137,14 +137,42 @@ nothing is renamed twice:
 **Check after migrating:** list every use with `grep -rnE -- "--primary-[0-9]+" src` and read each hit against the
 table; a missed rename shows the wrong colour rather than an error.
 
-**A number in a colour token is a step on the ground-to-text scale** (owner's decision, October 14, 2026):
-`-1` is light on the light themes and dark on the dark themes (the ground end) and the highest number is the
-opposite (the text end). `--negative-*`, `--positive-*` and `--warning-*` follow it with `-1`, `-3`, `-5`, and
-`--primary-1` … `--primary-12` is a twelve-step family in three groups of four (owner's decision, October 19, 2026):
-the light steps `-1` to `-4`, the greys `-5` to `-8` and the dark steps `-9` to `-12`. There are no untinted
-neutrals: the greys are the primary's own, a greyed step of the theme's colour. The primary steps are (page, cards,
-lines and tinted surfaces, the light anchor; a stronger border, the fills and the eyebrow, sub lines and notes, no role yet; the
-highlight and `h1`, `h2`, `h3`–`h5`, all text and an inverted surface). For the status families:
+**The primary scale split into paper and ink on October 20, 2026** (owner's decision): the colours behind
+the text are paper, in very small steps, and the colours on it are ink, in large steps. `--primary-*` no longer
+exists. The paper roles keep their colours except the stronger border, which turns from a grey into a tint a
+step beyond the line: `--paper-4` sits 36% of the way from the page to the light anchor, as `-2` and `-3` sit at 4%
+and 16%. The ink steps take **new values**: seven steps evenly spaced in lightness from the highlight to the far end, so
+`h2` and `h3`–`h5` shift slightly and the muted greys read darker on light and lighter on dark. `--primary-4`, the
+light anchor, had no role and is no token any more. An app that takes this update renames
+in its own layer; the names do not overlap, so the order does not matter:
+
+| Was | Now |
+|---|---|
+| `--primary-1` (the page) | `--paper-1` |
+| `--primary-2` (cards, tiles) | `--paper-2` |
+| `--primary-3` (every line, the tinted surfaces) | `--paper-3` |
+| `--primary-4` (the light anchor, no role) | removed |
+| `--primary-5` (a stronger border) | `--paper-4`, with a **new value**: a tint instead of a grey |
+| `--primary-6` (the eyebrow, the fills, focus rings, meters) | `--ink-3` |
+| `--primary-7` (sub lines, notes, `.muted`) | `--ink-4` |
+| `--primary-8` (the breadcrumb's current page) | `--ink-5` |
+| `--primary-9` (the highlight: `h1`, links, states, `accent-color`) | `--ink-1` |
+| `--primary-10` (`h2`) | `--ink-2` |
+| `--primary-11` (`h3`–`h5`) | `--ink-6` |
+| `--primary-12` (all text, an inverted surface) | `--ink-7` |
+
+**`--ink-2` is live again with a new meaning**: it was retired on October 14, 2026 (the old secondary text). The
+gate reports every `--primary-*` left behind as a retired token, so nothing is missed silently; on an inverted
+surface `h1` follows `h2` to `--paper-3`, since the light anchor it took is gone.
+
+**A number in a colour token is a step away from the page** (owner's decisions, October 14 and 20, 2026). For
+`--negative-*`, `--positive-*` and `--warning-*` that is `-1`, `-3`, `-5`: `-1` is light on the light themes and dark
+on the dark themes (the ground end) and `-5` the opposite (the text end). The theme's own colour comes in two groups
+(owner's decision, October 20, 2026), and each counts from its own start: `--paper-1` … `--paper-4` from the page
+outward, in very small steps (page, cards, lines and tinted surfaces, a stronger border), and `--ink-1` … `--ink-7`
+from the highlight, in large steps (the highlight and `h1`, `h2`; the greys: the eyebrow and the fills, sub lines
+and notes, the breadcrumb's current page; then `h3`–`h5` and all text). There are no untinted neutrals: the
+greys are the theme's own, a greyed step of its colour. For the status families:
 `-1` is the background of a message, `-3` the fill (icon, badge, meter, a
 loss in a chart), `-5` the text.
 
@@ -153,7 +181,7 @@ uses):
 
 | A switch … | Tokens | Why |
 |---|---|---|
-| to any other theme changes them | `--primary-1` … `--primary-12` | each theme sets all twelve as fixed values, around its own `--primary-6` |
+| to any other theme changes them | `--paper-1` … `--paper-4`, `--ink-1` … `--ink-7` | each theme sets all eleven as fixed values, around its own `--ink-1`; the showcase lists paper and ink as two groups |
 | changes them only between light and dark: categories | `--cat-1`, `--cat-2`, `--cat-3` | series slots, set once in the light block and once in the dark block, a shade apart |
 | changes them only between light and dark: status colours | `--negative-1`, `--negative-3`, `--negative-5`, `--positive-1`, `--positive-3`, `--positive-5`, `--warning-1`, `--warning-3`, `--warning-5` | set once in the light block and once in the dark block, a shade apart. One exception: `--warning-3` also moves in Roest and Geel ([below](#themes-the-user-picks-the-colour)) |
 
@@ -189,7 +217,7 @@ step too small rather than an error.
 
 **Every DKJ-Solutions app has the same form, and a colour of its own that the user picks** (Maikel,
 October 12, 2026). The house style carries twelve themes. Each one is a mode, light or dark, plus a
-primary colour, its `--primary-9` in either mode (the dot the picker draws):
+primary colour, its `--ink-1` in either mode (the dot the picker draws):
 
 | Mode | Themes (`data-theme`), in hue order |
 |---|---|
@@ -282,7 +310,7 @@ its own.
 `.meter--info` take the primary instead of ink and `--cat-1`; the light warning is dark orange instead
 of amber and the dark one a brighter yellow; `--negative-5` on light is a darker red (`#a32424`); on dark
 `--positive-5`/`--negative-5` are a step lighter and `--negative-3` is the dark red it never had; status icons take
-the mark colour, now `--primary-1`.
+the mark colour, now `--paper-1`.
 
 ### How far a theme reaches
 
@@ -291,16 +319,16 @@ the mark colour, now `--primary-1`.
 and only the primary controls and the focus rings used it. Plain links kept the browser's blue in
 every theme. Now:
 
-- **By default**, with nothing for the app to do: every link takes the theme's colour as text (`--primary-9`, owner's decision, October 15, 2026), visited or not, with
+- **By default**, with nothing for the app to do: every link takes the theme's colour as text (`--ink-1`, owner's decision, October 15, 2026), visited or not, with
   a thicker underline on hover and a primary focus ring. Native checkboxes, radios, sliders and
-  progress bars take `--primary-9` through `accent-color`, the text caret through `caret-color`, and selected
+  progress bars take `--ink-1` through `accent-color`, the text caret through `caret-color`, and selected
   text gets a primary tint. The link rules sit in `:where()`, so they weigh nothing: any class on an
   `<a>` (a `.btn`, a `.menu-item`, an app's own) wins without an override. An `<a>` without an `href`
   is not a link and is left alone. `accent-color` and `caret-color` are set once on the root, so a
-  subtree that sets its own `--primary-6` or `--primary-9` keeps the page's theme on its native controls.
+  subtree that sets its own `--ink-3` or `--ink-1` keeps the page's theme on its native controls.
 - **Opt-in**, one modifier on a house element: `.header--accent` puts a primary rule under the page
   header and `.table--accent` a
-  `--primary-3` table head, its text `--primary-12`, as all text. They are modifiers rather than defaults, so an app
+  `--paper-3` table head, its text `--ink-7`, as all text. They are modifiers rather than defaults, so an app
   that takes the update keeps its layout until it adds one.
   `.card--accent` and `.tile--accent` drew a primary rule across the top and draw nothing now (owner's
   decision, October 15, 2026); an app that still carries either class loses the rule and nothing else.
@@ -311,54 +339,63 @@ sliders turn the theme's colour. Links an app already styles through a class kee
 **The theme now colours the ground too** (owner's request: the themes were visible but did not stand
 out). Three more things follow it by default, in light and in dark (and a measurement):
 
-- **Every theme writes out its own twelve values.** `--primary-1` … `--primary-12` are fixed hex values in each
-  theme's block, not mixes (owner's decision, October 14, 2026: the percentages were too hard to follow).
-- **Four anchors per theme, and even steps between them** (owner's decision, October 19, 2026). In OKLCH:
-  - `-1` and `-12` sit against the edge of white and black. On light, `-1` is L 0.995 C 0.006 and `-12` is
-    L 0.12 C 0.03; on dark, `-1` is L 0.13 C 0.02 and `-12` is L 0.99 C 0.006.
-  - `-9` is the theme's colour where it reads best on the ground: the most saturated colour (HSL saturation 100%)
-    of the theme's HSL hue that reaches 4.55:1 on `-1`. The hue is the HSL hue of the owner's original theme colour
-    (Blauw and Hemelsblauw 240), held in HSL because at a constant OKLCH hue a saturated blue turns violet
+- **Every theme writes out its own eleven values.** `--paper-1` … `--paper-4` and `--ink-1` … `--ink-7` are fixed
+  hex values in each theme's block, not mixes (owner's decision, October 14, 2026: the percentages were too hard to
+  follow).
+- **Four anchors per theme, and even steps between them** (owner's decisions, October 19 and 20, 2026). In OKLCH:
+  - `paper-1` and `ink-7` sit against the edge of white and black. On light, `paper-1` is L 0.995 C 0.006 and
+    `ink-7` is L 0.12 C 0.03; on dark, `paper-1` is L 0.13 C 0.02 and `ink-7` is L 0.99 C 0.006.
+  - `ink-1` is the theme's colour where it reads best on the ground: the most saturated colour (HSL saturation 100%)
+    of the theme's HSL hue that reaches 4.55:1 on `paper-1`. The hue is the HSL hue of the owner's original theme
+    colour (Blauw and Hemelsblauw 240), held in HSL because at a constant OKLCH hue a saturated blue turns violet
     and Hemelsblauw came out as purple as Lila. Lila takes 270, the hue of its light counterpart Paars: at its own
-    254 a saturated `-4` read as blue (owner, October 19, 2026). `-4` is the same colour where it reads best on the far end: the most saturated
-    one that reaches 4.55:1 on `-12`. On a light theme that makes `-9` the colour that reads best on white and
-    `-4` the one that reads best on black; on a dark theme the reverse, so Lila's `-9` is the lilac that reads best
-    on black. Which of the two is the more vivid depends on the hue: a yellow is at its most saturated when it is
-    light, a blue when it is dark.
-  - `-2` and `-3` sit 4% and 16% of the way from `-1` to `-4` in OKLCH (lightness and chroma, in `-4`'s hue). The
-    eye is most sensitive to the first tint off white or black, so the card is only just lifted off the page and
-    the line a step further (owner, October 19, 2026: evenly spaced, the first step read far too big).
-  - `-10` and `-11` stay on that hue at full saturation, 20% and 40% of the way from `-9` to `-12` in HSL
-    lightness, so the dark steps keep their colour (run straight in OKLCH they turned grey).
-  - The greys `-5` to `-8` are the muted family: `-5` recedes the most, `-8` the least, in both modes. They sit at fixed lightness (light 0.70, 0.47, 0.39, 0.31; dark 0.38, 0.538, 0.70, 0.80) in
-    `-9`'s OKLCH hue at a low chroma, `-6` with a little more colour. They were dropped for a day and came back:
-    they give the roles room the colour steps alone did not (owner, October 19, 2026).
+    254 the saturated light anchor read as blue (owner, October 19, 2026). The **light anchor** is the same colour
+    where it reads best on the far end: the most saturated one that reaches 4.55:1 on `ink-7`. It is no token (it
+    was `--primary-4`, with no role); it is what the paper steps are measured towards. On a light theme that makes
+    `ink-1` the colour that reads best on white and the light anchor the one that reads best on black; on a dark
+    theme the reverse, so Lila's `ink-1` is the lilac that reads best on black. Which of the two is the more vivid
+    depends on the hue: a yellow is at its most saturated when it is light, a blue when it is dark.
+  - `paper-2`, `paper-3` and `paper-4` sit 4%, 16% and 36% of the way from `paper-1` to the light anchor in OKLCH
+    (lightness and chroma, in the anchor's hue). The eye is most sensitive to the first tint off white or black, so
+    the card is only just lifted off the page, the line a step further and the stronger border a step beyond that
+    (owner, October 19, 2026: evenly spaced, the first step read far too big; October 20: paper takes very small
+    steps, ink large ones).
+  - `ink-1` to `ink-7` are six equal steps in OKLab lightness, in order (owner, October 20, 2026: "zet op volgorde
+    van 1 naar 7"). `ink-2` and `ink-6` sit a sixth and five sixths of the way from `ink-1` to `ink-7` in OKLab, so
+    they keep the colour.
+  - The greys `ink-3` to `ink-5` are the muted family: `ink-3` recedes the most, `ink-5` the least, in both modes.
+    They sit at two, three and four sixths of the way in lightness, in `ink-1`'s OKLCH hue at a low chroma, `ink-3`
+    with a little more colour, so they recede by colour rather than by contrast. On a dark theme `ink-1` is already
+    near white, so the greys sit close to the text (1.30:1 against `ink-7` at the worst): the owner chose the order
+    over the distance. They were dropped for a day and came back: they give the roles room
+    the colour steps alone did not (owner, October 19, 2026).
 
   **A role takes the same step in both modes** (owner's decision, October 15, 2026): never `light-dark()` between
-  two `--primary-*` steps, and no dark-only rule that picks another step. Text in the theme's colour (values),
-  focus rings and meters are `-6` everywhere, and the text on a `-6` fill is `-1`. The picker's dot is `-9` in
-  every theme, on its theme's `-1` (October 17, 2026). The scale runs from the ground (`-1` page, `-2` card:
-  lightest on light, darkest on dark) to the far end (`-11`, `-12`: darkest on light, whitest on dark).
-- **A tinted surface takes `-12`.** `--primary-3` is every line and also the surface of the `.table--accent`
-  head, the hover of a joined choice and of the settings toggle, a near or today date row, a date row's hover,
-  the accent dialog and an InfoRows box. The text on it is `--primary-12`, like all text (16.5:1 or better).
-- **Measured** (WCAG relative luminance, worst theme, October 19, 2026): `-12` on `-1` 19.5:1, on `-2` 19.0:1
-  and on `-3` 16.5:1. `-9` on `-1` 4.6:1 and `-1` on `-9` 4.6:1; `-10` and `-11` on a card 5.9:1 and 7.4:1; `-7`,
-  the sub lines, on a card 7.3:1; `-6`, the eyebrow, on the page 6.6:1 on light and 3.9:1 on dark. Below 4.5:1: `-9` on a card in Magenta
-  (4.40:1), Roest (4.43:1) and Lila (4.49:1); `-6` on a card on dark (3.8:1) and `-1` on a `-6` fill on dark
-  (3.9:1), about the 3.3:1 the owner accepted on October 15. A `-3` line on a card is faint: 1.02:1 (Oker) to
-  1.16:1.
+  two steps, and no dark-only rule that picks another step. Text in the theme's colour (values), focus rings and
+  meters are `ink-3` everywhere, and the text on an `ink-3` fill is `paper-1`. The picker's dot is `ink-1` in every
+  theme, on its theme's `paper-1` (October 17, 2026). Paper runs from the ground (`paper-1` page, `paper-2` card:
+  lightest on light, darkest on dark) outward; ink runs from the highlight through the greys to the far end (`ink-7`:
+  darkest on light, whitest on dark).
+- **A tinted surface takes `ink-7` as its text.** `--paper-3` is every line and also the surface of the
+  `.table--accent` head, the hover of a joined choice and of the settings toggle, a near or today date row, a date
+  row's hover, the accent dialog and an InfoRows box. The text on it is `--ink-7`, like all text (16.5:1 or better).
+- **Measured** (WCAG relative luminance, worst theme, October 19 and 20, 2026): `ink-7` on `paper-1` 19.5:1, on
+  `paper-2` 19.0:1 and on `paper-3` 16.5:1. `ink-1` on `paper-1` 4.6:1 and `paper-1` on `ink-1` 4.6:1; on a card
+  `ink-2` 6.0:1, `ink-3` (the eyebrow) 7.6:1, `ink-4` (the sub lines) 10.3:1, `ink-5` 12.8:1 and `ink-6` 15.7:1;
+  `paper-1` on an `ink-3` fill 7.9:1. Below 4.5:1: `ink-1` on a card in Magenta (4.40:1), Roest (4.43:1) and Lila
+  (4.49:1). A `paper-3` line on a card is faint: 1.02:1 (Oker) to 1.16:1; a `paper-4` border
+  on it 1.08:1 (Oker) to 1.52:1, faintest where the light anchor itself is near white.
 - **The page and the cards are tinted.** On light the page is the whitest layer and a card sits a shade off it;
   on dark the card is a shade lighter than the page. Either way the page is the ground end (owner's decision,
   October 14, 2026: it used to be the other way round on light).
-- **Lines are tinted.** `--primary-3` is every line: borders, row dividers, grid lines and the meter track
+- **Lines are tinted.** `--paper-3` is every line: borders, row dividers, grid lines and the meter track
   (a separate grid colour was dropped on October 14, 2026: it was too close to the border to tell apart).
 - **The theme picker previews it:** each swatch shows its own theme's page, with the primary as the dot.
-- **Links are the theme's colour**, as `--primary-9` (owner's decision, October 15, 2026: the step that carries the colour, where `-6` is a grey). **`h1` is `--primary-9`, `h2` is `--primary-10` and `h3`–`h5` are `--primary-11`**, the dark steps of the colour;
-  on a `--primary-12` surface `h1` is `--primary-4`, `h2` is `--primary-3` and `h3`–`h5` are `--primary-2` (owner's decision, October 19, 2026,
+- **Links are the theme's colour**, as `--ink-1` (owner's decision, October 15, 2026: the step that carries the colour, where `ink-3` is a grey). **`h1` is `--ink-1`, `h2` is `--ink-2` and `h3`–`h5` are `--ink-6`**, the colour's ink steps;
+  on an `--ink-7` surface `h1` and `h2` are `--paper-3` and `h3`–`h5` are `--paper-2` (owner's decision, October 19, 2026,
   replacing October 14's `h1`/`h2` in one step and `h3`–`h6` in the next: the `h2` read too much like the `h1`, and a grey `h3` did not work).
 - **Status, direction and categorical colours** (`--positive-3`, `--negative-3`, `--warning-3`, `--cat-*`,
-  `--positive-5`, `--negative-5`) are never tinted. The measured contrasts of the primary steps are under the four
+  `--positive-5`, `--negative-5`) are never tinted. The measured contrasts of the paper and ink steps are under the four
   anchors above.
 
 **What this changes for an app that takes the update:** every page turns a light shade of its theme, and
@@ -412,8 +449,8 @@ and a side drawer, a top bar and a menu list. The group sits at the end of
   (`html:has(dialog:modal)`), and `html:has(.topbar)` adds the scroll padding for the top bar.
   `.dialog--drawer` slides in from the side. A dialog on top of a dialog sets `--dialog-scale` (default
   0.95) smaller on itself: a hook the app sets, not a house token.
-- **Contrast.** Field labels and the quiet icons use `--primary-12`, which holds 4.5:1 on
-  `--primary-2`.
+- **Contrast.** Field labels and the quiet icons use `--ink-7`, which holds 4.5:1 on
+  `--paper-2`.
 - **Input font.** The input's 16px is a literal, not a type step: iOS zooms in on focus below 16px.
 
 **What this changes for an app that takes the update:** nothing that exists, only additions. But an app
@@ -468,7 +505,7 @@ its own.
 - **The trail:** it always starts at **Repo hub**, linking to `/`. Each further crumb is one level
   down: the product (under its own name), then a page inside it. The last crumb is the current page,
   unlinked, with `aria-current="page"`. The trail is in the muted greys (owner, October 20, 2026): the chevron
-  between crumbs `--primary-6`, the ancestor links `--primary-7`, the current page `--primary-8`, every crumb at weight
+  between crumbs `--ink-3`, the ancestor links `--ink-4`, the current page `--ink-5`, every crumb at weight
   400; a link shows its underline only under the pointer. On the Repo hub itself the trail is that one crumb: the bar is
   still there, so it sits in the same place on every page.
 - **The labels** are the pages' own names, short, in the app's language. A crumb names a page, never a

@@ -12,7 +12,7 @@ const GROUPS: readonly { verdict: string; findings: readonly Finding[] }[] = [
       {
         title: 'StatTile and MiniCard',
         components: ['StatTile', 'MiniCard'],
-        why: 'Both are a bordered tile with a small muted label and a 600-weight figure. StatTile has a --primary-2 background and a 12px radius; MiniCard has no background and a 10px radius. Padding, figure size and grid column width differ too.',
+        why: 'Both are a bordered tile with a small muted label and a 600-weight figure. StatTile has a --paper-2 background and a 12px radius; MiniCard has no background and a 10px radius. Padding, figure size and grid column width differ too.',
         proposal: 'One Tile with size="md" | "sm", keeping the highlight and children slots. The info and tone slots exist on StatTile only, so they are a merge target, not current.',
       },
       {

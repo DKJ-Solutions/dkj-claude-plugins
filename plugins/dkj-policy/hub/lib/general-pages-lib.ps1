@@ -112,9 +112,9 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The page layer: only names the house file does not define (.dp-*).
     [void]$sb.AppendLine('<style>')
-    [void]$sb.AppendLine('.dp-link { color: var(--primary-11); text-decoration: none; text-underline-offset: 2px; }')
+    [void]$sb.AppendLine('.dp-link { color: var(--ink-6); text-decoration: none; text-underline-offset: 2px; }')
     [void]$sb.AppendLine('.dp-link:hover, .dp-link:focus-visible { text-decoration: underline; }')
-    [void]$sb.AppendLine('.dp-thead th { background: var(--primary-3); }')
+    [void]$sb.AppendLine('.dp-thead th { background: var(--paper-3); }')
     [void]$sb.AppendLine('.table td.dp-left, .table th.dp-left { text-align: left; }')
     if ($Style) { [void]$sb.AppendLine($Style) }
     [void]$sb.AppendLine('</style>')
@@ -225,9 +225,9 @@ function Format-DevTiles {
     return $sb.ToString()
 }
 
-# The share bar every table draws: a track in --primary-3 and a fill in the house highlight.
-$script:DevBarStyle = '.dp-bar { display: block; height: 8px; border-radius: 4px; background: var(--primary-3); min-width: 80px; }' + "`n" +
-    '.dp-bar > span { display: block; height: 100%; border-radius: 4px; background: var(--primary-9); }'
+# The share bar every table draws: a track in --paper-3 and a fill in the house highlight.
+$script:DevBarStyle = '.dp-bar { display: block; height: 8px; border-radius: 4px; background: var(--paper-3); min-width: 80px; }' + "`n" +
+    '.dp-bar > span { display: block; height: 100%; border-radius: 4px; background: var(--ink-1); }'
 
 function Format-DevShareCell {
     <#
@@ -944,9 +944,9 @@ function Format-ReleaseNotesDevPage {
         '<script src="/house-theme.js"></script>'
         '<style>'
         '/* The template''s tokens, read from the house ones (#3108). */'
-        ':root { --bg: var(--primary-1); --panel: var(--primary-2); --ink: var(--primary-12); --ink-soft: var(--primary-10); --ink-faint: var(--primary-7);'
-        '  --line: var(--primary-3); --accent: var(--primary-9); --accent-soft: var(--primary-2); --code-bg: var(--primary-1); }'
-        'header.masthead h1 { font-family: var(--font-serif); font-weight: 600; color: var(--primary-9); }'
+        ':root { --bg: var(--paper-1); --panel: var(--paper-2); --ink: var(--ink-7); --ink-soft: var(--ink-2); --ink-faint: var(--ink-4);'
+        '  --line: var(--paper-3); --accent: var(--ink-1); --accent-soft: var(--paper-2); --code-bg: var(--paper-1); }'
+        'header.masthead h1 { font-family: var(--font-serif); font-weight: 600; color: var(--ink-1); }'
         '</style>'
     ) -join "`n"
     $bar = @(

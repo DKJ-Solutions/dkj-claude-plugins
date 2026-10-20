@@ -2,7 +2,10 @@ import houseCss from '../../../../plugins/dkj-policy/dkj-solutions/assets/house-
 import houseThemeJs from '../../../../plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js?raw'
 import { Demo, Section } from '../Showcase'
 
-const STEPS = Array.from({ length: 12 }, (_, i) => i + 1)
+/** A theme's own steps as house-style.css defines them: paper sits behind the text, in small steps; ink sits on it. */
+export const PAPER_STEPS = ['paper-1', 'paper-2', 'paper-3', 'paper-4'] as const
+export const INK_STEPS = ['ink-1', 'ink-2', 'ink-3', 'ink-4', 'ink-5', 'ink-6', 'ink-7'] as const
+export const THEME_STEPS = [...PAPER_STEPS, ...INK_STEPS] as const
 
 /** The light and dark house defaults, read from house-theme.js's HOUSE_DEFAULT (the API does not expose them). */
 const HOUSE_DEFAULTS = (() => {
@@ -12,19 +15,19 @@ const HOUSE_DEFAULTS = (() => {
 
 /**
  * Each theme's own values, from its block in house-style.css (":root[data-theme="<id>"], .theme-swatch[data-id="<id>"]
- * { ... }"): its twelve --primary-* steps, and what else it sets (the warning colour on Roest and Geel). Read from the
+ * { ... }"): its paper and ink steps, and what else it sets (the warning colour on Roest and Geel). Read from the
  * stylesheet's text, so a theme's row shows that theme whatever theme the page itself is in.
  */
 function themeBlock(id: string): { steps: (string | undefined)[]; extras: string[] } {
   const block = new RegExp(`:root\\[data-theme="${id}"\\]\\s*,\\s*\\.theme-swatch\\[data-id="${id}"\\]\\s*\\{([^}]*)\\}`).exec(houseCss)
   const props = new Map(Array.from((block?.[1] ?? '').matchAll(/--([a-z0-9-]+)\s*:\s*(#[0-9a-fA-F]{3,8})\s*;/g), (p) => [p[1], p[2]] as const))
   return {
-    steps: STEPS.map((n) => props.get(`primary-${n}`)),
-    extras: [...props].filter(([k]) => !/^primary-([1-9]|1[0-2])$/.test(k)).map(([k, v]) => `--${k} ${v}`),
+    steps: THEME_STEPS.map((n) => props.get(n)),
+    extras: [...props].filter(([k]) => !(THEME_STEPS as readonly string[]).includes(k)).map(([k, v]) => `--${k} ${v}`),
   }
 }
 
-/** The twelve themes a user picks from, in the picker's order, each with its own twelve steps. */
+/** The twelve themes a user picks from, in the picker's order, each with its own paper and ink steps. */
 export function ThemesDemo() {
   const themes = window.DKJTheme.themes
   return (
@@ -34,8 +37,8 @@ export function ThemesDemo() {
           <tr>
             <th>Theme</th>
             <th>Mode</th>
-            {STEPS.map((n) => (
-              <th key={n}>-{n}</th>
+            {THEME_STEPS.map((n) => (
+              <th key={n}>{n}</th>
             ))}
           </tr>
         </thead>
@@ -51,7 +54,7 @@ export function ThemesDemo() {
                 </td>
                 <td>{t.mode === 'dark' ? 'Dark' : 'Light'}</td>
                 {steps.map((hex, i) => (
-                  <td key={i}>{hex ? <span className="dkj-theme-chip" style={{ background: hex }} title={`--primary-${i + 1} ${hex}`} /> : '--'}</td>
+                  <td key={i}>{hex ? <span className="dkj-theme-chip" style={{ background: hex }} title={`--${THEME_STEPS[i]} ${hex}`} /> : '--'}</td>
                 ))}
               </tr>
             )

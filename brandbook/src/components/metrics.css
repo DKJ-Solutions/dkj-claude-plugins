@@ -11,6 +11,6 @@
 .tile .v.dkj-v--warn { color: var(--warning-5); }
 
 /* ---------- Meter and Badge: the first categorical colour as a status ("covered") ---------- */
-/* The fill is --cat-1, read directly; the glyph stays --primary-1 (4.5:1 or better on the light --cat-1, worst Roest; 4.5:1 or better on dark, worst Geel; WCAG relative luminance). */
+/* The fill is --cat-1, read directly; the glyph stays --paper-1 (4.5:1 or better on the light --cat-1, worst Roest; 4.5:1 or better on dark, worst Geel; WCAG relative luminance). */
 .meter.dkj-meter--series span { background: var(--cat-1); }
 .badge.dkj-badge--series { background: var(--cat-1); }
