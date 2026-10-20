@@ -39,19 +39,55 @@
 
 ### PLAN
 
+#3210, decided (a) by the owner on October 20, 2026: the `brandbook/` React app's build ships with
+`dkj-solutions`, built at release and served by the general pages server, and the PowerShell Brandbook page
+(`ConvertFrom-HouseStyleAssets` + `Format-BrandbookPageHtml`) is retired. A plugin is installed from the git
+tree at its tag, so "shipped" means committed into the plugin folder by the release commit.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release.ps1` (source and mirror): a new optional seam, `Get-ReleaseBuilds`, read and checked before
+      the first write (paths inside the repo, Target a folder inside a plugin, Output ignored by git), its
+      commands run after the gates and before the first write (a failure, or a build that dirties what git
+      sees, aborts with nothing written), and Output copied over Target beside the version pins.
+- [x] The seam's contract record in `script-contract-lib.ps1` (both copies), the exact count 50 -> 51 in
+      `script-contract.tests.ps1`, and the blueprint rebuilt.
+- [x] `scripts/repo-config.ps1` answers it: `brandbook/` -> `plugins/dkj-policy/dkj-solutions/assets/brandbook`,
+      and the house-style allowlist names that folder (the bundled stylesheet) instead of the retired page's lib.
+- [x] `dkj-solutions-pages-lib.ps1`: the PowerShell page and its model are gone; the path rules for the build
+      (`ConvertTo-BrandbookRelPath`, `Get-BrandbookContentType`) move here from the source repo's
+      `dev-pages-lib.ps1`, with `Resolve-BrandbookFile`, `Get-BrandbookBuildDir` and a page for a plugin copy
+      that ships no build.
+- [x] `serve-general-pages.ps1` serves the shipped build under `/brandbook/` (303 from `/brandbook`), and this
+      repo's hub resolves its own build through the same function.
+- [x] Docs: the release-commit bound in `.claude/rules/this-repo.md`, the hub and `dkj-solutions` READMEs, and
+      `brandbook/README.md`.
 
 ### TEST
 
+- [x] `cut-release-drive.tests.ps1`: the happy path ships a fixture build into the release commit; a failing
+      command and an unignored Output each refuse before the first write (111 asserts green).
+- [x] `dev-pages`, `dev-preview-sessionstart`, `connector-dashboard`, `script-contract` and `config-blueprint`
+      suites green.
+- [x] A simulated first cut (the real build copied into `assets/brandbook/` and added intent-to-add): the
+      house-style gate and `check-plugin-integrity.ps1` both pass over it; the copy was removed again.
+
 ### DEPLOY: feat/3210-ship-brandbook-build
 
-**Score:**
+`cut-release.ps1` reads a new optional seam, `Get-ReleaseBuilds`: builds it runs after its gates and copies into
+a plugin in the release commit, checked before the first write and refusing a failed build or one that touches
+a file git sees. This repo uses it to ship the `brandbook/` app, so the PowerShell Brandbook page in
+`dkj-solutions` is retired and there is one brand book to keep current, not two.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+In every DKJ-Solutions repo, the Repo hub's Brandbook is now the full brand book app (every component, its
+headings list and the repo previews) instead of a smaller PowerShell page, at `/brandbook/` on the general
+pages server, from the next release on.
+
+**Score:** 3
 
 #### Pull Request
 
