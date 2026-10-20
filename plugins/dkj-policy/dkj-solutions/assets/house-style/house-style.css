@@ -617,14 +617,15 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    <li><a href="/">Repo hub</a></li><li><span class="breadcrumbs__sep" aria-hidden="true">/</span>
    <span aria-current="page">Current page</span></li></ol></nav></div></div>.
    The whole trail is in the muted greys (owner, October 20, 2026): the slash --primary-6, the ancestor links
-   --primary-7, the current page --primary-8, so it recedes the least; every crumb at weight 400.
+   --primary-7, the current page --primary-8, so it recedes the least; every crumb at weight 400,
+   and no underline, hover included.
    The bar spans the full width on the surface tint and sticks to the top of the screen, so it is always visible. It is
    one --tap high and one line: a trail longer than the screen scrolls sideways inside the bar rather than wrapping, so
    the height stays fixed and whatever else sticks to the top sits right under it. Its trail lines up with the page
    column (.container). */
 .breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
-.breadcrumbs a { color: var(--primary-7); text-underline-offset: 2px; }
+.breadcrumbs a { color: var(--primary-7); text-decoration: none; }
 .breadcrumbs__sep { color: var(--primary-6); }
 .breadcrumbs [aria-current='page'] { color: var(--primary-8); font-weight: 400; }
 .breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }

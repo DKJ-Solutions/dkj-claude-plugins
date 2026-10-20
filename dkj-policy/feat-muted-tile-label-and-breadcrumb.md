@@ -44,6 +44,7 @@
 - [x] `house-style.css`: `.tile .label` and `.breadcrumbs [aria-current='page']` from `--primary-12` to `--primary-7`; role comment and breadcrumb comment updated
 - [x] Owner's second pass: breadcrumb links `--primary-9` to `--primary-7`, current page to `--primary-8`
 - [x] Owner's third pass: the current page's weight 600 to 400
+- [x] Owner's fourth pass: no underline on the breadcrumb links, hover included
 - [x] Brand book: `.dkj-breadcrumbs [aria-current='page']` and the showcase intro follow; house-style README's breadcrumb trail bullet names the colour
 
 ### TEST
@@ -54,7 +55,7 @@
 
 A stat tile's label now takes the muted grey `--primary-7` (as `.muted`, sub lines and notes) instead of the
 paragraph colour `--primary-12`, so the figure leads. The breadcrumb trail moves wholly into the muted greys: the
-ancestor links `--primary-7` instead of the theme colour `--primary-9`, the current page `--primary-8` at weight 400
+ancestor links `--primary-7` without an underline instead of the underlined theme colour `--primary-9`, the current page `--primary-8` at weight 400
 instead of `--primary-12` semibold, the slash unchanged at `--primary-6` (owner, October 20, 2026). The brand book's own
 breadcrumbs follow.
 
