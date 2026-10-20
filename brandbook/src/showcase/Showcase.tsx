@@ -5,8 +5,8 @@ import { usagesOf } from '../apps/registry'
 import './showcase.css'
 
 /** A labelled group of demos for one component, with its origin printed underneath. */
-export function Section({ id, title, intro, children }: { id: ComponentId | 'tokens' | 'classes' | 'apps' | 'overlap'; title: string; intro?: string; children: ReactNode }) {
-  const isComponent = id !== 'tokens' && id !== 'classes' && id !== 'apps' && id !== 'overlap'
+export function Section({ id, title, intro, children }: { id: ComponentId | 'tokens' | 'classes' | 'apps' | 'repo-hub' | 'overlap'; title: string; intro?: string; children: ReactNode }) {
+  const isComponent = id !== 'tokens' && id !== 'classes' && id !== 'apps' && id !== 'repo-hub' && id !== 'overlap'
   const sources = isComponent ? SOURCES[id] : null
   const usages = isComponent ? usagesOf(id) : []
   return (
