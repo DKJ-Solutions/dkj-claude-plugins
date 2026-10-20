@@ -75,7 +75,7 @@ function Format-DevPreviewPlaceholderHtml {
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
     # With no choice stored it falls back to the default every other dev page uses (#3166).
-    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-theme-key="dev-preview-placeholder">')
+    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="dev-preview-placeholder">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')

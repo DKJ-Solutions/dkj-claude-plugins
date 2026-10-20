@@ -88,7 +88,8 @@ function Format-GeneralPageHtml {
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
     # The theme key is shared by every page of one server, so a theme picked on one page holds on the next.
-    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-theme-key="' + (& $e $ThemeKey) + '">')
+    # With no width picked yet the pages open full width: a hub is tables and cards, not a reading column.
+    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
@@ -955,7 +956,7 @@ function Format-ReleaseNotesDevPage {
     $styleEnd = $out.IndexOf('</style>') + '</style>'.Length
     $out = $out.Substring(0, $styleEnd) + "`n" + $head + $out.Substring($styleEnd)
     # The theme key is the server's, so a theme picked on one page holds on this one too, and with no
-    # choice stored it falls back to the default every other dev page uses (#3162).
-    $out = $htmlRx.Replace($out, ('<html lang="en" data-theme-default="lilac" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
+    # choice stored it falls back to the defaults every other dev page uses: lilac (#3162) and full width.
+    $out = $htmlRx.Replace($out, ('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
     return $out
 }
