@@ -92,6 +92,12 @@
     any certificate exists. Nobody has measured how often that happens or what it costs, and THAT
     measurement -- not a rebuild of this one -- is what would reopen this.
 
+    AND #3223 IS NOT THAT PROPOSAL REOPENED (October 20, 2026). Get-AffectedSuiteSelection below runs
+    the suites a branch's changes can affect, but it RECORDS nothing: the evidence here still means
+    every suite passed, and the required CI check still runs every suite before the merge. So a suite it
+    misses costs a red CI run, not an ungated merge -- the hint bar this paragraph holds a per-suite
+    proof to, met by not being a proof at all.
+
     WHY EACH OF THE THREE SHAPES FAILS THE BAR. Get-TestSuiteCostHints states the bar for its own
     file: a hint that can only cost wall clock, never coverage. A per-suite proof is not a hint. A
     false negative costs one suite run; a false positive skips a suite on a tree it never measured,
@@ -1254,6 +1260,486 @@ function Get-NoteTreeOnlyVerdict {
     return $verdict
 }
 
+function ConvertTo-SuiteReference {
+    <#
+        One path-shaped string, reduced to the form the affected-suite selection matches on (issue
+        #3223): forward slashes, lower case, variables and '.'/'..' segments dropped, so
+        "$PSScriptRoot\..\lib\gate-lib.ps1" and 'scripts\lib\gate-lib.ps1' both become a tail a tracked
+        path can END WITH. Returns '' for anything that is not a file reference -- prose with spaces, a
+        wildcard, or a leaf built from a variable ("$Name.ps1"), which names no particular file.
+    #>
+    param([AllowEmptyString()][string]$Value, [switch]$Expandable)
+
+    $v = "$Value"
+    if ($Expandable) {
+        # A leaf that is itself a variable names no file, so only the text after the last variable is
+        # trusted to be literal -- and only when it starts a new path segment.
+        $v = [regex]::Replace($v, '\$\([^)]*\)|\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_:]*', '<var>')
+    }
+    $v = $v.Trim().Replace('\', '/')
+    if (-not $v -or $v -match '\s' -or $v -match '[*?]') { return '' }
+    $segments = @($v.Split('/') | Where-Object { $_ -and $_ -ne '.' -and $_ -ne '..' })
+    if ($segments.Count -eq 0) { return '' }
+    $leaf = $segments[-1]
+    if ($leaf.Contains('<var>')) { return '' }
+    # Everything up to and including the last variable segment is dropped; what is left is literal.
+    $start = 0
+    for ($i = 0; $i -lt $segments.Count; $i++) { if ($segments[$i].Contains('<var>')) { $start = $i + 1 } }
+    $segments = @($segments[$start..($segments.Count - 1)])
+    $leaf = $leaf.ToLowerInvariant()
+    # A dotfile ('.gitignore') and an extensionless name ('LICENSE') are files too -- the first draft's
+    # pattern dropped both, so a suite reading the live .gitignore was never selected for a change to it.
+    if ($leaf -notmatch '^\.?[a-z0-9_][a-z0-9_.-]*$') { return '' }
+    return (($segments -join '/').ToLowerInvariant())
+}
+
+function Get-SuiteReferenceSet {
+    <#
+        What one PowerShell file names, read off its syntax tree rather than its text (issue #3223).
+        Returns {Parsed, Run, Read, Walks}:
+          - Run   : the references the file EXECUTES -- dot-sourced, called with &, or handed to
+                    -File / Start-Process / powershell -- including through a variable assigned one
+                    statement earlier, the shape `$lib = Join-Path $PSScriptRoot 'x.ps1'; . $lib` takes.
+          - Read  : every other file reference in a string or a bare argument.
+          - Walks : whether it ENUMERATES the live repo -- a Get-ChildItem, git ls-files/grep, a
+                    recursive copy or a directory listing on a path built from $RepoRoot -- or says so
+                    itself with a '# gate-selection: always' line.
+
+        COMMENTS ARE NOT REFERENCES, AND THAT IS MEASURED. Counting every file name a script's text
+        mentions selected all 162 suites for every change, because these scripts' docstrings name
+        nearly every other file. Reading string and argument tokens only still selected 121 of 162
+        for a CSS file, because shared-scripts-lib.ps1 holds the mirrored-script registry as DATA and
+        nearly every suite reaches it -- which is why Run and Read are kept apart: a library that lists
+        a script does not run it.
+
+        A FILE THAT DOES NOT PARSE IS NOT EMPTY, it is unknown: Parsed is $false, and the caller runs
+        every suite that reaches it.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+
+    $run = New-Object 'System.Collections.Generic.HashSet[string]'
+    $read = New-Object 'System.Collections.Generic.HashSet[string]'
+    $result = [pscustomobject]@{ Parsed = $false; Run = $run; Read = $read; Walks = $false }
+
+    $tokens = $null
+    $errors = $null
+    $ast = [System.Management.Automation.Language.Parser]::ParseInput($Text, [ref]$tokens, [ref]$errors)
+    if ($errors -and $errors.Count -gt 0) { return $result }
+    $result.Parsed = $true
+    if ($Text -match '(?m)^\s*#\s*gate-selection:\s*always\s*$') { $result.Walks = $true }
+
+    # ONE WALK OVER THE TREE, and every later question answered by climbing a node's PARENT chain
+    # rather than by searching the tree again. Both choices are measured: FindAll with a script-block
+    # predicate is the expensive call on Windows PowerShell 5.1, and asking "which strings sit inside
+    # this command" per command made the large scripts here quadratic (open-pr.ps1 alone did not
+    # finish in ten minutes).
+    $nodes = $ast.FindAll({
+        param($n)
+        $n -is [System.Management.Automation.Language.StringConstantExpressionAst] -or
+        $n -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
+        $n -is [System.Management.Automation.Language.VariableExpressionAst] -or
+        $n -is [System.Management.Automation.Language.CommandAst] -or
+        $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst]
+    }, $true)
+
+    # The commands first: which of them RUN a file, and which WALK a directory.
+    $runCommands = New-Object 'System.Collections.Generic.HashSet[object]'
+    $walkNodes = New-Object 'System.Collections.Generic.HashSet[object]'
+    foreach ($n in $nodes) {
+        if ($n -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+            $member = "$($n.Member)".ToLowerInvariant()
+            if ($member -in @('enumeratefiles', 'getfiles', 'enumeratedirectories', 'getdirectories', 'enumeratefilesystementries')) { [void]$walkNodes.Add($n) }
+            continue
+        }
+        if ($n -isnot [System.Management.Automation.Language.CommandAst]) { continue }
+        $name = "$($n.GetCommandName())".ToLowerInvariant()
+        $flags = New-Object System.Collections.ArrayList
+        $words = New-Object System.Collections.ArrayList
+        foreach ($e in $n.CommandElements) {
+            if ($e -is [System.Management.Automation.Language.CommandParameterAst]) { [void]$flags.Add($e.ParameterName.ToLowerInvariant()) }
+            elseif ($e -is [System.Management.Automation.Language.StringConstantExpressionAst]) { [void]$words.Add($e.Value.ToLowerInvariant()) }
+        }
+        # The lib functions that ENUMERATE the root they are handed count as a walk too -- a suite that
+        # loops over Get-SharedScriptPairs on the live repo reads every mirrored script without naming
+        # one (measured: thirteen suites do). A function missing from this list is a walk the reading
+        # cannot see, which is what '# gate-selection: always' is for.
+        if (($name -in @('get-childitem', 'gci', 'dir', 'ls', 'get-specialistfiles', 'get-sharedscriptpairs',
+                         'get-repopluginroots', 'get-repoworkflowrecord', 'get-alwaysondocuments')) -or
+            ($name -eq 'copy-item' -and $flags -contains 'recurse') -or
+            ($name -in @('git', 'git.exe') -and (($words -contains 'ls-files') -or ($words -contains 'grep')))) {
+            [void]$walkNodes.Add($n)
+        }
+        $op = $n.InvocationOperator
+        if (($op -eq [System.Management.Automation.Language.TokenKind]::Dot) -or
+            ($op -eq [System.Management.Automation.Language.TokenKind]::Ampersand) -or
+            ($name -in @('powershell', 'powershell.exe', 'pwsh', 'pwsh.exe', 'start-process', 'start-job')) -or
+            ($flags -contains 'file') -or ($words -contains '-file')) {
+            [void]$runCommands.Add($n)
+        }
+        if ($name -like '*.ps1') {
+            $r = ConvertTo-SuiteReference -Value $name
+            if ($r) { [void]$run.Add($r) }
+        }
+    }
+
+    # The variable an assignment writes, or '' -- read off its left-hand side.
+    $assignedName = {
+        param($assignment)
+        $left = $assignment.Left
+        if ($left -is [System.Management.Automation.Language.ConvertExpressionAst]) { $left = $left.Child }
+        if ($left -is [System.Management.Automation.Language.VariableExpressionAst]) { return $left.VariablePath.UserPath.ToLowerInvariant() }
+        return ''
+    }
+
+    $assignedRefs = @{}
+    $derivedFrom = New-Object System.Collections.ArrayList
+    $varUses = New-Object System.Collections.ArrayList
+    foreach ($n in $nodes) {
+        $isString = ($n -is [System.Management.Automation.Language.StringConstantExpressionAst]) -or
+                    ($n -is [System.Management.Automation.Language.ExpandableStringExpressionAst])
+        $isVar = $n -is [System.Management.Automation.Language.VariableExpressionAst]
+        if (-not $isString -and -not $isVar) { continue }
+        $ref = ''
+        if ($isString) {
+            # Most strings in a script are not file names; the two characters every reference here
+            # carries -- an extension dot or a kebab hyphen -- are checked before the conversion is paid for.
+            $raw = "$($n.Value)"
+            if ($raw.IndexOf('.') -lt 0 -and $raw.IndexOf('-') -lt 0) { continue }
+            $ref = if ($n -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) {
+                ConvertTo-SuiteReference -Value $n.Value -Expandable
+            } else { ConvertTo-SuiteReference -Value $n.Value }
+            if (-not $ref) { continue }
+            [void]$read.Add($ref)
+        }
+        $varName = if ($isVar) { $n.VariablePath.UserPath.ToLowerInvariant() } else { '' }
+        $parent = $n.Parent
+        while ($null -ne $parent) {
+            if ($parent -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+                $n.Extent.StartOffset -ge $parent.Right.Extent.StartOffset -and $n.Extent.EndOffset -le $parent.Right.Extent.EndOffset) {
+                $target = & $assignedName $parent
+                if ($target) {
+                    if ($isString) {
+                        if (-not $assignedRefs.ContainsKey($target)) { $assignedRefs[$target] = New-Object System.Collections.ArrayList }
+                        [void]$assignedRefs[$target].Add($ref)
+                    } else {
+                        [void]$derivedFrom.Add(@($target, $varName))
+                    }
+                }
+            }
+            if ($runCommands.Contains($parent)) {
+                if ($isString) { [void]$run.Add($ref) } else { [void]$varUses.Add(@('run', $varName)) }
+            }
+            if ($isVar -and $walkNodes.Contains($parent)) { [void]$varUses.Add(@('walk', $varName)) }
+            $parent = $parent.Parent
+        }
+    }
+
+    # Which variables hold a path built from $RepoRoot -- a fixed point, so a variable derived from a
+    # derived one counts too.
+    # SEEDED WITH $PSScriptRoot AS WELL AS $RepoRoot: a suite's own directory IS the live tree, and two
+    # suites measured walking it that way (native-capture's repo-wide audits, release-lib's plugin walk)
+    # were missed while only $RepoRoot was seeded.
+    $rootVars = New-Object 'System.Collections.Generic.HashSet[string]'
+    [void]$rootVars.Add('reporoot')
+    [void]$rootVars.Add('psscriptroot')
+    do {
+        $grew = $false
+        foreach ($pair in $derivedFrom) {
+            if ($rootVars.Contains($pair[1]) -and $rootVars.Add($pair[0])) { $grew = $true }
+        }
+    } while ($grew)
+
+    foreach ($use in $varUses) {
+        if ($use[0] -eq 'walk' -and $rootVars.Contains($use[1])) { $result.Walks = $true }
+        if ($use[0] -eq 'run' -and $assignedRefs.ContainsKey($use[1])) {
+            foreach ($r in $assignedRefs[$use[1]]) { [void]$run.Add($r) }
+        }
+    }
+    return $result
+}
+
+function Test-SuiteReferenceMatch {
+    <# Whether a repo-relative path (lower case, forward slashes) is what a reference names. A
+       reference with a directory matches on its whole tail; a bare one matches the leaf, and a bare
+       kebab name also matches that name with '.ps1' on it -- the form a list of lib names takes. #>
+    param([string]$Path, [string]$Reference)
+    if ($Reference.Contains('/')) {
+        return ($Path -eq $Reference -or $Path.EndsWith('/' + $Reference, [StringComparison]::Ordinal))
+    }
+    $leaf = ($Path -split '/')[-1]
+    return ($leaf -eq $Reference -or $leaf -eq ($Reference + '.ps1'))
+}
+
+function Get-GateChangedPaths {
+    <#
+        Every path this branch changes against its trunk, as the affected-suite selection reads it
+        (issue #3223): what differs between the merge-base with the trunk and the WORKING TREE --
+        committed, staged, unstaged and untracked alike, because the gate judges the working tree --
+        with renames split into their two halves, so a file dragged out of a directory still names the
+        path it left. Returns {Known, Paths, Base, Reason}; Known is $false whenever any of the three
+        reads failed, and the caller then runs every suite.
+
+        AGAINST origin/<trunk> WHERE THERE IS ONE, on claim-issue's reasoning for its branch-weight
+        scan: a local trunk behind its remote reports commits as this branch's own that have already
+        landed, which here only widens the selection -- but it is a wrong number, and it is avoidable.
+    #>
+    param([Parameter(Mandatory)][string]$RepoRoot)
+
+    $result = [pscustomobject]@{ Known = $false; Paths = @(); Base = ''; Reason = '' }
+    $trunk = 'main'
+    if (Test-FunctionDefined 'Get-TrunkBranchName') {
+        try { $named = "$(Get-TrunkBranchName)".Trim(); if ($named) { $trunk = $named } } catch { }
+    }
+    $base = ''
+    foreach ($candidate in @("origin/$trunk", $trunk)) {
+        if ($null -ne (Invoke-GitRead -RepoRoot $RepoRoot -GitArgs @('rev-parse', '--verify', '--quiet', "$candidate^{commit}"))) { $base = $candidate; break }
+    }
+    if (-not $base) { $result.Reason = "no trunk ref ('origin/$trunk' or '$trunk') to compare the branch with"; return $result }
+    $result.Base = $base
+
+    $mergeBase = Invoke-GitRead -RepoRoot $RepoRoot -GitArgs @('merge-base', 'HEAD', $base)
+    if (-not $mergeBase -or -not "$($mergeBase[0])".Trim()) { $result.Reason = "HEAD and $base share no merge-base"; return $result }
+
+    $diffed = Invoke-GitRead -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=true', 'diff', '--name-only', '--no-renames', "$($mergeBase[0])".Trim())
+    $untracked = Invoke-GitRead -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=true', 'ls-files', '--others', '--exclude-standard')
+    if ($null -eq $diffed -or $null -eq $untracked) { $result.Reason = 'git could not list what this branch changes'; return $result }
+
+    $result.Paths = @(@($diffed) + @($untracked) | ForEach-Object { "$_".Trim() } | Where-Object { $_ } | Sort-Object -Unique)
+    $result.Known = $true
+    return $result
+}
+
+function Get-SuiteReferenceCachePath {
+    <# Where the per-blob reference cache lives -- beside the gate evidence, in the git directory, for
+       the four reasons this file's header gives for keeping state there. $null when git cannot say. #>
+    param([Parameter(Mandatory)][string]$RepoRoot)
+    $evidence = Get-GateEvidencePath -RepoRoot $RepoRoot
+    if (-not $evidence) { return $null }
+    return (Join-Path (Split-Path -Parent $evidence) 'workflow-suite-refs.json')
+}
+
+function Get-AffectedSuiteSelection {
+    <#
+        Which test suites a set of changed paths can affect -- the local half of issue #3223, where
+        open-pr runs those and leaves the whole pool to the required CI check. Returns {Proven, Suites,
+        Always, Matched, PoolCount, Reason}: Suites is what to run (Always plus Matched), Always the
+        suites that run in every selection, and Proven is $false -- with the Reason -- whenever the
+        mapping could not be made, in which case the caller runs every suite.
+
+        THE MAP IS A REFERENCE GRAPH, READ OFF THE SYNTAX TREE. A suite affects a path when the path is
+        the suite itself, a file the suite reaches by EXECUTING it (dot-source, &, -File, transitively),
+        or a file any of those names. Two asymmetries keep that graph from collapsing into "everything
+        reaches everything", and both are measured in Get-SuiteReferenceSet's header: a library is
+        followed only through what it runs, never through what it merely lists, and a library's DATA
+        reference counts only when it names a path with a directory -- the bare 'CLAUDE.md' and
+        'README.md' that repo-config.ps1 hands out as seam values describe a file in whatever tree the
+        caller passes, which in a suite is a fixture. A file under the tests directory (a suite, or a
+        fixture builder) is held to neither: everything it names counts.
+
+        THE SUITES THAT ENUMERATE THE LIVE TREE RUN EVERY TIME. A suite that globs $RepoRoot reads files
+        no name points at, so nothing here can say which change reaches it. #2323 counted sixteen such
+        whole-tree self-checks; this reading finds them by their Get-ChildItem / git ls-files / recursive
+        copy over a path built from $RepoRoot or $PSScriptRoot, or by the live root handed to a lib
+        function that enumerates it (Get-SharedScriptPairs and its kind) -- 39 suites today. A suite whose
+        walk this cannot see -- one done inside a script it runs against the live tree -- says so with a
+        '# gate-selection: always' line. KNOWN GAPS, each costing a red CI run rather than an ungated
+        merge: a file name assembled at run time ("x-" + "lib.ps1"), Import-Module, and a script run
+        through Invoke-Expression or [scriptblock]::Create are not followed.
+
+        WHY THIS IS NOT THE PER-SUITE PROOF #2323 DECLINED. That proposal would have RECORDED a suite as
+        proved without running it, with nothing behind the record to catch a wrong one. This records
+        nothing: a selected run writes no gate evidence, and the required CI check still runs every
+        suite before anything merges. A suite this misses costs a red CI run instead of a red local
+        one, which is the asymmetry Get-TestSuiteCostHints asks of a hint -- it can cost time, not
+        coverage. And the static model's known direction of error is the safe one here: wherever it
+        cannot follow a reference, it either runs the suite (a file that does not parse, a live-tree
+        walk) or falls back to the whole pool (the reasons below).
+
+        THE WHOLE POOL, WITH THE REASON, WHENEVER:
+          - git cannot list the tree;
+          - a changed path is not plain ASCII (git quotes it, and a quoted path cannot be matched);
+          - the change touches the selection, the gate that runs it, or the CI behind it -- this
+            file, native-capture-lib.ps1, the libs this file loads, repo-config.ps1 or a workflow
+            under .github/workflows/, in the source or a mirror -- since a selector must not judge its
+            own change, and a change that could shrink CI must not shrink the local gate with it.
+
+        WHAT IT COSTS. Parsing ~480 scripts takes about a minute on Windows PowerShell 5.1, so each
+        file's references are cached in the git directory by BLOB ID: an unchanged file is never parsed
+        twice, a changed one is parsed once, and the cache is keyed by a hash of the extractor itself so
+        a change to the rules below invalidates it. A file that differs from the index is parsed fresh
+        and not cached, because its blob id names content it no longer has.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$ChangedPaths,
+        [string]$TestsDir = 'scripts/tests'
+    )
+    $testsPrefix = ($TestsDir.Replace('\', '/').Trim('/')).ToLowerInvariant() + '/'
+    $verdict = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Matched = @(); PoolCount = 0; Reason = '' }
+
+    $changed = @($ChangedPaths | ForEach-Object { "$_".Trim().Replace('\', '/') } | Where-Object { $_ })
+    $quoted = @($changed | Where-Object { $_.StartsWith('"') })
+    if ($quoted.Count -gt 0) {
+        $verdict.Reason = "$($quoted.Count) changed path(s) are not plain ASCII, and a quoted path cannot be matched to a reference"
+        return $verdict
+    }
+    $own = @($changed | Where-Object {
+        $_ -match '(^|/)(gate-lib|native-capture-lib|hash-hex-lib|command-probe-lib|git-porcelain-lib|repo-config)\.ps1$' -or
+        $_ -match '^\.github/workflows/'
+    })
+    if ($own.Count -gt 0) {
+        $verdict.Reason = "the change touches the selection, the gate that runs it or the CI behind it ($($own -join ', ')), and a selector does not judge its own change"
+        return $verdict
+    }
+    $changed = @($changed | ForEach-Object { $_.ToLowerInvariant() })
+
+    $staged = Invoke-GitRead -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=true', 'ls-files', '--stage')
+    $untracked = Invoke-GitRead -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=true', 'ls-files', '--others', '--exclude-standard')
+    $modified = Invoke-GitRead -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=true', 'ls-files', '--modified')
+    if ($null -eq $staged -or $null -eq $untracked -or $null -eq $modified) {
+        $verdict.Reason = 'git could not list the tree, so no suite could be mapped'
+        return $verdict
+    }
+    # '<mode> <blob> <stage>TAB<path>' -- the blob id is what the cache is keyed on.
+    $blobOf = @{}
+    $files = New-Object System.Collections.ArrayList
+    foreach ($line in $staged) {
+        $tab = "$line".IndexOf("`t")
+        if ($tab -lt 0) { continue }
+        $path = "$line".Substring($tab + 1)
+        $meta = "$line".Substring(0, $tab).Split(' ')
+        if (-not $blobOf.ContainsKey($path)) { [void]$files.Add($path) }
+        if ($meta.Count -ge 2) { $blobOf[$path] = $meta[1] }
+    }
+    foreach ($u in $untracked) { if ("$u".Trim()) { [void]$files.Add("$u") } }
+    foreach ($m in $modified) { if ($blobOf.ContainsKey("$m")) { $blobOf.Remove("$m") } }
+
+    $byLeaf = @{}
+    foreach ($f in $files) {
+        $lower = $f.ToLowerInvariant()
+        $leaf = ($lower -split '/')[-1]
+        if (-not $byLeaf.ContainsKey($leaf)) { $byLeaf[$leaf] = New-Object System.Collections.ArrayList }
+        [void]$byLeaf[$leaf].Add($f)
+    }
+    $suites = @($files | Where-Object {
+        $l = $_.ToLowerInvariant()
+        $l.StartsWith($testsPrefix, [StringComparison]::Ordinal) -and $l.Substring($testsPrefix.Length) -notmatch '/' -and $l.EndsWith('.tests.ps1')
+    } | Where-Object { Test-Path -LiteralPath (Join-Path $RepoRoot $_) -PathType Leaf } | Sort-Object)
+    # ON DISK, not only in the index: a suite deleted but not yet staged is in ls-files and not in the
+    # directory Invoke-TestSuiteGate globs, and naming it there throws.
+    $verdict.PoolCount = $suites.Count
+
+    # THE CACHE, keyed by the extractor's own source so a change to how references are read can never be
+    # answered from a cache written under the old rules. Best-effort in both directions: an unreadable or
+    # malformed file is an empty cache, and an unwritable one costs the next run its parse.
+    $extractor = Get-Sha256Hex -Text ("v1`n" + ${function:ConvertTo-SuiteReference}.ToString() + ${function:Get-SuiteReferenceSet}.ToString())
+    $cachePath = Get-SuiteReferenceCachePath -RepoRoot $RepoRoot
+    $stored = @{}
+    if ($cachePath -and (Test-Path -LiteralPath $cachePath -PathType Leaf)) {
+        try {
+            $raw = [System.IO.File]::ReadAllText($cachePath) | ConvertFrom-Json
+            if ($raw -and "$($raw.extractor)" -eq $extractor -and $raw.blobs) {
+                foreach ($p in $raw.blobs.PSObject.Properties) { $stored[$p.Name] = $p.Value }
+            }
+        } catch { $stored = @{} }
+    }
+    $used = @{}
+    $cacheState = @{ Dirty = $false }
+
+    $refs = @{}
+    $refsOf = {
+        param([string]$Path)
+        if ($refs.ContainsKey($Path)) { return $refs[$Path] }
+        $r = [pscustomobject]@{ Parsed = $true; Run = @(); Read = @(); Walks = $false }
+        $full = Join-Path $RepoRoot $Path
+        if ($Path -like '*.ps1' -and (Test-Path -LiteralPath $full -PathType Leaf)) {
+            $blob = if ($blobOf.ContainsKey($Path)) { $blobOf[$Path] } else { '' }
+            if ($blob -and $stored.ContainsKey($blob)) {
+                $e = $stored[$blob]
+                $r = [pscustomobject]@{ Parsed = [bool]$e.p; Run = @($e.r); Read = @($e.d); Walks = [bool]$e.w }
+            } else {
+                $r = Get-SuiteReferenceSet -Text ([System.IO.File]::ReadAllText($full))
+                if ($blob) {
+                    $stored[$blob] = [pscustomobject]@{ p = [int]$r.Parsed; r = @($r.Run); d = @($r.Read); w = [int]$r.Walks }
+                    $cacheState.Dirty = $true
+                }
+            }
+            if ($blob) { $used[$blob] = $true }
+        }
+        $refs[$Path] = $r
+        return $r
+    }
+    # WHICH TRACKED .ps1 FILES A REFERENCE RESOLVES TO, computed once per reference rather than once per
+    # suite that meets it -- the same libs are met by nearly every suite, and resolving them afresh each
+    # time was most of this function's cost.
+    $targetCache = @{}
+    $targetsOf = {
+        param([string]$Reference)
+        if ($targetCache.ContainsKey($Reference)) { return $targetCache[$Reference] }
+        $leaf = ($Reference -split '/')[-1]
+        $out = New-Object System.Collections.ArrayList
+        foreach ($k in @($leaf, "$leaf.ps1")) {
+            if (-not $k.EndsWith('.ps1') -or -not $byLeaf.ContainsKey($k)) { continue }
+            foreach ($f in $byLeaf[$k]) {
+                if (Test-SuiteReferenceMatch -Path $f.ToLowerInvariant() -Reference $Reference) { [void]$out.Add($f) }
+            }
+        }
+        $targetCache[$Reference] = $out
+        return $out
+    }
+
+    $selected = New-Object System.Collections.ArrayList
+    $always = New-Object System.Collections.ArrayList
+    $matched = New-Object System.Collections.ArrayList
+    foreach ($s in $suites) {
+        $reached = New-Object 'System.Collections.Generic.HashSet[string]'
+        $named = New-Object 'System.Collections.Generic.HashSet[string]'
+        $queue = New-Object System.Collections.Queue
+        $queue.Enqueue($s); [void]$reached.Add($s)
+        $runAlways = $false
+        while ($queue.Count -gt 0) {
+            $p = $queue.Dequeue()
+            $r = & $refsOf $p
+            $testOwned = $p.ToLowerInvariant().StartsWith($testsPrefix, [StringComparison]::Ordinal)
+            if (-not $r.Parsed -or ($testOwned -and $r.Walks)) { $runAlways = $true; break }
+            $follow = @($r.Run)
+            if ($testOwned) { $follow += @($r.Read) }
+            foreach ($ref in @($r.Read)) {
+                if ($testOwned -or ($ref.Contains('/') -and $ref -notlike '*.ps1')) { [void]$named.Add($ref) }
+            }
+            foreach ($ref in $follow) {
+                [void]$named.Add($ref)
+                foreach ($t in (& $targetsOf $ref)) {
+                    if ($reached.Add($t)) { $queue.Enqueue($t) }
+                }
+            }
+        }
+        if ($runAlways) { [void]$always.Add($s); [void]$selected.Add($s); continue }
+        $hit = $false
+        foreach ($c in $changed) {
+            foreach ($rp in $reached) { if ($rp.ToLowerInvariant() -eq $c) { $hit = $true; break } }
+            if (-not $hit) { foreach ($ref in $named) { if (Test-SuiteReferenceMatch -Path $c -Reference $ref) { $hit = $true; break } } }
+            if ($hit) { break }
+        }
+        if ($hit) { [void]$selected.Add($s); [void]$matched.Add($s) }
+    }
+    $verdict.Suites = @($selected)
+    $verdict.Always = @($always)
+    $verdict.Matched = @($matched)
+    $verdict.Proven = $true
+
+    # Written only when something new was parsed or something stale can be dropped, and then holding
+    # only the blobs this tree still uses -- so the file is bounded by the tree, not by its history.
+    if ($cachePath -and ($cacheState.Dirty -or $stored.Count -ne $used.Count)) {
+        $keep = [ordered]@{}
+        foreach ($k in ($used.Keys | Sort-Object)) { if ($stored.ContainsKey($k)) { $keep[$k] = $stored[$k] } }
+        try {
+            $json = [ordered]@{ extractor = $extractor; blobs = $keep } | ConvertTo-Json -Depth 5 -Compress
+            [System.IO.File]::WriteAllText($cachePath, $json, (New-Object System.Text.UTF8Encoding($false)))
+        } catch { }
+    }
+    return $verdict
+}
 # THE LINT GATE'S OWN PROGRESS RECORD, FOR THE STATUSLINE -- issue #2173. The bar (#2101) had two
 # publishers, the test gate's lane events and ship-pr's CI wait, and the lint gate is neither. It is the
 # step that runs FIRST in a ship and it took 78s on the measured run (PR #2169, 2026-09-20) while
@@ -1383,7 +1869,13 @@ function Invoke-WorkflowGates {
         # reason it was. A SWITCH AND NOT A DEFAULT because a deduction nobody asked for is the silent
         # matcher #2102 declined: the caller states that this is a note-tree commit, and this function
         # then refuses to take their word for it.
-        [switch]$NoteTreeOnly
+        [switch]$NoteTreeOnly,
+        # RUN ONLY THE SUITES THIS BRANCH'S CHANGES CAN AFFECT (issue #3223) -- Get-AffectedSuiteSelection.
+        # open-pr passes it by default and -AllSuites turns it off; every other caller (the release cut,
+        # -GatesOnly) leaves it off and gates the whole pool. It applies only where a required CI check
+        # runs the whole pool behind it, it records no gate evidence, and wherever the mapping is not
+        # proven every suite runs and the run says why.
+        [switch]$SelectSuites
     )
     # A GATE RUN IS NOT PART OF THE CHAIN WHOSE RECEIPT IS BEING SUPPRESSED (issue #1910). Both gates
     # below spawn CHILD PROCESSES -- the lint script, and every scripts\tests\*.tests.ps1 the test gate
@@ -1553,6 +2045,49 @@ function Invoke-WorkflowGates {
                 }
             }
 
+            # THE AFFECTED-SUITE SELECTION, MEASURED ON THE SAME TERMS AS THE NOTE-TREE VERDICT ABOVE (issue
+            # #3223): only where the suites are actually about to run, and its refusal said out loud. Last
+            # among the deductions because it is the dearest -- a tree listing plus, on a cold cache, a parse
+            # of every script.
+            $gateSelection = $null
+            if ($SelectSuites -and -not $gateTestsProved -and -not $TestsProvedByCi -and -not ($gateNoteTree -and $gateNoteTree.Proven)) {
+                $ciCheck = ''
+                if (Test-FunctionDefined 'Get-CiTestCheckName') { try { $ciCheck = "$(Get-CiTestCheckName)".Trim() } catch { $ciCheck = '' } }
+                $gateSelection = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Matched = @(); PoolCount = 0; Reason = '' }
+                if (-not $ciCheck) {
+                    # NOTHING BEHIND A PARTIAL RUN, SO THERE IS NONE. The whole argument for selecting is that
+                    # the required check runs every suite before anything merges; a repo that names no such
+                    # check has only this gate.
+                    $gateSelection.Reason = 'this repo names no required CI check (Get-CiTestCheckName) to run the whole pool behind a partial one'
+                } else {
+                    $gateChanges = Get-GateChangedPaths -RepoRoot $RepoRoot
+                    if (-not $gateChanges.Known) {
+                        $gateSelection.Reason = $gateChanges.Reason
+                    } elseif ($gateChanges.Paths.Count -eq 0) {
+                        $gateSelection.Reason = "nothing differs from $($gateChanges.Base), so there is no change to select from"
+                    } else {
+                        # A THROW HERE IS NOT A RED GATE: the selection is an optimisation, so whatever breaks it
+                        # (an unreadable file, a cache, git) costs the saving and runs every suite.
+                        try {
+                            $gateSelection = Get-AffectedSuiteSelection -RepoRoot $RepoRoot -ChangedPaths $gateChanges.Paths
+                        } catch {
+                            $gateSelection = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Matched = @(); PoolCount = 0; Reason = "the selection failed: $($_.Exception.Message)" }
+                        }
+                        $extraTestCommands = @()
+                        if (Test-FunctionDefined 'Get-TestCommands') { $extraTestCommands = @(Get-TestCommands | Where-Object { "$_".Trim() }) }
+                        if ($gateSelection.Proven -and $gateSelection.Suites.Count -eq 0 -and $extraTestCommands.Count -gt 0) {
+                            # The repo's own test commands are not suites and cannot be selected; an empty
+                            # selection would skip them, so the whole gate runs instead.
+                            $gateSelection.Proven = $false
+                            $gateSelection.Reason = 'no suite is affected, and the repo test commands (Get-TestCommands) cannot be selected'
+                        }
+                    }
+                }
+                if (-not $gateSelection.Proven) {
+                    Write-Host ("test gate: the affected-suite selection is NOT proven -- {0}. Running every suite." -f $gateSelection.Reason) -ForegroundColor Yellow
+                }
+            }
+
             if ($gateTestsProved) {
                 Write-Host "test gate: all suites already proved against this exact tree -- skipped." -ForegroundColor DarkGray
             } elseif ($TestsProvedByCi) {
@@ -1589,6 +2124,22 @@ function Invoke-WorkflowGates {
                 # suites, so filing evidence would make the NEXT run skip a gate this one never earned. The
                 # deduction is re-made in one git call whenever it is asked for again, so there is nothing
                 # worth caching and every reason not to blur what the record means.
+            } elseif ($gateSelection -and $gateSelection.Proven -and $gateSelection.Suites.Count -lt $gateSelection.PoolCount) {
+                # THE SELECTED RUN (issue #3223). What it prints is the argument, as above: how many suites
+                # the changes reach, how many run regardless, and who runs the rest.
+                $selectedNames = @($gateSelection.Suites | ForEach-Object { ($_ -split '/')[-1] })
+                Write-Host ("test gate: {0} of {1} suites selected for this branch's changes -- {2} reached by a changed path, {3} that walk the live tree and always run. CI ({4}) runs all {1}; -AllSuites runs them here (#3223)." -f $selectedNames.Count, $gateSelection.PoolCount, $gateSelection.Matched.Count, $gateSelection.Always.Count, $ciCheck) -ForegroundColor Cyan
+                if ($selectedNames.Count -eq 0) {
+                    Write-Host "test gate: no suite is affected by these changes -- none run here." -ForegroundColor DarkGray
+                } elseif (-not (Invoke-TestSuiteGate -TestsDir (Join-Path $RepoRoot 'scripts\tests') -Context $Context -MaxParallel $MaxParallel -SuiteNames $selectedNames)) {
+                    $movedNote = Get-GateTreeMovedNote -RepoRoot $RepoRoot -Gate 'tests' -Fingerprint $gateFingerprint -HeadMoves $gateHeadMoves -Failed
+                    if ($movedNote) { Write-Warning $movedNote }
+                    Write-Error "test gate found failing suites - $FailureConsequence. Fix the tests, or run with -SkipTests to skip the gate." -ErrorAction Continue
+                    return $false
+                }
+                # NOTHING IS RECORDED. The evidence means "every suite passed against this tree", and a
+                # selected run proved a subset -- filing it would let the next open-pr skip the suites this
+                # run never ran, which is the one thing the issue asked this to make impossible.
             } elseif (-not (Invoke-TestSuiteGate -TestsDir (Join-Path $RepoRoot 'scripts\tests') -Context $Context -MaxParallel $MaxParallel)) {
                 # THIS IS THE GATE THE MOVEMENT CHECK WAS MEASURED ON (issue #1145). One suite of 55 went red
                 # inside a backgrounded ship while prune-merged.ps1 held the trunk in the same checkout, and

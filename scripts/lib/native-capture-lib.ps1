@@ -3801,7 +3801,14 @@ function Invoke-TestSuiteGate {
         # summary reports per repeat. See Get-TestSuiteFocusOrder above for how the queue is composed
         # and why the load is real suites rather than a synthetic imitation.
         [string]$FocusSuite = '',
-        [int]$FocusRepeat = 5
+        [int]$FocusRepeat = 5,
+        # RUN ONLY THESE SUITES, by file name (issue #3223) -- the affected-suite selection
+        # Invoke-WorkflowGates makes for a diff. Empty = the whole pool, which is what every caller that
+        # does not pass it gets, ci.yml included. Like sharding, a selected run says so on its scope line
+        # and its verdict, because 'all 24 suites passed' would be read as the pool. NOT '-Suites':
+        # PowerShell names are case-blind, and this function already keeps its pool in $suites -- the
+        # first draft bound the two together and indexed the pool by a string.
+        [string[]]$SuiteNames = @()
     )
 
     # BOTH OR NEITHER, AND IN RANGE -- REFUSED RATHER THAN INTERPRETED. Every wrong combination here has
@@ -3830,6 +3837,13 @@ function Invoke-TestSuiteGate {
         throw "Invoke-TestSuiteGate: -FocusRepeat means nothing without -FocusSuite."
     }
     $focusMode = [bool]$FocusSuite
+    # A SELECTION IS A THIRD ANSWER TO THE SAME QUESTION, refused in combination on the same ground:
+    # sharding divides the pool and focus replaces it, so a selection inside either has no meaning.
+    $selectedSuites = @($SuiteNames | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
+    $selectionMode = $selectedSuites.Count -gt 0
+    if ($selectionMode -and ($focusMode -or $ShardCount -gt 0)) {
+        throw "Invoke-TestSuiteGate: -SuiteNames cannot be combined with -FocusSuite or -Shard/-ShardCount."
+    }
 
     # THE DEADLINE, RESOLVED ONCE HERE so every site below reads one number (issue #1941). Negative is
     # the off switch and is carried through as 0, which is what the pool's own checks test for.
@@ -3880,6 +3894,19 @@ function Invoke-TestSuiteGate {
         $suites = @(Get-ChildItem -Path $TestsDir -Filter '*.tests.ps1' -File | Sort-Object Name)
     }
     $poolTotal = $suites.Count
+    if ($selectionMode) {
+        # A NAME THAT MATCHES NO SUITE IS A CALLER'S BUG, NOT A SMALLER RUN. Dropping it quietly would
+        # run less than was selected and still report the selection as passed, so it throws.
+        $present = @{}
+        foreach ($s in $suites) { $present[$s.Name] = $true }
+        $missing = @($selectedSuites | Where-Object { -not $present.ContainsKey($_) })
+        if ($missing.Count -gt 0) {
+            throw "Invoke-TestSuiteGate: -SuiteNames names $($missing.Count) suite(s) $TestsDir does not hold: $($missing -join ', ')."
+        }
+        $wanted = @{}
+        foreach ($n in $selectedSuites) { $wanted[$n] = $true }
+        $suites = @($suites | Where-Object { $wanted.ContainsKey($_.Name) })
+    }
 
     # THE PARTITION IS COST-AWARE, AND SO IS THE QUEUE ORDER -- issues #1351 and #1358.
     #
@@ -4073,6 +4100,7 @@ function Invoke-TestSuiteGate {
         # verdict, which rests on one of them (issue #1944).
         $scopeLabel = if ($focusMode) { "$FocusRepeat x $FocusSuite under $($runItems.Count - $FocusRepeat) load" }
                       elseif ($ShardCount -gt 1) { "shard $Shard/$ShardCount -- $($runItems.Count) of $poolTotal" }
+                      elseif ($selectionMode) { "the $($runItems.Count) of $poolTotal selected" }
                       else { "all $($runItems.Count)" }
         Write-Host "test gate: running $scopeLabel test suites for $Context ($modeLabel)..." -ForegroundColor Cyan
         if ($focusMode) {
@@ -5016,6 +5044,7 @@ function Invoke-TestSuiteGate {
     if ($failedNames.Count -eq 0) {
         $passScope = if ($focusMode) { "{0} focus repeat(s) of $FocusSuite passed" }
                      elseif ($ShardCount -gt 1) { "{0} of $poolTotal suites passed" }
+                     elseif ($selectionMode) { "the {0} selected of $poolTotal suites passed" }
                      else { 'all {0} suites passed' }
         $passCount = if ($focusMode) { $focusResults.Count } else { $total }
         Write-Host ("test gate: $passScope in {1}s{2}{3}{4}{5}{6}." -f $passCount, $elapsed, $laneNote, $shardNote, $focusNote, $suspendNote, $holdNote) -ForegroundColor Green

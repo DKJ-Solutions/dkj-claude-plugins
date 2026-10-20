@@ -339,6 +339,47 @@ there is nothing to buy. And the certificate is **not** written into the gate-ev
 record means *this machine proved this tree*, and filing a remote green in it would make the skip
 outlive the certificate by up to four hours. It is re-read in seconds on the next run instead.
 
+## The suites a diff can affect, and the rest left to CI (`-AllSuites`)
+
+**Where the suites do run here, they are only the ones this branch's changes can reach**
+([#3223](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3223), the owner's decision of
+October 20, 2026). The run that filed it gated a CSS token and six brand-book lines with all 162 suites
+in 620s, and the two suites that read the changed files were the ones that mattered. The required CI
+check runs every suite before anything merges, so the local gate no longer has to:
+
+```text
+test gate: 43 of 162 suites selected for this branch's changes -- 4 reached by a changed path, 39 that walk the live tree and always run. CI (lint-en-tests) runs all 162; -AllSuites runs them here (#3223).
+```
+
+**How a suite is selected.** The changed paths are everything that differs from the merge-base with
+`origin/<trunk>`, committed or not. A suite runs when one of them is the suite itself, a script it runs
+(dot-sourced, `&`, `-File`, followed through every script those run), or a file any of them names. The
+map is read off the scripts' syntax trees, not their text, so a file named only in a comment is no
+dependency. A library is followed only through what it **runs**, never through what it merely lists:
+`shared-scripts-lib.ps1` lists every mirrored script, and following that list connected every suite to
+everything. **Suites that enumerate the live tree** (a `Get-ChildItem`, `git ls-files` or recursive copy
+over a path built from `$RepoRoot` or `$PSScriptRoot`, or the live root handed to a lib function that
+enumerates it, such as `Get-SharedScriptPairs`) read files no name points at, so they run every time. A suite whose walk the reading
+cannot see says so with a `# gate-selection: always` line. Each file's references are cached in the git
+directory by blob id, so after the first run only changed files are parsed.
+
+**Every suite runs, and the line says why, whenever the mapping is not proven**: the repo names no
+required CI check (`Get-CiTestCheckName`), there is no trunk ref or merge-base, nothing changed, a changed
+path is not plain ASCII, the selection throws, or the change touches the selector, the gate that runs
+it or the CI behind it (`gate-lib.ps1`, `native-capture-lib.ps1`, the libs `gate-lib.ps1` loads,
+`repo-config.ps1`, or a workflow under `.github/workflows/`):
+
+```text
+test gate: the affected-suite selection is NOT proven -- the change touches the selection, the gate that runs it or the CI behind it (scripts/lib/gate-lib.ps1), and a selector does not judge its own change. Running every suite.
+```
+
+**A selected run records no gate evidence.** The record means *every suite passed against this tree*, so
+a partial pass never lets a later `open-pr` skip the suites it did not run. Only `open-pr` selects: the
+release cut and `-GatesOnly` gate the whole pool, because no required check runs after them.
+
+**`-AllSuites` runs every suite here**, before a change whose reach a static map cannot see, or to
+reproduce a CI red locally. `ship-pr` takes the same switch and forwards it.
+
 ## When the test gate will not finish: `-MaxParallel`, not `-SkipTests`
 
 ```powershell

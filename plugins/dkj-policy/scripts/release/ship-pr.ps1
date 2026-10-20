@@ -281,6 +281,10 @@
     suites SMALLER and running them NOT AT ALL are the two answers, and only one of them measures.
     open-pr.ps1's own .PARAMETER MaxParallel carries the numbers behind that.
 
+.PARAMETER AllSuites
+    Passed through to open-pr.ps1: run every test suite locally instead of only the ones the branch's
+    changes can affect (issue #3223). Not forwarded unless set, so an ordinary ship runs the selection.
+
 .PARAMETER Force
     Passed through to open-pr.ps1: ship an entry that still carries its scaffold wording (the scaffold
     gate's escape valve).
@@ -395,6 +399,8 @@ param(
     [int]$MaxParallel = 0,
     # Run open-pr's suites instead of waiting for an in-flight CI certificate. See .PARAMETER NoCiWait.
     [switch]$NoCiWait,
+    # Run every one of open-pr's suites, not only the affected ones. See .PARAMETER AllSuites.
+    [switch]$AllSuites,
     # How many times step 3b may bring the branch forward and re-certify before refusing. See
     # .PARAMETER MaxForwardLaps. 0 restores the detect-and-rebase behaviour this repo had before #2087.
     [ValidateRange(0, 10)]
@@ -995,6 +1001,7 @@ if ($MaxParallel -gt 0) { $openArgs += @('-MaxParallel', "$MaxParallel") }
 # FORWARDED ONLY WHEN SET, on the same grounds as the two above: open-pr's default is to wait, so
 # passing the switch unconditionally is impossible and passing nothing is the ordinary run (#2317).
 if ($NoCiWait)    { $openArgs += '-NoCiWait' }
+if ($AllSuites)   { $openArgs += '-AllSuites' }
 if ($Force)       { $openArgs += '-Force' }
 if ($RefreshBody) { $openArgs += '-RefreshBody' }
 # Handed over as the raw string. open-pr.ps1 parses it itself precisely BECAUSE this hop goes through

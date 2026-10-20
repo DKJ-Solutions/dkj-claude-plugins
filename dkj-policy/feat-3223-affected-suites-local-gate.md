@@ -66,9 +66,9 @@ plus the ones that walk the live tree, leave the whole pool to the required CI c
 
 Counting every file name in a script's text selected all 162 suites for every change (the docstrings
 name nearly every file). String tokens only: 121 of 162 for a CSS file, through `shared-scripts-lib.ps1`'s
-registry. Followed through RUN references only: 26. With the enumerator functions counted as walks, the
-always-run set is 36 suites (1,574s of 5,927s suite work), and a narrow change selects 27-60% of the
-pool's seconds (`house-style.css` 27%, `claim-issue.ps1` 29%, `open-pr.ps1` 37%, `release-lib.ps1`
+registry. Followed through RUN references only: 26. With the enumerator functions and `$PSScriptRoot` walks counted, the
+always-run set is 39 suites (1,722s of 5,927s suite work), and a narrow change selects 29-60% of the
+pool's seconds (`house-style.css` 29%, `claim-issue.ps1` 31%, `open-pr.ps1` 38%, `release-lib.ps1`
 60%), in line with #2323's measured ceiling. Parsing ~480 scripts costs ~24s cold, ~2.5s warm.
 
 ### TEST
@@ -80,7 +80,9 @@ pool's seconds (`house-style.css` 27%, `claim-issue.ps1` 29%, `open-pr.ps1` 37%,
   file read fresh), the changed-path reader, `-SelectSuites` (selected names handed over, no evidence
   recorded, no CI check means the whole pool), the callers' shape, and `-SuiteNames` run for real
 - [x] lint gate: 0 errors
-- [ ] the related suites green through `-SuiteNames`
+- [x] the related suites green through `-SuiteNames`: 13 of 163 (the new suite, gate-lib, test-suite-gate, native-capture, shared-scripts, script-contract, fixture-lib-deps, ci-shard, cut-release-guardrail, remote-ahead-lib, trusted-tree-seam, backing-gate, release-lib) passed in 230s
+- [x] review: Victor (three bugs, all fixed: `$PSScriptRoot` walks, dotfile and extensionless references, a throwing selection now falls back) and Sebastian (no blockers; workflow and repo-config changes now run the whole pool)
+- [~] the whole pool locally: this machine cannot finish it (hostname DAVE, #2267), and this change touches `gate-lib.ps1`, so its own selection falls back to every suite. The required CI check runs them all
 
 ### DEPLOY: feat/3223-affected-suites-local-gate
 
@@ -89,10 +91,10 @@ walks the live tree, and leaves the whole pool to the required CI check (#3223, 
 October 20, 2026). A suite is selected when a changed path is the suite, a script it runs (followed
 transitively), or a file one of those names, read off the scripts' syntax trees. Every suite runs, and
 the line says why, when the repo names no required CI check, the changes cannot be read, a path is
-non-ASCII, or the change touches the selector itself. A selected run records no gate evidence, so it
+non-ASCII, the selection throws, or the change touches the selector, the gate or the CI behind them. A selected run records no gate evidence, so it
 never lets a later run skip the rest. `-AllSuites` on `open-pr` and `ship-pr` runs every suite. The
 release cut and `-GatesOnly` still gate the whole pool. Measured here, a narrow change runs 27-60% of the
-pool's suite-seconds: a CSS token change went from 162 suites to 40.
+pool's suite-seconds: a CSS token change went from 162 suites to 43.
 
 **Score:** 4
 
