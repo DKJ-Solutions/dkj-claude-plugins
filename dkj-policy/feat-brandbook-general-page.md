@@ -39,21 +39,40 @@
 
 ### PLAN
 
+The owner (October 20, 2026): the Brandbook sat in the hub's "This repo" card, but the house style is every
+DKJ-Solutions repo's. Mid-turn they refined it: "General" is for every repo, BWJ and djcylow included, so a
+third card, DKJ-Solutions, holds what only the DKJ-Solutions repos share.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Move `ConvertFrom-HouseStyleAssets` and `Format-BrandbookPageHtml` from `scripts/lib/dev-pages-lib.ps1` into the plugin's `general-pages-lib.ps1`, with the repo's name and the source folder as parameters
+- [x] `Get-DkjSolutionsPages` and `Format-DkjSolutionsPagesCardHtml`: the third card, the same card as General with other rows, heading and sub line
+- [x] The general server answers `/brandbook` from its own plugin copy; this repo's server keeps answering it from the tree
+- [x] The source repo's hub and the placeholder hub draw the DKJ-Solutions card after General; the Brandbook leaves "This repo"
+- [x] The plugin README, the house-style README (block 7) and the allowlist entry follow
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`, `dev-preview-sessionstart.tests.ps1` (the general server serves `/brandbook`), `connector-dashboard.tests.ps1` green
+- [x] `check-plugin-integrity.ps1` and `check-house-style.ps1` green
+
 ### DEPLOY: feat/brandbook-general-page
 
-**Score:**
+The Brandbook page moves out of this repo's own server into the dkj-solutions plugin's general pages server,
+and the Repo hub gets a third card for it, **DKJ-Solutions**, after **This repo** and **General**. General
+keeps the pages every repo has; DKJ-Solutions holds what only the DKJ-Solutions repos share, the house style
+first. This repo's hub still answers `/brandbook` itself, from the tree, so a house-style change is seen here
+before it is released.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions repo's Repo hub gets the Brandbook, the house style's themes, tokens and components, in a
+new DKJ-Solutions card, where until now only this repo had the page.
+
+**Score:** 3
 
 #### Pull Request
 
-The Brandbook is a general page every DKJ-Solutions Repo hub links
-
+The Repo hub gets a DKJ-Solutions card, and the Brandbook moves into it

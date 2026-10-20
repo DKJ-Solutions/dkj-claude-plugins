@@ -102,8 +102,9 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<p class="lead">This repo states no dev preview of its own yet, so the dev-preview hook serves this placeholder in its place.</p>')
     [void]$sb.AppendLine('</div>')
 
-    # Block 7, Pages: the general pages, the one card a placeholder repo has to link.
+    # Block 7, Pages: the general pages and the DKJ-Solutions ones, the two cards a placeholder repo has to link.
     [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false))
+    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false))
 
     # Block 10's place: the two setup cards, under one h2 of their own and each titled with an h3 (#3175).
     [void]$sb.AppendLine('<div class="grid-2">')
