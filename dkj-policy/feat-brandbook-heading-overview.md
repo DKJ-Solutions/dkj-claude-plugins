@@ -50,7 +50,7 @@
 
 ### TEST
 
-- [ ] The owner has looked at the Headings demo in the brand book (visible result)
+- [x] The owner has looked at the brand book on the hub and said "ship it" (visible result)
 
 ### DEPLOY: feat/brandbook-heading-overview
 
