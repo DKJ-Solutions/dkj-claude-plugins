@@ -62,7 +62,7 @@ the greys near white on a dark theme, the owner chose equal steps 1 to 7 anyway.
 
 - [x] `check-house-style.tests.ps1` 88/88, `dev-pages.tests.ps1` 259/259, `npm run gate` in `brandbook/` green
 - [x] The owner has looked at paper (Dave: "paper is goed")
-- [ ] The owner has looked at the reordered ink
+- [x] The owner has looked at the reordered ink (Dave: "gezien en akkoord")
 
 ### DEPLOY: feat/ink-and-paper
 
