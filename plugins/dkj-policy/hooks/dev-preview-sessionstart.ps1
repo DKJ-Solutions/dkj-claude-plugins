@@ -6,13 +6,13 @@
 
 .DESCRIPTION
     INBOUND #2967. Replaces the three per-repo copies (dkj-brandbook, dkj-etf-tracker, life-hub); the seam
-    and the ownership rule are in scripts/lib/dev-preview-rules.ps1, which says what a repo states and why
+    and the ownership rule are in hub/lib/dev-preview-rules.ps1, which says what a repo states and why
     a listener counts as ours.
 
     WHAT IT DOES, in order: reads Get-DevPreview (in a child scope with StrictMode off, the way the
     bwj-development hooks read their seams). Where the repo has no such function -- or no config file at
-    all -- it takes Get-DevPreviewPlaceholder's answer instead (#3047: every DKJ-Solutions repo opens a
-    preview, and scripts/preview/serve-placeholder.ps1 is the floor); a function that answers nothing ends
+    all -- it takes Get-DevPreviewPlaceholder's answer instead (#3047: every repo opens a preview, and
+    hub/preview/serve-placeholder.ps1 is the floor); a function that answers nothing ends
     it here, printing nothing. Otherwise it
     takes one snapshot of the listening sockets and the process table, REUSES the first port whose
     listener is this checkout's server -- so a /clear or a second session never starts a second one --
@@ -22,8 +22,8 @@
     the link: a dead link is worse than none.
 
     THE GENERAL PAGES (#3119). Once it knows the repo hub's url -- reused or about to be started -- it starts
-    or reuses the plugin's general pages server (scripts/pages/serve-general-pages.ps1: Artifacts, Issues,
-    Release notes, SessionStart) on the first free port of 4890-4899, under the same ownership rule and its
+    or reuses the plugin's general pages server (hub/pages/serve-general-pages.ps1: Artifacts, Issues,
+    Release notes, SessionStart, and the Brandbook in a DKJ-Solutions repo) on the first free port of 4890-4899, under the same ownership rule and its
     own log (%TEMP%\dev-preview-general-<repo>-<hash>.log), and does NOT wait for it to listen: the repo's
     own link is the one this hook promises, and the hub shows the general card's "not running" form until
     the server answers. It then writes the state file (%TEMP%\dkj-repo-hub-<repo>-<hash>.json: the hub url
@@ -34,6 +34,10 @@
     nothing for the general server to send a visitor back to, and a stale file would name a hub that is
     not this session's. The listener snapshot is ONE read over the hub's ports and the general pages' ports
     together, and the process table is read at most once, shared by both steps.
+
+    IN DKJ-POLICY SINCE #3198 (the owner's decision of October 20, 2026): the Repo hub and its General pages
+    are what every repo has, so the hook ships with the plugin every repo runs, BWJ-Development's included.
+    It was dkj-solutions', which BWJ never enables.
 
     THE OUTPUT is SessionStart JSON with BOTH systemMessage (shown to the owner, so the link is clickable
     in the terminal) and additionalContext (the session knows the URL too). life-hub sent only the first.
@@ -94,15 +98,15 @@ trap {
 
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { exit 0 }
 
-$libPath = Join-Path $PSScriptRoot '..\scripts\lib\dev-preview-rules.ps1'
+$libPath = Join-Path $PSScriptRoot '..\hub\lib\dev-preview-rules.ps1'
 if (-not (Test-Path -LiteralPath $libPath -PathType Leaf)) {
-    [Console]::Error.WriteLine('dev-preview: dev-preview-rules.ps1 not found beside this hook -- reinstall or update the dkj-solutions plugin.')
+    [Console]::Error.WriteLine('dev-preview: dev-preview-rules.ps1 not found beside this hook -- reinstall or update the dkj-policy plugin.')
     exit 0
 }
 . $libPath
 # The I/O half of the state-file contract (it dot-sources the rules lib again, which is harmless). A plugin
 # install that lacks it still gets the repo's own server: the general pages step checks before it calls.
-$stateLibPath = Join-Path $PSScriptRoot '..\scripts\lib\general-pages-state.ps1'
+$stateLibPath = Join-Path $PSScriptRoot '..\hub\lib\general-pages-state.ps1'
 if (Test-Path -LiteralPath $stateLibPath -PathType Leaf) { . $stateLibPath }
 
 $root = if ($RepoRootOverride) { $RepoRootOverride }
@@ -134,7 +138,7 @@ if (Test-Path -LiteralPath $configPath -PathType Leaf) {
 if ($raw -is [array]) { $raw = @($raw | Where-Object { $_ -is [System.Collections.IDictionary] })[-1] }
 
 # No seam at all -- no config file, or one without Get-DevPreview -- is the placeholder (#3047): every
-# DKJ-Solutions repo opens a preview, and this is the floor. A seam that answers nothing stays silent.
+# repo opens a preview, and this is the floor. A seam that answers nothing stays silent.
 $placeholder = -not $hasSeam
 if ($placeholder) {
     $pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -207,7 +211,7 @@ function Start-DevPreviewGeneralPages([string]$HubUrl, $Listeners, $Processes) {
     try {
         if (-not (Get-Command Write-RepoHubState -ErrorAction SilentlyContinue)) { return }
         $pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-        $server = Join-Path $pluginRoot 'scripts\pages\serve-general-pages.ps1'
+        $server = Join-Path $pluginRoot 'hub\pages\serve-general-pages.ps1'
         $ports = @(Get-GeneralPagesPortRange)
         $pagesUrl = ''
         # A '%' or '^' in either path is rewritten by cmd.exe even inside quotes: refused, as for the repo's server.

@@ -1,21 +1,23 @@
 <#
 .SYNOPSIS
     The page and the request rules of the placeholder preview: what the dev-preview hook serves in a
-    DKJ-Solutions repo that states no Get-DevPreview. No I/O -- scripts/preview/serve-placeholder.ps1 reads
+    repo that states no Get-DevPreview. No I/O -- hub/preview/serve-placeholder.ps1 reads
     the sockets and hands the request in, so every rule here is tested without a server.
 
 .DESCRIPTION
     INBOUND #3047. The owner reversed #2967's silent no-op (October 15, 2026): every DKJ-Solutions repo
     opens a dev preview at session start, and a repo with nothing to serve yet gets this page as the floor.
+    Every repo since #3198 (October 20, 2026), when the hook moved from dkj-solutions into dkj-policy.
     It names the repo, says that it states no preview yet, and shows how to state one -- the same
     Get-DevPreview seam the plugin README documents.
 
     THE PAGE STARTS FROM THE HOUSE STYLE: it loads /house-style.css and /house-theme.js, which the server
-    serves from the plugin's own canonical copy (assets/house-style/), and its own layer uses only names the
-    house file does not define (.ph-*).
+    serves from the canonical copy inside dkj-policy's payload (dkj-solutions/assets/house-style/, which
+    Get-HouseStyleDir names), in every repo, and its own layer uses only names the house file does not define
+    (.ph-*).
 
     AND IT TAKES THE REPO HUB FORM (#3066, #3097): the blocks and their order laid down in the plugin's
-    assets/house-style/README.md, "The Repo hub". The repo name is the
+    dkj-solutions/assets/house-style/README.md, "The Repo hub". The repo name is the
     eyebrow and the h1 is "Repo hub", word for word. A placeholder has no in-flight lists to
     count, so the tiles and the loading line are left out and its two setup cards take the data cards'
     place.
@@ -25,7 +27,9 @@
 
     AND IT LINKS THE GENERAL PAGES (#3119): the same "General" card every Repo hub carries, rendered by
     general-pages-lib.ps1 from the general pages server's base url, which the server reads from the state
-    file the hook writes -- or, where none answers, the card's "not running" form.
+    file the hook writes -- or, where none answers, the card's "not running" form. The DKJ-Solutions card
+    follows it only where the repo enables dkj-solutions (-DkjSolutions): its renderer is that extension's
+    dkj-solutions-pages-lib.ps1, dot-sourced below where this payload carries it.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in
     the source repo -- change one, run the other.
@@ -33,6 +37,8 @@
 
 . (Join-Path $PSScriptRoot 'general-pages-lib.ps1')
 . (Join-Path $PSScriptRoot 'loopback-server-lib.ps1')
+$dkjSolutionsPagesLib = Get-DkjSolutionsPagesLibPath -PluginRoot (Join-Path $PSScriptRoot '..\..')
+if (Test-Path -LiteralPath $dkjSolutionsPagesLib -PathType Leaf) { . $dkjSolutionsPagesLib }
 
 function ConvertTo-DevPreviewPlaceholderText {
     <# HTML-escapes one value for text or a quoted attribute. #>
@@ -64,9 +70,10 @@ function Test-DevPreviewPlaceholderCrossSite {
 function Format-DevPreviewPlaceholderHtml {
     <#
         The whole page for the repo named -RepoName (a folder name). -GeneralPagesUrl is the general pages
-        server's base url, or empty where it is not running (the General card says so).
+        server's base url, or empty where it is not running (the General card says so). -DkjSolutions adds the
+        DKJ-Solutions card, for a repo that enables that plugin.
     #>
-    param([AllowNull()][AllowEmptyString()][string]$RepoName, [AllowEmptyString()][string]$GeneralPagesUrl = '')
+    param([AllowNull()][AllowEmptyString()][string]$RepoName, [AllowEmptyString()][string]$GeneralPagesUrl = '', [switch]$DkjSolutions)
     $name = ([string]$RepoName) -replace '[\p{C}]', ' '
     if ($name.Length -gt 80) { $name = $name.Substring(0, 80) }
     if (-not $name.Trim()) { $name = 'this repo' }
@@ -102,9 +109,11 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<p class="lead">This repo states no dev preview of its own yet, so the dev-preview hook serves this placeholder in its place.</p>')
     [void]$sb.AppendLine('</div>')
 
-    # Block 7, Pages: the general pages and the DKJ-Solutions ones, the two cards a placeholder repo has to link.
+    # Block 7, Pages: the general pages, and in a DKJ-Solutions repo the DKJ-Solutions ones beside them.
     [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false))
-    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false))
+    if ($DkjSolutions -and (Get-Command Format-DkjSolutionsPagesCardHtml -ErrorAction SilentlyContinue)) {
+        [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false))
+    }
 
     # Block 10's place: the two setup cards, under one h2 of their own and each titled with an h3 (#3175).
     [void]$sb.AppendLine('<div class="grid-2">')
@@ -119,7 +128,7 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('        Ports   = 5173..5180')
     [void]$sb.AppendLine('    }')
     [void]$sb.AppendLine('}</code></pre>')
-    [void]$sb.AppendLine('<p class="muted">Every field, and the rules for <code>Command</code>, are in the dkj-solutions plugin README, under &quot;The dev-preview hook&quot;.</p>')
+    [void]$sb.AppendLine('<p class="muted">Every field, and the rules for <code>Command</code>, are in the dkj-policy plugin''s <code>hub/README.md</code>, under &quot;The dev-preview hook&quot;.</p>')
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('</section>')
     [void]$sb.AppendLine('<section class="card grid__full">')
@@ -148,7 +157,7 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('</div>')
 
     # Block 12: where the page comes from.
-    [void]$sb.AppendLine('<p class="footer-note">Served on 127.0.0.1 only, by the dkj-solutions plugin''s <code>scripts/preview/serve-placeholder.ps1</code>.</p>')
+    [void]$sb.AppendLine('<p class="footer-note">Served on 127.0.0.1 only, by the dkj-policy plugin''s <code>hub/preview/serve-placeholder.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')

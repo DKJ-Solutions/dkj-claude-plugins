@@ -8,7 +8,8 @@
     file dot-sources. What is here touches the disk and one loopback socket, and is shared by the three
     things that need it: the dev-preview hook (writes), the general pages server (reads, for /hub) and a
     repo hub (reads, to render its General card). A state file that is absent, unreadable or about another
-    root reads as nothing, never as an error: a hub then shows the card's "not running" form.
+    root reads as nothing, never as an error: a hub then shows the card's "not running" form. Beside it,
+    Test-DkjSolutionsEnabled: the one other thing the plugin's servers read from the repo to decide a page.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in the source repo.
 #>
@@ -83,4 +84,26 @@ function Get-GeneralPagesUrl {
     $port = ([uri]$state.Pages).Port
     if ((Get-LoopbackWhoami -Port $port -TimeoutMs $TimeoutMs) -eq (Get-DevPreviewRootHash -Root $Root)) { return $state.Pages }
     return ''
+}
+
+function Test-DkjSolutionsEnabled {
+    <#
+        True when the checkout at -Root enables the dkj-solutions plugin: an enabledPlugins key
+        'dkj-solutions@<marketplace>' set to true in its .claude/settings.json, or in .claude/settings.local.json,
+        which wins where it names the plugin too. Decides whether a hub shows the DKJ-Solutions card and the
+        general server serves /brandbook (#3198): the house style is the DKJ-Solutions repos' alone. A file that
+        is absent or not valid JSON says nothing, so the answer is then the other file's, else false.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $enabled = $false
+    foreach ($name in 'settings.json', 'settings.local.json') {
+        $path = Join-Path $Root ".claude\$name"
+        try {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+            $plugins = (ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8))).enabledPlugins
+            if ($null -eq $plugins) { continue }
+            foreach ($p in @($plugins.PSObject.Properties | Where-Object { $_.Name -like 'dkj-solutions@*' })) { $enabled = ($p.Value -eq $true) }
+        } catch { }
+    }
+    return $enabled
 }

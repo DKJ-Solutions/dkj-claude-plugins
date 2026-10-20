@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
-    Tests for plugins/dkj-policy/dkj-solutions/hooks/dev-preview-sessionstart.ps1 and its rules,
-    scripts/lib/dev-preview-rules.ps1 beside it -- the shared dev-preview hook (#2967).
+    Tests for plugins/dkj-policy/hooks/dev-preview-sessionstart.ps1 and its rules,
+    hub/lib/dev-preview-rules.ps1 in the same plugin -- the shared dev-preview hook (#2967), in dkj-policy
+    since #3198.
 
 .DESCRIPTION
     Group 1 pins the rules without a server: what Get-DevPreview may state, when a command line names a
@@ -22,15 +23,15 @@
 $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\hooks\dev-preview-sessionstart.ps1'
-$Lib      = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib\dev-preview-rules.ps1'
-$StateLib = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib\general-pages-state.ps1'
+$Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\dev-preview-sessionstart.ps1'
+$Lib      = Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1'
+$StateLib = Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\general-pages-state.ps1'
 # $PID and a guid in the fixture path: the test gate runs suites in parallel.
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "dev-preview-$PID-$([guid]::NewGuid().ToString('n'))"
 
 . $Lib
 . $StateLib
-. (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib\loopback-server-lib.ps1')
+. (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\loopback-server-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -164,14 +165,17 @@ Assert-True (Test-CommandLineNamesRoot -CommandLine "cmd.exe $line" -Root $root)
 
 Write-Host '-- group 1d: the placeholder a repo without a seam gets (#3047)' -ForegroundColor Cyan
 
-$PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions'
-. (Join-Path $PluginRoot 'scripts\lib\dev-preview-placeholder.ps1')
+# The hook, the servers and the placeholder are dkj-policy's (#3198); the house style they serve is the
+# dkj-solutions extension's, inside dkj-policy's own payload.
+$PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy'
+$SolutionsRoot = Join-Path $PluginRoot 'dkj-solutions'
+. (Join-Path $PluginRoot 'hub\lib\dev-preview-placeholder.ps1')
 
 $ph = ConvertTo-DevPreviewConfig -Raw (Get-DevPreviewPlaceholder -PluginRoot $PluginRoot)
 Assert-True $ph.Ok 'the placeholder''s answer passes the same validation as a repo''s'
 Assert-Equal '4880 4881 4882 4883 4884 4885 4886 4887 4888 4889' (@($ph.Config.Ports) -join ' ') 'it takes the fixed range 4880-4889, so a route can name it'
 Assert-Equal 'Repo hub' $ph.Config.Name 'and opens its line with the same Repo hub (#3064)'
-$server = Join-Path $PluginRoot 'scripts\preview\serve-placeholder.ps1'
+$server = Join-Path $PluginRoot 'hub\preview\serve-placeholder.ps1'
 Assert-True ($ph.Config.Command.Contains("-File `"$server`" -Port {port}")) 'its Command runs the plugin''s own server, quoted, on {port}'
 Assert-True (Test-Path -LiteralPath $server -PathType Leaf) 'and that server ships in the plugin'
 Assert-True ($ph.Config.Command -notmatch [regex]::Escape($root)) 'no repo value enters the Command: the server reads the name off its working directory'
@@ -192,6 +196,8 @@ Assert-True ($html -notmatch '<header') 'and its intro is no <header>, which the
 Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="dev-preview-placeholder">') 'with no stored theme it falls back to lilac, like every other dev page (#3166)'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
 Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1') 'and says how to state a preview of its own'
+Assert-True ($html -match '<h2>General pages</h2>' -and $html -notmatch 'DKJ-Solutions pages') 'it links the General pages, and without -DkjSolutions no DKJ-Solutions card: a BWJ repo has none (#3198)'
+Assert-True ((Format-DevPreviewPlaceholderHtml -RepoName 'r' -DkjSolutions) -match '<h2>DKJ-Solutions pages</h2>') 'and in a DKJ-Solutions repo the DKJ-Solutions card follows it'
 Assert-True ($html -match '<h2>Set up a preview</h2>' -and $html -match '<h3 class="card__title">Add a preview of your own</h3>' -and $html -match '<h3 class="card__title">Open it in VS Code</h3>') 'the two setup cards share one h2, each titled with an h3 (#3175)'
 Assert-True (([regex]::Matches($html, '<h2>')).Count -eq ([regex]::Matches($html, '<div class="grid__head"><h2>')).Count) 'and every h2 stands in a grid__head, above its cards'
 Assert-True ($html -match '<title>dkj-thumbnail-generator -- Repo hub</title>' -and $html -notmatch 'Name\s+=') 'its title carries the term, and its example states no Name (#3064)'
@@ -204,10 +210,10 @@ Assert-True (-not (Test-DevPreviewPlaceholderCrossSite '')) 'a request without S
 
 # The plugin's canonical copy is held to the house-style skill's table, like the dashboard's (#2989): a
 # repoint that leaves it behind goes red here instead of shipping a stale page to every repo.
-$skillPage = Get-Content -LiteralPath (Join-Path $PluginRoot 'skills\house-style\SKILL.md') -Raw
+$skillPage = Get-Content -LiteralPath (Join-Path $SolutionsRoot 'skills\house-style\SKILL.md') -Raw
 foreach ($file in 'house-style.css', 'house-theme.js') {
     $pinned = [regex]::Match($skillPage, '\|\s*`' + [regex]::Escape($file) + '`\s*\|[^|]*\|\s*`([0-9a-f]{64})`').Groups[1].Value
-    $actual = (Get-FileHash -LiteralPath (Join-Path $PluginRoot "assets\house-style\$file") -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actual = (Get-FileHash -LiteralPath (Join-Path (Get-HouseStyleDir -PluginRoot $PluginRoot) $file) -Algorithm SHA256).Hash.ToLowerInvariant()
     Assert-True ($pinned -and $actual -eq $pinned) "the plugin's canonical $file is the copy the house-style skill pins"
 }
 
@@ -243,6 +249,20 @@ $env:DKJ_GENERAL_PAGES_PORTS = 'not a list'
 Assert-Equal 4890 (@(Get-GeneralPagesPortRange)[0]) 'an override that is not a port list is ignored'
 Remove-Item Env:\DKJ_GENERAL_PAGES_PORTS -ErrorAction SilentlyContinue
 
+# Whether a checkout is a DKJ-Solutions one (#3198): only there do the servers carry the Brandbook and its card.
+$enRoot = Join-Path $Fixture 'enabled-check'
+New-Item -ItemType Directory -Force -Path (Join-Path $enRoot '.claude') | Out-Null
+Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'a checkout with no settings file is no DKJ-Solutions repo'
+[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.json'), '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": true } }')
+Assert-True (Test-DkjSolutionsEnabled -Root $enRoot) 'one whose settings.json enables dkj-solutions is'
+[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.local.json'), '{ "enabledPlugins": { "dkj-solutions@dkj-claude-plugins": false } }')
+Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'and settings.local.json wins where it names the plugin too'
+[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.local.json'), '{ not json')
+Assert-True (Test-DkjSolutionsEnabled -Root $enRoot) 'while a settings.local.json that is not JSON says nothing'
+[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.json'), '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": false } }')
+Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'a repo that sets it false, as the BWJ-Development repos do, is none'
+Assert-True ((Get-HouseStyleDir -PluginRoot $PluginRoot).EndsWith('\dkj-policy\dkj-solutions\assets\house-style')) 'the house style is read from the dkj-solutions folder inside dkj-policy, which every install carries'
+Assert-True (Test-Path -LiteralPath (Get-DkjSolutionsPagesLibPath -PluginRoot $PluginRoot) -PathType Leaf) 'and so is the DKJ-Solutions pages lib'
 # The Sec-Fetch rule both plugin servers share (#3119). Ports do not count toward "site", so the hub's link, the
 # 303 hop and the crumb back all arrive same-site, as top-level navigations.
 Assert-True (-not (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'navigate' -Method 'GET')) 'a same-site top-level GET navigation is served'
@@ -254,7 +274,6 @@ Assert-True (Test-LoopbackCrossSite -SecFetchSite 'cross-site' -SecFetchMode 'na
 Assert-True ((-not (Test-LoopbackCrossSite -SecFetchSite 'none' -SecFetchMode 'navigate' -Method 'GET')) -and (-not (Test-LoopbackCrossSite -SecFetchSite 'same-origin')) -and (-not (Test-LoopbackCrossSite -SecFetchSite ''))) 'a typed URL, the page itself and no header are served'
 Assert-True (-not (Test-DevPreviewPlaceholderCrossSite -SecFetchSite 'same-site' -SecFetchMode 'navigate' -Method 'GET')) 'the placeholder applies the same rule'
 Assert-True (Test-DevPreviewPlaceholderCrossSite 'same-site') 'and keeps the one-argument form refusing same-site'
-Assert-Equal @('C:\r\mkt\dkj-policy') @(Get-DkjPolicyCacheDir -PluginRoot 'C:\r\mkt\dkj-solutions\5.23.0\') 'dkj-policy''s version folders sit beside the plugin''s own in the cache'
 Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/a b' -Pages '') -Root $stateRoot).Hub 'nor one with a space in its path'
 
 # A HEAD answers like the GET would, real Content-Length included, and carries no body (#3161).
@@ -307,6 +326,10 @@ try {
         $probe = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
         $probe.Start(); $phPort = ([System.Net.IPEndPoint]$probe.LocalEndpoint).Port; $probe.Stop()
         $noConfig = New-Repo 'no-config' $null
+        # A DKJ-Solutions repo, so the servers carry the Brandbook and its card (#3198); the
+        # connector-dashboard suite's fixtures are repos without it.
+        New-Item -ItemType Directory -Force -Path (Join-Path $noConfig '.claude') | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $noConfig '.claude\settings.json'), '{ "enabledPlugins": { "dkj-solutions@dkj-claude-plugins": true } }')
         $r = Invoke-Hook $noConfig $phPort
         $m = Get-Message $r.Text
         Assert-True ($r.Code -eq 0 -and $m -match "^Repo hub: http://localhost:$phPort/ \(started -- this repo states no Get-DevPreview yet") "a repo without scripts/repo-config.ps1 gets the placeholder, started (got '$m')"

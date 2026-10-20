@@ -22,9 +22,9 @@
     -NoBrandbookBuild serves only what is already built, which is how the tests run it.
 
     THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues, Release
-    notes and SessionStart belong to every DKJ-Solutions repo, so the dkj-solutions plugin builds them in a
-    server of its own (scripts/pages/serve-general-pages.ps1), which the dev-preview hook starts beside this
-    one. The hook writes both servers' urls to a state file in %TEMP%; the hub reads it on every request,
+    notes and SessionStart belong to every repo, so the dkj-policy plugin builds them in a server of its own
+    (hub/pages/serve-general-pages.ps1; dkj-solutions' until #3198), which the dev-preview hook starts beside
+    this one. The hook writes both servers' urls to a state file in %TEMP%; the hub reads it on every request,
     asking the server named there who it is (its /whoami, the hash of this root) for at most ~500 ms. When
     it answers as this checkout's, a request for /artifacts, /issues, /release-notes or /sessionstart -- and
     /refresh?page=issues or =sessionstart -- is relayed to it and its answer sent back as it came
@@ -37,7 +37,7 @@
     hub" crumb is '/hub', which this server answers with a 303 to '/'.
 
 .DESCRIPTION
-    Normally started by the dkj-solutions dev-preview SessionStart hook, through this repo's
+    Normally started by the dkj-policy dev-preview SessionStart hook, through this repo's
     Get-DevPreview in scripts/repo-config.ps1; it can be started by hand the same way:
 
         powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port 4870
@@ -110,10 +110,10 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
 . (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
 # The state file the hook writes, and the probe of the general pages server (#3119): the plugin's, read from
 # this repo's own tree because this repo is the plugin's source.
-. (Join-Path $root 'plugins\dkj-policy\dkj-solutions\scripts\lib\general-pages-state.ps1')
+. (Join-Path $root 'plugins\dkj-policy\hub\lib\general-pages-state.ps1')
 # The request reader, the response writer and the two refusals: the same ones the plugin's servers use, so a
 # fix to any of them lands in all three (#3163).
-. (Join-Path $root 'plugins\dkj-policy\dkj-solutions\scripts\lib\loopback-server-lib.ps1')
+. (Join-Path $root 'plugins\dkj-policy\hub\lib\loopback-server-lib.ps1')
 
 $scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 # The canonical copy lives in the plugin (#3130); the hub no longer vendors its own.
@@ -434,10 +434,10 @@ try {
                 $gp = Get-GeneralPagesPort
                 if ($gp) {
                     if (-not (Copy-LoopbackUpstream -Stream $stream -Port $gp -Method $method -Target $path)) {
-                        Send-LoopbackResponse $stream 502 'Bad Gateway' 'text/plain; charset=utf-8' ($utf8.GetBytes('The dkj-solutions general pages server did not answer this request. Reload the page in a moment.')) -Method $method
+                        Send-LoopbackResponse $stream 502 'Bad Gateway' 'text/plain; charset=utf-8' ($utf8.GetBytes('The dkj-policy general pages server did not answer this request. Reload the page in a moment.')) -Method $method
                     }
                 } else {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("This page is served by the dkj-solutions general pages server, which is not running for this repo: the dev-preview hook starts it at the next session start.")) -Method $method
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("This page is served by the dkj-policy general pages server, which is not running for this repo: the dev-preview hook starts it at the next session start.")) -Method $method
                 }
                 continue
             }
