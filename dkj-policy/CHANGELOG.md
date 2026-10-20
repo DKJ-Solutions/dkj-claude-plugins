@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**18 / 30 minor entries** <!-- pending-tally -->
+**18 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3207-trim-small-sections-in-sysadmin-lens · 20261020-110222Z
+
+The remaining bullets in "What Sylvester owns here" and the smaller history sections of Sylvester's
+repo lens (the sibling check, the enabled plugins, the repo renames, the tree address, the empty roster
+ignore list) keep their live rules and the issues that decided them, and drop the dated measurements.
+Every heading other files link to is unchanged. The lens goes from about 191 KB to 169 KB. Fourth of
+five slimming steps (#3204-#3208).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Sylvester's lens: the remaining owns-here bullets and small history sections are trimmed
+
+[PR #3219](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3219)
+
+---
 
 ### DEPLOY: feat/3202-repo-hub-specimen · 20261020-105419Z
 
