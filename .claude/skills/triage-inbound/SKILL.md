@@ -64,7 +64,7 @@ just advice.
   each already answer the question the report said nothing answered. What did stand underneath the false
   premise was narrower and real: a `continue` in check-connectors' retired-plugin branch skipped a whole
   block, including the one check inside it whose subject did not depend on the reason the other two were
-  skipped. Full measurement in
+  skipped. Full measurement in #1802 itself, indexed in
   [Sylvester's lens](../../specialists/lenses/specialist-05-15-lens.md#the-retired-id-continue-and-the-block-it-silently-skipped-september-10-2026-1802).
   **The generalisation:** an "absence" claim behind a proposed mechanism is exactly as checkable as a
   "presence" claim behind a proposed close, and it fails the same way when a single file is read instead
