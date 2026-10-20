@@ -446,7 +446,7 @@ its own.
   the house style already does that for the floating settings button and for in-page anchors.
 - **The trail:** it always starts at **Repo hub**, linking to `/`. Each further crumb is one level
   down: the product (under its own name), then a page inside it. The last crumb is the current page,
-  unlinked, with `aria-current="page"`. On the Repo hub itself the trail is that one crumb: the bar is
+  unlinked, with `aria-current="page"`, semibold in the muted `--primary-7` (owner, October 20, 2026). On the Repo hub itself the trail is that one crumb: the bar is
   still there, so it sits in the same place on every page.
 - **The labels** are the pages' own names, short, in the app's language. A crumb names a page, never a
   section on a page: an in-page anchor is not a level.

@@ -94,12 +94,12 @@
 .dkj-page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-3); }
 
 /* ---------- Breadcrumbs ---------- */
-/* One line; the slash is muted, the ancestors are links, the current page is the strongest. */
+/* One line; the slash and the current page are muted greys (the page semibold), the ancestors are links. */
 .dkj-breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .dkj-breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
 .dkj-breadcrumbs a { color: var(--primary-9); text-underline-offset: 2px; }
 .dkj-breadcrumbs-sep { color: var(--primary-6); }
-.dkj-breadcrumbs [aria-current='page'] { color: var(--primary-12); font-weight: var(--dkj-fw-semibold); }
+.dkj-breadcrumbs [aria-current='page'] { color: var(--primary-7); font-weight: var(--dkj-fw-semibold); }
 /* The bar: full screen width on a tinted background, sticky at the top and one --tap high, the trail aligned with the
    house page column (.container). A trail longer than the screen scrolls sideways, so the height never changes. */
 .dkj-breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-2); box-shadow: 0 1px 0 var(--primary-3); }

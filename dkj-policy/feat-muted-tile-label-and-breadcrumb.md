@@ -41,17 +41,27 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: `.tile .label` and `.breadcrumbs [aria-current='page']` from `--primary-12` to `--primary-7`; role comment and breadcrumb comment updated
+- [x] Brand book: `.dkj-breadcrumbs [aria-current='page']` and the showcase intro follow; house-style README's breadcrumb trail bullet names the colour
 
 ### TEST
 
+- [x] No other copy pins either colour (grep over the tree)
+
 ### DEPLOY: feat/muted-tile-label-and-breadcrumb
 
-**Score:**
+A stat tile's label and the breadcrumb's current page now take the muted grey `--primary-7` (as `.muted`, sub
+lines and notes) instead of the paragraph colour `--primary-12`, so the tile's figure and the trail's links lead
+(owner, October 20, 2026). The current page stays semibold. The brand book's own breadcrumbs follow.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions page with stat tiles or a breadcrumb bar shows the labels and the current page in grey once
+it takes the new house style; nothing to migrate.
+
+**Score:** 2
 
 #### Pull Request
 

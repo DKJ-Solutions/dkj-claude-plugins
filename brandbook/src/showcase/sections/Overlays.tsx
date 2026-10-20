@@ -164,7 +164,7 @@ export function Overlays() {
         </Demo>
       </Section>
 
-      <Section id="Breadcrumbs" title="Breadcrumbs" intro="Where the page sits: each ancestor a link, a muted slash between them, and the current page last, unlinked and strongest. The trail stays on one line and scrolls sideways when it is longer than the screen; as a bar it sticks to the top of the page.">
+      <Section id="Breadcrumbs" title="Breadcrumbs" intro="Where the page sits: each ancestor a link, a muted slash between them, and the current page last, unlinked, semibold and muted. The trail stays on one line and scrolls sideways when it is longer than the screen; as a bar it sticks to the top of the page.">
         <Demo label="Three levels">
           <Breadcrumbs items={[{ label: 'Home', href: '#Breadcrumbs' }, { label: 'Section', href: '#Breadcrumbs' }, { label: 'Current page' }]} />
         </Demo>
