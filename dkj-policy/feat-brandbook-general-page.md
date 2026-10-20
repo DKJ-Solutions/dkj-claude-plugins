@@ -55,6 +55,7 @@ third card, DKJ-Solutions, holds what only the DKJ-Solutions repos share.
 
 - [x] `dev-pages.tests.ps1`, `dev-preview-sessionstart.tests.ps1` (the general server serves `/brandbook`), `connector-dashboard.tests.ps1` green
 - [x] `check-plugin-integrity.ps1` and `check-house-style.ps1` green
+- [x] The owner has looked at the hub: the DKJ-Solutions card after General, and the Brandbook in it ("gezien en akkoord")
 
 ### DEPLOY: feat/brandbook-general-page
 
