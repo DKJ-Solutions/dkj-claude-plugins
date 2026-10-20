@@ -539,9 +539,15 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         Assert-True $up 'its successor listens on the same port'
         $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
         Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($second.Substring(0, 8))</code>") 'and serves the new commit'
+        $succ = @(Get-NetTCPConnection -State Listen -LocalPort $port4 -ErrorAction SilentlyContinue | ForEach-Object { $_.OwningProcess })
         & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'third' 2>$null
         $page = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
         Assert-True ($page -match 'HTTP/1.1 503' -and $page -match 'Refresh: 3' -and $page -match 'restarting on the new code') 'a page asked for after HEAD moved answers 503 and reloads'
+        # Wait for the second successor before the finally looks for it by port (#3200): looked for straight after
+        # the 503 it had not bound yet, so it was never stopped and kept its fixture directory alive.
+        foreach ($s in $succ) { Wait-Process -Id $s -Timeout 15 -ErrorAction SilentlyContinue }
+        $up = if ($up) { Wait-ServerUp $port4 } else { $false }
+        Assert-True $up 'and its own successor takes the port in turn'
         $group4Done = $true
     } finally {
         if ($proc4 -and -not $proc4.HasExited) { Stop-Process -Id $proc4.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
@@ -551,6 +557,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 Stop-Process -Id $o -Force -Confirm:$false -ErrorAction SilentlyContinue
             }
         }
+        # And whatever still runs from the fixture -- a successor that had not bound yet when the group aborted.
+        Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($fixture4) } |
+            ForEach-Object { Stop-Process -Id $_.ProcessId -Force -Confirm:$false -ErrorAction SilentlyContinue }
         Start-Sleep -Milliseconds 500
         Remove-Item -LiteralPath $fixture4 -Recurse -Force -ErrorAction SilentlyContinue
         if ($port4) { Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Filter "serve-connector-dashboard-$port4-*.log" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue }

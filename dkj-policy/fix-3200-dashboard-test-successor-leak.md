@@ -39,19 +39,36 @@
 
 ### PLAN
 
+#3200: group 4 of `connector-dashboard.tests.ps1` leaked the server's second successor and its fixture
+directory. Measured on this machine before the repair: both leaked servers were LISTENING on their port, so the
+issue's "no listening socket" did not hold. Its inferred race did: the `finally` looked for the successor by port
+before the successor had bound it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Group 4 records the process holding the port before the third commit, waits for it to exit after the 503,
+  and then waits for the successor to listen, and asserts that it does
+- [x] The group's `finally` also stops every process whose command line names the fixture, for the case where the
+  group aborts before that wait
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` on its own: 165 passed, 0 failed, and afterwards no
+  `connector-dashboard-move-*` directory or process is left in `%TEMP%`
+
 ### DEPLOY: fix/3200-dashboard-test-successor-leak
 
-**Score:**
+A run of `connector-dashboard.tests.ps1` no longer leaves a dashboard server running in the background or a fixture
+directory in `%TEMP%`. Group 4 waits for the server's last successor to listen before it stops it, and asserts that
+step as well (#3200).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
