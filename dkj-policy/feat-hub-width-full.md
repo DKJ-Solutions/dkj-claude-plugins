@@ -47,7 +47,7 @@
 ### TEST
 
 - [x] `dev-pages.tests.ps1` and `dev-preview-sessionstart.tests.ps1` green
-- [ ] The owner has looked at the hub on a fresh device: Full is selected with no stored choice
+- [x] The owner has looked at the hub on a fresh device: Full is selected with no stored choice
 
 ### DEPLOY: feat/hub-width-full
 
