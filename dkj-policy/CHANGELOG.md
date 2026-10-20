@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**24 / 38 minor entries** <!-- pending-tally -->
+**25 / 39 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/even-primary-dark-steps · 20261020-153224Z
+
+The dark steps of the house primary run evenly: `--primary-10` and `--primary-11` now sit a third and two thirds
+of the way from `--primary-9` to `--primary-12` in OKLab, in all twelve themes, so `h1` to `h2` to `h3` to body text
+is three equal steps instead of two small ones and one large jump. On light themes `h2` and `h3` read darker, on dark
+themes lighter; every contrast stays well above 4.5:1.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app that takes this release sees its `h2` and `h3`-`h5` colours shift a step towards body text.
+No token is renamed, so nothing has to be migrated.
+
+**Score:** 2
+
+#### Pull Request
+
+Space the primary dark steps -9 to -12 evenly
+
+Plugins: dkj-solutions
+
+[PR #3229](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3229)
+
+---
 
 ### DEPLOY: feat/test-gate-groups · 20261020-144741Z
 
