@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Maikel found the /test-gate page unclear and asked whether the gates could be grouped by which actions
+need them and which are optional. No suite is optional -- CI and open-pr run all of them on every PR --
+so the grouping is by the workflow step each suite guards, kept in a fixed file (his choice over
+deriving groups from file names).
+
+- [x] Group all 162 suites into thirteen groups in `scripts/tests/suite-groups.json`, in workflow order
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ConvertFrom-SuiteDurations` takes `-Groups`: per group its recorded and unmeasured suites and total, plus the ungrouped and unknown names
+- [x] `Format-TestGatePageHtml`: a group overview, one section per group, a not-grouped section, and the old single table when the groups file cannot be read
+- [x] `Get-TestGateModel` reads `suite-groups.json` beside `suite-durations.json`
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the group model, the page, the fallback, and a tree assert that every suite on disk is in exactly one group
+- [x] `dev-pages` and `connector-dashboard` suites green locally
+- [ ] Victor and Edith reviewed the diff
+
 ### DEPLOY: feat/test-gate-groups
 
-**Score:**
+The dev server's /test-gate page groups the test suites by the workflow step they guard -- starting a
+branch, the PR, the fold, the release, the lint gate, CI, the hooks, adoption, machine upkeep, the dev
+pages, the BWJ and Shopify plugins and the shared libs -- with each group's suite count, cost and share,
+and says in its lead that no suite is optional: every one runs on every PR. The grouping lives in
+`scripts/tests/suite-groups.json`, and `dev-pages.tests.ps1` fails when a suite on disk is in no group,
+so a new suite is grouped in the PR that adds it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the dev server page and the suite grouping are this repo's own; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
