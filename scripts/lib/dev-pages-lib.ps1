@@ -721,12 +721,12 @@ function Format-DkjReposPageHtml {
     [void]$body.AppendLine((Get-CopyButtonScript))
 
     $style = @(
-        '.dr-link { color: var(--primary-9); text-underline-offset: 2px; }',
-        '.dr-thead th { background: var(--primary-3); }',
+        '.dr-link { color: var(--ink-1); text-underline-offset: 2px; }',
+        '.dr-thead th { background: var(--paper-3); }',
         '.table td.dr-left, .table th.dr-left { text-align: left; }',
-        '.dr-desc { display: block; font-size: var(--text-xs); color: var(--primary-7); }',
+        '.dr-desc { display: block; font-size: var(--text-xs); color: var(--ink-4); }',
         '.dr-sessions { list-style: none; padding: 0; margin: 0; }',
-        '.dr-sessions li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1-5) var(--spacing-3); padding: var(--spacing-2) 0; border-top: 1px solid var(--primary-3); }',
+        '.dr-sessions li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1-5) var(--spacing-3); padding: var(--spacing-2) 0; border-top: 1px solid var(--paper-3); }',
         '.dr-sessions li:first-child { border-top: 0; }',
         '.dr-sessions strong { min-width: 12ch; }',
         '.dr-sessions code { flex: 1 1 24ch; font-size: var(--text-xs); overflow-wrap: anywhere; }'
