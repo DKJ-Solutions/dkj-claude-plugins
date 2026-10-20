@@ -167,7 +167,9 @@ function Format-GeneralPagesCardHtml {
         so a state file cannot point a hub's links elsewhere. -SameOrigin is for a hub that relays the
         general pages from its own origin (#3168): the card then links each page by its bare path, so the
         visitor stays on the hub's origin and its theme choice. -Pages, -Heading and -HeadSub let the
-        DKJ-Solutions card (dkj-solutions-pages-lib.ps1) be the same card with other rows.
+        DKJ-Solutions card (dkj-solutions-pages-lib.ps1) be the same card with other rows. -LocalPages are
+        pages the hub serves ITSELF (the source repo's DKJ repos page, #3231): linked by their bare path after
+        the server's rows, and drawn whether or not the general pages server answers.
     #>
     param(
         [AllowEmptyString()][string]$PagesUrl = '',
@@ -175,7 +177,8 @@ function Format-GeneralPagesCardHtml {
         [object[]]$Pages = @(Get-GeneralPages),
         [switch]$SameOrigin,
         [string]$Heading = 'General',
-        [string]$HeadSub = 'Not specific to this repo: every repo has them'
+        [string]$HeadSub = 'Not specific to this repo: every repo has them',
+        [object[]]$LocalPages = @()
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $base = ''
@@ -191,15 +194,19 @@ function Format-GeneralPagesCardHtml {
         [void]$sb.AppendLine('<div class="grid__head"><h2>' + (& $e $Heading) + ' pages</h2>' + $headSub + '</div>')
         [void]$sb.AppendLine('<section class="card grid__full">')
     }
-    if ($base) {
+    $rows = @()
+    if ($base) { $rows += @(@($Pages) | Where-Object { $_ } | ForEach-Object { @{ Href = $linkBase + $_.Href; Label = $_.Label; Sub = $_.Sub } }) }
+    $rows += @(@($LocalPages) | Where-Object { $_ })
+    if (-not $base) {
+        [void]$sb.AppendLine('<p class="msg" role="status">The general pages server is not running. It starts at the next session start, and these pages are linked here from then on.</p>')
+    }
+    if ($rows.Count) {
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="' + (& $e $Heading) + ' pages">')
-        foreach ($p in @($Pages)) {
+        foreach ($p in $rows) {
             $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e ($linkBase + $p.Href)) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
+            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
         }
         [void]$sb.AppendLine('</nav>')
-    } else {
-        [void]$sb.AppendLine('<p class="msg" role="status">The general pages server is not running. It starts at the next session start, and these pages are linked here from then on.</p>')
     }
     [void]$sb.AppendLine('</section>')
     if (-not $InRow) { [void]$sb.AppendLine('</div>') }

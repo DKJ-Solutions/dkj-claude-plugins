@@ -38,10 +38,16 @@ function Get-DkjSolutionsPages {
 }
 
 function Format-DkjSolutionsPagesCardHtml {
-    <# The hub's "DKJ-Solutions" card: Format-GeneralPagesCardHtml with the DKJ-Solutions pages, heading and sub line. #>
-    param([AllowEmptyString()][string]$PagesUrl = '', [bool]$InRow = $true, [switch]$SameOrigin)
+    <#
+        The hub's "DKJ-Solutions" card: Format-GeneralPagesCardHtml with the DKJ-Solutions pages, heading and sub
+        line. -LocalPages are DKJ-Solutions pages the calling hub serves itself (the source repo's DKJ repos
+        page, #3231); a hub without any passes none and draws the card as it always was.
+    #>
+    param([AllowEmptyString()][string]$PagesUrl = '', [bool]$InRow = $true, [switch]$SameOrigin, [object[]]$LocalPages = @())
+    $headSub = if (@($LocalPages | Where-Object { $_ }).Count) { 'Shared by every DKJ-Solutions repo, and the pages only this hub has' }
+               else { 'Shared by every DKJ-Solutions repo: the house style they are all built from' }
     return Format-GeneralPagesCardHtml -PagesUrl $PagesUrl -InRow $InRow -SameOrigin:$SameOrigin -Pages @(Get-DkjSolutionsPages) `
-        -Heading 'DKJ-Solutions' -HeadSub 'Shared by every DKJ-Solutions repo: the house style they are all built from'
+        -Heading 'DKJ-Solutions' -HeadSub $headSub -LocalPages @($LocalPages)
 }
 
 function Get-BrandbookBuildDir {
