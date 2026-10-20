@@ -1,6 +1,6 @@
 ---
 name: repo-session
-description: Look into any DKJ repo registered under connectors/ from this hub -- its checkout, branch, uncommitted files and open issues -- and open Claude Code in THAT repo's checkout, in a window of its own, optionally with a first prompt ("start a new dossier in the lifehub"). Use whenever a request here is about another repo -- "check the lifehub", "start a dossier in lifehub", "what is open in dkj-recipes", in whatever language -- and when an issue for another repo has to be filed in that repo. Read-only except for starting that window.
+description: Look into any DKJ repo from this hub (registered under connectors/, or a DKJ-Solutions checkout beside this repo) -- its checkout, branch, uncommitted files and open issues -- and open Claude Code in THAT repo's checkout, in a window of its own, optionally with a first prompt ("start a new dossier in the lifehub"). Use whenever a request here is about another repo -- "check the lifehub", "start a dossier in lifehub", "what is open in dkj-recipes", in whatever language -- and when an issue for another repo has to be filed in that repo. Read-only except for starting that window.
 ---
 
 # repo-session -- the hub looks in, and hands the work over
@@ -10,13 +10,15 @@ description: Look into any DKJ repo registered under connectors/ from this hub -
 from here the owner wants to look into the other repos and start work in one of them, say a new dossier
 in `dkj-lifehub`, without first finding that repo and starting it by hand.
 
-**It is repo-local**, beside `harvest-artifacts`: the register it reads is this repo's own `connectors/`,
-so nothing here ships in a plugin.
+**It is repo-local**, beside `harvest-artifacts`: it reads this repo's own `connectors/` register and
+every DKJ-Solutions checkout beside this repo (`Find-DkjCheckouts`, the same finder as the hub's **DKJ
+repos** page), so a DKJ repo that runs no plugin of this marketplace is reachable too. Nothing here ships in
+a plugin.
 
 ## Run it
 
 ```powershell
-# every registered repo, where its checkout is on this machine, and its branch
+# every known repo, where its checkout is on this machine, and its branch
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dashboard/repo-session.ps1 -List
 
 # one repo: checkout, branch, uncommitted files, last commit, open issues -- reads only
@@ -28,8 +30,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dashboard/repo-sessi
 
 The name is what a person calls the repo: `lifehub`, `life-hub`, `dkj-lifehub` and
 `DKJ-Solutions/dkj-lifehub` all resolve to the same one, and a name that matches two repos is refused
-with both. `-WhatIf` with `-Open` prints the command and starts nothing. The hub's `/connectors` page
-shows the same command per checked-out repo, to copy.
+with both. `-WhatIf` with `-Open` prints the command and starts nothing. The hub's **DKJ repos** page
+(`/dkj-repos`, in the DKJ-Solutions card) shows every DKJ-Solutions repo with its open issues and pull
+requests, and the same command per checkout, to copy.
 
 ## Why the work opens THERE and never here
 

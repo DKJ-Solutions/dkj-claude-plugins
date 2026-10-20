@@ -5,6 +5,7 @@
     local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /specialists, every
     specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; /test-gate,
     the per-suite CI durations, grouped by the workflow step each suite guards (scripts/tests/suite-groups.json);
+    /dkj-repos, every DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231);
     and /brandbook/, the brand book: the build of the brandbook/ React app, which
     shows the house style's tokens, themes and every component. The rules of the hub and of each page are in
     scripts/lib/dev-pages-lib.ps1.
@@ -201,7 +202,6 @@ function Get-DashboardModel {
             File       = $f.Name
             Checkout   = $candidates
             Present    = [bool]$resolved
-            Path       = $resolved
             Plugins    = $plugins
             Signals    = $signals
             Drift      = if ($parsed.Contains($repo)) { $parsed[$repo].Drift } else { $null }
@@ -212,6 +212,22 @@ function Get-DashboardModel {
     }
     $meta.Seconds = ((Get-Date) - $started).TotalSeconds
     return @{ Connectors = $connectors; Meta = $meta; At = Get-Date }
+}
+
+function Get-DkjReposModel {
+    <#
+        The DKJ repos page's data (#3231): one GraphQL call for every DKJ-Solutions repo with its open issue and
+        pull request counts, and the checkouts beside this repo. Cached like the Connectors page, because the
+        call goes over the network.
+    #>
+    $started = Get-Date
+    $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
+    $raw = $null
+    try { $raw = & gh api graphql -f ('query=' + (Get-DkjRepoQuery)) -f 'owner=DKJ-Solutions' 2>$null } catch { $raw = $null }
+    $query = ConvertFrom-DkjRepoQuery -Json $(if ($LASTEXITCODE -eq 0 -and $raw) { ($raw -join "`n") } else { '' })
+    $checkouts = @(Find-DkjCheckouts -ParentDir (Split-Path -Parent $root) -Owner 'DKJ-Solutions')
+    return @{ Query = $query; Checkouts = $checkouts; At = Get-Date
+              Meta = @{ GeneratedAt = $started.ToString('yyyy-MM-dd HH:mm:ss'); Seconds = ((Get-Date) - $started).TotalSeconds } }
 }
 
 function Get-TestGateModel {
@@ -306,6 +322,7 @@ $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Lo
 $listener.Start()
 Write-Host "connector dashboard: http://localhost:$Port/"
 $cache = $null
+$dkjCache = $null
 # The commit this process loaded its code from; $null outside a git checkout or on an unborn HEAD, and
 # then it never restarts.
 $loaded = Invoke-DashboardGit $root @('rev-parse', 'HEAD')
@@ -370,8 +387,9 @@ try {
                 }
                 # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for. ?page= names
                 # where to go back to, from a fixed list, so the redirect never leaves this server.
-                $page = if ([string]$target -match '[?&]page=(connectors)(&|$)') { $Matches[1] } else { '' }
+                $page = if ([string]$target -match '[?&]page=(connectors|dkj-repos)(&|$)') { $Matches[1] } else { '' }
                 if ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
+                if ($dkjCache -and ((Get-Date) - $dkjCache.At).TotalSeconds -ge $MinRefreshSeconds) { $dkjCache = $null }
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" } -Method $method
                 continue
             }
@@ -386,6 +404,12 @@ try {
                 $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
+                continue
+            }
+            if ($path -eq '/dkj-repos') {
+                if ($null -eq $dkjCache -or ((Get-Date) - $dkjCache.At).TotalSeconds -ge $CacheSeconds) { $dkjCache = Get-DkjReposModel }
+                $html = Format-DkjReposPageHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Meta $dkjCache.Meta
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             if ($path -eq '/test-gate') {

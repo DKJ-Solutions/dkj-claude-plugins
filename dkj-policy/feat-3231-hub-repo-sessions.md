@@ -49,7 +49,9 @@ prompt would be a cross-site route into whatever mode that session runs in. It s
 
 #### Visible result
 
-The `/connectors` page gains a line per checked-out repo, so this branch stops for the owner's look.
+A new page, **DKJ repos** (`/dkj-repos`), in the hub's DKJ-Solutions card, so this branch stops for the
+owner's look. The owner's first look (October 20, 2026) moved the session line off `/connectors` onto that page,
+"because Connectors just shows the connectors", and chose the name.
 
 ### CREATE
 
@@ -60,11 +62,21 @@ The `/connectors` page gains a line per checked-out repo, so this branch stops f
       resolved path to the page.
 - [x] `scripts/dashboard/repo-session.ps1`: `-List`, the status of one repo, and `-Open [-Prompt] [-WhatIf]`.
 - [x] `.claude/skills/repo-session/SKILL.md`: the repo-local skill, beside `harvest-artifacts`.
+- [x] The DKJ repos page: `Get-RepoHubDkjPages`, `Find-DkjCheckouts`, `Get-DkjRepoQuery`,
+      `ConvertFrom-DkjRepoQuery`, `Get-CopyButtonScript` and `Format-DkjReposPageHtml` in
+      `scripts/lib/dev-pages-lib.ps1`; the server answers `/dkj-repos` from one cached `gh api graphql` call
+      plus the checkouts beside this repo. The `/connectors` page is back to the connectors alone.
+- [x] `Format-GeneralPagesCardHtml` (dkj-policy) takes `-LocalPages`, rows a hub serves itself and links
+      whether or not the general pages server answers, and `Format-DkjSolutionsPagesCardHtml` (dkj-solutions)
+      passes them on. A hub that passes none draws both cards as before.
+- [x] `repo-session.ps1` also finds every DKJ-Solutions checkout beside this repo, so a DKJ repo outside
+      the register (dkj-recipes, dkj-music-library, ...) is reachable too.
 
 ### TEST
 
 - [x] `connector-dashboard.tests.ps1`: name resolution, the literal PowerShell reads back unchanged (the
-      typographic quotes included), the command, and the script against a fixture tree -- 196 pass.
+      typographic quotes included), the command, and the script against a fixture tree -- 196 pass. `dev-pages.tests.ps1`:
+      the card (with and without the general server), the query and its failures, and the page -- 272 pass.
 - [x] Review: Victor, Sebastian and Edith, nothing blocking. Applied: a prompt opening with `-` (which
       `claude` would read as an option, `--dangerously-skip-permissions` among them) and one over 8000
       characters are refused, the wt title is used only when it is a plain name, and two prose mismatches
@@ -77,11 +89,11 @@ The `/connectors` page gains a line per checked-out repo, so this branch stops f
 
 ### DEPLOY: feat/3231-hub-repo-sessions
 
-The Repo hub now looks into every repo registered under `connectors/` and opens Claude Code in its checkout
+The Repo hub has a **DKJ repos** page in its DKJ-Solutions card: every DKJ-Solutions repo on GitHub with its
+open issues and pull requests, its checkout on this machine, and the command that opens Claude Code there
 ([#3231](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3231)). The new repo-local
-`repo-session` skill shows a repo's checkout, branch and open issues, and opens a session in that checkout
-in a window of its own, optionally with a first prompt. The `/connectors` page shows that command per
-checked-out repo, to copy. The work then runs under that repo's own rules, and an issue for it is filed
+`repo-session` skill does the same from a session: it shows a repo's checkout, branch and open issues, and
+opens a session in that checkout in a window of its own, optionally with a first prompt. The work then runs under that repo's own rules, and an issue for it is filed
 there.
 
 **Score:** 1

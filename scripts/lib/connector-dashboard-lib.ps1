@@ -224,7 +224,7 @@ function ConvertTo-PowerShellLiteral {
 function Format-RepoSessionCommand {
     <#
         The PowerShell line that opens Claude Code in one checkout (#3231), with -Prompt as its first message
-        when one is given. The hub shows it to copy; repo-session.ps1 runs it in a window of its own.
+        when one is given. The DKJ repos page shows it to copy; repo-session.ps1 runs it in a window of its own.
     #>
     param([Parameter(Mandatory = $true)][string]$Path, [AllowEmptyString()][string]$Prompt = '')
     $line = 'Set-Location -LiteralPath ' + (ConvertTo-PowerShellLiteral $Path) + '; claude'
@@ -286,7 +286,7 @@ function Format-ConnectorDashboardHtml {
     <#
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
         (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
-        or $null); Notes; Path (the resolved checkout, or $null) }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
+        or $null); Notes }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
         It is the Connectors page under the Repo hub on '/' (#3097): a two-crumb trail and its own h1. The
         facts card belongs to the hub, so this page ends on its footer note.
     #>
@@ -334,8 +334,6 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-signals code, .cd-plugins code { font-size: var(--text-xs); }')
     [void]$sb.AppendLine('.cd-plugins { display: flex; flex-wrap: wrap; gap: var(--spacing-1-5) var(--spacing-4); margin-top: var(--spacing-2); font-size: var(--text-sm); color: var(--primary-7); }')
     [void]$sb.AppendLine('.cd-notes { white-space: pre-wrap; font-size: var(--text-xs); color: var(--primary-7); max-height: 320px; overflow: auto; }')
-    [void]$sb.AppendLine('.cd-session { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1-5) var(--spacing-2); margin-top: var(--spacing-2); }')
-    [void]$sb.AppendLine('.cd-session code { font-size: var(--text-xs); overflow-wrap: anywhere; }')
     [void]$sb.AppendLine('.cd-status { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }')
     [void]$sb.AppendLine('.table td.cd-left, .table th.cd-left { text-align: left; }')
     # Fixed layout, so each group's table takes these widths rather than sizing to its own content; the min-width keeps them readable, scrolling inside .table-wrap on a narrow screen.
@@ -428,14 +426,6 @@ function Format-ConnectorDashboardHtml {
             $ghUrl = 'https://github.com/' + (& $e $c.Repo)
             [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
                 ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
-            if ($c.Path) {
-                # The command that opens Claude Code in this checkout (#3231), to copy: the server starts nothing.
-                $cmd = Format-RepoSessionCommand -Path ([string]$c.Path)
-                $short = ([string]$c.Repo -split '/')[-1]
-                [void]$sb.AppendLine('<div class="cd-session"><span class="meta">Open a session there:</span> <code>' + (& $e $cmd) + '</code>' +
-                    ' <button type="button" class="btn" data-copy="' + (& $e $cmd) + '">Copy</button>' +
-                    '<span class="meta">or ask a session here: <code>repo-session ' + (& $e $short) + ' -Open</code></span></div>')
-            }
             if ($c.Git -and $c.Git.Subject) {
                 [void]$sb.AppendLine('<p class="meta" style="white-space: normal">Last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) + '</p>')
             }
@@ -475,16 +465,6 @@ function Format-ConnectorDashboardHtml {
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     [void]$sb.AppendLine('<p class="footer-note">Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=connectors">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
-    # The Copy buttons. The clipboard API first; then execCommand on a hidden textarea, because VS Code's Simple
-    # Browser serves the page in an iframe without clipboard-write, where the API is refused (the owner's own
-    # browser, #3231); and where both fail, the command beside the button is selected for Ctrl+C.
-    [void]$sb.AppendLine('<script>(function () {')
-    [void]$sb.AppendLine('function label(b, t) { b.textContent = t; setTimeout(function () { b.textContent = "Copy"; }, 2000); }')
-    [void]$sb.AppendLine('function fallback(b, text) { var ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0"; document.body.appendChild(ta); ta.select(); var ok = false; try { ok = document.execCommand("copy"); } catch (e) { ok = false; } document.body.removeChild(ta);')
-    [void]$sb.AppendLine('  if (ok) { label(b, "Copied"); return; } var code = b.parentNode.querySelector("code"); if (code) { var r = document.createRange(); r.selectNodeContents(code); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); } label(b, "Press Ctrl+C"); }')
-    [void]$sb.AppendLine('document.addEventListener("click", function (ev) { var b = ev.target.closest("[data-copy]"); if (!b) return; var text = b.getAttribute("data-copy");')
-    [void]$sb.AppendLine('  if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(function () { label(b, "Copied"); }, function () { fallback(b, text); }); } else { fallback(b, text); } });')
-    [void]$sb.AppendLine('})();</script>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')
     [void]$sb.AppendLine('</html>')

@@ -1,12 +1,13 @@
 <#
 .SYNOPSIS
-    Look into any repo registered under connectors/, and open Claude Code in its checkout, from this repo (#3231).
+    Look into any repo registered under connectors/, or any DKJ-Solutions checkout beside this repo, and open
+    Claude Code in its checkout, from this repo (#3231).
 
 .DESCRIPTION
     This repo is the hub of every DKJ repo, so starting work in one of them should not first mean finding its
     folder and starting a session there by hand. Three modes:
 
-        -List                     every registered repo, where its checkout is on this machine, and its branch
+        -List                     every known repo, where its checkout is on this machine, and its branch
         -Repo <name>              one repo: its checkout, branch, uncommitted files, last commit and open
                                   issues (read-only; the issues come from gh)
         -Repo <name> -Open        Claude Code in a window of its own, IN that checkout, with -Prompt as its first
@@ -65,7 +66,8 @@ $ErrorActionPreference = 'Stop'
 
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
-. (Join-Path $root 'scripts\lib\connector-dashboard-lib.ps1')
+# The hub's page lib: it brings connector-dashboard-lib with it, and Find-DkjCheckouts.
+. (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
 $scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 
 function Invoke-RepoGit {
@@ -84,6 +86,13 @@ $connectors = @(foreach ($f in @(Get-ChildItem -LiteralPath (Join-Path $root 'co
     @{ Repo = [string]$m.repo; File = $f.Name; Visibility = [string]$m.visibility
        Path = (Resolve-ConnectorCheckout -Root $root -LocalCheckout $m.localCheckout -ScopeRoot $scopeRoot) }
 })
+# And every DKJ-Solutions checkout beside this repo, registered or not, as the DKJ repos page finds them: the
+# register lists only the repos that run a plugin of this marketplace.
+foreach ($d in @(Find-DkjCheckouts -ParentDir (Split-Path -Parent $root) -Owner 'DKJ-Solutions')) {
+    $known = @($connectors | Where-Object { $_.Repo -eq $d.Repo })
+    if ($known.Count) { if (-not $known[0].Path) { $known[0].Path = $d.Path } }
+    else { $connectors += @{ Repo = $d.Repo; File = ''; Visibility = ''; Path = $d.Path } }
+}
 
 if ($List) {
     foreach ($c in $connectors) {
@@ -96,7 +105,7 @@ if ($List) {
 
 $hits = @(Resolve-ConnectorRepo -Connectors $connectors -Name $Repo)
 if (-not $hits.Count) {
-    Write-Output "[REFUSED] no registered repo is called '$Repo'. Registered: $((@($connectors | ForEach-Object { $_.Repo })) -join ', ')."
+    Write-Output "[REFUSED] no known repo is called '$Repo'. Known: $((@($connectors | ForEach-Object { $_.Repo })) -join ', ')."
     exit 1
 }
 if ($hits.Count -gt 1) {

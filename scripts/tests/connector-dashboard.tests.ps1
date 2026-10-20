@@ -616,7 +616,12 @@ Assert-Equal "Set-Location -LiteralPath 'C:\x\o''b'; claude 'start it''s dossier
 $rsRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('repo-session-' + [guid]::NewGuid().ToString('n'))
 $rsHub = Join-Path $rsRoot 'org\hub'
 New-Item -ItemType Directory -Force -Path (Join-Path $rsHub 'connectors'), (Join-Path $rsHub 'scripts\lib'), (Join-Path $rsRoot 'org\dkj-lifehub') | Out-Null
-Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') -Destination (Join-Path $rsHub 'scripts\lib')
+# repo-session.ps1 loads the hub's page lib, which loads the connector lib and the two plugin libs beside it.
+foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1') {
+    $to = Join-Path $rsHub (Split-Path -Parent $lib)
+    New-Item -ItemType Directory -Force -Path $to | Out-Null
+    Copy-Item -LiteralPath (Join-Path $RepoRoot $lib) -Destination $to
+}
 Set-Content -LiteralPath (Join-Path $rsHub 'connectors\life-hub.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/dkj-lifehub", "visibility": "private", "localCheckout": ["../dkj-lifehub", "../life-hub"] }'
 Set-Content -LiteralPath (Join-Path $rsHub 'connectors\recipes.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/dkj-recipes", "visibility": "private", "localCheckout": "../dkj-recipes" }'
 Set-Content -LiteralPath (Join-Path $rsHub 'connectors\escape.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/escape", "visibility": "public", "localCheckout": "../../../../.." }'
