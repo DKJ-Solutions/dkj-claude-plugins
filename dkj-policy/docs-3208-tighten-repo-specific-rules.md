@@ -39,21 +39,41 @@
 
 ### PLAN
 
+Rewrite the ~30 narrative gotchas under `Repo-specific rules` in Sylvester's lens as one rule plus a
+pointer each, grouped by subject; point at the portable manual where it already states the trap, and
+at `Updating the plugins` for the clone-versus-payload account. #3207 (Maikel) edits the same file above
+this section, so this branch stays inside lines 834-1324.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rewrite the section (490 lines to 126; the lens from 190,703 B to 154,873 B).
+- [x] Point at the manual for the settings-writer, backtick, `$script:`-collision and `marketplace remove` traps instead of restating them.
+- [x] The manual's settings-writer rule cited "the `Set-Content -Encoding utf8` rule", which only this lens carried: state that trap inline there.
 
 ### TEST
 
+- [x] Inbound references checked: only release history names the section, by title, with no anchor into a bullet.
+
 ### DEPLOY: docs/3208-tighten-repo-specific-rules
 
-**Score:**
+The `Repo-specific rules` section of Sylvester's lens is one rule per line with the issue that measured
+it, grouped as editing files, PowerShell in `scripts/**`, checks and gates, the suite pool, plugins and
+the marketplace, and the session. The dated reasoning stays with the issues it cites, and rules the
+portable manual already carries are pointed at rather than repeated: about 36 KB off a lens a session
+reads whenever Sylvester has work here.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Sylvester's portable manual no longer sends a consumer to a `Set-Content -Encoding utf8` rule that only
+this repo's lens held: the trap, that Windows PowerShell 5.1 writes a BOM, is stated where it is cited.
+
+**Score:** 1
 
 #### Pull Request
 
 Sylvester's lens: tighten the 'Repo-specific rules' gotchas to one rule plus a pointer each
+
+Plugins: dkj-subagents-alpha
 
