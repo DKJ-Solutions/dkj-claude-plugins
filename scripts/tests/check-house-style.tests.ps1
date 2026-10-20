@@ -73,7 +73,7 @@ Assert-Equal 'defines --good' (Get-HitNames (Find-HouseStyleTokenHit -Text "el.s
 Assert-Equal '' (Get-HitNames (Find-HouseStyleTokenHit -Text 'color: var(--good);' -Names $names)) 'a read is not a definition'
 Assert-Equal 'reads --good' (Get-HitNames (Find-HouseStyleTokenHit -Text 'color: var( --good);' -Names $names -IncludeReads)) 'a read, with -IncludeReads'
 Assert-Equal '' (Get-HitNames (Find-HouseStyleTokenHit -Text "p.add_argument('--page', type=int)" -Names $names -IncludeReads)) 'an argparse flag is not a stylesheet'
-Assert-Equal '' (Get-HitNames (Find-HouseStyleTokenHit -Text 'a { --ink-1: red; color: var(--ink-1) }' -Names $names -IncludeReads)) '--ink-1 is not bare --primary'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleTokenHit -Text 'a { --primary-9: red; color: var(--primary-9) }' -Names $names -IncludeReads)) '--primary-9 is not bare --primary'
 $h = @(Find-HouseStyleTokenHit -Text "x`ny`n  --good: 1;" -Names $names)
 Assert-Equal 3 $h[0].Line 'the line number of a hit'
 
