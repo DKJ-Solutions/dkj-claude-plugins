@@ -39,19 +39,33 @@
 
 ### PLAN
 
+- [x] Third of five slimming steps (#3204-#3208): the branch-document, gate and `dkj-policy/` folder sections
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace what the portable pages and skills already state with pointers; keep this repo's own facts
+- [x] Keep every linked heading; nothing needed moving to Rendall's lens
 
 ### TEST
 
+- [x] Lens measured: ~216 KB -> 190,461 B
+- [x] Copy edit (Edith) on the diff
+
 ### DEPLOY: docs/3206-dedupe-branch-doc-in-sysadmin-lens
 
-**Score:**
+The branch-document, gate and `dkj-policy/` folder sections of Sylvester's repo lens stop repeating
+`DEVELOPMENT-portable.md`, `CONTRIBUTING-portable.md` and the open-pr, ship-pr and check-branch-entry
+skills. Each now points to the portable section that states the rule and keeps only what is this
+repo's own: its seam values, the gates only the source repo runs, and its own measurements. The lens
+goes from about 216 KB to 190 KB. Third of five slimming steps (#3204-#3208).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
