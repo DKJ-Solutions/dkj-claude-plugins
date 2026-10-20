@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**21 / 34 minor entries** <!-- pending-tally -->
+**22 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3210-ship-brandbook-build · 20261020-131815Z
+
+`cut-release.ps1` reads a new optional seam, `Get-ReleaseBuilds`: builds it runs after its gates and copies into
+a plugin in the release commit, checked before the first write and refusing a failed build or one that touches
+a file git sees. This repo uses it to ship the `brandbook/` app, so the PowerShell Brandbook page in
+`dkj-solutions` is retired and there is one brand book to keep current, not two.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In every DKJ-Solutions repo, the Repo hub's Brandbook is now the full brand book app (every component, its
+headings list and the repo previews) instead of a smaller PowerShell page, at `/brandbook/` on the general
+pages server, from the next release on.
+
+**Score:** 3
+
+#### Pull Request
+
+The brandbook app's build ships with dkj-solutions and replaces the PowerShell Brandbook page
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3225](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3225)
+
+---
 
 ### DEPLOY: fix/h1-takes-h0-size · 20261020-130925Z
 
