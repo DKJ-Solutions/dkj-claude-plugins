@@ -1,5 +1,5 @@
 /**
- * The top of the brand book: the page title, a hero card at the house display size (h0) and a type
+ * The top of the brand book: the page title, a hero card at the house display size (h1) and a type
  * specimen -- every heading level and the running-text styles, set as real elements, so the type scale
  * is seen in use rather than only measured in the Tokens section.
  */

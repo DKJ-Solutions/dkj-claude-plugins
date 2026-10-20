@@ -42,7 +42,7 @@
 .dkj-stephead-value {
   margin: 0;
   padding: var(--spacing-3) 0;
-  font-size: var(--text-h0);
+  font-size: var(--text-h1);
   font-weight: var(--dkj-fw-bold);
   line-height: var(--dkj-lh-none);
   text-align: center;
