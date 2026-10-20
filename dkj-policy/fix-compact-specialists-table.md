@@ -41,17 +41,24 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-SpecialistsPageHtml`: title inline after the name and number, form and always-on badges moved into the Plugin column
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` green (243 passed)
+- [ ] Owner has looked at http://localhost:4872/specialists and approves the compact layout
+
 ### DEPLOY: fix/compact-specialists-table
 
-**Score:**
+The Specialists page on the dev server gives each specialist one line in its context table instead of three: the title now follows the name and number inline, and the form and always-on badges sit beside the plugin name.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the dev server's pages are this repo's own maintenance tooling, and no consumer runs them.
+
+**Score:** N/A
 
 #### Pull Request
 
