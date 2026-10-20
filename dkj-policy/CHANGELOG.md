@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**24 / 37 minor entries** <!-- pending-tally -->
+**24 / 38 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/test-gate-groups · 20261020-144741Z
+
+The dev server's /test-gate page groups the test suites by the workflow step they guard -- starting a
+branch, the PR, the fold, the release, the lint gate, CI, the hooks, adoption, machine upkeep, the dev
+pages, the BWJ and Shopify plugins and the shared libs -- with each group's suite count, cost and share and a few points to note per section,
+closes every table on a total -- the seconds summed as if run one after another, which the label says CI
+does not do -- and says in its lead that no suite is optional: the required CI check runs every one on every PR. The grouping lives in
+`scripts/tests/suite-groups.json`, and `dev-pages.tests.ps1` fails when a suite on disk is in no group,
+so a new suite is grouped in the PR that adds it. The links on the hub's pages (`.dp-link`) take
+`--primary-11` instead of `--primary-9`, which read poorly as link text, and are underlined only on hover
+and keyboard focus.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the dev server page and the suite grouping are this repo's own; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Test gate page groups the suites by the workflow step they guard
+
+Plugins: dkj-policy
+
+[PR #3226](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3226)
+
+---
 
 ### DEPLOY: fix/drop-h3-shift-headings · 20261020-143643Z
 
