@@ -409,6 +409,8 @@ try {
             if ($path -eq '/dkj-repos') {
                 if ($null -eq $dkjCache -or ((Get-Date) - $dkjCache.At).TotalSeconds -ge $CacheSeconds) { $dkjCache = Get-DkjReposModel }
                 $html = Format-DkjReposPageHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Meta $dkjCache.Meta
+                # A failed read of GitHub is shown once and not kept, so the next request asks again (Victor, #3231).
+                if ($dkjCache.Query.Error) { $dkjCache = $null }
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

@@ -85,6 +85,10 @@ owner's look. The owner's first look (October 20, 2026) moved the session line o
 - [x] The Copy button has a fallback for VS Code's Simple Browser, the owner's browser, where the page is an
       iframe without clipboard-write: `execCommand('copy')`, and where that fails too it selects the command
       for Ctrl+C. Served by the hub; not tried in the Simple Browser itself, which the owner's look settles.
+- [x] Second review (Victor, Sebastian), on the DKJ repos page, nothing blocking. Applied: git runs in the
+      scanned folders with `core.fsmonitor=false` and `--no-optional-locks`, a link is built from the repo's
+      owner/name rather than the answer's url field, a failed GitHub read is not cached, and an archived
+      repo checked out here is listed and marked so. `dev-pages.tests.ps1` now 274 pass.
 - [x] Run against this machine: `-List`, `lifehub`, and `lifehub -Open -WhatIf` resolve `dkj-lifehub`.
 
 ### DEPLOY: feat/3231-hub-repo-sessions

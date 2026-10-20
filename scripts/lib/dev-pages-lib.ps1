@@ -568,7 +568,9 @@ function Find-DkjCheckouts {
         # 'Continue' and the catch: under 'Stop', Windows PowerShell 5.1 turns a native command's stderr into a
         # terminating error even with 2>$null.
         $ErrorActionPreference = 'Continue'
-        try { $out = & git -C $Path @GitArgs 2>$null } catch { return $null }
+        # The folders are found by a scan, not named by anybody, so git reads nothing from them that could run
+        # code (core.fsmonitor) and writes nothing (--no-optional-locks: status would refresh the index).
+        try { $out = & git --no-optional-locks -c core.fsmonitor=false -C $Path @GitArgs 2>$null } catch { return $null }
         if ($LASTEXITCODE -ne 0) { return $null }
         return , @($out)
     }
@@ -600,19 +602,19 @@ function ConvertFrom-DkjRepoQuery {
     <#
         Get-DkjRepoQuery's answer, as text, into @{ Repos; Archived; Error }: Repos the live repos in the order
         GitHub gave them, each @{ Repo; Name; Url; Description; Visibility; PushedAt; Issues; Pulls }; Archived
-        how many were left out. An answer that is not that shape is an Error, never an empty organisation.
+        the 'owner/name' of each one left out. An answer that is not that shape is an Error, never an empty organisation.
     #>
     param([AllowNull()][AllowEmptyString()][string]$Json)
-    $none = @{ Repos = @(); Archived = 0; Error = '' }
+    $none = @{ Repos = @(); Archived = @(); Error = '' }
     if (-not $Json) { $none.Error = 'gh gave no answer'; return $none }
     try { $doc = $Json | ConvertFrom-Json } catch { $none.Error = 'the answer is not JSON'; return $none }
     if ($doc.errors) { $none.Error = 'GitHub answered with an error: ' + ([string]@($doc.errors)[0].message); return $none }
     $nodes = $doc.data.organization.repositories.nodes
     if ($null -eq $nodes) { $none.Error = 'the answer holds no repository list'; return $none }
-    $repos = @(); $archived = 0
+    $repos = @(); $archived = @()
     foreach ($n in @($nodes)) {
         if (-not $n) { continue }
-        if ($n.isArchived) { $archived++; continue }
+        if ($n.isArchived) { $archived += [string]$n.nameWithOwner; continue }
         $repos += @{
             Repo = [string]$n.nameWithOwner; Name = [string]$n.name; Url = [string]$n.url; Description = [string]$n.description
             Visibility = ([string]$n.visibility).ToLowerInvariant(); PushedAt = [string]$n.pushedAt
@@ -642,7 +644,8 @@ function Format-DkjReposPageHtml {
     <#
         The DKJ repos page (#3231). -Query is ConvertFrom-DkjRepoQuery's result; -Checkouts is Find-DkjCheckouts'
         list; -Meta is @{ GeneratedAt; Seconds }. A checkout whose repo GitHub did not list (the query failed,
-        or a repo outside the first hundred) still gets its row, so the page never hides a folder on disk.
+        a repo outside the first hundred, or an archived one, marked so) still gets its row, so the page never
+        hides a folder on disk.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Query,
@@ -656,7 +659,8 @@ function Format-DkjReposPageHtml {
     $listed = @{}; foreach ($r in $rows) { $listed[$r.Repo] = $true }
     foreach ($c in @($byRepo.Values | Sort-Object { $_.Repo })) {
         if (-not $listed.ContainsKey($c.Repo)) {
-            $rows += @{ Repo = $c.Repo; Name = ($c.Repo -split '/')[-1]; Url = 'https://github.com/' + $c.Repo; Description = ''; Visibility = ''; PushedAt = ''; Issues = $null; Pulls = $null }
+            $vis = if (@($Query.Archived) -contains $c.Repo) { 'archived' } else { '' }
+            $rows += @{ Repo = $c.Repo; Name = ($c.Repo -split '/')[-1]; Url = 'https://github.com/' + $c.Repo; Description = ''; Visibility = $vis; PushedAt = ''; Issues = $null; Pulls = $null }
         }
     }
     $sum = { param($k) $t = 0; foreach ($r in $rows) { if ($null -ne $r[$k]) { $t += [int]$r[$k] } }; $t }
@@ -676,7 +680,8 @@ function Format-DkjReposPageHtml {
     [void]$body.AppendLine('<section class="card grid__full">')
     [void]$body.AppendLine('<div class="table-wrap"><table class="table dr-table"><thead class="dr-thead"><tr><th class="dr-left">Repo</th><th>Visibility</th><th>Issues</th><th>Pull requests</th><th class="dr-left">Checkout here</th><th>Last push</th></tr></thead><tbody>')
     foreach ($r in $rows) {
-        $url = & $e $r.Url
+        # The link is built from the repo's owner/name, never taken from the answer's url field (Sebastian, #3231).
+        $url = 'https://github.com/' + (& $e $r.Repo)
         $desc = if ($r.Description) { '<span class="dr-desc">' + (& $e $r.Description) + '</span>' } else { '' }
         $count = { param($n, $path) if ($null -eq $n) { '--' } elseif ($n -gt 0) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a>' } else { '0' } }
         $c = $byRepo[$r.Repo]
@@ -692,7 +697,8 @@ function Format-DkjReposPageHtml {
             '<td class="dr-left">' + $where + '</td><td>' + $pushed + '</td></tr>')
     }
     [void]$body.AppendLine('</tbody></table></div>')
-    if ($Query.Archived) { [void]$body.AppendLine('<p class="note">' + $Query.Archived + ' archived repo' + $(if ($Query.Archived -ne 1) { 's are' } else { ' is' }) + ' left out.</p>') }
+    $nArch = @(@($Query.Archived) | Where-Object { $_ -and -not $byRepo.ContainsKey($_) }).Count
+    if ($nArch) { [void]$body.AppendLine('<p class="note">' + $nArch + ' archived repo' + $(if ($nArch -ne 1) { 's are' } else { ' is' }) + ' left out.</p>') }
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine('</div>')
 
