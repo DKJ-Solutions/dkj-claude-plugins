@@ -14,10 +14,11 @@
 
     WHAT EACH PAGE READS, from the repo, on every request unless it says otherwise:
       /artifacts      scripts/dashboard/artifacts.json -- absent, the page says the file is not there.
-      /brandbook      ONLY where the repo enables dkj-solutions (Test-DkjSolutionsEnabled, read at start), else
-                      a plain 404: the dkj-solutions extension's assets/house-style/ inside this plugin's payload
-                      (house-style.css and house-theme.js), the copy this server runs from, and whether the
-                      repo's brandbook/package.json is there (the full app). Its page is that extension's own,
+      /brandbook/     ONLY where the repo enables dkj-solutions (Test-DkjSolutionsEnabled, read at start), else
+                      a plain 404: the brand book app's build in the dkj-solutions extension's assets/brandbook/
+                      inside this plugin's payload, which the source repo's cut writes (#3210). Its own routes
+                      are answered with its index.html; /brandbook is a 303 to the base. A payload without the
+                      build gets a page saying so. The rules are that extension's own,
                       dkj-solutions/scripts/lib/dkj-solutions-pages-lib.ps1.
       /issues         `gh issue list`, three calls (the open issues; created and closed in the last 28 days),
                       for --repo <owner/name> parsed from the origin remote when that is on github.com, else
@@ -101,7 +102,7 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
 $styleDir = Get-HouseStyleDir -PluginRoot $pluginRoot
 # The Brandbook is a DKJ-Solutions page (#3198): read once at start, as the hook starts this server per session.
 $dkjSolutions = (Test-DkjSolutionsEnabled -Root $root) -and (Test-Path -LiteralPath (Get-DkjSolutionsPagesLibPath -PluginRoot $pluginRoot) -PathType Leaf)
-if ($dkjSolutions) { . (Get-DkjSolutionsPagesLibPath -PluginRoot $pluginRoot) }
+if ($dkjSolutions) { . (Get-DkjSolutionsPagesLibPath -PluginRoot $pluginRoot); $brandbookDir = Get-BrandbookBuildDir -PluginRoot $pluginRoot }
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
@@ -417,18 +418,27 @@ try {
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" } -Method $method
                 continue
             }
+            if ($dkjSolutions -and $path -eq '/brandbook') {
+                # The app is built for the base /brandbook/, so its own routes are read under the slash.
+                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/brandbook/' } -Method $method
+                continue
+            }
+            if ($dkjSolutions -and $path.StartsWith('/brandbook/')) {
+                # The brand book app's build, as the plugin ships it (#3210).
+                $bb = Resolve-BrandbookFile -Path $path -BuildDir $brandbookDir
+                if ($bb -and (Test-Path -LiteralPath $bb.File -PathType Leaf)) {
+                    Send-LoopbackResponse $stream 200 'OK' (Get-BrandbookContentType -RelPath $bb.Rel) ([System.IO.File]::ReadAllBytes($bb.File)) -Method $method
+                } elseif ($bb -and $bb.Rel -eq 'index.html') {
+                    Send-LoopbackResponse $stream 503 'Service Unavailable' 'text/html; charset=utf-8' ($utf8.GetBytes((Format-BrandbookMissingHtml -RepoName (Get-RepoIdentity).Name))) -Method $method
+                } else {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
+                }
+                continue
+            }
             $html = $null
             if ($path -eq '/artifacts') {
                 $ar = Get-JsonFileModel (Join-Path $root 'scripts\dashboard\artifacts.json')
                 $html = Format-ArtifactsPageHtml -Model (ConvertFrom-ArtifactRegister -Register $ar.Json) -ReadError $ar.Error -RepoName (Get-RepoIdentity).Name
-            } elseif ($path -eq '/brandbook' -and $dkjSolutions) {
-                $texts = @{ Css = ''; Js = '' }; $errs = @()
-                foreach ($k in 'Css', 'Js') {
-                    $f = if ($k -eq 'Css') { $static['/house-style.css'].File } else { $static['/house-theme.js'].File }
-                    try { $texts[$k] = [System.IO.File]::ReadAllText($f, $utf8) } catch { $errs += "$([System.IO.Path]::GetFileName($f)) is not readable" }
-                }
-                $html = Format-BrandbookPageHtml -Model (ConvertFrom-HouseStyleAssets -Css $texts.Css -Js $texts.Js) -ReadError ($errs -join ', ') `
-                    -AppPresent (Test-Path -LiteralPath (Join-Path $root 'brandbook\package.json') -PathType Leaf) -RepoName (Get-RepoIdentity).Name
             } elseif ($path -eq '/issues') {
                 # A failed read is kept for 30 s only, so a passing gh hiccup does not show for five minutes.
                 $isAge = if ($isCache) { ((Get-Date) - $isCache.At).TotalSeconds } else { 0 }

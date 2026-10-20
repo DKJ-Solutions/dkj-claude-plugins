@@ -80,7 +80,8 @@ this section.
   1. The **fold commit** after a merge — bounded to `dkj-policy/CHANGELOG.md` and the branch's
      development document (named by its resolver, `Resolve-BranchFilePath`), which the same run removes.
   2. The **release commit**, only on explicit request — the lockstep version bump, the generated
-     release notes, the changelog emptied to its intro, and the tag `vX.Y.Z`. A major also takes two
+     release notes, the changelog emptied to its intro, the builds `Get-ReleaseBuilds` names (the
+     `brandbook/` app, into `dkj-solutions`' `assets/brandbook/`, #3210), and the tag `vX.Y.Z`. A major also takes two
      preparation commits, bounded to the new section in `dkj-policy/releases/history.md` and the assert
      in `release-lib.tests.ps1` that pins the major.
   3. The **release-notes commit** after the tag — bounded to the hand-written documents of a cut that

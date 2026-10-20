@@ -402,8 +402,12 @@ try {
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig 'scripts\dashboard') | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $noConfig 'scripts\dashboard\artifacts.json'), '{ "artifacts": [ { "title": "Fixture page", "url": "https://claude.ai/artifact/Fx1", "kind": "page", "created": "2026-10-01" } ] }')
         Assert-True ((& $getRaw $genPort '/artifacts') -match 'href="https://claude.ai/artifact/Fx1"[^>]*>Fixture page</a>') 'and lists the repo''s own register, read on every request'
-        $r2 = & $getRaw $genPort '/brandbook'
-        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Brandbook</h1>' -and $r2 -notmatch 'could not be read' -and $r2 -notmatch 'brand book app' -and $r2 -match '<p class="eyebrow">no-config</p>') '/brandbook reads the house style from the plugin the server runs from, in a repo with no brandbook/ of its own'
+        Assert-True ((& $getRaw $genPort '/brandbook') -match 'HTTP/1.1 303[\s\S]*Location: /brandbook/\r') '/brandbook goes to /brandbook/, the base the brand book app is built for (#3210)'
+        # The build ships in the plugin the server runs from: this tree's, written by the cut, so absent until a release.
+        $r2 = & $getRaw $genPort '/brandbook/'
+        $shippedBb = Test-Path -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\brandbook\index.html') -PathType Leaf
+        Assert-True ($(if ($shippedBb) { $r2 -match 'HTTP/1.1 200' -and $r2 -match '<div id="root">' } else { $r2 -match 'HTTP/1.1 503' -and $r2 -match 'ships no build of the brand book' -and $r2 -match '<p class="eyebrow">no-config</p>' })) '/brandbook/ serves the brand book build the plugin ships, or says the plugin ships none, in a repo with no brandbook/ of its own'
+        Assert-True ((& $getRaw $genPort '/brandbook/../connectors/x.json') -match 'HTTP/1.1 404') 'a brand book path that climbs out of the build is not found'
         $r2 = & $getRaw $genPort '/release-notes'
         Assert-True ($r2 -match 'HTTP/1.1 404' -and $r2 -match 'Not built yet' -and $r2 -match 'could not build it \(the build exited 1: [^)]*release history is missing') '/release-notes builds a page that is absent, and where it cannot, is a 404 text naming why (#3189)'
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig 'dkj-policy\releases\page') | Out-Null

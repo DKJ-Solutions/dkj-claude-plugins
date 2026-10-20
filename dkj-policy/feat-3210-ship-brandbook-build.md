@@ -60,13 +60,15 @@ tree at its tag, so "shipped" means committed into the plugin folder by the rele
       that ships no build.
 - [x] `serve-general-pages.ps1` serves the shipped build under `/brandbook/` (303 from `/brandbook`), and this
       repo's hub resolves its own build through the same function.
+- [x] Review (Victor #19, Sebastian #23): `npm ci --ignore-scripts`, a post-build check for source maps and local user
+      paths, the Output emptied before the build, `git -C` on the dirty check, and a `-LiteralPath` copy.
 - [x] Docs: the release-commit bound in `.claude/rules/this-repo.md`, the hub and `dkj-solutions` READMEs, and
       `brandbook/README.md`.
 
 ### TEST
 
 - [x] `cut-release-drive.tests.ps1`: the happy path ships a fixture build into the release commit; a failing
-      command and an unignored Output each refuse before the first write (111 asserts green).
+      command, an unignored Output and a source map in the output each refuse before the first write (114 asserts green).
 - [x] `dev-pages`, `dev-preview-sessionstart`, `connector-dashboard`, `script-contract` and `config-blueprint`
       suites green.
 - [x] A simulated first cut (the real build copied into `assets/brandbook/` and added intent-to-add): the

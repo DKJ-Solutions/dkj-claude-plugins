@@ -20,6 +20,12 @@ the hub rebuilds the app when anything it is built from is newer than `dist/` --
 the house style -- running `npm ci` first when `node_modules` is missing. So the hub always shows the tree; the
 first visit after a change waits a few seconds for the build.
 
+**Every other DKJ-Solutions repo sees the build of the release it runs.** The cut builds this app after its gates
+and copies `dist/` into the `dkj-solutions` plugin's `assets/brandbook/` in the release commit
+(`Get-ReleaseBuilds` in `scripts/repo-config.ps1`,
+[#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210)), and the plugin's general pages server
+serves that folder at `/brandbook/`. So a change here reaches consumers with the next release, never before.
+
 The app is built for the base `/brandbook/` (`vite.config.ts`): the showcase is its index, the Repo hub pattern is
 `/brandbook/repo-hub` and the hub previews are `/brandbook/dashboards`. The "Repo hub" crumb goes to the real hub on `/`.
 

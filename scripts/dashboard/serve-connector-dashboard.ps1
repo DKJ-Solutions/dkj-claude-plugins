@@ -8,10 +8,10 @@
     shows the house style's tokens, themes and every component. The rules of the hub and of each page are in
     scripts/lib/dev-pages-lib.ps1.
 
-    /brandbook IS LISTED IN THE HUB'S DKJ-Solutions CARD and is the plugin's general page in every other
-    DKJ-Solutions repo (scripts/lib/general-pages-lib.ps1), read from the house-style files. Here it is answered,
-    not relayed, and with the brand book itself rather than that page: this repo holds the brandbook/ React app,
-    the one brand book (owner's decision, October 20, 2026).
+    /brandbook IS LISTED IN THE HUB'S DKJ-Solutions CARD, and in every other DKJ-Solutions repo the plugin's
+    general server serves it: the build of this same app, which the cut copies into the dkj-solutions plugin
+    (#3210). Here it is answered, not relayed, and from this tree's own build, so a change to the app or the house
+    style shows here before it is released.
 
     ONE BRAND BOOK. The hub had a PowerShell page of its own at /brandbook (#3132) beside the brandbook/ app
     (#3131): two brand books. The app is the one that stays, and the hub serves its build (brandbook/dist,
@@ -407,13 +407,10 @@ try {
                 continue
             }
             if ($path.StartsWith('/brandbook/')) {
-                $rel = ConvertTo-BrandbookRelPath -Path $path
-                $dist = Join-Path $root 'brandbook\dist'
-                $file = if ($rel) { Join-Path $dist ($rel -replace '/', '\') } else { $null }
-                # A path naming no file (no dot in its last segment) is one of the app's own routes: its page.
-                if ($rel -and -not (Test-Path -LiteralPath $file -PathType Leaf) -and ($rel -split '/')[-1] -notmatch '\.') {
-                    $rel = 'index.html'; $file = Join-Path $dist 'index.html'
-                }
+                # The same resolver the general server uses for the shipped build (#3210), here on this tree's own.
+                $bbf = Resolve-BrandbookFile -Path $path -BuildDir (Join-Path $root 'brandbook\dist')
+                $rel = if ($bbf) { $bbf.Rel } else { $null }
+                $file = if ($bbf) { $bbf.File } else { $null }
                 if ($rel -eq 'index.html') {
                     $bb = Update-BrandbookBuild
                     if (-not $bb.Ok) {

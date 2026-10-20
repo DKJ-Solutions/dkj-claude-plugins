@@ -139,7 +139,10 @@ function New-CutFixture {
         # A SECOND, CALLER-WRITTEN ENTRY, appended verbatim after the fixture's own one (inbound #2230).
         # Raw rather than another set of named knobs: the one scenario that needs it is a 'Retracts:' entry,
         # whose whole point is a line no other scenario's fixture needs to know about.
-        [string]$ExtraEntry = '')
+        [string]$ExtraEntry = '',
+        # The fixture's release build (#3210): the command that makes it, and whether git ignores its output.
+        [string]$BuildCommand = 'echo built> dist\index.html',
+        [bool]$IgnoreBuildOutput = $true)
 
     $root = Join-Path $FixtureDir $Name
     if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root -Recurse -Force }
@@ -179,7 +182,15 @@ function New-CutFixture {
         $reloc = $reloc -replace ("(?m)^\`$script:" + $seam.Var + "\s*=.*$"), ("`$script:" + $seam.Var + " = '" + $seam.Root + "'")
         if ($reloc -eq $before) { throw "fixture: could not repoint $($seam.Var) to the root -- the seam literal in repo-config.ps1 changed shape." }
     }
+    # THE THIRD DEPARTURE (#3210): this repo's build is the brandbook/ app, and npm has no place in a fixture. The
+    # seam is repointed at a one-line build in app/, so the cut's own handling of a build is what runs.
+    $before = $reloc
+    $fixtureBuild = "`$script:ReleaseBuilds = @(`n    @{ Name = 'app'; WorkingDirectory = 'app'; Commands = @('if not exist dist mkdir dist', '$BuildCommand')`n" +
+        "       Output = 'app/dist'; Target = 'plugins/workflows/workflow-fixture/assets/app' }`n)"
+    $reloc = [regex]::Replace($reloc, '(?ms)^\$script:ReleaseBuilds = @\(.*?^\)', { param($m) $fixtureBuild })
+    if ($reloc -eq $before) { throw "fixture: could not repoint ReleaseBuilds -- the seam literal in repo-config.ps1 changed shape." }
     Write-Utf8 $relocPath $reloc
+    Write-Utf8 (Join-Path $root 'app\.gitignore') $(if ($IgnoreBuildOutput) { "dist/`n" } else { "# nothing ignored`n" })
 
     Write-Utf8 (Join-Path $root '.claude-plugin\marketplace.json') @"
 {
@@ -350,6 +361,12 @@ try {
     Assert-Match 'other-repo/v0\.1\.0/' $pinPage 'happy path: a URL under another prefix is left alone'
     Assert-Says 'repinned: plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md -> v1.4.1 (2 URL(s))' $r.Out 'happy path: the run says what it repinned'
     Assert-NotMatch '\?\? .*SKILL\.md|M .*SKILL\.md' (Get-GitOut -Root $root -GitArgs @('status', '--porcelain')) 'happy path: the repinned page is inside the release commit'
+
+    # The release build (#3210): built after the gates, copied into the plugin, and committed with the release.
+    $shipped = Join-Path $root 'plugins\workflows\workflow-fixture\assets\app\index.html'
+    Assert-True ((Test-Path -LiteralPath $shipped) -and (Get-Content -LiteralPath $shipped -Raw) -match 'built') 'happy path: the build was copied into the plugin'
+    Assert-Says 'shipped: app -> plugins/workflows/workflow-fixture/assets/app (1 file(s))' $r.Out 'happy path: the run says what it shipped'
+    Assert-Match 'assets/app/index\.html' (Get-GitOut -Root $root -GitArgs @('show', '--name-only', '--format=', 'HEAD')) 'happy path: the shipped build is inside the release commit'
 
     # CHANGELOG down to its intro: the entry is gone, the intro survives verbatim.
     $changelog = Get-Content -LiteralPath (Join-Path $root 'CHANGELOG.md') -Raw
@@ -835,6 +852,28 @@ $cutSectH11 Pull Request
     Assert-Equal '1.4.0' $v17 'pin missing: nothing was written'
     Assert-Equal '' (Get-GitOut -Root $root17 -GitArgs @('status', '--porcelain')).Trim() 'pin missing: the tree is as clean as it was'
 
+    # --- 14. A release build that fails, or builds where git can see it, refuses the cut (#3210) -------
+    Write-Host ""
+    Write-Host "cut-release.ps1 -- a failed or unignored release build refuses before the first write" -ForegroundColor Cyan
+    $root18 = New-CutFixture -Name 'build-fails' -BuildCommand 'exit 3'
+    $r18 = Invoke-Cut -Root $root18 -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-True ($r18.Code -ne 0) 'build fails: refused with a non-zero exit'
+    Assert-Says "release build 'app': 'exit 3' exited 3" $r18.Out 'build fails: the refusal names the build and its command'
+    $v18 = (Get-Content -LiteralPath (Join-Path $root18 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
+    Assert-Equal '1.4.0' $v18 'build fails: nothing was written'
+    Assert-Equal '' (Get-GitOut -Root $root18 -GitArgs @('status', '--porcelain')).Trim() 'build fails: the tree is as clean as it was'
+
+    $root19 = New-CutFixture -Name 'build-unignored' -IgnoreBuildOutput $false
+    $r19 = Invoke-Cut -Root $root19 -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-True ($r19.Code -ne 0) 'build unignored: refused with a non-zero exit'
+    Assert-Says "builds into 'app/dist', which git does not ignore" $r19.Out 'build unignored: the refusal names the output git would commit'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $root19 'app\dist'))) 'build unignored: refused before the build ran'
+
+    $root20 = New-CutFixture -Name 'build-leaks' -BuildCommand 'echo {}> dist\index.js.map'
+    $r20 = Invoke-Cut -Root $root20 -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-True ($r20.Code -ne 0) 'build leaks: a source map in the output refuses the cut'
+    Assert-Says "left a source map or a local path in index.js.map" $r20.Out 'build leaks: the refusal names the file'
+    Assert-Equal '' (Get-GitOut -Root $root20 -GitArgs @('status', '--porcelain')).Trim() 'build leaks: the tree is as clean as it was'
 } finally {
     if (Test-Path -LiteralPath $FixtureDir) {
         Remove-Item -LiteralPath $FixtureDir -Recurse -Force -ErrorAction SilentlyContinue
