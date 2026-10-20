@@ -752,6 +752,21 @@ function Get-ReleaseVersionPins {
     return $script:ReleaseVersionPins
 }
 
+# The builds cut-release ships (#3210). The brand book is the brandbook/ React app, and every DKJ-Solutions repo
+# serves it from the dkj-solutions plugin, which cannot build it: the cut builds it after the gates and copies
+# brandbook/dist into the plugin, in the release commit. The owner chose this over keeping a second, PowerShell
+# brand book for consumers (owner, October 20, 2026, on #3210). --ignore-scripts: no dependency's install script runs
+# in the shell that holds the push credentials (security review, #3210).
+$script:ReleaseBuilds = @(
+    @{ Name = 'brandbook'; WorkingDirectory = 'brandbook'; Commands = @('npm ci --ignore-scripts', 'npm run build')
+       Output = 'brandbook/dist'; Target = 'plugins/dkj-policy/dkj-solutions/assets/brandbook' }
+)
+
+function Get-ReleaseBuilds {
+    <# The builds cut-release runs after its gates and copies into a plugin in the release commit. #>
+    return $script:ReleaseBuilds
+}
+
 # --- RETIRED, AUGUST 5, 2026: Get-ReleaseCategoryTitles -------------------------------------------
 #
 # Display labels for the release-notes category headings, keyed on the branch types: Feat -> Features,
@@ -1494,8 +1509,8 @@ function Get-HouseStyleAllowlist {
         @{ Path = 'scripts/tests/check-house-style.tests.ps1';  Reason = "the gate's own suite: every name in it is a fixture" }
         @{ Path = 'plugins/dkj-policy/dkj-solutions/scripts/lib/house-style-rules.ps1'; Name = 'h2'; Reason = "the gate's own heading check (#3175): its patterns and their comments spell the shape they look for" }
         @{ Path = 'brandbook/src/showcase/sections/HouseStyle.tsx'; Name = '.theme-swatch'; Reason = 'the brand book''s themes table READS the house stylesheet''s theme blocks by their selector, not a rule of its own' }
-        @{ Path = 'plugins/dkj-policy/dkj-solutions/scripts/lib/dkj-solutions-pages-lib.ps1'; Name = '.theme-swatch'; Reason = 'the Brandbook page''s pattern that READS the house stylesheet''s theme blocks (#3132, in its own lib since #3198), not a rule of its own' }
-        @{ Path = 'scripts/tests/dev-pages.tests.ps1'; Reason = 'fixtures of the Brandbook page: a small house stylesheet it reads (#3132)' }
+        @{ Path = 'scripts/tests/dev-pages.tests.ps1'; Name = 'h2'; Reason = 'the hub''s own suite asserts that no card carries an h2, so it spells the shape it refuses' }
+        @{ Path = 'plugins/dkj-policy/dkj-solutions/assets/brandbook/*'; Reason = 'the brand book app''s build, which the cut ships into the plugin (#3210): the house stylesheet bundled with the app''s own layer, minified, not a layer of its own' }
         # The brandbook app (#3131): five deliberate extensions it brought from dkj-brandbook, which never ran this gate.
         @{ Path = 'brandbook/src/components/dialog.css'; Name = '--primary-2'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
         @{ Path = 'brandbook/src/components/dialog.css'; Name = '--primary-6'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }

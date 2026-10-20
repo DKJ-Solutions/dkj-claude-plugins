@@ -324,6 +324,17 @@
                     },
                     {
                         "lib":  "scripts\\repo-config.ps1",
+                        "function":  "Get-ReleaseBuilds",
+                        "adopt":  "decide",
+                        "adoptWhy":  "what a release builds is a fact about this repo\u0027s own tree: the source\u0027s entry names an app and a plugin folder a consumer does not have, and the cut aborts on a working directory that is missing. Empty, the default, is right for every repo whose plugins ship no build (#3210)",
+                        "optional":  true,
+                        "default":  "@() -- nothing is built",
+                        "returns":  "@{ Name; WorkingDirectory; Commands; Output; Target } per build, the paths repo-root-relative. After the gates the cut runs each command under cmd.exe in WorkingDirectory, then copies Output over Target in the release commit. It aborts before its first write when the directory is missing, Output is not ignored by git, Target is not a folder inside a plugin under plugins/, a command fails, or the build changes a file git sees. Built for the brandbook/ app, which the dkj-solutions plugin serves but cannot build (#3210)",
+                        "declared":  true,
+                        "text":  "# The builds cut-release ships (#3210). The brand book is the brandbook/ React app, and every DKJ-Solutions repo\n# serves it from the dkj-solutions plugin, which cannot build it: the cut builds it after the gates and copies\n# brandbook/dist into the plugin, in the release commit. The owner chose this over keeping a second, PowerShell\n# brand book for consumers (owner, October 20, 2026, on #3210). --ignore-scripts: no dependency\u0027s install script runs\n# in the shell that holds the push credentials (security review, #3210).\n$script:ReleaseBuilds = @(\n    @{ Name = \u0027brandbook\u0027; WorkingDirectory = \u0027brandbook\u0027; Commands = @(\u0027npm ci --ignore-scripts\u0027, \u0027npm run build\u0027)\n       Output = \u0027brandbook/dist\u0027; Target = \u0027plugins/dkj-policy/dkj-solutions/assets/brandbook\u0027 }\n)\n\nfunction Get-ReleaseBuilds {\n    \u003c# The builds cut-release runs after its gates and copies into a plugin in the release commit. #\u003e\n    return $script:ReleaseBuilds\n}"
+                    },
+                    {
+                        "lib":  "scripts\\repo-config.ps1",
                         "function":  "Get-ReleaseConsumerBumps",
                         "adopt":  "decide",
                         "adoptWhy":  "it declares that this repo wants a stakeholder-facing document at all, and for which bumps. Whether there is an audience outside the developers is a fact about the organisation around the repo, which no script can read from the tree",

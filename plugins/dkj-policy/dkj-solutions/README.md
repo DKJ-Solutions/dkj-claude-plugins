@@ -58,9 +58,12 @@ never enables this plugin. They are documented in
 **What stays here is the DKJ-Solutions card and the page it links, the Brandbook**:
 [`scripts/lib/dkj-solutions-pages-lib.ps1`](scripts/lib/dkj-solutions-pages-lib.ps1). The house style
 belongs to every DKJ-Solutions repo and to no other, so a hub shows that card, after General, only in a
-repo that enables this plugin, and the general pages server answers `/brandbook` only there. The
-Brandbook reads its themes, tokens and components from this plugin's `assets/house-style/` on every
-request; where the repo has a `brandbook/package.json`, it names `npm run dev` there. Every page the
+repo that enables this plugin, and the general pages server answers `/brandbook` only there. **The
+Brandbook is the source repo's `brandbook/` React app**, built by every release into this plugin's
+`assets/brandbook/` and served from there under `/brandbook/` (the owner's decision on
+[#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210), October 20, 2026, which retired
+the PowerShell page that rendered the house style a second time). A copy of the plugin from before that
+release ships no build, and the page then says so. Every page the
 hub machinery renders uses the house style, in every repo, from the copy of this folder inside
 `dkj-policy`'s own payload.
 
@@ -93,8 +96,8 @@ The plugin is enabled here since October 13, 2026
 ([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)), first for the dev-preview hook
 and, since that moved to `dkj-policy` (#3198), for the house-style session check and the hub's
 DKJ-Solutions card. This repo's Repo hub is described in [`dkj-policy`'s `hub/README.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/hub/README.md#in-the-source-repo).
-Its server answers `/brandbook` itself, with the `brandbook/` app, rather than relaying the plugin's
-Brandbook page.
+Its server answers `/brandbook` itself, with this tree's own build of the `brandbook/` app, so a change
+shows here before the release that ships it.
 
 The house style itself is maintained here, in `assets/house-style/`, since
 [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) (October 18, 2026) moved it in

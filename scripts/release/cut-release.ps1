@@ -35,7 +35,7 @@
     SHARED, WITH THE REPO'S OWN ANSWERS IN THE SEAM (issue #417). This script is mirrored into the
     plugin, so a consumer runs it rather than forking it. Everything that legitimately differs per
     repo is read from the OPTIONAL functions in scripts/repo-config.ps1, and every fallback is what
-    this script did before it was shared. THE LIST IS THE EIGHT THIS SCRIPT ACTUALLY READS, and it is
+    this script did before it was shared. THE LIST IS THE TEN THIS SCRIPT ACTUALLY READS, and it is
     kept that way deliberately: a consumer configures from this list, so a name that does nothing costs
     them an afternoon and a name that is missing hides a knob they needed.
 
@@ -54,6 +54,9 @@
       Get-TestCommands            extra test commands the test gate in step 1 runs beside the
                                   *.tests.ps1 suites (e.g. 'npm test') -- read inside the shared
                                   Invoke-TestSuiteGate, so open-pr's gate sees the same list
+      Get-ReleaseVersionPins      files whose URLs the cut repoints at the tag it cuts (#3133)
+      Get-ReleaseBuilds           builds run after the gates and copied into a plugin in the release
+                                  commit, so a plugin ships an app it cannot build itself (#3210)
 
     TWO NAMES THAT USED TO BE ON THIS LIST ARE GONE, and they are named here rather than silently
     dropped, because a consumer's repo-config may still define them: Get-ReleaseLiveMarker described
@@ -439,6 +442,29 @@ $versionPins = @(foreach ($pin in @(Get-SeamValue -Name 'Get-ReleaseVersionPins'
     $hits = [regex]::Matches([System.IO.File]::ReadAllText($pinAbs, [System.Text.Encoding]::UTF8), $pattern).Count
     if ($hits -eq 0) { Write-Error "Get-ReleaseVersionPins: '$($pin.Path)' carries no '$($pin.Prefix)vX.Y.Z/' -- release aborted."; exit 1 }
     [pscustomobject]@{ Path = $pin.Path; Prefix = $pin.Prefix; Abs = $pinAbs; Pattern = $pattern; Hits = $hits }
+})
+
+# The builds the cut ships (#3210), each @{ Name; WorkingDirectory; Commands; Output; Target }: the commands run
+# in WorkingDirectory after the gates, and Output is copied over Target in the release commit. Read and checked
+# HERE for the reason the pins are. Target sits under plugins/ (what a release ships) and is never the plugins
+# root itself; Output must be ignored by git, or the release commit would carry the build twice. Empty by default.
+$releaseBuilds = @(foreach ($b in @(Get-SeamValue -Name 'Get-ReleaseBuilds' -Default @())) {
+    if (-not $b) { continue }
+    if (-not $b.Name -or -not $b.WorkingDirectory -or -not @($b.Commands).Count -or -not $b.Output -or -not $b.Target) {
+        Write-Error "Get-ReleaseBuilds: every entry needs a Name, a WorkingDirectory, Commands, an Output and a Target -- release aborted."; exit 1
+    }
+    $rels = @($b.WorkingDirectory, $b.Output, $b.Target | ForEach-Object { ([string]$_).Replace('\', '/').TrimEnd('/') })
+    if (@($rels | Where-Object { $_ -match '^/|^[A-Za-z]:|(^|/)\.\.?(/|$)' }).Count) {
+        Write-Error "Get-ReleaseBuilds: '$($b.Name)' names a path that is absolute or climbs out of the repo -- release aborted."; exit 1
+    }
+    if ($rels[2] -notmatch '^plugins/[^/]+/.+') {
+        Write-Error "Get-ReleaseBuilds: '$($b.Name)' targets '$($rels[2])', which is not a folder inside a plugin under plugins/ -- release aborted."; exit 1
+    }
+    $buildDir = Join-Path $repoRoot ($rels[0] -replace '/', '\')
+    if (-not (Test-Path -LiteralPath $buildDir -PathType Container)) { Write-Error "Get-ReleaseBuilds names '$($rels[0])' for '$($b.Name)', which does not exist -- release aborted."; exit 1 }
+    if ((Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'check-ignore', '-q', '--', ($rels[1] + '/x')) -DiscardStderr).ExitCode -ne 0) { Write-Error "Get-ReleaseBuilds: '$($b.Name)' builds into '$($rels[1])', which git does not ignore -- release aborted."; exit 1 }
+    [pscustomobject]@{ Name = [string]$b.Name; Dir = $buildDir; Commands = @($b.Commands | ForEach-Object { [string]$_ })
+        Output = $rels[1]; OutputAbs = (Join-Path $repoRoot ($rels[1] -replace '/', '\')); Target = $rels[2]; TargetAbs = (Join-Path $repoRoot ($rels[2] -replace '/', '\')) }
 })
 
 # The consumer tier (#417 phase 2). Empty by default, which is the tier switched OFF -- what this
@@ -1345,6 +1371,37 @@ if (-not $SkipTests -and -not $catchUpCertified) {
 # before the first write rather than trusting the look taken before them.
 Assert-TrunkMatchesOrigin -Moment 'after the gates'
 
+# THE BUILDS THE RELEASE SHIPS (#3210), run here: after the gates, before the first write. A failed command
+# aborts with nothing written, because a build only writes into its Output, which git ignores. One that touches
+# anything git sees -- a lockfile rewritten by an install, say -- aborts as well: git add -A would put it in the
+# release commit, and the commit is bounded to what the cut itself writes.
+foreach ($b in $releaseBuilds) {
+    Write-Host "release build: $($b.Name)..." -ForegroundColor Cyan
+    # A stale output from an earlier local build must not ship beside the new one (code review, #3210).
+    if (Test-Path -LiteralPath $b.OutputAbs) { Remove-Item -LiteralPath $b.OutputAbs -Recurse -Force }
+    foreach ($cmd in $b.Commands) {
+        $out = @(& cmd.exe /d /c "cd /d `"$($b.Dir)`" && $cmd 2>&1")
+        if ($LASTEXITCODE -ne 0) {
+            $out | Select-Object -Last 20 | ForEach-Object { Write-Host "  $_" }
+            Write-Error "release build '$($b.Name)': '$cmd' exited $LASTEXITCODE -- release aborted, nothing written."; exit 1
+        }
+    }
+    if (-not @(Get-ChildItem -LiteralPath $b.OutputAbs -Recurse -File -ErrorAction SilentlyContinue).Count) {
+        Write-Error "release build '$($b.Name)' left nothing in '$($b.Output)' -- release aborted, nothing written."; exit 1
+    }
+    # What ships lands in every consumer and, here, in a public repo: no source map, and no local user path a
+    # bundler can inline (security review, #3210).
+    $leaks = @(Get-ChildItem -LiteralPath $b.OutputAbs -Recurse -File | Where-Object {
+        $_.Name -like '*.map' -or [System.IO.File]::ReadAllText($_.FullName) -match 'sourceMappingURL=|[A-Za-z]:[\\/]+Users[\\/]+|/home/[^/\s"'']+/|/Users/[^/\s"'']+/' })
+    if ($leaks.Count) {
+        Write-Error "release build '$($b.Name)' left a source map or a local path in $(($leaks | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', ') -- release aborted, nothing written."; exit 1
+    }
+    $dirty = @((Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'status', '--porcelain') -DiscardStderr).Output | Where-Object { $_ })
+    if ($dirty.Count) {
+        Write-Error "release build '$($b.Name)' changed what git sees ($(($dirty | Select-Object -First 3) -join '; ')) -- release aborted. Restore those files; a build may write only into its Output."; exit 1
+    }
+}
+
 # --- Build content (before the write actions, so a parse error leaves nothing behind) --------
 # The notes folder: '<X>.x' per major (this workshop) or '<X.Y>' per minor, from the seam (#417).
 # $notesDirName is used for the path, the README row link and the directory creation below, so the
@@ -1803,6 +1860,18 @@ foreach ($pin in $versionPins) {
     $raw = [System.IO.File]::ReadAllText($pin.Abs, [System.Text.Encoding]::UTF8)
     Write-Utf8NoBom -Path $pin.Abs -Content ([regex]::Replace($raw, $pin.Pattern, ($pin.Prefix + "v$new/").Replace('$', '$$')))
     Write-Host "  repinned: $($pin.Path) -> v$new ($($pin.Hits) URL(s))" -ForegroundColor DarkGray
+}
+
+# --- Ship the builds the repo names (#3210) ------------------------------------------------------------
+# Built after the gates; copied here, so the release commit carries each build at the version it ships with.
+# Target is replaced whole, so a file the build no longer makes (an old hashed bundle) leaves with it.
+foreach ($b in $releaseBuilds) {
+    if (Test-Path -LiteralPath $b.TargetAbs) { Remove-Item -LiteralPath $b.TargetAbs -Recurse -Force }
+    New-Item -ItemType Directory -Path $b.TargetAbs -Force | Out-Null
+    # Item by item with -LiteralPath: a '[' in the checkout's path would be read as a wildcard by -Path.
+    foreach ($item in @(Get-ChildItem -LiteralPath $b.OutputAbs)) { Copy-Item -LiteralPath $item.FullName -Destination $b.TargetAbs -Recurse -Force }
+    $n = @(Get-ChildItem -LiteralPath $b.TargetAbs -Recurse -File).Count
+    Write-Host "  shipped: $($b.Name) -> $($b.Target) ($n file(s))" -ForegroundColor DarkGray
 }
 
 # The follow-up documents this script deliberately does NOT write, printed once at the end whether or

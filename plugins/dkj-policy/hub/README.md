@@ -139,11 +139,15 @@ split, October 20, 2026). The house style belongs to every DKJ-Solutions repo an
 is not one repo's own; but "General" means what *every* repo has, so it is not general either. A hub
 therefore lists it in a third card, **DKJ-Solutions**, after General, and both the page and the card are
 the `dkj-solutions` extension's ([`dkj-solutions-pages-lib.ps1`](../dkj-solutions/scripts/lib/dkj-solutions-pages-lib.ps1)).
+**The page is the source repo's `brandbook/` React app** (the owner's decision on
+[#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210), October 20, 2026): its cut builds
+the app and copies the build into `dkj-solutions/assets/brandbook/`, and this server serves that folder
+under `/brandbook/`. The PowerShell Brandbook page it replaces is retired, so there is one brand book.
 
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
-| `/brandbook` | Only where the repo enables `dkj-solutions`: the house style's themes, tokens and components, read from the `dkj-solutions/assets/house-style/` this server runs from, on every request; where the repo has a `brandbook/package.json`, a line naming `npm run dev` there | A plain 404 in a repo without `dkj-solutions`; a file that cannot be read is a warning on the page |
+| `/brandbook/` | Only where the repo enables `dkj-solutions`: the brand book app's build in the `dkj-solutions/assets/brandbook/` this server runs from, its own routes answered with its `index.html`; `/brandbook` is a 303 to it | A plain 404 in a repo without `dkj-solutions`; a plugin copy that ships no build gets a page saying so |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
 | `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `build-release-notes-page.ps1` in a child process (bounded at 60 s), the repo's own copy else this plugin's: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |
 | `/sessionstart` | The always-on path, measured in a child process (bounded at 60 s) by `always-on-budget-lib.ps1`, the repo's own copy else this plugin's; kept for a minute | The reason it could not measure, on the page |
