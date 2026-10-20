@@ -1277,7 +1277,7 @@ which is why both old spellings still appear in the tree and why neither may eve
 Both redirects are **transfer redirects this repo does not control**, and each holds just as long as
 nothing is created at its old path — which is why neither `DaveKJohn/claude-code-specialists` nor
 `DKJ-Solutions/claude-code-specialists` may ever be recreated (the canonical-channel note in
-[`README.md`](../../../README.md#consumption)). The machine layer states the current answer once, in
+[`README.md`](../../../plugins/ADOPTION.md#consumption)). The machine layer states the current answer once, in
 `scripts/repo-config.ps1`, and a fresh marketplace install uses it.
 
 **And the retired NAME is data the tooling reads, not only prose to correct.** Three of this workflow's
@@ -1316,12 +1316,12 @@ it.
 
 Moved here from `.claude/rules/this-repo.md` under
 [#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the current layout itself is in
-[`README.md`](../../../README.md#repo-layout).
+[`README.md`](#repo-layout).
 
 Since August 3, 2026 the plugins sit **one** level down in `plugins/<plugin>/` instead of two in
 `claude-code-plugins/claude-specialists/<plugin>/`: that second level existed to hold several product
 families side by side, which the
-[one-product rule](../../../README.md#one-product-one-repository) retired. `connectors/` moved **to the
+[one-product rule](specialist-06-16-lens.md#one-product-one-repository) retired. `connectors/` moved **to the
 root** in the same movement, deliberately — it is the consumer register read by `scripts/sync/`, not
 plugin payload, and must not travel along in the plugin cache. `agent-shared/` (as it was named then)
 stayed **inside** `plugins/` for the mirror-image reason: it *is* plugin source.
