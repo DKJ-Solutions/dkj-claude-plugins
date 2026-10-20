@@ -40,7 +40,7 @@
 ### PLAN
 
 Maikel found the /test-gate page unclear and asked whether the gates could be grouped by which actions
-need them and which are optional. No suite is optional -- CI and open-pr run all of them on every PR --
+need them and which are optional. No suite is optional -- the required CI check runs all of them on every PR --
 so the grouping is by the workflow step each suite guards, kept in a fixed file (his choice over
 deriving groups from file names).
 
@@ -68,7 +68,7 @@ The dev server's /test-gate page groups the test suites by the workflow step the
 branch, the PR, the fold, the release, the lint gate, CI, the hooks, adoption, machine upkeep, the dev
 pages, the BWJ and Shopify plugins and the shared libs -- with each group's suite count, cost and share and a few points to note per section,
 closes every table on a total -- the seconds summed as if run one after another, which the label says CI
-does not do -- and says in its lead that no suite is optional: every one runs on every PR. The grouping lives in
+does not do -- and says in its lead that no suite is optional: the required CI check runs every one on every PR. The grouping lives in
 `scripts/tests/suite-groups.json`, and `dev-pages.tests.ps1` fails when a suite on disk is in no group,
 so a new suite is grouped in the PR that adds it. The links on the hub's pages (`.dp-link`) take
 `--primary-11` instead of `--primary-9`, which read poorly as link text, and are underlined only on hover

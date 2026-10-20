@@ -299,7 +299,7 @@ function Format-TestGatePageHtml {
     $groups = @($Model.Groups)
     if ($groups.Count -and $suites.Count) {
         [void]$body.AppendLine('<div class="grid-2" id="groups">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Groups</h2><p class="card__sub">What each group of suites guards. Every suite runs on every PR, whichever group it is in</p></div>')
+        [void]$body.AppendLine('<div class="grid__head"><h2>Groups</h2><p class="card__sub">What each group of suites guards. CI runs every suite on every PR, whichever group it is in</p></div>')
         [void]$body.AppendLine('<section class="card grid__full">')
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Group</th><th>Suites</th><th>Seconds</th><th class="dp-left">Against the slowest group</th><th>Share of the sum</th></tr></thead><tbody>')
         $heaviest = ($groups | ForEach-Object { $_.Total } | Measure-Object -Maximum).Maximum
@@ -349,7 +349,7 @@ function Format-TestGatePageHtml {
         if ($suites.Count) { [void]$body.AppendLine((& $suiteTable $suites)) }
         else { [void]$body.AppendLine('<p class="note">No suite durations are recorded.</p>') }
         [void]$body.AppendLine('</section>')
-        [void]$body.AppendLine((& $tipsBlock @('Without scripts/tests/suite-groups.json the suites are listed in one table; every one of them still runs on every PR.')))
+        [void]$body.AppendLine((& $tipsBlock @('Without scripts/tests/suite-groups.json the suites are listed in one table; CI still runs every one of them on every PR.')))
         [void]$body.AppendLine('</div>')
     }
     [void]$body.AppendLine('<div class="grid-2" id="recorded">')
@@ -371,7 +371,7 @@ function Format-TestGatePageHtml {
     # The house's .row-total sets the weight; the rule above it, heavier than a row's own, is this page's.
     $style = $script:DevBarStyle + "`n" + '.dp-total td { border-top: 2px solid var(--primary-5); }'
     return Format-DevPageHtml -Title 'Test gate' -Style $style -Body $body.ToString() `
-        -Lead 'What each test suite costs on CI, grouped by the workflow step it guards. No suite is optional: the gate runs every one on every PR, and a group says what breaks when its suites go red, not when they run. Measured on CI runners, never on a workstation: a local reading does not convert.' `
+        -Lead 'What each test suite costs on CI, grouped by the workflow step it guards. No suite is optional: the required CI check runs every one on every PR, while open-pr runs locally only those the branch can affect. A group says what breaks when its suites go red, not when they run. Measured on CI runners, never on a workstation: a local reading does not convert.' `
         -FooterNote 'Read from <code>scripts/tests/suite-durations.json</code>, grouped by <code>scripts/tests/suite-groups.json</code>. Refreshed by <code>scripts/maintenance/record-suite-durations.ps1</code>; the <code>measure-suites</code> skill compares two sets of runs.'
 }
 

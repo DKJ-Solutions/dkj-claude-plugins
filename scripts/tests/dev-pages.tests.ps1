@@ -152,7 +152,7 @@ Assert-Equal 'gone.tests.ps1' ($gm.Ungrouped -join ',') 'a suite no group holds 
 Assert-Equal 'away.tests.ps1' ($gm.Unknown -join ',') 'a grouped name not on disk is unknown'
 Assert-Equal 0 (@($m.Groups).Count + @($m.Ungrouped).Count) 'with no groups there are no groups, and nothing is called ungrouped'
 $gp = Format-TestGatePageHtml -Model $gm
-Assert-True ($gp -match '<h2>Groups</h2>' -and $gp -match 'Every suite runs on every PR') 'the page opens with the groups, and says every suite runs on every PR'
+Assert-True ($gp -match '<h2>Groups</h2>' -and $gp -match 'CI runs every suite on every PR') 'the page opens with the groups, and says CI runs every suite on every PR'
 Assert-True ($gp -match 'href="#group-one">Step &lt;one&gt;</a>' -and $gp -notmatch 'Step <one>') 'each group links to its own section, its title escaped'
 Assert-True ($gp.IndexOf('id="group-one"') -lt $gp.IndexOf('id="group-two"') -and $gp -match '<h2>Step two</h2><p class="card__sub">Guards the second</p>') 'each group has its own section, in order, with what it guards'
 Assert-True ($gp.IndexOf('>a.tests.ps1<') -gt $gp.IndexOf('id="group-one"') -and $gp.IndexOf('>a.tests.ps1<') -lt $gp.IndexOf('id="group-two"')) 'a suite is listed in its own group'

@@ -1,7 +1,7 @@
 {
     "note":  [
                  "Which workflow step each test suite guards -- the grouping of the dev server's /test-gate page.",
-                 "It is a READING AID, never a selection: every suite in this directory runs on every PR,",
+                 "It is a READING AID, never a selection: the required CI check runs every suite here on every PR,",
                  "whichever group it is in, and a merge or fold push to main skips them all or none. A group",
                  "says what breaks when its suites go red, not when they run.",
                  "Every *.tests.ps1 here is in exactly one group, in workflow order, and dev-pages.tests.ps1 holds",
@@ -37,6 +37,7 @@
                        "title":  "Opening, shipping and merging a PR",
                        "guards":  "open-pr and ship-pr: the branch-entry gate, the PR body, the resolves gate, the gate evidence and the merge",
                        "suites":  [
+                                      "affected-suites.tests.ps1",
                                       "backing-gate.tests.ps1",
                                       "branch-entry-gate.tests.ps1",
                                       "entry-scaffold.tests.ps1",
@@ -51,7 +52,7 @@
                                       "trusted-tree-seam.tests.ps1"
                                   ],
                        "tips":  [
-                                    "open-pr runs the whole gate locally; ship-pr may skip its local re-run when CI has already certified the same commit."
+                                    "open-pr runs locally only the suites the branch's changes can affect, plus every suite that walks the live tree, and leaves the whole pool to the required CI check; -AllSuites runs every one (#3223).", "ship-pr may skip its local re-run when CI has already certified the same commit."
                                 ]
                    },
                    {
