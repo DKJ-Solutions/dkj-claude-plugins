@@ -39,20 +39,49 @@
 
 ### PLAN
 
+The owner's decision on #3198 (October 20, 2026): the General pages (Artifacts, Issues, Release notes,
+SessionStart) and the hub/dev-preview machinery they need move to `dkj-policy`, which every repo runs;
+only the DKJ-Solutions card (the Brandbook) stays in `dkj-solutions`. How the pages render in a repo
+without the DKJ house style was left to this branch: they keep the house style everywhere, read from the
+`dkj-solutions` folder inside `dkj-policy`'s own payload, because they are the plugin's tooling, not a
+repo's product. That is a visible result, so this branch is parked for the owner's eye.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Move the hook to `plugins/dkj-policy/hooks/`, and the servers and their libs to a plugin-only `plugins/dkj-policy/hub/` (`lib/`, `pages/`, `preview/`), with `git mv`
+- [x] Split the Brandbook and the DKJ-Solutions card out of `general-pages-lib.ps1` into `dkj-solutions/scripts/lib/dkj-solutions-pages-lib.ps1`
+- [x] `Test-DkjSolutionsEnabled` gates the card and `/brandbook`; `Get-HouseStyleDir` names the house style inside `dkj-policy`; the script search drops the cache walk for the plugin's own folder
+- [x] Register the hook in `dkj-policy`'s `hooks.json`, drop it from `dkj-solutions`'
+- [x] Repoint the source repo's hub, its house-style allowlist and the three suites; document the hub in `plugins/dkj-policy/hub/README.md`
 
 ### TEST
 
+- [x] `dev-pages` (247), `dev-preview-sessionstart` (191) and `connector-dashboard` (168) green, with new asserts for the BWJ path (no DKJ-Solutions card, `/brandbook` a 404) and for `Test-DkjSolutionsEnabled`
+- [x] `check-plugin-integrity` clean
+- [x] The full gate, `open-pr -GatesOnly`, before the park
+
 ### DEPLOY: feat/3198-general-pages-in-dkj-policy
 
-**Score:**
+Every repo that runs `dkj-policy` now gets a Repo hub at session start, with the General pages linked
+from it: Artifacts, Issues, Release notes and SessionStart. That includes the BWJ-Development repos,
+which never enable `dkj-solutions`. Until now the dev-preview hook, the placeholder page and the general
+pages server shipped with `dkj-solutions`, so a repo without that plugin got no Repo hub at all. They now
+ship with `dkj-policy` and are documented in its
+[`hub/README.md`](../plugins/dkj-policy/hub/README.md), the `Get-DevPreview` seam included. A BWJ repo
+therefore starts a placeholder server on a port from 4880 to 4889 and a general pages server on one from
+4890 to 4899 at every session start, unless it states a preview of its own. The pages keep the
+DKJ-Solutions house style in every repo, because they are the plugin's own screens. The DKJ-Solutions card
+and its Brandbook page stay in `dkj-solutions` and appear only in a repo that enables it.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo sees nothing change: the same hub, cards and pages, now served by `dkj-policy`. That
+holds when both plugins are updated together, as `update-plugins` does: an older `dkj-solutions` beside
+this `dkj-policy` would still carry its own copy of the hook.
 
+**Score:** N/A
 #### Pull Request
 
 The General pages and the Repo hub machinery move to dkj-policy

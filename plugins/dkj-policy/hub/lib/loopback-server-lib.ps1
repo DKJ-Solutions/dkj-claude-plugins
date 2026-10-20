@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    What the plugin's two small servers (scripts/preview/serve-placeholder.ps1 and
-    scripts/pages/serve-general-pages.ps1) share: reading one request head off a TcpClient, writing one
+    What the plugin's two small servers (hub/preview/serve-placeholder.ps1 and
+    hub/pages/serve-general-pages.ps1) share: reading one request head off a TcpClient, writing one
     response, and the two refusals every request meets first (a Host that is not loopback, a browser
     request from another site). One copy, so a fix to either rule lands in both servers (#3119). The
     source repo's own hub (scripts/dashboard/serve-connector-dashboard.ps1) loads it from the plugin tree

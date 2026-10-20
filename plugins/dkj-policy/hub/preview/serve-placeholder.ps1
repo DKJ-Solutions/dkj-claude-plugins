@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Serve the placeholder preview (#3047) on http://localhost:<Port>/ -- the page the dev-preview hook
-    opens in a DKJ-Solutions repo that states no Get-DevPreview.
+    opens in a repo that states no Get-DevPreview (every repo since #3198, when it moved into dkj-policy).
 
 .DESCRIPTION
     Started by hooks/dev-preview-sessionstart.ps1 under a cmd.exe that changes into the repo root first,
@@ -17,13 +17,13 @@
 
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped. It serves three paths -- the page,
-    /house-style.css and /house-theme.js from the plugin's canonical copy -- and runs until the process is
+    /house-style.css and /house-theme.js from the canonical copy in this plugin's payload -- and runs until the process is
     stopped. The page is built per request, because its General card (#3119) links the general pages
     server the hook's state file names, when that server answers /whoami as this checkout's within 500 ms, and says it is
-    not running otherwise.
+    not running otherwise. Its DKJ-Solutions card is there only where the repo enables dkj-solutions, read at start.
 
     Pure ASCII (repo convention for .ps1). The page and the request rules are in
-    scripts/lib/dev-preview-placeholder.ps1, tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in
+    hub/lib/dev-preview-placeholder.ps1, tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in
     the source repo.
 
 .PARAMETER Port
@@ -46,7 +46,8 @@ $ErrorActionPreference = 'Stop'
 # The root the hook's state file is named for: the working directory, which its cmd.exe set to the root.
 $repoRoot = [System.IO.Path]::GetFullPath((Get-Location).Path).TrimEnd('\', '/')
 $repoName = Split-Path -Leaf $repoRoot
-$styleDir = Join-Path $PSScriptRoot '..\..\assets\house-style'
+$styleDir = Get-HouseStyleDir -PluginRoot (Join-Path $PSScriptRoot '..\..')
+$dkjSolutions = Test-DkjSolutionsEnabled -Root $repoRoot
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
@@ -90,7 +91,7 @@ try {
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
                 # Built per request: the General card follows the state file and whether that server answers.
-                $body = $utf8.GetBytes((Format-DevPreviewPlaceholderHtml -RepoName $repoName -GeneralPagesUrl (Get-GeneralPagesUrl -Root $repoRoot)))
+                $body = $utf8.GetBytes((Format-DevPreviewPlaceholderHtml -RepoName $repoName -GeneralPagesUrl (Get-GeneralPagesUrl -Root $repoRoot) -DkjSolutions:$dkjSolutions))
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }

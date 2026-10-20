@@ -1,9 +1,10 @@
 <#
 .SYNOPSIS
     Tests for scripts/lib/dev-pages-lib.ps1 -- the Repo hub and the test-gate page of the dev server
-    (#3097) -- and for the plugin lib it reuses, plugins/dkj-policy/dkj-solutions/scripts/lib/
-    general-pages-lib.ps1 -- the page shell, the number formats and the four general pages (SessionStart,
-    Artifacts, Issues, Release notes) that moved there in #3119. Pure: the servers that serve them are
+    (#3097) -- and for the plugin libs it reuses: plugins/dkj-policy/hub/lib/general-pages-lib.ps1 -- the page
+    shell, the number formats and the four general pages (SessionStart, Artifacts, Issues, Release notes) that
+    moved there in #3119, and to dkj-policy in #3198 -- and plugins/dkj-policy/dkj-solutions/scripts/lib/
+    dkj-solutions-pages-lib.ps1, the Brandbook and its card. Pure: the servers that serve them are
     exercised by connector-dashboard.tests.ps1 and dev-preview-sessionstart.tests.ps1.
 
     Pure ASCII (repo convention for .ps1).
@@ -429,17 +430,13 @@ Assert-Equal '' (ConvertFrom-GitRemoteUrl 'https://gitlab.com/Foo/bar.git') 'a h
 Assert-Equal '' (ConvertFrom-GitRemoteUrl 'https://github.com/Foo/bar baz') 'nor is a name with a space'
 Assert-Equal '' (ConvertFrom-GitRemoteUrl 'https://github.com/Foo/..') 'nor a dot-dot'
 Assert-Equal '' (ConvertFrom-GitRemoteUrl '') 'nor is no remote'
-Assert-Equal '5.22.0' (Select-HighestVersionDir @('5.9.0', '5.22.0', '5.10.0', 'latest')) 'the highest version folder is read as a version, not as text'
-Assert-Equal '' (Select-HighestVersionDir @('latest')) 'a folder that is no version is never picked'
-$cands = @(Get-AlwaysOnBudgetLibCandidates -RepoRoot 'C:\r\repo' -PluginRoot 'C:\r\mkt\plugins\dkj-policy\dkj-solutions')
+$cands = @(Get-AlwaysOnBudgetLibCandidates -RepoRoot 'C:\r\repo' -PluginRoot 'C:\r\mkt\plugins\dkj-policy')
 Assert-Equal 'C:\r\repo\scripts\lib\always-on-budget-lib.ps1' $cands[0] 'the repo''s own copy is tried first'
-Assert-Equal 'C:\r\mkt\plugins\dkj-policy\scripts\lib\always-on-budget-lib.ps1' $cands[1] 'then the source layout: dkj-policy beside the plugin'
-Assert-Equal 2 $cands.Count 'and no cache candidate where no dkj-policy version is known'
-$cands = @(Get-AlwaysOnBudgetLibCandidates -RepoRoot 'C:\r\repo' -PluginRoot 'C:\cache\mkt\dkj-solutions\5.23.0\' -PolicyVersions @('5.9.0', '5.22.0'))
-Assert-Equal 'C:\cache\mkt\dkj-policy\5.22.0\scripts\lib\always-on-budget-lib.ps1' $cands[2] 'then the cache layout, in the highest dkj-policy version'
-$cands = @(Get-DkjPolicyScriptCandidates -RepoRoot 'C:\r\repo' -PluginRoot 'C:\cache\mkt\dkj-solutions\5.23.0' -RelativePath 'scripts\release\build-release-notes-page.ps1' -PolicyVersions @('5.22.0'))
+Assert-Equal 'C:\r\mkt\plugins\dkj-policy\scripts\lib\always-on-budget-lib.ps1' $cands[1] 'then the dkj-policy plugin the server runs from (#3198)'
+Assert-Equal 2 $cands.Count 'and nothing else: the server is dkj-policy''s, so no other version is searched for'
+$cands = @(Get-DkjPolicyScriptCandidates -RepoRoot 'C:\r\repo' -PluginRoot 'C:\cache\mkt\dkj-policy\5.26.0\' -RelativePath 'scripts\release\build-release-notes-page.ps1')
 Assert-Equal 'C:\r\repo\scripts\release\build-release-notes-page.ps1' $cands[0] 'the release-notes builder is looked for the same way: the repo''s own copy first (#3189)'
-Assert-Equal 'C:\cache\mkt\dkj-policy\5.22.0\scripts\release\build-release-notes-page.ps1' $cands[2] 'and last in the highest dkj-policy version in the cache'
+Assert-Equal 'C:\cache\mkt\dkj-policy\5.26.0\scripts\release\build-release-notes-page.ps1' $cands[1] 'then in the cached dkj-policy version the server runs from, the same release as the server'
 Write-Host '-- when /release-notes builds its page first (#3189)' -ForegroundColor Cyan
 $built = [datetime]'2026-10-19 10:00'
 Assert-Equal 'absent' (Get-ReleaseNotesPageNeed -PageTime $null -NewestInputTime $built) 'no page is built'

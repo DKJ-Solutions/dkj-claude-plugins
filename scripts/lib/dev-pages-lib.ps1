@@ -11,11 +11,11 @@
     'This repo' card linking the repo's own pages, then the General card), About this repo and a footer note. This repo is no product and keeps no in-flight
     lists on the hub, so blocks 6 and 8 to 10 are left out. The pages it links are Get-RepoHubPages, the
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
-    every DKJ-Solutions repo has -- are no longer built here (#3119): the dkj-solutions plugin ships them as
+    every repo has -- are no longer built here (#3119): the dkj-policy plugin ships them (since #3198) as
     a server of its own, and the hub's second card, General, links that server, through the plugin's
     shared Format-GeneralPagesCardHtml, so a page that is this repo's own is never read as one every repo
     has. The Brandbook went the same way: the house style is every DKJ-Solutions repo's, so it is the
-    plugin's page, in the hub's third card, DKJ-Solutions. This server still answers /brandbook itself,
+    dkj-solutions plugin's page, in the hub's third card, DKJ-Solutions. This server still answers /brandbook itself,
     from this tree, so a house-style change shows here before it is released. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and
     the tile and bar helpers the Test gate page shares with those pages, so nothing is written twice.
 
@@ -37,8 +37,10 @@
 #>
 
 . (Join-Path $PSScriptRoot 'connector-dashboard-lib.ps1')
-# The plugin's lib: this repo is the plugin's source, so it reads the lib from its own tree.
-. (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\dkj-solutions\scripts\lib\general-pages-lib.ps1')
+# The plugins' libs: this repo is their source, so it reads them from its own tree -- dkj-policy's page shell and
+# General card, then dkj-solutions' DKJ-Solutions card, which builds on that shell (#3198).
+. (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
+. (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1')
 
 function Format-DevPageHtml {
     <#

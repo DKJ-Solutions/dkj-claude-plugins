@@ -2425,8 +2425,10 @@ fact of which plugins are enabled, and this is the harness consequence behind it
 
 **Three of the seven are enabled: the core team, `dkj-policy` and `dkj-solutions`.** The last since
 October 13, 2026 (Maikel, [#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)),
-for its dev-preview hook: this repo's `Get-DevPreview` starts the connector dashboard
-(`scripts/dashboard/serve-connector-dashboard.ps1`) at session start, and the hook starts the plugin's own general pages server beside it (Artifacts, Issues, Release notes, SessionStart; [#3119](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3119)), the second port per checkout, and the root `CLAUDE.md` imports the
+for its dev-preview hook, which since
+[#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198) is `dkj-policy`'s; it stays enabled
+for the house style, its session check and the hub's DKJ-Solutions card. The hook starts the connector dashboard
+(`scripts/dashboard/serve-connector-dashboard.ps1`) through this repo's `Get-DevPreview` at session start, and the general pages server beside it (Artifacts, Issues, Release notes, SessionStart; [#3119](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3119)), the second port per checkout, and the root `CLAUDE.md` imports the
 extension, as the constitution requires of an installed one. The three add-on teams are set to
 `false` since September 30, 2026, and the BWJ extension (then `dkj-policy-bwj`) since October 1 (both Dave). From September 8 to
 September 30 all six were on, for validation (see below). **`false`, not absent, and that is
@@ -2450,7 +2452,7 @@ switched figma back on in every session until it was restored (Maikel, October 1
 [#2978](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2978)).
 
 **Only three of the seven describe this repo outright.** The core team and `dkj-policy` have real
-work here, and `dkj-solutions` its hook; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a
+work here, and `dkj-solutions` its house style; the three add-on teams have none — this repo is not a webshop, not a Shopify store and not a
 personal-life repo. Three of `bwj-development`'s four chapters are about a Shopify store too. **Its
 ticket-handling chapter admits this repo as a third permitted target** at `report-issue`'s and
 `adopt-bwj-development`'s own gate (then `adopt-dkj-policy-bwj`; Dave, September 14, 2026, commit `b9b2a65a`; the per-chapter reach
@@ -4499,7 +4501,7 @@ This repo's answers:
 | `Get-ReleasePageTitle` | `Claude Specialists` — the **product's** name, not the repository's and not what the page is. It is the masthead eyebrow and half the window title; the heading is the template's own *Release notes*. Without it the fallback would head the page `claude-code-specialists`, which is a true answer and not one to send anybody. It carried `-- release notes` until 2026-08-21, which printed those words twice |
 | `Get-ReleasePageWorkerName` | `''` — hosted nowhere since October 17, 2026 (below) |
 | where the output lands | `dkj-policy/releases/page/`, derived from `Get-ReleaseNoteRoot` rather than configured — the note root already says where this repo keeps its release documents |
-| where it is read | the dkj-solutions general pages server serves it at `http://localhost:<port>/release-notes` (a port from 4890 to 4899; the Repo hub the session start prints links it from its General card, and the repo's own server redirects `/release-notes` there), which opens in VS Code's Simple Browser |
+| where it is read | the dkj-policy general pages server serves it at `http://localhost:<port>/release-notes` (a port from 4890 to 4899; the Repo hub the session start prints links it from its General card, and the repo's own server redirects `/release-notes` there), which opens in VS Code's Simple Browser |
 | what is committed | **nothing from that directory.** The page is a derivative of the tracked documents, and a 400 KB file changing every release would dirty the tree `cut-release.ps1` refuses to run on |
 
 **Only BWJ-Development hosts its release notes on Cloudflare** (Maikel, October 17, 2026,
