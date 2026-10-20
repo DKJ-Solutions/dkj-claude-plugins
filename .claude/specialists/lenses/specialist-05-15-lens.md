@@ -17,7 +17,7 @@ infrastructure.
 
 - **`plugins/dkj-policy/hooks/guard-working-copy.ps1`** — the second `PreToolUse` guard in this
   marketplace, and the one that answers
-  [#1669](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1669): a dispatched subagent
+  [#1669](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1669): a dispatched subagent
   may not run the git commands that discard the checkout it was dispatched into. Its judgement is
   `scripts/lib/working-copy-guard-lib.ps1` and its false-positive machinery
   `scripts/lib/command-guard-lib.ps1`, both mirrored into the plugin.
@@ -163,705 +163,153 @@ infrastructure.
   August 26, 2026 rather than left standing:** every published plugin must be `team-*` under
   `plugins/dkj-subagents/` or a way of working by name, and a name carrying neither shape is an
   error rather than a style note. Since
-  [#1467](https://github.com/DaveKJohn/claude-code-specialists/issues/1467) only `*-policy` /
+  [#1467](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1467) only `*-policy` /
   `*-policy-*` still carry a directory rule on the workflow side — `plugins/dkj-policy/`, the government,
   with the prime ministry at its root and each ministry a level inside it; `workflow-*`,
   `contributing-*` and `*-codex` are accepted by name and held to no location. It used to have teeth because the core team's `workflow-sessioncheck`
   hook decided what counted as a workflow by that prefix alone — that hook was retired with
-  `workflow-default` under [#886](https://github.com/DaveKJohn/claude-code-specialists/issues/886), so the
+  `workflow-default` under [#886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/886), so the
   borrowed justification is gone. **What replaced it is internal to the check and stronger for it:** the
   directory half is *derived* from the name, so a plugin matching neither prefix falls through both
   branches and has its location held against nothing at all. An unprefixed name does not read untidily —
   it switches the check off for itself, silently.
-- **`.github/workflows/ci.yml`** — the CI gate on GitHub: runs the same lint gate + all test suites
-  (`scripts/tests/*.tests.ps1`) on every PR and every push to `main`, so the guard also applies to
-  work that comes about outside `open-pr.ps1`.
-
-  **AND "THE SAME GATE" IS NOT "THE SAME ANSWER", BECAUSE THE TWO RUN ON DIFFERENT TREES**
-  (measured September 9, 2026, on this lens's own branch). The local gate runs on **your branch**; CI
-  runs on the **merge** of your branch with the trunk. The suite list is a glob, so a suite the trunk
-  gained while your branch was open **does not exist locally** — the local gate cannot run it, reports
-  green, and CI then runs it against your change and fails. Measured exactly here: `feat/1726-…` passed
-  all 86 suites locally twice, and `lint-en-tests` went red on
-  `command-probe-lib.tests.ps1` — a rule (#1729, *no `Get-Command` function probe*) that landed on `main`
-  hours earlier and that the new script broke three times over. After `git merge origin/main` the same
-  command reported **87** suites, and the count is the only thing that said anything was different.
-
-  **Read the count, then: a local gate pass is evidence about your branch and NOT a prediction about CI.**
-  This is not what ship-pr's staleness guard is for — that dates a CI certificate against commits the
-  trunk gained *after* the run (#1292), and it fires at the merge, which is well after the red run has
-  already happened. The cheap habit is the fix: `git fetch` and merge the trunk **before** the gates, so
-  the tree you prove is the tree CI will build. **"The same" is literal since August 7, 2026** — the step
-  dot-sources `native-capture-lib.ps1` and calls `Invoke-TestSuiteGate`, the one function `open-pr.ps1`
-  and `cut-release.ps1` also call. It held its own inline `foreach` until then, which is how a gate
-  improvement can land in both local callers and miss the only one that actually blocks a merge; the
-  asserts that keep it from coming back are in `cut-release-guardrail.tests.ps1`. It passes
-  `-MaxParallel ([Environment]::ProcessorCount)` deliberately: the lib's default holds two cores back so a
-  developer's machine stays usable, and on a four-core runner nobody is sitting at, that reservation would
-  cost half the box.
-
-  **AND SINCE [#1443](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1443) CI is no longer
-  the only caller that can choose** (September 5, 2026). `open-pr.ps1` and `ship-pr.ps1` take the same
-  `-MaxParallel` and hand it down through `Invoke-WorkflowGates`, which had been the missing hop: the
-  parameter existed at the bottom of the chain and at the top of CI's, and nowhere in between. Measured on
-  this machine — 18 cores, so 16 lanes — the default passed once at 716s and was then **killed twice by
-  the harness for running out of memory**, where `-MaxParallel 4` passed in 888s. The reservation formula
-  reasons about cores; what ran out was memory. **The default is unchanged**, deliberately: one machine is
-  not a measurement of the formula, and what #1443 was actually about is that the only way past a gate
-  that would not finish was `-SkipTests` — a skip and a smaller run leaving the same trace afterwards.
-  The consumer-facing half is in the `open-pr` skill page, which is where a session reads it.
-
-  **EVERY PUSH TO `main` IS ITS OWN CONCURRENCY GROUP, and before
-  [#1294](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1294) half of them were never
-  gated at all.** The block used to key one group on `github.ref`, i.e. one group for the whole trunk,
-  and leaned on `cancel-in-progress: ${{ github.event_name == 'pull_request' }}` to keep the fold commit
-  from cancelling the merge commit's run. It did not, and could not — the portable half of why is a hard
-  rule in [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules):
-  the field governs the *in-progress* run, while a group also drops a **pending** one when a third
-  arrives. **What made it bite here is this repo's own trunk rhythm**, which is the repo-specific half:
-  `ship-pr` pushes twice per branch 6s apart, a run takes ~15 minutes, and `windows-latest` queues for
-  seconds — so the merge commit's run had not started when the fold displaced it. Measured
-  September 3, 2026 over the last 28 `merge:` commits: **14 `success`, 14 `cancelled`**, the cancelled
-  ones with zero jobs allocated. And it was never only folds displacing merges — `0ab47d2d`, `2c54de74`
-  and `e0175372` went down in one chain, so on a busy day only the **last push of each ~15-minute
-  window** ran. The tip was always gated; nothing between it and the previous tip was, which is why that
-  day's two `failure` runs on `main` named no commit. The repair keys pushes on `github.sha` and leaves
-  the PR half exactly as #932 measured it. **It costs runner minutes on purpose** — 27 runs where 13 ran
-  — and whether the *fold* commit needs a full run of its own is deliberately left open
-  ([#1300](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1300)).
-
-  Since July 15, 2026, the repo ruleset
-  **`main-ci-gate`** (renamed from `main-ci-poort` by Dave on July 26, 2026; found at GitHub →
-  Settings → Rules) enforces that gate as a **required status check**: a PR to `main` only merges
-  on a green `lint-en-tests` job. The bypass list is what keeps the direct fold/release commits on
-  `main` possible, and it is not a convenience: a required status check **cannot** be satisfied by a
-  direct push, because the check has to be green before the push is accepted and a push is what would
-  trigger it. Until September 2, 2026 it held *Repository admin + the Write role, "Always allow"*. The
-  Write entry was there because the work account `davekokbwj` **then** held write rights and not admin —
-  that pairing is what identified the role at all (the August 14 reading further down this bullet) — and
-  the caveat attached to it was that a Write bypass is safe only while there are no external
-  collaborators.
-
-  **BOTH HALVES OF THAT SENTENCE ARE NOW DATED, AND THE ROLE TABLE IS THE PART TO READ**
-  ([#1284](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1284)). Measured
-  September 3, 2026, after the move into the `DKJ-Solutions` org:
-
-  ```
-  $ gh api orgs/DKJ-Solutions/memberships/<user> --jq .role   -> DaveKJohn, davekokbwj, maikel-bwj: all admin
-  $ gh api repos/DKJ-Solutions/claude-code-specialists/collaborators?affiliation=outside   -> empty
-  $ gh api repos/DKJ-Solutions/claude-code-specialists/rulesets/19008062
-      bypass_actors  [ {OrganizationAdmin, always}, {RepositoryRole 5, always} ]
-  ```
-
-  All three accounts are **org owners**, which is why each also reads `role_name: admin` on this repo, and
-  the restored list carries **no Write role**. Two consequences, the first being the one a reader takes
-  from the old sentence and gets wrong: **a direct push that succeeds from `davekokbwj` proves the admin
-  bypass works and says nothing about the Write role.** That is precisely the mis-attribution the #1244
-  thread had to retract, and this lens is the document that retraction cites as its pre-transfer baseline.
-  The second: the external-collaborator caveat no longer guards what it was written to guard, because the
-  bypass now rests on **org ownership** rather than a repo role — a wider grant, since an org owner
-  bypasses on every repo in the org, and one that nothing on this repo's settings page shows.
-
-  **AND THE RULE LIST GAINED A FOURTH ENTRY ON SEPTEMBER 6, 2026 — `merge_queue`, which refuses a direct
-  push on its own** ([#1499](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1499)). The
-  bypass list is unchanged; what changed is how many rules a non-bypassed actor has to get past. Measured
-  the same way, on the same ruleset id:
-
-  ```
-  $ gh api repos/DKJ-Solutions/claude-code-specialists/rulesets/19008062 --jq '[.rules[].type]'
-      ["deletion","non_fast_forward","required_status_checks","merge_queue"]
-  ```
-
-  **Why this is worth a row rather than a silent update to the list above.** Every record in this lens
-  names `required_status_checks` as *the* rule the direct-on-`main` exceptions have to be bypassed for,
-  and that was a complete answer while it was the only one that refused a push. It is not any more: the
-  `fold-on-merge` workflow's rejected push (run 34020828593, 2026-09-06 08:04) came back naming **both**
-  rules, one line each —
-
-  ```
-  remote: - Required status check "lint-en-tests" is expected.
-  remote: - Changes must be made through the merge queue
-  ```
-
-  — so a reader holding the three-rule list reads the second line as an unexplained extra and starts
-  hunting for a second cause. **The bypass answers both in one move**, because a bypass actor bypasses the
-  ruleset rather than a rule, so nothing about the remedy changes. What changes is the diagnosis, and that
-  is the half a session actually reads a red run with.
-
-  **AND THE FOURTH ENTRY IS GONE AGAIN — THE LIST IS BACK TO THREE** (measured September 9, 2026,
-  [#1720](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1720)). The same command on the
-  same ruleset id:
-
-  ```
-  $ gh api repos/DKJ-Solutions/claude-code-specialists/rulesets/19008062 --jq '[.rules[].type]'
-      ["deletion","non_fast_forward","required_status_checks"]
-  ```
-
-  So the three-rule list above is the live one again, `required_status_checks` is once more the only rule
-  a direct push has to be bypassed for, and a rejected push reports **one** line rather than two. The
-  September 6 block stays exactly where it is: it is what a reader needs the day a run from that window is
-  being read back, and deleting it would leave run 34020828593's two-line refusal unexplained. **Read this
-  pair as the shape of the whole section** — each block is what was true on its date, and the newest one is
-  the answer to "what does the ruleset hold *now*".
-
-  **AND THE ONE THING TO CHECK BEFORE TRUSTING ANY OF THEM: a ruleset is GitHub-side state, so nothing in
-  this tree changes when it changes.** No commit records it, no gate reads it, and no session is told. That
-  is why every block here carries the command rather than only its output — the record is a dated
-  measurement, not a fact the repo maintains, and the way to know which block is current is to run the
-  command again. The removal above has no date of its own for exactly that reason — September 9 is when it
-  was *measured*, not when it happened, and nobody can now say which. That gap is why the always-on
-  sentence in [`this-repo.md`](../../rules/this-repo.md#claude-code-specialistss-safety-implementation) went on
-  handing out the wrong answer for a stretch nobody can now put a length on (#1720).
-
-  **EVERY SENTENCE ABOVE STILL HOLDS, AND SINCE SEPTEMBER 9, 2026 SOMETHING ACTS ON IT**
-  ([#1726](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1726)):
-  `.github/workflows/repo-settings.yml` runs `check-repo-settings.ps1` daily against
-  `Get-ExpectedRepoSettings`, so a change to this ruleset now produces a dated red run within 24 hours
-  instead of nothing at all. **It does not make these blocks maintained facts, and reading them as such
-  is the one mis-reading to avoid** — each is still what was true on its date, and the way to know
-  which is current is still to run the command. What the detector adds is narrower and is the half that
-  was missing: it says *when* a block stopped being current, which is precisely what the `merge_queue`
-  removal above has no answer for. Its own bullet is further down, under
-  [what Sylvester owns here](#what-sylvester-owns-here); the three-rule list above is one of the seven
-  facts it now compares, so a fourth entry appearing is reported rather than discovered.
-
-  **AND THE BYPASS THAT ANSWERS BOTH CANNOT BE GRANTED TO THE ACTOR THAT NEEDS IT** (September 6, 2026,
-  [#1506](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1506)). The paragraph above is
-  right that a bypass actor bypasses the *ruleset* rather than a rule, so one grant would answer both
-  refusals. What it leaves open — and what `fold-on-merge.yml`'s own header then recorded as a plan — is
-  *which* actor. The workflow pushes with the default `GITHUB_TOKEN`, i.e. as the GitHub Actions app
-  (`integration_id` 15368, the id `lint-en-tests` already reports under, confirmed against
-  `gh api apps/github-actions`). Adding it:
-
-  ```
-  PUT repos/DKJ-Solutions/claude-code-specialists/rulesets/19008062
-  422 Validation Failed
-  Actor GitHub Actions integration must be part of the ruleset source or owner organization
-  ```
-
-  An `Integration` bypass actor has to be an app **installed on the org**, and GitHub Actions is not an
-  installable app — `gh api orgs/DKJ-Solutions/installations` lists exactly one, `claude` (app_id
-  1236702). So that route does not exist, and the plan was never a measurement. **Bypass is by actor, and
-  both bypassing actors are people** (`OrganizationAdmin`, `RepositoryRole 5`), so the only way a workflow
-  pushes to this trunk is with a token belonging to one of them. That is what
-  [#1507](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1507) landed, the same day and
-  from a second session: `actions/checkout` authenticates with `FOLD_PUSH_TOKEN`, an org owner's
-  fine-grained PAT, and the fold's `git push` reuses that credential.
-
-  **Read the split it makes, because it is the part worth copying.** Only the PUSH gets the standing
-  token. The fold step still reads with the job-scoped `GITHUB_TOKEN`, which expires in about an hour and
-  is useless outside its own run, and the workflow's `permissions:` are down to `contents: read` because
-  the default token is no longer the pusher. The checkout is pinned to a commit SHA rather than a tag for
-  the same reason: the step that handles a 366-day standing write token is the one where a retagged
-  action would be worth someone's while. None of that was tested when it landed; the asserts are in
-  `merge-queue-prereq.tests.ps1`, added by #1506, and each one covers a property that fails silently.
-
-  **The generalisation worth keeping, because it will come up again:** a workflow that must write past a
-  ruleset cannot be granted the exception itself. Either it borrows a person's token, or the rule stops
-  applying to the branch it writes to. There is no third door, and reaching for one costs a round trip
-  through a 422 every time.
-
-  **Inferred, not measured: why the roles changed** — an elevation, or the transfer's own member mapping.
-  `orgs/DKJ-Solutions/audit-log` needs `admin:org` and answers 404 from a session, so the cause is not
-  readable here. The roles themselves are, and nothing above depends on the cause.
-
-  **THAT LIST WAS EMPTY FOR ONE DAY, AND THE TRANSFER WAS WHY** (September 2–3, 2026,
-  [#1244](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1244)). Moving the repo into
-  the `DKJ-Solutions` org carried the ruleset across **intact** — active, `~DEFAULT_BRANCH`,
-  `deletion` + `non_fast_forward` + `required_status_checks` on `lint-en-tests` — and dropped only its
-  bypass list: `bypass_actors: null`, `current_user_can_bypass: never`, which meant nobody could push to
-  `main` directly, `DaveKJohn` as repo admin included. All three direct-on-`main` exceptions were dead
-  until Dave restored it on September 3 at Settings → Rules → `main-ci-gate` → Bypass list.
-
-  **The paragraph is kept rather than deleted, because the failure is a property of the ruleset and not
-  of that one move.** The bypass list is the only thing standing between a green `main-ci-gate` and three
-  exceptions that cannot satisfy it, and nothing in GitHub's UI says so — a transfer, an org policy, or
-  somebody tidying the list all produce the identical symptom. What identifies it is the push's own
-  answer: `GH013 ... Required status check "lint-en-tests" is expected` when the list is empty,
-  `Bypassed rule violations for refs/heads/main` when it is not. Read that line rather than the ruleset
-  page; it is the one measurement that distinguishes the two states without admin rights.
-
-  **It does not stop at the three exceptions — it blocks MERGES too, by a chain reaction**, and that is
-  the part worth reading before anybody concludes the damage is bounded. A PR still merges; its fold
-  cannot push; so the merged branch's development document **stays on `origin/main`**. The trunk then
-  carries a live branch document that should have been deleted, and while the fold stays blocked they
-  accumulate.
-
-  **The second half of this chain reaction is fixed as of September 3, 2026, and the sentence that used
-  to be here is dated rather than swept.** It read: *"That path is fixed by design — the design's safety
-  argument being that the fold removes it at the merge — so ... every open branch has its own file at that
-  same path, and every subsequent PR conflicts on it."* That was true, and it was the shared-path design's
-  defect rather than this ruleset's: the conflict happened on **every** merge, blocked fold or not, and a
-  conflicting PR gets no check suite at all, so it could never go green and never merge
-  ([#1255](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1255)). The document is named
-  per branch now, so two branches never write the same path and a leftover on the trunk collides with
-  nobody. **What this ruleset still costs is the leftover itself** — an unfolded entry sitting on `main`
-  with nothing saying so — which was the half #1244 owned and the per-branch rename did not repair.
-
-  **That half is no longer silent as of September 3, 2026**
-  ([#1270](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1270)). `check-unfolded-entry.ps1`
-  reports a written per-branch document on the trunk whose declared branch is not the
-  one under HEAD — the invariant being that the fold removes it at the merge, so on `main` there should be
-  none. It runs from two places, because neither reaches the whole population on its own: a CI workflow
-  (`.github/workflows/unfolded-entry.yml`, `push` to `main`, **not** in `main-ci-gate` — the same
-  Dave's-call reasoning as `branch-entry.yml`, and a required check cannot gate a push anyway) catches it
-  regardless of who merged or how, and a SessionStart hook (`unfolded-entry-sessioncheck.ps1`, workflow
-  plugin) tells the next specialists session at start rather than leaving it to Chris's manual
-  `verify-stand-against-repo` check. Neither calls `gh`: a written entry on the trunk is folded or it is a
-  defect, whatever the branch's PR state, and the fold is local. The one false positive it can raise is the
-  ship window — `ship-pr` pushes the merge commit and then, seconds later, the fold commit — which **this
-  workflow's own** `cancel-in-progress: true` swallows and a session reads as a finding that resolves
-  itself. Read *this* workflow's, not `ci.yml`'s: since
-  [#1294](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1294) `ci.yml` keys every push to
-  the trunk on its own commit, so it swallows nothing. The
-  detector is `Get-UnfoldedTrunkEntry` in `entry-scaffold-lib.ps1`, one definition for both callers.
-
-  **#1244 IS OPEN AGAIN, AND WHAT REOPENED IT IS THE MIS-READING DIRECTLY ABOVE** — so the cost is still
-  being paid, and the response to it is the part to get right. It *was* closed on September 3, 2026 on the
-  strength of a fold commit that pushed cleanly; that commit carried `davekokbwj` as author because that is
-  the git identity on the machine it was made on, while the **pusher** was `DaveKJohn` (admin). A commit's
-  author does not name its pusher and
-  `gh api "repos/DKJ-Solutions/claude-code-specialists/activity?ref=refs/heads/main"` does — read that
-  before concluding anything about which role got past the gate. The mechanism half therefore runs on as
-  [#1278](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1278). Both leftovers #1244
-  stranded (#1253 and #1261) *did* fold unchanged the moment the list came back, and that half is
-  untouched by the reopening — it is the evidence for the rule: a blocked fold is **waited out, not
-  committed locally**.
-
-  **What settles #1278 is a reading no admin session can take** — `current_user_can_bypass` on the ruleset,
-  from the account that will actually push. It reads `always` from this one because it is an org owner, and
-  that says nothing about any other account. Measured September 3, 2026, all three accounts are now org
-  owners and the list bypasses `OrganizationAdmin`, so on the face of it the gap #1278 reports is closed;
-  **that is an inference from the role table, not the measurement**, and the account itself has to confirm
-  it. Committing it makes a `main` commit that exists on one machine, and `main` is what every
-  other machine syncs — measured September 3, 2026, where a held fold met the same fold landing from
-  elsewhere and produced a duplicate entry and an unmerged `CHANGELOG.md` with no `MERGE_HEAD` to abort.
-  The trunk leftover is visible and cheap; the duplicate commit is neither. Rendall's lens carries the
-  fold-side statement of this. `check-unfolded-entry.ps1` above is what makes "visible" literal.
-
-  **The hazard that made it urgent is worth keeping, because it is what a reader would otherwise
-  rediscover.** Resolving that conflict in favour of the incoming branch **destroys an unfolded DEPLOY
-  entry**, the only copy of that change's changelog text — and *keep mine* is exactly what a session hits
-  this reaches for. Measured on PR #1249, where the trunk's conflicting file turned out to belong to
-  PR #1250 and `deleted by us` meant *"our fold deleted a different document at the same path"*. It was
-  untangled by keeping theirs, running #1250's pending fold, and letting both held folds ride out through
-  the open PR. Per-branch names remove the situation rather than the hazard's teeth: there is no longer a
-  resolution in which one branch's document can stand in for another's.
-
-  **The generalisable half, beside the one below it: a setting that is present and active is not proof
-  that the thing you depend on inside it survived.** [#1239](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1239)
-  made *"does `main-ci-gate` still exist"* the post-transfer check, and it existed — enforcement, target,
-  rules and required check all unchanged. What does not survive a transfer is the **sub-field**, and a
-  ruleset reporting `active` reads as a clean bill of health while the one array the fold model runs on
-  is gone. So check the field you actually rely on, not the object that contains it.
-
-  **AND ON SEPTEMBER 3, 2026 A DIFFERENT SUB-FIELD OF THAT RULESET WAS MOVED AND MOVED BACK THE
-  SAME DAY — `strict`, ON FOR ABOUT 45 MINUTES**
-  ([#1325](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1325)). The stale-CI
-  certificate gate in `ship-pr.ps1` step 3b
-  ([PR #1316](https://github.com/DKJ-Solutions/claude-code-specialists/pull/1316)) detects a real
-  race it cannot win on this trunk — `lint-en-tests` runs ~13m47s–16m09s while `main` gains a merge
-  every ~15–25 min, with ~44% of branches behind at the merge — so re-running CI to refresh the
-  certificate is a chase the operator keeps losing. The first verdict (~14:45 UTC) rejected every
-  script-side change and turned three knobs with `gh api`: ruleset `main-ci-gate` →
-  `required_status_checks` rule `strict_required_status_checks_policy` `false` → `true`, and repo
-  `DKJ-Solutions/claude-code-specialists` `allow_auto_merge` + `allow_update_branch` both `false` →
-  `true` (~15:10). #1325 was closed as "option 1 applied". Research on the thread (~15:29) showed
-  the option is measurably worse; #1325 was reopened on Dave's instruction (~15:34) and all three
-  fields reverted to `false` (~15:55). Readback confirms all three `false`.
-
-  **Why it does not converge — the load-bearing fact.** GitHub performs **no server-side base-sync
-  of a PR branch** outside a merge queue. `allow_update_branch` ("Always suggest updating pull
-  request branches") only shows a UI button to a human with write access — it acts on nothing.
-  Auto-merge flips the merge switch only once *every* requirement, **including "up to date"**, is
-  already satisfied; it never syncs the base itself. So `strict` converts the ~44% behind-at-merge
-  rate into a hard, repeating, server-side block with **no automatic resolution and no valve** —
-  `-SkipStaleCheck` lives in `ship-pr.ps1` and cannot touch a refusal that is now GitHub's.
-  Confirmed live in the 45-minute window: PR #1316 itself had to be landed with
-  `gh pr merge --admin` while `strict` was on. Sources are cited on #1325.
-
-  **Strict-off with auto-merge on is not a fallback**, which is why `allow_auto_merge` was reverted
-  too and not only `strict`: without the "up to date" requirement, auto-merge would merge on a
-  stale-but-green certificate, unattended — reintroducing exactly
-  [#1292](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1292)'s defect, which
-  step 3b exists to catch. #1292 (the red-trunk mechanism issue) stays open and assigned in its own
-  right; the keep-`strict`-or-adopt-a-merge-queue decision is where #1325 now sits.
-
-  **The strongest fix is a GitHub merge queue**, which tests each PR against the projected merge
-  (target-branch tip + the PRs already queued), so staleness is gone by construction. It **is**
-  available to this repo (public + org-owned; the earlier "Enterprise only" reading was wrong).
-  `ship-pr.ps1` step 3b is unchanged: its detection is correct and it stays the mechanism and the
-  portable net for consumers, whom a repo-settings change never reaches, with `-SkipStaleCheck` the
-  valve for a known-harmless window. **The generalisable half: a repo-settings "fix" for the
-  staleness race that is not a merge queue does not converge** — `strict` + `allow_auto_merge` +
-  `allow_update_branch` look like the unattended loop, but the base never moves under the PR on its
-  own, so all they add is the block.
-
-  **THAT "the earlier reading was wrong" CORRECTION WAS RIGHT ABOUT THIS REPO AND WRONG AS A RULE, and
-  the difference cost a policy** (September 7, 2026, [#1546](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1546)).
-  GitHub's terms are: merge queue on a **private** repo only under Enterprise Cloud, and otherwise only
-  on a **public** repo owned by an organization. This repo is public on plan `free`, so it qualifies
-  through the *public* clause — the Enterprise reading was wrong **here** and is exactly right for a
-  private consumer. Re-measured: `DKJ-Solutions` plan `free` + this repo `public` (eligible);
-  `BWJ-Development` plan `team` + its repo `private` (the "Require merge queue" checkbox is not
-  rendered at all — GitHub hides it rather than disabling it, which is why it reads as a UI mystery).
-  So step 3b is not the "portable net" beneath a policy any more; **it is the policy**, and the queue is
-  one option for the repos that can have one.
-
-  **The lesson is about where a capability check is performed, not about queues.** The claim was
-  verified in the one repo whose own answer could not reveal the constraint, and a capability that is
-  *present* announces nothing about why. `adopt-ci-floor` then carried the generalisation outward as
-  a closable `[gap]`, so a consumer built the whole floor before meeting a checkbox that does not exist
-  ([#1540](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1540)). Where a finding will
-  travel to a consumer, measure it on the axis the consumer differs on — here `private`/`public` and the
-  org plan — before writing it down as a rule.
-
-  **BOTH PREREQUISITES ARE NOW IN THE TREE, AND THE SWITCH IS STILL DAVE'S** (September 3, 2026,
-  #1325). Enabling the queue is a repo-settings change; making the repo survive one is not, and the
-  two things that had to be true first are both the same shape — **inert today, catastrophic on the
-  day the queue is switched on, and silent in between**. Both are pinned by
-  [`scripts/tests/merge-queue-prereq.tests.ps1`](../../../scripts/tests/merge-queue-prereq.tests.ps1),
-  because nothing in this repo's behaviour today would notice either being removed:
-  1. **`.github/workflows/ci.yml` now triggers on `merge_group`.** A required workflow without it
-     never runs for a queue entry, so `lint-en-tests` never reports and GitHub's own warning is that
-     the merge fails — a **total merge outage on `main`**, not a degradation. The suites run in full
-     for a queue entry: the #1300 fold-commit shortcut is gated on the `push` event, so it does not
-     reach one, and it must not — a queue entry *is* the projected merge being certified. The
-     concurrency key needed no change: its `|| github.sha` arm already gives each entry its own group.
-  2. **`ship-pr.ps1` reads the PR's state after `gh pr merge` instead of trusting the exit code.**
-     `gh pr merge --help` states it outright — under a queue the PR is *"added to the merge queue"*,
-     and gh exits **0** having enqueued. Step 5 folds onto the trunk on the strength of that exit
-     code, so an ordinary ship would have written a fold commit for a PR that had not landed: the
-     changelog entry on `main` ahead of its own merge, with nothing in the run saying so. **This one
-     is also right with no queue anywhere** — "merged" had been an inference from an exit code, on
-     the one script that writes to the trunk. A state that cannot be *read* is deliberately **not** a
-     refusal (same shape as the DEPLOY lock): only a state positively read as non-`MERGED` refuses,
-     because turning a network blip into a refusal between the merge and the fold would manufacture
-     the trapped-entry state (#1270) the fold exists to prevent. The refusal hands the wait back
-     rather than guessing a timeout — waiting a queue out is a separate decision, not taken here.
-
-  **The generalisable half of the prerequisites, beside the one above: a settings switch that is
-  somebody else's to flip does not make the code it will break somebody else's problem.** The queue
-  decision sat on #1325 for a day as "Dave's", and both defects that would have fired on the first
-  merge after it were in the tree the whole time, reachable and fixable without touching a setting.
-
-  **AND THE ANSWER IS NO — THE QUEUE'S CASE WAS DISCHARGED, NOT REJECTED** (Dave, September 3, 2026,
-  [#1355](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1355), the decision split out
-  of #1325 so it would not be buried in a closed thread). No merge queue is switched on for `main`, and
-  the three settings above stay `false`. **What settled it was the same day's CI sharding**
-  ([#1351](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1351)): the stale-certificate
-  event went from **31.9% at ~13 min** to **12.3% at ~5 min**, which is an expected **~37 seconds per
-  merge**. The queue's throughput objection had *also* been discharged by the same change — ~4 merges/hour
-  serial at 15-minute CI, against an observed trunk cadence of 2.4–4/hour, became ~12/hour — so this is a
-  no on price rather than on feasibility. Against ~37 seconds a yes buys a repo-settings change, a step-3b
-  rebuild that is dead code until the day of the flip, and a GitHub-side mechanism in the middle of a chain
-  `ship-pr.ps1` currently owns end to end.
-
-  **The generalisable half: an option whose case rests on a measured cost has to be re-argued the day that
-  cost is measured away, and the argument does not survive on its own momentum.** The queue was the
-  standing answer for a week because the number behind it was 31.9% at ~13 min. Nothing about the queue
-  changed on September 3; the problem it was sized against shrank by a factor of nearly seven in expected
-  cost — 31.9% × ~13 min is ~4.1 minutes per merge, against 12.3% × ~5 min for ~0.6 — and an option
-  carried forward without re-reading its own premise would have been built anyway.
-
-  **The third prerequisite is therefore recorded and deliberately NOT built** — the one #1355 exists to
-  keep out of a closed thread. `ship-pr.ps1` step 3b (`:885`) refuses before `gh pr merge` (`:1268`) is
-  ever reached, and nothing in `scripts/**` detects a queue: under one the staleness predicate still fires
-  at its normal rate, and the refusal is then **wrong**, because enqueueing *is* the converging remedy. The
-  queue subsumes the predicate while the predicate blocks the path to the queue, and the operator's only
-  way through would be `-SkipStaleCheck` on every ship. It stays unbuilt on this repo's
-  no-pre-emptive-fixes rule, and it is written here so a future yes inherits it rather than rediscovering
-  it at the first refusal. Its shape is still open: skip 3b when a queue is detected on the base branch,
-  drop the predicate here entirely (the queue is strictly stronger), or gate it on the flipped setting.
-
-  **And two things a future flip should not learn the hard way**, both read from `gh pr merge --help` on
-  the day of the decision. *"When targeting a branch that requires a merge queue, no merge strategy is
-  required"* — **not required is not rejected**, so whether `$mergeMethod`'s `--merge` (`ship-pr.ps1:304`)
-  is accepted against a queue-backed branch is still unestablished, and is the first thing to check on the
-  first ship after a flip. And the sentence beside it — *"If required checks have not yet passed,
-  auto-merge will be enabled"* — means a yes is plausibly **two** settings, because `allow_auto_merge` is
-  `false` here. `ship-pr` waits for green and should land on the straight-enqueue branch instead, so this
-  is the path the happy case never exercises, which is exactly why it is written down.
-
-  **What would reopen it:** the fire rate climbing back above ~25%, or CI cost past ~10 minutes. Until
-  then the queue is a priced-and-declined option, not an open question.
-
-  **WHERE A DECISION IS ARGUED IN THAT FILE: DIRECTLY ABOVE THE KEY IT DECIDES** (September 22, 2026,
-  [#2314](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2314)). `ci.yml` is ~80% comment, and
-  that is the property this repo wants — a decision argued where it lives. What it had grown alongside it
-  is a **shared append point**: the comment run above `jobs:` belonged to no key, so a paragraph about
-  *any* job landed there, and git cannot merge two appends at one anchor. Two branches obeying the
-  convention correctly therefore conflicted **pairwise, by construction**.
-
-  **Measured, and the cost is not where it looks.** Three CI branches in one afternoon each appended to
-  that banner and each inserted a key under `runs-on:` in the `suites` job — #2296 (`timeout-minutes`),
-  #2303 (a job-scoped `permissions:` block) and #2304. `ship-pr` on #2300 found it at forward lap 3, as
-  `PUT .../pulls/2300/update-branch -> 422 merge conflict between base and head`, after roughly forty
-  minutes of CI waits across three laps. **Resolving it took about five minutes** — both sides were purely
-  additive and both were kept verbatim. The conflict was cheap; finding it was not.
-
-  **This is [#1255](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1255) one file over**, which
-  is what settles that it is a shape rather than an accident: a single fixed `dkj-policy/development.md`
-  made every merge to the trunk conflict every *other* open PR, the answer was one document per branch, and
-  the reasoning is quoted in `CLAUDE.md` to this day. A banner is that same shared anchor wearing a
-  different name.
-
-  **The answer is per-anchor placement, chosen by Dave over two alternatives that were priced.** Every
-  paragraph moves to sit above the one key, step or job it argues, so a new decision brings a **new**
-  anchor rather than another paragraph on an existing block. It strengthens *argue it where it lives*
-  rather than trading it away, which is why it beat the candidate the issue itself named — a one-line
-  pointer per decision with the argument moved into this lens — and a third option, one file per decision
-  under `.github/workflows/ci-decisions/`. Both of those buy conflict-freedom by moving the reasoning away
-  from the line it explains, and that property is the whole reason the file is ~80% comment.
-
-  **Nothing was rewritten: 301 comment lines, of which twelve changed, and every one of those twelve was a
-  cross-reference that the move made false** — *"see the banner above `jobs:`"* pointing at a paragraph now
-  sitting on the same key, and *"the shortcut below"* where the shortcut had become the paragraph above.
-  The move was verified by diffing the sorted comment bodies before and after rather than by reading the
-  diff, because a 156-line reshuffle is exactly the diff a reviewer cannot read.
-
-  **AND THAT METHOD HAS ONE BLIND SPOT, WHICH IT FOUND THE HARD WAY.** A sorted-comment-body diff proves
-  no line was **lost** and is structurally silent about a line that was **kept when it should have gone** —
-  a superseded clause left standing beside its replacement is an addition on one side and nothing at all on
-  the other, so it never appears in the comparison. Measured on this branch: the old *"See the banner above
-  `jobs:` for why the"* survived directly above its own replacement, leaving a stuttered clause and a
-  continuation pointing nowhere, and the verification reported clean. It was [Edith #17](specialist-06-17-lens.md)
-  reading the diff in place who caught it — so the sorted comparison answers *"is anything missing"* and a
-  human read of the new position answers *"does it still parse"*, and a relocation of this size needs both.
-
-  **What stays above `jobs:` is what is true of the FILE** — why there are three jobs (#1351), and that
-  every job declares a timeout at all (#2296). The per-job *numbers* moved to the keys they cap. The run
-  went 87 lines → 32, and `ci-shard.tests.ps1` now holds it to a **40**-line ceiling: the post-change
-  reading plus one paragraph of headroom, still under half of what it had reached. The ceiling is paired
-  with an assert that the convention is stated in the file's own head, because a ceiling that fires without
-  saying what to do instead sends the next author to raise the ceiling — the one repair that reopens the
-  class.
-
-  **The half the issue did not name, and the reason writing the convention down is part of the repair
-  rather than a note beside it:** #2296 had already half-adopted the answer. It wrote a two-line pointer
-  above `timeout-minutes:` in the `suites` job **and** a 31-line banner above `jobs:` — so the convention
-  was not merely unstated, it was stated by example in both directions at once, and a later author copying
-  whichever sat nearest had even odds of recreating the anchor.
-
-  **What this does NOT fix, deliberately:** two branches adding different keys under one `runs-on:` still
-  collide. That half is irreducible, took thirty seconds to resolve, and engineering it away would cost
-  more than it saves.
+- **`.github/workflows/ci.yml`** — the CI gate on GitHub: runs the lint gate and all test suites
+  (`scripts/tests/*.tests.ps1`) on every PR, every push to `main` and every `merge_group` event, as the
+  required check `lint-en-tests`. Before changing it, know:
+  - **"The same gate" is not "the same answer".** The local gate runs on your branch, CI on the *merge*
+    of your branch with the trunk, and the suite list is a glob — so a suite the trunk gained meanwhile
+    does not exist locally. Read the suite count; `git fetch` and merge the trunk **before** the gates.
+  - **One gate function.** The step calls `Invoke-TestSuiteGate` (`native-capture-lib.ps1`), the same one
+    `open-pr.ps1` and `cut-release.ps1` call; asserts in `cut-release-guardrail.tests.ps1` keep an inline
+    copy from returning. It passes `-MaxParallel ([Environment]::ProcessorCount)` deliberately (a
+    four-core runner nobody sits at should not hold half its cores back). `open-pr`/`ship-pr` take the
+    same parameter; the default is unchanged (#1443).
+  - **Concurrency.** Pushes to `main` key their group on `github.sha`, PRs as before — never one group
+    per ref, which cancelled merge-commit runs behind fold commits (#1294). It costs runner minutes on
+    purpose; whether the fold commit needs a full run is left open (#1300).
+  - **`merge_group` trigger** is pinned by `merge-queue-prereq.tests.ps1`: without it a merge queue would
+    be a total merge outage. The fold-commit shortcut is gated on `push`, so queue entries run in full.
+  - **Decisions are argued in comments directly above the key they decide** (~80% of the file is
+    comment). No shared banner above `jobs:` — it is a shared append point that conflicts pairwise (#2314);
+    `ci-shard.tests.ps1` holds the run above `jobs:` to a 40-line ceiling. Two branches adding different
+    keys under one `runs-on:` still collide; that is accepted.
+  - **The ruleset `main-ci-gate`** (GitHub → Settings → Rules) makes `lint-en-tests` required. It is
+    GitHub-side state: nothing in the tree records it, `repo-settings.yml` compares it daily
+    (see its bullet below). Rules: `deletion`, `non_fast_forward`, `required_status_checks`; `strict` stays
+    `false`, and so do `allow_auto_merge` and `allow_update_branch`.
+  - **Bypass is by actor and both bypass actors are people** (`OrganizationAdmin`, `RepositoryRole 5`).
+    GitHub Actions cannot be added (422), so a workflow that pushes to `main` borrows an org owner's token
+    (`FOLD_PUSH_TOKEN`, only for the push; #1506, #1507). A transfer can drop `bypass_actors` while the
+    ruleset still reads `active` (#1244, #1239): check the sub-field
+    (`gh api repos/DKJ-Solutions/dkj-claude-plugins/rulesets/19008062 --jq .bypass_actors`), and read the push's own answer
+    (`GH013 ... is expected` = list empty, `Bypassed rule violations` = list works). A commit's author does
+    not name its pusher; `gh api "repos/DKJ-Solutions/dkj-claude-plugins/activity?ref=refs/heads/main"` does
+    (#1278). A blocked fold is waited out, never committed locally (#1244). A direct push that works from
+    an account proves the admin bypass, not a Write role; the bypass rests on org ownership, which covers
+    every repo in the org and shows on no settings page here (#1284).
+  - **A conflict on a branch document: never resolve it in favour of the incoming side** — it destroys an
+    unfolded DEPLOY entry, the only copy of that changelog text (PR #1249 / #1250). Per-branch document
+    names removed the situation (#1255); an unfolded entry left on the trunk is reported by
+    `check-unfolded-entry.ps1` (#1270, its own bullet below).
+  - **`ship-pr.ps1` reads the PR's state after `gh pr merge`** rather than trusting the exit code (a queue
+    exits 0 having only enqueued; #1325). An unreadable state is deliberately not a refusal.
+  - **Declined: a per-decision pointer plus an argument in this lens, or one file per decision under
+    `.github/workflows/ci-decisions/`** (#2314) — both buy conflict-freedom by moving the reasoning away
+    from the line it explains.
+  - **Declined: `strict` + auto-merge + update-branch** (#1325) — GitHub does no server-side base sync
+    outside a merge queue, so they only add a block with no valve. **Declined: a merge queue** (#1355) —
+    the sharding of #1351 cut the stale-certificate cost to ~37 s per merge; reopen if the fire rate passes
+    ~25% or CI passes ~10 minutes. If it is ever switched on, `ship-pr.ps1` step 3b refuses before the
+    queue is reached (recorded, deliberately unbuilt), whether `--merge` is accepted under a queue is
+    unestablished, and `allow_auto_merge` probably needs flipping too. A queue is unavailable to a private
+    repo outside Enterprise Cloud (#1546).
+  - **Decided in:**
+    [#932](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/932),
+    [#1239](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1239),
+    [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244),
+    [#1255](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1255),
+    [#1278](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1278),
+    [#1284](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1284),
+    [#1292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1292),
+    [#1294](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1294),
+    [#1300](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1300),
+    [#1325](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1325),
+    [#1351](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1351),
+    [#1355](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1355),
+    [#1443](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1443),
+    [#1499](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1499),
+    [#1506](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1506),
+    [#1507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1507),
+    [#1540](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1540),
+    [#1546](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1546),
+    [#1720](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1720),
+    [#1726](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1726),
+    [#2314](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2314). The dated measurements are in
+    this file's history (`git log -p -- .claude/specialists/lenses/specialist-05-15-lens.md`).
 
 - **`.github/workflows/claude.yml` + `.github/workflows/claude-code-review.yml`** — the two Claude Code
-  workflows, added August 14, 2026 via
-  [PR #658](https://github.com/DaveKJohn/claude-code-specialists/pull/658). The first answers an
-  `@claude` mention in a comment; the second reviews every PR under the job id `claude-review`, which is
-  **advisory** — the ruleset names `lint-en-tests` and nothing else. Four hardening decisions sit in
-  those files and each one reads as arbitrary without its reason, so they are recorded here:
-  - **Both `uses:` are pinned by commit SHA**, not by the moving `v4`/`v1` tags. This repo is a public
-    plugin source: whoever can move a tag reaches every consumer through its CI.
-  - **`claude.yml` runs on a read-only tool allowlist**, because upstream's configuration doc states the
-    default set covers *"reading, committing, editing files"*. Without it, an `@claude` mention could
-    produce a branch and a commit that passed no gate here. The three `mcp__github_ci__*` tools are named
-    explicitly: the `actions: read` permission exists to enable exactly them, and an allowlist omitting
-    them would switch that capability off in silence. **Do not "restore" Edit/Write/Bash to make
+  workflows: the first answers an `@claude` mention in a comment, the second reviews every PR under the
+  job id `claude-review`, which is **advisory** (the ruleset names `lint-en-tests` and nothing else).
+  Before changing either, know:
+  - **Both `uses:` are pinned by commit SHA**, not by the moving tags: this is a public plugin source, and
+    whoever can move a tag reaches every consumer through its CI.
+  - **`claude.yml` runs on a read-only tool allowlist**, including the three `mcp__github_ci__*` tools the
+    `actions: read` permission exists to enable. **Do not "restore" Edit/Write/Bash to make
     `@claude fix this` work** — that it only answers is the decision, not a defect.
-  - **The `issues: [opened, assigned]` trigger is deliberately absent** from the upstream template's set.
-    The action's write-access gate governs who *triggers*, never who *wrote* the text a run then reads,
-    and this repo publishes two inbound issue templates — external prose is a designed-for input here.
-  - **The `permissions:` block is NOT the boundary, and both files say so.** `id-token: write` lets the
-    action mint a GitHub App token documented as Contents/Pull Requests/Issues at read **and** write; the
-    read-only scopes bound `GITHUB_TOKEN` alone. Audit either file by its scopes and you conclude the
-    opposite of what is true.
-
-  **The plugin marketplace is unpinned, and that was checked rather than skipped.** `plugin_marketplaces`
-  takes *"Git URLs to install from"* and neither the action's own `action.yml` nor `docs/usage.md`
-  documents a ref, tag or commit syntax — so no syntax was invented, per the
-  [#566](https://github.com/DaveKJohn/claude-code-specialists/issues/566) rule about a proposal naming a
-  mechanism that does not exist. The remedy if it ever matters is to drop the plugin and write the review
-  prompt inline, not to guess at a `#<sha>`.
-
-  **The App is NOT in `main-ci-gate`'s bypass list, and the method is the part worth keeping** (August
-  14, 2026). The question decides whether that App token can reach the trunk past the required check, and
-  the REST endpoints all refuse: `bypass_actors` is returned to admins only, and the work account
-  `davekokbwj` **then held** `admin: false, maintain: false, push: true` (it holds admin today — the role
-  table on the `ci.yml` bullet above). It was answered anyway, from three measurements that survive a
-  redacted field.
-
-  **All three readings below are from before the transfer and none of them reproduces today** — the list
-  was emptied by the transfer and refilled on September 3 with a *different* pair, so `bypass_actors` no
-  longer resolves to Repository admin + Write, `current_user_can_bypass` no longer discriminates from this
-  account (it is an org owner now, so it reads `always` whatever the roles say), and `updated_at` is the
-  restore's stamp rather than July 26's. The conclusion still holds — the current pair is
-  `OrganizationAdmin` + a repository role, and neither is an App — and **the method is what this entry is
-  for**: it is how a question about a field you cannot read gets answered instead of guessed at.
-  - **GraphQL redacts the entries but not the array.** `repository.rulesets.bypassActors` came back as
-    `nodes: [null, null]` — the contents are hidden from a non-admin, the **count** is not. Exactly two
-    actors.
-  - **`current_user_can_bypass: "always"`** on the REST ruleset, for an account that at the time held
-    nothing but `push`, means the **Write role** is one of the two — it was the only thing that account
-    had which could grant bypass. **The inference is only as good as the role it rests on**, which is why
-    the same reading proves nothing once that account holds admin.
-  - **`updated_at` dates the list.** The ruleset was last modified `2026-07-26T20:58`, and the Claude App
-    arrived `2026-08-14T08:46`. A list untouched for nineteen days cannot name an actor that did not
-    exist when it was written. The July 26 field-by-field re-check recorded in
-    [`language-layers.md`](../../rules/language-layers.md) names both actors as *Repository admin + the
-    Write role*, which matches the count of two and leaves no room for a third.
-
-  GitHub's own documentation closes the implicit route: roles and GitHub Apps are **separate** bypass
-  categories, so an App gets nothing from the Write role being listed. **The generalisable half: when an
-  API hides a field, check whether a sibling representation leaks its shape (a count, a length, a
-  timestamp) — three partial reads answered a question no single endpoint would.**
-
-  **What this bounds.** The App cannot push to `main`, delete it, or force-push. It *can* create a branch
-  and open a PR — which then merges only on a green `lint-en-tests`, like everyone else's. So the residual
-  is the ordinary route, and the read-only allowlist above closes the other end. The knob this turned on
-  was the **Write-role bypass** and its external-collaborator condition; since September 3, 2026 there is
-  no Write role in the list and the bypass rests on org ownership instead, so the knob to watch is **who
-  is an owner of `DKJ-Solutions`** — see the role table on the `ci.yml` bullet above.
-
-  **A RED `claude-review` HAS ALWAYS NAMED ITS OWN REASON, AND NOBODY WAS READING IT** — issue
-  [#1103](https://github.com/DaveKJohn/claude-code-specialists/issues/1103), August 29, 2026. The
-  **Why the review failed** step in that workflow prints `api_error_status`, writes it as a titled
-  annotation and repeats it in the job summary, and has done so since
-  [#966](https://github.com/DaveKJohn/claude-code-specialists/issues/966). The same class of report kept
-  arriving anyway — eight threads about this check red on every PR, every one of them since #966 the same
-  quota state, and #966 itself filed against a log already reading `429` and concluding that a secret
-  needed rotating. #1103 was filed with *"the actual cause: not measured"*, pointing at the marketplace
-  step, which is where the run happened to be when the error surfaced and not where it came from.
-
-  **The diagnosis was reachable and the reader was not, so the repair moved the sentence rather than
-  writing another one.** `ship-pr.ps1` now reads the failing check's annotations on the path where the
-  merge PROCEEDS and prints what that workflow said about itself, beside the warning naming the check
-  (`Get-FailedCheckRunRefs` + `Get-AuthoredFailureNote`, `scripts/lib/pr-issues-lib.ps1`). The selection
-  rule is **a failure annotation carrying a title**: the Actions runner writes its own with an empty one
-  (*"Process completed with exit code 1"*), while `::error title=X::Y` is a sentence an author left for
-  exactly this reader — so it needs no maintenance and works in a consumer repo whose workflows this repo
-  has never seen, where a rule keyed on the name `claude-review` would report nothing at all. Only the
-  **not-required** failures are asked about: a required one is a refusal, and its gate runs locally where
-  the reader meets the reason first-hand.
-
-  **And the check STAYS RED on a 429** — that decision is unchanged and recorded in the workflow itself. A
-  green tick would hide that this PR got no review, which is exactly what #966 asked not to be silent.
-  What was wrong was the legibility, not the colour.
-
-  **AND THE RELAYED SENTENCE IS ONLY AS GOOD AS ITS AUTHOR** — issue
-  [#1112](https://github.com/DaveKJohn/claude-code-specialists/issues/1112), the day after. The relay works
-  and is the right shape; what was wrong was the sentence going through it. That headline told the reader the
-  reason line names *"when it comes back"*, and on August 29, 2026 run `33267175141` failed at 18:02 UTC
-  reading *"resets Aug 31, 7am (UTC)"* while runs `33268549172` and `33269512129` reviewed successfully at
-  18:43 and 18:55 the same evening — roughly **2.5 days early**, both of them real 1–3 minute reviews rather
-  than the nine-second workflow-validation skip.
-
-  **The repair went into the workflow, not into `Get-AuthoredFailureNote`, and that is the reusable part.**
-  The relay is generic on purpose: it repeats what an author wrote and cannot know which authors are reliable,
-  so a caveat added there would caveat every workflow in every consuming repo — including the ones whose
-  timings are exact. An over-claiming sentence is repaired where it is written. The lib now says so in the
-  comment beside its 500-character bound, which had itself asserted the reset time was *"the only actionable
-  word in the whole note"*.
-
-  **The standing rule that comment block now carries**, after three corrections from measurement —
-  [#974](https://github.com/DaveKJohn/claude-code-specialists/issues/974) (a tally of red runs, wrong by ~3x
-  when typed), [#1055](https://github.com/DaveKJohn/claude-code-specialists/issues/1055) (session versus
-  weekly window) and #1112 (the reset time): **the headline states only what the STATUS proves, and everything
-  the `result` STRING says is attributed to upstream rather than asserted.** The status proves the account is
-  out of quota and that a re-run adds none; it proves nothing about when the quota returns. *Why* it returned
-  early was deliberately not investigated — a rolling window, a session window clearing, an account change are
-  all plausible and none was measured — and the headline reports the discrepancy rather than a mechanism.
-
-  **AND THE SENTENCE HAS TO FIT THE PIPE THAT CARRIES IT** —
-  [#1116](https://github.com/DaveKJohn/claude-code-specialists/issues/1116), and it sits beside the three
-  above rather than among them: they corrected what the headline CLAIMS, this one asked how much of it
-  SURVIVES. Two caps bound the same string and neither owner can see the other: this workflow caps the
-  reason it appends at 300, `Get-AuthoredFailureNote` caps the whole message it relays at 500, and the
-  296-character headline puts the sum at 597. Because the relay cannot see where the headline stops, the
-  half it drops is the **tail of the reason** — where *"resets Aug 31, 7am (UTC)"* lives.
-
-  **Both numbers were left exactly where they were, and that is the finding.** The obvious repair —
-  lower the workflow's 300 so the sum fits — was built and then withdrawn on its own arithmetic:
-  `500 - 296 - 1 = 203` is what the operator's console shows **whichever end owns the cut**, so capping
-  here hands that reader the same 203 characters, drops the `...` that marks the loss, and costs the
-  GitHub annotation — read in the checks UI, where no 500-character bound applies — up to 97 characters
-  it currently keeps. Cutting from the *front* in the relay is the only change that would give the
-  console more, and it is not free either: the relay carries workflows it has never seen, and for one
-  whose message is all content and no preamble the front is the part worth keeping.
-
-  **What the coupling lacked was an owner, not a tighter number**, so `scripts/tests/pr-issues.tests.ps1`
-  now pins all three figures the arithmetic rests on — the relay's 500, the workflow's 300, and every
-  literal headline's length — and mutation-testing confirms each movement goes red naming the right one.
-  The headline is the one most likely to move: it is prose, and #974, #1055 and #1112 each rewrote it.
-
-  **The sampling that decided it, since #1116 explicitly asked for one before a repair.** All 54 red runs
-  available on August 29, 2026, carrying 45 titled failure annotations: every one a 429, upstream's
-  `result` first line **51 to 55** characters against 203 of room, longest message actually emitted
-  **341**. A reason must reach 204 characters — nearly four times the longest ever seen — before a reader
-  loses a word. **The same pass caught the comment defending the 500 citing run `33267175141` as a 460-character
-  note when it is 400** (title 55 + separator 4 + message 341). A comment that names a run id is inviting
-  that check, which is the argument for naming one.
-
-  **The transferable half: an overlap between two bounds is not automatically a defect, and the change
-  that removes the overlap is not automatically the fix.** Here it would have moved the loss from a marked
-  truncation in one reader's view to an unmarked one in another's, and delivered the same text to the
-  reader it was meant to help.
-  **AND THE RELAY IS ONLY AS GOOD AS THE WORKFLOW HAVING SPOKEN AT ALL** — issue
-  [#1245](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1245), September 2, 2026, and it is
-  the first entry in this narrative about a failure the diagnostic step never *saw*. Every measurement
-  above describes a run the SDK lived long enough to report on. The **Why the review failed** step is
-  gated on `execution_file != ''`, so when the action dies before the SDK is reached that step is
-  **skipped**, the workflow writes no titled annotation, and `Get-AuthoredFailureNote` — correctly —
-  selects nothing. The operator meets a red tick with a blank reason line: the #966 silence again, in the
-  one class all of the 429 work could not reach.
-
-  **Measured rather than reasoned about.** Run `33663986438` (PR #1249): step *Run Claude Code Review*
-  `failure` after 16s, step *Why the review failed* `skipped`, and the job's annotations were a Node-20
-  warning plus two **untitled** failures — *"Process completed with exit code 1"* and *"Action failed with
-  error: Claude Code is not installed on this repository"*. The reason was in the API the whole time, in
-  the one field the relay does not read. The cause was #1245's own subject: the Claude Code GitHub App did
-  not follow the transfer into `DKJ-Solutions`, so the app-token exchange returned 401.
-
-  **The repair is the second diagnostic step, and its placement is the #1112 rule applied again.** The
-  tempting change is to let the relay fall back to an untitled annotation — and it is the wrong one, for
-  the reason its own asserts already state: it would relay *"Process completed with exit code 1"* in every
-  consuming repo, which is the reassuring-looking note that says nothing. A workflow that wants to be heard
-  writes a title. So the workflow now has the **complementary** gate, `execution_file == ''`, and
-  `pr-issues.tests.ps1` pins that both halves of `failure()` exist — a class cannot fall between them
-  again.
-
-  **What that second sentence may CLAIM is the interesting constraint**, and it is the standing rule of
-  that file rather than a new one. It states only what an **empty output** proves: the SDK produced no
-  result, so the failure is in the setup around it and not in the diff, and no `api_error_status` exists —
-  a 429 or 529 arrives *with* a result message and is therefore the other step's business. It does **not**
-  name the cause, because it cannot: the cause is in the runner's untitled annotation and in the step log,
-  and the step can read neither. Naming today's cause in the sentence would be #966's mistake with the sign
-  flipped — an assertion the run never proved — so the app installation is cited in the job summary as *the
-  measured instance*, not as the diagnosis. The asserts pin that too: the headline may not mention 429,
-  529, quota or a reset.
-
-  **And the escape went in even though every character of that headline is a literal**, which is the
-  #1118 lesson taken at face value rather than re-learned. On literals `${headline//%/%25}` is a no-op —
-  but #1118 was precisely the branch nobody escaped because nobody had interpolated into it *yet*, and it
-  was then the only branch without the guard. So the test pins the emission-site **count** rather than a
-  `-ge`: a new site raises the number deliberately, and cannot slip in unescaped.
-
-  **The transferable half, and it is #1245's own sentence: after a transfer, verify the CAPABILITY, not
-  the artefact that represents it.** The post-transfer checklist checked that the Actions secret survived,
-  and it had — so the check came back clean while both workflows depending on it were dead anyway, because
-  the dependency that broke was one layer further out than the check reached. Its sibling
-  [#1244](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1244) is the same shape on the same
-  day: `main-ci-gate` present and active while the bypass list it depended on was gone. **Both failure
-  modes are silent by design** — one check is advisory, the other's absence only shows when somebody tries
-  to use it — which is why *"the artefact is still there"* is the one form of verification a transfer
-  defeats.
-
-  **What is NOT in this repo's gift**, stated because the temptation is to close the loop: the app install
-  is an **account-level** action on the `DKJ-Solutions` organisation, like the spend limit #1164 turned out
-  to need. A session can make the failure legible and cannot make it stop. The consumer-facing half — that
-  no shipped *page* states the titled-annotation contract, only the code enforcing it — is
-  [#1251](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1251), deliberately not folded in
-  here.
+  - **The `issues: [opened, assigned]` trigger is deliberately absent.** The action gates who triggers,
+    never who wrote the text it then reads, and this repo publishes inbound issue templates, so external
+    prose is a designed-for input.
+  - **The `permissions:` block is not the boundary.** `id-token: write` lets the action mint an App token
+    with read **and** write; the read-only scopes bound `GITHUB_TOKEN` alone. Never audit by scopes.
+  - **The plugin marketplace is unpinned on purpose**: no documented ref syntax exists, and none is to be
+    guessed (#566). If it ever matters, drop the plugin and write the review prompt inline.
+  - **The App is not a bypass actor** of `main-ci-gate` (both actors are people; see the `ci.yml` bullet),
+    so it can open a PR but not push to `main`. The knob to watch is who owns the `DKJ-Solutions` org.
+  - **`claude-review` stays red on a 429**: a green tick would hide that the PR got no review (#966). The
+    headline states only what the *status* proves; anything the `result` string says is attributed to
+    upstream (#974, #1055, #1112). An over-claiming sentence is repaired in the workflow that wrote it,
+    never in the generic relay `Get-AuthoredFailureNote` (`pr-issues-lib.ps1`), which `ship-pr.ps1` uses to
+    print a failing check's titled annotation (#1103). The relay selects only a **titled** failure
+    annotation.
+  - **Two diagnostic steps, complementary gates**: *Why the review failed* on `execution_file != ''`, and
+    a second on `execution_file == ''` (the action died before the SDK; #1245). The second may claim only
+    what an empty output proves and may not mention 429, 529, quota or a reset. Every emission site keeps
+    the `${headline//%/%25}` escape (#1118). `pr-issues.tests.ps1` pins both gates, the emission-site
+    count, and the three lengths the 500/300/headline arithmetic rests on (#1116).
+  - **After a repo transfer verify the capability, not the artefact**: the Claude Code GitHub App is an
+    account-level install on the org, and the Actions secret surviving proved nothing (#1245; the spend
+    limit is the same shape, #1164). A session can make the failure legible, not stop it.
+  - **Declined:** letting the relay fall back to untitled annotations (#1245) — it would relay "Process
+    completed with exit code 1" in every consumer. **Declined:** lowering the workflow's 300-character
+    reason cap so the sum fits the relay's 500 (#1116) — the operator's console shows the same 203
+    characters whichever end cuts.
+  - **Decided in:** [PR #658](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/658),
+    [#566](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/566),
+    [#966](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/966),
+    [#974](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/974),
+    [#1055](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1055),
+    [#1103](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1103),
+    [#1112](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1112),
+    [#1116](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1116),
+    [#1118](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1118),
+    [#1164](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1164),
+    [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244),
+    [#1245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1245),
+    [#1251](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1251) (no shipped page states the
+    titled-annotation contract). Measurements are in this file's history.
 
 - **`.github/workflows/unfolded-entry.yml` + `scripts/lint/check-unfolded-entry.ps1`** — the
   skipped-fold gate (issue #1270). The workflow runs the check on every `push` to `main`; the check is
   mirrored into the workflow plugin and also driven by `unfolded-entry-sessioncheck.ps1`. Advisory, not
-  in `main-ci-gate`. The full reasoning is in the `#1244` chain-reaction passage on the `ci.yml` bullet
-  above; the detector is `Get-UnfoldedTrunkEntry` in `entry-scaffold-lib.ps1`.
+  in `main-ci-gate` (a required check cannot gate a push anyway). The reasoning is in
+  [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244) and #1270; the detector is
+  `Get-UnfoldedTrunkEntry` in `entry-scaffold-lib.ps1`, one definition for both callers. It runs from CI
+  and from the SessionStart hook because neither reaches the whole population alone, and neither calls
+  `gh`. Its one false positive is the ship window (`ship-pr` pushes the merge commit, then seconds later
+  the fold commit), which **this workflow's own** `cancel-in-progress: true` swallows; `ci.yml` keys every
+  push on its own commit since #1294 and swallows nothing.
 
-  **Since [#1585](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1585) the check tells a
+  **Since [#1585](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1585) the check tells a
   SKIPPED fold from a checkout that is merely BEHIND**, and that distinction is invisible from the working
   copy alone: a stale checkout still has the document on disk and still has a `CHANGELOG.md` without the
   entry, so the detector reported a fold that `fold-on-merge.yml` had already pushed. The extra question
@@ -870,7 +318,7 @@ infrastructure.
   in `entry-scaffold-lib.ps1`.
 
   **It asked the OTHER half of the fold commit until
-  [#1601](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1601), and that half was
+  [#1601](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1601), and that half was
   guessable rather than decisive.** The fold removes the document and adds the entry in one commit, so
   #1585 asked the cheap half — `git cat-file -e origin/<trunk>:<rel>`, is the document gone upstream — and
   fenced off absence's other causes with a gap gate: ask only when the gap is non-zero. **A gap is not a
@@ -905,7 +353,7 @@ infrastructure.
   15368), which is not on `main-ci-gate`'s bypass list and cannot be added to it: the app is owned and
   administered by `anthropics`, merely installed on this org, so there is no private key here it
   could authenticate as. The bypass list already carries `OrganizationAdmin` with
-  `bypass_mode: always` (see the role table on the `ci.yml` bullet above), so the checkout step wires
+  `bypass_mode: always` (see the `ci.yml` bullet above), so the checkout step wires
   in `secrets.FOLD_PUSH_TOKEN` instead — a fine-grained personal access token, created by an org owner,
   scoped to **this repository only** and to **`Contents: Read and write` only** — and that identity
   clears the ruleset with no ruleset change at all.
@@ -916,18 +364,18 @@ infrastructure.
   shape #1499 measured, where the ruleset names both `lint-en-tests` and the merge-queue rule together,
   so read the run's own last lines rather than assume which of the two it is — and nothing else
   announces the expiry; there is no reminder ahead of it. Renewal is manual: **an org owner of
-  `DKJ-Solutions`** (today DaveKJohn, davekokbwj, maikel-bwj — the same role table) **creates a new
+  `DKJ-Solutions`** (measured September 3, 2026: DaveKJohn, davekokbwj, maikel-bwj) **creates a new
   fine-grained PAT with the identical scope — this repository only,
   `Contents: Read and write` only — and overwrites the secret**,
-  `gh secret set FOLD_PUSH_TOKEN --repo DKJ-Solutions/claude-code-specialists`. Today that renewal is
+  `gh secret set FOLD_PUSH_TOKEN --repo DKJ-Solutions/dkj-claude-plugins`. Today that renewal is
   tribal knowledge held by whoever created the token (Dave); this paragraph is what keeps it from
   staying that way if the 366 days run out while he is not the one reading a red run.
 - **`.github/workflows/verify-resolved.yml` + `scripts/release/verify-pushed-merges.ps1`** — the
   resolves gate's second half surviving the same merge (issue
-  [#1511](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1511), September 6, 2026), one
+  [#1511](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1511), September 6, 2026), one
   step further down `ship-pr.ps1` than the fold above. `verify-resolved-issues.ps1` is that script's
   step 6 and ran only from the shipping session, right after its own `gh pr merge` returned; since
-  [#1506](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1506) enqueues instead of
+  [#1506](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1506) enqueues instead of
   merging, that step never runs. **What was lost is narrower than it sounds and is worth stating
   exactly**: GitHub honours the body's closing keywords on a queue merge like any other — measured on
   PR #1509, where #1506 closed on the merge and a later `-ReportOnly` run reported `every declared issue
@@ -970,350 +418,120 @@ infrastructure.
   for a quote rather than the behaviour, since a fake `gh` would answer either form happily.
 
 - **`.github/workflows/repo-settings.yml` + `scripts/lint/check-repo-settings.ps1`** — the one runner
-  here whose subject is **not** this tree (issue
-  [#1726](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1726), September 9, 2026). Every
-  other check on this page reads the repo or a machine-local record; this one reads **GitHub**, and
-  compares it against `Get-ExpectedRepoSettings` in
+  here whose subject is **not** this tree: daily (06:30 UTC, plus `workflow_dispatch`) it reads **GitHub**
+  and compares it against `Get-ExpectedRepoSettings` in
   [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) — seven declared facts, each carrying the
-  document in this tree that states it and the date that statement was last measured.
+  document in this tree that states it and the date it was last measured. Before changing it, know:
+  - **Scheduled, not a SessionStart hook**, because a scheduled run leaves a *dated* record (#1720);
+    `workflow_dispatch` also survives GitHub suspending a schedule after 60 days of inactivity (#1726).
+  - **Not in `main-ci-gate`**: a check whose subject is the ruleset, required by that ruleset, is
+    self-referential and would stop the trunk over a switch only the owner can flip. **It writes nothing
+    to GitHub, ever** (settings are the owner's surface; `adopt-ci-floor.ps1` follows the same rule, #1972),
+    holds `contents: read` and borrows no standing credential.
+  - **`bypass_actors` reads as unreadable in CI** (admins only), which is a third verdict `[?]`, not a pass
+    and not a failure: compare that one field by running the script locally. Everything else comes from
+    `repos/<repo>/rules/branches/main` and the repo object, not `rulesets/<id>` (no admin, no id to go
+    stale, and it reports the rules *effective* on the trunk).
+  - **An undeclared field is not checked.** `scripts/tests/repo-settings-gate.tests.ps1` holds the
+    declaration to shape, not values: every `Field` is one the check can read, every record carries its
+    `Recorded`, `Where` and `Why`.
+  - **It cannot cover the session about to cause the drift** (`allow_auto_merge` was enabled live against a
+    record declaring `false`, #2265). So: read the declaration before proposing a GitHub-side setting change
+    (hard rule in [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules),
+    #1843), and `ship-pr.ps1`'s CI-wait invitation is *derived* from `Get-ExpectedRepoSettings`, never
+    asserted, so a consumer declaring nothing gets no line.
 
-  **The gap it closes is the one the ruleset bullet above states in prose and could not act on**:
-  *"a ruleset is GitHub-side state, so nothing in this tree changes when it changes."* That sentence is
-  still exactly right, and it is now the only half that was ever missing — a detector.
-
-  **THREE DRIFTS IN EIGHT DAYS, which is why this was built rather than written down.** #1726 was filed
-  arguing for doing nothing, on this repo's own no-pre-emptive-fixes rule and the words *"one occurrence
-  is not a rate"* — and that premise did not survive the tree. `bypass_actors` emptied by the transfer
-  (#1244): every direct-on-`main` exception dead, every fold blocked, found by a failing push a day
-  later. `merge_queue` added and removed with no trace (#1499, #1720). And `allow_auto_merge` live
-  `true` against four records here saying `false`
-  ([#1730](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1730)) — **found by this check's
-  own first run**, while that premise was being checked. Two of the three had mechanical consequences,
-  not merely a session reading a wrong sentence.
-
-  **SCHEDULED, NOT A SessionStart HOOK, and the reason is the date** (Dave's call on #1726's menu). A
-  hook reaches a drift sooner and costs a `gh api` round trip at every session start. What decided it is
-  the half a hook cannot do at all: a scheduled run leaves a **dated** record. #1720's own complaint is
-  that the removal has no date anywhere, *"because September 9 is when it was measured, not when it
-  happened"* — a hook reports to whoever happens to open a session, and if nobody does, nothing is
-  written down. Daily at 06:30 UTC bounds every future answer to 24 hours; `workflow_dispatch` is how
-  the answer is had on the day a setting is changed on purpose, and the one trigger that survives
-  GitHub suspending a schedule after 60 days of repo inactivity.
-
-  **NOT in `main-ci-gate`**, like `unfolded-entry.yml` and `branch-entry.yml` — the two that state that
-  reasoning for themselves — and for a sharper version of it: a
-  check whose subject *is* the ruleset, required *by* that ruleset, would be self-referential — and it
-  would stop the trunk over a switch only the owner can flip, so a drift would block every merge instead of
-  reporting one. **And it writes nothing to GitHub**, ever: repo settings are the owner's surface, the same
-  rule `adopt-ci-floor.ps1` follows when it composes its required-check ruleset command and refuses to
-  run it ([#1972](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1972)) — its merge-queue
-  instruction stays a UI pointer instead, since that switch is scheduling policy nobody here has
-  chosen. It holds `contents: read` and borrows no standing credential, which is the whole difference
-  from `fold-on-merge.yml` two bullets up.
-
-  **ONE FIELD READS AS UNREADABLE IN CI, AND THAT IS A THIRD VERDICT RATHER THAN A PASS.**
-  `bypass_actors` is returned to repo administrators only, so the job-scoped `GITHUB_TOKEN` cannot see
-  the one field whose emptying was #1244 — collapsing that into "matches" would make the check silent
-  about the drift with the worst consequences. So it prints `[?]`, says why, and does not fail the run;
-  run the script locally to compare that one. Everything else comes from
-  `repos/<repo>/rules/branches/main` and the repo object, both readable with `contents: read` — and the
-  branch endpoint is deliberately preferred over `rulesets/<id>` for the rest: no admin, no id to go
-  stale when a ruleset is re-created, and it reports the rules **effective** on the trunk, which is what
-  every document here is actually about.
-
-  **What it costs to add a fact, and what it costs not to.** An unstated field is not checked, so
-  nothing in the declaration can go stale for a fact nobody chose to declare — but the converse is that
-  a load-bearing setting nobody declares stays exactly as invisible as all seven of these were before
-  September 9. `scripts/tests/repo-settings-gate.tests.ps1` holds the declaration to shape rather than
-  to values (68 asserts, re-counted September 22, 2026 — this figure read 46 against an actual 64,
-  having been left behind by asserts added after it was written): every `Field` must be one the check
-  knows how to read, and every record must carry its `Recorded`, `Where` and `Why`, because a `Field`
-  typo is this check's own failure mode arriving from the inside — a declared fact silently ceasing to
-  be watched.
-
-  **AND THE ONE MOMENT IT STRUCTURALLY CANNOT COVER IS THE SESSION THAT IS ABOUT TO CAUSE THE DRIFT**
-  ([#2265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2265), September 22, 2026).
-  Measured while landing #2255: `ship-pr` was waiting on `lint-en-tests` for PR #2262 with three of the
-  four CI shards still queued on GitHub runners, and the session offered enabling `allow_auto_merge` as
-  the way to stop waiting. It was enabled and auto-merge was armed — against the record above declaring
-  it `false`, whose reason is that *with strict off, "up to date" is not a merge requirement, so
-  auto-merge lands a stale-but-green certificate unattended* — with `origin/main` nine commits ahead of
-  that branch at that very moment, which is that reason live rather than theoretical, and with step 3b
-  blind to it because an auto-merge happens without a shipping session (#1730). Both the setting and the
-  armed auto-merge were reverted in the same session; the check reads 7 of 7 `[OK]` again, re-measured
-  September 22, 2026, so nothing persisted.
-
-  **The schedule is not the defect and #1726 is not reversed.** Dave's call there was about detecting
-  drift *somebody else* caused, where a dated daily record is exactly the right instrument. This is the
-  other shape: the session is the one about to cause it, and at that moment these seven declared facts
-  are the most relevant thing in the repo and the least visible — machine-readable, about a second
-  away, and pointed at by nothing in a session. So the repair is two **pointers** and not a third
-  runner; the session-side guard #1726 weighed and declined stays declined.
-  - **The portable half** is a hard rule in
-    [Sylvester's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-05-15-manual.md#sylvesters-hard-rules):
-    read the declaration before proposing a GitHub-side setting change, because the check's earliest
-    catch is *after* the change and after whatever the change let through. It travels, because a
-    consumer's GitHub-side state drifts the same way and `check-repo-settings.ps1` is theirs too
-    (#1843).
-  - **The local half is at the measured moment**, in `ship-pr.ps1`'s CI-wait invitation — the block that
-    already answers *"this wait is long, what do I do about it"* now also answers *"not that"*: it says
-    how many GitHub-side settings this repo declares, names auto-merge among them where that field is
-    one of them, and points at the check. **Derived from `Get-ExpectedRepoSettings`, never asserted**,
-    so a consumer who declares nothing gets no line at all — the same rule that keeps step 3 from naming
-    a check (*"naming one here would be a claim about the consumer's CI that this script cannot keep"*),
-    applied to a repo's settings.
-
-  **BOTH RUNNERS ABOVE NOW HAVE A CONSUMER-SHAPED TWIN, AND NOTHING HOLDS THE TWO IN SYNC** (issue
-  [#1516](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1516), September 6, 2026).
-  The queue became this workflow's policy for every repo running it, and a queue reaches a consumer as
-  a *policy* rather than as a release: the setting is theirs to flip, and neither runner is plugin
-  payload — a plugin install writes nothing into a repo. So
-  [`scripts/task/adopt-ci-floor.ps1`](../../../scripts/task/adopt-ci-floor.ps1) carries derived
-  copies of both, as generated line arrays, and places them on `-Apply`. They differ from the originals
-  in exactly two structural ways: they reach their scripts through a checked-out `.workflow-scripts`
-  clone of the plugin tree instead of through this repo's in-repo paths, and they set
-  `CLAUDE_PROJECT_DIR` so those mirrored scripts judge the consumer's tree. Everything else — the
-  `FOLD_PUSH_TOKEN` checkout, the `contents: read` block, the two-outcome check step, the
-  `issues: write` split — is the same decision, restated.
-
-  **That restatement is the drift risk, and it is stated here rather than gated because no gate fits.**
-  A byte comparison would be wrong (the two paths genuinely differ), and a property gate would be a
-  third statement of the same rules. What holds today is
-  [`scripts/tests/adopt-ci-floor.tests.ps1`](../../../scripts/tests/adopt-ci-floor.tests.ps1),
-  which pins the properties that would break a consumer silently — the plugin paths, the
-  `CLAUDE_PROJECT_DIR`, and the credential split in both directions. **So: change either workflow on
-  this page and read that script in the same movement.** The script itself refuses to run here, which
-  is right and is also why nobody editing these two files is reminded of it by the tooling.
-
-  **FOUR CORRECTIONS LANDED TOGETHER, ALL MEASURED IN A BWJ CONSUMER ON 2026-09-07** (inbound
-  [#1539](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1539),
-  [#1542](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1542),
-  [#1543](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1543),
-  [#1544](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1544)), and all four applied
-  to both this repo's own two workflows and the `adopt-ci-floor.ps1` twins:
-  - **#1542 — the merge stamp is UTC.** `Format-EntryMergeStamp` rendered it with `.ToLocalTime()`,
-    which was a display string until #1280 made `Get-EntryInsertOffset` derive the entry's *insert
-    position* from it. A sort key cannot be local time: a repo that folds from both a UTC GitHub runner
-    and a maintainer's laptop then writes stamps offset by the maintainer's UTC offset, dropping entries
-    out of the chronological TIER 0 order #1280 fixed. `.ToUniversalTime()` in `entry-scaffold-lib.ps1`
-    and the `FallbackNow` in `fold-changelog-entry.ps1`. Stamps written before this stay local; the
-    insert walk stops at the first older stamp, so the skew is bounded to neighbours across that
-    boundary until they age out at the next cut.
-  - **#1543 — the fold runner checks out the trunk tip, not the event SHA.** `actions/checkout` on a
-    `push` defaults to `github.sha`; in a queueless consumer `ship-pr` folds locally and pushes on top
-    within seconds, so the slower runner read a tree one commit behind origin and the fold's trunk-gap
-    guard (#1405) refused — a false red on every `ship-pr` merge. `ref: main` (here) / `ref: <trunk>`
-    (the template) makes the job read "does the trunk carry a leftover NOW", which is the question it
-    exists for. `verify-resolved` keeps the event SHA — it resolves *this push's* PRs and has no
-    trunk-gap guard.
-  - **#1586 — and `ref: main` did NOT make the trunk-gap guard unreachable, which is what #1543's repair
-    claimed and what both workflow headers said until this was measured.** The ref is read **once**, at
-    the checkout; the guard measures the same trunk again from inside the fold, about eleven seconds
-    later. So a second merge landing in that gap still trips it — run `34206684361`, 2026-09-08: the
-    checkout took `e8ca4cb7` (`merge: … (#1576)`) at 08:50:31, so the leftover was genuinely on the trunk
-    and correctly found, and by 08:50:42 the shipping session had pushed *that branch's own fold*, leaving
-    this checkout 1 behind. The guard was right, the trunk ended correct, and the job went red for a state
-    that no longer existed. **The repair is the stand-down, not a fetch:** the fold's trunk-freshness
-    refusal now exits **2** — the only thing in that script that does — and the job exits 0 on that code
-    alone, because the push that moved the trunk queues its own run of the same job behind this one
-    (that is #1544's group, above, doing load-bearing work) and the guard fires in a **pre-pass**, so
-    nothing was written. **`git fetch` + `--ff-only` before the fold was the candidate and was declined**:
-    it narrows the window from ~11s to ~1s without closing it, leaving the job red *rarely*, which is
-    worse than predictably red and is still the fourth self-healing meaning #1539's triage exists to keep
-    out. The list below therefore stays **three**: a stand-down is this job declining to answer a question
-    a successor run is already queued to answer, not a way of failing.
-
-    **AND THE SAME RACE RUN THE OTHER WAY LANDS ON `ship-pr`, WITH A CODE OF ITS OWN** (issue
-    [#1792](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1792), measured here on
-    2026-09-10, shipping PR #1789). With the queue retired (#1720) both runners fold on the ordinary
-    path, so the loser is sometimes the **session** — and the two losses were never equally cheap: a red
-    CI job is read once and closed, while `ship-pr`'s `-ne 0` ended a *correct* ship by reporting a
-    failure and leaving the session's local `main` diverged 1/1, which `CLAUDE.md` reserves every obvious
-    way out of (`reset --hard`, a rebase on a shared branch) to the owner. The fold's redundant-commit verdict
-    now exits **3** — its second and last code of its own — and `ship-pr` reads it as a stood-down
-    success, carries on through steps 5b/6, and prints in a step 5c the two commands that realign this
-    checkout: a `backup/fold-<branch>` ref, then `reset --keep origin/main` (trunk checked out here) or
-    `branch -f main origin/main` (nothing holds it). **`2` and `3` are not merged**, because after `2`
-    nothing was written and after `3` a commit is on the local trunk — and neither script repairs it, so
-    conflating them would either invent a leftover or hide one. **Both codes have one testable end each
-    in `fold-changelog.tests.ps1`**: `exit 3` from exactly one place, and `ship-pr.ps1`'s own reading
-    pinned as source text, because that orchestrator has no suite of its own and `-ne 0` is precisely
-    what stayed the tested behaviour on the caller side through #1586.
-  - **#1544 — the concurrency group is constant per trunk.** Keyed on `github.sha` it was its own group
-    every run and serialised nothing, so two trunk pushes close together raced — and this job *pushes*.
-    `github.ref` keeps `cancel-in-progress: false` (no *running* fold dropped) and adds queueing (no
-    race). Same change to `verify-resolved.yml`. **That field never protected a *pending* run**, and
-    #2813 measured the cost: a skipped fold-only push displaced a merge's pending run in both files, so
-    a fold-only push now takes a per-commit group of its own (the measurement is in `fold-on-merge.yml`'s header).
-  - **#1539 — the red-run triage names three causes, not two.** An absent or under-scoped
-    `FOLD_PUSH_TOKEN` fails `actions/checkout` and leaves every later step `skipped`, with no fold step
-    to read — the cause a consumer meets first, on adoption day, and the one to rule out first. The
-    workflow headers, `adopt-dkj-policy`'s SKILL, and `adopt-ci-floor.ps1`'s own console note now say
-    so; a fine-grained PAT lists repositories one by one, so a repo *created* rather than transferred
-    (an org move with no GitHub transfer) falls outside an existing token's selection silently.
+  - **The fold and verify-resolved runners have a consumer-shaped twin** (#1516):
+    [`scripts/task/adopt-ci-floor.ps1`](../../../scripts/task/adopt-ci-floor.ps1) carries derived copies of
+    both as generated line arrays. They differ in exactly two ways (the `.workflow-scripts` plugin clone
+    path, and `CLAUDE_PROJECT_DIR`); nothing else may. Nothing gates the two in sync, so **change either
+    workflow and read `scripts/tests/adopt-ci-floor.tests.ps1` in the same movement**; the script itself
+    refuses to run here, so the tooling will not remind you.
+  - **Live rules of those two runners** (four corrections from a consumer, applied to both this repo's
+    files and the twins: #1539, #1542, #1543, #1544):
+    the merge stamp is **UTC**, because it is a sort key (#1542); the fold runner checks out
+    `ref: main`, not the event SHA (#1543), but the ref is read once, so the trunk-gap guard can still trip
+    — that refusal exits **2** and the job exits 0 on that code alone (#1586); the redundant-commit verdict
+    exits **3**, which `ship-pr.ps1` reads as a stood-down success and follows with step 5c's realign
+    commands (#1792) — `2` and `3` are never merged; the concurrency group is constant per trunk with
+    `cancel-in-progress: false`, and a fold-only push takes a per-commit group (#1544, #2813); the red-run
+    triage names **three** causes, and an absent or under-scoped `FOLD_PUSH_TOKEN` is the one to rule out
+    first (#1539) — a fine-grained PAT lists repositories one by one, so a repo *created* rather than
+    transferred falls outside an existing token's selection silently.
+  - **Declined: `git fetch` + `--ff-only` before the fold** (#1586) — it narrows the race without closing
+    it, leaving the job red rarely, which is worse than predictably red. **Declined: a session-side
+    guard** (#1726) — the two pointers under "It cannot cover the session" are the repair.
+  - **Decided in:**
+    [#1244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1244),
+    [#1499](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1499),
+    [#1516](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1516),
+    [#1539](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1539),
+    [#1542](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1542),
+    [#1543](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1543),
+    [#1544](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1544),
+    [#1586](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1586),
+    [#1720](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1720),
+    [#1726](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1726),
+    [#1730](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1730),
+    [#1792](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1792),
+    [#1843](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1843),
+    [#1972](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1972),
+    [#2265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2265),
+    [#2813](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2813). Measurements are in this
+    file's history.
 
 - **`.github/workflows/merge-on-green.yml` + `scripts/ci/pick-merge-on-green.ps1` + `scripts/lib/merge-on-green-lib.ps1`**
-  — the merge that survives the *session*, where the two runners above survive the *merger*
-  ([#2319](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2319), September 23, 2026).
-  `ship-pr` refusing on a red required check leaves the merge owed to three things at once: a session
-  still alive, a person who notices CI turned green, and a checkout standing on the branch. Measured on
-  PR #2316: `gh run rerun --failed` turned every check green and nothing merged it, because the run that
-  had been watching exited at step 3 — and re-running `ship-pr` then refused *again*, on a checkout its
-  own step 2b (#1073) had put on the trunk.
-
-  **IT RUNS `ship-pr.ps1`; IT DOES NOT RE-DERIVE A SINGLE GATE.** #2319 proposed a runner that merges
-  "only when the required check is green on the exact head and the staleness count is zero" — and that
-  second predicate is step 3b, with the step-list gate and the DEPLOY lock two more the issue's list
-  leaves out. So the job checks the branch out and runs the script that holds all of them, which also
-  means it folds (step 5) and verifies the resolves (step 6) exactly as a live session would. Every
-  later repair to `ship-pr` reaches this runner with no edit here. The same restraint
-  `ci-merge-skip-lib.ps1` shows one file over, taken one step further: that one re-asks step 3b's
-  question from CI by calling the identical pure functions; this one does not ask it twice at all.
-
-  **THE ARMING LABEL IS THE AUTHORISATION, AND `ship-pr` IS ITS ONLY WRITER.** The constitution
-  `CLAUDE.md` imports holds two
-  kinds of PR back for the owner's own word — a visible result, and anything irreversible or outward-facing —
-  and a runner merging every green PR would merge those too. `merge-when-green` is set once the PR is
-  open and before `ship-pr` starts waiting on CI (#2393; until then only when its CI verdict
-  refused, which left a ship that died mid-watch or refused at step 3b unarmed), so it is a record
-  that a session had *already begun shipping*, which is precisely what those two exceptions
-  withhold. A PR kept back for the owner never had `ship-pr` run on it. The label creates itself on first use
-  rather than needing an adoption step, because
-  `gh pr edit --add-label` fails outright on a label the repo does not have and this script travels to
-  every consumer.
-
-  **THE MERGE IS MADE BY `FOLD_PUSH_TOKEN`, AND THAT IS NOT A CONVENIENCE.** A push *caused by* the
-  job-scoped `GITHUB_TOKEN` starts no workflow runs — the fact `verify-resolved.yml`'s header already
-  records from the other side. So a `GITHUB_TOKEN` merge would land the PR and silence `ci.yml` on the
-  trunk, `fold-on-merge.yml` and `verify-resolved.yml` all three: the unobserved-merge state those two
-  runners exist to close, reintroduced by the mechanism meant to help. The cost is that the secret needs
-  `Pull requests: write` added to it, which is the owner's act and not a branch's; until it is made this job
-  fails loudly with a 403 on the merge and can never merge without folding.
-
-  **IT IS THE PRINCIPLED ANSWER TO THE TEMPTATION #2265 MEASURED**, and it does not reverse that
-  record. `repo.allow_auto_merge` stays `false`: GitHub's own auto-merge cannot perform step 3b, so with
-  `strict` off it lands a stale-but-green certificate unattended, which is #1292 exactly. What #2265
-  measured was a session reaching for that switch to stop waiting. This runner gives that impulse
-  somewhere legitimate to go — the wait ends without a person in it, *and* the staleness check is kept
-  rather than skipped.
-
-  **IT SHIPS WITH `-SkipLint -SkipTests`, AND OMITTING THAT PAIR WOULD BE THE EXPENSIVE MISTAKE.**
-  `ship-pr`'s step 1 calls `open-pr.ps1` even for a pull request that is already open — it skips only
-  the `gh pr create` and still runs the gates and the push (#457's repair, deliberately made in
-  `open-pr` rather than in the orchestrator). So a runner that just ran `ship-pr.ps1` would re-run the
-  whole local suite pool, ~43 minutes (#2317), inside a job whose cap is 45. Skipping it is not a gate
-  bypassed: the sweep picked this pull request *because* the required check is green on its own head,
-  and that check **is** this same gate, run on GitHub, on this same commit — the certificate is what the
-  merge is allowed on, not the local copy.
-
-  **A SWEEP, NOT AN EVENT-DERIVED PR.** Three triggers wake one sweep — a CI `workflow_run`, a
-  30-minute schedule, `workflow_dispatch` — and none of them is read for *which* PR is owed a merge;
-  `pick-merge-on-green.ps1` reads the tracker instead. The schedule is what makes it durable: #2319's own
-  incident was repaired with `gh run rerun --failed`, and whether a partial re-run re-emits
-  `workflow_run` is not a contract worth resting this on. The concurrency group is a **constant** with
-  `cancel-in-progress: false`, which is the opposite choice from the two push-triggered runners and for a
-  reason they do not have — those answer a question about one push, while two concurrent sweeps would
-  race to ship the *same* PR. One PR per sweep, lowest number first; the merge is itself a push to the
-  trunk, so the next sweep is already queued behind it and the backlog drains by construction.
-
-  **`workflow_run` RUNS THE DEFAULT BRANCH'S COPY OF THIS FILE**, whatever branch the CI run was for —
-  so this workflow cannot be proved on its own pull request, and its first live proof is its own first
-  sweep after the merge. Read alongside `check-repo-settings.ps1`'s own `[?]` verdict above: both are
-  places where the honest answer is *this cannot be checked from here*.
-
-  **AND `workflow_run` IS THE TRIGGER THAT RUNS WITH SECRETS FOR A FORK'S PULL REQUEST**, which is its
-  standard hazard and the reason this job reads **nothing** out of the event. Everything it acts on comes
-  from the tracker: an open pull request carrying a label only `ship-pr` writes, whose head is a branch of
-  *this* repository — `pick-merge-on-green.ps1` refuses a cross-repository one outright rather than letting
-  it fail at the checkout. This repo is public, so a fork's pull request can start the job and reach none of
-  its decisions. Both guards are asked because neither is load-bearing alone: today the label is out of a
-  stranger's reach, and "is the head ref in this repo" does not depend on that staying true.
-
-  **THE THIRD PRECONDITION IS REMOVED IN `ship-pr` ITSELF.** #1620 turned the on-the-trunk refusal from
-  a rule into a diagnosis; it still handed a person a command the script had already worked out. Now,
-  on **exactly one** candidate, a **clean** tree and a name `ref-print-lib.ps1` would already put on a
-  command line, it performs the checkout and carries on. The widening is over which branch gets *read*,
-  never over what may merge — a parked branch is still refused by the step-list gate a few steps down.
-  **It is a test gap and named as one**: the block reads HEAD, the tracker and the working tree and
-  drives `git checkout`, so there is no pure function to hand a payload to;
-  `scripts/tests/merge-on-green-lib.tests.ps1` holds the three conditions structurally and asserts the
-  #1620 refusal survived, which is not the same as covering the behaviour.
-
-  **ITS CONSUMER TWIN IS `adopt-ci-floor.ps1`'s FOURTH RUNNER**
-  ([#2329](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2329)). `ship-pr.ps1` is a shared
-  script, so a consumer got the labelling and the sentence promising a sweep a release before it got
-  the sweep — the same order `fold-on-merge.yml` landed in, built here under #1493 and derived
-  afterwards. The derived copy reaches `pick-merge-on-green.ps1` and `ship-pr.ps1` out of the plugin
-  checkout and runs both against the consumer's workspace via `CLAUDE_PROJECT_DIR`. **That needed one
-  repair to the picker, not only a template**: it resolved its root as `$PSScriptRoot\..\..`, which in a
-  consumer is the checkout of *this* tree, so its `Get-RepoName` read would have come off this repo's
-  own `repo-config.ps1` and swept this repo's pull requests from a consumer's runner. It now resolves
-  dual-context like every other mirrored script, and is mirrored itself. Its `workflow_run` list is read off the consumer's own pull_request workflows' top-level
-  `name:`, and left out rather than guessed where none declares one.
-
-  **AND SINCE #2437 THIS REPO'S OWN COPY SHIPS FROM A TRUSTED TRUNK, NOT FROM THE PR BRANCH.** Until
-  then this runner checked `main` out once with `FOLD_PUSH_TOKEN` persisted into the workspace, then
-  `git checkout <branch>` **in that same workspace** — so `ship-pr.ps1` and everything it dot-sources ran
-  as the branch's own PowerShell, in a process holding a standing write credential
-  ([#2338](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2338), measured: ~80% of merged
-  PRs here touch `scripts/`, `.github/`, `.workflow-scripts/` or a plugin's `scripts/`, so
-  `Get-MergeOnGreenExecutedPathHit` refused the sweep on almost every ship). The design (Sebastian #23's
-  review, four conditions, all built before anything shipped):
-
-  - **Two checkouts, two `.git` directories, `persist-credentials: false` on both.** `trusted-main` (the
-    trunk) and `pr-branch` (the picked PR's head) share nothing but the runner's disk. `ship-pr.ps1` —
-    and every sibling lib it loads via `$PSScriptRoot` — runs from `trusted-main`; `CLAUDE_PROJECT_DIR`
-    points `$repoRoot` at `pr-branch`, so the merge, the step-list gate, the DEPLOY lock and the branch's
-    own push still act on that tree's actual commit.
-  - **`ship-pr.ps1`'s new `-TrustedRoot` parameter** (forwarded to `open-pr.ps1` as `-SeamRoot`)
-    repoints the *one* thing `$PSScriptRoot` cannot supply for free: the two REPO-OWNED seams
-    (`scripts/repo-config.ps1`, `scripts/lib/branch-info.ps1`) both scripts read from `$repoRoot` rather
-    than from beside themselves, because a repo's own name and its own branch-prefix table are not
-    portable code. **Named limitation, not silently accepted**: a PR editing either seam ships under the
-    TRUNK's answer to it, not its own — a staleness cost, never a safety one, and
-    `Get-MergeOnGreenExecutedPathHit` still refuses such a PR to the sweep for exactly this reason.
-  - **`-TrustedRoot`/`-SeamRoot` structurally force `-SkipLint`/`-SkipTests`** rather than merely
-    documenting "always pass both together with this" — `gate-lib.ps1`'s `Invoke-WorkflowGates` runs the
-    lint script and every suite from `$RepoRoot` (the branch tree), which is exactly what trusted-tree
-    mode exists to stop trusting, so a future edit to the workflow dropping the flag pair can no longer
-    reopen the hole silently.
-  - **No `git worktree add` in trusted-tree mode.** `$repoRoot` (the branch checkout) is never given a
-    token, so it cannot push a fold commit either — `$TrustedRoot` already stands on `main` and carries
-    the credential, so the fold step uses it directly (bringing it up to date with the same
-    fetch-plus-ff-only-merge every other fold arm already runs) instead of spinning up a worktree off a
-    repo that could never push it. `Remove-ShipFoldWorktree`'s new `-NotOwned` switch keeps this run from
-    ever deleting a tree it did not create.
-  - **The push credential is ephemeral, not persisted, and applied uniformly.** Neither checkout writes
-    `FOLD_PUSH_TOKEN` into its own `.git/config`; the Ship-it step instead sets git's documented
-    `GIT_CONFIG_KEY_n`/`GIT_CONFIG_VALUE_n`/`GIT_CONFIG_COUNT` environment triplet, which authenticates
-    every git call the step's process tree makes — both directories, in-memory only, gone when the step
-    ends. **This is a deliberate departure from Sebastian's own literal wording** ("token-bearing
-    checkout only for the trusted main tree"), named in the workflow's own comment rather than silently
-    substituted, because his design still leaves the raw token on `trusted-main`'s disk for the step's
-    duration (his own residual-exposure #3) — one credential applied the same way to both trees removes
-    that residue everywhere instead of only where his wording named. **Unproven by anything but a live
-    run**: `workflow_run` runs the default branch's own copy of this file, so #2437 cannot be proved on
-    its own pull request, and the two-checkout layout plus this exact credential mechanism is verified
-    for the first time by this workflow's first sweep after the PR that built it merges.
-  - `Get-MergeOnGreenExecutedPathHit`'s rule shrank from four path prefixes to an enumerated two-file
-    list (the seams above, exact match); the merge-on-green-lib and stranded-sweep-gate suites assert
-    the shrink positively (every OTHER path that used to refuse is now eligible) rather than only
-    asserting what still refuses.
-  - **The scaffolded consumer template (`adopt-ci-floor.ps1`'s fourth runner) got the same shape later,
-    under its own issue** ([#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449)):
-    a different file, every adopted consumer as blast radius, and #2333's SHA pin to reconcile with.
-    Until then it checked the consumer's trunk out once with the token persisted, nested the plugin tree
-    inside that workspace in `.git/info/exclude`, and switched it to the picked branch in place. That
-    ran the consumer's own seams beside the token, and #2437's shrink briefly let a branch overwrite the
-    trusted plugin copy (#2553). It now uses **three** sibling checkouts: the pinned `.workflow-scripts`
-    plugin tree (the code), a token-free `trusted-main` (the seams via `-TrustedRoot`, and the fold) and
-    a token-free `pr-branch`, with the same ephemeral credential. Sebastian's review on #2449 set three
-    conditions. The runner's own header argues the one-credential trade. The test pins the literal
-    `trusted-main` as the picker's `CLAUDE_PROJECT_DIR`, because pointed at the plugin tree it would
-    read *this* repo's `repo-config.ps1`. And a re-run of `adopt-ci-floor` names an existing runner of
-    the old shape, since the scaffolder never rewrites one. For that last reason the `.workflow-scripts/`
-    refusal in `Get-MergeOnGreenExecutedPathHit` is permanent: the lib cannot see which shape a given
-    consumer runs.
+  — the merge that survives the *session* (the two runners above survive the *merger*): a sweep that
+  picks one open PR carrying the label `merge-when-green` and runs `ship-pr.ps1` on it, so a PR whose CI
+  turned green after the shipping session ended still merges. Before changing it, know:
+  - **It runs `ship-pr.ps1` and re-derives no gate** (step 3b, the step-list gate, the DEPLOY lock, the
+    fold and the resolves check all come with the script). Never add a gate predicate to the workflow.
+  - **The arming label is the authorisation and `ship-pr` is its only writer**: it is set once the PR is
+    open and before the CI wait (#2393), so it records that a session had *already begun shipping*, which
+    is what the visible-result and irreversible exceptions withhold. A PR kept back for the owner never has
+    it. The label creates itself on first use (`gh pr edit --add-label` fails on a missing label).
+  - **The merge is made with `FOLD_PUSH_TOKEN`**: a push caused by the job-scoped `GITHUB_TOKEN` starts no
+    workflow runs, which would silence `ci.yml`, `fold-on-merge.yml` and `verify-resolved.yml` on the trunk.
+    The secret therefore needs `Pull requests: write`, the owner's act; until then the job fails loudly
+    with a 403.
+  - **`repo.allow_auto_merge` stays `false`** (#2265, #1292); this runner is the legitimate place for the
+    impulse to stop waiting, and it keeps the step-3b staleness check.
+  - **It ships with `-SkipLint -SkipTests`.** Omitting them re-runs the whole local suite pool (~43 min,
+    #2317) inside a 45-minute cap. The green required check on the same head *is* that gate.
+  - **A sweep, not an event-derived PR**: three triggers (`workflow_run`, a 30-minute schedule,
+    `workflow_dispatch`) wake it and none is read for *which* PR; `pick-merge-on-green.ps1` reads the
+    tracker, one PR per sweep, lowest number first. The concurrency group is a **constant** with
+    `cancel-in-progress: false` (two sweeps would race to ship the same PR).
+  - **`workflow_run` runs the default branch's copy** of the file, so it cannot be proved on its own PR,
+    **and runs with secrets for a fork's PR**, so the job reads nothing out of the event and the picker
+    refuses a cross-repository head outright.
+  - **The trusted-tree shape (#2437, from #2338)**: two checkouts, `trusted-main` and `pr-branch`, both
+    `persist-credentials: false`; `ship-pr.ps1` runs from `trusted-main`, with `CLAUDE_PROJECT_DIR` on
+    `pr-branch`. `-TrustedRoot` (forwarded as `-SeamRoot`) forces `-SkipLint`/`-SkipTests` structurally,
+    uses no worktree, and the push credential is the `GIT_CONFIG_KEY_n`/`_VALUE_n`/`_COUNT` env triplet,
+    in memory only. A PR editing the two repo-owned seams ships under the trunk's answer to them;
+    `Get-MergeOnGreenExecutedPathHit` refuses exactly those two files, and `.workflow-scripts/`
+    permanently. `ship-pr` itself checks out the one candidate branch from a clean trunk (#1620); that
+    block is a named test gap, held structurally by `merge-on-green-lib.tests.ps1`.
+  - **Its consumer twin is `adopt-ci-floor.ps1`'s fourth runner** (#2329, #2449): three sibling
+    checkouts (pinned `.workflow-scripts`, token-free `trusted-main`, token-free `pr-branch`); the picker
+    resolves its root dual-context, and the test pins `trusted-main` as its `CLAUDE_PROJECT_DIR`. A re-run
+    of the scaffolder never rewrites an existing runner of the old shape (#2553).
+  - **Declined:** a runner that merges on "required check green and staleness zero" by itself (#2319) — it
+    would skip gates `ship-pr` holds. **Declined:** a `GITHUB_TOKEN` merge (silences the trunk's runs).
+  - **Decided in:**
+    [#2319](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2319),
+    [#2393](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2393),
+    [#2317](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2317),
+    [#2265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2265),
+    [#1292](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1292),
+    [#1620](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1620),
+    [#2338](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2338),
+    [#2437](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2437),
+    [#2329](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2329),
+    [#2449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2449),
+    [#2553](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2553). Measurements are in this
+    file's history.
 
 - **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
   in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296),
@@ -1356,7 +574,7 @@ infrastructure.
   derives from both files rather than hard-coding either.
 
 - **`scripts/lint/check-git-identity.ps1`** — the split-identity check (issue
-  [#1315](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1315), September 3, 2026): does
+  [#1315](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1315), September 3, 2026): does
   this checkout commit as the same account it acts as on the tracker? The claim rule's `@me` resolves
   through the GitHub API, so it writes whichever account `gh` holds, and nothing compared that against
   `git config user.name`. Measured on DAVE-KOK-BWJ, where `gh` is `DaveKJohn` and `git` is `davekokbwj`:
@@ -1386,127 +604,41 @@ infrastructure.
   is still caught. `git-identity-gate.tests.ps1` walks both edges of that rule, and passes both identities
   in explicitly — a suite that read the machine's own would assert something different on every checkout.
 - **`scripts/lint/check-consumer-prose.ps1`** — the consumer-prose check: **two detectors over one
-  corpus, read once**, merged from two scripts and two hooks by issue
-  [#1421](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1421) (September 5, 2026). Both
-  halves are the narrow literal greps the declined prose-contract framework recorded as the proportionate
-  alternative; each keeps its own detector function, its own measurement and its own report block, and
-  what merged is the plumbing around them — the process, the root resolution, the skip, the lib loads and
-  the always-on walk.
-
-  **What the merge cost a consumer: nothing, and that is why it happened now rather than later.** #1421
-  deferred it on the ground that it renames a consumer-facing hook one release after introducing it.
-  Checked before building, and the reason had expired: **neither hook had ever been released** — both
-  landed after the `v4.29.0` tag and both sat in `CHANGELOG.md`'s `[Unreleased]` section, so
-  `consumer-prose-sessioncheck` is the first name any consumer ever sees. **That check is the general
-  lesson here**: a deferral's reasoning is a fact about a moment, and the moment it names is the one thing
-  a standing issue cannot re-measure for itself.
-
-  **Measured, on a consumer fixture carrying both defects, three passes each** (this machine,
-  September 5, 2026): `retired-doc-name-sessioncheck` 492 / 492 / 493 ms plus
-  `supremacy-declaration-sessioncheck` 498 / 494 / 503 ms = **990 ms for the pair**, against
-  **541 / 527 / 530 ms** for the merged hook reporting the same two blocks — **~457 ms saved per session
-  start**, in every consumer, indefinitely. That is slightly *above* the ~350-450 ms #1421 inferred from
-  the component costs, which is worth recording because that issue was honest that no merged version had
-  been built to measure. A bare `powershell -NoProfile` hook launch that finds no check script is
-  **~155 ms** here, which fixes the shape of it: one of the two outer launches goes, one of the two nested
-  spawns goes, one of the two dot-source-plus-walk passes goes. **It is not the largest item on that
-  bill** — measured in the same batch as #1421, all 7 SessionStart hooks came to ~6.8 s here, of which
-  `connector-sessioncheck` alone was ~4.9 s (~72%).
-
-  **The first half — the retired-name detector** (issue
-  [#1389](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1389), September 4, 2026):
-  does a consumer's own always-on prose still name a *retired* name of the branch's development
-  document? The first of the two narrow literal greps the declined prose-contract framework recorded
-  ([below on this page](#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026)),
-  and its whole licence is that sentence — the detector is `Get-RetiredDocNameMention` in
-  `entry-scaffold-lib.ps1`, the names come from `Get-BranchFileLegacyNames`, and nothing here reads what
-  a sentence *means*.
-
-  **Three things separate it from the framework that was declined**, and all three are asserted rather
-  than described. The names are **derived**, so the next rename adds this token by the same row it always
-  adds and there is no second list to leave at seven names. The corpus is stated as an **inclusion**
-  list — the always-on closure plus the workflow folder's own permanent pages, minus its changelog,
-  because a folded entry correctly names the file of its day and a check that read it would be born red
-  on its own past. And it **skips the publishing repo**, on the source-repo guard's own condition 2, for
-  the reason #1380's first pass measured the hard way: this repo's pages narrate the rename history on
-  purpose, so without the skip the source reads as consumer drift.
-
-  **Its stated gap, so nobody rediscovers it as a bug.** `development-<slug>.md` (pre-#1335) is *not* a
-  token: a prose page names the shape, and matching a shape needs a wildcard, which is the step toward
-  fuzzy the decline rules out. `development-cycle.md` is a real literal and is covered, so the
-  `development-` era is not wholly absent — but a consumer restating only the shape is missed, and that
-  is what the precision costs.
-
-  **The second half — the supremacy-declaration detector** (issue
-  [#1415](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1415), September 4, 2026):
-  does a consumer's own always-on prose declare *its* `CLAUDE.md` the winner over
-  `dkj-policy/CONTRIBUTING.md`, inverting `LAW-THIRD-RANK-ORDER`? The **second** of the two
-  narrow literal greps the declined framework recorded, and the one that entry measures every candidate
-  as **structurally blind** to: a pointer test flags only sections that cite nothing, so
-  cites-then-contradicts can live nowhere but among the findings it suppresses.
-
-  **The two share their corpus, and that was true before the merge** — it is the point of
-  `Get-ConsumerProseDocuments` in `entry-scaffold-lib.ps1`: which documents a consumer-prose check may
-  read is one question with one answer, and each of its exclusions (the changelog, `releases/`,
-  plugin-shipped payload, a per-branch document) is load-bearing for a measured reason. Two copies would
-  drift on the day a third exclusion is found, and the copy that missed it would report what the other
-  correctly ignores. **Sharing the corpus is what left the runtime duplication visible**: the pair had one
-  definition of *which* documents and two of everything else, which is exactly the residue #1421 removed.
-
-  **The detector is ADJACENCY, not co-occurrence, and that departs from the sentence this page
-  recorded** — measured, with the numbers, [further down](#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026).
-  Short version: the recorded three-term test scores 0 findings and 0 recall on its own target, because
-  the real sentence names the contributing page by a Dutch prose noun rather than by its filename;
-  requiring `CLAUDE.md` and `wins`/`wint` to sit *beside* each other scores 3 raw / 2 reported / 2 true /
-  100%, and reads **direction**, which is the whole defect — *"this page wins"* is the rank order stated
-  correctly and a term list cannot tell the two apart.
-
-  **Its one suppression rests on one instance, and is written down as such** rather than presented as a
-  principle: a hit wholly inside a `"…"` span is skipped, the instance being a consumer quoting the
-  closing line of a page it retired. Kept because precision is 67% without it and 100% with it; the
-  suite pins it from both sides, including that an unrelated quotation elsewhere on the line does *not*
-  suppress a real finding.
-
-  **ONE CALLER, no CI half, and the publishing-repo skip** — three answers that now hold for the merged
-  script as a whole. Where `check-git-identity` has no CI half because a runner is a bot by design, this
-  one has none because there is nothing for a CI leg to check: in the only repo whose CI this repo
-  controls, the check skips. So `consumer-prose-sessioncheck.ps1` (workflow plugin) is not a convenience
-  on top of another route — it *is* the route, which is the whole point of #1389 and #1415 alike.
-
-  **The skip means something different per detector, and one script must say so rather than inherit it.**
-  For the retired-name half it is a **repair** — this repo narrates the rename history on purpose and
-  would read as consumer drift without it. For the supremacy half it is only a **guard**: measured at zero
-  hits here on the day it was written, because every supremacy sentence this repo carries names the
-  plugin's page as the winner and adjacency reads that correctly. It is kept for sibling consistency and
-  because this is the repo where such sentences get written about consumers.
-
-  **BOTH DETECTORS ALWAYS RUN — the first finding does not short-circuit the second.** A check that
-  stopped at the first block would hand a session start the worse half of the two-hook arrangement (one
-  defect reported, the other hidden) without the saving that motivated merging them, so
-  `consumer-prose-gate.tests.ps1` pins it from three sides: a tree with only the rename produces one
-  block, a tree with only the inversion produces the other, and a tree with both produces exactly two
-  `[ERROR]` markers from one invocation.
-
-  **The pre-merge per-hook figures, kept because they are what the saving is measured against** (5 runs
-  each, median, this machine, September 4, 2026): `retired-doc-name-sessioncheck` **365 ms** through the
-  hook in this repo where it skips, against **544 ms** for `unfolded-entry-sessioncheck` beside it;
-  `supremacy-declaration-sessioncheck` **728 ms** through the hook here, its check alone **387 ms** where
-  it skips and **1,484 ms** against a consumer with findings — against **1,312 ms** for the sibling on
-  that same consumer in that same run, so the paragraph joining cost roughly **13%** over a detector that
-  still read physical lines. That was the price of the wrapping false negative being closed, and it was
-  worth it.
-
-  **The re-measurement is itself the lesson.** The supremacy figures were first taken before review found
-  the wrapping defect, and the repair makes the check do strictly more work per document — so the
-  paragraph would have shipped as a current, dated fact about code that no longer existed. Caught by the
-  copy edit, not by any gate: **a measurement taken before the last repair is stale, and nothing goes red
-  when it is.**
-
-  **Compare the pair, never the figure.** Every absolute on this page runs roughly double or half its
-  neighbour depending on nothing but how busy the box was — which is why the #1421 before/after above was
-  taken as six runs in one sitting on one fixture rather than by subtracting two dated numbers. Same load
-  sensitivity [#1401](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1401)
-  closed by making a duration assert compare against its queue instead of a fixed ceiling.
+  corpus, read once** (merged from two scripts and two hooks, #1421), delivered at session start by
+  `consumer-prose-sessioncheck.ps1` (workflow plugin). One flags a consumer's always-on prose that still
+  names a *retired* name of the branch's development document (#1389); the other flags prose declaring the
+  consumer's own `CLAUDE.md` the winner over `dkj-policy/CONTRIBUTING.md`, inverting the rank order
+  (#1415). Both are the narrow literal greps the declined prose-contract framework recorded as the
+  proportionate alternative. Before changing it, know:
+  - **Both detectors always run**; the first finding never short-circuits the second.
+    `consumer-prose-gate.tests.ps1` pins it (only the rename: one block; only the inversion: the other;
+    both: exactly two `[ERROR]` markers from one invocation).
+  - **One caller, no CI half, and it skips the publishing repo** (the source-repo guard's condition 2).
+    The skip is a *repair* for the retired-name half (this repo narrates the rename history on purpose) and
+    only a *guard* for the supremacy half (zero hits here).
+  - **The corpus has one definition**, `Get-ConsumerProseDocuments` in `entry-scaffold-lib.ps1`: the
+    always-on closure plus the workflow folder's permanent pages, minus the changelog, `releases/`,
+    plugin-shipped payload and a per-branch document. Each exclusion is load-bearing; a new one goes there,
+    never into a second copy.
+  - **Retired names are derived** (`Get-RetiredDocNameMention`, names from `Get-BranchFileLegacyNames`), so
+    there is no second list to maintain. Stated gap: the `development-<slug>.md` *shape* is not a token
+    and is not matched, because matching a shape needs a wildcard (#1389).
+  - **The supremacy detector reads ADJACENCY, not co-occurrence**: `CLAUDE.md` beside `wins`/`wint`. The
+    three-term test scored 0 recall because the real sentence names the contributing page by a prose noun,
+    and only adjacency reads *direction* (#1415). Its one suppression, a hit wholly inside a `"…"` span,
+    rests on one instance and is pinned from both sides by the suite. Paragraph joining stays, because it
+    closed a wrapping false negative.
+  - **Measure a pair, never a figure**: durations run double or half depending on box load, so a duration
+    assert compares against its queue rather than a fixed ceiling (#1401).
+  - **Declined:** a prose-contract framework or any wildcard/fuzzy matching (see
+    [the gate-checks index](#how-the-gate-checks-got-their-shape-and-the-measurements-behind-them-august-15-2026)).
+  - **Decided in:**
+    [#1380](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1380),
+    [#1389](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1389),
+    [#1401](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1401),
+    [#1415](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1415),
+    [#1421](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1421). The measurements (the
+    ~457 ms saved per session start by the merge, the per-hook figures) are in this file's history.
 - **`scripts/lint/check-consumer-drift.ps1`** — the read-only drift check against a consuming repo
   (`MISSING`/`IDENTICAL`/`DRIFTED`).
 - **`scripts/lib/plugin-tree-lib.ps1`** — the one answer to *which plugins does this repo publish, and
@@ -1558,7 +690,7 @@ infrastructure.
       symptom is the populated case, the silent one is the empty case.
 - **Two lessons that outlived the file they were measured in.** `scripts/task/session-status.ps1` — the
   reporter behind `/lock` and `/handover` — was removed with both skills on August 27, 2026
-  ([#957](https://github.com/DaveKJohn/claude-code-specialists/issues/957), Dave). Its open-issues block
+  ([#957](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/957), Dave). Its open-issues block
   had been repaired on **August 14, 2026**, and that repair cost two lessons beyond the
   `ConvertFrom-Json` trap above. Neither is about the deleted script, so both are kept:
   - **A `2>$null` on a native command makes its `catch` unreachable, so check `$LASTEXITCODE` instead.**
@@ -1760,7 +892,7 @@ this repo's:
 - **The test gate is bound by its SLOWEST SINGLE SUITE, not by their sum — so the next second saved is
   bought inside one file.** Measured August 7, 2026 on the same machine within one session, all 27 suites
   green every time: **510s one at a time, against 128–263s parallel over six runs (median 159s)**
-  ([#512](https://github.com/DaveKJohn/claude-code-specialists/issues/512)). **That spread is the mechanism,
+  ([#512](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/512)). **That spread is the mechanism,
   not noise** — a sum averages its own variance out, a maximum does the opposite, so a gate bound by its
   slowest suite is inherently less predictable than one bound by the total. Quote the range rather than the
   best run: the first parallel measurement taken was the 128s one, and on its own it would have promised a
@@ -1778,7 +910,7 @@ this repo's:
   fails with 30 siblings competing for the disk.
 
   **THE LAST CLAIM IN THAT PARAGRAPH WAS WRONG, AND IT IS KEPT ABOVE SO THE CORRECTION HAS SOMETHING TO
-  CORRECT** (August 16, 2026, [#714](https://github.com/DaveKJohn/claude-code-specialists/issues/714)).
+  CORRECT** (August 16, 2026, [#714](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/714)).
   "It cannot be parallelised the way the gate was" reasoned from the wrong unit: the scenarios do all
   mutate one directory in sequence, but the gate schedules **files**, not scenarios — so the suite could
   be given the idle lanes by becoming four files, each with its own fixture, without touching the
@@ -1810,7 +942,7 @@ this repo's:
   its own.** *Re-run a red suite alone before believing its assert* was written for a hand-rolled runner;
   the reds of August 16 (`bootstrap-drift`, `fix-mojibake`, post-split pool) and the **11 of 54** reported
   out of the `v4.22.0` cut in
-  [#1033](https://github.com/DaveKJohn/claude-code-specialists/issues/1033) both came out of
+  [#1033](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1033) both came out of
   `Invoke-TestSuiteGate` itself. Neither reproduces: five full runs on that tree were all green, and the
   release's 443s "green" figure turns out to be a **2x-load** reading rather than the gate's cost — the
   numbers are in [Nolan #25](specialist-06-25-lens.md#a-gate-verdict-that-moves-is-a-load-reading--n5-and-the-caller-is-not-a-variable-august-28-2026).
@@ -1845,7 +977,7 @@ this repo's:
   behind.** The clone is what a document named by an absolute `@`-import reads — the orchestrator's
   body, in every repo here — and it advances only on
   `claude plugin marketplace update dkj-claude-plugins`. Measured August 23, 2026
-  ([#845](https://github.com/DaveKJohn/claude-code-specialists/issues/845)): after four PRs merged and
+  ([#845](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/845)): after four PRs merged and
   pushed, the clone still stood on the previous day's `3e46b3de` while `main` was at `86f1a6c8` — the
   cached manual missing a section added that morning, the cached shared block missing a rule added that
   afternoon — and **every check reported OK**. `/plugin` had nothing to do, and
@@ -1886,7 +1018,7 @@ this repo's:
 
   **The measurement check 11's comment relies on had never reached this boundary. It has now, and the
   answer is worse than the guess** (September 10, 2026, Claude Code 2.1.267, on a second machine of Dave's,
-  [#1812](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1812)). What check 11 records,
+  [#1812](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1812)). What check 11 records,
   correctly and with a date, is that a bare project-scoped `update` advanced the clone during the run
   (July 31, 2026, CLI 2.1.220, 3.0.3 → 3.0.4) — taken while the **version number was changing**.
   Identical version, new content, nothing moved was the untested case. Measured, in this order:
@@ -1914,7 +1046,7 @@ this repo's:
   the same run: `claude plugin details dkj-policy` reported `Skills (17)` while the clone's copy of the
   same 4.33.0 carried 18 — so that command prices the payload, not the clone — and a checkout enabling
   `dkj-subagents-alpha/-ecomm/-shopify` with no install record for its own path loaded none of them,
-  which is [#1802](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1802) seen from the
+  which is [#1802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1802) seen from the
   other end.
 
   **Neither account in the tree was complete, and that is why #1810 could not be designed.** This lens
@@ -1940,7 +1072,7 @@ this repo's:
   report gives is checked before it is repaired, and here
   the since-retired `UNINSTALL.md` had already established that the
   cache directory follows the marketplace and not the install
-  ([#339](https://github.com/DaveKJohn/claude-code-specialists/issues/339)). What was genuinely open
+  ([#339](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/339)). What was genuinely open
   was the per-plugin case, and that is what was run. That is the gap
   [lane 12 of `tidy-machine.ps1`](../../../scripts/maintenance/tidy-machine.ps1) reports — and reports
   only, because there is no plugin-cache verb to hand over and a recursive delete under a user's home
@@ -2150,11 +1282,11 @@ this repo's:
   captured content.
 - **`claude plugin marketplace remove` rewrites the *project* `settings.json` of the working directory you
   run it from — not only the scope the marketplace was declared in.** Measured on July 29, 2026 while
-  cleaning up the two throwaway plugins of the [#215](https://github.com/DaveKJohn/claude-code-specialists/issues/215)
+  cleaning up the two throwaway plugins of the [#215](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/215)
   experiment: it emptied the test consumer's `enabledPlugins` **and** `extraKnownMarketplaces`. So run it
   from a throwaway directory, never from a repo whose `.claude/settings.json` you want to keep. The full
   account, including how the damage was spotted, is in
-  [PR #256](https://github.com/DaveKJohn/claude-code-specialists/pull/256)'s changelog entry.
+  [PR #256](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/256)'s changelog entry.
   **And the lookup lesson that came with it:** the first version of this bullet declared the mechanism
   unrecorded and left it at an operating rule, because it went looking in the lenses and the manuals. It
   was on record all along — in that PR's entry, folded into `CHANGELOG.md` one commit earlier. Before
@@ -2163,7 +1295,7 @@ this repo's:
 - **And the quieter sibling of that: every `claude plugin install`/`uninstall --scope project` rewrites
   this repo's tracked `.claude/settings.json` and strips the blank lines that group
   `permissions.allow`.** Measured September 10, 2026 over nine such commands
-  ([#1774](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1774)): `enabledPlugins` came
+  ([#1774](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1774)): `enabledPlugins` came
   back byte-identical, and the three blank lines separating the git / gh / scripts / release blocks of a
   60-entry allowlist were gone. The mechanism is the CLI's own settings writer — a JSON parse and
   re-serialise — so it is not this repo's code and there is nothing here to fix. The portable rule, with
@@ -2357,7 +1489,7 @@ paragraph stopped contradicting it.
 `~/.claude/plugins/cache/`, named by the `installPath` of this checkout's install record and frozen at
 the moment that record was last written — the clone is the catalogue, and the source that copy was
 extracted from. Measured September 10, 2026
-([#1812](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1812)): a
+([#1812](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1812)): a
 `claude plugin marketplace update` advanced the clone by 104 commits and left every payload
 byte-identical, and both `plugin update` and `plugin install` then declined on the **version string**
 alone. So a change that lands without a version bump reaches no session at all, and an agent def you
@@ -2383,7 +1515,7 @@ argued by name in [`adopt-dkj-policy`'s skill page](../../../plugins/dkj-policy/
 a pinned gate goes on enforcing the shape it was pinned at, and since the entry's own path has moved
 twice, a stale pin does not fail loudly — it refuses branches that *do* carry an entry at the current
 path. That reasoning stands, and
-[#1805](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1805) sharpened it by naming the
+[#1805](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1805) sharpened it by naming the
 half it had never weighed: tracking the tip protects a consumer from a stale convention and exposes them
 to a moved *script*. The writing rule that came out of it — **name the two channels together or name
 neither** — holds wherever either is stated, because a release doctrine stated alone is read as covering
@@ -2479,10 +1611,10 @@ things came with it; one stood and one was answered. First, every specialist an 
 needs a roster row and a repo lens, which for the three teams meant eleven lenses kept empty on purpose.
 Second, `dkj-subagents-shopify`'s floor check asks which theme is live, and a repo with no
 store has no truthful answer, so it reported an `[ERROR]` at every session start until
-[#1570](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1570) gave the check a third
+[#1570](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1570) gave the check a third
 state to be told that in. **This repo declares `Get-ShopifyRepoHasNoStore` in
 [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) because it has no store, and the check
-honours that since #1570** ([#1579](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1579))
+honours that since #1570** ([#1579](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1579))
 — but still **do not silence it by seeding a theme id**, which would arm a guard over a revenue-serving
 theme on a number nobody verified. The two are not the same act and the seam exists to keep them apart:
 the declaration says there is no store, an id says there is one and names it. The seam is verified
@@ -2502,7 +1634,7 @@ which is why both old spellings still appear in the tree and why neither may eve
 - **The owner**, September 2, 2026: transferred from the personal account `DaveKJohn` into the
   `DKJ-Solutions` organisation, so `DaveKJohn/…` resolves only through a redirect.
 - **The name**, September 10, 2026: `claude-code-specialists` became `dkj-claude-plugins` (fase 3 of
-  [#1769](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1769)), so
+  [#1769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1769)), so
   `DKJ-Solutions/claude-code-specialists` resolves only through a redirect too.
 
 Both redirects are **transfer redirects this repo does not control**, and each holds just as long as
@@ -2523,7 +1655,7 @@ grows.**
 resolve today, so nothing is broken and the dead-link gate is right not to flag the mix; the cost is that
 new writing copies whichever example sits nearest, and the tree held 133 `.md` files on the old owner
 against 28 on the new when this was measured
-([#1526](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1526)). The same holds for the
+([#1526](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1526)). The same holds for the
 ~830 slug citations the second rename left: a sweep buys prose consistency at the price of a diff nobody
 can review. The one layer left exactly as written is the archived release history under
 `dkj-policy/releases/**`, the same carve-out
@@ -2535,9 +1667,9 @@ citation may lag, a lookup may not.
 
 **A checkout's own `origin` remote is this same citation in a place the tree cannot reach.** It is
 per-checkout git config, not tracked, so no gate sees it. A checkout cloned before the transfer still
-pushes to `https://github.com/DaveKJohn/claude-code-specialists.git` and lands only because GitHub
+pushes to `https://github.com/DKJ-Solutions/dkj-claude-plugins.git` and lands only because GitHub
 answers `remote: This repository moved`; every push of the `v4.32.0` cut did exactly that
-([#1562](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1562)). Repoint such a checkout
+([#1562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1562)). Repoint such a checkout
 in one command — `git remote set-url origin https://github.com/DKJ-Solutions/dkj-claude-plugins.git` —
 and the redirect stops being load-bearing there. A checkout can be behind on either half or both, and
 the one command repairs all three states, because it writes the whole URL rather than patching a part of
@@ -2564,7 +1696,7 @@ which plugins exist reads `marketplace.json` through
 [`plugin-tree-lib.ps1`](../../../scripts/lib/plugin-tree-lib.ps1), so a directory in no marketplace is not
 a plugin wherever it sits. **On September 9, 2026 the team-side rename carried it to its current home at
 `plugins/dkj-subagents/subagent-shared/`**, under
-[#1698](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1698). The workflow folder
+[#1698](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1698). The workflow folder
 `dkj-policy/` was `contributing-davekjohn/` until September 5, 2026 (#1437).
 
 ### Why `Get-RosterIgnoredIds` is empty
@@ -2609,7 +1741,7 @@ the shared scripts read.
   [`source-repo-guard.tests.ps1`](../../../scripts/tests/source-repo-guard.tests.ps1)**, so adding one is
   argued in a file that fails when it is wrong; that suite also derives the entry points from the
   registry and fails on any that lacks the guard, reading the parsed syntax rather than the text
-  ([#1321](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1321)) — a whole-file match
+  ([#1321](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1321)) — a whole-file match
   on the lib's name could not tell loading the guard from a comment explaining its absence.
   **Why it needs saying, measured August 12, 2026 against mirror `4.5.0`:** every skill page prints
   `${CLAUDE_PLUGIN_ROOT}/scripts/…`, which the harness expands to your own cache before you read it, so
@@ -2632,7 +1764,7 @@ the shared scripts read.
 path segment. A fixed leaf is a name somebody else can reach first: `New-Item -ItemType Directory
 -Force` and `[System.IO.File]::WriteAllText` follow a symlink or junction, so a pre-planted link
 redirects the write, and a later recursive delete there becomes a delete primitive elsewhere. Measured
-September 8, 2026 ([#1659](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1659)):
+September 8, 2026 ([#1659](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1659)):
 **seven** sites composed `<label>-$PID` by hand. A guid removes the target instead of checking for one —
 a reparse-point check has a window, and cannot apply to the temp root at all, since on macOS `/tmp` *is*
 a symlink. `native-capture.tests.ps1` enforces this over `scripts/**` outside `tests/`; the suites have
@@ -2640,7 +1772,7 @@ their own equally strict rule, in [Tycho's lens](specialist-04-18-lens.md#a-suit
 
 #### A leftover under the temp directory is an aborted run
 
-Measured September 8, 2026 ([#1668](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1668))
+Measured September 8, 2026 ([#1668](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1668))
 over twelve days of gate runs: 107 `fold-test-*` and 96 `new-branch-test-*` entries were standing, and
 **both suites leaked zero** when run to completion — every leftover was registered after a suite's last
 completed sweep, the signature of an interrupted run. The fix that would reach them is a sweep by name
@@ -2652,1308 +1784,63 @@ for this reason.
 **Attribute before you count.** That measurement first read 413 entries as leaked fixtures; of the
 directory, 546 were `sync-pr-body-*`, written deliberately by `task/sync-main.ps1` to outlive the run
 (the same retained-on-purpose class as the gate's capture directories,
-[#1636](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1636)), and 162 were an
+[#1636](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1636)), and 162 were an
 unrelated tool's logs.
 
 ### How the gate checks got their shape, and the measurements behind them (August 15, 2026)
 
-*Moved here verbatim from [`CLAUDE.md`](../../rules/this-repo.md)'s lint-gate bullet, where it was 9,440 B
-over 102 lines — 26% of the always-on document, paid by every session before a word of work. The
-operative rule stayed there; this is the evidence for it, and the second half of the same split that
-moved the release craft to [Rendall #06](specialist-05-06-lens.md) the day before. Nothing was reworded:
-the passages below still speak in the constitution's voice, and the dates and issue numbers are the
-point of keeping them.*
+**This section is an index.** The full reasoning and the measurements behind each check, guard and
+declined proposal live in the issue or pull request that decided it, and in this file's history, where
+the former write-ups (about 111 KB, dated August 7 to September 11, 2026) can be read whole:
+`git log -p -- .claude/specialists/lenses/specialist-05-15-lens.md`. **Open the issue in a check's row
+before changing that check.** A row marked **DECLINED** was measured and refused: bring a new measurement
+or do not re-propose it.
 
-**The entry format is described in about ten hand-maintained places, and the answer is a check rather
-than a clear-out** (Dave, August 7, 2026;
-[#508](https://github.com/DaveKJohn/claude-code-specialists/issues/508)). Two of those descriptions were
-measured stale during a sweep that was looking for exactly that, one of them consumer-facing. The
-alternative — deleting the shape from every document and pointing at
-the generated reference under `dkj-policy/branch/templates/`, a directory the merged development
-cycle has since retired — was weighed and declined: the prose costs every reader on
-every read, while a check costs nothing per read. **What is checked is the section COUNT, not the
-section names**, and that was settled by measuring four candidate rules against the tree rather than by
-argument. A name-matching rule produced **six** findings on the tree, **all six false**: `What does this
-change do?` and `Type of change` are retired entry sections *and*, at the time of that measurement, were
-live headings of the PR template, so it accused **two** correct documents of being stale for describing
-that template accurately — and would have been born red behind an exemption list, the shape this repo was
-already bitten by. The count is a fact the scaffolder owns, both recorded drifts stated it, and holding it
-needs no exemptions at all.
-
-**That collision is gone since August 9, 2026, and the conclusion does not move with it**
-([#538](https://github.com/DaveKJohn/claude-code-specialists/issues/538)). Both headings were removed from
-the PR template, so the six false findings can no longer be reproduced from the tree. The measurement is
-kept in the past tense rather than deleted, because a superseded measurement is worth something only while
-it says *when* it was taken. Two reasons the count still wins: name-matching also lost on its narrowed
-variant (3 findings, 2 false, against 4 claims with 3 correct), and a rule keyed on names is one rename
-away from going silent — which is exactly what just happened to this collision, and would as easily happen
-to a match the check depended on.
-
-**A check on stale PATH references in prose was measured and declined** (August 9, 2026), and the reason
-generalises past this one rule, which is why it is recorded rather than forgotten. The proposal came out of
-a README sweep that found a title naming `specialists/scripts/`, a directory the plugin reorganisation had
-removed — a defect no gate sees, since check 4 reads markdown **links** and this was a path in inline code.
-The obvious rule is "a path in backticks must resolve against the tree". Five candidates were measured over
-120 documents (history excluded as in checks 11 and 12), each with the most generous resolver a checker
-could honestly use — repo root, the document's own directory, and every ancestor between:
-requiring a separator **and** an extension gave **124** findings, a separator alone **349**, an extension
-alone **621**, either **736**. **Not one of the 124 was a true finding**, and the narrowest rule does not
-even reach the measured defect — `specialists/scripts/` carries no extension — so catching the one real
-instance means adopting a rule born with 349.
-
-**The reason is structural, and it is about what this repo is.** Being a plugin source, most paths it
-names correctly describe *somebody else's* repo: `.claude/extensions/…` is the legacy lens location this
-family deliberately still documents for unmigrated consumers, `config/settings_data.json` is a Shopify
-store's file named in `dkj-subagents-shopify`'s manual, `PRETTY/[Emotie]/README.md` named a life-hub folder (the consumer has since retired it, and #2497 removed the line from the plugin's text). All three
-answer "no such file here", exactly as the stale title does — and **the difference is whose repo the line
-is about, which the line never says**. An existence check reads "describes a consumer" as "stale", and no
-regex recovers that distinction. Do not revive it behind an exemption list: that is the shape this repo has
-already been bitten by, and the list would need to hold the entire consumer-facing vocabulary.
-
-**What survived, unbuilt and deliberately so:** a title claiming a path must name its own location. It
-sidesteps the anchor question entirely, because a document knows where it sits — 4 subjects tree-wide,
-0 findings today, and verified against `33a41a2` to fire on the real defect. Not built, because four
-subjects is close to nothing to guard; worth revisiting when per-directory READMEs multiply.
-
-**Extending check 16 to LINE COUNTS was measured and declined** (September 10, 2026,
-[#1784](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1784)). It came out of
-[#1779](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1779), which found seven
-docstring sentences across five libs sizing `entry-scaffold-lib.ps1` at "three thousand lines" where
-it measured 8,289 — and each figure sat in the sentence that carried a layer or dependency decision, so
-the stale number argued for that decision at a third of its real strength. Check 16 misses the class twice over and
-both misses are structural: `lines` is not in its unit list (`$figurePattern`,
-[`check-plugin-integrity.ps1:2426`](../../../scripts/lint/check-plugin-integrity.ps1)), and a `.ps1`
-comment is not in its `$consumerDocs` file set — that second gap is real and is where both recorded
-instances of the class happened. It was filed on its own as
-[#1790](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1790) — measured and declined in
-its own right, write-up below.
-The proposal was a check of its own: a sentence naming a repo file and giving a line count for it, held
-against that file's actual length.
-
-**THE REASON THAT SETTLES IT COMES FIRST, BECAUSE IT IS NOT THE ONE THE PROPOSAL ARGUES ABOUT: the
-reported defect carries no digit.** #1779's seven sites read **"three thousand lines"**, spelled out in
-words — `release-lib.ps1:706` records it in those terms (*"It read 'three thousand lines' from the day
-this function moved"*). Every candidate in this family is anchored on `\d`, check 16's own
-`$figurePattern` included, so **not one of them can see the defect that motivated the proposal**, however
-precisely it is tuned. That is the whole argument, and the measurement below is only about the figures a
-digit-anchored rule *can* see.
-
-**It is not born green, and the shape of the failure is the point.** Measured against `main` at
-`69264276`, over every tracked `.md` and `.ps1` outside the archived release history, pairing each count
-with the nearest file token to its left and resolving by path then basename: **19 pairings on the wide
-pattern, 16 on a narrowed one that requires a word boundary before the digit — and under a ±5% tolerance
-band, every single one is a finding.** Exactly **one** is a real defect. The other fifteen fall into six
-classes no regex separates from it:
-
-| class | sites | why it is not a defect |
-|---|---|---|
-| a deliberate historical record | 6 | the figure **is** the past state and is the whole point — `CLAUDE.md` "328 → 282 lines", the July 28 measurement table, `cut-release.ps1` "was 284 lines" under a paragraph that says "the finding as it stood then", and `teardown.tests.ps1:469`'s "instead of 43 lines scattered through `CLAUDE.md`" (history *of* a section, which is why it counts here and not in the row below) |
-| a delta, not a length | 4 | "`CLAUDE.md` +4 lines from a round trip that should have returned to zero" — the teardown round-trip assert, in three mirrored copies plus `teardown.ps1` |
-| a section, not the file | 1 | "the roster/routing table (53 lines)" inside `CLAUDE.md` |
-| another repo's file | 2 | `teardown.tests.ps1:574` records life-hub's `repo-config.ps1` (55 lines) and `branch-info.ps1` (88) — the same "whose repo is this line about" failure that sank the stale-path rule above |
-| a **correctly bound** historical measurement | 1 | `README.md:1254`'s "101, across 492 lines" sits under *"measured against the `life-hub` consumer on July 29, 2026"* — it already does what check 16 asks, and a re-measurement check flags it anyway. This is the class that decides the remedy question below |
-| a pairing failure | 1 (+3 wide-only) | see below. The three are counted per **site**, as the delta row is: two kinds of artifact, one of which sits in two mirrored copies — which is also why wide − narrow is 3 |
-
-**The pairing failure is the one worth reading, because its victim is the best-behaved figure in the
-tree.** `check-connectors.ps1:119` reads *"release-lib dot-sources entry-scaffold-lib behind it
-(release-lib.ps1:113), and that file is 8,289 lines (measured: `wc -l scripts/lib/entry-scaffold-lib.ps1`)"*.
-The figure is accurate, present-tense, and states its own method — it is #1779's repair done right. Its
-subject is an antecedent two clauses back, so the nearest file token is `release-lib.ps1` at 1,776 lines
-and the check flags it 4.7× over. The wide pattern adds three more sites of the same kind, from digits
-that were never counts — `entry-scaffold-lib.ps1 line by line` yields "1 line" off the `1` of `.ps1`
-(twice, once per mirrored copy), and `the pre-#1591 line` yields "1591 line" off an issue number.
-
-**A resolver DOES fix that one, and the honest record says so.** Requiring the filename to sit in
-backticks immediately before a present-tense copula — `` `<file>` is/are/measures/stood at N lines `` —
-never has to resolve an English subject at all, because it refuses to fire unless the two are adjacent.
-Measured against `main` at `69264276`: **1 finding, and it is the real one. Born green, 1 of 1.** So this
-family is not impossible to gate, and the claim that it was — which stood in this paragraph until Marlowe
-red-teamed it — was an overclaim. **It is left UNBUILT rather than declined**, which is the same verdict
-and the same shape as the title-path rule two paragraphs up, on three measured prices:
-
-1. **One subject tree-wide.** The same "close to nothing to guard" bar that left the title rule unbuilt.
-2. **Blind to the motivating defect**, per the digit argument above — so building it would answer #1779
-   with a check that could not have caught #1779.
-3. **It still penalises citation, just less.** On the branch that records this decline the same narrow
-   pattern goes from **1 finding to 3**, and both new ones are this write-up quoting the defect verbatim
-   — the repaired site's own history sentence, and the paragraph above. Two thirds of its findings are
-   then the documentation doing what this repo requires of it.
-
-**Revisit condition**, stated so this is a priced option rather than a closed door: if a present-tense
-`` `<file>` is N lines `` claim ever reaches three or four live subjects, the adjacency variant is
-buildable in an afternoon and is green today. What must not be revived is the wide form.
-
-**And the tolerance band is not a tuning knob, it is mandatory — which is itself the argument.**
-`entry-scaffold-lib.ps1` went **8,289 → 8,290 during this branch's own `git pull`, eight commits**. So
-the tree's single self-citing, method-stating, correctly-measured line count went stale inside one
-fast-forward. Under an exact compare the check nags it; under a band it passes and every real finding
-smaller than 5% passes with it. A figure that decays that fast is one a reader must re-run, not one a
-gate can pin.
-
-**The remedy is the wrong shape too, and in the opposite direction from the one #1784 predicted.** The
-issue argued that check 16's binding would wrongly *pass* a stale line count. Measured, the reverse is
-what happens: the tree's bound figures are bound correctly — `README.md:1254`'s "101, across 492 lines"
-sits under *"measured against the `life-hub` consumer on July 29, 2026"* — so a re-measurement check
-flags **history that already did what it was asked**, while the one real defect
-(`specialist-06-25-lens.md:264`, "`CLAUDE.md` is 875 lines in 9 sections", against 526 in 3) is unbound and
-present-tense. Adopting the check therefore means writing `<!-- unbound-figure: … -->` onto fifteen
-correct sites to catch one, which is the exemption list this repo has already been bitten by.
-
-**And the wide form has one more price, which is the one that generalises.** Recording this decline honestly — citing each instance
-verbatim, as this repo requires of a measurement — took the same rule from **16 findings to 26** on the
-branch that declines it. Ten fresh sites, every one a correctly-attributed count in a sentence that
-argues from it, several of them the figures in the table above. So the rule does not merely mis-fire on
-history: **it penalises the act of measuring and writing the result down**, which is the one habit this
-gate's other rules exist to encourage. A check whose findings grow fastest in the documents that do
-their job is aimed at the wrong thing, and the narrow variant inherits a third of that.
-
-**Check 16's own docstring reached the same place a month earlier, for the wide form.** Its gateability
-argument is that *"there is no authored, non-measured reason to write '939,860 bytes' — so the haystack
-needs no heuristic to identify"*. A line count fails exactly that test: the same characters are a
-snapshot, a delta, a section size, another repo's file, or a historical record, and telling them apart
-is the heuristic the sentence rules out. The unit list is byte-shaped **deliberately**, and this
-measurement is why it stays that way.
-
-**What is left holding this class is the writing rule — and it is worth being exact about how strong
-that is, because it is weaker than "already covered".** *"A re-derivable figure states its method, so
-the next reader re-runs it instead of trusting it"* is in
-[Tessa's portable manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-16-manual.md)
-and describes #1779 exactly. But it **predates** #1779, and #1779 is seven sites that did not follow it
-— so it is a rule already measured failing, not one shown to suffice. Two things keep it as the answer
-anyway, and neither is that it works reliably: no digit-anchored gate can see the form the failure took,
-and the one enforcement gap that *looked* addressable — a figure gate reaching script docstrings at all —
-was measured under [#1790](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1790) and
-declined too (below). What the rule
-demonstrably buys is legibility after the fact: `check-connectors.ps1:119` followed it, went stale by a
-line inside one fast-forward, and is **still correct to read**, because the sentence says how to
-re-derive it. That is the property worth insisting on, and it is not the same thing as prevention.
-
-**Extending check 16's file set to `.ps1` COMMENTS was measured and declined** (September 10, 2026,
-[#1790](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1790)). This is the second gap
-#1784 named — not `lines` as a unit, but the byte-shaped pattern check 16 already runs, pointed at
-script comments, where both recorded instances of the class ([#1779](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1779),
-[#1775](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1775)) actually happened. The
-narrow question was: should `$figurePattern` read `scripts/**` and `plugins/**/scripts/**` comments as
-well as `$consumerDocs`?
-
-**THE REASON THAT SETTLES IT: check 16's gateability claim is true of consumer prose and false of a
-`.ps1`.** Its docstring argues the byte-shaped haystack needs no heuristic because *"there is no
-authored, non-measured reason to write '939,860 bytes'"*. In a script there are two. **A design ceiling
-is an authored byte figure** — `script-contract-lib.ps1:459` and `build-release-notes-page.ps1:215`
-both write "32 KB per mark and 64 KB in total", beside the literals `$maxPerMark = 32KB` /
-`$maxTotal = 64KB` that enforce them. **And a `.ps1` has no fence**, which is the markup boundary check
-16 leans on to tell prose from code: in a script "everything outside a fence" is the whole file, so the
-pattern reads numeric literals, `Write-Host "... / 1KB)) KB"` interpolation and
-`Assert-Equal 0 $deadRow.Bytes 'a missing import costs 0 bytes'` as prose.
-
-**Measured against `main` at `130a4794`, over `scripts/*.ps1` with check 16's own pattern and window
-logic: 49 pattern hits, 26 flagged, and not one is a real defect.** The plugin mirrors under
-`plugins/dkj-policy/scripts/` and `plugins/dkj-subagents/dkj-subagents-shopify/scripts/` add 26 more raw
-hits — the triple-report the issue predicted — but the source-tree number sinks it on its own. The
-flagged sites fall into classes no regex separates from a defect:
-
-| class | why it is not a defect |
-|---|---|
-| encoding / mojibake prose | "the two UTF-8 bytes of U+00B7", "Windows-1252 bytes", "middot (U+00B7, bytes C2 B7)" — the digit-then-`bytes` shape fires on codepoint arithmetic, which this repo's script comments carry in a dozen places (the BOM / code-page trap) |
-| an ANSI escape in a test string | `"fix/a$([char]0x1B)[31mb"` yields "1mb" off `\x1B[31m` + a following `b`, and `-match` is case-insensitive — three sites in `ref-print-lib.tests.ps1` alone |
-| an authored design ceiling | `32 KB per mark`, `64 KB in total`, and the `32KB` / `64KB` literals beside them — the "no authored reason" premise, false here |
-| code read as prose | numeric literals, `Write-Host` size interpolation, `Assert-*` message strings — no fence, so no prose/code line |
-| check 16's own test fixtures | `check-plugin-integrity-entries.tests.ps1` holds "288 bytes" eight times as deliberate fixture data for this very check |
-| check 16's own docstring | "939,860 bytes" and "~/.claude/settings.json at 22 bytes" are cited there as illustrations of the class |
-| a degenerate constant | "0 bytes" meaning empty output (`native-capture-lib.ps1`, `ship-pr.ps1`) — it cannot drift |
-| a one-time historical delta | `subagent-shared-lib.ps1:38` — "dropping it takes those 178 lines from 17,332 to 13,027 bytes", a past-tense record of what one edit did |
-| a hedged approximate size | "~203 KB of portable prose", "~72MB of heap" — `~` is not in `$figureBinding` |
-
-**The one script comment that already does what the check would ask is
-`verify-resolved-issues.ps1:98`** — "measured September 9, 2026, 0 bytes at exit 0" — which carries a
-date and passes. That is the writing rule working, not a gate.
-
-**Same verdict and same shape as #1784.** The digit-anchored pattern cannot see #1779's actual form,
-it penalises the comments that measure and say so, and the mirror multiplication triples every finding.
-The unit list stays byte-shaped **and** the file set stays `$consumerDocs`-only; both are deliberate,
-and this measurement is why. **Revisit condition**: if a present-tense `` `<file>` is N KB `` claim
-carrying a decision ever reaches three or four live sites in script comments, revisit — but a file-set
-extension needs a PowerShell-aware comment extractor first, not `.ps1` bolted onto `$consumerDocs`,
-because the classes above are what "no fence" costs.
-
-**The PR template that caused the collision is itself the change** (Dave, August 9, 2026). It now carries
-one section — the changelog entry — because `open-pr.ps1` composes the body from
-the DEPLOY section of `dkj-policy/<branch>.md`, so everything else it asked was already answered four lines lower. Measured
-over 60 PRs before removing anything: `Type of change` had exactly **one of four** boxes ticked every
-single time, a fact the entry states under `### Branch type` and which the GitHub label takes from
-`Get-BranchInfo` rather than from the tick; of the checklist, `Requested by Dave` and
-`Changelog entry written` were ticked **60/60** — both by the script itself — while the two items the
-docstring called "human judgement checks" were ticked **0/60**, by anyone, ever, though both were already
-enforced by gates that block the PR. A box that is always ticked and a box that is never ticked carry the
-same information. The template also still offered a `chore/` row, four days after
-`Test-BranchName` began refusing that prefix outright — the one line in the form that could actively
-mislead. **`open-pr.ps1` keeps filling all of it in**: a consumer's PR template is their file, every one of
-them still has those sections, and they receive the script through a plugin update rather than by choosing
-to. Recognise both, write one.
-
-**What travels from that decision is the MEASUREMENT, not the two-line answer** (August 10, 2026;
-[#573](https://github.com/DaveKJohn/claude-code-specialists/issues/573)). The rule is *"keep what is
-neither restated by the entry nor proven by a gate"*, and in this repo nothing survived it — which is a
-fact about this repo, not about the form. The consumer who reported that issue re-ran the same
-measurement over their own 60 PRs and found **one box of eight that genuinely varied**: a preview-URL
-approval, on a repo whose result has to be judged by eye and which no gate can prove. They kept it and
-dropped the other seven, and that is #538 applied rather than #538 ignored. So the portable half — the
-`open-pr` skill and the reference template the plugin now ships — states *why* the default is two lines
-and asks the next repo to run the measurement, instead of shipping "the portable template has no
-checkboxes" as a conclusion. Their same pass confirmed the failure this repo predicted when it removed
-the prefix checklist: **5 of their 60 PRs ticked two rows and 2 ticked none**, while the label came from
-`Get-BranchInfo` in all 60.
-
-**The template's shape is shipped, and the placeholder list moved so a gate could reach it** (same
-issue). `.github/pull_request_template.md` cannot live in the plugin — GitHub reads it only from that
-path in the consumer's own repo — so what ships is a reference to copy and diff against, at
-`plugins/dkj-policy/templates/pull_request_template.md`, held byte for byte to
-`Get-PrTemplateReference`. The three recognised placeholder strings were three literals inside
-`open-pr.ps1`, which meant **nothing outside that script could read them**: the reference could not be
-held against the list that has to recognise it, and that gap is the defect the issue reported. They now
-live in `pr-body-lib.ps1`, and lint check 24 holds both files — the shipped reference byte for byte,
-this repo's own template only to the contract, which since #865 is a recognised placeholder line and
-nothing else: `open-pr` reads where the placeholder sits rather than the first heading, so a heading-less
-template — the shape this repo actually ships — is supported and the gate must not refuse one. The second
-file is held weakly because it is genuinely repo-owned, and a byte rule would refuse a correct change the
-day it grows a section.
-
-**The gate reaches `CHANGELOG.md`'s intro, and getting it there took two independent repairs** (August 8,
-2026; [#525](https://github.com/DaveKJohn/claude-code-specialists/pull/525)). The check was born
-excluding that file whole, on the history grounds it shares with checks 11 and 12 — but only the entries
-below the intro are history. The intro is a live statement about the present mechanism that every cut
-copies through **verbatim**, so it is the one piece of prose here that no release rewrites and no reviewer
-opens; measured on the day it was repaired, it had promised *three* named sections for two days, with one
-release and a consumer-facing release page in between. **Repairing either half alone changes nothing**:
-the file was unread, *and* the pattern would have walked past the sentence anyway, because it carried no
-`###` marker and ran across a line break. So the intro gets its **own pass with the level marker
-optional**, and matching runs over the whole text instead of per line. Both relaxations were chosen by
-measuring: whole-text matching finds the same **4** claims in the scanned tree as per-line, while dropping
-the marker tree-wide would find **50** — which is why it is dropped only across the dozen lines of the
-intro, where it was the whole difference between catching the drift and not.
-
-**A link check that WAS built, and the neighbour it had to be told apart from** (August 29, 2026;
-inbound [#1066](https://github.com/DaveKJohn/claude-code-specialists/issues/1066), lint check 30). The
-declined stale-path rule above is the one this had to be measured against, because it looks like the
-same proposal: another rule about paths in plugin-shipped prose, in a repo whose paths mostly describe
-somebody else's tree. It is not the same, and the difference is the whole reason it was built — a path in
-backticks is a *heuristic* about what a string means, while this is a **path comparison** with a
-mechanical answer.
-
-**The gap check 4 cannot close, and is right not to.** The dead-link scan resolves every link against the
-tree it runs in, and for plugin payload that is the source repo — the one tree where the link is
-guaranteed to work. It is correct about where the file *is* and has no notion of where the file will be
-*read*. So the single class of link defect that reaches consumers is the one class it is structurally
-blind to.
-
-**The mechanism, read off disk rather than reasoned about.** Every `installPath` in
-`~/.claude/plugins/installed_plugins.json` has the shape
-`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/`. The plugin's own directory is the root, and
-the `plugins/` level, the family level (`teams/`, `workflows/`) and every sibling plugin are all gone —
-a sibling is a separate versioned directory, not a neighbour. Worth knowing because the **marketplace
-clone** is a full checkout of this repo, `.claude/` included, so a link verified there resolves and
-teaches you the wrong lesson; the clone is where the catalog lives, the cache is where an installed
-plugin is read.
-
-**The report's own boundary was wrong, and its size was wrong in the direction that mattered.** #1066
-proposed the rule as *"must resolve to a target also under `plugins/`, because that is the subtree the
-plugin cache contains."* The cache contains no such subtree, and the weaker rule passes the one link that
-had **already shipped dead** — `cut-release/SKILL.md:123` pointing at
-`../../../../teams/team-alpha/manuals/06-25-manual.md`, verified against the installed v4.22.0 copy.
-**Quoted as v4.22.0 shipped it — do not sweep.** `team-alpha` is what that directory was called then;
-`dkj-subagents-alpha` is a name from two renames later, so rewriting it here rewrites the evidence rather
-than the convention. So the boundary is the **plugin root**, not `plugins/`, and scenario 37 of
-`check-plugin-integrity-links.tests.ps1` exists to pin exactly that difference. The report also argued
-from an expected count of **zero** (*"which is itself the reason not to build it yet"*) and stated that
-nothing had shipped; the real count was **17 escapes in 5 files**, every one passing check 4, and
-resolved inside the installed copies (`team-alpha` 4.21.0, `contributing-davekjohn` 4.22.0 — their names
-at those versions, quoted and not swept) **all 17 are dead**. That inverted its conclusion rather than
-qualifying it: the repo's name-a-risk-and-leave-it rule holds until something bites, and this had bitten
-seventeen times in released payload.
-
-**Both citations above were silently rewritten by the renames, and what saved the script's copy was luck
-rather than its file type** (#2139, September 19, 2026). The `.ps1` was in every sweep's file set — its
-own `team-alpha 4.21.0` line was swept three times, by #1437, by the `plugins/teams` rename and by #1698
-— while the *path-shaped* citation higher up the same comment block was never touched. So the copy that
-survived, survived because of the **shape of the token**, not because a comment is safe: a bare plugin
-name matched the sweep, a name embedded in a quoted path did not. The lens is markdown and its
-path-shaped citation was swept anyway, which rules out shape alone as protection too. **The marking is
-therefore the only guard there is**, and it is a convention rather than a check, because recognising a
-quotation is exactly the hard part.
-
-**What a check COULD see — proposed here, then measured, and the answer is DO NOT BUILD IT** (#2144,
-September 19, 2026). The proposal was that a name paired with a version older than the version that name
-first shipped in *is always a swept quotation*. The detection half holds: `plugins/dkj-subagents/` first
-appears at `v4.33.0` and `plugins/dkj-policy/` at `v4.31.0`, so `dkj-subagents-alpha 4.21.0` is findable
-without understanding a single sentence around it. **The "always" does not.** Run over `*.md`, `*.ps1`,
-`*.json` and `*.yml` outside `dkj-policy/releases/**`, it returned **54 pairings, of which 3 were swept
-quotations** and 5 were illustrations worth correcting for a different reason. The other 46 are correct
-as written: 32 are synthetic test fixtures, where an invented version is the point, and 14 are
-attributions or dated notes — two of which pair a plugin name with the *Claude Code CLI's* own version
-and have nothing to do with this class at all.
-
-**The 54 is the wrong figure to decline on, and saying so is the difference between a measurement and a
-number that flatters the conclusion.** Excluding `scripts/tests/**` is one line and removes 32 of the 54
-by construction, which lifts the strict rate from 3/54 to **3/22** and the actionable rate — counting the
-illustrations, which the check correctly surfaced — to **8/22, 36%**. That is *better* than the 12.5% the
-consumer-prose candidate was declined at a few hundred lines above, so the unnarrowed figure cannot carry
-the decline on its own.
-
-**What carries it is the floor, and the floor is by design rather than by accident.** Of the 22
-non-fixture pairings, **14 are attributions** — *"`dkj-policy` 4.21.0 shipped it"* — which the convention
-below deliberately keeps writing that way. They are syntactically indistinguishable from a swept
-quotation and they are correct. So once this branch's repairs land, the tree holds **zero** true findings
-against roughly fourteen standing false ones, and every future attribution adds another: a check born red
-against correct prose, growing, with no convention it could ever be made to read. That is the stale-path
-decline's shape exactly, and it does not improve with narrowing, because the noise is prose this repo
-chooses to write.
-
-**At all three modes, then, and the middle one is not a hedge.** Not a gate (it would refuse pull
-requests over correct sentences), not a SessionStart hook (same set, every session), and not a
-deliberately-run `[INFO]` audit either — at fourteen standing falses a reader learns to skim it, which is
-the failure the audit mode exists to avoid rather than a milder version of it. **One variant is genuinely
-untested**: restricting the match to fenced blocks and quoted transcripts, which is where a quotation
-mostly lives. It was not run, and *"settled"* does not cover it — whoever picks that up should measure it
-rather than inherit this verdict.
-
-**And it missed one**, on the line below a hit it found: `measure-skill.tests.ps1`'s captured
-`Source: team-alpha@claude-code-specialists` carries no version, so nothing paired. That blind spot is
-structural rather than incidental — any citation whose name and version sit on different lines is
-invisible to this strategy at any width. **As the one-off sweep #2144 was, it earned its run without
-being the hero of it**: of the four swept lines repaired it surfaced three, one of which the report had
-not named (`INSTALL.md`'s layout table) — the fourth, and the upgrade of one hit from "illustration" to
-"quotation", both came from reading the files it pointed at.
-
-**The proportionate alternative, recorded because a decline that names no better route invites the same
-proposal again.** Invert the subject: check the **marking**, not the anachronism. A citation that has
-been marked *do not sweep* is a line whose content is asserted to be frozen, so a check can hold it
-against its own history and report when a later commit changed it — precision near 100%, born green,
-self-anchoring in the way check 40 is, and growing only as markings are added rather than as correct
-prose is written. It needs the marking to be machine-readable first, which is the same bootstrap order
-`Get-LiveStage` and the script contract's reachability half already set. Not built here; named so the
-next reader starts from it instead of from the anachronism again.
-
-**The class is closed, and the convention that replaces the check is in
-[the technical writer's manual](../../../plugins/dkj-subagents/dkj-subagents-alpha/manuals/specialist-06-16-manual.md):**
-a quotation is frozen **and marked at the line**, an illustration is kept **true** rather than frozen, and
-an attribution — *"`dkj-policy` 4.21.0 shipped it"* — keeps today's name on purpose. Repaired under #2144:
-the `specialists-init` transcript in shipped payload (swept **four** times, marketplace name included, so
-the issue's own "half-swept" reading was wrong), the `measure-skill` capture and its unversioned
-neighbour, and `INSTALL.md`'s layout table, whose `v3.10.0`-onward row carried a spelling no release
-before `v4.33.0` ever held.
-
-**The two counts are different measurements and both are worth keeping**, because conflating them is how
-the report went wrong in the first place. *17 escapes* is a property of the source tree, found by asking
-where each link would land. *17 dead* is a property of the plugin cache, found by resolving those same
-links inside `~/.claude/plugins/cache/` — the tree a consumer actually reads. They happen to be equal
-here; nothing guarantees they are, and the second is the one that describes what a consumer meets.
-
-**What it cost to hold to the same bar the declined rule was held to:** 98 relative links read across 83
-markdown files in 5 plugin roots, 17 findings, **17 of them real** — against the stale-path rule's 124
-findings, none real. Personas are excluded for check 4's reason and not a new one (their links are meant
-to resolve at the consumer's `.claude/extensions/`, where check 4 already validates them), and three
-forms are passed over: a `${...}` target is the plugin-relative form, a `~/` one points at the
-marketplace clone deliberately, and an absolute URL is the repair being asked for.
-
-**A prose contract check — the pointer-test analogue of `check-script-contract.ps1`, applied to law
-instead of code — was measured and declined** (Dave, September 4, 2026;
-[#1380](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1380)). Inbound
-[#1379](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1379) asked for the two-sided
-mechanism it names: a manifest of the laws `dkj-policy` legislates, and a consumer-side
-check reporting any always-on consumer document that answers a listed law without declaring itself a
-seam answer.
-
-**The two facts that carry the decline, stated first because they are stronger than the structural
-argument below on their own.** First, **the law the check was written to catch has zero standing true
-positives.** `LAW-RELEASE-ORDER` was the acceptance test because
-[#1378](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1378) had just made it the one
-known-real defect in the corpus. #1378 was then repaired (commit `1db93328`) — Block 2's cut-then-push
-became a default a live stage may answer differently, so the consumer's push-then-cut is now a
-sanctioned answer the plugin actively invites, not a divergence. All 3 of that law's true positives were
-in the English co-occurrence candidate and all 3 reclassify as sanctioned: the check's own reason for
-existing was repaired out from under it while it was being measured. Second, **the detector found 1 of
-the 3 defects that actually stand in the corpus.** The three: the stale `development.md` restatement in
-each BWJ consumer (2, filed as #1389) and `smartwatchbanden`'s supremacy inversion (1, see below). Only
-the `xoxowildhearts` `development.md` instance was ever flagged. The other two are false negatives —
-`smartwatchbanden`'s stale instance was missed because the term list wanted a word that section does not
-use, and the supremacy inversion was suppressed by the strict pointer match, the failure mode described
-next. Recall on the real defects is 1 in 3, alongside the precision below.
-
-**The corpus, corrected.** The original count of 13 documents counted this repo's own 4 always-on
-documents (root `CLAUDE.md`, `SPECIALISTS.md`, Chris's persona, Chris's lens) as if they were a
-consumer's, when this repo is the plugin's source and not a consumer at risk of drift — and it counted
-Chris's persona three times, once per repo, when it is a single external file `@`-imported from the same
-marketplace-clone path by all three repos, so 3 repos × 4 documents each collapses to 10 unique
-documents, not 12, before any exclusion is applied. Applying the source-repo guard and excluding
-plugin-shipped payload (`Source -eq 'external'`) removes this repo's 3 repo-specific always-on documents
-(`CLAUDE.md`, `SPECIALISTS.md`, the lens) and the shared persona entirely, leaving **8 consumer-only
-documents**: 6 always-on (`CLAUDE.md`, `SPECIALISTS.md`, the lens — 3 per repo × 2 BWJ consumers) plus 2
-non-always-on `dkj-policy/CONTRIBUTING.md` (one per BWJ consumer).
-
-**Four candidates measured (raw findings / true positives / precision), over the 8 consumer-only
-documents:** a verbatim distinctive cue found **1 / 1 / 100%**; subject-term co-occurrence found
-**21 / 1 / 4.8%** in English and **3 / 2 / 67%** in Dutch, **24 / 3 / 12.5%** combined; the same test
-with a normative marker added found **13 / 1 / 8%** in English and **2 / 1 / 50%** in Dutch, **15 / 2 /
-13%** combined; a declaration-based check — does the section say it is a seam answer — found **88**
-(11 laws × 8 documents), zero declarations in any repo. The English and Dutch precisions move in
-opposite directions between C2 and C3, but the combined figures, 12.5% against 13%, are indistinguishable
-— the earlier apparent gap was an artifact of where three particular hits happened to sit, not a real
-effect of adding the marker.
-
-**The load-bearing structural reason: a strict pointer match suppressing a real contradiction is a
-demonstrated failure mode, measured at 1 in 4 — not a coin flip and not "almost always."** By
-construction a *flagged* finding is a section carrying no citation, so cites-then-contradicts can never
-appear among flagged findings; it can only appear among **suppressed** ones, and the full census there
-is 4 sections: 1 cites-then-contradicts, 3 cites-and-correctly-defers. The one is
-`smartwatchbanden`'s own preamble: it names `CONTRIBUTING-portable.md` as a pointer into the plugin and,
-four lines later, overrides it — the clause reads `wint` directly beside `` `CLAUDE.md` `` and names the
-contributing page by a Dutch prose noun, `de contributor-pagina` (`smartwatchbanden/CLAUDE.md:22`).
-Every candidate suppresses that finding, because the portable page's
-filename sits right there. It is the cleanest real instance in the corpus and the detector is
-structurally blind to it — a pointer test built on "is the source mentioned nearby" cannot distinguish
-correct deference from restatement-with-citation-and-override, and 1 suppressed contradiction against 3
-suppressed correct deferrals is the demonstrated rate, not an assumption. The parallel to the stale-path
-decline above is exact, down to the shape of the failure: there the difference was *whose repo the line
-is about*, which the line never says; here the difference is *whether the sentence agrees with or
-contradicts the source it cites*, which no regex or term list reads.
-
-**The verdict, at any of the three modes the inbound item proposed.** No candidate is shippable as a
-gate, a SessionStart hook, or a deliberately-run `[INFO]`-only audit — the middle ground was measured
-too, because #1380 explicitly asked about "a session-start check rather than a manually-run audit," and
-the in-tree precedent exists (`check-script-contract.ps1`'s reachability half is always `[INFO]`, and
-the hook passes `-SkipReachability`). It fails on its own terms: a human triaging 24 sections by hand to
-find 3 real ones, at 1-in-8, with the flagship law gone, is not worth the run.
-
-**The declaration-based check (C4) keeps its own, separate reason.** It is the structurally sound
-design — a declaration is checkable the way a function signature is — and it reports 88/88 undeclared
-because no consumer has adopted the convention: born red, in exactly the shape this repo already names
-as a smell in itself. If it is ever revived it needs the convention bootstrapped first, the same way
-`Get-LiveStage` and its siblings existed as real, populated seams before the script contract's
-reachability half meant anything. Opt-in, per repo, `[INFO]` only, never `[ERROR]` against a convention
-that does not exist yet.
-
-**A third legitimate case surfaced that the third-rank corollary above does not name, and it is exactly
-why "consumer prose answers a listed law" cannot be the trigger on its own.** Sometimes the plugin
-*asks* for the answer to be written out: `cut-release`'s Block 2 declines the seam deliberately —
-*"No seam, deliberately"*, `Get-LiveStageCutOrder` exists nowhere — and tells a consumer running the
-non-default order to state it in its own `CLAUDE.md`. That case is filed as
-[#1388](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1388) rather than resolved here.
-
-**Record the alternative that IS proportionate, because a decline that names no better route invites the
-same proposal again.** Two narrow, literal, high-precision one-off greps, each aimed at one law instead
-of one framework carrying eleven at 12%: one for the literal string `development.md` outside the
-changelog and history paths, one for a supremacy declaration — `wins`/`wint` plus `CLAUDE.md` plus the
-contributing page's own filename, all three in the same sentence.
-
-**The first of the two was built the same day** ([#1389](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1389),
-September 4, 2026): `check-retired-doc-name.ps1`, driven by a SessionStart hook in every consumer and
-[described above on this page](#what-sylvester-owns-here) — both greps live in
-`check-consumer-prose.ps1` since #1421 merged them, one day later and before either had shipped. It kept the three constraints this entry
-imposes — literal names, derived rather than listed; the corpus as an inclusion list with the changelog
-out; and the publishing-repo skip — and it carries one stated gap, the shape `development-<branch>.md`,
-which has no literal form.
-
-**The second was built later that same day** ([#1415](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1415),
-September 4, 2026): `check-supremacy-declaration.ps1`, its own SessionStart hook, and
-`Get-ConsumerProseDocuments` — the corpus enumeration lifted out of the first check so both read one
-definition of which documents a consumer-prose check may look in. **And the sentence above it, the one
-this entry recorded as the alternative, did not survive its own measurement.** That is worth stating in
-the entry that wrote it rather than quietly correcting: it had never been run as a check, #1415 asked for
-it to be measured before it shipped, and over the same 8-document corpus the three-term same-sentence
-test scores **0 raw findings and 0 recall** — on the single defect it was named to catch. Loosened to a
-paragraph it finds **1**, and that one is a false positive.
-
-**The reason is exact and is the useful part.** The instance is
-`smartwatchbanden/CLAUDE.md:22`, whose clause carries `wint` beside `` `CLAUDE.md` `` and names the
-contributing page by a Dutch **prose noun**, `de contributor-pagina`, not by its filename — so the third
-term is precisely the one absent. The filename sits two lines up, in a different sentence. Nothing about
-the sentence is unusual; what was wrong was inferring a term list from a defect that had been read
-rather than grepped.
-
-**What ships instead is ADJACENCY, and it is the same literalness arriving at a different rule.**
-`CLAUDE.md` and `wins`/`wint` must sit next to each other, either order, nothing between them but
-markdown — which answers the question co-occurrence cannot: *which page is being declared the winner*.
-Direction is the entire defect. *"this page wins"* over `CLAUDE.md` is `LAW-THIRD-RANK-ORDER` stated
-**correctly** and a term list scores it identically to the inversion. Measured on the same corpus:
-**3 raw / 2 reported / 2 true / 100%**, one hit suppressed for sitting inside a `"…"` quotation (a page
-narrating a rule it retired). Against this page's own bar — the accepted dead-link check at 17/17, the
-declined stale-path check at 124/0 — it lands on the accepted side, where the recorded shape landed
-below the declined one.
-
-**And it found one more standing defect than this entry's census knew about.** The census above counts
-the suppressed sections as 4: 1 contradiction, 3 correct deferrals. The contradiction is
-`smartwatchbanden`'s `CLAUDE.md` preamble — but the same inversion is stated a second time, from the
-other side, in that repo's own `dkj-policy/CONTRIBUTING.md`, and no candidate measured here
-ever counted it. Two standing instances, one repo.
-
-**One inheritance was asked for and turns out to be a guard rather than a repair, which is worth saying
-plainly.** #1415 required the publishing-repo skip on the ground that this repo's pages *"discuss
-supremacy declarations at length, so without it the source reads as consumer drift"*. Measured: this
-repo's own always-on pages produce **zero** hits without the skip, because every supremacy sentence here
-names the plugin's page as the winner and adjacency reads that correctly. The skip is kept — this is
-where sentences about a consumer's rank order get written, and one future line would fire — but it is
-sibling consistency and cheap insurance, not the repair it is for the retired-name grep. Since #1421 the
-two share **one** skip, so that difference is stated once, in `check-consumer-prose.ps1`, instead of
-being inherited by a copy that would not know it had changed meaning.
-
-**The manifest survives the decline** — a later revisit should not have to re-derive 11 laws from
-scratch:
-
-| Id | Canonical statement | Source | Seam |
+| Check or rule | What it enforces | Decided in | Why, or why declined |
 |---|---|---|---|
-| `LAW-RELEASE-ORDER` | Block 1 (cutting) always runs first; Block 2 (going live) only follows it, where a live stage exists. | `cut-release/SKILL.md` — "Order matters" | `Get-LiveStage` |
-| `LAW-NO-TRUNK-DEVDOC` | The branch's development document exists only for the branch's lifetime; the trunk carries no copy. | `DEVELOPMENT-portable.md` | none |
-| `LAW-BRANCH-DOC-PER-BRANCH` | One development document per branch, named after it — not a single shared `development.md`. | `CONTRIBUTING-portable.md` — "2. Branch" | none |
-| `LAW-SIGNIFICANCE-NOT-FROM-PREFIX` | Never infer significance/tier from the branch prefix — the prefix predicts nothing about impact. | `CONTRIBUTING-portable.md` — "Significance" | none |
-| `LAW-TIER0-NOT-NA` | Tier 0 can never be N/A; its floor is a score of 1. | `CONTRIBUTING-portable.md` — "Significance" | none |
-| `LAW-NOTREQUIRED-CHECK-DOES-NOT-BLOCK` | A failing not-required check never blocks the merge; `ship-pr` merges past it and relays its reason. | `CONTRIBUTING-portable.md` — "5. Merge" | none |
-| `LAW-SHIP-IN-BACKGROUND` | Run the merge step in the background — the required check waits regardless. | `CONTRIBUTING-portable.md` — "5. Merge" | none |
-| `LAW-PR-TITLE-COMPOSED` | No PR title is passed by hand — it is composed as `<branch type>: <Branch title>`. | `CONTRIBUTING-portable.md` — "4. Open the PR" | none |
-| `LAW-CLAIM-ISSUE-BEFORE-WORK` | Claim an issue before working it, and read the claim as well as write it. | `CONTRIBUTING-portable.md` — "1. New issue or task" | none |
-| `LAW-DOCCOMMIT-BEFORE-PUSH` | `open-pr` commits the development document alone, never `git add -A`, before anything is pushed. | `CONTRIBUTING-portable.md` — "4. Open the PR" | none |
-| `LAW-THIRD-RANK-ORDER` | The plugin's portable pages/skills outrank `dkj-policy/CONTRIBUTING.md`, which outranks the floor. | `CONTRIBUTING-portable.md` — "A third rank sits above both" | none |
-
-**Any future attempt still needs the source-repo guard plus the exclusion of plugin-shipped payload
-(`Source -eq 'external'`)**, or this repo's own pages and the shared persona read as consumer drift,
-exactly as they did before the correction above. Do not revive this behind a rule that reads nearby text
-for the source and calls that deference — that is the exact test this entry measures as structurally
-blind to the one real contradiction it has to catch.
-
-#### Check 32, and the extraction that came with it (September 6, 2026, [#1491](https://github.com/DaveKJohn/claude-code-specialists/issues/1491))
-
-**The check is the ordinary shape** — a hand-maintained list beside a registry that can be asked, gated
-by an opt-in sentinel. What is worth recording here is the two decisions that were *not* obvious, and one
-defect the branch produced and caught.
-
-**The scope is the marked document's own FOLDER, not its plugin**, which is where it parts company with
-check 29. `skills:plugin` resolves a plugin and holds the span to that plugin's whole `skills/` tree;
-`shared-scripts:mirror` narrows `Get-SharedScriptPairs` to the mirrors landing at or below the directory
-the marked document sits in, and relativizes against it. That is not a refinement of the same idea but a
-different question, and it is what makes the rows comparable **as written**: the page's own table says
-`task/new-branch.ps1`, because that is where the reader stands. A plugin-scoped implementation passes
-every scenario in the suite except 48, which is why 48 exists.
-
-**The claim is the row's first cell**, and this is the third distinct claim rule in three span checks —
-check 10 reads every backtick, check 29 reads link targets, this one reads the first backticked token of
-each table row. That is not drift: the subject picks the rule. This table's second column is running prose
-carrying `-Worker`, `Get-LintScript` and `Invoke-GitPark`, and its third links a `SKILL.md` rather than the
-script, so under either sibling's rule the correct page reports phantom rows. Check 10's answer to that is
-an author condition — *wrap tightly* — which this table cannot meet without being rewritten to satisfy a
-checker, and check 29's own comment already refuses that trade for the same reason.
-
-**AND THE EXTRACTION, which is the part to read before touching any of the three.** Checks 10 and 29 were
-the same forty-five-line walk written twice — fence masking, the forward scan, the unpaired-BEGIN error,
-the orphan-END sweep, the nested-BEGIN sweep — and they had **diverged**. The nested-BEGIN case was silent
-in check 10 from the day it was written, was found only while walking into it on check 29's branch, and had
-to be repaired in both places on August 26, 2026. A third hand-written copy would have been the third place
-to repair and the one most likely to be missed, so the walk became `Invoke-MarkedSpanWalk` and all three
-checks now call it. The suites are what made that safe to do: 108 asserts across checks 4/10/28/29/30
-passed unchanged before a line of check 32 was written.
-
-**The defect the branch produced, because it is the exact failure this gate exists to prevent.** Splicing
-the rewritten check 29 into the file through a shell heredoc silently ate the doubled backslashes in two
-regex literals: `'\\skills\\[^\\]+\\SKILL\.md$'` landed as `'\skills\[^\]+\SKILL\.md$'`, which matches
-nothing. Both the canonical set and the claim set then came back **empty**, the comparison of empty to
-empty produced no findings, and the whole gate reported **0 errors** — green, with check 29 asserting
-nothing at all. Nothing in the findings could have shown this. What showed it was the **coverage line**
-(`Write-Coverage`, issue #221): `with 0 claim(s)` against a baseline of `17`, which is precisely the
-argument for why a verdict never travels without the count behind it. Three consequences, all acted on:
-the suite's scenario 42 asserts the derived canonical set is **non-empty** before any comparison is
-trusted; check 32's coverage line prints **both** sides — rows read *and* mirrors registered — because a
-claim count alone cannot tell `0` against `0` from `45` against `45`, and both of those report *no
-findings*; and a code splice into a `.ps1` is written with the editor tools rather than through a shell
-heredoc — the mangling class is the one already documented in the manual's PowerShell traps, arriving by
-a different route.
-
-**The middle one came out of the code review rather than out of the failure**, which is worth noting: the
-defect was in check 29, and the reviewer's question was whether the *new* check could fail the same way on
-a real run, where the suite's guard does not reach. It could — silence needs only both sets empty — and
-the answer was not a runtime assertion but the missing figure, which is the same answer #221 gave.
-
-**AND THE SECOND FAILURE, which is the one worth reading, because the guard worked and the diagnosis did
-not.** The suite went red on CI and green on three local runs. The non-empty guard above fired exactly as
-designed — `matched=0` — so the branch could not ship a vacuous check. What went wrong was the *reason*:
-the obvious mechanism was a path-form mismatch (a GitHub Windows runner's `GetTempPath()` returns the 8.3
-short form, `C:\Users\RUNNER~1\…`, and `GetFullPath` expands one where a string compare does not), it was
-plausible, it was cheap to fix, and it was **wrong**. The runner's own diagnostic printed the long form.
-
-The actual cause: **CI tests the pull request's MERGE commit, not the branch.** While this branch was
-open, [#1480](https://github.com/DaveKJohn/claude-code-specialists/issues/1480) renamed
-`plugins/teams/team-alpha` to `plugins/dkj-subagents/dkj-subagents-alpha` on the trunk. The suite's fixture builds
-its marketplace to match the real one, so on the merge commit the mirrors landed under the new name while
-the test's **hardcoded** `plugins\teams\team-alpha\scripts` pointed at a directory that no longer existed.
-Locally, on a base predating the rename, both agreed. A branch open across a rename sees this and a branch
-opened after it never does.
-
-**Three things to carry forward.** First, the irony is the lesson: a test for a check whose whole subject
-is *a hand-maintained path list going stale* was itself carrying a hand-maintained path. It now asks the
-registry which plugin receives mirrors and uses that plugin's folder, so the next rename moves it for
-free. Second, when local and CI disagree, **the merge commit is the first thing to check** — `git log
-origin/main` costs one command and would have ended this in a minute, where three rounds of reasoning
-about path forms did not. Third, the `GetFullPath` normalisation was kept even though it fixed nothing:
-the mismatch it prevents is real, it costs nothing, and its comment says plainly that it has never fired,
-so no later reader cites an unfired guard as a measurement.
-
-#### Check 34, and the number that was prose (September 6, 2026, [#1494](https://github.com/DaveKJohn/claude-code-specialists/issues/1494))
-
-**The defect is the gate's own.** Two unrelated checks in `check-plugin-integrity.ps1` both carried the
-number **30** — `[plugin-link]` and `[barred-skill]` — and both were already load-bearing in *published*
-prose, pointing at different checks: release note `4.23.0` means the first, `4.24.0` the second. A reader
-who grepped for the number a finding came from got two answers, and a released document was the source of
-one of them. The numbers were hand-assigned, cited in a lens, a plugin hook, nine test scenario names and
-two release notes — and read back by nothing, in the one file whose whole purpose is refusing a
-hand-maintained list a machine could ask about.
-
-**Renumbering was chosen over disambiguating in prose**, which was the cheaper option the report
-preferred. Writing ``check 30 (`[barred-skill]`)`` everywhere answers the grep and leaves two sections
-numbered 30, so the next hand-assigned number can collide again and the disambiguation has to be
-remembered at every new citation. The barred-skill check — the later of the two, the one that took an
-already-taken number — became **33**. The archived notes are history and are not rewritten, so `4.24.0`
-still says 30 and stands as the record of when that was true, which is how this repo already treats a
-superseded measurement.
-
-**ASCENDING is the property that prevents the collision; uniqueness is only what broke.** A check for
-uniqueness alone still permits inserting a section anywhere and hand-picking its number, which is the act
-that produced the duplicate. Requiring each column-0 header to sit strictly above the one before it leaves
-a new check exactly **one** legal number — the one after the last header in the file — so the number stops
-being a choice. That is why check 33 was *moved* below 32 rather than left sitting between 30 and 31: a
-renumbering that satisfies uniqueness without moving the block lands on the ascending rule instead, and
-the suite's scenario 54 is that exact case.
-
-**Gaps are legal and there are three** (9, 17, 19). A retired check leaves its number behind; reusing one
-would silently repoint every older citation, which is the same defect arriving by the other door. Two of
-the three carry a retirement note where the check stood, and that note is the convention.
-
-**The second spelling is a finding, not a skip** — and it is why the duplicate stayed invisible. Four
-headers read `# --- Check <n>: ` where the other twenty-nine read `# --- <n>. `, so no single pattern
-listed them all and the collision showed up in a grep of neither. Passing over an unrecognised spelling
-would let a file opt out of the numbering rule by spelling its headers differently.
-
-**Column 0 only, and that bound is measured rather than tidy.** The same `# ---` marker is used *indented*
-inside the four lint suites to separate scenarios within a function, under its own numbering that restarts
-and repeats freely. Those are not file sections, and holding them to this rule would be the gate inventing
-a convention the repo never had — the narrowing check 26 had to make for the same reason. Scenario 57 is a
-purpose-built fixture for that bound rather than an assert on the suites' own headers, so it says what it
-proves instead of depending on this file staying shaped as it is.
-
-**Born green, and demonstrably firing.** Measured across this repo's script set before the check was
-written: **19** files carry a column-0 numbered header, **123** headers in all, **0** exemptions. After the
-#1494 repair the gate reports 0 findings over 124 (the check adds its own header). Run against the
-pre-repair file the same reader reports **5** — the one duplicate and the four headers in the other form —
-so it fires on what it was written for rather than merely passing. The check is repo-wide rather than
-scoped to the gate, because the convention is: 19 files use it, not one.
-
-**What it costs, and the two savings DECLINED** (measured September 6, 2026, on this repo's 205-file
-script set). The check adds **~110 ms** to a full gate run — 10.03 s against 9.91 s over three reps each,
-a **1.2%** delta. Two ways to get some of that back were measured and both were declined:
-
-- **Making it skippable** — adding `section-number` to `$SkippedForSpeed` in
-  [`check-plugin-integrity-fixture.ps1`](../../../scripts/tests/check-plugin-integrity-fixture.ps1), so
-  the ~60 ms it costs *per `Invoke-Integrity` call* stops being paid by the 175 scenarios across the four
-  lint suites that are not about it. Worth **~10.5 s of CPU**, or up to **~3.6 s** off the slowest CI lane
-  once the four suites' parallelism is accounted for. **Declined**, because it buys that by widening
-  `$script:SkippableChecks`, which the gate then held at exactly the three its own suites need and whose
-  comment says in so many words that a fourth is a deliberate act and the narrow list is the safety
-  property. Check 31's comment then recorded the same answer for the same reason — *"NOT SKIPPABLE, like every
-  check added since the `-SkipCheck` list was fixed"*. Three-and-a-half seconds on one lane does not buy
-  a wider surface for switching a check off by accident.
-  **The list has since been widened to eight**
-  ([#2740](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2740), Dave, October 3, 2026),
-  by the five checks that carry most of a fixture run's check work: about 0.78 s off every child run (35%),
-  against this check's ~60 ms. A scenario about one of those five passes `Invoke-Integrity -Run '<name>'`. The
-  verdict above still holds for `section-number`, because the bar is the size of the saving, and this
-  check does not clear it.
-- **Sharing the read with check 27** — the pure-ASCII check reads the *same* 205 files unconditionally,
-  through `ReadAllText` where this one uses `ReadAllLines`, at **84–92 ms**. One pass would save roughly
-  one of the two reads. **Declined as premature**, on #1358's own bar: that extraction was worth doing
-  because the *walk* cost 1.16 s and the parse only 0.26 s, and this whole check does not clear a tenth of
-  that. The AST cache is not a candidate backing store either — it retains `CommandAst` nodes, so
-  recovering line text from it would cost more than reading the file again.
-
-Recorded rather than left implicit so the next reader does not re-derive either number: the saving is real
-and small, and the reason for not taking the first one is a safety property rather than the arithmetic.
-
-**Adjacent and deliberately NOT repaired here:** the gate's own comments cite `check 19` and `check 20b`,
-neither of which exists as a header — the same class one layer over, a citation nothing reads back. Filed as
-[#1500](https://github.com/DaveKJohn/claude-code-specialists/issues/1500) rather than folded in, because
-holding every `check <n>` citation to an existing header needs its own false-positive decision about
-legitimately citing a *retired* check, which two of this file's comments do correctly — the retirement notes
-naming checks 9 and 17. The repo has paid for this class once already in the other direction: `4.12.0`
-records a lens citing check 19 for what the lint implements as check 20.
-
-#### The template self-containment gate, which is a SUITE and not a numbered check (September 7, 2026, [#1556](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1556))
-
-**Retired on October 5, 2026, with the one template it guarded.** It lived in `scripts/tests/template-selfcontained.tests.ps1`, a suite rather than a check number, and the suite was deleted with `asana-mirror.ps1`, because no `.ps1` ships under `plugins/**/templates/` any more and a suite with no subject is not a guard. The reasoning below is kept for the next template, which should bring the suite back with it. **It did, the same day:** `asana-closed-message.ps1` (#2818) is the next template, and the suite came back with it unchanged, globbing every `.ps1` under `plugins/**/templates/`.
-The section above is about `check-plugin-integrity.ps1`; this one is a test suite, and the placement is
-the point rather than an accident. The subject is a **PowerShell AST**, which the lint gate reads nowhere
-else, and the property is per-file rather than repo-wide — while the lint gate is what every consumer's
-adoption runs, and check 34's own measurement above is the record of what an extra ~110 ms there is
-argued over. Both run inside `lint-en-tests`, so a suite catches this at exactly the same moment a check
-would.
-
-**What it guards.** A template under `plugins/**/templates/` is copied wholesale into a consumer's
-`.github/` and run by *their* CI. It dot-sources none of this repo's libraries — it cannot, since none of
-them travel with it — so every Verb-Noun name it calls must be one it defines, one PowerShell provides, or
-one it declares external. Until October 5, 2026 that was one file, `asana-mirror.ps1`, retired with the
-whole asana-mirror automation (Dave). What follows is the reasoning, kept because it is what any future
-template inherits.
-
-**The `Get-Command` guard IS the declaration, and reading it is what keeps the check allowlist-free.**
-That template legitimately called `Get-AsanaStageMap` and `Get-GithubStatusMap`, which lived in the
-*consumer's* `scripts/repo-config.ps1` and are dot-sourced at run time — and it tests for each with
-`Get-Command -Name '<name>'` before calling it, because a consumer defining neither must still get a
-working run. The check believes that guard. A hand-maintained exemption list was the obvious alternative
-and is the same defect one layer up: it goes stale the first time a seam is added, silently, which is the
-answer check 34 above reaches for the same reason.
-
-**File-wide rather than paired**, deliberately: the guard and the call it protects are routinely in
-different functions, and matching them would be a dataflow analysis buying no extra safety.
-
-**Only hyphenated names are judged.** `gh` and `git` are external executables whose presence says nothing
-about the template's correctness, and resolving them would fail the suite on a machine that merely lacks
-the CLI. Every function this defect class can produce is Verb-Noun.
-
-**Born green and demonstrably firing** — the bar check 34 set. Against the repaired template it reports
-0 over 65 hyphenated call sites and 49 definitions; run against the pre-repair file it reports exactly
-`Get-IssueClosure`, measured by dropping that copy into `templates/` and running the suite unmodified.
-The two seams above are what made the naive version report three, and finding them is what settled the
-guard rule rather than an allowlist.
-
-**Two PowerShell traps are pinned by fixtures rather than left to be rediscovered**, because both fail in
-the direction that reads as success: a returned empty `@()` is unrolled to `$null` (so `,@(...)` is
-returned, or a clean template is indistinguishable from an unparseable one), and `$null -ne @()` *filters*
-instead of comparing (so the parse assert reads `$null -eq` and negates). The suite also asserts that it
-found at least one template at all — a renamed `templates/` folder would otherwise turn the whole thing
-into a no-op reporting green.
-
-**Why a parse-time check is the only thing that could have caught #1556 here.** Nothing executes the
-template end to end during its own release, and the crash was in `Update-MirroredTask`, which the sweep
-reaches only when it has something to say — so the consumer's Actions tab filled with green event runs and
-green empty sweeps, and the first sweep with real work to do died on it, taking the prio-label and stage
-sweeps with it.
-
-#### The `~/.claude` pollution check, and the guard that was measured and DECLINED (September 8, 2026, [#1609](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1609))
-
-**It is [`scripts/lint/check-claude-home.ps1`](../../../scripts/lint/check-claude-home.ps1), driven by
-the `claude-home-sessioncheck` SessionStart hook in `dkj-policy`** — a sixth machine-fact check beside
-`git-identity`, and in no gate for the same reason: a CI runner has no plugin administration at all, so a
-workflow leg would report the empty state on every push.
-
-**What happened.** While working #1591 an exploratory debug script — throwaway, written
-mid-investigation, never committed — ran without redirecting `$env:USERPROFILE`, so every path it built
-from the user home resolved to the real one. It overwrote `~/.claude/plugins/installed_plugins.json` with
-two fixture records naming a `%TEMP%` `projectPath`, and left a fixture marketplace clone at
-`~/.claude/plugins/marketplaces/ccs-fixture/`. Every real per-checkout record was gone — this checkout and
-both registered consumers — with no backup beside the file and no error anywhere. What a session *saw*
-was `roster-sessioncheck` and `plugin-versions` reporting every plugin as *"not installed in this checkout
-(enabled declaratively only)"*, which by then was literally true and is indistinguishable from the
-ordinary state [#1449](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1449) describes. It
-was found by reading the file.
-
-**The guard #1609 proposed does not fit, and that was measured before anything was built.** The report
-asked for a helper that refuses to write under `~/.claude` unless the resolved home is a scratch path.
-Two things rule that shape out here:
-
-- **Nothing in the committed tree writes under `~/.claude` — every reference in `scripts/` is a READER.**
-  So the helper would ship with no in-tree caller, enforced only by a one-off script's author remembering
-  to call it: the same unenforced instruction #1609 correctly criticises `Get-InstallRecord`'s docstring
-  for being. And the lint gate could not hold anyone to it either, there being no committed writes to
-  check.
-- **A command-string guard cannot see it.** The `PreToolUse` shape that works for
-  [`guard-live-theme.ps1`](../../../plugins/dkj-subagents/dkj-subagents-shopify/hooks/guard-live-theme.ps1) reads
-  the command a session is about to run; here that command was `powershell -File <temp>/dbg.ps1` and the
-  write lived inside the file. Inspecting the **heredoc that wrote the script** is a real vector and is
-  the one worth revisiting if this recurs — but the false-positive surface is exactly the one
-  `guard-live-theme` spent a release learning, and worse here: this repo writes *about*
-  `installed_plugins.json` constantly (check 12 is entirely about printed queries against it), so the
-  first thing such a guard blocks is the fixture that tests it.
-
-So the harness is the only thing that reaches a throwaway script, and it reaches it twice — detect, and
-recover. **Decision by Dave, September 8, 2026**, on those two measurements.
-
-**The signature is ONE thing: a record whose `projectPath` sits under a scratch tree.** No checkout lives
-in `%TEMP%`, so such a record was written by a fixture. It is a signature no existing reader can see, which
-is why `Get-InstallRecord` gained an `AllRecords` field: the three fields it already returned are all
-filtered — to this repo's path, or to the pathless — and a fixture record is dropped **twice**, once for the
-path mismatch and again because a deleted fixture root no longer resolves (#301).
-
-**The orphan marketplace directory is reported only as part of that finding, never as a scan of its own,
-and that is the declined half.** An independent *"a directory under `marketplaces/` that
-`known_marketplaces.json` does not reference"* check fires on ordinary residue: measured the same day,
-`~/.claude/plugins/marketplaces/claude-plugins-official/` is exactly that — left behind by removing a
-marketplace, nothing to do with any fixture. Reporting it forever is the cry-wolf failure #294 spent a
-release removing, and the stale-path check was already declined here at 124 findings all false. So a
-polluted **record** names its marketplace and the check then says whether that clone is also sitting in the
-real tree, which is the actionable half and is how `ccs-fixture/` would have been named.
-
-**The snapshot is the recovery half, and the ORDER is what makes it safe.** On a healthy read the check
-copies the administration to `installed_plugins.snapshot.json` beside it — after the verdict, only on a
-clean one, and only when the content differs. A polluted file can therefore never become the snapshot, and
-restoring it puts the previous records **back**, where re-installing writes new ones and changes what is
-installed. That distinction is why #1609 was left unrepaired at filing rather than fixed in a minute.
-
-**It is the only session check in the family that WRITES**, and that is a change in kind rather than an
-oversight — every other session check states in as many words that it changes nothing. The write is bounded to one path it
-owns, never happens on a finding, and is switched off by `-NoSnapshot`. It also has no `MeasureArgs` in the
-registry, deliberately: the no-argument form reads the real administration, and a timing harness must not
-write to it as a side effect of measuring.
-
-**A missing administration is a finding only when a snapshot sits beside it.** On its own, absent is the
-ordinary state of a machine that has never installed a plugin into a project — so the snapshot is the one
-thing that separates that from a file something deleted, and the verdict turns on it rather than on the
-missing file. Without that the check would cry wolf on every fresh machine and be switched off before it
-ever caught anything.
-
-**Every value it prints out of that JSON file is sanitized, and this check is the place in the tree
-that needed it most.** The hook forwards the whole output into session context and decides how loudly by
-matching `[ERROR]` over it, so an id carrying a newline can forge a line and one carrying a bracket can
-be *counted* — the vector #309 and #414 were filed for. The check's own premise is that this file may
-hold whatever a stray script wrote, and the first draft printed the record fields raw. So `Id` goes
-through `Format-SuspectToken` (the record is the complaint, and a sanitized id shown as clean would hide
-what is wrong with it), `ProjectPath` and the clone directory through `Format-SafePathToken`, and
-**`$record.Error` through `Format-SafeProseToken`** — that last one is the widest of the three and does
-not look like it: `ConvertFrom-Json`'s message **embeds the offending document**, so on an unparseable
-administration it carries the file's whole raw text, and a file that parses would never reach that
-branch.
-
-**The boundary is stated so it is not over-applied: values out of the JSON are sanitized, paths this
-script builds from the environment are not.** `$record.Path` and the snapshot path come from the
-resolved home, and two of the lines printing them are a `Copy-Item` command the reader **pastes** —
-`Format-SafePathToken` truncates at 200 characters with an ellipsis, so sanitizing there would hand
-somebody a command that silently does not work.
-
-**And the sibling hooks are NAMED rather than counted, which this branch proved the hard way.** The
-draft said *"its four siblings all state that they change nothing"*; two reviewers checked that sentence
-and returned two different numbers, four and five, because one counted `dkj-policy`'s hooks and the
-other counted every plugin's. **Both were wrong** — eight hook files across three plugins carry that
-line. It is the same failure the plugin README's own hooks cell already records ("this cell said *two*
-and went stale twice inside two days") and the same answer: name one, count none. Worth keeping because
-the count was wrong in a *docstring*, where no gate looks, and it was load-bearing — it is the sentence
-justifying the write.
-
-**Its suite may never touch the real `~/.claude`, and that is the defect under test rather than a
-courtesy.** [`scripts/tests/claude-home-gate.tests.ps1`](../../../scripts/tests/claude-home-gate.tests.ps1)
-passes `-HomeOverride` into a fixture tree for every case, and `-NoSnapshot` for every case that is not
-about the snapshot. It also passes `-ScratchRootOverride` everywhere, for a reason particular to this
-check: the fixture trees live under `%TEMP%`, which is what the check calls scratch, so without the
-override every record a fixture writes reads as polluted and the **clean** case cannot be expressed at
-all. The machine's own resolution — `$env:TEMP` and a literal `\temp\` path segment — is therefore a
-**named test gap**: a suite asserting on it would be asserting about the machine it happens to run on.
-What is pinned instead is the boundary logic those roots feed, including that a sibling directory whose
-name merely *begins* with a scratch root's name is not inside it.
-
-#### Check 35, and the sweep that reported itself finished (September 8, 2026, [#1655](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1655))
-
-**The check exists because a sweep is not an enforcement**, and this one is the cleanest instance of that
-this repo has. [#1635](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1635) moved the
-judging of a test fixture's own git commands into
-[`scripts/lib/fixture-git-lib.ps1`](../../../scripts/lib/fixture-git-lib.ps1) and converted seventeen
-suites onto it — and left nothing that refuses the next copy of the idiom it removed. The idiom was never
-a mistake somebody made once; it was the **house style**, copied from suite to suite for as long as
-`scripts/tests/` has existed, and the next fixture builder is written by copying the nearest neighbour.
-
-**What the measurement actually found, and it is not what the report predicted.** #1655 asked for the
-matcher to be run over the swept tree, expecting zero, and over the pre-sweep tree, expecting the fifteen
-suites it had counted. The first number came back **27, in four files** — `find-specialist-mentions`,
-`shared-scripts`, `source-repo-guard` and `fresh-consumer.measure`, whose spellings the sweep's own search
-never reached: `git ... 2>&1 | Out-Null` with no `&`, and `& $git @(...)` over a scriptblock. So the
-branch that added the check also finished the sweep, and the check is born green with **0 exemptions**.
-The pre-sweep tree read **182 findings across 18 files** — the house style, measured.
-
-**The reason #1635 did not just add the check was a good one, and answering it was the work.** This repo
-has scar tissue from checks born needing an exemption list (the stale-path check declined at 124 findings
-all false, above), and there is a real false-positive class here: a git call that is a **question** rather
-than a mutation. A `rev-parse --verify --quiet` on a ref *expected* to be absent answers with exit 1 and
-is judged on the very next line; counting it would report every negative case as a defect, and #1635's own
-conversion hit that class twice.
-
-**What separates the two classes is cheap, and it is not a list of git verbs**: a question's exit code is
-**read, and read immediately**. So a call is cleared when `$LASTEXITCODE` or `Assert-FixtureGitOk` appears
-in the same statement or the next one. Over both trees that rule produced **zero probe false positives** —
-not one `rev-parse`, `ls-remote` or `show-ref` call appears in either finding set — and it also clears
-`publish-to-business.tests.ps1`'s deliberately failing probe, which reads `$probeCode = $LASTEXITCODE`.
-
-**The subject is a DISCARDED result, not every unjudged call, and that bound was measured too.** Widening
-it to a bare statement pipeline (`git log --oneline` with no `Out-Null`) yields **20 findings on this tree
-and 20/20 are false** — every one a value-returning question, a helper's implicit return or
-`return @(& git ...)`. Discarding the output *and* ignoring the exit code is the combination meaning
-nothing git said was read; either alone is ordinary.
-
-**And the check's own stated boundary was probed rather than trusted, which is what found the gaps the
-measurement could not.** Running contrived shapes past it turned up a third way to throw a result away —
-a `[void]` cast — that this tree simply does not contain, so no amount of measuring it would have
-surfaced. Leaving it out would not have stopped the idiom; it would have renamed it, and the finding's
-own message would have become advice on how to get past the check. The rule generalises: a measurement
-tells you what a check catches *here*, and only a probe tells you what it would wave through.
-
-**The code review then found the same class one level deeper, and that one is the more instructive
-half.** Adding the `[void]` arm meant walking out of the `(...)` a cast requires — and only that arm did
-it, so `$null = (& git ...)` and `(& git ...) | Out-Null` were both silently skipped: the exact call the
-check exists to catch, wearing one pair of brackets. Neither spelling exists in this tree, so the probe
-above did not reach them either; what found it was noticing that three arms of one check disagreed about
-wrapping. **The repair is that the unwrap is now shared rather than written per-arm** — climbed once, so
-every discard spelling is judged on the same node. A guard whose arms disagree about a detail teaches
-whichever shape the weakest arm accepts.
-
-**The clearing condition moved onto the AST in the same pass**, for the reason check 31 already states —
-*through the parser, not by line matching* — and it applies with extra force to a condition that
-**clears** a finding: a text match on `$LASTEXITCODE` is satisfied by the name sitting in a single-quoted
-string or a trailing comment, and a wrongly cleared miss leaves nothing behind to notice. A
-`VariableExpressionAst` is a read; a comment is not in the AST at all.
-
-**Two invocation spellings are in scope, because a check written BECAUSE spellings vary must not repeat
-the sweep's mistake**: a command named `git`, and `& $git` where the variable is named exactly `git`. A
-wrapper under any other name is out of reach, and the check's own comment says so rather than implying
-coverage it does not have.
-
-**The check is free on a gate run; its TESTS were not, and that is where the cost review earned its
-place.** Check 35 rides the `Get-PsScriptCommandAsts` cache checks 31 and 33 already populate, so the
-gate measures 11.21s with it against 11.26s without — noise. But each scenario asserting on gate output
-spawns a fresh PowerShell over the ~4,000-line script, ~1.1s of interpreter start and parse whatever it
-asserts, and written the obvious way — one rewrite-and-reinvoke per shape — the scenarios cost **12
-invocations, taking the docs suite from 54.5s to 63.7s (+17%)** on a file that runs on every push and
-again in CI. The shapes are independent, so they batch by **expected verdict**: everything that must fire
-in one run, everything that must stay silent in the next. Same asserts, **3 invocations, +2.8s instead of
-+9.2s**. What pays for it is that each probe carries its shape in its file name, so one run's output still
-says which shape failed — batching scenarios that could not be told apart afterwards would trade a real
-diagnostic for the seconds, which is a different and worse deal.
-
-**And the probe that took this measurement carried the defect it was measuring for.** Its first run
-reported 36 findings including nine `rev-parse` probes that the next-statement rule should have cleared —
-because `@($i, $i + 1)` is `@($i, $i) + 1` in PowerShell, the comma binding tighter than the addition, so
-it silently checked statements `$i`, `$i` and `1`. Nine false positives from a two-character omission, in
-the pass whose whole job was deciding whether the false-positive rate was acceptable. The parenthesised
-form is now in the check with a comment saying why, and it belongs beside the other traps that produce
-well-formed wrong output.
-
-#### The nested-worktree exclusion, measured and DECLINED (September 9, 2026, [#1678](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1678))
-
-**The tree walks in this gate are FILESYSTEM walks, not git walks**, so a worktree registered inside the
-repo is a second complete copy of the tree the gate is standing in. Measured here with one probe at
-`.claude/worktrees/probe-1678`: every recursive count from the root doubles exactly — `*-subagent.md` 26 to
-52, `plugin.json` 6 to 12, `*.ps1` 233 to 466 — and the gate then fails with **26 errors, one per
-specialist id, each naming the REAL file as the offender** and the worktree's copy as the legitimate
-claimant, because that path sorts first. The coverage lines report the doubled sets as normal
-(`checked 52`), so nothing in the run says the *set* is wrong rather than the files. That symptom is
-[#1673](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1673)'s, and its named finding is
-the accurate sentence an operator now reads instead of the 26.
-
-**What #1678 left open was the fork after that, and this is the answer: the gate REFUSES, and is not made
-to work through a nested worktree.** The alternative was real — roughly twenty `Get-ChildItem -Recurse`
-sites here plus the suites that walk the root, behind one shared predicate — and it is declined on four
-grounds, each measured rather than argued:
-
-1. **The gate is the only chokepoint anyone passes, so the walks below it never run.**
-   `Invoke-WorkflowGates` ([`gate-lib.ps1`](../../../scripts/lib/gate-lib.ps1)) runs the lint half
-   **first** and `return $false`s on its failure, several dozen lines above the test gate. So on the
-   documented route a nested worktree is named once and the two suites that would double never execute.
-   Excluding the path from them buys nothing a caller can reach — and what is past the refusal is
-   `-SkipLint`, the switch that already means *this run did not measure*.
-2. **The price was quoted one suite too high.** #1678 names three root-walking suites; measured, there are
-   two. `subagent-shared.tests.ps1` (the `*-subagent.md` and `*-persona.md` walks) and `shared-scripts.tests.ps1`
-   (the `*.ps1` scan) do walk `$RepoRoot` and do double. `template-selfcontained.tests.ps1` walks
-   `Join-Path $RepoRoot 'plugins'`, and a worktree under `.claude/` is not inside that subtree: its
-   templates count stayed at 1 with the probe standing. This does not change the verdict, but a declined
-   option should be declined at its real price.
-3. **The exclusion is the enforced-by-memory shape [#1665](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1665) was filed against.**
-   A predicate every walk must remember to call, in a four-thousand-line file that has grown to 36
-   numbered checks, is reintroduced silently by the next walk somebody adds — so it needs a meta-check
-   policing the whole file, forever, to hold. That is a permanent cost bought for an arrangement this repo
-   steers away from anyway, which is ground 4.
-4. **The repo has already decided where a worktree belongs.**
-   [`worktree-lane.ps1`](../../../scripts/task/worktree-lane.ps1) places lanes **outside** the tree and
-   says why in as many words — *"a worktree inside the tree would be walked by the lint gate's link scan
-   and by the test suites."* Both halves of that sentence are correct, and the lane is the supported route
-   for a session that wants isolation. Making the gate work through a nested worktree would endorse the
-   one arrangement the lane exists to avoid. The harness's own `isolation: "worktree"` does not get that
-   choice — the path is `.claude/worktrees/agent-<id>` and nothing here selects it — but
-   [#1667](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1667) has already decided the
-   review chain is not dispatched that way, so what remains is a caller who opted in and is one
-   `git worktree remove` from the gate, or one lane from never meeting it.
-
-**The residual is stated rather than left to be discovered.** With `-SkipLint` a standing nested worktree
-still hands those two suites a doubled set in silence. That is not a hole this decision opens — it is what
-`-SkipLint` means everywhere in this repo — and it is one more reason the refusal lives in the gate rather
-than being spread across the walks: one place to state it, one place that can go stale. Worth keeping
-beside it: `git worktree remove` leaves the empty `.claude/worktrees/` parent behind, so the directory
-outlives the worktree it held and the next `git worktree list` is the honest check, not the directory's
-existence.
-
-#### Check 37, and the second hand-maintained list this file was keeping (September 9, 2026, [#1680](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1680))
-
-**Check 34 reached half of the problem it was filed for.** It reads the column-0 `# --- <n>.` headers back
-and holds them to each other, which is what stopped two checks sharing a number. What it has no opinion
-about is the **prose list in the gate's own `.DESCRIPTION`** — the summary a reader who has not opened a
-four-thousand-line file consults, and the one a lens, a hook, a test-scenario name or a released note
-quotes a number from. That list was read by nothing, in the one file whose purpose is refusing a
-hand-maintained list a machine could check.
-
-**It had drifted in three directions at once, and only two were reported.** #1680 named the first two: the
-list stopped at **30** while the code ran to **36**, and its own item `30.` described the barred-skill
-check that #1494 had renumbered to **33** a month after the list was written — so a reader who grepped the
-list for "check 30" was told about a check answering to a different number, which is precisely the
-confusion #1494 was filed to end, one layer up. The third was older and quieter: items **9** and **17**
-still described checks **retired on August 8, 2026**, reading as live ones. They are tombstones now,
-keeping their numbers for the reason the code keeps the gaps — reusing one silently repoints every older
-citation.
-
-**And the check found a seventh missing entry on its first run, which is the whole argument for building
-it rather than repairing the list by hand.** `13b` — no branch document left behind between branches — has
-a real header and had no line in the list; no report had noticed, including the one that counted the
-others. A hand pass resets the clock, exactly as [check 32](#check-32-and-the-extraction-that-came-with-it-september-6-2026-1491)'s
-own header says about the three hand repairs of the mirror table before it.
-
-**ONE DIRECTION, AND THAT IS WHAT LET IT BE BORN GREEN.** Every header must have an entry; an entry need
-not have a header. The reverse direction is where the exemptions live, and there are three legitimate
-entries with no header of their own — the two tombstones, and the consumer-doc guard the suites already
-call check 19, which carries no column-0 header at all (check 20's comment says why in as many words). A
-rule asserting both directions would have arrived needing exactly those three exemptions on the day it was
-written, which is the shape this repo declined at 124 findings all false and has refused since. Measured
-after the seven entries were written back: **1 span, 37 headers, 37 claimed, 0 findings, 0 exemptions.**
-
-**OPT-IN, through the same `Invoke-MarkedSpanWalk` checks 10, 29 and 32 use.** A blanket rule keyed on "a
-script carrying numbered headers" would be born with a finding for each of the **19 files** check 34
-measured, none of which claims to enumerate anything: the marker is what turns a list into a claim, and it
-is the only thing that does. Reusing the walk also inherits its three refusals for free — an unpaired
-opener, a stray closer, and a second opener inside an open span — each of which would otherwise read as
-"no list here", the one failure mode that turns a gate green by silencing it.
-
-**The header pattern is check 34's own literal, deliberately.** Two readers disagreeing about what a
-section header is would let a header satisfy one and not the other, which is the divergence this tree has
-extracted libs to prevent elsewhere.
-
-**And the suite had to be kept OUT of its own subject, which is scenario 57's trap arriving through the
-other door.** `check-plugin-integrity-commands.tests.ps1` is a `.ps1` in the set check 37 walks, so a
-literal marker in a fixture line would open a span in the *suite* — a file with no numbered headers — and
-the real gate run would report the test file. The scenarios compose the marker from a variable instead.
-Where check 34 needed the suite to *be* its fixture for the indented-header bound, this one needs it to
-stay outside the walk entirely.
-
-**One measured trap worth keeping, because it produced a well-formed wrong answer.** The count assert in
-scenario 58 read 2 where 1 was right: this check's own coverage line contains the words *"claims to
-enumerate them"*, so a pattern matching finding *phrases* counted the coverage line as a finding — the
-same trap three patterns in that suite already document, met again by the check that was added to it. The
-assert now matches the finding's leading path, which the coverage line does not have.
-
-**The review round moved four things, and three of them are the same defect wearing different clothes: a
-rule read off the happy path.** The claim reader matched *any* indented line opening with `N. `, so a
-nested enumeration inside an entry's prose would have registered claims — and drop those entries later
-and the nested pair keeps satisfying their headers with the gate green, which is the drift this check
-exists to refuse. The repair is that an entry must **start inside the list's gutter**, whose width is the
-narrowest number prefix in the span. The first attempt required the exact prefix width, which is what a
-*perfectly* right-aligned list would have; this one is not — `3b` and `3c` sit one column out — and it
-reported two real entries as missing. The weaker rule is the true one: however ragged the alignment,
-every entry begins inside the gutter and a line indented past it is prose. Second, the header comparison
-ran **inside** the span callback, so a file with two spans counted its headers twice and named one gap
-twice; it now runs once per file over the union of its spans, which also makes a split list legal. Third,
-the coverage note keyed on the span count, so a **broken** marker printed *"the marker is opt-in, so zero
-is a pass and not a gap"* in the same run that raised an error about that very file — the two zero states
-are now said separately.
-
-**And the shape of the fourth is worth more than the fix.** The nested-enumeration hole was found by
-**probing** the check, not by measuring the tree: the list contains no such line today, so no amount of
-measuring would have surfaced it. That is
-[check 35](#check-35-and-the-sweep-that-reported-itself-finished-september-8-2026-1655)'s own lesson —
-*a measurement tells you what a check catches here, and only a probe tells you what it would wave
-through* — arriving at its neighbour one day later. The same round also found the branch document citing
-`.SYNOPSIS` where the list lives in `.DESCRIPTION`, in an entry whose whole subject is a citation being
-wrong, and which travels verbatim into `CHANGELOG.md` and then a release note.
-
-**Two bounds are named rather than closed, and the reason is the same in both.** A **stale** entry still
-satisfies its number: renumber a check, add the new entry, and the abandoned line — still describing what
-moved — keeps the old header satisfied. That is #1680's second drift recurring, and reaching it means
-reading an entry's text against a header's, which is a fuzzy rule, and a fuzzy rule on a gate arrives
-with an exemption list. Check 34's ascending rule limits the blast radius to a lingering line rather than
-a wrong live one. And the two zero-state coverage notes **cannot be asserted from the suite**: every
-fixture run invokes a copy of this script inside the fixture, and that copy carries the list, so one
-valid span always exists there. Both are written into the check's own header, because an unstated gap
-reads as coverage.
-
-#### Check 38 was proposed for removal, and the proposal was DECLINED on a measurement (September 10, 2026, [#1771](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1771))
-
-**The report asked for the opposite of what the gate does, and was wrong on its central claim.** #1771
-concluded that the manifest's `agents` key *"registers nothing, in every form the validator passes"*, that
-the four team plugins therefore ship no specialists at all, that `subagents/` must be renamed back to
-`agents/` across 44 occurrences with the key dropped, and that check 38 should additionally **refuse the
-key existing at all**. Its evidence was `claude plugin details` reporting `Agents (0)` for each of the
-four, reproduced against a two-plugin control.
-
-**That measurement is real and it answers a different question.** `plugin details` reports what its own
-inventory counts, and the inventory counts only defs found by convention in a plugin's default `agents/`
-directory. What it cannot tell you is what a **session** loads — and the session filing the report had
-all 26 subagents in its own agent list, from these four plugins, out of `subagents/`, named by the key.
-Nothing in the report's evidence contradicted that, because none of it looked there.
-
-**The evidence that needs no rig at all, and it was in the room.** The specialist who red-teamed this
-conclusion is `specialist-06-29-subagent.md`, and in the resolved plugin cache that def is reachable **only** through
-`dkj-subagents-alpha`'s `agents` key: the cache holds `subagents/` and **no** `agents/` directory, so no
-convention scan could have found him. A subagent arguing about whether subagents load is a primary
-measurement, and it costs nothing to take.
-
-**The control that settles the exclusivity half, and the shape worth reusing.** A throwaway local
-marketplace, one plugin, two agent defs in one non-default directory with only **one** of them named in
-the `agents` key — installed **fresh** into a scratch project, then each one **actually dispatched**
-through `claude -p`:
-
-| def | in the `agents` key | in the resolved cache | `plugin details` | dispatched |
-|---|---|---|---|---|
-| `zebrafish` | yes | yes | not counted | **`ok ZEBRAFISH`** |
-| `quokka` | no, same directory | yes | not counted | **`Agent type 'keyed:quokka' not found`** |
-
-**Both columns on the right are the point, and the first version of this control had neither.** It asked
-a session to *list* the `subagent_type` values it had, which a model can answer from belief rather than
-from the harness — so the run above **invokes** instead, and a returned `ZEBRAFISH` is a dispatch that
-happened. And it installed at 1.0.0 and then *updated in place* to add the second def, against a CLI that
-had just printed `Restart to apply changes` — which makes `quokka` absent for a reason that has nothing
-to do with the key. Both defs are present from the first version now, and the cache is listed before the
-dispatch, so *"named loads, unnamed does not"* is the only reading left. Marlowe caught both holes in
-review; the conclusion survived, its proof did not, and a conclusion resting on a control this repo
-would not accept is one bad rerun away from being wrong.
-
-So the key **is** honoured by the loader, and honoured **exclusively** — which is the very sentence
-check 38's completeness rule already states (*"once the key is present it REPLACES convention discovery,
-so the list is the only way in"*), inferred from the validator in #1764 and now measured against the
-loader. Refusing the key would have forbidden the mechanism that works and un-guarded the one that
-does not. The rename was not built, and #1764's repair 1 stays declined.
-
-**And that leaves a standing cost, which is a trade rather than a repair.** Check 38's own header names
-it: this repo carries a hand-maintained list of 26 paths across four manifests, *"which is the shape this
-file exists to refuse"*. A specialist whose def ships without its manifest entry loads for nobody, and
-check 38 is the only thing in the tree that looks. That tax was accepted in exchange for not renaming a
-directory a fifth time; it is worth re-reading whenever the list grows, because the alternative did not
-become wrong, only unnecessary.
-
-**What DID need repairing was the instrument, and it had gone red without anyone reading it.**
-`measure-skill.ps1` refused two of the six enabled plugins with *"the output of `claude plugin details`
-did not parse as expected"* — `-ecomm` and `-lifehub`, the two that ship only agents — because the CLI
-prints no per-component table at all for a plugin whose inventory is all zeroes, and an empty table was
-read as a format change. The emptiness is now judged against the inventory's own counts: nothing owed is
-an `[INFO]` naming why, something owed is still the `[ERROR]`, and an inventory that could not be read
-**stays** the `[ERROR]` this check exists for — the three-state lesson `claim-issue`'s read-back learned
-in [#1628](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1628), where one boolean
-carried two opposite facts and printed the wrong one. The report's own second half is why it matters that
-the tool was believed: `Agents (0)` was read as *ships none*, and a share computed over a skills-only
-total was reading as *the skills are effectively all of this plugin's cost* while ~2,260 tokens of agent
-descriptions sat outside it. Both are now stated in the output;
-[Nolan's lens](specialist-06-25-lens.md#how-to-measure-it--claude-plugin-details-july-28-2026) carries the
-measurement half.
-
-**The transferable lesson is the one this repo's constitution already states** — *a reported finding's
-reason is verified before it is repaired, not just its symptom.* #1771's symptom reproduced exactly, on
-the first command; the reason behind it did not survive the second one. Had the reason been taken at its
-word, the repair would have moved 44 occurrences, reversed a rename decided the day before, and turned a
-working guard into one that refuses the working configuration — a change that satisfies the report, is
-wrong, and now carries a citation. The report's own author named the hazard in its last section and did
-not apply it to itself: *"that choice was made on my measurement of what the validator accepts, and I did
-not measure whether an accepted form loads."* The measurement missing at the top was the same one.
+| Entry-format section count | Prose describing the changelog entry shape is held to the scaffolder's section COUNT, not its section names | [#508](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/508), [#538](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/538) | Name matching gave 6 findings, all false, and is one rename from silence; the count needs no exemptions |
+| Stale path in backticks, **DECLINED** (Aug 9) | Would have required a backticked path to resolve in the tree | no issue cited | Five variants over 120 docs gave 124 to 736 findings, 0 true: most paths describe a consumer's repo, which the line never says. Unbuilt: a title claiming a path must name its own location (4 subjects) |
+| Check 16 on line counts, **DECLINED** | Would have held "`<file>` is N lines" against the file | [#1784](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1784), from [#1779](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1779) | The motivating defect read "three thousand lines" (no digit); wide form 16 findings, 1 real. The adjacency variant is green but unbuilt (1 subject; revisit at 3 or 4). The unit list stays byte-shaped |
+| Check 16 on `.ps1` comments, **DECLINED** | Would have read script comments for stale byte figures | [#1790](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1790), [#1775](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1775) | 49 hits, 26 flagged, 0 real (design ceilings, codepoint prose, no fence to tell prose from code). Needs a PowerShell-aware comment extractor first |
+| PR template is one section; check 24 | Shipped reference held byte for byte, this repo's own template to the placeholder contract only | [#538](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/538), [#573](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/573), [#865](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/865) | Over 60 PRs each box was always or never ticked; `open-pr.ps1` still fills the old sections for consumers |
+| `CHANGELOG.md` intro read (checks 11, 12) | The intro is scanned, level marker optional across the intro only | [#525](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/525) (PR) | Every cut copies it verbatim; dropping the marker tree-wide gives 50 findings against 4 |
+| Check 30, plugin-link | A relative link in plugin payload resolves at the plugin root, which is what the installed cache holds | [#1066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1066) | 17 escapes in 5 files, all dead once installed, all passing check 4; scenario 37 pins plugin root against `plugins/` |
+| Name paired with an older version, **DECLINED** | Would have flagged a plugin name beside a version older than its first release | [#2144](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2144), [#2139](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2139) | 54 pairings, 3 swept quotations, 14 correct attributions that stay forever. Replaced by the marking convention; unbuilt: check the *marking* against history. Untested: fenced blocks only |
+| Prose contract check, **DECLINED** | Would have held always-on consumer documents against a manifest of 11 laws | [#1380](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1380), [#1379](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1379), [#1378](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1378) | Best candidate 12.5% precision, recall 1 of 3; a strict pointer match hides the one real contradiction; the declaration form was born red (88 of 88). The manifest table is in git history |
+| Retired doc name | Literal `development.md` outside changelog and history, in consumer prose | [#1389](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1389), [#1421](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1421) | Built the day of the decline; merged into `check-consumer-prose.ps1`; stated gap: `development-<branch>.md` |
+| Supremacy declaration | `CLAUDE.md` and `wins`/`wint` adjacent in one sentence | [#1415](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1415) | The three-term same-sentence test scored 0 and missed its own defect; adjacency scored 2 true of 3 raw |
+| Check 32, `shared-scripts:mirror` | A marked document's table rows match the mirrors under its own folder | [#1491](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1491), [#1480](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1480) | Folder scope, first-cell claim; walk extracted to `Invoke-MarkedSpanWalk`; a heredoc splice once emptied both sets and the gate stayed green |
+| Check 34, ascending section numbers | Column-0 `# --- <n>.` headers are unique and strictly ascending in every script | [#1494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1494), [#1500](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1500), [#2740](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2740) | Renumber, not disambiguate; gaps 9, 17, 19 are legal. Making it skippable and sharing check 27's read were both **DECLINED** (too small a saving) |
+| Template self-containment (a suite, not a check) | Every Verb-Noun call in a `plugins/**/templates/*.ps1` is defined there, built in, or `Get-Command`-guarded | [#1556](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1556), [#2818](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2818) | Only a parse-time check catches it; retired October 5 with its one template, back the same day with the next |
+| `~/.claude` pollution check | `check-claude-home.ps1`: a record whose `projectPath` is under a scratch tree; snapshot only after a clean read | [#1609](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1609), [#1449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1449), [#1591](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1591) | A write-guard helper and a stand-alone orphan-marketplace scan were **DECLINED** (no in-tree writer; ordinary residue, [#294](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/294)) |
+| Check 35, discarded fixture git result | A fixture `git` call whose output is discarded and whose exit code is not read next | [#1655](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1655), [#1635](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1635) | 182 findings before the sweep, 0 after; widening to any unjudged call was 20 of 20 false; AST-based |
+| Nested-worktree exclusion, **DECLINED** | The gate refuses a nested worktree ([#1673](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1673)) rather than excluding it from its walks | [#1678](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1678), [#1665](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1665), [#1667](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1667) | Lint runs first and refuses, so the doubled walks never run; a remembered predicate at ~20 sites is the shape #1665 was filed against; lanes live outside the tree |
+| Check 37, `.DESCRIPTION` list | Every column-0 header has an entry in the gate's marked list | [#1680](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1680), [#1494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1494) | One direction and opt-in, so born green with 0 exemptions; the stale-entry gap is named in the check's header |
+| Check 38 removal, **DECLINED** | Check 38 keeps every def in its manifest's `agents` key | [#1771](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1771), [#1764](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1764) | A dispatch control showed the loader honours the key exclusively; `Agents (0)` in `plugin details` is inventory only. `measure-skill` was repaired instead ([#1628](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1628)) |
+| Retired-id `continue` | `check-connectors.ps1` asks the install-record question for a retired id too | [#1802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1802), [#533](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/533), [#1773](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1773) | The report's "no check makes this comparison" was false; the real defect was a `continue` skipping a check that needs no source folder |
+| Check 39, mirror depth | A shared entry point whose `$PSScriptRoot` climb differs by copy declares a suite that runs the mirror | [#1857](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1857), [#275](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/275), [#331](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/331) | Check 8's byte equality proves text, not behaviour; 3 of 34 entry points cross; the gate requires the declaration, not the assertion |
+
+**Live rules, read before changing a check**
+
+- A new check is measured against the trunk (CI tests the merge commit) and probed with shapes the tree lacks: a measurement says what it catches here, only a probe says what it waves through.
+- Born green with 0 exemptions, and shown firing on the pre-repair file. No exemption lists; no hand-kept list a machine could ask.
+- A new numbered check takes the number after the last header, and a retired number is never reused.
+- A new check is not skippable; `$script:SkippableChecks` (eight since #2740) widens only for a saving that clears that bar.
+- A verdict never travels without its count: a coverage line prints both sides of a comparison, because 0 against 0 reads as no findings.
+- Splice code into a `.ps1` with the editor tools, never through a shell heredoc.
+- Local green and CI red: read the merge commit (`git log origin/main`) before theorising; a fixture asks the registry for plugin paths and hard-codes none.
+- Batch fixture scenarios by expected verdict (each spawns about 1.1 s of PowerShell), with the shape in the probe's file name.
+- A quoted old name or version is frozen and marked at its line; an illustration stays true; an attribution keeps today's name.
+- A report's reason, and any "nothing makes this comparison" claim, is checked against the tree and the loader before the repair ([`triage-inbound`](../../skills/triage-inbound/SKILL.md)).
+- A `continue` or guard is only as narrow as its condition: ask whether every check inside the block depends on the reason it is skipped.
+- A count of siblings in prose is named, not counted (one sibling named beats "four").
+- Session checks sanitise every value read out of JSON, and their suites never touch the real `~/.claude`.
+- Isolation goes through `worktree-lane.ps1`, outside the tree; the gate refuses a worktree inside it.
+- Any consumer-prose check skips the source repo and plugin-shipped payload (`Source -eq 'external'`), and never counts "the source is mentioned nearby" as deference.
 
 #### The retired-id `continue`, and the block it silently skipped (September 10, 2026, #1802)
 
-**#1802's proposed repair rests on a premise that was false when filed, and the tree already falsifies it
-three times over.** It reported three findings about the `~/.claude` plugin administration on Dave's
-machine and proposed: *"a check that compares a repo's `enabledPlugins` keys against the install records
-for that `projectPath` and reports a key with no matching record. That is the one comparison nothing
-currently makes."* Grepped rather than taken on faith: three readers already make it.
-[`plugin-versions.ps1`](../../../scripts/task/plugin-versions.ps1) prints exactly that verdict — its
-`not-installed` code's own line, `cannot determine -- not installed in this checkout (enabled
-declaratively only)`, with `claude plugin install <id> --scope project` as its action. Check 4 of
-[`check-connectors.ps1`](../../../scripts/sync/check-connectors.ps1)'s no-install-record branch makes
-the same comparison for a different vantage point and states the consequence in prose: a session in
-that checkout loads none of that plugin, "and that repo cannot report it -- the hook that would is
-inside the plugin that is not loading," plus a `[NOT-INSTALLED-HERE]` promotion for the session's own
-repo (#533). And
-[`tidy-machine.ps1`](../../../scripts/maintenance/tidy-machine.ps1) lane 11 (#1773) — landed the same day
-#1802 was filed — cleans up install records under a retired plugin name, which is #1802's own finding 3;
-lane 8 (#1449) covers its orphan-record sibling. **A report's claim that "nothing currently makes this
-comparison" is a claim about the tree, and it is checked against the tree** — the same discipline the
-`triage-inbound` skill already applies to a proposed repair's mechanism or a symptom's currency, applied
-here to an assertion of absence, and worth an entry there in its own right (below).
-
-**The wider shape the report implied was also already declined, by name, in the tree it was filed
-against.** `tidy-machine.ps1`'s own docstring, in its "IT VISITS NO OTHER CHECKOUT" paragraph: *"Dave's
-second answer on September 10, 2026 was 'this checkout plus the machine-wide lanes' rather than 'every
-checkout the machine knows about'"*. A mechanism that walked every consumer checkout to answer #1802's
-question directly was on the table the same day and was the reverse of what got built.
-
-**What did stand, underneath the false premise, was a real and narrow defect: a `continue` that skipped a
-whole block silenced every check inside it, including the one check whose subject did not depend on the
-reason for skipping.** In `check-connectors.ps1`'s `'retired'` branch, a plugin id the marketplace no
-longer declares hits `continue` before check 4 ever runs. The reason for the block being unreachable is
-that two of its three checks — the extension inventory and the version comparison — read the plugin's
-*source folder*, which a retired name has none of. **Check 4's install-record question needs no source
-folder at all**: it asks whether this machine holds a record for that `projectPath`, and the answer is as
-available for a retired id as for a current one. The `continue` did not distinguish the two, so it
-silenced a check whose vantage point had nothing to do with the reason the other two were skipped. For a
-consumer enabling nothing but retired ids — both of #1802's worst-measured cases, life-hub and
-thumbnail-generator — the one check with a vantage point on "this checkout loads nothing" was exactly the
-one that never ran, and the register reported them as "correct as it stands." Sylvester's repair asks the
-install-record question inside that same `'retired'` switch arm too, and splits `plugin-versions.ps1`'s
-one actionable indeterminate verdict out to its own `not-installed` code — the marker split in its
-`-Brief` block — so it reads as `[ERROR]` there rather than riding quietly in the same bucket as every
-other "cannot determine" line that is genuinely bookkeeping.
-
-**The generalisable half: guarding a block on one condition is only as narrow as the condition, and a
-block can hold checks that do not all share it.** `continue` inside a `switch` arm reads as "this whole
-case is inapplicable," which is true of two thirds of what it was skipping and false of the third. The
-question worth asking before writing one is not "does this block apply" but "does *every* check inside
-it depend on the reason it does not" — the same shape as the mention-vs-use question checks 11/12/18
-already ask of a printed command or a mirrored parameter, arriving here as a skipped branch instead of an
-unheld one.
-
-**Byte-equality is necessary and not sufficient for a mirrored script, and the gap is exactly one class
-wide** (September 11, 2026,
-[#1857](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1857)). Check 8 holds every shared
-script byte-identical to its plugin mirror, which proves the two copies are the same **text** and says
-nothing about them **behaving** the same — and the thing that makes the difference invisible is the
-equality itself: the characters are identical, so there is nothing to diff. What differs is where the
-two files sit. A shared entry point lives at `<x>\scripts\<area>\<name>.ps1` in both copies, where `<x>`
-is the repo root for the source and the **plugin root** for the mirror, so a `$PSScriptRoot` resolution
-ascending **two** levels lands on a different folder in each.
-
-**One hop cannot, and that bound is what makes a gate worth having here.** `..\lib\...` reaches
-`<x>\scripts\` — the same folder relative to the file in both copies — so the overwhelming majority of
-resolutions in the tree are depth-invariant by construction. Measured when check 39 was written: **3 of
-34** entry points cross the boundary — `adopt-config`'s `..\..\blueprint\config-blueprint.json`,
-`check-policy-drift`'s `Split-Path (Split-Path $PSScriptRoot -Parent) -Parent`, and
-`adopt-workflow-folder`'s `..\..\templates\pull_request_template.md` — and **all three were already
-correct**. A rule that flagged one hop would have buried those under the thirty-odd that cannot differ,
-which is the shape this section already records being declined at 124 findings.
-
-**The third one is the best argument for the check there is, and it is worth keeping for how it
-arrived.** The branch measured **two**; `adopt-workflow-folder`'s PR-template reference merged to `main`
-while the gate was being built, and check 39 caught it on its **first CI run** — because CI tests the
-branch merged with the trunk and the branch's own working copy cannot see what landed beside it. It is
-also the exact resolution #1857 was filed about, so the issue's subject was reachable by the gate and
-not by the session that wrote it. Two things follow. A count taken from a branch base is a **snapshot**,
-and this one went stale inside a day, which is why the live figures belong in the coverage line and the
-number in prose is dated. And a gate whose subject is *"what nobody has thought about yet"* is measured
-correctly only against the trunk — the local run said the tree was clean, and it was right about the
-tree it could see.
-
-**What was actually wrong was the proof, not the code.** Both crossings had been verified by hand, and
-hand verification is what this repo keeps replacing with gates. Worse, the copy that fires in **every
-released install** is the mirror — the source copy exists for this repo and its suites — so the
-candidate nobody executed was the only one a consumer ever reaches. One suite did run a mirror
-(`git-identity-gate.tests.ps1`, four weeks earlier, with a comment stating this reasoning in full), and
-it covered a script with no crossing at all.
-
-**The repair is split deliberately, and the split is the reusable part.** The gate refuses an
-**undeclared** crossing and holds the declaration to something real — the named suite must exist and
-must name the mirror — while whether that suite **asserts** anything is the suite's job. That is the
-same line check 18 draws between this gate and a skill page, and trying to prove assertion statically
-from the gate would only produce a check that is confidently wrong. The declaration lives in the
-registry beside `LibOnly`, `Skill` and `MeasureArgs`, for the reason all three moved there: a
-hand-written list somewhere else is one a newly shared script falls out of silently (#275/#331), and
-catching the script nobody has thought about yet is this check's whole job.
-
-**And the detector's own first draft is the cautionary half.** It climbed to the *nearest* enclosing
-statement, which is correct for a literal and silently halves the second form: a `PipelineAst` is itself
-a statement, so `Split-Path (Split-Path $PSScriptRoot -Parent) -Parent` stops the climb at the **inner**
-pipeline, where one hop is in scope and the ascent reads as one level. It reported `adopt-config`
-correctly and found nothing in `check-policy-drift` — a gate that looks green and covers half its
-subject, which is worse than one that covers none. Climbing to the statement that sits directly in a
-block fixes it, and both forms are pinned in `shared-scripts.tests.ps1` rather than only through the
-gate's fixture.
+Kept as an anchor. See the table row above and [#1802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1802): a `continue` that skipped a whole `'retired'` block also silenced the one check in it that needed no source folder.
 
 ### The development document, as this repo writes it
 
@@ -3973,9 +1860,9 @@ not there. That absence is the trunk's normal state, not a file somebody deleted
 
 **The name IS the branch** — `fix/thing-v1` gets `dkj-policy/fix-thing-v1.md`, slashes flattened and nothing
 else. **One per branch since September 3, 2026**
-([#1255](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1255)), where it was a single shared
+([#1255](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1255)), where it was a single shared
 `development.md`, and **without the `development-` prefix since later that same day**
-([#1335](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1335)). The prefix bought a reader
+([#1335](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1335)). The prefix bought a reader
 nothing the folder does not already say; what it quietly bought the tooling was a glob that could not reach
 this folder's own pages, and that narrowing is now stated as an exclusion instead — see `ReservedNames` in
 `Get-BranchFilePaths`. That shared path did not collide on checkout, which is what the old reasoning said,
@@ -4028,7 +1915,7 @@ same page.
 #### What does NOT go into the phases as a step
 
 **The repo's standing gates are NOT written as steps** (issue
-[#1060](https://github.com/DaveKJohn/claude-code-specialists/issues/1060), August 29, 2026). TEST carries
+[#1060](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1060), August 29, 2026). TEST carries
 what proves *this branch*; the lint gate, the test gate and the link gate fire on their own at the push and
 refuse on their own, so a step reading *"all suites green"* duplicates a gate rather than adding one. And the
 duplicate is not free: `open-pr` **refuses to push while any step above DEPLOY is open**, so such a step can
@@ -4053,7 +1940,7 @@ material came from, so a link that resolved there resolved in the changelog too.
 correctly on the branch and is dead once it lands, and `open-pr`'s link gate refuses it. This is what
 `<branch>.md`'s own header boilerplate means by *"Relative links in that text resolve FROM THIS DIRECTORY."*
 (It was root-relative until issue
-[#1041](https://github.com/DaveKJohn/claude-code-specialists/issues/1041), which moved the gate's base to the
+[#1041](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1041), which moved the gate's base to the
 changelog's own directory when `CHANGELOG.md` moved off the repo root.)
 
 **This repo's audience tier — the seam table below answers it, and the answer is what shapes the entry:
@@ -4097,7 +1984,7 @@ label that had been renamed or retired killed the create *after* every gate had 
 gates. It refuses rather than falling back to a default label, because a repo whose own workflow gates on the
 label would otherwise go green on a label that says nothing; the refusal names the label, the prefix, the
 seam file and the labels that do exist. Measured in a consumer on September 1, 2026 (inbound
-[#1221](https://github.com/DaveKJohn/claude-code-specialists/issues/1221)), where two labels were deleted
+[#1221](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1221)), where two labels were deleted
 org-wide because the issue **type** now carries that classification — the seam table was correct the day
 before. Full mechanics on the
 [`open-pr` skill page](../../../plugins/dkj-policy/skills/open-pr/SKILL.md#the-label-gate-does-the-label-your-seam-names-still-exist).
@@ -4105,7 +1992,7 @@ before. Full mechanics on the
 #### Before any gate, one thing that is not a gate: the document commit
 
 **`open-pr.ps1` COMMITS the development document if it differs from `HEAD`**
-([#1269](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1269), September 3, 2026).
+([#1269](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1269), September 3, 2026).
 Every gate below reads the working tree; the push ships `HEAD`; and the fold, the DEPLOY lock and the CI
 check all read the committed copy. Measured on PR #1267: the run passed every gate against a filled-in
 working copy, pushed the empty scaffold, published the filled-in body, and CI failed on arrival. It commits
@@ -4116,7 +2003,7 @@ the
 
 #### the entry gate, on whether there is an entry at all
 
-**September 8, 2026 ([#1632](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1632)).** Before
+**September 8, 2026 ([#1632](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1632)).** Before
 any of the gates below reads the entry, `open-pr.ps1` asks whether there *is* one:
 `Test-DevelopmentEntryMissing` refuses a `dkj-policy/<branch>.md` whose DEPLOY section is gone.
 
@@ -4131,7 +2018,7 @@ which is why this is a second predicate beside it and not a stricter version of 
 
 **How a document reaches that state is not a deliberate deletion.** It is an edit that anchors on the first
 phase heading as a plain string and truncates the file there. In a document scaffolded before
-[#1654](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1654) that string occurs **twice** —
+[#1654](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1654) that string occurs **twice** —
 once as the real heading, and once inside the guidance blockquote describing it, which comes first — so the
 cut lands on the wrong one and the body glues onto a sentence cut in half. Two documents shipped that way
 (#1632 and #1644) before the gate existed. The guidance names that heading by position now, so a document
@@ -4187,7 +2074,7 @@ is worse than no gate. **A branch with no step list at all is not refused**: tha
 and refusing it would make the mechanism ceremony.
 
 **At the merge, this gate and the DEPLOY lock below read the branch's own commit — `refs/heads/<branch>` — and
-not the checkout** (issue [#970](https://github.com/DaveKJohn/claude-code-specialists/issues/970),
+not the checkout** (issue [#970](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/970),
 August 27, 2026). `ship-pr` waits on CI, 10m57s on the run that measured this, and a session that backgrounds
 the ship and starts the next piece of work has moved `HEAD` by the time the gates look. Measured then: the gate
 refused PR #969 over `- [ ] TODO: the first step of this branch`, the scaffold TODO of a branch created *during*
@@ -4210,7 +2097,7 @@ its own message has always asked for.
 
 #### the backing gate, on whether anything is behind the plan
 
-**Dave, issue [#1026](https://github.com/DaveKJohn/claude-code-specialists/issues/1026),
+**Dave, issue [#1026](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1026),
 August 28, 2026.** The step-list gate above asks whether the plan is *finished*. It cannot ask whether
 anything was actually built, and nor can the three gates beside it: **all four read this document, and none
 reads the diff**. So `open-pr.ps1` asks the second question — a plan reading as finished with **nothing
@@ -4221,7 +2108,7 @@ never committed. The branch's whole diff was `<branch>.md`; the fold then *remov
 delivered a changelog entry and no content at all. Every gate was green.
 
 **The measurement is not new — its delivery is.** `park-cycle`'s backing note
-([#960](https://github.com/DaveKJohn/claude-code-specialists/issues/960), repaired by #976) had already named
+([#960](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/960), repaired by #976) had already named
 the count, named the state and given the instruction that would have prevented the merge. It wrote it into a
 **commit body**, which is exactly right for the reader that note exists for — a session on a second device
 picking the branch up from origin — and invisible to the session that is holding the uncommitted file and
@@ -4248,7 +2135,7 @@ refused here; what was missing was only the line that stops a green result from 
 
 #### the DEPLOY lock, on the section the PR published
 
-**Dave, issue [#884](https://github.com/DaveKJohn/claude-code-specialists/issues/884), August 25, 2026.** The
+**Dave, issue [#884](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/884), August 25, 2026.** The
 DEPLOY section travels four times — this document, the PR body,
 [`CHANGELOG.md`](../../../dkj-policy/CHANGELOG.md), the developer release notes — and it has to be the same
 thing at every stop. So it is **fixed at the moment the PR opens**: `ship-pr.ps1` refuses the merge when the
@@ -4279,7 +2166,7 @@ a stray checkout's document would be approving the fold of a section it never re
 #### the shape gate, on the document around the entry
 
 **September 8, 2026**
-([#1650](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1650)). Two rules Dave enforced by
+([#1650](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1650)). Two rules Dave enforced by
 reading on August 26, 2026 — **four `###` headings and never a fifth**, and **nothing branch-specific above
 `### PLAN`**, both stated in the section above — were checked in exactly one place: the CI gate below, which
 *reports* rather than refuses. So none of the gates above ever saw them, and nothing refused a malformed
@@ -4322,7 +2209,7 @@ merge. And the CI half still reports rather than refuses, which is the design st
 #### the CI gate, because the gates above are local
 
 **August 20, 2026** (inbound
-[#789](https://github.com/DaveKJohn/claude-code-specialists/issues/789)). The gates above live in
+[#789](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/789)). The gates above live in
 `open-pr` and `ship-pr`, so every one of them is escapable by not using them: a branch pushed by hand, or a PR
 opened in the GitHub UI, meets none of them. The convention was therefore enforced by whoever remembered the
 scripts — and a convention that enforces nothing rots quietly, which matters here because `CHANGELOG.md` is
@@ -4374,7 +2261,7 @@ repo reads before a single assignment is given.
 
 **The finding is that measurement alone had already failed.** `measure-always-on.ps1` has reported this
 figure since August 2026 and reaches no verdict by design
-([#861](https://github.com/DaveKJohn/claude-code-specialists/issues/861)) — and all four measurable repos
+([#861](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/861)) — and all four measurable repos
 went over 100,000 B anyway: 199,253 B, 150,202 B, 117,014 B, and this repo at **109,385 B**, the smallest of
 them. A report that is portable, correct and ignored is the whole argument for a bound.
 
@@ -4536,7 +2423,7 @@ shows stale notes.
 - The cycle as a portable page, with the seams named:
   [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md) — and the reason the
   split exists at all is
-  [inbound #566](https://github.com/DaveKJohn/claude-code-specialists/issues/566), from a consumer who tried
+  [inbound #566](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/566), from a consumer who tried
   to adopt this repo's own page and measured why it could not be done.
 
 In short: the **how** (managing the harness, scripts, config, safety guards) is portable; the **what**

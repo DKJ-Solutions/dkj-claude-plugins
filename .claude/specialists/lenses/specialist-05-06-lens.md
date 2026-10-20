@@ -761,8 +761,8 @@ answers `Bypassed rule violations for refs/heads/main` where the day before it a
 `OrganizationAdmin` + a repository role, with **no Write role** in it, so the bypass now follows org
 ownership rather than a repo permission. And that push proves it only for the account that made it —
 `Bypassed rule violations` from an owner says nothing about anyone else, which is the mis-reading that
-reopened #1244. The role table and the measurements are in
-[Sylvester's lens](specialist-05-15-lens.md); the reading that settles it for *your* account is
+reopened #1244. The bypass facts are on the `ci.yml` bullet of
+[Sylvester's lens](specialist-05-15-lens.md) (the dated measurements are in its git history); the reading that settles it for *your* account is
 `current_user_can_bypass` on the ruleset, taken from that account. The
 paragraph above described the route correctly throughout — it is the argument for why the cut is not a
 PR — and the blockage was never a reason to reopen the route question: the three objections at the top

@@ -2,7 +2,83 @@
 
 ## [Unreleased]
 
-**17 / 23 minor entries** <!-- pending-tally -->
+**18 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3205-slim-workflow-bullets-in-sysadmin-lens · 20261020-100247Z
+
+The five largest workflow bullets in Sylvester's repo lens (`ci.yml`, the two Claude workflows,
+`repo-settings.yml`, the merge-on-green bundle and `check-consumer-prose.ps1`) now say what each file
+does, what to know before changing it, which alternatives were declined, and which issues decided it.
+The dated measurements behind them stay in those issues and in the file's git history. The lens goes
+from 289 KB to about 216 KB. Second of five slimming steps (#3204-#3208).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Sylvester's lens: the workflow bullets keep what each file does, not its history
+
+[PR #3214](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3214)
+
+---
+
+### DEPLOY: fix/3212-sync-main-short-mirror-path · 20261020-094457Z
+
+`sync-main` now reads every live file at its own path whichever way `-MirrorPath` is spelled. A mirror given
+in 8.3 short form (as `%TEMP%` hands out on some machines) or with a `..` segment made every live file read
+as content this repo had never held, under a mangled path such as `t/old/assets/...`, and every trunk file
+as missing on live. Measured in a dry run (1,809 differing paths where the long form gave 37); a real run
+with the same argument would have committed the whole mirror under those paths as third-party drift. The
+default mirror, which the script creates itself, was not affected.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A Shopify consumer that passes `-MirrorPath` gets a correct comparison where it got a wrong one; one who
+never passes it notices nothing.
+
+**Score:** 2
+
+#### Pull Request
+
+sync-main: a short-form -MirrorPath mis-cuts every relative path
+
+Plugins: dkj-subagents-shopify
+
+[PR #3213](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3213)
+
+---
+
+### DEPLOY: docs/3204-slim-gate-history-in-sysadmin-lens · 20261020-093316Z
+
+Sylvester's repo lens drops its 111 KB gate-check decision log for a ~13 KB index: one row per check or
+declined rule, naming the issue that decided it and the one-line reason. The full reasoning stays in
+those issues and in the file's git history. The lens goes from 389 KB to 289 KB, so a Sylvester
+dispatch that reads it pays roughly 32k tokens less. Every anchor linked from outside the section still
+resolves. First of five slimming steps (#3204-#3208).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the repo lens is this repo's own and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Sylvester's lens: the gate-check decision log becomes a one-row-per-check table
+
+[PR #3211](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3211)
+
+---
 
 ### DEPLOY: feat/brandbook-heading-overview · 20261020-092123Z
 
