@@ -47,7 +47,7 @@
     '<root>\.claude\worktrees\' is a different checkout, so a server started there is not ours either.
 
     THE GENERAL PAGES SERVER AND THE STATE FILE (#3119). Beside the repo's own server the hook starts the
-    plugin's general pages server (scripts/pages/serve-general-pages.ps1: Artifacts, Issues, Release notes,
+    plugin's general pages server (hub/pages/serve-general-pages.ps1: Artifacts, Issues, Release notes,
     SessionStart), on the first free port of 4890-4899 under the same ownership rule. The two servers learn
     of each other through ONE file per checkout, %TEMP%\dkj-repo-hub-<leaf>-<hash>.json, which the hook
     writes at every session start: { root, hub, pages }, the repo hub's url and the general server's base
@@ -86,12 +86,12 @@ function Get-GeneralPagesPortRange {
 function Get-DevPreviewPlaceholder {
     <#
         The Get-DevPreview answer the hook uses where a repo states none: the plugin's placeholder server
-        under -PluginRoot (the dkj-solutions plugin folder), on -Ports. Returned raw, so it passes through
+        under -PluginRoot (the dkj-policy plugin folder, #3198), on -Ports. Returned raw, so it passes through
         ConvertTo-DevPreviewConfig like any repo's answer. The server takes the repo's name from its working
         directory, which the hook's cmd.exe has set to the root, so no repo value enters the Command.
     #>
     param([Parameter(Mandatory = $true)][string]$PluginRoot, [int[]]$Ports = $script:DevPreviewPlaceholderPorts)
-    $server = Join-Path ([System.IO.Path]::GetFullPath($PluginRoot)) 'scripts\preview\serve-placeholder.ps1'
+    $server = Join-Path ([System.IO.Path]::GetFullPath($PluginRoot)) 'hub\preview\serve-placeholder.ps1'
     return @{
         Command     = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$server`" -Port {port}"
         Ports       = $Ports

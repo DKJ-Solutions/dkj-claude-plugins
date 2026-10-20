@@ -1462,11 +1462,11 @@ function Get-DeclinedAdoptions {
     return @()
 }
 
-# --- The dev-preview seam (dkj-solutions, #2967; this repo's answer since #2976) -----------------------
+# --- The dev-preview seam (dkj-policy since #3198, #2967; this repo's answer since #2976) ---------------
 
 function Get-DevPreview {
     <# This repo's Repo hub (the label the plugin fixes, #3064, #3097), which links the connector
-       dashboard: the dkj-solutions dev-preview hook starts it (or reuses it) at session start and hands
+       dashboard: the dkj-policy dev-preview hook starts it (or reuses it) at session start and hands
        out its localhost link. The server binds to 127.0.0.1 itself, so the Command needs
        no bind flag. It runs under cmd.exe, hence the backslashes. #>
     @{
@@ -1490,11 +1490,11 @@ function Get-HouseStyleAllowlist {
         @{ Path = 'plugins/dkj-policy/skills/*';               Reason = $shared }
         @{ Path = 'plugins/dkj-policy/worker/*';               Reason = $shared }
         @{ Path = 'scripts/tests/release-notes-page.tests.ps1'; Reason = 'fixtures of the release-notes page above' }
-        @{ Path = 'plugins/dkj-policy/dkj-solutions/scripts/lib/general-pages-lib.ps1'; Name = '--ink'; Reason = 'the release-notes template''s own token, which Format-ReleaseNotesDevPage points AT a house token (#3108, moved to the plugin in #3119)' }
+        @{ Path = 'plugins/dkj-policy/hub/lib/general-pages-lib.ps1'; Name = '--ink'; Reason = 'the release-notes template''s own token, which Format-ReleaseNotesDevPage points AT a house token (#3108, moved to the plugin in #3119, to dkj-policy in #3198)' }
         @{ Path = 'scripts/tests/check-house-style.tests.ps1';  Reason = "the gate's own suite: every name in it is a fixture" }
         @{ Path = 'plugins/dkj-policy/dkj-solutions/scripts/lib/house-style-rules.ps1'; Name = 'h2'; Reason = "the gate's own heading check (#3175): its patterns and their comments spell the shape they look for" }
         @{ Path = 'brandbook/src/showcase/sections/HouseStyle.tsx'; Name = '.theme-swatch'; Reason = 'the brand book''s themes table READS the house stylesheet''s theme blocks by their selector, not a rule of its own' }
-        @{ Path = 'plugins/dkj-policy/dkj-solutions/scripts/lib/general-pages-lib.ps1'; Name = '.theme-swatch'; Reason = 'the Brandbook page''s pattern that READS the house stylesheet''s theme blocks (#3132, a general page since it moved to the plugin), not a rule of its own' }
+        @{ Path = 'plugins/dkj-policy/dkj-solutions/scripts/lib/dkj-solutions-pages-lib.ps1'; Name = '.theme-swatch'; Reason = 'the Brandbook page''s pattern that READS the house stylesheet''s theme blocks (#3132, in its own lib since #3198), not a rule of its own' }
         @{ Path = 'scripts/tests/dev-pages.tests.ps1'; Reason = 'fixtures of the Brandbook page: a small house stylesheet it reads (#3132)' }
         # The brandbook app (#3131): five deliberate extensions it brought from dkj-brandbook, which never ran this gate.
         @{ Path = 'brandbook/src/components/dialog.css'; Name = '--primary-2'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }

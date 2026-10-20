@@ -1,32 +1,36 @@
 <#
 .SYNOPSIS
-    Serve the GENERAL pages of a DKJ-Solutions repo's Repo hub (#3119) on http://localhost:<Port>/ --
-    /artifacts, /brandbook, /issues, /release-notes and /sessionstart -- from the repo this server was started in.
+    Serve the GENERAL pages of a repo's Repo hub (#3119) on http://localhost:<Port>/ -- /artifacts, /issues,
+    /release-notes and /sessionstart, and /brandbook in a DKJ-Solutions repo -- from the repo this server was
+    started in.
 
 .DESCRIPTION
     Started by hooks/dev-preview-sessionstart.ps1 beside the repo's own dev server, under a cmd.exe that
     changes into the repo root first, so the working directory IS the repo and that cmd.exe's command line
     is what lets the hook recognise this server as the checkout's own next time, exactly as for the
-    placeholder. A repo whose own server is not PowerShell (Vite, Next.js) gets the same five pages this way,
-    and its hub links here. The pages and their rules are in scripts/lib/general-pages-lib.ps1.
+    placeholder. A repo whose own server is not PowerShell (Vite, Next.js) gets the same pages this way,
+    and its hub links here. The pages and their rules are in hub/lib/general-pages-lib.ps1. In dkj-policy,
+    which every repo runs, since #3198.
 
     WHAT EACH PAGE READS, from the repo, on every request unless it says otherwise:
       /artifacts      scripts/dashboard/artifacts.json -- absent, the page says the file is not there.
-      /brandbook      the plugin's own assets/house-style/ (house-style.css and house-theme.js), the copy this
-                      server runs from, and whether the repo's brandbook/package.json is there (the full app).
+      /brandbook      ONLY where the repo enables dkj-solutions (Test-DkjSolutionsEnabled, read at start), else
+                      a plain 404: the dkj-solutions extension's assets/house-style/ inside this plugin's payload
+                      (house-style.css and house-theme.js), the copy this server runs from, and whether the
+                      repo's brandbook/package.json is there (the full app). Its page is that extension's own,
+                      dkj-solutions/scripts/lib/dkj-solutions-pages-lib.ps1.
       /issues         `gh issue list`, three calls (the open issues; created and closed in the last 28 days),
                       for --repo <owner/name> parsed from the origin remote when that is on github.com, else
                       for the repo gh finds from the working directory. Kept for -IssuesCacheSeconds; a failed
                       read for 30 s only. A gh that fails or is missing is a warning on the page, never a blank.
       /release-notes  dkj-policy/releases/page/release-notes.html, dressed in the house style on the way out.
-                      Built first, by dkj-policy's build-release-notes-page.ps1 (found the way the always-on lib
-                      is), where it is absent or older than a file under dkj-policy/releases (#3189): the page is
-                      a gitignored snapshot nothing else builds. A 404 text naming why where it cannot be built.
+                      Built first, by build-release-notes-page.ps1 (found the way the always-on lib is), where it
+                      is absent or older than a file under dkj-policy/releases (#3189): the page is a gitignored
+                      snapshot nothing else builds. A 404 text naming why where it cannot be built.
       /sessionstart   (also: scripts/dashboard/session-start-snapshot.json, where the repo keeps one -- the last
                       full session-start measurement, shown below the live table; absent, nothing is added)
                       the always-on path, measured in a CHILD process by always-on-budget-lib.ps1, found in
-                      the repo's own scripts/lib, else in the plugin's source tree, else in the highest
-                      dkj-policy version in the plugin cache. Kept for -CacheSeconds.
+                      the repo's own scripts/lib, else in this plugin's own. Kept for -CacheSeconds.
                       The child first dot-sources the repo's own scripts/repo-config.ps1, the trust the
                       dev-preview hook already gives it, and is bounded at 60 s.
       /hub and /      a 303 to the repo's own hub, whose url the hook wrote to the state file
@@ -35,7 +39,8 @@
                       -MinRefreshSeconds, and per 60 s for issues) and goes back to the page.
       /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
                       hubs ask it before they link here, because an open port does not say whose server it is.
-      /house-style.css, /house-theme.js   the plugin's canonical copy under assets/house-style/.
+      /house-style.css, /house-theme.js   the canonical copy under dkj-solutions/assets/house-style/ in this
+                      plugin's payload (Get-HouseStyleDir), in every repo: the pages keep one look everywhere.
     The repo's name on the pages is owner/name from the origin remote, else the folder's name.
 
     A TcpListener ON 127.0.0.1, NOT AN HttpListener (#2976): under HttpListener the socket belongs to
@@ -48,9 +53,9 @@
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped, and one that never reads its answer
     is cut after 2 s. Every child process (git, gh, the measurement) is bounded, by a process helper of this
-    file's own: the plugin depends on no lib of dkj-policy. It runs until the process is stopped.
+    file's own. It runs until the process is stopped.
 
-    Pure ASCII (repo convention for .ps1). The pages and the request rules are in scripts/lib/
+    Pure ASCII (repo convention for .ps1). The pages and the request rules are in hub/lib/
     general-pages-lib.ps1 and dev-preview-placeholder.ps1, tested by scripts/tests/dev-pages.tests.ps1 and
     dev-preview-sessionstart.tests.ps1 in the source repo.
 
@@ -93,7 +98,10 @@ $ErrorActionPreference = 'Stop'
 $pluginRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
         else { [System.IO.Path]::GetFullPath((Get-Location).Path).TrimEnd('\', '/') }
-$styleDir = Join-Path $pluginRoot 'assets\house-style'
+$styleDir = Get-HouseStyleDir -PluginRoot $pluginRoot
+# The Brandbook is a DKJ-Solutions page (#3198): read once at start, as the hook starts this server per session.
+$dkjSolutions = (Test-DkjSolutionsEnabled -Root $root) -and (Test-Path -LiteralPath (Get-DkjSolutionsPagesLibPath -PluginRoot $pluginRoot) -PathType Leaf)
+if ($dkjSolutions) { . (Get-DkjSolutionsPagesLibPath -PluginRoot $pluginRoot) }
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
@@ -225,9 +233,7 @@ function Get-IssuesModel {
 function Resolve-DkjPolicyScript {
     <# The dkj-policy script at -RelativePath this server runs, or '': the first of Get-DkjPolicyScriptCandidates that exists. #>
     param([Parameter(Mandatory = $true)][string]$RelativePath)
-    $cacheDir = Get-DkjPolicyCacheDir -PluginRoot $pluginRoot
-    $versions = @(if (Test-Path -LiteralPath $cacheDir -PathType Container) { Get-ChildItem -LiteralPath $cacheDir -Directory | ForEach-Object { $_.Name } })
-    foreach ($c in @(Get-DkjPolicyScriptCandidates -RepoRoot $root -PluginRoot $pluginRoot -RelativePath $RelativePath -PolicyVersions $versions)) {
+    foreach ($c in @(Get-DkjPolicyScriptCandidates -RepoRoot $root -PluginRoot $pluginRoot -RelativePath $RelativePath)) {
         if (Test-Path -LiteralPath $c -PathType Leaf) { return $c }
     }
     return ''
@@ -263,7 +269,7 @@ function Update-ReleaseNotesPage {
     $err = ''
     $builder = Resolve-DkjPolicyScript -RelativePath 'scripts\release\build-release-notes-page.ps1'
     if (-not $builder) {
-        $err = 'build-release-notes-page.ps1 was not found in the repo, the plugin''s source tree or the plugin cache'
+        $err = 'build-release-notes-page.ps1 was not found in the repo or in the dkj-policy plugin'
     } else {
         try {
             $run = Invoke-BoundedProcess -FilePath (Join-Path $PSHOME 'powershell.exe') -TimeoutSeconds 60 -WorkingDirectory $root -Arguments @(
@@ -289,7 +295,7 @@ function Get-SessionStartModel {
     try {
         $lib = Resolve-AlwaysOnBudgetLib
         if (-not $lib) {
-            return @{ Model = $null; Error = 'always-on-budget-lib.ps1 was not found in the repo, the plugin''s source tree or the plugin cache'; At = Get-Date }
+            return @{ Model = $null; Error = 'always-on-budget-lib.ps1 was not found in the repo or in the dkj-policy plugin'; At = Get-Date }
         }
         # The script is handed over encoded, so no quoting layer touches it; the root and the lib go in the
         # environment of the child. The child prints ONE json line with every non-ASCII character escaped, so the
@@ -415,7 +421,7 @@ try {
             if ($path -eq '/artifacts') {
                 $ar = Get-JsonFileModel (Join-Path $root 'scripts\dashboard\artifacts.json')
                 $html = Format-ArtifactsPageHtml -Model (ConvertFrom-ArtifactRegister -Register $ar.Json) -ReadError $ar.Error -RepoName (Get-RepoIdentity).Name
-            } elseif ($path -eq '/brandbook') {
+            } elseif ($path -eq '/brandbook' -and $dkjSolutions) {
                 $texts = @{ Css = ''; Js = '' }; $errs = @()
                 foreach ($k in 'Css', 'Js') {
                     $f = if ($k -eq 'Css') { $static['/house-style.css'].File } else { $static['/house-theme.js'].File }
