@@ -430,10 +430,11 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match '<h1>Repo hub</h1>' -and $hub -match '<a class="menu-item" href="/connectors">') '/ serves the Repo hub, linking the pages below it'
             Assert-True ($hub -match 'The general pages server is not running' -and $hub -notmatch 'href="http://localhost') 'its General card says the general pages server is not running while no state file names one'
             # A state file naming a port nobody answers on is no server.
-            Write-RepoHubState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$genPort3"
+            Write-RepoHubState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$genPort3" -Mode 'ownhub'
             $r = if ($up) { Get-Raw 'GET' '/issues' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 404') 'a state file naming a port where nothing answers is no server: a 404 text, not a redirect'
-            # The real general server for this fixture, which answers /whoami with this root's hash.
+            # The real general server for this fixture, which answers /whoami with this root's hash. The fixture is an
+            # OwnHub repo (#3245), as this repo is: the state file's mode ownhub is what makes /hub a 303 to its hub.
             $gen3 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
                 '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$GeneralServer`"", '-Port', $genPort3, '-RepoRootOverride', "`"$src`"")
             try {

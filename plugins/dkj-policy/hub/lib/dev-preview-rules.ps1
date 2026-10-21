@@ -19,21 +19,23 @@
                 Requires     = 'node_modules'   # optional: path(s) under the repo root that must exist
                 WaitSeconds  = 20               # optional: how long to wait for the server to listen (1-45)
                 OpenInVsCode = $false           # optional: also hand the URL to VS Code (see the hook)
+                OwnHub       = $false           # optional: this server IS the repo's hub, so the plugin's is not used (#3245)
             }
         }
 
     THE PAGE HAS ONE NAME IN EVERY REPO, 'Repo hub' (INBOUND #3064, the owner's term, October 16, 2026;
     renamed from 'Repo dashboard' with dkj-brandbook v0.3.0, #3097): the line the hook prints opens with
-    it, the placeholder's included. A repo once chose its own
+    it. A repo once chose its own
     word through a Name key, and three repos said Showcase, connector dashboard and dev-preview for the
     same page. A Name a repo still states is ignored rather than refused, so a config that predates this
     keeps working; the word "dev-preview" stays the MECHANISM's, on the hook's lines about its own setup
     (skipped, config unreadable, a config it cannot run), which are printed before any config is read.
 
-    A repo that does not define it gets the PLACEHOLDER (#3047, reversing #2967's silent no-op on the
-    owner's word, October 15, 2026): Get-DevPreviewPlaceholder below is the answer the hook uses in its
-    place, a plugin-shipped page on the first free port of 4880-4889 that says the repo states no preview
-    yet and how to add one. What a repo without a server pays is that one small server per checkout.
+    THE PLUGIN SERVES THE REPO HUB IN EVERY REPO (#3245, the owner's decision of October 21, 2026), whether
+    or not the repo states Get-DevPreview: the general pages server answers '/' with the hub, and a server
+    the repo states is its PRODUCT, one link on that hub. A repo that wants its own hub keeps that option
+    through OwnHub = $true: its server is then the hub, as it was before. This replaces #3047's placeholder,
+    whose own server on 4880-4889 is retired: the hub IS the general pages server.
 
     OWNERSHIP IS READ OFF THE PROCESS TABLE, NOT OFF THE PORT. brandbook's rule, generalised: a listener
     is ours when its own command line, or one of its nearest ancestors' (the hook starts every server under
@@ -50,9 +52,10 @@
     plugin's general pages server (hub/pages/serve-general-pages.ps1: Artifacts, Issues, Release notes,
     SessionStart), on the first free port of 4890-4899 under the same ownership rule. The two servers learn
     of each other through ONE file per checkout, %TEMP%\dkj-repo-hub-<leaf>-<hash>.json, which the hook
-    writes at every session start: { root, hub, pages }, the repo hub's url and the general server's base
-    url. Get-RepoHubStatePath names it, Format-RepoHubState writes it, ConvertFrom-RepoHubState reads it and
-    believes it only when it names this root and carries plain loopback urls. The hash is the one the hook's
+    writes at every session start: { root, hub, pages, product, mode }, the repo hub's url, the general
+    server's base url, the repo's own server url and what the repo states (#3245). Get-RepoHubStatePath names
+    it, Format-RepoHubState writes it, ConvertFrom-RepoHubState reads it and believes it only when it names
+    this root and carries plain loopback urls. The hash is the one the hook's
     log paths use (Get-DevPreviewRootHash), so a checkout's files sit together in %TEMP%.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in
@@ -60,12 +63,11 @@
 #>
 
 $script:DevPreviewMaxAncestors = 4
-# Fixed, so a .vscode route can name them; ten, so ten checkouts open side by side each get their own.
-# Clear of the ranges the repos measured in #2967 and #2976 use (3000, 4870-4879, 5173-5180, 8765).
-$script:DevPreviewPlaceholderPorts = 4880..4889
 # The word every line about the page opens with, in every repo (#3064).
 $script:DevPreviewLabel = 'Repo hub'
-# The general pages server (#3119): ten more, clear of 4880-4889, 4870-4879 and the repos' own ranges.
+# The general pages server, which is the Repo hub (#3119, #3245). Fixed, so a .vscode route can name them; ten,
+# so ten checkouts open side by side each get their own. Clear of the ranges the repos measured in #2967 and
+# #2976 use (3000, 4870-4879, 5173-5180, 8765).
 $script:GeneralPagesPorts = 4890..4899
 
 function Get-GeneralPagesPortRange {
@@ -81,22 +83,6 @@ function Get-GeneralPagesPortRange {
         if ($ports.Count) { return $ports }
     }
     return $script:GeneralPagesPorts
-}
-
-function Get-DevPreviewPlaceholder {
-    <#
-        The Get-DevPreview answer the hook uses where a repo states none: the plugin's placeholder server
-        under -PluginRoot (the dkj-policy plugin folder, #3198), on -Ports. Returned raw, so it passes through
-        ConvertTo-DevPreviewConfig like any repo's answer. The server takes the repo's name from its working
-        directory, which the hook's cmd.exe has set to the root, so no repo value enters the Command.
-    #>
-    param([Parameter(Mandatory = $true)][string]$PluginRoot, [int[]]$Ports = $script:DevPreviewPlaceholderPorts)
-    $server = Join-Path ([System.IO.Path]::GetFullPath($PluginRoot)) 'hub\preview\serve-placeholder.ps1'
-    return @{
-        Command     = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$server`" -Port {port}"
-        Ports       = $Ports
-        WaitSeconds = 15
-    }
 }
 
 function Test-DevPreviewVsCodeRoute {
@@ -179,6 +165,17 @@ function ConvertTo-DevPreviewConfig {
         $wait = $w
     }
 
+    # OwnHub is the repo's opt-out of the plugin's hub (#3245): a real boolean, so a typo is a problem and not
+    # a silent default.
+    $ownHub = $false
+    if ($null -ne $Raw['OwnHub']) {
+        if ($Raw['OwnHub'] -isnot [bool]) {
+            $result.Problem = 'OwnHub must be $true or $false'
+            return $result
+        }
+        $ownHub = [bool]$Raw['OwnHub']
+    }
+
     $result.Ok = $true
     $result.Config = @{
         Command      = $command
@@ -188,6 +185,7 @@ function ConvertTo-DevPreviewConfig {
         Name         = $script:DevPreviewLabel   # fixed: a repo's own Name is not read (#3064)
         WaitSeconds  = $wait
         OpenInVsCode = [bool]$Raw['OpenInVsCode']
+        OwnHub       = $ownHub
     }
     return $result
 }
@@ -423,32 +421,64 @@ function ConvertTo-DevPreviewRootKey {
     return $Root.Replace('/', '\').TrimEnd('\').ToLowerInvariant()
 }
 
+function Test-RepoHubLocalUrl {
+    <#
+        True when -Url is a plain loopback url: http://localhost:<port> and an optional path of the characters
+        Get-DevPreview's Path allows, at most 240 characters, the port 1024-65535, the path not opening with '//'. The one believe-rule for a state-file url that is
+        a link or a redirect target (the hub's, the product's), so a file another process can write cannot
+        point a link at another host, another scheme or a control character (#3245).
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Url)
+    if (-not ($Url -cmatch '^http://localhost:([0-9]{4,5})(/[A-Za-z0-9._~/%?=&#+-]*)?\z') -or $Url.Length -gt 240) { return $false }
+    # A real unprivileged port, and no path that opens with '//' (a protocol-relative look-alike).
+    $port = [int]$Matches[1]
+    if ($port -lt 1024 -or $port -gt 65535) { return $false }
+    return -not ([string]$Matches[2]).StartsWith('//')
+}
+
 function Format-RepoHubState {
-    <# The state file's text: -Hub is the repo hub's url, -Pages the general server's base url or '' where none is running. #>
-    param([Parameter(Mandatory = $true)][string]$Root, [AllowEmptyString()][string]$Hub = '', [AllowEmptyString()][string]$Pages = '')
-    return ([ordered]@{ root = $Root; hub = $Hub; pages = $Pages } | ConvertTo-Json -Compress)
+    <#
+        The state file's text (#3245). -Hub is the repo hub's url: the general server's own base plus '/' where
+        the plugin serves the hub, the repo's own server where the repo opted out. -Pages is the general
+        server's base url, '' where none is running. -Product is the repo's own server url, or ''. -Mode is
+        what the repo states: 'none' (no Get-DevPreview, so the hub carries the setup cards), 'product' (a
+        server of its own, one link on the plugin's hub) or 'ownhub' (OwnHub: its server is the hub, and the
+        general server sends '/hub' there instead of rendering one).
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [AllowEmptyString()][string]$Hub = '',
+        [AllowEmptyString()][string]$Pages = '',
+        [AllowEmptyString()][string]$Product = '',
+        [ValidateSet('none', 'product', 'ownhub')][string]$Mode = 'none'
+    )
+    return ([ordered]@{ root = $Root; hub = $Hub; pages = $Pages; product = $Product; mode = $Mode } | ConvertTo-Json -Compress)
 }
 
 function ConvertFrom-RepoHubState {
     <#
-        @{ Hub; Pages } from the state file's -Text, each '' unless it can be believed: the file is JSON,
-        its root is -Root (compared the way paths are), and the url is a plain loopback url -- the hub's
-        with an optional path of the characters Get-DevPreview's Path allows, the pages' a bare base on one
-        of the general pages ports (Get-GeneralPagesPortRange), so a file another process can write cannot
-        point a hub's links at any other local service.
-        The urls are redirect targets and link hrefs, so a state file that names anything else is ignored.
+        @{ Hub; Pages; Product; Mode } from the state file's -Text, each '' (Mode 'none') unless it can be
+        believed: the file is JSON, its root is -Root (compared the way paths are), and each url is a plain
+        loopback url -- the hub's and the product's with an optional path of the characters Get-DevPreview's
+        Path allows (Test-RepoHubLocalUrl), the pages' a bare base on one of the general pages ports
+        (Get-GeneralPagesPortRange), so a file another process can write cannot point a hub's links at any
+        other local service. The urls are redirect targets and link hrefs, so a state file that names anything
+        else is ignored. Mode is believed only as one of its three words; a file written before #3245 has
+        none, and reads as 'none': the plugin's own hub.
     #>
     param([AllowNull()][AllowEmptyString()][string]$Text, [Parameter(Mandatory = $true)][string]$Root)
-    $none = @{ Hub = ''; Pages = '' }
-    if (-not $Text) { return $none }
-    try { $s = $Text | ConvertFrom-Json } catch { return $none }
-    if (-not $s -or -not $s.PSObject.Properties['root']) { return $none }
-    if ((ConvertTo-DevPreviewRootKey ([string]$s.root)) -ne (ConvertTo-DevPreviewRootKey $Root)) { return $none }
-    $hub = ''
-    $pages = ''
+    $state = @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none' }
+    if (-not $Text) { return $state }
+    try { $s = $Text | ConvertFrom-Json } catch { return $state }
+    if (-not $s -or -not $s.PSObject.Properties['root']) { return $state }
+    if ((ConvertTo-DevPreviewRootKey ([string]$s.root)) -ne (ConvertTo-DevPreviewRootKey $Root)) { return $state }
     $h = if ($s.PSObject.Properties['hub']) { [string]$s.hub } else { '' }
     $p = if ($s.PSObject.Properties['pages']) { [string]$s.pages } else { '' }
-    if ($h -cmatch '^http://localhost:[0-9]{4,5}(/[A-Za-z0-9._~/%?=&#+-]*)?\z' -and $h.Length -le 240) { $hub = $h }
-    if ($p -cmatch '^http://localhost:([0-9]{4,5})/?\z' -and (@(Get-GeneralPagesPortRange) -contains [int]$Matches[1])) { $pages = $p.TrimEnd('/') }
-    return @{ Hub = $hub; Pages = $pages }
+    $q = if ($s.PSObject.Properties['product']) { [string]$s.product } else { '' }
+    $m = if ($s.PSObject.Properties['mode']) { [string]$s.mode } else { '' }
+    if (Test-RepoHubLocalUrl $h) { $state.Hub = $h }
+    if (Test-RepoHubLocalUrl $q) { $state.Product = $q }
+    if ($p -cmatch '^http://localhost:([0-9]{4,5})/?\z' -and (@(Get-GeneralPagesPortRange) -contains [int]$Matches[1])) { $state.Pages = $p.TrimEnd('/') }
+    if ($m -cmatch '^(none|product|ownhub)\z') { $state.Mode = $m }
+    return $state
 }

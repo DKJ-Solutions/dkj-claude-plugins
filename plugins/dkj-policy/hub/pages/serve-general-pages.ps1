@@ -1,16 +1,16 @@
 <#
 .SYNOPSIS
-    Serve the GENERAL pages of a repo's Repo hub (#3119) on http://localhost:<Port>/ -- /artifacts, /issues,
-    /release-notes and /sessionstart, and /brandbook in a DKJ-Solutions repo -- from the repo this server was
-    started in.
+    Serve the plugin's REPO HUB (#3245) and the GENERAL pages (#3119) on http://localhost:<Port>/ -- the hub on
+    '/', then /artifacts, /issues, /release-notes and /sessionstart, and /brandbook in a DKJ-Solutions repo --
+    from the repo this server was started in.
 
 .DESCRIPTION
-    Started by hooks/dev-preview-sessionstart.ps1 beside the repo's own dev server, under a cmd.exe that
-    changes into the repo root first, so the working directory IS the repo and that cmd.exe's command line
-    is what lets the hook recognise this server as the checkout's own next time, exactly as for the
-    placeholder. A repo whose own server is not PowerShell (Vite, Next.js) gets the same pages this way,
-    and its hub links here. The pages and their rules are in hub/lib/general-pages-lib.ps1. In dkj-policy,
-    which every repo runs, since #3198.
+    Started by hooks/dev-preview-sessionstart.ps1 in EVERY repo, beside the repo's own dev server where it
+    states one, under a cmd.exe that changes into the repo root first, so the working directory IS the repo
+    and that cmd.exe's command line is what lets the hook recognise this server as the checkout's own next
+    time. A repo whose own server is not PowerShell (Vite, Next.js) gets the same pages this way. The pages
+    and their rules are in hub/lib/general-pages-lib.ps1, the hub's page in hub/lib/repo-hub-page.ps1. In
+    dkj-policy, which every repo runs, since #3198.
 
     WHAT EACH PAGE READS, from the repo, on every request unless it says otherwise:
       /artifacts      scripts/dashboard/artifacts.json -- absent, the page says the file is not there.
@@ -34,8 +34,12 @@
                       the repo's own scripts/lib, else in this plugin's own. Kept for -CacheSeconds.
                       The child first dot-sources the repo's own scripts/repo-config.ps1, the trust the
                       dev-preview hook already gives it, and is bounded at 60 s.
-      /hub and /      a 303 to the repo's own hub, whose url the hook wrote to the state file
-                      (%TEMP%\dkj-repo-hub-<leaf>-<hash>.json); a plain 404 text where it names none.
+      /hub, / and /index.html
+                      the plugin's Repo hub (Format-PluginRepoHubHtml), built per request from the state file
+                      the hook wrote (%TEMP%\dkj-repo-hub-<leaf>-<hash>.json): the repo's own server as the
+                      Product card (mode 'product'), the setup cards (mode 'none'). EXCEPT where the repo
+                      opted out with OwnHub (mode 'ownhub', #3245): then a 303 to the repo's own hub, the url
+                      the file names, and a plain 404 text where it names none.
       /refresh        ?page=issues or ?page=sessionstart drops that page's cache (at most once per
                       -MinRefreshSeconds, and per 60 s for issues) and goes back to the page.
       /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
@@ -57,7 +61,7 @@
     file's own. It runs until the process is stopped.
 
     Pure ASCII (repo convention for .ps1). The pages and the request rules are in hub/lib/
-    general-pages-lib.ps1 and dev-preview-placeholder.ps1, tested by scripts/tests/dev-pages.tests.ps1 and
+    general-pages-lib.ps1 and repo-hub-page.ps1, tested by scripts/tests/dev-pages.tests.ps1 and
     dev-preview-sessionstart.tests.ps1 in the source repo.
 
 .PARAMETER Port
@@ -93,8 +97,10 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\lib\general-pages-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\general-pages-state.ps1')
 # The request reader, the response writer and the Host and Sec-Fetch-Site rules: one copy in the plugin,
-# shared with the placeholder server.
+# shared with the source repo's own hub server.
 . (Join-Path $PSScriptRoot '..\lib\loopback-server-lib.ps1')
+# The hub's page (#3245).
+. (Join-Path $PSScriptRoot '..\lib\repo-hub-page.ps1')
 
 $pluginRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
@@ -397,12 +403,20 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/hub') {
-                $hub = (Read-RepoHubState -Root $root).Hub
-                if ($hub) {
-                    Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $hub } -Method $method
-                } else {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('This repo''s hub is not known yet: the dev-preview hook records it at the next session start.')) -Method $method
+                # THE HUB IS THIS SERVER'S (#3245), built per request from the state file: unless the repo opted
+                # out with OwnHub, in which case its own server is the hub and this one sends the visitor there.
+                $state = Read-RepoHubState -Root $root
+                if ($state.Mode -eq 'ownhub') {
+                    if ($state.Hub) {
+                        Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $state.Hub } -Method $method
+                    } else {
+                        Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('This repo''s hub is not known yet: the dev-preview hook records it at the next session start.')) -Method $method
+                    }
+                    continue
                 }
+                $hubMode = if ($state.Mode -eq 'product') { 'product' } else { 'none' }
+                $hubHtml = Format-PluginRepoHubHtml -RepoName (Get-RepoIdentity).Name -Folder (Split-Path -Leaf $root) -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port" -DkjSolutions:$dkjSolutions
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($hubHtml)) -Method $method
                 continue
             }
             if ($path -eq '/refresh') {
