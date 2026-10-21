@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Inbound #3244: with every port taken, the dev-preview line said only "taken by other processes",
+although the hook had already read the process table. Cause verified at
+`dev-preview-sessionstart.ps1`'s `none` branch. The issue's second half (whether the General pages
+should still start there) is the owner's decision and rides on #3245, where it is commented.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-DevPreviewHolderName` / `Format-DevPreviewPortHolders` in `hub/lib/dev-preview-rules.ps1`
+- [x] the hook's `none` line names each holder by checkout (or executable) and pid
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: naming per holder kind, and the hook's real line: 201 asserts pass
+
 ### DEPLOY: fix/3244-dev-preview-name-port-holder
 
-**Score:**
+When every port the repo's dev server may use is taken, the session-start line now names who holds
+each one (#3244): `Repo hub: not started -- port 3000 taken by other processes: 3000 by dkj-lifehub
+(pid 19544).` The holder is the checkout its command line names, or else its executable, read from the
+process table the hook already holds, so finding the server to stop no longer takes a netstat and a
+process lookup by hand.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+An owner whose pinned port is held by another repo's server sees which one to stop in the line itself.
+
+**Score:** 2
 
 #### Pull Request
 

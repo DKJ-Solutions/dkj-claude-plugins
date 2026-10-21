@@ -249,7 +249,11 @@ if ($pick.Action -eq 'reuse') {
 }
 if ($pick.Action -eq 'none') {
     Clear-DevPreviewState
-    Write-DevPreviewLine "$($cfg.Name): not started -- $range taken by other processes."
+    # THE LINE NAMES THE HOLDER (#3244): with one pinned port, stopping it is the owner's only remedy, and
+    # the process table is already read. Whether the General pages should still start here is #3245's.
+    $holders = Format-DevPreviewPortHolders -Ports $cfg.Ports -Listeners $listeners -Processes $processes
+    $held = if ($holders) { ": $holders" } else { '' }
+    Write-DevPreviewLine "$($cfg.Name): not started -- $range taken by other processes$held."
 }
 
 foreach ($rel in $cfg.Requires) {
