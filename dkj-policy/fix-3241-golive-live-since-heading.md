@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Inbound #3241: under `-LiveSince` the go-live block kept the future-tense heading above a past-tense
+sentence. Cause verified in `golive-block-rules.ps1`: one `When` heading per language, added
+unconditionally by `Format-GoLiveBlock`; only the sentence switched on `-Live`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `WhenLive` heading per language (`SINDS WANNEER HET LIVE STAAT` / `LIVE SINCE`), chosen under `-Live`
+- [x] `Get-LiveMessageLanguage` reads the new heading too
+- [x] the `golive-block` skill names the past-tense heading
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1` pins the heading per `-Live` state in both languages: 822 asserts pass
+
 ### DEPLOY: fix/3241-golive-live-since-heading
 
-**Score:**
+A go-live block closed with `-LiveSince` no longer carries the future-tense heading `WANNEER HET LIVE
+KOMT` (`WHEN IT GOES LIVE`) above *"Het staat live sinds ..."* (#3241). Under `-LiveSince` the section
+now reads `SINDS WANNEER HET LIVE STAAT` (`LIVE SINCE`), so heading and sentence never disagree; a
+planned block keeps the old heading.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A requester reading an Asana closed message for work that is already live is no longer told it is
+still coming; nothing to do but take the release.
+
+**Score:** 2
 
 #### Pull Request
 
