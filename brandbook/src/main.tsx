@@ -4,19 +4,10 @@ import '../../plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.cs
 import './brand-layer.css'
 import './index.css'
 import App from './App.tsx'
-import { RepoDashboard } from './dashboard/RepoDashboard.tsx'
-import { DashboardIndex, DashboardPreviewPage } from './dashboard/DashboardPreviews.tsx'
-import { dashboardPreviewId, isDashboardPath, isDashboardsPath } from './routes'
 
-const { pathname } = window.location
-const previewId = dashboardPreviewId(pathname)
-
-/** The brand book is the index; any path this app does not know lands there too. */
-function page() {
-  if (isDashboardPath(pathname)) return <RepoDashboard />
-  if (isDashboardsPath(pathname)) return <DashboardIndex />
-  if (previewId) return <DashboardPreviewPage id={previewId} />
-  return <App />
-}
-
-createRoot(document.getElementById('root')!).render(<StrictMode>{page()}</StrictMode>)
+/** The brand book is the app's one page; any path under its base lands there (#3274: the Repo hub specimen and its previews are gone). */
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
