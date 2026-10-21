@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3236-golive-no-storefront-result · 20261021-100334Z
+
+A change that shows nothing on the storefront -- infrastructure, a deploy route, an admin-only setting --
+now has its own go-live block: `build-golive-block.ps1 -NoStorefrontResult` (#3236). Its *where to look*
+says that nothing changes for customers, with your `[where]` prose (where it does show) under it, and its
+ask points at that prose instead of a link. It carries no after-release line, since nothing becomes
+visible with the release. **A `github.com` `-Link` is now refused in every form**: a pull request, a
+release or a commit had reached requesters as *"the result"*, above *"wat je ziet is wat een klant
+ziet"*. The host is parsed, so github.com's subdomains and githubusercontent.com are refused too. The skill page and `WORKFLOW-portable.md` describe the form.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A session in a store repo that passes a pull request, release or commit URL as `-Link` is now refused,
+with the remedy named; nothing else changes for an existing call.
+
+**Score:** 2
+
+#### Pull Request
+
+golive-block: a form for a change with no storefront result, and no github.com link as the result
+
+Plugins: bwj-development
+
+[PR #3239](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3239)
+
+---
 
 ### DEPLOY: feat/3235-color-token-model · 20261021-094328Z
 
