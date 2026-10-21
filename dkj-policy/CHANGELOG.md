@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**11 / 17 minor entries** <!-- pending-tally -->
+**12 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3265-theme-translation-carryover · 20261021-154613Z
+
+A new `dkj-subagents-shopify` skill, `carry-theme-translations`, carries a store's per-theme content
+translations over to a theme before a person publishes it as live, and verifies that none are missing.
+Those translations (Translate & Adapt, the Translations API) are stored per theme in the store, not in
+the theme files, so neither git nor a push nor a Git connection brings them along. A cutover in a
+consumer lost about 1,225 section-setting translations across four languages, and every non-English
+storefront went English
+([#3265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3265)). The step runs through the
+Shopify connector and never publishes. The live-theme guard's publish refusal now names it, and
+`theme-lifecycle`'s restore runs it before publishing a backup.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A Shopify store repo that switches its live theme (a cutover to a Git-connected theme, or a restore) now
+has a step that keeps its translated storefronts from falling back to the primary language at the
+publish. A store that never switches themes sees one longer refusal line and nothing else.
+
+**Score:** 3
+
+#### Pull Request
+
+A theme switch carries the per-theme content translations over, verified before the publish
+
+Plugins: dkj-subagents-shopify
+
+[PR #3267](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3267)
+
+---
 
 ### DEPLOY: feat/3261-gate-progress-scope · 20261021-151323Z
 
