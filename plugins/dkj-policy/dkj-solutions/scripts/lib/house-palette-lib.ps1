@@ -1,20 +1,26 @@
 <#
 .SYNOPSIS
-    The colour model of the house style (#3235): eleven tokens per theme, computed from the theme's hue and
+    The colour model of the house style (#3235): twelve tokens per theme, computed from the theme's hue and
     mode, so a theme is never tuned by hand again.
 
 .DESCRIPTION
     Per theme, in the owner's words (issue #3235, October 21, 2026), on a light theme:
       --primary        ONE colour: the most saturated colour of the theme's HSL hue (saturation 100%) that
                        reads at 4.5:1 on all four paper steps, so white (and every paper step) reads on it too.
+      --primary-fill   the colour of a FILLED surface (a bar, a button), with light text on it. On a light theme it
+                       is the primary itself. On a dark theme it cannot be: a colour that reads on black is too light
+                       to carry light text (a colour reaching 4.5:1 on both black and white has to sit between
+                       roughly 0.18 and 0.17 luminance, so with tinted grounds no such colour exists). So on dark it is
+                       the most saturated colour of the hue on which the third text step still reads at 4.5:1.
       --paper-1..4     FOUR colours that read on the primary, from white towards a little darker: the page, the
-                       card, the line, the stronger border -- and the text on a primary fill.
+                       card, the line, the stronger border -- and, on light, the text on a fill.
       --muted          a grey of the colour that reads extra well (7:1) on the page.
       --muted-inverse  a grey of the colour that reads extra well (7:1) on the far end (an inverted surface).
       --fg-1..4        FOUR text colours that read on the page, near black, in very small steps: fg-4 is still
                        very dark, only a little less so than fg-1.
     A dark theme is the mirror: the paper runs from black towards a little lighter, the text is near white, and
-    the primary is the most saturated colour that reads on all four (dark) paper steps.
+    the primary is the most saturated colour that reads on all four (dark) paper steps. The text on a fill is the
+    near-white end in both modes: the paper on light, fg-1..3 on dark.
 
     Every threshold is 4.55:1 or 7.05:1 rather than 4.5 and 7, which leaves room for the rounding to #rrggbb.
     Pure ASCII (repo convention for .ps1).
@@ -146,7 +152,7 @@ function Find-LightnessAtContrast {
 
 # ---- the palette ----------------------------------------------------------------------------------------------
 function Get-HousePalette {
-    <# The eleven tokens of one theme, as an ordered map of token name to #rrggbb. #>
+    <# The twelve tokens of one theme, as an ordered map of token name to #rrggbb. #>
     param([Parameter(Mandatory)][double]$Hue, [Parameter(Mandatory)][ValidateSet('light', 'dark')][string]$Mode)
     $steps = Get-HousePaletteSteps -Mode $Mode
     $okHue = (ConvertTo-OkLch (ConvertFrom-Hsl $Hue 1 0.5)).H
@@ -157,6 +163,8 @@ function Get-HousePalette {
     $makePrimary = { param($l) ConvertFrom-Hsl $Hue 1 $l }.GetNewClosure()
     if ($Mode -eq 'light') { $primary = Find-LightnessAtContrast $makePrimary $paper[3] 4.55 0 0.5 'high' }
     else                   { $primary = Find-LightnessAtContrast $makePrimary $paper[3] 4.55 0.5 1 'low' }
+    # the fill: on light the primary; on dark the most saturated colour on which fg-3 still reads
+    $fill = if ($Mode -eq 'light') { $primary } else { Find-LightnessAtContrast $makePrimary $fg[2] 4.55 0 0.5 'high' }
 
     # the greys: as close to their ground as 7:1 allows, so they recede by colour while still reading extra well
     $mc = $steps.MutedC
@@ -172,6 +180,7 @@ function Get-HousePalette {
     $p = [ordered]@{}
     for ($i = 0; $i -lt 4; $i++) { $p["--paper-$($i + 1)"] = $paper[$i] }
     $p['--primary'] = $primary
+    $p['--primary-fill'] = $fill
     $p['--muted'] = $muted
     $p['--muted-inverse'] = $inverse
     for ($i = 0; $i -lt 4; $i++) { $p["--fg-$($i + 1)"] = $fg[$i] }
@@ -179,15 +188,18 @@ function Get-HousePalette {
 }
 
 function Format-HousePaletteDeclarations {
-    <# The eleven tokens as one line of CSS declarations, in the stylesheet's order. #>
+    <# The twelve tokens as one line of CSS declarations, in the stylesheet's order. #>
     param([Parameter(Mandatory)]$Palette)
     ($Palette.Keys | ForEach-Object { "$($_): $($Palette[$_]);" }) -join ' '
 }
 
 function Get-HousePaletteContrast {
     <# The pairings the model promises, each with its ratio and the floor it must reach. #>
-    param([Parameter(Mandatory)]$Palette)
+    param([Parameter(Mandatory)]$Palette, [ValidateSet('light', 'dark')][string]$Mode = 'light')
     $rows = @()
+    # the text on a fill: the paper on light, the near-white text steps on dark (the stylesheet's --on-fill-1..3)
+    $onFill = if ($Mode -eq 'light') { 1..3 | ForEach-Object { "--paper-$_" } } else { 1..3 | ForEach-Object { "--fg-$_" } }
+    foreach ($t in $onFill) { $rows += @{ Pair = "$($t.TrimStart('-')) on primary-fill"; Ratio = Get-ContrastRatio $Palette[$t] $Palette['--primary-fill']; Floor = 4.5 } }
     foreach ($n in 1..4) { $rows += @{ Pair = "primary on paper-$n"; Ratio = Get-ContrastRatio $Palette['--primary'] $Palette["--paper-$n"]; Floor = 4.5 } }
     foreach ($n in 1..4) { foreach ($k in 1..4) { $rows += @{ Pair = "fg-$n on paper-$k"; Ratio = Get-ContrastRatio $Palette["--fg-$n"] $Palette["--paper-$k"]; Floor = 7 } } }
     $rows += @{ Pair = 'muted on paper-1'; Ratio = Get-ContrastRatio $Palette['--muted'] $Palette['--paper-1']; Floor = 7 }

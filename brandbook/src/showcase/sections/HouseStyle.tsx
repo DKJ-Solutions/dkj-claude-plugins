@@ -3,11 +3,11 @@ import houseThemeJs from '../../../../plugins/dkj-policy/dkj-solutions/assets/ho
 import { Demo, Section } from '../Showcase'
 
 /**
- * A theme's own eleven colours as house-style.css defines them (#3235): paper sits behind the text and reads on the
+ * A theme's own twelve colours as house-style.css defines them (#3235): paper sits behind the text and reads on the
  * primary, in small steps; the primary and the two greys; and the text (fg) on the paper, in very small steps.
  */
 export const PAPER_STEPS = ['paper-1', 'paper-2', 'paper-3', 'paper-4'] as const
-export const PRIMARY_STEPS = ['primary', 'muted', 'muted-inverse'] as const
+export const PRIMARY_STEPS = ['primary', 'primary-fill', 'muted', 'muted-inverse'] as const
 export const FG_STEPS = ['fg-1', 'fg-2', 'fg-3', 'fg-4'] as const
 export const THEME_STEPS = [...PAPER_STEPS, ...PRIMARY_STEPS, ...FG_STEPS] as const
 
@@ -19,7 +19,7 @@ const HOUSE_DEFAULTS = (() => {
 
 /**
  * Each theme's own values, from its block in house-style.css (":root[data-theme="<id>"], .theme-swatch[data-id="<id>"]
- * { ... }"): its eleven colours, and what else it sets (the warning colour on Roest and Geel). Read from the
+ * { ... }"): its twelve colours, and what else it sets (the warning colour on Roest and Geel). Read from the
  * stylesheet's text, so a theme's row shows that theme whatever theme the page itself is in.
  */
 function themeBlock(id: string): { steps: (string | undefined)[]; extras: string[] } {
@@ -31,7 +31,7 @@ function themeBlock(id: string): { steps: (string | undefined)[]; extras: string
   }
 }
 
-/** The twelve themes a user picks from, in the picker's order, each with its own eleven colours. */
+/** The twelve themes a user picks from, in the picker's order, each with its own twelve colours. */
 export function ThemesDemo() {
   const themes = window.DKJTheme.themes
   return (

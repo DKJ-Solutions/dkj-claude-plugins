@@ -7,7 +7,7 @@ import { useThemeId } from '../theme'
 
 /** House colour tokens (house-style/house-style.css), grouped by what a theme switch changes, as in house-style/README.md. */
 const HOUSE_COLORS = {
-  'the primary and the two greys -- changes with every theme': PRIMARY_STEPS,
+  'the primary, its fill and the two greys -- changes with every theme': PRIMARY_STEPS,
   'paper, behind the text and on the primary -- changes with every theme': PAPER_STEPS,
   'text (fg), on the paper -- changes with every theme': FG_STEPS,
   'changes only between light and dark -- categories': ['cat-1', 'cat-2', 'cat-3'],
@@ -234,7 +234,7 @@ export function Foundations() {
           <SwatchGrid items={names.map((n) => ({ name: `--${n}`, value: values[`--${n}`], declared: declared[`--${n}`] }))} />
         </Demo>
       ))}
-      <Demo label="Themes -- the twelve a user picks from, each with its own eleven colours" wide>
+      <Demo label="Themes -- the twelve a user picks from, each with its own twelve colours" wide>
         <ThemesDemo />
       </Demo>
       <Demo label="Theme reach -- links, native controls, selection, and the opt-in --accent modifiers" wide>

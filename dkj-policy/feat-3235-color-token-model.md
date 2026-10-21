@@ -39,7 +39,7 @@
 
 ### PLAN
 
-Rebuild each theme's eleven colour tokens on the logic of #3235 (the owner's issue, clarified in the session of
+Rebuild each theme's colour tokens (eleven, then twelve with the fill) on the logic of #3235 (the owner's issue, clarified in the session of
 October 21, 2026): one primary that reads on all four paper steps and they on it, two muted greys (7:1 on the page,
 7:1 on the far end), four paper steps from white towards a little darker, four text steps near black in very small
 steps; a dark theme is the mirror. The names were left open, so: `--primary`, `--muted`, `--muted-inverse`,
@@ -65,6 +65,11 @@ This is a visible result: the branch stops for the owner's look at the brand boo
 - [x] The showcase lists the three groups and demonstrates both fills (Tokens, Theme reach).
 - [x] The breadcrumb bar stands on `--primary` (owner, in the session): the chevron `--paper-3`, the ancestor links `--paper-2` with a `--paper-1` focus ring, the current page `--paper-1`; `--fg-4` has no role left.
 - [x] The settings toggle's border is `--primary` (owner, in the session; a primary fill was tried and dropped for the border alone).
+- [x] The dark themes (owner: "het werkt gewoon niet"): a colour that reads on black cannot carry light text, so a
+  primary fill on dark was a bright band with near-black text. A twelfth token, `--primary-fill`, is the fill: the
+  primary on light, a deep tint on dark on which `--fg-3` reads at 4.55:1. Its text `--on-fill-1..3` is the
+  near-white end in both modes (paper on light, fg on dark). The bar, `.btn--primary`, the filled icon buttons and
+  `.fill-primary` take it; the brand book's primary button keeps its fill on hover and only lifts.
 - [x] README: the token table, the rename table (from `--ink-*` and straight from `--primary-*`), the model, the
   measurements, the Fills section and the reserved class names.
 - [x] The gate: `--ink-1`..`--ink-7` retired, `--primary` and `--muted` live again; the skill's checksum repinned.
@@ -85,7 +90,7 @@ paper reads on it too); **two greys**, `--muted` at 7:1 on the page and `--muted
 **four paper steps** from white towards a little darker; and **four text steps** (`--fg-1` to `--fg-4`), near black
 on light and near white on dark, in very small steps. `h2` and `h3`-`h5` move from the colour to the text steps, and
 two new classes, `.fill-primary` and `.fill-inverse`, switch the text to the paper on a coloured ground, so an `h2`
-reads there as well. The breadcrumb bar now stands on the primary, with its crumbs in the paper steps, and the theme settings button takes it as its border. On light the primary is a little darker and the paper a little lighter than before; nothing in
+reads there as well. Filled surfaces take a twelfth token, `--primary-fill`, with light text `--on-fill-1..3` in both modes: on light it is the primary, on dark a deep tint, because a colour that reads on black is too light to carry light text. The breadcrumb bar is such a fill, and the theme settings button takes the primary as its border. On light the primary is a little darker and the paper a little lighter than before; nothing in
 the model is below 4.5:1 any more. `scripts/build/build-house-palette.ps1` computes and writes the values, and a
 new suite holds the stylesheet to them.
 
@@ -93,7 +98,7 @@ new suite holds the stylesheet to them.
 
 #### What makes this deploy extra special
 
-Every DKJ-Solutions app that takes this release renames its own layer. From v5.26.0's twelve steps:
+Every DKJ-Solutions app that takes this release renames its own layer, and gives a filled surface `--primary-fill` with `--on-fill-1` as its text. From v5.26.0's twelve steps:
 `--primary-1`..`-3` become `--paper-1`..`-3`, `-4` is removed, `-5` becomes `--paper-4`, `-6` and `-7` become `--muted`, `-8`
 becomes `--fg-4`, `-9` becomes `--primary`, `-10` `--fg-2`, `-11` `--fg-3` and `-12` `--fg-1`; a grey on an
 inverted surface takes `--muted-inverse`. The house-style README carries both tables, and the gate names each

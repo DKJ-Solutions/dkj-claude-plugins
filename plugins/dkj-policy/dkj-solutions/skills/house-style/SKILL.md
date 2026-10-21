@@ -28,7 +28,7 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.26.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `29a87b2391c87350b44cc96b58424b33aba4a45a769498c9eb686ec91e2df344` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.26.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `ea3e29903a9a21e80f7d42170de060ff2d2a40de712367b9c3adbb092f43a0ac` |
 | `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.26.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js` | `cddf0c0c493cd09156e76211461df709ace3cbdd77c90e7ca2203db572723d38` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
@@ -155,8 +155,8 @@ where a token is retired, with the new names in `Get-HouseStyleRetiredTokens` in
 `scripts/lib/house-style-rules.ps1`.
 
 **A theme's colours are computed, never typed**
-([#3235](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3235)). Each theme's eleven colours (one
-`--primary`, the greys `--muted` and `--muted-inverse`, `--paper-1` … `--paper-4` and `--fg-1` … `--fg-4`) come
+([#3235](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3235)). Each theme's twelve colours (one
+`--primary` and `--primary-fill`, the greys `--muted` and `--muted-inverse`, `--paper-1` … `--paper-4` and `--fg-1` … `--fg-4`) come
 from its hue and mode through
 [`scripts/build/build-house-palette.ps1`](../../scripts/build/build-house-palette.ps1), with the model in
 `scripts/lib/house-palette-lib.ps1` beside it. A change to a theme, a step or a contrast floor is made there:

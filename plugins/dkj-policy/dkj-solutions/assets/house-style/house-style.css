@@ -40,14 +40,19 @@
 :root {
   color-scheme: light;
 
-  /* the theme's eleven colours (owner, issue #3235, October 21, 2026, replacing the paper and ink of October 20),
+  /* the theme's twelve colours (owner, issue #3235, October 21, 2026, replacing the paper and ink of October 20),
      computed by scripts/build/build-house-palette.ps1 from the theme's hue and mode -- never tuned by hand. Blauw
-     here; each [data-theme] below sets its own eleven. In the owner's words, on a light theme (a dark one is the
+     here; each [data-theme] below sets its own twelve. In the owner's words, on a light theme (a dark one is the
      mirror, with black and white swapped):
        --primary         ONE colour: the most saturated colour of the theme's HSL hue (saturation 100%) that reads at
                          4.55:1 on all four paper steps, so white, and every paper step, reads on it too.
+       --primary-fill    the colour of a FILLED surface (the breadcrumb bar, a primary button, .fill-primary), with
+                         light text on it, --on-fill-1..3. On light it is the primary itself. On dark it cannot be: a
+                         colour that reads on black is too light to carry light text (no colour reaches 4.5:1 against
+                         both near-black and near-white), so it is the most saturated colour of the hue on which
+                         --fg-3 reads at 4.55:1, a deep tint (Lila's is Paars's primary, Hemelsblauw's Blauw's).
        --paper-1..4      FOUR colours that read on the primary, from white towards a little darker: what sits BEHIND
-                         the text (the page, the cards, the lines, the stronger border) and the text ON a primary fill.
+                         the text (the page, the cards, the lines, the stronger border) and, on light, the text on a fill.
        --muted           a grey of the colour that reads extra well (7:1) on the page: what may recede.
        --muted-inverse   the same grey for the far end: 7:1 on --fg-1, for an inverted surface (.fill-inverse).
        --fg-1..4         FOUR text colours that read on the paper, near black (on dark: near white), in very small
@@ -59,20 +64,25 @@
      recede by colour while they still read. The hue is the HSL hue of the owner's original theme colour (Blauw and
      Hemelsblauw 240), held in HSL because at a constant OKLCH hue a saturated blue turns violet; Lila takes Paars's 270.
      A role takes the same step in both modes, never light-dark() between two steps (owner's decision, October 15, 2026).
+     One deliberate exception: the text on a fill, --on-fill-1..3, is the near-white end in both modes, so it points
+     at --paper-1..3 on light and at --fg-1..3 on dark (set beside the tokens below, not per theme).
      paper-1 the page, and the text on a --primary or --muted fill; paper-2 the cards (tiles, tooltips); paper-3 every
      line (borders, row dividers, meter track, gridlines) and the tinted surfaces (an accent table head, a hover, a
      today row, the accent dialog); paper-4 a stronger border (an open card, a selected box). --primary the
-     highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1,
+     highlight: links (owner's decision, October 15, 2026), the picker's dot, h1,
      the states (hover, sorted) and native controls through accent-color. --muted the eyebrow, sub lines, notes,
      .muted, the tile label, the fills (switches, info badges, a pressed .seg), most focus
      rings and meters (a ring on a sort header, a .seg button, a chart bar or the read-more toggle is --primary). fg-1 every paragraph and an inverted surface (.fill-inverse, the showcase's panel); fg-2 h2 and .meta on a span; fg-3 h3-h5;
-     fg-4 no role yet. The breadcrumb bar stands on --primary, with the paper steps as its text. On a fill the text switches: on .fill-primary the paper is the text, so an h2
-     is --paper-1 there and --fg-2 on the page (owner, #3235: "h2 heeft niet altijd dezelfde kleur", an h2 does not always have the same colour).
+     fg-4 no role yet. --primary-fill the breadcrumb bar, the primary button, the filled icon button and .fill-primary,
+     with --on-fill-1..3 as their text. On a fill the text switches, so an h2 is --on-fill-1 there and --fg-2 on the page (owner, #3235: "h2 heeft niet altijd dezelfde kleur", an h2 does not always have the same colour).
      Measured (WCAG relative luminance, October 21, 2026), worst and best over the twelve themes: primary on paper-1
      5.4:1 (Pink) to 13.6:1 (Cyaan), on paper-4 4.55:1 to 11.2:1; fg-1 on paper-1 19.5:1 to 20.1:1, fg-4 on paper-4
      11.8:1 to 12.5:1; muted on paper-1 7.05:1 to 7.13:1, on paper-2 6.6:1 to 6.9:1; muted-inverse on fg-1 7.05:1 to
-     7.10:1; a paper-3 line on a paper-2 card 1.05:1 (Pink) to 1.10:1 (Blauw), a paper-4 border on it 1.16:1 to 1.25:1. */
-  --paper-1: #fdfdff; --paper-2: #f3f7ff; --paper-3: #e4edff; --paper-4: #d1e0ff; --primary: #0000ff; --muted: #4f5769; --muted-inverse: #8f99ab; --fg-1: #020511; --fg-2: #070d1a; --fg-3: #101623; --fg-4: #191f2c;
+     7.10:1; on the fill on-fill-1 5.6:1 to 8.5:1 and on-fill-3 4.6:1 (dark) to 7.3:1; a paper-3 line on a paper-2 card
+     1.05:1 (Pink) to 1.10:1 (Blauw), a paper-4 border on it 1.16:1 to 1.25:1. */
+  --paper-1: #fdfdff; --paper-2: #f3f7ff; --paper-3: #e4edff; --paper-4: #d1e0ff; --primary: #0000ff; --primary-fill: #0000ff; --muted: #4f5769; --muted-inverse: #8f99ab; --fg-1: #020511; --fg-2: #070d1a; --fg-3: #101623; --fg-4: #191f2c;
+  /* the text on a fill (--primary-fill): the near-white end in both modes, so the paper on light and the text steps on dark */
+  --on-fill-1: var(--paper-1); --on-fill-2: var(--paper-2); --on-fill-3: var(--paper-3);
 
   /* categorical palette (series slots) */
   --cat-1: #2574d1;          /* dark enough for --paper-1 text on it at 4.5:1 in every light theme (4.51:1, worst Roest; #92) */
@@ -142,7 +152,8 @@
     color-scheme: dark;
     --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
     --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-    --paper-1: #01090b; --paper-2: #010f11; --paper-3: #00181b; --paper-4: #002328; --primary: #00eaff; --muted: #839ea1; --muted-inverse: #435b5e; --fg-1: #f7fdfe; --fg-2: #e9f2f3; --fg-3: #dce7e8; --fg-4: #cfdcde;
+    --paper-1: #01090b; --paper-2: #010f11; --paper-3: #00181b; --paper-4: #002328; --primary: #00eaff; --primary-fill: #00717c; --muted: #839ea1; --muted-inverse: #435b5e; --fg-1: #f7fdfe; --fg-2: #e9f2f3; --fg-3: #dce7e8; --fg-4: #cfdcde;
+    --on-fill-1: var(--fg-1); --on-fill-2: var(--fg-2); --on-fill-3: var(--fg-3);
   }
 }
 
@@ -153,27 +164,28 @@
   color-scheme: dark;
   --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70;
   --positive-5: #3fc23f; --negative-5: #ff7a7a; --positive-3: #25b225; --negative-3: #e66767; --warning-3: #ffc61a; --warning-5: #ffd75e; --warning-1: #3a2a10; --negative-1: #3a1414; --positive-1: #133a13;
-  --paper-1: #01090b; --paper-2: #010f11; --paper-3: #00181b; --paper-4: #002328; --primary: #00eaff; --muted: #839ea1; --muted-inverse: #435b5e; --fg-1: #f7fdfe; --fg-2: #e9f2f3; --fg-3: #dce7e8; --fg-4: #cfdcde;
+  --paper-1: #01090b; --paper-2: #010f11; --paper-3: #00181b; --paper-4: #002328; --primary: #00eaff; --primary-fill: #00717c; --muted: #839ea1; --muted-inverse: #435b5e; --fg-1: #f7fdfe; --fg-2: #e9f2f3; --fg-3: #dce7e8; --fg-4: #cfdcde;
+  --on-fill-1: var(--fg-1); --on-fill-2: var(--fg-2); --on-fill-3: var(--fg-3);
 }
 
 /* ---- Themes: the theme's colour --------------------------------------------- */
 /* Twelve themes the user picks from (house-theme.js draws the picker). A light theme takes the
-   light tokens of :root, a dark theme the dark block above; each sets its own eleven colours, and the
+   light tokens of :root, a dark theme the dark block above; each sets its own twelve colours, and the
    two whose primary sits next to the warning colour move the warning away from it. No red and
    no green theme: those hues mean bad and good. Order: magenta, purple, blue, teal, ochre, rust (light);
    pink, lilac, sky, cyan, yellow, orange (dark). */
-:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --paper-1: #fffdfe; --paper-2: #fef3f9; --paper-3: #fce6f1; --paper-4: #f7d4e6; --primary: #b90085; --muted: #66525d; --muted-inverse: #a8929d; --fg-1: #0d0208; --fg-2: #160810; --fg-3: #1f1119; --fg-4: #281a22; }
-:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --paper-1: #fdfdff; --paper-2: #f7f5ff; --paper-3: #edeafe; --paper-4: #e1dbfb; --primary: #7f00ff; --muted: #595568; --muted-inverse: #9996aa; --fg-1: #060410; --fg-2: #0e0b19; --fg-3: #171422; --fg-4: #201d2b; }
-:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --paper-1: #fdfdff; --paper-2: #f3f7ff; --paper-3: #e4edff; --paper-4: #d1e0ff; --primary: #0000ff; --muted: #4f5769; --muted-inverse: #8f99ab; --fg-1: #020511; --fg-2: #070d1a; --fg-3: #101623; --fg-4: #191f2c; }
-:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --paper-1: #fafeff; --paper-2: #edfafb; --paper-3: #d8f3f6; --paper-4: #bee9ef; --primary: #006e79; --muted: #435b5f; --muted-inverse: #839ea1; --fg-1: #000809; --fg-2: #001113; --fg-3: #051a1c; --fg-4: #0f2325; }
-:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --paper-1: #fefef9; --paper-2: #f9f7ed; --paper-3: #f1eed9; --paper-4: #e6e1bf; --primary: #716300; --muted: #5c5845; --muted-inverse: #9d9984; --fg-1: #080600; --fg-2: #100d01; --fg-3: #191607; --fg-4: #222011; }
-:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --paper-1: #fffdfc; --paper-2: #fff4ef; --paper-3: #fde8dc; --paper-4: #f9d8c5; --primary: #9c4b00; --muted: #665449; --muted-inverse: #a99488; --fg-1: #0e0300; --fg-2: #170903; --fg-3: #20120a; --fg-4: #291c14; --warning-3: #b88a00; }
-:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --paper-1: #0e0507; --paper-2: #14080c; --paper-3: #1f0d13; --paper-4: #2f141e; --primary: #ff018d; --muted: #ab9399; --muted-inverse: #665157; --fg-1: #fffafc; --fg-2: #f6edf0; --fg-3: #ece1e4; --fg-4: #e2d5d9; }
-:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --paper-1: #08060e; --paper-2: #0d0a15; --paper-3: #151121; --paper-4: #1f1a31; --primary: #ad5bff; --muted: #9a97ab; --muted-inverse: #585467; --fg-1: #fcfbff; --fg-2: #f0eff6; --fg-3: #e5e3ec; --fg-4: #d9d7e2; }
-:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --paper-1: #04070f; --paper-2: #070c16; --paper-3: #0c1322; --paper-4: #131d33; --primary: #7575ff; --muted: #909aac; --muted-inverse: #4f5768; --fg-1: #fafcff; --fg-2: #edf0f7; --fg-3: #e0e5ed; --fg-4: #d4d9e3; }
-:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --paper-1: #01090b; --paper-2: #010f11; --paper-3: #00181b; --paper-4: #002328; --primary: #00eaff; --muted: #839ea1; --muted-inverse: #435b5e; --fg-1: #f7fdfe; --fg-2: #e9f2f3; --fg-3: #dce7e8; --fg-4: #cfdcde; }
-:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --paper-1: #0a0701; --paper-2: #100c02; --paper-3: #1a1303; --paper-4: #271d02; --primary: #ffc800; --muted: #a19985; --muted-inverse: #5e5644; --fg-1: #fdfcf7; --fg-2: #f3f0e9; --fg-3: #e8e4dc; --fg-4: #ddd9cf; --warning-3: #f08a24; }
-:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --paper-1: #0e0503; --paper-2: #150905; --paper-3: #200f08; --paper-4: #30160c; --primary: #ff6200; --muted: #ab948c; --muted-inverse: #67524b; --fg-1: #fffbf9; --fg-2: #f6eeeb; --fg-3: #ece2de; --fg-4: #e2d6d2; }
+:root[data-theme="magenta"], .theme-swatch[data-id="magenta"] { --paper-1: #fffdfe; --paper-2: #fef3f9; --paper-3: #fce6f1; --paper-4: #f7d4e6; --primary: #b90085; --primary-fill: #b90085; --muted: #66525d; --muted-inverse: #a8929d; --fg-1: #0d0208; --fg-2: #160810; --fg-3: #1f1119; --fg-4: #281a22; }
+:root[data-theme="purple"], .theme-swatch[data-id="purple"] { --paper-1: #fdfdff; --paper-2: #f7f5ff; --paper-3: #edeafe; --paper-4: #e1dbfb; --primary: #7f00ff; --primary-fill: #7f00ff; --muted: #595568; --muted-inverse: #9996aa; --fg-1: #060410; --fg-2: #0e0b19; --fg-3: #171422; --fg-4: #201d2b; }
+:root[data-theme="blue"], .theme-swatch[data-id="blue"] { --paper-1: #fdfdff; --paper-2: #f3f7ff; --paper-3: #e4edff; --paper-4: #d1e0ff; --primary: #0000ff; --primary-fill: #0000ff; --muted: #4f5769; --muted-inverse: #8f99ab; --fg-1: #020511; --fg-2: #070d1a; --fg-3: #101623; --fg-4: #191f2c; }
+:root[data-theme="teal"], .theme-swatch[data-id="teal"] { --paper-1: #fafeff; --paper-2: #edfafb; --paper-3: #d8f3f6; --paper-4: #bee9ef; --primary: #006e79; --primary-fill: #006e79; --muted: #435b5f; --muted-inverse: #839ea1; --fg-1: #000809; --fg-2: #001113; --fg-3: #051a1c; --fg-4: #0f2325; }
+:root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --paper-1: #fefef9; --paper-2: #f9f7ed; --paper-3: #f1eed9; --paper-4: #e6e1bf; --primary: #716300; --primary-fill: #716300; --muted: #5c5845; --muted-inverse: #9d9984; --fg-1: #080600; --fg-2: #100d01; --fg-3: #191607; --fg-4: #222011; }
+:root[data-theme="rust"], .theme-swatch[data-id="rust"] { --paper-1: #fffdfc; --paper-2: #fff4ef; --paper-3: #fde8dc; --paper-4: #f9d8c5; --primary: #9c4b00; --primary-fill: #9c4b00; --muted: #665449; --muted-inverse: #a99488; --fg-1: #0e0300; --fg-2: #170903; --fg-3: #20120a; --fg-4: #291c14; --warning-3: #b88a00; }
+:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --paper-1: #0e0507; --paper-2: #14080c; --paper-3: #1f0d13; --paper-4: #2f141e; --primary: #ff018d; --primary-fill: #c5006d; --muted: #ab9399; --muted-inverse: #665157; --fg-1: #fffafc; --fg-2: #f6edf0; --fg-3: #ece1e4; --fg-4: #e2d5d9; }
+:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --paper-1: #08060e; --paper-2: #0d0a15; --paper-3: #151121; --paper-4: #1f1a31; --primary: #ad5bff; --primary-fill: #7f00ff; --muted: #9a97ab; --muted-inverse: #585467; --fg-1: #fcfbff; --fg-2: #f0eff6; --fg-3: #e5e3ec; --fg-4: #d9d7e2; }
+:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --paper-1: #04070f; --paper-2: #070c16; --paper-3: #0c1322; --paper-4: #131d33; --primary: #7575ff; --primary-fill: #0000ff; --muted: #909aac; --muted-inverse: #4f5768; --fg-1: #fafcff; --fg-2: #edf0f7; --fg-3: #e0e5ed; --fg-4: #d4d9e3; }
+:root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --paper-1: #01090b; --paper-2: #010f11; --paper-3: #00181b; --paper-4: #002328; --primary: #00eaff; --primary-fill: #00717c; --muted: #839ea1; --muted-inverse: #435b5e; --fg-1: #f7fdfe; --fg-2: #e9f2f3; --fg-3: #dce7e8; --fg-4: #cfdcde; }
+:root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --paper-1: #0a0701; --paper-2: #100c02; --paper-3: #1a1303; --paper-4: #271d02; --primary: #ffc800; --primary-fill: #7e6200; --muted: #a19985; --muted-inverse: #5e5644; --fg-1: #fdfcf7; --fg-2: #f3f0e9; --fg-3: #e8e4dc; --fg-4: #ddd9cf; --warning-3: #f08a24; }
+:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --paper-1: #0e0503; --paper-2: #150905; --paper-3: #200f08; --paper-4: #30160c; --primary: #ff6200; --primary-fill: #af4300; --muted: #ab948c; --muted-inverse: #67524b; --fg-1: #fffbf9; --fg-2: #f6eeeb; --fg-3: #ece2de; --fg-4: #e2d6d2; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }
@@ -431,7 +443,7 @@ p, p.meta { color: var(--fg-1); }
 .moretoggle:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 
 /* ---- Primary button -------------------------------------------------------- */
-.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); font-weight: 600; }
+.btn--primary { background: var(--primary-fill); border-color: var(--primary-fill); color: var(--on-fill-1); font-weight: 600; }
 .btn--primary:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
 /* Disabled: one rule for every .btn variant, so an app never adds its own on this reserved class. */
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -452,7 +464,7 @@ p, p.meta { color: var(--fg-1); }
 .theme-picker__swatches { display: flex; gap: var(--spacing-2); flex-wrap: wrap; }
 .theme-swatch { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--paper-3); cursor: pointer; display: grid; place-items: center; }
 /* Each swatch previews its own theme, whichever theme is current: the theme blocks above also match
-   .theme-swatch[data-id="<id>"], so inside a swatch every one of its eleven colours is that theme's own. The swatch is its
+   .theme-swatch[data-id="<id>"], so inside a swatch every one of its twelve colours is that theme's own. The swatch is its
    page (--paper-1) and the dot its colour (--primary). */
 .theme-swatch { background: var(--paper-1); }
 .theme-swatch i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--primary); }
@@ -534,7 +546,7 @@ p, p.meta { color: var(--fg-1); }
 .btn--touch { display: inline-flex; align-items: center; justify-content: center; min-height: var(--tap);
   padding: var(--spacing-2-5) var(--spacing-4); font-size: var(--text-base); font-weight: 600; color: var(--fg-1);
   background: var(--paper-2); -webkit-tap-highlight-color: transparent; }
-.btn--touch.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); }
+.btn--touch.btn--primary { background: var(--primary-fill); border-color: var(--primary-fill); color: var(--on-fill-1); }
 .btn--touch:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
 .btn--block { width: 100%; }
 
@@ -542,7 +554,7 @@ p, p.meta { color: var(--fg-1); }
 /* A filled icon button: an svg that takes the text colour, as tall as a touch target; it grows
    to the width of its row where .action-row stretches it. --ghost is the quiet one (menu button). */
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; min-width: var(--tap); height: var(--tap); padding: 0;
-  border: 0; border-radius: 8px; background: var(--primary); color: var(--paper-1); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  border: 0; border-radius: 8px; background: var(--primary-fill); color: var(--on-fill-1); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .icon-btn svg { flex: none; }
 .icon-btn:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
 .icon-btn--ghost { background: transparent; color: var(--fg-1); }
@@ -618,24 +630,24 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>
    <li><a href="/">Repo hub</a></li><li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24">
    (the chevron path, in the house-style README)</svg></span><span aria-current="page">Current page</span></li></ol></nav></div></div>.
-   The bar stands on the theme's colour (owner, #3235, October 21, 2026), so the trail is in the paper steps, all of
-   which read on it: the chevron --paper-3, the ancestor links --paper-2, the current page --paper-1, so it stands out
-   the most; every crumb at weight 400. A link shows its underline only under the pointer, and its focus ring is
-   --paper-1, because the usual --muted ring would not show on the primary.
-   The bar spans the full width on --primary and sticks to the top of the screen, so it is always visible. It is
+   The bar is a fill in the theme's colour (owner, #3235, October 21, 2026), so the trail is in the text on a fill:
+   the chevron --on-fill-3, the ancestor links --on-fill-2, the current page --on-fill-1, so it stands out the most;
+   every crumb at weight 400. A link shows its underline only under the pointer, and its focus ring is --on-fill-1,
+   because the usual --muted ring would not show on the fill.
+   The bar spans the full width on --primary-fill and sticks to the top of the screen, so it is always visible. It is
    one --tap high and one line: a trail longer than the screen scrolls sideways inside the bar rather than wrapping, so
    the height stays fixed and whatever else sticks to the top sits right under it. Its trail lines up with the page
    column (.container). */
 .breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
-.breadcrumbs a { color: var(--paper-2); text-decoration: none; text-underline-offset: 4px; }
-.breadcrumbs a:focus-visible { outline-color: var(--paper-1); }
+.breadcrumbs a { color: var(--on-fill-2); text-decoration: none; text-underline-offset: 4px; }
+.breadcrumbs a:focus-visible { outline-color: var(--on-fill-1); }
 .breadcrumbs a:hover { text-decoration: underline; }
-.breadcrumbs__sep { display: inline-flex; color: var(--paper-3); }
+.breadcrumbs__sep { display: inline-flex; color: var(--on-fill-3); }
 .breadcrumbs__sep svg { width: 1.25rem; height: 1.25rem; }
 .breadcrumbs__sep path { stroke: currentColor; stroke-width: 0.75; stroke-linejoin: round; }   /* thickens the filled chevron */
-.breadcrumbs [aria-current='page'] { color: var(--paper-1); font-weight: 400; }
-.breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary); }
+.breadcrumbs [aria-current='page'] { color: var(--on-fill-1); font-weight: 400; }
+.breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-fill); }
 .breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
 /* Under the bar: an anchor lands below it, and the floating settings button moves down by its height. */
 html:has(.breadcrumbs-bar) { scroll-padding-top: var(--tap); }
@@ -669,20 +681,22 @@ a.menu-item:hover { background: var(--paper-3); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 /* ---- Fills ---------------------------------------------------------------- */
-/* A block on the theme's colour, or on the far end (#3235). The text switches with the ground. On .fill-primary the
-   paper steps are the text, because all four read on the primary (4.55:1 or better): an h2 is --paper-1 there and
-   --fg-2 on the page (the owner: an h2 does not always have the same colour), a quieter line --paper-3. On
+/* A block on the theme's colour, or on the far end (#3235). The text switches with the ground. .fill-primary stands
+   on --primary-fill and its text is --on-fill-1 (a quieter line --on-fill-3), the near-white end, 4.5:1 or better: an
+   h2 is --on-fill-1 there and --fg-2 on the page (the owner: an h2 does not always have the same colour). On
    .fill-inverse the ground is --fg-1, the paper is the text and --muted-inverse the quieter grey (7:1 on it).
    The text and the quieter lines weigh (0,2,0): :is() takes the weight of its strongest argument, a class, so they
    beat .sub, .muted, p.meta and the zero-weight headings, and the quieter line wins over the text because it comes
    after it. A link weighs (0,1,0), enough to beat the zero-weight house link and light enough that a .btn or an app's
    own class on an <a> keeps its colours. A component inside a fill keeps its own colours, so a .btn--primary on
    .fill-primary does not show: use an outline button there. */
-.fill-primary { background: var(--primary); color: var(--paper-1); }
+.fill-primary { background: var(--primary-fill); color: var(--on-fill-1); }
 .fill-inverse { background: var(--fg-1); color: var(--paper-1); }
-.fill-primary :is(h1, h2, h3, h4, h5, p, .lead, .msg, .meta, .card__title),
+.fill-primary :is(h1, h2, h3, h4, h5, p, .lead, .msg, .meta, .card__title) { color: var(--on-fill-1); }
 .fill-inverse :is(h1, h2, h3, h4, h5, p, .lead, .msg, .meta, .card__title) { color: var(--paper-1); }
-.fill-primary :is(.sub, .muted, .note, .footer-note, .card__sub, .eyebrow) { color: var(--paper-3); }
+.fill-primary :is(.sub, .muted, .note, .footer-note, .card__sub, .eyebrow) { color: var(--on-fill-3); }
 .fill-inverse :is(.sub, .muted, .note, .footer-note, .card__sub, .eyebrow) { color: var(--muted-inverse); }
-.fill-primary :where(a:any-link), .fill-inverse :where(a:any-link) { color: var(--paper-1); }
-.fill-primary :where(a:any-link:focus-visible), .fill-inverse :where(a:any-link:focus-visible) { outline-color: var(--paper-1); }
+.fill-primary :where(a:any-link) { color: var(--on-fill-1); }
+.fill-inverse :where(a:any-link) { color: var(--paper-1); }
+.fill-primary :where(a:any-link:focus-visible) { outline-color: var(--on-fill-1); }
+.fill-inverse :where(a:any-link:focus-visible) { outline-color: var(--paper-1); }

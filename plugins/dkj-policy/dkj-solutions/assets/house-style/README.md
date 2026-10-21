@@ -50,7 +50,8 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
 | Categorical | `--cat-1`, `--cat-2`, `--cat-3` | one series each. Never two meanings for one slot in a view |
 | Direction | `--positive-3` and `--negative-3` (also the gain and the loss in charts, so a direction chart can share a view with any series), `--positive-5`, `--negative-5` (numbers in text) | result and direction, never a category. `--positive-5`/`--negative-5` are the text versions of `--positive-3`/`--negative-3`, a step more contrast so a number reads as text: darker on light, lighter on dark |
 | Status | `--positive-3`, `--warning-3`, `--negative-3`, `--warning-5`, `--warning-1`, `--negative-1`, `--positive-1` | badges, meters, notices. `--warning-1`, `--negative-1` and `--positive-1` are the backgrounds of a warning, negative or positive message. The mark inside a status icon (check, cross, "!") is `--paper-1` |
-| Primary | `--primary` | the theme's colour, **one** step (owner, #3235, October 21, 2026): the most saturated colour of the theme's hue that reads on all four paper steps, so the paper reads on it too. **The highlight**: `h1`, the fill of `.btn--primary` (a filled main action, like the filled icon button; #109) and of `.fill-primary`, a state (hover, pressed, sorted, active, today), `strong`, list markers, links, a value meant to stand out, the accent dialog's title and the settings panel's title, and native controls through `accent-color` |
+| Primary | `--primary` | the theme's colour, **one** step (owner, #3235, October 21, 2026): the most saturated colour of the theme's hue that reads on all four paper steps, so the paper reads on it too. **The highlight**: `h1`, a state (hover, pressed, sorted, active, today), `strong`, list markers, links, a value meant to stand out, the accent dialog's title and the settings panel's title, and native controls through `accent-color` |
+| Fill | `--primary-fill`, and its text `--on-fill-1` … `--on-fill-3` | the colour of a **filled** surface: the breadcrumb bar, `.btn--primary`, the filled icon button, `.fill-primary`. On a light theme it is `--primary` itself. On a dark theme it cannot be: a colour that reads on black is too light to carry light text, and no colour reaches 4.5:1 against both near-black and near-white. So on dark it is the most saturated colour of the hue on which `--fg-3` reads at 4.55:1, a deep tint (Lila's fill is Paars's primary, Hemelsblauw's is Blauw's; owner, #3235, October 21, 2026). Its text is the near-white end in both modes: `--on-fill-1` … `--on-fill-3` point at `--paper-1` … `--paper-3` on light and at `--fg-1` … `--fg-3` on dark, the one role that takes a different family per mode |
 | Greys | `--muted`, `--muted-inverse` | a grey of the theme's colour, for what may recede: `--muted` reads extra well (7:1) on the page, `--muted-inverse` on the far end (7:1 on `--fg-1`). `--muted` is the eyebrow, every sub line (`.sub`, `.dialog__sub`, a component's `-sub`), every note (`.note`, `.footer-note`, `.muted`, on a `<p>` too), the tile label, the pressed `.seg` button, `.badge--info`, `.meter--info`, focus rings, meters and the `--accent` modifiers ([below](#how-far-a-theme-reaches)); `--muted-inverse` the same roles on an inverted surface (`.fill-inverse`, the showcase's panel). Never a status or a number |
 | Text | `--fg-1` … `--fg-4` | what sits **on** the paper: four colours near black on light (near white on dark), in **very small** steps, so `fg-4` is still very dark, only a little less so than `fg-1` (owner, #3235). `fg-1` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and the ground of an inverted surface; `fg-2` is `h2` and `.meta` on a span; `fg-3` is `h3`–`h5`; `fg-4` has no role yet (the breadcrumb's current page took it until the bar turned `--primary`, #3235). On a fill the text switches to the paper ([Fills](#fills-the-text-switches-with-the-ground)) |
 | Elevation | `--shadow-pop` | tooltips |
@@ -168,10 +169,11 @@ gate reports every `--primary-*` left behind as a retired token, so nothing is m
 surface `h1` follows `h2` to `--paper-3`, since the light anchor it took is gone.
 
 **The ink split into one primary, two greys and four text steps on October 21, 2026** (owner, issue
-[#3235](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3235)). Every theme still has eleven colours, now
+[#3235](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3235)). Every theme has twelve colours, now
 computed by `scripts/build/build-house-palette.ps1` in this plugin from the theme's hue and mode: one primary that
-reads on all four paper steps (and they on it), two greys that read extra well on the page and on the far end, four
-paper steps and four text steps in very small steps. **Every value changes**: the primary is a little darker on
+reads on all four paper steps (and they on it), a fill for filled surfaces (the primary on light, a deep tint of
+it on dark, where a colour that reads on black cannot carry light text), two greys that read extra well on the page
+and on the far end, four paper steps and four text steps in very small steps. **Every value changes**: the primary is a little darker on
 light (it has to read on `--paper-4` now, not only on the page), the paper steps are a little lighter, and `h2` and
 `h3`–`h5` are no longer in the colour but in the text steps. `--ink-*` no longer exists; `--primary` and `--muted`
 were retired on October 14, 2026 and are **live again**, in the same sense they had then (the theme's colour, a muted
@@ -188,6 +190,7 @@ matter:
 | `--ink-6` (`h3`–`h5`) | `--fg-3` |
 | `--ink-7` (all text, an inverted surface) | `--fg-1` |
 | (new) | `--muted-inverse`: the grey on an inverted surface, where `--muted` would not read |
+| (new) | `--primary-fill` and its text `--on-fill-1` … `--on-fill-3`: the breadcrumb bar, `.btn--primary` and the filled icon button take them; on light the fill is `--primary` and its text the paper |
 | (new) | `.fill-primary` and `.fill-inverse`: a block on the primary or on the far end, where the text switches to the paper |
 
 **On an inverted surface**, a grey that was `--ink-3` or `--ink-4` takes `--muted-inverse`, not `--muted`. The gate
@@ -215,7 +218,7 @@ uses):
 
 | A switch … | Tokens | Why |
 |---|---|---|
-| to any other theme changes them | `--primary`, `--muted`, `--muted-inverse`, `--paper-1` … `--paper-4`, `--fg-1` … `--fg-4` | each theme sets all eleven as fixed values, computed from its own hue; the showcase lists the primary and the greys, the paper and the text as three groups |
+| to any other theme changes them | `--primary`, `--primary-fill`, `--muted`, `--muted-inverse`, `--paper-1` … `--paper-4`, `--fg-1` … `--fg-4` | each theme sets all twelve as fixed values, computed from its own hue; the showcase lists the primary and the greys, the paper and the text as three groups |
 | changes them only between light and dark: categories | `--cat-1`, `--cat-2`, `--cat-3` | series slots, set once in the light block and once in the dark block, a shade apart |
 | changes them only between light and dark: status colours | `--negative-1`, `--negative-3`, `--negative-5`, `--positive-1`, `--positive-3`, `--positive-5`, `--warning-1`, `--warning-3`, `--warning-5` | set once in the light block and once in the dark block, a shade apart. One exception: `--warning-3` also moves in Roest and Geel ([below](#themes-the-user-picks-the-colour)) |
 
@@ -374,8 +377,8 @@ sliders turn the theme's colour. Links an app already styles through a class kee
 **The theme now colours the ground too** (owner's request: the themes were visible but did not stand
 out). Three more things follow it by default, in light and in dark (and a measurement):
 
-- **Every theme writes out its own eleven values**, computed rather than tuned (owner, #3235, October 21, 2026).
-  `--primary`, `--muted`, `--muted-inverse`, `--paper-1` … `--paper-4` and `--fg-1` … `--fg-4` are fixed hex values
+- **Every theme writes out its own twelve values**, computed rather than tuned (owner, #3235, October 21, 2026).
+  `--primary`, `--primary-fill`, `--muted`, `--muted-inverse`, `--paper-1` … `--paper-4` and `--fg-1` … `--fg-4` are fixed hex values
   in each theme's block, not mixes (owner's decision, October 14, 2026: the percentages were too hard to follow), and
   `scripts/build/build-house-palette.ps1` in this plugin computes them from the theme's hue and mode, checks every
   contrast below and writes them in with `-Apply`. A theme is changed there, never by hand in the stylesheet.
@@ -423,18 +426,18 @@ out). Three more things follow it by default, in light and in dark (and a measur
 
 ### Fills: the text switches with the ground
 
-**A block can stand on the theme's colour or on the far end, and its text then takes the paper** (#3235). An `h2`
-reads on the page and on the primary alike, so it is not one colour: `--fg-2` on the page, `--paper-1` on a
+**A block can stand on the theme's colour or on the far end, and its text then switches** (#3235). An `h2`
+reads on the page and on the fill alike, so it is not one colour: `--fg-2` on the page, `--on-fill-1` on a
 primary fill.
 
 | Class | Ground | Text | A quieter line (`.sub`, `.muted`, `.note`, `.eyebrow`, `.card__sub`) |
 |---|---|---|---|
-| `.fill-primary` | `--primary` | `--paper-1`: headings, paragraphs, `.lead`, `.msg`, `.meta`, `.card__title` and links | `--paper-3` (all four paper steps read on the primary) |
+| `.fill-primary` | `--primary-fill` | `--on-fill-1`: headings, paragraphs, `.lead`, `.msg`, `.meta`, `.card__title` and links | `--on-fill-3` |
 | `.fill-inverse` | `--fg-1` | `--paper-1`, the same elements | `--muted-inverse` (7:1 on `--fg-1`) |
 
 The switch is written with `:is()` and stands last in the stylesheet, so it beats `.sub`, `.muted`, `p.meta` and the
 zero-weight headings without an `!important`, and a quieter line on a `<p>` keeps its quieter colour. A link weighs
-only one class, so a `.btn` or an app's own class on an `<a>` keeps its colours; its focus ring turns `--paper-1`. A
+only one class, so a `.btn` or an app's own class on an `<a>` keeps its colours; its focus ring turns the fill's text. A
 component an app puts inside a fill (a button, a badge) keeps its own colours, so a `.btn--primary` on
 `.fill-primary` does not show: use an outline button there.
 
@@ -544,9 +547,9 @@ its own.
   the house style already does that for the floating settings button and for in-page anchors.
 - **The trail:** it always starts at **Repo hub**, linking to `/`. Each further crumb is one level
   down: the product (under its own name), then a page inside it. The last crumb is the current page,
-  unlinked, with `aria-current="page"`. The bar stands on the theme's colour, `--primary` (owner, #3235, October 21, 2026), so
-  the trail is in the paper steps, which all read on it: the chevron `--paper-3`, the ancestor links `--paper-2` (with
-  a `--paper-1` focus ring), the current page `--paper-1`, every crumb at weight 400; a link shows its underline only under the pointer. On the Repo hub itself the trail is that one crumb: the bar is
+  unlinked, with `aria-current="page"`. The bar is a fill in the theme's colour, `--primary-fill` (owner, #3235, October 21,
+  2026), so the trail is in the text on a fill: the chevron `--on-fill-3`, the ancestor links `--on-fill-2` (with an
+  `--on-fill-1` focus ring), the current page `--on-fill-1`, every crumb at weight 400; a link shows its underline only under the pointer. On the Repo hub itself the trail is that one crumb: the bar is
   still there, so it sits in the same place on every page.
 - **The labels** are the pages' own names, short, in the app's language. A crumb names a page, never a
   section on a page: an in-page anchor is not a level.
