@@ -1,20 +1,22 @@
 import type { ReactNode } from 'react'
-import { Button } from '../components/Button'
 import { Card, CardBody, CardGroup } from '../components/Card'
 import { FooterNote } from '../components/Content'
+import { PageLinks } from '../components/Navigation'
 import { DefinitionList } from '../components/Table'
 import { DashboardIntro, InFlightCards, InFlightTiles, type InFlight, type Issue, type Pull } from './DashboardShell'
 
 /**
- * A repo's Repo hub in the one form the house-style README lays down ("The Repo hub"), filled with
- * placeholder data: the intro, the in-flight tiles and cards, the repo's own cards, "About this repo" and the footer
- * note. A preview only: nothing is fetched and the product button goes nowhere.
+ * A repo's Repo hub in the form the house-style README lays down ("The Repo hub"), filled with placeholder data. The
+ * hub is two pages (DKJ-Solutions/dkj-claude-plugins#3270): PlaceholderHome, the home page on '/' (the repo's name, its
+ * products, one link to About this repo, the Brand book), and PlaceholderDashboard, About this repo on '/about' (the
+ * in-flight tiles and cards, the repo's own cards, the facts and the footer note). A preview only: nothing is fetched
+ * and no link goes anywhere.
  */
 export type PlaceholderRepo = {
-  /** GitHub "owner/name", the eyebrow. */
+  /** GitHub "owner/name": About's eyebrow; the name after the slash is the home page's h1. */
   slug: string
   lead: string
-  /** The product button's label; left out for a repo without a product. */
+  /** The product's label on the home page; left out for a repo without a product. */
   product?: string
   trunk?: string
   inFlight: InFlight
@@ -43,22 +45,38 @@ export const issue = (number: number, title: string, labels: readonly string[], 
   assignees: claimedBy ? [{ login: claimedBy }] : [],
 })
 
+/** The home page: a portal, as little as possible. -aboutHref is where its About this repo row goes. */
+export function PlaceholderHome({ repo, aboutHref }: { repo: PlaceholderRepo; aboutHref: string }) {
+  const name = repo.slug.split('/').pop() ?? repo.slug
+  return (
+    <>
+      <DashboardIntro title={name} lead={repo.lead} />
+
+      {repo.product && (
+        <PageLinks title="Products" subtitle="What this repo offers, each on a route of its own" pages={[{ label: repo.product, href: '#' }]} />
+      )}
+
+      <PageLinks
+        title="About this repo"
+        subtitle="The repo itself rather than what it offers"
+        pages={[{ label: 'About this repo', href: aboutHref, description: 'Its pages, what is in flight, and its facts' }]}
+      />
+
+      <PageLinks
+        title="Brand book"
+        subtitle="Shared by every DKJ-Solutions repo: the house style they are all built from"
+        pages={[{ label: 'Brandbook', href: '#', description: 'The house style: its tokens, its twelve themes and its components' }]}
+      />
+    </>
+  )
+}
+
+/** About this repo: everything about the repo itself. -children are the repo's own cards, between In flight and Facts. */
 export function PlaceholderDashboard({ repo, children }: { repo: PlaceholderRepo; children?: ReactNode }) {
   const trunk = repo.trunk ?? 'main'
   return (
     <>
-      <DashboardIntro
-        eyebrow={repo.slug}
-        title="Repo hub"
-        lead={repo.lead}
-        actions={
-          repo.product && (
-            <Button variant="primary" href="#" aria-disabled="true">
-              {repo.product}
-            </Button>
-          )
-        }
-      />
+      <DashboardIntro eyebrow={repo.slug} title="About this repo" lead={repo.lead} />
 
       <InFlightTiles data={repo.inFlight} trunk={trunk} />
 
@@ -66,7 +84,7 @@ export function PlaceholderDashboard({ repo, children }: { repo: PlaceholderRepo
 
       {children}
 
-      <CardGroup title="About this repo" subtitle="What this repo is">
+      <CardGroup title="Facts" subtitle="What this repo is">
         <Card variant="data" className="grid__full">
           <CardBody>
             <DefinitionList variant="facts" items={[...repo.facts, { term: 'Trunk', value: trunk }]} />

@@ -33,11 +33,12 @@ export function DashboardMain({ children }: { children: ReactNode }) {
   )
 }
 
-/** The intro block. A div, not a header: the house style makes main > header the flex page-header row. */
-export function DashboardIntro({ eyebrow, title, lead, actions }: { eyebrow: string; title: string; lead: ReactNode; actions?: ReactNode }) {
+/** The intro block. A div, not a header: the house style makes main > header the flex page-header row. The home page has no
+ * eyebrow, because its h1 is the repo's name (#3270). */
+export function DashboardIntro({ eyebrow, title, lead, actions }: { eyebrow?: string; title: string; lead: ReactNode; actions?: ReactNode }) {
   return (
     <div className="dkj-intro">
-      <p className="dkj-eyebrow">{eyebrow}</p>
+      {eyebrow && <p className="dkj-eyebrow">{eyebrow}</p>}
       <h1>{title}</h1>
       <p className="dkj-lead">{lead}</p>
       {actions && <p className="dkj-dashboard-cta">{actions}</p>}

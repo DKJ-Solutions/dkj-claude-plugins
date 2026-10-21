@@ -155,7 +155,7 @@ export default function App() {
         <Breadcrumbs
           bar
           items={[
-            { label: 'Repo hub', href: HUB_PATH },
+            { label: 'Home', href: HUB_PATH },
             ...(previewRepo ? [{ label: 'Brand book', href: SHOWCASE_PATH }, { label: previewRepo }] : [{ label: 'Brand book' }]),
           ]}
         />

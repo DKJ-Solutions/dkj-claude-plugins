@@ -20,7 +20,7 @@ export function DashboardIndex() {
         <div className="dkj-intro">
           <h1>Repo hub previews</h1>
           <p className="dkj-lead">
-            Other repos' Repo hubs drawn in the Repo hub pattern, to see where the pattern does not fit yet. Placeholder data only.
+            Other repos' About this repo pages drawn in the Repo hub pattern, with their own cards, to see where the pattern does not fit yet. Placeholder data only.
           </p>
         </div>
         <Card variant="data">

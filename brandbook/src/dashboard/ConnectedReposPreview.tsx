@@ -189,7 +189,7 @@ export function ConnectedReposPreview() {
     <>
       <DashboardIntro
         eyebrow={REPO}
-        title="Repo hub"
+        title="About this repo"
         lead="The source of the shared plugins, and the check of every repo that has them installed."
         actions={
           <Button variant="primary" aria-disabled="true">
@@ -198,7 +198,7 @@ export function ConnectedReposPreview() {
         }
       />
 
-      <PageLinks pages={PAGES} generalPages={GENERAL_PAGES} />
+      <PageLinks pages={PAGES} generalPages={GENERAL_PAGES} subtitle="This repo's own pages, and the general ones beside them" />
 
       <InFlightTiles data={IN_FLIGHT} trunk={TRUNK} />
 

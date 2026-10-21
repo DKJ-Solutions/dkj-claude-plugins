@@ -4,9 +4,9 @@ import '../../plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.cs
 import './brand-layer.css'
 import './index.css'
 import App from './App.tsx'
-import { RepoDashboard } from './dashboard/RepoDashboard.tsx'
+import { RepoAbout, RepoDashboard } from './dashboard/RepoDashboard.tsx'
 import { DashboardIndex, DashboardPreviewPage } from './dashboard/DashboardPreviews.tsx'
-import { dashboardPreviewId, isDashboardPath, isDashboardsPath } from './routes'
+import { dashboardPreviewId, isAboutPath, isDashboardPath, isDashboardsPath } from './routes'
 
 const { pathname } = window.location
 const previewId = dashboardPreviewId(pathname)
@@ -14,6 +14,7 @@ const previewId = dashboardPreviewId(pathname)
 /** The brand book is the index; any path this app does not know lands there too. */
 function page() {
   if (isDashboardPath(pathname)) return <RepoDashboard />
+  if (isAboutPath(pathname)) return <RepoAbout />
   if (isDashboardsPath(pathname)) return <DashboardIndex />
   if (previewId) return <DashboardPreviewPage id={previewId} />
   return <App />

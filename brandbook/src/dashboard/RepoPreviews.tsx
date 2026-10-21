@@ -4,8 +4,8 @@ import { DataTable } from '../components/Table'
 import { PlaceholderDashboard, issue, pull, type PlaceholderRepo } from './PlaceholderDashboard'
 
 /**
- * The Repo hubs of the other DKJ-Solutions repos, as previews in the one hub form: the shared shell, then
- * each repo's own cards. None of these repos has a Repo hub of its own yet, so the own cards are a proposal of
+ * The Repo hubs of the other DKJ-Solutions repos, as previews of their About this repo page (#3270): the shared shell,
+ * then each repo's own cards. None of these repos has a Repo hub of its own yet, so the own cards are a proposal of
  * what its page would show. Every figure, title and name is invented placeholder data: three of these repos are private.
  */
 const PUBLIC_SOURCE = 'The real page reads its in-flight lists live from the GitHub API, unauthenticated: the repo is public.'

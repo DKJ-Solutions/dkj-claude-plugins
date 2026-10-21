@@ -679,9 +679,11 @@ button in its card head ([#156](https://github.com/DKJ-Solutions/dkj-brandbook/i
 a build copies [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) (the home page) and
 [`patterns/repo-about.html`](patterns/repo-about.html) (About this repo), the stylesheet-only reference
 pages: they link `house-style.css` and `house-theme.js` and carry no CSS of their own, and their settings
-button is fixed at the top right of the screen (`theme-settings--floating`). The brand book app's React
-specimen of the hub (`RepoDashboard.tsx`) still shows the one-page form, and is brought to these two pages
-separately ([#3274](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3274)).
+button is fixed at the top right of the screen (`theme-settings--floating`). **With React**, the brand book
+app draws the same two pages in `brandbook/src/dashboard/` ([#3274](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3274)):
+`PlaceholderHome`, whose three sections are each a `PageLinks` with a title and sub line of its own, and
+`PlaceholderDashboard`, About this repo (`PageLinks`, `InFlightTiles`, `InFlightCards`, a facts
+`CardGroup` and `FooterNote`); its specimens are `/brandbook/repo-hub` and `/brandbook/repo-hub/about`.
 
 **`.btn` draws no underline on a link any more** (#141): a `.btn` on an `<a>` showed the browser's underline,
 because the house link rules set its thickness and not whether it shows. An app with link buttons loses that
