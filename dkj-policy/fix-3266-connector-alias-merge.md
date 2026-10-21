@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Inbound #3266 asks for a line next to `check-shop-connector`. That skill runs before the first connector
+call of a session, so the rule goes in it, where every later query is written.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `check-shop-connector`: a section with the query rule and its measurement, and a clause in the
+  description so the rule is visible before the page loads
 
 ### TEST
 
+- [~] no automated test: the rule governs model-written connector queries, which no suite can reach
+
 ### DEPLOY: fix/3266-connector-alias-merge
 
-**Score:**
+`check-shop-connector` now carries one query rule for every connector call after it: never request the
+same field twice in one query under aliases with different arguments. Through the claude.ai Shopify
+connector such a query returned the union of every alias's results under each alias, so a copy plan
+built on it put French and Spanish text under the Dutch locale
+([#3266](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3266)). Ask once per argument set,
+and check a result's count against a single unaliased query before acting on it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify store repo that reads Admin data through the connector gets the rule at the moment it starts
+using it, before an aliased query can mix locales or other argument sets into one wrong answer.
+
+**Score:** 2
 
 #### Pull Request
 
