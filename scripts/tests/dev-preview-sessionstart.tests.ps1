@@ -236,7 +236,7 @@ Assert-True ($html -match '<dt>Folder</dt><dd>recipes-checkout</dd>' -and $html 
 Assert-True ($html -match '<h1>Repo hub</h1>' -and $html -match '<p class="eyebrow">dkj-recipes</p>') 'the h1 is the fixed one whatever the repo states'
 $html = Format-PluginRepoHubHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl '' -PagesUrl 'http://localhost:4890'
 Assert-True ($html -match '<h2>Product</h2>' -and $html -match 'own server is not running' -and $html -notmatch 'aria-label="Product"' -and $html -match '<dd>stated, not running</dd>') 'a stated server that is not running says so, with no link'
-foreach ($badProduct in 'http://evil.example/x', 'javascript:alert(1)', 'https://localhost:4321/', 'http://localhost:4321@evil.example/', "http://localhost:4321/a`r`nb", 'http://localhost:4321/"><script>x</script>') {
+foreach ($badProduct in 'http://evil.example/x', 'javascript:alert(1)', 'https://localhost:4321/', 'http://localhost:4321@evil.example/', "http://localhost:4321/a`r`nb", 'http://localhost:99999/', 'http://localhost:4321//evil.example/', 'http://localhost:4321/"><script>x</script>') {
     $html = Format-PluginRepoHubHtml -RepoName 'r' -Mode 'product' -ProductUrl $badProduct -PagesUrl 'http://localhost:4890'
     Assert-True ($html -notmatch 'aria-label="Product"' -and $html -notmatch 'evil\.example' -and $html -notmatch '<script>x') "a product url of '$($badProduct -replace '\s', ' ')' is not linked"
 }
@@ -324,6 +324,8 @@ Assert-Equal 'ownhub' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root
 foreach ($badProduct in 'http://evil.example/', 'http://localhost.evil.example:4321/', 'https://localhost:4321/', 'http://localhost:4321@evil.example/', 'http://127.0.0.1:4321/', 'javascript:alert(1)', 'http://localhost:4321/a b', 'http://localhost:4321/"x', "http://localhost:4321/x`r`nSet-Cookie: y", "http://localhost:4321/x`ty", 'http://localhost/', ('http://localhost:4321/' + ('a' * 240))) {
     Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4890/' -Product $badProduct) -Root $stateRoot).Product "a product url of '$(($badProduct -replace '\s', ' ').Substring(0, [Math]::Min(40, $badProduct.Length)))' is not believed"
 }
+Assert-True (-not (Test-RepoHubLocalUrl 'http://localhost:99999/') -and -not (Test-RepoHubLocalUrl 'http://localhost:80/') -and (Test-RepoHubLocalUrl 'http://localhost:65535/')) 'a link target''s port is 1024-65535, not any five digits'
+Assert-True (-not (Test-RepoHubLocalUrl 'http://localhost:4321//evil.example/x') -and (Test-RepoHubLocalUrl 'http://localhost:4321/a//b')) 'and its path may not open with //'
 Assert-True ((Test-RepoHubLocalUrl 'http://localhost:4321/x') -and -not (Test-RepoHubLocalUrl '') -and -not (Test-RepoHubLocalUrl $null)) 'the one believe-rule for a link target, empty and null included'
 $legacy = (([ordered]@{ root = $stateRoot; hub = 'http://localhost:4870/'; pages = 'http://localhost:4890' }) | ConvertTo-Json -Compress)
 $st = ConvertFrom-RepoHubState -Text $legacy -Root $stateRoot
@@ -563,6 +565,28 @@ try {
         Assert-Equal 1 (Get-Owners $g).Count 'and the general pages server runs although the product cannot start'
         $st = Get-HubState $requiresRepo
         Assert-True ($st.Mode -eq 'product' -and $st.Product -eq '' -and $st.Pages -eq "http://localhost:$g") 'last session''s state file is replaced by this session''s: the pages, no product'
+
+        # A PRODUCT THAT NEVER LISTENS (its start failing the same way a throw does): the hub link is still handed
+        # out, the state file keeps the pages and names no product.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $portN = New-FreePort
+        $never = New-Repo 'never-listens' "function Get-DevPreview { @{ Command = 'ping -n 20 127.0.0.1 >nul & rem {port}'; Ports = $portN; WaitSeconds = 1 } }`n"
+        $r = Invoke-Hook $never
+        $m = Get-Message $r.Text
+        Assert-True ($m -match "^Repo hub: http://localhost:$g/ -- product: starting on http://localhost:$portN/ but not listening after 1s") "a product that never listens does not cost the hub link (got '$m')"
+        $st = Get-HubState $never
+        Assert-True ($st.Pages -eq "http://localhost:$g" -and $st.Product -eq '' -and $st.Mode -eq 'product') 'and its state file has the pages and no product'
+        Get-CimInstance Win32_Process -Filter "Name = 'PING.EXE'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match 'ping -n 20 127' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
+        # A HUB THAT IS NOT LISTENING YET when its deadline passes keeps its pages url in the state file: /whoami
+        # verifies it anyway, so leaving it out buys nothing.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $env:DKJ_DEV_PREVIEW_HUB_WAIT = '0'
+        try { $r = Invoke-Hook (New-Repo 'hub-timeout' $null) } finally { Remove-Item Env:\DKJ_DEV_PREVIEW_HUB_WAIT -ErrorAction SilentlyContinue }
+        Assert-True ((Get-Message $r.Text) -match "^Repo hub: not started -- the hub on port $g is not listening after 0s") 'a hub that misses its deadline is named as such, not linked'
+        Assert-Equal "http://localhost:$g" (Get-HubState (Join-Path $Fixture 'hub-timeout')).Pages 'but its state file keeps the pages url'
 
         # EVERY PORT OF THE PRODUCT TAKEN: the same.
         Use-GeneralPort (New-FreePort)

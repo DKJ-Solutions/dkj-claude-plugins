@@ -288,11 +288,22 @@ $processes = if ($listeners.Count) { Get-DevPreviewProcesses } else { @{} }
 
 # --- The hub first, then the product -----------------------------------------------------------------
 $hub = Start-DevPreviewHub -Listeners $listeners -Processes $processes
-$prod = if ($cfg) { Start-DevPreviewProduct -Listeners $listeners -Processes $processes } else { $null }
+# A throw while starting the product is the product's failure, never the hub's: the hub link and the state
+# file must survive it.
+$prod = $null
+if ($cfg) {
+    try { $prod = Start-DevPreviewProduct -Listeners $listeners -Processes $processes }
+    catch {
+        $prod = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ('could not be started: ' + ((([string]$_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '')); NotStarted = $true; Exposed = ''; Proc = $null; Log = '' }
+    }
+}
 
 # --- Wait until what was started listens: one loop, one clock each -----------------------------------
 $targets = @()
-if ($hub.Action -eq 'start') { $targets += @{ Name = 'hub'; Port = $hub.Port; Proc = $hub.Proc; Deadline = (Get-Date).AddSeconds(12); Done = $false; Ok = $false; Fail = '' } }
+# The hub's own deadline, 12 s; DKJ_DEV_PREVIEW_HUB_WAIT (0-99) is the TEST override.
+$hubWait = 12
+if ([string]$env:DKJ_DEV_PREVIEW_HUB_WAIT -match '^[0-9]{1,2}$') { $hubWait = [int]$env:DKJ_DEV_PREVIEW_HUB_WAIT }
+if ($hub.Action -eq 'start') { $targets += @{ Name = 'hub'; Port = $hub.Port; Proc = $hub.Proc; Deadline = (Get-Date).AddSeconds($hubWait); Done = $false; Ok = $false; Fail = '' } }
 if ($prod -and $prod.Action -eq 'start') { $targets += @{ Name = 'product'; Port = $prod.Port; Proc = $prod.Proc; Deadline = (Get-Date).AddSeconds($cfg.WaitSeconds); Done = $false; Ok = $false; Fail = '' } }
 
 # The state file goes in before the wait, so a hub that answers early already knows what the repo states, and
@@ -300,7 +311,7 @@ if ($prod -and $prod.Action -eq 'start') { $targets += @{ Name = 'product'; Port
 function Save-DevPreviewState {
     try {
         if (-not (Get-Command Write-RepoHubState -ErrorAction SilentlyContinue)) { return }
-        $pagesUrl = if ($hub.Base -and -not (@($targets | Where-Object { $_.Name -eq 'hub' -and $_.Done -and -not $_.Ok }).Count)) { $hub.Base } else { '' }
+        $pagesUrl = if ($hub.Base -and -not (@($targets | Where-Object { $_.Name -eq 'hub' -and $_.Fail -eq 'exited' }).Count)) { $hub.Base } else { '' }
         $productUrl = if ($prod -and $prod.Url -and -not (@($targets | Where-Object { $_.Name -eq 'product' -and $_.Done -and -not $_.Ok }).Count)) { $prod.Url } else { '' }
         $hubUrl = if ($mode -eq 'ownhub') { $productUrl } elseif ($pagesUrl) { "$pagesUrl/" } else { '' }
         Write-RepoHubState -Root $root -Hub $hubUrl -Pages $pagesUrl -Product $productUrl -Mode $mode
@@ -342,7 +353,7 @@ if ($hub.Action -eq 'reuse') { $hubUrl = "$($hub.Base)/"; $hubWord = 'already ru
 elseif ($hub.Action -eq 'start') {
     if ($hubT.Ok) { $hubUrl = "$($hub.Base)/"; $hubWord = 'started' }
     elseif ($hubT.Fail -eq 'exited') { $hubReason = "the hub on port $($hub.Port) exited at start -- see $(Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general')" }
-    else { $hubReason = "the hub on port $($hub.Port) is not listening after 12s -- see $(Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general')" }
+    else { $hubReason = "the hub on port $($hub.Port) is not listening after ${hubWait}s -- see $(Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general')" }
 }
 
 # The product's part: what it is and how it stands, or why it is not.
@@ -391,7 +402,9 @@ if ($mode -eq 'product') {
 # hand the URL to the system browser.
 if (-not $hubUrl) { Write-DevPreviewLine $head }
 $settings = Join-Path $root '.vscode\settings.json'
-$text = if (Test-Path -LiteralPath $settings -PathType Leaf) { [System.IO.File]::ReadAllText($settings) } else { '' }
+# An unreadable settings file must not cost the hub link: it reads as no route.
+$text = ''
+try { if (Test-Path -LiteralPath $settings -PathType Leaf) { $text = [System.IO.File]::ReadAllText($settings) } } catch { $text = '' }
 $script:openInVsCode = Test-DevPreviewVsCodeRoute -SettingsText $text -Port $hub.Port
 $note = ''
 if (-not $script:openInVsCode) { $note = "; route localhost:$($hub.Port) to simpleBrowser.open in .vscode/settings.json to open it in VS Code" }

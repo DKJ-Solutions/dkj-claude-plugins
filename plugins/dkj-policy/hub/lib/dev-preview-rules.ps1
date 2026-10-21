@@ -424,12 +424,16 @@ function ConvertTo-DevPreviewRootKey {
 function Test-RepoHubLocalUrl {
     <#
         True when -Url is a plain loopback url: http://localhost:<port> and an optional path of the characters
-        Get-DevPreview's Path allows, at most 240 characters. The one believe-rule for a state-file url that is
+        Get-DevPreview's Path allows, at most 240 characters, the port 1024-65535, the path not opening with '//'. The one believe-rule for a state-file url that is
         a link or a redirect target (the hub's, the product's), so a file another process can write cannot
         point a link at another host, another scheme or a control character (#3245).
     #>
     param([AllowNull()][AllowEmptyString()][string]$Url)
-    return [bool]($Url -cmatch '^http://localhost:[0-9]{4,5}(/[A-Za-z0-9._~/%?=&#+-]*)?\z' -and $Url.Length -le 240)
+    if (-not ($Url -cmatch '^http://localhost:([0-9]{4,5})(/[A-Za-z0-9._~/%?=&#+-]*)?\z') -or $Url.Length -gt 240) { return $false }
+    # A real unprivileged port, and no path that opens with '//' (a protocol-relative look-alike).
+    $port = [int]$Matches[1]
+    if ($port -lt 1024 -or $port -gt 65535) { return $false }
+    return -not ([string]$Matches[2]).StartsWith('//')
 }
 
 function Format-RepoHubState {

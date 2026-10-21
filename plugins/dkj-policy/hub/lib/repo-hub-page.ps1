@@ -35,6 +35,7 @@
     the source repo -- change one, run the other.
 #>
 
+. (Join-Path $PSScriptRoot 'dev-preview-rules.ps1')
 . (Join-Path $PSScriptRoot 'general-pages-lib.ps1')
 $dkjSolutionsPagesLib = Get-DkjSolutionsPagesLibPath -PluginRoot (Join-Path $PSScriptRoot '..\..')
 if (Test-Path -LiteralPath $dkjSolutionsPagesLib -PathType Leaf) { . $dkjSolutionsPagesLib }
@@ -65,7 +66,7 @@ function Format-PluginRepoHubHtml {
     }
     $n = & $cut $RepoName
     $f = if ($Folder) { & $cut $Folder } else { $n }
-    $product = if ($ProductUrl -cmatch '^http://localhost:[0-9]{4,5}(/[A-Za-z0-9._~/%?=&#+-]*)?\z' -and $ProductUrl.Length -le 240) { $ProductUrl } else { '' }
+    $product = if (Test-RepoHubLocalUrl $ProductUrl) { $ProductUrl } else { '' }
     $e = { param($v) ConvertTo-GeneralPageText $v }
 
     $sb = New-Object System.Text.StringBuilder

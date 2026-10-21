@@ -229,6 +229,10 @@ Fetch Metadata check both plugin servers (and the source repo's) apply refuses `
 `same-site` unless it is a top-level `GET` navigation (`Sec-Fetch-Mode: navigate`): the product's link on
 the hub and the 303 to an opted-out repo's hub are served, a same-site fetch or image request is not.
 
+**After updating the plugin from a version before #3245:** a general pages server that the old plugin
+started is reused until it exits, and it answers `/` with its old 303 or 404 until then. Stop it (or restart
+the machine) once. And a product's `Ports` must not overlap 4890-4899, which the hub takes first.
+
 ## In the source repo
 
 This repo's `Get-DevPreview` states `OwnHub = $true`: its own `Repo hub`, whose pages are the **connector
