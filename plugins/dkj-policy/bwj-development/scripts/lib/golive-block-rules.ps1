@@ -178,12 +178,24 @@ function Test-RepoArtifactLink {
         the session passed what it had: a release URL and a pull request URL. Both reached Asana as 'Het
         resultaat is hier te bekijken: <url>'. The requester's answer: a PR is not a result anyone can
         look at, and not every requester can open the repo at all (the -Research rule, #3004). The
-        remedy is -NoStorefrontResult, not a link. github.io (a Pages site) is a different host and is not
-        matched; the host is anchored for the reason Test-PrivateResultLink's is.
+        remedy is -NoStorefrontResult, not a link.
+
+        THE HOST IS PARSED, NOT MATCHED AS TEXT, so a port, a user name, a query or fragment straight
+        after the host, a trailing dot or surrounding spaces do not walk around it (review of #3236).
+        github.com and every subdomain (gist, api) count, and so does githubusercontent.com; github.io (a
+        Pages site) is a different host and does not.
     #>
     param([AllowEmptyString()][string]$Link)
-    if (-not $Link) { return $false }
-    return [bool]($Link -match '^(https?://)?(www\.)?github\.com(/|$)')
+    $text = ([string]$Link).Trim()
+    if (-not $text) { return $false }
+    if ($text -notmatch '^[a-zA-Z][a-zA-Z0-9+.-]*://') { $text = 'https://' + ($text -replace '^/+', '') }
+    $uri = $null
+    if (-not [System.Uri]::TryCreate($text, [System.UriKind]::Absolute, [ref]$uri)) { return $false }
+    $hostName = $uri.Host.ToLowerInvariant().TrimEnd('.')
+    foreach ($domain in @('github.com', 'githubusercontent.com')) {
+        if ($hostName -eq $domain -or $hostName.EndsWith(".$domain")) { return $true }
+    }
+    return $false
 }
 
 function Get-StoreAdminPrerequisiteMarker {
@@ -321,8 +333,8 @@ function Get-GoLiveBlockText {
             LiveNow      = 'You can see it live here:'
             AskLookLive  = 'Look at the result yourself, at the link above. It is already live, so what you see is what a customer sees.'
             NoStorefront = 'Nothing changes for customers: this change does not show on the storefront.'
-            AskNoStorefront = 'There is nothing to look at on the storefront, because nothing changes for customers. Read above what is different now.'
-            AskYes      = 'Is it right? Say so, and tick off this task.'
+            AskNoStorefront = 'There is nothing to look at on the storefront, because nothing changes for customers. Above you can read what is different now.'
+            AskYes       = 'Is it right? Say so, and tick off this task.'
             AskNo        = 'Is it not? Then we would like to hear two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.'
         }
     }
@@ -355,7 +367,7 @@ function Get-GoLiveBlockText {
         AskLookLive  = 'Bekijk het resultaat zelf, via de link hierboven. Het staat al live, dus wat je ziet is wat een klant ziet.'
         NoStorefront = 'Voor klanten verandert er niets: op de storefront is deze wijziging niet te zien.'
         AskNoStorefront = 'Op de storefront is niets te bekijken, want voor klanten verandert er niets. Lees hierboven wat er nu anders is.'
-        AskYes      = 'Klopt het: laat het weten en vink deze taak af.'
+        AskYes       = 'Klopt het: laat het weten en vink deze taak af.'
         AskNo        = "Klopt het niet, dan horen we graag twee dingen: wat er niet goed is, ${e}n wat er precies anders moet. Dan pakken we het opnieuw op in een volgende ronde."
     }
 }
@@ -665,6 +677,9 @@ function Format-GoLiveBlock {
         [switch]$NoStorefront
     )
 
+    if ($NoStorefront -and ($ResultLink -or @($LiveUrl | Where-Object { $_ }).Count -gt 0)) {
+        throw '-NoStorefront says nothing shows on the storefront, so a -ResultLink or -LiveUrl beside it has nothing to point at.'
+    }
     $t    = Get-GoLiveBlockText -Language $Language
     $dash = [string][char]0x2014
     # Visible only after the release: a planned day, and something on the storefront to become visible.

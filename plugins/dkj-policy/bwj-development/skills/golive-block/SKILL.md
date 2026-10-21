@@ -117,7 +117,7 @@ but no customer sees anything
 ([#3236](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3236), measured October 21, 2026).
 `-Research` would say *"Nothing has changed"*, which is false, and `-Measure` has no number. With no
 form for it, smartwatchbanden#945 and #244 were closed with a release URL and a pull request URL as
-`-Link`, and the requester read *"Het resultaat is hier te bekijken: <PR>"* above *"wat je ziet is wat
+`-Link`, and the requester read *"Het resultaat is hier te bekijken:"* and the PR's URL above *"wat je ziet is wat
 een klant ziet"*. A pull request is not a result anyone can look at.
 
 ```powershell

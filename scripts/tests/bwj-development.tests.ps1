@@ -629,6 +629,11 @@ Assert-True (Test-RepoArtifactLink -Link 'HTTPS://WWW.GitHub.com/o/r/commit/abc'
 Assert-True (-not (Test-RepoArtifactLink -Link 'https://bwj.github.io/page')) 'a Pages site is another host'
 Assert-True (-not (Test-RepoArtifactLink -Link 'https://store.example/pages/github.com/x')) 'a path that merely contains the host is not refused'
 Assert-True (-not (Test-RepoArtifactLink -Link '')) 'no link is not a repo artifact'
+foreach ($rlWalk in @('https://github.com:443/o/r', 'https://user@github.com/o/r', 'https://github.com?x=1', 'https://github.com#a', ' https://github.com/o/r ', 'https://GITHUB.COM./o', '//github.com/o', 'github.com', 'https://gist.github.com/x', 'https://raw.githubusercontent.com/o/r/main/f')) {
+    Assert-True (Test-RepoArtifactLink -Link $rlWalk) "the host is parsed, so '$rlWalk' is refused too (review of #3236)"
+}
+Assert-True (-not (Test-RepoArtifactLink -Link 'https://github.com.evil.example/x')) 'a host that only starts with github.com is another host'
+Assert-Throws { Format-GoLiveBlock -Marker 'm' -IssueRef 'o/r#1' -GoLiveDate 'x' -NoStorefront -ResultLink 'https://x.example/' } 'Format-GoLiveBlock refuses a link beside -NoStorefront itself, not only the driver'
 
 # STORE-ADMIN PREREQUISITES ARE READ FROM THE ISSUE (#2885): only task-list lines after the marker count.
 $saMarker = Get-StoreAdminPrerequisiteMarker

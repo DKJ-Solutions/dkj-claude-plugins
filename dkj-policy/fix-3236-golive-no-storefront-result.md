@@ -68,8 +68,8 @@ now has its own go-live block: `build-golive-block.ps1 -NoStorefrontResult` (#32
 says that nothing changes for customers, with your `[where]` prose (where it does show) under it, and its
 ask points at that prose instead of a link. It carries no after-release line, since nothing becomes
 visible with the release. **A `github.com` `-Link` is now refused in every form**: a pull request, a
-release or a commit had reached requesters as *"the result"*, above *"what you see is what a customer
-sees"*. The skill page and `WORKFLOW-portable.md` describe the form.
+release or a commit had reached requesters as *"the result"*, above *"wat je ziet is wat een klant
+ziet"*. The host is parsed, so github.com's subdomains and githubusercontent.com are refused too. The skill page and `WORKFLOW-portable.md` describe the form.
 
 **Score:** 3
 
