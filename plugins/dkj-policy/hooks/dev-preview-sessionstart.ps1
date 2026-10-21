@@ -195,10 +195,10 @@ function Open-DevPreviewInVsCode([string]$Url) {
 }
 
 # The hub: the plugin's general pages server (#3119, #3245), started or reused FIRST. Returns @{ Action =
-# 'reuse'|'start'|'refused'|'none'; Port; Base; Proc; Reason }: Base is its url without a slash, Reason says
-# why there is no hub. Never waits and never throws: the caller waits, and whatever goes wrong here is a line.
+# 'reuse'|'start'|'refused'|'none'; Port; Base; Proc; Reason; Restarted }: Base is its url without a slash, Reason
+# says why there is no hub, Restarted that the start replaced this checkout's hub from another plugin version. Never waits and never throws: the caller waits, and whatever goes wrong here is a line.
 function Start-DevPreviewHub($Listeners, $Processes) {
-    $r = @{ Action = 'refused'; Port = 0; Base = ''; Proc = $null; Reason = '' }
+    $r = @{ Action = 'refused'; Port = 0; Base = ''; Proc = $null; Reason = ''; Restarted = $false }
     try {
         $ports = @(Get-GeneralPagesPortRange)
         $pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -218,6 +218,20 @@ function Start-DevPreviewHub($Listeners, $Processes) {
             $r.Action = 'none'
             $r.Reason = (Format-DevPreviewPorts -Ports $ports) + ' taken by other processes' + $(if ($holders) { ": $holders" } else { '' })
             return $r
+        }
+        # OURS, BUT FROM ANOTHER PLUGIN VERSION (#3275): what the state file means changes between releases, so
+        # that server is stopped and this version's started on the same port. One that will not stop is reused.
+        if ($pick.Action -eq 'reuse') {
+            $stale = @(Get-DevPreviewStaleHubOwners -Port $pick.Port -Listeners $Listeners -Processes $Processes -Server $server)
+            if ($stale.Count) {
+                foreach ($id in $stale) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
+                $until = (Get-Date).AddSeconds(5)
+                while ((Get-Date) -lt $until -and @(Get-DevPreviewListeners @([int]$pick.Port)).Count) { Start-Sleep -Milliseconds 200 }
+                if (-not @(Get-DevPreviewListeners @([int]$pick.Port)).Count) {
+                    $pick = @{ Action = 'start'; Port = $pick.Port }
+                    $r.Restarted = $true
+                }
+            }
         }
         if ($pick.Action -eq 'start') {
             $command = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$server`" -Port {port}"
@@ -351,7 +365,7 @@ $hubWord = ''
 $hubReason = $hub.Reason
 if ($hub.Action -eq 'reuse') { $hubUrl = "$($hub.Base)/"; $hubWord = 'already running' }
 elseif ($hub.Action -eq 'start') {
-    if ($hubT.Ok) { $hubUrl = "$($hub.Base)/"; $hubWord = 'started' }
+    if ($hubT.Ok) { $hubUrl = "$($hub.Base)/"; $hubWord = $(if ($hub.Restarted) { 'restarted: it ran another plugin version' } else { 'started' }) }
     elseif ($hubT.Fail -eq 'exited') { $hubReason = "the hub on port $($hub.Port) exited at start -- see $(Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general')" }
     else { $hubReason = "the hub on port $($hub.Port) is not listening after ${hubWait}s -- see $(Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general')" }
 }
