@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**10 / 13 minor entries** <!-- pending-tally -->
+**11 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3245-plugin-repo-hub · 20261021-144046Z
+
+**The plugin now serves the Repo hub in every repo** (#3245). The general pages server, which already
+served Artifacts, Issues, Release notes and SessionStart, answers `/` with the hub itself, on the same
+origin as those pages. A repo that states `Get-DevPreview` sees its own dev server as the **Product**
+card on that hub instead of in its place, and the session-start line names both:
+`Repo hub: http://localhost:4890/ -- product: http://localhost:4321/... (started)`. A repo that wants its
+own server to stay the hub states `OwnHub = $true` in `Get-DevPreview`. The General pages now start
+whatever happens to the product, also when its port is taken. The placeholder server on 4880-4889 is
+retired: a repo without `Get-DevPreview` gets the same plugin hub, with the setup cards.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A repo whose dev server is its product no longer has to build a hub of its own: after this release its
+session-start line hands out the plugin's hub beside the product. A repo whose own server should stay the
+hub adds `OwnHub = $true` to `Get-DevPreview`; a `.vscode/settings.json` route for 4880 becomes one for 4890.
+
+**Score:** 4
+
+#### Pull Request
+
+Repo hub: the plugin serves it in every repo, with the repo's own server as its product
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3259](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3259)
+
+---
 
 ### DEPLOY: feat/3248-closed-message-inreview-move · 20261021-124119Z
 

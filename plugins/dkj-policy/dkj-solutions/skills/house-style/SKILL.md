@@ -63,7 +63,7 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    way it is a copy of the house-style file, never a retyped version. An app that offers a theme choice
    uses `DKJTheme.settings(el)` from that script, the round settings button with the picker inside,
    instead of building its own toggle around `DKJTheme.picker`; the README has its options.
-   **A Repo hub** (the index of a repo's dev server, called the Repo dashboard until v0.3.0) **takes the
+   **A Repo hub** (the index of a repo's dev server, called the Repo dashboard until v0.3.0; the dkj-policy plugin serves one in every repo that does not opt out, with the repo's own server as its Product card, #3245) **takes the
    one form the README lays down under "Page patterns", "The Repo hub"**: its blocks, their order and the
    fixed `h1`, with only the content the repo's own. A repo with pages of its own links them from its
    **Pages** card. A repo without a build starts from
@@ -144,7 +144,7 @@ DKJ-Solutions app the next time it takes a copy, so the branch stops for the own
 merging.
 
 **There is one canonical copy of the files, and it is that folder.** The source repo's connector dashboard
-and the placeholder preview that serves every repo without a preview of its own both read it in place, so
+and the plugin's own Repo hub (the general pages server, which serves every repo's hub unless the repo opts out with `OwnHub`) both read it in place, so
 no second copy needs replacing by hand
 ([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989),
 [#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). The table above guards two
