@@ -266,9 +266,11 @@ skip `awaiting-decision-dev`.
   `awaiting-recurrences-first` has a single unreproduced instance and waits for its first reproducible one.
 - **Its title starts with `[RECORD]` too** (Dave, October 1, 2026), for the reason a record's does: it
   outlives an ordinary finding by far, and the prefix shows that in any issue list.
-- **While it waits, it may be closed as `not_planned`, with its label and `[RECORD]` prefix kept**
-  ([#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904), October 9, 2026), so an
-  issue that may never recur does not stay in the open list.
+- **It is closed as `not_planned` at once, in the same movement that parks it, with its label and
+  `[RECORD]` prefix kept** (Maikel, October 21, 2026, sharpening
+  [#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904)'s *may be closed*): the label is
+  the marker, so the open list holds only work. Filed that way from the start, it never shows as open at
+  all; a parked one found open is closed by whoever finds it.
 - **The recurrence takes the label off.** Record the new instance as a comment, reopen the issue if it was
   closed, remove the label and the `[RECORD]` prefix, and the issue is ordinary work again. If it keeps
   recurring, it becomes a record (`awaiting-recurrences`), and the prefix goes back on.
