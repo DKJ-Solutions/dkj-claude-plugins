@@ -409,19 +409,40 @@ function Publish-GateProgress {
         both counts because a done-count alone sits at 0 for the first quarter of an 84-suite run; a BAR
         cannot show two numbers at once, so the bar is the one that means "finished" and the other rides
         along as text. Neither is dropped and neither is invented.
+
+        -Label NAMES THE RUN (issue #3261); Get-GateProgressLabel builds it. Omitted, it is the bare
+        'test gate' it always was.
     #>
     param(
         [Parameter(Mandatory = $true)][int]$Started,
         [Parameter(Mandatory = $true)][int]$Done,
         [Parameter(Mandatory = $true)][int]$Total,
         [Parameter(Mandatory = $true)][datetime]$StartedUtc,
-        [int]$Depth = 1
+        [int]$Depth = 1,
+        [string]$Label = 'test gate'
     )
     if (-not $script:RunProgressAvailable) { return }
     try {
-        [void](Write-RunProgress -Id (Get-RunProgressId -Name "test-gate-d$Depth") -Label 'test gate' `
+        [void](Write-RunProgress -Id (Get-RunProgressId -Name "test-gate-d$Depth") -Label $Label `
             -Current $Done -Total $Total -Note "$($Started - $Done) running" -StartedUtc $StartedUtc)
     } catch { }
+}
+
+function Get-GateProgressLabel {
+    <#
+        The statusline label of one gate run -- issue #3261. The bar read 'test gate' for every run, so
+        a 40-suite bar did not say whether it was a selection, a shard or a focus run, nor what it gated;
+        the console line that does say so scrolls away in the first second of a 15-30 minute run.
+
+        -Scope is the SHORT form of the run's scope ('shard 2/5', 'selected from 152'), not the console
+        line's whole phrase: the bar already shows done-of-total, so repeating the count would only cost
+        statusline width. Both are built in the same branch of Invoke-TestSuiteGate from the same values.
+    #>
+    param([string]$Context = '', [string]$Scope = '')
+    $label = 'test gate'
+    if ($Context) { $label += " for $Context" }
+    if ($Scope)   { $label += " -- $Scope" }
+    return $label
 }
 
 function Clear-GateProgress {
@@ -4102,6 +4123,12 @@ function Invoke-TestSuiteGate {
                       elseif ($ShardCount -gt 1) { "shard $Shard/$ShardCount -- $($runItems.Count) of $poolTotal" }
                       elseif ($selectionMode) { "the $($runItems.Count) of $poolTotal selected" }
                       else { "all $($runItems.Count)" }
+        # The same four branches, short, for the statusline bar -- issue #3261.
+        $progressScope = if ($focusMode) { "focus $FocusSuite" }
+                         elseif ($ShardCount -gt 1) { "shard $Shard/$ShardCount" }
+                         elseif ($selectionMode) { "selected from $poolTotal" }
+                         else { 'all suites' }
+        $progressLabel = Get-GateProgressLabel -Context $Context -Scope $progressScope
         Write-Host "test gate: running $scopeLabel test suites for $Context ($modeLabel)..." -ForegroundColor Cyan
         if ($focusMode) {
             Write-Host "  FOCUS RUN (issue #1944) -- this is a reproduction, not a gate: only $FocusSuite decides the verdict, the rest is load." -ForegroundColor Yellow
@@ -4350,7 +4377,7 @@ function Invoke-TestSuiteGate {
                     # the record is what a backgrounded run has instead of a reader. One event, two
                     # surfaces, and neither derived from the other's text.
                     Publish-GateProgress -Started $startedCount -Done $doneCount -Total $runItems.Count `
-                        -StartedUtc $gateStartedUtc -Depth $gateDepth
+                        -StartedUtc $gateStartedUtc -Depth $gateDepth -Label $progressLabel
                 }
 
                 # THE DEADLINE SWEEP -- issue #1941, and it runs BEFORE the reap so a lane that has just
@@ -4575,7 +4602,7 @@ function Invoke-TestSuiteGate {
                         -Total $runItems.Count -Elapsed $sw.Elapsed.TotalSeconds -Depth $gateDepth) -ForegroundColor DarkGray
                     # The other half of the same event -- issue #2101; see the lane-opening call above.
                     Publish-GateProgress -Started $startedCount -Done $doneCount -Total $runItems.Count `
-                        -StartedUtc $gateStartedUtc -Depth $gateDepth
+                        -StartedUtc $gateStartedUtc -Depth $gateDepth -Label $progressLabel
                     # WHAT THIS ITEM IS FOR, said on its own header rather than inferred from the queue
                     # -- issue #1944. On an ordinary run every item decides and this is empty; in a focus
                     # run it is the difference between a red header that fails the run and one that is

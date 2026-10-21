@@ -1284,6 +1284,15 @@ exit 1
         [System.Threading.Thread]::CurrentThread.CurrentCulture = $prevCulture
     }
 
+    # 9a'. The statusline label names the run (issue #3261): what it gates, and which slice of the pool.
+    Assert-Equal 'test gate for the PR -- selected from 152' (Get-GateProgressLabel -Context 'the PR' -Scope 'selected from 152') `
+        'Get-GateProgressLabel: the bar names the context and the scope of the run'
+    Assert-Equal 'test gate for CI -- shard 2/5' (Get-GateProgressLabel -Context 'CI' -Scope 'shard 2/5') 'and a shard says which one'
+    Assert-Equal 'test gate' (Get-GateProgressLabel) 'and with neither it is the bare label it always was'
+    $gateSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'scripts\lib\native-capture-lib.ps1') -Raw
+    Assert-True (([regex]::Matches($gateSrc, 'Publish-GateProgress [^\r\n]*`\r?\n[^\r\n]*-Label \$progressLabel')).Count -eq 2) `
+        'both places the gate publishes its progress pass the run''s label, not the bare default'
+
     # 9b. The depth itself. It crosses a process boundary into a variable anybody can set, so the
     # malformed cases are the point: each must fall back to the top level rather than fail a gate over a
     # diagnostic, and 'absent' and 'garbage' must not be distinguishable in the result.

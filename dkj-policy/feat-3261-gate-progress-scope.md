@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Issue #3261, asked for by the owner while watching a 40-suite gate run: the statusline bar read
+`test gate` for every run. `Invoke-TestSuiteGate` already knows the context and the scope, and prints
+them once on a console line that scrolls away, so the label is built from the same four branches.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-GateProgressLabel` in `scripts/lib/native-capture-lib.ps1` builds
+  `test gate for <context> -- <scope>`. `Publish-GateProgress` takes `-Label` (the default is still the
+  bare `test gate`), and both of its call sites pass the run's label. The scope is the short form:
+  `focus <suite>`, `shard N/M`, `selected from <pool>`, or `all suites`.
+- [x] The two plugin mirrors of the lib are copied byte-identical.
 
 ### TEST
 
+- [x] `test-suite-gate.tests.ps1`: 349 pass, 0 fail. Four new asserts: the label with a context and a
+  scope, a shard, the bare fallback, and both publish sites passing `-Label $progressLabel`.
+
 ### DEPLOY: feat/3261-gate-progress-scope
 
-**Score:**
+The test gate's statusline bar now names the run it measures. Where it read
+`[#####-------] 12/40  test gate (7 running)`, it reads, for example,
+`test gate for the PR -- selected from 152`, `test gate for the release -- all suites`, or
+`test gate for the gate run -- focus <suite>`. The label is built in the same place, and from the same
+values, as the console line `test gate: running ... test suites for ...`. That line still prints, but it
+scrolls away in the first second of a long run
+([#3261](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3261)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the progress record's lib (`run-progress-lib.ps1`) is not mirrored into the plugins, so a consumer's
+gate publishes no bar and nothing changes there.
+
+**Score:** N/A
 
 #### Pull Request
 
