@@ -280,6 +280,54 @@ function Select-DevPreviewPort {
     return @{ Action = 'none'; Port = $null }
 }
 
+function Get-DevPreviewHolderName {
+    <#
+        The name a person recognises for the process -ProcessId, or '' where none can be read. INBOUND
+        #3244: 'taken by other processes' left the owner a netstat and a CIM lookup by hand, while the hook
+        had already read the process table. Walks the same ancestors Test-ProcessIsOurs walks, and the
+        first command line that names a checkout wins -- the folder above 'node_modules', or the folder a
+        'cd /d' changes into (the hook's own start line; read after the slash swap, so as 'cd \d'). Without
+        one, the listener's own executable.
+    #>
+    param([int]$ProcessId, [Parameter(Mandatory = $true)][hashtable]$Processes)
+    $seen = @{}
+    $id = $ProcessId
+    $exe = ''
+    for ($depth = 0; $depth -le $script:DevPreviewMaxAncestors; $depth++) {
+        if ($seen.ContainsKey($id) -or -not $Processes.ContainsKey($id)) { break }
+        $seen[$id] = $true
+        $cl = ([string]$Processes[$id].CommandLine).Replace('/', '\')
+        if ($cl -match '([^\\"'' ]+)\\node_modules\\') { return $Matches[1] }
+        if ($cl -match '(?i)\bcd \\d "([^"]+)"') { return (Split-Path -Leaf $Matches[1].TrimEnd('\')) }
+        if ($depth -eq 0 -and $cl -match '^\s*(?:"([^"]+)"|(\S+))') {
+            $first = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+            $exe = Split-Path -Leaf $first
+        }
+        $id = [int]$Processes[$id].ParentId
+    }
+    return $exe
+}
+
+function Format-DevPreviewPortHolders {
+    <#
+        Who holds each of -Ports, as '3000 by dkj-lifehub (pid 19544)' joined with '; ', or '' when no
+        listener on them is known. One entry per port: its first listener names it.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][int[]]$Ports,
+        [AllowEmptyCollection()][object[]]$Listeners,
+        [Parameter(Mandatory = $true)][hashtable]$Processes
+    )
+    $parts = @(foreach ($port in $Ports) {
+        $l = @($Listeners | Where-Object { $_ -and [int]$_.LocalPort -eq $port }) | Select-Object -First 1
+        if (-not $l) { continue }
+        $procId = [int]$l.OwningProcess
+        $name = Get-DevPreviewHolderName -ProcessId $procId -Processes $Processes
+        if ($name) { "$port by $name (pid $procId)" } else { "$port by pid $procId" }
+    })
+    return ($parts -join '; ')
+}
+
 function Test-DevPreviewCommandIsLoopback {
     <#
         True when -Command names a loopback host (127.0.0.1, localhost or ::1) as a whole token -- the
