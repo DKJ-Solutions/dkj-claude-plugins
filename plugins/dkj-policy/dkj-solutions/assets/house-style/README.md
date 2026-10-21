@@ -296,7 +296,8 @@ draws the twelve swatches in two rows, light and dark. `DKJTheme.set(id)`, `DKJT
 `DKJTheme.current()` cover everything else. Copy it unchanged, like the stylesheet.
 
 **Or give the app the settings button, and the setting is done** ([#70](https://github.com/DKJ-Solutions/dkj-brandbook/issues/70)).
-`DKJTheme.settings(element)` draws a round toggle that opens a panel with the picker, the page width
+`DKJTheme.settings(element)` draws a round toggle, filled with the theme's colour (`--primary`, a `--paper-1` icon,
+`--muted` under the pointer and a `--paper-1` ring inside its edge while open; #3235), that opens a panel with the picker, the page width
 (below) and a reset, and returns the panel's slot (`.theme-settings__extra`), where the app puts settings of
 its own. The script owns the behaviour, so an app writes none of it: the toggle opens
 and closes the panel, Escape closes it and puts focus back on the toggle, and a click outside it or focus
@@ -399,7 +400,7 @@ out). Three more things follow it by default, in light and in dark (and a measur
   theme, on its theme's `paper-1` (October 17, 2026). Paper and text both run away from the page: `paper-1` and
   `fg-1` are the two ends, the lightest and the darkest on light, the other way round on dark.
 - **A tinted surface takes `--fg-1` as its text.** `--paper-3` is every line and also the surface of the
-  `.table--accent` head, the hover of a joined choice and of the settings toggle, a near or today date row, a date
+  `.table--accent` head, the hover of a joined choice, a near or today date row, a date
   row's hover, the accent dialog and an InfoRows box. The text on it is `--fg-1`, like all text (17.2:1 or better).
 - **Measured** (WCAG relative luminance, worst and best of the twelve themes, October 21, 2026): `--primary` on
   `paper-1` 5.4:1 (Pink) to 13.6:1 (Cyaan) and on `paper-4` 4.55:1 to 11.2:1, the same both ways round; `fg-1` on
