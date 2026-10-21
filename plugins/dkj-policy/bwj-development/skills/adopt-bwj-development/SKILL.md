@@ -106,7 +106,8 @@ no block (none on the issue, or one from before the issue's last reopen) the mes
 message follows, never the closed line alone (#2968, #3004). On a close as not
 planned that keeps the `awaiting-info-client` label on, it posts the header and the on-hold line (#2902); on
 any other not-planned close, or a duplicate, it posts nothing. When an issue is reopened, it posts the
-header and the reopened line (#2854). It never moves a card and never completes a task. A store that
+header and the reopened line (#2854). A completed close that carries a block also moves the card into the
+section `Get-AsanaStageMap` gives `InReview` (#3248). It makes no other move and never completes a task. A store that
 already holds the two `asana-closed-message` files from an earlier version gets the stop-and-diff above:
 the difference is the reopen trigger (#2854) or the on-hold message and its labels hand-off (#2902), and
 taking it is the maintainer's call. Each pair goes together (workflow and script of the same name): a new
@@ -133,8 +134,9 @@ function Get-AsanaProjectGid   { '<the Asana project a mirrored task lands in>' 
 
 # Which numbered section of that board each stage of the cycle IS. Optional -- omit it and the
 # built-in map is used, which is right only if your board is numbered the same way. report-issue reads
-# it for ONE thing: the Filed section a new card lands in. Nothing moves a card between sections any
-# more; the other stages are the board's sections that a person moves cards through.
+# it for the Filed section a new card lands in; asana-closed-message reads the Completed and InReview
+# codes as text (#3017, #3248). The one move is into InReview on a completed close with a block; the
+# other stages are the board's sections that a person moves cards through.
 function Get-AsanaStageMap {
     return @{
         Requests       = 1   # the submitter's inbox

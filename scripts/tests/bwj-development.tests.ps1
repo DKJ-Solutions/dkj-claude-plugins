@@ -1481,12 +1481,40 @@ $cmReq = New-AsanaCommentRequest -Gid '123' -Html '<body>x</body>'
 Assert-Equal 'https://app.asana.com/api/1.0/tasks/123/stories' $cmReq.Uri 'the one write is a story on the task'
 Assert-True ($cmReq.Body -match '"html_text"') 'posted as html_text'
 
-# WHAT IT NEVER DOES: no write but the comment, no card, no completion, no label, no other event.
+# WHAT IT NEVER DOES: no write but the comment and the one InReview move (#3248), no completion, no label,
+# no other event.
 $cmSrc = [System.IO.File]::ReadAllText($cmTemplate)
-Assert-True ($cmSrc -notmatch "completed\s*=\s*\`$true|addProject|/sections/|gh issue edit|gh label") 'the template carries no completion, card move or label write'
-# THE STRUCTURAL HALF (code review): one HTTP call site, and the request it sends is New-AsanaCommentRequest's.
-Assert-Equal 1 ([regex]::Matches($cmSrc, '(?m)^\s*Invoke-RestMethod\b')).Count 'the template makes exactly one HTTP call'
-Assert-True ($cmSrc -match '\$request\s*=\s*New-AsanaCommentRequest' -and $cmSrc -match 'Invoke-RestMethod -Method \$request\.Method -Uri \$request\.Uri') 'and that call sends the one request New-AsanaCommentRequest builds'
+Assert-True ($cmSrc -notmatch "completed\s*=\s*\`$true|addProject|removeProject|gh issue edit|gh label") 'the template carries no completion, board change or label write'
+Assert-Equal 1 ([regex]::Matches($cmSrc, '/sections/[^"]*addTask')).Count 'and the one section write is the addTask New-AsanaMoveRequest builds'
+# THE STRUCTURAL HALF (code review): two HTTP write sites, each sending the request its pure builder made.
+Assert-Equal 2 ([regex]::Matches($cmSrc, '(?m)^\s*Invoke-RestMethod\b')).Count 'the template makes exactly two HTTP writes: the comment and the move'
+Assert-True ($cmSrc -match '\$request\s*=\s*New-AsanaCommentRequest' -and $cmSrc -match 'Invoke-RestMethod -Method \$request\.Method -Uri \$request\.Uri') 'the first sends the one request New-AsanaCommentRequest builds'
+Assert-True ($cmSrc -match '\$move\s*=\s*New-AsanaMoveRequest' -and $cmSrc -match 'Invoke-RestMethod -Method \$move\.Method -Uri \$move\.Uri') 'and the second the one New-AsanaMoveRequest builds'
+Assert-True ($cmSrc.IndexOf('Invoke-RestMethod -Method $request.Method') -lt $cmSrc.IndexOf('Invoke-RestMethod -Method $move.Method')) 'the move comes after the message, so a skipped or refused move never costs the message'
+
+# THE ONE CARD MOVE (#3248): into the board's InReview section, on a completed close with a block, never out
+# of Completed, and skipped wherever the board does not answer one way.
+$cmMem  = @([pscustomobject]@{ Project = '77'; SectionName = '2. In Progress' })
+$cmSecs = @([pscustomobject]@{ Gid = '301'; Name = '1. Todo' }, [pscustomobject]@{ Gid = '302'; Name = '2. In Progress' },
+            [pscustomobject]@{ Gid = '303'; Name = '3. Waiting for review' }, [pscustomobject]@{ Gid = '304'; Name = '4. Done' })
+Assert-Equal '303' (Select-ReviewMoveSection -Memberships $cmMem -Sections $cmSecs -InReviewCode '3' -CompletedCode '4').SectionGid 'the section whose code is the InReview code'
+Assert-Equal '' (Select-ReviewMoveSection -Memberships @([pscustomobject]@{ Project = '77'; SectionName = '4. Done' }) -Sections $cmSecs -InReviewCode '3' -CompletedCode '4').SectionGid 'a card already in Completed is never pulled backwards'
+Assert-Equal '' (Select-ReviewMoveSection -Memberships @([pscustomobject]@{ Project = '77'; SectionName = '3. Waiting for review' }) -Sections $cmSecs -InReviewCode '3' -CompletedCode '4').SectionGid 'a card already in InReview is not moved again'
+Assert-Equal '' (Select-ReviewMoveSection -Memberships ($cmMem + @([pscustomobject]@{ Project = '88'; SectionName = '1. Todo' })) -Sections $cmSecs -InReviewCode '3' -CompletedCode '4').SectionGid 'a task on several boards is not moved: which card is a guess'
+Assert-Equal '' (Select-ReviewMoveSection -Memberships $cmMem -Sections ($cmSecs + @([pscustomobject]@{ Gid = '305'; Name = '3. Review' })) -InReviewCode '3' -CompletedCode '4').SectionGid 'two sections with the InReview code is a guess, so none'
+Assert-Equal '' (Select-ReviewMoveSection -Memberships $cmMem -Sections $cmSecs -InReviewCode '' -CompletedCode '4').SectionGid 'no InReview code in the stage map, no move'
+Assert-Equal '' (Select-ReviewMoveSection -Memberships $cmMem -Sections $cmSecs -InReviewCode '9' -CompletedCode '4').SectionGid 'a board without that code, no move'
+Assert-Equal '5' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { @{`nInReview = 5`nCompleted = 7`n} }" -Stage 'InReview') 'the InReview code is read from the same map, as text'
+$cmGetMove = { param($Uri) if ($Uri -like '*/tasks/*') { @{ data = @{ memberships = @(@{ project = @{ gid = '77' }; section = @{ name = '2. In Progress' } }) } } } else { @{ data = @(@{ gid = '303'; name = '3. Waiting for review' }, @{ gid = '304'; name = '4. Done' }) } } }
+Assert-Equal '303' (Resolve-ReviewMoveSection -Gid '123' -InReviewCode '3' -CompletedCode '4' -Get $cmGetMove).SectionGid 'resolved through the task''s board and the section it sits in'
+$cmMoveF = Resolve-ReviewMoveSection -Gid '123' -InReviewCode '3' -CompletedCode '4' -Get $cmGetFail
+Assert-True ($cmMoveF.SectionGid -eq '' -and $cmMoveF.Why -eq 'the task could not be read') 'a failed read is a skipped move and never throws'
+$cmMove = New-AsanaMoveRequest -Gid '123' -SectionGid '303'
+Assert-Equal 'https://app.asana.com/api/1.0/sections/303/addTask' $cmMove.Uri 'the move is an addTask on the section'
+Assert-Equal '{"data":{"task":"123"}}' $cmMove.Body 'naming the task alone'
+Assert-Throws { New-AsanaMoveRequest -Gid '123' -SectionGid '3/../x' } 'a non-numeric section GID never reaches a request URL'
+Assert-Throws { New-AsanaMoveRequest -Gid '1 2' -SectionGid '303' } 'nor a non-numeric task GID'
+Assert-True ($cmSrc -match '(?s)# THE CARD FOLLOWS THE MESSAGE INTO REVIEW.*?if \(\$sections\) \{') 'the move is made only where this round''s block was carried'
 
 # THE SECURITY REVIEW'S REPAIRS (#2818).
 Assert-True (Test-TrustedCommentAuthor -Association 'MEMBER') 'a member''s comment may supply the block'

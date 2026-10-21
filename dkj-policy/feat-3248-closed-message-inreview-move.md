@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Issue #3248, decided by Maikel on October 21, 2026: the narrow move only. It runs on a completed close
+that carries a block and never on `-ByHand`. It never pulls a card out of `Completed`. It is skipped
+silently where `InReview` does not resolve, and not-planned closes never move the card.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-closed-message.ps1`: `Select-ReviewMoveSection` (pure), `Resolve-ReviewMoveSection` (the two board reads), `New-AsanaMoveRequest` (the addTask write), the move after the message in `Invoke-Main`, and `Read-RepoConfigText` shared with the done-section read
+- [x] Docs: the template's header and workflow comment, `WORKFLOW-portable.md` step 6, `report-issue`, `adopt-bwj-development`, the plugin README
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the structural guard now allows exactly two writes (comment, then move), plus asserts for each skip rule, the board read and the request; 874/874 green
+
 ### DEPLOY: feat/3248-closed-message-inreview-move
 
-**Score:**
+In this repo the template's guardrail moved: the closed-message template now knows two writes instead of
+one. The suite holds both writes to their pure builders, holds the move to after the message, and holds
+the one section write to an `addTask`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ store that re-adopts `asana-closed-message` now gets its Asana card moved into the board's review
+section (on xoxowildhearts, `3. Waiting for review`) when an issue closes as completed with a go-live,
+research, measurement or already-fixed block. That matches the closed message, which already says *"this
+Asana task is now in review"*. The move is never made on a by-hand, blockless or not-planned close or on a
+reopen, and it never takes a card out of `Completed`. Where the task is on several boards, or the board
+has no single section with the `InReview` code from `Get-AsanaStageMap`, the move is skipped and the
+message still posts. The store takes it through adopt's stop-and-diff of the two `asana-closed-message`
+files ([#3248](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3248)).
+
+**Score:** 3
 
 #### Pull Request
 

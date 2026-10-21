@@ -237,8 +237,8 @@ who filed it. Where the seam is `$null` -- the default -- assign nobody and say 
 section **number** that stage is (leave it unset and the default is `3`), then read the project's
 sections and take the one whose name starts with that number. The words after the number are the
 team's and tell you nothing, so match on the **number** only.
-`WORKFLOW-portable.md` step 6 says what remains of the stage model: `Filed` is the one section the
-tooling writes, and a person moves a card through the others. **If the project has no numbered sections,
+`WORKFLOW-portable.md` step 6 says what remains of the stage model: the tooling writes `Filed` here and
+`InReview` on a completed close with a block (#3248), and a person moves a card through the others. **If the project has no numbered sections,
 place nothing and say so** -- that board is not a pipeline.
 
 **Then post the `created:` comment on the task you just created**, in the fixed form below (write 2 of
@@ -354,9 +354,10 @@ that it is GitHub-only because it is tier 0, so the missing card reads as a deci
 failed mirror. **Do not resolve anything, and do not promise that anything else will.**
 Closing the GitHub issue as completed posts one comment on the task: the `asana-closed-message`
 workflow's closed message, carrying the go-live block (the `golive-block` skill) the shipping session
-left on the issue (#2818; a block from before the issue's last reopen is withheld, #2968); reopening it posts the reopened message (#2854). That is all it does. The rest
-of the retired `asana-mirror` CI (moving the card, the sweeps) did not come back, so the card stays in `Filed` unless a person
-moves it, and the task stays open until the colleague who filed it ticks it off. Nothing in this chain
+left on the issue (#2818; a block from before the issue's last reopen is withheld, #2968), and then moves
+the card into `InReview` (#3248); reopening it posts the reopened message (#2854). That is all it does.
+The rest of the retired `asana-mirror` CI (the stage sweep, every other move) did not come back, so until
+that close the card stays in `Filed` unless a person moves it, and the task stays open until the colleague who filed it ticks it off. Nothing in this chain
 completes a task, and nothing puts a card in `Completed` either.
 
 **Say which section the card is in**, alongside the two URLs. It is the half a colleague can see

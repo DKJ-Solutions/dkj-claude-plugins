@@ -4,9 +4,11 @@
 # Posts ONE comment on the Asana task a GitHub issue belongs to, when that issue closes as completed
 # (the automation's header, the closed line, and the go-live block the shipping session left on the
 # issue), closes as not planned with awaiting-info-client kept on (the header and the on-hold line,
-# #2902), or is reopened (the header and the reopened line). It never moves a card, completes a task or
-# writes a label -- the closed message (Dave, October 5, 2026, #2818) and the reopened message (October
-# 6, #2854) are the two parts of the retired asana-mirror workflow that came back. The file keeps its
+# #2902), or is reopened (the header and the reopened line). A completed close that carries a block
+# also moves the card into the board's InReview section (#3248), and that is the one card move; it never
+# completes a task or writes a label -- the closed message (Dave, October 5, 2026, #2818) and the
+# reopened message (October 6, #2854) are the two parts of the retired asana-mirror workflow that came
+# back. The file keeps its
 # closed-message name so a re-adopt replaces it rather than landing a second copy beside it. See
 # bwj-development/WORKFLOW-portable.md.
 name: asana-closed-message

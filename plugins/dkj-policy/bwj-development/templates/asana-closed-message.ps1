@@ -11,9 +11,20 @@
     comments. Asked which part to bring back, Dave chose the closed message, in the go-live block's
     current shape (#2818); a day later he brought back the reopened message beside it (#2854), because
     without it a requester can go on testing a result that is being reworked. The prio-label sync came
-    back separately, as its own workflow, asana-prio-label (#2945). Everything else stays retired, and
-    nothing in this file can move a card, complete a task or write a label: the one write it knows how
-    to build is a comment (New-AsanaCommentRequest).
+    back separately, as its own workflow, asana-prio-label (#2945). One card move came back too, the
+    narrowest one (#3248, Maikel, October 21, 2026): see THE ONE CARD MOVE below. Everything else stays
+    retired, and nothing in this file can complete a task or write a label: the two writes it knows how
+    to build are a comment (New-AsanaCommentRequest) and that one move (New-AsanaMoveRequest).
+
+    THE ONE CARD MOVE (#3248). A close as completed that carries this round's block -- a go-live,
+    research, measurement or already-fixed block -- moves the task into the section whose code the
+    repo's Get-AsanaStageMap gives InReview ('3. Waiting for review' on xoxowildhearts), AFTER the
+    message has posted, because the message says 'this Asana task is now in review' and the card used to
+    stay wherever a person left it. Never on a by-hand close, a close without a block, a not-planned close
+    or a reopen; never out of the Completed section, because a card the requester ticked off early is not
+    pulled backwards; and silently skipped, with the message kept, wherever the task is on several boards
+    or its board has no single section with that code (Select-ReviewMoveSection). It is no sweep and no
+    stage mirror: nothing else in the retired asana-mirror came back with it.
 
     THE FILE KEEPS ITS 'closed-message' NAME ON PURPOSE. A store holds it at a fixed path, and adopt
     copies by path: a renamed template would land beside the old one rather than replace it, and both
@@ -88,7 +99,7 @@
         comment, the header, the cancelled intro -- 'is now closed: this Asana task has been cancelled,
         because there is not enough information to start development.' (#3069) -- and the requester's
         fixed ask under it: 'Once the questions above are answered, the issue will be reopened and the
-        work picks up again.' (#2902, #2909). The card is not moved: nothing in this file can. That pair is the BWJ procedure's
+        work picks up again.' (#2902, #2909). The card is not moved: the one move (#3248) is a completed close's. That pair is the BWJ procedure's
         sanctioned way to park a ticket waiting on its requester (#2732), and without this line the
         requester heard nothing, or -- where a session closed it as completed to get a message out --
         read 'is now closed' as finished. No block is read: nothing was built.
@@ -131,14 +142,16 @@
     asana-mirror's trust model unchanged, and it is accepted rather than closed here: the write is one
     comment, and checking the task's project against a configured one is a check this workflow
     deliberately does without. The board read for the done section (#3017) is no such check: it reads
-    the sections of whichever board the task is on, to NAME one in the ask, and gates nothing. A reopen
+    the sections of whichever board the task is on, to NAME one in the ask, and gates nothing. The one
+    move (#3248) stays on that same model too: it can only put the marker's task into a section of that
+    task's own board, so whoever could point the marker elsewhere could already comment there. A reopen
     (#2854) is one more trigger on that same model, not a new one: an issue's author can reopen it, but
     what a reopen posts is fixed text, with nothing from the issue in it.
 
     THE REPO'S STAGE MAP IS READ AS TEXT, NEVER RUN (#3017). scripts/repo-config.ps1 is the repo's own
     seam file, and dot-sourcing it in a job that holds ASANA_PAT would run whatever it, and everything
-    it dot-sources in turn, does. The one value needed is the Completed code inside Get-AsanaStageMap,
-    and Get-RepoStageCode reads that with a pattern.
+    it dot-sources in turn, does. The values needed are the Completed and InReview codes inside
+    Get-AsanaStageMap, and Get-RepoStageCode reads each with a pattern.
 
     IT PRINTS NOTHING ANOTHER PERSON WROTE. The only foreign text this run could meet is a task name, a
     comment body, a board's section name or an Asana API error message, and none of them is printed: a
@@ -153,7 +166,8 @@
     and only when a block is there to judge (#2968).
     There is no project, workspace or Projects token: a comment addresses its task by GID alone. The
     ASANA_PAT also makes the two reads a research close needs for its done section (#3017): the task's
-    board memberships, then that board's sections. Nothing else is read from Asana.
+    board memberships, then that board's sections -- and the same two the one move needs (#3248), with
+    the section the task sits in. Nothing else is read from Asana.
 
     The script runs its main flow only when invoked directly; dot-sourcing it loads the pure helpers and
     does nothing else, which is how the suite exercises them.
@@ -1190,6 +1204,113 @@ function Resolve-DoneSectionName {
     return [pscustomobject]@{ Name = ''; Why = "no single section with code $Code on the task's board" }
 }
 
+function Get-SectionCode {
+    <#
+        Pure: a section name's code -- the text before its first '.', as Get-AsanaStageMap reads a board
+        ('3. Waiting for review' is '3') -- or '' for a section without one.
+    #>
+    param([AllowEmptyString()][string]$Name = '')
+    $m = [regex]::Match([string]$Name, '^\s*([0-9]+[A-Za-z]?)\.')
+    if ($m.Success) { return $m.Groups[1].Value }
+    return ''
+}
+
+function Select-ReviewMoveSection {
+    <#
+        Pure: the section a completed close moves its task into (#3248), or none, and why. -Memberships are
+        the task's board memberships (Project, SectionName); -Sections the sections of its board (Gid,
+        Name). The move is made only where every step answers one way:
+
+          - the task is on exactly ONE board: on several, which card the requester looks at is a guess;
+          - the repo states an InReview code, and exactly one section of that board carries it;
+          - the card is NOT in the Completed section: a requester who ticked it off early is never pulled
+            backwards (Maikel, October 21, 2026);
+          - the card is not in the InReview section already, which would be a move to where it is.
+
+        SectionGid is '' wherever the move is skipped, and Why is a log phrase that never carries a
+        section's or a task's text.
+    #>
+    param(
+        [AllowEmptyCollection()][object[]]$Memberships = @(),
+        [AllowEmptyCollection()][object[]]$Sections = @(),
+        [AllowEmptyString()][string]$InReviewCode = '',
+        [AllowEmptyString()][string]$CompletedCode = ''
+    )
+    $skip = { param($why) [pscustomobject]@{ SectionGid = ''; Why = $why } }
+    if (-not $InReviewCode) { return (& $skip 'the repo states no InReview stage in Get-AsanaStageMap') }
+    $boards = @(@($Memberships) | ForEach-Object { [string]$_.Project } | Where-Object { $_ } | Select-Object -Unique)
+    if ($boards.Count -ne 1) { return (& $skip "the task is on $($boards.Count) boards, not one") }
+    $current = Get-SectionCode -Name ([string](@($Memberships)[0].SectionName))
+    if ($CompletedCode -and $current -ieq $CompletedCode) { return (& $skip "the card is already in the Completed section (code $CompletedCode), and a move never pulls it backwards") }
+    if ($current -ieq $InReviewCode) { return (& $skip "the card is already in the InReview section (code $InReviewCode)") }
+    $hits = @(@($Sections) | Where-Object { (Get-SectionCode -Name ([string]$_.Name)) -ieq $InReviewCode -and ([string]$_.Gid) -match '\A[0-9]+\z' })
+    if ($hits.Count -ne 1) { return (& $skip "no single section with code $InReviewCode on the task's board") }
+    return [pscustomobject]@{ SectionGid = [string]$hits[0].Gid; Why = "found by code $InReviewCode" }
+}
+
+function Resolve-ReviewMoveSection {
+    <#
+        The section a completed close moves its task into (#3248): the task's board memberships with the
+        section it sits in, then that board's sections, judged by Select-ReviewMoveSection. Every read
+        failure is a skipped move, never a throw: the message has gone out already, and a card left where
+        it was is the cost a person repairs by dragging it. -Get is the read, injectable as in
+        Resolve-DoneSectionName.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Gid,
+        [AllowEmptyString()][string]$InReviewCode = '',
+        [AllowEmptyString()][string]$CompletedCode = '',
+        [string]$Pat = '',
+        [scriptblock]$Get = $null
+    )
+    if (-not $InReviewCode) { return (Select-ReviewMoveSection -InReviewCode '') }
+    if ($Gid -notmatch '\A[0-9]+\z') { return [pscustomobject]@{ SectionGid = ''; Why = 'the task GID is not numeric' } }
+    if (-not $Get) { $Get = { param($Uri) Invoke-RestMethod -Method GET -Uri $Uri -Headers @{ Authorization = "Bearer $Pat" } } }
+    try {
+        $task = & $Get "$script:AsanaApiBase/tasks/$($Gid)?opt_fields=memberships.project.gid,memberships.section.name"
+    } catch { return [pscustomobject]@{ SectionGid = ''; Why = 'the task could not be read' } }
+    $memberships = @(@($task.data.memberships) | Where-Object { ([string]$_.project.gid) -match '\A[0-9]+\z' } |
+        ForEach-Object { [pscustomobject]@{ Project = [string]$_.project.gid; SectionName = [string]$_.section.name } })
+    $boards = @($memberships | ForEach-Object { $_.Project } | Select-Object -Unique)
+    $sections = @()
+    if ($boards.Count -eq 1) {
+        try {
+            $read = & $Get "$script:AsanaApiBase/projects/$($boards[0])/sections?opt_fields=name"
+        } catch { return [pscustomobject]@{ SectionGid = ''; Why = "the sections of board $($boards[0]) could not be read" } }
+        $sections = @(@($read.data) | ForEach-Object { [pscustomobject]@{ Gid = [string]$_.gid; Name = [string]$_.name } })
+    }
+    return (Select-ReviewMoveSection -Memberships $memberships -Sections $sections -InReviewCode $InReviewCode -CompletedCode $CompletedCode)
+}
+
+function New-AsanaMoveRequest {
+    <#
+        Pure: the POST that moves a task into a section of its board (#3248) -- the second write this
+        script can build, beside the comment. A non-numeric task or section GID is refused before it can
+        reach a URL.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Gid,
+        [Parameter(Mandatory = $true)][string]$SectionGid
+    )
+    if ($Gid -notmatch '\A[0-9]+\z') { throw "Refusing to build a request for a non-numeric task GID: '$Gid'." }
+    if ($SectionGid -notmatch '\A[0-9]+\z') { throw "Refusing to build a request for a non-numeric section GID: '$SectionGid'." }
+    [pscustomobject]@{
+        Method = 'POST'
+        Uri    = "$script:AsanaApiBase/sections/$SectionGid/addTask"
+        Body   = (ConvertTo-Json @{ data = @{ task = $Gid } } -Compress -Depth 5)
+    }
+}
+
+function Read-RepoConfigText {
+    <#
+        The TEXT of the repo's seam file, or '' where there is none -- -RepoConfigPath, else the checkout's
+        own scripts/repo-config.ps1 two levels above this script. Read, never run (#3017).
+    #>
+    $configPath = if ($RepoConfigPath) { $RepoConfigPath } else { Join-Path $PSScriptRoot '../../scripts/repo-config.ps1' }
+    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) { return '' }
+    return [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $configPath).ProviderPath)
+}
+
 function Invoke-Main {
     if ($IssueRef -notmatch '\A[^\s#/]+/[^\s#/]+#[0-9]+\z') { throw "IssueRef '$IssueRef' is not 'owner/repo#<n>'." }
     $decision = Get-ClosedMessageDecision -StateReason $StateReason -IssueBody $IssueBody -Event $Event `
@@ -1273,12 +1394,7 @@ function Invoke-Main {
         # '4. Done'. The reads are made only here, so every other message costs nothing extra.
         $done = ''
         if (($research -or $measure -or $alreadyFixed) -and $sections) {
-            $configText = ''
-            $configPath = if ($RepoConfigPath) { $RepoConfigPath } else { Join-Path $PSScriptRoot '../../scripts/repo-config.ps1' }
-            if (Test-Path -LiteralPath $configPath -PathType Leaf) {
-                $configText = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $configPath).ProviderPath)
-            }
-            $resolved = Resolve-DoneSectionName -Gid $decision.Gid -Code (Get-RepoStageCode -ConfigText $configText) -Pat $AsanaPat
+            $resolved = Resolve-DoneSectionName -Gid $decision.Gid -Code (Get-RepoStageCode -ConfigText (Read-RepoConfigText)) -Pat $AsanaPat
             $done = $resolved.Name
             Write-Host "Done section for the closing ask: $(if ($done) { 'named' } else { 'not named' }) -- $($resolved.Why)."
         }
@@ -1306,6 +1422,31 @@ function Invoke-Main {
     }
     $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped -Held $held -Research $research -Measure $measure -AlreadyFixed $alreadyFixed
     Write-Host "Asana task $($decision.Gid) told: $IssueRef is closed, $with ($($decision.Why)). The task was NOT completed -- that is the requester's call."
+
+    # THE CARD FOLLOWS THE MESSAGE INTO REVIEW (#3248, Maikel, October 21, 2026): the intro says 'this Asana
+    # task is now in review', and the card stayed wherever a person last left it. One move, on this one
+    # event -- a completed close that carried this round's block -- and only after the message went out,
+    # so a skipped or refused move never costs the requester the message. A close without a block, a
+    # by-hand close (returned above), a not-planned close and a reopen never move the card.
+    if ($sections) {
+        $configText = Read-RepoConfigText
+        $target = Resolve-ReviewMoveSection -Gid $decision.Gid -InReviewCode (Get-RepoStageCode -ConfigText $configText -Stage 'InReview') `
+            -CompletedCode (Get-RepoStageCode -ConfigText $configText) -Pat $AsanaPat
+        if (-not $target.SectionGid) {
+            Write-Host "The card was NOT moved: $($target.Why)."
+            return
+        }
+        $move = New-AsanaMoveRequest -Gid $decision.Gid -SectionGid $target.SectionGid
+        try {
+            Invoke-RestMethod -Method $move.Method -Uri $move.Uri -Headers $headers `
+                -Body ([System.Text.Encoding]::UTF8.GetBytes([string]$move.Body)) | Out-Null
+            Write-Host "The card was moved to the InReview section ($($target.Why))."
+        } catch {
+            $status = $null
+            if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+            Write-Host "The card was NOT moved: Asana refused the move (HTTP $(if ($status) { $status } else { 'status unknown' }))."
+        }
+    }
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
