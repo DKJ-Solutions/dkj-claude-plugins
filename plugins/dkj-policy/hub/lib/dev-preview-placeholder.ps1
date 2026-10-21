@@ -108,6 +108,8 @@ function Format-DevPreviewPlaceholderHtml {
     [void]$sb.AppendLine('<h1>Repo hub</h1>')
     [void]$sb.AppendLine('<p class="lead">This repo states no dev preview of its own yet, so the dev-preview hook serves this placeholder in its place.</p>')
     [void]$sb.AppendLine('</div>')
+    # The general banner (#3250), the same on every Repo hub, directly under the intro.
+    [void]$sb.AppendLine((Format-RepoHubBanner))
 
     # Block 7, Pages: the general pages, and in a DKJ-Solutions repo the DKJ-Solutions ones beside them.
     [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false))
