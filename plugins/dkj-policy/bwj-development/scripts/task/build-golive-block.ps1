@@ -108,6 +108,14 @@
     accepts as this round's block and the closed message reads as 'post nothing'. It refuses every
     other form's parameters and -ProseFile, and skips the pull-request check like -Research.
 
+    AND A CHANGE WITH NO STOREFRONT RESULT KEEPS THE GO-LIVE FORM, WITHOUT A LINK: -NoStorefrontResult
+    (#3236). Infrastructure, a deploy route, an admin-only setting: the repo changed and goes live, so
+    neither -Research ('Nothing has changed') nor -Measure fits, and with no form for it a session passed
+    a pull request and a release URL as -Link -- measured in smartwatchbanden (#945, #244), where both
+    reached the requester as the result to look at. The block says instead that nothing changes for
+    customers, carries the [where] prose (where it does show) under that, and asks for a read rather
+    than a look. It refuses -Link and -Path, and a github.com -Link is refused in every form.
+
     A RESULT BLOCK WITHOUT -LiveSince CARRIES Get-AsanaReleaseBlockMarker (#3069): it names a planned
     release day, so its result is visible only once that release is out, and the closed line -- in the
     block and in the closed message -- says so under the intro.
@@ -131,8 +139,15 @@
     Where the result can be seen, openable by the requester WITHOUT an account -- a storefront preview
     URL (Get-MarketPreviewUrls), a live page, whatever the ticket was about. NOT the preview handover
     page: a claude.ai Artifact is private to its owner, so it is refused (issue #2341) unless
-    -AllowPrivateLink says it has been shared. Omitted, the block simply does not carry that sentence;
-    it is never replaced by a placeholder.
+    -AllowPrivateLink says it has been shared. NOT a github.com URL either -- a pull request, release or
+    commit is not a result the requester looks at (#3236): that change takes -NoStorefrontResult.
+    Omitted, the block simply does not carry that sentence; it is never replaced by a placeholder.
+
+.PARAMETER NoStorefrontResult
+    The go-live form for a change that shows nothing on the storefront (#3236): no link, a fixed
+    sentence that nothing changes for customers, the [where] prose for where it does show (the admin, a
+    setting), and an ask that points at the prose. No release marker, since nothing becomes visible with
+    the release. Refuses -Link, -Path, -Research, -Measure and -ByHand; -LiveSince and -Version stay.
 
 .PARAMETER AllowPrivateLink
     Accept a claude.ai Artifact URL as -Link anyway -- for a page that has actually been shared with the
@@ -248,6 +263,7 @@ param(
     [switch]$Research,
     [switch]$Measure,
     [switch]$ByHand,
+    [switch]$NoStorefrontResult,
     [string]$Story,
     [string]$OutFile,
     [switch]$Post,
@@ -274,6 +290,7 @@ $ProseArg    = $ProseFile
 $ResearchArg = [bool]$Research
 $MeasureArg  = [bool]$Measure
 $ByHandArg   = [bool]$ByHand
+$NoStorefrontArg = [bool]$NoStorefrontResult
 $StoryArg    = $Story
 # THE GO-LIVE PARAMETERS A RESEARCH BLOCK REFUSES (#3004): each describes a result on the store, and a
 # research ticket has none, so a value passed for one is a sign the wrong form was asked for.
@@ -367,6 +384,15 @@ if ((Test-PrivateResultLink -Link $LinkArg) -and -not $AllowPrivateLink) {
     Write-Host "        -AllowPrivateLink once the page has actually been shared with them. Nothing written." -ForegroundColor Red
     exit 1
 }
+# A REPO ARTIFACT IS NO RESULT EITHER (#3236), and no valve passes it: a pull request, a release or a
+# commit is what was done, not something the requester looks at -- and not every requester can open the
+# repo. A change with nothing on the storefront takes -NoStorefrontResult instead.
+if (Test-RepoArtifactLink -Link $LinkArg) {
+    Write-Host "[ERROR] -Link is a github.com URL ($LinkArg) -- a pull request, release or commit is not a result" -ForegroundColor Red
+    Write-Host "        the requester can look at. Pass the storefront page where it shows, or, for a change that" -ForegroundColor Red
+    Write-Host "        shows nothing on the storefront, -NoStorefrontResult with a [where] section. Nothing written." -ForegroundColor Red
+    exit 1
+}
 
 # --- The session's prose ----------------------------------------------------------------------------
 # READ AS UTF-8 AND REFUSED WHOLE ON A FORMAT ERROR: a section line the parser does not know would
@@ -392,6 +418,19 @@ if ($ProseArg) {
 $measureProse = @(@('Measure', 'Targets', 'Baseline', 'MeasureWhen') | Where-Object { @($prose[$_]).Count -gt 0 })
 # THE BY-HAND RECORD (#3183) CARRIES NO PROSE AT ALL: the message it records is already on the task, so a
 # section written for it would reach nobody.
+# -NoStorefrontResult IS A VARIANT OF THE GO-LIVE FORM (#3236), so it takes that form's prose and its
+# date, and refuses the other forms and the two parameters that point at the storefront.
+if ($NoStorefrontArg) {
+    if ($ResearchArg -or $MeasureArg -or $ByHandArg) {
+        Write-Host "[ERROR] -NoStorefrontResult is the go-live form for a change that shows nothing on the storefront; -Research, -Measure and -ByHand are other forms. Pass one. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    $storefrontArgs = @(foreach ($name in @('Link', 'Path')) { if ($PSBoundParameters.ContainsKey($name)) { $name } })
+    if ($storefrontArgs.Count -gt 0) {
+        Write-Host "[ERROR] -NoStorefrontResult says nothing shows on the storefront, so -$($storefrontArgs -join ', -') has nothing to point at. Put where it does show under [where]. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+}
 if ($StoryArg -and -not $ByHandArg) {
     Write-Host "[ERROR] -Story names the Asana story of a closed message posted by hand, which only -ByHand records. Nothing written." -ForegroundColor Red
     exit 1
@@ -641,7 +680,7 @@ if ($ByHandArg) {
     $block = Format-GoLiveBlock -Marker (Get-AsanaPasteBlockMarker) -IssueRef $targetRef `
         -GoLiveDate $goLiveText -ResultLink $LinkArg -Version $resolvedVersion -LiveUrl $liveUrls `
         -Language $LanguageArg -Changed $prose.Changed -WhereToLook $prose.WhereToLook -NotIncluded $prose.NotIncluded `
-        -AsanaLink $asanaLink -Live:$isLive -ReleaseMarker (Get-AsanaReleaseBlockMarker)
+        -AsanaLink $asanaLink -Live:$isLive -ReleaseMarker (Get-AsanaReleaseBlockMarker) -NoStorefront:$NoStorefrontArg
 }
 
 Write-Host ""
@@ -689,9 +728,14 @@ if ($resultForm -and @($prose.Changed).Count -eq 0) {
     Write-Host "[WARNING] No [changed] section in -ProseFile, so the block does not say what changed -- the" -ForegroundColor Yellow
     Write-Host "          first thing its reader looks for. That prose is the session's to write, not the script's." -ForegroundColor Yellow
 }
-if ($resultForm -and -not $LinkArg) {
+if ($resultForm -and -not $LinkArg -and -not $NoStorefrontArg) {
     Write-Host "[WARNING] No -Link given, so the block names no result to look at. It writes no" -ForegroundColor Yellow
-    Write-Host "          placeholder on purpose -- pass -Link once you know where the result can be seen." -ForegroundColor Yellow
+    Write-Host "          placeholder on purpose -- pass -Link once you know where the result can be seen, or" -ForegroundColor Yellow
+    Write-Host "          -NoStorefrontResult where nothing shows on the storefront. Never a pull request or release URL." -ForegroundColor Yellow
+}
+if ($NoStorefrontArg -and @($prose.WhereToLook).Count -eq 0) {
+    Write-Host "[WARNING] No [where] section, so the block says only that nothing changes for customers. Where it" -ForegroundColor Yellow
+    Write-Host "          does show -- the admin, a setting -- is the session's to write, if anywhere." -ForegroundColor Yellow
 }
 
 if (-not $PostArg) {

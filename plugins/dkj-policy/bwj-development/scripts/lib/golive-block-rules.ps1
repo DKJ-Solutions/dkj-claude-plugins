@@ -168,6 +168,36 @@ function Test-PrivateResultLink {
     return [bool]($Link -match '^(https?://)?(www\.)?claude\.ai/(code/)?artifact/')
 }
 
+function Test-RepoArtifactLink {
+    <#
+        Pure: true where -Link is a github.com URL -- a pull request, a release, a commit, a file in the
+        repo. None of those is a result the requester looks at.
+
+        ISSUE #3236 (measured in BWJ-Development/smartwatchbanden, #945 and #244, October 21, 2026). Two
+        infrastructure issues had no storefront result, the driver warned that the block named none, and
+        the session passed what it had: a release URL and a pull request URL. Both reached Asana as 'Het
+        resultaat is hier te bekijken: <url>'. The requester's answer: a PR is not a result anyone can
+        look at, and not every requester can open the repo at all (the -Research rule, #3004). The
+        remedy is -NoStorefrontResult, not a link.
+
+        THE HOST IS PARSED, NOT MATCHED AS TEXT, so a port, a user name, a query or fragment straight
+        after the host, a trailing dot or surrounding spaces do not walk around it (review of #3236).
+        github.com and every subdomain (gist, api) count, and so does githubusercontent.com; github.io (a
+        Pages site) is a different host and does not.
+    #>
+    param([AllowEmptyString()][string]$Link)
+    $text = ([string]$Link).Trim()
+    if (-not $text) { return $false }
+    if ($text -notmatch '^[a-zA-Z][a-zA-Z0-9+.-]*://') { $text = 'https://' + ($text -replace '^/+', '') }
+    $uri = $null
+    if (-not [System.Uri]::TryCreate($text, [System.UriKind]::Absolute, [ref]$uri)) { return $false }
+    $hostName = $uri.Host.ToLowerInvariant().TrimEnd('.')
+    foreach ($domain in @('github.com', 'githubusercontent.com')) {
+        if ($hostName -eq $domain -or $hostName.EndsWith(".$domain")) { return $true }
+    }
+    return $false
+}
+
 function Get-StoreAdminPrerequisiteMarker {
     <#
         Pure: the marker of the store-admin checklist on an issue (#2885).
@@ -302,6 +332,8 @@ function Get-GoLiveBlockText {
             LiveSinceVer = 'It has been live since {0}, as version v{1}.'
             LiveNow      = 'You can see it live here:'
             AskLookLive  = 'Look at the result yourself, at the link above. It is already live, so what you see is what a customer sees.'
+            NoStorefront = 'Nothing changes for customers: this change does not show on the storefront.'
+            AskNoStorefront = 'There is nothing to look at on the storefront, because nothing changes for customers. Above you can read what is different now.'
             AskYes       = 'Is it right? Say so, and tick off this task.'
             AskNo        = 'Is it not? Then we would like to hear two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.'
         }
@@ -333,6 +365,8 @@ function Get-GoLiveBlockText {
         LiveSinceVer = 'Het staat live sinds {0}, als versie v{1}.'
         LiveNow      = 'Je ziet het hier live:'
         AskLookLive  = 'Bekijk het resultaat zelf, via de link hierboven. Het staat al live, dus wat je ziet is wat een klant ziet.'
+        NoStorefront = 'Voor klanten verandert er niets: op de storefront is deze wijziging niet te zien.'
+        AskNoStorefront = 'Op de storefront is niets te bekijken, want voor klanten verandert er niets. Lees hierboven wat er nu anders is.'
         AskYes       = 'Klopt het: laat het weten en vink deze taak af.'
         AskNo        = "Klopt het niet, dan horen we graag twee dingen: wat er niet goed is, ${e}n wat er precies anders moet. Dan pakken we het opnieuw op in een volgende ronde."
     }
@@ -429,16 +463,21 @@ function Get-GoLiveBlockAsk {
 
         -Live: THE CHANGE IS ALREADY LIVE (#2943), so 'the last moment before a customer sees it' is
         false. The look still closes the task; only the sentence about the release goes.
+
+        -NoStorefront: THERE IS NO RESULT ON THE STOREFRONT TO LOOK AT (#3236), and no link either, so
+        the ask is written all the same: the requester still answers it, and 'what you see is what a
+        customer sees' would be false. It sends them to the prose above instead of to a link.
     #>
     param(
         [string]$ResultLink,
         [ValidateSet('nl', 'en')][string]$Language = 'nl',
         [hashtable]$Text,
-        [switch]$Live
+        [switch]$Live,
+        [switch]$NoStorefront
     )
-    if (-not $ResultLink) { return @() }
+    if (-not $ResultLink -and -not $NoStorefront) { return @() }
     $t = if ($Text) { $Text } else { Get-GoLiveBlockText -Language $Language }
-    $look = if ($Live) { $t.AskLookLive } else { $t.AskLook }
+    $look = if ($NoStorefront) { $t.AskNoStorefront } elseif ($Live) { $t.AskLookLive } else { $t.AskLook }
     return @('', $t.Ask, '', $look, '', $t.AskYes, '', $t.AskNo)
 }
 
@@ -596,6 +635,15 @@ function Format-GoLiveBlock {
         marker is) sits beside the marker so the closed message can say the same. Omitted, the block
         carries no second marker and the closed message keeps its plain reopen line.
 
+        -NoStorefront: THE CHANGE HAS NO STOREFRONT RESULT AT ALL (#3236) -- infrastructure, a deploy
+        route, an admin-only setting. Measured in BWJ-Development/smartwatchbanden (#945, #244, October
+        21, 2026): with no form for it, a session passed a pull request and a release URL as the result,
+        and the requester read 'Het resultaat is hier te bekijken: <PR>' above 'wat je ziet is wat een
+        klant ziet'. So 'where to look' opens with a fixed sentence that nothing changes for customers,
+        the session's [where] prose (where it does show, in the admin) follows it, and the ask points at
+        the prose. It never carries -ReleaseMarker either: 'it becomes visible with the release' is the
+        one thing such a change never does. The driver refuses -ResultLink and -LiveUrl beside it.
+
         THE LIVE LIST IS READ BEFORE THE RELEASE, AND A BARE URL LIES THEN (#2477). The result link is
         normally a storefront PREVIEW, which sets a per-domain cookie, and a bare storefront URL keeps
         rendering that preview once it has been opened -- the trap PREVIEW-portable.md measured. So a
@@ -625,14 +673,20 @@ function Format-GoLiveBlock {
         # What the driver resolved the issue's Asana link to (#2918); the lead follows it.
         [ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked',
         [switch]$Live,
-        [string]$ReleaseMarker = ''
+        [string]$ReleaseMarker = '',
+        [switch]$NoStorefront
     )
 
+    if ($NoStorefront -and ($ResultLink -or @($LiveUrl | Where-Object { $_ }).Count -gt 0)) {
+        throw '-NoStorefront says nothing shows on the storefront, so a -ResultLink or -LiveUrl beside it has nothing to point at.'
+    }
     $t    = Get-GoLiveBlockText -Language $Language
     $dash = [string][char]0x2014
+    # Visible only after the release: a planned day, and something on the storefront to become visible.
+    $afterRelease = -not $Live -and -not $NoStorefront
 
     $lines = @($Marker)
-    if (-not $Live -and $ReleaseMarker) { $lines += $ReleaseMarker }
+    if ($afterRelease -and $ReleaseMarker) { $lines += $ReleaseMarker }
     $lines += @(
         '',
         (Get-GoLiveBlockLead -AsanaLink $AsanaLink),
@@ -640,7 +694,7 @@ function Format-GoLiveBlock {
         '---',
         $t.Header,
         '',
-        (Format-GoLiveClosedLine -IssueRef $IssueRef -Text $t -AfterRelease:(-not $Live))
+        (Format-GoLiveClosedLine -IssueRef $IssueRef -Text $t -AfterRelease:$afterRelease)
     )
 
     # One section: a blank line, the heading, a blank line, then its paragraphs a blank line apart.
@@ -653,7 +707,8 @@ function Format-GoLiveBlock {
 
     # WHERE TO LOOK COMES FIRST (Dave, #2700): it is what the requester acts on, so it leads.
     $whereParas = @()
-    if ($ResultLink) { $whereParas += ($t.ResultLink -f $ResultLink) }
+    if ($NoStorefront) { $whereParas += $t.NoStorefront }
+    elseif ($ResultLink) { $whereParas += ($t.ResultLink -f $ResultLink) }
     $whereParas += @($WhereToLook | Where-Object { $_ -and $_.Trim() })
     if ($whereParas.Count -gt 0) { $lines += & $addSection $t.Where $whereParas }
 
@@ -679,7 +734,7 @@ function Format-GoLiveBlock {
     $notParas = @($NotIncluded | Where-Object { $_ -and $_.Trim() })
     if ($notParas.Count -gt 0) { $lines += & $addSection $t.NotIncluded $notParas }
 
-    $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink -Text $t -Live:$Live
+    $lines += Get-GoLiveBlockAsk -ResultLink $ResultLink -Text $t -Live:$Live -NoStorefront:$NoStorefront
     # THE BLANK LINE BEFORE THE CLOSING RULE IS LOAD-BEARING (#2701): a text line directly above '---'
     # is a setext H2 in Markdown, so without it GitHub rendered the block's last paragraph as a heading.
     $lines += ''
