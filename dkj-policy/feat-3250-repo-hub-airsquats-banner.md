@@ -60,7 +60,7 @@ A visible result, so the branch stops for the owner's look and opens no PR.
 
 - [x] `Format-RepoHubBanner` (markup and inline script) in `plugins/dkj-policy/hub/lib/general-pages-lib.ps1`
 - [x] called under the intro in `scripts/lib/dev-pages-lib.ps1` and `plugins/dkj-policy/hub/lib/dev-preview-placeholder.ps1`
-- [ ] The owner's look at the preview; then the Repo hub table in the house-style README gets the block
+- [x] The owner's look at the preview (approved, October 21, 2026); then the Repo hub table in the house-style README gets the block, as row 6a
 
 ### TEST
 
