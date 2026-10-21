@@ -28,7 +28,7 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.27.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `5e1708445b7cc7d6ba6fe954f5ea399f35325aaadb07c3dd3ebbf28a1fd39206` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.27.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `78950c55b1c49b7fa364b1da2a76f6631beb0d4138d45a00d151125fef0d237d` |
 | `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.27.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
@@ -63,15 +63,18 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    way it is a copy of the house-style file, never a retyped version. An app that offers a theme choice
    uses `DKJTheme.settings(el)` from that script, the round settings button with the picker inside,
    instead of building its own toggle around `DKJTheme.picker`; the README has its options.
-   **A Repo hub** (the index of a repo's dev server, called the Repo dashboard until v0.3.0; the dkj-policy plugin serves one in every repo that does not opt out, with the repo's own server as its Product card, #3245) **takes the
-   one form the README lays down under "Page patterns", "The Repo hub"**: its blocks, their order and the
-   fixed `h1`, with only the content the repo's own. A repo with pages of its own links them from its
-   **Pages** card. A repo without a build starts from
-   [`patterns/repo-dashboard.html`](../../assets/house-style/patterns/repo-dashboard.html)
-   in this plugin's `assets/house-style/`, which carries no CSS of its own
+   **A Repo hub** (a repo's dev server's home page on `/` and its About this repo page on `/about`, #3270;
+   the dkj-policy plugin serves one in every repo that does not opt out, with the repo's own server in its
+   Products section, #3245) **takes the one form the README lays down under "Page patterns", "The Repo
+   hub"**: its blocks and their order, with only the content the repo's own. The home page is a portal:
+   the repo's name as its `h1`, its products, one link to About this repo, and the Brand book; the repo's
+   own pages, the general ones and its facts are on About this repo. A repo without a build starts from
+   [`patterns/repo-dashboard.html`](../../assets/house-style/patterns/repo-dashboard.html) and
+   [`patterns/repo-about.html`](../../assets/house-style/patterns/repo-about.html)
+   in this plugin's `assets/house-style/`, which carry no CSS of their own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
-   **Every page a repo's dev server serves opens with the breadcrumb bar**, the Repo hub and the
-   product alike, its trail starting at **Repo hub**, as the README lays it down under "Page
+   **Every page a repo's dev server serves opens with the breadcrumb bar**, the home page and the
+   product alike, its trail starting at **Home**, as the README lays it down under "Page
    patterns", "Every page: the breadcrumb bar"
    ([#3088](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3088)).
 2. **Add the repo's own layer after it, in a separate block or file.** Domain colours and components go

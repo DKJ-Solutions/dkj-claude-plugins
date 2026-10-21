@@ -81,7 +81,7 @@ function Format-GeneralPageHtml {
     <#
         The whole page around -Body. -Title is the page's own name: the last crumb, the h1 and the
         <title> (after -SiteName). -Eyebrow is the line over the h1, the repo's name. -HubHref is where
-        the first crumb, "Repo hub", goes: '/hub' on the general server, which sends the visitor on to the
+        the first crumb, "Home" (the repo's home page on '/', #3270), goes: '/hub' on the general server, which sends the visitor on to the
         repo's own hub -- or, where a hub relays these pages from its own origin, '/hub' on that hub, which
         answers it itself (#3168). -Style is the page's own layer, names the house file does not define. -Lead and
         -FooterNote are markup the caller has escaped.
@@ -121,7 +121,7 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
-    [void]$sb.AppendLine('<li><a href="' + (& $e $HubHref) + '">Repo hub</a></li>')
+    [void]$sb.AppendLine('<li><a href="' + (& $e $HubHref) + '">Home</a></li>')
     [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">' + (& $e $Title) + '</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')
     [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
@@ -230,7 +230,8 @@ function Format-GeneralPagesCardHtml {
         visitor stays on the hub's origin and its theme choice. -Pages, -Heading and -HeadSub let the
         DKJ-Solutions card (dkj-solutions-pages-lib.ps1) be the same card with other rows. -LocalPages are
         pages the hub serves ITSELF (the source repo's DKJ repos page, #3231): linked by their bare path after
-        the server's rows, and drawn whether or not the general pages server answers.
+        the server's rows, and drawn whether or not the general pages server answers. -Title is the h2 of a
+        card standing alone, '<Heading> pages' when not given (the home page's Brand book section, #3270).
     #>
     param(
         [AllowEmptyString()][string]$PagesUrl = '',
@@ -239,7 +240,8 @@ function Format-GeneralPagesCardHtml {
         [switch]$SameOrigin,
         [string]$Heading = 'General',
         [string]$HeadSub = 'Not specific to this repo: every repo has them',
-        [object[]]$LocalPages = @()
+        [object[]]$LocalPages = @(),
+        [AllowEmptyString()][string]$Title = ''
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $base = ''
@@ -252,7 +254,8 @@ function Format-GeneralPagesCardHtml {
         [void]$sb.AppendLine('<div class="card__head"><h3>' + (& $e $Heading) + '</h3>' + $headSub + '</div>')
     } else {
         [void]$sb.AppendLine('<div class="grid-2">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>' + (& $e $Heading) + ' pages</h2>' + $headSub + '</div>')
+        $h2 = if ($Title) { $Title } else { $Heading + ' pages' }
+        [void]$sb.AppendLine('<div class="grid__head"><h2>' + (& $e $h2) + '</h2>' + $headSub + '</div>')
         [void]$sb.AppendLine('<section class="card grid__full">')
     }
     $rows = @()
@@ -271,6 +274,47 @@ function Format-GeneralPagesCardHtml {
     }
     [void]$sb.AppendLine('</section>')
     if (-not $InRow) { [void]$sb.AppendLine('</div>') }
+    return $sb.ToString()
+}
+
+function Format-RepoHomeHeadHtml {
+    <#
+        The top of a repo's home page on '/' (#3270), the same in every hub: the breadcrumb bar with its one
+        crumb, Home; the settings button; and the opening of <main> with the intro, whose h1 is the repo's
+        name (-RepoName, escaped by the caller) and whose lead (-Lead, markup the caller escaped) is what the
+        repo is for. No eyebrow: the h1 already names the repo. The general banner (#3250) follows the intro.
+        The caller writes the <head> before it and the sections and </main> after it.
+    #>
+    param([Parameter(Mandatory = $true)][string]$RepoName, [Parameter(Mandatory = $true)][string]$Lead)
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
+    [void]$sb.AppendLine('<li><span aria-current="page">Home</span></li>')
+    [void]$sb.AppendLine('</ol></nav></div></div>')
+    [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
+    [void]$sb.AppendLine('<main class="page-column">')
+    # The intro is a <div>, never a <header>, which the house style lays out as a flex row.
+    [void]$sb.AppendLine('<div>')
+    [void]$sb.AppendLine('<h1>' + $RepoName + '</h1>')
+    [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
+    [void]$sb.AppendLine('</div>')
+    [void]$sb.AppendLine((Format-RepoHubBanner))
+    return $sb.ToString()
+}
+
+function Format-RepoAboutLinkHtml {
+    <#
+        The home page's About this repo section (#3270): one row to /about, the page that holds everything
+        about the repo itself -- its pages, the general ones and its facts -- so the home page stays a portal.
+    #>
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<div class="grid-2">')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2><p class="card__sub">The repo itself rather than what it offers</p></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
+    [void]$sb.AppendLine('<nav class="menu-list" aria-label="About this repo">')
+    [void]$sb.AppendLine('<a class="menu-item" href="/about"><span class="menu-item__label">About this repo<span class="menu-item__sub">Its pages, the general pages every repo has, and its facts</span></span>' + $script:RepoHubChevron + '</a>')
+    [void]$sb.AppendLine('</nav>')
+    [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
     return $sb.ToString()
 }
 
@@ -972,7 +1016,7 @@ function Format-ReleaseNotesDevPage {
     <#
         The built release-notes page (#3108), as a dev server serves it: the house stylesheet and theme
         script, the breadcrumb bar and the settings button, put around the page build-release-notes-page.ps1
-        leaves in dkj-policy/releases/page/. -HubHref is where the "Repo hub" crumb goes ('/hub' on the
+        leaves in dkj-policy/releases/page/. -HubHref is where the "Home" crumb goes ('/hub' on the
         general server).
 
         ONLY THIS COPY, NOT THE TEMPLATE. The template is dkj-policy's, shared with every consumer --
@@ -1012,7 +1056,7 @@ function Format-ReleaseNotesDevPage {
     ) -join "`n"
     $bar = @(
         '<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>'
-        ('<li><a href="' + (& $e $HubHref) + '">Repo hub</a></li>')
+        ('<li><a href="' + (& $e $HubHref) + '">Home</a></li>')
         '<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">Release notes</span></li>'
         '</ol></nav></div></div>'
         '<div id="settings" class="theme-settings--floating"></div>'

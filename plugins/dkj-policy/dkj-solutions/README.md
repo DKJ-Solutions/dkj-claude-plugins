@@ -57,8 +57,8 @@ never enables this plugin. They are documented in
 
 **What stays here is the DKJ-Solutions card and the page it links, the Brandbook**:
 [`scripts/lib/dkj-solutions-pages-lib.ps1`](scripts/lib/dkj-solutions-pages-lib.ps1). The house style
-belongs to every DKJ-Solutions repo and to no other, so a hub shows that card, after General, only in a
-repo that enables this plugin, and the general pages server answers `/brandbook` only there. **The
+belongs to every DKJ-Solutions repo and to no other, so a hub shows that card, as its home page's Brand book
+section (#3270), only in a repo that enables this plugin, and the general pages server answers `/brandbook` only there. **The
 Brandbook is the source repo's `brandbook/` React app**, built by every release into this plugin's
 `assets/brandbook/` and served from there under `/brandbook/` (the owner's decision on
 [#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210), October 20, 2026, which retired
