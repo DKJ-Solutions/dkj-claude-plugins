@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**3 / 5 minor entries** <!-- pending-tally -->
+**4 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3237-shop-connector-myshopify-domain · 20261021-101927Z
+
+`check-shop-connector` no longer stops on every store with a custom primary domain (#3237). It took the
+`*.myshopify.com` domain from `get-shop-info`, whose `domain` is the custom domain and which has no
+`myshopify.com` field, so the comparison read as a mismatch on any store with a custom domain, even
+when the connector was bound to the right store. Step 2 now reads it with the read-only Admin GraphQL query
+`{ shop { myshopifyDomain } }`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A store repo whose session stopped at this check on the right store now passes it; nothing to do but
+take the release.
+
+**Score:** 3
+
+#### Pull Request
+
+check-shop-connector: read the myshopify.com domain through Admin GraphQL, not get-shop-info
+
+Plugins: dkj-subagents-shopify
+
+[PR #3240](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3240)
+
+---
 
 ### DEPLOY: fix/3236-golive-no-storefront-result · 20261021-100334Z
 
