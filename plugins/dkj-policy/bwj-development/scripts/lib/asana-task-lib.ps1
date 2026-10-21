@@ -158,6 +158,16 @@ function Get-AsanaMeasureBlockMarker {
     return '<!-- asana-paste-block-kind: measure -->'
 }
 
+function Get-AsanaAlreadyFixedBlockMarker {
+    <#
+        The second marker build-golive-block.ps1 -AlreadyFixed puts on a block for a ticket an earlier
+        release had already fixed (#3242): verified, and nothing changed in this round. Pure. The closed
+        message reads it to say so under the intro instead of the reopen line or 'Nothing has changed', and
+        to close with the already-fixed ask. A copy of it lives in templates/asana-closed-message.ps1.
+    #>
+    return '<!-- asana-paste-block-kind: already-fixed -->'
+}
+
 function Get-AsanaHandBlockMarker {
     <#
         The second marker build-golive-block.ps1 -ByHand puts on a block that records a closed message

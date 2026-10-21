@@ -53,6 +53,13 @@
         met? Move the task to '<done section>' and mark it as complete. Not met? Leave a comment with
         your measurement, and it becomes a new finding.' The done section is found as for research. The
         block carries Get-AsanaMeasureBlockMarker beside its own, and that marker wins over the others.
+      - A close as completed whose newest block is an ALREADY-FIXED block (build-golive-block.ps1
+        -AlreadyFixed, #3242): the header, the intro, 'Nothing was changed for this ticket: it was already
+        fixed by an earlier release. Check below that it holds for you.', the block's sections (when it
+        was fixed, where to look), and the closing ask: 'Does it hold for you? Move the task to '<done
+        section>' and mark it as complete. Still not right? Leave a comment on this task with what you
+        see, and it is picked up again.' The done section is found as for research. The block carries
+        Get-AsanaAlreadyFixedBlockMarker beside its own, and only the measurement marker wins over it.
       - A close as completed whose newest block is a BY-HAND block (build-golive-block.ps1 -ByHand,
         #3183): nothing, and the log says why. The requester approved a closed message in a form this
         file does not write, and somebody posted it on the task by hand; a second, fixed-form message
@@ -272,9 +279,13 @@ function Get-ClosedMessageSecondLine {
         plausible (smartwatchbanden#395). -Research wins over -AfterRelease: a research block has no
         release. -Measure (#3179) is a measurement block: the store changed and the effect is a number, so
         the line says nothing changes visibly and that the requester can measure it; it wins over both.
+        -AlreadyFixed (#3242) is a ticket an earlier release had fixed: nothing changed in this round, and
+        the line says why, so 'Nothing has changed' is never read as 'the bug is still there'. Only
+        -Measure wins over it.
     #>
-    param([switch]$Research, [switch]$AfterRelease, [switch]$Measure)
+    param([switch]$Research, [switch]$AfterRelease, [switch]$Measure, [switch]$AlreadyFixed)
     if ($Measure) { return 'Nothing changes visibly on the storefront. You can take a new measurement yourself, as described below.' }
+    if ($AlreadyFixed) { return 'Nothing was changed for this ticket: it was already fixed by an earlier release. Check below that it holds for you.' }
     if ($Research) { return 'Nothing has changed. Read the outcome below.' }
     if ($AfterRelease) { return 'It becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.' }
     return 'It can be reopened anytime when something is still not working as expected.'
@@ -307,6 +318,19 @@ function Get-ClosedMessageMeasureAsk {
     return "Is the target met? Mark the task as complete. $miss"
 }
 
+function Get-ClosedMessageAlreadyFixedAsk {
+    <#
+        Pure: the closing ask under an already-fixed close's sections (#3242), fixed and English on every
+        board like the asks beside it, and naming -DoneSection by the same rule. The requester checks that
+        the earlier fix holds for them: it does, and the task is complete; it does not, and their comment
+        puts the ticket back in development.
+    #>
+    param([AllowEmptyString()][string]$DoneSection = '')
+    $miss = 'Still not right? Leave a comment on this task with what you see, and it is picked up again.'
+    if ($DoneSection) { return "Does it hold for you? Move the task to '$DoneSection' and mark it as complete. $miss" }
+    return "Does it hold for you? Mark the task as complete. $miss"
+}
+
 function New-ClosedMessage {
     <#
         Pure: the closed comment as plain text -- the header, a blank line, the intro and the line under
@@ -317,9 +341,10 @@ function New-ClosedMessage {
         [Parameter(Mandatory = $true)][string]$IssueRef,
         [switch]$Research,
         [switch]$AfterRelease,
-        [switch]$Measure
+        [switch]$Measure,
+        [switch]$AlreadyFixed
     )
-    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageIntroTail)", (Get-ClosedMessageSecondLine -Research:$Research -AfterRelease:$AfterRelease -Measure:$Measure)) -join "`n")
+    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageIntroTail)", (Get-ClosedMessageSecondLine -Research:$Research -AfterRelease:$AfterRelease -Measure:$Measure -AlreadyFixed:$AlreadyFixed)) -join "`n")
 }
 
 function Get-PasteBlockSections {
@@ -457,6 +482,12 @@ function New-ClosedMessageHtml {
         changes visibly and the requester can measure it, a '- ' run becomes a list as in the research
         form, and the measurement ask follows (Get-ClosedMessageMeasureAsk), naming -DoneSection the same
         way. Also meaningful only beside sections.
+
+        -AlreadyFixed (#3242): the block is an already-fixed block, so the line under the intro says
+        nothing was changed for this ticket because an earlier release had fixed it, the sections are
+        carried as a result block's are, and the already-fixed ask follows
+        (Get-ClosedMessageAlreadyFixedAsk), naming -DoneSection the same way. Also meaningful only beside
+        sections, and only -Measure wins over it.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
@@ -464,6 +495,7 @@ function New-ClosedMessageHtml {
         [switch]$Research,
         [switch]$AfterRelease,
         [switch]$Measure,
+        [switch]$AlreadyFixed,
         [AllowEmptyString()][string]$DoneSection = ''
     )
 
@@ -471,12 +503,15 @@ function New-ClosedMessageHtml {
     $parts    = $IssueRef -split '#'
     $url      = "https://github.com/$($parts[0])/issues/$($parts[1])"
     $measure  = $Measure -and [bool]$BlockSections
-    $research = $Research -and [bool]$BlockSections -and -not $measure
-    $after    = $AfterRelease -and [bool]$BlockSections -and -not $measure
-    $second   = Get-ClosedMessageSecondLine -Research:$research -AfterRelease:$after -Measure:$measure
+    $fixed    = $AlreadyFixed -and [bool]$BlockSections -and -not $measure
+    $research = $Research -and [bool]$BlockSections -and -not $measure -and -not $fixed
+    $after    = $AfterRelease -and [bool]$BlockSections -and -not $measure -and -not $fixed
+    $second   = Get-ClosedMessageSecondLine -Research:$research -AfterRelease:$after -Measure:$measure -AlreadyFixed:$fixed
     $html     = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>$(& $esc (Get-ClosedMessageIntroTail))`n$(& $esc $second)"
     if ($measure) {
         $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections -Lists) + "`n" + (& $esc (Get-ClosedMessageMeasureAsk -DoneSection $DoneSection))
+    } elseif ($fixed) {
+        $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) + "`n" + (& $esc (Get-ClosedMessageAlreadyFixedAsk -DoneSection $DoneSection))
     } elseif ($research) {
         $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections -Lists) + "`n" + (& $esc (Get-ClosedMessageAsk -DoneSection $DoneSection))
     } elseif ($BlockSections) { $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections) }
@@ -564,6 +599,14 @@ function Get-AsanaMeasureBlockMarker {
         of asana-task-lib.ps1's function of this name.
     #>
     return '<!-- asana-paste-block-kind: measure -->'
+}
+
+function Get-AsanaAlreadyFixedBlockMarker {
+    <#
+        Pure: the second marker build-golive-block.ps1 -AlreadyFixed puts on a block for a ticket an
+        earlier release had already fixed (#3242). A copy of asana-task-lib.ps1's function of this name.
+    #>
+    return '<!-- asana-paste-block-kind: already-fixed -->'
 }
 
 function Get-AsanaHandBlockMarker {
@@ -1042,6 +1085,8 @@ function Get-ClosedMessageBlockPhrase {
         [bool]$Research = $false,
         # The carried block is a measurement block (#3179).
         [bool]$Measure = $false,
+        # The carried block is an already-fixed block (#3242).
+        [bool]$AlreadyFixed = $false,
         # How many go-live block comments the trust check did not carry (#2907): a dropped block and an
         # absent one are different facts, and they used to share 'none was on the issue'.
         [int]$Dropped = 0,
@@ -1049,7 +1094,7 @@ function Get-ClosedMessageBlockPhrase {
         # reopen) or 'unread' (the reopen could not be read, so whether it does is unknown).
         [string]$Held = ''
     )
-    if ($Sections) { if ($Measure) { return "with the session's measurement block" } if ($Research) { return "with the session's research block" } return "with the session's go-live block" }
+    if ($Sections) { if ($Measure) { return "with the session's measurement block" } if ($AlreadyFixed) { return "with the session's already-fixed block" } if ($Research) { return "with the session's research block" } return "with the session's go-live block" }
     $owed = "; the message says the result message follows, which the task's assignee still owes the requester"
     if ($Held -eq 'stale') { return "without a go-live block -- the only one on the issue predates its last reopen, so it describes an earlier round$owed" }
     if ($Held -eq 'unread') { return "without a go-live block -- one was on the issue, but when the issue was last reopened could not be read (the gh error is above), so whether it is stale is unknown$owed" }
@@ -1183,10 +1228,12 @@ function Invoke-Main {
         $sections = if ($chosen) { Get-PasteBlockSections -Body $chosen } else { '' }
         # A MEASUREMENT BLOCK (#3179) is its own form, and is read first so it can never also read as research.
         $measure  = [bool]$chosen -and $chosen.Contains((Get-AsanaMeasureBlockMarker))
-        $research = [bool]$chosen -and -not $measure -and $chosen.Contains((Get-AsanaResearchBlockMarker))
+        # AN ALREADY-FIXED BLOCK (#3242) is read next, so it never also reads as research or as a release.
+        $alreadyFixed = [bool]$chosen -and -not $measure -and $chosen.Contains((Get-AsanaAlreadyFixedBlockMarker))
+        $research = [bool]$chosen -and -not $measure -and -not $alreadyFixed -and $chosen.Contains((Get-AsanaResearchBlockMarker))
         # A RESULT THAT IS VISIBLE ONLY AFTER THE RELEASE SAYS SO UNDER THE INTRO (#3069); a block from
         # before #3069 carries no such marker and keeps the plain reopen line.
-        $afterRelease = [bool]$chosen -and -not $research -and -not $measure -and $chosen.Contains((Get-AsanaReleaseBlockMarker))
+        $afterRelease = [bool]$chosen -and -not $research -and -not $measure -and -not $alreadyFixed -and $chosen.Contains((Get-AsanaReleaseBlockMarker))
 
         # A BLOCK FROM BEFORE THE LAST REOPEN IS NOT CARRIED (#2968). xoxowildhearts#414 closed after
         # round 1 with its block, was reopened, and closed again by the PR of round 2 -- whose block the
@@ -1209,7 +1256,7 @@ function Invoke-Main {
                     if ($verdict -eq 'stale') { $held = 'stale' }
                     elseif ($verdict -eq 'unknown') { $held = 'unread' }
                 }
-                if ($held) { $sections = ''; $research = $false; $afterRelease = $false; $measure = $false }
+                if ($held) { $sections = ''; $research = $false; $afterRelease = $false; $measure = $false; $alreadyFixed = $false }
             }
         }
         # A CLOSED MESSAGE POSTED BY HAND IS NOT POSTED AGAIN (#3183). The requester approved a message in a
@@ -1225,7 +1272,7 @@ function Invoke-Main {
         # A RESEARCH CLOSE NAMES THE BOARD'S OWN DONE SECTION IN ITS CLOSING ASK (#3017), never a fixed
         # '4. Done'. The reads are made only here, so every other message costs nothing extra.
         $done = ''
-        if (($research -or $measure) -and $sections) {
+        if (($research -or $measure -or $alreadyFixed) -and $sections) {
             $configText = ''
             $configPath = if ($RepoConfigPath) { $RepoConfigPath } else { Join-Path $PSScriptRoot '../../scripts/repo-config.ps1' }
             if (Test-Path -LiteralPath $configPath -PathType Leaf) {
@@ -1235,7 +1282,7 @@ function Invoke-Main {
             $done = $resolved.Name
             Write-Host "Done section for the closing ask: $(if ($done) { 'named' } else { 'not named' }) -- $($resolved.Why)."
         }
-        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research -AfterRelease:$afterRelease -Measure:$measure -DoneSection $done
+        $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research -AfterRelease:$afterRelease -Measure:$measure -AlreadyFixed:$alreadyFixed -DoneSection $done
     }
     $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
     # UTF-8 BYTES, not the string: Windows PowerShell 5.1 encodes a string body as ISO-8859-1, which
@@ -1257,7 +1304,7 @@ function Invoke-Main {
         Write-Host "Asana task $($decision.Gid) told: $IssueRef is on hold, closed as not planned while waiting for more information ($($decision.Why)). The card was NOT moved."
         return
     }
-    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped -Held $held -Research $research -Measure $measure
+    $with = Get-ClosedMessageBlockPhrase -Sections $sections -ReadOk $read.Ok -Dropped $dropped -Held $held -Research $research -Measure $measure -AlreadyFixed $alreadyFixed
     Write-Host "Asana task $($decision.Gid) told: $IssueRef is closed, $with ($($decision.Why)). The task was NOT completed -- that is the requester's call."
 }
 

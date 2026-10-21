@@ -191,7 +191,7 @@ function Get-LiveMessageVerdict {
     foreach ($c in $comments) { if (Test-AsanaPasteBlockBody -Body ([string]$c.Body)) { $chosen = $c } }
     $body = [string]$chosen.Body
     if (-not $body.Contains((Get-AsanaReleaseBlockMarker))) {
-        $why = if ($body.Contains((Get-AsanaHandBlockMarker))) { 'by-hand record -- its messages are written by hand (#3183)' } elseif ($body.Contains((Get-AsanaResearchBlockMarker))) { 'research block -- nothing went live' } elseif ($body.Contains((Get-AsanaMeasureBlockMarker))) { 'measurement block -- the requester measures it, nothing is told live (#3179)' } else { 'its block was not waiting on a release (-LiveSince, or written before #3069)' }
+        $why = if ($body.Contains((Get-AsanaHandBlockMarker))) { 'by-hand record -- its messages are written by hand (#3183)' } elseif ($body.Contains((Get-AsanaResearchBlockMarker))) { 'research block -- nothing went live' } elseif ($body.Contains((Get-AsanaMeasureBlockMarker))) { 'measurement block -- the requester measures it, nothing is told live (#3179)' } elseif ($body.Contains((Get-AsanaAlreadyFixedBlockMarker))) { 'already-fixed block -- the fix was live before this round (#3242)' } else { 'its block was not waiting on a release (-LiveSince, or written before #3069)' }
         return (& $no $why)
     }
     $lang = Get-LiveMessageLanguage -Sections (Get-PasteBlockSections -Body $body)

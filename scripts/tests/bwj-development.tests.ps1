@@ -605,6 +605,25 @@ Assert-Throws { Format-GoLiveMeasureBlock -Marker 'm' -MeasureMarker 'k' -IssueR
 Assert-True (Test-AsanaPasteBlockBody -Body $mbBlock) 'it is a block the closed message carries'
 Assert-True ((Get-PasteBlockSections -Body $rbBlock).StartsWith('OUTCOME')) 'and its carried sections start at the heading: the closed line is the message''s own'
 
+# THE ALREADY-FIXED BLOCK (#3242): a ticket an earlier release had fixed -- smartwatchbanden#1006, fixed by
+# #186 in v2.11.1 -- verified, with nothing changed in this round. It must never read as this round's result.
+$afProse = ConvertFrom-GoLiveProse -Text "[fixed]`nProductkaarten tonen weer een afbeelding.`n`n[where]`nOpen een collectiepagina."
+Assert-Equal 'Productkaarten tonen weer een afbeelding.' @($afProse.Fixed)[0] '[fixed] fills the already-fixed block''s own section'
+$afBlock = Format-GoLiveAlreadyFixedBlock -Marker (Get-AsanaPasteBlockMarker) -AlreadyFixedMarker (Get-AsanaAlreadyFixedBlockMarker) `
+    -IssueRef 'BWJ-Development/smartwatchbanden#1006' -FixedOn 'woensdag 15 juli 2026' -FixedIn 'v2.11.1' `
+    -ResultLink 'https://x.nl/collections/a' -Fixed $afProse.Fixed -WhereToLook $afProse.WhereToLook
+Assert-True ($afBlock.StartsWith("$(Get-AsanaPasteBlockMarker)`n$(Get-AsanaAlreadyFixedBlockMarker)`n")) 'the already-fixed block carries both markers, outside the rules'
+Assert-True ($afBlock.Contains("is now **closed**: this Asana task is now in review.`nNothing was changed for this ticket: it was already fixed by an earlier release. Check below that it holds for you.`n`nWANNEER HET IS OPGELOST`n`nHet is opgelost met de release van woensdag 15 juli 2026, als versie v2.11.1.`n`nProductkaarten tonen weer een afbeelding.`n`nTE BEKIJKEN OP`n`nKijk hier of het bij jou ook klopt: https://x.nl/collections/a`n`nOpen een collectiepagina.`n`n---")) 'the shared intro, the already-fixed line, then when it was fixed FIRST and where to look, a blank line before the closing rule'
+Assert-True ($afBlock -notmatch 'WAT ER NU ANDERS IS|WANNEER HET LIVE KOMT|resultaat is hier|Nothing has changed|reopened anytime|WAT WE VAN JE VRAGEN') 'and nothing that presents the earlier fix as this round''s work'
+Assert-True (Test-AsanaPasteBlockBody -Body $afBlock) 'it is a block the closed message carries'
+$afMin = Format-GoLiveAlreadyFixedBlock -Marker 'm' -AlreadyFixedMarker 'k' -IssueRef 'o/r#1' -FixedOn 'Wednesday 15 July 2026' -FixedIn '2.11.1' -Language en
+Assert-True ($afMin.Contains("`nWHEN IT WAS FIXED`n`nIt was fixed with the release of Wednesday 15 July 2026, as version v2.11.1.`n`n---") -and $afMin -notmatch 'WHERE TO LOOK') 'English, and without a link or [where] no where-to-look section is written'
+Assert-Throws { Format-GoLiveAlreadyFixedBlock -Marker 'm' -AlreadyFixedMarker 'k' -IssueRef 'o/r#1' -FixedOn 'x' -FixedIn 'next week' } 'a -FixedIn that is not X.Y.Z is refused'
+Assert-Throws { Format-GoLiveAlreadyFixedBlock -Marker 'm' -AlreadyFixedMarker 'k' -IssueRef 'o/r#1' -FixedOn ' ' -FixedIn '1.0.0' } 'and so is an empty -FixedOn'
+Assert-Equal '2.11.1' (ConvertTo-GoLiveFixedVersion -Version ' V2.11.1 ') 'the version drops a leading v and whitespace'
+Assert-Equal '' (ConvertTo-GoLiveFixedVersion -Version '2.11') 'and a two-part number is no release'
+Assert-True ((Get-PasteBlockSections -Body $afBlock).StartsWith('WANNEER HET IS OPGELOST')) 'its carried sections start at the heading: the already-fixed line is the message''s own'
+
 # THE BY-HAND RECORD (#3183): a closed message posted on the task by hand, recorded so the workflow posts nothing.
 $hbBlock = Format-GoLiveByHandBlock -Marker (Get-AsanaPasteBlockMarker) -HandMarker (Get-AsanaHandBlockMarker) -Date ([datetime]'2026-10-19') -Story '1219392256834173'
 Assert-True ($hbBlock.StartsWith("$(Get-AsanaPasteBlockMarker)`n$(Get-AsanaHandBlockMarker)`n")) 'the by-hand record carries both markers, outside the rules'
@@ -751,6 +770,34 @@ try {
     Assert-Equal 1 $LASTEXITCODE 'a -Story that is not digits is refused'
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 911 -Repo 'o/r' -Story 42 -RootOverride $glRoot 2>&1 | Out-Null
     Assert-Equal 1 $LASTEXITCODE '-Story without -ByHand is refused'
+
+    # -AlreadyFixed THROUGH -File (#3242): the string date binds, the block names the earlier release, and
+    # every input that would present it as this round's work is refused.
+    $glAfProse = Join-Path $glRoot 'fixed.md'
+    [System.IO.File]::WriteAllText($glAfProse, "[fixed]`nCards show one image again.`n`n[where]`nOpen a collection page.`n", (New-Object System.Text.UTF8Encoding $false))
+    $glAfOut = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 1006 -Repo 'o/r' -AlreadyFixed -FixedIn 'v2.11.1' -FixedOn '2026-07-15' `
+        -Link 'https://x.nl/collections/a' -ProseFile $glAfProse -Language en -RootOverride $glRoot 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with -AlreadyFixed exits 0'
+    Assert-True ($glAfOut.Contains("WHEN IT WAS FIXED`n`nIt was fixed with the release of Wednesday 15 July 2026, as version v2.11.1.`n`nCards show one image again.`n`nWHERE TO LOOK`n`nCheck here that it holds for you: https://x.nl/collections/a")) 'and prints the already-fixed block'
+    Assert-True ($glAfOut -notmatch 'go live  :|No \[changed\]|No -Link given') 'with no go-live half and no result warnings'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 1006 -Repo 'o/r' -AlreadyFixed -FixedOn '2026-07-15' -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-AlreadyFixed without -FixedIn is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 1006 -Repo 'o/r' -AlreadyFixed -FixedIn '2.11.1' -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-AlreadyFixed without -FixedOn is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 1006 -Repo 'o/r' -AlreadyFixed -FixedIn '2.11.1' -FixedOn $glFuture -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE 'a -FixedOn after today is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 1006 -Repo 'o/r' -AlreadyFixed -FixedIn '2.11.1' -FixedOn '2026-07-15' -LiveSince '2026-07-15' -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-AlreadyFixed beside -LiveSince is refused: nothing goes live in this round'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 1006 -Repo 'o/r' -AlreadyFixed -Research -FixedIn '2.11.1' -FixedOn '2026-07-15' -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-AlreadyFixed beside -Research is refused'
+    $glAfChanged = Join-Path $glRoot 'fixed-changed.md'
+    [System.IO.File]::WriteAllText($glAfChanged, "[changed]`nCards show one image again.`n", (New-Object System.Text.UTF8Encoding $false))
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 1006 -Repo 'o/r' -AlreadyFixed -FixedIn '2.11.1' -FixedOn '2026-07-15' -ProseFile $glAfChanged -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE 'a [changed] section beside -AlreadyFixed is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 1006 -Repo 'o/r' -FixedIn '2.11.1' -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-FixedIn without -AlreadyFixed is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 1006 -Repo 'o/r' -ProseFile $glAfProse -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE 'a [fixed] section without -AlreadyFixed is refused'
 
     # BARE EVEN WHERE THE SEAM NAMES A LIVE ID (#2619). A URL pinned to it reads as a preview link to the
     # colleague the block is for, so the seam the control half of a preview pair reads is not read here.
@@ -1373,6 +1420,20 @@ Assert-Equal 'Is the target met? Mark the task as complete. Not met? Leave a com
 Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -Measure) -match 'result message for this round follows') 'without a block -Measure says nothing it cannot know'
 Assert-Equal "with the session's measurement block" (Get-ClosedMessageBlockPhrase -Sections 'x' -Measure $true -Research $true) 'the log names the measurement block'
 
+# THE ALREADY-FIXED FORM (#3242): its sections under the already-fixed line, and its own ask.
+$cmAf = New-ClosedMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#1006' -BlockSections (Get-PasteBlockSections -Body $afBlock) -AlreadyFixed -DoneSection '4. Done'
+[void][xml]$cmAf
+Assert-True ($cmAf.Contains("is now <strong>closed</strong>: this Asana task is now in review.`nNothing was changed for this ticket: it was already fixed by an earlier release. Check below that it holds for you.`n`n<strong>WANNEER HET IS OPGELOST</strong>")) 'the already-fixed message opens with the shared intro and the already-fixed line'
+Assert-True ($cmAf.EndsWith("`nDoes it hold for you? Move the task to '4. Done' and mark it as complete. Still not right? Leave a comment on this task with what you see, and it is picked up again.</body>")) 'and it closes with the already-fixed ask, naming the done section'
+Assert-True ($cmAf -notmatch 'Nothing has changed|reopened anytime|still unclear|becomes visible') 'with nothing of the research or the result form'
+Assert-Equal 'Does it hold for you? Mark the task as complete. Still not right? Leave a comment on this task with what you see, and it is picked up again.' (Get-ClosedMessageAlreadyFixedAsk) 'without a done section the ask names none'
+Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'X' -AlreadyFixed -Research -AfterRelease) -match 'already fixed by an earlier release' -and (New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'X' -AlreadyFixed -Research -AfterRelease) -notmatch 'Nothing has changed|becomes visible') 'already-fixed wins over research and -AfterRelease'
+Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'X' -AlreadyFixed -Measure) -match 'Nothing changes visibly') 'and only the measurement form wins over it'
+Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -AlreadyFixed) -match 'result message for this round follows') 'without a block -AlreadyFixed says nothing it cannot know'
+Assert-True ((New-ClosedMessage -IssueRef 'o/r#1' -AlreadyFixed).EndsWith("in review.`nNothing was changed for this ticket: it was already fixed by an earlier release. Check below that it holds for you.")) 'the plain message carries the same two lines'
+Assert-Equal "with the session's already-fixed block" (Get-ClosedMessageBlockPhrase -Sections 'x' -AlreadyFixed $true -Research $true) 'the log names the already-fixed block'
+Assert-Equal (Format-GoLiveClosedLine -IssueRef 'o/r#1' -AlreadyFixed).Split("`n")[1] (Get-ClosedMessageSecondLine -AlreadyFixed) 'the block''s closed line and the message''s second line are the same words'
+
 # ONE INTRO, AND THE LINE UNDER IT TELLS THE FORMS APART (#3069).
 $cmRel = New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'TE BEKIJKEN OP' -AfterRelease
 [void][xml]$cmRel
@@ -1760,7 +1821,7 @@ $plGh = Get-FunctionSourceText -Path $plTemplate -Name 'Invoke-GhCapture'
 Assert-True ($null -ne $plGh) 'the prio template defines Invoke-GhCapture'
 Assert-Equal (Get-FunctionSourceText -Path $cmTemplate -Name 'Invoke-GhCapture') $plGh 'Invoke-GhCapture equals asana-closed-message.ps1''s'
 # #2968: the freshness judgement is copied into the template as well, and held equal to the lib's.
-foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections', 'Get-AsanaResearchBlockMarker', 'Get-AsanaReleaseBlockMarker', 'Get-AsanaMeasureBlockMarker', 'Get-AsanaHandBlockMarker')) {
+foreach ($fn in @('ConvertTo-AsanaInstant', 'Test-AsanaPasteBlockBody', 'Get-AsanaPasteBlockVerdict', 'Get-PasteBlockSections', 'Get-AsanaResearchBlockMarker', 'Get-AsanaReleaseBlockMarker', 'Get-AsanaMeasureBlockMarker', 'Get-AsanaHandBlockMarker', 'Get-AsanaAlreadyFixedBlockMarker')) {
     $mine = Get-FunctionSourceText -Path $cmTemplate -Name $fn
     Assert-True ($null -ne $mine) "the closed-message template defines $fn"
     Assert-Equal (Get-FunctionSourceText -Path $plLib -Name $fn) $mine "$fn equals asana-task-lib.ps1's, apart from its help comment"

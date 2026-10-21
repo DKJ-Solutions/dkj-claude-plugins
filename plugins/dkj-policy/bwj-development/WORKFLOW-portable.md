@@ -975,6 +975,13 @@ is with the colleague, while here the work itself is stalled on something only t
 is still an open item of ours, and belongs in the list where work is tracked. **Nor does the session
 remove the label**: whoever brings the answer does.
 
+**A fix you verified is not this exit.** Where the session re-measured the ticket and found it already
+fixed by an earlier release, with that release in hand, nothing is stalled and nothing is asked: it
+closes as completed with the `golive-block` skill's `-AlreadyFixed` form
+([#3242](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3242)), which names the earlier
+release and asks the requester to check that it holds. *"Could not reproduce it today"* without that
+release stays here.
+
 **Closing while waiting is the one sanctioned alternative** (Dave, October 3, 2026,
 [#2732](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2732)), for an owner who wants the
 waiting ticket off the open list. Close it as **not planned** and **keep the `awaiting-info-client` label

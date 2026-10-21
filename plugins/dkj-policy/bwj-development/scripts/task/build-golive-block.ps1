@@ -149,6 +149,23 @@
     setting), and an ask that points at the prose. No release marker, since nothing becomes visible with
     the release. Refuses -Link, -Path, -Research, -Measure and -ByHand; -LiveSince and -Version stay.
 
+.PARAMETER AlreadyFixed
+    Write the already-fixed form (#3242) for a ticket an earlier release had already fixed: verified, and
+    nothing changed in this round. Requires -FixedIn and -FixedOn. The block says under the intro that
+    nothing was changed for this ticket because an earlier release had fixed it, then WHEN IT WAS FIXED
+    (the release by day and version, and the [fixed] prose) and WHERE TO LOOK (-Link and the [where]
+    prose). Refuses the other forms, -Path, -Version, -LiveSince, -From and -ReleaseDay, and every prose
+    section but [fixed] and [where]. -Post skips the pull-request check, since nothing in this round has
+    one. Measured on smartwatchbanden#1006: closed with the go-live form for want of this one, it told the
+    requester there was a result to look at over a round that changed no code.
+
+.PARAMETER FixedIn
+    With -AlreadyFixed only: the version of the earlier release that fixed it, X.Y.Z (a leading 'v' is
+    dropped).
+
+.PARAMETER FixedOn
+    With -AlreadyFixed only: the day that release went live. A day after today is refused.
+
 .PARAMETER AllowPrivateLink
     Accept a claude.ai Artifact URL as -Link anyway -- for a page that has actually been shared with the
     requester. Deliberately not -Force: that valve answers the duplicate-block check, and passing it to
@@ -264,6 +281,9 @@ param(
     [switch]$Measure,
     [switch]$ByHand,
     [switch]$NoStorefrontResult,
+    [switch]$AlreadyFixed,
+    [string]$FixedIn,
+    [Nullable[datetime]]$FixedOn,
     [string]$Story,
     [string]$OutFile,
     [switch]$Post,
@@ -291,6 +311,10 @@ $ResearchArg = [bool]$Research
 $MeasureArg  = [bool]$Measure
 $ByHandArg   = [bool]$ByHand
 $NoStorefrontArg = [bool]$NoStorefrontResult
+$AlreadyFixedArg = [bool]$AlreadyFixed
+$FixedInArg  = $FixedIn
+$FixedOnArg  = $FixedOn
+$FixedArgsGiven = @(foreach ($name in @('FixedIn', 'FixedOn')) { if ($PSBoundParameters.ContainsKey($name)) { $name } })
 $StoryArg    = $Story
 # THE GO-LIVE PARAMETERS A RESEARCH BLOCK REFUSES (#3004): each describes a result on the store, and a
 # research ticket has none, so a value passed for one is a sign the wrong form was asked for.
@@ -397,7 +421,7 @@ if (Test-RepoArtifactLink -Link $LinkArg) {
 # --- The session's prose ----------------------------------------------------------------------------
 # READ AS UTF-8 AND REFUSED WHOLE ON A FORMAT ERROR: a section line the parser does not know would
 # otherwise drop the paragraph under it, and the block would ship without the part the session wrote.
-$prose = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @(); Measure = @(); Targets = @(); Baseline = @(); MeasureWhen = @() }
+$prose = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @(); Measure = @(); Targets = @(); Baseline = @(); MeasureWhen = @(); Fixed = @() }
 if ($ProseArg) {
     if (-not (Test-Path -LiteralPath $ProseArg -PathType Leaf)) {
         Write-Host "[ERROR] -ProseFile '$ProseArg' does not exist. Nothing written." -ForegroundColor Red
@@ -420,6 +444,46 @@ $measureProse = @(@('Measure', 'Targets', 'Baseline', 'MeasureWhen') | Where-Obj
 # section written for it would reach nobody.
 # -NoStorefrontResult IS A VARIANT OF THE GO-LIVE FORM (#3236), so it takes that form's prose and its
 # date, and refuses the other forms and the two parameters that point at the storefront.
+# -AlreadyFixed (#3242) IS ITS OWN FORM: a ticket an earlier release had fixed, verified, nothing changed in
+# this round. It takes the release that fixed it (-FixedIn, -FixedOn) instead of a go-live date, -Link to
+# check against, and the [fixed] and [where] prose only -- so nothing in it can present the earlier fix as
+# this round's work, which is what the go-live form did on smartwatchbanden#1006.
+if ($FixedArgsGiven.Count -gt 0 -and -not $AlreadyFixedArg) {
+    Write-Host "[ERROR] -$($FixedArgsGiven -join ', -') names the earlier release that fixed a ticket, which only -AlreadyFixed writes. Nothing written." -ForegroundColor Red
+    exit 1
+}
+if (@($prose.Fixed).Count -gt 0 -and -not $AlreadyFixedArg) {
+    Write-Host "[ERROR] -ProseFile has a [fixed] section, which only an already-fixed block carries. Pass -AlreadyFixed for a ticket an earlier release had fixed. Nothing written." -ForegroundColor Red
+    exit 1
+}
+if ($AlreadyFixedArg) {
+    if ($ResearchArg -or $MeasureArg -or $ByHandArg -or $NoStorefrontArg) {
+        Write-Host "[ERROR] -AlreadyFixed is the form for a ticket an earlier release had fixed; -Research, -Measure, -ByHand and -NoStorefrontResult are other forms. Pass one. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    $fixedConflicts = @(foreach ($name in @('Path', 'Version', 'LiveSince', 'From', 'ReleaseDay')) { if ($PSBoundParameters.ContainsKey($name)) { $name } })
+    if ($fixedConflicts.Count -gt 0) {
+        Write-Host "[ERROR] -AlreadyFixed names the earlier release with -FixedIn and -FixedOn, and nothing goes live in this round, so -$($fixedConflicts -join ', -') has nothing to describe. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    $otherProse = @(@('Changed', 'NotIncluded', 'Outcome', 'Measure', 'Targets', 'Baseline', 'MeasureWhen') | Where-Object { @($prose[$_]).Count -gt 0 })
+    if ($otherProse.Count -gt 0) {
+        Write-Host "[ERROR] -AlreadyFixed carries [fixed] and [where] only; -ProseFile also has another form's section. Nothing in this round changed, so there is no [changed] to write. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    if (-not (ConvertTo-GoLiveFixedVersion -Version $FixedInArg)) {
+        Write-Host "[ERROR] -AlreadyFixed needs -FixedIn, the version of the release that fixed it, as X.Y.Z. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    if ($null -eq $FixedOnArg) {
+        Write-Host "[ERROR] -AlreadyFixed needs -FixedOn, the day that release went live. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+    if (([datetime]$FixedOnArg).Date -gt (Get-Date).Date) {
+        Write-Host "[ERROR] -FixedOn $(([datetime]$FixedOnArg).ToString('yyyy-MM-dd')) is after today -- an earlier fix went live before this round. Nothing written." -ForegroundColor Red
+        exit 1
+    }
+}
 if ($NoStorefrontArg) {
     if ($ResearchArg -or $MeasureArg -or $ByHandArg) {
         Write-Host "[ERROR] -NoStorefrontResult is the go-live form for a change that shows nothing on the storefront; -Research, -Measure and -ByHand are other forms. Pass one. Nothing written." -ForegroundColor Red
@@ -495,7 +559,7 @@ Write-Host "== build-golive-block $targetRef ==" -ForegroundColor Cyan
 # A RESEARCH BLOCK HAS NO GO-LIVE HALF (#3004): nothing changed on the store, so there is no day it goes
 # live, no version and no page to list, and none of the three is worked out or printed. Nor has a
 # measurement block (#3179): what it reports is a number, not a release day or a page.
-if (-not $ResearchArg -and -not $MeasureArg -and -not $ByHandArg) {
+if (-not $ResearchArg -and -not $MeasureArg -and -not $ByHandArg -and -not $AlreadyFixedArg) {
     # --- The date ---------------------------------------------------------------------------------------
     # ALREADY LIVE IS A FACT THE SESSION STATES, NOT ONE THIS SCRIPT DERIVES (#2943). The next release day is
     # computed strictly after today, so an issue closing after its release -- or after a separate live push --
@@ -578,6 +642,11 @@ if (-not $ResearchArg -and -not $MeasureArg -and -not $ByHandArg) {
     } else {
         Write-Host "  live urls: none -- no -Path given" -ForegroundColor DarkGray
     }
+} elseif ($AlreadyFixedArg) {
+    # THE EARLIER RELEASE IS THE SESSION'S FACT, as -LiveSince is (#2943): this script cannot tell which
+    # release fixed a ticket, so it states what it was given and derives nothing.
+    $fixedOnText = Format-GoLiveDate -Date ([datetime]$FixedOnArg).Date -Language $LanguageArg
+    Write-Host "  fixed    : v$(ConvertTo-GoLiveFixedVersion -Version $FixedInArg), live since $fixedOnText -- nothing changed in this round (-AlreadyFixed)" -ForegroundColor DarkGray
 } elseif ($ByHandArg) {
     Write-Host "  by hand  : the closed message is already on the task -- the workflow posts nothing at the close (-ByHand)" -ForegroundColor DarkGray
 } elseif ($MeasureArg) {
@@ -673,6 +742,10 @@ if ($ByHandArg) {
     $block = Format-GoLiveMeasureBlock -Marker (Get-AsanaPasteBlockMarker) -MeasureMarker (Get-AsanaMeasureBlockMarker) `
         -IssueRef $targetRef -Measure $prose.Measure -Targets $prose.Targets -Baseline $prose.Baseline -When $prose.MeasureWhen `
         -Language $LanguageArg -AsanaLink $asanaLink
+} elseif ($AlreadyFixedArg) {
+    $block = Format-GoLiveAlreadyFixedBlock -Marker (Get-AsanaPasteBlockMarker) -AlreadyFixedMarker (Get-AsanaAlreadyFixedBlockMarker) `
+        -IssueRef $targetRef -FixedOn $fixedOnText -FixedIn $FixedInArg -ResultLink $LinkArg -Fixed $prose.Fixed `
+        -WhereToLook $prose.WhereToLook -Language $LanguageArg -AsanaLink $asanaLink
 } elseif ($ResearchArg) {
     $block = Format-GoLiveResearchBlock -Marker (Get-AsanaPasteBlockMarker) -ResearchMarker (Get-AsanaResearchBlockMarker) `
         -IssueRef $targetRef -Outcome $prose.Outcome -Language $LanguageArg -AsanaLink $asanaLink
@@ -723,7 +796,11 @@ if ($OutFileArg) {
     }
 }
 
-$resultForm = -not $ResearchArg -and -not $MeasureArg -and -not $ByHandArg
+$resultForm = -not $ResearchArg -and -not $MeasureArg -and -not $ByHandArg -and -not $AlreadyFixedArg
+if ($AlreadyFixedArg -and -not $LinkArg -and @($prose.WhereToLook).Count -eq 0) {
+    Write-Host "[WARNING] No -Link and no [where] section, so the block asks the requester to check that the fix" -ForegroundColor Yellow
+    Write-Host "          holds without saying where. Pass the page it shows on, or write where to look under [where]." -ForegroundColor Yellow
+}
 if ($resultForm -and @($prose.Changed).Count -eq 0) {
     Write-Host "[WARNING] No [changed] section in -ProseFile, so the block does not say what changed -- the" -ForegroundColor Yellow
     Write-Host "          first thing its reader looks for. That prose is the session's to write, not the script's." -ForegroundColor Yellow
@@ -796,6 +873,7 @@ if (-not $ForceArg -and $coClaimText) {
 # block says 'nothing has changed' rather than naming a release day. A MEASUREMENT BLOCK SKIPS IT TOO
 # (#3179): it follows a change that has already shipped, often under another issue, so it has none of its own.
 # NOR DOES A BY-HAND RECORD (#3183): it describes a message, not the work, so it is true with or without one.
+# NOR AN ALREADY-FIXED BLOCK (#3242): nothing changed in this round, and the PR that did the fix is an earlier one.
 function Read-GoLiveLandingState {
     <# 'merged', 'open', 'none' or 'unread': the pull requests that close or reference the issue, by
        Get-GoLivePostReadiness. One read, shared by the result form's refusal and -Research's warning. #>
