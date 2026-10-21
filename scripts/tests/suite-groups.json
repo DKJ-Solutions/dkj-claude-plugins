@@ -110,6 +110,7 @@
                                       "check-plugin-integrity-script-rules.tests.ps1",
                                       "check-plugin-integrity-scripts.tests.ps1",
                                       "check-plugin-integrity-script-set.tests.ps1",
+                                      "check-plugin-integrity-skill-spans.tests.ps1",
                                       "fix-mojibake.tests.ps1",
                                       "house-palette.tests.ps1",
                                       "param-binding-strictness.tests.ps1",

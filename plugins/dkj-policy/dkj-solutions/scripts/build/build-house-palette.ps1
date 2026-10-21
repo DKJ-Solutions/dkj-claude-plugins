@@ -17,13 +17,16 @@
     powershell -NoProfile -ExecutionPolicy Bypass -File build-house-palette.ps1
     powershell -NoProfile -ExecutionPolicy Bypass -File build-house-palette.ps1 -Apply
 #>
+[CmdletBinding()]
 param(
     [switch]$Apply,
-    [string]$StylePath = (Join-Path $PSScriptRoot '..\..\assets\house-style\house-style.css'),
+    [string]$StylePath = '',
     [string]$LightDefault = 'blue',
     [string]$DarkDefault = 'cyan'
 )
 $ErrorActionPreference = 'Stop'
+# resolved here, not as the parameter's default: under [CmdletBinding()] $PSScriptRoot is still empty there in 5.1
+if (-not $StylePath) { $StylePath = Join-Path $PSScriptRoot '..\..\assets\house-style\house-style.css' }
 . (Join-Path $PSScriptRoot '..\lib\house-palette-lib.ps1')
 
 $palettes = [ordered]@{}
