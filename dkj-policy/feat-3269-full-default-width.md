@@ -62,7 +62,8 @@ owner wants the two cases identical.
 
 - [x] No suite pins the fallback (searched for `resolveWidth` and the `fluid` literal); the release
   rebuild of `assets/brandbook/` carries the new script into the built brand book.
-- [ ] The owner looks at an app without `data-width-default` and sees it open at full width.
+- [x] The owner looks at an app without `data-width-default` and sees it open at full width (approved
+  October 21, 2026, the no-script fluid column included).
 
 ### DEPLOY: feat/3269-full-default-width
 
