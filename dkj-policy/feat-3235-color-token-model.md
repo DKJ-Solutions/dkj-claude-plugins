@@ -91,7 +91,7 @@ new suite holds the stylesheet to them.
 #### What makes this deploy extra special
 
 Every DKJ-Solutions app that takes this release renames its own layer. From v5.26.0's twelve steps:
-`--primary-1`..`-3` become `--paper-1`..`-3`, `-5` becomes `--paper-4`, `-6` and `-7` become `--muted`, `-8`
+`--primary-1`..`-3` become `--paper-1`..`-3`, `-4` is removed, `-5` becomes `--paper-4`, `-6` and `-7` become `--muted`, `-8`
 becomes `--fg-4`, `-9` becomes `--primary`, `-10` `--fg-2`, `-11` `--fg-3` and `-12` `--fg-1`; a grey on an
 inverted surface takes `--muted-inverse`. The house-style README carries both tables, and the gate names each
 leftover.
