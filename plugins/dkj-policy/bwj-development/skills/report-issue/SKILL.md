@@ -241,6 +241,15 @@ team's and tell you nothing, so match on the **number** only.
 tooling writes, and a person moves a card through the others. **If the project has no numbered sections,
 place nothing and say so** -- that board is not a pipeline.
 
+**Then post the `created:` comment on the task you just created**, in the fixed form below (write 2 of
+*That existing task then gets two more writes*), after the placement
+([#3253](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3253)). The colleagues on a board
+read that comment as the sign that the GitHub issue exists, on every card, and cannot see who created
+the task. Measured in `BWJ-Development/smartwatchbanden`, October 21, 2026: a session created the task
+for smartwatchbanden#1007 without it, as this step then prescribed, and the owner read the missing
+comment as a skipped automation. It was posted by hand. Only the comment applies here: the
+description already opens with the `Tracked on GitHub:` line, because the skeleton carries it.
+
 **On a ticket that came the other way** -- filed in Asana by a colleague and copied into an issue for
 analysis -- the task already exists and is sitting in `Requests`, their untriaged inbox. Filing the
 GitHub issue is exactly what `Filed` records, so **move that card there** rather than
@@ -306,7 +315,8 @@ rule is one issue per ticket. Step 3's marker is the link it reads.
    ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656) fixed the wording, superseding
    #2653's). The form is fixed and English on every board, whatever language the card is
    written in. Its header line is what tells a colleague that the account holder did not type it.
-   Post it after the move.
+   Post it after the move. A task this procedure creates itself gets the same comment, after its
+   placement (#3253, above).
 
 If Asana is unreachable -- or a write is refused that the preflight's read could not cover -- report
 the GitHub issue URL, say the mirror did not happen and why, and stop. The issue can be mirrored later
@@ -325,10 +335,11 @@ by re-running this skill's steps 2-3.
 
 - **Asana task** -- the `Tracked on GitHub:` line already carries the issue URL, so nothing more is
   needed unless you created the task before you had the issue URL; in that case edit the task notes
-  to add it **as the first line**. A task that came from Asana got its link and its comment in step 2.
+  to add it **as the first line**. Every task got its `created:` comment in step 2, and a task that came
+  from Asana got its link there too.
 
-**The only comment this procedure writes is step 2's, on a ticket that came from Asana.** A task this
-procedure created itself gets none. Any comment an agent writes **opens with a header line** that
+**The only comment this procedure writes is step 2's `created:` comment**, on every task it files or
+moves, whether it created the task itself or it came from Asana (#3253). Any comment an agent writes **opens with a header line** that
 says it is an automated message and not the account holder's own words, and the content comes after
 it. Step 2's comment has its header fixed in place. The MCP posts as
 the person who connected it and cannot edit or delete a comment afterwards, so a comment without that

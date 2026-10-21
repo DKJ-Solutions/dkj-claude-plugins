@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Inbound #3253: `report-issue` posted the `created:` comment only on a task that came from Asana, and
+step 3 said a task the procedure created itself gets none. Verified on pickup: the skill says so, no
+script posts the comment, and the asymmetry was only #2653's scope (it asked about Asana-originated
+cards), not a guardrail.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `report-issue/SKILL.md`: step 2 posts the comment on a created task after its placement; step 3's
+  "gets none" is replaced, the header rule kept
+- [x] `WORKFLOW-portable.md`: the matching passage says a created task gets the same comment
 
 ### TEST
 
+- [~] No suite reads this prose, and no script posts the comment: it is a step the session performs
+  through the Asana MCP, so there is nothing to test beyond the gates
+
 ### DEPLOY: docs/3253-created-comment-on-own-tasks
 
-**Score:**
+`report-issue` now posts the fixed `created:` comment on a task it creates itself too, right after
+placing it, not only on a task that came from Asana (#3253). Colleagues read that comment as the sign
+that the GitHub issue exists, on every card, and a session-created card without it read as a skipped
+automation. Step 3 and `WORKFLOW-portable.md` say the same.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A session running `report-issue` in a store repo now writes one more comment on every task it creates.
+
+**Score:** 2
 
 #### Pull Request
 
