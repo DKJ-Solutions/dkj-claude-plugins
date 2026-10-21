@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**11 / 14 minor entries** <!-- pending-tally -->
+**11 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3257-dev-pages-unescaped-path · 20261021-145136Z
+
+In `dev-pages.tests.ps1`, the assert that checks each checkout's copy command never ran. Its pattern held
+a literal `C:\x\` path, `\x` starts a regex hex escape, so the `-match` threw and the suite still reported
+`0 failed`. The path is now matched literally, and a terminating error anywhere in the suite counts as a
+failure ([#3257](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3257)). Prevents a regression
+in the Repo hub's copy command from passing the suite unseen.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: a test suite in this repo only, so nothing a consumer takes changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+dev-pages.tests.ps1: escape the C:\x\ path in the copy-command assert
+
+[PR #3262](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3262)
+
+---
 
 ### DEPLOY: feat/3245-plugin-repo-hub · 20261021-144046Z
 
