@@ -126,6 +126,11 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 # Find-StrayToken: a token left behind by a renamed or repointed release folder (issues #1444, #2644).
 . (Join-Path $PSScriptRoot '..\lib\stray-token-lib.ps1')
 
+# Get-DefaultReleaseHistoryPath: the history seam's computed default, the one cut-release.ps1 writes to
+# (#3243). A literal fallback here kept the pre-#885 'releases/README.md' after the cut moved on, so a
+# consumer that left the seam unanswered had its history written where this page never looked.
+. (Join-Path $PSScriptRoot '..\lib\seam-lib.ps1')
+
 # JUDGED (#1917): Resolve-RepoRootOrFail is check-report-lib's refusing sibling of Resolve-CheckRoot
 # -- same three-source precedence, but it names git's exit code and stderr instead of dying on
 # $null.Trim() where git answers nothing.
@@ -146,7 +151,7 @@ $config = & {
     $answers = @{
         NoteRoot    = 'releases/notes'
         Grouping    = 'major'
-        HistoryPath = 'releases/README.md'
+        HistoryPath = Get-DefaultReleaseHistoryPath -RepoRoot $args[0]
         Title       = ''
         WorkerName  = ''
         Theme       = $null

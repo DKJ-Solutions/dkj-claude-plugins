@@ -2,7 +2,60 @@
 
 ## [Unreleased]
 
-**4 / 6 minor entries** <!-- pending-tally -->
+**6 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3243-release-notes-history-default · 20261021-115028Z
+
+The release-notes page builder now finds the release history where the cut writes it (#3243). In a repo
+that leaves `Get-ReleaseHistoryPath` unanswered, `build-release-notes-page.ps1` looked for
+`releases/README.md`, the pre-#885 default, while `cut-release.ps1` wrote the history to
+`dkj-policy/releases/history.md`, so the build refused and the general pages server's `/release-notes`
+returned 404. It now resolves the same computed default the cut uses.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer that follows the default gets its release-notes page after this release; the workaround of
+answering `Get-ReleaseHistoryPath` in `scripts/repo-config.ps1` can stay or go.
+
+**Score:** 3
+
+#### Pull Request
+
+build-release-notes-page: fall back to the computed release-history default
+
+Plugins: dkj-policy
+
+[PR #3249](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3249)
+
+---
+
+### DEPLOY: fix/3241-golive-live-since-heading · 20261021-113444Z
+
+A go-live block closed with `-LiveSince` no longer carries the future-tense heading `WANNEER HET LIVE
+KOMT` (`WHEN IT GOES LIVE`) above *"Het staat live sinds ..."* (#3241). Under `-LiveSince` the section
+now reads `SINDS WANNEER HET LIVE STAAT` (`LIVE SINCE`), so heading and sentence never disagree; a
+planned block keeps the old heading.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A requester reading an Asana closed message for work that is already live is no longer told it is
+still coming; nothing to do but take the release.
+
+**Score:** 2
+
+#### Pull Request
+
+golive-block: a past-tense heading under -LiveSince
+
+Plugins: bwj-development
+
+[PR #3246](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3246)
+
+---
 
 ### DEPLOY: fix/3237-shop-connector-myshopify-domain · 20261021-101927Z
 
