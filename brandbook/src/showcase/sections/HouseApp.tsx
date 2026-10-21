@@ -97,7 +97,7 @@ export function HouseDialogsDemo() {
               <h5 className="dialog__title" id="house-dialog-plain">
                 Dialog title
               </h5>
-              <p className="dialog__sub">A subtitle in --ink-4</p>
+              <p className="dialog__sub">A subtitle in --muted</p>
             </div>
           </div>
           <button type="button" className="dialog__close" aria-label="Close" onClick={() => plain.current?.close()}>
@@ -298,7 +298,7 @@ export function HouseThemeReachDemo() {
         <span className="meta">.header--accent</span>
       </header>
       <p>
-        A <a href="#tokens">plain link</a> takes the theme's ink, --ink-1, visited or not. Select this text: the selection does too.
+        A <a href="#tokens">plain link</a> takes the theme's colour, --primary, visited or not. Select this text: the selection does too.
       </p>
       <div className="dkj-demo-row">
         <label>
@@ -338,6 +338,22 @@ export function HouseThemeReachDemo() {
           </tr>
         </tbody>
       </table>
+      <div className="grid-2">
+        <div className="fill-primary dkj-fill-demo">
+          <h2>On the primary</h2>
+          <p>
+            .fill-primary: the text switches to the paper, and a <a href="#tokens">link</a> with it.
+          </p>
+          <p className="muted">A quieter line, in --paper-3.</p>
+        </div>
+        <div className="fill-inverse dkj-fill-demo">
+          <h2>On the far end</h2>
+          <p>
+            .fill-inverse: the ground is --fg-1, the text the paper, and a <a href="#tokens">link</a> with it.
+          </p>
+          <p className="muted">A quieter line, in --muted-inverse.</p>
+        </div>
+      </div>
     </>
   )
 }

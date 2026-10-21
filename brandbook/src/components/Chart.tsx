@@ -203,7 +203,7 @@ export function ColumnChart({
           <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="group" aria-label={label} onKeyDown={onKey}>
             {tk.map((v) => (
               <g key={v}>
-                <line x1={M.left} x2={M.left + pw} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--ink-1)' : 'var(--paper-3)'} strokeWidth={1} />
+                <line x1={M.left} x2={M.left + pw} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--primary)' : 'var(--paper-3)'} strokeWidth={1} />
                 <text x={M.left - 8} y={y(v) + 4} textAnchor="end">
                   {format(v)}
                 </text>
@@ -394,9 +394,9 @@ export function BarChart({
           <svg width={width} height={h} viewBox={`0 0 ${width} ${h}`} role="group" aria-label={label} onKeyDown={onKey}>
             {/* The zero line: through stacked rows it would cut their text, so those get a piece beside each bar. */}
             {wide ? (
-              <line x1={x0} x2={x0} y1={0} y2={h} stroke="var(--ink-1)" strokeWidth={1} />
+              <line x1={x0} x2={x0} y1={0} y2={h} stroke="var(--primary)" strokeWidth={1} />
             ) : (
-              data.map((c, i) => <line key={c.key} x1={x0} x2={x0} y1={i * rowH + barY - 2} y2={i * rowH + barY + BAR_H + 2} stroke="var(--ink-1)" strokeWidth={1} />)
+              data.map((c, i) => <line key={c.key} x1={x0} x2={x0} y1={i * rowH + barY - 2} y2={i * rowH + barY + BAR_H + 2} stroke="var(--primary)" strokeWidth={1} />)
             )}
             {data.map((c, i) => {
               const w = Math.max(Math.abs(x(c.value) - x0), 1) // a zero value stays a 1px bar
@@ -574,7 +574,7 @@ export function LineChart({
           <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} role="group" aria-label={label} onKeyDown={onKey}>
             {tk.map((v) => (
               <g key={v}>
-                <line x1={M.left} x2={M.left + pw} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--ink-1)' : 'var(--paper-3)'} strokeWidth={1} />
+                <line x1={M.left} x2={M.left + pw} y1={y(v)} y2={y(v)} stroke={v === 0 ? 'var(--primary)' : 'var(--paper-3)'} strokeWidth={1} />
                 <text x={M.left - 8} y={y(v) + 4} textAnchor="end">
                   {format(v)}
                 </text>
@@ -611,7 +611,7 @@ export function LineChart({
             ))}
             {a && active !== null && (
               <g aria-hidden="true" pointerEvents="none">
-                <line x1={px(active)} x2={px(active)} y1={M.top} y2={M.top + ph} stroke="var(--ink-1)" strokeWidth={1} />
+                <line x1={px(active)} x2={px(active)} y1={M.top} y2={M.top + ph} stroke="var(--primary)" strokeWidth={1} />
                 {series.map((s) => (
                   <circle key={s.key} cx={px(active)} cy={y(a.values[s.key])} r={DOT_R} fill={color(s)} stroke="var(--paper-2)" strokeWidth={2} />
                 ))}

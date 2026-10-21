@@ -39,23 +39,65 @@
 
 ### PLAN
 
-Rebuild each theme's eleven colour tokens on the logic of #3235: one primary, two muted greys, four paper steps that all read on the primary, four text steps in very small steps.
+Rebuild each theme's eleven colour tokens on the logic of #3235 (the owner's issue, clarified in the session of
+October 21, 2026): one primary that reads on all four paper steps and they on it, two muted greys (7:1 on the page,
+7:1 on the far end), four paper steps from white towards a little darker, four text steps near black in very small
+steps; a dark theme is the mirror. The names were left open, so: `--primary`, `--muted`, `--muted-inverse`,
+`--paper-1..4`, `--fg-1..4`. An h2 must read on the page and on a primary fill, so the text switches with the ground
+(`.fill-primary`, `.fill-inverse`).
+
+#### Visible result
+
+This is a visible result: the branch stops for the owner's look at the brand book (Tokens, Theme reach) before a PR.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The model as code: `plugins/dkj-policy/dkj-solutions/scripts/lib/house-palette-lib.ps1` (OKLCH, HSL, WCAG
+  contrast, the twelve themes and their steps) and `scripts/build/build-house-palette.ps1` (prints and checks;
+  `-Apply` writes `house-style.css`). Documented in the `house-style` skill.
+- [x] `house-style.css`: the twelve theme lines and three default blocks written by the build script; the colour
+  comment rewritten for the new model; `h2` → `--fg-2`, `h3`-`h5` → `--fg-3`; `.fill-primary` and `.fill-inverse`
+  added at the end, where the text switches to the paper.
+- [x] Every use renamed (`--ink-1` → `--primary`, `-2` → `--fg-2`, `-3`/`-4` → `--muted`, `-5` → `--fg-4`, `-6` →
+  `--fg-3`, `-7` → `--fg-1`) in the brand book, the hub and dev pages, the connector dashboard, the session-start
+  template and the house-style allowlist; on the showcase's inverted panel the scrollbar and focus ring take
+  `--muted-inverse`.
+- [x] The showcase lists the three groups and demonstrates both fills (Tokens, Theme reach).
+- [x] README: the token table, the rename table (from `--ink-*` and straight from `--primary-*`), the model, the
+  measurements, the Fills section and the reserved class names.
+- [x] The gate: `--ink-1`..`--ink-7` retired, `--primary` and `--muted` live again; the skill's checksum repinned.
 
 ### TEST
 
+- [x] New suite `house-palette.tests.ps1` (91 asserts): the colour math, every theme's floors, the stylesheet
+  holding exactly the computed values, the build script's dry run.
+- [x] `check-house-style.tests.ps1` green after its fixtures moved to the new names (88 asserts).
+- [x] Brand book `npm run gate`: eslint, CSS syntax, every `var()` resolves, no colour literal, the build.
+
 ### DEPLOY: feat/3235-color-token-model
 
-**Score:**
+Every theme's colours are rebuilt on one model (#3235), and computed by a script rather than tuned by hand. Each
+theme has **one primary**, the most saturated colour of its hue that reads at 4.5:1 on all four paper steps (so the
+paper reads on it too); **two greys**, `--muted` at 7:1 on the page and `--muted-inverse` at 7:1 on the far end;
+**four paper steps** from white towards a little darker; and **four text steps** (`--fg-1` to `--fg-4`), near black
+on light and near white on dark, in very small steps. `h2` and `h3`-`h5` move from the colour to the text steps, and
+two new classes, `.fill-primary` and `.fill-inverse`, switch the text to the paper on a coloured ground, so an `h2`
+reads there as well. On light the primary is a little darker and the paper a little lighter than before; nothing in
+the model is below 4.5:1 any more. `scripts/build/build-house-palette.ps1` computes and writes the values, and a
+new suite holds the stylesheet to them.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions app that takes this release renames its own layer. From v5.26.0's twelve steps:
+`--primary-1`..`-3` become `--paper-1`..`-3`, `-5` becomes `--paper-4`, `-6` and `-7` become `--muted`, `-8`
+becomes `--fg-4`, `-9` becomes `--primary`, `-10` `--fg-2`, `-11` `--fg-3` and `-12` `--fg-1`; a grey on an
+inverted surface takes `--muted-inverse`. The house-style README carries both tables, and the gate names each
+leftover.
+
+**Score:** 5
 
 #### Pull Request
 
 A new colour token model: primary, muted, paper and text
-

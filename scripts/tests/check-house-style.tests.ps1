@@ -157,7 +157,7 @@ Write-Host '-- group 2: the retired names, held to the pinned copy' -ForegroundC
 $defs = Get-HouseStyleDefinitions -CssText ([System.IO.File]::ReadAllText((Join-Path $Vendored 'house-style.css')))
 $live = @(Get-HouseStyleRetiredTokens | Where-Object { $defs.Tokens -contains $_ })
 Assert-Equal '' ($live -join ' ') 'no retired name is defined by the pinned stylesheet'
-Assert-True ($defs.Tokens -contains '--ink-1' -and $defs.Classes -contains 'card' -and $defs.Classes -contains 'btn--primary') 'the house tokens and classes are read from the copy'
+Assert-True ($defs.Tokens -contains '--primary' -and $defs.Classes -contains 'card' -and $defs.Classes -contains 'btn--primary') 'the house tokens and classes are read from the copy'
 Assert-True ($defs.Classes -notcontains 'media') 'an at-rule contributes no class'
 
 Write-Host '-- group 3: the gate and the session check, against scratch repos' -ForegroundColor Cyan
@@ -180,7 +180,7 @@ function Invoke-Child([string]$Script, [string]$Dir, [string]$ParamName) {
 try {
     $clean = New-FixtureRepo 'clean'
     Add-PinnedCopy $clean
-    Set-Content -LiteralPath (Join-Path $clean 'web\app.css') -Value ':root { --my-accent: var(--ink-1); } .my-card { color: var(--ink-7); }' -Encoding ascii
+    Set-Content -LiteralPath (Join-Path $clean 'web\app.css') -Value ':root { --my-accent: var(--primary); } .my-card { color: var(--fg-1); }' -Encoding ascii
     Invoke-FixtureGitIn $clean add -A
     $r = Invoke-Child $Gate $clean 'RepoRoot'
     Assert-Equal 0 $r.Code 'a clean repo passes the gate'
@@ -197,16 +197,16 @@ try {
     $drift = New-FixtureRepo 'drift'
     Add-PinnedCopy $drift
     Add-Content -LiteralPath (Join-Path $drift 'web\house-theme.js') -Value '// edited'
-    $py = "PAGE = '''<style>:root { --ink-1: red; } .card { padding: 0; } p { color: var(--muted); }</style>'''"
+    $py = "PAGE = '''<style>:root { --primary: red; } .card { padding: 0; } p { color: var(--ink-4); }</style>'''"
     Set-Content -LiteralPath (Join-Path $drift 'web\page.py') -Value $py -Encoding ascii
     Set-Content -LiteralPath (Join-Path $drift 'web\hub.html') -Value '<section class="card"><div class="card__head"><h2 class="card__title">Issues</h2></div></section>' -Encoding ascii
     Invoke-FixtureGitIn $drift add -A
     $r = Invoke-Child $Gate $drift 'RepoRoot'
     Assert-Equal 1 $r.Code 'a drifted repo fails the gate'
     Assert-True ($r.Out -match '\[pin\] web/house-theme\.js') 'check 1: an edited copy is named'
-    Assert-True ($r.Out -match '\[redefine\] web/page\.py:1 defines the house token --ink-1') 'check 2: a redefined token, in CSS embedded in Python'
+    Assert-True ($r.Out -match '\[redefine\] web/page\.py:1 defines the house token --primary') 'check 2: a redefined token, in CSS embedded in Python'
     Assert-True ($r.Out -match '\[redefine\] web/page\.py:1 styles the house class \.card') 'check 2: a restyled house class'
-    Assert-True ($r.Out -match '\[retired\] web/page\.py:1 reads --muted') 'check 3: a retired name in use'
+    Assert-True ($r.Out -match '\[retired\] web/page\.py:1 reads --ink-4') 'check 3: a retired name in use'
     Assert-True ($r.Out -match '\[heading\] web/hub\.html:1 puts an h2 inside a card') 'check 4: an h2 inside a card (#3175)'
     $r = Invoke-Child $Hook $drift 'RepoRootOverride'
     Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARN\] 5 finding') 'the session check reports the findings and still exits 0'
