@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/close-first-recurrence · 20261021-215855Z
+
+An issue parked under `awaiting-recurrences-first` is now closed as `not_planned` at once, keeping its label
+and its `[RECORD]` prefix, instead of *may be closed* while it waits. The label is the marker and the
+search before filing already reads closed issues, so the open list holds only work.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo running this workflow sees its parked recurrence issues closed rather than open.
+
+**Score:** 2
+#### Pull Request
+
+An issue waiting for its first recurrence is closed at once; the label is the marker
+
+Plugins: dkj-policy
+
+[PR #3282](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3282)
+
+---
 
 ### DEPLOY: feat/3274-brandbook-home-about · 20261021-214748Z
 
