@@ -86,8 +86,8 @@ own visible change, because this branch was already eight files of hub and spec 
 
 - [x] `dev-pages` 286/0, `connector-dashboard` 198/0, `dev-preview-sessionstart` 284/0, standalone, after Victor's review (escape once at the point of use, dead parameters gone).
 - [x] The full gate (`open-pr.ps1 -GatesOnly`), before the park: green on the tree with Victor's review fixes.
-- [ ] The owner looks at the home page and About this repo on this repo's hub (`/`, `/about`) and on the
-  patterns, and approves the form.
+- [x] The owner looks at the home page and About this repo on this repo's hub (`/`, `/about`) and on the
+  patterns, and approves the form (approved October 21, 2026, the defaults in PLAN included).
 
 ### DEPLOY: feat/3270-home-and-about
 
