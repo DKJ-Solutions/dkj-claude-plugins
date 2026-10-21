@@ -39,19 +39,50 @@
 
 ### PLAN
 
+#3250 (Dave): a general banner on the Repo hub with a timer that resets every hour; when it runs out, a
+tone and a "10 airsquats" checkbox; the timer keeps running either way, and unticked airsquats stack up.
+A visible result, so the branch stops for the owner's look and opens no PR.
+
+#### Choices made, for the owner's look
+
+- **Both hub indexes, one helper**: `Format-RepoHubBanner` in the plugin's `general-pages-lib.ps1`,
+  called by this repo's `Format-RepoHubHtml` and the placeholder hub every repo without a
+  `Get-DevPreview` gets. A repo whose own server is its hub (dkj-recipes, see #3245) does not get it.
+- **The timer counts down to the next full hour**, so it reads the same in every tab and after a reload.
+- **Stacking is one checkbox showing the total** (10, 20, 30 ...), and ticking it clears the total.
+- **An hour counts only while a hub page is open** (or reopened within two minutes), so a hub closed
+  overnight does not show a stack it never announced. The state is the browser's own (localStorage).
+- **Placed directly under the intro, above Pages**, in house classes only (`.notice`, `.msg`). The house
+  style's Repo hub form (`assets/house-style/README.md`, "The Repo hub") has no such block yet; if the
+  owner approves the banner, that table gets its row before the merge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-RepoHubBanner` (markup and inline script) in `plugins/dkj-policy/hub/lib/general-pages-lib.ps1`
+- [x] called under the intro in `scripts/lib/dev-pages-lib.ps1` and `plugins/dkj-policy/hub/lib/dev-preview-placeholder.ps1`
+- [ ] The owner's look at the preview; then the Repo hub table in the house-style README gets the block
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` (278) and `dev-preview-sessionstart.tests.ps1` (202): the banner's place,
+  its hidden box, a script that keeps state locally and makes no request; `connector-dashboard` (196) green
+- [x] `open-pr -GatesOnly`: the lint gate green
+
 ### DEPLOY: feat/3250-repo-hub-airsquats-banner
 
-**Score:**
+The Repo hub now carries a general banner (#3250): a countdown to the next full hour, and when an hour
+has passed, a short tone and a **10 airsquats** checkbox. The countdown keeps running whether or not the
+box is ticked, and every unticked hour adds another 10, so the box shows the total owed; ticking it
+clears the total. It is on this repo's hub and on the placeholder hub, in house classes only, and its
+state stays in the browser.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo served by the placeholder hub shows the banner on its index from the next release.
+
+**Score:** 2
 
 #### Pull Request
 
