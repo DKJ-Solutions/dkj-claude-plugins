@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Compute the twelve colour tokens of every house-style theme (#3235) and, with -Apply, write them into
+    Compute the eleven colour tokens of every house-style theme (#3235) and, with -Apply, write them into
     house-style.css.
 
 .DESCRIPTION
@@ -33,7 +33,7 @@ foreach ($t in Get-HousePaletteThemes) {
     $palettes[$t.Id] = $p
     Write-Host ("{0} ({1}, hue {2})" -f $t.Id, $t.Mode, $t.Hue)
     Write-Host ("  " + (Format-HousePaletteDeclarations $p))
-    foreach ($row in Get-HousePaletteContrast $p -Mode $t.Mode) {
+    foreach ($row in Get-HousePaletteContrast $p) {
         if ($row.Ratio -lt $row.Floor) {
             $failed++
             Write-Host ("  [FAIL] {0}: {1:N2}:1, floor {2}:1" -f $row.Pair, $row.Ratio, $row.Floor) -ForegroundColor Red
@@ -45,7 +45,7 @@ Write-Host "[OK] every pairing reaches its floor in all $($palettes.Count) theme
 if (-not $Apply) { exit 0 }
 
 foreach ($id in @($LightDefault, $DarkDefault)) { if (-not $palettes.Contains($id)) { throw "unknown default theme '$id'" } }
-$isPaletteToken = '^--(paper-\d|ink-\d|primary|primary-fill|muted|muted-inverse|fg-\d):'
+$isPaletteToken = '^--(paper-\d|ink-\d|primary|muted|muted-inverse|fg-\d):'
 $lines = [System.IO.File]::ReadAllLines((Resolve-Path -LiteralPath $StylePath).Path)
 $standalone = 0
 for ($i = 0; $i -lt $lines.Count; $i++) {

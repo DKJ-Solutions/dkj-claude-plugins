@@ -38,7 +38,7 @@
 .dkj-btn svg { flex: none; }
 .dkj-btn:disabled, .dkj-btn[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
 .dkj-btn--block { display: flex; width: 100%; }
-.dkj-btn--primary { background: var(--primary-fill); border-color: var(--primary-fill); color: var(--on-fill-1); }
+.dkj-btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); }
 /* Primary disabled: visible, colourless, inert -- "Save only becomes active when there is something to save". */
 .dkj-btn--primary:disabled, .dkj-btn--primary[aria-disabled='true'] {
   opacity: 1;
@@ -82,21 +82,21 @@
    disabled button or a .dkj-choice; [data-demo-state] pins it in the showcase). Every role keeps ONE step in light and dark:
    A colour step alone is nearly invisible on a filled button (a step of the colour is dark to a slightly different dark on every light theme),
    so hover pairs a step with a lift of 1px; the press sinks back 1px and drops the shadow. One step per role in light and dark:
-   - primary: the fill stays --primary-fill and only lifts, with --shadow-pop under it (#3235: a step to --muted would turn light on the
-     dark themes, where the text on the fill is light too);
+   - primary: the fill goes to --muted (on light a vivid dark turns to a dark grey of the colour, on dark a bright colour turns to a light grey of it;
+     --paper-1 stays at 7:1 or better on it in both modes), with --shadow-pop under the lift;
    - outline: the tinted surface paper-3 (the house "hover" surface) behind the same text and border, lifted, no shadow; the accent outline keeps its own press;
    - positive: the gradient settles on a flat --positive-5, darker on light and lighter on dark, with --shadow-pop under the lift. */
-.dkj-btn--primary:not(.dkj-choice)[data-demo-state='hover'] { box-shadow: var(--shadow-pop); transform: translateY(-1px); }
+.dkj-btn--primary:not(.dkj-choice)[data-demo-state='hover'] { background: var(--muted); border-color: var(--muted); box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice)[data-demo-state='hover'] { background: var(--paper-3); transform: translateY(-1px); }
 .dkj-btn--positive:not(.dkj-choice)[data-demo-state='hover'] { background: linear-gradient(180deg, var(--positive-5), var(--positive-5)) border-box; box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 @media (hover: hover) {
-  .dkj-btn--primary:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { box-shadow: var(--shadow-pop); transform: translateY(-1px); }
+  .dkj-btn--primary:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: var(--muted); border-color: var(--muted); box-shadow: var(--shadow-pop); transform: translateY(-1px); }
   .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: var(--paper-3); transform: translateY(-1px); }
   .dkj-btn--positive:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: linear-gradient(180deg, var(--positive-5), var(--positive-5)) border-box; box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 }
 /* Press: after the hover rules so it wins; the same fill as the hover, sunk 1px, no shadow. */
 .dkj-btn--primary:not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
-.dkj-btn--primary:not(.dkj-choice)[data-demo-state='active'] { box-shadow: none; transform: translateY(1px); }
+.dkj-btn--primary:not(.dkj-choice)[data-demo-state='active'] { background: var(--muted); border-color: var(--muted); box-shadow: none; transform: translateY(1px); }
 .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
 .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice)[data-demo-state='active'] { background: var(--paper-3); transform: translateY(1px); }
 .dkj-btn--positive:not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
@@ -137,8 +137,8 @@
   flex: 1;
   min-width: 0;
   height: var(--dkj-tap);
-  color: var(--on-fill-1);
-  background: var(--primary-fill);
+  color: var(--paper-1);
+  background: var(--primary);
   border: 0;
   border-radius: var(--dkj-radius-md);
 }

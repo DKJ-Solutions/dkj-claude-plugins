@@ -94,19 +94,19 @@
 .dkj-page-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--spacing-3); }
 
 /* ---------- Breadcrumbs ---------- */
-/* One line at weight 400 on the filled bar (#3235): the chevron in --on-fill-3, the ancestor links in --on-fill-2
-   (underlined only under the pointer, an --on-fill-1 focus ring), the current page in --on-fill-1. */
+/* One line at weight 400 on the primary bar (#3235): the chevron in --paper-3, the ancestor links in --paper-2
+   (underlined only under the pointer, a --paper-1 focus ring), the current page in --paper-1. */
 .dkj-breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .dkj-breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
-.dkj-breadcrumbs a { color: var(--on-fill-2); text-decoration: none; text-underline-offset: 4px; }
-.dkj-breadcrumbs a:focus-visible { outline-color: var(--on-fill-1); }
+.dkj-breadcrumbs a { color: var(--paper-2); text-decoration: none; text-underline-offset: 4px; }
+.dkj-breadcrumbs a:focus-visible { outline-color: var(--paper-1); }
 .dkj-breadcrumbs a:hover { text-decoration: underline; }
-.dkj-breadcrumbs-sep { display: inline-flex; color: var(--on-fill-3); }
+.dkj-breadcrumbs-sep { display: inline-flex; color: var(--paper-3); }
 .dkj-breadcrumbs-sep svg { width: 1.25rem; height: 1.25rem; }
 .dkj-breadcrumbs-sep path { stroke: currentColor; stroke-width: 0.75; stroke-linejoin: round; }   /* thickens the filled chevron */
-.dkj-breadcrumbs [aria-current='page'] { color: var(--on-fill-1); font-weight: var(--dkj-fw-regular); }
-/* The bar: full screen width on --primary-fill, sticky at the top and one --tap high, the trail aligned with the
+.dkj-breadcrumbs [aria-current='page'] { color: var(--paper-1); font-weight: var(--dkj-fw-regular); }
+/* The bar: full screen width on --primary, sticky at the top and one --tap high, the trail aligned with the
    house page column (.container). A trail longer than the screen scrolls sideways, so the height never changes. */
-.dkj-breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary-fill); }
+.dkj-breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary); }
 .dkj-breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
 html:has(.dkj-breadcrumbs-bar) { scroll-padding-top: var(--tap); }
