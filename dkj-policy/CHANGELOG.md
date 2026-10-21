@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**12 / 18 minor entries** <!-- pending-tally -->
+**13 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3250-repo-hub-airsquats-banner · 20261021-155447Z
+
+The Repo hub now carries a general banner (#3250): a countdown to the next full hour, and when an hour
+has passed, a short tone and a **10 airsquats** checkbox. The countdown keeps running whether or not the
+box is ticked, and every unticked hour adds another 10, so the box shows the total owed; ticking it
+clears the total. It is on the plugin's Repo hub, which every repo gets, and on this repo's own, in house classes only,
+and its state stays in the browser.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo's Repo hub shows the banner from the next release.
+
+**Score:** 2
+
+#### Pull Request
+
+Repo hub: an hourly airsquats banner
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3260](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3260)
+
+---
 
 ### DEPLOY: feat/3265-theme-translation-carryover · 20261021-154613Z
 
