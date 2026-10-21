@@ -55,7 +55,7 @@ call of a session, so the rule goes in it, where every later query is written.
 
 `check-shop-connector` now carries one query rule for every connector call after it: never request the
 same field twice in one query under aliases with different arguments. Through the claude.ai Shopify
-connector such a query returned the union of every alias's results under each alias, so a copy plan
+connector an aliased query on `translations(locale:)` returned the union of every alias's results under each alias, so a copy plan
 built on it put French and Spanish text under the Dutch locale
 ([#3266](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3266)). Ask once per argument set,
 and check a result's count against a single unaliased query before acting on it.
