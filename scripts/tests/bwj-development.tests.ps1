@@ -536,6 +536,17 @@ $glLiveRel = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#190' -GoLive
 Assert-True (-not $glLiveRel.Contains((Get-AsanaReleaseBlockMarker))) 'a -Live block never carries the after-release marker, even when one is handed in (#3069)'
 Assert-True ($glLiveRel.Contains("is now **closed**: this Asana task is now in review.`nIt can be reopened anytime when something is still not working as expected.`n") -and $glLiveRel -notmatch 'becomes visible') 'and its closed line is the intro with the plain reopen line'
 
+# NO STOREFRONT RESULT (#3236): smartwatchbanden#945 and #244 changed the deploy route, nothing a customer
+# sees, and with no form for it a PR and a release URL reached the requester as 'the result'.
+$glNsf = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#945' -GoLiveDate 'maandag 26 oktober 2026' -NoStorefront `
+    -WhereToLook @('In de admin onder Thema''s.') -ReleaseMarker (Get-AsanaReleaseBlockMarker)
+Assert-True ($glNsf.Contains("TE BEKIJKEN OP`n`nVoor klanten verandert er niets: op de storefront is deze wijziging niet te zien.`n`nIn de admin onder Thema's.")) '-NoStorefront opens where-to-look with the fixed sentence, the [where] prose under it'
+Assert-True ($glNsf.Contains("WAT WE VAN JE VRAGEN`n`nOp de storefront is niets te bekijken") -and $glNsf -notmatch 'resultaat is hier te bekijken|wat een klant ziet|laatste moment') 'and asks without a link, never promising a look at what a customer sees'
+Assert-True (-not $glNsf.Contains((Get-AsanaReleaseBlockMarker)) -and $glNsf -notmatch 'becomes visible' -and $glNsf.Contains('reopened anytime')) 'nothing becomes visible with the release, so no after-release marker and the plain reopen line'
+Assert-True ($glNsf.Contains('Het staat gepland voor de release van maandag 26 oktober 2026.')) 'the release day is still named: the change still goes out with it'
+$glNsfEn = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#945' -GoLiveDate 'Wednesday 21 October 2026' -NoStorefront -Live -Language en
+Assert-True ($glNsfEn.Contains("WHERE TO LOOK`n`nNothing changes for customers") -and $glNsfEn.Contains('There is nothing to look at on the storefront')) 'in English too, and without [where] the fixed sentence stands alone'
+
 # THE CLOSING RULE FOLLOWS A BLANK LINE, whichever section ends the block (#2701): a text line directly
 # above '---' is a setext H2, which rendered the block's last paragraph as a heading on GitHub.
 foreach ($glClosed in @(@{ Name = 'the ask section'; Block = $goLiveBlock }, @{ Name = 'the when section'; Block = $goLiveBare }, @{ Name = 'an English block'; Block = $goLiveEn })) {
@@ -610,6 +621,14 @@ Assert-True (Test-PrivateResultLink -Link 'HTTPS://Claude.AI/artifact/abc') 'cas
 Assert-True (-not (Test-PrivateResultLink -Link 'https://store.example/products/foo?preview_theme_id=1&_ab=0&_fd=0&_sc=1')) 'a storefront preview URL is openable'
 Assert-True (-not (Test-PrivateResultLink -Link 'https://store.example/pages/claude.ai/artifact/x')) 'a path that merely contains the shape is not refused'
 Assert-True (-not (Test-PrivateResultLink -Link '')) 'no link is not a private link'
+
+# A REPO ARTIFACT IS NO RESULT (#3236): a pull request, release or commit is what was done, not a page to look at.
+Assert-True (Test-RepoArtifactLink -Link 'https://github.com/BWJ-Development/smartwatchbanden/pull/946') 'a pull request URL is a repo artifact'
+Assert-True (Test-RepoArtifactLink -Link 'https://github.com/o/r/releases/tag/v2.49.0') 'and so is a release'
+Assert-True (Test-RepoArtifactLink -Link 'HTTPS://WWW.GitHub.com/o/r/commit/abc') 'whatever the case, with or without www'
+Assert-True (-not (Test-RepoArtifactLink -Link 'https://bwj.github.io/page')) 'a Pages site is another host'
+Assert-True (-not (Test-RepoArtifactLink -Link 'https://store.example/pages/github.com/x')) 'a path that merely contains the host is not refused'
+Assert-True (-not (Test-RepoArtifactLink -Link '')) 'no link is not a repo artifact'
 
 # STORE-ADMIN PREREQUISITES ARE READ FROM THE ISSUE (#2885): only task-list lines after the marker count.
 $saMarker = Get-StoreAdminPrerequisiteMarker
@@ -826,6 +845,19 @@ try {
     Assert-Equal 1 $LASTEXITCODE 'a [found] section without -Research is refused'
     & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 943 -Repo 'o/r' -Research -RootOverride $glRoot 2>&1 | Out-Null
     Assert-Equal 1 $LASTEXITCODE '-Research with no findings is refused -- a link to the issue is no substitute'
+
+    # -NoStorefrontResult THROUGH -File (#3236), and the github.com refusal in every form.
+    [System.IO.File]::WriteAllText($glProseFile, "[changed]`r`nx`r`n[where]`r`nIn de admin.`r`n", (New-Object System.Text.UTF8Encoding $false))
+    $glNsfOut = (@(& powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 945 -Repo 'o/r' -NoStorefrontResult `
+        -LiveSince '2026-10-01' -RootOverride $glRoot -ProseFile $glProseFile 6>&1 2>&1) | ForEach-Object { "$_" }) -join "`n"
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with -NoStorefrontResult exits 0'
+    Assert-True ($glNsfOut.Contains('Voor klanten verandert er niets') -and $glNsfOut -notmatch 'No -Link given') 'and prints the no-storefront block, without the missing-link warning'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 945 -Repo 'o/r' -NoStorefrontResult -Link 'https://x.example/' -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-NoStorefrontResult beside -Link is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 945 -Repo 'o/r' -NoStorefrontResult -Measure -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE '-NoStorefrontResult beside another form is refused'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 945 -Repo 'o/r' -Link 'https://github.com/o/r/pull/1' -AllowPrivateLink -RootOverride $glRoot 2>&1 | Out-Null
+    Assert-Equal 1 $LASTEXITCODE 'a github.com -Link is refused, and -AllowPrivateLink does not pass it'
 
     # AN OPEN STORE-ADMIN PREREQUISITE, END TO END (#2885), through a stand-in gh on PATH that answers
     # 'issue view' with a checklist and fails everything else -- so no network, and a -Post that got past

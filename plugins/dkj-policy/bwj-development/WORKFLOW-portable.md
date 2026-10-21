@@ -447,6 +447,13 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   *"Nothing changes visibly on the storefront. You can take a new measurement yourself, as described
   below."* under the shared intro, and ends by asking whether the target is met. The form is in
   [`golive-block`](skills/golive-block/SKILL.md).
+- **A change with nothing on the storefront keeps the go-live block, without a link** (#3236).
+  Infrastructure, a deploy route or an admin-only setting changed the repo and goes live, but no
+  customer sees it, so neither `-Research` nor `-Measure` fits. `build-golive-block.ps1
+  -NoStorefrontResult` says that nothing changes for customers, carries the `[where]` prose for where it
+  does show, and asks for a read rather than a look. **A pull request, release or commit is never the
+  result**: a `github.com` `-Link` is refused in every form. Measured in smartwatchbanden (#945, #244):
+  both reached the requester under *TE BEKIJKEN OP*, above *"wat je ziet is wat een klant ziet"*.
 - **A closed message posted by hand is recorded, never worked around** (#3183). Where the requester
   approved a hand-written closed message and it is already on the task, `build-golive-block.ps1 -ByHand`
   posts a one-line record on the issue. The close guard accepts it as this round's block, and the closed

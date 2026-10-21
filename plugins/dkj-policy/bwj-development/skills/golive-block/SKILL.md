@@ -110,6 +110,35 @@ message ends with the measurement ask, which names the board's own done section 
 does: *"Is the target met? Move the task to '<done section>' and mark it as complete. Not met? Leave a
 comment with your measurement, and it becomes a new finding."*
 
+## A change with nothing on the storefront -- `-NoStorefrontResult`
+
+**Infrastructure, a deploy route, an admin-only setting**: the repo changed and the change goes live,
+but no customer sees anything
+([#3236](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3236), measured October 21, 2026).
+`-Research` would say *"Nothing has changed"*, which is false, and `-Measure` has no number. With no
+form for it, smartwatchbanden#945 and #244 were closed with a release URL and a pull request URL as
+`-Link`, and the requester read *"Het resultaat is hier te bekijken: <PR>"* above *"wat je ziet is wat
+een klant ziet"*. A pull request is not a result anyone can look at.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-golive-block.ps1" -Issue 945 -NoStorefrontResult -LiveSince 2026-10-21 -ProseFile prose.txt -Post
+```
+
+It is the go-live form, so `[changed]`, `[where]` and `[not-included]`, `-LiveSince` and `-Version`
+work as usual. Three things differ:
+
+- **Where to look opens with a fixed sentence**, *"Voor klanten verandert er niets: op de storefront is
+  deze wijziging niet te zien."*, and your `[where]` prose follows it: where it does show, such as a
+  place in the admin. Without `[where]` the run warns, and the sentence stands alone.
+- **The ask points at the prose, not at a link**: *"Op de storefront is niets te bekijken, want voor
+  klanten verandert er niets. Lees hierboven wat er nu anders is."*, then the usual yes and no.
+- **No after-release marker**, because nothing becomes visible with the release: the closed line keeps
+  the plain reopen line, even with a planned release day.
+
+It refuses `-Link`, `-Path`, `-Research`, `-Measure` and `-ByHand`. **And a `github.com` `-Link` is
+refused in every form**, with no valve: a pull request, release or commit is what was done, and not
+every requester can open the repo.
+
 ## A closed message posted by hand -- `-ByHand`
 
 **Sometimes the requester approves a hand-written closed message**, in a form the automation does not
@@ -169,6 +198,7 @@ without reopening. Either way the answer goes to the requester by the terminal r
 | Did something change? | The close | Under the intro |
 |---|---|---|
 | Yes, and it can be seen | completed, go-live block (`-LiveSince` once live) | *"It can be reopened anytime ..."*, or that it becomes visible with the release, then the go-live headings |
+| Yes, but nothing shows on the storefront | completed, go-live block with `-NoStorefrontResult` | *"It can be reopened anytime ..."*, then the go-live headings, where-to-look saying nothing changes for customers |
 | No, but we learned something useful | completed, `-Research` | *"Nothing has changed. Read the outcome below."*, then OUTCOME |
 | Yes, but the result is a number the requester measures again | completed, `-Measure` | *"Nothing changes visibly on the storefront. You can take a new measurement yourself, as described below."*, then how to measure and the targets |
 | No, because information is missing | **not planned**, `awaiting-info-client` kept on | its own intro: *"this Asana task has been cancelled, because there is not enough information to start development."*, then the ask to answer the questions |
@@ -266,7 +296,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | parameter | what it is for |
 |---|---|
 | `-Issue <n>` | required; a bare number, `#412`, or the issue's URL |
-| `-Link <url>` | where the result can be seen, **openable by the requester without an account** -- a storefront preview URL (`Get-MarketPreviewUrls`) or a live page. Not the preview handover page: a `claude.ai` Artifact is private to its owner, so it is refused ([#2341](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2341)). **Omitted, that sentence is not written at all** -- see below |
+| `-Link <url>` | where the result can be seen, **openable by the requester without an account** -- a storefront preview URL (`Get-MarketPreviewUrls`) or a live page. Not the preview handover page: a `claude.ai` Artifact is private to its owner, so it is refused ([#2341](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2341)). Nor a `github.com` URL: a pull request, release or commit is no result (#3236). **Omitted, that sentence is not written at all** -- see below |
 | `-Path <p[]>` | the storefront pages the change touched; each becomes one live URL per market. Pages separate on `,`; where a page's handle differs per market, write it `/default\|NL=/nl-handle\|DE=/de-handle` (the backslash before each `\|` only escapes it for this Markdown table -- type a plain `\|` on the command line, and quote the argument). Unknown or repeated labels, two defaults, and a page that leaves a market unnamed with no default are refused ([#2627](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2627)) |
 | `-Repo <owner/repo>` | when `GITHUB_REPOSITORY` and `gh repo view` cannot answer |
 | `-Version <X.Y.Z>` | the version to name in the block. Omitted, the block names the release day alone; pass it once the number can no longer change (the cut is prepared, or a major is decided) |
@@ -277,6 +307,7 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below -- or, with `-Research`, the `[outcome]` section |
 | `-Research` | the research form, for a ticket that changed nothing on the store (#3004) -- see above |
 | `-Measure` | the measurement form, for a result that is a number the requester measures again (#3179) -- see above |
+| `-NoStorefrontResult` | the go-live form for a change that shows nothing on the storefront: no link, a fixed sentence that nothing changes for customers (#3236) -- see above |
 | `-ByHand` | the by-hand record, for a closed message already posted on the task by hand: the workflow then posts nothing (#3183) -- see above |
 | `-Story <gid>` | with `-ByHand` only: the Asana story that carries the hand-written message, digits only |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |
