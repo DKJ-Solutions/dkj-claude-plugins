@@ -49,7 +49,7 @@ The gate itself, its allowlist and the CI caller are on the
 
 ## The Repo hub's DKJ-Solutions card and the Brandbook
 
-**The dev-preview hook, the placeholder and the general pages server are `dkj-policy`'s**, since
+**The dev-preview hook, the Repo hub and the general pages server are `dkj-policy`'s**, since
 [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198) (the owner's decision, October
 20, 2026): "General" means what every repo has, whichever organisation it belongs to, and BWJ-Development
 never enables this plugin. They are documented in

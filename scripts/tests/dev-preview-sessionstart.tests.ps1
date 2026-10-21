@@ -2,21 +2,25 @@
 .SYNOPSIS
     Tests for plugins/dkj-policy/hooks/dev-preview-sessionstart.ps1 and its rules,
     hub/lib/dev-preview-rules.ps1 in the same plugin -- the shared dev-preview hook (#2967), in dkj-policy
-    since #3198.
+    since #3198, and the Repo hub the plugin serves in every repo (#3245).
 
 .DESCRIPTION
-    Group 1 pins the rules without a server: what Get-DevPreview may state, when a command line names a
-    checkout, and which port is reused, started or refused -- from hand-built socket and process tables.
-    Group 1d pins the placeholder a repo without the seam gets (#3047): its answer, the Simple Browser
-    route test, its page, and its canonical house style against the skill's checksums.
-    Group 1e pins the state file the hook shares with the general pages server (#3119): its path, its
-    shape, and what a reader believes of it.
-    Group 2 runs the hook as a child process against scratch repos: the placeholder started and reused
-    without the seam, one line on a seam it cannot run or a missing prerequisite, and -- on Windows -- one
-    real start of a tiny loopback listener followed by a second run that REUSES it, which is the whole
-    point of the hook. It also covers the general pages server the hook starts beside the repo's own
-    (#3119): started once and reused, the state file written, and the server's routes and the placeholder
-    hub's General card answering over HTTP.
+    Group 1 pins the rules without a server: what Get-DevPreview may state (OwnHub, the opt-out of the
+    plugin's hub, included), when a command line names a checkout, and which port is reused, started or
+    refused -- from hand-built socket and process tables.
+    Group 1d pins the hub page (#3245): the Product card present or absent, the setup cards only for a repo
+    that states no Get-DevPreview, same-origin General links, escaping and the fixed h1; the Simple Browser
+    route test; and its canonical house style against the skill's checksums. The retired placeholder is
+    pinned gone.
+    Group 1e pins the state file the hook shares with the general pages server (#3119, #3245): its path, its
+    shape (the product and the mode included), and what a reader believes of it.
+    Group 2 runs the hook as a child process against scratch repos, on Windows: the hub link for a repo with
+    no seam, one line naming the hub and the product for a repo with one, the hub still handed out and the
+    general pages still running where the product cannot start (#3244), the OwnHub line as it was before
+    #3245, one line on a seam it cannot run, and one real start of a tiny loopback listener followed by a
+    second run that REUSES it, which is the whole point of the hook. It also covers the general pages server
+    the hook starts: started once and reused, the state file written, and the server's routes -- the hub
+    rendered on '/' and '/hub', or a 303 to the repo's own hub under OwnHub -- answering over HTTP.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -73,6 +77,15 @@ Assert-Equal '/' $c.Config.Path 'Path defaults to /'
 Assert-Equal 'Repo hub' $c.Config.Name 'the line opens with Repo hub (#3064)'
 Assert-Equal 20 $c.Config.WaitSeconds 'WaitSeconds defaults to 20'
 Assert-Equal $false $c.Config.OpenInVsCode 'OpenInVsCode defaults to off'
+Assert-Equal $false $c.Config.OwnHub 'OwnHub defaults to off: the plugin serves the hub (#3245)'
+$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000; OwnHub = $true }
+Assert-True ($c.Ok -and $c.Config.OwnHub -eq $true) 'OwnHub = $true is the repo''s opt-out of the plugin''s hub'
+$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000; OwnHub = $false }
+Assert-True ($c.Ok -and $c.Config.OwnHub -eq $false) 'and OwnHub = $false states the default'
+foreach ($badOwn in 'yes', 1, 'true') {
+    $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000; OwnHub = $badOwn }
+    Assert-True (-not $c.Ok -and $c.Problem -match 'OwnHub') "an OwnHub that is not a boolean ('$badOwn') is a problem, not a silent default"
+}
 Assert-Equal 1 @($c.Config.Ports).Count 'one port becomes a list of one'
 $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 5173..5180; Path = 'dashboard.html'; Requires = @('node_modules', 'data\processed') }
 Assert-Equal '/dashboard.html' $c.Config.Path 'a Path without its slash gets one'
@@ -172,51 +185,71 @@ $line = Get-DevPreviewStartLine -Root $root -Command 'npm run dev -- --port {por
 Assert-True ($line.Contains('cd /d "C:\Users\x\GitHub\repo" && npm run dev -- --port 5176 --strictPort > "C:\t\dev.log" 2>&1')) 'the start line changes into the root first, fills {port} and logs'
 Assert-True (Test-CommandLineNamesRoot -CommandLine "cmd.exe $line" -Root $root) 'and that cmd.exe line is one the ownership rule recognises'
 
-Write-Host '-- group 1d: the placeholder a repo without a seam gets (#3047)' -ForegroundColor Cyan
+Write-Host '-- group 1d: the plugin''s Repo hub page, and the Simple Browser route (#3245, #3047)' -ForegroundColor Cyan
 
-# The hook, the servers and the placeholder are dkj-policy's (#3198); the house style they serve is the
+# The hook, the servers and the hub page are dkj-policy's (#3198); the house style they serve is the
 # dkj-solutions extension's, inside dkj-policy's own payload.
 $PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy'
 $SolutionsRoot = Join-Path $PluginRoot 'dkj-solutions'
-. (Join-Path $PluginRoot 'hub\lib\dev-preview-placeholder.ps1')
+. (Join-Path $PluginRoot 'hub\lib\repo-hub-page.ps1')
 
-$ph = ConvertTo-DevPreviewConfig -Raw (Get-DevPreviewPlaceholder -PluginRoot $PluginRoot)
-Assert-True $ph.Ok 'the placeholder''s answer passes the same validation as a repo''s'
-Assert-Equal '4880 4881 4882 4883 4884 4885 4886 4887 4888 4889' (@($ph.Config.Ports) -join ' ') 'it takes the fixed range 4880-4889, so a route can name it'
-Assert-Equal 'Repo hub' $ph.Config.Name 'and opens its line with the same Repo hub (#3064)'
-$server = Join-Path $PluginRoot 'hub\preview\serve-placeholder.ps1'
-Assert-True ($ph.Config.Command.Contains("-File `"$server`" -Port {port}")) 'its Command runs the plugin''s own server, quoted, on {port}'
-Assert-True (Test-Path -LiteralPath $server -PathType Leaf) 'and that server ships in the plugin'
-Assert-True ($ph.Config.Command -notmatch [regex]::Escape($root)) 'no repo value enters the Command: the server reads the name off its working directory'
+# The placeholder is retired (#3245): the hub is the general pages server, so nothing of it ships any more.
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'hub\preview\serve-placeholder.ps1'))) 'the placeholder server no longer ships'
+Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'hub\lib\dev-preview-placeholder.ps1'))) 'nor does its page lib: the hub renderer replaced it'
+Assert-True (-not (Test-Path -LiteralPath 'Function:\Get-DevPreviewPlaceholder')) 'and the rules lib has no placeholder answer: no seam is no server, not a second server'
+Assert-True ((Get-Content -LiteralPath $Hook -Raw) -notmatch 'PlaceholderPortsOverride') 'the hook has no placeholder ports override any more'
 
-$routed = "{`n  // the preview`n  `"workbench.externalUriOpeners`": {`n    `"localhost:4880`": `"simpleBrowser.open`"`n  }`n}"
-Assert-True (Test-DevPreviewVsCodeRoute -SettingsText $routed -Port 4880) 'a settings file routing the port to the Simple Browser is a route, comments and all'
-Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText $routed -Port 4881)) 'another port is not routed by it'
-Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '{ "localhost:48801": "simpleBrowser.open" }' -Port 4880)) 'nor is a port that merely starts with it'
-Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '{ "localhost:4880": "default" }' -Port 4880)) 'a route to another opener is not the Simple Browser'
-Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '' -Port 4880)) 'no settings file routes nothing'
-Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText "{`n  // `"localhost:4880`": `"simpleBrowser.open`"`n}" -Port 4880)) 'a route commented out with // is no route'
+$routed = "{`n  // the preview`n  `"workbench.externalUriOpeners`": {`n    `"localhost:4890`": `"simpleBrowser.open`"`n  }`n}"
+Assert-True (Test-DevPreviewVsCodeRoute -SettingsText $routed -Port 4890) 'a settings file routing the port to the Simple Browser is a route, comments and all'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText $routed -Port 4891)) 'another port is not routed by it'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '{ "localhost:48901": "simpleBrowser.open" }' -Port 4890)) 'nor is a port that merely starts with it'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '{ "localhost:4890": "default" }' -Port 4890)) 'a route to another opener is not the Simple Browser'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '' -Port 4890)) 'no settings file routes nothing'
+Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText "{`n  // `"localhost:4890`": `"simpleBrowser.open`"`n}" -Port 4890)) 'a route commented out with // is no route'
 
-$html = Format-DevPreviewPlaceholderHtml -RepoName 'dkj-thumbnail-generator'
-Assert-True ($html -match '<p class="eyebrow">dkj-thumbnail-generator</p>') 'the page names the repo, in the eyebrow'
+# A repo that states no Get-DevPreview: the hub, its setup cards, no Product card.
+$html = Format-PluginRepoHubHtml -RepoName 'dkj-thumbnail-generator' -PagesUrl 'http://localhost:4890'
+Assert-True ($html -match '<p class="eyebrow">dkj-thumbnail-generator</p>') 'the hub names the repo, in the eyebrow'
 Assert-True ($html -match '<h1>Repo hub</h1>' -and $html -match '<main class="page-column">' -and $html -match 'About this repo</h2>') 'and takes the Repo hub form: the fixed h1, the page column, the facts card (#3066)'
 Assert-True ($html -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Repo hub</span></li>') 'the breadcrumb bar opens <body>, its trail the one crumb Repo hub (#3090)'
-Assert-True ($html.Contains((Format-RepoHubBanner)) -and $html.IndexOf('id="hub-banner"') -gt $html.IndexOf('<h1>Repo hub</h1>')) 'the placeholder hub carries the same airsquats banner, under its intro (#3250)'
+Assert-True ($html.Contains((Format-RepoHubBanner)) -and $html.IndexOf('id="hub-banner"') -gt $html.IndexOf('<h1>Repo hub</h1>')) 'the plugin hub carries the same airsquats banner, under its intro (#3250)'
 Assert-True ($html -notmatch '<header') 'and its intro is no <header>, which the house style lays out as a flex row'
-Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="dev-preview-placeholder">') 'with no stored theme it falls back to lilac, like every other dev page (#3166)'
+Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">') 'with no stored theme it falls back to lilac, and it shares the general pages'' theme key: one origin now'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
-Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1') 'and says how to state a preview of its own'
+Assert-True ($html -notmatch '<h2>Product</h2>') 'without a stated server there is no Product card'
+Assert-True ($html -match '<h2>Set up a product</h2>' -and $html -match '<h3 class="card__title">Add a dev server of your own</h3>' -and $html -match '<h3 class="card__title">Open it in VS Code</h3>') 'the two setup cards share one h2, each titled with an h3 (#3175)'
+Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1' -and $html -match 'OwnHub = \$true' -and $html -match '"localhost:4890": "simpleBrowser.open"') 'they say how to state a server, how to opt out, and which port to route'
+Assert-True ($html -notmatch '4880') 'and no longer name the retired 4880-4889 range'
+Assert-True ($html -match '<dt>Dev preview</dt><dd>none stated yet</dd>' -and $html -match '<dt>Hub served by</dt><dd>the dkj-policy plugin, on a port from 4890 to 4899</dd>') 'the facts say none is stated and who serves the hub'
 Assert-True ($html -match '<h2>General pages</h2>' -and $html -notmatch 'DKJ-Solutions pages') 'it links the General pages, and without -DkjSolutions no DKJ-Solutions card: a BWJ repo has none (#3198)'
-Assert-True ((Format-DevPreviewPlaceholderHtml -RepoName 'r' -DkjSolutions) -match '<h2>DKJ-Solutions pages</h2>') 'and in a DKJ-Solutions repo the DKJ-Solutions card follows it'
-Assert-True ($html -match '<h2>Set up a preview</h2>' -and $html -match '<h3 class="card__title">Add a preview of your own</h3>' -and $html -match '<h3 class="card__title">Open it in VS Code</h3>') 'the two setup cards share one h2, each titled with an h3 (#3175)'
+Assert-True ($html -match 'href="/issues"' -and $html -match 'href="/release-notes"' -and $html -notmatch 'localhost:4890/') 'by bare path: the hub and its pages are one origin (#3245)'
+Assert-True ((Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost:4890' -DkjSolutions) -match '<h2>DKJ-Solutions pages</h2>') 'and in a DKJ-Solutions repo the DKJ-Solutions card follows it'
+Assert-True ($html -match '<p class="footer-note">[^<]*<code>hub/pages/serve-general-pages.ps1</code>') 'the footer names the serving script'
 Assert-True (([regex]::Matches($html, '<h2>')).Count -eq ([regex]::Matches($html, '<div class="grid__head"><h2>')).Count) 'and every h2 stands in a grid__head, above its cards'
 Assert-True ($html -match '<title>dkj-thumbnail-generator -- Repo hub</title>' -and $html -notmatch 'Name\s+=') 'its title carries the term, and its example states no Name (#3064)'
-$html = Format-DevPreviewPlaceholderHtml -RepoName '<script>x</script>'
-Assert-True ($html -notmatch '<script>x' -and $html -match '&lt;script&gt;x') 'a folder name is HTML-escaped before it reaches the page'
-Assert-True (Test-DevPreviewPlaceholderHost -HostHeader 'LOCALHOST:4880' -Port 4880) 'localhost on its own port is its host'
-Assert-True (-not (Test-DevPreviewPlaceholderHost -HostHeader 'evil.example:4880' -Port 4880)) 'a rebound foreign name is not'
-Assert-True (Test-DevPreviewPlaceholderCrossSite 'cross-site') 'a cross-site request is marked as such'
-Assert-True (-not (Test-DevPreviewPlaceholderCrossSite '')) 'a request without Sec-Fetch-Site is allowed'
+
+# A repo that states a server: the Product card, and no setup cards.
+$html = Format-PluginRepoHubHtml -RepoName 'dkj-recipes' -Folder 'recipes-checkout' -Mode 'product' -ProductUrl 'http://localhost:4321/dkj-recipes/' -PagesUrl 'http://localhost:4890'
+Assert-True ($html -match '<h2>Product</h2>' -and $html -match '<a class="menu-item" href="http://localhost:4321/dkj-recipes/">') 'a stated server is the Product card, linking its url'
+Assert-True ($html.IndexOf('<h2>Product</h2>') -lt $html.IndexOf('<h2>General pages</h2>')) 'above the General card'
+Assert-True ($html -notmatch 'Set up a product' -and $html -notmatch 'Add a dev server of your own') 'and the setup cards are only for a repo that states none'
+Assert-True ($html -match '<dt>Folder</dt><dd>recipes-checkout</dd>' -and $html -match '<dt>Dev preview</dt><dd>http://localhost:4321/dkj-recipes/</dd>') 'the facts name the folder and the product'
+Assert-True ($html -match '<h1>Repo hub</h1>' -and $html -match '<p class="eyebrow">dkj-recipes</p>') 'the h1 is the fixed one whatever the repo states'
+$html = Format-PluginRepoHubHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl '' -PagesUrl 'http://localhost:4890'
+Assert-True ($html -match '<h2>Product</h2>' -and $html -match 'own server is not running' -and $html -notmatch 'aria-label="Product"' -and $html -match '<dd>stated, not running</dd>') 'a stated server that is not running says so, with no link'
+foreach ($badProduct in 'http://evil.example/x', 'javascript:alert(1)', 'https://localhost:4321/', 'http://localhost:4321@evil.example/', "http://localhost:4321/a`r`nb", 'http://localhost:99999/', 'http://localhost:4321//evil.example/', 'http://localhost:4321/"><script>x</script>') {
+    $html = Format-PluginRepoHubHtml -RepoName 'r' -Mode 'product' -ProductUrl $badProduct -PagesUrl 'http://localhost:4890'
+    Assert-True ($html -notmatch 'aria-label="Product"' -and $html -notmatch 'evil\.example' -and $html -notmatch '<script>x') "a product url of '$($badProduct -replace '\s', ' ')' is not linked"
+}
+Assert-True ((Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl '') -match 'The general pages server is not running') 'with no pages url the General card says its server is not running'
+
+# The two values from outside.
+$html = Format-PluginRepoHubHtml -RepoName '<script>x</script>' -Folder '"><b>f</b>'
+Assert-True ($html -notmatch '<script>x' -and $html -match '&lt;script&gt;x' -and $html -notmatch '<b>f</b>') 'a repo or folder name is HTML-escaped before it reaches the page'
+$html = Format-PluginRepoHubHtml -RepoName ('n' * 120)
+Assert-True ($html -match ('<p class="eyebrow">n{80}</p>')) 'and cut at 80 characters'
+Assert-True ((Format-PluginRepoHubHtml -RepoName "a`nb") -match '<p class="eyebrow">a b</p>') 'with control characters made spaces'
+Assert-True ((Format-PluginRepoHubHtml -RepoName '  ') -match '<p class="eyebrow">this repo</p>') 'and a blank name read as this repo'
 
 # The plugin's canonical copy is held to the house-style skill's table, like the dashboard's (#2989): a
 # repoint that leaves it behind goes red here instead of shipping a stale page to every repo.
@@ -282,9 +315,29 @@ Assert-True (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'nav
 Assert-True (Test-LoopbackCrossSite -SecFetchSite 'Same-Site') 'a same-site request that names no mode is the old refusal'
 Assert-True (Test-LoopbackCrossSite -SecFetchSite 'cross-site' -SecFetchMode 'navigate' -Method 'GET') 'a cross-site navigation is refused'
 Assert-True ((-not (Test-LoopbackCrossSite -SecFetchSite 'none' -SecFetchMode 'navigate' -Method 'GET')) -and (-not (Test-LoopbackCrossSite -SecFetchSite 'same-origin')) -and (-not (Test-LoopbackCrossSite -SecFetchSite ''))) 'a typed URL, the page itself and no header are served'
-Assert-True (-not (Test-DevPreviewPlaceholderCrossSite -SecFetchSite 'same-site' -SecFetchMode 'navigate' -Method 'GET')) 'the placeholder applies the same rule'
-Assert-True (Test-DevPreviewPlaceholderCrossSite 'same-site') 'and keeps the one-argument form refusing same-site'
 Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/a b' -Pages '') -Root $stateRoot).Hub 'nor one with a space in its path'
+
+# The product and the mode (#3245).
+$st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4890/' -Pages 'http://localhost:4890' -Product 'http://localhost:4321/dkj-recipes/?tab=1#top' -Mode 'product') -Root $stateRoot
+Assert-True ($st.Product -eq 'http://localhost:4321/dkj-recipes/?tab=1#top' -and $st.Mode -eq 'product' -and $st.Hub -eq 'http://localhost:4890/') 'a state file reads back the product url and the mode'
+Assert-Equal 'http://localhost:4321' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Product 'http://localhost:4321') -Root $stateRoot).Product 'a product url may be a bare base'
+Assert-Equal 'ownhub' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Mode 'ownhub') -Root $stateRoot).Mode 'ownhub is a mode a reader believes'
+foreach ($badProduct in 'http://evil.example/', 'http://localhost.evil.example:4321/', 'https://localhost:4321/', 'http://localhost:4321@evil.example/', 'http://127.0.0.1:4321/', 'javascript:alert(1)', 'http://localhost:4321/a b', 'http://localhost:4321/"x', "http://localhost:4321/x`r`nSet-Cookie: y", "http://localhost:4321/x`ty", 'http://localhost/', ('http://localhost:4321/' + ('a' * 240))) {
+    Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4890/' -Product $badProduct) -Root $stateRoot).Product "a product url of '$(($badProduct -replace '\s', ' ').Substring(0, [Math]::Min(40, $badProduct.Length)))' is not believed"
+}
+Assert-True (-not (Test-RepoHubLocalUrl 'http://localhost:99999/') -and -not (Test-RepoHubLocalUrl 'http://localhost:80/') -and (Test-RepoHubLocalUrl 'http://localhost:65535/')) 'a link target''s port is 1024-65535, not any five digits'
+Assert-True (-not (Test-RepoHubLocalUrl 'http://localhost:4321//evil.example/x') -and (Test-RepoHubLocalUrl 'http://localhost:4321/a//b')) 'and its path may not open with //'
+Assert-True ((Test-RepoHubLocalUrl 'http://localhost:4321/x') -and -not (Test-RepoHubLocalUrl '') -and -not (Test-RepoHubLocalUrl $null)) 'the one believe-rule for a link target, empty and null included'
+$legacy = (([ordered]@{ root = $stateRoot; hub = 'http://localhost:4870/'; pages = 'http://localhost:4890' }) | ConvertTo-Json -Compress)
+$st = ConvertFrom-RepoHubState -Text $legacy -Root $stateRoot
+Assert-True ($st.Mode -eq 'none' -and $st.Product -eq '' -and $st.Hub -eq 'http://localhost:4870/') 'a file written before #3245 has no mode and no product, and reads as the plugin''s own hub'
+$st = ConvertFrom-RepoHubState -Text ((([ordered]@{ root = $stateRoot; hub = ''; pages = ''; mode = 'bogus' }) | ConvertTo-Json -Compress)) -Root $stateRoot
+Assert-Equal 'none' $st.Mode 'a mode that is none of the three words is none'
+$st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Product 'http://localhost:4321/' -Mode 'product') -Root 'C:\Users\x\GitHub\other'
+Assert-True ($st.Product -eq '' -and $st.Mode -eq 'none') 'and for another root the product and the mode are nothing too'
+$threw = $false
+try { $null = Format-RepoHubState -Root $stateRoot -Mode 'bogus' } catch { $threw = $true }
+Assert-True $threw 'the writer refuses a mode that is none of the three words'
 
 # A HEAD answers like the GET would, real Content-Length included, and carries no body (#3161).
 $respBody = [System.Text.Encoding]::ASCII.GetBytes('Not found.')
@@ -307,84 +360,100 @@ function New-Repo {
     $script:repos += [System.IO.Path]::GetFullPath($r)
     return $r
 }
-# One port the OS hands out for the general pages server, never the real 4890-4899. The first checkout whose
-# hook starts there owns it; a later one finds it taken by another, which is the case the state file records.
-$probe = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
-$probe.Start(); $genPort = ([System.Net.IPEndPoint]$probe.LocalEndpoint).Port; $probe.Stop()
+function New-FreePort {
+    $p = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
+    $p.Start(); $n = ([System.Net.IPEndPoint]$p.LocalEndpoint).Port; $p.Stop()
+    return $n
+}
+# One port the OS hands out for the general pages server (the hub), never the real 4890-4899. The first checkout
+# whose hook starts there owns it; a later one finds it taken by another, which is the case the state file
+# records. Every other scenario takes a port of its own, because a checkout that finds the port taken has no hub.
+$genPort = New-FreePort
+$allGen = @($genPort)
 # The override reaches the hook, the servers it starts and the hubs that read the state file alike, so the
 # writing side and the reading side agree on the one port.
+function Use-GeneralPort {
+    param([int]$Port)
+    $env:DKJ_GENERAL_PAGES_PORTS = [string]$Port
+    $script:allGen += $Port
+}
 $env:DKJ_GENERAL_PAGES_PORTS = [string]$genPort
 $repos = @()
 function Invoke-Hook {
-    param([string]$Root, [int[]]$PlaceholderPorts)
-    $extra = if ($PlaceholderPorts) { @('-PlaceholderPortsOverride', ($PlaceholderPorts -join ',')) } else { @() }
-    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Hook -RepoRootOverride $Root @extra 2>&1 | ForEach-Object { "$_" }
+    param([string]$Root)
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Hook -RepoRootOverride $Root 2>&1 | ForEach-Object { "$_" }
     return [pscustomobject]@{ Text = ($out -join "`n"); Code = $LASTEXITCODE }
 }
 function Get-Message([string]$Text) {
     try { return [string]($Text | ConvertFrom-Json).systemMessage } catch { return '' }
 }
+function Get-Owners([int]$Port) {
+    return @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique)
+}
+function Get-HubState([string]$Repo) {
+    $full = [System.IO.Path]::GetFullPath($Repo)
+    $file = Get-RepoHubStatePath -Root $full
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return $null }
+    return (ConvertFrom-RepoHubState -Text ([System.IO.File]::ReadAllText($file)) -Root $full)
+}
+$getRaw = {
+    param([int]$OnPort, [string]$Path, [string]$HostHeader = '', [string]$Extra = '')
+    if (-not $HostHeader) { $HostHeader = "localhost:$OnPort" }
+    $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $OnPort)
+    $c.ReceiveTimeout = 30000
+    try {
+        $net = $c.GetStream()
+        $req = [System.Text.Encoding]::ASCII.GetBytes("GET $Path HTTP/1.1`r`nHost: $HostHeader`r`n$Extra`r`n")
+        $net.Write($req, 0, $req.Length)
+        return (New-Object System.IO.StreamReader($net)).ReadToEnd()
+    } catch { return '' } finally { $c.Close() }
+}
 
 $isWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
 $started = @()
+$blocker = $null
 try {
-    $r = Invoke-Hook (New-Repo 'silent-seam' "function Get-DevPreview { }`n")
-    Assert-True ($r.Code -eq 0 -and -not $r.Text.Trim()) 'a Get-DevPreview that answers nothing stays silent: the repo stated its seam'
-
     if ($isWindows) {
-        # THE PLACEHOLDER (#3047), on a port the OS hands out, never the real 4880-4889.
-        $probe = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
-        $probe.Start(); $phPort = ([System.Net.IPEndPoint]$probe.LocalEndpoint).Port; $probe.Stop()
+        # NO SEAM (#3245): the hub is the general pages server, and the line hands out its link.
         $noConfig = New-Repo 'no-config' $null
         # A DKJ-Solutions repo, so the servers carry the Brandbook and its card (#3198); the
         # connector-dashboard suite's fixtures are repos without it.
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig '.claude') | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $noConfig '.claude\settings.json'), '{ "enabledPlugins": { "dkj-solutions@dkj-claude-plugins": true } }')
-        $r = Invoke-Hook $noConfig $phPort
+        $r = Invoke-Hook $noConfig
         $m = Get-Message $r.Text
-        Assert-True ($r.Code -eq 0 -and $m -match "^Repo hub: http://localhost:$phPort/ \(started -- this repo states no Get-DevPreview yet") "a repo without scripts/repo-config.ps1 gets the placeholder, started (got '$m')"
-        Assert-True ($m -match "route localhost:$phPort to simpleBrowser\.open") 'and, with no Simple Browser route, the line names the one to add'
-        $started += @(Get-NetTCPConnection -State Listen -LocalPort $phPort -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess)
+        Assert-True ($r.Code -eq 0 -and $m -match "^Repo hub: http://localhost:$genPort/ \(started\) -- this repo states no Get-DevPreview yet") "a repo without scripts/repo-config.ps1 gets the plugin's hub, started (got '$m')"
+        Assert-True ($m -match "route localhost:$genPort to simpleBrowser\.open") 'and, with no Simple Browser route, the line names the one to add'
+        Assert-Equal 1 @($r.Text -split "`n" | Where-Object { $_.Trim() }).Count 'in one line'
+        Assert-True ($r.Text -match '"additionalContext"') 'which reaches the session as well as the owner'
+        # A dead link is worse than none: by the time the line is out, the hub listens.
+        $genOwners = Get-Owners $genPort
+        Assert-Equal 1 $genOwners.Count 'the hub listens the moment its link is handed out: exactly one server, on the port it was given'
+        $started += $genOwners
         try {
-            $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$phPort/" -TimeoutSec 10
-            Assert-True ($page.StatusCode -eq 200 -and $page.Content -match '<p class="eyebrow">no-config</p>') 'the placeholder serves a page naming the repo it was started in'
-            $css = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$phPort/house-style.css" -TimeoutSec 10
-            Assert-True ($css.StatusCode -eq 200) 'and serves the house style beside it'
-        } catch { Assert-True $false "the placeholder answers over HTTP ($($_.Exception.Message))" }
+            $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$genPort/" -TimeoutSec 15
+            Assert-True ($page.StatusCode -eq 200 -and $page.Content -match '<p class="eyebrow">no-config</p>' -and $page.Content -match '<h1>Repo hub</h1>') 'the hub page is served on /, naming the repo it was started in'
+            Assert-True ($page.Content -match '<h2>Set up a product</h2>' -and $page.Content -notmatch '<h2>Product</h2>') 'with the setup cards and no Product card, since the repo states no Get-DevPreview'
+            Assert-True ($page.Content -match 'href="/issues"' -and $page.Content -match '<h2>General pages</h2>' -and $page.Content -match '<h2>DKJ-Solutions pages</h2>') 'its General card links the four pages by bare path, and the DKJ-Solutions card is there where the repo enables the plugin'
+            $css = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$genPort/house-style.css" -TimeoutSec 10
+            Assert-True ($css.StatusCode -eq 200) 'and the house style is served beside it'
+        } catch { Assert-True $false "the hub answers over HTTP ($($_.Exception.Message))" }
 
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig '.vscode') | Out-Null
-        [System.IO.File]::WriteAllText((Join-Path $noConfig '.vscode\settings.json'), "{ `"workbench.externalUriOpeners`": { `"localhost:$phPort`": `"simpleBrowser.open`" } }")
-        $r = Invoke-Hook $noConfig $phPort
+        [System.IO.File]::WriteAllText((Join-Path $noConfig '.vscode\settings.json'), "{ `"workbench.externalUriOpeners`": { `"localhost:$genPort`": `"simpleBrowser.open`" } }")
+        $r = Invoke-Hook $noConfig
         $m = Get-Message $r.Text
-        Assert-True ($m -match '\(already running' -and $m -notmatch 'route localhost') "a second start reuses it, and a routed port needs no hint (got '$m')"
-        $after = @(Get-NetTCPConnection -State Listen -LocalPort $phPort -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique)
-        Assert-Equal 1 $after.Count 'and exactly one placeholder listens'
+        Assert-True ($m -match "^Repo hub: http://localhost:$genPort/ \(already running(, opened in VS Code)?\) -- this repo states no Get-DevPreview yet$") "a second start reuses it, and a routed port needs no hint (it opens in VS Code where the session runs there) (got '$m')"
+        Assert-Equal 1 (Get-Owners $genPort).Count 'and exactly one hub listens'
 
-        # THE GENERAL PAGES SERVER (#3119): started beside the placeholder, never waited for, never in the line.
-        Assert-True ($m -notmatch 'general|4890|localhost:' + $genPort) 'the line the session sees does not mention the general pages server'
+        # THE STATE FILE: the hub, the pages, no product, mode none.
         $noConfigRoot = [System.IO.Path]::GetFullPath($noConfig)
         $stateFile = Get-RepoHubStatePath -Root $noConfigRoot
         Assert-True (Test-Path -LiteralPath $stateFile -PathType Leaf) 'the hook writes the state file'
-        $st = ConvertFrom-RepoHubState -Text ([System.IO.File]::ReadAllText($stateFile)) -Root $noConfigRoot
-        Assert-Equal "http://localhost:$phPort/" $st.Hub 'it names the repo hub the hook handed out'
-        Assert-Equal "http://localhost:$genPort" $st.Pages 'and the general pages server it started'
-        $sw = [Diagnostics.Stopwatch]::StartNew()
-        while ($sw.Elapsed.TotalSeconds -lt 20 -and -not @(Get-NetTCPConnection -State Listen -LocalPort $genPort -ErrorAction SilentlyContinue).Count) { Start-Sleep -Milliseconds 300 }
-        $genOwners = @(Get-NetTCPConnection -State Listen -LocalPort $genPort -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique)
-        Assert-Equal 1 $genOwners.Count 'exactly one general pages server listens, on the port it was given'
-        $started += $genOwners
-        $getRaw = {
-            param([int]$OnPort, [string]$Path, [string]$HostHeader = '', [string]$Extra = '')
-            if (-not $HostHeader) { $HostHeader = "localhost:$OnPort" }
-            $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', $OnPort)
-            $c.ReceiveTimeout = 30000
-            try {
-                $net = $c.GetStream()
-                $req = [System.Text.Encoding]::ASCII.GetBytes("GET $Path HTTP/1.1`r`nHost: $HostHeader`r`n$Extra`r`n")
-                $net.Write($req, 0, $req.Length)
-                return (New-Object System.IO.StreamReader($net)).ReadToEnd()
-            } catch { return '' } finally { $c.Close() }
-        }
+        $st = Get-HubState $noConfig
+        Assert-Equal "http://localhost:$genPort/" $st.Hub 'it names the hub the hook handed out: the general pages server itself'
+        Assert-Equal "http://localhost:$genPort" $st.Pages 'and its base url'
+        Assert-True ($st.Product -eq '' -and $st.Mode -eq 'none') 'with no product and the mode none'
         $r2 = & $getRaw $genPort '/whoami'
         Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2.TrimEnd().EndsWith((Get-DevPreviewRootHash -Root $noConfigRoot))) '/whoami says which checkout''s server it is: the hash of the root it was started in'
         Assert-Equal "http://localhost:$genPort" (Get-GeneralPagesUrl -Root $noConfigRoot) 'a hub that asks gets the pages url only from the server that answers as its own'
@@ -392,20 +461,19 @@ try {
         Write-RepoHubState -Root $otherRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$genPort"
         Assert-Equal '' (Get-GeneralPagesUrl -Root $otherRoot) 'while a state file that names another checkout''s server (a stale one, or a port race lost) gets the not-running form'
         Remove-Item -LiteralPath (Get-RepoHubStatePath -Root $otherRoot) -Force -ErrorAction SilentlyContinue
-        # THE BROWSER'S OWN HEADERS (#3119): the hub's link to the pages, the crumb back to /hub, and the placeholder
-        # hub they land on, all arrive same-site as top-level navigations.
+
+        # THE BROWSER'S OWN HEADERS (#3119): the hub's link to the pages and the crumb back to /hub all arrive
+        # same-site as top-level navigations; now they are the same origin as well.
         $nav = "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: navigate`r`nSec-Fetch-Dest: document`r`n"
         $r2 = & $getRaw $genPort '/artifacts' '' $nav
         Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Artifacts</h1>') 'a click from the hub to a general page, same-site and a navigation, is served'
         $r2 = & $getRaw $genPort '/hub' '' $nav
-        Assert-True ($r2 -match 'HTTP/1.1 303' -and $r2 -match "Location: http://localhost:$phPort/\r") 'and so is the "Repo hub" crumb on it'
-        $r2 = & $getRaw $phPort '/' '' $nav
-        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Repo hub</h1>') 'which the placeholder hub serves when it is reached that way'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Repo hub</h1>') 'and so is the "Repo hub" crumb on it: /hub is the rendered hub'
         Assert-True ((& $getRaw $genPort '/artifacts' '' "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: no-cors`r`n") -match 'HTTP/1.1 403') 'a same-site subresource request is refused'
         Assert-True ((& $getRaw $genPort '/artifacts' '' "Sec-Fetch-Site: cross-site`r`nSec-Fetch-Mode: navigate`r`n") -match 'HTTP/1.1 403') 'and a cross-site navigation'
-        $r2 = & $getRaw $genPort '/hub'
-        Assert-True ($r2 -match 'HTTP/1.1 303' -and $r2 -match "Location: http://localhost:$phPort/\r") '/hub on the general server goes to the repo''s own hub, as the state file names it'
-        Assert-True ((& $getRaw $genPort '/') -match "HTTP/1.1 303") 'and so does /'
+        $r2 = & $getRaw $genPort '/'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Repo hub</h1>') '/ renders the hub too, not a redirect: there is no repo hub to send the visitor to'
+        Assert-True ((& $getRaw $genPort '/index.html') -match 'HTTP/1.1 200') 'and so does /index.html'
         Assert-True ((& $getRaw $genPort '/hub' 'evil.example') -match 'HTTP/1.1 403') 'a foreign Host is refused'
         $r2 = & $getRaw $genPort '/artifacts'
         Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Artifacts</h1>' -and $r2 -match 'the file is not there' -and $r2 -match '<li><a href="/hub">Repo hub</a></li>' -and $r2 -match '<p class="eyebrow">no-config</p>') '/artifacts says the register is not there, in a repo that has none, under the folder''s name'
@@ -443,85 +511,172 @@ try {
         Assert-True ((& $getRaw $genPort '/nope') -match 'HTTP/1.1 404') 'and an unknown path is a 404'
         Assert-True ((& $getRaw $genPort '/refresh?page=//evil.example') -match 'Location: /\r') '/refresh goes only to a page of its own list'
 
-        # The placeholder hub now links the server that answers: its General card, from the state file.
-        try {
-            $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$phPort/" -TimeoutSec 15
-            Assert-True ($page.Content -match "href=`"http://localhost:$genPort/issues`"" -and $page.Content -match '<div class="grid__head"><h2>General pages</h2>') 'the placeholder hub''s General card links the four pages on the general server'
-        } catch { Assert-True $false "the placeholder hub answers over HTTP ($($_.Exception.Message))" }
-
-        # A second checkout finds the port taken by another's server: no pages url, and the state says so.
+        # A second checkout finds the port taken by another's server: no hub of its own, and the line says why.
         $second = New-Repo 'second-checkout' $null
-        $probe = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
-        $probe.Start(); $phPort2 = ([System.Net.IPEndPoint]$probe.LocalEndpoint).Port; $probe.Stop()
-        $null = Invoke-Hook $second $phPort2
-        $started += @(Get-NetTCPConnection -State Listen -LocalPort $phPort2 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess)
-        $secondState = ConvertFrom-RepoHubState -Text ([System.IO.File]::ReadAllText((Get-RepoHubStatePath -Root ([System.IO.Path]::GetFullPath($second))))) -Root ([System.IO.Path]::GetFullPath($second))
-        Assert-Equal '' $secondState.Pages 'a checkout whose general port is taken by another checkout''s server names no pages url'
-        $afterGen = @(Get-NetTCPConnection -State Listen -LocalPort $genPort -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique)
-        Assert-Equal 1 $afterGen.Count 'and starts no second one on it'
+        $r = Invoke-Hook $second
+        $m = Get-Message $r.Text
+        Assert-True ($m -match "^Repo hub: not started -- port $genPort taken by other processes") "a checkout whose general port is taken by another checkout's server has no hub link, and the line names the holder (got '$m')"
+        Assert-Equal '' (Get-HubState $second).Pages 'its state file names no pages url'
+        Assert-Equal 1 (Get-Owners $genPort).Count 'and it starts no second server on the port'
 
         # Reused, not doubled: another start for the same checkout leaves the one server and the same state.
-        $null = Invoke-Hook $noConfig $phPort
-        $afterGen = @(Get-NetTCPConnection -State Listen -LocalPort $genPort -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique)
-        Assert-Equal 1 $afterGen.Count 'a later session start reuses the general pages server instead of starting another'
-        Assert-Equal "http://localhost:$genPort" (ConvertFrom-RepoHubState -Text ([System.IO.File]::ReadAllText($stateFile)) -Root $noConfigRoot).Pages 'and writes the same pages url again'
+        $null = Invoke-Hook $noConfig
+        Assert-Equal 1 (Get-Owners $genPort).Count 'a later session start reuses the hub instead of starting another'
+        Assert-Equal "http://localhost:$genPort" (Get-HubState $noConfig).Pages 'and writes the same pages url again'
 
-        $r = Invoke-Hook (New-Repo 'no-seam' "function Get-ReachLabel { 'minor' }`n") $phPort
-        Assert-True ((Get-Message $r.Text) -match '^Repo hub: not started -- port \d+ taken') 'a config without Get-DevPreview gets the placeholder too, and another checkout''s is not taken for its own'
+        $r = Invoke-Hook (New-Repo 'no-seam' "function Get-ReachLabel { 'minor' }`n")
+        Assert-True ((Get-Message $r.Text) -match "^Repo hub: not started -- port $genPort taken") 'a config without Get-DevPreview is a repo with no server too, and another checkout''s hub is not taken for its own'
 
-        $r = Invoke-Hook (New-Repo 'bad-seam' "function Get-DevPreview { @{ Command = 'npm run dev'; Ports = 3000 } }`n")
+        # A GET-DEVPREVIEW THAT ANSWERS NOTHING used to print nothing; it is a repo that states no server now (#3245).
+        Use-GeneralPort (New-FreePort)
+        $silent = New-Repo 'silent-seam' "function Get-DevPreview { }`n"
+        $r = Invoke-Hook $silent
         $m = Get-Message $r.Text
-        Assert-True ($r.Code -eq 0 -and $m -match 'not started' -and $m -match '\{port\}') 'a seam it cannot run gets one line naming why'
+        Assert-True ($r.Code -eq 0 -and $m -match "^Repo hub: http://localhost:$($env:DKJ_GENERAL_PAGES_PORTS)/ \(started\) -- this repo's Get-DevPreview answers nothing") "a Get-DevPreview that answers nothing is handed the hub too (got '$m')"
+        Assert-Equal 'none' (Get-HubState $silent).Mode 'with the mode none'
+
+        # A SEAM IT CANNOT RUN: the hub is still handed out, with the product's reason.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $bad = New-Repo 'bad-seam' "function Get-DevPreview { @{ Command = 'npm run dev'; Ports = 3000 } }`n"
+        $r = Invoke-Hook $bad
+        $m = Get-Message $r.Text
+        Assert-True ($r.Code -eq 0 -and $m -match "^Repo hub: http://localhost:$g/ -- product not started: .*\{port\}") "a seam it cannot run gets the hub and one clause naming why (got '$m')"
         Assert-True ($r.Text -match '"additionalContext"') 'and that line reaches the session as well as the owner'
+        Assert-True ((Get-HubState $bad).Mode -eq 'product' -and (Get-HubState $bad).Product -eq '') 'its state says the repo states a server and none runs'
+        Assert-Equal 1 (Get-Owners $g).Count 'and the general pages server runs'
 
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
         $r = Invoke-Hook (New-Repo 'throws' "throw 'broken config'`n")
-        Assert-True ($r.Code -eq 0 -and (Get-Message $r.Text) -match 'could not be read') 'a config that throws is one line, never a failed session'
+        Assert-True ($r.Code -eq 0 -and (Get-Message $r.Text) -match "^Repo hub: http://localhost:$g/ \(started\) -- scripts/repo-config.ps1 could not be read") 'a config that throws is one line, never a failed session, and the hub is still handed out'
 
-        # A free port: let the OS pick one, then give it back.
-        $probe = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
-        $probe.Start(); $port = ([System.Net.IPEndPoint]$probe.LocalEndpoint).Port; $probe.Stop()
+        # A free port for a product.
+        $port = New-FreePort
 
+        # A MISSING PREREQUISITE (#3244, second half): nothing of the product starts, and the General pages do.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
         $requiresRepo = New-Repo 'requires' "function Get-DevPreview { @{ Command = 'x {port}'; Ports = $port; Requires = 'node_modules' } }`n"
         $requiresRoot = [System.IO.Path]::GetFullPath($requiresRepo)
-        Write-RepoHubState -Root $requiresRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$genPort"
+        Write-RepoHubState -Root $requiresRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$g" -Product 'http://localhost:4870/' -Mode 'ownhub'
         $r = Invoke-Hook $requiresRepo
-        Assert-True ((Get-Message $r.Text) -match "'node_modules' is missing") 'a missing prerequisite is named and nothing is started'
-        Assert-True (-not (Test-Path -LiteralPath (Get-RepoHubStatePath -Root $requiresRoot))) 'and last session''s state file is removed: there is no hub this session to point at'
-        $takenRepo = New-Repo 'ports-taken' "function Get-DevPreview { @{ Command = 'x {port}'; Ports = $phPort } }`n"
-        $takenRoot = [System.IO.Path]::GetFullPath($takenRepo)
-        Write-RepoHubState -Root $takenRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$genPort"
+        $m = Get-Message $r.Text
+        Assert-True ($m -match "^Repo hub: http://localhost:$g/ -- product not started: 'node_modules' is missing") "a missing prerequisite is named, nothing of the product is started and the hub is handed out (got '$m')"
+        Assert-Equal 1 (Get-Owners $g).Count 'and the general pages server runs although the product cannot start'
+        $st = Get-HubState $requiresRepo
+        Assert-True ($st.Mode -eq 'product' -and $st.Product -eq '' -and $st.Pages -eq "http://localhost:$g") 'last session''s state file is replaced by this session''s: the pages, no product'
+
+        # A PRODUCT THAT NEVER LISTENS (its start failing the same way a throw does): the hub link is still handed
+        # out, the state file keeps the pages and names no product.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $portN = New-FreePort
+        $never = New-Repo 'never-listens' "function Get-DevPreview { @{ Command = 'ping -n 20 127.0.0.1 >nul & rem {port}'; Ports = $portN; WaitSeconds = 1 } }`n"
+        $r = Invoke-Hook $never
+        $m = Get-Message $r.Text
+        Assert-True ($m -match "^Repo hub: http://localhost:$g/ -- product: starting on http://localhost:$portN/ but not listening after 1s") "a product that never listens does not cost the hub link (got '$m')"
+        $st = Get-HubState $never
+        Assert-True ($st.Pages -eq "http://localhost:$g" -and $st.Product -eq '' -and $st.Mode -eq 'product') 'and its state file has the pages and no product'
+        Get-CimInstance Win32_Process -Filter "Name = 'PING.EXE'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match 'ping -n 20 127' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+
+        # A HUB THAT IS NOT LISTENING YET when its deadline passes keeps its pages url in the state file: /whoami
+        # verifies it anyway, so leaving it out buys nothing.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $env:DKJ_DEV_PREVIEW_HUB_WAIT = '0'
+        try { $r = Invoke-Hook (New-Repo 'hub-timeout' $null) } finally { Remove-Item Env:\DKJ_DEV_PREVIEW_HUB_WAIT -ErrorAction SilentlyContinue }
+        Assert-True ((Get-Message $r.Text) -match "^Repo hub: not started -- the hub on port $g is not listening after 0s") 'a hub that misses its deadline is named as such, not linked'
+        Assert-Equal "http://localhost:$g" (Get-HubState (Join-Path $Fixture 'hub-timeout')).Pages 'but its state file keeps the pages url'
+
+        # EVERY PORT OF THE PRODUCT TAKEN: the same.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $blocker = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
+        $blocker.Start(); $bp = ([System.Net.IPEndPoint]$blocker.LocalEndpoint).Port
+        $takenRepo = New-Repo 'ports-taken' "function Get-DevPreview { @{ Command = 'x {port}'; Ports = $bp } }`n"
         $r = Invoke-Hook $takenRepo
-        Assert-True ((Get-Message $r.Text) -match 'taken by other processes' -and -not (Test-Path -LiteralPath (Get-RepoHubStatePath -Root $takenRoot))) 'and so is it when the hub''s ports are all taken'
-        Assert-True ((Get-Message $r.Text) -match "taken by other processes: $phPort by .+ \(pid \d+\)\.") 'and the line names who holds the port, by checkout and pid (#3244)'
+        $m = Get-Message $r.Text
+        Assert-True ($m -match "^Repo hub: http://localhost:$g/ -- product not started: port $bp taken by other processes") "a product whose ports are all taken still gets the hub link, with the reason (got '$m')"
+        Assert-True ($m -match "taken by other processes: $bp by .+ \(pid \d+\)") 'and the line names who holds the port, by checkout and pid (#3244)'
+        Assert-Equal 1 (Get-Owners $g).Count 'and the general pages start too (#3244, second half)'
+        Assert-True ((Get-HubState $takenRepo).Product -eq '') 'with no product in the state file'
+        $r2 = & $getRaw $g '/'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h2>Product</h2>' -and $r2 -match 'own server is not running' -and $r2 -notmatch 'Set up a product') 'and the hub says the product is stated and not running, without the setup cards'
+        $blocker.Stop(); $blocker = $null
 
         # THE REAL START: a loopback listener that holds the port for a minute, started by the hook.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
         $listen = "powershell -NoProfile -Command `"`$l = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), {port}; `$l.Start(); Start-Sleep 60`""
         $cfg = "function Get-DevPreview { @{ Command = '" + $listen.Replace("'", "''") + "'; Ports = $port; Path = '/index.html'; WaitSeconds = 30 } }`n"
         $live = New-Repo 'live' $cfg
         $r = Invoke-Hook $live
         $m = Get-Message $r.Text
-        Assert-True ($m -eq "Repo hub: http://localhost:$port/index.html (started)") "the hook starts the server and hands out its link once it listens (got '$m')"
-        $owner = @(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess)
+        Assert-True ($m -eq "Repo hub: http://localhost:$g/ -- product: http://localhost:$port/index.html (started)") "the hook starts the hub and the product and hands out both links once they listen (got '$m')"
+        $owner = Get-Owners $port
         $started += $owner
+        Assert-True ($owner.Count -eq 1 -and (Get-Owners $g).Count -eq 1) 'both listen by the time the line is out'
+        $st = Get-HubState $live
+        Assert-True ($st.Mode -eq 'product' -and $st.Product -eq "http://localhost:$port/index.html" -and $st.Hub -eq "http://localhost:$g/" -and $st.Pages -eq "http://localhost:$g") 'the state file names the hub, the pages and the product, mode product'
+        try {
+            $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$g/" -TimeoutSec 15
+            Assert-True ($page.Content -match "<a class=`"menu-item`" href=`"http://localhost:$port/index.html`">" -and $page.Content -match '<h2>Product</h2>' -and $page.Content -notmatch 'Set up a product') 'the hub links the product, and carries no setup cards'
+        } catch { Assert-True $false "the hub answers over HTTP ($($_.Exception.Message))" }
 
         $r = Invoke-Hook $live
-        Assert-Equal "Repo hub: http://localhost:$port/index.html (already running)" (Get-Message $r.Text) 'a second session start reuses it instead of starting another'
-        $after = @(Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | Sort-Object -Unique)
-        Assert-Equal 1 $after.Count 'and exactly one process listens on the port'
+        Assert-Equal "Repo hub: http://localhost:$g/ -- product: http://localhost:$port/index.html (already running)" (Get-Message $r.Text) 'a second session start reuses both instead of starting another'
+        Assert-Equal 1 (Get-Owners $port).Count 'and exactly one process listens on the product port'
+        Assert-Equal 1 (Get-Owners $g).Count 'and one on the hub port'
 
         $r = Invoke-Hook (New-Repo 'chatty' ("Write-Host 'loading config'`n" + $cfg.Replace('WaitSeconds = 30', 'Name = ''Chatty''; WaitSeconds = 30')))
         Assert-True ((Get-Message $r.Text) -match '^Repo hub: ') 'a Write-Host in the config does not break the JSON the hook prints'
 
-        $probe = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), 0
-        $probe.Start(); $port2 = ([System.Net.IPEndPoint]$probe.LocalEndpoint).Port; $probe.Stop()
+        # OWNHUB (#3245): the repo's own server IS the hub, as before; the general pages server still starts beside it.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $port3 = New-FreePort
+        $cfgOwn = "function Get-DevPreview { @{ Command = '" + $listen.Replace("'", "''") + "'; Ports = $port3; Path = '/index.html'; WaitSeconds = 30; OwnHub = " + '$true' + " } }`n"
+        $own = New-Repo 'ownhub' $cfgOwn
+        $r = Invoke-Hook $own
+        $m = Get-Message $r.Text
+        Assert-True ($m -eq "Repo hub: http://localhost:$port3/index.html (started)") "a repo that opted out is handed its own server as the hub, the line it had before (got '$m')"
+        $started += Get-Owners $port3
+        Assert-Equal 1 (Get-Owners $g).Count 'while the general pages server starts beside it'
+        $st = Get-HubState $own
+        Assert-True ($st.Mode -eq 'ownhub' -and $st.Hub -eq "http://localhost:$port3/index.html" -and $st.Pages -eq "http://localhost:$g") 'its state file names the repo''s own hub and the pages'
+        $r2 = & $getRaw $g '/hub'
+        Assert-True ($r2 -match 'HTTP/1.1 303' -and $r2 -match "Location: http://localhost:$port3/index.html\r") '/hub on the general server goes to the repo''s own hub, as the state file names it, instead of rendering one'
+        Assert-True ((& $getRaw $g '/') -match 'HTTP/1.1 303' -and (& $getRaw $g '/index.html') -match 'HTTP/1.1 303') 'and so do / and /index.html'
+        Assert-True ((& $getRaw $g '/issues') -match 'HTTP/1.1 200') 'while the general pages answer as ever'
+        $r = Invoke-Hook $own
+        Assert-Equal "Repo hub: http://localhost:$port3/index.html (already running)" (Get-Message $r.Text) 'a second start reuses it, in the old words'
+        # An opted-out repo whose server cannot start has no hub to send to: a plain 404 text, as before.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $port4 = New-FreePort
+        $ownRequires = New-Repo 'ownhub-requires' ("function Get-DevPreview { @{ Command = 'x {port}'; Ports = $port4; Requires = 'node_modules'; OwnHub = " + '$true' + " } }`n")
+        $r = Invoke-Hook $ownRequires
+        Assert-True ((Get-Message $r.Text) -match "^Repo hub: not started -- 'node_modules' is missing") 'an opted-out repo whose server cannot start is told so, as before'
+        Assert-Equal 1 (Get-Owners $g).Count 'and its general pages start anyway'
+        Assert-True ((& $getRaw $g '/hub') -match 'HTTP/1.1 404[\s\S]*hub is not known yet') 'and its /hub, with no hub to send to, is a plain 404 text'
+
+        # A SERVER THAT DIES AT START: the hook stops waiting for it, not at WaitSeconds, and the hub is still handed out.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $port2 = New-FreePort
         $t0 = Get-Date
         $r = Invoke-Hook (New-Repo 'dies' "function Get-DevPreview { @{ Command = 'echo {port}'; Ports = $port2; WaitSeconds = 30 } }`n")
-        Assert-True ((Get-Message $r.Text) -match 'exited at start') 'a server that dies at start is reported as such'
-        Assert-True (((Get-Date) - $t0).TotalSeconds -lt 20) 'and the hook stops waiting when it dies, not at WaitSeconds'
+        $m = Get-Message $r.Text
+        Assert-True ($m -match "^Repo hub: http://localhost:$g/ -- product: the server on port $port2 exited at start") "a server that dies at start is reported as such, beside the hub link (got '$m')"
+        Assert-True (((Get-Date) - $t0).TotalSeconds -lt 25) 'and the hook stops waiting when it dies, not at WaitSeconds'
+        Assert-True ((Get-HubState (Join-Path $Fixture 'dies')).Product -eq '') 'and the state file does not name the product that died'
 
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
         $other = New-Repo 'other' $cfg
         $r = Invoke-Hook $other
-        Assert-True ((Get-Message $r.Text) -match 'not started' -and (Get-Message $r.Text) -match "port $port taken") 'another checkout does not mistake that server for its own'
+        Assert-True ((Get-Message $r.Text) -match "product not started: port $port taken") 'another checkout does not mistake that server for its own'
     } else {
         Write-Host '  [SKIP] the Windows-only cases: not on Windows' -ForegroundColor Yellow
         $r = Invoke-Hook (New-Repo 'bad-seam' "function Get-DevPreview { @{ Command = 'x' } }`n")
@@ -529,10 +684,13 @@ try {
     }
 } finally {
     foreach ($p in $started) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }
-    # The general pages server is detached, so it is found by its port; and its state and log files live in
-    # %TEMP%, named for the fixture checkouts.
-    foreach ($o in @(Get-NetTCPConnection -State Listen -LocalPort $genPort -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess)) {
-        Stop-Process -Id $o -Force -ErrorAction SilentlyContinue
+    if ($blocker) { $blocker.Stop() }
+    # The general pages servers are detached, so they are found by their ports; and their state and log files
+    # live in %TEMP%, named for the fixture checkouts.
+    foreach ($gp in $allGen) {
+        foreach ($o in @(Get-NetTCPConnection -State Listen -LocalPort $gp -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess)) {
+            Stop-Process -Id $o -Force -ErrorAction SilentlyContinue
+        }
     }
     Start-Sleep -Milliseconds 500
     Remove-Item Env:\DKJ_GENERAL_PAGES_PORTS -ErrorAction SilentlyContinue

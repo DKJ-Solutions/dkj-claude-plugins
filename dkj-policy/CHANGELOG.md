@@ -2,7 +2,96 @@
 
 ## [Unreleased]
 
-**8 / 11 minor entries** <!-- pending-tally -->
+**11 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3245-plugin-repo-hub · 20261021-144046Z
+
+**The plugin now serves the Repo hub in every repo** (#3245). The general pages server, which already
+served Artifacts, Issues, Release notes and SessionStart, answers `/` with the hub itself, on the same
+origin as those pages. A repo that states `Get-DevPreview` sees its own dev server as the **Product**
+card on that hub instead of in its place, and the session-start line names both:
+`Repo hub: http://localhost:4890/ -- product: http://localhost:4321/... (started)`. A repo that wants its
+own server to stay the hub states `OwnHub = $true` in `Get-DevPreview`. The General pages now start
+whatever happens to the product, also when its port is taken. The placeholder server on 4880-4889 is
+retired: a repo without `Get-DevPreview` gets the same plugin hub, with the setup cards.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+A repo whose dev server is its product no longer has to build a hub of its own: after this release its
+session-start line hands out the plugin's hub beside the product. A repo whose own server should stay the
+hub adds `OwnHub = $true` to `Get-DevPreview`; a `.vscode/settings.json` route for 4880 becomes one for 4890.
+
+**Score:** 4
+
+#### Pull Request
+
+Repo hub: the plugin serves it in every repo, with the repo's own server as its product
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3259](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3259)
+
+---
+
+### DEPLOY: feat/3248-closed-message-inreview-move · 20261021-124119Z
+
+In this repo the template's guardrail moved: the closed-message template now knows two writes instead of
+one. The suite holds both writes to their pure builders, holds the move to after the message, and holds
+the one section write to an `addTask`. Security review accepted one widening knowingly. The move is a
+state change rather than an append, and it lands on the task the issue's marker names, the same trust
+model the comment already rides on. It is bounded to that task's own single board, and it never moves a
+card out of `Completed`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store that re-adopts `asana-closed-message` now gets its Asana card moved into the board's review
+section (on xoxowildhearts, `3. Waiting for review`) when an issue closes as completed with a go-live,
+research, measurement or already-fixed block. That matches the closed message, which already says *"this
+Asana task is now in review"*. The move is never made on a by-hand, blockless or not-planned close or on a
+reopen, and it never takes a card out of `Completed`. Where the task is on several boards, or the board
+has no single section with the `InReview` code from `Get-AsanaStageMap`, the move is skipped and the
+message still posts. The store takes it through adopt's stop-and-diff of the two `asana-closed-message`
+files ([#3248](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3248)).
+
+**Score:** 3
+
+#### Pull Request
+
+asana-closed-message moves the task to the board's InReview section on a completed close with a block
+
+Plugins: bwj-development
+
+[PR #3256](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3256)
+
+---
+
+### DEPLOY: feat/3247-h1-uppercase · 20261021-123033Z
+
+Every DKJ-Solutions page now sets its `h1` in capitals (#3247), so the page title stands further apart
+from the `h2` than size alone made it. The tracking opens to `0.02em` for the capitals; the markup keeps
+its ordinary case. An app takes it with its next copy of `house-style.css`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every app's page titles read in capitals once it takes the new copy; nothing to rename or change.
+
+**Score:** 2
+
+#### Pull Request
+
+house style: set the h1 in capitals
+
+Plugins: dkj-solutions
+
+[PR #3255](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3255)
+
+---
 
 ### DEPLOY: docs/3253-created-comment-on-own-tasks · 20261021-121925Z
 

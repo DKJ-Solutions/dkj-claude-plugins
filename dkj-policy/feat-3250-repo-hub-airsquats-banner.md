@@ -46,8 +46,9 @@ A visible result, so the branch stops for the owner's look and opens no PR.
 #### Choices made, for the owner's look
 
 - **Both hub indexes, one helper**: `Format-RepoHubBanner` in the plugin's `general-pages-lib.ps1`,
-  called by this repo's `Format-RepoHubHtml` and the placeholder hub every repo without a
-  `Get-DevPreview` gets. A repo whose own server is its hub (dkj-recipes, see #3245) does not get it.
+  called by this repo's `Format-RepoHubHtml` and by the plugin's Repo hub (`Format-PluginRepoHubHtml`),
+  which since #3245 every repo gets. The placeholder hub the branch first used was replaced by that
+  hub on `main` while this branch was parked, so the call moved there at the merge.
 - **The timer counts down to the next full hour**, so it reads the same in every tab and after a reload.
 - **Stacking is one checkbox showing the total** (10, 20, 30 ...), and ticking it clears the total.
 - **An hour counts only while a hub page is open** (or reopened within two minutes), so a hub closed
@@ -59,7 +60,7 @@ A visible result, so the branch stops for the owner's look and opens no PR.
 ### CREATE
 
 - [x] `Format-RepoHubBanner` (markup and inline script) in `plugins/dkj-policy/hub/lib/general-pages-lib.ps1`
-- [x] called under the intro in `scripts/lib/dev-pages-lib.ps1` and `plugins/dkj-policy/hub/lib/dev-preview-placeholder.ps1`
+- [x] called under the intro in `scripts/lib/dev-pages-lib.ps1` and `plugins/dkj-policy/hub/lib/repo-hub-page.ps1`
 - [x] The owner's look at the preview (approved, October 21, 2026); then the Repo hub table in the house-style README gets the block, as row 6a
 
 ### TEST
@@ -73,14 +74,14 @@ A visible result, so the branch stops for the owner's look and opens no PR.
 The Repo hub now carries a general banner (#3250): a countdown to the next full hour, and when an hour
 has passed, a short tone and a **10 airsquats** checkbox. The countdown keeps running whether or not the
 box is ticked, and every unticked hour adds another 10, so the box shows the total owed; ticking it
-clears the total. It is on this repo's hub and on the placeholder hub, in house classes only, and its
-state stays in the browser.
+clears the total. It is on the plugin's Repo hub, which every repo gets, and on this repo's own, in house classes only,
+and its state stays in the browser.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-A repo served by the placeholder hub shows the banner on its index from the next release.
+Every repo's Repo hub shows the banner from the next release.
 
 **Score:** 2
 

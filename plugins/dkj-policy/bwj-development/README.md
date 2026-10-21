@@ -112,7 +112,7 @@ so the requester stops testing. Closing it as not planned with `awaiting-info-cl
 on-hold line (#2902), so a parked ticket never reads as finished. The `Prio-Score` to prio-label sync came back too (Dave, October 12, 2026,
 [#2945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2945)), as the separate `asana-prio-label`
 workflow adopt copies beside it. The rest of the asana-mirror CI automation is **retired**: the moving of
-the card through the board's numbered sections, the daily reconciliation sweep and the backstop comment. A card stays in `Filed` unless a person moves it. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
+the card through the board's numbered sections, the daily reconciliation sweep and the backstop comment. One move came back (#3248): a completed close that carries a block moves the card into `InReview`, after its message. Every other move is a person's. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
 was never part of that CI. Its pickup-side counterpart, `hooks/asana-link-pickupcheck.ps1`, warns the
 session after `claim-issue` or `new-branch` picks up an issue that names Asana but links no task (#2919),
 asks about one that neither links nor mentions Asana, and names a task linked from two open issues (#2928).

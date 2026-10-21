@@ -227,6 +227,9 @@ scale did not, so taking it over changed sizes: body 15 → 14, `h2` 29 → 32, 
 small text → 12, a mini-card value 20 → 18, the info button's mark 10 → 11 (Maikel, October 12, 2026).
 Two departures from the library followed on October 20, 2026: its `h0` was retired with `h1` taking the 48px,
 and its 24px `h3` was retired with every level below it moving up one.
+**The `h1` is set in capitals** (`text-transform: uppercase`, tracking opened to `0.02em`), so it stands further
+apart from the `h2` than size alone made it (owner's decision, October 21, 2026,
+[#3247](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3247)). The markup keeps its ordinary case.
 
 ### The heading shift of October 20, 2026
 
@@ -580,7 +583,7 @@ It is called a hub, not a dashboard (owner's call, October 17, 2026, [#199](http
 
 **Every DKJ-Solutions repo's Repo hub has this one form, and only its content differs** (owner's
 decision, October 16, 2026, [#139](https://github.com/DKJ-Solutions/dkj-brandbook/issues/139)). The Repo
-hub is the index (`/`) of a repo's dev server: what the repo is for and what is in flight. The form is
+hub is the index (`/`) of a repo's dev server: what the repo is for and what is in flight. Where a repo states no dev server, or has not opted out of it (`OwnHub` in `Get-DevPreview`), the index is the dkj-policy plugin's own hub server instead, and the repo's server is its product ([#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245)). The form is
 the one approved in [#137](https://github.com/DKJ-Solutions/dkj-brandbook/issues/137), and its reference
 implementation is this repo's own [`RepoDashboard.tsx`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.4.0/src/dashboard/RepoDashboard.tsx).
 
@@ -594,8 +597,8 @@ implementation is this repo's own [`RepoDashboard.tsx`](https://github.com/DKJ-S
 | 3 | Eyebrow: `<owner>/<repo>` | `<p className="dkj-eyebrow">` | `.eyebrow` | fixed form, the repo's own slug |
 | 4 | `h1`: **Repo hub** | `<h1>` | `h1` | fixed, word for word |
 | 5 | Lead: one paragraph on what the repo is for | `<p className="dkj-lead">` | `.lead` | the repo's own text |
-| 6 | A primary button to the product | `Button variant="primary"` | `.btn.btn--touch.btn--primary`, in a `<p class="page-cta">` | product repos only, with the repo's own label. The product has its own route and is never the page on `/` |
-| 6a | The general banner: a countdown to the next full hour, and once an hour has passed a tone and a **10 airsquats** checkbox that shows the total owed ([#3250](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3250)) | -- | a `.notice` holding two `.msg` lines, the second `.msg--warn`, written by `Format-RepoHubBanner` in `dkj-policy`'s `hub/lib/general-pages-lib.ps1` | fixed: the same on every hub the plugin builds; a repo whose own server is its hub does not carry it |
+| 6 | A primary button to the product | `Button variant="primary"` | `.btn.btn--touch.btn--primary`, in a `<p class="page-cta">` | product repos only, with the repo's own label. The product has its own route and is never the page on `/`. The plugin's own hub, which has no build to carry a button, shows the product as a **Product** card instead, a one-row link list under its own `h2` |
+| 6a | The general banner: a countdown to the next full hour, and once an hour has passed a tone and a **10 airsquats** checkbox that shows the total owed ([#3250](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3250)) | -- | a `.notice` holding two `.msg` lines, the second `.msg--warn`, written by `Format-RepoHubBanner` in `dkj-policy`'s `hub/lib/general-pages-lib.ps1` | fixed: the same on the plugin's hub and on this source repo's own; a hub a repo builds itself carries it only if it calls that function |
 | 7 | **Pages**: links to the repo's own pages, one row per page (below the table). With general pages too, two groups, **This repo** and **General**, under one `h2` | `PageLinks` (a `CardGroup` around one `Card variant="data"` holding a `<nav>` of house `.menu-item` link rows, or two cards when there are two groups) | a `.grid-2` with a `.grid__head` (the `h2` and its `.card__sub`) above the card(s); the list is a `<nav class="menu-list">` of `<a class="menu-item">` rows, each with `.menu-item__label`, optionally `.menu-item__sub`, and `.menu-item__chevron`. One group: one `.card.grid__full` with no title of its own. Two groups: two cards titled with an `h3` | optional: any repo with a page of its own besides `/` and the product, or with general pages. Fixed titles and form; the repo's own pages and their group |
 | 8 | One stat tile per in-flight list, counting it | `StatTiles` / `StatTile` | `.tiles` / `.tile`, with `.label` and `.v` | the repo's own lists. A count not read yet shows `--` |
 | 9 | A loading line, or a warning that the lists could not be read | `Message live="status"` (loading) / `Message tone="warn" live="alert"` (error) | `.msg` with `role="status"` / `.msg.msg--warn` with `role="alert"` | fixed. The role makes a screen reader announce the line when it appears |
