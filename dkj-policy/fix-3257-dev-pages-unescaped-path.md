@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Issue #3257. The reason was verified first: `'a' -match 'C:\x\dkj'` throws "insufficient hexadecimal
+digits" on this machine, and under `$ErrorActionPreference = 'Continue'` the statement is skipped and the
+suite still ends `0 failed`. An AST sweep compiled every constant `-match`/`-notmatch`/`-replace`/`-split`
+pattern under `scripts/` and `plugins/`, and this was the only one that does not parse.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The copy-command assert in `scripts/tests/dev-pages.tests.ps1` reads the literal path with
+  `.Contains(...)` instead of a regex.
+- [x] The suite has a `trap` that counts a terminating error as a failure, the #1881 pattern, so a throw
+  inside an assert goes red instead of disappearing.
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: 275 passed, 0 failed. It was 274 before, because the copy-command assert now
+  runs.
+- [x] A throwaway copy with the old throwing pattern put back: `[FAIL] unhandled terminating error`, exit 1.
+
 ### DEPLOY: fix/3257-dev-pages-unescaped-path
 
-**Score:**
+In `dev-pages.tests.ps1`, the assert that checks each checkout's copy command never ran. Its pattern held
+a literal `C:\x\` path, `\x` starts a regex hex escape, so the `-match` threw and the suite still reported
+`0 failed`. The path is now matched literally, and a terminating error anywhere in the suite counts as a
+failure ([#3257](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3257)). Prevents a regression
+in the Repo hub's copy command from passing the suite unseen.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a test suite in this repo only, so nothing a consumer takes changes.
+
+**Score:** N/A
 
 #### Pull Request
 
