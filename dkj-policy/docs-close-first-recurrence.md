@@ -39,19 +39,32 @@
 
 ### PLAN
 
+The owner (Maikel, October 21, 2026): an issue waiting for its first recurrence may simply be closed at once;
+the `awaiting-recurrences-first` label is the marker, and the open list stays clean. The rule said *may be
+closed* (#2904); it now says *is closed at once*.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `CONTRIBUTING-portable.md`, under `awaiting-recurrences-first`: closed as `not_planned` in the same
+  movement that parks it, label and `[RECORD]` prefix kept.
 
 ### TEST
 
+- [x] The two issues it applied to at the time, #3271 and #3278, were closed that way.
+
 ### DEPLOY: docs/close-first-recurrence
 
-**Score:**
+An issue parked under `awaiting-recurrences-first` is now closed as `not_planned` at once, keeping its label
+and its `[RECORD]` prefix, instead of *may be closed* while it waits. The label is the marker and the
+search before filing already reads closed issues, so the open list holds only work.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo running this workflow sees its parked recurrence issues closed rather than open.
 
+**Score:** 2
 #### Pull Request
 
+An issue waiting for its first recurrence is closed at once; the label is the marker
