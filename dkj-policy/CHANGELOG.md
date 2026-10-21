@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**6 / 9 minor entries** <!-- pending-tally -->
+**7 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3244-dev-preview-name-port-holder · 20261021-120747Z
+
+When every port the repo's dev server may use is taken, the session-start line now names who holds
+each one (#3244): `Repo hub: not started -- port 3000 taken by other processes: 3000 by dkj-lifehub
+(pid 19544).` The holder is the checkout its command line names, or else its executable, read from the
+process table the hook already holds, so finding the server to stop no longer takes a netstat and a
+process lookup by hand.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+An owner whose pinned port is held by another repo's server sees which one to stop in the line itself.
+
+**Score:** 2
+
+#### Pull Request
+
+dev-preview: name who holds the port when the repo's server cannot start
+
+Plugins: dkj-policy
+
+[PR #3252](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3252)
+
+---
 
 ### DEPLOY: feat/3242-golive-already-fixed · 20261021-115859Z
 
