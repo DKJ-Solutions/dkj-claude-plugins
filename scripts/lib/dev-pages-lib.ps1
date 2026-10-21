@@ -85,14 +85,9 @@ function Format-RepoHubHtml {
         The repo's home page on '/' (#3270): the repo's name as its h1, one link to About this repo, and the
         Brand book section -- the DKJ-Solutions card, with this hub's own DKJ repos page. This repo is no
         product, so it has no Products section. -GeneralPagesUrl is the general pages server's base url when
-        it answers, or empty (the Brand book card then says it is not running). -Pages and -SourceCommit are
-        accepted for the callers that still pass them; the About page shows both.
+        it answers, or empty (the Brand book card then says it is not running).
     #>
-    param(
-        [AllowEmptyCollection()][object[]]$Pages = @(),
-        [AllowEmptyString()][string]$SourceCommit = '',
-        [AllowEmptyString()][string]$GeneralPagesUrl = ''
-    )
+    param([AllowEmptyString()][string]$GeneralPagesUrl = '')
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
     [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">')

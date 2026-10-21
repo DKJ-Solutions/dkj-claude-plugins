@@ -43,12 +43,15 @@ $dkjSolutionsPagesLib = Get-DkjSolutionsPagesLibPath -PluginRoot (Join-Path $PSS
 if (Test-Path -LiteralPath $dkjSolutionsPagesLib -PathType Leaf) { . $dkjSolutionsPagesLib }
 
 function ConvertTo-PluginRepoHubName {
-    <# A repo or folder name as both pages show it: control characters blanked, cut at 80, escaped; 'this repo' when empty. #>
+    <#
+        A repo or folder name as both pages show it, NOT yet escaped: control characters blanked, cut at 80,
+        'this repo' when empty. Each caller escapes it where it is used, once.
+    #>
     param([AllowNull()][AllowEmptyString()][string]$Name)
     $t = ([string]$Name) -replace '[\p{C}]', ' '
     if ($t.Length -gt 80) { $t = $t.Substring(0, 80) }
     if (-not $t.Trim()) { $t = 'this repo' }
-    return (ConvertTo-GeneralPageText $t.Trim())
+    return $t.Trim()
 }
 
 function Format-PluginRepoHubHtml {
@@ -58,17 +61,15 @@ function Format-PluginRepoHubHtml {
         is that server's url, or empty where it is not running (the section says so). -PagesUrl is this
         server's own base url; it is always the general server that serves this page, so the Brand book card
         links by bare path. -DkjSolutions adds the Brand book section, for a repo that enables that plugin.
-        -Folder is accepted for the callers that still pass it; the facts that use it are on the About page.
     #>
     param(
         [AllowNull()][AllowEmptyString()][string]$RepoName,
-        [AllowNull()][AllowEmptyString()][string]$Folder = '',
         [ValidateSet('none', 'product')][string]$Mode = 'none',
         [AllowEmptyString()][string]$ProductUrl = '',
         [AllowEmptyString()][string]$PagesUrl = '',
         [switch]$DkjSolutions
     )
-    $n = ConvertTo-PluginRepoHubName $RepoName
+    $n = ConvertTo-GeneralPageText (ConvertTo-PluginRepoHubName $RepoName)
     $product = if (Test-RepoHubLocalUrl $ProductUrl) { $ProductUrl } else { '' }
     $e = { param($v) ConvertTo-GeneralPageText $v }
 
@@ -155,8 +156,8 @@ function Format-PluginRepoHubHtml {
 function Format-PluginRepoAboutHtml {
     <#
         The About this repo page on '/about' (#3270): the general pages and what the hub knows about the
-        repo. Its trail is Home > About this repo. The parameters are Format-PluginRepoHubHtml's: -Folder is
-        the checkout's folder name (defaults to the repo name), -Mode and -ProductUrl give the Dev preview fact.
+        repo. Its trail is Home > About this repo. -Folder is the checkout's folder name (defaults to the repo
+        name); -Mode, -ProductUrl and -PagesUrl are Format-PluginRepoHubHtml's, and give the Dev preview fact.
     #>
     param(
         [AllowNull()][AllowEmptyString()][string]$RepoName,
@@ -166,7 +167,7 @@ function Format-PluginRepoAboutHtml {
         [AllowEmptyString()][string]$PagesUrl = ''
     )
     $n = ConvertTo-PluginRepoHubName $RepoName
-    $f = if ($Folder) { ConvertTo-PluginRepoHubName $Folder } else { $n }
+    $f = ConvertTo-GeneralPageText $(if ($Folder) { ConvertTo-PluginRepoHubName $Folder } else { $n })
     $product = if (Test-RepoHubLocalUrl $ProductUrl) { $ProductUrl } else { '' }
     $e = { param($v) ConvertTo-GeneralPageText $v }
 
@@ -187,9 +188,8 @@ function Format-PluginRepoAboutHtml {
     [void]$sb.AppendLine('</section>')
     [void]$sb.AppendLine('</div>')
 
-    # $n is escaped already, and the shell escapes again: hand it the raw name, cut the same way.
-    $raw = [System.Net.WebUtility]::HtmlDecode($n)
-    return Format-GeneralPageHtml -Title 'About this repo' -Body $sb.ToString() -Eyebrow $raw -SiteName $raw -HubHref '/' `
+    # The shell escapes the eyebrow and the title itself, so it takes the name raw.
+    return Format-GeneralPageHtml -Title 'About this repo' -Body $sb.ToString() -Eyebrow $n -SiteName $n -HubHref '/' `
         -Lead 'Everything about the repo itself rather than what it offers: the general pages every repo has, and what the hub knows about this folder.' `
         -FooterNote 'Served on 127.0.0.1 only, by the dkj-policy plugin''s <code>hub/pages/serve-general-pages.ps1</code>.'
 }

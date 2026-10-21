@@ -245,7 +245,7 @@ Assert-True ($about -match '<p class="footer-note">[^<]*<code>hub/pages/serve-ge
 Assert-True ((Format-PluginRepoAboutHtml -RepoName 'a<b>&c' -Folder 'f<x>') -match '<p class="eyebrow">a&lt;b&gt;&amp;c</p>' -and (Format-PluginRepoAboutHtml -RepoName 'a<b>&c' -Folder 'f<x>') -match '<dd>f&lt;x&gt;</dd>') 'the name and the folder are escaped once, not twice'
 
 # A repo that states a server: the Products section, and no setup cards.
-$html = Format-PluginRepoHubHtml -RepoName 'dkj-recipes' -Folder 'recipes-checkout' -Mode 'product' -ProductUrl 'http://localhost:4321/dkj-recipes/' -PagesUrl 'http://localhost:4890'
+$html = Format-PluginRepoHubHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl 'http://localhost:4321/dkj-recipes/' -PagesUrl 'http://localhost:4890'
 Assert-True ($html -match '<h2>Products</h2>' -and $html -match '<a class="menu-item" href="http://localhost:4321/dkj-recipes/">') 'a stated server is the Products section, linking its url'
 Assert-True ($html.IndexOf('<h2>Products</h2>') -lt $html.IndexOf('<h2>About this repo</h2>')) 'above About this repo'
 Assert-True ($html -notmatch 'Set up a product' -and $html -notmatch 'Add a dev server of your own') 'and the setup cards are only for a repo that states none'
@@ -261,8 +261,12 @@ foreach ($badProduct in 'http://evil.example/x', 'javascript:alert(1)', 'https:/
 Assert-True ((Format-PluginRepoAboutHtml -RepoName 'r' -PagesUrl '') -match 'The general pages server is not running') 'with no pages url the General card says its server is not running'
 
 # The two values from outside.
-$html = Format-PluginRepoHubHtml -RepoName '<script>x</script>' -Folder '"><b>f</b>'
-Assert-True ($html -notmatch '<script>x' -and $html -match '&lt;script&gt;x' -and $html -notmatch '<b>f</b>') 'a repo or folder name is HTML-escaped before it reaches the page'
+$html = Format-PluginRepoHubHtml -RepoName '<script>x</script>'
+Assert-True ($html -notmatch '<script>x' -and $html -match '<h1>&lt;script&gt;x&lt;/script&gt;</h1>') 'a repo name is HTML-escaped before it reaches the home page'
+$about = Format-PluginRepoAboutHtml -RepoName ('a&amp;b<i>"' + "'q") -Folder '"><b>f</b>'
+$once = 'a&amp;amp;b&lt;i&gt;&quot;&#39;q'
+Assert-True ($about -match ('<p class="eyebrow">' + [regex]::Escape($once) + '</p>') -and $about -match ('<title>' + [regex]::Escape($once) + ' -- About this repo</title>')) 'and on About it is escaped exactly once, in the eyebrow and the title alike'
+Assert-True ($about -match '<dd>&quot;&gt;&lt;b&gt;f&lt;/b&gt;</dd>' -and $about -notmatch '<b>f</b>' -and $about -notmatch '<i>"') 'and the folder too, where About shows it'
 $html = Format-PluginRepoHubHtml -RepoName ('n' * 120)
 Assert-True ($html -match ('<h1>n{80}</h1>') -and (Format-PluginRepoAboutHtml -RepoName ('n' * 120)) -match ('<p class="eyebrow">n{80}</p>')) 'and cut at 80 characters, on both pages'
 Assert-True ((Format-PluginRepoHubHtml -RepoName "a`nb") -match '<h1>a b</h1>') 'with control characters made spaces'

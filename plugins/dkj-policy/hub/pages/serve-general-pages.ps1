@@ -419,7 +419,7 @@ try {
                 $hubHtml = if ($path -eq '/about') {
                     Format-PluginRepoAboutHtml -RepoName (Get-RepoIdentity).Name -Folder (Split-Path -Leaf $root) -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port"
                 } else {
-                    Format-PluginRepoHubHtml -RepoName (Get-RepoIdentity).Name -Folder (Split-Path -Leaf $root) -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port" -DkjSolutions:$dkjSolutions
+                    Format-PluginRepoHubHtml -RepoName (Get-RepoIdentity).Name -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port" -DkjSolutions:$dkjSolutions
                 }
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($hubHtml)) -Method $method
                 continue

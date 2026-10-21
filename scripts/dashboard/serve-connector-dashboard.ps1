@@ -473,7 +473,7 @@ try {
                 continue
             }
             if ($path -eq '/hub') {
-                # The general pages' "Repo hub" crumb, now that they are served from this origin (#3168).
+                # The general pages' "Home" crumb, now that they are served from this origin (#3168).
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/' } -Method $method
                 continue
             }

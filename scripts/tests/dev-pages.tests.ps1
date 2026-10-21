@@ -496,8 +496,8 @@ Assert-True ($sp.Contains('3.12 characters per token')) 'the footer names the fa
 Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12).Contains('No specialist was found')) 'none found says so instead of an empty table'
 Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12 -ReadError 'x.md').Contains('msg--warn')) 'a failed read is a warning on the page'
 Write-Host '-- the DKJ repos page (#3231): in the DKJ-Solutions card, and what it shows' -ForegroundColor Cyan
-$hubUp = Format-RepoHubHtml -Pages @(Get-RepoHubPages) -GeneralPagesUrl 'http://localhost:4890'
-$hubDown = Format-RepoHubHtml -Pages @(Get-RepoHubPages) -GeneralPagesUrl ''
+$hubUp = Format-RepoHubHtml -GeneralPagesUrl 'http://localhost:4890'
+$hubDown = Format-RepoHubHtml -GeneralPagesUrl ''
 Assert-True ($hubUp.IndexOf('href="/brandbook"') -lt $hubUp.IndexOf('href="/dkj-repos"') -and $hubUp.IndexOf('<h3>DKJ-Solutions</h3>') -lt $hubUp.IndexOf('href="/dkj-repos"')) 'the DKJ-Solutions card links DKJ repos after the Brandbook'
 Assert-True ($hubDown -match 'href="/dkj-repos"' -and $hubDown -notmatch 'href="/brandbook"') 'DKJ repos is linked even when the general pages server is down, because this hub serves it'
 Assert-True ((Format-DkjSolutionsPagesCardHtml -PagesUrl 'http://localhost:4890' -SameOrigin) -notmatch 'dkj-repos' -and (Format-DkjSolutionsPagesCardHtml -PagesUrl 'http://localhost:4890' -SameOrigin) -match 'the house style they are all built from') 'a hub that passes no local page draws the card as it always was'
