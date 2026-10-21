@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**11 / 15 minor entries** <!-- pending-tally -->
+**11 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3258-port-holder-name-alphabet · 20261021-145947Z
+
+The dev-preview hook names a port's holder only by a plain name (#3258). The name comes from another
+process's command line and reaches the session's context, so a folder named in free words could put text
+of that process's choosing there. A name outside letters, digits and `._@-`, or longer than 40
+characters, is now left out, and the line says `3000 by pid 19544` instead.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+dev-preview: hold the port holder's name to a narrow alphabet
+
+Plugins: dkj-policy
+
+[PR #3263](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3263)
+
+---
 
 ### DEPLOY: fix/3257-dev-pages-unescaped-path · 20261021-145136Z
 
