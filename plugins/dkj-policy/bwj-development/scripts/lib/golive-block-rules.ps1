@@ -967,7 +967,7 @@ function ConvertTo-GoLiveFixedVersion {
     #>
     param([AllowEmptyString()][string]$Version)
     $v = ([string]$Version).Trim() -replace '^[vV]', ''
-    if ($v -match '^\d+\.\d+\.\d+$') { return $v }
+    if ($v -match '^[0-9]+\.[0-9]+\.[0-9]+$') { return $v }
     return ''
 }
 
