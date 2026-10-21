@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**11 / 16 minor entries** <!-- pending-tally -->
+**11 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3261-gate-progress-scope · 20261021-151323Z
+
+The test gate's statusline bar now names the run it measures. Where it read
+`[#####-------] 12/40  test gate (7 running)`, it reads, for example,
+`test gate for the PR -- selected from 152`, `test gate for the release -- all suites`, or
+`test gate for the gate run -- focus <suite>`. The label is built in the same place, and from the same
+values, as the console line `test gate: running ... test suites for ...`. That line still prints, but it
+scrolls away in the first second of a long run
+([#3261](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3261)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: the progress record's lib (`run-progress-lib.ps1`) is not mirrored into the plugins, so a consumer's
+gate publishes no bar and nothing changes there.
+
+**Score:** N/A
+
+#### Pull Request
+
+Test gate status bar names its run: context and scope
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #3264](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3264)
+
+---
 
 ### DEPLOY: fix/3258-port-holder-name-alphabet · 20261021-145947Z
 
