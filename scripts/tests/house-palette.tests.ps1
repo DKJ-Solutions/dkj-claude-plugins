@@ -52,6 +52,14 @@ $t = ConvertTo-OkLch '#7f00ff'
 Assert-Equal '#7f00ff' (ConvertFrom-OkLch $t.L $t.C $t.H) 'OKLCH round trip of an in-gamut colour'
 Assert-True ((ConvertFrom-OkLch 0.9 0.4 264) -match '^#[0-9a-f]{6}$') 'an out-of-gamut colour is clipped to a valid hex'
 
+$grey = { param($l) ConvertFrom-OkLch $l 0 0 }
+$hiL = (ConvertTo-OkLch (Find-LightnessAtContrast $grey '#ffffff' 4.5 0 1 'high')).L
+Assert-True ((Get-ContrastRatio (& $grey $hiL) '#ffffff') -ge 4.5 -and (Get-ContrastRatio (& $grey ($hiL + 0.01)) '#ffffff') -lt 4.5) 'the search toward light stops at the lightest grey that still reads on white'
+$loL = (ConvertTo-OkLch (Find-LightnessAtContrast $grey '#000000' 4.5 0 1 'low')).L
+Assert-True ((Get-ContrastRatio (& $grey $loL) '#000000') -ge 4.5 -and (Get-ContrastRatio (& $grey ($loL - 0.01)) '#000000') -lt 4.5) 'the search toward dark stops at the darkest grey that still reads on black'
+
+function ConvertTo-HslLightness([string]$Hex) { $c = ConvertFrom-HexColor $Hex; (([math]::Max($c[0], [math]::Max($c[1], $c[2]))) + ([math]::Min($c[0], [math]::Min($c[1], $c[2])))) / 2 }
+
 Write-Host '-- group 2: every theme keeps the promises of the model' -ForegroundColor Cyan
 
 $themes = @(Get-HousePaletteThemes)
@@ -69,6 +77,19 @@ foreach ($th in $themes) {
     $lum = 1..4 | ForEach-Object { Get-RelativeLuminance $p["--paper-$_"] }
     $ordered = if ($dark) { $lum[0] -lt $lum[1] -and $lum[1] -lt $lum[2] -and $lum[2] -lt $lum[3] } else { $lum[0] -gt $lum[1] -and $lum[1] -gt $lum[2] -and $lum[2] -gt $lum[3] }
     Assert-True $ordered "$($th.Id): the paper steps run away from the page"
+    # the primary is the MOST saturated colour that reads: a step of HSL lightness toward 50% no longer reaches 4.55:1
+    $pl = ConvertTo-HslLightness $p['--primary']
+    if ([math]::Abs($pl - 0.5) -gt 0.02) {
+        $closer = ConvertFrom-Hsl $th.Hue 1 ($pl + $(if ($dark) { -0.01 } else { 0.01 }))
+        Assert-True ((Get-ContrastRatio $closer $p['--paper-4']) -lt 4.55) "$($th.Id): the primary is the most saturated colour that still reads on paper-4"
+    } else {
+        Assert-True $true "$($th.Id): the primary is the pure colour itself (HSL 50%), which already reads"
+    }
+    # the greys recede as far as 7.05:1 allows: a step toward their ground no longer reaches it
+    $ml = (ConvertTo-OkLch $p['--muted']).L
+    $toward = if ($dark) { -0.01 } else { 0.01 }
+    $okHue = (ConvertTo-OkLch (ConvertFrom-Hsl $th.Hue 1 0.5)).H
+    Assert-True ((Get-ContrastRatio (ConvertFrom-OkLch ($ml + $toward) 0.03 $okHue) $p['--paper-1']) -lt 7.05) "$($th.Id): --muted recedes as far as 7:1 allows"
 }
 
 Write-Host '-- group 3: the stylesheet carries exactly the computed values' -ForegroundColor Cyan
@@ -85,6 +106,8 @@ Assert-Equal (Format-HousePaletteDeclarations (Get-HousePalette -Hue 240 -Mode l
 Assert-Equal (Format-HousePaletteDeclarations (Get-HousePalette -Hue 185 -Mode dark)) $blocks[1] 'the OS-followed dark default is Cyaan'
 Assert-Equal $blocks[1] $blocks[2] 'the two dark default blocks agree'
 Assert-True ($css -notmatch '--ink-[1-7]\b') 'no --ink-* is left in the stylesheet'
+Assert-True ($css -match 'data-id="rust"\] \{[^}]*--warning-3: #b88a00;') 'Roest keeps its own --warning-3 beside the eleven'
+Assert-True ($css -match 'data-id="yellow"\] \{[^}]*--warning-3: #f08a24;') 'Geel keeps its own --warning-3 beside the eleven'
 
 Write-Host '-- group 4: the build script' -ForegroundColor Cyan
 
@@ -92,6 +115,18 @@ $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Build 2>&1 | Out-S
 Assert-Equal 0 $LASTEXITCODE 'a dry run exits 0'
 Assert-True ($out -match '\[OK\] every pairing reaches its floor in all 12 themes') 'a dry run reports every floor reached'
 Assert-True ($out -notmatch '\[OK\] wrote') 'a dry run writes nothing'
+
+# -Apply on a scratch copy whose colours are scrambled: it restores the stylesheet byte for byte
+$scratch = Join-Path ([System.IO.Path]::GetTempPath()) "house-palette-$PID-$([guid]::NewGuid().ToString('n')).css"
+$orig = [System.IO.File]::ReadAllText($Style)
+[System.IO.File]::WriteAllText($scratch, ($orig -replace '--primary: #[0-9a-f]{6};', '--primary: #123456;' -replace '--fg-1: #[0-9a-f]{6};', '--ink-7: #654321;'))
+$null = & powershell -NoProfile -ExecutionPolicy Bypass -File $Build -Apply -StylePath $scratch 2>&1
+Assert-Equal 0 $LASTEXITCODE '-Apply exits 0'
+Assert-True ([System.IO.File]::ReadAllText($scratch) -ceq $orig) '-Apply restores a scrambled copy byte for byte (an old --ink-7 replaced)'
+[System.IO.File]::WriteAllText($scratch, ($orig -replace '(?m)^\s+--paper-1:[^\n]*\n', ''))
+$null = & powershell -NoProfile -ExecutionPolicy Bypass -File $Build -Apply -StylePath $scratch 2>&1
+Assert-True ($LASTEXITCODE -ne 0) '-Apply refuses a stylesheet without its three default blocks'
+Remove-Item -LiteralPath $scratch -ErrorAction SilentlyContinue
 
 Write-Host ''
 Write-Host "house-palette: $script:pass passed, $script:fail failed."

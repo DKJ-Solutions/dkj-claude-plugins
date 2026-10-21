@@ -54,7 +54,7 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
         $head = $Matches[1]; $tail = $Matches[4]; $id = $Matches[2]
         $keep = @($Matches[3] -split ';\s*' | Where-Object { $_ -and $_ -notmatch $isPaletteToken } | ForEach-Object { "$($_.Trim());" })
         $lines[$i] = $head + ((@(Format-HousePaletteDeclarations $palettes[$id]) + $keep) -join ' ') + $tail
-    } elseif ($line -match '^(\s+)--paper-1:') {
+    } elseif ($line -match '^(\s+)--paper-1(?=:)') {   # (?=:), so the house-style gate does not read the pattern as a definition
         # the default blocks: the first is the light one, the two after it the dark one (OS-followed and forced)
         $id = if ($standalone -eq 0) { $LightDefault } else { $DarkDefault }
         $lines[$i] = $Matches[1] + (Format-HousePaletteDeclarations $palettes[$id])

@@ -69,8 +69,9 @@ This is a visible result: the branch stops for the owner's look at the brand boo
 
 ### TEST
 
-- [x] New suite `house-palette.tests.ps1` (91 asserts): the colour math, every theme's floors, the stylesheet
-  holding exactly the computed values, the build script's dry run.
+- [x] New suite `house-palette.tests.ps1` (122 asserts): the colour math and both search directions, every theme's floors, that the primary is the most saturated and the greys recede as far as allowed, the stylesheet
+  holding exactly the computed values (with Roest and Geel's own warning), the build script's dry run and -Apply on a scratch copy.
+- [x] Review: Victor (the fill rules weighed a quiet line on a <p> under the text rule; links split out), Edith (stale ink prose, focus-ring roles), Sebastian (no findings).
 - [x] `check-house-style.tests.ps1` green after its fixtures moved to the new names (88 asserts).
 - [x] Brand book `npm run gate`: eslint, CSS syntax, every `var()` resolves, no colour literal, the build.
 

@@ -64,10 +64,10 @@
      today row, the accent dialog); paper-4 a stronger border (an open card, a selected box). --primary the
      highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1,
      the states (hover, sorted) and native controls through accent-color. --muted the eyebrow, sub lines, notes,
-     .muted, the tile label, the breadcrumb links, the fills (switches, info badges, a pressed .seg), focus rings and
-     meters. fg-1 every paragraph and an inverted surface (.fill-inverse, the showcase's panel); fg-2 h2; fg-3 h3-h5;
+     .muted, the tile label, the breadcrumb links, the fills (switches, info badges, a pressed .seg), most focus
+     rings and meters (a ring on a sort header, a .seg button, a chart bar or the read-more toggle is --primary). fg-1 every paragraph and an inverted surface (.fill-inverse, the showcase's panel); fg-2 h2 and .meta on a span; fg-3 h3-h5;
      fg-4 the breadcrumb's current page. On a fill the text switches: on .fill-primary the paper is the text, so an h2
-     is --paper-1 there and --fg-2 on the page (owner, #3235: "h2 heeft niet altijd dezelfde kleur").
+     is --paper-1 there and --fg-2 on the page (owner, #3235: "h2 heeft niet altijd dezelfde kleur", an h2 does not always have the same colour).
      Measured (WCAG relative luminance, October 21, 2026), worst and best over the twelve themes: primary on paper-1
      5.4:1 (Pink) to 13.6:1 (Cyaan), on paper-4 4.55:1 to 11.2:1; fg-1 on paper-1 19.5:1 to 20.1:1, fg-4 on paper-4
      11.8:1 to 12.5:1; muted on paper-1 7.05:1 to 7.13:1, on paper-2 6.6:1 to 6.9:1; muted-inverse on fg-1 7.05:1 to
@@ -321,7 +321,7 @@ p, p.meta { color: var(--fg-1); }
    <path class="d" d="M1 7.5 4 10.5 7 7.5"/></svg></span></button></th>. The hit area grows beyond the
    text (::before) without moving it; the underline (::after) spans the text only. The arrow takes no
    width: it hangs in the cell's padding, so the header text lines up with the figures below it.
-   Idle: two faint chevrons, brighter on hover. Active: only the current direction, in full ink. */
+   Idle: two faint chevrons, brighter on hover. Active: only the current direction, at full strength. */
 .table th .sort { position: relative; background: none; border: 0; padding: 0; margin: 0; font: inherit; color: inherit; cursor: pointer; border-radius: 3px; }
 .table th .sort::before { content: ""; position: absolute; left: -4px; right: -4px; top: 50%; height: var(--tap); transform: translateY(-50%); }   /* a 44px-high hit area around the label */
 .table th .sort::after { content: ""; position: absolute; left: 0; right: 0; bottom: -5px; height: 2px; border-radius: 1px; background: var(--primary); opacity: 0; transition: opacity .15s; }
@@ -394,7 +394,7 @@ p, p.meta { color: var(--fg-1); }
 .seg button { background: none; border: 0; color: var(--fg-1); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: var(--text-sm); cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--paper-3); }
 .seg button[aria-pressed="true"] { background: var(--muted); color: var(--paper-1); }
-.seg button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }   /* inset: .seg clips its overflow; ink shows on the page and on the primary */
+.seg button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }   /* inset: .seg clips its overflow; the primary shows on the page and on a muted fill */
 /* The round "?" button that opens an explanation tooltip. */
 .info-button { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
   margin-left: 5px; padding: 0; border-radius: 50%; border: 1px solid var(--paper-3); background: none;
@@ -667,14 +667,18 @@ a.menu-item:hover { background: var(--paper-3); }
 /* ---- Fills ---------------------------------------------------------------- */
 /* A block on the theme's colour, or on the far end (#3235). The text switches with the ground. On .fill-primary the
    paper steps are the text, because all four read on the primary (4.55:1 or better): an h2 is --paper-1 there and
-   --fg-2 on the page ("h2 heeft niet altijd dezelfde kleur", the owner), a quieter line --paper-3. On .fill-inverse the
-   ground is --fg-1, the paper is the text and --muted-inverse the quieter grey (7:1 on it). :is() takes the weight of
-   its strongest argument, so these beat .sub, .muted, p.meta and the zero-specificity headings and links, and they
-   stand last in the file so a class of the same weight defined earlier loses too. */
+   --fg-2 on the page (the owner: an h2 does not always have the same colour), a quieter line --paper-3. On
+   .fill-inverse the ground is --fg-1, the paper is the text and --muted-inverse the quieter grey (7:1 on it).
+   The text and the quieter lines weigh (0,2,0): :is() takes the weight of its strongest argument, a class, so they
+   beat .sub, .muted, p.meta and the zero-weight headings, and the quieter line wins over the text because it comes
+   after it. A link weighs (0,1,0), enough to beat the zero-weight house link and light enough that a .btn or an app's
+   own class on an <a> keeps its colours. A component inside a fill keeps its own colours, so a .btn--primary on
+   .fill-primary does not show: use an outline button there. */
 .fill-primary { background: var(--primary); color: var(--paper-1); }
 .fill-inverse { background: var(--fg-1); color: var(--paper-1); }
-.fill-primary :is(h1, h2, h3, h4, h5, p, .lead, .msg, .meta, .card__title, a:any-link),
-.fill-inverse :is(h1, h2, h3, h4, h5, p, .lead, .msg, .meta, .card__title, a:any-link) { color: var(--paper-1); }
+.fill-primary :is(h1, h2, h3, h4, h5, p, .lead, .msg, .meta, .card__title),
+.fill-inverse :is(h1, h2, h3, h4, h5, p, .lead, .msg, .meta, .card__title) { color: var(--paper-1); }
 .fill-primary :is(.sub, .muted, .note, .footer-note, .card__sub, .eyebrow) { color: var(--paper-3); }
 .fill-inverse :is(.sub, .muted, .note, .footer-note, .card__sub, .eyebrow) { color: var(--muted-inverse); }
-.fill-primary :is(a:any-link):focus-visible, .fill-inverse :is(a:any-link):focus-visible { outline-color: var(--paper-1); }
+.fill-primary :where(a:any-link), .fill-inverse :where(a:any-link) { color: var(--paper-1); }
+.fill-primary :where(a:any-link:focus-visible), .fill-inverse :where(a:any-link:focus-visible) { outline-color: var(--paper-1); }

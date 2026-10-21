@@ -196,7 +196,7 @@ reports every `--ink-*` left behind as a retired token, so nothing is missed sil
 **An app still on the twelve `--primary-*` steps** (v5.26.0 and earlier) skips the ink names and maps straight
 across: `--primary-1`, `-2`, `-3` → `--paper-1`, `-2`, `-3`; `--primary-4` → removed; `--primary-5` → `--paper-4`;
 `--primary-6` and `-7` → `--muted`; `--primary-8` → `--fg-4`; `--primary-9` → `--primary`; `--primary-10` →
-`--fg-2`; `--primary-11` → `--fg-3`; `--primary-12` → `--fg-1`. Bare `--primary` is a new name, not a step: the
+`--fg-2`; `--primary-11` → `--fg-3`; `--primary-12` → `--fg-1`. Bare `--primary` is a token of its own, not one of the twelve steps: the
 gate tells `--primary-9` from it.
 
 **A number in a colour token is a step away from the page** (owner's decisions, October 14 and 20, 2026). For
@@ -341,7 +341,7 @@ and role (`--oker-light-primary`, `--light-up`). A value changed there is change
 its own.
 
 **What this changed for an app that takes the update:** the pressed `.seg` button, `.badge--info` and
-`.meter--info` take the primary instead of ink and `--cat-1`; the light warning is dark orange instead
+`.meter--info` take the primary instead of the then `--ink` and `--cat-1`; the light warning is dark orange instead
 of amber and the dark one a brighter yellow; `--negative-5` on light is a darker red (`#a32424`); on dark
 `--positive-5`/`--negative-5` are a step lighter and `--negative-3` is the dark red it never had; status icons take
 the mark colour, now `--paper-1`.
@@ -354,7 +354,7 @@ and only the primary controls and the focus rings used it. Plain links kept the 
 every theme. Now:
 
 - **By default**, with nothing for the app to do: every link takes the theme's colour as text (`--primary`, owner's decision, October 15, 2026), visited or not, with
-  a thicker underline on hover and a primary focus ring. Native checkboxes, radios, sliders and
+  a thicker underline on hover and a `--muted` focus ring. Native checkboxes, radios, sliders and
   progress bars take `--primary` through `accent-color`, the text caret through `caret-color`, and selected
   text gets a primary tint. The link rules sit in `:where()`, so they weigh nothing: any class on an
   `<a>` (a `.btn`, a `.menu-item`, an app's own) wins without an override. An `<a>` without an `href`
@@ -394,8 +394,8 @@ out). Three more things follow it by default, in light and in dark (and a measur
     and 0.24 at chroma 0.03 on light (0.99, 0.955, 0.92 and 0.885 on dark), so `fg-4` is still very dark.
 
   **A role takes the same step in both modes** (owner's decision, October 15, 2026): never `light-dark()` between
-  two steps, and no dark-only rule that picks another step. Focus rings, meters and the fills are `--muted`
-  everywhere, and the text on a `--muted` or `--primary` fill is `paper-1`. The picker's dot is `--primary` in every
+  two steps, and no dark-only rule that picks another step. Meters, the fills and most focus rings are `--muted`
+  everywhere (a sort header, a `.seg` button, a chart bar and the read-more toggle ring in `--primary`), and the text on a `--muted` or `--primary` fill is `paper-1`. The picker's dot is `--primary` in every
   theme, on its theme's `paper-1` (October 17, 2026). Paper and text both run away from the page: `paper-1` and
   `fg-1` are the two ends, the lightest and the darkest on light, the other way round on dark.
 - **A tinted surface takes `--fg-1` as its text.** `--paper-3` is every line and also the surface of the
@@ -414,8 +414,8 @@ out). Three more things follow it by default, in light and in dark (and a measur
   (a separate grid colour was dropped on October 14, 2026: it was too close to the border to tell apart).
 - **The theme picker previews it:** each swatch shows its own theme's page, with the primary as the dot.
 - **Links are the theme's colour**, as `--primary` (owner's decision, October 15, 2026). **`h1` is `--primary`, `h2`
-  is `--fg-2` and `h3`–`h5` are `--fg-3`** (#3235; before it, `h2` and `h3`–`h5` were steps of the colour).
-- **On a fill the text switches** (#3235, the owner: *"h2 heeft niet altijd dezelfde kleur"*). See
+  (and `.meta` on a span) is `--fg-2` and `h3`–`h5` are `--fg-3`** (#3235; before it, `h2` and `h3`–`h5` were steps of the colour).
+- **On a fill the text switches** (#3235, the owner: *"h2 heeft niet altijd dezelfde kleur"*, an h2 does not always have the same colour). See
   [Fills](#fills-the-text-switches-with-the-ground).
 - **Status, direction and categorical colours** (`--positive-3`, `--negative-3`, `--warning-3`, `--cat-*`,
   `--positive-5`, `--negative-5`) are never tinted.
@@ -432,8 +432,10 @@ primary fill.
 | `.fill-inverse` | `--fg-1` | `--paper-1`, the same elements | `--muted-inverse` (7:1 on `--fg-1`) |
 
 The switch is written with `:is()` and stands last in the stylesheet, so it beats `.sub`, `.muted`, `p.meta` and the
-zero-weight headings and links without an `!important`. A link's focus ring turns `--paper-1` with it. A component an
-app puts inside a fill (a button, a badge) keeps its own colours.
+zero-weight headings without an `!important`, and a quieter line on a `<p>` keeps its quieter colour. A link weighs
+only one class, so a `.btn` or an app's own class on an `<a>` keeps its colours; its focus ring turns `--paper-1`. A
+component an app puts inside a fill (a button, a badge) keeps its own colours, so a `.btn--primary` on
+`.fill-primary` does not show: use an outline button there.
 
 **What this changes for an app that takes the update:** every page turns a light shade of its theme, and
 the headings take its tint (through `:where()`, so a heading inside a coloured container, or one the app colours itself, keeps that colour). An app that hard-codes a grey next to a house surface will show the seam.
