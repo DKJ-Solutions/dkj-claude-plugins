@@ -576,7 +576,7 @@ try {
         Assert-True ($oldOwners.Count -eq 1 -and $m -match "^Repo hub: http://localhost:$g/ \(restarted: it ran another plugin version\)") "a hub this checkout started under another plugin version is restarted, and the line says so (got '$m')"
         $newOwners = Get-Owners $g
         Assert-True ($newOwners.Count -eq 1 -and $newOwners[0] -ne $oldOwners[0]) 'by a server of its own on the same port'
-        Assert-True ((& $getRaw $g '/') -match 'HTTP/1.1 200[\s\S]*<h1>Repo hub</h1>') 'whose / renders the hub instead of redirecting'
+        Assert-True ((& $getRaw $g '/') -match 'HTTP/1.1 200[\s\S]*<title>[^<]* -- Home</title>') 'whose / renders the home page instead of redirecting (#3270)'
         $r = Invoke-Hook $staleRepo
         Assert-True ((Get-Message $r.Text) -match "^Repo hub: http://localhost:$g/ \(already running") 'and the next start reuses it'
         # The cases below share the first port again.
