@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3273-release-freshness-mixed · 20261021-204425Z
+
+The session-start release check no longer says "this session runs dkj plugins vX" when the enabled dkj
+plugins load different versions (#3273). When a user-scope install sits beside an older project-scope
+one, or the plugins of one checkout were updated apart, it now reports `[MIXED]`. It names each plugin's
+version and scope, and asks for `/dkj-policy:update-plugins` when one of them is behind GitHub's newest
+release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing to do on update: the new line appears by itself at the next session start.
+
+**Score:** N/A
+
+#### Pull Request
+
+release-freshness-sessioncheck reports [MIXED] when the enabled dkj plugins load different versions
+
+Plugins: dkj-policy
+
+[PR #3277](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3277)
+
+---
 
 ### DEPLOY: fix/3275-hub-stale-plugin-version · 20261021-203111Z
 
