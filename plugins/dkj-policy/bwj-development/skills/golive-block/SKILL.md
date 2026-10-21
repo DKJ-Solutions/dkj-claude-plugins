@@ -197,13 +197,20 @@ without reopening. Either way the answer goes to the requester by the terminal r
 **Which close, by one question** -- every completed close opens with the same intro, *"is now
 **closed**: this Asana task is now in review."*, because the task goes on to review:
 
-| Did something change? | The close | Under the intro |
+| Did something change, in this round? | The close | Under the intro |
 |---|---|---|
 | Yes, and it can be seen | completed, go-live block (`-LiveSince` once live) | *"It can be reopened anytime ..."*, or that it becomes visible with the release, then the go-live headings |
 | Yes, but nothing shows on the storefront | completed, go-live block with `-NoStorefrontResult` | *"It can be reopened anytime ..."*, then the go-live headings, where-to-look saying nothing changes for customers |
 | No, but we learned something useful | completed, `-Research` | *"Nothing has changed. Read the outcome below."*, then OUTCOME |
+| No, because an earlier release had already fixed it (verified) | completed, `-AlreadyFixed` | *"Nothing was changed for this ticket: it was already fixed by an earlier release. Check below that it holds for you."*, then when it was fixed and where to look |
 | Yes, but the result is a number the requester measures again | completed, `-Measure` | *"Nothing changes visibly on the storefront. You can take a new measurement yourself, as described below."*, then how to measure and the targets |
 | No, because information is missing | **not planned**, `awaiting-info-client` kept on | its own intro: *"this Asana task has been cancelled, because there is not enough information to start development."*, then the ask to answer the questions |
+
+**"In this round" is the whole question** ([#3242](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3242)).
+For a ticket an earlier release had fixed, *did something change?* has two true answers: the store did,
+months ago, and this ticket's round did not. Asked without the qualifier, it steered
+smartwatchbanden#1006 into the go-live form, and the requester read that there was a result to look at
+over a round that changed no code. That row has its own form, below.
 
 The not-planned close is never *"in review"*: development is stuck, so the task goes back rather than
 on. It is posted by the `asana-closed-message` workflow, not by this script, and no card is moved.
@@ -239,6 +246,39 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 **And close it only once the block is on it.** The `guard-stale-paste-block` hook refuses `gh issue
 close` as completed on an issue that links an Asana task while it carries no block for this round, and
 names this command. Nothing done and nothing found? Close it as not planned instead.
+
+## A ticket an earlier release had already fixed -- `-AlreadyFixed`
+
+**The session re-measured it, the bug is gone, and no code changed in this round**, because earlier,
+unrelated work fixed it ([#3242](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3242),
+measured October 21, 2026). Measured on smartwatchbanden#1006: a bug from July, fixed by #186 in
+v2.11.1, was closed with the go-live form and `-LiveSince`, and the requester read *"Het resultaat is
+hier te bekijken"* and *WAT ER NU ANDERS IS* over a round that changed nothing. `-Research` would say
+*"Nothing has changed"*, which is true for this round and reads as *"the bug is still there"*. Not being
+able to reproduce it is a different exit: an unverified *"gone"* keeps the issue open
+([`WORKFLOW-portable.md`](../../WORKFLOW-portable.md)). This form is for a fix you **verified**, with
+the release that carried it in hand.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/build-golive-block.ps1" -Issue 1006 -AlreadyFixed -FixedIn 2.11.1 -FixedOn 2026-07-15 -Link "https://<live page>" -ProseFile fixed.txt -Post
+```
+
+- **Under the intro, the fact the reader needs first**: *"Nothing was changed for this ticket: it was
+  already fixed by an earlier release. Check below that it holds for you."*
+- **Then two sections in the task's language.** `WANNEER HET IS OPGELOST` / `WHEN IT WAS FIXED` carries
+  the release by day and version (*"Het is opgelost met de release van <day>, als versie v<X.Y.Z>."*),
+  then your `[fixed]` prose: what fixed it, in the requester's words. `TE BEKIJKEN OP` / `WHERE TO
+  LOOK` carries *"Kijk hier of het bij jou ook klopt: <link>"* and your `[where]` prose. Without
+  `-Link` and `[where]`, the run warns.
+- **The closed message ends with its own ask**, naming the board's done section as the research ask
+  does: *"Does it hold for you? Move the task to '<done section>' and mark it as complete. Still not
+  right? Leave a comment on this task with what you see, and it is picked up again."*
+- **`-FixedIn` (X.Y.Z, a leading `v` dropped) and `-FixedOn` (not after today) are required**, and only
+  valid with it. It refuses the other forms, `-Path`, `-Version`, `-LiveSince`, `-From` and
+  `-ReleaseDay`, and every prose section but `[fixed]` and `[where]`, so nothing can present the earlier
+  fix as this round's work. `-Post` skips the pull-request check: the PR that fixed it is an earlier one.
+- **The block carries a second marker**, `<!-- asana-paste-block-kind: already-fixed -->`, which is how
+  the closed message recognises it.
 
 ## The prose file
 
@@ -306,10 +346,13 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
 | `-From <date>` | the day the next release day is counted from. Today |
 | `-LiveSince <date>` | the day the change went live, for a block written after it did (#2943). Refused when it is after today, or beside `-From` / `-ReleaseDay` |
 | `-Language nl\|en` | the language of the Asana task, and so of the block between the rules. Omitted, the repo's own `Get-GoLiveBlockLanguage` in `scripts/repo-config.ps1` (returning `nl` or `en`) answers it, so a store that writes GitHub in English states that once ([#2830](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2830)); without that seam, `nl` |
-| `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below -- or, with `-Research`, the `[outcome]` section |
+| `-ProseFile <path>` | your prose for the `[changed]`, `[where]` and `[not-included]` sections -- see below -- or, with `-Research`, the `[outcome]` section, or, with `-AlreadyFixed`, the `[fixed]` and `[where]` sections |
 | `-Research` | the research form, for a ticket that changed nothing on the store (#3004) -- see above |
 | `-Measure` | the measurement form, for a result that is a number the requester measures again (#3179) -- see above |
 | `-NoStorefrontResult` | the go-live form for a change that shows nothing on the storefront: no link, a fixed sentence that nothing changes for customers (#3236) -- see above |
+| `-AlreadyFixed` | the already-fixed form, for a ticket an earlier release had fixed, verified, with nothing changed in this round (#3242) -- see above |
+| `-FixedIn <X.Y.Z>` | with `-AlreadyFixed` only, and required: the version of the release that fixed it |
+| `-FixedOn <date>` | with `-AlreadyFixed` only, and required: the day that release went live. Refused when it is after today |
 | `-ByHand` | the by-hand record, for a closed message already posted on the task by hand: the workflow then posts nothing (#3183) -- see above |
 | `-Story <gid>` | with `-ByHand` only: the Asana story that carries the hand-written message, digits only |
 | `-OutFile <path>` | also write the whole comment as UTF-8, without a BOM: the faithful copy for a page that embeds it |

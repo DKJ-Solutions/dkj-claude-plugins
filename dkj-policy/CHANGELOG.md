@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**6 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3242-golive-already-fixed · 20261021-115859Z
+
+A ticket that an earlier release had already fixed now has its own close:
+`build-golive-block.ps1 -AlreadyFixed -FixedIn <X.Y.Z> -FixedOn <date>` (#3242). Under the intro it says
+*"Nothing was changed for this ticket: it was already fixed by an earlier release. Check below that it
+holds for you."*, then when it was fixed (the release by day and version, and your `[fixed]` prose) and
+where to look (`-Link` and `[where]`). The closed message ends with its own ask: does it hold, then
+complete the task, and if not, comment. It refuses every input that would present the earlier fix as
+this round's work, such as `[changed]`, `-LiveSince` or `-Path`. The close table now asks *"did something
+change, in this round?"*. The skill page and `WORKFLOW-portable.md` describe the form.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing changes for an existing call: the form is new, and only a session that passes `-AlreadyFixed`
+meets it.
+
+**Score:** N/A
+
+#### Pull Request
+
+golive-block: an -AlreadyFixed close for a ticket fixed by earlier work
+
+Plugins: bwj-development
+
+[PR #3251](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3251)
+
+---
 
 ### DEPLOY: fix/3243-release-notes-history-default · 20261021-115028Z
 
