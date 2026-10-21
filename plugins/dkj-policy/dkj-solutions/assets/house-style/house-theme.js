@@ -21,8 +21,8 @@
    The page width, set as <html data-width="fluid|phone|full"> (house-style.css keys
    main and .container off it): fluid is the house column, phone a 360px column, full
    the whole width. The user's choice is remembered per app on this device, like the
-   theme; otherwise the app's own default, <html data-width-default="full">; otherwise
-   fluid. Without this script there is no data-width and the column is fluid.
+   theme; otherwise the app's own default, <html data-width-default="fluid">; otherwise
+   full. Without this script there is no data-width and the column is fluid.
 
    Use:
      a script element with src="house-theme.js"     (in <head>, so nothing flashes;
@@ -80,14 +80,14 @@
   function resolve() { var s = stored(); return byId(s) ? s : ownDefault() || appDefault(fixedMode || osMode()); }
   function apply() { root.setAttribute('data-theme', resolve()); render(); }
 
-  /* the page width: the stored choice, else the app's data-width-default, else fluid */
+  /* the page width: the stored choice, else the app's data-width-default, else full */
   function isWidth(w) { return WIDTHS.indexOf(w) >= 0; }
   function resolveWidth() {
     var s = null;
     try { s = localStorage.getItem(widthKey); } catch (e) {}
     if (isWidth(s)) return s;
     var d = root.getAttribute('data-width-default');
-    return isWidth(d) ? d : 'fluid';
+    return isWidth(d) ? d : 'full';
   }
   var widthGroups = [];
   function applyWidth() {
