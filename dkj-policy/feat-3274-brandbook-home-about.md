@@ -61,7 +61,7 @@ one, and two renderings of one form is the drift #3202 itself was about.
 - [x] `npm run gate` in `brandbook/`: eslint (0 problems: the two warnings went with the removed file), CSS
   syntax, custom properties, colour tokens, build.
 - [x] The full gate (`open-pr.ps1 -GatesOnly`), before the park: green.
-- [ ] The owner looks at `/brandbook/` and approves.
+- [x] The owner looks at `/brandbook/` and approves (October 21, 2026).
 
 ### DEPLOY: feat/3274-brandbook-home-about
 
