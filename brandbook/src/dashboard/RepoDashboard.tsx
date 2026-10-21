@@ -1,6 +1,5 @@
-import { Message } from '../components/Feedback'
 import { Breadcrumbs } from '../components/Navigation'
-import { ABOUT_PATH, DASHBOARD_PATH, DASHBOARDS_PATH, HUB_PATH, SHOWCASE_PATH } from '../routes'
+import { ABOUT_PATH, DASHBOARD_PATH, SHOWCASE_PATH } from '../routes'
 import { DashboardMain } from './DashboardShell'
 import { PlaceholderDashboard, PlaceholderHome, issue, pull, type PlaceholderRepo } from './PlaceholderDashboard'
 import './dashboard.css'
@@ -31,22 +30,12 @@ const EXAMPLE: PlaceholderRepo = {
   source: 'The real page reads its in-flight lists from GitHub each time it opens.',
 }
 
-function SpecimenNote() {
-  return (
-    <Message tone="note">
-      A specimen of the Repo hub pattern, with placeholder data. This repo’s own hub is on the <a href={HUB_PATH}>dev server’s index</a>;
-      other repos’ hubs drawn in this pattern are under <a href={DASHBOARDS_PATH}>Hub previews</a>.
-    </Message>
-  )
-}
-
 /** The home page specimen, on /repo-hub. */
 export function RepoDashboard() {
   return (
     <>
       <Breadcrumbs bar items={[{ label: 'Brand book', href: SHOWCASE_PATH }, { label: 'Repo hub pattern' }]} />
       <DashboardMain>
-        <SpecimenNote />
         <PlaceholderHome repo={EXAMPLE} aboutHref={ABOUT_PATH} />
       </DashboardMain>
     </>
@@ -59,7 +48,6 @@ export function RepoAbout() {
     <>
       <Breadcrumbs bar items={[{ label: 'Brand book', href: SHOWCASE_PATH }, { label: 'Repo hub pattern', href: DASHBOARD_PATH }, { label: 'About this repo' }]} />
       <DashboardMain>
-        <SpecimenNote />
         <PlaceholderDashboard repo={EXAMPLE} />
       </DashboardMain>
     </>
