@@ -256,7 +256,7 @@ primary colour, its `--primary` in either mode (the dot the picker draws):
 | Mode | Themes (`data-theme`), in hue order |
 |---|---|
 | Light | `magenta` Magenta `#b90085`, `purple` Paars `#7f00ff`, `blue` Blauw `#0000ff`, `teal` Petrol `#006e79`, `ochre` Oker `#716300`, `rust` Roest `#9c4b00` |
-| Dark | `pink` Roze `#ff018d`, `lilac` Lila `#ad5bff`, `sky` Hemelsblauw `#7575ff`, `cyan` Cyaan `#00eaff`, `yellow` Geel `#ffc800`, `orange` Oranje `#ff6200` |
+| Dark | `pink` Roze `#ff9fd4`, `lilac` Lila `#d6adff`, `sky` Hemelsblauw `#b8b8ff`, `cyan` Cyaan `#00eaff`, `yellow` Geel `#ffc800`, `orange` Oranje `#ffaa74` |
 
 - **No red and no green theme.** Those hues mean bad and good, and a primary colour beside a red "−1,1%"
   makes the number disappear. The status colours are the same in every theme.
@@ -382,7 +382,11 @@ out). Three more things follow it by default, in light and in dark (and a measur
 - **The model, in the owner's words, for a light theme** (a dark one is the mirror, with white and black swapped):
   - **One primary**: the colour of the theme that reads best on white, and white reads well on it too. Computed as
     the most saturated colour (HSL saturation 100%) of the theme's HSL hue that reaches 4.55:1 on **all four** paper
-    steps, so every paper step reads on it as well. The hue is the HSL hue of the owner's original theme colour
+    steps, so every paper step reads on it as well. **On a dark theme the floor is 9:1**, so the primary is a light
+    tint of the colour, and the dark paper on a primary fill reads at 9:1 or better (owner, October 21, 2026: at
+    4.55:1 the dark primaries were the colour at full strength, and a primary fill was a vivid band under near-black
+    text; a deep fill with light text was tried and dropped the same day). Cyaan and Geel are light at full strength
+    already and pass 9:1 unchanged. The hue is the HSL hue of the owner's original theme colour
     (Blauw and Hemelsblauw 240), held in HSL because at a constant OKLCH hue a saturated blue turns violet; Lila takes
     270, the hue of its light counterpart Paars, because at its own 254 it read as blue (owner, October 19, 2026).
   - **Two greys**: a grey of the colour that reads extra well on white (`--muted`) and one that reads extra well on
@@ -403,7 +407,9 @@ out). Three more things follow it by default, in light and in dark (and a measur
   `.table--accent` head, the hover of a joined choice and of the settings toggle, a near or today date row, a date
   row's hover, the accent dialog and an InfoRows box. The text on it is `--fg-1`, like all text (17.2:1 or better).
 - **Measured** (WCAG relative luminance, worst and best of the twelve themes, October 21, 2026): `--primary` on
-  `paper-1` 5.4:1 (Pink) to 13.6:1 (Cyaan) and on `paper-4` 4.55:1 to 11.2:1, the same both ways round; `fg-1` on
+  `paper-1` 5.9:1 to 8.5:1 on light and 10.7:1 to 13.6:1 on dark, on `paper-4` 4.56:1 to 6.5:1 on light and 9.0:1 to
+  11.2:1 on dark, the same both ways round. On dark the primary sits close to the text (1.4:1 to 1.8:1 against
+  `fg-1`), so `h1` and links stand out from the text by colour rather than by lightness; `fg-1` on
   `paper-1` 19.5:1 to 20.1:1 and `fg-4` on `paper-4` 11.8:1 to 12.5:1; `--muted` on `paper-1` 7.05:1 to 7.13:1 and on
   a card 6.6:1 to 6.9:1; `--muted-inverse` on `fg-1` 7.05:1 to 7.10:1. Nothing in the model is below 4.5:1, which
   the paper-and-ink model of October 20 missed for `ink-1` on a card in Magenta, Roest and Lila. A `paper-3` line

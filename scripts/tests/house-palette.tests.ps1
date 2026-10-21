@@ -81,7 +81,8 @@ foreach ($th in $themes) {
     $pl = ConvertTo-HslLightness $p['--primary']
     if ([math]::Abs($pl - 0.5) -gt 0.02) {
         $closer = ConvertFrom-Hsl $th.Hue 1 ($pl + $(if ($dark) { -0.01 } else { 0.01 }))
-        Assert-True ((Get-ContrastRatio $closer $p['--paper-4']) -lt 4.55) "$($th.Id): the primary is the most saturated colour that still reads on paper-4"
+        $floor = (Get-HousePaletteSteps -Mode $th.Mode).PrimaryFloor
+        Assert-True ((Get-ContrastRatio $closer $p['--paper-4']) -lt $floor) "$($th.Id): the primary is the most saturated colour that still reaches $($floor):1 on paper-4"
     } else {
         Assert-True $true "$($th.Id): the primary is the pure colour itself (HSL 50%), which already reads"
     }

@@ -65,6 +65,10 @@ This is a visible result: the branch stops for the owner's look at the brand boo
 - [x] The showcase lists the three groups and demonstrates both fills (Tokens, Theme reach).
 - [x] The breadcrumb bar stands on `--primary` (owner, in the session): the chevron `--paper-3`, the ancestor links `--paper-2` with a `--paper-1` focus ring, the current page `--paper-1`; `--fg-4` has no role left.
 - [x] The settings toggle's border is `--primary` (owner, in the session; a primary fill was tried and dropped for the border alone).
+- [x] The dark themes: a primary at 4.55:1 was the colour at full strength, so a fill was a vivid band under
+  near-black text. A deep fill with light text (`--primary-fill`) was tried and reverted on the owner's word; the
+  owner's call instead is a much lighter primary on dark, so its floor there is 9:1 on all four paper steps (Roze
+  `#ff9fd4`, Lila `#d6adff`, Hemelsblauw `#b8b8ff`, Oranje `#ffaa74`; Cyaan and Geel pass unchanged).
 - [x] README: the token table, the rename table (from `--ink-*` and straight from `--primary-*`), the model, the
   measurements, the Fills section and the reserved class names.
 - [x] The gate: `--ink-1`..`--ink-7` retired, `--primary` and `--muted` live again; the skill's checksum repinned.
@@ -85,7 +89,7 @@ paper reads on it too); **two greys**, `--muted` at 7:1 on the page and `--muted
 **four paper steps** from white towards a little darker; and **four text steps** (`--fg-1` to `--fg-4`), near black
 on light and near white on dark, in very small steps. `h2` and `h3`-`h5` move from the colour to the text steps, and
 two new classes, `.fill-primary` and `.fill-inverse`, switch the text to the paper on a coloured ground, so an `h2`
-reads there as well. The breadcrumb bar now stands on the primary, with its crumbs in the paper steps, and the theme settings button takes it as its border. On light the primary is a little darker and the paper a little lighter than before; nothing in
+reads there as well. The breadcrumb bar now stands on the primary, with its crumbs in the paper steps, and the theme settings button takes it as its border. On dark the primary is a light tint, reaching 9:1 on every paper step, so a fill reads as a calm band under dark text. On light the primary is a little darker and the paper a little lighter than before; nothing in
 the model is below 4.5:1 any more. `scripts/build/build-house-palette.ps1` computes and writes the values, and a
 new suite holds the stylesheet to them.
 

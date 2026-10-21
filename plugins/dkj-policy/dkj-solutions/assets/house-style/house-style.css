@@ -45,7 +45,10 @@
      here; each [data-theme] below sets its own eleven. In the owner's words, on a light theme (a dark one is the
      mirror, with black and white swapped):
        --primary         ONE colour: the most saturated colour of the theme's HSL hue (saturation 100%) that reads at
-                         4.55:1 on all four paper steps, so white, and every paper step, reads on it too.
+                         4.55:1 on all four paper steps, so white, and every paper step, reads on it too. On a dark
+                         theme the floor is 9:1, so the primary is a light tint of the colour rather than the colour
+                         at full strength (owner, October 21, 2026: at 4.55:1 a primary fill was a vivid band under
+                         near-black text).
        --paper-1..4      FOUR colours that read on the primary, from white towards a little darker: what sits BEHIND
                          the text (the page, the cards, the lines, the stronger border) and the text ON a primary fill.
        --muted           a grey of the colour that reads extra well (7:1) on the page: what may recede.
@@ -69,7 +72,8 @@
      fg-4 no role yet. The breadcrumb bar stands on --primary, with the paper steps as its text. On a fill the text switches: on .fill-primary the paper is the text, so an h2
      is --paper-1 there and --fg-2 on the page (owner, #3235: "h2 heeft niet altijd dezelfde kleur", an h2 does not always have the same colour).
      Measured (WCAG relative luminance, October 21, 2026), worst and best over the twelve themes: primary on paper-1
-     5.4:1 (Pink) to 13.6:1 (Cyaan), on paper-4 4.55:1 to 11.2:1; fg-1 on paper-1 19.5:1 to 20.1:1, fg-4 on paper-4
+     5.9:1 to 8.5:1 on light and 10.7:1 to 13.6:1 on dark, on paper-4 4.56:1 to 6.5:1 on light and 9.0:1 to 11.2:1 on
+     dark; on dark the primary sits close to the text (1.4:1 to 1.8:1 against fg-1), so it stands out by colour; fg-1 on paper-1 19.5:1 to 20.1:1, fg-4 on paper-4
      11.8:1 to 12.5:1; muted on paper-1 7.05:1 to 7.13:1, on paper-2 6.6:1 to 6.9:1; muted-inverse on fg-1 7.05:1 to
      7.10:1; a paper-3 line on a paper-2 card 1.05:1 (Pink) to 1.10:1 (Blauw), a paper-4 border on it 1.16:1 to 1.25:1. */
   --paper-1: #fdfdff; --paper-2: #f3f7ff; --paper-3: #e4edff; --paper-4: #d1e0ff; --primary: #0000ff; --muted: #4f5769; --muted-inverse: #8f99ab; --fg-1: #020511; --fg-2: #070d1a; --fg-3: #101623; --fg-4: #191f2c;
@@ -168,12 +172,12 @@
 :root[data-theme="teal"], .theme-swatch[data-id="teal"] { --paper-1: #fafeff; --paper-2: #edfafb; --paper-3: #d8f3f6; --paper-4: #bee9ef; --primary: #006e79; --muted: #435b5f; --muted-inverse: #839ea1; --fg-1: #000809; --fg-2: #001113; --fg-3: #051a1c; --fg-4: #0f2325; }
 :root[data-theme="ochre"], .theme-swatch[data-id="ochre"] { --paper-1: #fefef9; --paper-2: #f9f7ed; --paper-3: #f1eed9; --paper-4: #e6e1bf; --primary: #716300; --muted: #5c5845; --muted-inverse: #9d9984; --fg-1: #080600; --fg-2: #100d01; --fg-3: #191607; --fg-4: #222011; }
 :root[data-theme="rust"], .theme-swatch[data-id="rust"] { --paper-1: #fffdfc; --paper-2: #fff4ef; --paper-3: #fde8dc; --paper-4: #f9d8c5; --primary: #9c4b00; --muted: #665449; --muted-inverse: #a99488; --fg-1: #0e0300; --fg-2: #170903; --fg-3: #20120a; --fg-4: #291c14; --warning-3: #b88a00; }
-:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --paper-1: #0e0507; --paper-2: #14080c; --paper-3: #1f0d13; --paper-4: #2f141e; --primary: #ff018d; --muted: #ab9399; --muted-inverse: #665157; --fg-1: #fffafc; --fg-2: #f6edf0; --fg-3: #ece1e4; --fg-4: #e2d5d9; }
-:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --paper-1: #08060e; --paper-2: #0d0a15; --paper-3: #151121; --paper-4: #1f1a31; --primary: #ad5bff; --muted: #9a97ab; --muted-inverse: #585467; --fg-1: #fcfbff; --fg-2: #f0eff6; --fg-3: #e5e3ec; --fg-4: #d9d7e2; }
-:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --paper-1: #04070f; --paper-2: #070c16; --paper-3: #0c1322; --paper-4: #131d33; --primary: #7575ff; --muted: #909aac; --muted-inverse: #4f5768; --fg-1: #fafcff; --fg-2: #edf0f7; --fg-3: #e0e5ed; --fg-4: #d4d9e3; }
+:root[data-theme="pink"], .theme-swatch[data-id="pink"] { --paper-1: #0e0507; --paper-2: #14080c; --paper-3: #1f0d13; --paper-4: #2f141e; --primary: #ff9fd4; --muted: #ab9399; --muted-inverse: #665157; --fg-1: #fffafc; --fg-2: #f6edf0; --fg-3: #ece1e4; --fg-4: #e2d5d9; }
+:root[data-theme="lilac"], .theme-swatch[data-id="lilac"] { --paper-1: #08060e; --paper-2: #0d0a15; --paper-3: #151121; --paper-4: #1f1a31; --primary: #d6adff; --muted: #9a97ab; --muted-inverse: #585467; --fg-1: #fcfbff; --fg-2: #f0eff6; --fg-3: #e5e3ec; --fg-4: #d9d7e2; }
+:root[data-theme="sky"], .theme-swatch[data-id="sky"] { --paper-1: #04070f; --paper-2: #070c16; --paper-3: #0c1322; --paper-4: #131d33; --primary: #b8b8ff; --muted: #909aac; --muted-inverse: #4f5768; --fg-1: #fafcff; --fg-2: #edf0f7; --fg-3: #e0e5ed; --fg-4: #d4d9e3; }
 :root[data-theme="cyan"], .theme-swatch[data-id="cyan"] { --paper-1: #01090b; --paper-2: #010f11; --paper-3: #00181b; --paper-4: #002328; --primary: #00eaff; --muted: #839ea1; --muted-inverse: #435b5e; --fg-1: #f7fdfe; --fg-2: #e9f2f3; --fg-3: #dce7e8; --fg-4: #cfdcde; }
 :root[data-theme="yellow"], .theme-swatch[data-id="yellow"] { --paper-1: #0a0701; --paper-2: #100c02; --paper-3: #1a1303; --paper-4: #271d02; --primary: #ffc800; --muted: #a19985; --muted-inverse: #5e5644; --fg-1: #fdfcf7; --fg-2: #f3f0e9; --fg-3: #e8e4dc; --fg-4: #ddd9cf; --warning-3: #f08a24; }
-:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --paper-1: #0e0503; --paper-2: #150905; --paper-3: #200f08; --paper-4: #30160c; --primary: #ff6200; --muted: #ab948c; --muted-inverse: #67524b; --fg-1: #fffbf9; --fg-2: #f6eeeb; --fg-3: #ece2de; --fg-4: #e2d6d2; }
+:root[data-theme="orange"], .theme-swatch[data-id="orange"] { --paper-1: #0e0503; --paper-2: #150905; --paper-3: #200f08; --paper-4: #30160c; --primary: #ffaa74; --muted: #ab948c; --muted-inverse: #67524b; --fg-1: #fffbf9; --fg-2: #f6eeeb; --fg-3: #ece2de; --fg-4: #e2d6d2; }
 
 /* ---- Base ---------------------------------------------------------------- */
 * { box-sizing: border-box; }
