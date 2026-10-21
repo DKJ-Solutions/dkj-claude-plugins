@@ -22,6 +22,9 @@ function Assert-True {
     if ($Condition) { $script:pass++; Write-Host "  [PASS] $Name" -ForegroundColor Green }
     else            { $script:fail++; Write-Host "  [FAIL] $Name" -ForegroundColor Red }
 }
+# A statement that throws -- a malformed -match pattern inside an assert, #3257 -- is skipped under
+# 'Continue', so the suite would end green without ever evaluating it. Count it instead (as #1881 does).
+trap { $script:fail++; Write-Host "  [FAIL] unhandled terminating error: $_" -ForegroundColor Red; continue }
 function Assert-Equal {
     param($Expected, $Actual, [string]$Name)
     Assert-True ("$Expected" -eq "$Actual") ($Name + $(if ("$Expected" -ne "$Actual") { " (expected '$Expected', got '$Actual')" } else { '' }))
@@ -495,7 +498,7 @@ Assert-True ($page -match '<span aria-current="page">DKJ repos</span>' -and $pag
 Assert-True ($page -match '&lt;b&gt;life&lt;/b&gt;' -and $page -notmatch '<b>life</b>') 'a repo description is escaped'
 Assert-True ($page -match 'href="https://github.com/DKJ-Solutions/dkj-lifehub/issues">3</a>' -and $page -match '2 uncommitted') 'a repo row links its open issues and names its checkout state'
 Assert-True ($page -match '>unlisted</a>' -and $page -match 'unlisted&#39;; claude') 'a checkout GitHub did not list still gets its row and its session'
-Assert-True ($page -match 'data-copy="Set-Location -LiteralPath &#39;C:\x\dkj-lifehub&#39;; claude"' -and $page -match 'execCommand\("copy"\)') 'each checkout has its command to copy, with the fallback the Simple Browser needs'
+Assert-True ($page.Contains('data-copy="Set-Location -LiteralPath &#39;C:\x\dkj-lifehub&#39;; claude"') -and $page -match 'execCommand\("copy"\)') 'each checkout has its command to copy, with the fallback the Simple Browser needs'
 Assert-True ($page -match '1 archived repo is left out' -and $page -notmatch '>old</a>') 'an archived repo is counted, not listed'
 $pageArch = Format-DkjReposPageHtml -Query $q -Checkouts @(@{ Repo = 'DKJ-Solutions/old'; Path = 'C:\x\old'; Branch = 'main'; Dirty = 0 }) -Meta @{ GeneratedAt = 'x' }
 Assert-True ($pageArch -match '>old</a>' -and $pageArch -match '<td>archived</td>' -and $pageArch -notmatch 'archived repo is left out') 'an archived repo checked out here is listed, marked archived, and not counted as left out'
