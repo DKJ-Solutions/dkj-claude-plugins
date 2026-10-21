@@ -238,7 +238,9 @@ h1, h2 { font-family: var(--font-serif);
 :where(h1) { color: var(--primary); }
 :where(h2) { color: var(--fg-2); }
 :where(h3, h4, h5) { color: var(--fg-3); }
-h1 { font-size: var(--text-h1); margin: 0; }
+/* h1 is set in capitals so it stands further apart from h2 (owner, #3247); capitals want air between them,
+   so its tracking opens to 0.02em where h2 keeps the serif's -0.01em. */
+h1 { font-size: var(--text-h1); margin: 0; text-transform: uppercase; letter-spacing: 0.02em; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 /* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
    capitals sit almost exactly mid-line, so 1px corrects the rest. */
