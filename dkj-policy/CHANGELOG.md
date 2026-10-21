@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3274-brandbook-home-about · 20261021-214748Z
+
+The brand book app no longer draws a Repo hub specimen or previews of other repos' hubs (#3274):
+`/brandbook/repo-hub` and `/brandbook/dashboards` are the showcase now, like any other path under it. The hub's
+form is laid down once, in the house-style README and its two stylesheet-only patterns. The brand book's crumb
+back to the hub reads Home.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo's brand book loses its Repo hub section; a repo building its own hub starts from the
+house-style README and `patterns/repo-dashboard.html` plus `patterns/repo-about.html`.
+
+**Score:** 2
+
+#### Pull Request
+
+Brand book app: remove the Repo hub specimen and the hub previews
+
+Plugins: dkj-solutions
+
+[PR #3281](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3281)
+
+---
 
 ### DEPLOY: feat/3270-home-and-about · 20261021-210601Z
 
