@@ -39,19 +39,44 @@
 
 ### PLAN
 
+Inbound #3265 asks for a pre-publish gate in "the theme-cutover / preview-promotion procedure". No such
+procedure exists, the publish is always a person's act (the guard refuses it), and the translations are
+readable only through the Admin GraphQL connector, which no script or hook can call. So the gate is a
+skill step the session runs before the person publishes, and the guard's publish refusal points at it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `carry-theme-translations` skill: list locales and markets, read both themes one locale and market
+  per query (no aliases, #3266), diff, copy the digest-matching keys with `translationsRegister`, verify by
+  reading again, report the verdict before the publish
+- [x] README row; `theme-lifecycle`'s restore step runs it before publishing the backup
+- [x] the guard's two publish refusals (`theme publish`, `themePublish` through `store execute`) name it
 
 ### TEST
 
+- [x] `guard-live-theme.tests.ps1`: the publish refusal names the skill (204 passed, 0 failed)
+
 ### DEPLOY: feat/3265-theme-translation-carryover
 
-**Score:**
+A new `dkj-subagents-shopify` skill, `carry-theme-translations`, carries a store's per-theme content
+translations over to a theme before a person publishes it as live, and verifies that none are missing.
+Those translations (Translate & Adapt, the Translations API) are stored per theme in the store, not in
+the theme files, so neither git nor a push nor a Git connection brings them along. A cutover in a
+consumer lost about 1,225 section-setting translations across four languages, and every non-English
+storefront went English
+([#3265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3265)). The step runs through the
+Shopify connector and never publishes. The live-theme guard's publish refusal now names it, and
+`theme-lifecycle`'s restore runs it before publishing a backup.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify store repo that switches its live theme (a cutover to a Git-connected theme, or a restore) now
+has a step that keeps its translated storefronts from falling back to the primary language at the
+publish. A store that never switches themes sees one longer refusal line and nothing else.
+
+**Score:** 3
 
 #### Pull Request
 
