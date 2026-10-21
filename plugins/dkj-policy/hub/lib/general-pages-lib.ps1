@@ -140,6 +140,67 @@ function Format-GeneralPageHtml {
     return $sb.ToString()
 }
 
+function Format-RepoHubBanner {
+    <#
+        The Repo hub's general banner (#3250, Dave, October 21, 2026): a countdown to the next full hour,
+        and once an hour has passed a checkbox for '10 airsquats', with a short tone when it comes due.
+        The countdown keeps running whether or not the box is ticked, and every hour that passes unticked
+        adds another 10, so the box shows the total owed; ticking it clears the total.
+
+        ONE FUNCTION, CALLED BY BOTH HUB INDEXES -- the source repo's Format-RepoHubHtml and the
+        placeholder's Format-DevPreviewPlaceholderHtml -- so the two hubs carry the same banner. It sits
+        directly under the intro, inside <main>, and uses house classes only (.notice, .msg, .num), because
+        the hub restyles nothing.
+
+        THE STATE IS THE BROWSER'S, in localStorage under one key: the total owed and the last time a page
+        ticked. An hour counts only while a hub page is open -- the tick of the previous second, or a reload
+        within two minutes -- so a hub left closed overnight does not greet you with a stack it never
+        announced. Several open tabs share the key, so an hour is counted once; the tab that counts it
+        plays the tone. A browser may hold the tone back until the page has had a click, which is its rule,
+        not this page's.
+    #>
+    return @'
+<div class="notice" id="hub-banner" role="region" aria-label="Airsquats">
+<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong></p>
+<p class="msg msg--warn" data-hub-due hidden><label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> airsquats</label></p>
+</div>
+<script>
+(function () {
+  var box = document.getElementById("hub-banner");
+  if (!box) { return; }
+  var KEY = "dkj-repo-hub-airsquats", HOUR = 3600000, AWAY = 120000, PER = 10;
+  var timer = box.querySelector("[data-hub-timer]"), due = box.querySelector("[data-hub-due]");
+  var done = box.querySelector("[data-hub-done]"), count = box.querySelector("[data-hub-count]");
+  function load() { try { var s = JSON.parse(localStorage.getItem(KEY)) || {}; return { owed: s.owed | 0, tick: +s.tick || 0 }; } catch (e) { return { owed: 0, tick: 0 }; } }
+  function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { } }
+  function tone() {
+    try {
+      var C = window.AudioContext || window.webkitAudioContext, a = new C(), o = a.createOscillator(), g = a.createGain();
+      o.frequency.value = 880; g.gain.value = 0.15; o.connect(g); g.connect(a.destination);
+      o.start(); o.stop(a.currentTime + 0.4);
+    } catch (e) { }
+  }
+  function step(announce) {
+    var now = Date.now(), s = load(), passed = 0;
+    if (s.tick && now - s.tick < AWAY) { passed = Math.floor(now / HOUR) - Math.floor(s.tick / HOUR); }
+    if (passed > 0) { s.owed += passed; if (announce) { tone(); } }
+    s.tick = now; save(s);
+    var left = HOUR - (now % HOUR), m = Math.floor(left / 60000), sec = Math.floor(left / 1000) % 60;
+    timer.textContent = m + ":" + (sec < 10 ? "0" : "") + sec;
+    due.hidden = s.owed < 1;
+    count.textContent = String(PER * s.owed);
+  }
+  done.addEventListener("change", function () {
+    if (!done.checked) { return; }
+    var s = load(); s.owed = 0; save(s); done.checked = false; step(false);
+  });
+  step(false);
+  setInterval(function () { step(true); }, 1000);
+})();
+</script>
+'@
+}
+
 # The Pages row's chevron, the brand book's own svg (patterns/repo-dashboard.html at v0.3.0).
 $script:RepoHubChevron = '<svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
