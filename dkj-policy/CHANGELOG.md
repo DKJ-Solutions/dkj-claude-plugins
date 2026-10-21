@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**8 / 11 minor entries** <!-- pending-tally -->
+**9 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3247-h1-uppercase · 20261021-123033Z
+
+Every DKJ-Solutions page now sets its `h1` in capitals (#3247), so the page title stands further apart
+from the `h2` than size alone made it. The tracking opens to `0.02em` for the capitals; the markup keeps
+its ordinary case. An app takes it with its next copy of `house-style.css`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every app's page titles read in capitals once it takes the new copy; nothing to rename or change.
+
+**Score:** 2
+
+#### Pull Request
+
+house style: set the h1 in capitals
+
+Plugins: dkj-solutions
+
+[PR #3255](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3255)
+
+---
 
 ### DEPLOY: docs/3253-created-comment-on-own-tasks · 20261021-121925Z
 
